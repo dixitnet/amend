@@ -83,6 +83,35 @@ export function mountEditor(root, docId, user, docMeta) {
   backLink.textContent = '← Documents'
   topBanner.appendChild(backLink)
 
+  const starBtn = document.createElement('button')
+  starBtn.type = 'button'
+  starBtn.className = 'star-btn'
+  let starred = !!docMeta.starred
+  function renderStar() {
+    starBtn.textContent = starred ? '★' : '☆'
+    starBtn.classList.toggle('starred', starred)
+    starBtn.title = starred ? 'Retirer des favoris' : 'Mettre en favori'
+  }
+  renderStar()
+  starBtn.onclick = async () => {
+    const next = !starred
+    starBtn.disabled = true
+    try {
+      const res = await fetch(`/api/docs/${docId}/star`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ starred: next }),
+      })
+      if (res.ok) {
+        starred = next
+        renderStar()
+      }
+    } finally {
+      starBtn.disabled = false
+    }
+  }
+  topBanner.appendChild(starBtn)
+
   const titleInput = document.createElement('input')
   titleInput.className = 'doc-title'
   titleInput.value = docMeta.title
