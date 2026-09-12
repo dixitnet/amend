@@ -260,6 +260,22 @@ a { color: var(--accent); }
 }
 .ProseMirror blockquote p:last-child { margin-bottom: 0; }
 
+/* Ligne insérée par le bouton "—" (schema.js: horizontal_rule) — en
+   pointillés plutôt qu'un simple trait plein, pour rappeler sur place que
+   sa fonction réelle est un saut de page à l'export PDF (pdfExport.js),
+   pas une simple séparation visuelle (voir aussi l'export .md, où elle
+   redevient un "---" ordinaire faute d'équivalent au saut de page). */
+.ProseMirror hr {
+  border: none;
+  border-top: 2px dashed var(--border);
+  margin: 1.5em 0;
+  cursor: pointer;
+}
+.ProseMirror hr.ProseMirror-selectednode {
+  border-top-color: var(--accent);
+  border-top-style: solid;
+}
+
 /* Unordered ("tiret") list — a plain dash rather than the default bullet. */
 .ProseMirror ul {
   margin: 0 0 1em;

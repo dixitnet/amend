@@ -70,6 +70,12 @@ function blockToHtml(node) {
       })
       return `<ul>${inner}</ul>`
     }
+    case 'horizontal_rule':
+      // Contrairement à l'éditeur (un <hr> visible, voir schema.js) et à
+      // l'export .md (une ligne "---"), le PDF n'affiche aucun trait ici :
+      // c'est un saut de page (voir la règle .page-break dans
+      // printDocument ci-dessous), la fonction réelle de ce nœud.
+      return '<div class="page-break"></div>'
     default:
       return ''
   }
@@ -97,9 +103,15 @@ export function printDocument(doc, title, style) {
   const existing = document.getElementById('print-root')
   if (existing) existing.remove()
 
+  // `break-after` (standard) + `page-break-after` (alias encore nécessaire
+  // pour certains moteurs d'impression) : force un saut de page à cet
+  // endroit sans rien dessiner (voir blockToHtml ci-dessus) — la ligne
+  // visible dans l'éditeur (schema.js) n'a de sens qu'à l'écran.
+  const pageBreakCss = '.print-doc .page-break { break-after: page; page-break-after: always; height: 0; margin: 0; border: none; }'
+
   const root = document.createElement('div')
   root.id = 'print-root'
-  root.innerHTML = `<style>${pageCss}\n${css}</style><div class="print-doc">${html}</div>`
+  root.innerHTML = `<style>${pageCss}\n${css}\n${pageBreakCss}</style><div class="print-doc">${html}</div>`
   document.body.appendChild(root)
 
   const previousTitle = document.title

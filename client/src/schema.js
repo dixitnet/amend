@@ -63,6 +63,20 @@ export const schema = new Schema({
         return ['li', 0]
       },
     },
+    // Une ligne insérée volontairement dans le texte (bouton dédié dans la
+    // barre d'outils, voir editor.js) — un simple <hr> à l'écran et dans
+    // l'export .md (mdExport.js : "---"), mais remplacée par un saut de
+    // page dans l'export PDF (pdfExport.js) plutôt que dessinée comme une
+    // ligne : le trait en pointillés dans l'éditeur (style.css) est
+    // justement là pour rappeler que sa fonction réelle est "page suivante
+    // à l'impression", pas une simple séparation visuelle.
+    horizontal_rule: {
+      group: 'block',
+      parseDOM: [{ tag: 'hr' }],
+      toDOM() {
+        return ['hr', { title: "Saut de page à l'export PDF" }]
+      },
+    },
     text: { group: 'inline' },
     hard_break: {
       inline: true,

@@ -87,6 +87,11 @@ function blockToLines(node) {
     }
     case 'bullet_list':
       return [...listToLines(node, 0), '']
+    case 'horizontal_rule':
+      // Le Markdown n'a pas de notion de saut de page (voir pdfExport.js
+      // pour ce que devient ce même nœud à l'export PDF) — la ligne
+      // horizontale standard reste la meilleure équivalence ici.
+      return ['---', '']
     default:
       return ['']
   }

@@ -169,7 +169,8 @@ export function mountEditor(root, docId, user, docMeta) {
   strikeBtn.style.textDecoration = 'line-through'
   const listBtn = mkButton('–', 'liste à tirets')
   const quoteBtn = mkButton('”', 'citation')
-  toolbar.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, quoteBtn)
+  const hrBtn = mkButton('—', 'Insérer une ligne (devient un saut de page à l’export PDF)')
+  toolbar.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, quoteBtn, hrBtn)
 
   main.appendChild(toolbar)
 
@@ -363,6 +364,14 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   quoteBtn.onclick = () => {
     toggleWrap(schema.nodes.blockquote)(view.state, view.dispatch)
+    view.focus()
+  }
+  hrBtn.onclick = () => {
+    // replaceSelectionWith se charge de trouver un point d'insertion valide
+    // (ex. couper le paragraphe en deux si le curseur est au milieu d'un
+    // texte) — même mécanisme que le menu "Horizontal rule" standard de
+    // prosemirror-example-setup.
+    view.dispatch(view.state.tr.replaceSelectionWith(schema.nodes.horizontal_rule.create()))
     view.focus()
   }
   exportBtn.onclick = () => {
