@@ -16,6 +16,8 @@ import {
   setTrackChangesEnabled,
   makeDispatchTransaction,
   selectionHighlightPlugin,
+  richPastePlugin,
+  pendingBreakPlugin,
 } from './trackChanges.js'
 import { mountChangesPanel } from './changesPanel.js'
 import { mountAIPanel } from './aiPanel.js'
@@ -333,6 +335,8 @@ export function mountEditor(root, docId, user, docMeta) {
       yUndoPlugin(),
       trackChangesPlugin(),
       selectionHighlightPlugin(),
+      richPastePlugin(() => user),
+      pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),
       mountChangesPanel(changesSection),
       mountOutlinePanel(outlineSection),

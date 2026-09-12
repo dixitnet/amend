@@ -1,5 +1,6 @@
 import { Plugin, PluginKey } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
+import { canJoin } from 'prosemirror-transform'
 import { ySyncPluginKey } from 'y-prosemirror'
 import { diffWords } from './diff.js'
 
@@ -64,13 +65,94 @@ function isRemoteOrigin(tr) {
   return !!tr.getMeta(ySyncPluginKey)
 }
 
+/** Marks `[from, to)` (in `state.doc`, pre-edit) as a tracked deletion in
+ * `tr` — except any span that is itself still a pending (unaccepted)
+ * insertion from anyone, which really gets removed instead of
+ * double-marking it. Shared by rewriteForTracking (plain edits) and
+ * richPastePlugin (multi-line paste replacing a selection) so both mark a
+ * replaced selection the same way. Mutates `tr`. */
+function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
+  const insertionType = state.schema.marks.insertion
+  const ranges = []
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isText) return
+    const start = Math.max(pos, from)
+    const end = Math.min(pos + node.nodeSize, to)
+    if (start >= end) return
+    const alreadyInsertion = !!insertionType.isInSet(node.marks)
+    ranges.push({ from: start, to: end, removeReally: alreadyInsertion })
+  })
+  for (const r of ranges) {
+    const mFrom = tr.mapping.map(r.from)
+    const mTo = tr.mapping.map(r.to)
+    if (r.removeReally) tr.delete(mFrom, mTo)
+    else tr.addMark(mFrom, mTo, delMark)
+  }
+}
+
+/** True when `step` is a "pure" structural split — Enter pressed inside a
+ * block, with no text or other content actually added or removed (see
+ * prosemirror-transform's `Transform.split`, which is exactly what
+ * baseKeymap's `splitBlock`/`splitListItem` dispatch for a plain Enter).
+ * Distinguishes a plain paragraph break from a structural paste (which
+ * does carry inserted content, and stays untracked — see
+ * rewriteForTracking's fallback below). */
+function isPureSplitStep(step) {
+  if (step.jsonID !== 'replace') return false
+  if (step.from !== step.to) return false
+  const { slice } = step
+  if (slice.openStart === 0 || slice.openStart !== slice.openEnd) return false
+  let hasText = false
+  slice.content.descendants((node) => {
+    if (node.isText) hasText = true
+  })
+  return !hasText
+}
+
+/** Rewrites a plain top-level paragraph/heading split (Enter pressed
+ * directly under the document — not inside a list item or blockquote, see
+ * the depth check below) into a tracked one: the split happens for real
+ * right away, so editing still feels normal, but the newly-created block
+ * is marked `trackedBreak` (schema.js) — its own author/timestamp, like
+ * the insertion/deletion marks — so it shows up in the changes panel
+ * (listChanges) and can be reversed (acceptChange clears the marker,
+ * rejectChange rejoins the two blocks). A split nested inside a list item
+ * or blockquote, and anything that isn't a clean split (see
+ * isPureSplitStep), falls through untracked — same scope note as
+ * schema.js. Returns null when not applicable. */
+function rewriteSplitForTracking(state, step, user) {
+  if (!isPureSplitStep(step)) return null
+  // Only a plain top-level split: `step.from` sits directly inside a
+  // paragraph/heading that is itself a direct child of the document
+  // (depth 1) — not one level deeper (a list item, a blockquote), which
+  // stays untracked, as before this feature existed.
+  if (state.doc.resolve(step.from).depth !== 1) return null
+  const out = state.tr
+  out.step(step)
+  // A depth-1 split inserts exactly two structural tokens (closing the
+  // first block, opening the second) right at step.from — the boundary
+  // between the two resulting top-level blocks is always step.from + 1.
+  // Deliberately NOT `out.mapping.map(step.from)`: its default forward
+  // bias lands one token too far in, *inside* the second block's content,
+  // rather than at the depth-0 boundary between the two blocks.
+  const boundaryPos = step.from + 1
+  const secondNode = out.doc.resolve(boundaryPos).nodeAfter
+  if (!secondNode || (secondNode.type.name !== 'paragraph' && secondNode.type.name !== 'heading')) return null
+  out.setNodeMarkup(boundaryPos, null, {
+    ...secondNode.attrs,
+    trackedBreak: { user: user.name, userColor: user.color, ts: Date.now() },
+  })
+  out.setMeta('trackChangesInternal', true)
+  return out
+}
+
 /**
  * Given the transaction ProseMirror was about to apply, builds an
  * equivalent transaction (on the same starting state) that keeps deleted
  * text (marked instead of removed) and marks inserted text, both
  * attributed to `user`. Returns null when the input transaction isn't a
- * single simple text edit (see comment below) — the caller should then
- * apply the original transaction untouched.
+ * simple text edit or a plain top-level split (see comment below) — the
+ * caller should then apply the original transaction untouched.
  */
 export function rewriteForTracking(state, tr, user) {
   if (tr.steps.length !== 1) return null
@@ -78,11 +160,17 @@ export function rewriteForTracking(state, tr, user) {
   if (step.jsonID !== 'replace') return null
 
   const { from, to, slice } = step
-  // Only rewrite plain text edits (typing, backspace/delete, selecting text
-  // and typing over it, plain-text paste). Structural edits — pressing
-  // Enter, pasting rich content, list/heading operations — are applied as
-  // normal, untracked edits for this first version.
-  if (slice.openStart !== 0 || slice.openEnd !== 0) return null
+
+  // Pressing Enter (splitBlock/splitListItem) — see rewriteSplitForTracking
+  // above. Anything else structural (rich paste, list/quote toggles) still
+  // falls through untracked for this version.
+  if (slice.openStart > 0 || slice.openEnd > 0) {
+    return rewriteSplitForTracking(state, step, user)
+  }
+
+  // Only rewrite plain text edits from here (typing, backspace/delete,
+  // selecting text and typing over it, plain-text paste) — every child of
+  // the slice must be a bare text node.
   for (let i = 0; i < slice.content.childCount; i++) {
     if (!slice.content.child(i).isText) return null
   }
@@ -97,25 +185,7 @@ export function rewriteForTracking(state, tr, user) {
   const authorMark = state.schema.marks.authorColor?.create({ user: user.name, userColor: user.color })
   const out = state.tr
 
-  if (to > from) {
-    const ranges = []
-    state.doc.nodesBetween(from, to, (node, pos) => {
-      if (!node.isText) return
-      const start = Math.max(pos, from)
-      const end = Math.min(pos + node.nodeSize, to)
-      if (start >= end) return
-      // Deleting text that is itself still a pending (unaccepted) insertion
-      // from anyone really removes it, instead of double-marking it.
-      const alreadyInsertion = !!insertionType.isInSet(node.marks)
-      ranges.push({ from: start, to: end, removeReally: alreadyInsertion })
-    })
-    for (const r of ranges) {
-      const mFrom = out.mapping.map(r.from)
-      const mTo = out.mapping.map(r.to)
-      if (r.removeReally) out.delete(mFrom, mTo)
-      else out.addMark(mFrom, mTo, delMark)
-    }
-  }
+  if (to > from) markRangeForTrackedDeletion(state, out, from, to, delMark)
 
   if (slice.size > 0) {
     const insPos = out.mapping.map(from)
@@ -137,6 +207,119 @@ export function rewriteForTracking(state, tr, user) {
   if (out.steps.length === 0) return null
   out.setMeta('trackChangesInternal', true)
   return out
+}
+
+/**
+ * Handles a multi-line paste (the "collage riche" case — content copied
+ * from a web page, Word, etc.) as a tracked edit. ProseMirror's own paste
+ * handling turns such content into a multi-node slice that
+ * rewriteForTracking above deliberately leaves untracked (see its
+ * scope note) — this plugin intercepts the paste itself instead, before
+ * ProseMirror gets to it.
+ *
+ * Deliberate scope: only the pasted *text* is kept (via
+ * `text/plain`) — any source formatting (bold, links, headings…) is
+ * dropped, each line becomes its own tracked-insertion paragraph, and
+ * paragraph breaks between lines are tracked exactly like a manual Enter
+ * (see rewriteSplitForTracking). A one-line paste (no `\n`) is left to the
+ * normal path above unchanged. Only engages when the selection sits
+ * directly in one top-level paragraph/heading (not nested in a list item
+ * or blockquote, and not spanning several blocks already) — anything else
+ * falls back to ProseMirror's own (untracked) paste, same conservative
+ * scope as the rest of this file.
+ */
+export function richPastePlugin(getUser) {
+  return new Plugin({
+    props: {
+      handlePaste(view, event) {
+        const { state } = view
+        if (!isTrackChangesEnabled(state)) return false
+        const insertionType = state.schema.marks.insertion
+        const deletionType = state.schema.marks.deletion
+        if (!insertionType || !deletionType) return false
+
+        const text = event.clipboardData && event.clipboardData.getData('text/plain')
+        if (!text) return false
+        const lines = text.split(/\r\n|\r|\n/)
+        if (lines.length < 2) return false // collage simple : déjà pris en charge plus haut
+
+        const { $from, $to, from, to } = state.selection
+        if ($from.depth !== 1 || !$from.sameParent($to)) return false
+
+        const user = getUser()
+        const insMark = insertionType.create({ user: user.name, userColor: user.color, ts: Date.now() })
+        const authorMark = state.schema.marks.authorColor?.create({ user: user.name, userColor: user.color })
+        const tr = state.tr
+
+        if (to > from) {
+          const delMark = deletionType.create({ user: user.name, userColor: user.color, ts: Date.now() })
+          markRangeForTrackedDeletion(state, tr, from, to, delMark)
+        }
+
+        let pos = tr.mapping.map(from)
+        const insertLine = (line) => {
+          if (!line) return
+          tr.insert(pos, state.schema.text(line))
+          tr.addMark(pos, pos + line.length, insMark)
+          if (authorMark) tr.addMark(pos, pos + line.length, authorMark)
+          pos += line.length
+        }
+
+        insertLine(lines[0])
+        for (let i = 1; i < lines.length; i++) {
+          // Same position arithmetic as rewriteSplitForTracking above: a
+          // depth-1 split at `pos` puts the depth-0 boundary between the
+          // two resulting blocks at `pos + 1`, and that new (second)
+          // block's own content starts one further in, at `pos + 2`.
+          const splitPos = pos
+          tr.split(splitPos)
+          const boundaryPos = splitPos + 1
+          const after = tr.doc.resolve(boundaryPos).nodeAfter
+          if (after) {
+            tr.setNodeMarkup(boundaryPos, null, {
+              ...after.attrs,
+              trackedBreak: { user: user.name, userColor: user.color, ts: Date.now() },
+            })
+          }
+          pos = boundaryPos + 1
+          insertLine(lines[i])
+        }
+
+        tr.setMeta('trackChangesInternal', true)
+        view.dispatch(tr)
+        return true
+      },
+    },
+  })
+}
+
+/** Decorates every paragraph/heading carrying a pending `trackedBreak`
+ * (schema.js) with a dashed top border in its author's color — the same
+ * "pending, not yet reviewed" visual language as the tracked-insertion/
+ * deletion marks and the horizontal_rule line (see style.css:
+ * .pending-break). Purely a decoration: once trackedBreak is cleared
+ * (acceptChange) or the two blocks are rejoined (rejectChange), the
+ * paragraph/heading is completely ordinary again. */
+export function pendingBreakPlugin() {
+  return new Plugin({
+    props: {
+      decorations(state) {
+        const decos = []
+        state.doc.descendants((node, pos) => {
+          if (node.isTextblock && node.attrs.trackedBreak) {
+            decos.push(
+              Decoration.node(pos, pos + node.nodeSize, {
+                class: 'pending-break',
+                style: `--user-color:${node.attrs.trackedBreak.userColor}`,
+                title: `Saut de paragraphe ajouté par ${node.attrs.trackedBreak.user}`,
+              })
+            )
+          }
+        })
+        return DecorationSet.create(state.doc, decos)
+      },
+    },
+  })
 }
 
 /**
@@ -166,6 +349,10 @@ export function makeDispatchTransaction(view, getUser) {
 export function listChanges(doc) {
   const raw = []
   doc.descendants((node, pos) => {
+    if (node.isTextblock && node.attrs.trackedBreak) {
+      const { user, userColor, ts } = node.attrs.trackedBreak
+      raw.push({ type: 'break', from: pos, to: pos, user, userColor, ts, text: 'Saut de paragraphe' })
+    }
     if (!node.isText) return
     for (const type of ['insertion', 'deletion']) {
       const mark = node.marks.find((m) => m.type.name === type)
@@ -196,19 +383,44 @@ export function listChanges(doc) {
 }
 
 export function acceptChange(view, change) {
-  const markType = view.state.schema.marks[change.type]
   const tr = view.state.tr
-  if (change.type === 'deletion') tr.delete(change.from, change.to)
-  else tr.removeMark(change.from, change.to, markType)
+  if (change.type === 'break') {
+    // Accepter un saut de paragraphe en attente : juste effacer le
+    // marqueur, la coupure elle-même reste (c'est déjà l'état réel du
+    // document depuis la frappe/le collage — voir rewriteSplitForTracking).
+    const node = view.state.doc.nodeAt(change.from)
+    if (node) tr.setNodeMarkup(change.from, null, { ...node.attrs, trackedBreak: null })
+  } else {
+    const markType = view.state.schema.marks[change.type]
+    if (change.type === 'deletion') tr.delete(change.from, change.to)
+    else tr.removeMark(change.from, change.to, markType)
+  }
   tr.setMeta('trackChangesInternal', true)
   view.dispatch(tr)
 }
 
 export function rejectChange(view, change) {
-  const markType = view.state.schema.marks[change.type]
   const tr = view.state.tr
-  if (change.type === 'insertion') tr.delete(change.from, change.to)
-  else tr.removeMark(change.from, change.to, markType)
+  if (change.type === 'break') {
+    // Rejeter un saut de paragraphe : le seul moyen de vraiment l'annuler
+    // est de refusionner les deux blocs qu'il a créés — l'exact inverse
+    // structurel du split d'origine. canJoin est vrai dans le cas courant
+    // (les deux blocs viennent du même nœud d'origine, donc du même type)
+    // mais plus forcément si l'un des deux a changé de type entre-temps
+    // (ex. transformé en titre) — dans ce cas plus rare, on se contente
+    // d'effacer le marqueur : le saut reste, mais cesse d'être "en
+    // attente" plutôt que de planter sur un join impossible.
+    if (canJoin(view.state.doc, change.from)) {
+      tr.join(change.from)
+    } else {
+      const node = view.state.doc.nodeAt(change.from)
+      if (node) tr.setNodeMarkup(change.from, null, { ...node.attrs, trackedBreak: null })
+    }
+  } else {
+    const markType = view.state.schema.marks[change.type]
+    if (change.type === 'insertion') tr.delete(change.from, change.to)
+    else tr.removeMark(change.from, change.to, markType)
+  }
   tr.setMeta('trackChangesInternal', true)
   view.dispatch(tr)
 }

@@ -78,9 +78,9 @@ export function mountChangesPanel(container) {
 
       const meta = document.createElement('div')
       meta.className = 'change-meta'
-      meta.innerHTML = `<strong>${escapeHtml(change.user)}</strong> · ${
-        change.type === 'insertion' ? 'ajout' : 'suppression'
-      } · ${relativeTime(change.ts)}`
+      const typeLabel =
+        change.type === 'insertion' ? 'ajout' : change.type === 'deletion' ? 'suppression' : 'saut de paragraphe'
+      meta.innerHTML = `<strong>${escapeHtml(change.user)}</strong> · ${typeLabel} · ${relativeTime(change.ts)}`
 
       const text = document.createElement('div')
       text.className = 'change-text'

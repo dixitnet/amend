@@ -3,14 +3,25 @@ import { Schema } from 'prosemirror-model'
 // A deliberately small schema for v0.1: paragraphs, headings (5 levels),
 // hard breaks, a bullet list, a blockquote, bold/italic/underline/strike,
 // and the two marks that drive tracked changes. Tables and images are left
-// for a later iteration (see README roadmap) — adding tracked changes for
-// structural edits (paragraph splits, list/quote toggles) is harder and
-// out of scope for this first version; those still apply as plain,
-// untracked edits (see rewriteForTracking in trackChanges.js).
+// for a later iteration (see README roadmap). Paragraph/heading splits
+// directly under the document (the common case: pressing Enter, or a
+// multi-line paste — see rewriteForTracking/richPastePlugin in
+// trackChanges.js) are tracked via `trackedBreak` below; a split nested
+// inside a list item or blockquote, and anything that changes the
+// surrounding structure more than a plain split (list/quote toggles,
+// heading-level changes), stays a plain, untracked edit for this version.
 export const schema = new Schema({
   nodes: {
     doc: { content: 'block+' },
     paragraph: {
+      // `trackedBreak`: null, or { user, userColor, ts } when this
+      // paragraph is the second half of a still-pending tracked split —
+      // see rewriteForTracking (Entrée) and richPastePlugin (collage
+      // multi-lignes) in trackChanges.js, rendered via pendingBreakPlugin's
+      // decoration (style.css: .pending-break). Cleared on accept
+      // (acceptChange), undone by rejoining the two paragraphs on reject
+      // (rejectChange) — never touched by hand elsewhere.
+      attrs: { trackedBreak: { default: null } },
       content: 'inline*',
       group: 'block',
       parseDOM: [{ tag: 'p' }],
@@ -19,7 +30,7 @@ export const schema = new Schema({
       },
     },
     heading: {
-      attrs: { level: { default: 2 } },
+      attrs: { level: { default: 2 }, trackedBreak: { default: null } },
       content: 'inline*',
       group: 'block',
       defining: true,

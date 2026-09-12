@@ -79,14 +79,25 @@ d'une personne. Auto-hébergé, pensé pour être léger.
   aux redémarrages du serveur.
 - Nom et identité visuelle : l'appli s'appelle "Amend", couleur identitaire
   vert amande — voir la section dédiée plus bas.
+- Liste des documents : étoile cliquable (favori) sur chaque document, aussi
+  présente dans l'éditeur à côté du titre — les documents favoris remontent
+  en haut de la liste. Bouton "Supprimer" par document (confirmation à deux
+  clics, pas de popup navigateur) : sort le document de la liste et efface
+  son journal de modifications sur disque, irréversible pour cette première
+  version (pas de corbeille).
+- Suivi des modifications pour les sauts de paragraphe (Entrée) et le
+  collage multi-lignes — voir la section dédiée plus bas.
 
 ### Limites connues (prochaines étapes possibles)
 
-- Le suivi des modifications ne couvre que l'édition de texte simple
-  (frappe, suppression, sélection+remplacement, collage de texte brut). Les
-  sauts de paragraphe (Entrée, y compris pour ajouter un élément de liste),
-  le collage de contenu enrichi, et les bascules liste/citation s'appliquent
-  normalement mais ne sont pas (encore) suivis individuellement.
+- Le suivi des modifications couvre l'édition de texte simple (frappe,
+  suppression, sélection+remplacement, collage de texte brut), les sauts de
+  paragraphe (Entrée) directement sous le document, et le collage
+  multi-lignes — voir la section dédiée plus bas. Restent non suivis (édition
+  normale, mais pas suivie individuellement) : un saut de paragraphe à
+  l'intérieur d'un élément de liste ou d'une citation, le formatage
+  (gras/italique/liens…) d'un contenu collé — seul le texte brut est repris
+  — et les bascules liste/citation.
 - Pas de tableaux ni d'images dans l'éditeur pour l'instant, ni de listes
   numérotées (seulement la liste à tirets) — schéma volontairement minimal
   pour cette première version.
@@ -558,6 +569,76 @@ bien suivi (marque d'insertion + couleur d'auteur·rice), export `.md` avec
 en interceptant le `Blob` de l'export `.md` et en stubant `window.print()`
 pour inspecter le HTML généré sans déclencher la boîte de dialogue
 d'impression du système.
+
+### Documents favoris et suppression — fait (12/09/2026)
+
+**Favoris** : `storage.js` garde un booléen `starred` par document dans le
+registre (`docs.json`), n'affecte jamais `updatedAt` (marquer un document
+n'est pas une modification de son contenu). `listDocs()` trie les favoris en
+premier, puis par date de dernière modification comme avant, à l'intérieur
+de chaque groupe. Étoile cliquable dans la liste des documents (`home.js`)
+et dans l'éditeur, à côté du titre (`editor.js`) — les deux appellent
+`PATCH /api/docs/:id/star`.
+
+**Suppression** : bouton "Supprimer" par document dans la liste, avec
+confirmation à deux clics plutôt qu'un `window.confirm()` natif (premier
+clic → "Confirmer ?" pendant 3 secondes, second clic dans ce délai supprime
+réellement, sinon le bouton revient tout seul à son état normal).
+`DELETE /api/docs/:id` sort le document du registre et efface son fichier
+`data/<id>.log` — irréversible pour cette première version, pas de
+corbeille (voir plus bas pour une suppression douce éventuelle, une fois les
+droits en place).
+
+### Suivi des modifications : sauts de paragraphe et collage multi-lignes — fait (12/09/2026)
+
+Étendait jusqu'ici une vraie limite connue (voir plus haut) : appuyer sur
+Entrée, ou coller plusieurs lignes, s'appliquait normalement mais sans être
+suivi individuellement. Deux édits distincts, construits sur le même
+mécanisme :
+
+**Sauts de paragraphe (Entrée)** : `trackChanges.js` détecte maintenant un
+« split pur » (Entrée pressée dans un paragraphe/titre directement sous le
+document — pas dans un élément de liste ou une citation, laissés tels quels
+pour cette version) et le distingue d'un collage structurel (qui reste non
+suivi). La coupure a réellement lieu tout de suite (l'édition reste
+naturelle), mais le nouveau paragraphe/titre est marqué `trackedBreak` —
+même forme que les marques insertion/suppression (auteur·rice, couleur,
+horodatage) mais en attribut de nœud plutôt qu'en marque de texte, un saut
+de ligne n'étant pas un empan de caractères. Rendu à l'écran par un filet
+pointillé au-dessus du bloc concerné (`pendingBreakPlugin`, cohérent avec le
+pointillé de la ligne insérée ci-dessus). Apparaît dans le panneau des
+modifications comme un changement "saut de paragraphe" : accepter efface
+juste le marqueur (la coupure reste), rejeter refusionne les deux blocs
+(`tr.join`, l'inverse exact du split — repli sur un simple effacement du
+marqueur si les deux blocs ne sont plus fusionnables, par exemple si l'un
+des deux a changé de type entre-temps).
+
+**Collage multi-lignes** (`richPastePlugin`) : intercepte le collage
+directement (`handlePaste`) plutôt que de laisser ProseMirror construire son
+propre découpage — un collage d'une seule ligne continue de suivre le
+chemin normal ci-dessus, inchangé. Choix de périmètre délibéré : seul le
+texte brut du presse-papier est repris (`text/plain`), toute mise en forme
+de la source (gras, liens, titres…) est perdue ; chaque ligne devient un
+ajout suivi, et les sauts de paragraphe entre les lignes sont suivis
+exactement comme un Entrée manuel. Ne s'engage que si la sélection est
+directement dans un paragraphe/titre de premier niveau (pas dans une liste
+ou une citation, et pas déjà à cheval sur plusieurs blocs) — sinon,
+collage normal non suivi, comme avant cette fonctionnalité.
+
+Bug réel trouvé et corrigé pendant le développement : la position du point
+de coupure calculée via `tr.mapping.map()` tombait un cran trop loin (à
+l'intérieur du second bloc plutôt qu'à la frontière entre les deux) à cause
+du biais par défaut de l'API de mapping de position de ProseMirror sur une
+insertion structurelle à deux jetons (fermeture + ouverture) — corrigé en
+calculant la position directement par arithmétique (`step.from + 1`) plutôt
+que par mapping.
+
+Vérifié en direct : split au milieu d'un mot suivi et affiché, accepter et
+rejeter testés séparément (rejeter refusionne bien le texte d'origine),
+collage de trois lignes au milieu d'un paragraphe existant (le texte
+d'origine après le curseur se retrouve correctement rattaché à la dernière
+ligne collée), "Tout accepter" testé sur un mélange ajout+saut de
+paragraphe.
 
 ### Historique, versions majeures et compaction (conception, pas encore implémentée)
 

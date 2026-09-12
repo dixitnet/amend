@@ -313,6 +313,18 @@ a { color: var(--accent); }
   border-top-style: solid;
 }
 
+/* Paragraphe/titre né d'un saut suivi encore en attente (touche Entrée ou
+   collage multi-lignes, voir trackChanges.js: rewriteSplitForTracking /
+   richPastePlugin) — même logique visuelle en pointillés que la ligne
+   insérée ci-dessus : un repère de ce qui est encore "en attente de
+   relecture", pas une décoration permanente (disparaît dès que le
+   changement est accepté ou rejeté, voir pendingBreakPlugin). */
+.ProseMirror .pending-break {
+  border-top: 2px dashed var(--user-color, var(--accent));
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
 /* Unordered ("tiret") list — a plain dash rather than the default bullet. */
 .ProseMirror ul {
   margin: 0 0 1em;
