@@ -295,7 +295,8 @@ message d'erreur (console navigateur incluse) et je corrige.
   d'application des modifications encore en attente) restent à faire.
 - Marqueur de type "TK" dans le texte (à réfléchir, voir plus bas).
 - Droits et authentification — voir conception détaillée ci-dessous.
-- Commentaires ancrés dans le texte, en plus du suivi des modifications.
+- Commentaires ancrés dans le texte, en plus du suivi des modifications —
+  voir conception détaillée plus bas.
 - Interface en plusieurs langues — voir conception détaillée plus bas.
 - Feuille de style admin (mise en page) + export PDF — voir conception
   détaillée plus bas.
@@ -358,6 +359,76 @@ dépendance npm du serveur, décidée en connaissance de cause) — un protocole
 avec ce niveau de détails subtils, pour un enjeu aussi sensible que
 l'authentification, gagne à s'appuyer sur une bibliothèque mûre plutôt que
 sur du code maison.
+
+### Commentaires ancrés dans le texte (conception, pas encore implémentée)
+
+Anticipé (12/09/2026) : définition de l'évolution 4.2.4 (jusqu'ici notée
+« reportée, nécessite d'être bien définie » dans le rapport de fiabilité du
+12/09/2026), pour qu'elle puisse être planifiée le jour venu. Objectif :
+pouvoir remarquer un passage sans que ça crée une proposition à accepter ou
+rejeter — un usage différent du suivi des modifications (remarque, pas
+changement de contenu), complémentaire plutôt que redondant.
+
+**Où vit un commentaire — pas une marque sur le texte** : contrairement à
+`insertion`/`deletion`/`authorColor`, un commentaire ne doit rien changer au
+contenu du document — ni gêner le diff mot-à-mot de l'IA, ni apparaître dans
+les exports `.md`/`.pdf`. Rangé dans un type Yjs séparé
+(`ydoc.getMap('comments')`), à côté du texte plutôt que dedans. Avantage
+concret : ce type Yjs est synchronisé et persisté automatiquement par la
+plomberie déjà en place (le même journal `data/<id>.log`, le même relais
+d'updates binaires) — comme pour le titre en direct (correctif 4.1.1), zéro
+changement serveur nécessaire.
+
+**Ancrage qui résiste aux modifications ultérieures** : une position
+ProseMirror figée (un simple nombre) se décale dès que quelqu'un modifie le
+texte avant elle. Yjs résout déjà exactement ce problème en interne (pour
+les curseurs distants) via ses positions relatives
+(`Y.RelativePosition`/`createRelativePositionFromTypeIndex`) — les
+réutiliser pour ancrer un commentaire au bon passage, même après coup, sans
+aucune nouvelle dépendance.
+
+**Modèle de données, volontairement simple pour une v1** : chaque
+commentaire = `{ id, auteur, couleur, ancre: { début, fin }, horodatage,
+résolu, texte }` — un seul message par commentaire au démarrage. Un fil de
+plusieurs réponses (comme chez Notion, voir section 3 du rapport de
+fiabilité) resterait une évolution possible, mais n'est pas nécessaire pour
+une première version « simple » comme demandé.
+
+**Interaction** : sélectionner un passage fait apparaître un bouton
+« Commenter » (à côté du bouton « Suivi des modifications » déjà présent),
+sur le même principe que le bouton IA qui apparaît déjà sur une sélection
+non vide. Le passage commenté est simplement surligné — une décoration
+ProseMirror recalculée à chaque transaction à partir des ancres, pas une
+marque stockée dans le document (même principe que le surlignage de
+sélection déjà utilisé pour l'IA, `selectionHighlightPlugin`) — avec une
+petite pastille dans la marge indiquant le nombre de commentaires à cet
+endroit.
+
+**Panneau** : un nouvel onglet dans le panneau existant (à côté de
+« Modifications »), listant les commentaires ouverts puis résolus ; cliquer
+sur un commentaire fait défiler le document jusqu'à son passage, au milieu
+de la fenêtre — même mécanisme que celui déjà fait pour le panneau des
+modifications (`changesPanel.js`, voir plus bas).
+
+**Résoudre, pas supprimer** : un commentaire résolu reste consultable
+(replié dans le panneau, avec un bouton « Rouvrir ») plutôt que d'être
+effacé — cohérent avec le principe déjà suivi ailleurs dans l'appli
+(rejeter une modification suivie retire le texte proposé, mais la décision
+elle-même reste tracée) : rien ne doit disparaître silencieusement.
+
+**Hors scope pour cette v1 simple, à garder en réserve** : fils de réponse à
+plusieurs messages, mentions `@personne` et notifications — vues chez
+Notion (section 3 du rapport), mais pas nécessaires pour un premier jet
+simple ; à reconsidérer seulement si l'usage réel en fait sentir le besoin.
+
+**Dépendances** : aucune — contrairement au chantier versions/compaction
+ci-dessous, les commentaires n'ont pas besoin d'attendre la gestion des
+comptes/droits : une identité de session (nom + couleur, comme pour tout le
+reste de l'appli aujourd'hui) suffit pour savoir qui a écrit quoi. Le rôle
+« Lecteur » prévu dans « Droits et authentification » ci-dessus pourra plus
+tard restreindre qui peut *voir* les commentaires par rapport à qui peut en
+*ajouter*, mais ce n'est pas nécessaire pour construire cette fonctionnalité
+elle-même.
 
 ### Historique, versions majeures et compaction (conception, pas encore implémentée)
 
