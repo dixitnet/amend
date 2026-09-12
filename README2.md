@@ -159,6 +159,17 @@ les CDN comme jsdelivr/unpkg/cdnjs) y sont bloqués. Résultat concret :
   `npm run build:client` récupérera la nouvelle dépendance automatiquement
   (le script fait déjà `npm install` avant de builder).
 
+## Workflow git (depuis le 12/09/2026)
+
+Le dépôt est initialisé sur le Mac et poussé sur GitHub :
+[github.com/dixitnet/amend](https://github.com/dixitnet/amend). Convention
+retenue : après chaque modification de code déployée ici, un `git commit`
+local est fait dans la foulée (pas besoin d'identifiants pour un commit
+local) — mais le `git push` reste entièrement manuel, à lancer par toi
+depuis ton propre Terminal Mac quand tu veux mettre GitHub à jour. Ce
+sandbox n'a pas et n'aura jamais tes identifiants GitHub. Un rappel est
+donné quand plusieurs commits s'accumulent sans avoir été poussés.
+
 ## Checklist de test manuel (après `npm run build:client && npm start`)
 
 1. Ouvrir `http://localhost:8787` dans deux onglets/navigateurs différents
