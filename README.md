@@ -301,6 +301,8 @@ message d'erreur (console navigateur incluse) et je corrige.
 - Export en `.md` fait ; export en `.docx` et export "propre" (résultat
   d'application des modifications encore en attente) restent à faire.
 - Droits et authentification — voir conception détaillée ci-dessous.
+- Accès minimal pour exposer à internet (avant les rôles complets) — voir
+  conception détaillée plus bas.
 - Interface en plusieurs langues — voir conception détaillée plus bas.
 - Feuille de style admin (mise en page) + export PDF — voir conception
   détaillée plus bas.
@@ -363,6 +365,72 @@ dépendance npm du serveur, décidée en connaissance de cause) — un protocole
 avec ce niveau de détails subtils, pour un enjeu aussi sensible que
 l'authentification, gagne à s'appuyer sur une bibliothèque mûre plutôt que
 sur du code maison.
+
+### Accès minimal pour exposer à internet (conception, pas encore implémentée)
+
+Demandé (12/09/2026) : une version *minimale* de gestion d'utilisateurs,
+seulement ce qu'il faut pour exposer le serveur de production à internet et
+faciliter des tests utilisateurs — sans construire tout de suite les rôles
+et permissions par document du chantier "Droits et authentification"
+ci-dessus, volontairement gardés pour plus tard. Question différente : pas
+« qui a le droit de faire quoi sur quel document », juste « qui a le droit
+d'entrer ».
+
+**Deux options pesées, de la plus simple à la plus complète** :
+
+1. **Basic Auth au niveau du reverse proxy (recommandé pour démarrer)** —
+   Caddy (déjà prévu pour le serveur de production, voir "Déploiement dev /
+   production" plus bas) protège tout le site derrière un seul couple
+   identifiant/mot de passe partagé, en trois lignes de Caddyfile
+   (`basicauth`) — zéro ligne de code dans l'appli elle-même. Le nom affiché
+   dans l'appli reste ce que chaque personne tape dans la modale existante
+   (`user.js`), comme aujourd'hui : pas d'identité vérifiée à ce niveau,
+   juste une porte fermée au grand public. Révocation : changer le mot de
+   passe dans le Caddyfile et recharger Caddy. Limite assumée : un seul
+   identifiant/mot de passe pour tout le monde, à partager toi-même aux
+   personnes qui testent (message, jamais publié) — s'il circule, tout le
+   monde y a accès jusqu'à ce que tu le changes.
+
+2. **Code d'accès partagé + cookie de session côté appli (si on veut
+   identifier les personnes)** — un peu plus de travail, mais donne une
+   identité déclarée liée à une vraie session plutôt qu'un simple
+   `localStorage` de navigateur :
+   - Une petite page d'entrée (avant la liste des documents) : nom + un
+     code d'accès unique, partagé par toi hors appli (message, email
+     manuel) — pas de compte à créer, pas d'email à vérifier, donc pas
+     besoin de SMTP contrairement aux liens de connexion par email du
+     chantier "Droits et authentification" plus haut.
+   - Code correct → le serveur pose un cookie signé (HMAC avec `crypto`,
+     déjà utilisé pour le handshake WebSocket — aucune nouvelle dépendance)
+     contenant le nom déclaré et une expiration (30 jours par exemple) ;
+     toutes les routes (API et fichiers statiques) exigent ce cookie, sauf
+     la route d'entrée elle-même.
+   - Aucun rôle, aucune permission par document : une fois entré, accès
+     identique à aujourd'hui à tous les documents — exactement le périmètre
+     voulu pour des tests, pas plus.
+   - Révocation totale : changer `SESSION_SECRET` dans `.env` invalide
+     d'un coup tous les cookies déjà émis (utile en fin de période de
+     test) ; changer le code d'accès seul empêche seulement les nouvelles
+     entrées, sans couper les sessions déjà ouvertes.
+
+**Recommandation** : commencer par l'option 1 (Caddy) — elle ne touche pas
+au code de l'appli, cohérente avec l'idée de ne pas complexifier le
+développement, et suffit pour des tests utilisateurs encadrés (un petit
+groupe de personnes connues, pas un lancement public). Passer à l'option 2
+seulement si le besoin de savoir « qui s'est réellement connecté » (au-delà
+du nom auto-déclaré déjà existant) se fait sentir en pratique.
+
+**Explicitement hors scope pour cette étape** (repoussé au chantier "Droits
+et authentification" ci-dessus, pour quand le besoin de rôles par document
+se fera vraiment sentir) : rôles Lecteur/Éditeur/Admin, permissions par
+document, création de compte, vérification d'email, mot de passe oublié,
+envoi d'email d'aucune sorte.
+
+**HTTPS reste nécessaire dès que ce gate existe** — un cookie de session
+(option 2) ou même un Basic Auth (option 1) transmis en clair sur HTTP est
+aussi utile qu'une porte fermée sans mur autour : cohérent avec ce qui est
+déjà noté dans "Déploiement dev / production" (Caddy + Let's Encrypt dès
+l'exposition à internet).
 
 ### Commentaires ancrés dans le texte — fait (12/09/2026)
 
