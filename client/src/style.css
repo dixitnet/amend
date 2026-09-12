@@ -198,7 +198,7 @@ a { color: var(--accent); }
   color: var(--fg);
   cursor: pointer;
 }
-.heading-select {
+.heading-select, .zoom-select {
   height: 30px;
   border: 1px solid var(--border);
   border-radius: 6px;

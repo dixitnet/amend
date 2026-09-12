@@ -177,6 +177,43 @@ export function mountEditor(root, docId, user, docMeta) {
   editorContainer.className = 'editor-container'
   main.appendChild(editorContainer)
 
+  // Facteur d'agrandissement (50/100/150%) : un confort de lecture propre à
+  // chaque personne/navigateur, donc mémorisé dans le localStorage (même
+  // principe que le nom/couleur dans user.js) plutôt que synchronisé via
+  // Yjs — ça n'a rien d'un réglage du document. `zoom` plutôt que
+  // `transform: scale()` : ça reste pleinement pris en compte dans la mise
+  // en page (défilement, `coordsAtPos`, clics) exactement comme un zoom de
+  // navigateur, alors qu'un `transform` demanderait de compenser la taille
+  // et casserait le calcul de défilement centré déjà fait pour le panneau
+  // des modifications/commentaires (changesPanel.js/comments.js) et le
+  // panneau "Plan du document" (outline.js).
+  const zoomSelect = document.createElement('select')
+  zoomSelect.className = 'zoom-select'
+  zoomSelect.title = "Facteur d'agrandissement du texte"
+  for (const pct of ['50', '100', '150']) {
+    const opt = document.createElement('option')
+    opt.value = pct
+    opt.textContent = `${pct}%`
+    zoomSelect.appendChild(opt)
+  }
+  let storedZoom = '100'
+  try {
+    storedZoom = localStorage.getItem('collabtext:zoom') || '100'
+  } catch {
+    // localStorage indisponible (navigation privée...) — reste sur 100%.
+  }
+  zoomSelect.value = storedZoom
+  editorContainer.style.zoom = `${storedZoom}%`
+  zoomSelect.addEventListener('change', () => {
+    editorContainer.style.zoom = `${zoomSelect.value}%`
+    try {
+      localStorage.setItem('collabtext:zoom', zoomSelect.value)
+    } catch {
+      // tant pis, le réglage ne sera pas mémorisé la prochaine fois.
+    }
+  })
+  topBanner.insertBefore(zoomSelect, exportBtn)
+
   // Track-changes toggle lives with the assistance/changes column now — it
   // governs how edits in the text get recorded, same family of concerns as
   // the AI suggestions and the changes list right below it.
