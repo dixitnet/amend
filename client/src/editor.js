@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { ySyncPlugin, yCursorPlugin, yUndoPlugin, undo, redo } from 'y-prosemirror'
-import { EditorState } from 'prosemirror-state'
+import { EditorState, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap, toggleMark, setBlockType, wrapIn, lift } from 'prosemirror-commands'
@@ -371,7 +371,20 @@ export function mountEditor(root, docId, user, docMeta) {
     // (ex. couper le paragraphe en deux si le curseur est au milieu d'un
     // texte) — même mécanisme que le menu "Horizontal rule" standard de
     // prosemirror-example-setup.
-    view.dispatch(view.state.tr.replaceSelectionWith(schema.nodes.horizontal_rule.create()))
+    const tr = view.state.tr.replaceSelectionWith(schema.nodes.horizontal_rule.create())
+    const after = tr.selection.to
+    if (!tr.doc.resolve(after).nodeAfter) {
+      // La ligne se retrouve en toute fin de document : sans paragraphe
+      // après elle, la prochaine frappe devrait d'abord créer ce
+      // paragraphe elle-même — une édition structurelle, donc non suivie
+      // par trackChanges.js (voir la note dans schema.js), ce qui ferait
+      // perdre le suivi du tout premier texte tapé après la ligne. On crée
+      // ce paragraphe vide tout de suite à la place, pour que la frappe
+      // suivante soit une simple insertion de texte, suivie normalement.
+      tr.insert(after, schema.nodes.paragraph.create())
+      tr.setSelection(TextSelection.create(tr.doc, after + 1))
+    }
+    view.dispatch(tr)
     view.focus()
   }
   exportBtn.onclick = () => {
