@@ -1,4 +1,4 @@
-# CollabText (v0.1)
+# Amend (v0.1)
 
 Édition collaborative de texte en temps réel, avec suivi des modifications
 (à la Word/Google Docs) et une assistance IA qui propose ses reformulations
@@ -39,9 +39,46 @@ d'une personne. Auto-hébergé, pensé pour être léger.
   suivi des modifications — qu'il s'agisse d'un ajout ou d'une suppression
   proposée — est exporté comme texte normal, rien n'étant encore accepté ni
   rejeté.
+- Bouton "Exporter (.pdf)" (version légère — voir la section dédiée
+  plus bas) : construit le document en HTML habillé de la feuille de style
+  admin, puis déclenche l'impression du navigateur ("Enregistrer en PDF").
+  Même convention que le `.md` pour le suivi des modifications : état
+  présent pris tel quel, rien de marqué en insertion/suppression.
+- Page "Mise en page" (admin, lien depuis l'accueil) : une feuille de style
+  unique pour tous les documents — police, taille, gras, italique,
+  majuscules, alignement, espacement pour le corps de texte/citation/titres,
+  plus taille de page (A4, A5, Letter) et marges. Reflétée dans l'éditeur
+  (sauf la taille/marges de page, qui n'ont pas de sens dans un éditeur qui
+  défile — voir plus bas), en totalité à l'export PDF.
+- Marqueur "!!" (à la "TK" journalistique, pour se signaler un passage à
+  reprendre) : le texte tapé garde le code `!!` tel quel (dans le document
+  comme dans l'export `.md`), mais il est affiché à l'écran comme une
+  alerte ⚠️ plutôt que les deux points d'exclamation littéraux, et le
+  bandeau du haut affiche un compteur du nombre de `!!` restants dans le
+  document.
+- Commentaires ancrés dans le texte : sélectionner un passage puis
+  "Ajouter un commentaire" le surligne et l'associe à une note, listée dans
+  un panneau dédié (cliquer dessus fait défiler jusqu'au passage). Résoudre
+  un commentaire le supprime définitivement — pas d'historique gardé, par
+  choix délibéré pour rester simple. Voir la section dédiée plus bas.
+- Facteur d'agrandissement (50 % / 100 % / 150 %) dans le bandeau du haut :
+  n'affecte que la zone de texte éditable, réglage propre à chaque
+  navigateur (pas synchronisé entre personnes). Voir la section dédiée plus
+  bas.
+- Bouton "Insérer une ligne" dans la barre d'outils : une ligne visible
+  (pointillés) dans l'éditeur, qui devient un vrai saut de page à l'export
+  PDF (aucun trait dessiné) et "---" à l'export `.md`. Voir la section
+  dédiée plus bas.
 - Curseurs et présence des autres personnes connectées, en direct.
+- Fiabilité de la collaboration à plusieurs personnes : titre synchronisé
+  en direct entre rédacteurs, indicateur de statut honnête (à jour /
+  enregistrement… / hors connexion), bandeau de présence (un avatar par
+  connexion), coloration persistante du texte par auteur·rice, écritures
+  disque groupées — voir la section dédiée plus bas.
 - Persistance sur disque (pas de base de données) : chaque document survit
   aux redémarrages du serveur.
+- Nom et identité visuelle : l'appli s'appelle "Amend", couleur identitaire
+  vert amande — voir la section dédiée plus bas.
 
 ### Limites connues (prochaines étapes possibles)
 
@@ -134,6 +171,17 @@ les CDN comme jsdelivr/unpkg/cdnjs) y sont bloqués. Résultat concret :
   `npm run build:client` récupérera la nouvelle dépendance automatiquement
   (le script fait déjà `npm install` avant de builder).
 
+## Workflow git (depuis le 12/09/2026)
+
+Le dépôt est initialisé sur le Mac et poussé sur GitHub :
+[github.com/dixitnet/amend](https://github.com/dixitnet/amend). Convention
+retenue : après chaque modification de code déployée ici, un `git commit`
+local est fait dans la foulée (pas besoin d'identifiants pour un commit
+local) — mais le `git push` reste entièrement manuel, à lancer par toi
+depuis ton propre Terminal Mac quand tu veux mettre GitHub à jour. Ce
+sandbox n'a pas et n'aura jamais tes identifiants GitHub. Un rappel est
+donné quand plusieurs commits s'accumulent sans avoir été poussés.
+
 ## Checklist de test manuel (après `npm run build:client && npm start`)
 
 1. Ouvrir `http://localhost:8787` dans deux onglets/navigateurs différents
@@ -143,12 +191,22 @@ les CDN comme jsdelivr/unpkg/cdnjs) y sont bloqués. Résultat concret :
 3. Avec "Suivi des modifications" activé, taper du texte : il doit
    apparaître souligné ; le sélectionner et appuyer sur Suppr doit le
    barrer (pas l'effacer). Vérifier "Accepter"/"Rejeter" dans le panneau
-   de droite.
+   de droite. Cliquer sur une proposition dans le panneau (hors des boutons
+   "Accepter"/"Rejeter") doit faire défiler le document pour amener cette
+   proposition au milieu de la fenêtre — cliquer "Accepter"/"Rejeter" ne
+   doit lui, pas déclencher ce défilement.
 4. Désactiver le suivi : les modifications doivent s'appliquer normalement,
    sans marquage.
 5. Avec une clé `ANTHROPIC_API_KEY` configurée, sélectionner un passage et
    cliquer "Plus concis" — la suggestion doit apparaître comme modification
-   suivie attribuée à "IA".
+   suivie attribuée à "IA". Vérifier aussi : taper une instruction dans le
+   champ et appuyer sur Entrée doit envoyer la demande (pas de retour à la
+   ligne) ; Maj+Entrée doit toujours permettre une instruction sur plusieurs
+   lignes. Sur une sélection de plusieurs paragraphes : dès l'envoi de la
+   demande, le surlignage vert de la sélection doit disparaître (pas
+   attendre la réponse) ; une fois la suggestion appliquée, seuls les
+   passages réellement modifiés doivent apparaître surlignés — un
+   paragraphe que l'IA a renvoyé inchangé ne doit porter aucune marque.
 6. Fermer/rouvrir le serveur (`Ctrl-C` puis `npm start`) : le contenu du
    document doit être toujours là.
 7. Nouveaux boutons de mise en forme — à tester un par un :
@@ -171,7 +229,8 @@ les CDN comme jsdelivr/unpkg/cdnjs) y sont bloqués. Résultat concret :
    leur seul niveau. Modifier le texte d'un titre, en supprimer un (le
    repasser en "Normal") : le panneau doit se mettre à jour immédiatement.
    Cliquer un titre dans le panneau doit déplacer le curseur et faire
-   défiler jusqu'à ce titre dans le document.
+   défiler le document pour amener ce titre en haut de la fenêtre (pas en
+   bas, ni juste "quelque part visible").
 9. Compteur de mots/caractères (dans la barre d'outils) : taper du texte
    doit faire avancer le compte en direct ; sélectionner un passage doit
    basculer sur "Sélection : X mots, Y caractères" (juste ce passage) ;
@@ -185,9 +244,55 @@ les CDN comme jsdelivr/unpkg/cdnjs) y sont bloqués. Résultat concret :
 11. Bouton "Exporter (.md)" : avec un peu de texte formaté (titre, gras,
     liste, citation), cliquer dessus doit télécharger un fichier `.md`
     dont le contenu correspond à ce qui est affiché.
+12. Marqueur `!!` : taper `!!` dans le texte doit l'afficher comme une
+    alerte ⚠️ (pas les deux points d'exclamation littéraux) et faire
+    apparaître/avancer le compteur dans le bandeau. Exporter en `.md`
+    ensuite doit redonner le `!!` littéral dans le fichier téléchargé.
+13. **Redémarrer le serveur** (`pm2 restart` ou équivalent — un simple
+    rebuild du client ne suffit pas ici, ce sont des routes serveur) pour
+    charger les nouvelles routes `/api/style`, puis : ouvrir "Mise en
+    page" depuis l'accueil, changer quelques réglages (police, taille,
+    gras, marges...), "Enregistrer" — recharger la page doit redonner les
+    valeurs enregistrées, pas les valeurs par défaut. Ouvrir un document
+    doit refléter la feuille de style (police/taille/gras/italique du
+    corps de texte, par exemple). "Exporter (.pdf)" doit ouvrir la boîte
+    de dialogue d'impression du navigateur avec la mise en page complète
+    (y compris la taille de page et les marges, si réglés).
+14. Nom et couleur : l'onglet du navigateur et le titre de la page d'accueil
+    doivent afficher "Amend" (plus "CollabText"). Liens et boutons
+    principaux (ex. "Créer", "Enregistrer") doivent être en vert amande.
+    Une suggestion IA dans le suivi des modifications doit apparaître dans
+    ce même vert (plus l'ancien violet).
+15. Feuille de style — italique et A5 : dans "Mise en page", cocher
+    "Italique" sur corps de texte/citation/titres, choisir "A5" comme
+    taille de page, "Enregistrer" — recharger doit redonner ces valeurs. Le
+    texte concerné doit apparaître en italique dans l'éditeur (pas
+    seulement à l'export). L'option "Souligné" a disparu du formulaire.
+    "Exporter (.pdf)" avec A5 sélectionné doit imprimer sur un format A5
+    (vérifiable dans l'aperçu d'impression du navigateur).
 
 Si quelque chose ne fonctionne pas à cette étape, dis-le-moi avec le
 message d'erreur (console navigateur incluse) et je corrige.
+16. Titre en direct : ouvrir un document dans deux onglets avec des noms
+    différents, taper un nouveau titre dans l'un — l'autre doit se mettre à
+    jour immédiatement, sauf si son champ titre est activement en train
+    d'être édité (auquel cas la mise à jour arrive dès qu'on en sort).
+17. Bandeau de présence : avec deux onglets ouverts sur le même document,
+    un avatar (initiales + couleur) doit apparaître par onglet connecté ;
+    fermer un onglet doit faire disparaître son avatar dans l'autre.
+18. Indicateur de statut : taper du texte doit brièvement afficher
+    "enregistrement…" puis revenir à "à jour" ; couper la connexion réseau
+    puis taper doit afficher "hors connexion — modifications non envoyées" ;
+    reconnecter doit renvoyer ces modifications sans les perdre.
+19. Coloration par auteur : taper du texte (ou accepter une suggestion IA)
+    doit teinter légèrement ce passage de la couleur de son auteur·rice,
+    teinte qui doit rester visible après avoir cliqué "Accepter"
+    (contrairement au soulignement du suivi de modification, qui lui
+    disparaît).
+20. Écritures disque groupées : couper puis relancer le serveur juste après
+    une frappe (moins d'une seconde après) — le contenu tapé doit être là
+    au redémarrage (tolérance de 200 ms de perte au pire, pas plus).
+
 
 ## Pistes pour la suite
 
@@ -195,10 +300,12 @@ message d'erreur (console navigateur incluse) et je corrige.
 - Compaction périodique du journal de modifications par document.
 - Export en `.md` fait ; export en `.docx` et export "propre" (résultat
   d'application des modifications encore en attente) restent à faire.
-- Marqueur de type "TK" dans le texte (à réfléchir, voir plus bas).
 - Droits et authentification — voir conception détaillée ci-dessous.
-- Commentaires ancrés dans le texte, en plus du suivi des modifications.
 - Interface en plusieurs langues — voir conception détaillée plus bas.
+- Feuille de style admin (mise en page) + export PDF — voir conception
+  détaillée plus bas.
+- Couleur personnelle persistante par utilisateur·rice, valable sur tous
+  les documents — voir conception détaillée plus bas.
 
 ### Droits et authentification (conception, pas encore implémentée)
 
@@ -256,6 +363,133 @@ dépendance npm du serveur, décidée en connaissance de cause) — un protocole
 avec ce niveau de détails subtils, pour un enjeu aussi sensible que
 l'authentification, gagne à s'appuyer sur une bibliothèque mûre plutôt que
 sur du code maison.
+
+### Commentaires ancrés dans le texte — fait (12/09/2026)
+
+Anticipé puis construit le jour même (évolution 4.2.4, jusqu'ici notée
+« reportée, nécessite d'être bien définie » dans le rapport de fiabilité du
+12/09/2026). Objectif : pouvoir remarquer un passage sans que ça crée une
+proposition à accepter ou rejeter — un usage différent du suivi des
+modifications (remarque, pas changement de contenu), complémentaire plutôt
+que redondant.
+
+**Simplification demandée par rapport à la conception initiale** : résoudre
+un commentaire le supprime purement et simplement (`commentsMap.delete`),
+sans garder de trace ni de bouton "Rouvrir" — plus simple que ce qui était
+prévu ci-dessous (« résoudre, pas supprimer »), sur demande explicite.
+
+**Où vit un commentaire — pas une marque sur le texte** : contrairement à
+`insertion`/`deletion`/`authorColor`, un commentaire ne doit rien changer au
+contenu du document — ni gêner le diff mot-à-mot de l'IA, ni apparaître dans
+les exports `.md`/`.pdf`. Rangé dans un type Yjs séparé
+(`ydoc.getMap('comments')`), à côté du texte plutôt que dedans. Avantage
+concret : ce type Yjs est synchronisé et persisté automatiquement par la
+plomberie déjà en place (le même journal `data/<id>.log`, le même relais
+d'updates binaires) — comme pour le titre en direct (correctif 4.1.1), zéro
+changement serveur nécessaire.
+
+**Ancrage qui résiste aux modifications ultérieures** : une position
+ProseMirror figée (un simple nombre) se décale dès que quelqu'un modifie le
+texte avant elle. Yjs résout déjà exactement ce problème en interne (pour
+les curseurs distants) via ses positions relatives
+(`Y.RelativePosition`/`createRelativePositionFromTypeIndex`) — les
+réutiliser pour ancrer un commentaire au bon passage, même après coup, sans
+aucune nouvelle dépendance.
+
+**Modèle de données, volontairement simple pour une v1** : chaque
+commentaire = `{ id, auteur, couleur, ancre: { début, fin }, horodatage,
+résolu, texte }` — un seul message par commentaire au démarrage. Un fil de
+plusieurs réponses (comme chez Notion, voir section 3 du rapport de
+fiabilité) resterait une évolution possible, mais n'est pas nécessaire pour
+une première version « simple » comme demandé.
+
+**Interaction** : sélectionner un passage fait apparaître un bouton
+« Commenter » (à côté du bouton « Suivi des modifications » déjà présent),
+sur le même principe que le bouton IA qui apparaît déjà sur une sélection
+non vide. Le passage commenté est simplement surligné — une décoration
+ProseMirror recalculée à chaque transaction à partir des ancres, pas une
+marque stockée dans le document (même principe que le surlignage de
+sélection déjà utilisé pour l'IA, `selectionHighlightPlugin`) — avec une
+petite pastille dans la marge indiquant le nombre de commentaires à cet
+endroit.
+
+**Panneau** : un nouvel onglet dans le panneau existant (à côté de
+« Modifications »), listant les commentaires ouverts (résoudre un
+commentaire le retire de la liste, voir plus haut) ; cliquer sur un
+commentaire fait défiler le document jusqu'à son passage, au milieu de la
+fenêtre — même mécanisme que celui déjà fait pour le panneau des
+modifications (`changesPanel.js`, voir plus bas).
+
+**Vérifié en direct** : ancrage qui survit à une frappe d'un autre onglet
+avant le passage commenté, surlignage correct du passage, panneau qui liste
+et fait défiler jusqu'au commentaire, et disparition immédiate à la
+résolution.
+
+**Résoudre supprime, pas d'historique gardé** : contrairement à l'idée de
+départ ci-dessus (garder le commentaire résolu, replié, avec un bouton
+« Rouvrir »), la version construite le supprime purement et simplement —
+demandé explicitement pour rester simple. Différent du principe suivi
+ailleurs dans l'appli (rejeter une modification suivie garde la décision
+tracée) : un choix assumé, propre aux commentaires plutôt qu'une règle
+générale du projet.
+
+**Hors scope pour cette v1 simple, à garder en réserve** : fils de réponse à
+plusieurs messages, mentions `@personne` et notifications — vues chez
+Notion (section 3 du rapport), mais pas nécessaires pour un premier jet
+simple ; à reconsidérer seulement si l'usage réel en fait sentir le besoin.
+
+**Dépendances** : aucune — contrairement au chantier versions/compaction
+ci-dessous, les commentaires n'ont pas besoin d'attendre la gestion des
+comptes/droits : une identité de session (nom + couleur, comme pour tout le
+reste de l'appli aujourd'hui) suffit pour savoir qui a écrit quoi. Le rôle
+« Lecteur » prévu dans « Droits et authentification » ci-dessus pourra plus
+tard restreindre qui peut *voir* les commentaires par rapport à qui peut en
+*ajouter*, mais ce n'est pas nécessaire pour construire cette fonctionnalité
+elle-même.
+
+### Facteur d'agrandissement (zoom) — fait (12/09/2026)
+
+Sélecteur 50 % / 100 % / 150 % dans le bandeau du haut, propre à chaque
+navigateur (`localStorage`, clé `collabtext:zoom`, sur le même principe que
+le nom/couleur dans `user.js`) — pas synchronisé via Yjs, ce n'est pas un
+réglage du document. N'affecte que `.editor-container` (la zone de texte
+éditable), pas le reste de l'interface.
+
+**CSS `zoom`, pas `transform: scale()`** : plusieurs endroits de l'appli
+(`outline.js`, `changesPanel.js`, le futur panneau des commentaires)
+calculent des positions de défilement via `coordsAtPos` de ProseMirror
+comparé au `getBoundingClientRect()` du conteneur qui défile —
+`transform: scale()` fausserait ces calculs (il change l'apparence visuelle
+sans changer les dimensions/positions vues par le layout), alors que `zoom`
+s'intègre nativement au calcul de mise en page. Vérifié en direct : les
+défilements vers un titre/une modification restent corrects à 50 % et
+150 %.
+
+### Ligne insérée / saut de page à l'export PDF — fait (12/09/2026)
+
+Nouveau nœud de schéma `horizontal_rule` (`schema.js`), à double usage
+selon le contexte : un `<hr>` en pointillés dans l'éditeur (bouton dédié
+dans la barre d'outils, à côté de "citation"), "---" à l'export `.md`
+(même convention que le reste), mais un vrai saut de page CSS
+(`break-after: page`) à l'export PDF — sans dessiner de trait, contrairement
+à l'écran et au `.md`.
+
+**Suivi des modifications** : insérer cette ligne est une édition
+structurelle (comme les bascules liste/citation, voir plus haut), donc pas
+suivie individuellement par `trackChanges.js` — cohérent avec la limite déjà
+documentée pour ce type d'édition. Correctif apporté : si la ligne se
+retrouve en toute fin de document, un paragraphe vide est ajouté juste
+après elle (et le curseur y est placé) — sans ça, la toute première frappe
+suivante devrait créer ce paragraphe elle-même (une édition structurelle
+de plus), ce qui lui aurait fait perdre le suivi alors que taper juste
+après la ligne est l'usage le plus courant.
+
+Vérifié en direct : ligne en pointillés à l'écran, texte tapé juste après
+bien suivi (marque d'insertion + couleur d'auteur·rice), export `.md` avec
+"---", export PDF avec un vrai saut de page et aucun trait visible — confirmé
+en interceptant le `Blob` de l'export `.md` et en stubant `window.print()`
+pour inspecter le HTML généré sans déclencher la boîte de dialogue
+d'impression du système.
 
 ### Historique, versions majeures et compaction (conception, pas encore implémentée)
 
@@ -342,7 +576,7 @@ serveur de production stable, mis à jour uniquement à la demande.
 
 ### Installation par un tiers — vision cible (une fois droits/auth en place)
 
-Ce que ça donnerait pour quelqu'un qui installe CollabText de son côté
+Ce que ça donnerait pour quelqu'un qui installe Amend de son côté
 (sur un tiny, un VPS, ou chez un hébergeur), une fois les points ci-dessus
 construits. Rien de ceci n'existe encore — c'est la cible à garder en tête
 pour que l'authentification n'introduise pas d'obstacle imprévu à
@@ -400,48 +634,39 @@ pour un usage personnel, associatif ou petite équipe — pas une architecture
 multi-tenant à grande échelle. C'est un choix assumé (léger, auditable,
 sans base de données à administrer), pas un oubli.
 
-### Marqueur "à compléter" dans le texte (à réfléchir, pas encore implémenté)
+### Marqueur "!!" — fait dans une version simplifiée
 
-À réfléchir (12/09/2026) : un marqueur qu'on tape dans le texte pour se
-signaler à soi-même (ou aux autres) "à reprendre plus tard" — dans l'esprit
-du "TK" journalistique, ou du double `!!` que tu utilises. Deux besoins
-distincts s'en dégagent, pas forcément à traiter tous les deux d'un coup :
-le repérer visuellement en le lisant, et pouvoir tous les retrouver d'un
-coup de document, sans les chercher un par un.
+Décidé et fait (12/09/2026), plus simple que la première conception
+envisagée ci-dessous (gardée en mémoire au cas où) : pas de panneau de
+navigation séparé pour l'instant, juste un repérage visuel et un compteur.
 
-- **Détection** : plutôt qu'une nouvelle marque stockée dans le document
-  (comme insertion/deletion) ou un nouveau type de nœud, la façon la plus
-  simple — et qui marche même sur du texte déjà tapé ou collé, pas
-  seulement au moment de la frappe — est de scanner le texte du document
-  à la recherche du marqueur et de l'habiller avec une décoration
-  (ProseMirror sait faire ça sans toucher au contenu réel, exactement
-  comme `selectionHighlightPlugin` dans `trackChanges.js` colore déjà la
-  sélection sans y ajouter de marque). Le document lui-même ne change pas :
-  seul l'affichage change.
-- **Rendu dans le texte** : une petite mise en évidence (fond coloré,
-  discret mais repérable) sur le marqueur lui-même — pas sur toute la
-  phrase autour, plus difficile à délimiter proprement et pas forcément
-  utile : la personne peut écrire assez de contexte autour ("revenir sur
-  ce chiffre !!") pour qu'un extrait suffise à s'y retrouver.
-- **Panneau de navigation** : un deuxième panneau, sur le même principe que
-  "Plan du document" (voir plus haut) — une liste de toutes les occurrences
-  du marqueur, avec un extrait de texte autour de chacune, cliquable pour y
-  sauter. Techniquement, presque le même code que `outline.js`, juste avec
-  une recherche de texte à la place d'un scan des titres.
-- **Marqueur configurable ou fixe ?** : pour cette première version, un
-  marqueur fixe (une constante dans le code, changeable facilement) suffit
-  — pas encore de vrai écran de réglages dans l'appli pour choisir "TK" vs
-  `!!` vs autre chose par personne. À revisiter si plusieurs personnes avec
-  des conventions différentes travaillent sur les mêmes documents.
-- **Suivi des modifications** : un marqueur qui se trouve dans du texte
-  encore proposé (insertion en attente) ou encore marqué à supprimer
-  resterait détecté comme les autres pour cette première version — plus
-  simple, quitte à affiner plus tard (ignorer les marqueurs dans du texte
-  déjà marqué pour suppression, par exemple).
+- **Détection** : décoration ProseMirror (`tkMarker.js`), pas une marque
+  stockée dans le document — comme `selectionHighlightPlugin` dans
+  `trackChanges.js`, le contenu réel ne change pas, seul l'affichage
+  change. Le texte est scanné bloc par bloc (paragraphe, titre, élément de
+  liste...) pour retrouver `!!`, même si les deux caractères se trouvent
+  de part et d'autre d'une frontière de marque (ex. une moitié dans une
+  insertion suivie).
+- **Rendu dans le texte** : le `!!` réel reste dans le document et dans
+  l'export `.md` — seul l'affichage le remplace par une alerte ⚠️ (un
+  `::after` en CSS par-dessus le texte mis à taille zéro, donc le curseur,
+  la sélection et le copier-coller voient toujours les vrais caractères).
+- **Compteur** : dans le bandeau du haut, à côté du nombre de mots — le
+  nombre de `!!` actuellement dans le document, mis à jour en direct.
+- **Marqueur fixe pour l'instant** : une constante dans le code
+  (`TK_MARKER` dans `tkMarker.js`), pas encore un réglage par personne.
+- **Suivi des modifications** : un `!!` dans du texte encore proposé ou
+  encore marqué à supprimer est compté comme les autres pour cette
+  première version.
+
+Idée gardée de côté, pas construite : un panneau listant chaque occurrence
+avec un extrait de texte autour, cliquable pour y sauter (sur le même
+principe que "Plan du document") — utile si le compteur seul ne suffit
+plus à s'y retrouver sur un document long avec beaucoup de marqueurs.
 
 ### Interface en plusieurs langues (conception, pas encore implémentée)
 
-Anticipé (12/09/2026) : le jour où CollabText est utilisé par des personnes
+Anticipé (12/09/2026) : le jour où Amend est utilisé par des personnes
 qui ne lisent pas le français, il faudra une interface traduisible. Ce qui
 suit ne concerne que l'habillage de l'appli (boutons, panneaux, messages) —
 jamais le contenu des documents : le texte que quelqu'un tape reste
@@ -489,3 +714,436 @@ compilé", clé API manquante).
   montés (outline, modifications, IA...) — bien plus simple, et un
   changement de langue est une action rare comparé à une frappe ou un
   changement de sélection.
+
+### Feuille de style admin + export PDF léger — fait (12/09/2026)
+
+Anticipé (12/09/2026), puis construit le jour même : une page réservée aux
+admins pour définir une feuille de style — corps de texte, citation, titres
+(police dans une liste, taille, gras, italique, majuscules, alignement,
+espace avant/après), plus des réglages de page (taille, marges) — appliquée
+en partie dans l'éditeur et en totalité à l'export PDF.
+
+**Révision (12/09/2026)** : sur demande, l'option "souligné" a été retirée
+entièrement de la feuille de style (police/gras/majuscules/alignement/
+espacement/italique restent), remplacée par une option "italique", et une
+taille de page "A5" a été ajoutée à côté de A4/Letter. L'italique n'a, contrairement
+à l'ancien souligné, aucun conflit visuel avec le suivi des modifications
+(rien dans l'appli ne rend de l'italique pour signaler un ajout/suppression),
+donc il s'applique pleinement dans l'éditeur comme à l'export — pas de
+restriction "export seulement" comme celle qui existait pour le souligné.
+
+**Fait** : page "Mise en page" (`adminStyle.js`, lien depuis l'accueil,
+`#/style`) qui lit/écrit une feuille de style unique via `GET`/`PUT
+/api/style` (`storage.js`/`server.js`, un fichier `data/style.json`, même
+esprit que le reste — pas de base de données). `styleConfig.js` centralise
+le modèle (une liste fermée de 5 polices, `DEFAULT_STYLE`) et la traduction
+en CSS (`buildStyleCss`, `buildPageCss`), pour que l'éditeur et l'export
+PDF appliquent exactement la même feuille de style plutôt que deux copies à
+maintenir. Reflet dans l'éditeur (`editor.js`) : police, taille, gras,
+italique, majuscules, alignement, espacement — tout sauf la taille de
+page/marges (aucun sens dans un éditeur en défilement continu). Export
+"Exporter (.pdf)" (`pdfExport.js`) : sérialise le document en HTML
+(`docToHtml`, même convention que l'export `.md` pour le suivi des
+modifications — état présent pris tel quel), l'habille de la feuille de
+style complète plus une règle `@page` pour la taille/les marges, l'affiche
+dans un `#print-root` normalement invisible, puis déclenche
+`window.print()` — la personne choisit "Enregistrer en PDF" dans la boîte
+de dialogue du navigateur. Vérifié : formulaire "Mise en page" testé en
+direct dans le navigateur (valeurs par défaut correctement affichées,
+sauvegarde), reflet léger dans l'éditeur confirmé par les styles calculés
+(taille du corps de texte et espacement correspondant bien à la feuille de
+style), et le flux d'export PDF vérifié en interceptant `window.print()` :
+`#print-root` contient bien le HTML du document (avec le `!!` littéral, pas
+l'alerte ⚠️ — même principe que pour l'export `.md`) habillé de la bonne
+règle `@page` et de la bonne feuille de style, puis se nettoie correctement
+après l'impression.
+
+**À faire chez toi avant que "Mise en page" fonctionne réellement** : le
+serveur (`server.js`/`storage.js`) a changé pour ajouter les routes
+`/api/style` — contrairement au client (servi directement depuis
+`client/dist` à chaque requête, un rebuild suffit), le processus serveur
+géré par pm2 doit être **redémarré** pour charger ce nouveau code
+(`pm2 restart` ou l'équivalent que tu utilises). Tant que ce n'est pas fait,
+la page "Mise en page" affiche et enregistre normalement dans son
+formulaire, mais `/api/style` répond 404 en coulisses — l'éditeur et
+l'export PDF retombent alors silencieusement sur la feuille de style par
+défaut plutôt que sur celle enregistrée. Un vrai bug trouvé au passage et
+corrigé : `saveStyle()` ne vérifiait pas le code de réponse HTTP, donc un
+échec d'enregistrement aurait quand même affiché "Enregistré." — corrigé
+pour afficher l'échec dans ce cas.
+
+**Portée** : une feuille de style par instance (pas par document), cohérent
+avec le rôle admin déjà envisagé dans "Droits et authentification" — un
+réglage par document resterait possible plus tard, mais complique la donnée
+et l'UI pour un besoin qui n'est pas exprimé pour l'instant.
+
+**Titres — un style de base, pas cinq réglages complets** : dupliquer
+police/graisse/casse/alignement/espacement sur 5 niveaux serait lourd à
+administrer pour un gain surtout cosmétique. Plus simple : un seul bloc de
+style "titre" (police, gras, italique, majuscules, alignement, espacements)
+partagé par les 5 niveaux, plus une simple échelle de taille par niveau
+(H1 → H5). Repousse la vraie question ("est-ce qu'on veut un jour des styles
+de titre indépendants") à si le besoin se manifeste concrètement.
+
+**Ce qui se reflète dans l'éditeur, et ce qui ne s'y reflète pas** :
+police, taille, gras, italique, majuscules, alignement et espacement
+avant/après se reflètent dans l'éditeur — une couche purement visuelle
+(variables CSS scopées au `.ProseMirror`, sur le même principe que
+`.tk-marker` ou les couleurs de `trackChanges.js` : rien ne change dans le
+document stocké, seul l'affichage change). Un seul réglage ne se reflète
+**pas** dans l'éditeur :
+- **Taille de page et marges** n'ont aucun sens dans un éditeur en défilement
+  continu sans pagination — réglages purement PDF.
+(L'option "souligné" existait à l'origine mais entrait en conflit visuel
+direct avec l'insertion suivie, déjà soulignée dans `style.css` —
+c'est d'ailleurs pour ça qu'elle a été retirée entièrement de la feuille de
+style plutôt que juste tenue à l'écart de l'éditeur ; l'italique qui l'a
+remplacée n'a pas ce problème.)
+Principe général à garder : l'éditeur reste une prévisualisation légère,
+pas un WYSIWYG fidèle — la lisibilité du suivi des modifications (couleurs,
+soulignés, barrés déjà utilisés pour ça) prime sur la fidélité typographique
+à l'écran.
+
+**Modèle de données** : un fichier JSON unique (`data/style.json`, à côté du
+registre des documents existant — même logique que le reste : pas de base
+de données), quelque chose comme :
+```json
+{
+  "page": { "size": "A4", "margins": { "top": 25, "right": 20, "bottom": 25, "left": 20 } },
+  "body": { "font": "...", "size": 11, "bold": false, "italic": false, "uppercase": false, "align": "left", "spaceBefore": 0, "spaceAfter": 8 },
+  "quote": { "...": "même forme que body" },
+  "heading": { "...": "même forme que body, sans align/uppercase forcément utiles", "sizes": [24, 20, 17, 15, 13] }
+}
+```
+Une petite API (`GET`/`PUT /api/style`) pour la page admin — à protéger par
+le rôle admin une fois l'authentification en place ; en attendant, même
+réserve que le reste de la v0.1 (accessible à quiconque a l'URL).
+
+**Polices "dans une liste"** : volontairement une liste fermée de polices
+auto-hébergées (fichiers `.woff2` embarqués dans le build client), pas
+n'importe quelle police système. Deux raisons : ça évite une dépendance
+réseau à l'affichage (cohérent avec l'esprit auto-hébergé du projet), et
+surtout ça garantit qu'une police choisie dans la feuille de style sera
+bien celle utilisée à l'export PDF — une police système présente chez
+l'admin mais pas chez qui génère le PDF donnerait un résultat différent de
+ce qui a été réglé.
+
+**Export PDF — trois options pesées, pour "le plus simple possible"** :
+
+1. **`window.print()` + CSS d'impression (retenu)** — un second petit
+   sérialiseur à côté de `docToMarkdown` (`docToHtml`, même principe de
+   parcours du document) produit du HTML, habillé d'un CSS `@media print`
+   qui applique la feuille de style — `@page { size; margin }` correspond
+   directement aux réglages "taille de page"/"marges", le reste (police,
+   graisse, casse, alignement, espacements) devient des règles CSS
+   ordinaires. Un bouton "Exporter en PDF" appelle `window.print()` ; la
+   personne choisit "Enregistrer en PDF" dans la boîte de dialogue du
+   navigateur. Aucune nouvelle dépendance, ni client ni serveur ; la feuille
+   de style se traduit presque littéralement en CSS, ce qui la rend facile
+   à maintenir et à faire évoluer. Compromis assumé : ce n'est pas un
+   téléchargement en un clic (la boîte de dialogue d'impression du système
+   s'interpose), et le rendu peut varier légèrement d'un navigateur/OS à
+   l'autre — acceptable vu la contrainte de simplicité posée au départ.
+2. **Bibliothèque cliente (jsPDF, html2pdf.js/html2canvas)** — écartée :
+   soit un rendu en image (texte non sélectionnable, flou à l'impression),
+   soit ré-implémenter un moteur de mise en page maison (gestion des sauts
+   de page, alignements...) pour un résultat en vecteur — beaucoup plus de
+   travail que l'option 1 pour un résultat pas forcément meilleur, et une
+   dépendance client supplémentaire assez lourde.
+3. **Rendu PDF côté serveur (Chromium headless via Puppeteer/Playwright)**
+   — techniquement le plus fidèle (le même `page.pdf()` honore les mêmes
+   règles `@page` que l'option 1, mais produit un vrai fichier en un clic
+   sans boîte de dialogue) mais va à l'encontre du choix déjà fait pour ce
+   projet d'un serveur sans aucune dépendance npm, léger et entièrement
+   testable dans un bac à sable sans accès réseau (voir plus haut) : un
+   binaire Chromium embarqué, ~300 Mo, à maintenir/sécuriser sur le tiny de
+   production. Pas retenu pour l'instant.
+
+Chemin d'évolution si le clic unique devenait un jour indispensable :
+passer de l'option 1 à l'option 3 resterait une évolution, pas une
+refonte — le même HTML/CSS habillé de `@page` server simplement rejoué
+derrière un navigateur headless plutôt que dans celui de la personne. Pour
+un usage personnel/petite équipe, l'option 1 est très probablement
+suffisante durablement, pas juste un pis-aller en attendant mieux.
+
+#### Export PDF fiable, indépendant du navigateur, pour envoi imprimeur — recherche d'options (12/09/2026)
+
+Demandé : à terme, un export PDF stable quel que soit le navigateur qui le
+génère — nécessaire pour un fichier envoyé tel quel à un imprimeur, où une
+variation de rendu entre Chrome/Firefox/Safari (polices de substitution,
+gestion des sauts de page) n'est pas acceptable. La mise en page reste
+volontairement simple (pas de mise en page façon livre avec notes de bas de
+page, renvois, etc.), ce qui élimine d'emblée le besoin des outils les plus
+sophistiqués. Trois options concrètes, classées de la plus proche de ce qui
+est déjà construit à la plus lourde :
+
+1. **Gotenberg (recommandé)** — une API auto-hébergée, en conteneur Docker
+   (licence MIT, gratuite), qui embarque un vrai Chromium headless (plus
+   LibreOffice pour d'autres formats, pas utile ici). Concrètement : le
+   serveur enverrait le même HTML + la même feuille de style CSS + le même
+   `@page` déjà produits par `docToHtml`/`buildStyleCss`/`buildPageCss`
+   (aucune réécriture) à ce conteneur par une requête HTTP, et recevrait un
+   vrai fichier PDF en retour — plus besoin de la boîte de dialogue
+   d'impression du navigateur, et un rendu strictement identique quel que
+   soit le navigateur ou l'OS de la personne qui clique sur "Exporter",
+   puisque c'est toujours le même Chromium, dans le même conteneur, qui
+   fait le rendu. Avantage notable pour ce projet précis : ça n'ajoute
+   aucune dépendance npm au serveur Node (toujours zéro dépendance, léger,
+   auditable, testable) — Gotenberg vit dans son propre conteneur, appelé
+   par une simple requête HTTP, exactement le genre de séparation déjà en
+   place pour Docker dans ce projet (voir `docker compose` plus haut).
+2. **Prince XML (si le simple ne suffit plus)** — le moteur avec la
+   meilleure fidélité prépresse (profils de sortie PDF/X, notes de bas de
+   page automatiques, renvois croisés) — mais payant : environ 2 000
+   USD/an pour une licence serveur commerciale (ou ~3 800 USD en licence
+   par serveur), et sa version gratuite est réservée à un usage non
+   commercial strict (logo imposé sur la première page, lien obligatoire
+   vers princexml.com) — pas adapté à un usage lié à du travail rémunéré.
+   À garder en tête seulement si un imprimeur exige un jour un vrai profil
+   PDF/X ou une mise en page bien plus riche que "simple".
+3. **WeasyPrint** — gratuit (licence BSD), un moteur CSS écrit en Python
+   (pas un navigateur : jamais de JavaScript, son propre moteur de rendu
+   CSS plutôt que Chromium) avec un support correct de CSS Paged Media
+   (`@page`, compteurs de page) mais moins complet que Prince (pas de notes
+   de bas de page ni de renvois automatiques). Fonctionnerait, mais deux
+   inconvénients pour ce projet précis par rapport à Gotenberg : une
+   installation plus lourde (Python + bibliothèques système Pango/Cairo à
+   maintenir sur le tiny de production, plutôt qu'un seul conteneur Docker
+   autonome), et un moteur de rendu CSS différent de celui déjà testé en
+   direct dans le navigateur cette session — un second moteur à valider,
+   pas une garantie de rendu identique à ce qui a déjà été vérifié.
+
+Recommandation : Gotenberg quand ce chantier sera repris — il réutilise
+tel quel le travail déjà fait et vérifié cette session (le HTML et la CSS
+de `pdfExport.js`/`styleConfig.js`), ne coûte rien, et s'intègre au
+déploiement Docker déjà documenté plus haut sans alourdir le serveur Node
+lui-même. Prince resterait l'option de repli si un imprimeur exige
+explicitement un profil PDF/X ou une mise en page plus riche que prévu.
+
+Sources :
+- [WeasyPrint vs Prince: CSS to PDF engines compared](https://pdf4.dev/blog/weasyprint-vs-prince)
+- [Gotenberg — a Docker-based API for PDF conversion](https://gotenberg.dev/)
+- [Prince — License FAQ](https://www.princexml.com/purchase/license_faq/)
+
+### Couleur personnelle persistante par utilisateur·rice (conception, pas encore implémentée)
+
+Anticipé (12/09/2026) : chaque personne aurait une couleur qui lui est
+propre, utilisée pour tous ses documents, tirée en cherchant à maximiser la
+différence avec les couleurs déjà attribuées à d'autres personnes, avec la
+possibilité plus tard de la modifier soi-même.
+
+**Où on en est déjà, et ce qui manque** : `user.js` fait aujourd'hui une
+partie du chemin — le nom et la couleur sont choisis une seule fois puis
+gardés dans `localStorage` du navigateur (`collabtext:name` /
+`collabtext:color`), donc déjà "valables sur tous les documents" dans les
+faits, tant que c'est le même navigateur. Deux manques par rapport à ce qui
+est demandé : (1) le tirage est uniforme parmi une palette fixe de 8
+couleurs (`COLORS` dans `user.js`) sans regarder ce qui est déjà pris — avec
+plus de 8 personnes actives, ou même avant (paradoxe des anniversaires), deux
+personnes peuvent vite se retrouver avec la même couleur ; (2) pas encore de
+réglage pour la changer soi-même.
+
+**Tirage qui maximise les différences — rester simple** : plutôt qu'un
+algorithme d'optimisation (chercher la couleur qui maximise la distance
+minimale à toutes les couleurs déjà prises), une rotation de teinte à
+"angle d'or" (~137,5° à chaque nouvelle personne, en gardant saturation et
+luminosité fixes pour rester dans la palette douce déjà utilisée par
+l'appli) répartit les couleurs de façon quasi maximale sans avoir à
+comparer à qui que ce soit : la N-ième personne reçoit simplement la teinte
+`(N × 137,5°) mod 360°`. Il suffit de savoir combien de personnes existent
+déjà pour tirer la suivante — pas de recherche, pas de comparaison.
+
+**La vraie difficulté n'est pas l'algorithme, c'est "qui sont les autres
+personnes"** : sans compte (voir "Droits et authentification" plus haut),
+il n'y a pas de registre stable des utilisateur·rices — seulement des
+navigateurs qui se sont chacun choisi un nom un jour. Attribuer une couleur
+vraiment distincte suppose de savoir combien de personnes ont déjà une
+couleur, ce qui n'existe nulle part côté serveur aujourd'hui. Solution
+provisoire cohérente avec le reste du projet (fichier, pas de base de
+données) : un petit registre `data/users.json` (identifiant anonyme généré
+et stocké à côté du nom/couleur → couleur attribuée), consulté à la
+création d'une nouvelle identité pour connaître le prochain rang N. Ce
+registre deviendrait naturellement plus solide une fois l'authentification
+par email en place (l'email remplacerait l'identifiant anonyme comme clé).
+
+**Modifier sa couleur soi-même** : un simple réglage à côté du nom
+d'affichage (même endroit que le nom, dans la modale `promptForUser` ou un
+futur réglage de profil) qui écrit directement dans `localStorage` (et,
+avec le registre ci-dessus, informe le serveur du changement) — pas de
+contrainte d'unicité stricte à faire respecter, juste un défaut qui essaie
+de bien répartir les couleurs au départ.
+
+### Nom et identité visuelle : "Amend", vert amande — fait (12/09/2026)
+
+Décidé et fait : l'appli s'appelle désormais **Amend** (remplace
+"CollabText" partout où le nom apparaît à l'écran — titre de l'onglet,
+page d'accueil, message de démarrage du serveur), avec le **vert amande**
+comme couleur identitaire.
+
+- **Une seule variable CSS à changer** : `--accent` dans `style.css` était
+  déjà le fil conducteur visuel de toute l'interface (liens, bouton
+  "Créer", boutons `btn-primary`, curseurs distants, bordure du panneau des
+  modifications, surlignage de sélection IA) — changer sa valeur a suffi à
+  propager la couleur identitaire partout, sans toucher à chaque
+  composant un par un. Deux teintes (`#5f7a4a` en clair, `#a9c68a` en
+  sombre — la version sombre plus claire pour rester lisible sur fond
+  très sombre), au lieu du bleu/lavande précédent.
+- **Propositions IA** : `AI_USER.color` dans `user.js` reprend exactement
+  la même teinte claire (`#5f7a4a`) que `--accent` — remplace l'ancien
+  violet fixe (`#6d597a`). Comme demandé : le vert amande sert notamment
+  (pas seulement) à surligner les suggestions de l'IA dans le suivi des
+  modifications.
+- **Un vert existait déjà** (`--ok`, utilisé pour "en ligne"/modification
+  acceptée) : `--accent` en vert amande crée donc deux verts dans
+  l'interface, à des fins différentes (identité/action vs. statut positif).
+  Choisis volontairement assez éloignés (vert amande plus sourd et plus
+  jaune que le vert `--ok`, plus franc) pour rester distinguables — à
+  garder en tête si un jour ça se révèle prêter à confusion en usage réel.
+- Pas touché : les couleurs personnelles par utilisateur·rice
+  (`COLORS` dans `user.js`, sans rapport avec l'identité de l'appli), et le
+  nom technique des paquets npm (`package.json`, dossier `data/`, clés
+  `localStorage` comme `collabtext:name`) — un rebrand plus profond de ces
+  identifiants internes n'apporterait rien côté utilisateur et risquerait
+  de casser des données déjà stockées (couleur/nom déjà enregistrés chez
+  toi, par exemple).
+
+### "Plan du document" : défilement vers le haut — fait (12/09/2026)
+
+Corrigé : cliquer un titre dans le panneau "Plan du document" faisait
+défiler le document jusqu'à peine faire apparaître le titre en bas de la
+fenêtre (comportement par défaut de `scrollIntoView()` de ProseMirror, qui
+ne fait que le minimum nécessaire pour rendre la position visible). Amendé
+dans `outline.js` : après avoir positionné le curseur, un calcul explicite
+(`coordsAtPos` du titre comparé au rectangle de `.editor-container`, le
+conteneur qui défile réellement dans l'éditeur — voir `editor.js`) fixe le
+`scrollTop` pour amener le titre à ~16px du haut. Vérifié en direct sur un
+document long (11 000+ mots) : le titre cliqué atterrit bien à 16px du haut
+du conteneur, plus de saut vers le bas.
+
+### Assistance IA : touche Entrée, et surlignage de sélection après envoi — fait (12/09/2026)
+
+Deux corrections dans `aiPanel.js`/`trackChanges.js` :
+
+- **Entrée envoie la demande** : le champ d'instruction (une `<textarea>`)
+  n'avait rien de spécial sur `keydown`, donc Entrée insérait un retour à la
+  ligne comme dans n'importe quelle zone de texte. Ajouté : un gestionnaire
+  qui, sur Entrée sans Maj, empêche le retour à la ligne et envoie la
+  demande directement (Maj+Entrée garde le comportement normal, pour une
+  instruction sur plusieurs lignes).
+- **Le surlignage de sélection ne disparaissait pas après l'envoi** : la
+  sélection reste surlignée en vert pendant la saisie de l'instruction
+  (`selectionHighlightPlugin`, exprès — sinon la sélection semblerait
+  disparaître dès qu'on clique dans le champ, hors de l'éditeur). Mais rien
+  ne l'effaçait après coup : sur une sélection de plusieurs paragraphes, le
+  surlignage restait sur l'ensemble de la sélection d'origine même une fois
+  la suggestion appliquée, donnant l'impression que tous les paragraphes
+  avaient été modifiés — alors que seuls certains l'étaient réellement (le
+  diff mot-à-mot existant, lui, marquait déjà correctement les seuls
+  passages changés). Corrigé : dès l'envoi de la demande (avant même la
+  réponse de l'IA), la sélection est réduite à un curseur — le surlignage de
+  sélection disparaît donc immédiatement, et seules les marques
+  d'insertion/suppression du diff (déjà scopées aux passages réellement
+  modifiés) restent visibles une fois la suggestion appliquée.
+
+### Panneau des modifications : cliquer une proposition défile jusqu'au milieu — fait (12/09/2026)
+
+Ajouté dans `changesPanel.js` : cliquer sur une proposition de modification
+dans le panneau (n'importe où sur la carte, hors des boutons
+"Accepter"/"Rejeter") fait défiler le document pour amener cette
+modification au milieu de la fenêtre plutôt qu'à un endroit quelconque —
+utile pour voir une modification dans son contexte avant de choisir de
+l'accepter ou de la rejeter. Même approche que le défilement du "Plan du
+document" (`outline.js`) : `coordsAtPos` de la modification comparé au
+rectangle de `.editor-container`, mais centré sur le milieu du conteneur au
+lieu d'être calé en haut — une modification est en général courte, donc voir
+ce qu'il y a autour (avant et après) compte plus que caler son bord de
+départ. Le clic sur "Accepter"/"Rejeter" (`.change-actions`) est
+explicitement exclu du déclenchement de ce défilement. Vérifié en direct :
+la modification cliquée atterrit exactement au milieu vertical du
+conteneur, et cliquer les boutons d'action ne déclenche pas le défilement.
+### Fiabilité de la collaboration à plusieurs rédacteurs — correctifs et évolutions (12/09/2026)
+
+Suite à `rapport-fiabilite-collaboration.md` (tests utilisateurs détaillés,
+revue de code et regard sur d'autres outils de collaboration — poussé au
+projet Claude « Collab »), puis aux décisions de priorisation qui l'ont suivi
+le même jour : 5 correctifs/évolutions ont été implémentés. Les autres ont
+été explicitement reportés, rejetés, ou notés pour plus tard sans action —
+voir la section 6 du rapport pour le détail de chaque décision.
+
+**Titre synchronisé en direct entre rédacteurs** (`provider.js`, `editor.js`)
+— avant ce correctif, changer le titre d'un document restait invisible pour
+les autres personnes déjà en train de le regarder tant qu'elles ne
+rechargeaient pas la page (seule la sauvegarde via `PATCH /api/docs/:id`
+existait). Un message de relais léger (`{type:'title', title}`), sur le même
+principe que la présence (JSON relayé par le serveur, jamais persisté par ce
+canal — la persistance reste `PATCH`), avertit maintenant tout le monde
+immédiatement. Pour éviter qu'une frappe en cours dans un onglet ne soit
+écrasée par le titre venant d'un autre, le message entrant n'écrase le champ
+que s'il n'a pas le focus. Vérifié en direct (deux onglets, deux identités) :
+taper dans un onglet met à jour l'autre instantanément ; si le second onglet
+a le focus sur son propre champ titre, il n'est pas écrasé tant qu'il le
+garde, et se met à jour dès qu'il le perd.
+
+**Écritures du journal disque groupées et asynchrones** (`storage.js`) —
+chaque modification écrivait auparavant en synchrone (`appendFileSync`) dans
+le fichier `data/<id>.log`, ce qui bloque le fil d'exécution unique de Node à
+chaque frappe de chaque personne connectée. Remplacé par une mise en mémoire
+tampon par document (jusqu'à 200 ms), regroupée en une seule écriture
+asynchrone (`appendFile`), avec une file de promesses par document pour
+garantir qu'elles ne s'entrelacent jamais. `readUpdates` fusionne ce qui est
+déjà sur disque avec ce qui est encore en tampon, pour qu'une personne qui
+rejoint ne rate jamais les toutes dernières modifications. Un arrêt propre
+(`SIGINT`/`SIGTERM` dans `server.js`) vide le tampon avant de quitter, pour ne
+jamais perdre les dernières modifications à un redémarrage normal. Vérifié :
+suite de tests serveur toujours à 6/7 (le seul échec restant est préexistant
+et sans rapport avec ces changements — un test suppose l'absence de
+`ANTHROPIC_API_KEY` pour vérifier le message d'erreur 501, alors qu'une clé
+est configurée sur cette machine, ce qui produit un vrai appel réseau et un
+502) ; fonctionnement en direct confirmé, y compris un redémarrage complet du
+serveur juste après une frappe.
+
+**Bandeau de présence** (`presence.js`, nouveau fichier) — un avatar
+(initiales + couleur personnelle) par connexion active dans le bandeau du
+haut, alimenté par le même état d'« awareness » Yjs qui pilote déjà les
+curseurs distants nommés. Choix délibéré, décidé ensemble : un avatar par
+connexion, pas par personne — l'appli n'a pas de compte, donc deux personnes
+peuvent partager le même nom/navigateur, et dédupliquer par nom donnerait une
+fausse impression de « qui est vraiment là » (voir le constat 1.4 du
+rapport). Vérifié en direct avec deux identités : les deux avatars
+apparaissent, chacun avec ses bonnes initiales/couleur, et disparaissent à la
+fermeture de l'onglet correspondant.
+
+**Indicateur de synchronisation honnête** (`provider.js`, `editor.js`) —
+remplace l'ancien binaire « connecté/reconnexion » par trois états réels : "à
+jour" (vert), "enregistrement…" (pendant l'envoi d'une modification), et hors
+connexion — qui distingue maintenant explicitement "reconnexion…" de
+"modifications non envoyées" selon qu'il y a ou non des modifications
+locales en attente. En creusant cet indicateur pour qu'il soit honnête, un
+vrai trou de fiabilité préexistant est apparu et a été corrigé au passage :
+une modification faite hors connexion n'était jamais réellement
+retransmise une fois la connexion revenue (l'envoi était un no-op silencieux
+tant que le WebSocket n'était pas ouvert). Corrigé en renvoyant l'état
+complet du document (`Y.encodeStateAsUpdate`) à la reconnexion dès qu'il y a
+eu des modifications locales en attente — sans danger, les mises à jour Yjs
+étant idempotentes/commutatives. Vérifié : un arrêt/redémarrage complet du
+serveur pendant qu'une personne tapait a bien laissé sa modification
+atteindre l'autre personne une fois le serveur revenu — un test plus radical
+qu'une simple coupure réseau, qui a bien montré que rien n'est perdu.
+
+**Coloration du texte par auteur·rice, persistante** (`schema.js`,
+`trackChanges.js`, `style.css`) — nouvelle marque ProseMirror `authorColor`,
+posée aux côtés de la marque d'insertion suivie à chaque ajout de texte
+(humain ou IA), mais — contrairement à elle — jamais retirée à l'acceptation
+d'une modification : un passage garde une légère teinte de la couleur de la
+personne qui l'a écrit bien après que le suivi de modification lui-même a
+disparu. Vérifié en direct : texte tapé par une personne teinté de sa
+couleur, teinte toujours présente après avoir cliqué "Accepter".
+
+**Non fait maintenant, par décision explicite** (voir la section 6 du
+rapport pour le détail) : déduplication de la présence par nom (rejetée —
+plusieurs personnes peuvent partager un compte) ; avertissement de collision
+Accepter/Rejeter (noté, risque jugé trop faible pour agir maintenant) ;
+renommage/couleur en cours de session (reporté) ; compaction du journal +
+versions majeures + retour en arrière (chantier combiné, nécessite d'abord
+les droits/comptes utilisateur·rice — voir « Droits et authentification »
+plus haut — et sera réservé aux admins).
