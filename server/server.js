@@ -143,6 +143,14 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, doc)
   }
 
+  const starMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/star$/)
+  if (starMatch && req.method === 'PATCH') {
+    const body = await readJsonBody(req)
+    const doc = storage.starDoc(starMatch[1], !!body.starred)
+    if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
+    return sendJson(res, 200, doc)
+  }
+
   if (pathname === '/api/style' && req.method === 'GET') {
     return sendJson(res, 200, storage.getStyle())
   }

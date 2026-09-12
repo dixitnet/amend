@@ -113,7 +113,15 @@ export class Storage {
     const registry = this._readRegistry()
     return Object.entries(registry)
       .map(([id, meta]) => ({ id, ...meta }))
-      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      .sort((a, b) => {
+        // Étoilés d'abord (peu importe depuis quand), puis par date de
+        // dernière modification comme avant — deux tris indépendants plutôt
+        // qu'un seul champ composite, pour que le second critère continue
+        // de s'appliquer normalement à l'intérieur de chaque groupe.
+        const starDiff = (b.starred ? 1 : 0) - (a.starred ? 1 : 0)
+        if (starDiff !== 0) return starDiff
+        return (b.updatedAt || 0) - (a.updatedAt || 0)
+      })
   }
 
   getDoc(id) {
@@ -147,6 +155,17 @@ export class Storage {
     if (!registry[id]) return
     registry[id].updatedAt = Date.now()
     this._writeRegistry(registry)
+  }
+
+  /** Étoile ou désétoile un document — n'affecte pas updatedAt : marquer un
+   * document n'est pas une modification de son contenu, juste un rangement
+   * dans la liste (voir le tri dans listDocs). */
+  starDoc(id, starred) {
+    const registry = this._readRegistry()
+    if (!registry[id]) return null
+    registry[id].starred = !!starred
+    this._writeRegistry(registry)
+    return { id, ...registry[id] }
   }
 
   _logPath(id) {
