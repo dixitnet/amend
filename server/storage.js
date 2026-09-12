@@ -3,9 +3,19 @@
 // Deliberately simple so a self-hosted instance needs nothing but a
 // writable folder.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, openSync, readSync, fstatSync, closeSync, renameSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, renameSync } from 'node:fs'
+import { appendFile as appendFileAsync } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomId } from './ws.js'
+
+// How long updates sit in memory before being flushed to disk together —
+// see appendUpdate/_flush below (correctif 4.1.2 : écritures asynchrones).
+// Long enough to turn "one appendFileSync per keystroke" into a handful of
+// writes per second even under several simultaneous fast typists; short
+// enough that a crash between flushes loses at most a fraction of a
+// second's edits (and every update has already reached every other
+// connected peer via rooms.js's broadcast regardless of when it hits disk).
+const FLUSH_DELAY_MS = 200
 
 // The shared feuille de style ("Mise en page" admin page) — one config for
 // the whole instance, not per document. Mirrors DEFAULT_STYLE in
@@ -56,6 +66,15 @@ export class Storage {
     if (!existsSync(this.registryPath)) {
       writeFileSync(this.registryPath, JSON.stringify({}), 'utf8')
     }
+    // Write-behind buffer for the per-document update logs — see
+    // appendUpdate/_flush/flushAll. `_pending` is the source of truth for
+    // "not yet confirmed on disk" (readUpdates reads it too, so a client
+    // joining mid-batch never misses anything); `_flushChain` serializes
+    // one document's writes so two flushes can never interleave on the
+    // same file.
+    this._pending = new Map() // id -> raw update Buffer[]
+    this._flushTimers = new Map() // id -> Timeout
+    this._flushChain = new Map() // id -> Promise (tail of that doc's writes)
   }
 
   getStyle() {
@@ -134,37 +153,114 @@ export class Storage {
     return join(this.dataDir, `${id}.log`)
   }
 
-  /** Appends one length-prefixed binary update to the document's log. */
+  /** Buffers one update for the document's log; actually written to disk
+   * within FLUSH_DELAY_MS by _flush, batched with whatever else arrives in
+   * the meantime (see the constant's comment above). */
   appendUpdate(id, updateBuffer) {
-    const lenPrefix = Buffer.alloc(4)
-    lenPrefix.writeUInt32BE(updateBuffer.length, 0)
-    appendFileSync(this._logPath(id), Buffer.concat([lenPrefix, updateBuffer]))
-    this.touchDoc(id)
+    let list = this._pending.get(id)
+    if (!list) {
+      list = []
+      this._pending.set(id, list)
+    }
+    list.push(updateBuffer)
+    if (!this._flushTimers.has(id)) {
+      const timer = setTimeout(() => this._flush(id), FLUSH_DELAY_MS)
+      timer.unref?.()
+      this._flushTimers.set(id, timer)
+    }
   }
 
-  /** Reads and returns every stored update for a document, in order. */
+  /** Writes every currently-buffered update for `id` to disk, in one
+   * appendFile call. Only removes the exact updates it wrote — anything
+   * pushed to the buffer while this write was in flight stays queued for
+   * the next flush, never lost and never duplicated. Chained through
+   * `_flushChain` so a document's writes always land in order, even if a
+   * new flush is scheduled before the previous one's disk write finishes. */
+  _flush(id) {
+    this._flushTimers.delete(id)
+    const list = this._pending.get(id)
+    if (!list || list.length === 0) return Promise.resolve()
+    const n = list.length
+    const chunks = []
+    for (let i = 0; i < n; i++) {
+      const updateBuffer = list[i]
+      const lenPrefix = Buffer.alloc(4)
+      lenPrefix.writeUInt32BE(updateBuffer.length, 0)
+      chunks.push(lenPrefix, updateBuffer)
+    }
+    const payload = Buffer.concat(chunks)
+    const prev = this._flushChain.get(id) || Promise.resolve()
+    const next = prev
+      .then(() => appendFileAsync(this._logPath(id), payload))
+      .then(() => {
+        const current = this._pending.get(id)
+        if (current) {
+          current.splice(0, n)
+          if (current.length === 0) {
+            this._pending.delete(id)
+          } else if (!this._flushTimers.has(id)) {
+            // More updates arrived while this write was in flight — make
+            // sure they still get flushed.
+            const timer = setTimeout(() => this._flush(id), FLUSH_DELAY_MS)
+            timer.unref?.()
+            this._flushTimers.set(id, timer)
+          }
+        }
+        this.touchDoc(id)
+      })
+      .catch((err) => {
+        // Best-effort persistence: every one of these updates already
+        // reached every connected peer via rooms.js's live broadcast —
+        // only durability against a server restart is at risk here, so log
+        // and carry on rather than crashing the whole server over it.
+        console.error(`[storage] échec d'écriture du journal pour ${id} :`, err)
+      })
+    this._flushChain.set(id, next)
+    return next
+  }
+
+  /** Forces every buffered write to disk right now. Call this before the
+   * process exits (see server.js) so a restart never loses the last
+   * fraction of a second's edits. */
+  async flushAll() {
+    const ids = new Set([...this._pending.keys(), ...this._flushChain.keys()])
+    for (const id of ids) {
+      const timer = this._flushTimers.get(id)
+      if (timer) clearTimeout(timer)
+      this._flush(id)
+    }
+    await Promise.all([...this._flushChain.values()])
+  }
+
+  /** Reads and returns every stored update for a document, in order —
+   * whatever's already on disk, followed by anything still buffered in
+   * memory (see appendUpdate/_flush) so a client joining mid-batch sees
+   * everything, not just what's been flushed so far. */
   readUpdates(id) {
     const path = this._logPath(id)
-    if (!existsSync(path)) return []
-    const fd = openSync(path, 'r')
-    try {
-      const size = fstatSync(fd).size
-      const updates = []
-      let pos = 0
-      const lenBuf = Buffer.alloc(4)
-      while (pos + 4 <= size) {
-        readSync(fd, lenBuf, 0, 4, pos)
-        const len = lenBuf.readUInt32BE(0)
-        pos += 4
-        if (pos + len > size) break // truncated trailing write, ignore it
-        const payload = Buffer.alloc(len)
-        readSync(fd, payload, 0, len, pos)
-        pos += len
-        updates.push(payload)
+    const updates = []
+    if (existsSync(path)) {
+      const fd = openSync(path, 'r')
+      try {
+        const size = fstatSync(fd).size
+        let pos = 0
+        const lenBuf = Buffer.alloc(4)
+        while (pos + 4 <= size) {
+          readSync(fd, lenBuf, 0, 4, pos)
+          const len = lenBuf.readUInt32BE(0)
+          pos += 4
+          if (pos + len > size) break // truncated trailing write, ignore it
+          const payload = Buffer.alloc(len)
+          readSync(fd, payload, 0, len, pos)
+          pos += len
+          updates.push(payload)
+        }
+      } finally {
+        closeSync(fd)
       }
-      return updates
-    } finally {
-      closeSync(fd)
     }
+    const pending = this._pending.get(id)
+    if (pending && pending.length) updates.push(...pending)
+    return updates
   }
 }

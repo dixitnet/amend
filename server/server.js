@@ -214,3 +214,23 @@ server.listen(PORT, () => {
     )
   }
 })
+
+// storage.appendUpdate now buffers updates in memory for up to
+// FLUSH_DELAY_MS before writing them to disk (see storage.js) — so on a
+// normal stop/restart (systemd restart, Ctrl-C, `deploy.sh`...) we flush
+// whatever's still buffered before actually exiting, instead of possibly
+// losing the last fraction of a second's edits.
+let shuttingDown = false
+async function shutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log(`\n${signal} reçu, sauvegarde des dernières modifications avant arrêt…`)
+  try {
+    await storage.flushAll()
+  } catch (err) {
+    console.error('Erreur pendant la sauvegarde finale :', err)
+  }
+  process.exit(0)
+}
+process.on('SIGINT', () => shutdown('SIGINT'))
+process.on('SIGTERM', () => shutdown('SIGTERM'))

@@ -23,6 +23,7 @@ import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
 import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
 import { mountTkMarker } from './tkMarker.js'
+import { mountPresenceBar } from './presence.js'
 import { loadStyle, buildStyleCss } from './styleConfig.js'
 import { printDocument } from './pdfExport.js'
 
@@ -86,6 +87,10 @@ export function mountEditor(root, docId, user, docMeta) {
   titleInput.value = docMeta.title
   let titleSaveTimer = null
   titleInput.addEventListener('input', () => {
+    // Broadcast on every keystroke (cheap — just a relay, see provider.js)
+    // so other open tabs update live, same spirit as the document body;
+    // the actual persistence below stays debounced.
+    provider.sendTitle(titleInput.value)
     clearTimeout(titleSaveTimer)
     titleSaveTimer = setTimeout(() => {
       fetch(`/api/docs/${docId}`, {
@@ -96,6 +101,10 @@ export function mountEditor(root, docId, user, docMeta) {
     }, 500)
   })
   topBanner.appendChild(titleInput)
+
+  // "Qui est connecté" — filled in once `provider` exists, below.
+  const presenceContainer = document.createElement('div')
+  topBanner.appendChild(presenceContainer)
 
   const wordCount = document.createElement('span')
   wordCount.className = 'word-count'
@@ -215,10 +224,32 @@ export function mountEditor(root, docId, user, docMeta) {
   const provider = new SimpleProvider(ydoc, docId, user)
   const yXml = ydoc.getXmlFragment('prosemirror-content')
 
-  provider.addEventListener('status', () => {
-    status.textContent = provider.connected ? '● connecté' : '○ reconnexion…'
+  // "à jour" / "enregistrement…" / "modifications non envoyées" rather than
+  // just connecté/reconnexion — see provider.js's saving/hasPendingLocalChanges
+  // bookkeeping (correctif 4.2.3, rapport de fiabilité du 12/09/2026).
+  function renderConnectionStatus() {
     status.classList.toggle('online', provider.connected)
+    status.classList.toggle('pending', !provider.connected && provider.hasPendingLocalChanges)
+    if (!provider.connected) {
+      status.textContent = provider.hasPendingLocalChanges
+        ? '○ hors connexion — modifications non envoyées'
+        : '○ reconnexion…'
+    } else if (provider.saving) {
+      status.textContent = '● enregistrement…'
+    } else {
+      status.textContent = '● à jour'
+    }
+  }
+  provider.addEventListener('status', renderConnectionStatus)
+  renderConnectionStatus()
+
+  // Live title sync between rédacteurs (correctif 4.1.1) — never overwrite
+  // what the local person is actively typing themselves.
+  provider.addEventListener('title', (e) => {
+    if (document.activeElement !== titleInput) titleInput.value = e.detail.title
   })
+
+  const presence = mountPresenceBar(presenceContainer, provider)
 
   const state = EditorState.create({
     schema,
@@ -324,6 +355,7 @@ export function mountEditor(root, docId, user, docMeta) {
     destroy() {
       view.destroy()
       provider.destroy()
+      presence.destroy()
     },
   }
 }

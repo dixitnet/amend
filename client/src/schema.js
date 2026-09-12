@@ -145,5 +145,28 @@ export const schema = new Schema({
         ]
       },
     },
+    // Who wrote this text — unlike insertion/deletion, this mark is
+    // deliberately NOT removed when a change is accepted: it's meant to
+    // outlive the review, so a passage still shows a subtle tint of its
+    // author's color long after the tracked-change marker itself is gone.
+    // Added alongside `insertion` everywhere text gets inserted (see
+    // trackChanges.js) — never inherited/typed into automatically
+    // (inclusive: false), same reasoning as insertion/deletion above.
+    authorColor: {
+      attrs: { user: {}, userColor: {} },
+      inclusive: false,
+      parseDOM: [{ tag: 'span', getAttrs: (el) => (el.classList.contains('author-color') ? {} : false) }],
+      toDOM(mark) {
+        return [
+          'span',
+          {
+            class: 'author-color',
+            style: `--author-color:${mark.attrs.userColor}`,
+            title: `Écrit par ${mark.attrs.user}`,
+          },
+          0,
+        ]
+      },
+    },
   },
 })

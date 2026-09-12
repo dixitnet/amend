@@ -212,6 +212,26 @@ a { color: var(--accent); }
 .tk-count { font-size: 12px; color: var(--danger); white-space: nowrap; }
 .connection-status { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .connection-status.online { color: var(--ok); }
+.connection-status.pending { color: var(--danger); }
+
+/* "Qui est connecté" (voir presence.js) — un rond par connexion, pas par
+   personne (voir le constat 1.4 du rapport de fiabilité du 12/09/2026). */
+.presence-bar { display: flex; align-items: center; gap: 4px; }
+.presence-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--bg);
+  background: var(--user-color, var(--accent));
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
 
 .editor-container {
   flex: 1;
@@ -260,6 +280,14 @@ del.tracked-deletion {
   text-decoration-color: var(--user-color, var(--danger));
   background: color-mix(in srgb, var(--user-color, var(--danger)) 12%, transparent);
   opacity: 0.75;
+}
+
+/* Who wrote this passage — stays after a change is accepted (unlike
+   tracked-insertion/deletion above, which disappear once resolved). Kept
+   subtle: blended with the normal text color rather than shown at full
+   saturation, so a paragraph with several authors stays easy to read. */
+span.author-color {
+  color: color-mix(in srgb, var(--author-color, var(--accent)) 55%, var(--fg));
 }
 
 /* Kept visible even when the editor loses focus (e.g. while typing an

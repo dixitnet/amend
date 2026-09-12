@@ -94,6 +94,7 @@ export function rewriteForTracking(state, tr, user) {
   const ts = Date.now()
   const insMark = insertionType.create({ user: user.name, userColor: user.color, ts })
   const delMark = deletionType.create({ user: user.name, userColor: user.color, ts })
+  const authorMark = state.schema.marks.authorColor?.create({ user: user.name, userColor: user.color })
   const out = state.tr
 
   if (to > from) {
@@ -129,6 +130,7 @@ export function rewriteForTracking(state, tr, user) {
       out.insert(insPos, state.schema.text(text))
       const insEnd = insPos + text.length
       out.addMark(insPos, insEnd, insMark)
+      if (authorMark) out.addMark(insPos, insEnd, authorMark)
     }
   }
 
@@ -239,7 +241,7 @@ const BIG_REWRITE_RATIO = 0.3
 /** Replays a word/letter-level diff into `tr` as tracked insert/delete
  * marks anchored at `blockFrom`. Mutates `tr`. Returns true if anything
  * actually changed. */
-function replayDiffOps(tr, schema, blockFrom, ops, insMark, delMark) {
+function replayDiffOps(tr, schema, blockFrom, ops, insMark, delMark, authorMark) {
   let srcPos = blockFrom
   let changed = false
   for (const op of ops) {
@@ -256,6 +258,7 @@ function replayDiffOps(tr, schema, blockFrom, ops, insMark, delMark) {
       const insPos = tr.mapping.map(srcPos)
       tr.insert(insPos, schema.text(op.text))
       tr.addMark(insPos, insPos + op.text.length, insMark)
+      if (authorMark) tr.addMark(insPos, insPos + op.text.length, authorMark)
       changed = true
     }
   }
@@ -281,7 +284,7 @@ function diffChangeRatio(oldText, newText, ops) {
  * type — heading stays a heading) right after it, carrying the new text as
  * one clean insertion. Mutates `tr`. Returns true if anything changed.
  */
-function applyParagraphDiff(tr, schema, block, newText, insMark, delMark) {
+function applyParagraphDiff(tr, schema, block, newText, insMark, delMark, authorMark) {
   const oldText = block.text
   if (oldText === newText) return false
   const ops = diffWords(oldText, newText)
@@ -293,12 +296,13 @@ function applyParagraphDiff(tr, schema, block, newText, insMark, delMark) {
       tr.addMark(tr.mapping.map(block.textFrom), tr.mapping.map(block.textTo), delMark)
     }
     const insertAt = tr.mapping.map(block.nodeEnd)
-    const newNode = block.nodeType.create(block.nodeAttrs, schema.text(newText, [insMark]))
+    const marks = authorMark ? [insMark, authorMark] : [insMark]
+    const newNode = block.nodeType.create(block.nodeAttrs, schema.text(newText, marks))
     tr.insert(insertAt, newNode)
     return true
   }
 
-  return replayDiffOps(tr, schema, block.textFrom, ops, insMark, delMark)
+  return replayDiffOps(tr, schema, block.textFrom, ops, insMark, delMark, authorMark)
 }
 
 /** Every top-level text block (paragraph/heading) that [from, to) touches,
@@ -353,6 +357,7 @@ export function insertAISuggestion(view, from, to, suggestion, aiUser) {
   const ts = Date.now()
   const insMark = schema.marks.insertion.create({ user: aiUser.name, userColor: aiUser.color, ts })
   const delMark = schema.marks.deletion.create({ user: aiUser.name, userColor: aiUser.color, ts })
+  const authorMark = schema.marks.authorColor?.create({ user: aiUser.name, userColor: aiUser.color })
 
   const tr = view.state.tr
   const $from = view.state.doc.resolve(from)
@@ -366,7 +371,7 @@ export function insertAISuggestion(view, from, to, suggestion, aiUser) {
     // changes get marked (or, for a heavy rewrite, swap the whole
     // paragraph — see applyParagraphDiff).
     const [block] = getTextBlocksInRange(view.state.doc, from, to)
-    if (block) changed = applyParagraphDiff(tr, schema, block, suggestion, insMark, delMark)
+    if (block) changed = applyParagraphDiff(tr, schema, block, suggestion, insMark, delMark, authorMark)
   } else {
     const blocks = getTextBlocksInRange(view.state.doc, from, to)
     // The AI is asked to keep one line per paragraph (see ai.js), so in the
@@ -376,7 +381,7 @@ export function insertAISuggestion(view, from, to, suggestion, aiUser) {
     const newParas = suggestion.trim().split(/\n+/)
     if (blocks.length > 0 && newParas.length === blocks.length) {
       for (let i = 0; i < blocks.length; i++) {
-        const didChange = applyParagraphDiff(tr, schema, blocks[i], newParas[i], insMark, delMark)
+        const didChange = applyParagraphDiff(tr, schema, blocks[i], newParas[i], insMark, delMark, authorMark)
         changed = changed || didChange
       }
     } else {
@@ -391,6 +396,7 @@ export function insertAISuggestion(view, from, to, suggestion, aiUser) {
         const insPos = tr.mapping.map(to)
         tr.insert(insPos, schema.text(suggestion))
         tr.addMark(insPos, insPos + suggestion.length, insMark)
+        if (authorMark) tr.addMark(insPos, insPos + suggestion.length, authorMark)
         changed = true
       }
     }
@@ -416,13 +422,14 @@ export function insertAIParagraphSuggestions(view, blocks, suggestions, aiUser) 
   const ts = Date.now()
   const insMark = schema.marks.insertion.create({ user: aiUser.name, userColor: aiUser.color, ts })
   const delMark = schema.marks.deletion.create({ user: aiUser.name, userColor: aiUser.color, ts })
+  const authorMark = schema.marks.authorColor?.create({ user: aiUser.name, userColor: aiUser.color })
 
   const tr = view.state.tr
   let changed = false
   for (let i = 0; i < blocks.length; i++) {
     const suggestion = suggestions[i]
     if (suggestion == null) continue
-    const didChange = applyParagraphDiff(tr, schema, blocks[i], suggestion, insMark, delMark)
+    const didChange = applyParagraphDiff(tr, schema, blocks[i], suggestion, insMark, delMark, authorMark)
     changed = changed || didChange
   }
 

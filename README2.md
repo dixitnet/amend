@@ -63,6 +63,11 @@ d'une personne. Auto-hébergé, pensé pour être léger.
   bandeau du haut affiche un compteur du nombre de `!!` restants dans le
   document.
 - Curseurs et présence des autres personnes connectées, en direct.
+- Fiabilité de la collaboration à plusieurs personnes : titre synchronisé
+  en direct entre rédacteurs, indicateur de statut honnête (à jour /
+  enregistrement… / hors connexion), bandeau de présence (un avatar par
+  connexion), coloration persistante du texte par auteur·rice, écritures
+  disque groupées — voir la section dédiée plus bas.
 - Persistance sur disque (pas de base de données) : chaque document survit
   aux redémarrages du serveur.
 - Nom et identité visuelle : l'appli s'appelle "Amend", couleur identitaire
@@ -261,6 +266,26 @@ donné quand plusieurs commits s'accumulent sans avoir été poussés.
 
 Si quelque chose ne fonctionne pas à cette étape, dis-le-moi avec le
 message d'erreur (console navigateur incluse) et je corrige.
+16. Titre en direct : ouvrir un document dans deux onglets avec des noms
+    différents, taper un nouveau titre dans l'un — l'autre doit se mettre à
+    jour immédiatement, sauf si son champ titre est activement en train
+    d'être édité (auquel cas la mise à jour arrive dès qu'on en sort).
+17. Bandeau de présence : avec deux onglets ouverts sur le même document,
+    un avatar (initiales + couleur) doit apparaître par onglet connecté ;
+    fermer un onglet doit faire disparaître son avatar dans l'autre.
+18. Indicateur de statut : taper du texte doit brièvement afficher
+    "enregistrement…" puis revenir à "à jour" ; couper la connexion réseau
+    puis taper doit afficher "hors connexion — modifications non envoyées" ;
+    reconnecter doit renvoyer ces modifications sans les perdre.
+19. Coloration par auteur : taper du texte (ou accepter une suggestion IA)
+    doit teinter légèrement ce passage de la couleur de son auteur·rice,
+    teinte qui doit rester visible après avoir cliqué "Accepter"
+    (contrairement au soulignement du suivi de modification, qui lui
+    disparaît).
+20. Écritures disque groupées : couper puis relancer le serveur juste après
+    une frappe (moins d'une seconde après) — le contenu tapé doit être là
+    au redémarrage (tolérance de 200 ms de perte au pire, pas plus).
+
 
 ## Pistes pour la suite
 
@@ -904,3 +929,90 @@ départ. Le clic sur "Accepter"/"Rejeter" (`.change-actions`) est
 explicitement exclu du déclenchement de ce défilement. Vérifié en direct :
 la modification cliquée atterrit exactement au milieu vertical du
 conteneur, et cliquer les boutons d'action ne déclenche pas le défilement.
+### Fiabilité de la collaboration à plusieurs rédacteurs — correctifs et évolutions (12/09/2026)
+
+Suite à `rapport-fiabilite-collaboration.md` (tests utilisateurs détaillés,
+revue de code et regard sur d'autres outils de collaboration — poussé au
+projet Claude « Collab »), puis aux décisions de priorisation qui l'ont suivi
+le même jour : 5 correctifs/évolutions ont été implémentés. Les autres ont
+été explicitement reportés, rejetés, ou notés pour plus tard sans action —
+voir la section 6 du rapport pour le détail de chaque décision.
+
+**Titre synchronisé en direct entre rédacteurs** (`provider.js`, `editor.js`)
+— avant ce correctif, changer le titre d'un document restait invisible pour
+les autres personnes déjà en train de le regarder tant qu'elles ne
+rechargeaient pas la page (seule la sauvegarde via `PATCH /api/docs/:id`
+existait). Un message de relais léger (`{type:'title', title}`), sur le même
+principe que la présence (JSON relayé par le serveur, jamais persisté par ce
+canal — la persistance reste `PATCH`), avertit maintenant tout le monde
+immédiatement. Pour éviter qu'une frappe en cours dans un onglet ne soit
+écrasée par le titre venant d'un autre, le message entrant n'écrase le champ
+que s'il n'a pas le focus. Vérifié en direct (deux onglets, deux identités) :
+taper dans un onglet met à jour l'autre instantanément ; si le second onglet
+a le focus sur son propre champ titre, il n'est pas écrasé tant qu'il le
+garde, et se met à jour dès qu'il le perd.
+
+**Écritures du journal disque groupées et asynchrones** (`storage.js`) —
+chaque modification écrivait auparavant en synchrone (`appendFileSync`) dans
+le fichier `data/<id>.log`, ce qui bloque le fil d'exécution unique de Node à
+chaque frappe de chaque personne connectée. Remplacé par une mise en mémoire
+tampon par document (jusqu'à 200 ms), regroupée en une seule écriture
+asynchrone (`appendFile`), avec une file de promesses par document pour
+garantir qu'elles ne s'entrelacent jamais. `readUpdates` fusionne ce qui est
+déjà sur disque avec ce qui est encore en tampon, pour qu'une personne qui
+rejoint ne rate jamais les toutes dernières modifications. Un arrêt propre
+(`SIGINT`/`SIGTERM` dans `server.js`) vide le tampon avant de quitter, pour ne
+jamais perdre les dernières modifications à un redémarrage normal. Vérifié :
+suite de tests serveur toujours à 6/7 (le seul échec restant est préexistant
+et sans rapport avec ces changements — un test suppose l'absence de
+`ANTHROPIC_API_KEY` pour vérifier le message d'erreur 501, alors qu'une clé
+est configurée sur cette machine, ce qui produit un vrai appel réseau et un
+502) ; fonctionnement en direct confirmé, y compris un redémarrage complet du
+serveur juste après une frappe.
+
+**Bandeau de présence** (`presence.js`, nouveau fichier) — un avatar
+(initiales + couleur personnelle) par connexion active dans le bandeau du
+haut, alimenté par le même état d'« awareness » Yjs qui pilote déjà les
+curseurs distants nommés. Choix délibéré, décidé ensemble : un avatar par
+connexion, pas par personne — l'appli n'a pas de compte, donc deux personnes
+peuvent partager le même nom/navigateur, et dédupliquer par nom donnerait une
+fausse impression de « qui est vraiment là » (voir le constat 1.4 du
+rapport). Vérifié en direct avec deux identités : les deux avatars
+apparaissent, chacun avec ses bonnes initiales/couleur, et disparaissent à la
+fermeture de l'onglet correspondant.
+
+**Indicateur de synchronisation honnête** (`provider.js`, `editor.js`) —
+remplace l'ancien binaire « connecté/reconnexion » par trois états réels : "à
+jour" (vert), "enregistrement…" (pendant l'envoi d'une modification), et hors
+connexion — qui distingue maintenant explicitement "reconnexion…" de
+"modifications non envoyées" selon qu'il y a ou non des modifications
+locales en attente. En creusant cet indicateur pour qu'il soit honnête, un
+vrai trou de fiabilité préexistant est apparu et a été corrigé au passage :
+une modification faite hors connexion n'était jamais réellement
+retransmise une fois la connexion revenue (l'envoi était un no-op silencieux
+tant que le WebSocket n'était pas ouvert). Corrigé en renvoyant l'état
+complet du document (`Y.encodeStateAsUpdate`) à la reconnexion dès qu'il y a
+eu des modifications locales en attente — sans danger, les mises à jour Yjs
+étant idempotentes/commutatives. Vérifié : un arrêt/redémarrage complet du
+serveur pendant qu'une personne tapait a bien laissé sa modification
+atteindre l'autre personne une fois le serveur revenu — un test plus radical
+qu'une simple coupure réseau, qui a bien montré que rien n'est perdu.
+
+**Coloration du texte par auteur·rice, persistante** (`schema.js`,
+`trackChanges.js`, `style.css`) — nouvelle marque ProseMirror `authorColor`,
+posée aux côtés de la marque d'insertion suivie à chaque ajout de texte
+(humain ou IA), mais — contrairement à elle — jamais retirée à l'acceptation
+d'une modification : un passage garde une légère teinte de la couleur de la
+personne qui l'a écrit bien après que le suivi de modification lui-même a
+disparu. Vérifié en direct : texte tapé par une personne teinté de sa
+couleur, teinte toujours présente après avoir cliqué "Accepter".
+
+**Non fait maintenant, par décision explicite** (voir la section 6 du
+rapport pour le détail) : déduplication de la présence par nom (rejetée —
+plusieurs personnes peuvent partager un compte) ; avertissement de collision
+Accepter/Rejeter (noté, risque jugé trop faible pour agir maintenant) ;
+renommage/couleur en cours de session (reporté) ; commentaires ancrés sans
+modifier le texte (reporté, reste à définir) ; compaction du journal +
+versions majeures + retour en arrière (chantier combiné, nécessite d'abord
+les droits/comptes utilisateur·rice — voir « Droits et authentification »
+plus haut — et sera réservé aux admins).

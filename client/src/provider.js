@@ -38,10 +38,34 @@ export class SimpleProvider extends EventTarget {
     this._closedByUser = false
     this._reconnectDelay = 1000
     this._ws = null
+    // Sync-state bookkeeping for the "à jour / enregistrement… /
+    // modifications non envoyées" indicator (editor.js) — see _onDocUpdate,
+    // _connect's 'open' handler, and the 'status' event dispatched below.
+    this.hasPendingLocalChanges = false
+    this.saving = false
+    this._savingTimer = null
 
     this._onDocUpdate = (update, origin) => {
       if (origin === this) return
-      this._sendBinary(update)
+      if (this.connected) {
+        this._sendBinary(update)
+        this.saving = true
+        this.dispatchEvent(new Event('status'))
+        clearTimeout(this._savingTimer)
+        this._savingTimer = setTimeout(() => {
+          this.saving = false
+          this.dispatchEvent(new Event('status'))
+        }, 500)
+      } else {
+        // Can't reach the server right now: the edit stays safe in this
+        // tab's own Yjs doc (and reaches everyone once we reconnect — see
+        // the full-state resync in _connect's 'open' handler below), but it
+        // hasn't gone anywhere yet. Reflected honestly in the status pill
+        // rather than silently showing "reconnexion…" as if nothing were
+        // at stake.
+        this.hasPendingLocalChanges = true
+        this.dispatchEvent(new Event('status'))
+      }
     }
     this.ydoc.on('update', this._onDocUpdate)
 
@@ -77,6 +101,19 @@ export class SimpleProvider extends EventTarget {
       // Announce presence once connected.
       const update = encodeAwarenessUpdate(this.awareness, [this.ydoc.clientID])
       this._sendText(JSON.stringify({ type: 'awareness', data: toBase64(update) }))
+      // Re-send this tab's entire document state, not just new updates
+      // going forward. Two reasons: any edit made while disconnected never
+      // actually reached the server (see _onDocUpdate above — `_sendBinary`
+      // is a no-op while offline), and this "replay everything" relay
+      // doesn't implement sync-step1/2 to ask the server what it's
+      // missing. Yjs updates are idempotent/commutative, so re-sending the
+      // full state is always safe — the server and every peer just merge
+      // it, whether or not they already had all of it.
+      if (this.hasPendingLocalChanges) {
+        this._sendBinary(Y.encodeStateAsUpdate(this.ydoc))
+        this.hasPendingLocalChanges = false
+        this.dispatchEvent(new Event('status'))
+      }
     })
 
     ws.addEventListener('message', (event) => {
@@ -119,6 +156,11 @@ export class SimpleProvider extends EventTarget {
       } catch {
         // ignore malformed awareness payloads
       }
+    } else if (msg.type === 'title' && typeof msg.title === 'string') {
+      // Relayed, not persisted here — whoever changed it already saved it
+      // via PATCH /api/docs/:id (see editor.js). This just tells everyone
+      // else's screen right away, instead of only on their next reload.
+      this.dispatchEvent(new CustomEvent('title', { detail: { title: msg.title } }))
     }
   }
 
@@ -128,6 +170,16 @@ export class SimpleProvider extends EventTarget {
 
   _sendText(text) {
     if (this._ws && this._ws.readyState === WebSocket.OPEN) this._ws.send(text)
+  }
+
+  /** Tells every other connected client that the document's title just
+   * changed (see editor.js's title input). Relayed like awareness — not
+   * persisted through this channel, since the REST PATCH already persists
+   * it; this is purely so other open tabs update live instead of only on
+   * their next reload. A no-op while offline, same as any other send — the
+   * title stays correct on reconnect via the normal doc-metadata fetch. */
+  sendTitle(title) {
+    this._sendText(JSON.stringify({ type: 'title', title }))
   }
 
   destroy() {
