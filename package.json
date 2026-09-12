@@ -1,0 +1,19 @@
+{
+  "name": "collabtext",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Édition collaborative de texte avec suivi des modifications et assistance IA — auto-hébergé, zéro dépendance côté serveur.",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "build:client": "cd client && npm install && npm run build",
+    "test:server": "node --test server/test/*.test.js"
+  },
+  "devDependencies": {
+    "pm2": "^7.0.4"
+  }
+}

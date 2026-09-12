@@ -1,0 +1,14 @@
+services:
+  collabtext:
+    build: .
+    ports:
+      - '8787:8787'
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-claude-sonnet-4-5}
+    volumes:
+      - collabtext-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  collabtext-data:
