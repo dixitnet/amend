@@ -19,6 +19,7 @@ import {
 } from './trackChanges.js'
 import { mountChangesPanel } from './changesPanel.js'
 import { mountAIPanel } from './aiPanel.js'
+import { commentsPlugin, mountCommentsPanel } from './comments.js'
 import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
 import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
@@ -195,7 +196,9 @@ export function mountEditor(root, docId, user, docMeta) {
   aiSection.className = 'sidebar-section ai-section'
   const changesSection = document.createElement('div')
   changesSection.className = 'sidebar-section changes-section'
-  sidebar.append(trackToggleSection, aiSection, changesSection)
+  const commentsSection = document.createElement('div')
+  commentsSection.className = 'sidebar-section comments-section'
+  sidebar.append(trackToggleSection, aiSection, changesSection, commentsSection)
 
   const outlineSidebar = document.createElement('div')
   outlineSidebar.className = 'outline-sidebar'
@@ -223,6 +226,10 @@ export function mountEditor(root, docId, user, docMeta) {
   const ydoc = new Y.Doc()
   const provider = new SimpleProvider(ydoc, docId, user)
   const yXml = ydoc.getXmlFragment('prosemirror-content')
+  // Commentaires ancrés (évolution 4.2.4) : un type Yjs séparé du texte,
+  // synchronisé/persisté par la même plomberie sans rien changer au
+  // contenu ni aux exports — voir comments.js.
+  const commentsMap = ydoc.getMap('comments')
 
   // "à jour" / "enregistrement…" / "modifications non envoyées" rather than
   // just connecté/reconnexion — see provider.js's saving/hasPendingLocalChanges
@@ -259,6 +266,7 @@ export function mountEditor(root, docId, user, docMeta) {
       yUndoPlugin(),
       trackChangesPlugin(),
       selectionHighlightPlugin(),
+      commentsPlugin(ydoc, commentsMap),
       mountChangesPanel(changesSection),
       mountOutlinePanel(outlineSection),
       mountWordCount(wordCount),
@@ -341,6 +349,7 @@ export function mountEditor(root, docId, user, docMeta) {
   }
 
   mountAIPanel(aiSection, () => view)
+  const comments = mountCommentsPanel(commentsSection, ydoc, commentsMap, () => view, user)
 
   function mkButton(label, title) {
     const btn = document.createElement('button')
@@ -356,6 +365,7 @@ export function mountEditor(root, docId, user, docMeta) {
       view.destroy()
       provider.destroy()
       presence.destroy()
+      comments.destroy()
     },
   }
 }

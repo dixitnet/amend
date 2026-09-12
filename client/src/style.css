@@ -298,6 +298,15 @@ span.author-color {
   border-radius: 2px;
 }
 
+/* Passage commenté (voir comments.js) — un simple lavis de la couleur de
+   la personne qui a commenté, une décoration recalculée à chaque
+   modification du document, jamais une marque stockée dedans (donc absent
+   des exports .md/.pdf, comme voulu). */
+.comment-highlight {
+  background: color-mix(in srgb, var(--comment-color, var(--accent)) 22%, transparent);
+  border-bottom: 2px solid var(--comment-color, var(--accent));
+}
+
 /* "!!" marker (see tkMarker.js): the real "!!" characters stay in the
    document (font-size: 0 just makes them invisible) — the emoji is a CSS
    ::after, not stored text — so the cursor, selection, copy/paste and the
@@ -377,6 +386,19 @@ button.btn-preset { background: var(--bg); border: 1px solid var(--border); colo
   resize: vertical;
 }
 .ai-status { font-size: 12px; color: var(--muted); min-height: 1.2em; }
+
+/* ---------- Comments panel (comments.js) ---------- */
+.comments-section textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
 
 /* ---------- Name modal ---------- */
 .name-modal-overlay {
