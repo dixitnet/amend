@@ -1,0 +1,7 @@
+[Unit]
+Description=Sauvegarde CollabText vers le NAS
+
+[Service]
+Type=oneshot
+User=collab
+ExecStart=/opt/collabtext/backup.sh

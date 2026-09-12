@@ -1,0 +1,17 @@
+[Unit]
+Description=CollabText backend
+After=network.target
+
+[Service]
+Type=simple
+User=collab
+WorkingDirectory=/opt/collabtext/app
+ExecStart=/usr/bin/node server/server.js
+EnvironmentFile=/opt/collabtext/app/.env
+Restart=on-failure
+RestartSec=5
+MemoryMax=1500M
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

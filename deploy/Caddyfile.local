@@ -1,0 +1,7 @@
+# Phase réseau local uniquement — pas de domaine, pas de HTTPS encore.
+# Voir la section 13 du guide (claude/serveur-production-collabtext.md dans
+# le projet) pour la version à internet, une fois l'authentification en
+# place dans l'appli.
+:80 {
+    reverse_proxy localhost:8787
+}
