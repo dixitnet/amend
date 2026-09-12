@@ -87,6 +87,7 @@ a { color: var(--accent); }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
@@ -106,6 +107,29 @@ a { color: var(--accent); }
 }
 .star-btn.starred { color: var(--accent); }
 .star-btn:disabled { cursor: default; opacity: 0.6; }
+
+/* Suppression d'un document (voir home.js) : discret par défaut (texte
+   atténué, pas de fond) pour ne pas dominer visuellement une liste faite
+   pour ouvrir des documents, mais passe en rouge plein une fois le premier
+   clic reçu ("Confirmer ?") pour que le geste destructeur soit sans
+   ambiguïté juste avant qu'il devienne réel. */
+.delete-doc-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.delete-doc-btn:hover { border-color: var(--border); color: var(--danger); }
+.delete-doc-btn.confirming {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+.delete-doc-btn:disabled { cursor: default; opacity: 0.6; }
 
 /* ---------- Editor layout ---------- */
 /* Full page: a full-width top banner, then the three-column layout below

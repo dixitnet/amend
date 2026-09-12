@@ -3,7 +3,7 @@
 // Deliberately simple so a self-hosted instance needs nothing but a
 // writable folder.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, renameSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, renameSync, unlinkSync } from 'node:fs'
 import { appendFile as appendFileAsync } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomId } from './ws.js'
@@ -170,6 +170,29 @@ export class Storage {
 
   _logPath(id) {
     return join(this.dataDir, `${id}.log`)
+  }
+
+  /** Supprime un document : sorti du registre (donc de la liste et de
+   * l'accès direct — getDoc/listDocs ne le voient plus), son journal de
+   * modifications supprimé du disque. Irréversible — pas de corbeille pour
+   * cette première version (voir la conception détaillée dans README.md
+   * pour une suppression douce éventuelle, une fois les droits en place). */
+  deleteDoc(id) {
+    const registry = this._readRegistry()
+    if (!registry[id]) return false
+    delete registry[id]
+    this._writeRegistry(registry)
+    // Annule tout ce qui restait en tampon pour ce document (voir
+    // appendUpdate/_flush) — sinon un flush différé pourrait recréer le
+    // fichier juste après sa suppression.
+    const timer = this._flushTimers.get(id)
+    if (timer) clearTimeout(timer)
+    this._flushTimers.delete(id)
+    this._pending.delete(id)
+    this._flushChain.delete(id)
+    const path = this._logPath(id)
+    if (existsSync(path)) unlinkSync(path)
+    return true
   }
 
   /** Buffers one update for the document's log; actually written to disk

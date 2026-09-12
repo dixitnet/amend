@@ -151,6 +151,12 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, doc)
   }
 
+  if (docMatch && req.method === 'DELETE') {
+    const ok = storage.deleteDoc(docMatch[1])
+    if (!ok) return sendJson(res, 404, { error: 'document introuvable' })
+    return sendJson(res, 200, { ok: true })
+  }
+
   if (pathname === '/api/style' && req.method === 'GET') {
     return sendJson(res, 200, storage.getStyle())
   }

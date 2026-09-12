@@ -91,7 +91,40 @@ export async function mountHome(root) {
       titleWrap.className = 'doc-list-title'
       titleWrap.append(starBtn, link)
 
-      item.append(titleWrap, date)
+      // Suppression à deux clics plutôt qu'un window.confirm() : le bouton
+      // devient "Confirmer ?" pendant 3 secondes, un second clic dans ce
+      // délai supprime réellement — sinon il revient tout seul à son état
+      // normal (clic ailleurs, ou simplement le temps qui passe).
+      const deleteBtn = document.createElement('button')
+      deleteBtn.type = 'button'
+      deleteBtn.className = 'delete-doc-btn'
+      deleteBtn.textContent = 'Supprimer'
+      deleteBtn.title = 'Supprimer ce document'
+      let confirmTimer = null
+      function resetDeleteBtn() {
+        clearTimeout(confirmTimer)
+        confirmTimer = null
+        deleteBtn.textContent = 'Supprimer'
+        deleteBtn.classList.remove('confirming')
+      }
+      deleteBtn.addEventListener('click', async () => {
+        if (!confirmTimer) {
+          deleteBtn.textContent = 'Confirmer ?'
+          deleteBtn.classList.add('confirming')
+          confirmTimer = setTimeout(resetDeleteBtn, 3000)
+          return
+        }
+        resetDeleteBtn()
+        deleteBtn.disabled = true
+        const res = await fetch(`/api/docs/${doc.id}`, { method: 'DELETE' })
+        if (res.ok) {
+          item.remove()
+        } else {
+          deleteBtn.disabled = false
+        }
+      })
+
+      item.append(titleWrap, date, deleteBtn)
       list.appendChild(item)
     }
   }
