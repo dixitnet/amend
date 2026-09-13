@@ -98,7 +98,7 @@ export function docToHtml(doc) {
 export function printDocument(doc, title, style) {
   const html = docToHtml(doc)
   const css = buildStyleCss(style, { scope: '.print-doc' })
-  const pageCss = buildPageCss(style)
+  const pageCss = buildPageCss(style, { scope: '.print-doc' })
 
   const existing = document.getElementById('print-root')
   if (existing) existing.remove()

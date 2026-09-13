@@ -45,11 +45,12 @@ d'une personne. Auto-hébergé, pensé pour être léger.
   Même convention que le `.md` pour le suivi des modifications : état
   présent pris tel quel, rien de marqué en insertion/suppression.
 - Page "Mise en page" (admin, lien depuis l'accueil) : une feuille de style
-  unique pour tous les documents — police, taille, gras, italique,
-  majuscules, alignement, espacement pour le corps de texte/citation/titres,
-  plus taille de page (A4, A5, Letter) et marges. Reflétée dans l'éditeur
-  (sauf la taille/marges de page, qui n'ont pas de sens dans un éditeur qui
-  défile — voir plus bas), en totalité à l'export PDF.
+  unique pour tous les documents — police (dont Roboto et Libre Caslon
+  Text), taille, gras, italique, majuscules, alignement, espacement et
+  interligne pour le corps de texte/citation/titres, plus taille de page
+  (A4, A5, Letter), marges et numérotation des pages. Reflétée dans
+  l'éditeur (sauf ce qui touche à la pagination, qui n'a pas de sens dans
+  un éditeur qui défile — voir plus bas), en totalité à l'export PDF.
 - Marqueur "!!" (à la "TK" journalistique, pour se signaler un passage à
   reprendre) : le texte tapé garde le code `!!` tel quel (dans le document
   comme dans l'export `.md`), mais il est affiché à l'écran comme une
@@ -1002,7 +1003,7 @@ restriction "export seulement" comme celle qui existait pour le souligné.
 `#/style`) qui lit/écrit une feuille de style unique via `GET`/`PUT
 /api/style` (`storage.js`/`server.js`, un fichier `data/style.json`, même
 esprit que le reste — pas de base de données). `styleConfig.js` centralise
-le modèle (une liste fermée de 5 polices, `DEFAULT_STYLE`) et la traduction
+le modèle (une liste fermée de polices, `DEFAULT_STYLE`) et la traduction
 en CSS (`buildStyleCss`, `buildPageCss`), pour que l'éditeur et l'export
 PDF appliquent exactement la même feuille de style plutôt que deux copies à
 maintenir. Reflet dans l'éditeur (`editor.js`) : police, taille, gras,
@@ -1131,6 +1132,71 @@ refonte — le même HTML/CSS habillé de `@page` server simplement rejoué
 derrière un navigateur headless plutôt que dans celui de la personne. Pour
 un usage personnel/petite équipe, l'option 1 est très probablement
 suffisante durablement, pas juste un pis-aller en attendant mieux.
+
+### Polices Google Fonts, interligne et numéros de page — fait (13/09/2026)
+
+Demandé (13/09/2026) : ajouter Roboto et Libre Caslon Text (deux polices
+Google Fonts) à la liste de polices, un réglage d'interligne pour le corps
+de texte (1 / 1,15 / 1,5 / 2), et une numérotation de page (oui/non +
+numéro de départ) pour l'export PDF.
+
+**Polices — auto-hébergées, pas chargées depuis Google Fonts** : cohérent
+avec le choix déjà fait pour ce projet (liste fermée de polices, voir
+plus haut) — charger depuis `fonts.googleapis.com`/`fonts.gstatic.com` au
+moment de l'affichage ajouterait une dépendance réseau, et risquerait un
+export PDF différent de ce qui a été réglé si jamais le fichier n'a pas eu
+le temps de se charger. Les fichiers `.woff2` (Roboto et Libre Caslon Text,
+poids normal/gras, romain/italique) viennent du paquet npm `@fontsource`
+correspondant — un simple moyen d'obtenir les fichiers de police de Google
+Fonts sans dépendre de leur CDN à l'exécution — copiés une fois dans
+`client/src/fonts/` (~180 Ko au total) puis le paquet npm retiré ; seuls
+les fichiers restent dans le dépôt, déclarés en `@font-face` dans
+`style.css` et ajoutés à `FONT_OPTIONS` (`styleConfig.js`). Limite mineure
+assumée : Libre Caslon Text n'a pas de variante gras-italique publiée par
+sa fonderie — le navigateur retombe sur la variante la plus proche si les
+deux réglages sont combinés avec cette police.
+
+**Interligne** : un nouveau réglage `body.lineHeight` (1 / 1,15 / 1,5 / 2),
+uniquement sur le corps de texte — demande précise, citation et titres
+n'en ont pas. S'applique à l'identique dans l'éditeur et à l'export PDF,
+comme le reste de la feuille de style (`buildStyleCss`, `styleConfig.js`).
+
+**Numéros de page — export PDF uniquement** (comme taille de page/marges,
+aucun sens dans l'éditeur en défilement continu) : un nouveau
+`page.pageNumbers = { enabled, startAt }`. Techniquement, ça s'appuie sur
+une fonctionnalité récente des navigateurs plutôt que sur une bibliothèque
+de pagination : `@page { @bottom-center { content: counter(page) } }`
+(marges de page en CSS d'impression, supporté par Chrome depuis la version
+131 et Safari depuis la 18.2) pour afficher le numéro, et
+`counter-reset: page N` sur le conteneur du document pour démarrer à un
+numéro donné plutôt qu'à 1. Comme le reste de l'export PDF (`pdfExport.js`),
+zéro nouvelle dépendance — juste deux règles CSS de plus dans la feuille de
+style déjà générée. Support Firefox non vérifié (pas le navigateur utilisé
+pour tester ce projet, voir plus haut).
+
+**Vérifié** : formulaire "Mise en page" testé en direct (Roboto et Libre
+Caslon Text sélectionnables dans les trois blocs de police, champ
+"Interligne" présent uniquement sous "Corps de texte", champs "Numéros de
+page"/"Commencer à" sous "Page"), enregistrement confirmé via `GET
+/api/style`, police et interligne reflétés dans l'éditeur (`document.fonts`
+confirme le fichier réellement chargé, pas un repli silencieux sur
+Georgia), et export PDF intercepté (`window.print`) : le HTML capturé
+contient bien `@bottom-center { content: counter(page) }`, `counter-reset:
+page 2` (pour un numéro de départ réglé à 3) et `line-height: 1.5` sur les
+paragraphes. Configuration de test remise à `DEFAULT_STYLE` après
+vérification (réglage global à l'instance, pas par document).
+
+**À faire chez toi pour que ça s'applique** : un `npm run build:client`
+suffit (fichiers de police + JS/CSS, comme d'habitude) ; le serveur n'a pas
+de nouvelle route, mais `server/storage.js` a un mirroir de
+`DEFAULT_STYLE`/`mergeStyle` mis à jour pour ces deux nouveaux champs — pas
+besoin de redémarrer pm2 pour que ça fonctionne (le client envoie toujours
+l'objet complet au `PUT`, et le serveur le stocke tel quel), mais un
+redémarrage à l'occasion resterait plus propre pour que le *mirroir*
+serveur soit lui aussi à jour (sinon `GET /api/style` sur un tout premier
+appel, avant tout enregistrement, retomberait sur l'ancien défaut serveur
+sans `lineHeight`/`pageNumbers` — sans conséquence pratique, le formulaire
+et l'éditeur ont leurs propres valeurs par défaut de secours).
 
 #### Export PDF fiable, indépendant du navigateur, pour envoi imprimeur — recherche d'options (12/09/2026)
 

@@ -1,3 +1,63 @@
+/* Polices auto-hébergées pour la feuille de style admin (styleConfig.js) —
+   fichiers .woff2 embarqués dans le build (voir client/src/fonts/), pas de
+   dépendance réseau à Google Fonts à l'affichage ni à l'export PDF : même
+   raisonnement que le reste de la liste fermée de polices (garantir que le
+   rendu PDF corresponde à ce qui a été réglé, peu importe la machine qui
+   génère le PDF). Une seule graisse manque : Libre Caslon Text n'a pas de
+   variante gras-italique publiée par sa fonderie ; le navigateur retombe
+   sur la variante la plus proche si jamais gras + italique sont combinés
+   avec cette police.
+*/
+@font-face {
+  font-family: 'Roboto';
+  src: url('./fonts/roboto-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Roboto';
+  src: url('./fonts/roboto-latin-400-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Roboto';
+  src: url('./fonts/roboto-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Roboto';
+  src: url('./fonts/roboto-latin-700-italic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Libre Caslon Text';
+  src: url('./fonts/libre-caslon-text-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Libre Caslon Text';
+  src: url('./fonts/libre-caslon-text-latin-400-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Libre Caslon Text';
+  src: url('./fonts/libre-caslon-text-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #fdfcfb;
   --fg: #1f1b16;

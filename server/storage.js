@@ -31,8 +31,15 @@ const DEFAULT_MAX_UNCOMPACTED_OPS = 1000
 // client/src/styleConfig.js; kept in sync by hand (small, stable shape,
 // not worth a shared module between two separate npm packages for this).
 const DEFAULT_STYLE = {
-  page: { size: 'A4', marginTop: 25, marginRight: 20, marginBottom: 25, marginLeft: 20 },
-  body: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 0, spaceAfter: 8 },
+  page: {
+    size: 'A4',
+    marginTop: 25,
+    marginRight: 20,
+    marginBottom: 25,
+    marginLeft: 20,
+    pageNumbers: { enabled: false, startAt: 1 },
+  },
+  body: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 0, spaceAfter: 8, lineHeight: 1.15 },
   quote: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 4, spaceAfter: 8 },
   heading: {
     font: 'system',
@@ -53,7 +60,11 @@ const DEFAULT_STYLE = {
 function mergeStyle(partial) {
   const p = partial || {}
   return {
-    page: { ...DEFAULT_STYLE.page, ...(p.page || {}) },
+    page: {
+      ...DEFAULT_STYLE.page,
+      ...(p.page || {}),
+      pageNumbers: { ...DEFAULT_STYLE.page.pageNumbers, ...((p.page && p.page.pageNumbers) || {}) },
+    },
     body: { ...DEFAULT_STYLE.body, ...(p.body || {}) },
     quote: { ...DEFAULT_STYLE.quote, ...(p.quote || {}) },
     heading: {

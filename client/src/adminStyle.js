@@ -5,7 +5,7 @@
 // app: anyone with the URL can reach this page, same as anyone can open
 // any document).
 
-import { FONT_OPTIONS, ALIGN_OPTIONS, PAGE_SIZE_OPTIONS, DEFAULT_STYLE, loadStyle, saveStyle } from './styleConfig.js'
+import { FONT_OPTIONS, ALIGN_OPTIONS, PAGE_SIZE_OPTIONS, LINE_HEIGHT_OPTIONS, DEFAULT_STYLE, loadStyle, saveStyle } from './styleConfig.js'
 
 function field(labelText, inputEl) {
   const label = document.createElement('label')
@@ -52,7 +52,7 @@ function checkboxEl(checked) {
  * per heading level instead of a single "taille" field (titres share
  * everything else, but not their size — see the design note in
  * README2.md). */
-function blockFieldset(legendText, block, { headingSizes } = {}) {
+function blockFieldset(legendText, block, { headingSizes, lineHeight } = {}) {
   const fieldset = document.createElement('fieldset')
   fieldset.className = 'style-fieldset'
   const legend = document.createElement('legend')
@@ -101,6 +101,17 @@ function blockFieldset(legendText, block, { headingSizes } = {}) {
   const alignSelect = selectEl(ALIGN_OPTIONS, block.align)
   grid.appendChild(field('Alignement', alignSelect))
 
+  // Uniquement pour le corps de texte (voir l'appel à blockFieldset plus
+  // bas) — citation et titres n'en ont pas besoin pour l'instant.
+  let lineHeightSelect = null
+  if (lineHeight) {
+    lineHeightSelect = selectEl(
+      LINE_HEIGHT_OPTIONS.map((v) => ({ id: String(v), label: String(v) })),
+      String(block.lineHeight ?? DEFAULT_STYLE.body.lineHeight)
+    )
+    grid.appendChild(field('Interligne', lineHeightSelect))
+  }
+
   const spaceBeforeInput = numberEl(block.spaceBefore, { min: 0, max: 200 })
   grid.appendChild(field('Espace avant (pt)', spaceBeforeInput))
 
@@ -121,6 +132,7 @@ function blockFieldset(legendText, block, { headingSizes } = {}) {
       }
       if (headingSizes) out.sizes = sizeInputs.map((inp) => Number(inp.value) || 12)
       else out.size = Number(sizeInput.value) || 11
+      if (lineHeightSelect) out.lineHeight = Number(lineHeightSelect.value) || DEFAULT_STYLE.body.lineHeight
       return out
     },
   }
@@ -149,6 +161,16 @@ function pageFieldset(page) {
   const marginLeft = numberEl(page.marginLeft, { min: 0, max: 100 })
   grid.appendChild(field('Marge gauche (mm)', marginLeft))
 
+  // Export PDF uniquement (voir buildPageCss dans styleConfig.js) — sans
+  // effet dans l'éditeur en défilement continu, même principe que la
+  // taille de page et les marges juste au-dessus.
+  const pageNumbers = page.pageNumbers || DEFAULT_STYLE.page.pageNumbers
+  const pageNumbersInput = checkboxEl(pageNumbers.enabled)
+  grid.appendChild(field('Numéros de page', pageNumbersInput))
+
+  const pageNumbersStart = numberEl(pageNumbers.startAt, { min: 1, max: 9999 })
+  grid.appendChild(field('Commencer à', pageNumbersStart))
+
   return {
     el: fieldset,
     read() {
@@ -158,6 +180,10 @@ function pageFieldset(page) {
         marginRight: Number(marginRight.value) || 0,
         marginBottom: Number(marginBottom.value) || 0,
         marginLeft: Number(marginLeft.value) || 0,
+        pageNumbers: {
+          enabled: pageNumbersInput.checked,
+          startAt: Number(pageNumbersStart.value) || 1,
+        },
       }
     },
   }
@@ -191,7 +217,7 @@ export async function mountAdminStyle(root) {
   form.className = 'style-form'
 
   const pageF = pageFieldset(style.page)
-  const bodyF = blockFieldset('Corps de texte', style.body)
+  const bodyF = blockFieldset('Corps de texte', style.body, { lineHeight: true })
   const quoteF = blockFieldset('Citation', style.quote)
   const headingF = blockFieldset('Titres', style.heading, { headingSizes: style.heading.sizes })
 

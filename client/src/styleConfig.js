@@ -16,7 +16,18 @@ export const FONT_OPTIONS = [
   { id: 'times', label: 'Times New Roman', family: '"Times New Roman", Times, serif' },
   { id: 'arial', label: 'Arial', family: 'Arial, Helvetica, sans-serif' },
   { id: 'mono', label: 'Monospace', family: '"Courier New", Courier, monospace' },
+  // Auto-hébergées (fichiers .woff2 dans client/src/fonts/, @font-face dans
+  // style.css) plutôt que chargées depuis Google Fonts au moment de
+  // l'affichage — même raisonnement que le reste de cette liste fermée :
+  // aucune dépendance réseau, et garantie que l'export PDF utilise
+  // exactement la même police que celle réglée ici.
+  { id: 'roboto', label: 'Roboto', family: '"Roboto", -apple-system, sans-serif' },
+  { id: 'libre-caslon-text', label: 'Libre Caslon Text', family: '"Libre Caslon Text", Georgia, serif' },
 ]
+
+// Interligne du corps de texte uniquement (voir DEFAULT_STYLE.body plus bas)
+// — citation et titres n'en ont pas besoin pour l'instant, demande précise.
+export const LINE_HEIGHT_OPTIONS = [1, 1.15, 1.5, 2]
 
 export const ALIGN_OPTIONS = [
   { id: 'left', label: 'Gauche' },
@@ -37,8 +48,18 @@ export const PAGE_SIZE_OPTIONS = [
  * niveau 1-5, everything else shared — see the design note in README2.md
  * on why titres don't get five fully independent style blocks). */
 export const DEFAULT_STYLE = {
-  page: { size: 'A4', marginTop: 25, marginRight: 20, marginBottom: 25, marginLeft: 20 },
-  body: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 0, spaceAfter: 8 },
+  page: {
+    size: 'A4',
+    marginTop: 25,
+    marginRight: 20,
+    marginBottom: 25,
+    marginLeft: 20,
+    // Numérotation des pages — export PDF seulement (voir buildPageCss plus
+    // bas) : aucun sens dans l'éditeur en défilement continu, même principe
+    // que taille de page/marges juste au-dessus.
+    pageNumbers: { enabled: false, startAt: 1 },
+  },
+  body: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 0, spaceAfter: 8, lineHeight: 1.15 },
   quote: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 4, spaceAfter: 8 },
   heading: {
     font: 'system',
@@ -106,7 +127,8 @@ function blockDeclarations(block) {
  */
 export function buildStyleCss(style, { scope }) {
   const lines = []
-  lines.push(`${scope} p { font-size: ${style.body.size}pt; ${blockDeclarations(style.body)} }`)
+  const bodyLineHeight = style.body.lineHeight ?? DEFAULT_STYLE.body.lineHeight
+  lines.push(`${scope} p { font-size: ${style.body.size}pt; line-height: ${bodyLineHeight}; ${blockDeclarations(style.body)} }`)
   lines.push(
     `${scope} blockquote { font-size: ${style.quote.size}pt; ${blockDeclarations(style.quote)} }`
   )
@@ -119,9 +141,26 @@ export function buildStyleCss(style, { scope }) {
 }
 
 /** `@page` rule for the PDF/print export — the one place page size and
- * margins actually apply. */
-export function buildPageCss(style) {
+ * margins actually apply. `scope` (the `.print-doc` container, same as
+ * buildStyleCss) is where the starting page number gets reset — see
+ * `pageNumbers` below. Numérotation des pages : `@page { @bottom-center {
+ * content: counter(page) } }` (support Chrome 131+/Safari 18.2+ — voir
+ * README.md, section "Feuille de style admin") plutôt qu'une bibliothèque
+ * de pagination : la fonctionnalité existe maintenant nativement dans les
+ * navigateurs déjà ciblés par ce projet pour l'export PDF. */
+export function buildPageCss(style, { scope } = {}) {
   const p = style.page
   const size = p.size === 'Letter' ? 'letter' : p.size === 'A5' ? 'A5' : 'A4'
-  return `@page { size: ${size}; margin: ${p.marginTop}mm ${p.marginRight}mm ${p.marginBottom}mm ${p.marginLeft}mm; }`
+  const pageNumbers = p.pageNumbers || DEFAULT_STYLE.page.pageNumbers
+  const bottomCenter = pageNumbers.enabled
+    ? `\n  @bottom-center { content: counter(page); font-family: ${fontFamily(style.body.font)}; font-size: 9pt; }`
+    : ''
+  const pageRule = `@page { size: ${size}; margin: ${p.marginTop}mm ${p.marginRight}mm ${p.marginBottom}mm ${p.marginLeft}mm;${bottomCenter} }`
+  if (!pageNumbers.enabled || !scope) return pageRule
+  // -1 : le compteur "page" du navigateur s'incrémente avant l'affichage de
+  // chaque page (voir le commentaire de la spec CSS Paged Media) — pour
+  // que la première page affiche `startAt`, il faut le réinitialiser à
+  // startAt - 1 juste avant.
+  const startAt = Math.max(1, Number(pageNumbers.startAt) || 1)
+  return `${pageRule}\n${scope} { counter-reset: page ${startAt - 1}; }`
 }
