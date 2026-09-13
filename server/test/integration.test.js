@@ -153,6 +153,23 @@ test('refuses a WebSocket connection to an unknown document', async () => {
   await withTimeout(once(ws, 'error'), 2000, 'error on unknown doc')
 })
 
+test('refuses an 11th simultaneous connection to the same document (MAX_USERS_PER_DOC)', async () => {
+  const doc = await createDoc('Salle pleine')
+  const clients = []
+  for (let i = 0; i < 10; i++) {
+    const ws = connect(doc.id, `User${i}`)
+    clients.push(ws)
+  }
+  await withTimeout(Promise.all(clients.map((ws) => once(ws, 'open'))), 3000, 'first 10 opening')
+
+  const eleventh = connect(doc.id, 'User10')
+  // Same rejection shape as the unknown-document case above: a plain HTTP
+  // error response instead of a completed handshake.
+  await withTimeout(once(eleventh, 'error'), 2000, 'error on full room')
+
+  for (const ws of clients) ws.close()
+})
+
 test('AI endpoint reports missing API key clearly (501)', async () => {
   const res = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',

@@ -1597,3 +1597,63 @@ renommage/couleur en cours de session (reporté) ; compaction du journal +
 versions majeures + retour en arrière (chantier combiné, nécessite d'abord
 les droits/comptes utilisateur·rice — voir « Droits et authentification »
 plus haut — et sera réservé aux admins).
+
+### Optimisation des greffons à fort volume, plafond de participants et alerte sur les modifications en attente — fait (13/09/2026)
+
+Suite à `rapport-test-charge-1.md` (test de charge du 13/09/2026, constats
+2.2 et 2.3) et aux décisions prises dans la foulée dans le projet Claude
+« Collab » : quatre correctifs/évolutions.
+
+**Recalcul incrémental au lieu d'un parcours du document entier à chaque
+transaction** (`wordcount.js`, `outline.js`, `tkMarker.js`,
+`trackChanges.js`/`changesPanel.js`, nouveau fichier `incrementalScan.js`)
+— le constat 2.2 identifiait ces quatre greffons comme la cause probable du
+ralentissement du `view.dispatch()` observé pendant le test de charge : ils
+recalculaient tout (compteur de mots, plan du document, marqueurs "!!",
+liste des modifications) à chaque frappe, y compris les frappes des autres
+personnes connectées. `incrementalScan.js` fournit `touchedBlockRange(tr)`
+(la portion du document qu'une transaction a réellement touchée, élargie
+aux blocs de haut niveau concernés) à partir de `tr.steps`/`tr.mapping` —
+chaque greffon l'utilise pour ne recalculer que cette portion plutôt que le
+document entier, puis ajuste son état existant (un compteur pour
+`wordcount.js`, une liste d'éléments repositionnée via le mapping pour
+`outline.js`/`changesPanel.js`, un `DecorationSet.map()` pour `tkMarker.js`)
+au lieu de tout reconstruire. `trackChanges.js` expose maintenant
+séparément `scanChangesInRange`/`mergeAdjacentChanges`/`updateChangeList` —
+`listChanges(doc)` (utilisé ailleurs, notamment par
+`window.__debugListChanges`) garde exactement le même comportement, juste
+recomposé à partir de ces briques.
+
+**Répétition de l'affichage limitée à une fois par seconde** pour le
+compteur de mots, le plan du document et le bandeau "!!" (`throttle.js`,
+nouveau fichier) — une latence d'affichage d'une seconde est imperceptible
+pour ces trois indicateurs (décision explicite, `throttle` avec rappel de
+fin de fenêtre pour ne jamais rester figé pendant une frappe continue).
+Volontairement **pas** appliqué au panneau des modifications
+(`changesPanel.js`), qui reste rendu à chaque transaction comme avant —
+c'est celui sur lequel on agit (accepter/rejeter), la priorité reste sa
+réactivité plutôt que le coût de son rendu (déjà résolu par le point
+précédent).
+
+**Alerte au-delà de 500 modifications en attente** (`changesPanel.js`) —
+suite au constat 2.3 (1985 entrées d'un coup à la fin du test de charge,
+liste devenue impraticable bien avant ce volume) : un bandeau d'avertissement
+apparaît dans le panneau au-delà de 500 modifications non traitées,
+invitant à en accepter/rejeter une partie. Délibérément un avertissement et
+non un blocage de la frappe.
+
+**Plafond de 10 participants simultanés par document** (`server.js`,
+`MAX_USERS_PER_DOC`) — décision produit, pas une limite technique mesurée
+(le serveur n'a montré aucun signe de difficulté pendant le test de
+charge) : une 11e tentative de connexion WebSocket sur un document déjà à
+10 est refusée (HTTP 503 avant complétion du handshake). Côté client
+(`provider.js`), une tentative de reconnexion qui échoue 3 fois de suite
+sans jamais atteindre l'état "ouvert" est traitée comme probablement un
+refus plutôt qu'un simple problème réseau transitoire (heuristique : l'API
+WebSocket du navigateur n'expose pas le code HTTP d'un handshake refusé) —
+l'indicateur de connexion (`editor.js`) affiche alors "connexion refusée
+(document plein ?)" plutôt qu'un "reconnexion…" silencieux et sans fin ; la
+reconnexion automatique continue en arrière-plan, donc l'onglet revient tout
+seul dès qu'une place se libère. Testé : `server/test/integration.test.js`
+vérifie qu'une 11e connexion à un document déjà à 10 participants échoue
+bien avant handshake.

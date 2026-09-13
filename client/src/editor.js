@@ -18,6 +18,9 @@ import {
   selectionHighlightPlugin,
   richPastePlugin,
   pendingBreakPlugin,
+  listChanges,
+  acceptChange,
+  rejectChange,
 } from './trackChanges.js'
 import { mountChangesPanel } from './changesPanel.js'
 import { mountAIPanel } from './aiPanel.js'
@@ -342,7 +345,9 @@ export function mountEditor(root, docId, user, docMeta) {
     if (!provider.connected) {
       status.textContent = provider.hasPendingLocalChanges
         ? '○ hors connexion — modifications non envoyées'
-        : '○ reconnexion…'
+        : provider.likelyRejected
+          ? '○ connexion refusée (document plein ?)'
+          : '○ reconnexion…'
     } else if (provider.saving) {
       status.textContent = '● enregistrement…'
     } else {
@@ -525,6 +530,17 @@ export function mountEditor(root, docId, user, docMeta) {
       presence.destroy()
       comments.destroy()
     },
+    view,
+    user,
   }
 }
 
+// TEMPORAIRE (campagne de tests de charge, a retirer une fois terminee) :
+// expose la fonction de montage elle-meme (pour monter plusieurs
+// "utilisateurs" simules dans un seul onglet, sans ouvrir autant de vrais
+// onglets) et les fonctions de suivi des modifications necessaires pour
+// scripter accepter/rejeter en masse.
+window.__debugMountEditor = mountEditor
+window.__debugListChanges = listChanges
+window.__debugAcceptChange = acceptChange
+window.__debugRejectChange = rejectChange

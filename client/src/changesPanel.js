@@ -1,5 +1,23 @@
-import { Plugin } from 'prosemirror-state'
-import { listChanges, acceptChange, rejectChange, acceptAllChanges, rejectAllChanges } from './trackChanges.js'
+import { Plugin, PluginKey } from 'prosemirror-state'
+import {
+  scanChangesInRange,
+  updateChangeList,
+  mergeAdjacentChanges,
+  acceptChange,
+  rejectChange,
+  acceptAllChanges,
+  rejectAllChanges,
+} from './trackChanges.js'
+
+// Au-delà de ce nombre de modifications en attente, le panneau devient
+// difficile à suivre (voir rapport-test-charge-1.md, constat 2.3 : 1985
+// entrées d'un coup à la fin d'un test de charge rendaient la liste
+// impraticable bien avant ce volume) — un bandeau invite à en traiter une
+// partie plutôt que de laisser la pile grossir silencieusement. Choix
+// délibéré : un avertissement, pas un blocage de la frappe.
+const PENDING_WARNING_THRESHOLD = 500
+
+const changesKey = new PluginKey('changesList')
 
 function relativeTime(ts) {
   const s = Math.round((Date.now() - ts) / 1000)
@@ -15,7 +33,16 @@ function relativeTime(ts) {
 /**
  * Renders the "modifications en attente" sidebar and keeps it in sync with
  * the editor via a plugin `view()` hook (so it updates on every doc change,
- * local or remote, without polling).
+ * local or remote, without polling). The underlying raw change list is
+ * kept in plugin state (see trackChanges.js's scanChangesInRange/
+ * updateChangeList) incrementally — only the part of the document a
+ * transaction touched gets rescanned, not the whole document on every
+ * keystroke (see rapport-test-charge-1.md, constat 2.2) — and merged into
+ * display-ready entries on every render, which stays cheap since merging
+ * is proportional to the number of changes, not the document's size.
+ * Deliberately NOT throttled like wordcount.js/outline.js/tkMarker.js:
+ * this is the panel people actually act on (accept/reject), so it stays
+ * exactly as responsive as before.
  */
 export function mountChangesPanel(container) {
   let view = null
@@ -34,7 +61,8 @@ export function mountChangesPanel(container) {
 
   function render(force) {
     if (!view) return
-    const changes = listChanges(view.state.doc)
+    const raw = changesKey.getState(view.state) ?? []
+    const changes = mergeAdjacentChanges(raw)
     const signature = signatureOf(changes)
     if (!force && signature === lastSignature) return
     lastSignature = signature
@@ -60,6 +88,14 @@ export function mountChangesPanel(container) {
       header.appendChild(bulk)
     }
     container.appendChild(header)
+
+    if (changes.length > PENDING_WARNING_THRESHOLD) {
+      const warning = document.createElement('p')
+      warning.className = 'changes-warning'
+      warning.textContent =
+        `${changes.length} modifications en attente — la liste devient difficile à suivre au-delà de ${PENDING_WARNING_THRESHOLD}, pensez à en accepter ou rejeter une partie.`
+      container.appendChild(warning)
+    }
 
     if (changes.length === 0) {
       const empty = document.createElement('p')
@@ -136,6 +172,11 @@ export function mountChangesPanel(container) {
   }
 
   const plugin = new Plugin({
+    key: changesKey,
+    state: {
+      init: (_, state) => scanChangesInRange(state.doc, 0, state.doc.content.size),
+      apply: (tr, raw) => updateChangeList(raw, tr),
+    },
     view(editorView) {
       view = editorView
       render(true)

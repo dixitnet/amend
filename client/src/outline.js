@@ -1,33 +1,46 @@
-import { Plugin, TextSelection } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
+import { updateItemList } from './incrementalScan.js'
+import { throttle } from './throttle.js'
 
-/** Every heading in the document, in order, as { pos, level, text }. `pos`
- * is the position right before the heading node (its own doc position) —
- * navigating there resolves to just inside it. Built purely from heading
- * levels, regardless of what the heading sits inside (a plain document, a
- * blockquote...): the outline mirrors heading levels only, not document
- * structure. */
-export function getOutline(doc) {
+/** Every heading within [from, to), as { pos, level, text }. `pos` is the
+ * position right before the heading node (its own doc position) —
+ * navigating there resolves to just inside it. */
+function scanHeadingsInRange(doc, from, to) {
   const items = []
-  doc.descendants((node, pos) => {
+  doc.nodesBetween(from, to, (node, pos) => {
     if (node.type.name === 'heading') {
-      items.push({ pos, level: node.attrs.level, text: node.textContent.trim() })
+      if (pos >= from && pos < to) items.push({ pos, level: node.attrs.level, text: node.textContent.trim() })
       return false
     }
   })
   return items
 }
 
+/** Every heading in the document, in order, as { pos, level, text }. Built
+ * purely from heading levels, regardless of what the heading sits inside
+ * (a plain document, a blockquote...): the outline mirrors heading levels
+ * only, not document structure. */
+export function getOutline(doc) {
+  return scanHeadingsInRange(doc, 0, doc.content.size)
+}
+
 function signatureOf(items) {
   return items.map((i) => `${i.level}:${i.pos}:${i.text}`).join('|')
 }
 
+const outlineKey = new PluginKey('outline')
+const RENDER_INTERVAL_MS = 1000
+
 /**
  * Renders a "plan du document" panel listing every heading (levels 1-5),
  * indented by level, that jumps the editor's selection (and scrolls it
- * into view) to a heading when clicked. Kept in sync via a plugin `view()`
- * hook, like changesPanel.js — including the same signature-based skip so
- * a transaction that doesn't touch any heading doesn't rebuild the list
- * (and doesn't risk swallowing a click mid-rebuild).
+ * into view) to a heading when clicked. The heading list itself is kept
+ * incrementally in plugin state (scanHeadingsInRange/updateItemList —
+ * only the part of the document a transaction touched gets rescanned,
+ * see incrementalScan.js and rapport-test-charge-1.md constat 2.2); the
+ * panel repaint is additionally throttled to at most once a second, and
+ * still skips rebuilding the DOM entirely when the list hasn't actually
+ * changed (signature-based skip, same principle as changesPanel.js).
  */
 export function mountOutlinePanel(container) {
   let view = null
@@ -65,7 +78,7 @@ export function mountOutlinePanel(container) {
 
   function render(force) {
     if (!view) return
-    const items = getOutline(view.state.doc)
+    const items = outlineKey.getState(view.state)
     const signature = signatureOf(items)
     if (!force && signature === lastSignature) return
     lastSignature = signature
@@ -101,12 +114,19 @@ export function mountOutlinePanel(container) {
     container.appendChild(list)
   }
 
+  const throttledRender = throttle(() => render(false), RENDER_INTERVAL_MS)
+
   const plugin = new Plugin({
+    key: outlineKey,
+    state: {
+      init: (_, state) => scanHeadingsInRange(state.doc, 0, state.doc.content.size),
+      apply: (tr, items) => updateItemList(items, tr, scanHeadingsInRange),
+    },
     view(editorView) {
       view = editorView
-      render(true)
+      render(true) // first paint immediately, no need to wait a second on load
       return {
-        update: () => render(false),
+        update: () => throttledRender(),
         destroy: () => {
           view = null
         },

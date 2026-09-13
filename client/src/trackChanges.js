@@ -3,6 +3,7 @@ import { Decoration, DecorationSet } from 'prosemirror-view'
 import { canJoin } from 'prosemirror-transform'
 import { ySyncPluginKey } from 'y-prosemirror'
 import { diffWords } from './diff.js'
+import { touchedBlockRange } from './incrementalScan.js'
 
 /**
  * Keeps the selection visibly highlighted even after the editor loses DOM
@@ -344,16 +345,21 @@ export function makeDispatchTransaction(view, getUser) {
   }
 }
 
-/** Lists every tracked change currently in the document, merging adjacent
- * spans from the same author/type for a cleaner "changes" panel. */
-export function listChanges(doc) {
+/** Every raw (unmerged) tracked change touching doc positions in
+ * [from, to) — insertions/deletions (via marks) and pending paragraph
+ * breaks (via the trackedBreak attr). Used both for a full-document scan
+ * (listChanges below) and, incrementally, for just the portion of the
+ * document an edit actually touched (see updateChangeList below and
+ * changesPanel.js) — see rapport-test-charge-1.md, constat 2.2. */
+export function scanChangesInRange(doc, from, to) {
   const raw = []
-  doc.descendants((node, pos) => {
-    if (node.isTextblock && node.attrs.trackedBreak) {
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (node.isTextblock && node.attrs.trackedBreak && pos >= from && pos < to) {
       const { user, userColor, ts } = node.attrs.trackedBreak
       raw.push({ type: 'break', from: pos, to: pos, user, userColor, ts, text: 'Saut de paragraphe' })
     }
     if (!node.isText) return
+    if (pos < from || pos >= to) return
     for (const type of ['insertion', 'deletion']) {
       const mark = node.marks.find((m) => m.type.name === type)
       if (mark) {
@@ -369,6 +375,17 @@ export function listChanges(doc) {
       }
     }
   })
+  return raw
+}
+
+/** Merges adjacent same-type/same-author spans in a raw change list (as
+ * produced by scanChangesInRange) into the single logical "changes" shown
+ * in the panel. Cheap — proportional to the number of changes, not the
+ * size of the document — so it's fine to redo on every transaction even
+ * though scanChangesInRange itself only needs to touch the edited part of
+ * the document. Requires `raw` sorted by `from`, which every caller here
+ * guarantees. */
+export function mergeAdjacentChanges(raw) {
   const merged = []
   for (const c of raw) {
     const last = merged[merged.length - 1]
@@ -380,6 +397,42 @@ export function listChanges(doc) {
     }
   }
   return merged
+}
+
+/** Lists every tracked change currently in the document, merging adjacent
+ * spans from the same author/type for a cleaner "changes" panel. */
+export function listChanges(doc) {
+  return mergeAdjacentChanges(scanChangesInRange(doc, 0, doc.content.size))
+}
+
+/** Incrementally updates a raw (unmerged) change list — as returned by
+ * scanChangesInRange or by a previous call to this function — for one
+ * transaction, without rescanning the whole document: entries outside the
+ * edited part of the document are kept (their `from`/`to` remapped
+ * through the transaction); only the touched range (see
+ * incrementalScan.js) is rescanned fresh. Used by changesPanel.js, which
+ * runs mergeAdjacentChanges on the result before displaying it — merging
+ * is cheap (proportional to the number of changes) so it's fine to redo
+ * on every transaction even though this rescan itself is bounded to the
+ * edited range. */
+export function updateChangeList(raw, tr) {
+  if (!tr.docChanged) return raw
+  const range = touchedBlockRange(tr)
+  if (!range) return raw
+  const inv = tr.mapping.invert()
+  const oldFrom = inv.map(range.from, -1)
+  const oldTo = inv.map(range.to, 1)
+  const kept = []
+  for (const c of raw) {
+    // A change entirely outside the touched range survives untouched
+    // (just remapped); anything that even partially overlaps it is
+    // dropped and picked back up by the fresh rescan below, so a change
+    // whose span was widened/narrowed by this edit is never left stale.
+    if (c.to > oldFrom && c.from < oldTo) continue
+    kept.push({ ...c, from: tr.mapping.map(c.from), to: tr.mapping.map(c.to) })
+  }
+  const rescanned = scanChangesInRange(tr.doc, range.from, range.to)
+  return kept.concat(rescanned).sort((a, b) => a.from - b.from)
 }
 
 export function acceptChange(view, change) {

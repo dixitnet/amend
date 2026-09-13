@@ -47,6 +47,13 @@ const MAX_COMPACT_BODY = 20_000_000
 const storage = new Storage(DATA_DIR)
 const rooms = new Rooms(storage)
 
+// Décision produit du 13/09/2026 (voir rapport-test-charge-1.md) : pas de
+// palier de test au-delà de ce nombre de participants simultanés sur un même
+// document pour l'instant. Un plafond produit délibérément prudent, pas une
+// limite technique mesurée — le serveur lui-même n'a montré aucun signe de
+// difficulté à ce niveau de charge.
+const MAX_USERS_PER_DOC = 10
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -283,6 +290,10 @@ server.on('upgrade', (req, socket) => {
   const docId = match[1]
   if (!storage.getDoc(docId)) {
     rejectUpgrade(socket, 404, 'Not Found')
+    return
+  }
+  if (rooms.presenceCount(docId) >= MAX_USERS_PER_DOC) {
+    rejectUpgrade(socket, 503, 'Too Many Participants')
     return
   }
   const user = (url.searchParams.get('user') || 'Anonyme').slice(0, 60)

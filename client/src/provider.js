@@ -44,6 +44,16 @@ export class SimpleProvider extends EventTarget {
     this.hasPendingLocalChanges = false
     this.saving = false
     this._savingTimer = null
+    // Set once several consecutive connection attempts in a row fail before
+    // ever reaching 'open' (see _connect/_scheduleReconnect below) — the
+    // signature of a rejected upgrade (e.g. the server's MAX_USERS_PER_DOC
+    // cap, see server.js) rather than an ordinary transient network blip,
+    // which usually still manages to open before dropping. The WebSocket
+    // API doesn't expose the HTTP status of a failed handshake to JS, so
+    // this is a heuristic, not a certainty — but it's enough to show
+    // something more useful than an endless silent "reconnexion…".
+    this.likelyRejected = false
+    this._consecutiveFailedAttempts = 0
 
     this._onDocUpdate = (update, origin) => {
       if (origin === this) return
@@ -93,10 +103,14 @@ export class SimpleProvider extends EventTarget {
     const ws = new WebSocket(this._wsUrl())
     ws.binaryType = 'arraybuffer'
     this._ws = ws
+    let openedThisAttempt = false
 
     ws.addEventListener('open', () => {
+      openedThisAttempt = true
       this.connected = true
       this._reconnectDelay = 1000
+      this._consecutiveFailedAttempts = 0
+      this.likelyRejected = false
       this.dispatchEvent(new Event('status'))
       // Announce presence once connected.
       const update = encodeAwarenessUpdate(this.awareness, [this.ydoc.clientID])
@@ -126,6 +140,13 @@ export class SimpleProvider extends EventTarget {
 
     ws.addEventListener('close', () => {
       this.connected = false
+      if (!openedThisAttempt) {
+        this._consecutiveFailedAttempts += 1
+        // 3 in a row without ever reaching 'open': treat as a likely
+        // rejection (full room, unknown doc reappearing, etc.) rather than
+        // a one-off network hiccup.
+        this.likelyRejected = this._consecutiveFailedAttempts >= 3
+      }
       this.dispatchEvent(new Event('status'))
       if (!this._closedByUser) this._scheduleReconnect()
     })
