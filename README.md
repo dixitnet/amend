@@ -47,7 +47,7 @@ d'une personne. Auto-hébergé, pensé pour être léger.
 - Page "Mise en page" (admin, lien depuis l'accueil) : une feuille de style
   unique pour tous les documents — police (dont Roboto et Libre Caslon
   Text), taille, gras, italique, majuscules, alignement, espacement et
-  interligne pour le corps de texte/citation/titres, plus taille de page
+  interligne pour le corps de texte/titres, plus taille de page
   (A4, A5, Letter), marges et numérotation des pages. Reflétée dans
   l'éditeur (sauf ce qui touche à la pagination, qui n'a pas de sens dans
   un éditeur qui défile — voir plus bas), en totalité à l'export PDF.
@@ -1006,7 +1006,12 @@ esprit que le reste — pas de base de données). `styleConfig.js` centralise
 le modèle (une liste fermée de polices, `DEFAULT_STYLE`) et la traduction
 en CSS (`buildStyleCss`, `buildPageCss`), pour que l'éditeur et l'export
 PDF appliquent exactement la même feuille de style plutôt que deux copies à
-maintenir. Reflet dans l'éditeur (`editor.js`) : police, taille, gras,
+maintenir. **Mise à jour (13/09/2026)** : la feuille de style ne se
+reflète plus du tout dans l'éditeur (retiré sur demande, voir plus bas,
+section "Polices Google Fonts, interligne et numéros de page") — la
+description qui suit ("reflet dans l'éditeur...") décrit le comportement
+tel qu'il était construit à l'origine, conservé ici pour l'historique.
+Reflet dans l'éditeur à l'origine (`editor.js`) : police, taille, gras,
 italique, majuscules, alignement, espacement — tout sauf la taille de
 page/marges (aucun sens dans un éditeur en défilement continu). Export
 "Exporter (.pdf)" (`pdfExport.js`) : sérialise le document en HTML
@@ -1052,13 +1057,15 @@ partagé par les 5 niveaux, plus une simple échelle de taille par niveau
 (H1 → H5). Repousse la vraie question ("est-ce qu'on veut un jour des styles
 de titre indépendants") à si le besoin se manifeste concrètement.
 
-**Ce qui se reflète dans l'éditeur, et ce qui ne s'y reflète pas** :
-police, taille, gras, italique, majuscules, alignement et espacement
-avant/après se reflètent dans l'éditeur — une couche purement visuelle
-(variables CSS scopées au `.ProseMirror`, sur le même principe que
-`.tk-marker` ou les couleurs de `trackChanges.js` : rien ne change dans le
-document stocké, seul l'affichage change). Un seul réglage ne se reflète
-**pas** dans l'éditeur :
+**Ce qui se reflète dans l'éditeur, et ce qui ne s'y reflète pas
+(historique — voir la mise à jour du 13/09/2026 plus bas : plus rien ne
+s'y reflète désormais)** : à l'origine, police, taille, gras, italique,
+majuscules, alignement et espacement avant/après se reflétaient dans
+l'éditeur — une couche purement visuelle (variables CSS scopées au
+`.ProseMirror`, sur le même principe que `.tk-marker` ou les couleurs de
+`trackChanges.js` : rien ne change dans le document stocké, seul
+l'affichage change). Un seul réglage ne se reflétait déjà **pas** dans
+l'éditeur :
 - **Taille de page et marges** n'ont aucun sens dans un éditeur en défilement
   continu sans pagination — réglages purement PDF.
 (L'option "souligné" existait à l'origine mais entrait en conflit visuel
@@ -1197,6 +1204,49 @@ serveur soit lui aussi à jour (sinon `GET /api/style` sur un tout premier
 appel, avant tout enregistrement, retomberait sur l'ancien défaut serveur
 sans `lineHeight`/`pageNumbers` — sans conséquence pratique, le formulaire
 et l'éditeur ont leurs propres valeurs par défaut de secours).
+
+### Retrait de la citation et de l'éditeur comme aperçu de la feuille de style — fait (13/09/2026)
+
+Demandé (13/09/2026) : retirer le bloc de style "Citation" (le blockquote
+s'aligne désormais sur le texte normal), et limiter au strict minimum ce
+que l'éditeur reflète de la feuille de style — objectif explicite : un
+éditeur "hyper lisible", indépendant des réglages choisis, l'export PDF
+restant seul vraiment concerné.
+
+**Citation retirée** : plus de bloc `quote` dans le modèle de données
+(`styleConfig.js`/`storage.js`), plus de champ "Citation" dans le
+formulaire "Mise en page" (`adminStyle.js`). Un blockquote continue
+d'exister comme élément de structure (bouton dans la barre d'outils,
+export `.md`/PDF) — seul son style dédié disparaît : `buildStyleCss`
+applique maintenant la même règle CSS au `<p>` et au `<blockquote>`
+(`${scope} p, ${scope} blockquote { ...corps de texte... }`), donc une
+citation a toujours la même police/taille/interligne que le corps de
+texte, comme demandé.
+
+**Éditeur : plus aucun reflet de la feuille de style** — le bloc qui
+injectait un `<style>` scopé à `.ProseMirror` avec `buildStyleCss` a été
+retiré de `editor.js` (celui-ci n'importe plus `buildStyleCss`, seulement
+`loadStyle` pour l'export PDF). L'éditeur garde donc sa propre
+typographie fixe, celle déjà présente dans `style.css` avant même
+l'existence de la feuille de style (police système, tailles fixes) —
+police, taille, gras, italique, majuscules, alignement, espacement et
+interligne réglés dans "Mise en page" n'ont plus aucun effet visuel dans
+l'éditeur, quel que soit le document. Seul l'export PDF (`pdfExport.js`,
+inchangé) applique la feuille de style dans son intégralité.
+
+**Vérifié** : "Citation" absent du formulaire "Mise en page" (seuls
+"Page", "Corps de texte" et "Titres" restent) ; un paragraphe et un
+blockquote insérés dans l'éditeur avec une feuille de style réglée sur
+Libre Caslon Text restent tous deux en police système, taille inchangée
+(confirmé par les styles calculés) ; le CSS généré pour l'export PDF
+confirme une seule règle partagée `.print-doc p, .print-doc blockquote`
+reprenant bien la police/interligne du corps de texte. Configuration de
+test remise à `DEFAULT_STYLE` après vérification.
+
+**Compatibilité** : un `data/style.json` existant qui contient encore une
+clé `quote` (écrit avant ce changement) n'est simplement plus lu — ignoré
+silencieusement, sans erreur, la prochaine fois que quelqu'un enregistre
+"Mise en page" le fichier est réécrit sans elle.
 
 #### Export PDF fiable, indépendant du navigateur, pour envoi imprimeur — recherche d'options (12/09/2026)
 

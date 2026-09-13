@@ -60,7 +60,6 @@ export const DEFAULT_STYLE = {
     pageNumbers: { enabled: false, startAt: 1 },
   },
   body: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 0, spaceAfter: 8, lineHeight: 1.15 },
-  quote: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 4, spaceAfter: 8 },
   heading: {
     font: 'system',
     bold: true,
@@ -128,9 +127,10 @@ function blockDeclarations(block) {
 export function buildStyleCss(style, { scope }) {
   const lines = []
   const bodyLineHeight = style.body.lineHeight ?? DEFAULT_STYLE.body.lineHeight
-  lines.push(`${scope} p { font-size: ${style.body.size}pt; line-height: ${bodyLineHeight}; ${blockDeclarations(style.body)} }`)
+  // Citation retirée de la feuille de style (13/09/2026) : le blockquote
+  // s'aligne sur le texte normal plutôt que d'avoir son propre réglage.
   lines.push(
-    `${scope} blockquote { font-size: ${style.quote.size}pt; ${blockDeclarations(style.quote)} }`
+    `${scope} p, ${scope} blockquote { font-size: ${style.body.size}pt; line-height: ${bodyLineHeight}; ${blockDeclarations(style.body)} }`
   )
   const headingDecl = blockDeclarations(style.heading)
   const sizes = style.heading.sizes || DEFAULT_STYLE.heading.sizes

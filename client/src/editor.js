@@ -28,7 +28,7 @@ import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
 import { runCompactionIfNeeded } from './historySnapshot.js'
 import { mountTkMarker } from './tkMarker.js'
 import { mountPresenceBar } from './presence.js'
-import { loadStyle, buildStyleCss } from './styleConfig.js'
+import { loadStyle } from './styleConfig.js'
 import { printDocument } from './pdfExport.js'
 
 function buildCursor(user) {
@@ -286,17 +286,12 @@ export function mountEditor(root, docId, user, docMeta) {
   shell.append(topBanner, layout)
   root.appendChild(shell)
 
-  // Light in-editor preview of the shared feuille de style ("Mise en
-  // page", see adminStyle.js/styleConfig.js) — font, size, gras,
-  // majuscules, alignement, espacement. Deliberately partial: no souligné
-  // (would look identical to a pending tracked insertion) and no page
-  // size/margins (meaningless in a scrolling editor) — those only apply at
-  // export/PDF time, see exportPdfBtn below.
-  const editorStyleTag = document.createElement('style')
-  shell.appendChild(editorStyleTag)
-  loadStyle().then((style) => {
-    editorStyleTag.textContent = buildStyleCss(style, { scope: '.ProseMirror' })
-  })
+  // La feuille de style ("Mise en page", voir adminStyle.js/styleConfig.js)
+  // ne se reflète plus du tout dans l'éditeur (retiré le 13/09/2026, sur
+  // demande) : l'éditeur garde sa propre typographie fixe (police système,
+  // voir style.css), pensée pour rester aussi lisible que possible quels
+  // que soient les réglages choisis — seul l'export PDF applique
+  // vraiment la feuille de style (voir exportPdfBtn plus bas).
 
   // --- Yjs + collaboration wiring ---
   const ydoc = new Y.Doc()

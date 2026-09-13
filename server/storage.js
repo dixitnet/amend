@@ -40,7 +40,6 @@ const DEFAULT_STYLE = {
     pageNumbers: { enabled: false, startAt: 1 },
   },
   body: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 0, spaceAfter: 8, lineHeight: 1.15 },
-  quote: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 4, spaceAfter: 8 },
   heading: {
     font: 'system',
     bold: true,
@@ -66,7 +65,9 @@ function mergeStyle(partial) {
       pageNumbers: { ...DEFAULT_STYLE.page.pageNumbers, ...((p.page && p.page.pageNumbers) || {}) },
     },
     body: { ...DEFAULT_STYLE.body, ...(p.body || {}) },
-    quote: { ...DEFAULT_STYLE.quote, ...(p.quote || {}) },
+    // "quote" retiré de la feuille de style (13/09/2026) — un ancien
+    // style.json qui en garde un n'en hérite plus, ignoré silencieusement.
+
     heading: {
       ...DEFAULT_STYLE.heading,
       ...(p.heading || {}),

@@ -205,7 +205,8 @@ export async function mountAdminStyle(root) {
   const subtitle = document.createElement('p')
   subtitle.className = 'subtitle'
   subtitle.textContent =
-    'Feuille de style unique pour tous les documents : police, taille, gras, italique, majuscules, alignement, espacement — appliquée dans l’éditeur, et reprise à l’identique à l’export PDF.'
+    "Feuille de style unique pour tous les documents : police, taille, gras, italique, majuscules, alignement, espacement, interligne — appliquée uniquement à l'export PDF. L'éditeur reste volontairement sur sa propre typographie fixe (police système), pour rester aussi lisible que possible quels que soient ces réglages."
+
   wrap.append(h1, subtitle)
 
   const status = document.createElement('p')
@@ -218,10 +219,9 @@ export async function mountAdminStyle(root) {
 
   const pageF = pageFieldset(style.page)
   const bodyF = blockFieldset('Corps de texte', style.body, { lineHeight: true })
-  const quoteF = blockFieldset('Citation', style.quote)
   const headingF = blockFieldset('Titres', style.heading, { headingSizes: style.heading.sizes })
 
-  form.append(pageF.el, bodyF.el, quoteF.el, headingF.el)
+  form.append(pageF.el, bodyF.el, headingF.el)
 
   const saveBtn = document.createElement('button')
   saveBtn.type = 'submit'
@@ -235,7 +235,6 @@ export async function mountAdminStyle(root) {
     const next = {
       page: pageF.read(),
       body: bodyF.read(),
-      quote: quoteF.read(),
       heading: headingF.read(),
     }
     try {
