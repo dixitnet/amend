@@ -39,6 +39,10 @@ const CLIENT_DIST = join(ROOT, 'client', 'dist')
 const DATA_DIR = process.env.DATA_DIR || join(ROOT, 'data')
 const PORT = Number(process.env.PORT) || 8787
 const MAX_JSON_BODY = 20_000
+// La requête de compaction transporte un instantané Yjs déjà fusionné
+// (encodé en base64) — potentiellement bien plus gros qu'un simple champ
+// de formulaire, d'où une limite à part, nettement plus large.
+const MAX_COMPACT_BODY = 20_000_000
 
 const storage = new Storage(DATA_DIR)
 const rooms = new Rooms(storage)
@@ -64,13 +68,13 @@ function sendJson(res, status, body) {
   res.end(payload)
 }
 
-function readJsonBody(req) {
+function readJsonBody(req, maxSize = MAX_JSON_BODY) {
   return new Promise((resolve, reject) => {
     let size = 0
     const chunks = []
     req.on('data', (chunk) => {
       size += chunk.length
-      if (size > MAX_JSON_BODY) {
+      if (size > maxSize) {
         reject(Object.assign(new Error('payload too large'), { status: 413 }))
         req.destroy()
         return
@@ -155,6 +159,49 @@ async function handleApi(req, res, url) {
     const ok = storage.deleteDoc(docMatch[1])
     if (!ok) return sendJson(res, 404, { error: 'document introuvable' })
     return sendJson(res, 200, { ok: true })
+  }
+
+  // Historique léger (voir storage.js : getHistoryMeta/getHistoryRaw/
+  // compactDoc) — pas de gestion de droits ici pour cette première version
+  // (voir la conception plus complète dans README.md), la page d'historique
+  // est accessible comme le reste de l'app à qui a l'URL du document.
+  const historyMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/history$/)
+  if (historyMatch && req.method === 'GET') {
+    if (!storage.getDoc(historyMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
+    return sendJson(res, 200, storage.getHistoryMeta(historyMatch[1]))
+  }
+
+  const historyRawMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/history\/raw$/)
+  if (historyRawMatch && req.method === 'GET') {
+    if (!storage.getDoc(historyRawMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
+    return sendJson(res, 200, { entries: storage.getHistoryRaw(historyRawMatch[1]) })
+  }
+
+  const compactMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/compact$/)
+  if (compactMatch && req.method === 'POST') {
+    const id = compactMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const body = await readJsonBody(req, MAX_COMPACT_BODY)
+    if (typeof body.baseSnapshot !== 'string' || !body.baseSnapshot) {
+      return sendJson(res, 400, { error: 'baseSnapshot (base64) requis' })
+    }
+    if (typeof body.baseTs !== 'number' || typeof body.keepFromIndex !== 'number') {
+      return sendJson(res, 400, { error: 'baseTs et keepFromIndex (nombres) requis' })
+    }
+    try {
+      const result = await storage.compactDoc(id, {
+        baseSnapshot: Buffer.from(body.baseSnapshot, 'base64'),
+        baseTs: body.baseTs,
+        keepFromIndex: body.keepFromIndex,
+        expectedTotalBeforeCompaction: body.expectedTotalBeforeCompaction,
+      })
+      return sendJson(res, 200, result)
+    } catch (err) {
+      // Journal changé entre-temps (autre compaction, nouvelles frappes) ou
+      // paramètres hors limites : le client recalcule et réessaie, ce n'est
+      // pas une erreur serveur.
+      return sendJson(res, 409, { error: err.message })
+    }
   }
 
   if (pathname === '/api/style' && req.method === 'GET') {

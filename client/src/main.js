@@ -1,6 +1,7 @@
 import { mountHome } from './home.js'
 import { mountEditor } from './editor.js'
 import { mountAdminStyle } from './adminStyle.js'
+import { mountVersions } from './versions.js'
 import { getUser } from './user.js'
 
 const app = document.getElementById('app')
@@ -14,6 +15,12 @@ async function route() {
 
   const hash = location.hash || '#/'
   const docMatch = hash.match(/^#\/doc\/([A-Za-z0-9_-]+)$/)
+  const versionsMatch = hash.match(/^#\/doc\/([A-Za-z0-9_-]+)\/versions$/)
+
+  if (versionsMatch) {
+    mountVersions(app, versionsMatch[1])
+    return
+  }
 
   if (docMatch) {
     const docId = docMatch[1]

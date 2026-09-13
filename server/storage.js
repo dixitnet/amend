@@ -17,6 +17,15 @@ import { randomId } from './ws.js'
 // connected peer via rooms.js's broadcast regardless of when it hits disk).
 const FLUSH_DELAY_MS = 200
 
+// Historique léger (voir getHistoryMeta/getHistoryRaw/compactDoc) : au-delà
+// de ce nombre d'opérations stockées pour un document, needsCompaction
+// devient vrai — un client connecté fusionne alors tout ce qui précède les
+// DEFAULT_MAX_UNCOMPACTED_OPS dernières opérations en un seul instantané
+// (voir client/src/historySnapshot.js). Simple compteur d'opérations, pas
+// une taille ni une durée — plus prévisible pour la page de versions, qui
+// affiche justement "les N dernières opérations".
+const DEFAULT_MAX_UNCOMPACTED_OPS = 1000
+
 // The shared feuille de style ("Mise en page" admin page) — one config for
 // the whole instance, not per document. Mirrors DEFAULT_STYLE in
 // client/src/styleConfig.js; kept in sync by hand (small, stable shape,
@@ -58,8 +67,9 @@ function mergeStyle(partial) {
 }
 
 export class Storage {
-  constructor(dataDir) {
+  constructor(dataDir, { maxUncompactedOps = DEFAULT_MAX_UNCOMPACTED_OPS } = {}) {
     this.dataDir = dataDir
+    this.maxUncompactedOps = maxUncompactedOps
     this.registryPath = join(dataDir, 'docs.json')
     this.stylePath = join(dataDir, 'style.json')
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true })
@@ -172,6 +182,13 @@ export class Storage {
     return join(this.dataDir, `${id}.log`)
   }
 
+  /** Fichier compagnon du journal : un horodatage (ms epoch) par opération
+   * stockée dans le .log, dans le même ordre — voir _readTimes/_writeTimes
+   * et getHistoryMeta/getHistoryRaw/compactDoc plus bas. */
+  _timesPath(id) {
+    return join(this.dataDir, `${id}.times.json`)
+  }
+
   /** Supprime un document : sorti du registre (donc de la liste et de
    * l'accès direct — getDoc/listDocs ne le voient plus), son journal de
    * modifications supprimé du disque. Irréversible — pas de corbeille pour
@@ -192,6 +209,8 @@ export class Storage {
     this._flushChain.delete(id)
     const path = this._logPath(id)
     if (existsSync(path)) unlinkSync(path)
+    const timesPath = this._timesPath(id)
+    if (existsSync(timesPath)) unlinkSync(timesPath)
     return true
   }
 
@@ -249,6 +268,7 @@ export class Storage {
           }
         }
         this.touchDoc(id)
+        this._recordFlushTimes(id, n)
       })
       .catch((err) => {
         // Best-effort persistence: every one of these updates already
@@ -274,35 +294,225 @@ export class Storage {
     await Promise.all([...this._flushChain.values()])
   }
 
+  /** Parcourt le fichier .log d'un document et retourne chaque opération
+   * qu'il contient sous la forme { start, end, payload } — start/end sont
+   * les offsets en octets (start = début du préfixe de longueur, end =
+   * juste après les données), ce qui permet à compactDoc de découper le
+   * fichier brut sans jamais avoir besoin de comprendre le contenu Yjs
+   * (voir l'invariant "zéro dépendance yjs côté serveur" en tête de
+   * fichier). readUpdates et getHistoryMeta/getHistoryRaw s'appuient tous
+   * les deux sur cette même lecture pour ne pas dupliquer la logique de
+   * parcours du format préfixé par longueur. */
+  _walkLog(id) {
+    const path = this._logPath(id)
+    const entries = []
+    if (!existsSync(path)) return entries
+    const fd = openSync(path, 'r')
+    try {
+      const size = fstatSync(fd).size
+      let pos = 0
+      const lenBuf = Buffer.alloc(4)
+      while (pos + 4 <= size) {
+        readSync(fd, lenBuf, 0, 4, pos)
+        const len = lenBuf.readUInt32BE(0)
+        const start = pos
+        pos += 4
+        if (pos + len > size) break // truncated trailing write, ignore it
+        const payload = Buffer.alloc(len)
+        readSync(fd, payload, 0, len, pos)
+        pos += len
+        entries.push({ start, end: pos, payload })
+      }
+    } finally {
+      closeSync(fd)
+    }
+    return entries
+  }
+
   /** Reads and returns every stored update for a document, in order —
    * whatever's already on disk, followed by anything still buffered in
    * memory (see appendUpdate/_flush) so a client joining mid-batch sees
    * everything, not just what's been flushed so far. */
   readUpdates(id) {
+    const updates = this._walkLog(id).map((e) => e.payload)
+    const pending = this._pending.get(id)
+    if (pending && pending.length) updates.push(...pending)
+    return updates
+  }
+
+  /** Lit data/<id>.times.json — un horodatage par opération du .log, dans
+   * le même ordre. Auto-réparation si ça ne correspond pas à expectedCount
+   * (fichier manquant : document créé avant cette fonctionnalité ;
+   * désynchronisé : crash entre l'écriture du .log et celle du
+   * .times.json) : on approxime plutôt que d'échouer, car ce n'est qu'un
+   * affichage pour la page d'historique, pas une source de vérité. */
+  _readTimes(id, expectedCount) {
+    let times = []
+    try {
+      const parsed = JSON.parse(readFileSync(this._timesPath(id), 'utf8'))
+      if (Array.isArray(parsed)) times = parsed.filter((t) => typeof t === 'number')
+    } catch {
+      times = []
+    }
+    if (times.length === expectedCount) return times
+    const registry = this._readRegistry()
+    const meta = registry[id]
+    const fallback = (meta && (meta.createdAt || meta.updatedAt)) || Date.now()
+    if (times.length < expectedCount) {
+      // Opérations plus anciennes que le premier horodatage connu (ou que
+      // ce fichier lui-même) : on leur attribue la date de création du
+      // document, faute de mieux.
+      const missing = expectedCount - times.length
+      times = [...Array(missing).fill(fallback), ...times]
+    } else {
+      // Plus d'horodatages que d'opérations (compaction interrompue avant
+      // d'avoir réécrit les deux fichiers, par ex.) : on garde les plus
+      // récents.
+      times = times.slice(times.length - expectedCount)
+    }
+    return times
+  }
+
+  _writeTimes(id, times) {
+    const tmp = this._timesPath(id) + '.tmp'
+    writeFileSync(tmp, JSON.stringify(times), 'utf8')
+    renameSync(tmp, this._timesPath(id))
+  }
+
+  /** Appelé depuis _flush juste après qu'un lot de `n` opérations a été
+   * ajouté avec succès au .log : leur associe toutes le même horodatage
+   * (l'instant du flush — la fenêtre de FLUSH_DELAY_MS rend la précision
+   * à l'opération près illusoire de toute façon). Best-effort comme le
+   * reste de l'écriture différée : une erreur ici ne doit pas faire
+   * échouer la persistance du contenu lui-même. */
+  _recordFlushTimes(id, n) {
+    try {
+      let times = []
+      try {
+        const parsed = JSON.parse(readFileSync(this._timesPath(id), 'utf8'))
+        if (Array.isArray(parsed)) times = parsed
+      } catch {
+        times = []
+      }
+      const now = Date.now()
+      for (let i = 0; i < n; i++) times.push(now)
+      this._writeTimes(id, times)
+    } catch (err) {
+      console.error(`[storage] échec d'écriture des horodatages pour ${id} :`, err)
+    }
+  }
+
+  /** Métadonnées légères sur l'historique d'un document : combien
+   * d'opérations sont stockées, si ça dépasse le seuil de compaction
+   * (maxUncompactedOps), et les bornes temporelles connues. Pas les
+   * données elles-mêmes (voir getHistoryRaw) — pensé pour un premier
+   * appel bon marché avant de décider de charger le reste. */
+  getHistoryMeta(id) {
+    const entries = this._walkLog(id)
+    const times = this._readTimes(id, entries.length)
+    const registry = this._readRegistry()
+    const meta = registry[id]
+    return {
+      count: entries.length,
+      maxUncompactedOps: this.maxUncompactedOps,
+      needsCompaction: entries.length > this.maxUncompactedOps,
+      oldestTs: times.length ? times[0] : (meta ? meta.createdAt : null),
+      newestTs: times.length ? times[times.length - 1] : (meta ? meta.updatedAt : null),
+    }
+  }
+
+  /** Chaque opération stockée pour ce document, avec son horodatage et ses
+   * données brutes encodées en base64 — de quoi reconstruire n'importe
+   * quelle version intermédiaire côté client (seul endroit où le serveur a
+   * le droit de faire de la fusion Yjs, voir l'en-tête de ce fichier).
+   * Ne lit que ce qui est déjà sur le disque : les opérations encore en
+   * tampon (voir appendUpdate/_flush) n'ont pas encore d'horodatage
+   * enregistré, et de toute façon seront flushées d'ici FLUSH_DELAY_MS. */
+  getHistoryRaw(id) {
+    const entries = this._walkLog(id)
+    const times = this._readTimes(id, entries.length)
+    return entries.map((e, i) => ({ ts: times[i], data: e.payload.toString('base64') }))
+  }
+
+  /** Remplace tout ce qui précède `keepFromIndex` (dans la liste renvoyée
+   * par getHistoryRaw) par un unique instantané déjà fusionné côté client
+   * — le serveur ne fait ici que de la manipulation d'octets bruts (lire,
+   * découper, concaténer, écrire), jamais de fusion Yjs (voir l'invariant
+   * en tête de fichier : ça doit rester le cas côté client, qui a déjà
+   * `yjs` comme dépendance).
+   *
+   * - baseSnapshot : Buffer, la mise à jour Yjs représentant l'état fusionné
+   *   de toutes les opérations avant keepFromIndex.
+   * - baseTs : horodatage à associer à cet instantané (typiquement celui de
+   *   la dernière opération qu'il remplace).
+   * - keepFromIndex : les opérations d'index >= keepFromIndex sont gardées
+   *   telles quelles (copie brute des octets), tout ce qui précède est
+   *   remplacé par baseSnapshot.
+   * - expectedTotalBeforeCompaction : le nombre total d'opérations que le
+   *   client avait vu en calculant baseSnapshot (typiquement via un appel
+   *   précédent à getHistoryMeta/getHistoryRaw). Si le journal a changé
+   *   entre-temps (une autre compaction a eu lieu, ou de nouvelles
+   *   opérations sont arrivées), on refuse plutôt que de risquer de
+   *   perdre des données — le client recalcule et réessaie.
+   *
+   * Chaîné via _flushChain comme le reste des écritures, pour ne jamais
+   * s'exécuter en même temps qu'un flush sur le même document. */
+  compactDoc(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction }) {
+    const prev = this._flushChain.get(id) || Promise.resolve()
+    const result = prev.then(() =>
+      this._doCompact(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction })
+    )
+    // La chaîne elle-même ne doit jamais rester rejetée, sinon plus aucun
+    // flush ni compaction futurs pour ce document ne pourraient s'exécuter
+    // — l'appelant, lui, reçoit bien l'erreur via `result`.
+    this._flushChain.set(id, result.catch(() => {}))
+    return result
+  }
+
+  async _doCompact(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction }) {
+    // Une compaction précédente (ou de nouvelles frappes) a pu changer le
+    // journal depuis que le client a calculé baseSnapshot — mieux vaut
+    // échouer proprement que d'écraser des opérations que le client n'a
+    // pas prises en compte dans sa fusion.
+    const entries = this._walkLog(id)
+    if (
+      typeof expectedTotalBeforeCompaction === 'number' &&
+      entries.length !== expectedTotalBeforeCompaction
+    ) {
+      throw new Error(
+        `compactDoc : le journal a changé depuis (attendu ${expectedTotalBeforeCompaction} opérations, trouvé ${entries.length}) — recalculez et réessayez`
+      )
+    }
+    if (keepFromIndex < 0 || keepFromIndex > entries.length) {
+      throw new Error(`compactDoc : keepFromIndex (${keepFromIndex}) hors limites (0..${entries.length})`)
+    }
     const path = this._logPath(id)
-    const updates = []
-    if (existsSync(path)) {
+    let tailBuf
+    if (keepFromIndex >= entries.length) {
+      tailBuf = Buffer.alloc(0)
+    } else {
+      const tailStart = entries[keepFromIndex].start
       const fd = openSync(path, 'r')
       try {
         const size = fstatSync(fd).size
-        let pos = 0
-        const lenBuf = Buffer.alloc(4)
-        while (pos + 4 <= size) {
-          readSync(fd, lenBuf, 0, 4, pos)
-          const len = lenBuf.readUInt32BE(0)
-          pos += 4
-          if (pos + len > size) break // truncated trailing write, ignore it
-          const payload = Buffer.alloc(len)
-          readSync(fd, payload, 0, len, pos)
-          pos += len
-          updates.push(payload)
-        }
+        tailBuf = Buffer.alloc(size - tailStart)
+        readSync(fd, tailBuf, 0, tailBuf.length, tailStart)
       } finally {
         closeSync(fd)
       }
     }
-    const pending = this._pending.get(id)
-    if (pending && pending.length) updates.push(...pending)
-    return updates
+    const snapLen = Buffer.alloc(4)
+    snapLen.writeUInt32BE(baseSnapshot.length, 0)
+    const newLog = Buffer.concat([snapLen, baseSnapshot, tailBuf])
+    const tmp = path + '.tmp'
+    writeFileSync(tmp, newLog)
+    renameSync(tmp, path)
+
+    const times = this._readTimes(id, entries.length)
+    const keptTimes = times.slice(keepFromIndex)
+    this._writeTimes(id, [baseTs, ...keptTimes])
+
+    this.touchDoc(id)
+    return { count: 1 + keptTimes.length }
   }
 }

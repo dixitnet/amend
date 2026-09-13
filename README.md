@@ -87,6 +87,10 @@ d'une personne. Auto-hébergé, pensé pour être léger.
   version (pas de corbeille).
 - Suivi des modifications pour les sauts de paragraphe (Entrée) et le
   collage multi-lignes — voir la section dédiée plus bas.
+- Page "Historique" (lien "Historique" dans le bandeau de l'éditeur) :
+  consultation seule des dernières versions enregistrées d'un document,
+  classées de la plus récente à la plus ancienne — voir la section dédiée
+  plus bas.
 
 ### Limites connues (prochaines étapes possibles)
 
@@ -101,10 +105,12 @@ d'une personne. Auto-hébergé, pensé pour être léger.
 - Pas de tableaux ni d'images dans l'éditeur pour l'instant, ni de listes
   numérotées (seulement la liste à tirets) — schéma volontairement minimal
   pour cette première version.
-- L'historique des modifications Yjs n'est pas encore compacté : le fichier
-  `data/<id>.log` grossit à chaque modification. Très bien pour un usage
-  personnel ou petite équipe ; à surveiller pour un usage intensif prolongé
-  (voir la conception de compaction/versions majeures ci-dessous).
+- Historique léger seulement (voir la section dédiée plus bas) : le
+  journal d'un document est automatiquement compacté au-delà de 1000
+  opérations stockées, et une page de consultation montre les dernières
+  versions par horodatage — mais pas de restauration depuis cette page, pas
+  de versions nommées, pas de droits d'accès dédiés (voir la conception
+  plus complète de "versions majeures" ci-dessous, toujours à venir).
 - Pas d'authentification : quiconque a l'URL du serveur peut ouvrir/éditer
   les documents. Pensé pour tourner derrière ton propre réseau ou un accès
   restreint (VPN, reverse proxy avec auth, etc.).
@@ -357,9 +363,10 @@ fichier JSON à côté du registre existant, dans le même esprit que le
 stockage actuel (pas de base de données).
 
 **Retour à une version antérieure** : voir la conception détaillée dans
-"Historique, versions majeures et compaction" ci-dessous — l'idée reste la
-même (l'admin peut revenir à un état antérieur), mais le mécanisme distingue
-maintenant compaction technique et versions nommées.
+"Versions majeures et restauration" ci-dessous — l'idée reste la même
+(l'admin peut revenir à un état antérieur) ; la compaction technique qui
+soutient tout ça est déjà faite, voir "Historique léger" juste avant cette
+section.
 
 **Envoi d'email** : le serveur reste un simple *client* SMTP (jamais un
 serveur mail complet) — faire tourner son propre serveur mail sortant
@@ -640,12 +647,68 @@ d'origine après le curseur se retrouve correctement rattaché à la dernière
 ligne collée), "Tout accepter" testé sur un mélange ajout+saut de
 paragraphe.
 
-### Historique, versions majeures et compaction (conception, pas encore implémentée)
+### Historique léger : compaction automatique et page de consultation — fait (13/09/2026)
 
-Décidé (discussion du 11/09/2026), en réaction au risque de voir le journal
-`data/<id>.log` grossir sans limite sur un document long (ex. 500 000
-signes) édité sur une longue période. Deux mécanismes distincts, qui se
-combinent mais ne se confondent pas :
+Décidé (13/09/2026) : plutôt que d'implémenter directement la conception
+complète ci-dessous (versions majeures nommées, rôles admin), une version
+« light » d'abord — compaction technique automatique et une page de
+consultation, sans restauration ni droits d'accès pour l'instant (choix
+confirmés : consultation seule, page ouverte à tous comme le reste de
+l'appli tant qu'il n'y a pas d'authentification).
+
+**Compaction** (`server/storage.js`) : chaque document a un compteur
+d'opérations stockées (`_walkLog`, qui parcourt `data/<id>.log`) ; passé
+1000 (`DEFAULT_MAX_UNCOMPACTED_OPS`), `getHistoryMeta` renvoie
+`needsCompaction: true`. Le serveur ne fait jamais de fusion Yjs lui-même
+(voir l'invariant "zéro dépendance yjs côté serveur" en tête de
+`storage.js`) : c'est un client connecté (`client/src/historySnapshot.js`,
+`runCompactionIfNeeded`, déclenché ~3 s après la connexion dans
+`editor.js`) qui télécharge l'historique brut (`GET
+/api/docs/:id/history/raw`), fusionne tout ce qui précède les 1000
+dernières opérations dans un instantané (`Y.encodeStateAsUpdate`), et
+envoie ce résultat au serveur (`POST /api/docs/:id/compact`), qui ne fait
+plus que de la manipulation d'octets bruts (découper/concaténer/réécrire le
+`.log`, comme un `rename` atomique via fichier temporaire). Un fichier
+compagnon `data/<id>.times.json` garde un horodatage par opération stockée
+(auto-réparé si absent ou désynchronisé, en retombant sur la date de
+création du document) — ce qui permet à la page de consultation d'afficher
+"les dernières versions selon leur horaire". Compaction concurrente/périmée
+gérée proprement : le client envoie le nombre d'opérations qu'il avait vu
+(`expectedTotalBeforeCompaction`), et le serveur refuse (409) si le journal
+a changé depuis plutôt que de risquer d'écraser des opérations — la
+prochaine connexion (la sienne ou celle de quelqu'un d'autre) réessaiera.
+
+**Page "Historique"** (`client/src/versions.js`, route
+`#/doc/:id/versions`, lien depuis le bandeau de l'éditeur) : liste les
+versions stockées (regroupées par horodatage distinct plutôt qu'une par
+opération individuelle — une rafale de frappes tombées dans la même fenêtre
+de 200 ms, voir `FLUSH_DELAY_MS`, partage déjà le même horodatage), du plus
+récent au plus ancien ; cliquer une entrée reconstruit et affiche le
+Markdown du document tel qu'il était à cet instant (`reconstructMarkdown` :
+un `Y.Doc` jetable rejoue les opérations jusqu'à ce point,
+`yXmlFragmentToProseMirrorRootNode` puis `docToMarkdown` — jamais touché au
+document Yjs de l'éditeur en cours). Consultation seule : pas de bouton
+restaurer dans cette version.
+
+Vérifié en direct sur un vrai document (1988 opérations stockées) : la
+compaction s'est déclenchée automatiquement à l'ouverture, a ramené le
+compte à 1000 sans redéclencher à la connexion suivante, et la page
+"Historique" a correctement reconstruit et affiché le contenu réel du
+document. Testé aussi unitairement côté serveur (compaction, rejet d'une
+tentative périmée, auto-réparation de `.times.json`, `deleteDoc` qui nettoie
+bien le nouveau fichier compagnon).
+
+Reste non implémenté — voir la conception complète ci-dessous : versions
+nommées par un·e admin, restauration proprement dite, droits d'accès dédiés
+à l'historique.
+
+### Versions majeures et restauration (conception, pas encore implémentée)
+
+Décidé (discussion du 11/09/2026) ; la compaction technique évoquée
+ci-dessous est maintenant faite (voir la section "Historique léger"
+juste au-dessus) — ce qui suit reste à implémenter : les versions
+nommées, réservées à un rôle admin, et la restauration proprement dite.
+Deux mécanismes distincts, qui se combinent mais ne se confondent pas :
 
 **Compaction technique** — automatique, silencieuse, invisible pour
 l'utilisateur. Déclenchée par un seuil (taille du journal ou temps écoulé
@@ -658,7 +721,9 @@ archivé) : c'est le choix le plus économe en disque, cohérent avec le fait
 que le voyage dans le temps précis ne sert de toute façon que sur le passé
 récent (voir plus bas). Ce mécanisme tourne indépendamment de toute action
 humaine, précisément pour qu'un document jamais marqué "stable" par un
-admin ne voie pas son journal grossir indéfiniment quand même.
+admin ne voie pas son journal grossir indéfiniment quand même. **(Fait,
+sous une forme plus simple — voir "Historique léger" ci-dessus : seuil fixe
+en nombre d'opérations plutôt que taille/temps, pas d'archivage séparé.)**
 
 **Version majeure** — un geste éditorial explicite et rare, réservé à
 l'admin (cohérent avec le rôle admin défini plus haut), pour marquer une

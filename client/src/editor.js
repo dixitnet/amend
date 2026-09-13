@@ -25,6 +25,7 @@ import { commentsPlugin, mountCommentsPanel } from './comments.js'
 import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
 import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
+import { runCompactionIfNeeded } from './historySnapshot.js'
 import { mountTkMarker } from './tkMarker.js'
 import { mountPresenceBar } from './presence.js'
 import { loadStyle, buildStyleCss } from './styleConfig.js'
@@ -157,6 +158,12 @@ export function mountEditor(root, docId, user, docMeta) {
   exportPdfBtn.className = 'btn-preset export-btn'
   exportPdfBtn.textContent = 'Exporter (.pdf)'
   topBanner.appendChild(exportPdfBtn)
+
+  const historyLink = document.createElement('a')
+  historyLink.href = `#/doc/${docId}/versions`
+  historyLink.className = 'btn-preset history-link'
+  historyLink.textContent = 'Historique'
+  topBanner.appendChild(historyLink)
 
   const status = document.createElement('span')
   status.className = 'connection-status'
@@ -318,6 +325,19 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   provider.addEventListener('status', renderConnectionStatus)
   renderConnectionStatus()
+
+  // Compaction en tâche de fond (voir historySnapshot.js/server/storage.js) :
+  // ne fait rien si le journal n'a pas encore dépassé le seuil, et échoue
+  // silencieusement sinon (une autre personne connectée s'en chargera) —
+  // pas la peine d'attendre ni de bloquer l'ouverture de l'éditeur pour ça.
+  // Un léger délai après la première connexion plutôt qu'immédiat, pour ne
+  // pas rivaliser avec le chargement initial du document.
+  let compactionTried = false
+  provider.addEventListener('status', () => {
+    if (compactionTried || !provider.connected) return
+    compactionTried = true
+    setTimeout(() => runCompactionIfNeeded(docId), 3000)
+  })
 
   // Live title sync between rédacteurs (correctif 4.1.1) — never overwrite
   // what the local person is actively typing themselves.
