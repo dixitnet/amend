@@ -1307,6 +1307,74 @@ Sources :
 - [Gotenberg — a Docker-based API for PDF conversion](https://gotenberg.dev/)
 - [Prince — License FAQ](https://www.princexml.com/purchase/license_faq/)
 
+### Menu "Exporter" unifié, export Word (.docx), largeur fixe de l'indicateur de connexion — fait (13/09/2026)
+
+Demandé (13/09/2026) : réunir les exports (jusque-là deux boutons séparés,
+"Exporter (.md)" et "Exporter (.pdf)") en un seul bouton "Exporter", et
+ajouter Word aux formats proposés en reprenant tous les éléments déjà
+appliqués à l'export PDF. Corrigé au passage : l'indicateur "à jour /
+enregistrement..." changeait de largeur selon son texte et faisait bouger
+les autres éléments du bandeau.
+
+**Menu "Exporter"** : un seul bouton (`Exporter ▾`) ouvre un petit menu
+déroulant avec trois choix — Markdown (.md), Word (.docx), PDF (.pdf) — au
+lieu d'un bouton par format dans la barre. Le menu se ferme au choix d'un
+format ou au clic ailleurs sur la page.
+
+**Export Word (.docx)** — nouveau fichier `docxExport.js`, même principe
+que `pdfExport.js` : reprend l'intégralité de la feuille de style réglée
+dans "Mise en page" (police, taille, gras, italique, majuscules,
+alignement, espacement, interligne, taille de page, marges, numéros de
+page), donc un même document exporté en PDF et en Word donne une mise en
+page équivalente. Comme pour `mdExport.js`/`pdfExport.js`, "l'état
+présent" du document est pris tel quel : les marques insertion/suppression
+du suivi des modifications ressortent en texte normal, rien n'est accepté
+ni rejeté au passage.
+
+Bibliothèque `docx` (dolanmiu/docx, npm) plutôt qu'une implémentation
+maison du format .docx — même raisonnement que `nodemailer` pour l'email
+(voir plus haut, section "Droits et authentification") : un format aussi
+subtil (un zip de XML avec son propre schéma OOXML) gagne à s'appuyer sur
+une bibliothèque mûre plutôt que sur du code maison. Fonctionne
+entièrement dans le navigateur (`Packer.toBlob`), aucune dépendance
+réseau à l'export. Chargée en import dynamique (`import('./docxExport.js')`
+au clic, pas un import statique en tête de fichier) : `docx` pèse environ
+345 Ko (gzip ~100 Ko), et cet import dynamique fait que ce poids n'est
+téléchargé que par qui clique vraiment sur "Word (.docx)" — le reste du
+bundle (l'éditeur lui-même) ne grossit pas pour tout le monde.
+
+**Limitation connue** : Libre Caslon Text n'a pas de graisse gras-italique
+dédiée (seulement normal, italique, gras — voir plus haut, section
+"Polices Google Fonts...") ; un passage à la fois gras et italique dans
+cette police utilisera la face grasse de Word par défaut plutôt qu'un
+vrai gras-italique dessiné, comme à l'export PDF.
+
+**Indicateur de connexion à largeur fixe** — `.connection-status` (le
+texte "à jour" / "enregistrement..." / "hors connexion...") avait une
+largeur variable ; en CSS flex, `.doc-title` est le seul élément avec
+`flex:1` de la barre, et le navigateur recalculait sa largeur à chaque
+changement du texte de l'indicateur pour que la largeur totale reste
+constante — ce qui déplaçait visiblement tous les éléments à largeur fixe
+placés entre le titre et l'indicateur (barre de présence, compteur de
+mots, zoom, bouton Exporter, lien historique). Correctif : une largeur
+fixe (290px, mesurée sur le texte le plus long) sur `.connection-status`
+supprime cet effet de ripple sur `.doc-title`.
+
+**Vérifié** : sur un document jetable dédié, avec une feuille de style
+délibérément atypique (page A5, marges personnalisées, numéros de page
+activés à partir de 5, corps en Libre Caslon Text justifié interligne
+1,5, titres en Roboto gras majuscules) — le .docx produit par un vrai
+clic sur "Word (.docx)" dans l'interface a été récupéré et son XML
+interne inspecté directement (page A5/marges/numéro de départ dans
+`word/document.xml` et le pied de page dans `word/footer1.xml`, police et
+mise en forme de chaque paragraphe/run, citation alignée sur le texte
+normal, liste à puces correctement rendue) : tout correspond à la feuille
+de style réglée. Fichier .docx valide (structure ZIP/OOXML vérifiée).
+Build (`npm run build:client`) confirmé : chunk séparé
+`docxExport-*.js` (~345 Ko) chargé à la demande, bundle principal
+inchangé (~375 Ko). Configuration de test remise à `DEFAULT_STYLE` après
+vérification, document de test supprimé.
+
 ### Couleur personnelle persistante par utilisateur·rice (conception, pas encore implémentée)
 
 Anticipé (12/09/2026) : chaque personne aurait une couleur qui lui est
