@@ -332,6 +332,9 @@ message d'erreur (console navigateur incluse) et je corrige.
   détaillée plus bas.
 - Couleur personnelle persistante par utilisateur·rice, valable sur tous
   les documents — voir conception détaillée plus bas.
+- Liens de partage courts et mémorables (mots anglais, ex.
+  `broker-relay-vibes`), en redirection vers l'ID technique — voir
+  conception détaillée plus bas.
 
 ### Droits et authentification (conception, pas encore implémentée)
 
@@ -456,6 +459,48 @@ envoi d'email d'aucune sorte.
 aussi utile qu'une porte fermée sans mur autour : cohérent avec ce qui est
 déjà noté dans "Déploiement dev / production" (Caddy + Let's Encrypt dès
 l'exposition à internet).
+
+### Liens de partage courts et mémorables (conception, pas encore implémentée)
+
+Discuté le 13/09/2026, à construire en même temps que la fonction
+"partager" (bouton qui génère/affiche le lien à envoyer) — comme ce sont de
+simples redirections vers l'ID technique existant, ça n'interfère pas avec
+le reste du développement du cœur de l'appli.
+
+**Principe** : un alias mémorable en 3 (ou 4) mots anglais courants séparés
+par des tirets (ex. `amend.ink/broker-relay-vibes`), qui redirige vers l'ID
+technique actuel du document (ex. `2Rb8cBPeFkik`). L'ID technique reste la
+clé de stockage interne, inchangée ; l'alias n'est qu'une entrée dans une
+table de correspondance alias → ID, ajoutée à côté du registre existant
+(même esprit que le reste du stockage : pas de base de données).
+
+**Pourquoi des mots plutôt que des caractères aléatoires** : bien plus
+facile à lire à voix haute, à retenir et à retaper sans erreur qu'un ID
+alphanumérique du type actuel — même logique que what3words, ou que les
+identifiants générés par Heroku/Vercel.
+
+**Sécurité et régénération** : comme l'alias n'est qu'une redirection, on
+peut le régénérer à tout moment sans toucher au document — utile si un
+lien fuite. Pour que ça serve vraiment à quelque chose, régénérer doit
+invalider l'ancien alias (sinon la fuite reste ouverte). Côté résistance à
+la force brute, 3 mots pris dans un dictionnaire de quelques milliers de
+mots donnent un espace de recherche plus faible qu'un ID technique long (à
+chiffrer précisément selon la taille du dictionnaire retenu) — la
+régénération est le filet de sécurité qui compense, mais si des documents
+sensibles peuvent circuler par ce biais, prévoir 4 mots plutôt que 3,
+et/ou une limite de débit sur les tentatives d'accès par lien.
+
+**Liste de mots** : dictionnaire à curer (mots anglais courts et courants,
+en évitant les orthographes piégeuses) et à filtrer (pas de combinaisons
+grossières ou offensantes). Collisions à la génération : nouvelle
+tentative, trivial vu que c'est une simple table de correspondance.
+
+**Format encore ouvert** : mots séparés par des tirets
+(`broker-relay-vibes`, pas de points comme what3words) ; reste à trancher
+entre `amend.ink/broker-relay-vibes` directement ou
+`amend.ink/doc/broker-relay-vibes` (cette dernière forme resterait
+cohérente si on ajoute plus tard d'autres types de liens partageables,
+par exemple vers une version précise de l'historique).
 
 ### Commentaires ancrés dans le texte — fait (12/09/2026)
 
