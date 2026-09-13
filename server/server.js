@@ -212,6 +212,30 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, storage.setStyle(body))
   }
 
+  // Point de diagnostic temporaire pour le test de charge du 13/09/2026
+  // (voir README.md, section dédiée) : mémoire du processus et un indicateur
+  // simple de latence de la boucle d'événements Node (le temps qu'un
+  // setImmediate mette à s'exécuter — un indicateur direct de "combien de
+  // travail est déjà en attente" pendant une rafale de modifications).
+  // Aucune information sensible, laissé en place après le test comme un
+  // petit outil de diagnostic auto-hébergé de plus, dans le même esprit que
+  // le reste de l'appli.
+  if (pathname === '/api/debug/stats' && req.method === 'GET') {
+    const start = process.hrtime.bigint()
+    return new Promise((resolve) => {
+      setImmediate(() => {
+        const loopLagMs = Number(process.hrtime.bigint() - start) / 1e6
+        sendJson(res, 200, {
+          pid: process.pid,
+          uptimeSec: process.uptime(),
+          memory: process.memoryUsage(),
+          loopLagMs,
+        })
+        resolve()
+      })
+    })
+  }
+
   if (pathname === '/api/ai/suggest' && req.method === 'POST') {
     const body = await readJsonBody(req)
     try {

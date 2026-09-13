@@ -386,6 +386,12 @@ export function mountEditor(root, docId, user, docMeta) {
   // up right after construction rather than passed in the initial props.
   view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => user) })
 
+  // TEMPORAIRE (test de charge du 13/09/2026, a retirer apres) : expose la
+  // vue pour piloter des transactions depuis un script externe.
+  window.__debugPmView = view
+  window.__debugUser = user
+  window.__debugSetTrackChanges = (enabled) => setTrackChangesEnabled(view, enabled)
+
   trackToggle.addEventListener('change', () => {
     setTrackChangesEnabled(view, trackToggle.checked)
   })
