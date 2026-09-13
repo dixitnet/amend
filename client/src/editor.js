@@ -147,17 +147,48 @@ export function mountEditor(root, docId, user, docMeta) {
   tkCount.className = 'tk-count'
   topBanner.appendChild(tkCount)
 
-  const exportBtn = document.createElement('button')
-  exportBtn.type = 'button'
-  exportBtn.className = 'btn-preset export-btn'
-  exportBtn.textContent = 'Exporter (.md)'
-  topBanner.appendChild(exportBtn)
+  // Un seul bouton "Exporter" (13/09/2026, auparavant deux boutons
+  // séparés .md/.pdf) avec un petit menu déroulant pour choisir le format
+  // — Markdown, Word (.docx, nouveau) ou PDF. Les trois partagent le même
+  // menu plutôt que d'occuper chacun une place fixe dans la barre, pour
+  // que l'ajout du Word n'allonge pas la barre à chaque nouveau format.
+  const exportMenu = document.createElement('div')
+  exportMenu.className = 'export-menu'
 
-  const exportPdfBtn = document.createElement('button')
-  exportPdfBtn.type = 'button'
-  exportPdfBtn.className = 'btn-preset export-btn'
-  exportPdfBtn.textContent = 'Exporter (.pdf)'
-  topBanner.appendChild(exportPdfBtn)
+  const exportToggle = document.createElement('button')
+  exportToggle.type = 'button'
+  exportToggle.className = 'btn-preset export-btn'
+  exportToggle.textContent = 'Exporter ▾'
+  exportMenu.appendChild(exportToggle)
+
+  const exportDropdown = document.createElement('div')
+  exportDropdown.className = 'export-dropdown'
+  exportDropdown.hidden = true
+
+  const exportMdItem = document.createElement('button')
+  exportMdItem.type = 'button'
+  exportMdItem.textContent = 'Markdown (.md)'
+  const exportDocxItem = document.createElement('button')
+  exportDocxItem.type = 'button'
+  exportDocxItem.textContent = 'Word (.docx)'
+  const exportPdfItem = document.createElement('button')
+  exportPdfItem.type = 'button'
+  exportPdfItem.textContent = 'PDF (.pdf)'
+  exportDropdown.append(exportMdItem, exportDocxItem, exportPdfItem)
+  exportMenu.appendChild(exportDropdown)
+  topBanner.appendChild(exportMenu)
+
+  function closeExportMenu() {
+    exportDropdown.hidden = true
+  }
+  exportToggle.onclick = () => {
+    exportDropdown.hidden = !exportDropdown.hidden
+  }
+  // Ferme le menu au clic ailleurs sur la page — sans ça, il resterait
+  // ouvert jusqu'au prochain clic sur le bouton lui-même.
+  document.addEventListener('click', (e) => {
+    if (!exportMenu.contains(e.target)) closeExportMenu()
+  })
 
   const historyLink = document.createElement('a')
   historyLink.href = `#/doc/${docId}/versions`
@@ -251,7 +282,7 @@ export function mountEditor(root, docId, user, docMeta) {
       // tant pis, le réglage ne sera pas mémorisé la prochaine fois.
     }
   })
-  topBanner.insertBefore(zoomSelect, exportBtn)
+  topBanner.insertBefore(zoomSelect, exportMenu)
 
   // Track-changes toggle lives with the assistance/changes column now — it
   // governs how edits in the text get recorded, same family of concerns as
@@ -441,11 +472,25 @@ export function mountEditor(root, docId, user, docMeta) {
     view.dispatch(tr)
     view.focus()
   }
-  exportBtn.onclick = () => {
+  exportMdItem.onclick = () => {
+    closeExportMenu()
     const markdown = docToMarkdown(view.state.doc)
     downloadText(markdown, markdownFilename(titleInput.value))
   }
-  exportPdfBtn.onclick = async () => {
+  exportDocxItem.onclick = async () => {
+    closeExportMenu()
+    // Toujours re-demander la feuille de style (jamais la copie chargée au
+    // montage) : l'admin a pu la changer sur "Mise en page" depuis, un
+    // export doit refléter ce qui est enregistré maintenant — même
+    // principe que l'export PDF juste en dessous. Import dynamique
+    // (Vite en fait un chunk séparé) : la bibliothèque `docx` n'est
+    // chargée que si quelqu'un clique vraiment sur "Word (.docx)", pas au
+    // chargement initial de l'éditeur.
+    const [style, { downloadDocx }] = await Promise.all([loadStyle(), import('./docxExport.js')])
+    await downloadDocx(view.state.doc, style, titleInput.value)
+  }
+  exportPdfItem.onclick = async () => {
+    closeExportMenu()
     // Always re-fetch (never the copy loaded at mount time): the admin may
     // have changed the feuille de style on "Mise en page" since this editor
     // was opened, and an export should reflect what's saved now.
@@ -482,3 +527,4 @@ export function mountEditor(root, docId, user, docMeta) {
     },
   }
 }
+

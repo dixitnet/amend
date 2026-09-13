@@ -307,9 +307,52 @@ a { color: var(--accent); }
 .track-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
 .word-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .tk-count { font-size: 12px; color: var(--danger); white-space: nowrap; }
-.connection-status { font-size: 12px; color: var(--muted); white-space: nowrap; }
+/* Largeur fixe (13/09/2026) : le texte change ("à jour" / "enregistrement…"
+   / "hors connexion — modifications non envoyées"), et sans largeur fixe
+   ce changement de largeur se répercutait sur .doc-title (le seul élément
+   flexible de la barre, flex:1) et donc faisait visiblement bouger tous
+   les boutons entre le titre et cet indicateur à chaque changement d'état.
+   290px : mesuré sur le texte le plus long à la taille réelle, avec un peu
+   de marge ; text-overflow en secours si jamais une police/un zoom donne
+   un rendu plus large que prévu. */
+.connection-status {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  width: 290px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .connection-status.online { color: var(--ok); }
 .connection-status.pending { color: var(--danger); }
+
+/* Menu "Exporter" (13/09/2026) : un seul bouton, un petit menu déroulant
+   pour choisir Markdown/Word/PDF plutôt qu'un bouton par format. */
+.export-menu { position: relative; }
+.export-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+.export-dropdown button {
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.export-dropdown button:hover { background: var(--border); }
 
 /* "Qui est connecté" (voir presence.js) — un rond par connexion, pas par
    personne (voir le constat 1.4 du rapport de fiabilité du 12/09/2026). */

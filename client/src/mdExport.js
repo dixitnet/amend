@@ -104,11 +104,19 @@ export function docToMarkdown(doc) {
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`
 }
 
+/** A safe-ish filename base from the document's title, e.g. "Mon Titre" ->
+ * "Mon Titre" (no extension) — shared with docxExport.js, so every export
+ * format sanitizes the title the same way. Falls back to "document" for
+ * an empty/blank title. */
+export function safeFilenameBase(title) {
+  const base = (title || '').trim() || 'document'
+  return base.replace(/[\\/:*?"<>|]+/g, '-').slice(0, 150)
+}
+
 /** A safe-ish filename from the document's title, e.g. "Mon Titre" ->
  * "Mon Titre.md". Falls back to "document.md" for an empty/blank title. */
 export function markdownFilename(title) {
-  const base = (title || '').trim() || 'document'
-  return `${base.replace(/[\\/:*?"<>|]+/g, '-').slice(0, 150)}.md`
+  return `${safeFilenameBase(title)}.md`
 }
 
 /** Triggers a browser download of `text` as a file named `filename`. */

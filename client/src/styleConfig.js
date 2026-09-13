@@ -11,18 +11,23 @@
 // this first version; embedding real font files is a possible later step,
 // not needed to ship this.
 export const FONT_OPTIONS = [
-  { id: 'system', label: 'Système (sans-serif)', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
-  { id: 'serif', label: 'Serif (Georgia)', family: 'Georgia, "Times New Roman", serif' },
-  { id: 'times', label: 'Times New Roman', family: '"Times New Roman", Times, serif' },
-  { id: 'arial', label: 'Arial', family: 'Arial, Helvetica, sans-serif' },
-  { id: 'mono', label: 'Monospace', family: '"Courier New", Courier, monospace' },
+  // `docxFont` : le nom de police à demander dans l'export Word (un seul
+  // nom, contrairement à `family`, une pile CSS avec des replis — Word n'a
+  // pas cette notion). `undefined` pour "Système" : ne rien demander de
+  // particulier, cohérent avec l'idée de laisser la police par défaut du
+  // lecteur plutôt que d'en imposer une précise.
+  { id: 'system', label: 'Système (sans-serif)', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif', docxFont: undefined },
+  { id: 'serif', label: 'Serif (Georgia)', family: 'Georgia, "Times New Roman", serif', docxFont: 'Georgia' },
+  { id: 'times', label: 'Times New Roman', family: '"Times New Roman", Times, serif', docxFont: 'Times New Roman' },
+  { id: 'arial', label: 'Arial', family: 'Arial, Helvetica, sans-serif', docxFont: 'Arial' },
+  { id: 'mono', label: 'Monospace', family: '"Courier New", Courier, monospace', docxFont: 'Courier New' },
   // Auto-hébergées (fichiers .woff2 dans client/src/fonts/, @font-face dans
   // style.css) plutôt que chargées depuis Google Fonts au moment de
   // l'affichage — même raisonnement que le reste de cette liste fermée :
   // aucune dépendance réseau, et garantie que l'export PDF utilise
   // exactement la même police que celle réglée ici.
-  { id: 'roboto', label: 'Roboto', family: '"Roboto", -apple-system, sans-serif' },
-  { id: 'libre-caslon-text', label: 'Libre Caslon Text', family: '"Libre Caslon Text", Georgia, serif' },
+  { id: 'roboto', label: 'Roboto', family: '"Roboto", -apple-system, sans-serif', docxFont: 'Roboto' },
+  { id: 'libre-caslon-text', label: 'Libre Caslon Text', family: '"Libre Caslon Text", Georgia, serif', docxFont: 'Libre Caslon Text' },
 ]
 
 // Interligne du corps de texte uniquement (voir DEFAULT_STYLE.body plus bas)
@@ -74,6 +79,13 @@ export const DEFAULT_STYLE = {
 
 export function fontFamily(fontId) {
   return (FONT_OPTIONS.find((f) => f.id === fontId) || FONT_OPTIONS[0]).family
+}
+
+/** The single font name to request in the .docx export (docxExport.js) —
+ * `undefined` for "Système" (laisser Word choisir sa police par défaut,
+ * voir le commentaire sur FONT_OPTIONS ci-dessus). */
+export function docxFontName(fontId) {
+  return (FONT_OPTIONS.find((f) => f.id === fontId) || FONT_OPTIONS[0]).docxFont
 }
 
 /** Fetches the current style config from the server. Never throws or
