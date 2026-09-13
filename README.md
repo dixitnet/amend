@@ -114,6 +114,13 @@ d'une personne. Auto-hébergé, pensé pour être léger.
 - Pas d'authentification : quiconque a l'URL du serveur peut ouvrir/éditer
   les documents. Pensé pour tourner derrière ton propre réseau ou un accès
   restreint (VPN, reverse proxy avec auth, etc.).
+- Idée notée pour plus tard : le compteur "!!" dans le bandeau (`⚠️ N`,
+  `tkMarker.js`) n'est pour l'instant qu'un texte statique, pas cliquable.
+  L'améliorer pour que cliquer dessus fasse défiler les occurrences les
+  unes après les autres, centrées dans l'éditeur — même principe que le
+  clic sur une modification dans le panneau (`changesPanel.js`) ou sur un
+  titre dans le "Plan du document" (`outline.js`), en gardant l'index de
+  l'occurrence courante pour passer à la suivante à chaque clic.
 
 ## Architecture
 
