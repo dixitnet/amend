@@ -15,8 +15,18 @@ delete process.env.ANTHROPIC_API_KEY
 
 const BASE = `http://localhost:${PORT}`
 
+const { Storage } = await import('../storage.js')
 await import('../server.js')
 await waitForServer()
+
+// Ces tests portent sur le relais WebSocket / la persistance, pas sur la
+// gestion des droits (couverte séparément par access.test.js) — les
+// documents créés ici passent directement par Storage plutôt que par
+// POST /api/docs (qui exige désormais une session, voir
+// claude/conception-gestion-utilisateurs.md, projet Amend), et restent
+// donc des documents "ouverts" sans liste d'accès, comme avant cette
+// fonctionnalité.
+const directStorage = new Storage(process.env.DATA_DIR)
 
 function waitForServer() {
   return new Promise((resolve, reject) => {
@@ -45,13 +55,7 @@ function withTimeout(promise, ms, label) {
 }
 
 async function createDoc(title) {
-  const res = await fetch(`${BASE}/api/docs`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ title }),
-  })
-  assert.equal(res.status, 201)
-  return res.json()
+  return directStorage.createDoc(title)
 }
 
 function connect(docId, user) {
@@ -192,7 +196,12 @@ test('AI endpoint rejects empty text (400, after key check)', async () => {
   assert.equal(res.status, 400)
 })
 
-test.after(() => {
+test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
-  process.exit(0) // the server keeps the event loop alive; end the process explicitly
+  // Laisse le rapporteur TAP écrire le résultat du tout dernier test avant
+  // de couper le process (le serveur maintient sinon la boucle d'événements
+  // ouverte indéfiniment) — sans ce court délai, un process.exit() synchrone
+  // ici arrive parfois avant que le dernier "ok"/"not ok" ne soit imprimé.
+  await new Promise((r) => setTimeout(r, 50))
+  process.exit(0)
 })

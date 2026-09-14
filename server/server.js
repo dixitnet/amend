@@ -8,6 +8,17 @@ import { isWebSocketUpgrade, acceptWebSocket } from './ws.js'
 import { Storage } from './storage.js'
 import { Rooms } from './rooms.js'
 import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
+import {
+  readSession,
+  sessionCookieHeader,
+  isSecureRequest,
+  normalizeEmail,
+  canRequestReconnectLink,
+  createReconnectToken,
+  consumeReconnectToken,
+} from './auth.js'
+import { sendMail } from './mailgun.js'
+import { capabilities } from './roles.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -38,6 +49,7 @@ loadDotEnv(join(ROOT, '.env'))
 const CLIENT_DIST = join(ROOT, 'client', 'dist')
 const DATA_DIR = process.env.DATA_DIR || join(ROOT, 'data')
 const PORT = Number(process.env.PORT) || 8787
+const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`
 const MAX_JSON_BODY = 20_000
 // La requête de compaction transporte un instantané Yjs déjà fusionné
 // (encodé en base64) — potentiellement bien plus gros qu'un simple champ
@@ -132,12 +144,15 @@ async function handleApi(req, res, url) {
   const { pathname } = url
 
   if (pathname === '/api/docs' && req.method === 'GET') {
-    return sendJson(res, 200, { docs: storage.listDocs() })
+    const email = readSession(req)
+    return sendJson(res, 200, { docs: storage.listDocs(email) })
   }
 
   if (pathname === '/api/docs' && req.method === 'POST') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     const body = await readJsonBody(req)
-    const doc = storage.createDoc(typeof body.title === 'string' ? body.title.slice(0, 200) : '')
+    const doc = storage.createDoc(typeof body.title === 'string' ? body.title.slice(0, 200) : '', email)
     return sendJson(res, 201, doc)
   }
 
@@ -145,7 +160,12 @@ async function handleApi(req, res, url) {
   if (docMatch && req.method === 'GET') {
     const doc = storage.getDoc(docMatch[1])
     if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
-    return sendJson(res, 200, { ...doc, onlineCount: rooms.presenceCount(doc.id) })
+    const email = readSession(req)
+    const myRole = storage.roleFor(docMatch[1], email)
+    if (storage.hasAccessControl(docMatch[1]) && !myRole) {
+      return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+    }
+    return sendJson(res, 200, { ...doc, myRole: myRole || 'editeur', onlineCount: rooms.presenceCount(doc.id) })
   }
   if (docMatch && req.method === 'PATCH') {
     const body = await readJsonBody(req)
@@ -243,6 +263,107 @@ async function handleApi(req, res, url) {
     })
   }
 
+  // --- Authentification (voir claude/conception-gestion-utilisateurs.md,
+  // projet Amend) : reconnexion par lien magique, valable pour toute
+  // adresse (pas seulement celles ayant déjà accès à un document — créer
+  // un nouveau document, dont on devient éditeur, ne demande rien de plus). ---
+
+  if (pathname === '/api/auth/me' && req.method === 'GET') {
+    return sendJson(res, 200, { email: readSession(req) })
+  }
+
+  if (pathname === '/api/auth/request-link' && req.method === 'POST') {
+    const body = await readJsonBody(req)
+    const email = normalizeEmail(body.email)
+    if (!email) return sendJson(res, 400, { error: 'adresse email invalide' })
+    // Réponse volontairement identique dans tous les cas (email inconnu,
+    // limite de débit dépassée...) : on ne veut pas laisser deviner depuis
+    // l'extérieur quels emails ont un accès.
+    if (canRequestReconnectLink(email)) {
+      const token = createReconnectToken(email)
+      const link = `${APP_BASE_URL}/#/login/verify/${token}`
+      try {
+        await sendMail({
+          to: email,
+          subject: 'Votre lien de connexion à Amend',
+          text: `Cliquez sur ce lien pour vous connecter à Amend (valable 20 minutes) :\n\n${link}\n\nSi vous n'avez rien demandé, ignorez cet email.`,
+        })
+      } catch (err) {
+        console.error("Échec d'envoi d'email de reconnexion :", err.message)
+      }
+    }
+    return sendJson(res, 200, { ok: true })
+  }
+
+  if (pathname === '/api/auth/verify' && req.method === 'POST') {
+    const body = await readJsonBody(req)
+    const email = consumeReconnectToken(String(body.token || ''))
+    if (!email) return sendJson(res, 400, { error: 'lien invalide ou expiré' })
+    res.setHeader('set-cookie', sessionCookieHeader(email, { secure: isSecureRequest(req) }))
+    return sendJson(res, 200, { email })
+  }
+
+  // --- Lien d'invitation : auto-connectant, réutilisable par plusieurs
+  // personnes (un par document et par rôle) ; chaque personne qui l'utilise
+  // déclare sa propre adresse (pas vérifiée par possession de boîte mail à
+  // ce stade — voir le document de conception). ---
+
+  const inviteMatch = pathname.match(/^\/api\/invite\/([A-Za-z0-9_-]+)$/)
+  if (inviteMatch && req.method === 'GET') {
+    const found = storage.findInviteLink(inviteMatch[1])
+    if (!found) return sendJson(res, 404, { error: 'lien invalide' })
+    const doc = storage.getDoc(found.id)
+    if (!doc) return sendJson(res, 404, { error: 'lien invalide' })
+    return sendJson(res, 200, { docId: found.id, docTitle: doc.title, role: found.role })
+  }
+
+  if (inviteMatch && req.method === 'POST') {
+    const found = storage.findInviteLink(inviteMatch[1])
+    if (!found || !storage.getDoc(found.id)) return sendJson(res, 404, { error: 'lien invalide' })
+    const body = await readJsonBody(req)
+    const email = normalizeEmail(body.email)
+    if (!email) return sendJson(res, 400, { error: 'adresse email invalide' })
+    storage.grantAccess(found.id, email, found.role)
+    res.setHeader('set-cookie', sessionCookieHeader(email, { secure: isSecureRequest(req) }))
+    return sendJson(res, 200, { docId: found.id })
+  }
+
+  // --- Gestion des accès d'un document (éditeurs seulement). ---
+
+  const accessMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/access$/)
+  if (accessMatch && req.method === 'GET') {
+    const id = accessMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const role = storage.roleFor(id, readSession(req))
+    if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    return sendJson(res, 200, {
+      access: storage.getAccess(id),
+      inviteLinks: {
+        editeur: storage.getOrCreateInviteLink(id, 'editeur'),
+        correcteur: storage.getOrCreateInviteLink(id, 'correcteur'),
+      },
+    })
+  }
+
+  const revokeMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/access\/([^/]+)$/)
+  if (revokeMatch && req.method === 'DELETE') {
+    const id = revokeMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const role = storage.roleFor(id, readSession(req))
+    if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    storage.revokeAccess(id, decodeURIComponent(revokeMatch[2]))
+    return sendJson(res, 200, { ok: true })
+  }
+
+  const regenMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/invite-link\/(editeur|correcteur)\/regenerate$/)
+  if (regenMatch && req.method === 'POST') {
+    const [, id, linkRole] = regenMatch
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const role = storage.roleFor(id, readSession(req))
+    if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    return sendJson(res, 200, { token: storage.regenerateInviteLink(id, linkRole) })
+  }
+
   if (pathname === '/api/ai/suggest' && req.method === 'POST') {
     const body = await readJsonBody(req)
     try {
@@ -290,6 +411,10 @@ server.on('upgrade', (req, socket) => {
   const docId = match[1]
   if (!storage.getDoc(docId)) {
     rejectUpgrade(socket, 404, 'Not Found')
+    return
+  }
+  if (storage.hasAccessControl(docId) && !storage.roleFor(docId, readSession(req))) {
+    rejectUpgrade(socket, 403, 'Forbidden')
     return
   }
   if (rooms.presenceCount(docId) >= MAX_USERS_PER_DOC) {

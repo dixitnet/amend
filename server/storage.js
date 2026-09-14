@@ -131,10 +131,26 @@ export class Storage {
     renameSync(tmp, this.registryPath)
   }
 
-  listDocs() {
+  /** `email` : si fourni, ne renvoie que les documents accessibles à cette
+   * personne (éditeur ou correcteur) — les documents sans liste d'accès
+   * (créés avant cette fonctionnalité) restent visibles à tout le monde,
+   * connecté ou non, pour ne pas casser les documents existants. Sans
+   * email (pas connecté), seuls ces documents "ouverts" apparaissent. */
+  listDocs(email) {
     const registry = this._readRegistry()
     return Object.entries(registry)
-      .map(([id, meta]) => ({ id, ...meta }))
+      .filter(([, meta]) => {
+        if (!Array.isArray(meta.access)) return true
+        if (!email) return false
+        return meta.access.some((a) => a.email === email)
+      })
+      .map(([id, meta]) => ({
+        id,
+        ...meta,
+        myRole: Array.isArray(meta.access)
+          ? (meta.access.find((a) => a.email === email) || {}).role || null
+          : 'editeur',
+      }))
       .sort((a, b) => {
         // Étoilés d'abord (peu importe depuis quand), puis par date de
         // dernière modification comme avant — deux tris indépendants plutôt
@@ -153,14 +169,112 @@ export class Storage {
     return { id, ...meta }
   }
 
-  createDoc(title) {
+  /** `creatorEmail` : si fourni, cette personne devient immédiatement
+   * éditrice du document (voir claude/conception-gestion-utilisateurs.md,
+   * projet Amend). Un document créé sans email (ne devrait plus arriver
+   * depuis que POST /api/docs exige une session, mais gardé permissif ici)
+   * n'a pas de liste d'accès — traité comme ouvert à tous, comme les
+   * documents créés avant cette fonctionnalité (voir hasAccessControl). */
+  createDoc(title, creatorEmail) {
     const registry = this._readRegistry()
     const id = randomId()
     const now = Date.now()
-    registry[id] = { title: title || 'Sans titre', createdAt: now, updatedAt: now }
+    const meta = { title: title || 'Sans titre', createdAt: now, updatedAt: now }
+    if (creatorEmail) {
+      meta.access = [{ email: creatorEmail, role: 'editeur', grantedAt: now }]
+    }
+    registry[id] = meta
     this._writeRegistry(registry)
     writeFileSync(this._logPath(id), Buffer.alloc(0))
     return { id, ...registry[id] }
+  }
+
+  /** Rôle de cet email sur ce document, ou null si aucun accès. Un
+   * document sans liste d'accès (créé avant cette fonctionnalité, ou sans
+   * creatorEmail — voir createDoc) est traité comme ouvert : tout le monde
+   * y est "editeur", pour ne pas casser les documents existants. */
+  roleFor(id, email) {
+    const doc = this.getDoc(id)
+    if (!doc) return null
+    if (!Array.isArray(doc.access)) return 'editeur'
+    if (!email) return null
+    const entry = doc.access.find((a) => a.email === email)
+    return entry ? entry.role : null
+  }
+
+  /** true si ce document a une gestion des droits active (voir roleFor). */
+  hasAccessControl(id) {
+    const doc = this.getDoc(id)
+    return !!(doc && Array.isArray(doc.access))
+  }
+
+  getAccess(id) {
+    const doc = this.getDoc(id)
+    return (doc && doc.access) || []
+  }
+
+  grantAccess(id, email, role) {
+    const registry = this._readRegistry()
+    const doc = registry[id]
+    if (!doc) return null
+    if (!Array.isArray(doc.access)) doc.access = []
+    const existing = doc.access.find((a) => a.email === email)
+    if (existing) existing.role = role
+    else doc.access.push({ email, role, grantedAt: Date.now() })
+    this._writeRegistry(registry)
+    return { id, ...doc }
+  }
+
+  revokeAccess(id, email) {
+    const registry = this._readRegistry()
+    const doc = registry[id]
+    if (!doc || !Array.isArray(doc.access)) return null
+    doc.access = doc.access.filter((a) => a.email !== email)
+    this._writeRegistry(registry)
+    return { id, ...doc }
+  }
+
+  /** Jeton d'invitation courant pour ce document et ce rôle — auto-connectant
+   * et réutilisable par plusieurs personnes (voir
+   * claude/conception-gestion-utilisateurs.md) ; en crée un s'il n'existe
+   * pas encore. */
+  getOrCreateInviteLink(id, role) {
+    const registry = this._readRegistry()
+    const doc = registry[id]
+    if (!doc) return null
+    if (!doc.inviteLinks) doc.inviteLinks = {}
+    if (!doc.inviteLinks[role]) {
+      doc.inviteLinks[role] = randomId(24)
+      this._writeRegistry(registry)
+    }
+    return doc.inviteLinks[role]
+  }
+
+  /** Remplace le jeton par un nouveau, invalidant l'ancien (ex. trop
+   * largement diffusé) sans retirer l'accès des personnes déjà entrées. */
+  regenerateInviteLink(id, role) {
+    const registry = this._readRegistry()
+    const doc = registry[id]
+    if (!doc) return null
+    if (!doc.inviteLinks) doc.inviteLinks = {}
+    doc.inviteLinks[role] = randomId(24)
+    this._writeRegistry(registry)
+    return doc.inviteLinks[role]
+  }
+
+  /** Retrouve le document et le rôle correspondant à un jeton d'invitation.
+   * Parcourt le petit registre en mémoire plutôt qu'un index séparé — ce
+   * projet reste volontairement simple, adapté à une poignée de documents
+   * (voir le reste de ce fichier). */
+  findInviteLink(token) {
+    const registry = this._readRegistry()
+    for (const [id, doc] of Object.entries(registry)) {
+      if (!doc.inviteLinks) continue
+      for (const [role, t] of Object.entries(doc.inviteLinks)) {
+        if (t === token) return { id, role }
+      }
+    }
+    return null
   }
 
   renameDoc(id, title) {

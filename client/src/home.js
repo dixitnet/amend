@@ -1,3 +1,5 @@
+import { getSessionEmail } from './auth.js'
+
 export async function mountHome(root) {
   root.innerHTML = ''
   const wrap = document.createElement('div')
@@ -9,6 +11,19 @@ export async function mountHome(root) {
   subtitle.className = 'subtitle'
   subtitle.textContent = 'Édition collaborative avec suivi des modifications et assistance IA.'
   wrap.append(h1, subtitle)
+
+  const authStatus = document.createElement('p')
+  authStatus.className = 'auth-status'
+  wrap.appendChild(authStatus)
+  getSessionEmail().then((email) => {
+    authStatus.textContent = email ? `Connecté comme ${email}` : ''
+    if (!email) {
+      const loginLink = document.createElement('a')
+      loginLink.href = '#/login'
+      loginLink.textContent = 'Se connecter'
+      authStatus.appendChild(loginLink)
+    }
+  })
 
   const styleLink = document.createElement('a')
   styleLink.href = '#/style'
@@ -32,6 +47,10 @@ export async function mountHome(root) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ title: input.value }),
     })
+    if (res.status === 401) {
+      location.hash = '#/login'
+      return
+    }
     const doc = await res.json()
     location.hash = `#/doc/${doc.id}`
   })
@@ -90,6 +109,12 @@ export async function mountHome(root) {
       const titleWrap = document.createElement('span')
       titleWrap.className = 'doc-list-title'
       titleWrap.append(starBtn, link)
+      if (doc.myRole === 'correcteur') {
+        const badge = document.createElement('span')
+        badge.className = 'role-badge'
+        badge.textContent = 'correcteur'
+        titleWrap.appendChild(badge)
+      }
 
       // Suppression à deux clics plutôt qu'un window.confirm() : le bouton
       // devient "Confirmer ?" pendant 3 secondes, un second clic dans ce

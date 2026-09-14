@@ -44,7 +44,7 @@ function relativeTime(ts) {
  * this is the panel people actually act on (accept/reject), so it stays
  * exactly as responsive as before.
  */
-export function mountChangesPanel(container) {
+export function mountChangesPanel(container, { canReview = true } = {}) {
   let view = null
   // A signature of the last rendered change list, so we can skip rebuilding
   // the whole panel (and re-creating every Accepter/Rejeter button) when a
@@ -73,7 +73,7 @@ export function mountChangesPanel(container) {
     const title = document.createElement('h3')
     title.textContent = `Modifications (${changes.length})`
     header.appendChild(title)
-    if (changes.length > 1) {
+    if (changes.length > 1 && canReview) {
       const bulk = document.createElement('div')
       bulk.className = 'changes-bulk'
       const acceptAll = document.createElement('button')
@@ -124,15 +124,21 @@ export function mountChangesPanel(container) {
 
       const actions = document.createElement('div')
       actions.className = 'change-actions'
-      const acceptBtn = document.createElement('button')
-      acceptBtn.textContent = 'Accepter'
-      acceptBtn.className = 'btn-accept'
-      acceptBtn.onclick = () => acceptChange(view, change)
-      const rejectBtn = document.createElement('button')
-      rejectBtn.textContent = 'Rejeter'
-      rejectBtn.className = 'btn-reject'
-      rejectBtn.onclick = () => rejectChange(view, change)
-      actions.append(acceptBtn, rejectBtn)
+      // Un correcteur peut proposer des modifications (suivi de
+      // modifications forcé, voir editor.js) mais ne peut pas les
+      // valider/invalider — seuls les éditeurs accèdent à Accepter/Rejeter
+      // (voir claude/conception-gestion-utilisateurs.md, projet Amend).
+      if (canReview) {
+        const acceptBtn = document.createElement('button')
+        acceptBtn.textContent = 'Accepter'
+        acceptBtn.className = 'btn-accept'
+        acceptBtn.onclick = () => acceptChange(view, change)
+        const rejectBtn = document.createElement('button')
+        rejectBtn.textContent = 'Rejeter'
+        rejectBtn.className = 'btn-reject'
+        rejectBtn.onclick = () => rejectChange(view, change)
+        actions.append(acceptBtn, rejectBtn)
+      }
 
       item.append(meta, text, actions)
       // Clicking the item itself (not Accepter/Rejeter) scrolls the editor

@@ -23,6 +23,7 @@ import {
   rejectChange,
 } from './trackChanges.js'
 import { mountChangesPanel } from './changesPanel.js'
+import { openAccessPanel } from './accessPanel.js'
 import { mountAIPanel } from './aiPanel.js'
 import { commentsPlugin, mountCommentsPanel } from './comments.js'
 import { mountOutlinePanel } from './outline.js'
@@ -117,6 +118,17 @@ export function mountEditor(root, docId, user, docMeta) {
     }
   }
   topBanner.appendChild(starBtn)
+
+  // Réservé aux éditeurs — un correcteur ne gère pas les accès (voir
+  // claude/conception-gestion-utilisateurs.md, projet Amend).
+  if (docMeta.myRole === 'editeur') {
+    const shareBtn = document.createElement('button')
+    shareBtn.type = 'button'
+    shareBtn.className = 'share-btn'
+    shareBtn.textContent = 'Partager'
+    shareBtn.onclick = () => openAccessPanel(docId)
+    topBanner.appendChild(shareBtn)
+  }
 
   const titleInput = document.createElement('input')
   titleInput.className = 'doc-title'
@@ -389,7 +401,7 @@ export function mountEditor(root, docId, user, docMeta) {
       richPastePlugin(() => user),
       pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),
-      mountChangesPanel(changesSection),
+      mountChangesPanel(changesSection, { canReview: docMeta.myRole !== 'correcteur' }),
       mountOutlinePanel(outlineSection),
       mountWordCount(wordCount),
       mountTkMarker(tkCount),
@@ -422,13 +434,36 @@ export function mountEditor(root, docId, user, docMeta) {
   window.__debugPmView = view
   window.__debugUser = user
   window.__debugSetTrackChanges = (enabled) => setTrackChangesEnabled(view, enabled)
+  // Diagnostic du 14/09/2026 (bug de collage signalé) : accès direct à la
+  // couche Yjs pour comparer l'état du document ProseMirror à l'état Yjs
+  // sous-jacent — à retirer avec le reste de ce bloc temporaire.
+  window.__debugProvider = provider
+  window.__debugYdoc = ydoc
+  window.__debugYXml = yXml
+
+  // Un correcteur reste toujours en suivi de modifications — ne peut ni
+  // désactiver le suivi, ni en sortir (voir
+  // claude/conception-gestion-utilisateurs.md, projet Amend). Appliqué ici
+  // seulement côté interface : le serveur ne vérifie pas encore le contenu
+  // des modifications, limite connue et acceptée pour cette première
+  // version.
+  const isCorrecteur = docMeta.myRole === 'correcteur'
+  if (isCorrecteur) {
+    trackToggle.disabled = true
+    trackToggleLabel.title = 'Les correcteurs proposent toujours leurs modifications en suivi de modifications.'
+    if (!isTrackChangesEnabled(view.state)) setTrackChangesEnabled(view, true)
+  }
 
   trackToggle.addEventListener('change', () => {
+    if (isCorrecteur) {
+      trackToggle.checked = true
+      return
+    }
     setTrackChangesEnabled(view, trackToggle.checked)
   })
   // Keep the checkbox in sync if the plugin state ever changes elsewhere.
   const syncToggle = () => {
-    trackToggle.checked = isTrackChangesEnabled(view.state)
+    trackToggle.checked = isCorrecteur ? true : isTrackChangesEnabled(view.state)
   }
   syncToggle()
 
