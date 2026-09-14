@@ -11,6 +11,11 @@ export class MailSendError extends Error {}
 export function sendMail({ to, subject, text }) {
   const apiKey = process.env.MAILGUN_API_KEY
   const domain = process.env.MAILGUN_DOMAIN
+  // Mailgun a deux zones distinctes avec des identifiants et une API
+  // séparés (api.mailgun.net pour US, api.eu.mailgun.net pour EU) — le
+  // compte de Sylvain est en zone EU, d'où ce choix par défaut. Réglable
+  // via MAILGUN_API_HOST si jamais un compte US est utilisé un jour.
+  const apiHost = process.env.MAILGUN_API_HOST || 'api.eu.mailgun.net'
   if (!apiKey || !domain) {
     return Promise.reject(
       new MailConfigError('MAILGUN_API_KEY et MAILGUN_DOMAIN requis (voir .env.example)')
@@ -24,7 +29,7 @@ export function sendMail({ to, subject, text }) {
     const req = request(
       {
         method: 'POST',
-        hostname: 'api.mailgun.net',
+        hostname: apiHost,
         path: `/v3/${encodeURIComponent(domain)}/messages`,
         headers: {
           authorization: `Basic ${auth}`,
