@@ -16,6 +16,8 @@ import {
   canRequestReconnectLink,
   createReconnectToken,
   consumeReconnectToken,
+  isAdminEmail,
+  isLoginAllowed,
 } from './auth.js'
 import { sendMail } from './mailgun.js'
 import { capabilities } from './roles.js'
@@ -168,24 +170,33 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ...doc, myRole: myRole || 'editeur', onlineCount: rooms.presenceCount(doc.id) })
   }
   if (docMatch && req.method === 'PATCH') {
+    if (!storage.getDoc(docMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
+    if (!capabilities(storage.roleFor(docMatch[1], readSession(req))).canManageDocument) {
+      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    }
     const body = await readJsonBody(req)
     const doc = storage.renameDoc(docMatch[1], String(body.title || '').slice(0, 200))
-    if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
     return sendJson(res, 200, doc)
   }
 
   const starMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/star$/)
   if (starMatch && req.method === 'PATCH') {
+    if (!storage.getDoc(starMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
+    if (!capabilities(storage.roleFor(starMatch[1], readSession(req))).canManageDocument) {
+      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    }
     const body = await readJsonBody(req)
     const doc = storage.starDoc(starMatch[1], !!body.starred)
-    if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
     return sendJson(res, 200, doc)
   }
 
   if (docMatch && req.method === 'DELETE') {
+    if (!storage.getDoc(docMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
+    if (!capabilities(storage.roleFor(docMatch[1], readSession(req))).canManageDocument) {
+      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    }
     const ok = storage.deleteDoc(docMatch[1])
-    if (!ok) return sendJson(res, 404, { error: 'document introuvable' })
-    return sendJson(res, 200, { ok: true })
+    return sendJson(res, 200, { ok })
   }
 
   // Historique léger (voir storage.js : getHistoryMeta/getHistoryRaw/
@@ -235,6 +246,10 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, storage.getStyle())
   }
   if (pathname === '/api/style' && req.method === 'PUT') {
+    // Feuille de style partagée par toute l'instance, pas par document —
+    // réservée aux administrateurs (voir ADMIN_EMAILS, auth.js), pas aux
+    // éditeurs de tel ou tel document.
+    if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
     const body = await readJsonBody(req)
     return sendJson(res, 200, storage.setStyle(body))
   }
@@ -248,6 +263,7 @@ async function handleApi(req, res, url) {
   // petit outil de diagnostic auto-hébergé de plus, dans le même esprit que
   // le reste de l'appli.
   if (pathname === '/api/debug/stats' && req.method === 'GET') {
+    if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
     const start = process.hrtime.bigint()
     return new Promise((resolve) => {
       setImmediate(() => {
@@ -277,9 +293,12 @@ async function handleApi(req, res, url) {
     const email = normalizeEmail(body.email)
     if (!email) return sendJson(res, 400, { error: 'adresse email invalide' })
     // Réponse volontairement identique dans tous les cas (email inconnu,
-    // limite de débit dépassée...) : on ne veut pas laisser deviner depuis
-    // l'extérieur quels emails ont un accès.
-    if (canRequestReconnectLink(email)) {
+    // pas autorisé, limite de débit dépassée...) : on ne veut pas laisser
+    // deviner depuis l'extérieur quels emails ont un accès. Seule une
+    // adresse qui a déjà un accès quelque part, ou une administratrice,
+    // reçoit réellement un lien — tout le monde d'autre n'entre que par
+    // une invitation à un document précis (voir isLoginAllowed, auth.js).
+    if (isLoginAllowed(email, storage) && canRequestReconnectLink(email)) {
       const token = createReconnectToken(email)
       const link = `${APP_BASE_URL}/#/login/verify/${token}`
       try {
@@ -365,6 +384,12 @@ async function handleApi(req, res, url) {
   }
 
   if (pathname === '/api/ai/suggest' && req.method === 'POST') {
+    // Vérification volontairement grossière pour l'instant (n'importe
+    // quelle session valide, pas de lien avec un document précis ni de
+    // quota) — ferme la porte à un usage anonyme qui consommerait la clé
+    // Anthropic du serveur ; un contrôle plus fin (par document, avec les
+    // quotas FREE/PRO envisagés) reste à faire séparément.
+    if (!readSession(req)) return sendJson(res, 401, { error: 'connexion requise' })
     const body = await readJsonBody(req)
     try {
       const suggestion = await suggestEdit({}, body.text, body.instruction)
@@ -374,6 +399,17 @@ async function handleApi(req, res, url) {
       if (err instanceof AIRequestError) return sendJson(res, err.status || 502, { error: err.message })
       throw err
     }
+  }
+
+  // --- Liste d'attente publique (page d'accueil pour les visiteurs non
+  // connectés) : juste stocker l'email pour l'instant, pas de gestion —
+  // voir claude/conception-gestion-utilisateurs.md (projet Amend). ---
+  if (pathname === '/api/waitlist' && req.method === 'POST') {
+    const body = await readJsonBody(req)
+    const email = normalizeEmail(body.email)
+    if (!email) return sendJson(res, 400, { error: 'adresse email invalide' })
+    storage.addToWaitlist(email)
+    return sendJson(res, 200, { ok: true })
   }
 
   sendJson(res, 404, { error: 'not found' })

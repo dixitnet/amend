@@ -16,11 +16,14 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'collabtext-test-access-'))
 delete process.env.ANTHROPIC_API_KEY
 delete process.env.MAILGUN_API_KEY
 delete process.env.MAILGUN_DOMAIN
+delete process.env.ADMIN_EMAILS
 
 const BASE = `http://localhost:${PORT}`
 
 await import('../server.js')
-const { sessionCookieHeader, createReconnectToken, consumeReconnectToken } = await import('../auth.js')
+const { sessionCookieHeader, createReconnectToken, consumeReconnectToken, isAdminEmail, isLoginAllowed } =
+  await import('../auth.js')
+const { Storage } = await import('../storage.js')
 await waitForServer()
 
 function waitForServer() {
@@ -176,6 +179,133 @@ test('demander un lien de reconnexion répond 200 même sans Mailgun configuré'
     body: JSON.stringify({ email: 'gina@example.com' }),
   })
   assert.equal(res.status, 200)
+})
+
+test('renommer/étoiler/supprimer un document est réservé aux éditeurs', async () => {
+  const editorCookie = cookieFor('hana@example.com')
+  const createRes = await fetch(`${BASE}/api/docs`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: editorCookie },
+    body: JSON.stringify({ title: 'Doc géré' }),
+  })
+  const doc = await createRes.json()
+
+  const inviteLinks = await (
+    await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })
+  ).json()
+  await fetch(`${BASE}/api/invite/${inviteLinks.inviteLinks.correcteur}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'ivan@example.com' }),
+  })
+  const correcteurCookie = cookieFor('ivan@example.com')
+
+  const renameByCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', cookie: correcteurCookie },
+    body: JSON.stringify({ title: 'Piraté' }),
+  })
+  assert.equal(renameByCorrecteur.status, 403)
+
+  const starByCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}/star`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', cookie: correcteurCookie },
+    body: JSON.stringify({ starred: true }),
+  })
+  assert.equal(starByCorrecteur.status, 403)
+
+  const deleteByCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}`, {
+    method: 'DELETE',
+    headers: { cookie: correcteurCookie },
+  })
+  assert.equal(deleteByCorrecteur.status, 403)
+
+  const renameByEditor = await fetch(`${BASE}/api/docs/${doc.id}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', cookie: editorCookie },
+    body: JSON.stringify({ title: 'Titre légitime' }),
+  })
+  assert.equal(renameByEditor.status, 200)
+
+  const deleteByEditor = await fetch(`${BASE}/api/docs/${doc.id}`, {
+    method: 'DELETE',
+    headers: { cookie: editorCookie },
+  })
+  assert.equal(deleteByEditor.status, 200)
+})
+
+test('la feuille de style et le diagnostic sont réservés aux administrateurs', async () => {
+  process.env.ADMIN_EMAILS = 'admin@example.com'
+  try {
+    const nonAdminRes = await fetch(`${BASE}/api/style`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: cookieFor('nobody@example.com') },
+      body: JSON.stringify({}),
+    })
+    assert.equal(nonAdminRes.status, 403)
+
+    const adminRes = await fetch(`${BASE}/api/style`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: cookieFor('admin@example.com') },
+      body: JSON.stringify({}),
+    })
+    assert.equal(adminRes.status, 200)
+
+    const statsRes = await fetch(`${BASE}/api/debug/stats`, { headers: { cookie: cookieFor('nobody@example.com') } })
+    assert.equal(statsRes.status, 403)
+  } finally {
+    delete process.env.ADMIN_EMAILS
+  }
+})
+
+test('la suggestion IA exige une session (ferme la porte à un usage anonyme)', async () => {
+  const anonRes = await fetch(`${BASE}/api/ai/suggest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'Bonjour', instruction: 'plus formel' }),
+  })
+  assert.equal(anonRes.status, 401)
+
+  // Connecté : passe le contrôle de session, la requête suit ensuite son
+  // cours normal — supprime ANTHROPIC_API_KEY juste pour cet appel (le vrai
+  // .env du Mac peut l'avoir rechargée malgré le `delete` en tête de
+  // fichier, même bug déjà connu que integration.test.js) pour vérifier
+  // précisément que ce n'est PAS un 401 (le seul point testé ici), plutôt
+  // que de dépendre de la présence ou non d'une vraie clé.
+  const savedKey = process.env.ANTHROPIC_API_KEY
+  delete process.env.ANTHROPIC_API_KEY
+  const loggedRes = await fetch(`${BASE}/api/ai/suggest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: cookieFor('jack@example.com') },
+    body: JSON.stringify({ text: 'Bonjour', instruction: 'plus formel' }),
+  })
+  if (savedKey) process.env.ANTHROPIC_API_KEY = savedKey
+  assert.equal(loggedRes.status, 501)
+})
+
+test("la liste d'attente est publique et se contente de stocker l'email", async () => {
+  const res = await fetch(`${BASE}/api/waitlist`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'kim@example.com' }),
+  })
+  assert.equal(res.status, 200)
+})
+
+test('isLoginAllowed : administrateur ou déjà invité quelque part, personne d’autre', async () => {
+  const storage = new Storage(process.env.DATA_DIR)
+  process.env.ADMIN_EMAILS = 'boss@example.com'
+  try {
+    assert.equal(isAdminEmail('boss@example.com'), true)
+    assert.equal(isAdminEmail('nobody@example.com'), false)
+    assert.equal(isLoginAllowed('boss@example.com', storage), true)
+    assert.equal(isLoginAllowed('totally-unknown@example.com', storage), false)
+
+    const doc = storage.createDoc('Doc pour laura', 'laura@example.com')
+    assert.equal(isLoginAllowed('laura@example.com', storage), true)
+  } finally {
+    delete process.env.ADMIN_EMAILS
+  }
 })
 
 test.after(async () => {

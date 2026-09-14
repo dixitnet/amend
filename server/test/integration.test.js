@@ -16,8 +16,15 @@ delete process.env.ANTHROPIC_API_KEY
 const BASE = `http://localhost:${PORT}`
 
 const { Storage } = await import('../storage.js')
+const { sessionCookieHeader } = await import('../auth.js')
 await import('../server.js')
 await waitForServer()
+
+// L'endpoint IA exige désormais une session (voir server.js et
+// claude/conception-gestion-utilisateurs.md, projet Amend) — un cookie
+// valide, sans rapport avec la vérification de la clé Anthropic que ces
+// deux tests visent réellement.
+const AI_TEST_COOKIE = sessionCookieHeader('ai-test@example.com', { secure: false }).split(';')[0]
 
 // Ces tests portent sur le relais WebSocket / la persistance, pas sur la
 // gestion des droits (couverte séparément par access.test.js) — les
@@ -177,7 +184,7 @@ test('refuses an 11th simultaneous connection to the same document (MAX_USERS_PE
 test('AI endpoint reports missing API key clearly (501)', async () => {
   const res = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: AI_TEST_COOKIE },
     body: JSON.stringify({ text: 'Bonjour le monde', instruction: 'plus formel' }),
   })
   assert.equal(res.status, 501)
@@ -189,7 +196,7 @@ test('AI endpoint rejects empty text (400, after key check)', async () => {
   process.env.ANTHROPIC_API_KEY = 'sk-test-not-real'
   const res = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: AI_TEST_COOKIE },
     body: JSON.stringify({ text: '   ', instruction: 'x' }),
   })
   delete process.env.ANTHROPIC_API_KEY

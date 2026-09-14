@@ -84,9 +84,13 @@ export class Storage {
     this.maxUncompactedOps = maxUncompactedOps
     this.registryPath = join(dataDir, 'docs.json')
     this.stylePath = join(dataDir, 'style.json')
+    this.waitlistPath = join(dataDir, 'waitlist.json')
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true })
     if (!existsSync(this.registryPath)) {
       writeFileSync(this.registryPath, JSON.stringify({}), 'utf8')
+    }
+    if (!existsSync(this.waitlistPath)) {
+      writeFileSync(this.waitlistPath, JSON.stringify([]), 'utf8')
     }
     // Write-behind buffer for the per-document update logs — see
     // appendUpdate/_flush/flushAll. `_pending` is the source of truth for
@@ -113,6 +117,23 @@ export class Storage {
     writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf8')
     renameSync(tmp, this.stylePath)
     return merged
+  }
+
+  /** Liste d'attente : juste un empilement d'emails avec la date, pas de
+   * déduplication stricte ni de gestion pour l'instant (décision du 14/09 :
+   * "on stocke les emails, on verra plus tard") — Sylvain les consultera à
+   * la main en attendant un vrai dispositif d'approbation. */
+  addToWaitlist(email) {
+    let list
+    try {
+      list = JSON.parse(readFileSync(this.waitlistPath, 'utf8'))
+    } catch {
+      list = []
+    }
+    list.push({ email, ts: Date.now() })
+    const tmp = this.waitlistPath + '.tmp'
+    writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf8')
+    renameSync(tmp, this.waitlistPath)
   }
 
   _readRegistry() {
@@ -260,6 +281,19 @@ export class Storage {
     doc.inviteLinks[role] = randomId(24)
     this._writeRegistry(registry)
     return doc.inviteLinks[role]
+  }
+
+  /** true si cette adresse a un rôle sur au moins un document — sert de
+   * base à isLoginAllowed (auth.js) : une personne déjà invitée quelque
+   * part peut toujours se reconnecter, même sans lien d'invitation sous la
+   * main. Parcourt le petit registre en mémoire, comme findInviteLink
+   * ci-dessous — même logique, même échelle assumée. */
+  emailHasAnyAccess(email) {
+    if (!email) return false
+    const registry = this._readRegistry()
+    return Object.values(registry).some(
+      (doc) => Array.isArray(doc.access) && doc.access.some((a) => a.email === email)
+    )
   }
 
   /** Retrouve le document et le rôle correspondant à un jeton d'invitation.

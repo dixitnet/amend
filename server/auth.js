@@ -59,6 +59,35 @@ export function isSecureRequest(req) {
   return req.headers['x-forwarded-proto'] === 'https'
 }
 
+/** Liste blanche d'administrateurs (ADMIN_EMAILS dans .env, séparés par
+ * des virgules) — pour l'instant Sylvain, sert à deux choses distinctes :
+ * pouvoir se connecter/créer des documents sans avoir déjà d'accès nulle
+ * part (bootstrap — voir isLoginAllowed ci-dessous), et accéder aux routes
+ * d'administration de l'instance (feuille de style partagée, diagnostic).
+ * Voir claude/conception-gestion-utilisateurs.md (projet Amend). */
+function adminEmailList() {
+  return String(process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+export function isAdminEmail(email) {
+  if (!email) return false
+  return adminEmailList().includes(email)
+}
+
+/** true si cette adresse a le droit de se connecter/créer un compte par ce
+ * biais : soit elle a déjà accès à au moins un document (retour normal),
+ * soit elle est administratrice (bootstrap). Tout le monde d'autre
+ * n'arrive dans l'appli que par un lien d'invitation à un document
+ * précis — jamais par la connexion générique. `storage` est passé en
+ * paramètre plutôt qu'importé ici pour ne pas créer de dépendance
+ * circulaire entre auth.js et storage.js. */
+export function isLoginAllowed(email, storage) {
+  return isAdminEmail(email) || storage.emailHasAnyAccess(email)
+}
+
 export function sessionCookieHeader(email, { secure }) {
   const payload = Buffer.from(JSON.stringify({ email, iat: Date.now() })).toString('base64url')
   const sig = sign(payload)

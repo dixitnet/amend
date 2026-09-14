@@ -811,3 +811,30 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .access-modal .close-btn { margin-top: 4px; }
 
 .login-sent { color: var(--muted); font-size: 13px; }
+
+/* ---------- Page d'accueil publique (liste d'attente) ---------- */
+
+.home.landing { max-width: 480px; }
+.landing-pitch { color: var(--fg); line-height: 1.5; margin: 16px 0 24px; }
+.waitlist-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.waitlist-form input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+}
+.waitlist-form button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.waitlist-sent { color: var(--muted); font-size: 13px; }
+.landing-login-link { display: inline-block; margin-top: 20px; font-size: 13px; }

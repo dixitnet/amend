@@ -12,6 +12,7 @@ export const ROLES = {
     canManageAccess: true,
     canReviewChanges: true, // accepter/rejeter les modifications proposées
     canToggleTrackChanges: true, // peut sortir du suivi des modifications
+    canManageDocument: true, // renommer, étoiler, supprimer le document
   },
   correcteur: {
     label: 'Correcteur',
@@ -19,6 +20,7 @@ export const ROLES = {
     canManageAccess: false,
     canReviewChanges: false,
     canToggleTrackChanges: false,
+    canManageDocument: false,
   },
 }
 
