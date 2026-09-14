@@ -11,6 +11,7 @@ import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
 import {
   readSession,
   sessionCookieHeader,
+  clearSessionCookieHeader,
   isSecureRequest,
   normalizeEmail,
   canRequestReconnectLink,
@@ -320,6 +321,11 @@ async function handleApi(req, res, url) {
     if (!email) return sendJson(res, 400, { error: 'lien invalide ou expiré' })
     res.setHeader('set-cookie', sessionCookieHeader(email, { secure: isSecureRequest(req) }))
     return sendJson(res, 200, { email })
+  }
+
+  if (pathname === '/api/auth/logout' && req.method === 'POST') {
+    res.setHeader('set-cookie', clearSessionCookieHeader({ secure: isSecureRequest(req) }))
+    return sendJson(res, 200, { ok: true })
   }
 
   // --- Lien d'invitation : auto-connectant, réutilisable par plusieurs

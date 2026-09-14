@@ -15,6 +15,11 @@ export function forgetSessionCache() {
   cachedEmail = undefined
 }
 
+export async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' })
+  forgetSessionCache()
+}
+
 export async function requestReconnectLink(email) {
   await fetch('/api/auth/request-link', {
     method: 'POST',

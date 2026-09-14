@@ -1,4 +1,4 @@
-import { getSessionEmail } from './auth.js'
+import { getSessionEmail, logout } from './auth.js'
 
 export async function mountHome(root) {
   root.innerHTML = ''
@@ -85,7 +85,16 @@ function mountAppHome(root, email) {
 
   const authStatus = document.createElement('p')
   authStatus.className = 'auth-status'
-  authStatus.textContent = `Connecté comme ${email}`
+  authStatus.textContent = `Connecté comme ${email} `
+  const logoutLink = document.createElement('a')
+  logoutLink.href = '#'
+  logoutLink.textContent = 'Se déconnecter'
+  logoutLink.addEventListener('click', async (e) => {
+    e.preventDefault()
+    await logout()
+    location.reload()
+  })
+  authStatus.appendChild(logoutLink)
   wrap.appendChild(authStatus)
 
   const styleLink = document.createElement('a')

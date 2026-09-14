@@ -308,6 +308,25 @@ test('isLoginAllowed : administrateur ou déjà invité quelque part, personne d
   }
 })
 
+test('la déconnexion efface la session (le cookie renvoyé ne revérifie plus)', async () => {
+  const email = 'logout-test@example.com'
+  const cookie = cookieFor(email)
+
+  const beforeRes = await fetch(`${BASE}/api/auth/me`, { headers: { cookie } })
+  assert.deepEqual(await beforeRes.json(), { email })
+
+  const logoutRes = await fetch(`${BASE}/api/auth/logout`, { method: 'POST', headers: { cookie } })
+  assert.equal(logoutRes.status, 200)
+  const setCookie = logoutRes.headers.get('set-cookie')
+  assert.match(setCookie, /collabtext_session=;/)
+  assert.match(setCookie, /Max-Age=0/)
+
+  // Un client applique ce Set-Cookie et ne renvoie donc plus l'ancien —
+  // on simule ça en n'envoyant simplement plus de cookie du tout.
+  const afterRes = await fetch(`${BASE}/api/auth/me`)
+  assert.deepEqual(await afterRes.json(), { email: null })
+})
+
 test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   // Laisse le rapporteur TAP écrire le résultat du tout dernier test avant

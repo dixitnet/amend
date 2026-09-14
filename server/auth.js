@@ -102,6 +102,16 @@ export function sessionCookieHeader(email, { secure }) {
   return parts.join('; ')
 }
 
+/** En-tête Set-Cookie qui efface la session (déconnexion) — même nom,
+ * mêmes attributs Path/SameSite/Secure que sessionCookieHeader (sinon le
+ * navigateur ne le reconnaît pas comme le même cookie et ne l'efface pas),
+ * valeur vide et Max-Age=0 pour une expiration immédiate. */
+export function clearSessionCookieHeader({ secure }) {
+  const parts = [`${COOKIE_NAME}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0']
+  if (secure) parts.push('Secure')
+  return parts.join('; ')
+}
+
 export function readSession(req) {
   const cookies = parseCookies(req)
   const raw = cookies[COOKIE_NAME]
