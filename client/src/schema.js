@@ -139,7 +139,22 @@ export const schema = new Schema({
       // every span's attribution has to come from an explicit addMark call
       // in trackChanges.js, never from ProseMirror's boundary inheritance.
       inclusive: false,
-      parseDOM: [{ tag: 'ins' }],
+      // Pas de parseDOM (bug corrigé le 14/09/2026, voir
+      // claude/rapport-bug-collage-yjs.md, projet Amend) : sans lui,
+      // coller un <ins> venu d'ailleurs (y compris depuis Amend lui-même,
+      // par ex. un Ctrl+A/Ctrl+C sur un document qui a du texte marqué)
+      // aurait tenté de recréer ce mark sans ses attributs obligatoires
+      // (user/userColor/ts n'ont pas de valeur par défaut) — ProseMirror
+      // lève alors une exception pendant l'analyse du collage, avant même
+      // de construire la transaction : le texte collé apparaît une
+      // fraction de seconde (insertion native du navigateur dans le DOM)
+      // puis disparaît (ProseMirror resynchronise le DOM sur son état
+      // interne resté inchangé, la transaction n'ayant jamais abouti). De
+      // toute façon, hériter l'attribution ou le statut "en attente" d'un
+      // <ins>/<del> collé depuis ailleurs n'aurait aucun sens : un collage
+      // doit être attribué à la personne qui colle, pas rejouer
+      // l'historique de sa source — laissé à rewriteForTracking/
+      // richPastePlugin ci-dessous, qui s'en chargent déjà correctement.
       toDOM(mark) {
         return [
           'ins',
@@ -157,7 +172,7 @@ export const schema = new Schema({
     deletion: {
       attrs: { user: {}, userColor: {}, ts: {} },
       inclusive: false,
-      parseDOM: [{ tag: 'del' }],
+      // Pas de parseDOM — même raison que insertion ci-dessus.
       toDOM(mark) {
         return [
           'del',
@@ -180,7 +195,12 @@ export const schema = new Schema({
     authorColor: {
       attrs: { user: {}, userColor: {} },
       inclusive: false,
-      parseDOM: [{ tag: 'span', getAttrs: (el) => (el.classList.contains('author-color') ? {} : false) }],
+      // Pas de parseDOM — même raison que insertion plus haut. C'est
+      // d'ailleurs le cas concret qui a révélé le bug : authorColor reste
+      // sur le texte accepté (voir le commentaire au-dessus de toDOM), donc
+      // n'importe quel texte d'un document réellement utilisé avec le
+      // suivi des modifications en est couvert — un Ctrl+A/Ctrl+C dessus
+      // déclenchait l'exception sur la quasi-totalité du contenu collé.
       toDOM(mark) {
         return [
           'span',
