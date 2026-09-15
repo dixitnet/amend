@@ -968,15 +968,26 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
    rien à recalculer en défilant (voir claude/conception-marge-annotations.md). */
 .marge-commentaires {
   position: relative;
-  width: 240px;
+  /* Repliée tant qu'il n'y a rien à montrer : elle ne garde que la place du
+     bouton « ＋ ». Sans ça elle décentrait la colonne de texte sur un
+     document sans commentaire — et, la place manquant, la colonne débordait
+     à gauche du conteneur, donc hors de vue. Elle s'ouvre dès qu'une carte
+     ou le composeur s'affiche, comme le fait Google Docs. */
+  width: 36px;
   flex: none;
   min-height: 100%;
-  margin-left: 16px;
+  margin-left: 8px;
+  transition: width 0.15s ease-out, margin-left 0.15s ease-out;
 }
+.marge-commentaires.peuplee { width: 240px; margin-left: 16px; }
 /* Sur un grand écran, la gouttière peut respirer sans rien prendre au texte. */
 @media (min-width: 1700px) {
-  .marge-commentaires { width: 300px; margin-left: 24px; }
+  .marge-commentaires.peuplee { width: 300px; margin-left: 24px; }
 }
+/* Laisse la colonne de texte se réduire au lieu de déborder du conteneur
+   centré : un dépassement à gauche n'est rattrapable par aucun
+   défilement. */
+.editor-container > .ProseMirror { min-width: 0; }
 .carte-commentaire {
   position: absolute;
   left: 0;
@@ -1022,7 +1033,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   position: absolute;
   left: 0;
   width: auto;
-  padding: 3px 10px;
+  padding: 3px 9px;
   border: 1px dashed var(--border);
   border-radius: 999px;
   background: var(--bg);

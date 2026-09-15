@@ -166,6 +166,9 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
     items.forEach((item, i) => {
       item.carte.style.top = `${Math.max(0, Math.round(positions[i]))}px`
     })
+    // Repliée quand elle n'a rien à montrer : c'est ce qui garde la colonne
+    // de texte centrée sur un document sans commentaire.
+    gutter.classList.toggle('peuplee', items.length > 0 || !!gutter.querySelector('.composeur:not([hidden])'))
   }
 
   /** Clic dans le texte sur un passage commenté : la carte correspondante
@@ -220,7 +223,8 @@ export function mountGutterComposer(gutter, ydoc, commentsMap, user) {
   const bouton = document.createElement('button')
   bouton.type = 'button'
   bouton.className = 'gouttiere-commenter'
-  bouton.textContent = '＋ Commenter'
+  bouton.textContent = '＋'
+  bouton.title = 'Commenter le passage sélectionné'
   bouton.hidden = true
   gutter.appendChild(bouton)
 
@@ -240,6 +244,8 @@ export function mountGutterComposer(gutter, ydoc, commentsMap, user) {
   function fermer() {
     composeur.hidden = true
     zone.value = ''
+    // Si la gouttière était ouverte pour le seul composeur, elle se replie.
+    if (!gutter.querySelector('.carte-commentaire:not(.composeur)')) gutter.classList.remove('peuplee')
     if (view) view.focus()
   }
 
@@ -266,6 +272,7 @@ export function mountGutterComposer(gutter, ydoc, commentsMap, user) {
     composeur.style.top = `${y}px`
     composeur.hidden = false
     bouton.hidden = true
+    gutter.classList.add('peuplee')
     zone.focus()
   }
 
