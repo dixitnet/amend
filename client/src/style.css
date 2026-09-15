@@ -968,10 +968,14 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
    rien à recalculer en défilant (voir claude/conception-marge-annotations.md). */
 .marge-commentaires {
   position: relative;
-  width: 280px;
+  width: 240px;
   flex: none;
   min-height: 100%;
-  margin-left: 24px;
+  margin-left: 16px;
+}
+/* Sur un grand écran, la gouttière peut respirer sans rien prendre au texte. */
+@media (min-width: 1700px) {
+  .marge-commentaires { width: 300px; margin-left: 24px; }
 }
 .carte-commentaire {
   position: absolute;
@@ -1042,14 +1046,18 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 
 /* Une seule liste de commentaires à la fois : la gouttière quand il y a la
    place, le panneau latéral sinon. */
-/* Seuil calculé, pas choisi au hasard : plan (220) + panneau (320) = 540 px
-   de chrome, colonne de texte (760) + gouttière (280) + écart (24) = 1064.
-   En dessous de ~1500 px la colonne de lecture se ferait comprimer sous
-   700 px, et la lecture est le métier de l'outil — la gouttière cède la
-   place au panneau latéral. */
-@media (min-width: 1500px) {
+/* Seuil revu le 15/09 après coup : la première version (1500 px) était
+   calculée pour garder la colonne de lecture intacte à 760 px… et excluait
+   l'écran de 1440 px sur lequel l'outil est développé et utilisé. Un seuil
+   juste dans l'absolu et faux en pratique. À 1280 px il reste, une fois le
+   plan (220) et le panneau (320) retirés, 740 px pour le texte et la
+   gouttière (240 + 16) : la colonne de lecture descend à ~480 px sur les
+   écrans les plus étroits concernés, et retrouve sa largeur pleine dès
+   1600 px. C'est le bon compromis : mieux vaut une colonne un peu plus
+   étroite que des annotations en face de rien. */
+@media (min-width: 1280px) {
   .sidebar-section.comments-section { display: none; }
 }
-@media (max-width: 1499px) {
+@media (max-width: 1279px) {
   .marge-commentaires { display: none; }
 }
