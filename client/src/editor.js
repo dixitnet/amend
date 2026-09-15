@@ -358,7 +358,7 @@ export function mountEditor(root, docId, user, docMeta) {
       status.textContent = provider.hasPendingLocalChanges
         ? '○ hors connexion — modifications non envoyées'
         : provider.likelyRejected
-          ? '○ connexion refusée (document plein ?)'
+          ? "○ connexion refusée (accès retiré ?)"
           : '○ reconnexion…'
     } else if (provider.saving) {
       status.textContent = '● enregistrement…'

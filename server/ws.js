@@ -36,7 +36,7 @@ export function isWebSocketUpgrade(req) {
  * Completes the WebSocket handshake on a raw HTTP upgrade socket and
  * returns a WebSocketConnection wrapping it.
  */
-export function acceptWebSocket(req, socket) {
+export function acceptWebSocket(req, socket, options = {}) {
   const key = req.headers['sec-websocket-key']
   const accept = computeAcceptKey(key)
   const responseHeaders = [
@@ -48,7 +48,7 @@ export function acceptWebSocket(req, socket) {
     '',
   ].join('\r\n')
   socket.write(responseHeaders)
-  return new WebSocketConnection(socket)
+  return new WebSocketConnection(socket, options)
 }
 
 function buildFrame(opcode, payload, fin = true) {
@@ -127,7 +127,12 @@ function parseFrame(buf) {
  *   'error'   (err)
  */
 export class WebSocketConnection extends EventEmitter {
-  constructor(socket) {
+  /** `pingIntervalMs` n'est réglable que pour les tests : le keep-alive
+   * réel (30 s) est trop lent pour être vérifié dans une suite de tests,
+   * et c'est justement le mécanisme qui garantit qu'une socket morte
+   * libère sa place dans la salle (voir rooms.js) plutôt que d'attendre
+   * l'expiration TCP. */
+  constructor(socket, { pingIntervalMs = 30000 } = {}) {
     super()
     this.socket = socket
     this._buffer = Buffer.alloc(0)
@@ -140,7 +145,8 @@ export class WebSocketConnection extends EventEmitter {
     socket.on('close', () => this._onClose())
     socket.on('error', (err) => this.emit('error', err))
 
-    // Keep-alive: ping every 30s, drop the connection if no pong within 30s.
+    // Keep-alive: ping every `pingIntervalMs` (30s by default), drop the
+    // connection if no pong came back since the previous ping.
     this._pingTimer = setInterval(() => {
       if (!this._alive) {
         this.terminate()
@@ -148,7 +154,7 @@ export class WebSocketConnection extends EventEmitter {
       }
       this._alive = false
       this._sendRaw(OPCODE.PING, Buffer.alloc(0))
-    }, 30000)
+    }, pingIntervalMs)
     this._pingTimer.unref?.()
   }
 

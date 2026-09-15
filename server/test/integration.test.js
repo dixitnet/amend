@@ -164,19 +164,16 @@ test('refuses a WebSocket connection to an unknown document', async () => {
   await withTimeout(once(ws, 'error'), 2000, 'error on unknown doc')
 })
 
-test('refuses an 11th simultaneous connection to the same document (MAX_USERS_PER_DOC)', async () => {
-  const doc = await createDoc('Salle pleine')
+test('accepte plus de 10 connexions simultanées sur un même document', async () => {
+  // Le plafond MAX_USERS_PER_DOC (10) a été retiré le 15/09/2026 après le
+  // test de charge n°2 : ce test garde la trace de ce choix en vérifiant
+  // qu'aucun compteur ne refuse plus personne. Qui entre est décidé par les
+  // accès au document (voir access.test.js), plus par un nombre.
+  const doc = await createDoc('Salle sans plafond')
   const clients = []
-  for (let i = 0; i < 10; i++) {
-    const ws = connect(doc.id, `User${i}`)
-    clients.push(ws)
-  }
-  await withTimeout(Promise.all(clients.map((ws) => once(ws, 'open'))), 3000, 'first 10 opening')
-
-  const eleventh = connect(doc.id, 'User10')
-  // Same rejection shape as the unknown-document case above: a plain HTTP
-  // error response instead of a completed handshake.
-  await withTimeout(once(eleventh, 'error'), 2000, 'error on full room')
+  for (let i = 0; i < 14; i++) clients.push(connect(doc.id, `User${i}`))
+  await withTimeout(Promise.all(clients.map((ws) => once(ws, 'open'))), 5000, '14 ouvertures')
+  assert.equal(clients.length, 14)
 
   for (const ws of clients) ws.close()
 })

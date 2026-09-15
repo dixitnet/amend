@@ -46,8 +46,9 @@ export class SimpleProvider extends EventTarget {
     this._savingTimer = null
     // Set once several consecutive connection attempts in a row fail before
     // ever reaching 'open' (see _connect/_scheduleReconnect below) — the
-    // signature of a rejected upgrade (e.g. the server's MAX_USERS_PER_DOC
-    // cap, see server.js) rather than an ordinary transient network blip,
+    // signature of a rejected upgrade (accès retiré au document, document
+    // supprimé : voir le handler 'upgrade' de server.js) rather than an
+    // ordinary transient network blip,
     // which usually still manages to open before dropping. The WebSocket
     // API doesn't expose the HTTP status of a failed handshake to JS, so
     // this is a heuristic, not a certainty — but it's enough to show
@@ -143,7 +144,7 @@ export class SimpleProvider extends EventTarget {
       if (!openedThisAttempt) {
         this._consecutiveFailedAttempts += 1
         // 3 in a row without ever reaching 'open': treat as a likely
-        // rejection (full room, unknown doc reappearing, etc.) rather than
+        // rejection (accès révoqué, document supprimé, etc.) rather than
         // a one-off network hiccup.
         this.likelyRejected = this._consecutiveFailedAttempts >= 3
       }
