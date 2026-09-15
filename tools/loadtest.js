@@ -18,6 +18,16 @@
 
 import { WebSocket } from 'ws'
 import * as Y from 'yjs'
+import { readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// La session est mémorisée ici plutôt que recollée à chaque scénario.
+// Volontairement PAS en dur dans ce fichier : c'est une clé de session
+// valable 30 jours, elle n'a rien à faire dans un dépôt git (ce chemin est
+// dans .gitignore, et le fichier est en 0600).
+const FICHIER_SESSION = join(dirname(fileURLToPath(import.meta.url)), '.session')
+const DOC_PAR_DEFAUT = 'NtTqgGlcpGji' // « TEST CHARGE n°3 — à supprimer » en production
 
 const MOTS = ('urbanisme circulaire sol artificialisation friche densité foncier renouvellement ' +
   'ville transition sobriété quartier îlot parcelle').split(' ')
@@ -54,7 +64,18 @@ async function api(chemin, options = {}) {
   return res
 }
 
+function memoriserSession(cookie, doc) {
+  try {
+    writeFileSync(FICHIER_SESSION, JSON.stringify({ cookie, doc, base: BASE, date: new Date().toISOString() }, null, 2))
+    chmodSync(FICHIER_SESSION, 0o600)
+    console.log(`Session mémorisée dans tools/.session — les prochains scénarios n'ont plus besoin de --cookie.`)
+  } catch (err) {
+    console.warn(`(session non mémorisée : ${err.message})`)
+  }
+}
+
 async function ouvrirSession() {
+  // Session déjà en main (--cookie) : rien à faire.
   if (COOKIE) return
   const invitation = opt('invite', '')
   const magique = opt('verify', '')
@@ -77,8 +98,7 @@ async function ouvrirSession() {
     COOKIE = (res.headers.get('set-cookie') || '').split(';')[0]
     const data = await res.json()
     console.log(`Session ouverte pour ${data.email}.`)
-    console.log(`Réutilisez-la pour les scénarios suivants (c'est un secret, ne la partagez pas) :`)
-    console.log(`  --cookie "${COOKIE}"`)
+    memoriserSession(COOKIE, DOC)
     return
   }
   if (invitation) {
@@ -88,10 +108,31 @@ async function ouvrirSession() {
     const data = await res.json()
     if (!DOC) DOC = data.docId
     console.log(`Session ouverte pour ${data.email} — document ${data.docId}`)
-    console.log(`  --cookie "${COOKIE}"`)
+    memoriserSession(COOKIE, DOC)
     return
   }
-  throw new Error('Pas de session : passez --cookie "collabtext_session=…", --verify <jeton du lien reçu par email>, ou --invite <jeton>')
+
+  // Sinon : la session mémorisée par un run précédent.
+  if (existsSync(FICHIER_SESSION)) {
+    try {
+      const memo = JSON.parse(readFileSync(FICHIER_SESSION, 'utf8'))
+      if (memo.base && memo.base !== BASE) {
+        console.warn(`(session mémorisée pour ${memo.base}, pas pour ${BASE} — ignorée)`)
+      } else if (memo.cookie) {
+        COOKIE = memo.cookie
+        if (!DOC && memo.doc) DOC = memo.doc
+        const res = await api('/api/auth/me')
+        const qui = res.ok ? (await res.json()).email : null
+        if (!qui) throw new Error('la session mémorisée a expiré ou a été invalidée')
+        console.log(`Session reprise depuis tools/.session (${qui}, mémorisée le ${String(memo.date).slice(0, 16).replace('T', ' ')}).`)
+        return
+      }
+    } catch (err) {
+      throw new Error(`${err.message} — relancez avec --verify <jeton d'un nouveau lien de connexion>`)
+    }
+  }
+
+  throw new Error('Pas de session : passez --verify <jeton du lien reçu par email> une première fois (elle sera mémorisée), ou --cookie "collabtext_session=…"')
 }
 
 // ------------------------------------------------------------- observation
@@ -488,21 +529,28 @@ const scenarios = {
 
 if (!scenario || !scenarios[scenario]) {
   console.error(`Scénarios : ${Object.keys(scenarios).join(', ')}
-Exemples :
-  node tools/loadtest.js seed --verify <jeton du lien reçu par email> --doc <id> --ops 20000
-  node tools/loadtest.js s1   --invite <jeton> --clients 4 --cycles 10
-  node tools/loadtest.js s2   --cookie "collabtext_session=..." --doc <id> --clients 50 --ops 200
-  node tools/loadtest.js s3   --cookie "..." --doc <id> --paliers 100,500,1000
-  node tools/loadtest.js s4   --cookie "..." --doc <id> --mo 5
-  node tools/loadtest.js s5   --cookie "..." --doc <id> --clients 5 --minutes 10
-  node tools/loadtest.js s6   --cookie "..." --doc <id> --clients 50`)
+Session : une seule fois, avec le jeton d'un lien de connexion reçu par
+email (la fin de l'URL, après #/login/verify/) — elle est ensuite mémorisée
+dans tools/.session et reprise automatiquement :
+  node tools/loadtest.js s1 --verify <jeton>
+
+Ensuite, plus rien à passer (document par défaut : ${DOC_PAR_DEFAUT}) :
+  node tools/loadtest.js seed --ops 20000
+  node tools/loadtest.js s1   --clients 4 --cycles 10
+  node tools/loadtest.js s2   --clients 40 --ops 150
+  node tools/loadtest.js s3   --paliers 100,500,1000
+  node tools/loadtest.js s4   --mo 5
+  node tools/loadtest.js s5   --clients 5 --minutes 10
+  node tools/loadtest.js s6   --clients 30
+Options : --doc <id> --base <url> --cookie "collabtext_session=…"`)
   process.exit(1)
 }
 
 const obs = new Observatoire()
 try {
   await ouvrirSession()
-  if (!DOC) throw new Error('Pas de document : passez --doc <id> ou utilisez --invite')
+  if (!DOC) DOC = DOC_PAR_DEFAUT
+  if (!DOC) throw new Error('Pas de document : passez --doc <id>')
   console.log(`\n=== ${scenario} sur ${BASE} — document ${DOC} ===\n`)
   obs.demarrer()
   const resultat = await scenarios[scenario](obs)
