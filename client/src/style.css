@@ -1067,3 +1067,9 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 @media (max-width: 1279px) {
   .marge-commentaires { display: none; }
 }
+
+/* Les boutons de tableau portent des mots, pas des pictogrammes : ils
+   n'apparaissent que dans un tableau, autant qu'ils se lisent. */
+.btn-tool.btn-texte { width: auto; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+.table-group { display: inline-flex; gap: 4px; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--border); }
+.table-group[hidden] { display: none; }

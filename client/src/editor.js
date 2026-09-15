@@ -278,12 +278,17 @@ export function mountEditor(root, docId, user, docMeta) {
   // éditeurs — voir claude/etude-tableaux-images.md : supprimer une ligne
   // fait disparaître son contenu sans laisser de trace dans le suivi des
   // modifications, ce qu'on ne confie pas à un correcteur.
-  const tableBtn = mkButton('▦', 'insérer un tableau 3×3')
-  const rowAddBtn = mkButton('+↔', 'ajouter une ligne')
-  const rowDelBtn = mkButton('−↔', 'supprimer la ligne')
-  const colAddBtn = mkButton('+↕', 'ajouter une colonne')
-  const colDelBtn = mkButton('−↕', 'supprimer la colonne')
-  const tableDelBtn = mkButton('▦✕', 'supprimer le tableau')
+  const tableBtn = mkButton('Tableau', 'insérer un tableau de 3 lignes sur 3 colonnes')
+  const rowAddBtn = mkButton('Ligne +', 'ajouter une ligne sous celle du curseur')
+  const rowDelBtn = mkButton('Ligne −', 'supprimer la ligne du curseur')
+  const colAddBtn = mkButton('Col. +', 'ajouter une colonne à droite de celle du curseur')
+  const colDelBtn = mkButton('Col. −', 'supprimer la colonne du curseur')
+  const tableDelBtn = mkButton('Suppr. tableau', 'supprimer tout le tableau')
+  // `.btn-tool` est un carré de 30 px, pensé pour B/I/U : les boutons de
+  // tableau portent des mots, ils ont donc besoin de la variante texte.
+  for (const b of [tableBtn, rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn]) {
+    b.classList.add('btn-texte')
+  }
   const tableGroup = document.createElement('span')
   tableGroup.className = 'table-group'
   tableGroup.append(rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn)
@@ -628,8 +633,11 @@ export function mountEditor(root, docId, user, docMeta) {
   }
 
   tableBtn.onclick = () => {
-    const { cell, table_row, table, paragraph } = schema.nodes
-    const cellule = () => cell.createAndFill({}, paragraph.create())
+    // `table_cell`, pas `cell` : ce sont les noms que produit tableNodes()
+    // (table, table_row, table_cell, table_header). La première version
+    // visait `cell`, donc `undefined`, et le clic ne faisait rien du tout.
+    const { table_cell, table_row, table } = schema.nodes
+    const cellule = () => table_cell.createAndFill()
     const ligne = () => table_row.create({}, [cellule(), cellule(), cellule()])
     view.dispatch(
       view.state.tr
