@@ -11,9 +11,13 @@
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "build:client": "cd client && npm install && npm run build",
-    "test:server": "node --test server/test/*.test.js"
+    "test:server": "node --test server/test/*.test.js",
+    "loadtest": "node tools/loadtest.js"
   },
   "devDependencies": {
-    "pm2": "^7.0.4"
+    "pm2": "^7.0.4",
+    "ws": "^8.18.0",
+    "yjs": "^13.6.18",
+    "y-protocols": "^1.0.6"
   }
 }
