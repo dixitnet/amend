@@ -13,6 +13,7 @@ export const ROLES = {
     canReviewChanges: true, // accepter/rejeter les modifications proposées
     canToggleTrackChanges: true, // peut sortir du suivi des modifications
     canManageDocument: true, // renommer, étoiler, supprimer le document
+    canUseAI: true, // demander une suggestion IA sur ce document
   },
   correcteur: {
     label: 'Correcteur',
@@ -21,6 +22,10 @@ export const ROLES = {
     canReviewChanges: false,
     canToggleTrackChanges: false,
     canManageDocument: false,
+    // Décision du 15/09/2026 : la suggestion IA consomme la clé Anthropic
+    // de l'instance et écrit dans le document — deux choses qu'on ne confie
+    // pas à quelqu'un dont le rôle est de proposer des corrections.
+    canUseAI: false,
   },
 }
 

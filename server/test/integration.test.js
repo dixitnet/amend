@@ -179,10 +179,14 @@ test('accepte plus de 10 connexions simultanées sur un même document', async (
 })
 
 test('AI endpoint reports missing API key clearly (501)', async () => {
+  // Le document est exigé depuis le 15/09/2026 : le droit `canUseAI` se
+  // vérifie sur un document précis. Créé sans liste d'accès, il est
+  // « ouvert » — tout le monde y est éditeur (voir Storage.roleFor).
+  const doc = await createDoc('Doc IA')
   const res = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', cookie: AI_TEST_COOKIE },
-    body: JSON.stringify({ text: 'Bonjour le monde', instruction: 'plus formel' }),
+    body: JSON.stringify({ docId: doc.id, text: 'Bonjour le monde', instruction: 'plus formel' }),
   })
   assert.equal(res.status, 501)
   const body = await res.json()
@@ -191,10 +195,11 @@ test('AI endpoint reports missing API key clearly (501)', async () => {
 
 test('AI endpoint rejects empty text (400, after key check)', async () => {
   process.env.ANTHROPIC_API_KEY = 'sk-test-not-real'
+  const doc = await createDoc('Doc IA vide')
   const res = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', cookie: AI_TEST_COOKIE },
-    body: JSON.stringify({ text: '   ', instruction: 'x' }),
+    body: JSON.stringify({ docId: doc.id, text: '   ', instruction: 'x' }),
   })
   delete process.env.ANTHROPIC_API_KEY
   assert.equal(res.status, 400)

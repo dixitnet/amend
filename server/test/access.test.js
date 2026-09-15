@@ -294,29 +294,60 @@ test('la feuille de style et le diagnostic sont réservés aux administrateurs',
   }
 })
 
-test('la suggestion IA exige une session (ferme la porte à un usage anonyme)', async () => {
+test('la suggestion IA : session exigée, et interdite au correcteur', async () => {
+  const editorCookie = cookieFor('kim@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editorCookie },
+      body: JSON.stringify({ title: 'Doc avec IA' }),
+    })
+  ).json()
+
   const anonRes = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ text: 'Bonjour', instruction: 'plus formel' }),
+    body: JSON.stringify({ docId: doc.id, text: 'Bonjour', instruction: 'plus formel' }),
   })
   assert.equal(anonRes.status, 401)
 
-  // Connecté : passe le contrôle de session, la requête suit ensuite son
-  // cours normal — supprime ANTHROPIC_API_KEY juste pour cet appel (le vrai
-  // .env du Mac peut l'avoir rechargée malgré le `delete` en tête de
-  // fichier, même bug déjà connu que integration.test.js) pour vérifier
-  // précisément que ce n'est PAS un 401 (le seul point testé ici), plutôt
-  // que de dépendre de la présence ou non d'une vraie clé.
-  const savedKey = process.env.ANTHROPIC_API_KEY
-  delete process.env.ANTHROPIC_API_KEY
-  const loggedRes = await fetch(`${BASE}/api/ai/suggest`, {
+  // Le correcteur a une session valide et accès au document : c'est bien
+  // son rôle, et rien d'autre, qui lui ferme l'IA (décision du 15/09/2026 —
+  // la suggestion consomme la clé Anthropic de l'instance et écrit dans le
+  // document).
+  const storage = new Storage(process.env.DATA_DIR)
+  const { token } = storage.inviteEmail(doc.id, 'lou@example.com', 'correcteur', 'kim@example.com')
+  await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })
+  const correcteurRes = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: cookieFor('jack@example.com') },
+    headers: { 'content-type': 'application/json', cookie: cookieFor('lou@example.com') },
+    body: JSON.stringify({ docId: doc.id, text: 'Bonjour', instruction: 'plus formel' }),
+  })
+  assert.equal(correcteurRes.status, 403)
+
+  // Sans document, on ne peut plus vérifier de droit : 400 plutôt qu'un
+  // passage en force.
+  const sansDoc = await fetch(`${BASE}/api/ai/suggest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: editorCookie },
     body: JSON.stringify({ text: 'Bonjour', instruction: 'plus formel' }),
   })
+  assert.equal(sansDoc.status, 400)
+
+  // L'éditeur passe les contrôles et la requête suit son cours — on
+  // supprime ANTHROPIC_API_KEY juste pour cet appel (le vrai .env du Mac
+  // peut l'avoir rechargée malgré le `delete` en tête de fichier, même bug
+  // déjà connu que integration.test.js) pour vérifier précisément que ce
+  // n'est ni un 401 ni un 403.
+  const savedKey = process.env.ANTHROPIC_API_KEY
+  delete process.env.ANTHROPIC_API_KEY
+  const editeurRes = await fetch(`${BASE}/api/ai/suggest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: editorCookie },
+    body: JSON.stringify({ docId: doc.id, text: 'Bonjour', instruction: 'plus formel' }),
+  })
   if (savedKey) process.env.ANTHROPIC_API_KEY = savedKey
-  assert.equal(loggedRes.status, 501)
+  assert.equal(editeurRes.status, 501)
 })
 
 test("la liste d'attente est publique et se contente de stocker l'email", async () => {

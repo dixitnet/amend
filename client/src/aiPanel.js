@@ -4,11 +4,13 @@ import { AI_USER } from './user.js'
 
 /** Calls the AI-suggest endpoint for one piece of text. Returns
  * {ok: true, suggestion} or {ok: false, error}. */
-async function requestSuggestion(text, instruction) {
+async function requestSuggestion(docId, text, instruction) {
   const res = await fetch('/api/ai/suggest', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ text, instruction }),
+    // `docId` depuis le 15/09/2026 : le serveur vérifie le droit `canUseAI`
+    // sur ce document précis (un correcteur n'y a pas droit).
+    body: JSON.stringify({ docId, text, instruction }),
   })
   const data = await res.json()
   if (!res.ok) return { ok: false, error: data.error || "Erreur lors de l'appel à l'IA." }
@@ -27,11 +29,23 @@ const PRESETS = [
  * tracked change (attributed to "IA") that anyone can accept or reject —
  * exactly like a human suggestion.
  */
-export function mountAIPanel(container, getView) {
+export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}) {
   container.innerHTML = ''
   const title = document.createElement('h3')
   title.textContent = 'Assistance IA'
   container.appendChild(title)
+
+  // Un correcteur n'a pas accès à l'IA (voir server/roles.js) : on le dit
+  // plutôt que de laisser un panneau qui répondrait 403 au premier clic.
+  // Le serveur reste seul juge — ceci n'est que l'interface.
+  if (!canUseAI) {
+    const refus = document.createElement('p')
+    refus.className = 'ai-hint'
+    refus.textContent =
+      "L'assistance IA est réservée aux éditeurs du document."
+    container.appendChild(refus)
+    return
+  }
 
   const hint = document.createElement('p')
   hint.className = 'ai-hint'
@@ -103,7 +117,7 @@ export function mountAIPanel(container, getView) {
       if ($from.sameParent($to)) {
         // Single paragraph/heading selected — one request, as before.
         const text = view.state.doc.textBetween(from, to, '\n')
-        const result = await requestSuggestion(text, instruction)
+        const result = await requestSuggestion(docId, text, instruction)
         if (!result.ok) {
           status.textContent = result.error
           return
@@ -120,7 +134,7 @@ export function mountAIPanel(container, getView) {
         status.textContent = `Demande en cours… (${blocks.length} paragraphes)`
         const results = await Promise.all(
           blocks.map((block) =>
-            block.text.trim() ? requestSuggestion(block.text, instruction) : Promise.resolve({ ok: true, suggestion: block.text })
+            block.text.trim() ? requestSuggestion(docId, block.text, instruction) : Promise.resolve({ ok: true, suggestion: block.text })
           )
         )
         const failed = results.find((r) => !r.ok)

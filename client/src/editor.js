@@ -546,7 +546,7 @@ export function mountEditor(root, docId, user, docMeta) {
     view.focus()
   }
 
-  mountAIPanel(aiSection, () => view)
+  mountAIPanel(aiSection, () => view, { docId, canUseAI: docMeta.myRole !== 'correcteur' })
   const comments = mountCommentsPanel(commentsSection, ydoc, commentsMap, () => view, user)
 
   function mkButton(label, title) {

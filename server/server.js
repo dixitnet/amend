@@ -413,13 +413,20 @@ async function handleApi(req, res, url) {
 
 
   if (pathname === '/api/ai/suggest' && req.method === 'POST') {
-    // Vérification volontairement grossière pour l'instant (n'importe
-    // quelle session valide, pas de lien avec un document précis ni de
-    // quota) — ferme la porte à un usage anonyme qui consommerait la clé
-    // Anthropic du serveur ; un contrôle plus fin (par document, avec les
-    // quotas FREE/PRO envisagés) reste à faire séparément.
-    if (!readSession(req)) return sendJson(res, 401, { error: 'connexion requise' })
+    // Contrôle en deux temps depuis le 15/09/2026 : une session valide
+    // (ferme la porte à un usage anonyme de la clé Anthropic du serveur),
+    // puis le droit `canUseAI` sur le document concerné — la suggestion
+    // consomme la clé de l'instance et écrit dans le document, deux choses
+    // qu'un correcteur n'a pas à faire. Le quota par compte (modèle
+    // FREE/PRO envisagé) reste à venir.
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     const body = await readJsonBody(req)
+    const docId = String(body.docId || '')
+    if (!docId || !storage.getDoc(docId)) return sendJson(res, 400, { error: 'document inconnu' })
+    if (!capabilities(storage.roleFor(docId, email)).canUseAI) {
+      return sendJson(res, 403, { error: "votre rôle sur ce document ne permet pas d'utiliser l'IA" })
+    }
     try {
       const suggestion = await suggestEdit({}, body.text, body.instruction)
       return sendJson(res, 200, { suggestion })
