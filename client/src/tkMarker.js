@@ -1,4 +1,4 @@
-import { Plugin, PluginKey } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import { touchedBlockRange } from './incrementalScan.js'
 import { throttle } from './throttle.js'
@@ -64,9 +64,47 @@ const RENDER_INTERVAL_MS = 1000
  * themselves stay perfectly live, since ProseMirror already draws them
  * as part of its normal, cheap render diffing.
  */
-export function mountTkMarker(container) {
+export function mountTkMarker(container, { onCycle } = {}) {
   let view = null
   let lastRenderedCount = null
+  // Position du dernier marqueur visité, pour passer au suivant plutôt que
+  // de revenir toujours au premier (demande du 15/09/2026). On mémorise la
+  // *position* et non l'index : le document bouge entre deux clics, et une
+  // position permet de retrouver « le marqueur suivant » même si des
+  // marqueurs ont été ajoutés ou retirés entre-temps.
+  let dernierePosition = -1
+
+  /** Sélectionne le marqueur suivant dans l'ordre du document, en boucle, et
+   * le centre dans la zone d'édition. Sélectionner (plutôt que placer le
+   * curseur) rend le marqueur visible et permet de le remplacer en tapant
+   * directement. */
+  function cycler() {
+    if (!view) return
+    const marqueurs = findMarkers(view.state.doc)
+    if (!marqueurs.length) return
+    const suivant = marqueurs.find((m) => m.from > dernierePosition) || marqueurs[0]
+    dernierePosition = suivant.from
+    const { state, dispatch } = view
+    dispatch(state.tr.setSelection(TextSelection.create(state.doc, suivant.from, suivant.to)).scrollIntoView())
+    view.focus()
+    // Centrer comme le font les panneaux latéraux, plutôt que de se
+    // contenter du défilement minimal de scrollIntoView.
+    const conteneur = view.dom.closest('.editor-container')
+    if (conteneur) {
+      try {
+        const coords = view.coordsAtPos(suivant.from)
+        const rect = conteneur.getBoundingClientRect()
+        conteneur.scrollTop += coords.top - (rect.top + conteneur.clientHeight / 2)
+      } catch {
+        /* position hors écran pendant un re-rendu : le scrollIntoView suffit */
+      }
+    }
+    if (onCycle) onCycle(marqueurs.indexOf(suivant) + 1, marqueurs.length)
+  }
+
+  if (container) {
+    container.addEventListener('click', cycler)
+  }
 
   function render() {
     if (!view || !container) return
@@ -74,7 +112,11 @@ export function mountTkMarker(container) {
     if (count === lastRenderedCount) return
     lastRenderedCount = count
     container.textContent = count > 0 ? `⚠️ ${count}` : ''
-    container.title = count > 0 ? `${count} marqueur${count > 1 ? 's' : ''} "!!" à reprendre` : ''
+    container.classList.toggle('cliquable', count > 0)
+    container.title =
+      count > 0
+        ? `${count} marqueur${count > 1 ? 's' : ''} "!!" à reprendre — cliquer pour aller au suivant`
+        : ''
   }
 
   const throttledRender = throttle(render, RENDER_INTERVAL_MS)

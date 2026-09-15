@@ -59,6 +59,36 @@ export function resolveCommentRange(state, ydoc, comment) {
   return { from: Math.min(from, to), to: Math.max(from, to) }
 }
 
+/** Supprime les commentaires dont le passage commenté n'existe plus
+ * (demande du 15/09/2026 : « le commentaire d'un texte supprimé doit
+ * disparaître »). Un commentaire est considéré orphelin quand ses deux
+ * ancres se résolvent encore mais délimitent un intervalle vide — c'est
+ * exactement ce que devient une ancre Yjs dont le texte a été retiré.
+ *
+ * Deux précautions qui comptent :
+ *  - une ancre *non résoluble* (resolveCommentRange renvoie null) n'est PAS
+ *    un orphelin : c'est le cas au chargement, avant que la liaison Yjs ne
+ *    soit prête, et supprimer là effacerait tous les commentaires du
+ *    document ;
+ *  - sous suivi des modifications, un texte « supprimé » reste présent,
+ *    marqué — le commentaire survit donc jusqu'à l'acceptation de la
+ *    suppression, ce qui est le comportement attendu.
+ *
+ * La suppression est faite par tous les clients connectés en même temps ;
+ * c'est sans conséquence, Yjs déduplique une suppression concurrente. */
+export function purgeOrphanComments(state, ydoc, commentsMap) {
+  const aSupprimer = []
+  commentsMap.forEach((comment, id) => {
+    const range = resolveCommentRange(state, ydoc, comment)
+    if (range && range.to <= range.from) aSupprimer.push(id)
+  })
+  if (!aSupprimer.length) return 0
+  ydoc.transact(() => {
+    for (const id of aSupprimer) commentsMap.delete(id)
+  })
+  return aSupprimer.length
+}
+
 /** Plugin ProseMirror : surligne (en décoration, rien de stocké dans le
  * document) le passage de chaque commentaire encore résoluble. Les
  * commentaires vivent dans `commentsMap`, un type Yjs indépendant de
@@ -105,6 +135,13 @@ export function commentsPlugin(ydoc, commentsMap) {
       const refresh = () => setMeta(view, commentsPluginKey, true)
       commentsMap.observe(refresh)
       return {
+        // Après chaque changement du document, on efface les commentaires
+        // devenus orphelins (voir purgeOrphanComments). Fait ici plutôt que
+        // dans `apply` : c'est une écriture dans Yjs, elle n'a rien à faire
+        // dans le calcul d'un état ProseMirror, qui doit rester pur.
+        update(v, prevState) {
+          if (v.state.doc !== prevState.doc) purgeOrphanComments(v.state, ydoc, commentsMap)
+        },
         destroy() {
           commentsMap.unobserve(refresh)
         },

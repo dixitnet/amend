@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { ySyncPlugin, yCursorPlugin, yUndoPlugin, undo, redo } from 'y-prosemirror'
-import { EditorState, TextSelection } from 'prosemirror-state'
+import { EditorState, TextSelection, Plugin} from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap, toggleMark, setBlockType, wrapIn, lift } from 'prosemirror-commands'
@@ -390,13 +390,20 @@ export function mountEditor(root, docId, user, docMeta) {
 
   const presence = mountPresenceBar(presenceContainer, provider)
 
+  // Rempli plus bas, une fois la vue et les contrôles construits : ce
+  // greffon n'existe que pour donner à la barre d'outils un point
+  // d'accroche sur chaque changement d'état (sélection comprise).
+  let syncToolbar = () => {}
+
   const state = EditorState.create({
     schema,
     plugins: [
       ySyncPlugin(yXml),
       yCursorPlugin(provider.awareness, { cursorBuilder: buildCursor }),
       yUndoPlugin(),
-      trackChangesPlugin(),
+      // Un éditeur arrive suivi désactivé (il écrit son document), un
+      // correcteur suivi activé — c'est son rôle même (15/09/2026).
+      trackChangesPlugin({ enabled: docMeta.myRole === 'correcteur' }),
       selectionHighlightPlugin(),
       richPastePlugin(() => user),
       pendingBreakPlugin(),
@@ -419,6 +426,9 @@ export function mountEditor(root, docId, user, docMeta) {
         'Mod-[': liftListItem(schema.nodes.list_item),
       }),
       keymap(baseKeymap),
+      new Plugin({
+        view: () => ({ update: () => syncToolbar() }),
+      }),
       dropCursor(),
       gapCursor(),
     ],
@@ -465,7 +475,44 @@ export function mountEditor(root, docId, user, docMeta) {
   const syncToggle = () => {
     trackToggle.checked = isCorrecteur ? true : isTrackChangesEnabled(view.state)
   }
-  syncToggle()
+
+  /** Style de bloc commun à toute la sélection : '' pour un paragraphe, le
+   * niveau pour un titre, `null` si la sélection en mélange plusieurs (on
+   * n'affiche alors aucune option plutôt que d'en désigner une à tort). Les
+   * paragraphes d'une liste ou d'une citation comptent comme « Normal » :
+   * c'est bien ce que le menu changerait s'il était utilisé. */
+  function styleDeBlocCommun(state) {
+    let commun
+    const { from, to } = state.selection
+    state.doc.nodesBetween(from, to, (node) => {
+      if (!node.isTextblock) return true
+      const valeur =
+        node.type === schema.nodes.heading
+          ? String(node.attrs.level)
+          : node.type === schema.nodes.paragraph
+            ? ''
+            : null
+      if (commun === undefined) commun = valeur
+      else if (commun !== valeur) commun = null
+      return false
+    })
+    return commun === undefined ? '' : commun
+  }
+
+  // Le menu de style reflète ce qui est sous le curseur (15/09/2026) — il
+  // affichait jusqu'ici la dernière valeur choisie, ce qui mentait dès qu'on
+  // déplaçait le curseur dans un titre.
+  const syncHeadingSelect = () => {
+    const valeur = styleDeBlocCommun(view.state)
+    if (valeur === null) headingSelect.selectedIndex = -1
+    else headingSelect.value = valeur
+  }
+
+  syncToolbar = () => {
+    syncToggle()
+    syncHeadingSelect()
+  }
+  syncToolbar()
 
   boldBtn.onclick = () => {
     toggleMark(schema.marks.strong)(view.state, view.dispatch)

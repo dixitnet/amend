@@ -32,13 +32,18 @@ export const trackChangesKey = new PluginKey('trackChanges')
  * rewriting happens in wrapDispatch below, not here — a plugin's
  * appendTransaction runs too late (after the doc has already changed) to
  * turn a deletion into a "keep it, just mark it" edit.
+ *
+ * `enabled` à l'ouverture (15/09/2026) : un éditeur arrive désormais suivi
+ * *désactivé* — il écrit son propre document, et n'a pas à désarmer le mode
+ * à chaque ouverture. Un correcteur, lui, est forcé à true par editor.js :
+ * c'est la définition même de son rôle.
  */
-export function trackChangesPlugin() {
+export function trackChangesPlugin({ enabled = true } = {}) {
   return new Plugin({
     key: trackChangesKey,
     state: {
       init() {
-        return { enabled: true }
+        return { enabled }
       },
       apply(tr, value) {
         const meta = tr.getMeta(trackChangesKey)
