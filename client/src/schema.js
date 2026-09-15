@@ -1,11 +1,14 @@
 import { Schema } from 'prosemirror-model'
+import { tableNodes } from 'prosemirror-tables'
 
 // A deliberately small schema: paragraphs, headings (5 levels), hard
 // breaks, three kinds of list (à puces, numérotée, à cocher — les deux
 // dernières ajoutées le 15/09/2026), a blockquote,
 // bold/italic/underline/strike,
-// and the two marks that drive tracked changes. Tables and images are left
-// for a later iteration (see README roadmap). Paragraph/heading splits
+// and the two marks that drive tracked changes. Les tableaux simples sont
+// arrivés le 15/09/2026 (voir claude/etude-tableaux-images.md) ; les images
+// restent pour plus tard, et pour une raison de fond : elles n'ont pas leur
+// place dans le CRDT, que chaque connexion rejoue intégralement. Paragraph/heading splits
 // directly under the document (the common case: pressing Enter, or a
 // multi-line paste — see rewriteForTracking/richPastePlugin in
 // trackChanges.js) are tracked via `trackedBreak` below; a split nested
@@ -146,6 +149,17 @@ export const schema = new Schema({
         return ['hr', { title: "Saut de page à l'export PDF" }]
       },
     },
+    // Tableaux simples (15/09/2026). `cellContent: 'paragraph'` est une
+    // limite volontaire : une cellule porte un seul paragraphe, jamais une
+    // liste ni un titre. Ça garde le schéma lisible, rend l'export Markdown
+    // représentable (une cellule = une ligne de texte entre pipes) et évite
+    // d'ouvrir la porte aux attentes de tableur. Pas de fusion de cellules
+    // pour la même raison — voir claude/etude-tableaux-images.md.
+    ...tableNodes({
+      tableGroup: 'block',
+      cellContent: 'paragraph',
+      cellAttributes: {},
+    }),
     text: { group: 'inline' },
     hard_break: {
       inline: true,

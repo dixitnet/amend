@@ -33,6 +33,17 @@ import { runCompactionIfNeeded } from './historySnapshot.js'
 import { mountTkMarker } from './tkMarker.js'
 import { markdownShortcutsPlugin } from './markdownShortcuts.js'
 import { taskListPlugin } from './taskList.js'
+import {
+  tableEditing,
+  goToNextCell,
+  isInTable,
+  fixTables,
+  addRowAfter,
+  deleteRow,
+  addColumnAfter,
+  deleteColumn,
+  deleteTable,
+} from 'prosemirror-tables'
 import { mountPresenceBar } from './presence.js'
 import { loadStyle } from './styleConfig.js'
 import { printDocument } from './pdfExport.js'
@@ -260,6 +271,23 @@ export function mountEditor(root, docId, user, docMeta) {
   const hrBtn = mkButton('—', 'Insérer une ligne (devient un saut de page à l’export PDF)')
   toolbar.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn, quoteBtn, hrBtn)
 
+  // Groupe tableau : le bouton d'insertion est toujours là, les commandes de
+  // structure n'apparaissent que lorsque le curseur est dans un tableau
+  // (voir syncTableButtons plus bas). Tout ce groupe est réservé aux
+  // éditeurs — voir claude/etude-tableaux-images.md : supprimer une ligne
+  // fait disparaître son contenu sans laisser de trace dans le suivi des
+  // modifications, ce qu'on ne confie pas à un correcteur.
+  const tableBtn = mkButton('▦', 'insérer un tableau 3×3')
+  const rowAddBtn = mkButton('+↔', 'ajouter une ligne')
+  const rowDelBtn = mkButton('−↔', 'supprimer la ligne')
+  const colAddBtn = mkButton('+↕', 'ajouter une colonne')
+  const colDelBtn = mkButton('−↕', 'supprimer la colonne')
+  const tableDelBtn = mkButton('▦✕', 'supprimer le tableau')
+  const tableGroup = document.createElement('span')
+  tableGroup.className = 'table-group'
+  tableGroup.append(rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn)
+  toolbar.append(tableBtn, tableGroup)
+
   main.appendChild(toolbar)
 
   const editorContainer = document.createElement('div')
@@ -440,8 +468,24 @@ export function mountEditor(root, docId, user, docMeta) {
           liftListItem(schema.nodes.list_item),
           liftListItem(schema.nodes.task_item)
         ),
+        // Tab circule de cellule en cellule, et ne fait rien ailleurs (le
+        // retour `false` laisse le navigateur gérer la tabulation normale).
+        Tab: goToNextCell(1),
+        'Shift-Tab': goToNextCell(-1),
       }),
       keymap(baseKeymap),
+      tableEditing(),
+      // Deux personnes qui modifient la structure d'un même tableau en même
+      // temps peuvent produire, après fusion CRDT, un tableau bancal (lignes
+      // de largeurs différentes). fixTables le répare dès qu'il apparaît —
+      // c'est le remède prévu par prosemirror-tables, et il est ici hors
+      // suivi des modifications : c'est une réparation, pas une édition.
+      new Plugin({
+        appendTransaction(_trs, _ancien, nouveau) {
+          const correction = fixTables(nouveau)
+          return correction ? correction.setMeta('trackChangesInternal', true) : undefined
+        },
+      }),
       markdownShortcutsPlugin(schema),
       taskListPlugin(schema),
       new Plugin({
@@ -526,9 +570,21 @@ export function mountEditor(root, docId, user, docMeta) {
     else headingSelect.value = valeur
   }
 
+  // Un correcteur ne touche pas à la structure d'un tableau (étude du
+  // 15/09) : les boutons disparaissent au lieu d'être présents et refusés.
+  const syncTableButtons = () => {
+    if (isCorrecteur) {
+      tableBtn.hidden = true
+      tableGroup.hidden = true
+      return
+    }
+    tableGroup.hidden = !isInTable(view.state)
+  }
+
   syncToolbar = () => {
     syncToggle()
     syncHeadingSelect()
+    syncTableButtons()
   }
   syncToolbar()
 
@@ -548,6 +604,37 @@ export function mountEditor(root, docId, user, docMeta) {
     toggleMark(schema.marks.strike)(view.state, view.dispatch)
     view.focus()
   }
+  /** Les opérations de structure d'un tableau ne passent pas par le suivi
+   * des modifications : comme les changements de niveau de titre ou de
+   * liste, ce sont des changements de nœuds, que l'architecture actuelle ne
+   * sait pas marquer. D'où le méta d'échappement — et la réservation aux
+   * éditeurs, décidée dans l'étude. */
+  function commandeTableau(commande) {
+    return () => {
+      commande(view.state, (tr) => view.dispatch(tr.setMeta('trackChangesInternal', true)))
+      view.focus()
+    }
+  }
+
+  tableBtn.onclick = () => {
+    const { cell, table_row, table, paragraph } = schema.nodes
+    const cellule = () => cell.createAndFill({}, paragraph.create())
+    const ligne = () => table_row.create({}, [cellule(), cellule(), cellule()])
+    view.dispatch(
+      view.state.tr
+        .replaceSelectionWith(table.create({}, [ligne(), ligne(), ligne()]))
+        .setMeta('trackChangesInternal', true)
+        .scrollIntoView()
+    )
+    view.focus()
+  }
+
+  rowAddBtn.onclick = commandeTableau(addRowAfter)
+  rowDelBtn.onclick = commandeTableau(deleteRow)
+  colAddBtn.onclick = commandeTableau(addColumnAfter)
+  colDelBtn.onclick = commandeTableau(deleteColumn)
+  tableDelBtn.onclick = commandeTableau(deleteTable)
+
   orderedListBtn.onclick = () => {
     toggleList(schema.nodes.ordered_list, schema.nodes.list_item)(view.state, view.dispatch)
     view.focus()

@@ -32,6 +32,10 @@ import {
   PageNumber,
   NumberFormat,
   Footer,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
   convertMillimetersToTwip,
 } from 'docx'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
@@ -236,6 +240,31 @@ function blockToParagraphs(node, style) {
     case 'ordered_list':
     case 'task_list':
       return listToParagraphs(node, style, 0)
+    case 'table': {
+      const lineHeight = style.body.lineHeight ?? DEFAULT_STYLE.body.lineHeight
+      const lignes = []
+      node.forEach((row) => {
+        const cellules = []
+        row.forEach((cell) => {
+          const contenu = []
+          cell.forEach((bloc) => {
+            contenu.push(
+              new Paragraph({
+                ...paragraphProps(style.body, { lineHeight }),
+                children: inlineToRuns(bloc, style.body, style.body.size),
+              })
+            )
+          })
+          cellules.push(new TableCell({ children: contenu.length ? contenu : [new Paragraph({})] }))
+        })
+        lignes.push(new TableRow({ children: cellules }))
+      })
+      // Largeur en pourcentage : le document Word garde des marges propres
+      // quel que soit le format de page choisi dans la feuille de style.
+      return lignes.length
+        ? [new Table({ rows: lignes, width: { size: 100, type: WidthType.PERCENTAGE } })]
+        : []
+    }
     case 'horizontal_rule':
       // Saut de page — même rôle qu'à l'export PDF (voir pdfExport.js) :
       // ce nœud ne dessine jamais de trait, juste un saut de page.

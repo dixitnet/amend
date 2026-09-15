@@ -93,6 +93,21 @@ function blockToHtml(node) {
       })
       return `<ul class="liste-taches-imprimee">${inner}</ul>`
     }
+    case 'table': {
+      let lignes = ''
+      node.forEach((row) => {
+        let cellules = ''
+        row.forEach((cell) => {
+          let inner = ''
+          cell.forEach((bloc) => {
+            inner += inlineToHtml(bloc)
+          })
+          cellules += `<td>${inner}</td>`
+        })
+        lignes += `<tr>${cellules}</tr>`
+      })
+      return `<table class="tableau">${lignes}</table>`
+    }
     case 'horizontal_rule':
       // Contrairement à l'éditeur (un <hr> visible, voir schema.js) et à
       // l'export .md (une ligne "---"), le PDF n'affiche aucun trait ici :
@@ -132,9 +147,17 @@ export function printDocument(doc, title, style) {
   // visible dans l'éditeur (schema.js) n'a de sens qu'à l'écran.
   const pageBreakCss = '.print-doc .page-break { break-after: page; page-break-after: always; height: 0; margin: 0; border: none; }'
 
+  // Les tableaux n'héritent d'aucun style de l'éditeur (le PDF part d'un
+  // HTML reconstruit) : bordures et largeur sont posées ici. `break-inside:
+  // avoid` sur les lignes évite qu'une ligne soit coupée en deux pages.
+  const tableCss =
+    '.print-doc table.tableau { width: 100%; border-collapse: collapse; margin: 0.6em 0; }' +
+    '.print-doc table.tableau td { border: 1px solid #999; padding: 4px 6px; vertical-align: top; }' +
+    '.print-doc table.tableau tr { break-inside: avoid; page-break-inside: avoid; }'
+
   const root = document.createElement('div')
   root.id = 'print-root'
-  root.innerHTML = `<style>${pageCss}\n${css}\n${pageBreakCss}</style><div class="print-doc">${html}</div>`
+  root.innerHTML = `<style>${pageCss}\n${css}\n${pageBreakCss}\n${tableCss}</style><div class="print-doc">${html}</div>`
   document.body.appendChild(root)
 
   const previousTitle = document.title

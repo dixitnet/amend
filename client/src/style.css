@@ -913,3 +913,26 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .ProseMirror li.tache > .tache-contenu { flex: 1 1 auto; min-width: 0; }
 .ProseMirror li.tache[data-checked='true'] > .tache-contenu { text-decoration: line-through; opacity: 0.55; }
 .ProseMirror li.tache > .tache-contenu > p { margin: 0; }
+
+/* --- Tableaux simples (schema.js : tableNodes de prosemirror-tables).
+   Volontairement sobres : une grille lisible, pas de mise en forme par
+   cellule — voir claude/etude-tableaux-images.md. */
+.ProseMirror table { border-collapse: collapse; width: 100%; margin: 0.8em 0; table-layout: fixed; }
+.ProseMirror td, .ProseMirror th {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  vertical-align: top;
+  position: relative;
+}
+.ProseMirror th { background: color-mix(in srgb, var(--fg) 6%, transparent); font-weight: 600; }
+.ProseMirror td > p, .ProseMirror th > p { margin: 0; }
+/* Sélection de cellules de prosemirror-tables */
+.ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--accent, #5f7a4a) 18%, transparent);
+  pointer-events: none;
+}
+.table-group { display: inline-flex; gap: 4px; }
+.table-group[hidden] { display: none; }

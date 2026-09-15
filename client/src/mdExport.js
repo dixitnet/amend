@@ -84,6 +84,28 @@ function listToLines(list, depth) {
   return lines
 }
 
+/** Un tableau en syntaxe GitHub (pipes). La première ligne devient
+ * l'en-tête : le Markdown l'exige (le séparateur `---` ne peut pas être
+ * ailleurs), même quand l'auteur n'a pas voulu d'en-tête. Les retours à la
+ * ligne dans une cellule sont remplacés par un espace et les pipes
+ * échappés — sans quoi le tableau serait cassé à la lecture. */
+function tableToLines(table) {
+  const lignes = []
+  table.forEach((row) => {
+    const cellules = []
+    row.forEach((cell) => {
+      let texte = ''
+      cell.forEach((bloc) => {
+        texte += (texte ? ' ' : '') + inlineToMarkdown(bloc)
+      })
+      cellules.push(texte.replace(/\|/g, '\\|').replace(/\n/g, ' ').trim())
+    })
+    lignes.push(`| ${cellules.join(' | ')} |`)
+    if (lignes.length === 1) lignes.push(`| ${cellules.map(() => '---').join(' | ')} |`)
+  })
+  return lignes
+}
+
 /** One block node's Markdown lines, including its trailing blank-line
  * separator (blocks are joined with '\n' afterwards, so consecutive blocks
  * end up one blank line apart, like normal Markdown paragraphs). */
@@ -103,6 +125,8 @@ function blockToLines(node) {
     case 'ordered_list':
     case 'task_list':
       return [...listToLines(node, 0), '']
+    case 'table':
+      return [...tableToLines(node), '']
     case 'horizontal_rule':
       // Le Markdown n'a pas de notion de saut de page (voir pdfExport.js
       // pour ce que devient ce même nœud à l'export PDF) — la ligne
