@@ -26,6 +26,7 @@ import { mountChangesPanel } from './changesPanel.js'
 import { openAccessPanel } from './accessPanel.js'
 import { mountAIPanel } from './aiPanel.js'
 import { commentsPlugin, mountCommentsPanel } from './comments.js'
+import { mountCommentsGutter, mountGutterComposer } from './commentsGutter.js'
 import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
 import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
@@ -294,6 +295,13 @@ export function mountEditor(root, docId, user, docMeta) {
   editorContainer.className = 'editor-container'
   main.appendChild(editorContainer)
 
+  // Gouttière des commentaires : créée ici pour que les greffons la
+  // reçoivent, mais attachée seulement après la construction de la vue —
+  // ProseMirror ajoute son propre élément au conteneur, et l'ordre décide
+  // de quel côté se trouve la gouttière.
+  const commentsGutter = document.createElement('div')
+  commentsGutter.className = 'marge-commentaires'
+
   // Facteur d'agrandissement (50/100/150%) : un confort de lecture propre à
   // chaque personne/navigateur, donc mémorisé dans le localStorage (même
   // principe que le nom/couleur dans user.js) plutôt que synchronisé via
@@ -440,6 +448,8 @@ export function mountEditor(root, docId, user, docMeta) {
       richPastePlugin(() => user),
       pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),
+      mountCommentsGutter(commentsGutter, ydoc, commentsMap),
+      mountGutterComposer(commentsGutter, ydoc, commentsMap, user),
       mountChangesPanel(changesSection, { canReview: docMeta.myRole !== 'correcteur' }),
       mountOutlinePanel(outlineSection),
       mountWordCount(wordCount),
@@ -497,6 +507,7 @@ export function mountEditor(root, docId, user, docMeta) {
   })
 
   const view = new EditorView(editorContainer, { state })
+  editorContainer.appendChild(commentsGutter)
   // dispatchTransaction needs a reference to `view` itself, so it's wired
   // up right after construction rather than passed in the initial props.
   view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => user) })

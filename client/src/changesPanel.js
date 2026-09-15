@@ -1,4 +1,5 @@
-import { Plugin, PluginKey } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
+import { Decoration, DecorationSet } from 'prosemirror-view'
 import {
   scanChangesInRange,
   updateChangeList,
@@ -46,6 +47,12 @@ function relativeTime(ts) {
  */
 export function mountChangesPanel(container, { canReview = true } = {}) {
   let view = null
+  // Éléments de la liste, par clé de modification : permet de mettre à jour
+  // la mise en évidence de l'entrée courante sans reconstruire le panneau
+  // (voir lastSignature ci-dessous — une reconstruction entre le mousedown
+  // et le mouseup d'un clic faisait perdre ce clic).
+  let elementsParCle = new Map()
+  let cleCourante = null
   // A signature of the last rendered change list, so we can skip rebuilding
   // the whole panel (and re-creating every Accepter/Rejeter button) when a
   // transaction doesn't actually touch the tracked changes — e.g. a remote
@@ -55,16 +62,76 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
   // needed a second click.
   let lastSignature = null
 
+  function cleDe(change) {
+    return `${change.type}:${change.from}:${change.to}:${change.user}:${change.ts}`
+  }
+
   function signatureOf(changes) {
-    return changes.map((c) => `${c.type}:${c.from}:${c.to}:${c.user}:${c.ts}`).join('|')
+    return changes.map(cleDe).join('|')
+  }
+
+  /** Surligne (ou éteint) un passage dans l'éditeur depuis le panneau —
+   * décoration seulement, rien n'est écrit dans le document. */
+  function survoler(change) {
+    if (!view) return
+    view.dispatch(view.state.tr.setMeta(changesKey, { survol: change ? { from: change.from, to: change.to } : null }))
+  }
+
+  /** Modification dans laquelle se trouve le curseur, s'il y en a une —
+   * c'est elle que le panneau met en évidence, sans déplacer la liste tant
+   * qu'elle reste visible. */
+  function changeSousLeCurseur(changes) {
+    if (!view) return null
+    const pos = view.state.selection.head
+    return changes.find((c) => pos >= c.from && pos <= c.to) || null
+  }
+
+  function majEntreeCourante(changes) {
+    const courante = changeSousLeCurseur(changes)
+    const cle = courante ? cleDe(courante) : null
+    if (cle === cleCourante) return
+    if (cleCourante && elementsParCle.get(cleCourante)) {
+      elementsParCle.get(cleCourante).classList.remove('courante')
+    }
+    cleCourante = cle
+    const element = cle ? elementsParCle.get(cle) : null
+    if (!element) return
+    element.classList.add('courante')
+    // On ne ramène l'entrée dans le champ que si elle en est sortie : une
+    // liste qui se recentre en permanence pendant qu'on lit est
+    // désagréable, et fait perdre tout repère (voir
+    // claude/conception-marge-annotations.md).
+    element.scrollIntoView({ block: 'nearest' })
+  }
+
+  /** Va à la modification suivante (ou précédente) dans l'ordre du
+   * document, en boucle, et la sélectionne — c'est le geste réel d'une
+   * relecture, et il évite de viser à la souris. */
+  function allerA(direction) {
+    if (!view) return
+    const changes = mergeAdjacentChanges(changesKey.getState(view.state)?.raw ?? [])
+    if (!changes.length) return
+    const pos = view.state.selection.head
+    const cible =
+      direction > 0
+        ? changes.find((c) => c.from > pos) || changes[0]
+        : [...changes].reverse().find((c) => c.to < pos) || changes[changes.length - 1]
+    const { state, dispatch } = view
+    const to = Math.min(cible.to, state.doc.content.size)
+    dispatch(state.tr.setSelection(TextSelection.create(state.doc, cible.from, to)))
+    scrollChangeToMiddle(cible.from)
+    view.focus()
   }
 
   function render(force) {
     if (!view) return
-    const raw = changesKey.getState(view.state) ?? []
+    const raw = changesKey.getState(view.state)?.raw ?? []
     const changes = mergeAdjacentChanges(raw)
     const signature = signatureOf(changes)
-    if (!force && signature === lastSignature) return
+    if (!force && signature === lastSignature) {
+      majEntreeCourante(changes)
+      return
+    }
     lastSignature = signature
     container.innerHTML = ''
 
@@ -73,6 +140,22 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
     const title = document.createElement('h3')
     title.textContent = `Modifications (${changes.length})`
     header.appendChild(title)
+    if (changes.length > 0) {
+      const navigation = document.createElement('div')
+      navigation.className = 'changes-nav'
+      const precedent = document.createElement('button')
+      precedent.type = 'button'
+      precedent.textContent = '◀'
+      precedent.title = 'Modification précédente'
+      precedent.onclick = () => allerA(-1)
+      const suivant = document.createElement('button')
+      suivant.type = 'button'
+      suivant.textContent = '▶'
+      suivant.title = 'Modification suivante'
+      suivant.onclick = () => allerA(1)
+      navigation.append(precedent, suivant)
+      header.appendChild(navigation)
+    }
     if (changes.length > 1 && canReview) {
       const bulk = document.createElement('div')
       bulk.className = 'changes-bulk'
@@ -107,6 +190,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
 
     const list = document.createElement('ul')
     list.className = 'changes-list'
+    elementsParCle = new Map()
     for (const change of changes) {
       const item = document.createElement('li')
       item.className = `change-item change-${change.type}`
@@ -151,9 +235,17 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         if (e.target.closest('.change-actions')) return
         scrollChangeToMiddle(change.from)
       })
+      // Mise en évidence réciproque : survoler l'entrée éclaire le passage
+      // dans le texte. L'inverse (le passage sous le curseur éclaire son
+      // entrée) est assuré par majEntreeCourante.
+      item.addEventListener('mouseenter', () => survoler(change))
+      item.addEventListener('mouseleave', () => survoler(null))
+      elementsParCle.set(cleDe(change), item)
       list.appendChild(item)
     }
     container.appendChild(list)
+    cleCourante = null
+    majEntreeCourante(changes)
   }
 
   /** Scrolls `.editor-container` (the editor's own scrolling element — see
@@ -180,8 +272,26 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
   const plugin = new Plugin({
     key: changesKey,
     state: {
-      init: (_, state) => scanChangesInRange(state.doc, 0, state.doc.content.size),
-      apply: (tr, raw) => updateChangeList(raw, tr),
+      init: (_, state) => ({ raw: scanChangesInRange(state.doc, 0, state.doc.content.size), survol: null }),
+      apply: (tr, valeur) => {
+        const meta = tr.getMeta(changesKey)
+        const survol = meta && 'survol' in meta ? meta.survol : valeur.survol
+        return { raw: updateChangeList(valeur.raw, tr), survol: tr.docChanged ? null : survol }
+      },
+    },
+    props: {
+      // Le survol d'une entrée du panneau éclaire le passage correspondant.
+      // Décoration pure : rien n'est stocké dans le document, et l'effet
+      // disparaît dès que le document change.
+      decorations(state) {
+        const survol = changesKey.getState(state)?.survol
+        if (!survol) return null
+        const taille = state.doc.content.size
+        const from = Math.max(0, Math.min(survol.from, taille))
+        const to = Math.max(0, Math.min(survol.to, taille))
+        if (from >= to) return null
+        return DecorationSet.create(state.doc, [Decoration.inline(from, to, { class: 'change-survol' })])
+      },
     },
     view(editorView) {
       view = editorView

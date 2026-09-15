@@ -936,3 +936,120 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 }
 .table-group { display: inline-flex; gap: 4px; }
 .table-group[hidden] { display: none; }
+
+/* --- File des modifications reliée au texte (voir
+   claude/conception-marge-annotations.md). */
+.changes-nav { display: inline-flex; gap: 4px; margin-left: auto; }
+.changes-nav button {
+  width: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.changes-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* L'entrée correspondant au passage sous le curseur. */
+.change-item.courante {
+  outline: 2px solid color-mix(in srgb, var(--user-color, var(--accent, #5f7a4a)) 55%, transparent);
+  outline-offset: -1px;
+}
+/* Le passage éclairé quand on survole son entrée dans la liste. */
+.ProseMirror .change-survol {
+  background: color-mix(in srgb, var(--accent, #5f7a4a) 22%, transparent);
+  border-radius: 2px;
+}
+
+/* --- Gouttière des commentaires (commentsGutter.js). Elle vit DANS le
+   conteneur qui défile : les cartes y sont en position absolue, donc le
+   défilement ne change rien à leur position relative et il n'y a jamais
+   rien à recalculer en défilant (voir claude/conception-marge-annotations.md). */
+.marge-commentaires {
+  position: relative;
+  width: 280px;
+  flex: none;
+  min-height: 100%;
+  margin-left: 24px;
+}
+.carte-commentaire {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  /* Même fond que la page : une annotation, pas une colonne séparée. */
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--user-color, var(--border));
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: top 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+.carte-commentaire.active {
+  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
+  z-index: 2;
+}
+.carte-meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+/* Réduites à deux lignes tant qu'elles ne sont pas actives : c'est ce qui
+   rend l'empilement supportable quand les commentaires se suivent. */
+.carte-texte {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.carte-commentaire.active .carte-texte { display: block; overflow: visible; }
+.carte-actions { display: none; gap: 6px; margin-top: 6px; }
+.carte-commentaire.active .carte-actions { display: flex; }
+.carte-actions button {
+  width: auto;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.gouttiere-commenter {
+  position: absolute;
+  left: 0;
+  width: auto;
+  padding: 3px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.carte-commentaire.composeur { cursor: default; }
+.carte-commentaire.composeur textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  padding: 4px 6px;
+  resize: vertical;
+}
+.carte-commentaire.composeur .carte-actions { display: flex; }
+
+/* Une seule liste de commentaires à la fois : la gouttière quand il y a la
+   place, le panneau latéral sinon. */
+/* Seuil calculé, pas choisi au hasard : plan (220) + panneau (320) = 540 px
+   de chrome, colonne de texte (760) + gouttière (280) + écart (24) = 1064.
+   En dessous de ~1500 px la colonne de lecture se ferait comprimer sous
+   700 px, et la lecture est le métier de l'outil — la gouttière cède la
+   place au panneau latéral. */
+@media (min-width: 1500px) {
+  .sidebar-section.comments-section { display: none; }
+}
+@media (max-width: 1499px) {
+  .marge-commentaires { display: none; }
+}
