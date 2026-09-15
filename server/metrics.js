@@ -7,6 +7,9 @@
 //   mail       : {ts, type, ok, erreur?} — la seule porte d'entrée depuis le
 //                retrait de basic-auth : une panne d'envoi n'expose rien mais
 //                enferme tout le monde dehors
+//   images     : {ts, email, docId, octets} — le disque est la seule
+//                ressource du VPS qu'un usage normal peut épuiser pour de
+//                bon ; ce flux dit à quelle vitesse il se remplit
 //
 // Aucun contenu de document n'y entre jamais. Les fichiers sont purgés au
 // démarrage au-delà de RETENTION_JOURS.
@@ -14,7 +17,7 @@
 import { appendFileSync, readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 
-export const FLUX = ['connexions', 'ia', 'mail']
+export const FLUX = ['connexions', 'ia', 'mail', 'images']
 const RETENTION_JOURS = 90
 
 export class Metrics {

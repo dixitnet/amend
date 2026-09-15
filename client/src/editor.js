@@ -45,6 +45,7 @@ import {
   deleteColumn,
   deleteTable,
 } from 'prosemirror-tables'
+import { imagesPlugin } from './images.js'
 import { mountPresenceBar } from './presence.js'
 import { loadStyle } from './styleConfig.js'
 import { printDocument } from './pdfExport.js'
@@ -450,6 +451,9 @@ export function mountEditor(root, docId, user, docMeta) {
       // correcteur suivi activé — c'est son rôle même (15/09/2026).
       trackChangesPlugin({ enabled: docMeta.myRole === 'correcteur' }),
       selectionHighlightPlugin(),
+      // Avant richPastePlugin : une capture d'écran collée est une image,
+      // pas un collage de texte (voir images.js).
+      imagesPlugin({ docId, peutInserer: docMeta.myRole !== 'correcteur' }),
       richPastePlugin(() => user),
       pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),
@@ -716,7 +720,7 @@ export function mountEditor(root, docId, user, docMeta) {
     // have changed the feuille de style on "Mise en page" since this editor
     // was opened, and an export should reflect what's saved now.
     const style = await loadStyle()
-    printDocument(view.state.doc, titleInput.value, style)
+    await printDocument(view.state.doc, titleInput.value, style)
   }
   headingSelect.onchange = () => {
     if (headingSelect.value === '') {

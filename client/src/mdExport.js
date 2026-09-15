@@ -106,6 +106,17 @@ function tableToLines(table) {
   return lignes
 }
 
+/** Une image, en lien **absolu** vers l'instance. Choix assumé du
+ * 16/09/2026 : un .md est un fichier unique et l'URL est protégée par la
+ * session, donc le lien ne s'affichera pas hors connexion. Les deux autres
+ * options étaient pires — l'image en data-URI gonfle le .md jusqu'à
+ * l'absurde, et une archive .zip n'est plus « télécharger un .md ».
+ * L'export Markdown sert à récupérer le texte, pas à archiver. */
+function imageEnMarkdown(node) {
+  const base = typeof window !== 'undefined' && window.location ? window.location.origin : ''
+  return `![${node.attrs.alt || 'image'}](${base}${node.attrs.src})`
+}
+
 /** One block node's Markdown lines, including its trailing blank-line
  * separator (blocks are joined with '\n' afterwards, so consecutive blocks
  * end up one blank line apart, like normal Markdown paragraphs). */
@@ -127,6 +138,8 @@ function blockToLines(node) {
       return [...listToLines(node, 0), '']
     case 'table':
       return [...tableToLines(node), '']
+    case 'image':
+      return [imageEnMarkdown(node), '']
     case 'horizontal_rule':
       // Le Markdown n'a pas de notion de saut de page (voir pdfExport.js
       // pour ce que devient ce même nœud à l'export PDF) — la ligne

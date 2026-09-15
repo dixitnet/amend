@@ -32,6 +32,7 @@ import {
   PageNumber,
   NumberFormat,
   Footer,
+  ImageRun,
   Table,
   TableRow,
   TableCell,
@@ -203,8 +204,45 @@ function listToParagraphs(list, style, level) {
   return out
 }
 
+/** Récupère les octets de toutes les images du document, en une passe,
+ * avant la construction : `blockToParagraphs` est synchrone, et `docx`
+ * veut les octets, pas une URL. Une image qu'on n'arrive pas à relire
+ * (session expirée, fichier disparu) n'interrompt pas l'export — elle
+ * laisse une mention à sa place, ce qui est plus honnête qu'un document
+ * qui perd silencieusement une figure. */
+async function chargerImages(doc) {
+  const sources = new Set()
+  doc.descendants((node) => {
+    if (node.type.name === 'image' && node.attrs.src) sources.add(node.attrs.src)
+  })
+  const octetsPar = new Map()
+  await Promise.all(
+    [...sources].map(async (src) => {
+      try {
+        const reponse = await fetch(src)
+        if (!reponse.ok) return
+        const data = new Uint8Array(await reponse.arrayBuffer())
+        octetsPar.set(src, { data, type: src.endsWith('.png') ? 'png' : 'jpg' })
+      } catch {
+        /* image laissée de côté, voir ci-dessus */
+      }
+    })
+  )
+  return octetsPar
+}
+
+/** Largeur utile d'une page, en pixels à 96 ppp — l'unité qu'attend
+ * `transformation` de `docx`. Une image plus large que ça déborderait des
+ * marges de la feuille de style. */
+function largeurUtilePx(style) {
+  const page = style.page || DEFAULT_STYLE.page
+  const [largeurMm] = PAGE_SIZES_MM[page.size] || PAGE_SIZES_MM.A4
+  const utileMm = largeurMm - (page.marginLeft || 0) - (page.marginRight || 0)
+  return Math.max(50, Math.round((utileMm / 25.4) * 96))
+}
+
 /** Un nœud de bloc ProseMirror -> une ou plusieurs `Paragraph` docx. */
-function blockToParagraphs(node, style) {
+function blockToParagraphs(node, style, images) {
   switch (node.type.name) {
     case 'heading': {
       const level = node.attrs.level
@@ -233,7 +271,7 @@ function blockToParagraphs(node, style) {
       // — cohérent avec pdfExport.js/styleConfig.js (buildStyleCss applique
       // la même règle à <p> et <blockquote>).
       const out = []
-      node.forEach((child) => out.push(...blockToParagraphs(child, style)))
+      node.forEach((child) => out.push(...blockToParagraphs(child, style, images)))
       return out
     }
     case 'bullet_list':
@@ -265,6 +303,37 @@ function blockToParagraphs(node, style) {
         ? [new Table({ rows: lignes, width: { size: 100, type: WidthType.PERCENTAGE } })]
         : []
     }
+    case 'image': {
+      const octets = images && images.octetsPar.get(node.attrs.src)
+      if (!octets) {
+        return [
+          new Paragraph({
+            ...paragraphProps(style.body),
+            children: [new TextRun({ ...baseRunProps(style.body, style.body.size), italics: true, text: '[image non récupérée]' })],
+          }),
+        ]
+      }
+      const largeurSource = node.attrs.largeur || images.largeurUtile
+      const hauteurSource = node.attrs.hauteur || Math.round(largeurSource * 0.75)
+      const facteur = Math.min(1, images.largeurUtile / largeurSource)
+      return [
+        new Paragraph({
+          ...paragraphProps(style.body),
+          alignment: AlignmentType.CENTER,
+          children: [
+            new ImageRun({
+              type: octets.type,
+              data: octets.data,
+              transformation: {
+                width: Math.round(largeurSource * facteur),
+                height: Math.round(hauteurSource * facteur),
+              },
+              altText: node.attrs.alt ? { description: node.attrs.alt, name: node.attrs.alt, title: node.attrs.alt } : undefined,
+            }),
+          ],
+        }),
+      ]
+    }
     case 'horizontal_rule':
       // Saut de page — même rôle qu'à l'export PDF (voir pdfExport.js) :
       // ce nœud ne dessine jamais de trait, juste un saut de page.
@@ -278,9 +347,10 @@ function blockToParagraphs(node, style) {
  * télécharger — même feuille de style (`style`, voir styleConfig.js) que
  * l'export PDF. */
 export async function buildDocxBlob(doc, style) {
+  const images = { octetsPar: await chargerImages(doc), largeurUtile: largeurUtilePx(style) }
   const children = []
   doc.forEach((node) => {
-    children.push(...blockToParagraphs(node, style))
+    children.push(...blockToParagraphs(node, style, images))
   })
 
   const page = style.page || DEFAULT_STYLE.page

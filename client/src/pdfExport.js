@@ -108,6 +108,11 @@ function blockToHtml(node) {
       })
       return `<table class="tableau">${lignes}</table>`
     }
+    case 'image':
+      // L'impression passe par le navigateur, sur la même origine et avec
+      // la session en cours : l'URL fonctionne telle quelle, rien à
+      // convertir. La largeur est bornée par le CSS d'impression plus bas.
+      return `<figure class="image-doc"><img src="${escapeHtml(node.attrs.src)}" alt="${escapeHtml(node.attrs.alt || '')}"></figure>`
     case 'horizontal_rule':
       // Contrairement à l'éditeur (un <hr> visible, voir schema.js) et à
       // l'export .md (une ligne "---"), le PDF n'affiche aucun trait ici :
@@ -133,7 +138,7 @@ export function docToHtml(doc) {
  * — the browser's own print dialog, "Enregistrer en PDF" gives the file.
  * `title` becomes the document title while printing, which most browsers
  * use as the default filename in that dialog. */
-export function printDocument(doc, title, style) {
+export async function printDocument(doc, title, style) {
   const html = docToHtml(doc)
   const css = buildStyleCss(style, { scope: '.print-doc' })
   const pageCss = buildPageCss(style, { scope: '.print-doc' })
@@ -155,10 +160,25 @@ export function printDocument(doc, title, style) {
     '.print-doc table.tableau td { border: 1px solid #999; padding: 4px 6px; vertical-align: top; }' +
     '.print-doc table.tableau tr { break-inside: avoid; page-break-inside: avoid; }'
 
+  // Une image ne déborde jamais de la zone imprimable et n'est jamais
+  // coupée entre deux pages.
+  const imageCss =
+    '.print-doc figure.image-doc { margin: 0.8em 0; text-align: center; break-inside: avoid; page-break-inside: avoid; }' +
+    '.print-doc figure.image-doc img { max-width: 100%; height: auto; }'
+
   const root = document.createElement('div')
   root.id = 'print-root'
-  root.innerHTML = `<style>${pageCss}\n${css}\n${pageBreakCss}\n${tableCss}</style><div class="print-doc">${html}</div>`
+  root.innerHTML = `<style>${pageCss}\n${css}\n${pageBreakCss}\n${tableCss}\n${imageCss}</style><div class="print-doc">${html}</div>`
   document.body.appendChild(root)
+
+  // Les <img> de #print-root sont des éléments neufs : imprimer sans les
+  // attendre sortirait des cadres vides, même si la même image est déjà
+  // affichée dans l'éditeur. `decode()` échoue sur une image manquante —
+  // on imprime quand même, avec un trou, plutôt que de bloquer l'export.
+  const images = [...root.querySelectorAll('img')]
+  if (images.length) {
+    await Promise.all(images.map((img) => (img.decode ? img.decode().catch(() => {}) : Promise.resolve())))
+  }
 
   const previousTitle = document.title
   if (title) document.title = title

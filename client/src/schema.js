@@ -6,9 +6,9 @@ import { tableNodes } from 'prosemirror-tables'
 // dernières ajoutées le 15/09/2026), a blockquote,
 // bold/italic/underline/strike,
 // and the two marks that drive tracked changes. Les tableaux simples sont
-// arrivés le 15/09/2026 (voir claude/etude-tableaux-images.md) ; les images
-// restent pour plus tard, et pour une raison de fond : elles n'ont pas leur
-// place dans le CRDT, que chaque connexion rejoue intégralement. Paragraph/heading splits
+// arrivés le 15/09/2026 (voir claude/etude-tableaux-images.md), les images
+// le 16/09 — le nœud `image` ne porte qu'une URL, jamais des octets : le
+// journal du document est rejoué intégralement à chaque connexion. Paragraph/heading splits
 // directly under the document (the common case: pressing Enter, or a
 // multi-line paste — see rewriteForTracking/richPastePlugin in
 // trackChanges.js) are tracked via `trackedBreak` below; a split nested
@@ -160,6 +160,47 @@ export const schema = new Schema({
       cellContent: 'paragraph',
       cellAttributes: {},
     }),
+    // Image (16/09/2026). Le nœud ne porte **qu'une référence** — les
+    // octets vivent dans data/uploads (server/uploads.js) et ne passent
+    // jamais par le CRDT, que chaque connexion rejoue en entier. Un bloc
+    // atomique, pleine largeur, sans légende ni habillage : la légende
+    // appellerait la numérotation des figures et l'habillage la mise en
+    // page, dont ce n'est pas le métier. `largeur`/`hauteur` sont celles de
+    // l'image déposée (après réduction) — elles évitent le saut de mise en
+    // page au chargement et servent de taille de référence à l'export Word.
+    image: {
+      group: 'block',
+      atom: true,
+      draggable: false,
+      attrs: { src: {}, alt: { default: '' }, largeur: { default: null }, hauteur: { default: null } },
+      // Seules les images servies par cette instance sont acceptées à
+      // l'analyse d'un collage : sans ce filtre, coller depuis une page web
+      // planterait dans le document un lien vers un serveur tiers — une
+      // fuite de référent à chaque ouverture, et une image qui disparaît le
+      // jour où la page d'origine change.
+      parseDOM: [
+        {
+          tag: 'img[src]',
+          getAttrs(dom) {
+            const src = dom.getAttribute('src') || ''
+            if (!/^\/api\/docs\/[A-Za-z0-9_-]+\/images\/[A-Za-z0-9_-]+\.(png|jpg)$/.test(src)) return false
+            return {
+              src,
+              alt: dom.getAttribute('alt') || '',
+              largeur: Number(dom.getAttribute('width')) || null,
+              hauteur: Number(dom.getAttribute('height')) || null,
+            }
+          },
+        },
+      ],
+      toDOM(node) {
+        const { src, alt, largeur, hauteur } = node.attrs
+        const img = { src, alt: alt || '' }
+        if (largeur) img.width = String(largeur)
+        if (hauteur) img.height = String(hauteur)
+        return ['figure', { class: 'image-doc' }, ['img', img]]
+      },
+    },
     text: { group: 'inline' },
     hard_break: {
       inline: true,

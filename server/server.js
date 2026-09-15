@@ -9,6 +9,7 @@ import { Storage } from './storage.js'
 import { Rooms } from './rooms.js'
 import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
 import { Metrics } from './metrics.js'
+import { Uploads } from './uploads.js'
 import { apercu } from './admin.js'
 import {
   readSession,
@@ -63,6 +64,12 @@ const MAX_COMPACT_BODY = 20_000_000
 
 const storage = new Storage(DATA_DIR)
 const rooms = new Rooms(storage)
+// Les seuils viennent du .env (voir .env.example) et sont lus ici, pas au
+// chargement du module : loadDotEnv() ne s'exécute qu'après les imports.
+const uploads = new Uploads(DATA_DIR, {
+  maxImageMo: process.env.MAX_IMAGE_MB,
+  maxDocumentMo: process.env.MAX_DOC_IMAGES_MB,
+})
 const metrics = new Metrics(DATA_DIR)
 metrics.prune()
 
@@ -117,6 +124,28 @@ function readJsonBody(req, maxSize = MAX_JSON_BODY) {
         reject(Object.assign(new Error('invalid JSON'), { status: 400 }))
       }
     })
+    req.on('error', reject)
+  })
+}
+
+/** Même principe que readJsonBody, mais on garde les octets tels quels :
+ * le dépôt d'une image est un POST binaire brut, avec le type dans
+ * `content-type`. Pas de multipart, donc pas d'analyseur multipart à
+ * écrire — le client n'envoie jamais qu'un fichier à la fois. */
+function readBinaryBody(req, maxSize) {
+  return new Promise((resolve, reject) => {
+    let size = 0
+    const chunks = []
+    req.on('data', (chunk) => {
+      size += chunk.length
+      if (size > maxSize) {
+        reject(Object.assign(new Error('image trop lourde'), { status: 413 }))
+        req.destroy()
+        return
+      }
+      chunks.push(chunk)
+    })
+    req.on('end', () => resolve(Buffer.concat(chunks)))
     req.on('error', reject)
   })
 }
@@ -203,7 +232,74 @@ async function handleApi(req, res, url) {
       return sendJson(res, 403, { error: 'réservé aux éditeurs' })
     }
     const ok = storage.deleteDoc(docMatch[1])
+    // Sans ça, les images d'un document supprimé resteraient sur le disque
+    // pour toujours — et resteraient lisibles par leur URL si l'identifiant
+    // venait à être réattribué.
+    uploads.supprimerDocument(docMatch[1])
     return sendJson(res, 200, { ok })
+  }
+
+  // --- Images (16/09/2026, voir claude/etude-tableaux-images.md). Les
+  // octets ne vont jamais dans le document : le nœud ne porte que l'URL
+  // ci-dessous, et c'est cette route qui décide qui a le droit de la lire.
+  // Servir /uploads/<id>.png sans vérifier l'accès referait exactement la
+  // faille trouvée le 15/09 sur history/raw — du contenu de document
+  // accessible à qui connaît une URL. ---
+
+  const depotImageMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/images$/)
+  if (depotImageMatch && req.method === 'POST') {
+    const id = depotImageMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const email = readSession(req)
+    // Une image est un nœud, donc hors suivi des modifications : un
+    // correcteur n'en ajoute pas (même règle que les lignes de tableau, et
+    // même règle que celle appliquée côté éditeur dans client/src/images.js
+    // — celle-ci est la vraie, l'autre n'est qu'une commodité).
+    if (!capabilities(storage.roleFor(id, email)).canManageDocument) {
+      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    }
+    const mime = String(req.headers['content-type'] || '').split(';')[0].trim()
+    if (!uploads.typeAccepte(mime)) {
+      return sendJson(res, 415, { error: "format d'image non accepté (png ou jpeg)" })
+    }
+    let buffer
+    try {
+      buffer = await readBinaryBody(req, uploads.maxImageOctets)
+    } catch (err) {
+      return sendJson(res, err.status || 400, { error: err.message })
+    }
+    let enregistree
+    try {
+      enregistree = uploads.enregistrer(id, buffer, mime)
+    } catch (err) {
+      return sendJson(res, err.status || 500, { error: err.message })
+    }
+    metrics.log('images', { email, docId: id, octets: enregistree.octets })
+    return sendJson(res, 201, {
+      src: `/api/docs/${id}/images/${enregistree.nom}`,
+      nom: enregistree.nom,
+      octets: enregistree.octets,
+    })
+  }
+
+  const imageMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/images\/([A-Za-z0-9_.-]+)$/)
+  if (imageMatch && req.method === 'GET') {
+    const id = imageMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    if (storage.hasAccessControl(id) && !storage.roleFor(id, readSession(req))) {
+      return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+    }
+    const chemin = uploads.chemin(id, imageMatch[2])
+    if (!chemin) return sendJson(res, 404, { error: 'image introuvable' })
+    // `private` : le nom d'une image est aléatoire et ne sert qu'une fois,
+    // donc immuable — mais elle reste du contenu de document, jamais à
+    // mettre dans un cache partagé.
+    res.writeHead(200, {
+      'content-type': uploads.typeDe(imageMatch[2]),
+      'content-length': statSync(chemin).size,
+      'cache-control': 'private, max-age=31536000, immutable',
+    })
+    return createReadStream(chemin).pipe(res)
   }
 
   // Historique léger (voir storage.js : getHistoryMeta/getHistoryRaw/
@@ -307,7 +403,7 @@ async function handleApi(req, res, url) {
   // n'ouvre aucune action et ne renvoie aucun contenu de document.
   if (pathname === '/api/admin/overview' && req.method === 'GET') {
     if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
-    return sendJson(res, 200, apercu({ storage, rooms, metrics, dataDir: DATA_DIR, waitlistPath: storage.waitlistPath }))
+    return sendJson(res, 200, apercu({ storage, rooms, metrics, uploads, dataDir: DATA_DIR, waitlistPath: storage.waitlistPath }))
   }
 
   // --- Authentification (voir claude/conception-gestion-utilisateurs.md,

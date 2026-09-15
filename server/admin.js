@@ -60,7 +60,7 @@ function tailleDossier(dir) {
   }
 }
 
-export function apercu({ storage, rooms, metrics, dataDir, waitlistPath }) {
+export function apercu({ storage, rooms, metrics, uploads, dataDir, waitlistPath }) {
   const docs = storage.allDocs()
   const maintenant = Date.now()
 
@@ -115,6 +115,11 @@ export function apercu({ storage, rooms, metrics, dataDir, waitlistPath }) {
   const participants = (d) => (d.access ? new Set(d.access.map((a) => a.email)).size : 0)
   const aPlusieurs = docs.filter((d) => participants(d) > 1)
 
+  // Images (16/09/2026) : le disque est la seule ressource du VPS qu'un
+  // usage normal peut épuiser définitivement — un texte perdu se réécrit,
+  // une photo non.
+  const images = uploads ? uploads.statistiques() : null
+
   const documents = {
     total: docs.length,
     crees7j: docs.filter((d) => d.createdAt >= depuis(7)).length,
@@ -129,6 +134,7 @@ export function apercu({ storage, rooms, metrics, dataDir, waitlistPath }) {
       aCompacter: journaux.filter((j) => j.aCompacter).length,
       sansHorodatage: journaux.filter((j) => j.operations === null).length,
     },
+    images,
     liste: docs
       .slice()
       .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
@@ -153,6 +159,7 @@ export function apercu({ storage, rooms, metrics, dataDir, waitlistPath }) {
   const connexions30 = metrics.read('connexions', depuis(30))
   const actifs = (jours) => new Set(connexions30.filter((c) => c.ts >= depuis(jours)).map((c) => c.email)).size
   const ia30 = metrics.read('ia', depuis(30))
+  const images30 = metrics.read('images', depuis(30))
   const mail30 = metrics.read('mail', depuis(30))
 
   const iaParEmail = {}
@@ -182,6 +189,11 @@ export function apercu({ storage, rooms, metrics, dataDir, waitlistPath }) {
       parPersonne: Object.entries(iaParEmail)
         .map(([email, v]) => ({ email, ...v }))
         .sort((a, b) => b.sortie - a.sortie),
+    },
+    images: {
+      depots7j: images30.filter((i) => i.ts >= depuis(7)).length,
+      depots30j: images30.length,
+      octets30j: images30.reduce((a, i) => a + (i.octets || 0), 0),
     },
     mail: {
       envois30j: mail30.length,
