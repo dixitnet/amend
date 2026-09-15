@@ -1026,11 +1026,17 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   border: 1px dashed var(--border);
   border-radius: 999px;
   background: var(--bg);
-  color: var(--muted);
+  color: var(--fg);
   font-size: 12px;
   cursor: pointer;
+  /* Les cartes sont ajoutées au DOM après ce bouton : sans z-index, une
+     carte posée à la même hauteur passait devant lui et le rendait
+     inatteignable. Le composeur, lui, passe au-dessus de tout. */
+  z-index: 5;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 12%);
 }
-.carte-commentaire.composeur { cursor: default; }
+.gouttiere-commenter:hover { border-style: solid; }
+.carte-commentaire.composeur { cursor: default; z-index: 6; box-shadow: 0 2px 12px rgb(0 0 0 / 16%); }
 .carte-commentaire.composeur textarea {
   width: 100%;
   box-sizing: border-box;
