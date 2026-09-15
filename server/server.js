@@ -8,6 +8,8 @@ import { isWebSocketUpgrade, acceptWebSocket } from './ws.js'
 import { Storage } from './storage.js'
 import { Rooms } from './rooms.js'
 import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
+import { Metrics } from './metrics.js'
+import { apercu } from './admin.js'
 import {
   readSession,
   sessionCookieHeader,
@@ -61,6 +63,8 @@ const MAX_COMPACT_BODY = 20_000_000
 
 const storage = new Storage(DATA_DIR)
 const rooms = new Rooms(storage)
+const metrics = new Metrics(DATA_DIR)
+metrics.prune()
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -298,13 +302,22 @@ async function handleApi(req, res, url) {
     })
   }
 
+  // Vue d'ensemble du back-office (voir claude/conception-backoffice.md) :
+  // lecture seule, réservée aux administrateurs comme le diagnostic. Elle
+  // n'ouvre aucune action et ne renvoie aucun contenu de document.
+  if (pathname === '/api/admin/overview' && req.method === 'GET') {
+    if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    return sendJson(res, 200, apercu({ storage, rooms, metrics, dataDir: DATA_DIR, waitlistPath: storage.waitlistPath }))
+  }
+
   // --- Authentification (voir claude/conception-gestion-utilisateurs.md,
   // projet Amend) : reconnexion par lien magique, valable pour toute
   // adresse (pas seulement celles ayant déjà accès à un document — créer
   // un nouveau document, dont on devient éditeur, ne demande rien de plus). ---
 
   if (pathname === '/api/auth/me' && req.method === 'GET') {
-    return sendJson(res, 200, { email: readSession(req) })
+    const email = readSession(req)
+    return sendJson(res, 200, { email, admin: isAdminEmail(email) })
   }
 
   if (pathname === '/api/auth/request-link' && req.method === 'POST') {
@@ -326,8 +339,10 @@ async function handleApi(req, res, url) {
           subject: 'Votre lien de connexion à Amend',
           text: `Cliquez sur ce lien pour vous connecter à Amend (valable 20 minutes) :\n\n${link}\n\nSi vous n'avez rien demandé, ignorez cet email.`,
         })
+        metrics.log('mail', { type: 'connexion', ok: true })
       } catch (err) {
         console.error("Échec d'envoi d'email de reconnexion :", err.message)
+        metrics.log('mail', { type: 'connexion', ok: false, erreur: err.message })
       }
     }
     return sendJson(res, 200, { ok: true })
@@ -409,8 +424,10 @@ async function handleApi(req, res, url) {
           `Ce lien ouvre le document directement (valable 14 jours) :\n\n${lien}\n\n` +
           `Si vous n'attendiez pas cette invitation, ignorez cet email.`,
       })
+      metrics.log('mail', { type: 'invitation', ok: true })
     } catch (err) {
       console.error("Échec d'envoi de l'invitation :", err.message)
+      metrics.log('mail', { type: 'invitation', ok: false, erreur: err.message })
       if (nouvelleEntree) storage.revokeAccess(id, email)
       return sendJson(res, 502, { error: "l'invitation n'a pas pu être envoyée" })
     }
@@ -444,7 +461,8 @@ async function handleApi(req, res, url) {
       return sendJson(res, 403, { error: "votre rôle sur ce document ne permet pas d'utiliser l'IA" })
     }
     try {
-      const suggestion = await suggestEdit({}, body.text, body.instruction)
+      const { suggestion, usage } = await suggestEdit({}, body.text, body.instruction)
+      metrics.log('ia', { email, docId, entree: usage.entree, sortie: usage.sortie })
       return sendJson(res, 200, { suggestion })
     } catch (err) {
       if (err instanceof AIConfigError) return sendJson(res, 501, { error: err.message })
@@ -508,6 +526,19 @@ server.on('upgrade', (req, socket) => {
   const user = (url.searchParams.get('user') || 'Anonyme').slice(0, 60)
   const conn = acceptWebSocket(req, socket)
   rooms.join(docId, conn, user)
+  // Journal des connexions : la liste d'accès dit qui *peut* venir, elle ne
+  // dit jamais qui vient (voir claude/conception-backoffice.md §3). On
+  // n'enregistre que l'adresse de session, le document et la durée — jamais
+  // ce qui a été écrit.
+  // Une seule ligne par session, écrite à la fermeture : c'est elle qui
+  // porte la durée, sans laquelle on ne peut pas savoir si deux personnes
+  // étaient là *en même temps*. Les sessions interrompues par un
+  // redémarrage du service sont perdues — le compte est donc un plancher.
+  const debutConnexion = Date.now()
+  const emailConnexion = readSession(req)
+  conn.on('close', () => {
+    metrics.log('connexions', { email: emailConnexion, docId, debut: debutConnexion, dureeMs: Date.now() - debutConnexion })
+  })
 })
 
 server.listen(PORT, () => {

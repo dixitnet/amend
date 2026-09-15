@@ -1,0 +1,200 @@
+// Back-office (page #/admin) — lecture seule, réservé aux administrateurs.
+// Voir claude/conception-backoffice.md : trois blocs (utilisateurs,
+// documents, serveur) et aucune action, pour n'ouvrir aucune surface
+// nouvelle. Aucun contenu de document n'est affiché, titres exceptés.
+
+const NBSP = ' '
+
+function nombre(n) {
+  if (n === null || n === undefined) return '—'
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP)
+}
+
+function octets(o) {
+  if (o === null || o === undefined) return '—'
+  if (o < 1024) return `${o}${NBSP}o`
+  if (o < 1048576) return `${Math.round(o / 1024)}${NBSP}ko`
+  return `${(o / 1048576).toFixed(1)}${NBSP}Mo`
+}
+
+function date(ts) {
+  if (!ts) return '—'
+  return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
+function duree(sec) {
+  if (!sec) return '—'
+  const j = Math.floor(sec / 86400)
+  const h = Math.floor((sec % 86400) / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  return j ? `${j}${NBSP}j${NBSP}${h}${NBSP}h` : h ? `${h}${NBSP}h${NBSP}${m}${NBSP}min` : `${m}${NBSP}min`
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
+function chiffre(valeur, libelle, precision) {
+  return `<div class="bo-chiffre"><strong>${valeur}</strong><span>${libelle}</span>${
+    precision ? `<em>${precision}</em>` : ''
+  }</div>`
+}
+
+export async function mountAdmin(root) {
+  root.innerHTML = '<div class="home"><p>Chargement…</p></div>'
+  const res = await fetch('/api/admin/overview')
+  if (res.status === 403) {
+    root.innerHTML = '<div class="home"><p>Réservé aux administrateurs.</p><a href="#/">← Retour</a></div>'
+    return
+  }
+  if (!res.ok) {
+    root.innerHTML = '<div class="home"><p>Le back-office n\'a pas répondu.</p><a href="#/">← Retour</a></div>'
+    return
+  }
+  const d = await res.json()
+  const u = d.utilisateurs
+  const doc = d.documents
+  const f = d.flux
+  const s = d.serveur
+
+  root.innerHTML = `
+    <div class="home backoffice">
+      <p class="bo-retour"><a href="#/">← Retour aux documents</a></p>
+      <h1>Back-office</h1>
+      <p class="bo-note">Vue au ${new Date(d.genereLe).toLocaleString('fr-FR')}. Lecture seule.</p>
+
+      <h2>Utilisateurs</h2>
+      <div class="bo-chiffres">
+        ${chiffre(nombre(u.total), 'personnes connues')}
+        ${chiffre(nombre(u.actifs), 'déjà venues')}
+        ${chiffre(nombre(u.enAttente), 'invitées, jamais venues')}
+        ${chiffre(nombre(f.connexions.actifs7j), 'actives sur 7 jours', `${nombre(f.connexions.actifs30j)} sur 30 jours`)}
+      </div>
+      <table class="bo-table">
+        <thead><tr><th>Adresse</th><th>Documents</th><th>Rôles</th><th>Depuis</th><th>Statut</th></tr></thead>
+        <tbody>${u.liste
+          .map(
+            (p) => `<tr>
+              <td>${esc(p.email)}</td>
+              <td>${nombre(p.documents)}</td>
+              <td>${p.editeur ? `${p.editeur} éditeur` : ''}${p.editeur && p.correcteur ? ', ' : ''}${
+              p.correcteur ? `${p.correcteur} correcteur` : ''
+            }</td>
+              <td>${date(p.depuis)}</td>
+              <td>${p.statut === 'actif' ? 'actif' : '<span class="bo-attente">en attente</span>'}</td>
+            </tr>`
+          )
+          .join('')}</tbody>
+      </table>
+      ${
+        u.invitationsEnAttente.length
+          ? `<h3>Invitations sans réponse</h3>
+             <ul class="bo-liste">${u.invitationsEnAttente
+               .map(
+                 (i) =>
+                   `<li>${esc(i.email)} — ${esc(i.role)} sur « ${esc(i.titre)} »${
+                     i.depuisJours !== null ? `, depuis ${i.depuisJours}${NBSP}j` : ''
+                   }${i.invitePar ? ` (invité·e par ${esc(i.invitePar)})` : ''}</li>`
+               )
+               .join('')}</ul>`
+          : ''
+      }
+      ${
+        Object.keys(u.invitationsPar).length
+          ? `<p class="bo-note">Invitations envoyées : ${Object.entries(u.invitationsPar)
+              .map(([e, n]) => `${esc(e)} (${n})`)
+              .join(', ')} — si une seule adresse figure ici, l'outil ne circule pas encore tout seul.</p>`
+          : ''
+      }
+
+      <h2>Documents</h2>
+      <div class="bo-chiffres">
+        ${chiffre(nombre(doc.total), 'documents', `${nombre(doc.crees30j)} créés sur 30 jours`)}
+        ${chiffre(
+          doc.partCollaborative === null ? '—' : `${doc.partCollaborative}${NBSP}%`,
+          'à plusieurs participants',
+          `${nombre(doc.aPlusieursParticipants)} documents`
+        )}
+        ${chiffre(nombre(f.connexions.collaboration30j.moments), 'moments à deux ou plus', `sur ${nombre(f.connexions.collaboration30j.documents)} documents, 30 j`)}
+        ${chiffre(nombre(doc.actifs7j), 'modifiés sur 7 jours')}
+      </div>
+      <p class="bo-note">Journaux : ${octets(doc.journaux.octetsTotal)} au total, le plus gros ${octets(
+    doc.journaux.plusGrosOctets
+  )}, ${nombre(doc.journaux.aCompacter)} au-dessus du seuil de compaction${
+    doc.journaux.sansHorodatage ? `, ${nombre(doc.journaux.sansHorodatage)} sans horodatage (antérieurs au suivi)` : ''
+  }${doc.sansControleDacces ? `. ${nombre(doc.sansControleDacces)} document(s) sans liste d'accès.` : '.'}</p>
+      <table class="bo-table">
+        <thead><tr><th>Titre</th><th>Participants</th><th>En ligne</th><th>Opérations</th><th>Poids</th><th>Modifié</th></tr></thead>
+        <tbody>${doc.liste
+          .map(
+            (l) => `<tr>
+              <td><a href="#/doc/${esc(l.id)}">${esc(l.titre || 'Sans titre')}</a></td>
+              <td>${nombre(l.participants)}</td>
+              <td>${l.enLigne || ''}</td>
+              <td>${nombre(l.operations)}${l.aCompacter ? ' <span class="bo-attente">à compacter</span>' : ''}</td>
+              <td>${octets(l.octets)}</td>
+              <td>${date(l.modifieLe)}</td>
+            </tr>`
+          )
+          .join('')}</tbody>
+      </table>
+
+      <h2>Serveur</h2>
+      <div class="bo-chiffres">
+        ${chiffre(`${nombre(s.rssMo)}${NBSP}Mo`, 'mémoire du process', 'plafond 700 Mo')}
+        ${chiffre(duree(s.uptimeSec), 'sans redémarrage', `pid ${s.pid}`)}
+        ${chiffre(nombre(s.connexionsEnCours.reduce((a, r) => a + r.connectes, 0)), 'connexions en cours')}
+        ${chiffre(octets(s.dataDirOctets), 'données sur disque')}
+      </div>
+      ${
+        s.connexionsEnCours.length
+          ? `<ul class="bo-liste">${s.connexionsEnCours
+              .map((r) => `<li>${esc(r.docId)} — ${r.connectes} connecté(s) : ${esc(r.noms.join(', '))}</li>`)
+              .join('')}</ul>`
+          : '<p class="bo-note">Personne connecté en ce moment.</p>'
+      }
+
+      <h3>Assistance IA (30 jours)</h3>
+      <div class="bo-chiffres">
+        ${chiffre(nombre(f.ia.appels30j), 'suggestions', `${nombre(f.ia.appels7j)} sur 7 jours`)}
+        ${chiffre(nombre(f.ia.tokensEntree30j), 'tokens en entrée')}
+        ${chiffre(nombre(f.ia.tokensSortie30j), 'tokens en sortie')}
+      </div>
+      ${
+        f.ia.parPersonne.length
+          ? `<ul class="bo-liste">${f.ia.parPersonne
+              .map(
+                (p) =>
+                  `<li>${esc(p.email)} — ${nombre(p.appels)} appels, ${nombre(p.entree)} / ${nombre(p.sortie)} tokens</li>`
+              )
+              .join('')}</ul>
+             <p class="bo-note">C'est la distribution, pas la moyenne, qui doit fixer le quota de l'offre gratuite.</p>`
+          : '<p class="bo-note">Aucun appel enregistré — le journal démarre à la mise en service du back-office.</p>'
+      }
+
+      <h3>Emails (30 jours)</h3>
+      <p class="bo-note ${f.mail.echecs30j ? 'bo-alerte' : ''}">
+        ${nombre(f.mail.envois30j)} envois, <strong>${nombre(f.mail.echecs30j)} échecs</strong>${
+    Object.keys(f.mail.parType).length
+      ? ' — ' +
+        Object.entries(f.mail.parType)
+          .map(([t, v]) => `${esc(t)} : ${v.ok} ok / ${v.echecs} échecs`)
+          .join(', ')
+      : ''
+  }.
+        ${
+          f.mail.dernierEchec
+            ? `Dernier échec le ${new Date(f.mail.dernierEchec.ts).toLocaleString('fr-FR')} : ${esc(
+                f.mail.dernierEchec.erreur || ''
+              )}.`
+            : ''
+        }
+        Depuis le retrait du filtre d'accès, l'email est la seule porte d'entrée : un échec n'expose rien mais enferme dehors.
+      </p>
+
+      <p class="bo-note">Liste d'attente : ${nombre(s.listeAttente.total)} adresse(s)${
+    s.listeAttente.dernier ? `, dernière le ${date(s.listeAttente.dernier)}` : ''
+  }.</p>
+    </div>
+  `
+}

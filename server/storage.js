@@ -3,7 +3,7 @@
 // Deliberately simple so a self-hosted instance needs nothing but a
 // writable folder.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, renameSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, renameSync, unlinkSync, statSync } from 'node:fs'
 import { appendFile as appendFileAsync } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomId } from './ws.js'
@@ -326,6 +326,44 @@ export class Storage {
       return { id, email: entry.email, role: entry.role, expired }
     }
     return null
+  }
+
+  /** Registre complet — réservé au back-office (voir server/admin.js), qui
+   * a besoin de voir tous les documents, y compris ceux auxquels
+   * l'administrateur n'a pas accès. Copie superficielle : les jetons
+   * d'invitation en sont retirés, ils ne servent à personne ici et valent
+   * une session. */
+  allDocs() {
+    const registry = this._readRegistry()
+    return Object.entries(registry).map(([id, doc]) => ({
+      id,
+      ...doc,
+      access: Array.isArray(doc.access)
+        ? doc.access.map(({ token, tokenExpiresAt, ...reste }) => ({ ...reste, status: reste.status || 'actif' }))
+        : null,
+    }))
+  }
+
+  /** Poids d'un document, sans parcourir son journal. `octets` coûte un
+   * `stat` ; `operations` vient de data/<id>.times.json (un horodatage par
+   * opération), bien moins cher que _walkLog — c'est exactement ce que le
+   * test de charge n°3 déconseille de refaire à chaque affichage. Les
+   * documents antérieurs à ce fichier renvoient `operations: null`. */
+  journalInfo(id) {
+    let octets = null
+    try {
+      octets = statSync(this._logPath(id)).size
+    } catch {
+      octets = null
+    }
+    let operations = null
+    try {
+      const times = JSON.parse(readFileSync(this._timesPath(id), 'utf8'))
+      if (Array.isArray(times)) operations = times.length
+    } catch {
+      operations = null
+    }
+    return { octets, operations, aCompacter: operations !== null && operations > this.compactionTrigger }
   }
 
   /** true si cette adresse a un rôle sur au moins un document — sert de

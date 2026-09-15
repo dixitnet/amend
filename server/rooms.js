@@ -73,4 +73,15 @@ export class Rooms {
   presenceCount(docId) {
     return this.rooms.get(docId)?.size ?? 0
   }
+
+  /** Photo des salles occupées — pour le back-office (server/admin.js).
+   * Les noms affichés sont ceux que les clients déclarent (paramètre `user`
+   * de l'ouverture WebSocket), pas les adresses de session. */
+  snapshot() {
+    const out = []
+    for (const [docId, membres] of this.rooms) {
+      out.push({ docId, connectes: membres.size, noms: [...membres].map((m) => m.user) })
+    }
+    return out.sort((a, b) => b.connectes - a.connectes)
+  }
 }

@@ -99,5 +99,15 @@ export async function suggestEdit(config, text, instruction) {
   if (!suggestion) {
     throw new AIRequestError("Réponse vide de l'API Claude.", 502)
   }
-  return suggestion
+  // La consommation est renvoyée avec la suggestion : c'est elle qui permet
+  // de connaître le coût réel par personne (voir server/metrics.js et
+  // claude/conception-backoffice.md) — sans quoi le quota de l'offre
+  // gratuite serait un chiffre inventé.
+  return {
+    suggestion,
+    usage: {
+      entree: data.usage?.input_tokens ?? null,
+      sortie: data.usage?.output_tokens ?? null,
+    },
+  }
 }

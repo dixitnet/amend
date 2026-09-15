@@ -1,6 +1,7 @@
 import { mountHome } from './home.js'
 import { mountEditor } from './editor.js'
 import { mountAdminStyle } from './adminStyle.js'
+import { mountAdmin } from './admin.js'
 import { mountVersions } from './versions.js'
 import { getUser } from './user.js'
 import { mountLogin, mountVerify, mountInviteAccept } from './authPages.js'
@@ -60,6 +61,11 @@ async function route() {
 
   if (hash === '#/style') {
     mountAdminStyle(app)
+    return
+  }
+
+  if (hash === '#/admin') {
+    mountAdmin(app)
     return
   }
 

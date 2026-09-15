@@ -86,6 +86,18 @@ function mountAppHome(root, email) {
   const authStatus = document.createElement('p')
   authStatus.className = 'auth-status'
   authStatus.textContent = `Connecté comme ${email} `
+  // Entrée du back-office, visible seulement pour les administrateurs — la
+  // route serveur refuse de toute façon les autres (403).
+  fetch('/api/auth/me')
+    .then((r) => r.json())
+    .then((moi) => {
+      if (!moi.admin) return
+      const lien = document.createElement('a')
+      lien.href = '#/admin'
+      lien.textContent = 'Back-office'
+      authStatus.appendChild(lien)
+    })
+    .catch(() => {})
   const logoutLink = document.createElement('a')
   logoutLink.href = '#'
   logoutLink.textContent = 'Se déconnecter'
