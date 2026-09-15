@@ -270,6 +270,63 @@ test('renommer/étoiler/supprimer un document est réservé aux éditeurs', asyn
   assert.equal(deleteByEditor.status, 200)
 })
 
+test("l'historique et la compaction ne sont plus ouverts à qui a l'identifiant", async () => {
+  const editorCookie = cookieFor('mona@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editorCookie },
+      body: JSON.stringify({ title: 'Doc historique' }),
+    })
+  ).json()
+
+  // Jusqu'au 15/09/2026 ces trois routes ne vérifiaient rien : connaître
+  // l'identifiant suffisait à lire tout le journal (donc le contenu) et à
+  // le réécrire. Sans session, tout doit être refusé.
+  for (const url of [`/api/docs/${doc.id}/history`, `/api/docs/${doc.id}/history/raw`]) {
+    const res = await fetch(`${BASE}${url}`)
+    assert.equal(res.status, 403, url)
+  }
+  const compactAnonyme = await fetch(`${BASE}/api/docs/${doc.id}/compact`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ baseSnapshot: 'AAA=', baseTs: Date.now(), keepFromIndex: 0 }),
+  })
+  assert.equal(compactAnonyme.status, 403)
+
+  // Un correcteur lit l'historique (c'est lire le document) mais ne le
+  // compacte pas (c'est le réécrire).
+  const storage = new Storage(process.env.DATA_DIR)
+  const { token } = storage.inviteEmail(doc.id, 'nora@example.com', 'correcteur', 'mona@example.com')
+  await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })
+  const correcteurCookie = cookieFor('nora@example.com')
+
+  assert.equal(
+    (await fetch(`${BASE}/api/docs/${doc.id}/history`, { headers: { cookie: correcteurCookie } })).status,
+    200
+  )
+  const compactCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}/compact`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: correcteurCookie },
+    body: JSON.stringify({ baseSnapshot: 'AAA=', baseTs: Date.now(), keepFromIndex: 0 }),
+  })
+  assert.equal(compactCorrecteur.status, 403)
+
+  // L'éditeur, lui, passe les contrôles : la réponse dépend ensuite des
+  // paramètres de compaction, pas des droits (409 = journal incohérent avec
+  // la demande, ce qui prouve qu'on est allé jusqu'au traitement).
+  assert.equal(
+    (await fetch(`${BASE}/api/docs/${doc.id}/history/raw`, { headers: { cookie: editorCookie } })).status,
+    200
+  )
+  const compactEditeur = await fetch(`${BASE}/api/docs/${doc.id}/compact`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: editorCookie },
+    body: JSON.stringify({ baseSnapshot: 'AAA=', baseTs: Date.now(), keepFromIndex: 99999 }),
+  })
+  assert.equal(compactEditeur.status, 409)
+})
+
 test('la feuille de style et le diagnostic sont réservés aux administrateurs', async () => {
   process.env.ADMIN_EMAILS = 'admin@example.com'
   try {

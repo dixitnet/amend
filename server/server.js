@@ -203,25 +203,41 @@ async function handleApi(req, res, url) {
   }
 
   // Historique léger (voir storage.js : getHistoryMeta/getHistoryRaw/
-  // compactDoc) — pas de gestion de droits ici pour cette première version
-  // (voir la conception plus complète dans README.md), la page d'historique
-  // est accessible comme le reste de l'app à qui a l'URL du document.
+  // compactDoc). Ces trois routes n'avaient **aucune** vérification de
+  // droits jusqu'au 15/09/2026 : tenable tant que basic_auth filtrait tout
+  // en amont, plus du tout une fois l'instance publique — `history/raw`
+  // renvoie le journal complet, donc le contenu du document, et `compact`
+  // le réécrit. Seul l'identifiant du document (12 caractères aléatoires)
+  // protégeait encore, ce qui est un délai, pas une protection.
+  // Lire l'historique = lire le document : même règle que GET /api/docs/:id.
+  // Le compacter réécrit le journal : réservé aux éditeurs.
   const historyMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/history$/)
   if (historyMatch && req.method === 'GET') {
-    if (!storage.getDoc(historyMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
-    return sendJson(res, 200, storage.getHistoryMeta(historyMatch[1]))
+    const id = historyMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    if (storage.hasAccessControl(id) && !storage.roleFor(id, readSession(req))) {
+      return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+    }
+    return sendJson(res, 200, storage.getHistoryMeta(id))
   }
 
   const historyRawMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/history\/raw$/)
   if (historyRawMatch && req.method === 'GET') {
-    if (!storage.getDoc(historyRawMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
-    return sendJson(res, 200, { entries: storage.getHistoryRaw(historyRawMatch[1]) })
+    const id = historyRawMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    if (storage.hasAccessControl(id) && !storage.roleFor(id, readSession(req))) {
+      return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+    }
+    return sendJson(res, 200, { entries: storage.getHistoryRaw(id) })
   }
 
   const compactMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/compact$/)
   if (compactMatch && req.method === 'POST') {
     const id = compactMatch[1]
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    if (!capabilities(storage.roleFor(id, readSession(req))).canManageDocument) {
+      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    }
     const body = await readJsonBody(req, MAX_COMPACT_BODY)
     if (typeof body.baseSnapshot !== 'string' || !body.baseSnapshot) {
       return sendJson(res, 400, { error: 'baseSnapshot (base64) requis' })
