@@ -137,6 +137,15 @@ async function ouvrirSession() {
 
 // ------------------------------------------------------------- observation
 
+/** Affiche une ligne de progression toutes les 5 s pendant les phases
+ * longues — sans quoi le script a l'air figé alors qu'il travaille (vécu
+ * le 15/09 sur s2 : 40 clients dans un seul process, 234 000 updates à
+ * appliquer, aucune sortie pendant plusieurs minutes). */
+function progression(libelle, calcul) {
+  const timer = setInterval(() => process.stdout.write(`\r  ${libelle} — ${calcul()}   `), 5000)
+  return () => { clearInterval(timer); process.stdout.write('\n') }
+}
+
 class Observatoire {
   constructor() {
     this.echantillons = []
@@ -377,9 +386,21 @@ const scenarios = {
       await c.connecter()
     }
     console.log(`${lot.filter((c) => c.connecte).length}/${clients} connectés, rejeu en cours…`)
+    let finRejeu = progression('rejeu', () => `${lot.reduce((a, c) => a + c.stats.recus, 0)} messages reçus`)
     await Promise.all(lot.map((c) => c.attendreRejeu()))
+    finRejeu()
     const t0 = performance.now()
+    // Attention : tous ces clients partagent UN process Node, et chaque
+    // frappe est rediffusée à tous les autres — le coût de la diffusion en
+    // N² retombe donc sur le générateur autant que sur le serveur. Au-delà
+    // d'une dizaine de clients par process, c'est le banc qui sature (vécu
+    // le 15/09 à 40 clients : serveur à 0,04 ms de latence, générateur à
+    // genoux). Pour charger vraiment la diffusion, lancer plusieurs process
+    // en parallèle plutôt qu'augmenter --clients.
+    const finFrappe = progression('frappe', () =>
+      `${lot.reduce((a, c) => a + c.stats.actions, 0)}/${clients * ops} actions, ${lot.reduce((a, c) => a + c.stats.recus, 0)} messages reçus`)
     await Promise.all(lot.map((c) => c.taper(ops, 50, 100, obs)))
+    finFrappe()
     await dors(3000)
     const res = {
       clients: lot.filter((c) => c.connecte).length,
@@ -537,7 +558,7 @@ dans tools/.session et reprise automatiquement :
 Ensuite, plus rien à passer (document par défaut : ${DOC_PAR_DEFAUT}) :
   node tools/loadtest.js seed --ops 20000
   node tools/loadtest.js s1   --clients 4 --cycles 10
-  node tools/loadtest.js s2   --clients 40 --ops 150
+  node tools/loadtest.js s2   --clients 8 --ops 150   # plusieurs process plutôt que --clients élevé
   node tools/loadtest.js s3   --paliers 100,500,1000
   node tools/loadtest.js s4   --mo 5
   node tools/loadtest.js s5   --clients 5 --minutes 10
