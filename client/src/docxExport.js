@@ -107,9 +107,9 @@ function baseRunProps(block, sizePt) {
  * ProseMirror — même détail que inlineToHtml (pdfExport.js) : les marques
  * insertion/suppression du suivi des modifications ne changent rien au
  * texte (voir la note en tête de fichier). */
-function inlineToRuns(node, block, sizePt) {
+function inlineToRuns(node, block, sizePt, extra = null) {
   const runs = []
-  const base = baseRunProps(block, sizePt)
+  const base = extra ? { ...baseRunProps(block, sizePt), ...extra } : baseRunProps(block, sizePt)
   node.forEach((child) => {
     if (child.type.name === 'hard_break') {
       runs.push(new TextRun({ ...base, text: '', break: 1 }))
@@ -135,28 +135,67 @@ function inlineToRuns(node, block, sizePt) {
   return runs.length ? runs : [new TextRun({ ...base, text: '' })]
 }
 
-function listItemToParagraphs(item, style, level) {
+const LISTES = ['bullet_list', 'ordered_list', 'task_list']
+
+/** Référence de numérotation déclarée sur le Document (voir plus bas) —
+ * `docx` exige qu'une liste numérotée pointe vers une configuration, là où
+ * les puces ont un raccourci intégré. */
+const NUMEROTATION = 'liste-numerotee'
+
+function listItemToParagraphs(item, style, level, type, coche) {
   const out = []
   const lineHeight = style.body.lineHeight ?? DEFAULT_STYLE.body.lineHeight
+  let premierBloc = true
   item.forEach((child) => {
-    if (child.type.name === 'bullet_list') {
+    if (LISTES.includes(child.type.name)) {
       out.push(...listToParagraphs(child, style, level + 1))
-    } else {
-      out.push(
-        new Paragraph({
-          ...paragraphProps(style.body, { lineHeight }),
-          bullet: { level },
-          children: inlineToRuns(child, style.body, style.body.size),
-        })
-      )
+      premierBloc = false
+      return
     }
+    // Word n'a pas de case à cocher simple : une tâche devient un caractère
+    // (☑/☐) en tête du premier bloc de l'élément, et son texte part barré
+    // quand elle est cochée — comme à l'écran. D'où une indentation posée à
+    // la main, puisqu'on n'utilise ni puce ni numérotation pour ce cas.
+    const tache = type === 'task_list'
+    const marque =
+      tache && premierBloc
+        ? [
+            new TextRun({
+              ...baseRunProps(style.body, style.body.size),
+              text: coche ? '☑ ' : '☐ ',
+            }),
+          ]
+        : []
+    const puce =
+      type === 'ordered_list'
+        ? { numbering: { reference: NUMEROTATION, level } }
+        : tache
+          ? {
+              indent: {
+                left: convertMillimetersToTwip(6 + level * 6),
+                hanging: convertMillimetersToTwip(5),
+              },
+            }
+          : { bullet: { level } }
+    out.push(
+      new Paragraph({
+        ...paragraphProps(style.body, { lineHeight }),
+        ...puce,
+        children: [
+          ...marque,
+          ...inlineToRuns(child, style.body, style.body.size, tache && coche ? { strike: true } : null),
+        ],
+      })
+    )
+    premierBloc = false
   })
   return out
 }
 
 function listToParagraphs(list, style, level) {
   const out = []
-  list.forEach((item) => out.push(...listItemToParagraphs(item, style, level)))
+  const type = list.type.name
+  list.forEach((item) => out.push(...listItemToParagraphs(item, style, level, type, !!item.attrs.checked)))
   return out
 }
 
@@ -194,6 +233,8 @@ function blockToParagraphs(node, style) {
       return out
     }
     case 'bullet_list':
+    case 'ordered_list':
+    case 'task_list':
       return listToParagraphs(node, style, 0)
     case 'horizontal_rule':
       // Saut de page — même rôle qu'à l'export PDF (voir pdfExport.js) :
@@ -251,6 +292,31 @@ export async function buildDocxBlob(doc, style) {
   }
 
   const docxDocument = new Document({
+    // Les listes numérotées exigent une configuration de numérotation
+    // déclarée au niveau du document (contrairement aux puces, qui ont un
+    // raccourci intégré) — trois niveaux suffisent à ce que le schéma
+    // permet d'imbriquer.
+    numbering: {
+      config: [
+        {
+          reference: NUMEROTATION,
+          levels: [0, 1, 2].map((level) => ({
+            level,
+            format: NumberFormat.DECIMAL,
+            text: `%${level + 1}.`,
+            alignment: AlignmentType.START,
+            style: {
+              paragraph: {
+                indent: {
+                  left: convertMillimetersToTwip(6 + level * 6),
+                  hanging: convertMillimetersToTwip(5),
+                },
+              },
+            },
+          })),
+        },
+      ],
+    },
     sections: [
       {
         properties: { page: pageProperties },

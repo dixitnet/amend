@@ -1,6 +1,7 @@
 // Serializes the current ProseMirror document to plain Markdown, for the
 // "Exporter (.md)" button. Deliberately hand-rolled and minimal, matching
-// this project's schema (headings, paragraphs, blockquote, bullet list,
+// this project's schema (headings, paragraphs, blockquote, listes à puces,
+// numérotées et à cocher,
 // strong/em/underline/strike) — no external Markdown library needed for
 // such a small, fixed set of node/mark types.
 //
@@ -48,16 +49,20 @@ function inlineToMarkdown(node) {
   return out
 }
 
-/** One list item's lines, at the given indent depth (0 = top-level list). */
-function listItemToLines(item, depth) {
+const LISTES = ['bullet_list', 'ordered_list', 'task_list']
+
+/** One list item's lines, at the given indent depth (0 = top-level list).
+ * `puce` est la marque de l'élément : « - », « 3. » ou « - [x] » selon le
+ * type de liste (15/09/2026). */
+function listItemToLines(item, depth, puce) {
   const indent = '  '.repeat(depth)
   const lines = []
   let first = true
   item.forEach((child) => {
-    if (child.type.name === 'bullet_list') {
+    if (LISTES.includes(child.type.name)) {
       lines.push(...listToLines(child, depth + 1))
     } else {
-      lines.push((first ? `${indent}- ` : `${indent}  `) + inlineToMarkdown(child))
+      lines.push((first ? `${indent}${puce} ` : `${indent}  `) + inlineToMarkdown(child))
     }
     first = false
   })
@@ -66,7 +71,16 @@ function listItemToLines(item, depth) {
 
 function listToLines(list, depth) {
   const lines = []
-  list.forEach((item) => lines.push(...listItemToLines(item, depth)))
+  let numero = list.type.name === 'ordered_list' ? list.attrs.order || 1 : 0
+  list.forEach((item) => {
+    const puce =
+      list.type.name === 'ordered_list'
+        ? `${numero++}.`
+        : list.type.name === 'task_list'
+          ? `- [${item.attrs.checked ? 'x' : ' '}]`
+          : '-'
+    lines.push(...listItemToLines(item, depth, puce))
+  })
   return lines
 }
 
@@ -86,6 +100,8 @@ function blockToLines(node) {
       return [...inner.map((line) => (line === '' ? '>' : `> ${line}`)), '']
     }
     case 'bullet_list':
+    case 'ordered_list':
+    case 'task_list':
       return [...listToLines(node, 0), '']
     case 'horizontal_rule':
       // Le Markdown n'a pas de notion de saut de page (voir pdfExport.js

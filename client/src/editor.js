@@ -3,7 +3,7 @@ import { ySyncPlugin, yCursorPlugin, yUndoPlugin, undo, redo } from 'y-prosemirr
 import { EditorState, TextSelection, Plugin} from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { keymap } from 'prosemirror-keymap'
-import { baseKeymap, toggleMark, setBlockType, wrapIn, lift } from 'prosemirror-commands'
+import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands } from 'prosemirror-commands'
 import { dropCursor } from 'prosemirror-dropcursor'
 import { gapCursor } from 'prosemirror-gapcursor'
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list'
@@ -31,6 +31,8 @@ import { mountWordCount } from './wordcount.js'
 import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
 import { runCompactionIfNeeded } from './historySnapshot.js'
 import { mountTkMarker } from './tkMarker.js'
+import { markdownShortcutsPlugin } from './markdownShortcuts.js'
+import { taskListPlugin } from './taskList.js'
 import { mountPresenceBar } from './presence.js'
 import { loadStyle } from './styleConfig.js'
 import { printDocument } from './pdfExport.js'
@@ -252,9 +254,11 @@ export function mountEditor(root, docId, user, docMeta) {
   const strikeBtn = mkButton('S', 'barré')
   strikeBtn.style.textDecoration = 'line-through'
   const listBtn = mkButton('–', 'liste à tirets')
+  const orderedListBtn = mkButton('1.', 'liste numérotée')
+  const taskListBtn = mkButton('☑', 'liste à cocher')
   const quoteBtn = mkButton('”', 'citation')
   const hrBtn = mkButton('—', 'Insérer une ligne (devient un saut de page à l’export PDF)')
-  toolbar.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, quoteBtn, hrBtn)
+  toolbar.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn, quoteBtn, hrBtn)
 
   main.appendChild(toolbar)
 
@@ -421,11 +425,25 @@ export function mountEditor(root, docId, user, docMeta) {
         'Mod-u': toggleMark(schema.marks.underline),
         // Falls through to the plain Enter/baseKeymap handling below
         // whenever the cursor isn't inside a list item.
-        Enter: splitListItem(schema.nodes.list_item),
-        'Mod-]': sinkListItem(schema.nodes.list_item),
-        'Mod-[': liftListItem(schema.nodes.list_item),
+        // Les trois familles de liste partagent les mêmes gestes : la
+        // première commande qui s'applique gagne, les autres passent la main
+        // (et finalement baseKeymap, hors liste).
+        Enter: chainCommands(
+          splitListItem(schema.nodes.list_item),
+          splitListItem(schema.nodes.task_item)
+        ),
+        'Mod-]': chainCommands(
+          sinkListItem(schema.nodes.list_item),
+          sinkListItem(schema.nodes.task_item)
+        ),
+        'Mod-[': chainCommands(
+          liftListItem(schema.nodes.list_item),
+          liftListItem(schema.nodes.task_item)
+        ),
       }),
       keymap(baseKeymap),
+      markdownShortcutsPlugin(schema),
+      taskListPlugin(schema),
       new Plugin({
         view: () => ({ update: () => syncToolbar() }),
       }),
@@ -530,6 +548,16 @@ export function mountEditor(root, docId, user, docMeta) {
     toggleMark(schema.marks.strike)(view.state, view.dispatch)
     view.focus()
   }
+  orderedListBtn.onclick = () => {
+    toggleList(schema.nodes.ordered_list, schema.nodes.list_item)(view.state, view.dispatch)
+    view.focus()
+  }
+
+  taskListBtn.onclick = () => {
+    toggleList(schema.nodes.task_list, schema.nodes.task_item)(view.state, view.dispatch)
+    view.focus()
+  }
+
   listBtn.onclick = () => {
     toggleList(schema.nodes.bullet_list, schema.nodes.list_item)(view.state, view.dispatch)
     view.focus()

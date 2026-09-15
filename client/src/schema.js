@@ -1,7 +1,9 @@
 import { Schema } from 'prosemirror-model'
 
-// A deliberately small schema for v0.1: paragraphs, headings (5 levels),
-// hard breaks, a bullet list, a blockquote, bold/italic/underline/strike,
+// A deliberately small schema: paragraphs, headings (5 levels), hard
+// breaks, three kinds of list (à puces, numérotée, à cocher — les deux
+// dernières ajoutées le 15/09/2026), a blockquote,
+// bold/italic/underline/strike,
 // and the two marks that drive tracked changes. Tables and images are left
 // for a later iteration (see README roadmap). Paragraph/heading splits
 // directly under the document (the common case: pressing Enter, or a
@@ -66,12 +68,68 @@ export const schema = new Schema({
         return ['ul', 0]
       },
     },
+    // Liste numérotée (15/09/2026). `order` suit la convention de
+    // prosemirror-schema-list : le numéro de départ, presque toujours 1.
+    ordered_list: {
+      content: 'list_item+',
+      group: 'block',
+      attrs: { order: { default: 1 } },
+      parseDOM: [
+        {
+          tag: 'ol',
+          getAttrs(dom) {
+            return { order: dom.hasAttribute('start') ? Number(dom.getAttribute('start')) : 1 }
+          },
+        },
+      ],
+      toDOM(node) {
+        return node.attrs.order === 1 ? ['ol', 0] : ['ol', { start: node.attrs.order }, 0]
+      },
+    },
     list_item: {
       content: 'paragraph block*',
       defining: true,
       parseDOM: [{ tag: 'li' }],
       toDOM() {
         return ['li', 0]
+      },
+    },
+    // Liste à cocher (15/09/2026). Nœuds distincts plutôt qu'un attribut sur
+    // list_item : une case cochée n'est pas une puce, elle n'a ni le même
+    // rendu ni la même sémantique à l'export, et les commandes de liste
+    // (wrapInList/splitListItem/liftListItem) fonctionnent telles quelles
+    // sur une paire liste/élément dédiée.
+    task_list: {
+      content: 'task_item+',
+      group: 'block',
+      parseDOM: [{ tag: 'ul[data-type="taches"]' }],
+      toDOM() {
+        return ['ul', { 'data-type': 'taches', class: 'liste-taches' }, 0]
+      },
+    },
+    task_item: {
+      content: 'paragraph block*',
+      defining: true,
+      attrs: { checked: { default: false } },
+      parseDOM: [
+        {
+          tag: 'li[data-checked]',
+          getAttrs(dom) {
+            return { checked: dom.getAttribute('data-checked') === 'true' }
+          },
+        },
+      ],
+      // La case est un élément non éditable à part : c'est elle que le
+      // greffon de l'éditeur intercepte au clic (editor.js), et c'est le
+      // sélecteur [data-checked="true"] qui barre le contenu en CSS — rien
+      // n'est écrit deux fois dans le document.
+      toDOM(node) {
+        return [
+          'li',
+          { 'data-checked': node.attrs.checked ? 'true' : 'false', class: 'tache' },
+          ['span', { class: 'tache-case', contenteditable: 'false' }],
+          ['div', { class: 'tache-contenu' }, 0],
+        ]
       },
     },
     // Une ligne insérée volontairement dans le texte (bouton dédié dans la

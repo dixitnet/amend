@@ -42,12 +42,20 @@ function inlineToHtml(node) {
   return out
 }
 
-function listItemToHtml(item) {
+const LISTES = ['bullet_list', 'ordered_list', 'task_list']
+
+function listItemToHtml(item, coche) {
   let out = ''
   item.forEach((child) => {
-    out += child.type.name === 'bullet_list' ? blockToHtml(child) : inlineToHtml(child)
+    out += LISTES.includes(child.type.name) ? blockToHtml(child) : inlineToHtml(child)
   })
-  return `<li>${out}</li>`
+  // Une case à cocher devient un caractère à l'impression : le PDF ne
+  // reçoit ni case interactive ni CSS de l'éditeur, et un texte coché doit
+  // rester lisible comme tel sur papier.
+  if (coche === undefined) return `<li>${out}</li>`
+  return coche
+    ? `<li class="tache-imprimee">☑ <span style="text-decoration: line-through">${out}</span></li>`
+    : `<li class="tache-imprimee">☐ ${out}</li>`
 }
 
 function blockToHtml(node) {
@@ -69,6 +77,21 @@ function blockToHtml(node) {
         inner += listItemToHtml(item)
       })
       return `<ul>${inner}</ul>`
+    }
+    case 'ordered_list': {
+      let inner = ''
+      node.forEach((item) => {
+        inner += listItemToHtml(item)
+      })
+      const start = node.attrs.order && node.attrs.order !== 1 ? ` start="${node.attrs.order}"` : ''
+      return `<ol${start}>${inner}</ol>`
+    }
+    case 'task_list': {
+      let inner = ''
+      node.forEach((item) => {
+        inner += listItemToHtml(item, !!item.attrs.checked)
+      })
+      return `<ul class="liste-taches-imprimee">${inner}</ul>`
     }
     case 'horizontal_rule':
       // Contrairement à l'éditeur (un <hr> visible, voir schema.js) et à

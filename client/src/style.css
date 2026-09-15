@@ -307,6 +307,10 @@ a { color: var(--accent); }
 .track-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
 .word-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .tk-count { font-size: 12px; color: var(--danger); white-space: nowrap; }
+/* L'indicateur mène au marqueur suivant (tkMarker.js) — il doit donc se
+   présenter comme un bouton, pas comme un simple compteur. */
+.tk-count.cliquable { cursor: pointer; user-select: none; }
+.tk-count.cliquable:hover { text-decoration: underline; }
 /* Largeur fixe (13/09/2026) : le texte change ("à jour" / "enregistrement…"
    / "hors connexion — modifications non envoyées"), et sans largeur fixe
    ce changement de largeur se répercutait sur .doc-title (le seul élément
@@ -879,3 +883,33 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .bo-table td a { text-decoration: none; }
 .bo-attente { font-size: 11px; opacity: 0.7; border: 1px solid var(--border); border-radius: 999px; padding: 1px 6px; }
 .bo-liste { list-style: none; padding: 0; margin: 6px 0; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+
+
+/* --- Listes à cocher (schema.js : task_list/task_item, taskList.js pour le
+   clic). Le barré du contenu vient d'ici et de nulle part ailleurs : rien
+   n'est écrit en double dans le document. */
+.ProseMirror ul.liste-taches { list-style: none; padding-left: 1.4em; }
+.ProseMirror li.tache { display: flex; align-items: flex-start; gap: 8px; }
+.ProseMirror li.tache > .tache-case {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 0.35em;
+  border: 1.5px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  background: var(--bg);
+}
+.ProseMirror li.tache[data-checked='true'] > .tache-case { border-color: var(--accent, #5f7a4a); }
+.ProseMirror li.tache[data-checked='true'] > .tache-case::after {
+  content: '✓';
+  position: absolute;
+  inset: -3px 0 0 1px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--accent, #5f7a4a);
+}
+.ProseMirror li.tache > .tache-contenu { flex: 1 1 auto; min-width: 0; }
+.ProseMirror li.tache[data-checked='true'] > .tache-contenu { text-decoration: line-through; opacity: 0.55; }
+.ProseMirror li.tache > .tache-contenu > p { margin: 0; }
