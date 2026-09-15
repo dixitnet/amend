@@ -17,14 +17,24 @@ import { randomId } from './ws.js'
 // connected peer via rooms.js's broadcast regardless of when it hits disk).
 const FLUSH_DELAY_MS = 200
 
-// Historique léger (voir getHistoryMeta/getHistoryRaw/compactDoc) : au-delà
-// de ce nombre d'opérations stockées pour un document, needsCompaction
-// devient vrai — un client connecté fusionne alors tout ce qui précède les
-// DEFAULT_MAX_UNCOMPACTED_OPS dernières opérations en un seul instantané
-// (voir client/src/historySnapshot.js). Simple compteur d'opérations, pas
-// une taille ni une durée — plus prévisible pour la page de versions, qui
-// affiche justement "les N dernières opérations".
+// Historique léger (voir getHistoryMeta/getHistoryRaw/compactDoc) : nombre
+// d'opérations qu'une compaction laisse derrière elle — un client connecté
+// fusionne tout ce qui précède les DEFAULT_MAX_UNCOMPACTED_OPS dernières en
+// un seul instantané (voir client/src/historySnapshot.js). Simple compteur
+// d'opérations, pas une taille ni une durée — plus prévisible pour la page
+// de versions, qui affiche justement "les N dernières opérations".
 const DEFAULT_MAX_UNCOMPACTED_OPS = 1000
+
+// Hystérésis (15/09/2026) : la compaction ne se déclenche pas dès qu'on
+// repasse au-dessus du nombre d'opérations conservées, mais seulement à
+// COMPACTION_TRIGGER_RATIO fois ce nombre. Sans cette marge, un document
+// qui vient d'être compacté repasse au-dessus du seuil à la première
+// frappe, et *chaque* client qui se connecte ensuite relance une compaction
+// complète pour quelques opérations — constaté au test de charge n°3 : un
+// journal retombé à 1 000 opérations était déjà à 1 006, donc « à
+// compacter », quelques secondes plus tard. Avec la marge, une compaction
+// est suivie de ~500 opérations de répit.
+const COMPACTION_TRIGGER_RATIO = 1.5
 
 // The shared feuille de style ("Mise en page" admin page) — one config for
 // the whole instance, not per document. Mirrors DEFAULT_STYLE in
@@ -85,9 +95,12 @@ function mergeStyle(partial) {
 const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000
 
 export class Storage {
-  constructor(dataDir, { maxUncompactedOps = DEFAULT_MAX_UNCOMPACTED_OPS } = {}) {
+  constructor(dataDir, { maxUncompactedOps = DEFAULT_MAX_UNCOMPACTED_OPS, compactionTrigger } = {}) {
     this.dataDir = dataDir
     this.maxUncompactedOps = maxUncompactedOps
+    // Seuil de déclenchement, distinct du nombre d'opérations conservées
+    // (voir COMPACTION_TRIGGER_RATIO). Réglable pour les tests.
+    this.compactionTrigger = compactionTrigger || Math.ceil(maxUncompactedOps * COMPACTION_TRIGGER_RATIO)
     this.registryPath = join(dataDir, 'docs.json')
     this.stylePath = join(dataDir, 'style.json')
     this.waitlistPath = join(dataDir, 'waitlist.json')
@@ -599,7 +612,9 @@ export class Storage {
 
   /** Métadonnées légères sur l'historique d'un document : combien
    * d'opérations sont stockées, si ça dépasse le seuil de compaction
-   * (maxUncompactedOps), et les bornes temporelles connues. Pas les
+   * (maxUncompactedOps), le seuil qui déclenche une compaction
+   * (compactionTrigger, plus haut que le précédent — voir
+   * COMPACTION_TRIGGER_RATIO), et les bornes temporelles connues. Pas les
    * données elles-mêmes (voir getHistoryRaw) — pensé pour un premier
    * appel bon marché avant de décider de charger le reste. */
   getHistoryMeta(id) {
@@ -610,7 +625,8 @@ export class Storage {
     return {
       count: entries.length,
       maxUncompactedOps: this.maxUncompactedOps,
-      needsCompaction: entries.length > this.maxUncompactedOps,
+      compactionTrigger: this.compactionTrigger,
+      needsCompaction: entries.length > this.compactionTrigger,
       oldestTs: times.length ? times[0] : (meta ? meta.createdAt : null),
       newestTs: times.length ? times[times.length - 1] : (meta ? meta.updatedAt : null),
     }

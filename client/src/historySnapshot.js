@@ -97,12 +97,15 @@ export async function runCompactionIfNeeded(docId) {
     const { entries } = await rawRes.json()
     if (entries.length !== meta.count) return // a changé entre-temps, on laisse la prochaine tentative s'en charger
 
-    // -1 : l'instantané fusionné occupe lui-même une "opération" dans le
-    // journal résultant (voir getHistoryMeta/compactDoc côté serveur). Sans
-    // ce -1, chaque compaction ramènerait le compte à maxUncompactedOps + 1
-    // (les entrées gardées, plus le snapshot) — toujours strictement
-    // au-dessus du seuil, donc needsCompaction resterait vrai pour toujours
-    // et chaque nouvelle connexion redéclencherait une compaction inutile.
+    // On garde les maxUncompactedOps dernières opérations, moins une :
+    // l'instantané fusionné occupe lui-même une "opération" dans le journal
+    // résultant (voir getHistoryMeta/compactDoc côté serveur), donc le
+    // compte retombe exactement à maxUncompactedOps et pas un de plus.
+    // Depuis le 15/09/2026 le seuil de déclenchement est de toute façon plus
+    // haut que ce nombre (compactionTrigger, hystérésis côté serveur), ce
+    // qui laisse ~500 opérations de répit avant la compaction suivante —
+    // sans quoi la première frappe d'après remettait le document « à
+    // compacter » et chaque connexion relançait le travail.
     const keepFromIndex = entries.length - (meta.maxUncompactedOps - 1)
     if (keepFromIndex <= 0) return
 
