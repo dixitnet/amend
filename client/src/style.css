@@ -769,14 +769,14 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 
 .access-modal { width: 480px; text-align: left; }
 .access-modal h3 { margin: 16px 0 8px; font-size: 14px; }
-.invite-links { display: flex; flex-direction: column; gap: 10px; }
-.invite-link-row {
+.invite-form {
   display: grid;
-  grid-template-columns: 70px 1fr auto auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 6px;
 }
-.invite-link-row input {
+.invite-form input,
+.invite-form select {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -785,7 +785,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   color: var(--fg);
   font-size: 12px;
 }
-.invite-link-row button {
+.invite-form button {
   width: auto;
   padding: 6px 10px;
   border: 1px solid var(--border);
@@ -796,8 +796,19 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   font-size: 12px;
   cursor: pointer;
 }
+.invite-message { margin: 8px 0 0; font-size: 12px; }
+.invite-message.ok { color: var(--accent, #5f7a4a); }
+.invite-message.erreur { color: #b3261e; }
+.access-pending {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  opacity: 0.75;
+}
 .access-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.access-list li { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.access-list li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.access-list li > span:first-child { margin-right: auto; }
 .access-list button {
   width: auto;
   padding: 4px 8px;

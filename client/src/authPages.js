@@ -1,8 +1,8 @@
 // Pages de connexion : demande de lien magique (#/login), vérification du
-// lien reçu (#/login/verify/:token), et acceptation d'un lien d'invitation
-// (#/invite/:token). Même style de superposition que la modale "Ton nom"
-// (voir user.js / .name-modal dans style.css).
-import { requestReconnectLink, verifyReconnectToken, fetchInvite, acceptInvite } from './auth.js'
+// lien reçu (#/login/verify/:token), et acceptation d'une invitation
+// nominative (#/invite/:token). Même style de superposition que la modale
+// "Ton nom" (voir user.js / .name-modal dans style.css).
+import { requestReconnectLink, verifyReconnectToken, acceptInvitation } from './auth.js'
 
 function modal(innerHtml) {
   const overlay = document.createElement('div')
@@ -56,40 +56,26 @@ export function mountVerify(root, token) {
   })
 }
 
+/** Le lien d'invitation mène droit au document : plus de formulaire ni
+ * d'email à saisir, puisque le jeton a été envoyé à une adresse précise
+ * (voir server/server.js, route /api/invitations/:token). On n'affiche donc
+ * qu'un état d'attente, et un message clair si le lien a expiré. */
 export function mountInviteAccept(root, token) {
   root.innerHTML = ''
-  const overlay = modal(`<p>Chargement de l'invitation…</p>`)
+  const overlay = modal(`<h2>Ouverture du document…</h2><p class="verify-status">Vérification de votre invitation.</p>`)
   root.appendChild(overlay)
   const box = overlay.querySelector('.name-modal')
 
-  fetchInvite(token).then((invite) => {
-    if (!invite) {
-      box.innerHTML = `<h2>Lien invalide</h2><p>Ce lien d'invitation n'existe pas ou plus.</p><a href="#/" class="back-link">← Retour</a>`
+  acceptInvitation(token).then((res) => {
+    if (res.docId) {
+      location.hash = `#/doc/${res.docId}`
       return
     }
-    const roleLabel = invite.role === 'editeur' ? 'éditeur' : 'correcteur'
     box.innerHTML = `
-      <h2>Rejoindre « ${escapeHtml(invite.docTitle || 'Sans titre')} »</h2>
-      <p>Vous avez été invité·e comme <strong>${roleLabel}</strong>. Indiquez votre adresse email pour accéder au document.</p>
-      <form>
-        <input type="email" required placeholder="vous@exemple.fr" autofocus />
-        <button type="submit">Accéder au document</button>
-      </form>
+      <h2>Invitation inutilisable</h2>
+      <p>${escapeHtml(res.error)} — demandez à la personne qui vous a invité·e de vous en renvoyer une.</p>
+      <a href="#/" class="back-link">← Retour</a>
     `
-    const form = box.querySelector('form')
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault()
-      const email = box.querySelector('input').value.trim()
-      const btn = form.querySelector('button')
-      btn.disabled = true
-      const docId = await acceptInvite(token, email)
-      if (docId) {
-        location.hash = `#/doc/${docId}`
-      } else {
-        btn.disabled = false
-        btn.textContent = 'Erreur — réessayer'
-      }
-    })
   })
 }
 

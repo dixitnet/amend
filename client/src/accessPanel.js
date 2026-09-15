@@ -1,6 +1,8 @@
-// Panneau "Partager" d'un document : liens d'invitation (un par rôle,
-// auto-connectants et réutilisables) et liste des accès accordés —
-// réservé aux éditeurs (voir editor.js, server/server.js). Voir
+// Panneau « Partager » d'un document : invitations nominatives par email et
+// liste des accès — réservé aux éditeurs (voir editor.js,
+// server/server.js). Les liens partagés par rôle ont été retirés le
+// 15/09/2026 : on invite désormais une adresse précise, qui reçoit un mail
+// nommant le document, et son lien ouvre le document directement. Voir
 // claude/conception-gestion-utilisateurs.md (projet Amend).
 
 export function openAccessPanel(docId) {
@@ -9,22 +11,17 @@ export function openAccessPanel(docId) {
   overlay.innerHTML = `
     <div class="name-modal access-modal">
       <h2>Partager ce document</h2>
-      <p>Un lien par rôle, réutilisable par plusieurs personnes (ex. partagé dans un message de groupe) — chacune doit indiquer son email pour accéder au document.</p>
-      <div class="invite-links">
-        <div class="invite-link-row" data-role="editeur">
-          <strong>Éditeur</strong>
-          <input type="text" readonly />
-          <button type="button" class="copy-btn">Copier</button>
-          <button type="button" class="regen-btn">Régénérer</button>
-        </div>
-        <div class="invite-link-row" data-role="correcteur">
-          <strong>Correcteur</strong>
-          <input type="text" readonly />
-          <button type="button" class="copy-btn">Copier</button>
-          <button type="button" class="regen-btn">Régénérer</button>
-        </div>
-      </div>
-      <h3>Accès actuels</h3>
+      <p>Invitez une personne par son adresse email : elle recevra un lien qui ouvre ce document directement, valable 14 jours.</p>
+      <form class="invite-form">
+        <input type="email" required placeholder="personne@exemple.fr" />
+        <select>
+          <option value="editeur">Éditeur</option>
+          <option value="correcteur">Correcteur</option>
+        </select>
+        <button type="submit">Inviter</button>
+      </form>
+      <p class="invite-message" hidden></p>
+      <h3>Accès</h3>
       <ul class="access-list"></ul>
       <button type="button" class="close-btn">Fermer</button>
     </div>
@@ -36,6 +33,16 @@ export function openAccessPanel(docId) {
   overlay.querySelector('.close-btn').onclick = () => overlay.remove()
 
   const accessList = overlay.querySelector('.access-list')
+  const form = overlay.querySelector('.invite-form')
+  const emailInput = form.querySelector('input')
+  const roleSelect = form.querySelector('select')
+  const message = overlay.querySelector('.invite-message')
+
+  function dire(texte, type) {
+    message.textContent = texte
+    message.className = `invite-message ${type}`
+    message.hidden = false
+  }
 
   function renderAccess(access) {
     accessList.innerHTML = ''
@@ -49,46 +56,76 @@ export function openAccessPanel(docId) {
       const li = document.createElement('li')
       const label = document.createElement('span')
       label.textContent = `${entry.email} — ${entry.role === 'editeur' ? 'éditeur' : 'correcteur'}`
+      li.appendChild(label)
+
+      // « En attente » = invitée, jamais venue. L'accès existe déjà côté
+      // serveur ; ce badge dit seulement que la personne n'a pas encore
+      // ouvert son lien, pour qu'un éditeur sache qui relancer.
+      if (entry.status === 'invite') {
+        const badge = document.createElement('span')
+        badge.className = 'access-pending'
+        badge.textContent = 'en attente'
+        li.appendChild(badge)
+
+        const resend = document.createElement('button')
+        resend.type = 'button'
+        resend.textContent = 'Renvoyer'
+        resend.onclick = async () => {
+          resend.disabled = true
+          const ok = await inviter(entry.email, entry.role)
+          resend.disabled = false
+          if (ok) dire(`Invitation renvoyée à ${entry.email}.`, 'ok')
+        }
+        li.appendChild(resend)
+      }
+
       const removeBtn = document.createElement('button')
       removeBtn.type = 'button'
-      removeBtn.textContent = 'Retirer'
+      removeBtn.textContent = entry.status === 'invite' ? 'Annuler' : 'Retirer'
       removeBtn.onclick = async () => {
         removeBtn.disabled = true
         await fetch(`/api/docs/${docId}/access/${encodeURIComponent(entry.email)}`, { method: 'DELETE' })
         load()
       }
-      li.append(label, removeBtn)
+      li.appendChild(removeBtn)
       accessList.appendChild(li)
     }
   }
+
+  async function inviter(email, role) {
+    const res = await fetch(`/api/docs/${docId}/invitations`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, role }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      dire(data.error || "l'invitation n'a pas pu être envoyée", 'erreur')
+      return false
+    }
+    await load()
+    return true
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const btn = form.querySelector('button')
+    btn.disabled = true
+    const email = emailInput.value.trim()
+    const ok = await inviter(email, roleSelect.value)
+    btn.disabled = false
+    if (ok) {
+      dire(`Invitation envoyée à ${email}.`, 'ok')
+      emailInput.value = ''
+    }
+  })
 
   async function load() {
     const res = await fetch(`/api/docs/${docId}/access`)
     if (!res.ok) return
     const data = await res.json()
     renderAccess(data.access)
-    for (const role of ['editeur', 'correcteur']) {
-      const row = overlay.querySelector(`.invite-link-row[data-role="${role}"]`)
-      row.querySelector('input').value = `${location.origin}/#/invite/${data.inviteLinks[role]}`
-    }
   }
-
-  overlay.querySelectorAll('.copy-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const input = btn.parentElement.querySelector('input')
-      input.select()
-      navigator.clipboard?.writeText(input.value).catch(() => {})
-    })
-  })
-  overlay.querySelectorAll('.regen-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const role = btn.parentElement.dataset.role
-      btn.disabled = true
-      await fetch(`/api/docs/${docId}/invite-link/${role}/regenerate`, { method: 'POST' })
-      await load()
-      btn.disabled = false
-    })
-  })
 
   load()
 }

@@ -78,6 +78,12 @@ function mergeStyle(partial) {
   }
 }
 
+/** Durée de validité d'un lien d'invitation nominatif (choix du
+ * 15/09/2026 : assez long pour survivre à un week-end ou à des vacances,
+ * assez court pour qu'une invitation oubliée ne reste pas une porte
+ * ouverte indéfiniment). */
+const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000
+
 export class Storage {
   constructor(dataDir, { maxUncompactedOps = DEFAULT_MAX_UNCOMPACTED_OPS } = {}) {
     this.dataDir = dataDir
@@ -229,9 +235,18 @@ export class Storage {
     return !!(doc && Array.isArray(doc.access))
   }
 
+  /** Liste des accès, **sans les jetons d'invitation** : cette liste est
+   * renvoyée telle quelle par l'API aux éditeurs, et un jeton qui fuite
+   * vaut une session au nom de la personne invitée. `status` vaut 'actif'
+   * ou 'invite' ; son absence (entrées antérieures au 15/09/2026) se lit
+   * comme 'actif'. */
   getAccess(id) {
     const doc = this.getDoc(id)
-    return (doc && doc.access) || []
+    if (!doc || !Array.isArray(doc.access)) return []
+    return doc.access.map(({ token, tokenExpiresAt, ...reste }) => ({
+      ...reste,
+      status: reste.status || 'actif',
+    }))
   }
 
   grantAccess(id, email, role) {
@@ -241,7 +256,7 @@ export class Storage {
     if (!Array.isArray(doc.access)) doc.access = []
     const existing = doc.access.find((a) => a.email === email)
     if (existing) existing.role = role
-    else doc.access.push({ email, role, grantedAt: Date.now() })
+    else doc.access.push({ email, role, grantedAt: Date.now(), status: 'actif' })
     this._writeRegistry(registry)
     return { id, ...doc }
   }
@@ -255,39 +270,58 @@ export class Storage {
     return { id, ...doc }
   }
 
-  /** Jeton d'invitation courant pour ce document et ce rôle — auto-connectant
-   * et réutilisable par plusieurs personnes (voir
-   * claude/conception-gestion-utilisateurs.md) ; en crée un s'il n'existe
-   * pas encore. */
-  getOrCreateInviteLink(id, role) {
+  /** Invite une adresse précise sur ce document : crée une entrée d'accès
+   * « en attente » et son jeton d'invitation nominatif. Remplace les liens
+   * partagés par rôle (retirés le 15/09/2026) — un jeton ne vaut plus que
+   * pour une adresse, et c'est le mail reçu qui prouve l'identité. Le jeton
+   * n'est pas à usage unique : il reste valable jusqu'à son expiration,
+   * pour qu'on puisse ouvrir le mail sur son téléphone puis son ordinateur.
+   * Voir claude/conception-gestion-utilisateurs.md (projet Amend). */
+  inviteEmail(id, email, role, invitedBy) {
     const registry = this._readRegistry()
     const doc = registry[id]
     if (!doc) return null
-    if (!doc.inviteLinks) doc.inviteLinks = {}
-    if (!doc.inviteLinks[role]) {
-      doc.inviteLinks[role] = randomId(24)
-      this._writeRegistry(registry)
+    if (!Array.isArray(doc.access)) doc.access = []
+    const now = Date.now()
+    let entry = doc.access.find((a) => a.email === email)
+    const nouvelleEntree = !entry
+    if (!entry) {
+      entry = { email, grantedAt: now }
+      doc.access.push(entry)
     }
-    return doc.inviteLinks[role]
+    entry.role = role
+    entry.status = 'invite'
+    entry.invitedBy = invitedBy || null
+    entry.invitedAt = now
+    entry.token = randomId(24)
+    entry.tokenExpiresAt = now + INVITATION_TTL_MS
+    this._writeRegistry(registry)
+    return { token: entry.token, nouvelleEntree }
   }
 
-  /** Remplace le jeton par un nouveau, invalidant l'ancien (ex. trop
-   * largement diffusé) sans retirer l'accès des personnes déjà entrées. */
-  regenerateInviteLink(id, role) {
+  /** Retrouve l'invitation correspondant à un jeton. Renvoie aussi les
+   * invitations expirées (avec `expired: true`) pour pouvoir le dire à la
+   * personne au lieu d'un « lien inconnu » trompeur. Parcourt le registre
+   * en mémoire, comme le reste de ce fichier — échelle assumée. */
+  findInvitation(token) {
     const registry = this._readRegistry()
-    const doc = registry[id]
-    if (!doc) return null
-    if (!doc.inviteLinks) doc.inviteLinks = {}
-    doc.inviteLinks[role] = randomId(24)
-    this._writeRegistry(registry)
-    return doc.inviteLinks[role]
+    for (const [id, doc] of Object.entries(registry)) {
+      if (!Array.isArray(doc.access)) continue
+      const entry = doc.access.find((a) => a.token === token)
+      if (!entry) continue
+      const expired = !entry.tokenExpiresAt || Date.now() > entry.tokenExpiresAt
+      return { id, email: entry.email, role: entry.role, expired }
+    }
+    return null
   }
 
   /** true si cette adresse a un rôle sur au moins un document — sert de
    * base à isLoginAllowed (auth.js) : une personne déjà invitée quelque
-   * part peut toujours se reconnecter, même sans lien d'invitation sous la
-   * main. Parcourt le petit registre en mémoire, comme findInviteLink
-   * ci-dessous — même logique, même échelle assumée. */
+   * part peut toujours se reconnecter par lien magique, même sans son
+   * invitation sous la main (une invitation encore « en attente » compte,
+   * la possession de la boîte mail étant vérifiée de toute façon).
+   * Parcourt le petit registre en mémoire, comme findInvitation — même
+   * logique, même échelle assumée. */
   emailHasAnyAccess(email) {
     if (!email) return false
     const registry = this._readRegistry()
@@ -296,19 +330,20 @@ export class Storage {
     )
   }
 
-  /** Retrouve le document et le rôle correspondant à un jeton d'invitation.
-   * Parcourt le petit registre en mémoire plutôt qu'un index séparé — ce
-   * projet reste volontairement simple, adapté à une poignée de documents
-   * (voir le reste de ce fichier). */
-  findInviteLink(token) {
+  /** Bascule une invitation en accès actif (première connexion de la
+   * personne invitée). Le jeton reste valable jusqu'à son expiration. */
+  acceptInvitation(id, email) {
     const registry = this._readRegistry()
-    for (const [id, doc] of Object.entries(registry)) {
-      if (!doc.inviteLinks) continue
-      for (const [role, t] of Object.entries(doc.inviteLinks)) {
-        if (t === token) return { id, role }
-      }
+    const doc = registry[id]
+    if (!doc || !Array.isArray(doc.access)) return null
+    const entry = doc.access.find((a) => a.email === email)
+    if (!entry) return null
+    if (entry.status !== 'actif') {
+      entry.status = 'actif'
+      entry.acceptedAt = Date.now()
     }
-    return null
+    this._writeRegistry(registry)
+    return { id, role: entry.role }
   }
 
   renameDoc(id, title) {

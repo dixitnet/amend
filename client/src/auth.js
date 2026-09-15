@@ -41,21 +41,14 @@ export async function verifyReconnectToken(token) {
   return data.email
 }
 
-export async function fetchInvite(token) {
-  const res = await fetch(`/api/invite/${token}`)
-  if (!res.ok) return null
-  return res.json()
-}
-
-/** Renvoie l'id du document si l'invitation est acceptée, sinon null. */
-export async function acceptInvite(token, email) {
-  const res = await fetch(`/api/invite/${token}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email }),
-  })
-  if (!res.ok) return null
-  const data = await res.json()
+/** Accepte une invitation nominative : le jeton porte à lui seul
+ * l'identité (il a été envoyé à une adresse précise), il n'y a donc plus
+ * d'email à déclarer — le serveur ouvre la session et renvoie le document.
+ * Renvoie { docId } en cas de succès, { error } sinon. */
+export async function acceptInvitation(token) {
+  const res = await fetch(`/api/invitations/${token}`, { method: 'POST' })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) return { error: data.error || 'invitation invalide' }
   forgetSessionCache()
-  return data.docId
+  return { docId: data.docId, email: data.email, role: data.role }
 }

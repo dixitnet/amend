@@ -21,7 +21,7 @@ import {
   isLoginAllowed,
 } from './auth.js'
 import { sendMail } from './mailgun.js'
-import { capabilities } from './roles.js'
+import { capabilities, isValidRole } from './roles.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -330,29 +330,22 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true })
   }
 
-  // --- Lien d'invitation : auto-connectant, réutilisable par plusieurs
-  // personnes (un par document et par rôle) ; chaque personne qui l'utilise
-  // déclare sa propre adresse (pas vérifiée par possession de boîte mail à
-  // ce stade — voir le document de conception). ---
+  // --- Invitation nominative (remplace les liens partagés par rôle,
+  // retirés le 15/09/2026) : l'éditeur saisit une adresse, la personne
+  // reçoit un mail nommant le document, et son lien ouvre directement une
+  // session à son nom. C'est désormais la réception du mail qui prouve
+  // l'identité, là où le lien partagé se contentait d'une adresse
+  // auto-déclarée. ---
 
-  const inviteMatch = pathname.match(/^\/api\/invite\/([A-Za-z0-9_-]+)$/)
-  if (inviteMatch && req.method === 'GET') {
-    const found = storage.findInviteLink(inviteMatch[1])
-    if (!found) return sendJson(res, 404, { error: 'lien invalide' })
-    const doc = storage.getDoc(found.id)
-    if (!doc) return sendJson(res, 404, { error: 'lien invalide' })
-    return sendJson(res, 200, { docId: found.id, docTitle: doc.title, role: found.role })
-  }
-
-  if (inviteMatch && req.method === 'POST') {
-    const found = storage.findInviteLink(inviteMatch[1])
-    if (!found || !storage.getDoc(found.id)) return sendJson(res, 404, { error: 'lien invalide' })
-    const body = await readJsonBody(req)
-    const email = normalizeEmail(body.email)
-    if (!email) return sendJson(res, 400, { error: 'adresse email invalide' })
-    storage.grantAccess(found.id, email, found.role)
-    res.setHeader('set-cookie', sessionCookieHeader(email, { secure: isSecureRequest(req) }))
-    return sendJson(res, 200, { docId: found.id })
+  const acceptMatch = pathname.match(/^\/api\/invitations\/([A-Za-z0-9_-]+)$/)
+  if (acceptMatch && req.method === 'POST') {
+    const found = storage.findInvitation(acceptMatch[1])
+    if (!found) return sendJson(res, 404, { error: 'invitation inconnue' })
+    if (found.expired) return sendJson(res, 410, { error: 'invitation expirée' })
+    const accepted = storage.acceptInvitation(found.id, found.email)
+    if (!accepted) return sendJson(res, 404, { error: 'invitation inconnue' })
+    res.setHeader('set-cookie', sessionCookieHeader(found.email, { secure: isSecureRequest(req) }))
+    return sendJson(res, 200, { docId: found.id, email: found.email, role: accepted.role })
   }
 
   // --- Gestion des accès d'un document (éditeurs seulement). ---
@@ -363,13 +356,49 @@ async function handleApi(req, res, url) {
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
     const role = storage.roleFor(id, readSession(req))
     if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
-    return sendJson(res, 200, {
-      access: storage.getAccess(id),
-      inviteLinks: {
-        editeur: storage.getOrCreateInviteLink(id, 'editeur'),
-        correcteur: storage.getOrCreateInviteLink(id, 'correcteur'),
-      },
-    })
+    return sendJson(res, 200, { access: storage.getAccess(id) })
+  }
+
+  // Inviter une adresse précise (éditeurs seulement) : crée l'accès « en
+  // attente » et envoie le mail. Si l'envoi échoue, l'invitation créée est
+  // annulée — mieux vaut pas d'invitation du tout qu'une entrée « en
+  // attente » dont personne n'a jamais reçu le lien.
+  const inviteMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/invitations$/)
+  if (inviteMatch && req.method === 'POST') {
+    const id = inviteMatch[1]
+    const doc = storage.getDoc(id)
+    if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
+    const inviter = readSession(req)
+    if (!capabilities(storage.roleFor(id, inviter)).canManageAccess) {
+      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    }
+    const body = await readJsonBody(req)
+    const email = normalizeEmail(body.email)
+    if (!email) return sendJson(res, 400, { error: 'adresse email invalide' })
+    const role = String(body.role || '')
+    if (!isValidRole(role)) return sendJson(res, 400, { error: 'rôle inconnu' })
+    const existant = storage.getAccess(id).find((a) => a.email === email)
+    if (existant && existant.status === 'actif') {
+      return sendJson(res, 409, { error: 'cette personne a déjà accès au document' })
+    }
+    const { token, nouvelleEntree } = storage.inviteEmail(id, email, role, inviter)
+    const lien = `${APP_BASE_URL}/#/invite/${token}`
+    try {
+      await sendMail({
+        to: email,
+        subject: `Invitation à collaborer sur « ${doc.title} »`,
+        text:
+          `${inviter} vous invite à collaborer sur « ${doc.title} » dans Amend, ` +
+          `comme ${capabilities(role).label.toLowerCase()}.\n\n` +
+          `Ce lien ouvre le document directement (valable 14 jours) :\n\n${lien}\n\n` +
+          `Si vous n'attendiez pas cette invitation, ignorez cet email.`,
+      })
+    } catch (err) {
+      console.error("Échec d'envoi de l'invitation :", err.message)
+      if (nouvelleEntree) storage.revokeAccess(id, email)
+      return sendJson(res, 502, { error: "l'invitation n'a pas pu être envoyée" })
+    }
+    return sendJson(res, 200, { email, role, status: 'invite' })
   }
 
   const revokeMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/access\/([^/]+)$/)
@@ -382,14 +411,6 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true })
   }
 
-  const regenMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/invite-link\/(editeur|correcteur)\/regenerate$/)
-  if (regenMatch && req.method === 'POST') {
-    const [, id, linkRole] = regenMatch
-    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
-    const role = storage.roleFor(id, readSession(req))
-    if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
-    return sendJson(res, 200, { token: storage.regenerateInviteLink(id, linkRole) })
-  }
 
   if (pathname === '/api/ai/suggest' && req.method === 'POST') {
     // Vérification volontairement grossière pour l'instant (n'importe

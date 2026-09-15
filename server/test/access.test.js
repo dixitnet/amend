@@ -1,12 +1,12 @@
 // Tests de la gestion des rôles/accès (voir
-// claude/conception-gestion-utilisateurs.md, projet Amend) : lien
-// d'invitation auto-connectant, restriction éditeur/correcteur, et
-// reconnexion par lien magique. Même style que integration.test.js — un
+// claude/conception-gestion-utilisateurs.md, projet Amend) : invitation
+// nominative par email, restriction éditeur/correcteur, et reconnexion par
+// lien magique. Même style que integration.test.js — un
 // process dédié (port différent) pour ne pas interférer avec lui.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -79,7 +79,7 @@ test('créer un document connecté en fait l’auteur éditeur', async () => {
   assert.equal(anonRes.status, 403)
 })
 
-test('lien d’invitation : auto-connectant, réutilisable, un rôle par lien', async () => {
+test('invitation nominative : entrée « en attente », puis accès à la première visite', async () => {
   const editorCookie = cookieFor('carla@example.com')
   const createRes = await fetch(`${BASE}/api/docs`, {
     method: 'POST',
@@ -88,45 +88,73 @@ test('lien d’invitation : auto-connectant, réutilisable, un rôle par lien', 
   })
   const doc = await createRes.json()
 
-  const accessRes = await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })
-  assert.equal(accessRes.status, 200)
-  const { inviteLinks } = await accessRes.json()
-  assert.ok(inviteLinks.correcteur)
-  assert.ok(inviteLinks.editeur)
+  // Mailgun n'est pas configuré dans les tests : l'envoi échoue, et
+  // l'invitation ne doit PAS rester en base (sinon on afficherait « en
+  // attente » pour un lien que personne n'a reçu).
+  const sansMailgun = await fetch(`${BASE}/api/docs/${doc.id}/invitations`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: editorCookie },
+    body: JSON.stringify({ email: 'dan@example.com', role: 'correcteur' }),
+  })
+  assert.equal(sansMailgun.status, 502)
+  const apresEchec = await (
+    await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })
+  ).json()
+  assert.equal(apresEchec.access.some((a) => a.email === 'dan@example.com'), false)
 
-  // GET public : révèle le titre et le rôle avant de demander un email.
-  const previewRes = await fetch(`${BASE}/api/invite/${inviteLinks.correcteur}`)
-  assert.equal(previewRes.status, 200)
-  const preview = await previewRes.json()
-  assert.equal(preview.role, 'correcteur')
-  assert.equal(preview.docId, doc.id)
+  // On court-circuite donc l'envoi de mail pour la suite : le stockage est
+  // la source de vérité, c'est lui qu'on teste ici.
+  const storage = new Storage(process.env.DATA_DIR)
+  const { token } = storage.inviteEmail(doc.id, 'dan@example.com', 'correcteur', 'carla@example.com')
 
-  // Deux personnes différentes utilisent le MÊME lien — les deux obtiennent
-  // le rôle correcteur (le lien sert à plusieurs personnes, voir la
-  // conception).
-  for (const email of ['dan@example.com', 'eve@example.com']) {
-    const acceptRes = await fetch(`${BASE}/api/invite/${inviteLinks.correcteur}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
-    assert.equal(acceptRes.status, 200)
-    const body = await acceptRes.json()
-    assert.equal(body.docId, doc.id)
-    assert.ok(acceptRes.headers.get('set-cookie'))
+  // Tant que la personne n'est pas venue : « en attente », et le jeton
+  // n'apparaît jamais dans la liste renvoyée par l'API.
+  const enAttente = await (
+    await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })
+  ).json()
+  const entree = enAttente.access.find((a) => a.email === 'dan@example.com')
+  assert.equal(entree.status, 'invite')
+  assert.equal(entree.role, 'correcteur')
+  assert.equal('token' in entree, false)
 
-    const meRes = await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie: cookieFor(email) } })
-    const meta = await meRes.json()
-    assert.equal(meta.myRole, 'correcteur')
-  }
+  // Le lien ouvre la session tout seul : aucune adresse à déclarer.
+  const acceptRes = await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })
+  assert.equal(acceptRes.status, 200)
+  const accepte = await acceptRes.json()
+  assert.equal(accepte.docId, doc.id)
+  assert.equal(accepte.email, 'dan@example.com')
+  assert.ok(acceptRes.headers.get('set-cookie'))
 
-  // Un correcteur ne peut pas gérer les accès.
+  const apres = await (
+    await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })
+  ).json()
+  assert.equal(apres.access.find((a) => a.email === 'dan@example.com').status, 'actif')
+
+  const meta = await (
+    await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie: cookieFor('dan@example.com') } })
+  ).json()
+  assert.equal(meta.myRole, 'correcteur')
+
+  // Réutilisable pendant 14 jours (ouvrir le mail sur un deuxième appareil).
+  assert.equal((await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })).status, 200)
+
+  // Un jeton inconnu ne donne rien, et un correcteur ne gère pas les accès.
+  assert.equal((await fetch(`${BASE}/api/invitations/jeton-bidon`, { method: 'POST' })).status, 404)
   const forbiddenRes = await fetch(`${BASE}/api/docs/${doc.id}/access`, {
     headers: { cookie: cookieFor('dan@example.com') },
   })
   assert.equal(forbiddenRes.status, 403)
 
-  // L'éditeur révoque dan : il perd l'accès.
+  // Inviter quelqu'un qui a déjà l'accès est refusé (409) plutôt que de le
+  // renvoyer silencieusement à l'état « en attente ».
+  const doublon = await fetch(`${BASE}/api/docs/${doc.id}/invitations`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: editorCookie },
+    body: JSON.stringify({ email: 'dan@example.com', role: 'correcteur' }),
+  })
+  assert.equal(doublon.status, 409)
+
+  // L'éditeur révoque dan : il perd l'accès, et son ancien lien aussi.
   const revokeRes = await fetch(`${BASE}/api/docs/${doc.id}/access/${encodeURIComponent('dan@example.com')}`, {
     method: 'DELETE',
     headers: { cookie: editorCookie },
@@ -134,15 +162,28 @@ test('lien d’invitation : auto-connectant, réutilisable, un rôle par lien', 
   assert.equal(revokeRes.status, 200)
   const afterRevoke = await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie: cookieFor('dan@example.com') } })
   assert.equal(afterRevoke.status, 403)
+  assert.equal((await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })).status, 404)
+})
 
-  // Régénérer le lien : l'ancien jeton ne fonctionne plus.
-  const regenRes = await fetch(`${BASE}/api/docs/${doc.id}/invite-link/correcteur/regenerate`, {
-    method: 'POST',
-    headers: { cookie: editorCookie },
-  })
-  assert.equal(regenRes.status, 200)
-  const staleRes = await fetch(`${BASE}/api/invite/${inviteLinks.correcteur}`)
-  assert.equal(staleRes.status, 404)
+test('une invitation expirée le dit au lieu de faire semblant', async () => {
+  const editorCookie = cookieFor('carla@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editorCookie },
+      body: JSON.stringify({ title: 'Doc expiré' }),
+    })
+  ).json()
+  const storage = new Storage(process.env.DATA_DIR)
+  const { token } = storage.inviteEmail(doc.id, 'tardif@example.com', 'correcteur', 'carla@example.com')
+  // On vieillit le jeton à la main plutôt que d'attendre 14 jours.
+  const registre = JSON.parse(readFileSync(join(process.env.DATA_DIR, 'docs.json'), 'utf8'))
+  registre[doc.id].access.find((a) => a.email === 'tardif@example.com').tokenExpiresAt = Date.now() - 1000
+  writeFileSync(join(process.env.DATA_DIR, 'docs.json'), JSON.stringify(registre), 'utf8')
+
+  const res = await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })
+  assert.equal(res.status, 410)
+  assert.match((await res.json()).error, /expir/)
 })
 
 test('lien de reconnexion : usage unique, expire une fois consommé', async () => {
@@ -190,14 +231,9 @@ test('renommer/étoiler/supprimer un document est réservé aux éditeurs', asyn
   })
   const doc = await createRes.json()
 
-  const inviteLinks = await (
-    await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })
-  ).json()
-  await fetch(`${BASE}/api/invite/${inviteLinks.inviteLinks.correcteur}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email: 'ivan@example.com' }),
-  })
+  const storage = new Storage(process.env.DATA_DIR)
+  const { token } = storage.inviteEmail(doc.id, 'ivan@example.com', 'correcteur', 'hana@example.com')
+  await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })
   const correcteurCookie = cookieFor('ivan@example.com')
 
   const renameByCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}`, {
