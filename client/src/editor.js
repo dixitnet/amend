@@ -103,8 +103,41 @@ export function mountEditor(root, docId, user, docMeta) {
   const backLink = document.createElement('a')
   backLink.href = '#/'
   backLink.className = 'back-link'
-  backLink.textContent = '← Documents'
+  backLink.textContent = '← Mes documents'
   topBanner.appendChild(backLink)
+
+  // « + Nouveau » partout, y compris dans un document qu'on ne fait que
+  // relire : créer un document ne demande qu'une session, jamais un rôle sur
+  // celui qu'on a sous les yeux. Sans ce bouton, quelqu'un arrivé par une
+  // invitation devait repasser par la liste pour commencer quelque chose —
+  // et un correcteur pouvait croire qu'il n'en avait pas le droit.
+  const nouveauBtn = document.createElement('button')
+  nouveauBtn.type = 'button'
+  nouveauBtn.className = 'btn-nouveau'
+  nouveauBtn.textContent = '+ Nouveau'
+  nouveauBtn.title = 'Créer un document'
+  nouveauBtn.onclick = async () => {
+    nouveauBtn.disabled = true
+    try {
+      const res = await fetch('/api/docs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: '' }),
+      })
+      if (res.status === 401) {
+        location.hash = '#/login'
+        return
+      }
+      if (!res.ok) throw new Error('création refusée')
+      const doc = await res.json()
+      location.hash = `#/doc/${doc.id}`
+    } catch (err) {
+      messageFugace("Le document n'a pas pu être créé.", { erreur: true })
+    } finally {
+      nouveauBtn.disabled = false
+    }
+  }
+  topBanner.appendChild(nouveauBtn)
 
   const starBtn = document.createElement('button')
   starBtn.type = 'button'

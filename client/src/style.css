@@ -1215,3 +1215,26 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   padding: 6px 2px;
 }
 .style-actions .btn-texte:hover { color: var(--fg); text-decoration: underline; }
+
+/* « + Nouveau » dans la barre d'un document (16/09/2026) — discret à côté du
+   retour, mais toujours là : on doit pouvoir commencer un document depuis
+   n'importe où, y compris depuis un document qu'on ne fait que relire. */
+.btn-nouveau {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-nouveau:hover { color: var(--fg); border-color: var(--fg); }
+.btn-nouveau:disabled { opacity: 0.5; cursor: default; }
+
+/* Titre de la liste, distinct du nom de l'application en tête de page. */
+.doc-list-title {
+  margin: 26px 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}

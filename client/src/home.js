@@ -140,6 +140,11 @@ function mountAppHome(root, email) {
   })
   wrap.appendChild(form)
 
+  const titreListe = document.createElement('h2')
+  titreListe.className = 'doc-list-title'
+  titreListe.textContent = 'Mes documents'
+  wrap.appendChild(titreListe)
+
   const list = document.createElement('ul')
   list.className = 'doc-list'
   wrap.appendChild(list)

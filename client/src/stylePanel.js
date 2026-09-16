@@ -282,7 +282,7 @@ export async function mountAdminStyle(root) {
   const retour = document.createElement('a')
   retour.href = '#/'
   retour.className = 'back-link'
-  retour.textContent = '← Documents'
+  retour.textContent = '← Mes documents'
   wrap.appendChild(retour)
 
   const h1 = document.createElement('h1')
