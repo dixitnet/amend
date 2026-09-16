@@ -140,6 +140,9 @@ export function docToHtml(doc) {
  * use as the default filename in that dialog. */
 export async function printDocument(doc, title, style) {
   const html = docToHtml(doc)
+  // `style` est désormais la mise en page **du document** (voir
+  // shared/style.js) : chaque niveau de titre a ses propres réglages, et le
+  // corps de texte son retrait de première ligne.
   const css = buildStyleCss(style, { scope: '.print-doc' })
   const pageCss = buildPageCss(style, { scope: '.print-doc' })
 

@@ -1,6 +1,6 @@
 import { mountHome } from './home.js'
 import { mountEditor } from './editor.js'
-import { mountAdminStyle } from './adminStyle.js'
+import { mountAdminStyle } from './stylePanel.js'
 import { mountAdmin } from './admin.js'
 import { mountVersions } from './versions.js'
 import { getUser } from './user.js'

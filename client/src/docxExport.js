@@ -4,7 +4,7 @@
 // espacement, interligne, taille de page, marges, numéros de page) — même
 // principe que pdfExport.js. Contrairement à l'export PDF, l'éditeur lui-
 // même n'applique plus du tout la feuille de style depuis le 13/09/2026
-// (voir styleConfig.js/adminStyle.js) : ce fichier et pdfExport.js sont les
+// (voir styleConfig.js/stylePanel.js) : ce fichier et pdfExport.js sont les
 // deux seuls endroits qui la prennent réellement en compte.
 //
 // Comme dans mdExport.js/pdfExport.js, "l'état présent" du document est
@@ -40,6 +40,16 @@ import {
   convertMillimetersToTwip,
 } from 'docx'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
+import { BLOCS } from '../../shared/style.js'
+
+/** Les réglages d'un bloc du modèle (voir shared/style.js) : « body »,
+ * « quote », « h1 »… Un document enregistré avant le 16/09/2026 est déjà
+ * remonté au format actuel par le serveur, donc `style.blocs` existe
+ * toujours ici — la garde ne sert qu'au cas d'un appel direct. */
+function reglages(style, blocId) {
+  const defini = BLOCS.find((b) => b.id === blocId)
+  return (style.blocs && style.blocs[blocId]) || (defini && defini.defauts) || DEFAULT_STYLE.blocs.body
+}
 import { safeFilenameBase } from './mdExport.js'
 
 // Dimensions standard en millimètres — converties en twips (1/20e de point,
@@ -76,8 +86,12 @@ function ptToTwips(pt) {
 
 /** Propriétés de paragraphe (alignement, espacement avant/après, et
  * interligne si fourni) pour un bloc `block` de la feuille de style
- * (style.body ou style.heading). */
+ * (voir shared/style.js : « body », « quote », « h1 »…). */
 function paragraphProps(block, { lineHeight } = {}) {
+  // `lineHeight` reste un paramètre séparé pour les quelques appels qui
+  // veulent l'imposer ; sinon il vient du bloc lui-même, chaque bloc ayant
+  // désormais le sien.
+  if (lineHeight === undefined) lineHeight = block.lineHeight
   const spacing = {
     before: ptToTwips(block.spaceBefore),
     after: ptToTwips(block.spaceAfter),
@@ -88,10 +102,16 @@ function paragraphProps(block, { lineHeight } = {}) {
     spacing.line = Math.round(lineHeight * 240)
     spacing.lineRule = LineRuleType.AUTO
   }
-  return {
+  const props = {
     alignment: ALIGN_MAP[block.align] || AlignmentType.LEFT,
     spacing,
   }
+  // Retrait de première ligne (16/09/2026) — en millimètres dans le modèle,
+  // en twips pour `docx`.
+  if (block.firstLineIndent) {
+    props.indent = { firstLine: convertMillimetersToTwip(block.firstLineIndent) }
+  }
+  return props
 }
 
 /** Propriétés de texte (police/taille/gras/italique/majuscules) communes à
@@ -149,7 +169,7 @@ const NUMEROTATION = 'liste-numerotee'
 
 function listItemToParagraphs(item, style, level, type, coche) {
   const out = []
-  const lineHeight = style.body.lineHeight ?? DEFAULT_STYLE.body.lineHeight
+  const corps = reglages(style, 'body')
   let premierBloc = true
   item.forEach((child) => {
     if (LISTES.includes(child.type.name)) {
@@ -166,7 +186,7 @@ function listItemToParagraphs(item, style, level, type, coche) {
       tache && premierBloc
         ? [
             new TextRun({
-              ...baseRunProps(style.body, style.body.size),
+              ...baseRunProps(corps, corps.size),
               text: coche ? '☑ ' : '☐ ',
             }),
           ]
@@ -184,11 +204,11 @@ function listItemToParagraphs(item, style, level, type, coche) {
           : { bullet: { level } }
     out.push(
       new Paragraph({
-        ...paragraphProps(style.body, { lineHeight }),
+        ...paragraphProps(corps),
         ...puce,
         children: [
           ...marque,
-          ...inlineToRuns(child, style.body, style.body.size, tache && coche ? { strike: true } : null),
+          ...inlineToRuns(child, corps, corps.size, tache && coche ? { strike: true } : null),
         ],
       })
     )
@@ -245,33 +265,47 @@ function largeurUtilePx(style) {
 function blockToParagraphs(node, style, images) {
   switch (node.type.name) {
     case 'heading': {
-      const level = node.attrs.level
-      const sizes = style.heading.sizes || DEFAULT_STYLE.heading.sizes
-      const sizePt = sizes[level - 1] || sizes[sizes.length - 1]
+      const level = Math.min(5, Math.max(1, node.attrs.level))
+      // Chaque niveau a ses propres réglages complets depuis le 16/09/2026
+      // — police, casse, alignement, espacement, et pas seulement sa taille.
+      const bloc = reglages(style, `h${level}`)
       return [
         new Paragraph({
           heading: HEADING_LEVELS[level - 1],
-          ...paragraphProps(style.heading),
-          children: inlineToRuns(node, style.heading, sizePt),
+          ...paragraphProps(bloc),
+          children: inlineToRuns(node, bloc, bloc.size),
         }),
       ]
     }
     case 'paragraph': {
-      const lineHeight = style.body.lineHeight ?? DEFAULT_STYLE.body.lineHeight
+      const corps = reglages(style, 'body')
       return [
         new Paragraph({
-          ...paragraphProps(style.body, { lineHeight }),
-          children: inlineToRuns(node, style.body, style.body.size),
+          ...paragraphProps(corps),
+          children: inlineToRuns(node, corps, corps.size),
         }),
       ]
     }
     case 'blockquote': {
-      // Aligné sur le texte normal (13/09/2026, voir README.md) : mêmes
-      // propriétés que le corps de texte, aucune indentation particulière
-      // — cohérent avec pdfExport.js/styleConfig.js (buildStyleCss applique
-      // la même règle à <p> et <blockquote>).
+      // La citation a son propre bloc réglable depuis le 16/09/2026 ; ses
+      // valeurs par défaut restent celles du corps de texte, conformément à
+      // la décision du 13/09, mais elles sont désormais modifiables. D'où
+      // le rendu direct de ses paragraphes avec CE bloc, plutôt qu'une
+      // récursion qui les traiterait en texte courant.
+      const citation = reglages(style, 'quote')
       const out = []
-      node.forEach((child) => out.push(...blockToParagraphs(child, style, images)))
+      node.forEach((child) => {
+        if (child.type.name === 'paragraph') {
+          out.push(
+            new Paragraph({
+              ...paragraphProps(citation),
+              children: inlineToRuns(child, citation, citation.size),
+            })
+          )
+        } else {
+          out.push(...blockToParagraphs(child, style, images))
+        }
+      })
       return out
     }
     case 'bullet_list':
@@ -279,7 +313,7 @@ function blockToParagraphs(node, style, images) {
     case 'task_list':
       return listToParagraphs(node, style, 0)
     case 'table': {
-      const lineHeight = style.body.lineHeight ?? DEFAULT_STYLE.body.lineHeight
+      const corps = reglages(style, 'body')
       const lignes = []
       node.forEach((row) => {
         const cellules = []
@@ -288,8 +322,8 @@ function blockToParagraphs(node, style, images) {
           cell.forEach((bloc) => {
             contenu.push(
               new Paragraph({
-                ...paragraphProps(style.body, { lineHeight }),
-                children: inlineToRuns(bloc, style.body, style.body.size),
+                ...paragraphProps(corps),
+                children: inlineToRuns(bloc, corps, corps.size),
               })
             )
           })
@@ -308,8 +342,8 @@ function blockToParagraphs(node, style, images) {
       if (!octets) {
         return [
           new Paragraph({
-            ...paragraphProps(style.body),
-            children: [new TextRun({ ...baseRunProps(style.body, style.body.size), italics: true, text: '[image non récupérée]' })],
+            ...paragraphProps(corps),
+            children: [new TextRun({ ...baseRunProps(corps, corps.size), italics: true, text: '[image non récupérée]' })],
           }),
         ]
       }
@@ -318,7 +352,7 @@ function blockToParagraphs(node, style, images) {
       const facteur = Math.min(1, images.largeurUtile / largeurSource)
       return [
         new Paragraph({
-          ...paragraphProps(style.body),
+          ...paragraphProps(corps),
           alignment: AlignmentType.CENTER,
           children: [
             new ImageRun({

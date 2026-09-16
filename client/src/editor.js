@@ -47,7 +47,8 @@ import {
 } from 'prosemirror-tables'
 import { imagesPlugin } from './images.js'
 import { mountPresenceBar } from './presence.js'
-import { loadStyle } from './styleConfig.js'
+import { loadDocStyle } from './styleConfig.js'
+import { ouvrirPanneauStyle } from './stylePanel.js'
 import { printDocument } from './pdfExport.js'
 
 function buildCursor(user) {
@@ -207,6 +208,17 @@ export function mountEditor(root, docId, user, docMeta) {
   exportDropdown.append(exportMdItem, exportDocxItem, exportPdfItem)
   exportMenu.appendChild(exportDropdown)
   topBanner.appendChild(exportMenu)
+
+  // Mise en page du document (16/09/2026) — réservée aux éditeurs, comme
+  // renommer ou supprimer : c'est `canManageDocument` côté serveur qui
+  // décide, ce bouton n'est que la porte.
+  const miseEnPageBtn = document.createElement('button')
+  miseEnPageBtn.type = 'button'
+  miseEnPageBtn.className = 'btn-tool btn-texte'
+  miseEnPageBtn.textContent = 'Mise en page'
+  miseEnPageBtn.title = "Format, marges, styles des titres et du texte — propres à ce document"
+  miseEnPageBtn.onclick = () => ouvrirPanneauStyle(docId)
+  topBanner.appendChild(miseEnPageBtn)
 
   function closeExportMenu() {
     exportDropdown.hidden = true
@@ -378,7 +390,7 @@ export function mountEditor(root, docId, user, docMeta) {
   shell.append(topBanner, layout)
   root.appendChild(shell)
 
-  // La feuille de style ("Mise en page", voir adminStyle.js/styleConfig.js)
+  // La feuille de style ("Mise en page", voir stylePanel.js/styleConfig.js)
   // ne se reflète plus du tout dans l'éditeur (retiré le 13/09/2026, sur
   // demande) : l'éditeur garde sa propre typographie fixe (police système,
   // voir style.css), pensée pour rester aussi lisible que possible quels
@@ -540,6 +552,17 @@ export function mountEditor(root, docId, user, docMeta) {
   // des modifications, limite connue et acceptée pour cette première
   // version.
   const isCorrecteur = docMeta.myRole === 'correcteur'
+  // Mise en page et exports réservés aux éditeurs (16/09/2026). Pour la
+  // mise en page, le serveur vérifie `canManageDocument` et la restriction
+  // est donc réelle. Pour les exports, elle ne l'est pas : les trois sont
+  // fabriqués dans le navigateur à partir du document que la personne a
+  // déjà sous les yeux — c'est une **convention** qui dit qui produit le
+  // livrable, pas une protection. Elle deviendra réelle pour le PDF le jour
+  // où il sortira d'une route serveur (chantier Typst).
+  if (isCorrecteur) {
+    exportMenu.hidden = true
+    miseEnPageBtn.hidden = true
+  }
   if (isCorrecteur) {
     trackToggle.disabled = true
     trackToggleLabel.title = 'Les correcteurs proposent toujours leurs modifications en suivi de modifications.'
@@ -711,7 +734,7 @@ export function mountEditor(root, docId, user, docMeta) {
     // (Vite en fait un chunk séparé) : la bibliothèque `docx` n'est
     // chargée que si quelqu'un clique vraiment sur "Word (.docx)", pas au
     // chargement initial de l'éditeur.
-    const [style, { downloadDocx }] = await Promise.all([loadStyle(), import('./docxExport.js')])
+    const [{ style }, { downloadDocx }] = await Promise.all([loadDocStyle(docId), import('./docxExport.js')])
     await downloadDocx(view.state.doc, style, titleInput.value)
   }
   exportPdfItem.onclick = async () => {
@@ -719,7 +742,7 @@ export function mountEditor(root, docId, user, docMeta) {
     // Always re-fetch (never the copy loaded at mount time): the admin may
     // have changed the feuille de style on "Mise en page" since this editor
     // was opened, and an export should reflect what's saved now.
-    const style = await loadStyle()
+    const { style } = await loadDocStyle(docId)
     await printDocument(view.state.doc, titleInput.value, style)
   }
   headingSelect.onchange = () => {

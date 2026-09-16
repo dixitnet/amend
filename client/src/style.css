@@ -1138,3 +1138,40 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 }
 .message-fugace.erreur { background: #b3261e; }
 .message-fugace.sortant { opacity: 0; transform: translateX(-50%) translateY(6px); }
+
+/* --- Panneau de mise en page (16/09/2026) ------------------------------- */
+/* Le formulaire est engendré à partir du schéma (shared/style.js) : ces
+   règles ne connaissent aucun nom de réglage, seulement la grille. */
+.style-modal { width: min(680px, 92vw); max-height: 86vh; overflow-y: auto; }
+.style-bloc {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  margin: 8px 0;
+  padding: 6px 10px;
+}
+.style-bloc > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 3px 0;
+  list-style-position: outside;
+}
+.style-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px 14px;
+  padding: 8px 0 4px;
+}
+.style-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.style-field > span { flex: 1; color: var(--muted, #6b6b6b); }
+.style-field input[type="number"] { width: 72px; }
+.style-field input[type="checkbox"] { margin-right: auto; }
+.style-unite { font-style: normal; font-size: 11px; color: var(--muted, #6b6b6b); width: 22px; }
+.style-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.style-actions .btn-primary { width: auto; padding: 8px 18px; }
+.style-status { font-size: 13px; color: var(--muted, #6b6b6b); min-height: 18px; }
