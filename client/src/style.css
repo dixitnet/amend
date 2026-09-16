@@ -1142,7 +1142,10 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 /* --- Panneau de mise en page (16/09/2026) ------------------------------- */
 /* Le formulaire est engendré à partir du schéma (shared/style.js) : ces
    règles ne connaissent aucun nom de réglage, seulement la grille. */
-.style-modal { width: min(680px, 92vw); max-height: 86vh; overflow-y: auto; }
+/* Surcharge la largeur fixe de .access-modal : sept blocs de réglages
+   respirent mal dans 480 px. */
+.style-modal { width: min(680px, 92vw); max-height: 86vh; overflow-y: auto; text-align: left; }
+.style-modal h2 { margin: 0 0 4px; font-size: 18px; }
 .style-bloc {
   border: 1px solid var(--border);
   border-radius: 5px;

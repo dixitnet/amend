@@ -181,10 +181,15 @@ export function ouvrirPanneauStyle(docId, { onEnregistre } = {}) {
   import('./styleConfig.js').then(async ({ loadDocStyle, saveDocStyle, resetDocStyle }) => {
     const { style, propre } = await loadDocStyle(docId)
 
+    // Mêmes classes que le panneau de partage (accessPanel.js) : c'est
+    // `name-modal-overlay` qui porte le fond sombre et le centrage, et
+    // `name-modal` la boîte. Écrire une classe qui n'existe pas ne lève
+    // aucune erreur — le panneau s'ajoute au bas de la page, sans style et
+    // hors de vue, et le bouton a l'air de ne rien faire.
     const overlay = document.createElement('div')
-    overlay.className = 'access-modal-overlay'
+    overlay.className = 'name-modal-overlay'
     const modal = document.createElement('div')
-    modal.className = 'access-modal style-modal'
+    modal.className = 'name-modal access-modal style-modal'
 
     const titre = document.createElement('h2')
     titre.textContent = 'Mise en page du document'
