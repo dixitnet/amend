@@ -118,14 +118,34 @@ export async function saveStyle(style) {
  * setting (removed), italic has no visual collision with the tracked-
  * insertion styling, so there's no reason to hold it back from the editor. */
 function blockDeclarations(block) {
+  const align = block.align || 'left'
   const parts = [
     `font-family: ${fontFamily(block.font)}`,
     `font-weight: ${block.bold ? 700 : 400}`,
     `font-style: ${block.italic ? 'italic' : 'normal'}`,
     `text-transform: ${block.uppercase ? 'uppercase' : 'none'}`,
-    `text-align: ${block.align || 'left'}`,
+    `text-align: ${align}`,
     `margin: ${block.spaceBefore ?? 0}pt 0 ${block.spaceAfter ?? 0}pt 0`,
   ]
+  // Césures (16/09/2026) — uniquement sur du texte justifié. Justifier sans
+  // couper, c'est le pire des deux mondes : les espaces entre les mots
+  // s'étirent sans rien pour absorber la différence, et le français, avec
+  // ses mots longs, creuse alors des rivières de blanc. C'est exactement ce
+  // que faisait l'export PDF jusqu'ici.
+  //
+  // Restreint au justifié plutôt qu'appliqué partout : c'est la convention
+  // typographique la plus sûre (un texte en drapeau se coupe beaucoup moins
+  // volontiers), et c'est aussi ce que fait Typst par défaut, ce qui gardera
+  // les deux moteurs comparables si on passe à lui.
+  //
+  // La langue vient de `<html lang="fr">` (client/index.html), sans laquelle
+  // le navigateur appliquerait les motifs de coupure anglais. `-webkit-` pour
+  // Safari, qui ne reconnaît pas encore la propriété standard.
+  // `hyphenate-limit-chars` évite les fragments de deux lettres en bout de
+  // ligne ; ignoré par les navigateurs qui ne le connaissent pas.
+  if (align === 'justify') {
+    parts.push('-webkit-hyphens: auto', 'hyphens: auto', 'hyphenate-limit-chars: 6 3 3')
+  }
   return parts.join('; ')
 }
 
