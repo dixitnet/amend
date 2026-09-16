@@ -25,7 +25,7 @@ import {
   isAdminEmail,
   isLoginAllowed,
 } from './auth.js'
-import { sendMail } from './mailgun.js'
+import { sendMail, courrierAvecBouton } from './mailgun.js'
 import { capabilities, isValidRole } from './roles.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -550,7 +550,13 @@ const TARIFS_IA = {
         await sendMail({
           to: email,
           subject: 'Votre lien de connexion à Amend',
-          text: `Cliquez sur ce lien pour vous connecter à Amend (valable 20 minutes) :\n\n${link}\n\nSi vous n'avez rien demandé, ignorez cet email.`,
+          ...courrierAvecBouton({
+            titre: 'Connexion à Amend',
+            intro: 'Voici votre lien de connexion. Il est valable 20 minutes et ne sert qu’une fois.',
+            libelleBouton: 'Se connecter',
+            lien: link,
+            apres: "Si vous n'avez rien demandé, ignorez ce message : sans clic, rien ne se passe.",
+          }),
         })
         metrics.log('mail', { type: 'connexion', ok: true })
       } catch (err) {
@@ -631,11 +637,16 @@ const TARIFS_IA = {
       await sendMail({
         to: email,
         subject: `Invitation à collaborer sur « ${doc.title} »`,
-        text:
-          `${inviter} vous invite à collaborer sur « ${doc.title} » dans Amend, ` +
-          `comme ${capabilities(role).label.toLowerCase()}.\n\n` +
-          `Ce lien ouvre le document directement (valable 14 jours) :\n\n${lien}\n\n` +
-          `Si vous n'attendiez pas cette invitation, ignorez cet email.`,
+        ...courrierAvecBouton({
+          titre: `Invitation à collaborer sur « ${doc.title} »`,
+          intro:
+            `${inviter} vous invite à collaborer sur « ${doc.title} » dans Amend, ` +
+            `comme ${capabilities(role).label.toLowerCase()}. Ce lien ouvre le document directement, ` +
+            `sans mot de passe ni inscription. Il reste valable 14 jours.`,
+          libelleBouton: 'Ouvrir le document',
+          lien,
+          apres: "Si vous n'attendiez pas cette invitation, ignorez ce message.",
+        }),
       })
       metrics.log('mail', { type: 'invitation', ok: true })
     } catch (err) {
