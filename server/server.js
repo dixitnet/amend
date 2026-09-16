@@ -10,6 +10,7 @@ import { Rooms } from './rooms.js'
 import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
 import { Metrics } from './metrics.js'
 import { Uploads } from './uploads.js'
+import { Users } from './users.js'
 import { apercu } from './admin.js'
 import {
   readSession,
@@ -66,6 +67,7 @@ const storage = new Storage(DATA_DIR)
 const rooms = new Rooms(storage)
 // Les seuils viennent du .env (voir .env.example) et sont lus ici, pas au
 // chargement du module : loadDotEnv() ne s'exécute qu'après les imports.
+const users = new Users(DATA_DIR)
 const uploads = new Uploads(DATA_DIR, {
   maxImageMo: process.env.MAX_IMAGE_MB,
   maxDocumentMo: process.env.MAX_DOC_IMAGES_MB,
@@ -203,7 +205,21 @@ async function handleApi(req, res, url) {
     if (storage.hasAccessControl(docMatch[1]) && !myRole) {
       return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
     }
-    return sendJson(res, 200, { ...doc, myRole: myRole || 'editeur', onlineCount: rooms.presenceCount(doc.id) })
+    // `myName`/`myColor` voyagent avec les métadonnées du document plutôt
+    // que par une requête à part : le client les récupère déjà juste avant
+    // de monter l'éditeur, et c'est `myName === null` qui lui dit qu'il doit
+    // demander son nom à la personne (voir client/src/main.js). Le nom vit
+    // sur le compte depuis le 16/09/2026, plus dans le localStorage du
+    // navigateur — sans quoi la même personne était nommée et colorée
+    // différemment sur chacun de ses appareils.
+    const compte = users.get(email)
+    return sendJson(res, 200, {
+      ...doc,
+      myRole: myRole || 'editeur',
+      myName: compte ? compte.nom : null,
+      myColor: compte ? compte.couleur : null,
+      onlineCount: rooms.presenceCount(doc.id),
+    })
   }
   if (docMatch && req.method === 'PATCH') {
     if (!storage.getDoc(docMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
@@ -417,7 +433,7 @@ const TARIFS_IA = {
     return sendJson(
       res,
       200,
-      apercu({ storage, rooms, metrics, uploads, tarifsIA: TARIFS_IA, dataDir: DATA_DIR, waitlistPath: storage.waitlistPath })
+      apercu({ storage, rooms, metrics, uploads, users, tarifsIA: TARIFS_IA, dataDir: DATA_DIR, waitlistPath: storage.waitlistPath })
     )
   }
 
@@ -428,7 +444,25 @@ const TARIFS_IA = {
 
   if (pathname === '/api/auth/me' && req.method === 'GET') {
     const email = readSession(req)
-    return sendJson(res, 200, { email, admin: isAdminEmail(email) })
+    const compte = users.get(email)
+    return sendJson(res, 200, {
+      email,
+      admin: isAdminEmail(email),
+      nom: compte ? compte.nom : null,
+      couleur: compte ? compte.couleur : null,
+    })
+  }
+
+  // Le nom que la personne se donne à sa première ouverture de document.
+  // Une session valide suffit : on n'enregistre un nom que sur l'adresse de
+  // la session elle-même, jamais sur une adresse passée en paramètre.
+  if (pathname === '/api/auth/name' && req.method === 'POST') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const body = await readJsonBody(req)
+    const compte = users.definirNom(email, body.nom)
+    if (!compte) return sendJson(res, 400, { error: 'nom vide' })
+    return sendJson(res, 200, { nom: compte.nom, couleur: compte.couleur })
   }
 
   if (pathname === '/api/auth/request-link' && req.method === 'POST') {

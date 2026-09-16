@@ -439,7 +439,7 @@ test('la déconnexion efface la session (le cookie renvoyé ne revérifie plus)'
   const beforeRes = await fetch(`${BASE}/api/auth/me`, { headers: { cookie } })
   // `admin` a été ajouté le 15/09/2026 : le client n'a pas d'autre moyen de
   // savoir s'il doit afficher l'entrée du back-office (voir server/admin.js).
-  assert.deepEqual(await beforeRes.json(), { email, admin: false })
+  assert.deepEqual(await beforeRes.json(), { email, admin: false, nom: null, couleur: null })
 
   const logoutRes = await fetch(`${BASE}/api/auth/logout`, { method: 'POST', headers: { cookie } })
   assert.equal(logoutRes.status, 200)
@@ -450,7 +450,7 @@ test('la déconnexion efface la session (le cookie renvoyé ne revérifie plus)'
   // Un client applique ce Set-Cookie et ne renvoie donc plus l'ancien —
   // on simule ça en n'envoyant simplement plus de cookie du tout.
   const afterRes = await fetch(`${BASE}/api/auth/me`)
-  assert.deepEqual(await afterRes.json(), { email: null, admin: false })
+  assert.deepEqual(await afterRes.json(), { email: null, admin: false, nom: null, couleur: null })
 })
 
 test.after(async () => {

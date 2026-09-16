@@ -79,11 +79,16 @@ export async function mountAdmin(root) {
         ${chiffre(nombre(f.connexions.actifs7j), 'actives sur 7 jours', `${nombre(f.connexions.actifs30j)} sur 30 jours`)}
       </div>
       <table class="bo-table">
-        <thead><tr><th>Adresse</th><th>Documents</th><th>Rôles</th><th>Depuis</th><th>Statut</th></tr></thead>
+        <thead><tr><th>Adresse</th><th>Nom affiché</th><th>Documents</th><th>Rôles</th><th>Depuis</th><th>Statut</th></tr></thead>
         <tbody>${u.liste
           .map(
             (p) => `<tr>
               <td>${esc(p.email)}</td>
+              <td>${
+                p.nom
+                  ? esc(p.nom)
+                  : '<span class="bo-attente">—</span>'
+              }</td>
               <td>${nombre(p.documents)}</td>
               <td>${p.editeur ? `${p.editeur} éditeur` : ''}${p.editeur && p.correcteur ? ', ' : ''}${
               p.correcteur ? `${p.correcteur} correcteur` : ''
@@ -94,6 +99,9 @@ export async function mountAdmin(root) {
           )
           .join('')}</tbody>
       </table>
+      <p class="bo-note">Le nom affiché est celui que la personne se donne à sa première ouverture d'un
+      document ; un tiret signifie qu'elle n'en a pas encore ouvert. Il n'y a pas encore d'écran pour
+      le corriger soi-même — en attendant, il se modifie dans <code>data/users.json</code>.</p>
       ${
         u.invitationsEnAttente.length
           ? `<h3>Invitations sans réponse</h3>

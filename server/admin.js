@@ -71,8 +71,12 @@ function enEuros(entree, sortie, tarifs) {
   return Math.round(Math.max(0, brut) * 10000) / 10000
 }
 
-export function apercu({ storage, rooms, metrics, uploads, tarifsIA, dataDir, waitlistPath }) {
+export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, dataDir, waitlistPath }) {
   const docs = storage.allDocs()
+  // Les comptes (data/users.json) : pour l'instant juste le nom affiché et
+  // la couleur. C'est ici qu'on vient lire un nom mal saisi tant qu'il n'y a
+  // pas d'écran pour se corriger soi-même.
+  const comptes = users ? users.tous() : {}
   const maintenant = Date.now()
 
   // --- Utilisateurs : ils n'existent que comme adresses répétées dans les
@@ -84,6 +88,7 @@ export function apercu({ storage, rooms, metrics, uploads, tarifsIA, dataDir, wa
     for (const acces of doc.access || []) {
       const e = parEmail.get(acces.email) || {
         email: acces.email,
+        nom: (comptes[acces.email] || {}).nom || null,
         documents: 0,
         editeur: 0,
         correcteur: 0,

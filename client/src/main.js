@@ -54,7 +54,10 @@ async function route() {
       return
     }
     const docMeta = await res.json()
-    const user = await getUser()
+    // Le nom et la couleur arrivent avec les métadonnées du document
+    // (myName/myColor) : `myName` à null veut dire « ce compte n'a pas
+    // encore de nom », et c'est la seule chose qui déclenche la modale.
+    const user = await getUser({ nom: docMeta.myName, couleur: docMeta.myColor })
     currentEditor = mountEditor(app, docId, user, docMeta)
     return
   }
