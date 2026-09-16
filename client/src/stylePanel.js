@@ -189,7 +189,11 @@ export function ouvrirPanneauStyle(docId, { onEnregistre } = {}) {
     const overlay = document.createElement('div')
     overlay.className = 'name-modal-overlay'
     const modal = document.createElement('div')
-    modal.className = 'name-modal access-modal style-modal'
+    // Volontairement PAS `name-modal` : cette modale-là est taillée pour un
+    // champ unique — elle met tout `input` en 100 % de large avec 12 px de
+    // marge basse, et tout `button` en pleine largeur sur fond accentué.
+    // Appliqué à une grille de soixante-dix réglages, c'est illisible.
+    modal.className = 'style-modal'
 
     const titre = document.createElement('h2')
     titre.textContent = 'Mise en page du document'

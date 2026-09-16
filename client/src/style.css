@@ -631,34 +631,21 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   .editor-container { padding: 16px 0; }
 }
 
-/* ---------- Mise en page (admin) ---------- */
-.style-status { min-height: 1.2em; color: var(--muted); font-size: 13px; }
-.style-form { display: flex; flex-direction: column; gap: 20px; }
+/* ---------- Mise en page : structure commune ----------------------------
+   Ne reste ici que ce que la page « Style par défaut » et le panneau du
+   document partagent. Les règles de champ qui vivaient ici ont été retirées
+   le 16/09/2026 : elles posaient `flex-direction: column`, que la nouvelle
+   grille ne réinitialisait pas — d'où un formulaire entièrement empilé et
+   centré, alors que chaque règle prise isolément semblait juste. Tout ce qui
+   concerne les champs est désormais à un seul endroit, plus bas. */
+.style-form { display: flex; flex-direction: column; gap: 14px; }
 .style-fieldset {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
-}
-.style-fieldset legend { padding: 0 6px; font-weight: 600; }
-.style-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px 16px;
-}
-.style-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
-.style-field select,
-.style-field input[type='number'] {
-  padding: 6px 8px;
-  border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 14px;
+  padding: 4px 12px 0;
+  margin: 0;
 }
-.style-field input[type='checkbox'] { width: 18px; height: 18px; align-self: flex-start; }
-.style-heading-sizes { grid-column: 1 / -1; }
-.style-heading-sizes-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.style-heading-sizes-row input { width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.style-fieldset legend { padding: 0 6px; font-weight: 600; font-size: 13px; }
 
 /* ---------- Export PDF ("Exporter (.pdf)") ---------- */
 /* #print-root carries the print-only rendering built by pdfExport.js
@@ -1141,40 +1128,90 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 
 /* --- Panneau de mise en page (16/09/2026) ------------------------------- */
 /* Le formulaire est engendré à partir du schéma (shared/style.js) : ces
-   règles ne connaissent aucun nom de réglage, seulement la grille. */
-/* Surcharge la largeur fixe de .access-modal : sept blocs de réglages
-   respirent mal dans 480 px. */
-.style-modal { width: min(680px, 92vw); max-height: 86vh; overflow-y: auto; text-align: left; }
+   règles ne connaissent aucun nom de réglage, seulement la grille. La boîte
+   se style entièrement ici plutôt que d'hériter de `.name-modal`, dont les
+   règles (input pleine largeur, bouton en accent) sont faites pour une
+   modale à un seul champ. */
+.style-modal {
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 22px 24px;
+  width: min(700px, 94vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  text-align: left;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
 .style-modal h2 { margin: 0 0 4px; font-size: 18px; }
+.style-modal > .bo-note { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+
 .style-bloc {
   border: 1px solid var(--border);
-  border-radius: 5px;
-  margin: 8px 0;
-  padding: 6px 10px;
+  border-radius: 6px;
+  margin: 6px 0;
+  padding: 4px 12px 0;
 }
 .style-bloc > summary {
   cursor: pointer;
   font-weight: 600;
   font-size: 13px;
-  padding: 3px 0;
-  list-style-position: outside;
+  padding: 7px 0;
+  user-select: none;
 }
+.style-bloc[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+
+/* Deux colonnes de réglages, chacune « libellé … contrôle ». Le libellé
+   pousse le contrôle à droite, ce qui aligne verticalement les contrôles
+   d'une même colonne quelle que soit la longueur des libellés. */
 .style-grille {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 6px 14px;
-  padding: 8px 0 4px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2px 24px;
+  padding: 6px 0 10px;
 }
 .style-field {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
   font-size: 13px;
+  min-height: 28px;
 }
-.style-field > span { flex: 1; color: var(--muted, #6b6b6b); }
-.style-field input[type="number"] { width: 72px; }
-.style-field input[type="checkbox"] { margin-right: auto; }
-.style-unite { font-style: normal; font-size: 11px; color: var(--muted, #6b6b6b); width: 22px; }
-.style-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
-.style-actions .btn-primary { width: auto; padding: 8px 18px; }
-.style-status { font-size: 13px; color: var(--muted, #6b6b6b); min-height: 18px; }
+.style-field > span { flex: 1 1 auto; color: var(--muted); }
+/* Sans `width: auto`, les règles génériques des modales étirent tout. */
+.style-field input[type='number'] { width: 68px; flex: none; text-align: right; }
+.style-field input[type='checkbox'] { width: auto; flex: none; margin: 0; }
+.style-field select { width: 132px; flex: none; }
+.style-field input,
+.style-field select {
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  margin: 0;
+}
+/* Une case à cocher n'a pas d'unité : on garde la colonne pour l'alignement. */
+.style-unite { font-style: normal; font-size: 11px; color: var(--muted); width: 20px; flex: none; }
+
+.style-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.style-actions .btn-primary { width: auto; padding: 8px 20px; }
+.style-actions .btn-texte {
+  width: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 2px;
+}
+.style-actions .btn-texte:hover { color: var(--fg); text-decoration: underline; }
