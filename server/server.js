@@ -398,12 +398,27 @@ async function handleApi(req, res, url) {
     })
   }
 
-  // Vue d'ensemble du back-office (voir claude/conception-backoffice.md) :
+  // Tarifs du modèle, en euros par million de jetons — lus du .env comme le
+// reste des réglages (voir .env.example). Ils ne servent qu'à traduire les
+// jetons déjà journalisés en une somme lisible : rien dans l'application ne
+// s'appuie dessus pour décider quoi que ce soit, un tarif périmé fausse un
+// affichage, jamais un comportement.
+const TARIFS_IA = {
+  modele: process.env.AI_MODEL || 'claude-sonnet-5',
+  entreeEurParMTok: Number(process.env.AI_PRICE_INPUT_EUR) || 1.73,
+  sortieEurParMTok: Number(process.env.AI_PRICE_OUTPUT_EUR) || 8.67,
+}
+
+// Vue d'ensemble du back-office (voir claude/conception-backoffice.md) :
   // lecture seule, réservée aux administrateurs comme le diagnostic. Elle
   // n'ouvre aucune action et ne renvoie aucun contenu de document.
   if (pathname === '/api/admin/overview' && req.method === 'GET') {
     if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
-    return sendJson(res, 200, apercu({ storage, rooms, metrics, uploads, dataDir: DATA_DIR, waitlistPath: storage.waitlistPath }))
+    return sendJson(
+      res,
+      200,
+      apercu({ storage, rooms, metrics, uploads, tarifsIA: TARIFS_IA, dataDir: DATA_DIR, waitlistPath: storage.waitlistPath })
+    )
   }
 
   // --- Authentification (voir claude/conception-gestion-utilisateurs.md,

@@ -17,6 +17,14 @@ function octets(o) {
   return `${(o / 1048576).toFixed(1)}${NBSP}Mo`
 }
 
+/** Une somme en euros. Sous le centime, « <0,01 € » plutôt qu'un « 0,00 € »
+ * qui laisserait croire que rien n'a été consommé. */
+function euros(v) {
+  if (v === null || v === undefined) return '—'
+  if (v > 0 && v < 0.01) return `<0,01${NBSP}€`
+  return `${v.toFixed(2).replace('.', ',')}${NBSP}€`
+}
+
 function date(ts) {
   if (!ts) return '—'
   return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -156,20 +164,36 @@ export async function mountAdmin(root) {
 
       <h3>Assistance IA (30 jours)</h3>
       <div class="bo-chiffres">
+        ${chiffre(euros(f.ia.coutEuros30j), 'sur 30 jours', `${euros(f.ia.coutEuros7j)} sur 7 jours`)}
+        ${chiffre(euros(f.ia.coutEuros24h), 'dans les 24 h')}
         ${chiffre(nombre(f.ia.appels30j), 'suggestions', `${nombre(f.ia.appels7j)} sur 7 jours`)}
-        ${chiffre(nombre(f.ia.tokensEntree30j), 'tokens en entrée')}
-        ${chiffre(nombre(f.ia.tokensSortie30j), 'tokens en sortie')}
+        ${chiffre(
+          `${nombre(f.ia.tokensEntree30j)} / ${nombre(f.ia.tokensSortie30j)}`,
+          'tokens entrée / sortie'
+        )}
       </div>
       ${
         f.ia.parPersonne.length
           ? `<ul class="bo-liste">${f.ia.parPersonne
               .map(
                 (p) =>
-                  `<li>${esc(p.email)} — ${nombre(p.appels)} appels, ${nombre(p.entree)} / ${nombre(p.sortie)} tokens</li>`
+                  `<li>${esc(p.email)} — <strong>${euros(p.coutEuros)}</strong>, ${nombre(
+                    p.appels
+                  )} appels, ${nombre(p.entree)} / ${nombre(p.sortie)} tokens</li>`
               )
               .join('')}</ul>
              <p class="bo-note">C'est la distribution, pas la moyenne, qui doit fixer le quota de l'offre gratuite.</p>`
           : '<p class="bo-note">Aucun appel enregistré — le journal démarre à la mise en service du back-office.</p>'
+      }
+      ${
+        f.ia.tarif
+          ? `<p class="bo-note">Addition faite au tarif de <strong>${esc(f.ia.tarif.modele)}</strong> :
+             ${String(f.ia.tarif.entreeEurParMTok).replace('.', ',')}${NBSP}€ en entrée et
+             ${String(f.ia.tarif.sortieEurParMTok).replace('.', ',')}${NBSP}€ en sortie par million de tokens
+             (AI_PRICE_INPUT_EUR / AI_PRICE_OUTPUT_EUR dans le .env — à ajuster en même temps que le modèle,
+             sinon le coût affiché devient faux sans prévenir). Le plafond de dépense réel se règle côté
+             Anthropic, pas ici.</p>`
+          : ''
       }
 
       <h3>Emails (30 jours)</h3>

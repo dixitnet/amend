@@ -60,7 +60,18 @@ function tailleDossier(dir) {
   }
 }
 
-export function apercu({ storage, rooms, metrics, uploads, dataDir, waitlistPath }) {
+/** Jetons -> euros. Le journal `events-ia.jsonl` compte des jetons ; ce
+ * qu'on veut lire dans le back-office est une somme. Quatre décimales, pas
+ * deux : arrondir au centime ici afficherait « 0,00 € » pour une poignée
+ * d'appels réels, ce qui se lit comme « rien consommé » — c'est à
+ * l'affichage de décider quoi en montrer. */
+function enEuros(entree, sortie, tarifs) {
+  if (!tarifs) return null
+  const brut = (entree / 1e6) * tarifs.entreeEurParMTok + (sortie / 1e6) * tarifs.sortieEurParMTok
+  return Math.round(Math.max(0, brut) * 10000) / 10000
+}
+
+export function apercu({ storage, rooms, metrics, uploads, tarifsIA, dataDir, waitlistPath }) {
   const docs = storage.allDocs()
   const maintenant = Date.now()
 
@@ -170,6 +181,10 @@ export function apercu({ storage, rooms, metrics, uploads, dataDir, waitlistPath
     e.sortie += appel.sortie || 0
   }
 
+  const ia7 = ia30.filter((a) => a.ts >= depuis(7))
+  const iaJour = ia30.filter((a) => a.ts >= depuis(1))
+  const somme = (appels, champ) => appels.reduce((a, x) => a + (x[champ] || 0), 0)
+
   const flux = {
     connexions: {
       actifs7j: actifs(7),
@@ -182,13 +197,20 @@ export function apercu({ storage, rooms, metrics, uploads, dataDir, waitlistPath
       collaboration30j: momentsCollaboratifs(connexions30),
     },
     ia: {
-      appels7j: ia30.filter((a) => a.ts >= depuis(7)).length,
+      appels7j: ia7.length,
       appels30j: ia30.length,
-      tokensEntree30j: ia30.reduce((a, x) => a + (x.entree || 0), 0),
-      tokensSortie30j: ia30.reduce((a, x) => a + (x.sortie || 0), 0),
+      tokensEntree30j: somme(ia30, 'entree'),
+      tokensSortie30j: somme(ia30, 'sortie'),
+      // Ce que ça a coûté, puisque c'est la seule question qu'on se pose
+      // vraiment en regardant ces chiffres. Le tarif vient du .env, il est
+      // rappelé ici pour qu'on sache sur quelle base l'addition est faite.
+      tarif: tarifsIA || null,
+      coutEuros24h: enEuros(somme(iaJour, 'entree'), somme(iaJour, 'sortie'), tarifsIA),
+      coutEuros7j: enEuros(somme(ia7, 'entree'), somme(ia7, 'sortie'), tarifsIA),
+      coutEuros30j: enEuros(somme(ia30, 'entree'), somme(ia30, 'sortie'), tarifsIA),
       parPersonne: Object.entries(iaParEmail)
-        .map(([email, v]) => ({ email, ...v }))
-        .sort((a, b) => b.sortie - a.sortie),
+        .map(([email, v]) => ({ email, ...v, coutEuros: enEuros(v.entree, v.sortie, tarifsIA) }))
+        .sort((a, b) => (b.coutEuros || 0) - (a.coutEuros || 0)),
     },
     images: {
       depots7j: images30.filter((i) => i.ts >= depuis(7)).length,
