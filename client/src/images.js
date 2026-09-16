@@ -37,7 +37,7 @@ const cle = new PluginKey('images-en-attente')
 /** Un message qui s'efface tout seul — il n'y en avait pas encore dans
  * l'application, et un `alert()` couperait la saisie pour dire « l'image
  * est trop lourde ». */
-function messageFugace(texte, { erreur = false } = {}) {
+export function messageFugace(texte, { erreur = false } = {}) {
   const bulle = document.createElement('div')
   bulle.className = `message-fugace${erreur ? ' erreur' : ''}`
   bulle.textContent = texte

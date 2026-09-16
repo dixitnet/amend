@@ -49,7 +49,7 @@ import { imagesPlugin } from './images.js'
 import { mountPresenceBar } from './presence.js'
 import { loadDocStyle } from './styleConfig.js'
 import { ouvrirPanneauStyle } from './stylePanel.js'
-import { printDocument } from './pdfExport.js'
+import { messageFugace } from './images.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -739,11 +739,27 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   exportPdfItem.onclick = async () => {
     closeExportMenu()
-    // Always re-fetch (never the copy loaded at mount time): the admin may
-    // have changed the feuille de style on "Mise en page" since this editor
-    // was opened, and an export should reflect what's saved now.
-    const { style } = await loadDocStyle(docId)
-    await printDocument(view.state.doc, titleInput.value, style)
+    // Le PDF sort désormais d'un vrai moteur de composition, côté serveur
+    // (voir claude/proto-export-pdf-typst-pagedjs.md) : notes de bas de
+    // page, césures françaises, table des matières paginée et recto-verso
+    // deviennent possibles, et l'export fonctionne enfin depuis un
+    // téléphone. On relit toujours la mise en page plutôt que d'utiliser la
+    // copie chargée au montage : elle a pu changer depuis.
+    exportPdfItem.disabled = true
+    const libelle = exportPdfItem.textContent
+    exportPdfItem.textContent = 'Composition…'
+    try {
+      const [{ style }, { downloadTypstPdf }] = await Promise.all([
+        loadDocStyle(docId),
+        import('./typstExport.js'),
+      ])
+      await downloadTypstPdf(view.state.doc, style, titleInput.value, docId)
+    } catch (err) {
+      messageFugace(err.message || "le PDF n'a pas pu être composé", { erreur: true })
+    } finally {
+      exportPdfItem.disabled = false
+      exportPdfItem.textContent = libelle
+    }
   }
   headingSelect.onchange = () => {
     if (headingSelect.value === '') {

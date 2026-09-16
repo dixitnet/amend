@@ -11,6 +11,7 @@ import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
 import { Metrics } from './metrics.js'
 import { Uploads } from './uploads.js'
 import { Users } from './users.js'
+import { Typst, TypstError } from './typst.js'
 import { apercu } from './admin.js'
 import {
   readSession,
@@ -62,12 +63,17 @@ const MAX_JSON_BODY = 20_000
 // (encodé en base64) — potentiellement bien plus gros qu'un simple champ
 // de formulaire, d'où une limite à part, nettement plus large.
 const MAX_COMPACT_BODY = 20_000_000
+// La source Typst d'un livre entier : 531 ko mesurés sur 524 000 signes.
+const MAX_TYPST_BODY = 4_000_000
 
 const storage = new Storage(DATA_DIR)
 const rooms = new Rooms(storage)
 // Les seuils viennent du .env (voir .env.example) et sont lus ici, pas au
 // chargement du module : loadDotEnv() ne s'exécute qu'après les imports.
 const users = new Users(DATA_DIR)
+// Rendu PDF (16/09/2026) — binaire appelé en sous-processus, sous plafond
+// mémoire, sous délai, et un rendu à la fois (voir server/typst.js).
+const typst = new Typst()
 const uploads = new Uploads(DATA_DIR, {
   maxImageMo: process.env.MAX_IMAGE_MB,
   maxDocumentMo: process.env.MAX_DOC_IMAGES_MB,
@@ -253,6 +259,38 @@ async function handleApi(req, res, url) {
     // venait à être réattribué.
     uploads.supprimerDocument(docMatch[1])
     return sendJson(res, 200, { ok })
+  }
+
+  // --- Rendu PDF (16/09/2026, voir claude/proto-export-pdf-typst-pagedjs.md).
+  // Le client fabrique la source Typst à partir du document ProseMirror
+  // qu'il a sous la main — le serveur n'a que des mises à jour Yjs binaires,
+  // et les reconstituer ici demanderait Yjs dans un backend sans dépendance.
+  // Il ne reste donc à faire ici que compiler, dans un bac à sable.
+  //
+  // C'est aussi le premier export réellement réservé aux éditeurs : le .md
+  // et le .docx sont fabriqués dans le navigateur, où masquer un bouton
+  // n'est qu'une convention. Ici, c'est le serveur qui décide.
+  const pdfMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/pdf$/)
+  if (pdfMatch && req.method === 'POST') {
+    const id = pdfMatch[1]
+    const doc = storage.getDoc(id)
+    if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
+    if (!capabilities(storage.roleFor(id, readSession(req))).canManageDocument) {
+      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    }
+    const body = await readJsonBody(req, MAX_TYPST_BODY)
+    try {
+      const pdf = await typst.rendre(String(body.source || ''), { images: uploads.lister(id) })
+      res.writeHead(200, {
+        'content-type': 'application/pdf',
+        'content-length': pdf.length,
+        'content-disposition': `attachment; filename="document.pdf"`,
+      })
+      return res.end(pdf)
+    } catch (err) {
+      if (err instanceof TypstError) return sendJson(res, err.status, { error: err.message })
+      throw err
+    }
   }
 
   // --- Images (16/09/2026, voir claude/etude-tableaux-images.md). Les

@@ -2,12 +2,12 @@
 // menu "Exporter" dans editor.js). Applique la feuille de style dans son
 // intégralité (police, taille, gras, italique, majuscules, alignement,
 // espacement, interligne, taille de page, marges, numéros de page) — même
-// principe que pdfExport.js. Contrairement à l'export PDF, l'éditeur lui-
+// principe que typstExport.js. Contrairement à l'export PDF, l'éditeur lui-
 // même n'applique plus du tout la feuille de style depuis le 13/09/2026
-// (voir styleConfig.js/stylePanel.js) : ce fichier et pdfExport.js sont les
+// (voir styleConfig.js/stylePanel.js) : ce fichier et typstExport.js sont les
 // deux seuls endroits qui la prennent réellement en compte.
 //
-// Comme dans mdExport.js/pdfExport.js, "l'état présent" du document est
+// Comme dans mdExport.js/typstExport.js, "l'état présent" du document est
 // pris tel quel : les marques insertion/suppression du suivi des
 // modifications ressortent en texte normal, rien n'est accepté ni rejeté
 // au passage.
@@ -129,7 +129,7 @@ function baseRunProps(block, sizePt) {
 }
 
 /** Les runs (morceaux de texte avec mise en forme) d'un nœud "inline"
- * ProseMirror — même détail que inlineToHtml (pdfExport.js) : les marques
+ * ProseMirror — même détail que typstExport.js : les marques
  * insertion/suppression du suivi des modifications ne changent rien au
  * texte (voir la note en tête de fichier). */
 function inlineToRuns(node, block, sizePt, extra = null) {
@@ -369,7 +369,7 @@ function blockToParagraphs(node, style, images) {
       ]
     }
     case 'horizontal_rule':
-      // Saut de page — même rôle qu'à l'export PDF (voir pdfExport.js) :
+      // Saut de page — même rôle qu'à l'export PDF (voir typstExport.js) :
       // ce nœud ne dessine jamais de trait, juste un saut de page.
       return [new Paragraph({ pageBreakBefore: true, children: [] })]
     default:

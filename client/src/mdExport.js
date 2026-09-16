@@ -141,7 +141,7 @@ function blockToLines(node) {
     case 'image':
       return [imageEnMarkdown(node), '']
     case 'horizontal_rule':
-      // Le Markdown n'a pas de notion de saut de page (voir pdfExport.js
+      // Le Markdown n'a pas de notion de saut de page (voir typstExport.js
       // pour ce que devient ce même nœud à l'export PDF) — la ligne
       // horizontale standard reste la meilleure équivalence ici.
       return ['---', '']

@@ -144,6 +144,18 @@ export class Uploads {
     return n
   }
 
+  /** Les images d'un document, pour le rendu PDF : le compilateur les veut
+   * en fichiers à côté de la source, pas en URL. */
+  lister(docId) {
+    const dossier = this._dossier(docId)
+    if (!existsSync(dossier)) return []
+    try {
+      return readdirSync(dossier).map((nom) => ({ nom, chemin: join(dossier, nom) }))
+    } catch {
+      return []
+    }
+  }
+
   /** Pour le back-office : combien d'images, quel poids, et quel document
    * approche le plus de sa limite. */
   statistiques() {
