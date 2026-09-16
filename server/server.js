@@ -380,6 +380,36 @@ async function handleApi(req, res, url) {
   if (pathname === '/api/style' && req.method === 'GET') {
     return sendJson(res, 200, storage.getStyle())
   }
+
+  // --- Mise en page d'un document (16/09/2026) ---
+  // La feuille de style était réglée pour toute l'instance, ce qui n'a de
+  // sens que si l'instance ne fait qu'un type de document. Elle descend au
+  // document ; `/api/style` garde son rôle mais change de sens — il définit
+  // désormais le **style par défaut**, dont héritent les documents qui
+  // n'ont pas le leur.
+  const docStyleMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/style$/)
+  if (docStyleMatch) {
+    const id = docStyleMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const role = storage.roleFor(id, readSession(req))
+    if (req.method === 'GET') {
+      // Lire la mise en page suit l'accès au document : un correcteur la
+      // voit, il ne la change pas.
+      if (storage.hasAccessControl(id) && !role) {
+        return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+      }
+      return sendJson(res, 200, { style: storage.getDocStyle(id), propre: storage.hasOwnStyle(id) })
+    }
+    if (req.method === 'PUT' || req.method === 'DELETE') {
+      if (!capabilities(role).canManageDocument) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+      if (req.method === 'DELETE') {
+        // Revenir au style par défaut de l'instance.
+        return sendJson(res, 200, { style: storage.resetDocStyle(id), propre: false })
+      }
+      const body = await readJsonBody(req)
+      return sendJson(res, 200, { style: storage.setDocStyle(id, body), propre: true })
+    }
+  }
   if (pathname === '/api/style' && req.method === 'PUT') {
     // Feuille de style partagée par toute l'instance, pas par document —
     // réservée aux administrateurs (voir ADMIN_EMAILS, auth.js), pas aux

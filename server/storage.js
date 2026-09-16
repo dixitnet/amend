@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync,
 import { appendFile as appendFileAsync } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomId } from './ws.js'
+import { fusionner, reduire } from '../shared/style.js'
 
 // How long updates sit in memory before being flushed to disk together —
 // see appendUpdate/_flush below (correctif 4.1.2 : écritures asynchrones).
@@ -36,57 +37,11 @@ const DEFAULT_MAX_UNCOMPACTED_OPS = 1000
 // est suivie de ~500 opérations de répit.
 const COMPACTION_TRIGGER_RATIO = 1.5
 
-// The shared feuille de style ("Mise en page" admin page) — one config for
-// the whole instance, not per document. Mirrors DEFAULT_STYLE in
-// client/src/styleConfig.js; kept in sync by hand (small, stable shape,
-// not worth a shared module between two separate npm packages for this).
-const DEFAULT_STYLE = {
-  page: {
-    size: 'A4',
-    marginTop: 25,
-    marginRight: 20,
-    marginBottom: 25,
-    marginLeft: 20,
-    pageNumbers: { enabled: false, startAt: 1 },
-  },
-  body: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', spaceBefore: 0, spaceAfter: 8, lineHeight: 1.15 },
-  heading: {
-    font: 'system',
-    bold: true,
-    italic: false,
-    uppercase: false,
-    align: 'left',
-    spaceBefore: 16,
-    spaceAfter: 8,
-    sizes: [24, 20, 17, 15, 13],
-  },
-}
-
-/** Merges a possibly-partial/possibly-stale style object over
- * DEFAULT_STYLE, one block at a time — so a config saved before some
- * future new field existed still comes back complete, instead of the
- * whole block silently vanishing. */
-function mergeStyle(partial) {
-  const p = partial || {}
-  return {
-    page: {
-      ...DEFAULT_STYLE.page,
-      ...(p.page || {}),
-      pageNumbers: { ...DEFAULT_STYLE.page.pageNumbers, ...((p.page && p.page.pageNumbers) || {}) },
-    },
-    body: { ...DEFAULT_STYLE.body, ...(p.body || {}) },
-    // "quote" retiré de la feuille de style (13/09/2026) — un ancien
-    // style.json qui en garde un n'en hérite plus, ignoré silencieusement.
-
-    heading: {
-      ...DEFAULT_STYLE.heading,
-      ...(p.heading || {}),
-      sizes: (p.heading && Array.isArray(p.heading.sizes) && p.heading.sizes.length === 5)
-        ? p.heading.sizes
-        : DEFAULT_STYLE.heading.sizes,
-    },
-  }
-}
+// La feuille de style ne vit plus ici : sa définition est dans
+// shared/style.js, importée telle quelle par le serveur ET par le client.
+// Avant le 16/09/2026, DEFAULT_STYLE était recopié à la main des deux
+// côtés, « petite forme stable, pas de quoi partager un module » — ça a
+// tenu jusqu'au jour où chaque niveau de titre a eu ses propres réglages.
 
 /** Durée de validité d'un lien d'invitation nominatif (choix du
  * 15/09/2026 : assez long pour survivre à un week-end ou à des vacances,
@@ -122,20 +77,72 @@ export class Storage {
     this._flushChain = new Map() // id -> Promise (tail of that doc's writes)
   }
 
+  /** Feuille de style par défaut de l'instance — celle que la page
+   * « Mise en page » règle, et dont héritent les documents qui n'ont pas
+   * la leur. Renvoyée complète (valeurs par défaut du code comprises). */
   getStyle() {
-    try {
-      return mergeStyle(JSON.parse(readFileSync(this.stylePath, 'utf8')))
-    } catch {
-      return DEFAULT_STYLE
-    }
+    return fusionner(this._lireStyle(this.stylePath))
   }
 
   setStyle(style) {
-    const merged = mergeStyle(style)
-    const tmp = this.stylePath + '.tmp'
-    writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf8')
-    renameSync(tmp, this.stylePath)
-    return merged
+    return this._ecrireStyle(this.stylePath, style)
+  }
+
+  /** Feuille de style d'un document (16/09/2026). Un fichier par document,
+   * à côté de son journal et de ses horodatages — surtout pas dans
+   * `docs.json`, que `_readRegistry` relit et analyse plusieurs fois par
+   * requête : à mille documents, un style de 840 octets chacun ferait
+   * bientôt un mégaoctet reparsé à chaque appel d'API. Celui-ci n'est lu
+   * qu'à l'ouverture du panneau et à l'export. */
+  _stylePath(id) {
+    return join(this.dataDir, `${id}.style.json`)
+  }
+
+  /** `true` si ce document a sa propre mise en page. Tant que c'est faux,
+   * il suit le style par défaut de l'instance — y compris quand celui-ci
+   * change. Dès qu'un éditeur y touche, elle devient la sienne et ne bouge
+   * plus : une feuille de style d'instance modifiée ne doit pas reflouer
+   * silencieusement sur un livre en cours. */
+  hasOwnStyle(id) {
+    return existsSync(this._stylePath(id))
+  }
+
+  /** La feuille de style effective d'un document : valeurs par défaut du
+   * code, puis style de l'instance, puis celui du document. */
+  getDocStyle(id) {
+    return fusionner(this._lireStyle(this.stylePath), this._lireStyle(this._stylePath(id)))
+  }
+
+  setDocStyle(id, style) {
+    return this._ecrireStyle(this._stylePath(id), style)
+  }
+
+  /** Repasse un document à l'héritage : on efface son fichier, il resuit le
+   * style par défaut de l'instance. */
+  resetDocStyle(id) {
+    const p = this._stylePath(id)
+    if (existsSync(p)) unlinkSync(p)
+    return this.getDocStyle(id)
+  }
+
+  _lireStyle(path) {
+    try {
+      return JSON.parse(readFileSync(path, 'utf8'))
+    } catch {
+      return null
+    }
+  }
+
+  /** On n'enregistre que les écarts aux valeurs par défaut (`reduire`) :
+   * un réglage qu'on n'a pas touché continue de suivre le défaut, et un
+   * réglage ajouté plus tard au modèle apparaît tout seul. Écriture
+   * atomique, comme le registre. */
+  _ecrireStyle(path, style) {
+    const complet = fusionner(style)
+    const tmp = path + '.tmp'
+    writeFileSync(tmp, JSON.stringify(reduire(complet), null, 2), 'utf8')
+    renameSync(tmp, path)
+    return complet
   }
 
   /** Liste d'attente : juste un empilement d'emails avec la date, pas de
