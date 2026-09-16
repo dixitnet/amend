@@ -141,7 +141,10 @@ function mountAppHome(root, email) {
   wrap.appendChild(form)
 
   const titreListe = document.createElement('h2')
-  titreListe.className = 'doc-list-title'
+  // Pas `doc-list-title` : cette classe désigne déjà le titre de chaque
+  // document dans la liste (voir plus bas). La réutiliser appliquait à
+  // chaque ligne la taille et la marge de ce titre de section.
+  titreListe.className = 'doc-list-heading'
   titreListe.textContent = 'Mes documents'
   wrap.appendChild(titreListe)
 

@@ -143,14 +143,30 @@ a { color: var(--accent); }
 }
 
 .doc-list { list-style: none; padding: 0; margin: 0; }
+/* Une grille plutôt que `space-between` (16/09/2026) : avec trois enfants de
+   largeur variable, la répartition à l'espace plaçait la date à une abscisse
+   différente à chaque ligne, et la liste paraissait s'étirer n'importe
+   comment. En colonnes, le titre prend la place qui reste, la date et
+   l'action s'alignent. La troisième colonne reste réservée même sans bouton
+   « Supprimer », pour que les dates restent alignées entre les documents
+   qu'on gère et ceux qu'on ne fait que relire. */
 .doc-list li {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 5.5em;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
+.doc-list li > .doc-date { text-align: right; white-space: nowrap; }
+.doc-list li > .delete-doc-btn { justify-self: end; }
+/* Le titre se tronque plutôt que de pousser la date hors de la ligne. */
+.doc-list-title > a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-list-title { min-width: 0; }
 .doc-list a { text-decoration: none; font-weight: 500; }
 .doc-list-title { display: flex; align-items: center; gap: 6px; }
 .doc-date { color: var(--muted); font-size: 13px; }
@@ -1232,8 +1248,10 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .btn-nouveau:hover { color: var(--fg); border-color: var(--fg); }
 .btn-nouveau:disabled { opacity: 0.5; cursor: default; }
 
-/* Titre de la liste, distinct du nom de l'application en tête de page. */
-.doc-list-title {
+/* Titre de la section, distinct du nom de l'application en tête de page —
+   et distinct de `.doc-list-title`, qui désigne le titre de chaque document
+   dans la liste. */
+.doc-list-heading {
   margin: 26px 0 10px;
   font-size: 15px;
   font-weight: 600;
