@@ -115,6 +115,56 @@ function isPureSplitStep(step) {
   return !hasText
 }
 
+/** Le caractère qu'une touche d'effacement doit réellement barrer, en
+ * **sautant ce qui est déjà barré** (17/09/2026).
+ *
+ * Sans ça, le curseur restait planté contre un passage barré et chaque
+ * touche visait le même caractère. Comme poser une marque déjà posée ne
+ * produit aucun pas, la transaction réécrite était vide, `rewriteForTracking`
+ * renvoyait `null`, et l'appelant appliquait alors la **transaction
+ * d'origine** : un retour arrière sur deux supprimait pour de bon le
+ * caractère barré, sans laisser de trace. Le suivi des modifications se
+ * contournait donc en appuyant deux fois sur la même touche — y compris
+ * pour un correcteur, qui n'est censé rien pouvoir retirer.
+ *
+ * On avance donc dans le sens de la frappe jusqu'au premier caractère
+ * encore vivant, sans sortir du bloc. `null` veut dire « il n'y a plus rien
+ * à barrer de ce côté ».
+ */
+function caractereAEffacer(state, from, to, versLArriere) {
+  const deletionType = state.schema.marks.deletion
+  const $pos = state.doc.resolve(from)
+  const debut = $pos.start()
+  const fin = $pos.end()
+  let f = from
+  let t = to
+  // Garde-fou : un document pathologique ne doit pas faire tourner cette
+  // boucle plus longtemps que le bloc lui-même.
+  for (let n = fin - debut; n >= 0; n--) {
+    if (f < debut || t > fin || f >= t) return null
+    if (!state.doc.rangeHasMark(f, t, deletionType)) return { from: f, to: t }
+    if (versLArriere) {
+      f -= 1
+      t -= 1
+    } else {
+      f += 1
+      t += 1
+    }
+  }
+  return null
+}
+
+/** Une transaction qui ne fait que déplacer le curseur. Sert quand il n'y a
+ * plus rien à barrer : on ne renvoie surtout pas `null`, qui laisserait
+ * passer la suppression d'origine. */
+function seulementLeCurseur(state, pos) {
+  const cible = Math.max(0, Math.min(pos, state.doc.content.size))
+  const out = state.tr
+  if (positionUtilisable(out.doc, cible)) out.setSelection(TextSelection.create(out.doc, cible))
+  out.setMeta('trackChangesInternal', true)
+  return out
+}
+
 /** Rewrites a plain top-level paragraph/heading split (Enter pressed
  * directly under the document — not inside a list item or blockquote, see
  * the depth check below) into a tracked one: the split happens for real
@@ -185,13 +235,32 @@ export function rewriteForTracking(state, tr, user) {
   const deletionType = state.schema.marks.deletion
   if (!insertionType || !deletionType) return null
 
+  // Une touche d'effacement (retour arrière ou suppression avant), par
+  // opposition à une frappe qui remplace une sélection : rien n'est
+  // inséré, et la sélection de départ était un simple curseur.
+  let cibleFrom = from
+  let cibleTo = to
+  let versLArriere = false
+  const effacement = slice.size === 0 && to > from && state.selection.empty
+  if (effacement) {
+    // Retour arrière : le curseur était à droite de ce qui disparaît.
+    versLArriere = state.selection.head === to
+    const cible = caractereAEffacer(state, from, to, versLArriere)
+    // Plus rien à barrer de ce côté : on déplace seulement le curseur, au
+    // bord du passage barré. Surtout pas `null`, qui laisserait passer la
+    // suppression d'origine.
+    if (!cible) return seulementLeCurseur(state, versLArriere ? from : to)
+    cibleFrom = cible.from
+    cibleTo = cible.to
+  }
+
   const ts = Date.now()
   const insMark = insertionType.create({ user: user.name, userColor: user.color, ts })
   const delMark = deletionType.create({ user: user.name, userColor: user.color, ts })
   const authorMark = state.schema.marks.authorColor?.create({ user: user.name, userColor: user.color })
   const out = state.tr
 
-  if (to > from) markRangeForTrackedDeletion(state, out, from, to, delMark)
+  if (cibleTo > cibleFrom) markRangeForTrackedDeletion(state, out, cibleFrom, cibleTo, delMark)
 
   // Position du curseur une fois la frappe appliquée — calculée au moment
   // où l'on insère, pas après coup : `mapping.map(from)` rejoué à la fin
@@ -201,7 +270,7 @@ export function rewriteForTracking(state, tr, user) {
   let curseur = null
 
   if (slice.size > 0) {
-    const insPos = out.mapping.map(from)
+    const insPos = out.mapping.map(cibleFrom)
     const text = slice.content.textBetween(0, slice.content.size, '\n')
     if (text.length > 0) {
       // Use `insert`, not `insertText`: `insertText` looks at
@@ -217,11 +286,26 @@ export function rewriteForTracking(state, tr, user) {
       curseur = insEnd
     }
   }
-  // Rien d'inséré (retour arrière sur une sélection) : le curseur se pose
-  // après le passage barré, là où il serait si le texte avait disparu.
-  if (curseur === null && to > from) curseur = out.mapping.map(to)
+  // Rien d'inséré : le curseur se pose du côté vers lequel on efface — à
+  // gauche du passage barré pour un retour arrière, à droite pour une
+  // suppression avant. C'est ce qui permet d'appuyer plusieurs fois de
+  // suite : chaque frappe mord sur le caractère suivant au lieu de revenir
+  // buter sur celui qu'on vient de barrer.
+  //
+  // Une sélection effacée compte comme un retour arrière : le curseur se
+  // pose **avant** le passage barré. C'est ce qui rend le résultat
+  // identique quel que soit le chemin — effacer une sélection puis taper
+  // doit donner le même texte que taper directement par-dessus elle, et
+  // dans le même ordre à l'écran. Seule la suppression avant pousse le
+  // curseur de l'autre côté.
+  if (curseur === null && cibleTo > cibleFrom) {
+    curseur = out.mapping.map(effacement && !versLArriere ? cibleTo : cibleFrom)
+  }
 
-  if (out.steps.length === 0) return null
+  // Une réécriture qui ne produit aucun pas ne doit **jamais** renvoyer
+  // `null` quand il s'agissait d'un effacement : l'appelant appliquerait
+  // alors la suppression d'origine, telle quelle, hors suivi.
+  if (out.steps.length === 0) return effacement ? seulementLeCurseur(state, versLArriere ? cibleFrom : cibleTo) : null
   // Le curseur va **après ce qu'on vient de taper** (17/09/2026).
   //
   // Sans ça, la sélection d'origine était simplement reportée à travers les

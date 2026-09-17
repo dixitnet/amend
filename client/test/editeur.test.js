@@ -74,13 +74,87 @@ test('remplacer d’un coup (collage simple) donne le même résultat que frappe
   assert.ok(colle.state.selection.empty)
 })
 
-test('effacer une sélection la barre et pose le curseur après', () => {
+test('effacer une sélection la barre et pose le curseur avant', () => {
   const e = editeur(doc('Le chat dort.'))
   e.selection(4, 8).effacerAvant()
   assert.equal(e.texte(), 'Le chat dort.', 'le texte barré doit rester en place')
   assert.equal(e.texteAccepte(), 'Le  dort.')
   assert.ok(e.state.selection.empty)
-  assert.equal(e.state.selection.from, 8)
+  assert.equal(e.state.selection.from, 4)
+})
+
+test('effacer puis taper donne exactement ce que taper par-dessus donne', () => {
+  // Deux chemins pour le même geste : ils doivent produire le même
+  // document, dans le même ordre à l'écran. Sinon l'un des deux passe pour
+  // un bug — et c'est celui qu'on a sous les yeux.
+  const efface = editeur(doc('Le chat dort.')).selection(4, 8).effacerAvant().taper('chien')
+  const remplace = editeur(doc('Le chat dort.')).selection(4, 8).taper('chien')
+  assert.equal(efface.texte(), remplace.texte())
+  assert.equal(efface.texteAccepte(), 'Le chien dort.')
+})
+
+// ============================================== retour arrière, à répétition
+
+test('appuyer plusieurs fois sur retour arrière efface plusieurs caractères', () => {
+  // Le vrai défaut, et le plus grave de la journée : le curseur restait
+  // contre le passage barré, chaque frappe visait le même caractère, la
+  // transaction réécrite était vide — et l'appelant appliquait alors la
+  // suppression d'origine. **Un retour arrière sur deux supprimait le
+  // texte barré pour de bon**, sans laisser de trace, y compris pour un
+  // correcteur qui n'est censé rien pouvoir retirer.
+  const e = editeur(doc('Le chat dort.'))
+  e.selection(9)
+  for (let i = 0; i < 5; i++) e.effacerAvant()
+  assert.equal(e.texte(), 'Le chat dort.', 'aucun caractère ne doit disparaître du document')
+  assert.equal(e.texteAccepte(), 'Le dort.', 'cinq frappes doivent barrer cinq caractères')
+  assert.equal(e.marques().length, 1)
+})
+
+test('la suppression avant saute elle aussi ce qui est déjà barré', () => {
+  const e = editeur(doc('Le chat dort.'))
+  e.selection(4)
+  for (let i = 0; i < 4; i++) e.effacerApres()
+  assert.equal(e.texte(), 'Le chat dort.')
+  assert.equal(e.texteAccepte(), 'Le  dort.')
+})
+
+test('retour arrière puis suppression avant se suivent sans se marcher dessus', () => {
+  const e = editeur(doc('Le chat dort.'))
+  e.selection(9).effacerAvant().effacerApres()
+  assert.equal(e.texte(), 'Le chat dort.')
+  assert.equal(e.texteAccepte(), 'Le chatort.', 'chacune doit mordre sur un caractère vivant')
+})
+
+test('effacer tout un bloc ne supprime jamais rien pour de bon', () => {
+  const e = editeur(doc('abc'))
+  e.selection(4)
+  // Plus de frappes que de caractères : les deux dernières n'ont plus rien
+  // à barrer, et ne doivent surtout pas se rabattre sur la suppression
+  // d'origine.
+  for (let i = 0; i < 6; i++) e.effacerAvant()
+  assert.equal(e.texte(), 'abc')
+  assert.equal(e.texteAccepte(), '')
+  valide(e)
+})
+
+test('sans suivi, le retour arrière efface pour de bon', () => {
+  const e = editeur(doc('Le chat dort.'), { suivi: false })
+  e.selection(9).effacerAvant().effacerAvant()
+  assert.equal(e.texte(), 'Le chadort.')
+  assert.equal(e.marques().length, 0)
+})
+
+test('effacer ce qu’on vient de taper le retire vraiment', () => {
+  const e = editeur(doc('Le chat dort.'))
+  e.selection(9).taper('XYZ')
+  assert.equal(e.texteAccepte(), 'Le chat XYZdort.')
+  e.effacerAvant().effacerAvant()
+  assert.equal(e.texteAccepte(), 'Le chat Xdort.', 'une insertion en attente disparaît, elle ne se barre pas')
+  assert.ok(!e.marques().some((m) => m.startsWith('-')))
+  // Une frappe de plus mord sur le texte d'origine, qui lui se barre.
+  e.effacerAvant().effacerAvant()
+  assert.equal(e.texte(), 'Le chat dort.')
+  assert.equal(e.texteAccepte(), 'Le chatdort.')
 })
 
 test('sans suivi, remplacer efface vraiment', () => {

@@ -138,6 +138,13 @@ export function editeur(document, { suivi = true, user = UTILISATEUR } = {}) {
       else dispatcher(state.tr.delete(from, to))
       return this
     },
+    /** Suppression avant (touche Suppr / fn+Retour sur un Mac). */
+    effacerApres() {
+      const { from, to, empty } = state.selection
+      if (empty) dispatcher(state.tr.delete(from, Math.min(state.doc.content.size, from + 1)))
+      else dispatcher(state.tr.delete(from, to))
+      return this
+    },
     suivi(actif) {
       setTrackChangesEnabled(view, actif)
       return this
