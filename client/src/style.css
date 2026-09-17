@@ -664,8 +664,16 @@ span.author-color {
 }
 .change-item.courante .change-text { display: block; overflow: visible; }
 .change-deletion .change-text { text-decoration: line-through; opacity: 0.7; }
+/* Les actions apparaissent sur l'entrée courante **et au survol** : on
+   accepte souvent une modification qu'on vient de lire sans avoir cliqué
+   dessus, et exiger un clic préalable ajouterait un geste à celui qui
+   relit une liste entière. Le survol suffit à dire « celle-ci » sans rien
+   déplacer. */
 .change-actions { display: none; gap: 6px; margin-top: 6px; }
-.change-item.courante .change-actions { display: flex; }
+.change-item.courante .change-actions,
+.change-item:hover .change-actions { display: flex; }
+/* Idem pour le texte replié : le survol le déroule, sans attendre un clic. */
+.change-item:hover .change-text { display: block; overflow: visible; }
 
 button.btn-accept, button.btn-reject, button.btn-primary, .btn-preset {
   border: none;
@@ -1288,9 +1296,19 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.carte-commentaire.active .carte-texte { display: block; overflow: visible; }
+/* Même règle que pour les modifications : le survol déroule la carte et
+   montre ses actions, sans obliger à cliquer d'abord.
+   L'empilement, lui, est calculé sur les hauteurs repliées (voir
+   commentsGutter.js) : une carte déroulée au survol dépasse donc sur sa
+   voisine. On la fait passer au-dessus plutôt que de recalculer tout
+   l'empilement à chaque mouvement de souris — c'est transitoire, et
+   recalculer ferait sauter la pile sous le curseur. */
+.carte-commentaire:hover { z-index: 3; }
+.carte-commentaire.active .carte-texte,
+.carte-commentaire:hover .carte-texte { display: block; overflow: visible; }
 .carte-actions { display: none; gap: 6px; margin-top: 6px; }
-.carte-commentaire.active .carte-actions { display: flex; }
+.carte-commentaire.active .carte-actions,
+.carte-commentaire:hover .carte-actions { display: flex; }
 .carte-actions button {
   width: auto;
   padding: 3px 8px;
