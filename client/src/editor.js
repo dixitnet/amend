@@ -55,6 +55,9 @@ import { messageFugace } from './images.js'
 function buildCursor(user) {
   const cursor = document.createElement('span')
   cursor.classList.add('remote-cursor')
+  // Sert à retrouver le curseur d'une personne précise quand on clique sur
+  // sa pastille dans le bandeau (presence.js).
+  cursor.dataset.user = user.name
   cursor.style.setProperty('--user-color', user.color)
   const label = document.createElement('span')
   label.classList.add('remote-cursor-label')
@@ -560,7 +563,14 @@ export function mountEditor(root, docId, user, docMeta) {
     if (document.activeElement !== titleInput) titleInput.value = e.detail.title
   })
 
-  const presence = mountPresenceBar(presenceContainer, provider)
+  const presence = mountPresenceBar(presenceContainer, provider, {
+    // `view` n'existe pas encore ici : la barre la demandera au moment du
+    // clic, pas avant.
+    getView: () => view,
+    ydoc,
+    type: yXml,
+    surAbsence: (message) => messageFugace(message),
+  })
 
   // Rempli plus bas, une fois la vue et les contrôles construits : ce
   // greffon n'existe que pour donner à la barre d'outils un point

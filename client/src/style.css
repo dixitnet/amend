@@ -448,6 +448,9 @@ a { color: var(--accent); }
 /* "Qui est connecté" (voir presence.js) — un rond par connexion, pas par
    personne (voir le constat 1.4 du rapport de fiabilité du 12/09/2026). */
 .presence-bar { display: flex; align-items: center; gap: 4px; }
+/* Une pastille est un bouton depuis le 17/09/2026 : elle emmène au curseur
+   de la personne. Elle garde exactement l'apparence qu'elle avait, plus un
+   signe qu'on peut cliquer. */
 .presence-avatar {
   display: inline-flex;
   align-items: center;
@@ -455,6 +458,7 @@ a { color: var(--accent); }
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+  padding: 0;
   border-radius: 50%;
   border: 1px solid var(--bg);
   background: var(--user-color, var(--accent));
@@ -462,6 +466,22 @@ a { color: var(--accent); }
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.presence-avatar:hover { outline: 2px solid var(--user-color, var(--accent)); outline-offset: 1px; }
+/* Sa propre pastille ne mène nulle part : on est déjà à son curseur. */
+.presence-avatar.presence-moi { cursor: default; }
+.presence-avatar.presence-moi:hover { outline: none; }
+
+/* Le curseur visé clignote deux secondes : arriver au bon endroit sans
+   savoir lequel des curseurs on cherchait ne sert à rien. */
+.remote-cursor-vise { animation: curseur-vise 0.6s ease-in-out 3; }
+@keyframes curseur-vise {
+  0%, 100% { transform: scaleX(1); filter: none; }
+  50% { transform: scaleX(3); filter: brightness(1.4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .remote-cursor-vise { animation: none; outline: 2px solid var(--user-color); }
 }
 
 .editor-container {
