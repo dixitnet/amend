@@ -338,6 +338,9 @@ a { color: var(--accent); }
   color: var(--fg);
   cursor: pointer;
 }
+/* Le zoom est en bout de barre de mise en forme (17/09/2026), poussé à
+   droite : c'est un réglage de lecture, pas un outil de rédaction. */
+.zoom-select { margin-left: auto; }
 .heading-select, .zoom-select {
   height: 30px;
   border: 1px solid var(--border);
@@ -354,24 +357,21 @@ a { color: var(--accent); }
    présenter comme un bouton, pas comme un simple compteur. */
 .tk-count.cliquable { cursor: pointer; user-select: none; }
 .tk-count.cliquable:hover { text-decoration: underline; }
-/* Largeur fixe (13/09/2026) : le texte change ("à jour" / "enregistrement…"
-   / "hors connexion — modifications non envoyées"), et sans largeur fixe
-   ce changement de largeur se répercutait sur .doc-title (le seul élément
-   flexible de la barre, flex:1) et donc faisait visiblement bouger tous
-   les boutons entre le titre et cet indicateur à chaque changement d'état.
-   290px : mesuré sur le texte le plus long à la taille réelle, avec un peu
-   de marge ; text-overflow en secours si jamais une police/un zoom donne
-   un rendu plus large que prévu. */
+/* Voyant d'état (17/09/2026). Avant, une phrase de 290 px de large
+   réservée en permanence dans le bandeau — la largeur du plus long des
+   messages, pour un état qui est « à jour » presque tout le temps. Le
+   détail vit maintenant dans l'infobulle (et dans aria-label). */
 .connection-status {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  width: 290px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--muted);
+  cursor: default;
 }
-.connection-status.online { color: var(--ok); }
-.connection-status.pending { color: var(--danger); }
+.connection-status.etat-ok { background: var(--ok); }
+.connection-status.etat-attente { background: var(--muted); }
+.connection-status.etat-alerte { background: var(--danger); }
 
 /* Menus déroulants du bandeau (17/09/2026) — « Partager » (accès +
    exports, auparavant deux entrées séparées) et le compte. Un seul jeu de

@@ -246,6 +246,7 @@ export function mountEditor(root, docId, user, docMeta) {
 
   const status = document.createElement('span')
   status.className = 'connection-status'
+  status.setAttribute('role', 'status')
   zoneGauche.appendChild(status)
 
   // --- Zone centre : qui est là --------------------------------------------
@@ -284,8 +285,9 @@ export function mountEditor(root, docId, user, docMeta) {
   wordCount.className = 'word-count'
   groupeTexte.appendChild(wordCount)
 
-  // 2. La forme. `zoomSelect` s'y insère plus bas : il a besoin du conteneur
-  // de l'éditeur, qui n'existe pas encore ici.
+  // 2. La forme. (Le zoom n'est pas ici : il agrandit le texte à l'écran,
+  // il ne change rien au document — sa place est dans la barre de mise en
+  // forme, au-dessus du texte, pas dans le bandeau du document.)
   const groupeForme = document.createElement('div')
   groupeForme.className = 'banniere-groupe'
 
@@ -462,7 +464,10 @@ export function mountEditor(root, docId, user, docMeta) {
       // tant pis, le réglage ne sera pas mémorisé la prochaine fois.
     }
   })
-  groupeForme.insertBefore(zoomSelect, miseEnPageBtn)
+  // Le zoom appartient à la colonne du texte, pas au bandeau (17/09/2026) :
+  // c'est un réglage de confort de lecture, propre à cet écran et à cette
+  // personne — il ne touche ni au document ni à ce qui en sortira.
+  toolbar.appendChild(zoomSelect)
 
   const sidebar = document.createElement('div')
   sidebar.className = 'sidebar'
@@ -503,20 +508,35 @@ export function mountEditor(root, docId, user, docMeta) {
   // "à jour" / "enregistrement…" / "modifications non envoyées" rather than
   // just connecté/reconnexion — see provider.js's saving/hasPendingLocalChanges
   // bookkeeping (correctif 4.2.3, rapport de fiabilité du 12/09/2026).
+  // Un voyant, plus une phrase (17/09/2026). Le texte complet occupait
+  // 290 px fixes dans le bandeau — la largeur du plus long des messages,
+  // réservée en permanence pour un état qui est « à jour » 99 % du temps.
+  // Le détail passe en infobulle : il reste disponible quand on en a
+  // besoin, c'est-à-dire quand le voyant n'est pas vert.
   function renderConnectionStatus() {
-    status.classList.toggle('online', provider.connected)
-    status.classList.toggle('pending', !provider.connected && provider.hasPendingLocalChanges)
+    let etat = 'ok'
+    let texte = 'À jour'
     if (!provider.connected) {
-      status.textContent = provider.hasPendingLocalChanges
-        ? '○ hors connexion — modifications non envoyées'
-        : provider.likelyRejected
-          ? "○ connexion refusée (accès retiré ?)"
-          : '○ reconnexion…'
+      if (provider.hasPendingLocalChanges) {
+        etat = 'alerte'
+        texte = 'Hors connexion — modifications non envoyées'
+      } else if (provider.likelyRejected) {
+        etat = 'alerte'
+        texte = 'Connexion refusée (accès retiré ?)'
+      } else {
+        etat = 'attente'
+        texte = 'Reconnexion…'
+      }
     } else if (provider.saving) {
-      status.textContent = '● enregistrement…'
-    } else {
-      status.textContent = '● à jour'
+      etat = 'attente'
+      texte = 'Enregistrement…'
     }
+    status.classList.toggle('etat-ok', etat === 'ok')
+    status.classList.toggle('etat-attente', etat === 'attente')
+    status.classList.toggle('etat-alerte', etat === 'alerte')
+    status.title = texte
+    // Le voyant seul ne dirait rien à un lecteur d'écran.
+    status.setAttribute('aria-label', texte)
   }
   provider.addEventListener('status', renderConnectionStatus)
   renderConnectionStatus()
