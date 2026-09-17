@@ -207,9 +207,9 @@ const LIBELLES_ROLE = {
 }
 
 function libelleRole(doc) {
-  if (doc.jeSuisProprietaire) return 'propriétaire'
+  if (doc.jeSuisProprietaire) return { cle: 'proprietaire', libelle: 'propriétaire' }
   if (!doc.myRole) return null
-  return LIBELLES_ROLE[doc.myRole] || doc.myRole
+  return { cle: doc.myRole, libelle: LIBELLES_ROLE[doc.myRole] || doc.myRole }
 }
 
 /** Un bouton qui demande confirmation par un second clic, plutôt qu'une
@@ -387,12 +387,10 @@ function mountAppHome(root, email) {
       const badge = libelleRole(doc)
       if (badge) {
         const el = document.createElement('span')
-        el.className = 'role-badge'
-        // Le badge apparaît désormais sur chaque ligne : celui qui dit
-        // « propriétaire » reste discret, sans quoi la liste entière
-        // crierait la même chose.
-        if (doc.jeSuisProprietaire) el.classList.add('role-proprietaire')
-        el.textContent = badge
+        // Même forme pour tous, la couleur seule distingue — voir
+        // .role-badge dans style.css.
+        el.className = `role-badge role-${badge.cle}`
+        el.textContent = badge.libelle
         titleWrap.appendChild(el)
       }
 

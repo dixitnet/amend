@@ -831,6 +831,10 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 }
 .share-btn:hover { border-color: var(--accent); }
 
+/* Le badge de rôle — même forme pour tous, la couleur seule distingue
+   (17/09/2026). Une famille par rôle, assez proche des couleurs de
+   participants pour ne pas dépayser, assez pâle pour rester un badge et
+   non un bouton. « lecteur » est déjà là, en attendant le rôle. */
 .role-badge {
   font-size: 11px;
   border-radius: 4px;
@@ -839,11 +843,18 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   background: var(--border);
   color: var(--muted);
   vertical-align: middle;
+  white-space: nowrap;
 }
-/* « Propriétaire » est le cas le plus fréquent dans sa propre liste : il se
-   fait discret, là où un rôle subi sur le document d'un autre mérite d'être
-   remarqué. */
-.role-badge.role-proprietaire { background: transparent; border: 1px solid var(--border); }
+.role-badge.role-proprietaire { background: #e3ebda; color: #3f5531; }
+.role-badge.role-editeur { background: #dde5ee; color: #34506f; }
+.role-badge.role-correcteur { background: #f6e6dd; color: #8a4a30; }
+.role-badge.role-lecteur { background: #e7e4ee; color: #55467a; }
+@media (prefers-color-scheme: dark) {
+  .role-badge.role-proprietaire { background: #2c3324; color: #a9c68a; }
+  .role-badge.role-editeur { background: #23303d; color: #8fb4d8; }
+  .role-badge.role-correcteur { background: #3a2a23; color: #e0a58f; }
+  .role-badge.role-lecteur { background: #2e2940; color: #c0a9e0; }
+}
 
 .auth-status { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
 .auth-status a { margin-left: 6px; }

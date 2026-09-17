@@ -5,6 +5,15 @@
 // nommant le document, et son lien ouvre le document directement. Voir
 // claude/conception-gestion-utilisateurs.md (projet Amend).
 
+// Les libellés des rôles, dans la langue de l'interface. Un rôle inconnu
+// s'affiche tel quel plutôt que de disparaître — c'est ce qui fera
+// apparaître « lecteur » sans toucher à ce fichier.
+const LIBELLES_ROLE = {
+  editeur: 'éditeur',
+  correcteur: 'correcteur',
+  lecteur: 'lecteur',
+}
+
 export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
   const overlay = document.createElement('div')
   overlay.className = 'name-modal-overlay'
@@ -55,18 +64,18 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
     for (const entry of access) {
       const li = document.createElement('li')
       const label = document.createElement('span')
-      label.textContent = `${entry.email} — ${entry.role === 'editeur' ? 'éditeur' : 'correcteur'}`
+      label.textContent = entry.email
       li.appendChild(label)
 
-      // Le propriétaire (17/09/2026) : celui qui porte le document. Ce
-      // n'est pas un rôle de plus — il est toujours éditeur — mais deux
-      // droits que personne d'autre n'a : supprimer, et transmettre.
-      if (entry.proprietaire) {
-        const badge = document.createElement('span')
-        badge.className = 'role-badge role-proprietaire'
-        badge.textContent = 'propriétaire'
-        li.appendChild(badge)
-      }
+      // Un seul badge par personne, comme dans « Mes documents » : la
+      // propriété l'emporte sur le rôle, puisqu'un propriétaire est
+      // éditeur de toute façon. Même forme, même couleur par rôle d'un
+      // écran à l'autre.
+      const cle = entry.proprietaire ? 'proprietaire' : entry.role
+      const roleBadge = document.createElement('span')
+      roleBadge.className = `role-badge role-${cle}`
+      roleBadge.textContent = entry.proprietaire ? 'propriétaire' : LIBELLES_ROLE[entry.role] || entry.role
+      li.appendChild(roleBadge)
 
       // « En attente » = invitée, jamais venue. L'accès existe déjà côté
       // serveur ; ce badge dit seulement que la personne n'a pas encore
