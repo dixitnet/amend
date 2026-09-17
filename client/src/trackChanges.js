@@ -1,4 +1,4 @@
-import { Plugin, PluginKey } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import { canJoin } from 'prosemirror-transform'
 import { ySyncPluginKey } from 'y-prosemirror'
@@ -193,6 +193,13 @@ export function rewriteForTracking(state, tr, user) {
 
   if (to > from) markRangeForTrackedDeletion(state, out, from, to, delMark)
 
+  // Position du curseur une fois la frappe appliquée — calculée au moment
+  // où l'on insère, pas après coup : `mapping.map(from)` rejoué à la fin
+  // reporte la position *au-delà* de l'insertion, et le curseur atterrit
+  // dans le texte barré (deux lettres sur trois entrelacées, constaté au
+  // banc d'essai).
+  let curseur = null
+
   if (slice.size > 0) {
     const insPos = out.mapping.map(from)
     const text = slice.content.textBetween(0, slice.content.size, '\n')
@@ -207,12 +214,34 @@ export function rewriteForTracking(state, tr, user) {
       const insEnd = insPos + text.length
       out.addMark(insPos, insEnd, insMark)
       if (authorMark) out.addMark(insPos, insEnd, authorMark)
+      curseur = insEnd
     }
   }
+  // Rien d'inséré (retour arrière sur une sélection) : le curseur se pose
+  // après le passage barré, là où il serait si le texte avait disparu.
+  if (curseur === null && to > from) curseur = out.mapping.map(to)
 
   if (out.steps.length === 0) return null
+  // Le curseur va **après ce qu'on vient de taper** (17/09/2026).
+  //
+  // Sans ça, la sélection d'origine était simplement reportée à travers les
+  // pas, et comme le texte remplacé n'est pas retiré mais barré, elle
+  // continuait de le couvrir : on tapait par-dessus un mot, et le mot
+  // restait sélectionné, en surbrillance, curseur au mauvais endroit. Tapé
+  // en suivi de modifications, remplacer un mot doit se sentir exactement
+  // comme le remplacer sans suivi — c'est le texte qui change de forme, pas
+  // le geste.
+  if (curseur != null && positionUtilisable(out.doc, curseur)) {
+    out.setSelection(TextSelection.create(out.doc, curseur))
+  }
   out.setMeta('trackChangesInternal', true)
   return out
+}
+
+/** Une position où l'on peut réellement poser un curseur de texte. */
+function positionUtilisable(doc, pos) {
+  if (pos < 0 || pos > doc.content.size) return false
+  return doc.resolve(pos).parent.isTextblock
 }
 
 /**
@@ -291,6 +320,9 @@ export function richPastePlugin(getUser) {
           insertLine(lines[i])
         }
 
+            // Même règle que pour la frappe : le curseur se pose après ce qui
+        // vient d'être collé, pas sur le passage barré qu'il remplace.
+        if (pos >= 0 && pos <= tr.doc.content.size) tr.setSelection(TextSelection.create(tr.doc, pos))
         tr.setMeta('trackChangesInternal', true)
         view.dispatch(tr)
         return true
@@ -450,11 +482,39 @@ export function acceptChange(view, change) {
     if (node) tr.setNodeMarkup(change.from, null, { ...node.attrs, trackedBreak: null })
   } else {
     const markType = view.state.schema.marks[change.type]
-    if (change.type === 'deletion') tr.delete(change.from, change.to)
+    if (change.type === 'deletion') retirerTexte(view.state, tr, change.from, change.to)
     else tr.removeMark(change.from, change.to, markType)
   }
   tr.setMeta('trackChangesInternal', true)
   view.dispatch(tr)
+}
+
+/** Retire [from, to) — et le **bloc entier** si ce passage en était tout le
+ * contenu (17/09/2026).
+ *
+ * Sans ça, une réécriture de paragraphe par l'IA (voir BIG_REWRITE_RATIO :
+ * l'ancien paragraphe barré, le nouveau ajouté en dessous) laissait à
+ * l'acceptation un paragraphe vide à la place de l'ancien — un saut de
+ * ligne en trop, à chaque paragraphe réécrit, que personne n'avait demandé.
+ * Le rejet laissait symétriquement un paragraphe vide à la place du
+ * nouveau.
+ *
+ * Un bloc vide volontairement laissé par quelqu'un n'est pas concerné : on
+ * ne retire que le bloc dont on vient de vider le contenu. Et jamais le
+ * dernier bloc du document, qui ne peut pas ne pas exister. */
+function retirerTexte(state, tr, from, to) {
+  const $from = state.doc.resolve(from)
+  const profondeur = $from.depth
+  if (profondeur > 0 && state.doc.childCount > 1) {
+    const debutContenu = $from.start(profondeur)
+    const finContenu = $from.end(profondeur)
+    const memeBloc = to <= finContenu
+    if (memeBloc && from === debutContenu && to === finContenu) {
+      tr.delete($from.before(profondeur), $from.after(profondeur))
+      return
+    }
+  }
+  tr.delete(from, to)
 }
 
 export function rejectChange(view, change) {
@@ -476,7 +536,7 @@ export function rejectChange(view, change) {
     }
   } else {
     const markType = view.state.schema.marks[change.type]
-    if (change.type === 'insertion') tr.delete(change.from, change.to)
+    if (change.type === 'insertion') retirerTexte(view.state, tr, change.from, change.to)
     else tr.removeMark(change.from, change.to, markType)
   }
   tr.setMeta('trackChangesInternal', true)
@@ -526,7 +586,10 @@ function replayDiffOps(tr, schema, blockFrom, ops, insMark, delMark, authorMark)
       changed = true
     } else if (op.type === 'insert') {
       const insPos = tr.mapping.map(srcPos)
-      tr.insert(insPos, schema.text(op.text))
+      // Un nœud texte ProseMirror ne contient pas de saut de ligne : au
+      // niveau d'un diff fin (quelques mots), un saut venu de la
+      // suggestion se lit comme une espace.
+      tr.insert(insPos, schema.text(op.text.replace(/[\r\n]+/g, ' ')))
       tr.addMark(insPos, insPos + op.text.length, insMark)
       if (authorMark) tr.addMark(insPos, insPos + op.text.length, authorMark)
       changed = true
@@ -554,6 +617,25 @@ function diffChangeRatio(oldText, newText, ops) {
  * type — heading stays a heading) right after it, carrying the new text as
  * one clean insertion. Mutates `tr`. Returns true if anything changed.
  */
+/** Le texte d'une suggestion, découpé en blocs.
+ *
+ * L'IA répond parfois en plusieurs paragraphes là où il n'y en avait qu'un.
+ * Ce texte était jusqu'ici inséré tel quel dans **un seul nœud texte**,
+ * sauts de ligne compris — or un nœud texte ProseMirror n'a pas de sauts de
+ * ligne : le document devenait invalide et la coupure n'apparaissait nulle
+ * part. Une ligne, un bloc. */
+function blocsDepuisTexte(schema, nodeType, nodeAttrs, texte, insMark, authorMark) {
+  const marks = authorMark ? [insMark, authorMark] : [insMark]
+  return String(texte)
+    .split(/\r\n|\r|\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    // `trackedBreak: null` : les blocs ajoutés par l'IA portent déjà leur
+    // marque d'insertion, le saut qui les sépare n'est pas une
+    // modification de plus à relire.
+    .map((ligne) => nodeType.create({ ...nodeAttrs, trackedBreak: null }, schema.text(ligne, marks)))
+}
+
 function applyParagraphDiff(tr, schema, block, newText, insMark, delMark, authorMark) {
   const oldText = block.text
   if (oldText === newText) return false
@@ -566,9 +648,9 @@ function applyParagraphDiff(tr, schema, block, newText, insMark, delMark, author
       tr.addMark(tr.mapping.map(block.textFrom), tr.mapping.map(block.textTo), delMark)
     }
     const insertAt = tr.mapping.map(block.nodeEnd)
-    const marks = authorMark ? [insMark, authorMark] : [insMark]
-    const newNode = block.nodeType.create(block.nodeAttrs, schema.text(newText, marks))
-    tr.insert(insertAt, newNode)
+    const noeuds = blocsDepuisTexte(schema, block.nodeType, block.nodeAttrs, newText, insMark, authorMark)
+    if (!noeuds.length) return block.textTo > block.textFrom
+    tr.insert(insertAt, noeuds)
     return true
   }
 
@@ -662,12 +744,25 @@ export function insertAISuggestion(view, from, to, suggestion, aiUser) {
         tr.addMark(from, to, delMark)
         changed = true
       }
-      if (suggestion.length > 0) {
-        const insPos = tr.mapping.map(to)
-        tr.insert(insPos, schema.text(suggestion))
-        tr.addMark(insPos, insPos + suggestion.length, insMark)
-        if (authorMark) tr.addMark(insPos, insPos + suggestion.length, authorMark)
-        changed = true
+      // Les nouveaux paragraphes vont **après le dernier bloc touché**, pas
+      // au milieu du texte barré : l'ancien se lit d'un bloc, le nouveau
+      // aussi. Avant, la suggestion entière était injectée dans un seul
+      // nœud texte, au milieu de la sélection, sauts de ligne compris.
+      const dernier = blocks[blocks.length - 1]
+      const modele = blocks[0]
+      if (suggestion.trim() && dernier && modele) {
+        const noeuds = blocsDepuisTexte(
+          schema,
+          modele.nodeType,
+          modele.nodeAttrs,
+          suggestion,
+          insMark,
+          authorMark
+        )
+        if (noeuds.length) {
+          tr.insert(tr.mapping.map(dernier.nodeEnd), noeuds)
+          changed = true
+        }
       }
     }
   }
