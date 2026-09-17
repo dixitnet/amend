@@ -31,7 +31,7 @@ const BASE = `http://localhost:${PORT}`
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
 const { Storage } = await import('../storage.js')
-const { rendre, peutPublier } = await import('../publication.js')
+const { rendre, peutPublier, nomDePage, NOM_PAGE } = await import('../publication.js')
 await waitForServer()
 
 function waitForServer() {
@@ -171,6 +171,7 @@ test('la page se lit sans session, et son adresse ne dit pas le document', async
   const r = await (await publier(admin, doc.id, { titre: 'Mon document', blocs: texte('Bonjour le web') })).json()
 
   assert.ok(r.url.includes('/p/'))
+  assert.match(r.url.split('/p/')[1], NOM_PAGE, 'l’adresse publique doit être un nom de trois mots')
   assert.ok(!r.url.includes(doc.id), 'l’adresse publique ne doit pas révéler l’identifiant du document')
 
   // Sans le moindre cookie.
@@ -203,11 +204,39 @@ test('retirer la page la fait disparaître pour de bon', async () => {
   assert.equal((await fetch(r.url)).status, 404)
 })
 
+test('le nom d’une page est fait de trois mots distincts', () => {
+  const vus = new Set()
+  for (let i = 0; i < 300; i++) {
+    const nom = nomDePage()
+    assert.match(nom, NOM_PAGE, `nom hors format : ${nom}`)
+    const mots = nom.split('-')
+    assert.equal(new Set(mots).size, 3, `un mot répété : ${nom}`)
+    vus.add(nom)
+  }
+  // Trois cents tirages sur 4,7 milliards de combinaisons : deux fois le
+  // même nom signalerait un générateur cassé, pas de la malchance.
+  assert.equal(vus.size, 300)
+})
+
 test('une adresse de publication inventée ne révèle rien', async () => {
-  const res = await fetch(`${BASE}/p/aaaaaaaaaaaaaaaa`)
+  const res = await fetch(`${BASE}/p/jamais-publie-ailleurs`)
   assert.equal(res.status, 404)
   const html = await res.text()
   assert.ok(!html.includes('/api/'))
+})
+
+test('deviner une adresse coûte quelque chose', async () => {
+  // Trente essais infructueux par tranche de dix minutes, puis on attend.
+  // Sans ça, la seule protection d'une page publique serait une question
+  // de patience.
+  const lettre = (n) => String.fromCharCode(97 + (n % 26))
+  let dernier = 200
+  for (let i = 0; i < 40; i++) {
+    const mot = `zz${lettre(i)}${lettre(Math.floor(i / 26))}`
+    dernier = (await fetch(`${BASE}/p/${mot}-inconnu-vraiment`)).status
+    if (dernier === 429) break
+  }
+  assert.equal(dernier, 429, 'aucune limite sur les adresses qui ne mènent nulle part')
 })
 
 test.after(async () => {

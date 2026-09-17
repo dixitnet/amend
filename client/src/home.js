@@ -53,7 +53,7 @@ function mountPublicLanding(root) {
   const pitch = document.createElement('p')
   pitch.className = 'landing-pitch'
   pitch.textContent =
-    "Amend est un éditeur de texte collaboratif, léger et auto-hébergé. " +
+    "amend.ink est un éditeur de texte collaboratif, léger et auto-hébergé. " +
     "Chacun voit qui écrit quoi, propose ses corrections plutôt que de les " +
     "imposer, et garde la main sur la mise en page et les exports."
   entete.appendChild(pitch)

@@ -220,7 +220,7 @@ function gabarit(style, titre) {
     ? `#counter(page).update(${Math.max(1, Number(p.pageNumbers.startAt) || 1)})\n`
     : ''
 
-  return `// Engendré par Amend — ne pas modifier à la main.
+  return `// Engendré par amend.ink — ne pas modifier à la main.
 #set document(title: ${chaine(titre || 'Document')})
 #set page(
   width: ${format.mm[0]}mm,

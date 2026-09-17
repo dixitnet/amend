@@ -44,7 +44,7 @@ export function courrierAvecBouton({ titre, intro, libelleBouton, lien, apres })
     <p style="margin:0 0 24px;font-size:13px;word-break:break-all;"><a href="${echapper(lien)}" style="color:#5f7a4a;">${echapper(lien)}</a></p>
     <p style="margin:0;font-size:13px;color:#6b6b6b;line-height:1.5;">${echapper(apres)}</p>
   </div>
-  <p style="max-width:520px;margin:14px auto 0;font-size:12px;color:#9a9a9a;text-align:center;">Amend</p>
+  <p style="max-width:520px;margin:14px auto 0;font-size:12px;color:#9a9a9a;text-align:center;">amend.ink</p>
 </body></html>`
   return { text, html }
 }
@@ -62,7 +62,7 @@ export function sendMail({ to, subject, text, html, replyTo }) {
       new MailConfigError('MAILGUN_API_KEY et MAILGUN_DOMAIN requis (voir .env.example)')
     )
   }
-  const from = process.env.MAILGUN_FROM || `Amend <no-reply@${domain}>`
+  const from = process.env.MAILGUN_FROM || `amend.ink <no-reply@${domain}>`
   const champs = { from, to, subject, text }
   // Mailgun accepte les deux parties et laisse le client choisir : le HTML
   // s'affiche quand il est accepté, le texte sert de repli.

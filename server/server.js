@@ -13,7 +13,7 @@ import { Uploads } from './uploads.js'
 import { Users } from './users.js'
 import { Typst, TypstError } from './typst.js'
 import { apercu } from './admin.js'
-import { Publications, peutPublier, porteePublication } from './publication.js'
+import { Publications, peutPublier, porteePublication, NOM_PAGE } from './publication.js'
 import {
   readSession,
   sessionCookieHeader,
@@ -66,6 +66,38 @@ const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`
 // que pour les liens magiques. Suffisant contre un doigt qui reste appuyé,
 // pas contre quelqu'un de déterminé ; le but est d'éviter le formulaire
 // envoyé quinze fois de suite parce que rien ne semble se passer.
+// Deviner une adresse de page publiée ne doit pas être gratuit.
+//
+// Le nom d'une page — trois mots — vaut 4,7 milliards de combinaisons : de
+// quoi décourager quelqu'un qui essaie au hasard, **à condition que chaque
+// essai lui coûte quelque chose**. Sans ça, un balayage tourne à pleine
+// vitesse et la seule protection d'une page publique devient une question
+// de patience. On ne compte que les essais qui ne mènent nulle part :
+// consulter cent fois une page qu'on connaît reste libre.
+//
+// En mémoire, donc remis à zéro au redémarrage — même limite connue que
+// pour les liens magiques. Ça n'arrête pas un adversaire distribué ; ça
+// change l'échelle de temps d'un balayage depuis une machine, qui est le
+// cas réaliste.
+const ESSAIS_PUBLICATION = 30
+const ESSAIS_FENETRE_MS = 10 * 60_000
+const essaisPublication = new Map()
+function essaiPublicationAutorise(req) {
+  const ip = req.socket.remoteAddress || 'inconnu'
+  const maintenant = Date.now()
+  const passages = (essaisPublication.get(ip) || []).filter((t) => maintenant - t < ESSAIS_FENETRE_MS)
+  passages.push(maintenant)
+  essaisPublication.set(ip, passages)
+  // Un ménage occasionnel suffit : la carte ne grossit qu'avec le nombre
+  // d'adresses qui se trompent, pas avec le trafic.
+  if (essaisPublication.size > 5000) {
+    for (const [cle, v] of essaisPublication) {
+      if (!v.some((t) => maintenant - t < ESSAIS_FENETRE_MS)) essaisPublication.delete(cle)
+    }
+  }
+  return passages.length <= ESSAIS_PUBLICATION
+}
+
 const SUPPORT_PAR_HEURE = 5
 const supportRecents = new Map()
 function supportAutorise(email) {
@@ -582,9 +614,9 @@ const TARIFS_IA = {
       try {
         await sendMail({
           to: email,
-          subject: 'Votre lien de connexion à Amend',
+          subject: 'Votre lien de connexion à amend.ink',
           ...courrierAvecBouton({
-            titre: 'Connexion à Amend',
+            titre: 'Connexion à amend.ink',
             intro: 'Voici votre lien de connexion. Il est valable 20 minutes et ne sert qu’une fois.',
             libelleBouton: 'Se connecter',
             lien: link,
@@ -673,7 +705,7 @@ const TARIFS_IA = {
         ...courrierAvecBouton({
           titre: `Invitation à collaborer sur « ${doc.title} »`,
           intro:
-            `${inviter} vous invite à collaborer sur « ${doc.title} » dans Amend, ` +
+            `${inviter} vous invite à collaborer sur « ${doc.title} » dans amend.ink, ` +
             `comme ${capabilities(role).label.toLowerCase()}. Ce lien ouvre le document directement, ` +
             `sans mot de passe ni inscription. Il reste valable 14 jours.`,
           libelleBouton: 'Ouvrir le document',
@@ -891,7 +923,7 @@ const TARIFS_IA = {
         await sendMail({
           to: destinataires.join(','),
           replyTo: email,
-          subject: `[Amend] ${titres[intention]} — ${email}`,
+          subject: `[amend.ink] ${titres[intention]} — ${email}`,
           text: `${message}\n\n---\n${lignes.join('\n')}`,
         })
         mailEnvoye = true
@@ -926,10 +958,15 @@ const TARIFS_IA = {
  * `noindex` est dans la page elle-même : publier, ce n'est pas demander à
  * être référencé. */
 function servirPublication(req, res, pathname) {
-  const pageMatch = pathname.match(/^\/p\/([A-Za-z0-9_-]{8,40})$/)
-  if (pageMatch) {
+  const pageMatch = pathname.match(/^\/p\/([a-z-]{14,26})$/)
+  if (pageMatch && NOM_PAGE.test(pageMatch[1])) {
     const html = publications.page(pageMatch[1])
     if (!html) {
+      if (!essaiPublicationAutorise(req)) {
+        res.writeHead(429, { 'content-type': 'text/plain; charset=utf-8' })
+        res.end('trop de tentatives')
+        return true
+      }
       res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' })
       res.end(
         '<!DOCTYPE html><meta charset="utf-8"><title>Page introuvable</title><p>Cette page n’existe pas, ou n’est plus publiée.</p>'
@@ -951,8 +988,8 @@ function servirPublication(req, res, pathname) {
     return true
   }
 
-  const imgMatch = pathname.match(/^\/p\/([A-Za-z0-9_-]{8,40})\/images\/([A-Za-z0-9_.-]+)$/)
-  if (imgMatch) {
+  const imgMatch = pathname.match(/^\/p\/([a-z-]{14,26})\/images\/([A-Za-z0-9_.-]+)$/)
+  if (imgMatch && NOM_PAGE.test(imgMatch[1])) {
     const docId = publications.documentDe(imgMatch[1])
     const chemin = docId && uploads.chemin(docId, imgMatch[2])
     if (!chemin) {
@@ -1032,7 +1069,7 @@ server.on('upgrade', (req, socket) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`Amend en écoute sur http://localhost:${PORT}`)
+  console.log(`amend.ink en écoute sur http://localhost:${PORT}`)
   console.log(`Données stockées dans ${DATA_DIR}`)
   if (!process.env.ANTHROPIC_API_KEY) {
     console.log(

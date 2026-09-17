@@ -25,7 +25,46 @@
 
 import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
-import { randomId } from './ws.js'
+import { randomInt } from 'node:crypto'
+import { MOTS_PUBLICATION } from './motsPublication.js'
+
+/** Le nom public d'une page : **trois mots**, séparés par des tirets.
+ *
+ * `amend.ink/p/galeries-joyeux-falaise` plutôt que
+ * `amend.ink/p/7Kq2mXbT9fRv4wLp`. Une adresse publique a vocation à
+ * circuler hors de l'écran — dictée au téléphone, recopiée depuis une
+ * diapositive, retapée de mémoire — et seize caractères aléatoires ne
+ * survivent à aucun de ces trajets.
+ *
+ * Trois propriétés, dans cet ordre d'importance :
+ *
+ * 1. **Ce nom n'a rien à voir avec l'identifiant du document.** Publier est
+ *    un choix : on ne doit pouvoir passer ni du document à sa page, ni de
+ *    la page au document.
+ * 2. **Tirage uniforme**, par `randomInt` (source cryptographique, sans le
+ *    biais d'un modulo) — c'est ce qui donne au nom sa part de hasard
+ *    réelle, 4,7 milliards de combinaisons, et non pas « à peu près ».
+ * 3. **Trois mots distincts.** Un nom qui répète un mot a l'air d'un bug,
+ *    et se redit mal.
+ *
+ * Le générateur ne garantit pas l'unicité à lui seul : c'est l'appelant qui
+ * retire un nom déjà pris (voir `publier`). Avec 4,7 milliards de noms pour
+ * quelques centaines de pages, la collision est théorique — mais « très
+ * improbable » n'est pas « impossible », et une collision non vérifiée
+ * donnerait la page de quelqu'un d'autre. */
+export function nomDePage() {
+  const choisis = []
+  while (choisis.length < 3) {
+    const mot = MOTS_PUBLICATION[randomInt(MOTS_PUBLICATION.length)]
+    if (!choisis.includes(mot)) choisis.push(mot)
+  }
+  return choisis.join('-')
+}
+
+/** La forme d'un nom de page — trois groupes de lettres minuscules. Sert
+ * partout où une adresse arrive de l'extérieur : rien d'autre ne doit
+ * atteindre le disque. */
+export const NOM_PAGE = /^[a-z]{4,8}-[a-z]{4,8}-[a-z]{4,8}$/
 
 /** Qui a le droit de publier. Réglé dans le .env — `admins` pendant la
  * phase de test, `proprietaires` ou `editeurs` ensuite. C'est un
@@ -170,6 +209,7 @@ hr { border: none; border-top: 1px solid var(--bord); margin: 2.4em 0; }
 a { color: var(--accent); }
 .pied { max-width: 38em; margin: 0 auto; padding: 0 20px 48px; font-size: 13px; color: var(--muted);
   font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; border-top: 1px solid var(--bord); padding-top: 16px; }
+.pied span { color: var(--fg); font-weight: 600; }
 @media (max-width: 600px) { body { font-size: 17px; } main { padding: 28px 16px 64px; } }
 `
 
@@ -196,7 +236,7 @@ export function rendre({ titre, blocs, publieLe }) {
 <h1>${esc(titre || 'Document')}</h1>
 ${corps}
 </main>
-<p class="pied">Publié le ${esc(date)} avec Amend.</p>
+<p class="pied">Publié le ${esc(date)} avec <span>amend.ink</span></p>
 </body>
 </html>
 `
@@ -226,6 +266,7 @@ export class Publications {
   }
 
   _pagePath(pubId) {
+    if (!NOM_PAGE.test(String(pubId || ''))) return null
     return join(this.dataDir, `pub-${pubId}.html`)
   }
 
@@ -244,7 +285,9 @@ export class Publications {
   publier(docId, { titre, blocs }) {
     const index = this._lire()
     const existante = this.pourDocument(docId)
-    const pubId = existante ? existante.pubId : randomId(16)
+    // Un nom déjà pris est retiré — voir nomDePage.
+    let pubId = existante ? existante.pubId : nomDePage()
+    while (!existante && index[pubId]) pubId = nomDePage()
     const publieLe = existante ? existante.publieLe : Date.now()
     const html = rendre({ titre, blocs, publieLe })
     writeFileSync(this._pagePath(pubId), html, 'utf8')
@@ -269,9 +312,8 @@ export class Publications {
 
   /** Le HTML d'une page publiée, ou `null`. */
   page(pubId) {
-    if (!/^[A-Za-z0-9_-]{8,40}$/.test(String(pubId || ''))) return null
     const chemin = this._pagePath(pubId)
-    if (!existsSync(chemin)) return null
+    if (!chemin || !existsSync(chemin)) return null
     try {
       return readFileSync(chemin, 'utf8')
     } catch {

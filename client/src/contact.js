@@ -74,7 +74,7 @@ export function monterPaletteContact() {
   titre.textContent = 'Nous écrire'
   const sous = document.createElement('p')
   sous.className = 'contact-sous'
-  sous.textContent = 'Amend est en test. Tout retour est utile, même bref.'
+  sous.textContent = 'amend.ink est en test. Tout retour est utile, même bref.'
 
   const choix = document.createElement('div')
   choix.className = 'contact-intentions'
