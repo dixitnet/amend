@@ -30,7 +30,7 @@ import { MOTS_PUBLICATION } from './motsPublication.js'
 
 /** Le nom public d'une page : **trois mots**, séparés par des tirets.
  *
- * `amend.ink/p/galeries-joyeux-falaise` plutôt que
+ * `amend.ink/p/ocean-garden-river` plutôt que
  * `amend.ink/p/7Kq2mXbT9fRv4wLp`. Une adresse publique a vocation à
  * circuler hors de l'écran — dictée au téléphone, recopiée depuis une
  * diapositive, retapée de mémoire — et seize caractères aléatoires ne
@@ -48,7 +48,7 @@ import { MOTS_PUBLICATION } from './motsPublication.js'
  *    et se redit mal.
  *
  * Le générateur ne garantit pas l'unicité à lui seul : c'est l'appelant qui
- * retire un nom déjà pris (voir `publier`). Avec 4,7 milliards de noms pour
+ * retire un nom déjà pris (voir `publier`). Avec 8,4 milliards de noms pour
  * quelques centaines de pages, la collision est théorique — mais « très
  * improbable » n'est pas « impossible », et une collision non vérifiée
  * donnerait la page de quelqu'un d'autre. */
@@ -64,7 +64,7 @@ export function nomDePage() {
 /** La forme d'un nom de page — trois groupes de lettres minuscules. Sert
  * partout où une adresse arrive de l'extérieur : rien d'autre ne doit
  * atteindre le disque. */
-export const NOM_PAGE = /^[a-z]{4,8}-[a-z]{4,8}-[a-z]{4,8}$/
+export const NOM_PAGE = /^[a-z]{3,8}-[a-z]{3,8}-[a-z]{3,8}$/
 
 /** Qui a le droit de publier. Réglé dans le .env — `admins` pendant la
  * phase de test, `proprietaires` ou `editeurs` ensuite. C'est un

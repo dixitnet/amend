@@ -213,7 +213,7 @@ test('le nom d’une page est fait de trois mots distincts', () => {
     assert.equal(new Set(mots).size, 3, `un mot répété : ${nom}`)
     vus.add(nom)
   }
-  // Trois cents tirages sur 4,7 milliards de combinaisons : deux fois le
+  // Trois cents tirages sur 8,4 milliards de combinaisons : deux fois le
   // même nom signalerait un générateur cassé, pas de la malchance.
   assert.equal(vus.size, 300)
 })

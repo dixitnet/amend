@@ -68,7 +68,7 @@ const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`
 // envoyé quinze fois de suite parce que rien ne semble se passer.
 // Deviner une adresse de page publiée ne doit pas être gratuit.
 //
-// Le nom d'une page — trois mots — vaut 4,7 milliards de combinaisons : de
+// Le nom d'une page — trois mots — vaut 8,4 milliards de combinaisons : de
 // quoi décourager quelqu'un qui essaie au hasard, **à condition que chaque
 // essai lui coûte quelque chose**. Sans ça, un balayage tourne à pleine
 // vitesse et la seule protection d'une page publique devient une question
@@ -958,7 +958,7 @@ const TARIFS_IA = {
  * `noindex` est dans la page elle-même : publier, ce n'est pas demander à
  * être référencé. */
 function servirPublication(req, res, pathname) {
-  const pageMatch = pathname.match(/^\/p\/([a-z-]{14,26})$/)
+  const pageMatch = pathname.match(/^\/p\/([a-z-]{11,26})$/)
   if (pageMatch && NOM_PAGE.test(pageMatch[1])) {
     const html = publications.page(pageMatch[1])
     if (!html) {
@@ -988,7 +988,7 @@ function servirPublication(req, res, pathname) {
     return true
   }
 
-  const imgMatch = pathname.match(/^\/p\/([a-z-]{14,26})\/images\/([A-Za-z0-9_.-]+)$/)
+  const imgMatch = pathname.match(/^\/p\/([a-z-]{11,26})\/images\/([A-Za-z0-9_.-]+)$/)
   if (imgMatch && NOM_PAGE.test(imgMatch[1])) {
     const docId = publications.documentDe(imgMatch[1])
     const chemin = docId && uploads.chemin(docId, imgMatch[2])
