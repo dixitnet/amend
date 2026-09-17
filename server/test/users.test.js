@@ -33,7 +33,7 @@ const BASE = `http://localhost:${PORT}`
 
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
-const { Users, COULEURS, NOM_MAX } = await import('../users.js')
+const { Users, COULEURS, COULEUR_IA, couleurAutorisee, NOM_MAX } = await import('../users.js')
 await waitForServer()
 
 function waitForServer() {
@@ -150,6 +150,41 @@ test('le registre est un fichier lisible — c’est là qu’on corrige une fau
   const registre = JSON.parse(readFileSync(chemin, 'utf8'))
   assert.equal(registre['bob@example.com'].nom, 'Bob Dupont')
   assert.ok(registre['bob@example.com'].createdAt > 0)
+})
+
+test('aucune couleur d’auteur n’est verte — le vert est à l’IA', () => {
+  // Pas une question de nuance exacte mais de coup d'œil : dans la marge,
+  // à côté d'une suggestion de l'IA, un vert reste un vert. On vérifie donc
+  // la teinte, pas l'égalité avec la couleur de l'IA.
+  const teinte = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    if (max === min) return null
+    const d = max - min
+    const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+    return (h * 60 + 360) % 360
+  }
+  assert.ok(!COULEURS.includes(COULEUR_IA))
+  for (const c of COULEURS) {
+    const t = teinte(c)
+    assert.ok(t === null || t < 70 || t > 175, `${c} est dans les verts (teinte ${Math.round(t)}°)`)
+  }
+  // Et la couleur de l'IA, elle, en est bien une.
+  const ia = teinte(COULEUR_IA)
+  assert.ok(ia >= 70 && ia <= 175)
+})
+
+test('un compte qui portait un vert est corrigé, toujours de la même façon', () => {
+  // On ne réattribue pas au hasard : la couleur d'une personne est ce qu'on
+  // lit d'un coup d'œil dans la marge, et la voir changer à chaque lecture
+  // serait pire que le vert.
+  assert.equal(couleurAutorisee('#588157'), couleurAutorisee('#588157'))
+  assert.ok(!COULEURS.includes('#588157'))
+  assert.ok(COULEURS.includes(couleurAutorisee('#588157')))
+  assert.ok(COULEURS.includes(couleurAutorisee(COULEUR_IA)))
+  // Une couleur déjà valable n'est pas touchée.
+  assert.equal(couleurAutorisee('#3d5a80'), '#3d5a80')
 })
 
 test.after(async () => {

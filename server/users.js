@@ -19,10 +19,43 @@
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 
+/** La couleur de l'IA, réservée (17/09/2026).
+ *
+ * C'est aussi l'accent de l'application : le vert des acceptations, des
+ * boutons principaux, du « .ink » du logo. Une personne qui en hériterait
+ * verrait ses propres modifications se confondre avec celles de l'IA dans
+ * la marge et dans le texte — exactement la distinction que le suivi des
+ * modifications existe pour rendre lisible. Aucune couleur d'auteur ne doit
+ * donc s'en approcher. */
+export const COULEUR_IA = '#5f7a4a'
+
 /** Palette des couleurs d'auteur — la même que celle du client
  * (client/src/user.js), tenue à jour à la main : deux paquets npm séparés
- * pour huit chaînes de caractères stables ne se justifierait pas. */
-export const COULEURS = ['#e07a5f', '#3d5a80', '#81b29a', '#f2cc8f', '#9b5de5', '#00b4d8', '#e56b6f', '#588157']
+ * pour huit chaînes de caractères stables ne se justifierait pas.
+ *
+ * **Aucun vert ici, délibérément** : les deux verts d'origine (`#81b29a`
+ * sauge et `#588157` sapin) sont remplacés par un brun et une framboise.
+ * Ce n'est pas une question de nuance exacte mais de coup d'œil — dans la
+ * marge, à côté d'une suggestion de l'IA, un vert reste un vert. */
+export const COULEURS = ['#e07a5f', '#3d5a80', '#8d6e63', '#f2cc8f', '#9b5de5', '#00b4d8', '#e56b6f', '#c9184a']
+
+/** Les couleurs retirées, et par quoi les remplacer. Un compte créé avant
+ * le 17/09/2026 a pu recevoir un vert : on ne le laisse pas, mais on ne
+ * réattribue pas non plus au hasard — la couleur d'une personne est ce
+ * qu'on lit d'un coup d'œil dans la marge, et la voir changer sans raison
+ * est déroutant. La correspondance est donc fixe. */
+const REMPLACEMENTS = {
+  '#81b29a': '#8d6e63',
+  '#588157': '#c9184a',
+  [COULEUR_IA]: '#e07a5f',
+}
+
+/** La couleur d'un compte, corrigée si elle est retirée ou réservée. */
+export function couleurAutorisee(couleur) {
+  if (!couleur) return null
+  const c = String(couleur).toLowerCase()
+  return REMPLACEMENTS[c] || c
+}
 
 export const NOM_MAX = 40
 
@@ -54,7 +87,13 @@ export class Users {
    * premier document. Une adresse sans compte n'est pas une anomalie. */
   get(email) {
     if (!email) return null
-    return this._lire()[email] || null
+    const compte = this._lire()[email]
+    if (!compte) return null
+    // La correction se fait à la lecture, et se fige au prochain
+    // enregistrement du nom : pas de script de migration pour trois
+    // comptes, et rien à relancer si d'autres verts dormaient quelque part.
+    const couleur = couleurAutorisee(compte.couleur)
+    return couleur === compte.couleur ? compte : { ...compte, couleur }
   }
 
   /** Le nom affiché, ou `null` — c'est cette valeur qui décide, côté
@@ -80,7 +119,9 @@ export class Users {
     const compte = {
       email,
       nom: propre,
-      couleur: (existant && existant.couleur) || COULEURS[Math.floor(Math.random() * COULEURS.length)],
+      couleur:
+        (existant && couleurAutorisee(existant.couleur)) ||
+        COULEURS[Math.floor(Math.random() * COULEURS.length)],
       createdAt: (existant && existant.createdAt) || Date.now(),
     }
     registre[email] = compte
