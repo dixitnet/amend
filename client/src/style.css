@@ -270,14 +270,41 @@ a { color: var(--accent); }
 .outline-level-4 .outline-link { padding-left: 40px; }
 .outline-level-5 .outline-link { padding-left: 52px; }
 
-/* Full-width banner above the three columns: document identity + status. */
+/* Bandeau pleine largeur au-dessus des trois colonnes, en quatre zones
+   (17/09/2026 — voir le commentaire en tête de mountEditor). Les deux zones
+   extrêmes ont la même base souple (`flex: 1 1 0`) : c'est ce qui laisse la
+   zone centrale — « qui est là » — réellement au centre, quoi qu'il y ait
+   autour. Le bandeau ne passe plus à la ligne : ce sont les zones qui se
+   replient (voir la requête média plus bas). */
 .top-banner {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
+}
+.banniere-zone { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.banniere-gauche { flex: 1 1 0; }
+.banniere-centre { flex: 0 0 auto; }
+.banniere-droite { flex: 1 1 0; justify-content: flex-end; }
+/* Un groupe = une famille de gestes (travailler le texte / la forme /
+   faire sortir). Le trait de séparation dit ce que les mots ne disent pas :
+   ces boutons-là ne font pas la même chose que ceux d'à côté. */
+.banniere-groupe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.banniere-groupe:first-child { padding-left: 0; border-left: none; }
+.banniere-groupe:empty { display: none; }
+/* Sous une certaine largeur, la zone centrale passerait à l'as : on laisse
+   les zones se replier plutôt que d'écraser le titre. */
+@media (max-width: 1100px) {
+  .top-banner { flex-wrap: wrap; }
+  .banniere-gauche, .banniere-droite { flex: 1 1 100%; }
+  .banniere-centre { order: 3; }
 }
 /* Formatting palette: lives in the middle (text) column only, above its
    scrolling editor-container — never spans the full page width. */
@@ -346,24 +373,31 @@ a { color: var(--accent); }
 .connection-status.online { color: var(--ok); }
 .connection-status.pending { color: var(--danger); }
 
-/* Menu "Exporter" (13/09/2026) : un seul bouton, un petit menu déroulant
-   pour choisir Markdown/Word/PDF plutôt qu'un bouton par format. */
-.export-menu { position: relative; }
-.export-dropdown {
+/* Menus déroulants du bandeau (17/09/2026) — « Partager » (accès +
+   exports, auparavant deux entrées séparées) et le compte. Un seul jeu de
+   règles pour les deux : c'est ce qui évite qu'un troisième menu arrive un
+   jour avec sa propre apparence. */
+.menu-flottant { position: relative; display: inline-flex; }
+.menu-flottant-liste {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   z-index: 20;
   display: flex;
   flex-direction: column;
-  min-width: 160px;
+  min-width: 180px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   overflow: hidden;
+  padding: 4px 0;
 }
-.export-dropdown button {
+/* Les menus de droite s'ouvrent vers l'intérieur, sinon ils sortent de
+   l'écran. */
+.menu-flottant-droite { left: auto; right: 0; }
+.menu-flottant-liste button,
+.menu-flottant-liste a {
   border: none;
   background: transparent;
   color: var(--fg);
@@ -371,9 +405,41 @@ a { color: var(--accent); }
   padding: 8px 12px;
   font-size: 13px;
   cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
 }
-.export-dropdown button:hover { background: var(--border); }
-.export-dropdown[hidden] { display: none; }
+.menu-flottant-liste button:hover,
+.menu-flottant-liste a:hover { background: var(--border); }
+.menu-flottant-liste button:disabled { opacity: 0.5; cursor: default; }
+.menu-flottant-liste[hidden] { display: none; }
+.menu-flottant-entete {
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.menu-flottant-separateur { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+.menu-flottant-bouton { height: 28px; display: inline-flex; align-items: center; white-space: nowrap; }
+
+/* La pastille du compte : même forme que celles de la présence, mais
+   creuse — « moi » n'est pas une personne connectée de plus. */
+.compte-pastille {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.compte-pastille:hover { color: var(--fg); border-color: var(--fg); }
+.menu-compte { margin-left: 4px; }
 
 /* "Qui est connecté" (voir presence.js) — un rond par connexion, pas par
    personne (voir le constat 1.4 du rapport de fiabilité du 12/09/2026). */
@@ -678,7 +744,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 }
 
 /* ---------- Historique (historique léger, consultation seule) ---------- */
-.export-btn, .history-link {
+.history-link {
   height: 30px;
   padding: 0 10px;
   font-size: 13px;

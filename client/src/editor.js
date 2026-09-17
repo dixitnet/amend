@@ -47,6 +47,7 @@ import {
 } from 'prosemirror-tables'
 import { imagesPlugin } from './images.js'
 import { mountPresenceBar } from './presence.js'
+import { monterMenuCompte } from './compteMenu.js'
 import { loadDocStyle } from './styleConfig.js'
 import { ouvrirPanneauStyle } from './stylePanel.js'
 import { messageFugace } from './images.js'
@@ -100,11 +101,62 @@ export function mountEditor(root, docId, user, docMeta) {
   const topBanner = document.createElement('div')
   topBanner.className = 'top-banner'
 
+  // Le bandeau en quatre zones (17/09/2026). Avant, c'était une file
+  // d'attente historique : chaque fonction nouvelle se posait à droite de
+  // la précédente, si bien qu'on trouvait côte à côte des gestes sans
+  // rapport — naviguer, savoir qui est là, travailler le texte, changer la
+  // forme, faire sortir le document. Les zones séparent par **nature du
+  // geste**, pas par fréquence d'usage :
+  //
+  //   gauche — où je suis  : retour, nouveau, titre (éditable), favori, état
+  //   centre — qui est là  : les pastilles de présence, seules
+  //   droite — ce que je fais au document : texte / forme / sortie, puis moi
+  //
+  // L'intérêt n'est pas cosmétique. Chaque chantier à venir a déjà sa place
+  // sans nouveau bouton (aperçu PDF → panneau de mise en page ; publication
+  // → menu Partager ; émoticônes → barre de mise en forme du texte ; aide →
+  // menu du compte), et un correcteur voit un bandeau cohérent — la zone
+  // « forme » disparaît entièrement — plutôt qu'une rangée trouée.
+  const zoneGauche = document.createElement('div')
+  zoneGauche.className = 'banniere-zone banniere-gauche'
+  const zoneCentre = document.createElement('div')
+  zoneCentre.className = 'banniere-zone banniere-centre'
+  const zoneDroite = document.createElement('div')
+  zoneDroite.className = 'banniere-zone banniere-droite'
+  topBanner.append(zoneGauche, zoneCentre, zoneDroite)
+
+  /** Un menu déroulant : un bouton, une liste flottante, fermée au clic
+   * ailleurs. Deux usages ici (Partager, et le compte dans compteMenu.js) —
+   * d'où la fabrique plutôt que deux copies du même mécanisme. */
+  function menuDeroulant(libelle, { classe = '', titre = '' } = {}) {
+    const menu = document.createElement('div')
+    menu.className = `menu-flottant ${classe}`.trim()
+    const bouton = document.createElement('button')
+    bouton.type = 'button'
+    bouton.className = 'btn-preset menu-flottant-bouton'
+    bouton.textContent = libelle
+    if (titre) bouton.title = titre
+    const liste = document.createElement('div')
+    liste.className = 'menu-flottant-liste menu-flottant-droite'
+    liste.hidden = true
+    menu.append(bouton, liste)
+    bouton.onclick = (e) => {
+      e.stopPropagation()
+      liste.hidden = !liste.hidden
+    }
+    document.addEventListener('click', (e) => {
+      if (!menu.contains(e.target)) liste.hidden = true
+    })
+    return { el: menu, liste, fermer: () => { liste.hidden = true } }
+  }
+
+  // --- Zone gauche : où je suis --------------------------------------------
+
   const backLink = document.createElement('a')
   backLink.href = '#/'
   backLink.className = 'back-link'
   backLink.textContent = '← Mes documents'
-  topBanner.appendChild(backLink)
+  zoneGauche.appendChild(backLink)
 
   // « + Nouveau » partout, y compris dans un document qu'on ne fait que
   // relire : créer un document ne demande qu'une session, jamais un rôle sur
@@ -137,7 +189,31 @@ export function mountEditor(root, docId, user, docMeta) {
       nouveauBtn.disabled = false
     }
   }
-  topBanner.appendChild(nouveauBtn)
+  zoneGauche.appendChild(nouveauBtn)
+
+  // Le titre reste éditable en place (confirmé le 17/09) : c'est le nom du
+  // lieu où l'on est, pas une fonction — d'où sa place dans la zone de
+  // navigation, et non parmi les outils.
+  const titleInput = document.createElement('input')
+  titleInput.className = 'doc-title'
+  titleInput.value = docMeta.title
+  titleInput.title = 'Titre du document — modifiable directement'
+  let titleSaveTimer = null
+  titleInput.addEventListener('input', () => {
+    // Broadcast on every keystroke (cheap — just a relay, see provider.js)
+    // so other open tabs update live, same spirit as the document body;
+    // the actual persistence below stays debounced.
+    provider.sendTitle(titleInput.value)
+    clearTimeout(titleSaveTimer)
+    titleSaveTimer = setTimeout(() => {
+      fetch(`/api/docs/${docId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: titleInput.value }),
+      }).catch(() => {})
+    }, 500)
+  })
+  zoneGauche.appendChild(titleInput)
 
   const starBtn = document.createElement('button')
   starBtn.type = 'button'
@@ -166,81 +242,52 @@ export function mountEditor(root, docId, user, docMeta) {
       starBtn.disabled = false
     }
   }
-  topBanner.appendChild(starBtn)
+  zoneGauche.appendChild(starBtn)
 
-  // Réservé aux éditeurs — un correcteur ne gère pas les accès (voir
-  // claude/conception-gestion-utilisateurs.md, projet Amend).
-  if (docMeta.myRole === 'editeur') {
-    const shareBtn = document.createElement('button')
-    shareBtn.type = 'button'
-    shareBtn.className = 'share-btn'
-    shareBtn.textContent = 'Partager'
-    shareBtn.onclick = () => openAccessPanel(docId)
-    topBanner.appendChild(shareBtn)
-  }
+  const status = document.createElement('span')
+  status.className = 'connection-status'
+  zoneGauche.appendChild(status)
 
-  const titleInput = document.createElement('input')
-  titleInput.className = 'doc-title'
-  titleInput.value = docMeta.title
-  let titleSaveTimer = null
-  titleInput.addEventListener('input', () => {
-    // Broadcast on every keystroke (cheap — just a relay, see provider.js)
-    // so other open tabs update live, same spirit as the document body;
-    // the actual persistence below stays debounced.
-    provider.sendTitle(titleInput.value)
-    clearTimeout(titleSaveTimer)
-    titleSaveTimer = setTimeout(() => {
-      fetch(`/api/docs/${docId}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title: titleInput.value }),
-      }).catch(() => {})
-    }, 500)
-  })
-  topBanner.appendChild(titleInput)
+  // --- Zone centre : qui est là --------------------------------------------
 
-  // "Qui est connecté" — filled in once `provider` exists, below.
+  // Rempli une fois que `provider` existe, plus bas. Seule chose du bandeau
+  // qui change toute seule, et ce qui distingue Amend d'un éditeur de texte
+  // ordinaire : elle a le centre, et de l'air autour.
   const presenceContainer = document.createElement('div')
-  topBanner.appendChild(presenceContainer)
+  zoneCentre.appendChild(presenceContainer)
 
-  const wordCount = document.createElement('span')
-  wordCount.className = 'word-count'
-  topBanner.appendChild(wordCount)
+  // --- Zone droite : ce que je fais au document ----------------------------
+
+  // 1. Travailler le texte.
+  const groupeTexte = document.createElement('div')
+  groupeTexte.className = 'banniere-groupe'
+
+  // L'interrupteur du suivi vivait dans la colonne de droite, où il pouvait
+  // défiler hors de vue. Il remonte dans le bandeau (17/09) : c'est l'état
+  // le plus important à voir d'un coup d'œil — savoir si ce qu'on tape sera
+  // enregistré comme une proposition ou comme une modification directe —
+  // et il doit rester visible en permanence pour un éditeur.
+  const trackToggleLabel = document.createElement('label')
+  trackToggleLabel.className = 'track-toggle'
+  const trackToggle = document.createElement('input')
+  trackToggle.type = 'checkbox'
+  trackToggle.checked = true
+  trackToggleLabel.append(trackToggle, document.createTextNode(' Suivi'))
+  trackToggleLabel.title = 'Suivi des modifications'
+  groupeTexte.appendChild(trackToggleLabel)
 
   const tkCount = document.createElement('span')
   tkCount.className = 'tk-count'
-  topBanner.appendChild(tkCount)
+  groupeTexte.appendChild(tkCount)
 
-  // Un seul bouton "Exporter" (13/09/2026, auparavant deux boutons
-  // séparés .md/.pdf) avec un petit menu déroulant pour choisir le format
-  // — Markdown, Word (.docx, nouveau) ou PDF. Les trois partagent le même
-  // menu plutôt que d'occuper chacun une place fixe dans la barre, pour
-  // que l'ajout du Word n'allonge pas la barre à chaque nouveau format.
-  const exportMenu = document.createElement('div')
-  exportMenu.className = 'export-menu'
+  const wordCount = document.createElement('span')
+  wordCount.className = 'word-count'
+  groupeTexte.appendChild(wordCount)
 
-  const exportToggle = document.createElement('button')
-  exportToggle.type = 'button'
-  exportToggle.className = 'btn-preset export-btn'
-  exportToggle.textContent = 'Exporter ▾'
-  exportMenu.appendChild(exportToggle)
-
-  const exportDropdown = document.createElement('div')
-  exportDropdown.className = 'export-dropdown'
-  exportDropdown.hidden = true
-
-  const exportMdItem = document.createElement('button')
-  exportMdItem.type = 'button'
-  exportMdItem.textContent = 'Markdown (.md)'
-  const exportDocxItem = document.createElement('button')
-  exportDocxItem.type = 'button'
-  exportDocxItem.textContent = 'Word (.docx)'
-  const exportPdfItem = document.createElement('button')
-  exportPdfItem.type = 'button'
-  exportPdfItem.textContent = 'PDF (.pdf)'
-  exportDropdown.append(exportMdItem, exportDocxItem, exportPdfItem)
-  exportMenu.appendChild(exportDropdown)
-  topBanner.appendChild(exportMenu)
+  // 2. La forme. `zoomSelect` s'y insère plus bas : il a besoin du conteneur
+  // de l'éditeur, qui n'existe pas encore ici.
+  const groupeForme = document.createElement('div')
+  groupeForme.className = 'banniere-groupe'
 
   // Mise en page du document (16/09/2026) — réservée aux éditeurs, comme
   // renommer ou supprimer : c'est `canManageDocument` côté serveur qui
@@ -251,29 +298,56 @@ export function mountEditor(root, docId, user, docMeta) {
   miseEnPageBtn.textContent = 'Mise en page'
   miseEnPageBtn.title = "Format, marges, styles des titres et du texte — propres à ce document"
   miseEnPageBtn.onclick = () => ouvrirPanneauStyle(docId)
-  topBanner.appendChild(miseEnPageBtn)
-
-  function closeExportMenu() {
-    exportDropdown.hidden = true
-  }
-  exportToggle.onclick = () => {
-    exportDropdown.hidden = !exportDropdown.hidden
-  }
-  // Ferme le menu au clic ailleurs sur la page — sans ça, il resterait
-  // ouvert jusqu'au prochain clic sur le bouton lui-même.
-  document.addEventListener('click', (e) => {
-    if (!exportMenu.contains(e.target)) closeExportMenu()
-  })
+  groupeForme.appendChild(miseEnPageBtn)
 
   const historyLink = document.createElement('a')
   historyLink.href = `#/doc/${docId}/versions`
   historyLink.className = 'btn-preset history-link'
   historyLink.textContent = 'Historique'
-  topBanner.appendChild(historyLink)
+  groupeForme.appendChild(historyLink)
 
-  const status = document.createElement('span')
-  status.className = 'connection-status'
-  topBanner.appendChild(status)
+  // 3. Faire sortir. Un seul bouton (17/09/2026) : les accès et les exports
+  // répondaient déjà à la même question — *qui d'autre voit ce document, et
+  // sous quelle forme* — et occupaient deux places distinctes dans la barre.
+  // C'est aussi le logement naturel de la publication de page (§1 de la
+  // feuille de route) le jour où elle arrivera.
+  const groupeSortie = document.createElement('div')
+  groupeSortie.className = 'banniere-groupe'
+  const menuPartage = menuDeroulant('Partager ▾', { classe: 'menu-partage' })
+
+  const accesItem = document.createElement('button')
+  accesItem.type = 'button'
+  accesItem.textContent = 'Gérer les accès…'
+  accesItem.onclick = () => {
+    menuPartage.fermer()
+    openAccessPanel(docId)
+  }
+
+  const sepExports = document.createElement('hr')
+  sepExports.className = 'menu-flottant-separateur'
+  const titreExports = document.createElement('span')
+  titreExports.className = 'menu-flottant-entete'
+  titreExports.textContent = 'Exporter'
+
+  const exportMdItem = document.createElement('button')
+  exportMdItem.type = 'button'
+  exportMdItem.textContent = 'Markdown (.md)'
+  const exportDocxItem = document.createElement('button')
+  exportDocxItem.type = 'button'
+  exportDocxItem.textContent = 'Word (.docx)'
+  const exportPdfItem = document.createElement('button')
+  exportPdfItem.type = 'button'
+  exportPdfItem.textContent = 'PDF (.pdf)'
+
+  menuPartage.liste.append(accesItem, sepExports, titreExports, exportMdItem, exportDocxItem, exportPdfItem)
+  groupeSortie.appendChild(menuPartage.el)
+
+  zoneDroite.append(groupeTexte, groupeForme, groupeSortie)
+
+  // 4. Moi. À l'extrême droite, séparée des pastilles de présence par toute
+  // la largeur du bandeau : les deux sont des ronds colorés, et les
+  // confondre serait fâcheux.
+  monterMenuCompte(zoneDroite)
 
   const layout = document.createElement('div')
   layout.className = 'editor-layout'
@@ -388,20 +462,7 @@ export function mountEditor(root, docId, user, docMeta) {
       // tant pis, le réglage ne sera pas mémorisé la prochaine fois.
     }
   })
-  topBanner.insertBefore(zoomSelect, exportMenu)
-
-  // Track-changes toggle lives with the assistance/changes column now — it
-  // governs how edits in the text get recorded, same family of concerns as
-  // the AI suggestions and the changes list right below it.
-  const trackToggleSection = document.createElement('div')
-  trackToggleSection.className = 'sidebar-section track-toggle-section'
-  const trackToggleLabel = document.createElement('label')
-  trackToggleLabel.className = 'track-toggle'
-  const trackToggle = document.createElement('input')
-  trackToggle.type = 'checkbox'
-  trackToggle.checked = true
-  trackToggleLabel.append(trackToggle, document.createTextNode(' Suivi des modifications'))
-  trackToggleSection.appendChild(trackToggleLabel)
+  groupeForme.insertBefore(zoomSelect, miseEnPageBtn)
 
   const sidebar = document.createElement('div')
   sidebar.className = 'sidebar'
@@ -411,7 +472,7 @@ export function mountEditor(root, docId, user, docMeta) {
   changesSection.className = 'sidebar-section changes-section'
   const commentsSection = document.createElement('div')
   commentsSection.className = 'sidebar-section comments-section'
-  sidebar.append(trackToggleSection, aiSection, changesSection, commentsSection)
+  sidebar.append(aiSection, changesSection, commentsSection)
 
   const outlineSidebar = document.createElement('div')
   outlineSidebar.className = 'outline-sidebar'
@@ -593,7 +654,7 @@ export function mountEditor(root, docId, user, docMeta) {
   // livrable, pas une protection. Elle deviendra réelle pour le PDF le jour
   // où il sortira d'une route serveur (chantier Typst).
   if (isCorrecteur) {
-    exportMenu.hidden = true
+    menuPartage.el.hidden = true
     miseEnPageBtn.hidden = true
   }
   if (isCorrecteur) {
@@ -754,12 +815,12 @@ export function mountEditor(root, docId, user, docMeta) {
     view.focus()
   }
   exportMdItem.onclick = () => {
-    closeExportMenu()
+    menuPartage.fermer()
     const markdown = docToMarkdown(view.state.doc)
     downloadText(markdown, markdownFilename(titleInput.value))
   }
   exportDocxItem.onclick = async () => {
-    closeExportMenu()
+    menuPartage.fermer()
     // Toujours re-demander la feuille de style (jamais la copie chargée au
     // montage) : l'admin a pu la changer sur "Mise en page" depuis, un
     // export doit refléter ce qui est enregistré maintenant — même
@@ -771,7 +832,7 @@ export function mountEditor(root, docId, user, docMeta) {
     await downloadDocx(view.state.doc, style, titleInput.value)
   }
   exportPdfItem.onclick = async () => {
-    closeExportMenu()
+    menuPartage.fermer()
     // Le PDF sort désormais d'un vrai moteur de composition, côté serveur
     // (voir claude/proto-export-pdf-typst-pagedjs.md) : notes de bas de
     // page, césures françaises, table des matières paginée et recto-verso
