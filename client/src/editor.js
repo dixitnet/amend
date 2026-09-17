@@ -322,7 +322,7 @@ export function mountEditor(root, docId, user, docMeta) {
   accesItem.textContent = 'Gérer les accès…'
   accesItem.onclick = () => {
     menuPartage.fermer()
-    openAccessPanel(docId)
+    openAccessPanel(docId, { jeSuisProprietaire: !!docMeta.jeSuisProprietaire })
   }
 
   const sepExports = document.createElement('hr')

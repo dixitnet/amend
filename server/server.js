@@ -219,8 +219,11 @@ async function handleApi(req, res, url) {
     // navigateur — sans quoi la même personne était nommée et colorée
     // différemment sur chacun de ses appareils.
     const compte = users.get(email)
+    const proprio = storage.ownerOf(docMatch[1])
     return sendJson(res, 200, {
       ...doc,
+      owner: proprio,
+      jeSuisProprietaire: !!email && proprio === email,
       myRole: myRole || 'editeur',
       myName: compte ? compte.nom : null,
       myColor: compte ? compte.couleur : null,
@@ -248,10 +251,20 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, doc)
   }
 
+  // Supprimer : **le propriétaire seul** (17/09/2026). C'était jusqu'ici
+  // `canManageDocument`, donc n'importe quel éditeur — pour un geste
+  // irréversible, sur une instance qui n'a aucune sauvegarde. Les autres
+  // voient « Quitter » (DELETE .../moi ci-dessous), qui ne retire que leur
+  // propre accès.
   if (docMatch && req.method === 'DELETE') {
-    if (!storage.getDoc(docMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
-    if (!capabilities(storage.roleFor(docMatch[1], readSession(req))).canManageDocument) {
-      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    const doc = storage.getDoc(docMatch[1])
+    if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
+    const email = readSession(req)
+    // Un document sans propriétaire est un document « ouvert » d'avant le
+    // contrôle d'accès : il garde son régime d'origine.
+    const proprio = storage.ownerOf(docMatch[1])
+    if (proprio ? proprio !== email : !capabilities(storage.roleFor(docMatch[1], email)).canManageDocument) {
+      return sendJson(res, 403, { error: 'seul le propriétaire peut supprimer ce document' })
     }
     const ok = storage.deleteDoc(docMatch[1])
     // Sans ça, les images d'un document supprimé resteraient sur le disque
@@ -658,13 +671,50 @@ const TARIFS_IA = {
     return sendJson(res, 200, { email, role, status: 'invite' })
   }
 
+  // « Quitter » — retirer son propre accès (17/09/2026). Volontairement
+  // distinct de la révocation : celle-ci est un acte d'éditeur sur
+  // quelqu'un d'autre, celle-là ne demande aucun droit, seulement d'être
+  // concerné. Jusqu'ici personne ne pouvait sortir d'un document où il
+  // avait été invité.
+  const quitterMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/access\/moi$/)
+  if (quitterMatch && req.method === 'DELETE') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const r = storage.leaveDoc(quitterMatch[1], email)
+    if (r.error) return sendJson(res, r.error === 'document introuvable' ? 404 : 403, { error: r.error })
+    return sendJson(res, 200, { ok: true })
+  }
+
+  // Transférer la propriété — droit exclusif du propriétaire, avec
+  // `supprimer`. La cible doit déjà avoir accepté son accès (voir
+  // storage.transferOwnership).
+  const ownerMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/owner$/)
+  if (ownerMatch && req.method === 'POST') {
+    const id = ownerMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const email = readSession(req)
+    if (!storage.isOwner(id, email)) {
+      return sendJson(res, 403, { error: 'seul le propriétaire peut transférer ce document' })
+    }
+    const body = await readJsonBody(req)
+    const cible = normalizeEmail(body.email)
+    if (!cible) return sendJson(res, 400, { error: 'adresse email invalide' })
+    const r = storage.transferOwnership(id, cible)
+    if (r.error) return sendJson(res, 400, { error: r.error })
+    return sendJson(res, 200, { owner: r.owner })
+  }
+
   const revokeMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/access\/([^/]+)$/)
   if (revokeMatch && req.method === 'DELETE') {
     const id = revokeMatch[1]
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
     const role = storage.roleFor(id, readSession(req))
     if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
-    storage.revokeAccess(id, decodeURIComponent(revokeMatch[2]))
+    const cible = decodeURIComponent(revokeMatch[2])
+    if (storage.isOwner(id, cible)) {
+      return sendJson(res, 403, { error: 'le propriétaire ne peut pas être retiré du document' })
+    }
+    storage.revokeAccess(id, cible)
     return sendJson(res, 200, { ok: true })
   }
 

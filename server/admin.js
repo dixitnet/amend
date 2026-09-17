@@ -160,6 +160,9 @@ export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, data
         return {
           id: d.id,
           titre: d.title,
+          // Qui porte le document (17/09/2026). Déduit pour les documents
+          // antérieurs au champ — voir storage.ownerOf.
+          proprietaire: storage.ownerOf(d.id),
           participants: participants(d),
           creeLe: d.createdAt,
           modifieLe: d.updatedAt,

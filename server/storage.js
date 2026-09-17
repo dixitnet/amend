@@ -49,6 +49,30 @@ const COMPACTION_TRIGGER_RATIO = 1.5
  * ouverte indéfiniment). */
 const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000
 
+/** Le propriétaire d'un document, à partir de ses métadonnées brutes.
+ *
+ * `owner` d'abord ; à défaut, l'**éditeur au `grantedAt` le plus ancien**,
+ * qui est le créateur puisque `createDoc` l'inscrit comme premier éditeur au
+ * moment de la création. Ce repli est ce qui permet au champ de fonctionner
+ * sur les documents antérieurs au 17/09/2026 sans script de migration.
+ *
+ * Un document sans liste d'accès n'a pas de propriétaire : `null`.
+ *
+ * Fonction de module plutôt que méthode, parce qu'elle travaille sur les
+ * métadonnées déjà en main — l'appeler depuis `listDocs` ne doit pas relire
+ * le registre une fois par document, alors qu'il est déjà relu plusieurs
+ * fois par requête (mesuré au test de charge n°3). */
+function proprietaire(meta) {
+  if (!meta) return null
+  if (meta.owner) return meta.owner
+  if (!Array.isArray(meta.access)) return null
+  const editeurs = meta.access.filter((a) => a.role === 'editeur')
+  if (!editeurs.length) return null
+  return editeurs.reduce((plusAncien, a) =>
+    (a.grantedAt || Infinity) < (plusAncien.grantedAt || Infinity) ? a : plusAncien
+  ).email
+}
+
 export class Storage {
   constructor(dataDir, { maxUncompactedOps = DEFAULT_MAX_UNCOMPACTED_OPS, compactionTrigger } = {}) {
     this.dataDir = dataDir
@@ -210,6 +234,10 @@ export class Storage {
         myRole: Array.isArray(meta.access)
           ? (meta.access.find((a) => a.email === email) || {}).role || null
           : 'editeur',
+        // Pour que la liste sache afficher « Supprimer » au propriétaire et
+        // « Quitter » aux autres, sans une requête par document.
+        owner: proprietaire(meta),
+        jeSuisProprietaire: !!email && proprietaire(meta) === email,
       }))
       .sort((a, b) => {
         // Étoilés d'abord (peu importe depuis quand), puis par date de
@@ -241,6 +269,9 @@ export class Storage {
     const now = Date.now()
     const meta = { title: title || 'Sans titre', createdAt: now, updatedAt: now }
     if (creatorEmail) {
+      // Le créateur porte le document (17/09/2026) : `owner` est un champ à
+      // part, pas un rôle — voir `ownerOf` plus bas.
+      meta.owner = creatorEmail
       meta.access = [{ email: creatorEmail, role: 'editeur', grantedAt: now }]
     }
     registry[id] = meta
@@ -262,6 +293,70 @@ export class Storage {
     return entry ? entry.role : null
   }
 
+  /** Le propriétaire d'un document, ou `null`.
+   *
+   * Le champ `owner` n'existe que depuis le 17/09/2026 : pour les
+   * documents antérieurs, on le **déduit** de la liste d'accès — l'éditeur
+   * au `grantedAt` le plus ancien est le créateur, puisque `createDoc`
+   * l'inscrit comme premier éditeur au moment même de la création. C'est
+   * une quasi-certitude aujourd'hui (six documents en production) et ce
+   * serait un pari dans six mois : d'où le champ posé maintenant, et ce
+   * repli qui évite d'avoir à lancer un script de migration pour que ça
+   * marche.
+   *
+   * Un document **sans liste d'accès** (les « ouverts » d'avant le contrôle
+   * d'accès) n'a pas de propriétaire possible : personne n'y est inscrit.
+   * Il n'en a donc pas, et garde son comportement d'avant — tout le monde
+   * y est éditeur, y compris pour le supprimer. Il n'en existe aucun en
+   * production (migration du 14/09 : 0 document concerné). */
+  ownerOf(id) {
+    return proprietaire(this.getDoc(id))
+  }
+
+  isOwner(id, email) {
+    if (!email) return false
+    return proprietaire(this.getDoc(id)) === email
+  }
+
+  /** Transfère la propriété. La cible doit **déjà avoir accès** au document
+   * — on ne confie pas un document à quelqu'un qui ne l'a jamais ouvert, et
+   * ça évite de créer un accès par un chemin détourné. Elle devient
+   * éditrice au passage : un propriétaire est toujours éditeur.
+   * Renvoie `{ ok }` ou `{ error }`. */
+  transferOwnership(id, toEmail) {
+    const registry = this._readRegistry()
+    const doc = registry[id]
+    if (!doc) return { error: 'document introuvable' }
+    if (!Array.isArray(doc.access)) return { error: 'ce document n’a pas de gestion des accès' }
+    const entree = doc.access.find((a) => a.email === toEmail)
+    if (!entree) return { error: 'cette personne n’a pas accès au document' }
+    if (entree.status === 'invite') return { error: 'cette personne n’a pas encore accepté son invitation' }
+    doc.owner = toEmail
+    entree.role = 'editeur'
+    this._writeRegistry(registry)
+    return { ok: true, owner: toEmail }
+  }
+
+  /** Retirer son propre accès. Distinct de `revokeAccess`, qui est un acte
+   * d'éditeur sur quelqu'un d'autre : ici la personne n'a besoin d'aucun
+   * droit, seulement d'être concernée. C'est ce qui manquait — jusqu'ici
+   * personne ne pouvait sortir d'un document où il avait été invité.
+   * Le propriétaire, lui, ne peut pas partir : le document deviendrait
+   * orphelin. Il transfère d'abord. */
+  leaveDoc(id, email) {
+    const registry = this._readRegistry()
+    const doc = registry[id]
+    if (!doc) return { error: 'document introuvable' }
+    if (!Array.isArray(doc.access)) return { error: 'ce document n’a pas de gestion des accès' }
+    if (proprietaire(doc) === email) {
+      return { error: 'vous portez ce document — transférez-le avant de le quitter' }
+    }
+    if (!doc.access.some((a) => a.email === email)) return { error: 'vous n’avez pas accès à ce document' }
+    doc.access = doc.access.filter((a) => a.email !== email)
+    this._writeRegistry(registry)
+    return { ok: true }
+  }
+
   /** true si ce document a une gestion des droits active (voir roleFor). */
   hasAccessControl(id) {
     const doc = this.getDoc(id)
@@ -276,9 +371,11 @@ export class Storage {
   getAccess(id) {
     const doc = this.getDoc(id)
     if (!doc || !Array.isArray(doc.access)) return []
+    const owner = proprietaire(doc)
     return doc.access.map(({ token, tokenExpiresAt, ...reste }) => ({
       ...reste,
       status: reste.status || 'actif',
+      proprietaire: reste.email === owner,
     }))
   }
 
@@ -286,6 +383,10 @@ export class Storage {
     const registry = this._readRegistry()
     const doc = registry[id]
     if (!doc) return null
+    // Le propriétaire est toujours éditeur (Sylvain, 17/09) : lui donner
+    // correcteur produirait un état absurde — quelqu'un qui peut supprimer
+    // le document mais pas y écrire.
+    if (proprietaire(doc) === email && role !== 'editeur') return null
     if (!Array.isArray(doc.access)) doc.access = []
     const existing = doc.access.find((a) => a.email === email)
     if (existing) existing.role = role
@@ -298,6 +399,9 @@ export class Storage {
     const registry = this._readRegistry()
     const doc = registry[id]
     if (!doc || !Array.isArray(doc.access)) return null
+    // Révoquer le propriétaire laisserait un document que plus personne ne
+    // porte : plus de quota, plus personne pour le supprimer.
+    if (proprietaire(doc) === email) return null
     doc.access = doc.access.filter((a) => a.email !== email)
     this._writeRegistry(registry)
     return { id, ...doc }
@@ -322,7 +426,8 @@ export class Storage {
       entry = { email, grantedAt: now }
       doc.access.push(entry)
     }
-    entry.role = role
+    // Même règle que grantAccess : on ne rétrograde pas le propriétaire.
+    entry.role = proprietaire(doc) === email ? 'editeur' : role
     entry.status = 'invite'
     entry.invitedBy = invitedBy || null
     entry.invitedAt = now

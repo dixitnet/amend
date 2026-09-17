@@ -141,11 +141,12 @@ export async function mountAdmin(root) {
     doc.journaux.sansHorodatage ? `, ${nombre(doc.journaux.sansHorodatage)} sans horodatage (antérieurs au suivi)` : ''
   }${doc.sansControleDacces ? `. ${nombre(doc.sansControleDacces)} document(s) sans liste d'accès.` : '.'}</p>
       <table class="bo-table">
-        <thead><tr><th>Titre</th><th>Participants</th><th>En ligne</th><th>Opérations</th><th>Poids</th><th>Modifié</th></tr></thead>
+        <thead><tr><th>Titre</th><th>Propriétaire</th><th>Participants</th><th>En ligne</th><th>Opérations</th><th>Poids</th><th>Modifié</th></tr></thead>
         <tbody>${doc.liste
           .map(
             (l) => `<tr>
               <td><a href="#/doc/${esc(l.id)}">${esc(l.titre || 'Sans titre')}</a></td>
+              <td>${l.proprietaire ? esc(l.proprietaire) : '<span class="bo-attente">aucun</span>'}</td>
               <td>${nombre(l.participants)}</td>
               <td>${l.enLigne || ''}</td>
               <td>${nombre(l.operations)}${l.aCompacter ? ' <span class="bo-attente">à compacter</span>' : ''}</td>

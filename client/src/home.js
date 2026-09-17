@@ -188,6 +188,48 @@ function carteConnexion() {
   return carte
 }
 
+/** Le libellé d'accès d'un document dans la liste, ou `null` quand il n'y
+ * a rien à dire (mon document, dont je suis éditeur : l'évidence). */
+function libelleRole(doc) {
+  if (doc.jeSuisProprietaire) return null
+  if (doc.myRole === 'correcteur') return 'correcteur'
+  if (doc.owner) return 'invité'
+  return null
+}
+
+/** Un bouton qui demande confirmation par un second clic, plutôt qu'une
+ * boîte de dialogue du navigateur. Deux usages — supprimer et quitter —
+ * qui n'ont pas les mêmes conséquences mais le même besoin : ne pas partir
+ * sur un clic malheureux. */
+function boutonADeuxClics({ libelle, titre, classe, action, surSucces }) {
+  const bouton = document.createElement('button')
+  bouton.type = 'button'
+  bouton.className = classe
+  bouton.textContent = libelle
+  bouton.title = titre
+  let minuteur = null
+  function remettre() {
+    clearTimeout(minuteur)
+    minuteur = null
+    bouton.textContent = libelle
+    bouton.classList.remove('confirming')
+  }
+  bouton.addEventListener('click', async () => {
+    if (!minuteur) {
+      bouton.textContent = 'Confirmer ?'
+      bouton.classList.add('confirming')
+      minuteur = setTimeout(remettre, 3000)
+      return
+    }
+    remettre()
+    bouton.disabled = true
+    const res = await action()
+    if (res && res.ok) surSucces()
+    else bouton.disabled = false
+  })
+  return bouton
+}
+
 /** Visiteurs connectés : l'appli telle qu'avant (créer/lister les
  * documents) — inchangée à part la prise en compte du rôle par document
  * pour masquer étoile/suppression aux correcteurs (déjà refusées côté
@@ -326,50 +368,50 @@ function mountAppHome(root, email) {
       const titleWrap = document.createElement('span')
       titleWrap.className = 'doc-list-title'
       titleWrap.append(starBtn, link)
-      if (doc.myRole === 'correcteur') {
-        const badge = document.createElement('span')
-        badge.className = 'role-badge'
-        badge.textContent = 'correcteur'
-        titleWrap.appendChild(badge)
+      // Le badge dit ce qu'on est sur ce document quand ce n'est pas
+      // l'évidence. « Éditeur » sur son propre document ne dit rien à
+      // personne ; « correcteur » ou « invité » situe tout de suite le
+      // bouton « Quitter » d'à côté.
+      const badge = libelleRole(doc)
+      if (badge) {
+        const el = document.createElement('span')
+        el.className = 'role-badge'
+        el.textContent = badge
+        titleWrap.appendChild(el)
       }
 
       item.append(titleWrap, date)
 
-      if (canManage) {
-        // Suppression à deux clics plutôt qu'un window.confirm() : le
-        // bouton devient "Confirmer ?" pendant 3 secondes, un second clic
-        // dans ce délai supprime réellement — sinon il revient tout seul à
-        // son état normal (clic ailleurs, ou simplement le temps qui
-        // passe).
-        const deleteBtn = document.createElement('button')
-        deleteBtn.type = 'button'
-        deleteBtn.className = 'delete-doc-btn'
-        deleteBtn.textContent = 'Supprimer'
-        deleteBtn.title = 'Supprimer ce document'
-        let confirmTimer = null
-        function resetDeleteBtn() {
-          clearTimeout(confirmTimer)
-          confirmTimer = null
-          deleteBtn.textContent = 'Supprimer'
-          deleteBtn.classList.remove('confirming')
-        }
-        deleteBtn.addEventListener('click', async () => {
-          if (!confirmTimer) {
-            deleteBtn.textContent = 'Confirmer ?'
-            deleteBtn.classList.add('confirming')
-            confirmTimer = setTimeout(resetDeleteBtn, 3000)
-            return
-          }
-          resetDeleteBtn()
-          deleteBtn.disabled = true
-          const res = await fetch(`/api/docs/${doc.id}`, { method: 'DELETE' })
-          if (res.ok) {
-            item.remove()
-          } else {
-            deleteBtn.disabled = false
-          }
-        })
-        item.appendChild(deleteBtn)
+      // Supprimer ou quitter (17/09/2026) — jamais les deux, et jamais
+      // l'un déguisé en l'autre. Le propriétaire supprime le document,
+      // définitivement, pour tout le monde. Les autres le quittent : ils
+      // retirent leur propre accès et ne touchent à rien chez personne.
+      // Le propriétaire, lui, ne peut pas quitter le sien — le document
+      // deviendrait orphelin ; il transfère d'abord (panneau Partager).
+      //
+      // Deux clics plutôt qu'un window.confirm() : le bouton devient
+      // « Confirmer ? » pendant 3 secondes, un second clic dans ce délai
+      // agit — sinon il revient tout seul à son état normal.
+      if (doc.jeSuisProprietaire || !doc.owner) {
+        item.appendChild(
+          boutonADeuxClics({
+            libelle: 'Supprimer',
+            titre: 'Supprimer définitivement ce document, pour tout le monde',
+            classe: 'delete-doc-btn',
+            action: () => fetch(`/api/docs/${doc.id}`, { method: 'DELETE' }),
+            surSucces: () => item.remove(),
+          })
+        )
+      } else {
+        item.appendChild(
+          boutonADeuxClics({
+            libelle: 'Quitter',
+            titre: 'Retirer mon accès à ce document — il n’est pas supprimé',
+            classe: 'delete-doc-btn',
+            action: () => fetch(`/api/docs/${doc.id}/access/moi`, { method: 'DELETE' }),
+            surSucces: () => item.remove(),
+          })
+        )
       }
 
       list.appendChild(item)

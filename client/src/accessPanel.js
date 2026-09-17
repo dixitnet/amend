@@ -5,7 +5,7 @@
 // nommant le document, et son lien ouvre le document directement. Voir
 // claude/conception-gestion-utilisateurs.md (projet Amend).
 
-export function openAccessPanel(docId) {
+export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
   const overlay = document.createElement('div')
   overlay.className = 'name-modal-overlay'
   overlay.innerHTML = `
@@ -58,6 +58,16 @@ export function openAccessPanel(docId) {
       label.textContent = `${entry.email} — ${entry.role === 'editeur' ? 'éditeur' : 'correcteur'}`
       li.appendChild(label)
 
+      // Le propriétaire (17/09/2026) : celui qui porte le document. Ce
+      // n'est pas un rôle de plus — il est toujours éditeur — mais deux
+      // droits que personne d'autre n'a : supprimer, et transmettre.
+      if (entry.proprietaire) {
+        const badge = document.createElement('span')
+        badge.className = 'role-badge'
+        badge.textContent = 'propriétaire'
+        li.appendChild(badge)
+      }
+
       // « En attente » = invitée, jamais venue. L'accès existe déjà côté
       // serveur ; ce badge dit seulement que la personne n'a pas encore
       // ouvert son lien, pour qu'un éditeur sache qui relancer.
@@ -79,15 +89,63 @@ export function openAccessPanel(docId) {
         li.appendChild(resend)
       }
 
-      const removeBtn = document.createElement('button')
-      removeBtn.type = 'button'
-      removeBtn.textContent = entry.status === 'invite' ? 'Annuler' : 'Retirer'
-      removeBtn.onclick = async () => {
-        removeBtn.disabled = true
-        await fetch(`/api/docs/${docId}/access/${encodeURIComponent(entry.email)}`, { method: 'DELETE' })
-        load()
+      // Le propriétaire n'est ni retirable ni rétrogradable : le document
+      // deviendrait orphelin — plus personne pour le porter, ni pour le
+      // supprimer. Le serveur refuse de toute façon ; le bouton est absent
+      // pour ne pas proposer un geste qui échouera.
+      if (!entry.proprietaire) {
+        const removeBtn = document.createElement('button')
+        removeBtn.type = 'button'
+        removeBtn.textContent = entry.status === 'invite' ? 'Annuler' : 'Retirer'
+        removeBtn.onclick = async () => {
+          removeBtn.disabled = true
+          await fetch(`/api/docs/${docId}/access/${encodeURIComponent(entry.email)}`, { method: 'DELETE' })
+          load()
+        }
+        li.appendChild(removeBtn)
+
+        // Transmettre le document — droit exclusif du propriétaire, et
+        // seule façon pour lui de s'en défaire. À deux clics : ça ne se
+        // reprend pas tout seul.
+        if (jeSuisProprietaire && entry.status !== 'invite') {
+          const passer = document.createElement('button')
+          passer.type = 'button'
+          passer.className = 'btn-texte'
+          passer.textContent = 'Transmettre'
+          passer.title = `Faire de ${entry.email} le propriétaire de ce document`
+          let minuteur = null
+          passer.onclick = async () => {
+            if (!minuteur) {
+              passer.textContent = 'Confirmer ?'
+              minuteur = setTimeout(() => {
+                minuteur = null
+                passer.textContent = 'Transmettre'
+              }, 3000)
+              return
+            }
+            clearTimeout(minuteur)
+            minuteur = null
+            passer.disabled = true
+            const res = await fetch(`/api/docs/${docId}/owner`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ email: entry.email }),
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) {
+              passer.disabled = false
+              passer.textContent = 'Transmettre'
+              dire(data.error || 'le transfert a échoué', 'erreur')
+              return
+            }
+            dire(`${entry.email} porte désormais ce document.`, 'ok')
+            // On ne l'est plus : recharger la page remet toute l'interface
+            // (bouton Supprimer, droits) d'accord avec la réalité.
+            location.reload()
+          }
+          li.appendChild(passer)
+        }
       }
-      li.appendChild(removeBtn)
       accessList.appendChild(li)
     }
   }
