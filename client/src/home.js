@@ -188,18 +188,28 @@ function carteConnexion() {
   return carte
 }
 
-/** Le rôle à afficher à côté du titre, ou `null` quand il n'y a rien à
- * dire — mon propre document, dont je suis éditeur par construction.
+/** Ce qu'on est sur ce document, pour le badge à côté du titre.
  *
- * Le badge dit un **rôle**, et rien d'autre : ceux de `server/roles.js`,
- * pas un mot inventé pour l'occasion. Sur le document de quelqu'un
- * d'autre, être éditeur est une information — c'est ce qui situe le
- * bouton « Quitter » d'à côté. */
+ * Toujours quelque chose : « propriétaire », puis le rôle. La propriété
+ * l'emporte parce qu'elle est plus forte que le rôle — un propriétaire est
+ * éditeur de toute façon, et c'est la propriété qui explique le bouton
+ * « Supprimer » plutôt que « Quitter ».
+ *
+ * Le repli sur la valeur brute du rôle est délibéré : le jour où
+ * « lecteur » entrera dans `server/roles.js`, le badge l'affichera sans
+ * qu'on touche à ce fichier. Un rôle inconnu vaut mieux affiché tel quel
+ * que disparu.
+ */
+const LIBELLES_ROLE = {
+  editeur: 'éditeur',
+  correcteur: 'correcteur',
+  lecteur: 'lecteur',
+}
+
 function libelleRole(doc) {
-  if (doc.jeSuisProprietaire || !doc.owner) return null
-  if (doc.myRole === 'editeur') return 'éditeur'
-  if (doc.myRole === 'correcteur') return 'correcteur'
-  return null
+  if (doc.jeSuisProprietaire) return 'propriétaire'
+  if (!doc.myRole) return null
+  return LIBELLES_ROLE[doc.myRole] || doc.myRole
 }
 
 /** Un bouton qui demande confirmation par un second clic, plutôt qu'une
@@ -373,12 +383,15 @@ function mountAppHome(root, email) {
       const titleWrap = document.createElement('span')
       titleWrap.className = 'doc-list-title'
       titleWrap.append(starBtn, link)
-      // Le badge dit ce qu'on est sur ce document quand ce n'est pas
-      // l'évidence — voir libelleRole.
+      // Ce qu'on est sur ce document — voir libelleRole.
       const badge = libelleRole(doc)
       if (badge) {
         const el = document.createElement('span')
         el.className = 'role-badge'
+        // Le badge apparaît désormais sur chaque ligne : celui qui dit
+        // « propriétaire » reste discret, sans quoi la liste entière
+        // crierait la même chose.
+        if (doc.jeSuisProprietaire) el.classList.add('role-proprietaire')
         el.textContent = badge
         titleWrap.appendChild(el)
       }

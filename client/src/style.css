@@ -840,6 +840,10 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   color: var(--muted);
   vertical-align: middle;
 }
+/* « Propriétaire » est le cas le plus fréquent dans sa propre liste : il se
+   fait discret, là où un rôle subi sur le document d'un autre mérite d'être
+   remarqué. */
+.role-badge.role-proprietaire { background: transparent; border: 1px solid var(--border); }
 
 .auth-status { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
 .auth-status a { margin-left: 6px; }

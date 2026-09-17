@@ -63,7 +63,7 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
       // droits que personne d'autre n'a : supprimer, et transmettre.
       if (entry.proprietaire) {
         const badge = document.createElement('span')
-        badge.className = 'role-badge'
+        badge.className = 'role-badge role-proprietaire'
         badge.textContent = 'propriétaire'
         li.appendChild(badge)
       }
