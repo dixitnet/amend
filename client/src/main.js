@@ -2,6 +2,7 @@ import { mountHome } from './home.js'
 import { mountEditor } from './editor.js'
 import { mountAdminStyle } from './stylePanel.js'
 import { mountAdmin } from './admin.js'
+import { mountInscrits } from './inscrits.js'
 import { mountVersions } from './versions.js'
 import { getUser } from './user.js'
 import { mountLogin, mountVerify, mountInviteAccept } from './authPages.js'
@@ -69,6 +70,13 @@ async function route() {
 
   if (hash === '#/admin') {
     mountAdmin(app)
+    return
+  }
+
+  // La liste d'attente en détail — le serveur vérifie ADMIN_EMAILS, cette
+  // route n'est qu'une porte.
+  if (hash === '#/inscrits') {
+    mountInscrits(app)
     return
   }
 

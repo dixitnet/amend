@@ -1,4 +1,5 @@
-import { getSessionEmail, logout } from './auth.js'
+import { getSessionEmail, logout, requestReconnectLink } from './auth.js'
+import { logoAmend } from './logo.js'
 
 export async function mountHome(root) {
   root.innerHTML = ''
@@ -10,61 +11,200 @@ export async function mountHome(root) {
   }
 }
 
-/** Visiteurs non connectés : texte de présentation + liste d'attente,
- * jamais la liste des documents ni le formulaire de création (voir
- * claude/conception-gestion-utilisateurs.md, projet Amend — texte de
- * présentation laissé simple/générique, à personnaliser). */
+/** Visiteurs non connectés — la page d'accueil publique (17/09/2026).
+ *
+ * Trois choses, dans cet ordre, parce que le visiteur se pose trois
+ * questions dans cet ordre : *qu'est-ce que c'est* (l'en-tête pleine
+ * largeur : le logo, une phrase, l'avis de phase de lancement), puis
+ * *est-ce que je peux entrer* (deux cartes : la liste d'attente pour qui
+ * n'a pas d'accès, la connexion pour qui en a un).
+ *
+ * Deux décisions qui tiennent la page :
+ *
+ * 1. **Dire franchement que l'accès est sur invitation.** Sans ça, le
+ *    formulaire d'attente ressemble à un formulaire mort, et la personne
+ *    qui essaie de se connecter sans accès ne comprend pas son échec.
+ * 2. **La connexion est ici, pas ailleurs.** Elle était reléguée derrière
+ *    un lien vers `#/login` : deux publics, deux gestes, aucun des deux ne
+ *    doit chercher le sien.
+ *
+ * Ergonomie petit écran (demandée le 17/09) : une seule colonne par
+ * défaut, la liste d'attente en premier — le visiteur sans compte est le
+ * cas majoritaire — et la deuxième colonne n'apparaît qu'à partir de
+ * 760 px. Voir `.landing-*` dans style.css.
+ */
 function mountPublicLanding(root) {
   const wrap = document.createElement('div')
   wrap.className = 'home landing'
 
-  wrap.innerHTML = `
-    <h1>Amend</h1>
-    <p class="subtitle">Édition collaborative avec suivi des modifications et assistance IA.</p>
-    <p class="landing-pitch">
-      Amend est un éditeur de texte collaboratif, léger et auto-hébergé,
-      pensé pour écrire et relire à plusieurs avec un vrai suivi des
-      modifications — et un coup de main de l'IA quand il en faut.
-      Encore en accès restreint : laissez votre email pour être prévenu·e.
-    </p>
-  `
+  // --- En-tête, pleine largeur -------------------------------------------
+  const entete = document.createElement('header')
+  entete.className = 'landing-entete'
 
+  const logo = logoAmend()
+  logo.classList.add('landing-logo')
+  entete.appendChild(logo)
+
+  const baseline = document.createElement('p')
+  baseline.className = 'landing-baseline'
+  baseline.textContent = "Écrire et relire à plusieurs, avec un vrai suivi des modifications."
+  entete.appendChild(baseline)
+
+  const pitch = document.createElement('p')
+  pitch.className = 'landing-pitch'
+  pitch.textContent =
+    "Amend est un éditeur de texte collaboratif, léger et auto-hébergé. " +
+    "Chacun voit qui écrit quoi, propose ses corrections plutôt que de les " +
+    "imposer, et garde la main sur la mise en page et les exports."
+  entete.appendChild(pitch)
+
+  const avis = document.createElement('p')
+  avis.className = 'landing-avis'
+  avis.textContent =
+    "L'application fonctionne, mais elle est en phase de lancement : " +
+    "l'accès se fait uniquement sur invitation."
+  entete.appendChild(avis)
+
+  wrap.appendChild(entete)
+
+  // --- Deux cartes --------------------------------------------------------
+  const colonnes = document.createElement('div')
+  colonnes.className = 'landing-colonnes'
+  colonnes.append(carteListeAttente(), carteConnexion())
+  wrap.appendChild(colonnes)
+
+  const pied = document.createElement('p')
+  pied.className = 'landing-pied'
+  pied.textContent = 'amend.ink'
+  wrap.appendChild(pied)
+
+  root.appendChild(wrap)
+}
+
+/** Un formulaire à un champ : libellé, saisie, bouton, et un message qui
+ * remplace le tout une fois envoyé. Les deux cartes ont exactement la même
+ * mécanique — d'où la fabrique commune. */
+function formulaireEmail({ libelleBouton, autocomplete, onEnvoi, messageSucces }) {
   const form = document.createElement('form')
-  form.className = 'waitlist-form'
-  const input = document.createElement('input')
-  input.type = 'email'
-  input.required = true
-  input.placeholder = 'vous@exemple.fr'
-  const submit = document.createElement('button')
-  submit.type = 'submit'
-  submit.textContent = "Rejoindre la liste d'attente"
-  form.append(input, submit)
-  const sentMsg = document.createElement('p')
-  sentMsg.className = 'waitlist-sent'
-  sentMsg.hidden = true
-  sentMsg.textContent = 'Merci — on vous recontacte bientôt.'
+  form.className = 'landing-form'
+
+  const champ = document.createElement('input')
+  champ.type = 'email'
+  champ.required = true
+  champ.placeholder = 'vous@exemple.fr'
+  // Pour que le clavier du téléphone arrive dans le bon mode et que
+  // l'adresse enregistrée soit proposée.
+  champ.setAttribute('inputmode', 'email')
+  champ.setAttribute('autocomplete', autocomplete)
+  champ.setAttribute('autocapitalize', 'off')
+  champ.setAttribute('spellcheck', 'false')
+  champ.setAttribute('aria-label', 'Adresse email')
+
+  const bouton = document.createElement('button')
+  bouton.type = 'submit'
+  bouton.textContent = libelleBouton
+
+  form.append(champ, bouton)
+
+  const message = document.createElement('p')
+  message.className = 'landing-message'
+  message.hidden = true
+  // Le message remplace le formulaire : il doit être annoncé, pas
+  // seulement affiché.
+  message.setAttribute('role', 'status')
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
-    submit.disabled = true
-    await fetch('/api/waitlist', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: input.value.trim() }),
-    })
-    form.hidden = true
-    sentMsg.hidden = false
+    const email = champ.value.trim()
+    if (!email) return
+    bouton.disabled = true
+    bouton.textContent = 'Envoi…'
+    try {
+      await onEnvoi(email)
+      form.hidden = true
+      message.textContent = messageSucces
+      message.hidden = false
+    } catch {
+      bouton.disabled = false
+      bouton.textContent = libelleBouton
+      message.textContent = "L'envoi a échoué — réessayez dans un instant."
+      message.hidden = false
+    }
   })
 
-  wrap.append(form, sentMsg)
+  return { form, message }
+}
 
-  const loginLink = document.createElement('a')
-  loginLink.href = '#/login'
-  loginLink.className = 'landing-login-link'
-  loginLink.textContent = 'Déjà un accès ? Se connecter'
-  wrap.appendChild(loginLink)
+function carteListeAttente() {
+  const carte = document.createElement('section')
+  carte.className = 'landing-carte'
 
-  root.appendChild(wrap)
+  const h2 = document.createElement('h2')
+  h2.textContent = "Rejoindre la liste d'attente"
+  const p = document.createElement('p')
+  p.textContent = "Laissez votre adresse : vous serez prévenu·e dès qu'une place se libère."
+  carte.append(h2, p)
+
+  const { form, message } = formulaireEmail({
+    libelleBouton: "M'inscrire",
+    autocomplete: 'email',
+    messageSucces: 'Merci — vous êtes sur la liste. On vous écrit dès que possible.',
+    onEnvoi: async (email) => {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) throw new Error('refusé')
+    },
+  })
+  carte.append(form, message)
+
+  // Le compteur est public, la liste ne l'est jamais : un nombre ne
+  // désigne personne. Il n'apparaît qu'à partir de quelques inscrits — « 1
+  // personne attend » ferait le contraire de l'effet recherché.
+  const compteur = document.createElement('p')
+  compteur.className = 'landing-compteur'
+  compteur.hidden = true
+  carte.appendChild(compteur)
+  fetch('/api/waitlist/count')
+    .then((r) => r.json())
+    .then(({ count }) => {
+      if (!count || count < 5) return
+      compteur.innerHTML = ''
+      const n = document.createElement('strong')
+      n.textContent = String(count)
+      compteur.append(n, document.createTextNode(' personnes attendent déjà leur accès.'))
+      compteur.hidden = false
+    })
+    .catch(() => {})
+
+  return carte
+}
+
+function carteConnexion() {
+  const carte = document.createElement('section')
+  carte.className = 'landing-carte'
+
+  const h2 = document.createElement('h2')
+  h2.textContent = "J'ai déjà un accès"
+  const p = document.createElement('p')
+  p.textContent = 'Recevez un lien de connexion, valable vingt minutes. Aucun mot de passe à retenir.'
+  carte.append(h2, p)
+
+  const { form, message } = formulaireEmail({
+    libelleBouton: 'Recevoir mon lien',
+    autocomplete: 'username',
+    // Volontairement ambigu : la réponse est la même que l'adresse soit
+    // connue ou non, pour ne pas révéler qui a un accès (voir
+    // server/server.js, /api/auth/request-link).
+    messageSucces:
+      'Si cette adresse est connue, un email vient de partir. Pensez aussi à vos indésirables.',
+    onEnvoi: (email) => requestReconnectLink(email),
+  })
+  carte.append(form, message)
+
+  return carte
 }
 
 /** Visiteurs connectés : l'appli telle qu'avant (créer/lister les
@@ -76,8 +216,10 @@ function mountAppHome(root, email) {
   const wrap = document.createElement('div')
   wrap.className = 'home'
 
+  // Le même logo que sur la page publique, en petit : une seule signature
+  // pour toute l'application (asset partagé, voir logo.js).
   const h1 = document.createElement('h1')
-  h1.textContent = 'Amend'
+  h1.appendChild(logoAmend({ taille: '30px', curseur: false }))
   const subtitle = document.createElement('p')
   subtitle.className = 'subtitle'
   subtitle.textContent = 'Édition collaborative avec suivi des modifications et assistance IA.'

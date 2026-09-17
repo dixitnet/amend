@@ -72,6 +72,7 @@ export async function mountAdmin(root) {
       <p class="bo-note">Vue au ${new Date(d.genereLe).toLocaleString('fr-FR')}. Lecture seule.</p>
 
       <h2>Utilisateurs</h2>
+      <p class="bo-note"><a href="#/inscrits">Voir la liste d'attente →</a></p>
       <div class="bo-chiffres">
         ${chiffre(nombre(u.total), 'personnes connues')}
         ${chiffre(nombre(u.actifs), 'déjà venues')}

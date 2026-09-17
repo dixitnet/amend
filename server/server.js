@@ -698,6 +698,18 @@ const TARIFS_IA = {
   // --- Liste d'attente publique (page d'accueil pour les visiteurs non
   // connectés) : juste stocker l'email pour l'instant, pas de gestion —
   // voir claude/conception-gestion-utilisateurs.md (projet Amend). ---
+  // Le compteur est public, la liste ne l'est jamais (décision du 17/09) :
+  // un nombre ne désigne personne, une liste d'adresses désigne tout le
+  // monde. Deux routes distinctes, deux régimes d'accès.
+  if (pathname === '/api/waitlist/count' && req.method === 'GET') {
+    return sendJson(res, 200, { count: storage.waitlistCount() })
+  }
+
+  if (pathname === '/api/admin/waitlist' && req.method === 'GET') {
+    if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    return sendJson(res, 200, { inscrits: storage.waitlist() })
+  }
+
   if (pathname === '/api/waitlist' && req.method === 'POST') {
     const body = await readJsonBody(req)
     const email = normalizeEmail(body.email)
