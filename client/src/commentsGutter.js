@@ -44,6 +44,10 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
   let actif = null // id du commentaire déployé
   let timer = null
   const cartes = new Map() // id -> élément
+  // Le point où l'on a cliqué dans le texte, et la carte que ça a activée :
+  // sert à poser cette carte en face du curseur plutôt qu'en face du début
+  // de son passage. Voir activerDepuisLeTexte.
+  let ancrage = null
 
   function planifier() {
     if (timer) return
@@ -82,6 +86,9 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
     }
     carte.addEventListener('click', () => {
       actif = id
+      // Venir de la carte, c'est demander à voir le passage : on reprend
+      // l'ancrage par défaut, au début de celui-ci.
+      ancrage = null
       const range = view && resolveCommentRange(view.state, ydoc, commentaire)
       if (range) centrer(range.from)
       rendre()
@@ -109,6 +116,9 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
     if (!view || !gutter) return
     const sousCurseur = commentaireSousLeCurseur()
     if (sousCurseur) actif = sousCurseur
+    // L'ancrage ne vaut que pour la carte qu'un clic a rendue active : dès
+    // qu'une autre prend sa place, il tombe.
+    if (ancrage && ancrage.id !== actif) ancrage = null
 
     // --- 1. Construire/rafraîchir les cartes, et calculer leur hauteur
     // naturelle. Phase de LECTURE : aucune écriture de style ici.
@@ -133,7 +143,10 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
       carte.classList.toggle('active', id === actif)
       let y = 0
       try {
-        y = view.coordsAtPos(range.from).top - rectGouttiere.top
+        const depuis = ancrage && ancrage.id === id && ancrage.pos >= range.from && ancrage.pos <= range.to
+          ? ancrage.pos
+          : range.from
+        y = view.coordsAtPos(depuis).top - rectGouttiere.top
       } catch {
         return
       }
@@ -172,13 +185,26 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
   }
 
   /** Clic dans le texte sur un passage commenté : la carte correspondante
-   * devient active. C'est l'autre sens de la mise en évidence réciproque. */
+   * devient active, **et vient se poser à la hauteur de l'endroit cliqué**
+   * (17/09/2026).
+   *
+   * Une carte est normalement ancrée au **début** de son passage. Sur un
+   * commentaire qui court sur dix lignes, cliquer à la fin du passage
+   * laissait donc sa carte loin au-dessus, parfois hors de l'écran : on
+   * activait quelque chose qu'on ne voyait pas. On retient donc le point
+   * cliqué et on y ancre la carte tant qu'elle reste active — c'est en
+   * face du curseur qu'on la cherche des yeux, pas en face du début d'un
+   * passage qu'on a peut-être oublié.
+   *
+   * L'ancrage tombe dès qu'une autre carte devient active, ou dès qu'on
+   * clique ailleurs dans le texte : il ne survit pas à ce qui l'a créé. */
   function activerDepuisLeTexte(pos) {
     let trouve = null
     commentsMap.forEach((c, id) => {
       const range = view && resolveCommentRange(view.state, ydoc, c)
       if (range && pos >= range.from && pos <= range.to) trouve = id
     })
+    ancrage = trouve ? { id: trouve, pos } : null
     if (!trouve) return false
     actif = trouve
     rendre()

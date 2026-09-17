@@ -233,6 +233,14 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
       // caught.
       item.addEventListener('click', (e) => {
         if (e.target.closest('.change-actions')) return
+        // Le clic place aussi le curseur dans la modification (17/09/2026).
+        // Sans ça, l'entrée cliquée ne devenait pas « courante » — et
+        // depuis que les boutons Accepter/Rejeter ne s'affichent que sur
+        // l'entrée courante, il aurait fallu cliquer dans le texte pour
+        // pouvoir décider. Cliquer une entrée, c'est dire « celle-ci » :
+        // le panneau et le texte le disent maintenant ensemble.
+        const to = Math.min(change.to, view.state.doc.content.size)
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, change.from, to)))
         scrollChangeToMiddle(change.from)
       })
       // Mise en évidence réciproque : survoler l'entrée éclaire le passage

@@ -632,20 +632,40 @@ span.author-color {
   margin: 10px 0 0;
 }
 .changes-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 10px; }
+/* Les entrées de modification reprennent le dessin des cartes de
+   commentaire (17/09/2026) : mêmes proportions, même filet de couleur à
+   gauche, même métadonnée en 11 px, même repli à deux lignes, et les
+   actions qui n'apparaissent que sur l'entrée courante.
+   Deux panneaux qui montrent la même chose — « quelqu'un a touché à ce
+   passage » — n'avaient aucune raison de se dessiner différemment, et le
+   repli change tout dès qu'il y a dix modifications en attente : on voyait
+   trois entrées, on en voit dix. */
 .change-item {
   border: 1px solid var(--border);
   border-left: 3px solid var(--user-color, var(--accent));
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 8px 10px;
   background: var(--bg);
   font-size: 13px;
   cursor: pointer;
+  transition: box-shadow 0.12s ease-out;
 }
-.change-meta { color: var(--muted); margin-bottom: 4px; }
+.change-meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
 .change-meta strong { color: var(--fg); }
-.change-text { font-size: 13px; margin-bottom: 8px; word-break: break-word; }
+/* Deux lignes tant que l'entrée n'est pas courante — c'est ce qui rend une
+   longue liste lisible d'un coup d'œil. */
+.change-text {
+  font-size: 13px;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.change-item.courante .change-text { display: block; overflow: visible; }
 .change-deletion .change-text { text-decoration: line-through; opacity: 0.7; }
-.change-actions { display: flex; gap: 6px; }
+.change-actions { display: none; gap: 6px; margin-top: 6px; }
+.change-item.courante .change-actions { display: flex; }
 
 button.btn-accept, button.btn-reject, button.btn-primary, .btn-preset {
   border: none;
@@ -1190,10 +1210,15 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   cursor: pointer;
 }
 .changes-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-/* L'entrée correspondant au passage sous le curseur. */
+/* L'entrée correspondant au passage sous le curseur : elle se détache
+   franchement, comme la carte de commentaire active. Un contour discret ne
+   suffisait pas — dans une liste d'entrées identiques, savoir laquelle
+   parle du passage qu'on lit est l'information principale. */
 .change-item.courante {
-  outline: 2px solid color-mix(in srgb, var(--user-color, var(--accent, #5f7a4a)) 55%, transparent);
-  outline-offset: -1px;
+  border-color: var(--user-color, var(--accent));
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--user-color, var(--accent, #5f7a4a)) 7%, var(--bg));
+  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
 }
 /* Le passage éclairé quand on survole son entrée dans la liste. */
 .ProseMirror .change-survol {
@@ -1242,8 +1267,16 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   cursor: pointer;
   transition: top 0.12s ease-out, box-shadow 0.12s ease-out;
 }
+/* La carte active (17/09/2026). L'ombre seule ne suffisait pas : sur une
+   pile de cartes de même largeur, à même distance, elle se remarquait à
+   peine — or c'est la seule chose qu'on cherche des yeux après avoir
+   cliqué dans le texte. Fond teinté de la couleur de son auteur, filet
+   gauche plus épais, bordure colorée, et l'ombre par-dessus. */
 .carte-commentaire.active {
-  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
+  border-color: var(--user-color, var(--accent));
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--user-color, var(--accent, #5f7a4a)) 7%, var(--bg));
+  box-shadow: 0 2px 14px rgb(0 0 0 / 16%);
   z-index: 2;
 }
 .carte-meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
