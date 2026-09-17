@@ -13,6 +13,7 @@ import { Uploads } from './uploads.js'
 import { Users } from './users.js'
 import { Typst, TypstError } from './typst.js'
 import { apercu } from './admin.js'
+import { Publications, peutPublier, porteePublication } from './publication.js'
 import {
   readSession,
   sessionCookieHeader,
@@ -95,6 +96,8 @@ const uploads = new Uploads(DATA_DIR, {
   maxImageMo: process.env.MAX_IMAGE_MB,
   maxDocumentMo: process.env.MAX_DOC_IMAGES_MB,
 })
+// Pages publiées (17/09/2026, voir server/publication.js).
+const publications = new Publications(DATA_DIR)
 const metrics = new Metrics(DATA_DIR)
 metrics.prune()
 
@@ -774,6 +777,61 @@ const TARIFS_IA = {
     return sendJson(res, 200, { inscrits: storage.waitlist() })
   }
 
+  // --- Publier sur le web (17/09/2026, voir server/publication.js) ---
+  //
+  // Qui peut publier vient du .env (`PUBLICATION_WEB`) : `admins` pendant
+  // la phase de test, `proprietaires` ou `editeurs` ensuite. L'ouverture
+  // était prévue dès le premier jour, c'est un changement de configuration
+  // et pas de code.
+  const pubMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/publication$/)
+  if (pubMatch) {
+    const id = pubMatch[1]
+    const doc = storage.getDoc(id)
+    if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
+    const email = readSession(req)
+    const role = storage.roleFor(id, email)
+    if (storage.hasAccessControl(id) && !role) {
+      return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+    }
+    const autorise = peutPublier({
+      admin: isAdminEmail(email),
+      proprietaire: storage.isOwner(id, email),
+      role,
+    })
+
+    if (req.method === 'GET') {
+      const etat = publications.pourDocument(id)
+      return sendJson(res, 200, {
+        publiee: !!etat,
+        url: etat ? `${APP_BASE_URL}/p/${etat.pubId}` : null,
+        publieLe: etat ? etat.publieLe : null,
+        majLe: etat ? etat.majLe : null,
+        // Le client n'a pas à deviner s'il doit montrer le bouton.
+        autorise,
+        portee: porteePublication(),
+      })
+    }
+
+    if (req.method === 'PUT') {
+      if (!autorise) {
+        return sendJson(res, 403, { error: 'la publication est réservée aux administrateurs pour l’instant' })
+      }
+      const body = await readJsonBody(req)
+      if (!Array.isArray(body.blocs)) return sendJson(res, 400, { error: 'document illisible' })
+      if (body.blocs.length > 20000) return sendJson(res, 413, { error: 'document trop volumineux à publier' })
+      const etat = publications.publier(id, { titre: body.titre || doc.title, blocs: body.blocs })
+      metrics.log('publication', { email, docId: id, pubId: etat.pubId, octets: etat.octets })
+      return sendJson(res, 200, { publiee: true, url: `${APP_BASE_URL}/p/${etat.pubId}`, ...etat })
+    }
+
+    if (req.method === 'DELETE') {
+      if (!autorise) return sendJson(res, 403, { error: 'réservé aux administrateurs pour l’instant' })
+      const retiree = publications.depublier(id)
+      if (retiree) metrics.log('publication', { email, docId: id, retiree: true })
+      return sendJson(res, 200, { publiee: false })
+    }
+  }
+
   // --- Palette de contact (17/09/2026) : question, idée, signalement de
   // bug. Trois partis pris, tous les trois délibérés.
   //
@@ -859,8 +917,66 @@ const TARIFS_IA = {
   sendJson(res, 404, { error: 'not found' })
 }
 
+/** Les pages publiées — **la seule partie d'Amend lisible sans session**.
+ *
+ * Servie avant tout le reste et volontairement à part : ce chemin ne lit
+ * aucun cookie, ne touche ni au registre des documents ni aux accès, et ne
+ * rend qu'un fichier écrit d'avance. Moins il partage de code avec
+ * l'application, moins il peut lui arriver quelque chose par ici.
+ * `noindex` est dans la page elle-même : publier, ce n'est pas demander à
+ * être référencé. */
+function servirPublication(req, res, pathname) {
+  const pageMatch = pathname.match(/^\/p\/([A-Za-z0-9_-]{8,40})$/)
+  if (pageMatch) {
+    const html = publications.page(pageMatch[1])
+    if (!html) {
+      res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' })
+      res.end(
+        '<!DOCTYPE html><meta charset="utf-8"><title>Page introuvable</title><p>Cette page n’existe pas, ou n’est plus publiée.</p>'
+      )
+      return true
+    }
+    res.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'content-length': Buffer.byteLength(html),
+      // Une page publique peut être mise en cache, mais brièvement : on
+      // republie pour corriger une coquille et on veut la voir.
+      'cache-control': 'public, max-age=300',
+      // Rien d'extérieur n'entre dans une page publiée, et rien n'en sort.
+      'content-security-policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'no-referrer',
+    })
+    res.end(html)
+    return true
+  }
+
+  const imgMatch = pathname.match(/^\/p\/([A-Za-z0-9_-]{8,40})\/images\/([A-Za-z0-9_.-]+)$/)
+  if (imgMatch) {
+    const docId = publications.documentDe(imgMatch[1])
+    const chemin = docId && uploads.chemin(docId, imgMatch[2])
+    if (!chemin) {
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+      res.end('image introuvable')
+      return true
+    }
+    res.writeHead(200, {
+      'content-type': uploads.typeDe(imgMatch[2]),
+      'content-length': statSync(chemin).size,
+      'cache-control': 'public, max-age=86400, immutable',
+    })
+    createReadStream(chemin).pipe(res)
+    return true
+  }
+
+  return false
+}
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
+  if (url.pathname.startsWith('/p/') && req.method === 'GET') {
+    if (servirPublication(req, res, url.pathname)) return
+  }
   if (url.pathname.startsWith('/api/')) {
     handleApi(req, res, url).catch((err) => {
       sendJson(res, err.status || 500, { error: err.message || 'erreur interne' })

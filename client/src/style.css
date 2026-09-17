@@ -1599,3 +1599,22 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .bo-message { white-space: pre-wrap; max-width: 36em; }
 .bo-contexte { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .bo-contexte [title] { border-bottom: 1px dotted var(--border); cursor: help; }
+
+/* ---------- Publier sur le web (17/09/2026) ---------- */
+.publication-modal { max-width: 460px; }
+.publication-statut { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.publication-statut.publiee { color: var(--ok); }
+.publication-url {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surlignage);
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+.publication-message { margin: 8px 0 0; font-size: 13px; }
+.publication-message.erreur { color: var(--danger); }

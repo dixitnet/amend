@@ -50,6 +50,7 @@ import { mountPresenceBar } from './presence.js'
 import { monterMenuCompte } from './compteMenu.js'
 import { loadDocStyle } from './styleConfig.js'
 import { ouvrirPanneauStyle } from './stylePanel.js'
+import { ouvrirPanneauPublication } from './publicationPanel.js'
 import { messageFugace } from './images.js'
 
 function buildCursor(user) {
@@ -344,7 +345,24 @@ export function mountEditor(root, docId, user, docMeta) {
   exportPdfItem.type = 'button'
   exportPdfItem.textContent = 'PDF (.pdf)'
 
-  menuPartage.liste.append(accesItem, sepExports, titreExports, exportMdItem, exportDocxItem, exportPdfItem)
+  // « Publier sur le web » (17/09/2026) — la même question que les accès et
+  // les exports, poussée d'un cran : qui d'autre voit ce document, et sous
+  // quelle forme. D'où sa place dans ce menu, et non ailleurs. L'entrée
+  // n'apparaît que si le serveur dit que cette personne peut publier —
+  // administrateurs pendant la phase de test, réglable par PUBLICATION_WEB.
+  const sepPublier = document.createElement('hr')
+  sepPublier.className = 'menu-flottant-separateur'
+  const publierItem = document.createElement('button')
+  publierItem.type = 'button'
+  publierItem.textContent = 'Publier sur le web…'
+  sepPublier.hidden = true
+  publierItem.hidden = true
+  publierItem.onclick = () => {
+    menuPartage.fermer()
+    ouvrirPanneauPublication(docId, () => view.state.doc, () => titleInput.value)
+  }
+
+  menuPartage.liste.append(accesItem, sepExports, titreExports, exportMdItem, exportDocxItem, exportPdfItem, sepPublier, publierItem)
   groupeSortie.appendChild(menuPartage.el)
 
   zoneDroite.append(groupeTexte, groupeForme, groupeSortie)
@@ -353,6 +371,18 @@ export function mountEditor(root, docId, user, docMeta) {
   // la largeur du bandeau : les deux sont des ronds colorés, et les
   // confondre serait fâcheux.
   monterMenuCompte(zoneDroite)
+
+  // Le serveur seul sait qui peut publier : on le lui demande plutôt que de
+  // rejouer la règle ici, où elle finirait par diverger.
+  fetch(`/api/docs/${docId}/publication`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((etat) => {
+      if (!etat || !etat.autorise) return
+      sepPublier.hidden = false
+      publierItem.hidden = false
+      publierItem.textContent = etat.publiee ? 'Page publiée — gérer…' : 'Publier sur le web…'
+    })
+    .catch(() => {})
 
   const layout = document.createElement('div')
   layout.className = 'editor-layout'
