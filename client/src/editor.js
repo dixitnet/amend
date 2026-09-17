@@ -675,6 +675,10 @@ export function mountEditor(root, docId, user, docMeta) {
   // seulement côté interface : le serveur ne vérifie pas encore le contenu
   // des modifications, limite connue et acceptée pour cette première
   // version.
+  // Lu par la palette de contact pour joindre le rôle au signalement
+  // (contact.js) — une même page ne se comporte pas pareil selon le rôle,
+  // et c'est la première chose qu'on demanderait sinon.
+  window.__amendRole = docMeta.myRole || null
   const isCorrecteur = docMeta.myRole === 'correcteur'
   // Mise en page et exports réservés aux éditeurs (16/09/2026). Pour la
   // mise en page, le serveur vérifie `canManageDocument` et la restriction

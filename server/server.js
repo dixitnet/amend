@@ -23,6 +23,7 @@ import {
   createReconnectToken,
   consumeReconnectToken,
   isAdminEmail,
+  adminEmails,
   isLoginAllowed,
 } from './auth.js'
 import { sendMail, courrierAvecBouton } from './mailgun.js'
@@ -58,6 +59,22 @@ const CLIENT_DIST = join(ROOT, 'client', 'dist')
 const DATA_DIR = process.env.DATA_DIR || join(ROOT, 'data')
 const PORT = Number(process.env.PORT) || 8787
 const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`
+
+// Limitation des messages de contact : cinq par heure et par compte. En
+// mémoire, donc remise à zéro à chaque redémarrage — même limite connue
+// que pour les liens magiques. Suffisant contre un doigt qui reste appuyé,
+// pas contre quelqu'un de déterminé ; le but est d'éviter le formulaire
+// envoyé quinze fois de suite parce que rien ne semble se passer.
+const SUPPORT_PAR_HEURE = 5
+const supportRecents = new Map()
+function supportAutorise(email) {
+  const maintenant = Date.now()
+  const passages = (supportRecents.get(email) || []).filter((t) => maintenant - t < 3600_000)
+  if (passages.length >= SUPPORT_PAR_HEURE) return false
+  passages.push(maintenant)
+  supportRecents.set(email, passages)
+  return true
+}
 const MAX_JSON_BODY = 20_000
 // La requête de compaction transporte un instantané Yjs déjà fusionné
 // (encodé en base64) — potentiellement bien plus gros qu'un simple champ
@@ -755,6 +772,80 @@ const TARIFS_IA = {
   if (pathname === '/api/admin/waitlist' && req.method === 'GET') {
     if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
     return sendJson(res, 200, { inscrits: storage.waitlist() })
+  }
+
+  // --- Palette de contact (17/09/2026) : question, idée, signalement de
+  // bug. Trois partis pris, tous les trois délibérés.
+  //
+  // 1. **Un signalement sans contexte ne sert à rien.** Le client joint
+  //    automatiquement le document, le rôle, le navigateur, la version de
+  //    l'application et les dernières erreurs de console.
+  // 2. **Jamais de contenu de document.** Seuls les champs listés ici sont
+  //    lus ; tout le reste du corps est ignoré. Ce que la personne écrit
+  //    elle-même lui appartient, mais rien n'est prélevé dans le texte.
+  // 3. **Ne pas dépendre du courrier seul.** Mailgun est l'unique porte
+  //    d'entrée de l'application ; s'il tombe, un signalement envoyé se
+  //    perdrait sans laisser de trace. On écrit donc d'abord dans
+  //    `data/events-support.jsonl`, on envoie ensuite. Le courrier
+  //    notifie, le fichier se souvient.
+  if (pathname === '/api/support' && req.method === 'POST') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const body = await readJsonBody(req)
+
+    const INTENTIONS = { question: 'Question', idee: 'Idée', bug: 'Bug' }
+    const intention = INTENTIONS[String(body.intention || '')] ? String(body.intention) : null
+    if (!intention) return sendJson(res, 400, { error: 'intention inconnue' })
+    const message = String(body.message || '').trim().slice(0, 4000)
+    if (!message) return sendJson(res, 400, { error: 'message vide' })
+
+    const c = body.contexte && typeof body.contexte === 'object' ? body.contexte : {}
+    const texte = (v, max) => (v == null ? null : String(v).slice(0, max))
+    const contexte = {
+      docId: /^[A-Za-z0-9_-]{1,40}$/.test(String(c.docId || '')) ? String(c.docId) : null,
+      role: texte(c.role, 20),
+      navigateur: texte(c.navigateur, 300),
+      ecran: texte(c.ecran, 30),
+      version: texte(c.version, 40),
+      erreurs: Array.isArray(c.erreurs) ? c.erreurs.slice(-5).map((e) => texte(e, 500)) : [],
+    }
+
+    if (!supportAutorise(email)) {
+      return sendJson(res, 429, { error: 'trop de messages envoyés — réessayez dans une heure' })
+    }
+
+    metrics.log('support', { email, intention, message, ...contexte })
+
+    const titres = { question: 'Question', idee: 'Proposition', bug: 'Signalement de bug' }
+    const lignes = [
+      `De : ${email}`,
+      contexte.docId ? `Document : ${APP_BASE_URL}/#/doc/${contexte.docId} (${contexte.role || 'rôle inconnu'})` : null,
+      contexte.navigateur ? `Navigateur : ${contexte.navigateur}` : null,
+      contexte.ecran ? `Écran : ${contexte.ecran}` : null,
+      contexte.version ? `Version : ${contexte.version}` : null,
+      contexte.erreurs.length ? `Erreurs console :\n  ${contexte.erreurs.join('\n  ')}` : null,
+    ].filter(Boolean)
+
+    let mailEnvoye = false
+    const destinataires = adminEmails()
+    if (destinataires.length) {
+      try {
+        await sendMail({
+          to: destinataires.join(','),
+          replyTo: email,
+          subject: `[Amend] ${titres[intention]} — ${email}`,
+          text: `${message}\n\n---\n${lignes.join('\n')}`,
+        })
+        mailEnvoye = true
+        metrics.log('mail', { type: 'support', ok: true })
+      } catch (err) {
+        console.error("Échec d'envoi d'un message de contact :", err.message)
+        metrics.log('mail', { type: 'support', ok: false, erreur: err.message })
+      }
+    }
+    // 200 dans tous les cas : le message est enregistré, donc il n'est pas
+    // perdu, même si le courrier n'est pas parti.
+    return sendJson(res, 200, { ok: true, mail: mailEnvoye })
   }
 
   if (pathname === '/api/waitlist' && req.method === 'POST') {

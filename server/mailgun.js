@@ -49,7 +49,7 @@ export function courrierAvecBouton({ titre, intro, libelleBouton, lien, apres })
   return { text, html }
 }
 
-export function sendMail({ to, subject, text, html }) {
+export function sendMail({ to, subject, text, html, replyTo }) {
   const apiKey = process.env.MAILGUN_API_KEY
   const domain = process.env.MAILGUN_DOMAIN
   // Mailgun a deux zones distinctes avec des identifiants et une API
@@ -67,6 +67,9 @@ export function sendMail({ to, subject, text, html }) {
   // Mailgun accepte les deux parties et laisse le client choisir : le HTML
   // s'affiche quand il est accepté, le texte sert de repli.
   if (html) champs.html = html
+  // Répondre à un signalement doit aller à la personne qui l'a envoyé, pas
+  // à la boîte no-reply de l'instance (palette de contact, 17/09/2026).
+  if (replyTo) champs['h:Reply-To'] = replyTo
   const body = new URLSearchParams(champs).toString()
   const auth = Buffer.from(`api:${apiKey}`).toString('base64')
 

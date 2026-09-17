@@ -71,6 +71,37 @@ export async function mountAdmin(root) {
       <h1>Back-office</h1>
       <p class="bo-note">Vue au ${new Date(d.genereLe).toLocaleString('fr-FR')}. Lecture seule.</p>
 
+      ${
+        f.support && f.support.derniers.length
+          ? `<h2>Retours reçus</h2>
+      <p class="bo-note">${nombre(f.support.recus7j)} sur 7 jours, ${nombre(
+              f.support.recus30j
+            )} sur 30. Envoyés par la palette de contact, conservés ici même si le courrier n'est pas parti.</p>
+      <table class="bo-table">
+        <thead><tr><th>Quand</th><th>Qui</th><th>Quoi</th><th>Message</th><th>Contexte</th></tr></thead>
+        <tbody>${f.support.derniers
+          .map(
+            (r) => `<tr>
+              <td>${date(r.ts)}</td>
+              <td>${esc(r.email || '—')}</td>
+              <td>${esc({ question: 'Question', idee: 'Idée', bug: 'Bug' }[r.intention] || r.intention || '—')}</td>
+              <td class="bo-message">${esc(r.message || '')}</td>
+              <td class="bo-contexte">${[
+                r.docId ? `<a href="#/doc/${esc(r.docId)}">document</a>${r.role ? ` (${esc(r.role)})` : ''}` : '',
+                r.navigateur ? `<span title="${esc(r.navigateur)}">navigateur</span>` : '',
+                r.erreurs && r.erreurs.length
+                  ? `<span class="bo-attente" title="${esc(r.erreurs.join(' | '))}">${r.erreurs.length} erreur(s)</span>`
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}</td>
+            </tr>`
+          )
+          .join('')}</tbody>
+      </table>`
+          : ''
+      }
+
       <h2>Utilisateurs</h2>
       <p class="bo-note"><a href="#/inscrits">Voir la liste d'attente →</a></p>
       <div class="bo-chiffres">

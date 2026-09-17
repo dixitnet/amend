@@ -12,7 +12,13 @@ const PORT = 18790
 process.env.PORT = String(PORT)
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'collabtext-test-admin-'))
 process.env.ADMIN_EMAILS = 'chef@example.com'
-delete process.env.ANTHROPIC_API_KEY
+// `= ''` et non `delete` : `loadDotEnv` ne pose une variable que si elle est
+// **absente** de l'environnement (`key in process.env`). Supprimer une clé
+// la rend absente — et le .env de la machine de développement la remet
+// aussitôt, avec sa vraie valeur. Un test « sans Mailgun » envoyait donc de
+// vrais courriers, et un test « sans clé Anthropic » appelait l'API. La
+// chaîne vide, elle, reste présente et vide. (Constaté le 17/09/2026.)
+process.env.ANTHROPIC_API_KEY = ''
 
 const BASE = `http://localhost:${PORT}`
 

@@ -13,10 +13,18 @@ import { join } from 'node:path'
 const PORT = 18788
 process.env.PORT = String(PORT)
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'collabtext-test-access-'))
-delete process.env.ANTHROPIC_API_KEY
-delete process.env.MAILGUN_API_KEY
-delete process.env.MAILGUN_DOMAIN
-delete process.env.ADMIN_EMAILS
+// `= ''` et non `delete` : `loadDotEnv` ne pose une variable que si elle est
+// **absente** de l'environnement (`key in process.env`). Supprimer une clé
+// la rend absente — et le .env de la machine de développement la remet
+// aussitôt, avec sa vraie valeur. Un test « sans Mailgun » envoyait donc de
+// vrais courriers, et un test « sans clé Anthropic » appelait l'API. La
+// chaîne vide, elle, reste présente et vide. (Constaté le 17/09/2026.)
+process.env.ANTHROPIC_API_KEY = ''
+process.env.MAILGUN_API_KEY = ''
+process.env.MAILGUN_DOMAIN = ''
+// Ceinture et bretelles : même si une clé passait, rien ne sort de la machine.
+process.env.MAILGUN_API_HOST = '127.0.0.1'
+process.env.ADMIN_EMAILS = ''
 
 const BASE = `http://localhost:${PORT}`
 
@@ -347,7 +355,7 @@ test('la feuille de style et le diagnostic sont réservés aux administrateurs',
     const statsRes = await fetch(`${BASE}/api/debug/stats`, { headers: { cookie: cookieFor('nobody@example.com') } })
     assert.equal(statsRes.status, 403)
   } finally {
-    delete process.env.ADMIN_EMAILS
+process.env.ADMIN_EMAILS = ''
   }
 })
 
@@ -397,7 +405,7 @@ test('la suggestion IA : session exigée, et interdite au correcteur', async () 
   // déjà connu que integration.test.js) pour vérifier précisément que ce
   // n'est ni un 401 ni un 403.
   const savedKey = process.env.ANTHROPIC_API_KEY
-  delete process.env.ANTHROPIC_API_KEY
+process.env.ANTHROPIC_API_KEY = ''
   const editeurRes = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', cookie: editorCookie },
@@ -428,7 +436,7 @@ test('isLoginAllowed : administrateur ou déjà invité quelque part, personne d
     const doc = storage.createDoc('Doc pour laura', 'laura@example.com')
     assert.equal(isLoginAllowed('laura@example.com', storage), true)
   } finally {
-    delete process.env.ADMIN_EMAILS
+process.env.ADMIN_EMAILS = ''
   }
 })
 

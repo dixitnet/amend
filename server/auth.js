@@ -72,6 +72,12 @@ function adminEmailList() {
     .filter(Boolean)
 }
 
+/** Les adresses des administrateurs — pour leur écrire (signalements de la
+ * palette de contact), pas pour les afficher. */
+export function adminEmails() {
+  return adminEmailList()
+}
+
 export function isAdminEmail(email) {
   if (!email) return false
   return adminEmailList().includes(email)

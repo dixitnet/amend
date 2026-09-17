@@ -1492,3 +1492,110 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   font-size: 15px;
   font-weight: 600;
 }
+
+
+/* ---------- Palette de contact (17/09/2026, phase de test) ---------- */
+
+/* Une palette, pas une modale : elle se pose par-dessus un coin de l'écran
+   et laisse voir — et lire — le document derrière. C'est ce qui permet de
+   décrire un problème qu'on a encore sous les yeux. */
+.contact-hote {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+}
+.contact-bouton {
+  align-self: flex-end;
+  padding: 9px 16px;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+.contact-bouton:hover { border-color: var(--accent); color: var(--accent); }
+.contact-palette {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+}
+.contact-palette[hidden] { display: none; }
+.contact-palette h2 { margin: 0 0 4px; font-size: 16px; }
+.contact-sous { margin: 0 0 12px; font-size: 13px; color: var(--muted); line-height: 1.4; }
+.contact-fermer {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.contact-fermer:hover { color: var(--fg); background: var(--border); }
+.contact-intentions { display: flex; gap: 6px; margin-bottom: 10px; }
+.contact-intention {
+  flex: 1;
+  min-height: 34px;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.contact-intention.actif { border-color: var(--accent); color: var(--accent); background: var(--surlignage); }
+.contact-palette textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  /* 16px : en dessous, Safari sur iPhone zoome à la mise au point. */
+  font-size: 16px;
+  font-family: inherit;
+  resize: vertical;
+}
+.contact-palette textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Dire ce qui part, avant que ça parte. */
+.contact-note { margin: 8px 0 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
+.contact-envoyer { min-height: 40px; }
+.contact-statut { margin: 8px 0 0; font-size: 13px; }
+.contact-statut.ok { color: var(--ok); }
+.contact-statut.erreur { color: var(--danger); }
+
+/* Sur un téléphone, la palette prend la largeur : une colonne de 320 px
+   posée dans un coin y serait illisible. */
+@media (max-width: 480px) {
+  .contact-hote { left: 16px; align-items: stretch; }
+  .contact-palette { width: auto; }
+  .contact-bouton { align-self: flex-end; }
+}
+
+/* Les retours reçus, au back-office : le message doit se lire en entier
+   (c'est tout l'intérêt), le contexte tient en quelques mots survolables. */
+.bo-message { white-space: pre-wrap; max-width: 36em; }
+.bo-contexte { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.bo-contexte [title] { border-bottom: 1px dotted var(--border); cursor: help; }

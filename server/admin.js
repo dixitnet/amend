@@ -236,6 +236,18 @@ export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, data
       }, {}),
       dernierEchec: mail30.filter((m) => !m.ok).slice(-1)[0] || null,
     },
+    // Les retours reçus par la palette de contact (17/09/2026). Ils vivent
+    // ici *en plus* du courrier : Mailgun est l'unique porte d'entrée de
+    // l'application, et un signalement qui ne serait qu'un email disparaît
+    // avec lui. Les vingt derniers, le plus récent en tête.
+    support: {
+      recus7j: metrics.read('support', depuis(7)).length,
+      recus30j: metrics.read('support', depuis(30)).length,
+      derniers: metrics
+        .read('support', depuis(30))
+        .slice(-20)
+        .reverse(),
+    },
   }
 
   // --- Serveur

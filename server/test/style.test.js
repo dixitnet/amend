@@ -16,9 +16,17 @@ import { join } from 'node:path'
 const PORT = 18792
 process.env.PORT = String(PORT)
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'collabtext-test-style-'))
-delete process.env.ANTHROPIC_API_KEY
-delete process.env.MAILGUN_API_KEY
-delete process.env.MAILGUN_DOMAIN
+// `= ''` et non `delete` : `loadDotEnv` ne pose une variable que si elle est
+// **absente** de l'environnement (`key in process.env`). Supprimer une clé
+// la rend absente — et le .env de la machine de développement la remet
+// aussitôt, avec sa vraie valeur. Un test « sans Mailgun » envoyait donc de
+// vrais courriers, et un test « sans clé Anthropic » appelait l'API. La
+// chaîne vide, elle, reste présente et vide. (Constaté le 17/09/2026.)
+process.env.ANTHROPIC_API_KEY = ''
+process.env.MAILGUN_API_KEY = ''
+process.env.MAILGUN_DOMAIN = ''
+// Ceinture et bretelles : même si une clé passait, rien ne sort de la machine.
+process.env.MAILGUN_API_HOST = '127.0.0.1'
 process.env.ADMIN_EMAILS = 'admin@example.com'
 
 const BASE = `http://localhost:${PORT}`
