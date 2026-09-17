@@ -1,7 +1,7 @@
-// Liste d'attente (17/09/2026) : le compteur est public, la liste ne l'est
-// jamais. C'est la seule chose qui compte vraiment ici — une page d'accueil
-// qui affiche « 42 personnes attendent » est engageante, une API qui rend
-// 42 adresses email à qui la demande est une fuite.
+// Liste d'attente (17/09/2026) : **on s'inscrit sans session, on ne lit
+// qu'en administrateur**. Rien n'en sort autrement — ni les adresses, ni
+// même leur nombre : un compteur public a été envisagé puis écarté, et ces
+// tests sont ce qui empêchera de le rouvrir par inadvertance.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -46,24 +46,12 @@ const inscrire = (email) =>
     body: JSON.stringify({ email }),
   })
 
-test('le compteur est public et ne révèle aucune adresse', async () => {
+test("rien de la liste ne se lit sans être administrateur", async () => {
   await inscrire('a@example.com')
   await inscrire('b@example.com')
-  const res = await fetch(`${BASE}/api/waitlist/count`)
-  assert.equal(res.status, 200)
-  const corps = await res.json()
-  assert.equal(corps.count, 2)
-  // Rien d'autre que le nombre ne sort par cette porte.
-  assert.deepEqual(Object.keys(corps), ['count'])
-  assert.ok(!JSON.stringify(corps).includes('@'))
-})
-
-test('le compteur déduplique — le fichier, lui, empile', async () => {
-  const avant = (await (await fetch(`${BASE}/api/waitlist/count`)).json()).count
-  await inscrire('a@example.com')
-  await inscrire('a@example.com')
-  const apres = (await (await fetch(`${BASE}/api/waitlist/count`)).json()).count
-  assert.equal(apres, avant, 'une adresse déjà inscrite a fait monter le compteur')
+  // Il n'existe aucune route publique de lecture, pas même un compteur.
+  assert.equal((await fetch(`${BASE}/api/waitlist/count`)).status, 404)
+  assert.equal((await fetch(`${BASE}/api/waitlist`)).status, 404)
 })
 
 test('la liste est refusée sans session et à un simple utilisateur', async () => {

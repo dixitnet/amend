@@ -160,25 +160,6 @@ function carteListeAttente() {
   })
   carte.append(form, message)
 
-  // Le compteur est public, la liste ne l'est jamais : un nombre ne
-  // désigne personne. Il n'apparaît qu'à partir de quelques inscrits — « 1
-  // personne attend » ferait le contraire de l'effet recherché.
-  const compteur = document.createElement('p')
-  compteur.className = 'landing-compteur'
-  compteur.hidden = true
-  carte.appendChild(compteur)
-  fetch('/api/waitlist/count')
-    .then((r) => r.json())
-    .then(({ count }) => {
-      if (!count || count < 5) return
-      compteur.innerHTML = ''
-      const n = document.createElement('strong')
-      n.textContent = String(count)
-      compteur.append(n, document.createTextNode(' personnes attendent déjà leur accès.'))
-      compteur.hidden = false
-    })
-    .catch(() => {})
-
   return carte
 }
 

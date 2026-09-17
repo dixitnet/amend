@@ -164,21 +164,15 @@ export class Storage {
 
   /** La liste d'attente, telle quelle (dates comprises). **Réservée aux
    * administrateurs** : ce sont des adresses de personnes qui ont laissé
-   * leur coordonnée, pas un annuaire. Aucune route publique ne doit
-   * appeler cette méthode — voir `waitlistCount` pour le compteur. */
+   * leur coordonnée, pas un annuaire. Aucune route publique n'appelle
+   * cette méthode — et il n'y a pas non plus de compteur public (décision
+   * du 17/09). */
   waitlist() {
     try {
       return JSON.parse(readFileSync(this.waitlistPath, 'utf8'))
     } catch {
       return []
     }
-  }
-
-  /** Le nombre de personnes inscrites — **dédupliqué**, alors que le
-   * fichier, lui, empile les envois : quelqu'un qui s'inscrit deux fois ne
-   * doit pas faire monter le compteur public de deux. */
-  waitlistCount() {
-    return new Set(this.waitlist().map((e) => e && e.email).filter(Boolean)).size
   }
 
   _readRegistry() {

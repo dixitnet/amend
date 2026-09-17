@@ -1043,8 +1043,6 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 }
 .landing-form button:disabled { opacity: 0.6; cursor: default; }
 .landing-message { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.landing-compteur { margin-top: auto; padding-top: 14px; font-size: 13px; color: var(--muted); }
-.landing-compteur strong { color: var(--fg); }
 .landing-pied { margin-top: 36px; text-align: center; font-size: 13px; color: var(--muted); }
 
 /* ---------- Liste des inscrits (#/inscrits, administrateurs) ---------- */
