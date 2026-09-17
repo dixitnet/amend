@@ -188,12 +188,17 @@ function carteConnexion() {
   return carte
 }
 
-/** Le libellé d'accès d'un document dans la liste, ou `null` quand il n'y
- * a rien à dire (mon document, dont je suis éditeur : l'évidence). */
+/** Le rôle à afficher à côté du titre, ou `null` quand il n'y a rien à
+ * dire — mon propre document, dont je suis éditeur par construction.
+ *
+ * Le badge dit un **rôle**, et rien d'autre : ceux de `server/roles.js`,
+ * pas un mot inventé pour l'occasion. Sur le document de quelqu'un
+ * d'autre, être éditeur est une information — c'est ce qui situe le
+ * bouton « Quitter » d'à côté. */
 function libelleRole(doc) {
-  if (doc.jeSuisProprietaire) return null
+  if (doc.jeSuisProprietaire || !doc.owner) return null
+  if (doc.myRole === 'editeur') return 'éditeur'
   if (doc.myRole === 'correcteur') return 'correcteur'
-  if (doc.owner) return 'invité'
   return null
 }
 
@@ -369,9 +374,7 @@ function mountAppHome(root, email) {
       titleWrap.className = 'doc-list-title'
       titleWrap.append(starBtn, link)
       // Le badge dit ce qu'on est sur ce document quand ce n'est pas
-      // l'évidence. « Éditeur » sur son propre document ne dit rien à
-      // personne ; « correcteur » ou « invité » situe tout de suite le
-      // bouton « Quitter » d'à côté.
+      // l'évidence — voir libelleRole.
       const badge = libelleRole(doc)
       if (badge) {
         const el = document.createElement('span')
