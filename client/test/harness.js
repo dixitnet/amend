@@ -13,8 +13,14 @@
 // synchronisation Yjs entre deux clients.
 
 import { EditorState, TextSelection } from 'prosemirror-state'
+import { baseKeymap } from 'prosemirror-commands'
 import { schema } from '../src/schema.js'
-import { trackChangesPlugin, makeDispatchTransaction, setTrackChangesEnabled } from '../src/trackChanges.js'
+import {
+  trackChangesPlugin,
+  makeDispatchTransaction,
+  setTrackChangesEnabled,
+  effacementSuivi,
+} from '../src/trackChanges.js'
 
 export const UTILISATEUR = { name: 'Alice', color: '#3d5a80' }
 export const IA = { name: 'IA', color: '#5f7a4a' }
@@ -131,18 +137,32 @@ export function editeur(document, { suivi = true, user = UTILISATEUR } = {}) {
       dispatcher(state.tr.insertText(texte, from, to))
       return this
     },
-    /** Retour arrière. */
+    /** Retour arrière — par la **même porte que le clavier** (la commande
+     * liée à la touche), et non par une transaction fabriquée à la main :
+     * c'est le chemin réel, et c'est celui où les défauts se logent. Si la
+     * commande passe la main (fusion de blocs, suivi désactivé), on
+     * applique la suppression ordinaire, comme le ferait baseKeymap. */
     effacerAvant() {
-      const { from, to, empty } = state.selection
-      if (empty) dispatcher(state.tr.delete(Math.max(0, from - 1), from))
-      else dispatcher(state.tr.delete(from, to))
+      // La vraie chaîne de l'éditeur, dans l'ordre : notre commande, puis
+      // baseKeymap (qui ne traite que les cas structurels — fusion de
+      // blocs, nœud entier), puis **le navigateur**, qui est ce qui efface
+      // réellement un caractère au milieu d'un texte. C'est ce dernier
+      // maillon qu'on imite ici par une suppression ordinaire, et c'est
+      // précisément celui qui posait problème avant l'interception.
+      if (!effacementSuivi(() => user, true)(state, dispatcher) && !baseKeymap.Backspace(state, dispatcher)) {
+        const { from, to, empty } = state.selection
+        if (empty) dispatcher(state.tr.delete(Math.max(0, from - 1), from))
+        else dispatcher(state.tr.delete(from, to))
+      }
       return this
     },
     /** Suppression avant (touche Suppr / fn+Retour sur un Mac). */
     effacerApres() {
-      const { from, to, empty } = state.selection
-      if (empty) dispatcher(state.tr.delete(from, Math.min(state.doc.content.size, from + 1)))
-      else dispatcher(state.tr.delete(from, to))
+      if (!effacementSuivi(() => user, false)(state, dispatcher) && !baseKeymap.Delete(state, dispatcher)) {
+        const { from, to, empty } = state.selection
+        if (empty) dispatcher(state.tr.delete(from, Math.min(state.doc.content.size, from + 1)))
+        else dispatcher(state.tr.delete(from, to))
+      }
       return this
     },
     suivi(actif) {

@@ -15,6 +15,7 @@ import {
   isTrackChangesEnabled,
   setTrackChangesEnabled,
   makeDispatchTransaction,
+  effacementSuivi,
   selectionHighlightPlugin,
   richPastePlugin,
   pendingBreakPlugin,
@@ -630,6 +631,15 @@ export function mountEditor(root, docId, user, docMeta) {
       mountWordCount(wordCount),
       mountTkMarker(tkCount),
       keymap({
+        // Retour arrière et Suppr sont pris en charge ici, **avant** le
+        // comportement natif du navigateur : le suivi des modifications
+        // garde à l'écran du texte que le navigateur croit effacé, et lui
+        // laisser la main finissait par lui faire insérer une espace
+        // parasite quand on maintenait la touche enfoncée. Hors suivi, ou
+        // en début de bloc (où c'est une fusion et non un effacement), ces
+        // commandes passent la main à baseKeymap comme avant.
+        Backspace: effacementSuivi(() => user, true),
+        Delete: effacementSuivi(() => user, false),
         'Mod-z': undo,
         'Mod-y': redo,
         'Mod-Shift-z': redo,

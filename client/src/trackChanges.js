@@ -154,6 +154,20 @@ function caractereAEffacer(state, from, to, versLArriere) {
   return null
 }
 
+/** `true` si [from, to] tient dans un seul bloc de texte.
+ *
+ * Un retour arrière en début de paragraphe ne supprime pas du texte : il
+ * **fusionne deux blocs**, et cette opération-là reste hors suivi (même
+ * périmètre que le reste de ce fichier). Sans cette vérification, le
+ * réécrivain s'en emparait, ne trouvait rien à barrer dans le bloc
+ * précédent, et se contentait de déplacer le curseur : la touche n'avait
+ * plus aucun effet. Constaté par Sylvain le 17/09. */
+function dansUnSeulBloc(state, from, to) {
+  const $from = state.doc.resolve(from)
+  const $to = state.doc.resolve(to)
+  return $from.parent.isTextblock && $from.sameParent($to)
+}
+
 /** Une transaction qui ne fait que déplacer le curseur. Sert quand il n'y a
  * plus rien à barrer : on ne renvoie surtout pas `null`, qui laisserait
  * passer la suppression d'origine. */
@@ -241,7 +255,8 @@ export function rewriteForTracking(state, tr, user) {
   let cibleFrom = from
   let cibleTo = to
   let versLArriere = false
-  const effacement = slice.size === 0 && to > from && state.selection.empty
+  const effacement =
+    slice.size === 0 && to > from && state.selection.empty && dansUnSeulBloc(state, from, to)
   if (effacement) {
     // Retour arrière : le curseur était à droite de ce qui disparaît.
     versLArriere = state.selection.head === to
@@ -449,6 +464,52 @@ export function pendingBreakPlugin() {
  * is on, local edits get rewritten by rewriteForTracking instead of applied
  * directly. `getUser` returns the current { name, color }.
  */
+/**
+ * Les touches d'effacement, prises en charge **avant le navigateur**
+ * (17/09/2026).
+ *
+ * Jusqu'ici, Retour arrière et Suppr passaient par le comportement natif du
+ * champ éditable, et l'on réécrivait après coup la transaction que
+ * ProseMirror en déduisait. Ça marche tant que le document à l'écran est
+ * celui que le navigateur croit éditer — or le suivi des modifications
+ * garde à l'écran du texte que le navigateur considère comme effacé. Avec
+ * la touche maintenue enfoncée, Chrome finissait par réparer ce qu'il
+ * prenait pour une incohérence et **insérait une espace** avant le mot
+ * qu'on était en train d'effacer (signalé par Sylvain le 17/09).
+ *
+ * On ne laisse donc plus le navigateur toucher au document : la touche est
+ * interceptée, la transaction suivie construite directement, et rien n'est
+ * déduit du DOM. `false` quand ce n'est pas notre affaire — hors suivi, en
+ * début de bloc (c'est une fusion, pas un effacement), sur une sélection
+ * qui traverse plusieurs blocs — et la commande suivante prend la main,
+ * exactement comme avant.
+ */
+export function effacementSuivi(getUser, versLArriere) {
+  return (state, dispatch) => {
+    if (!isTrackChangesEnabled(state)) return false
+    const sel = state.selection
+    let debut
+    let fin
+    if (!sel.empty) {
+      debut = sel.from
+      fin = sel.to
+    } else if (versLArriere) {
+      debut = sel.from - 1
+      fin = sel.from
+    } else {
+      debut = sel.from
+      fin = sel.from + 1
+    }
+    if (debut < 0 || fin > state.doc.content.size || debut >= fin) return false
+    if (!dansUnSeulBloc(state, debut, fin)) return false
+
+    const suivie = rewriteForTracking(state, state.tr.delete(debut, fin), getUser())
+    if (!suivie) return false
+    if (dispatch) dispatch(suivie)
+    return true
+  }
+}
+
 export function makeDispatchTransaction(view, getUser) {
   return function dispatchTransaction(tr) {
     let finalTr = tr

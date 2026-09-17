@@ -137,6 +137,43 @@ test('effacer tout un bloc ne supprime jamais rien pour de bon', () => {
   valide(e)
 })
 
+test('en début de paragraphe, le retour arrière fusionne les deux blocs', () => {
+  // Ce n'est pas un effacement de texte mais une opération de structure :
+  // elle reste hors suivi, et c'est baseKeymap qui la fait. Le réécrivain
+  // s'en était emparé un temps — il ne trouvait rien à barrer dans le bloc
+  // précédent et se contentait de déplacer le curseur : la touche n'avait
+  // plus aucun effet (signalé le 17/09).
+  const e = editeur(doc('Un.', 'Deux.'))
+  e.selection(6).effacerAvant()
+  assert.equal(e.nbBlocs(), 1)
+  assert.equal(e.texte(), 'Un.Deux.')
+  valide(e)
+})
+
+test('après la fusion, le retour arrière suivant barre normalement', () => {
+  const e = editeur(doc('Un.', 'Deux.'))
+  e.selection(6).effacerAvant().effacerAvant()
+  assert.equal(e.nbBlocs(), 1)
+  assert.equal(e.texte(), 'Un.Deux.', 'rien ne doit disparaître')
+  assert.equal(e.texteAccepte(), 'UnDeux.')
+})
+
+test('la touche maintenue enfoncée n’insère rien', () => {
+  // Vingt frappes d'affilée : c'est le cas qui faisait apparaître une
+  // espace parasite avant le mot, quand le navigateur effaçait lui-même et
+  // qu'on réécrivait après coup la transaction qu'il en déduisait. Depuis
+  // que la touche est interceptée, rien n'est déduit du DOM.
+  const e = editeur(doc('Le chat dort.'))
+  e.selection(9)
+  for (let i = 0; i < 20; i++) e.effacerAvant()
+  assert.equal(e.texte(), 'Le chat dort.', 'aucun caractère ajouté ni retiré')
+  assert.equal(e.texteAccepte(), 'dort.')
+  assert.ok(
+    !e.marques().some((m) => m.startsWith('+')),
+    'effacer ne doit jamais produire d’insertion'
+  )
+})
+
 test('sans suivi, le retour arrière efface pour de bon', () => {
   const e = editeur(doc('Le chat dort.'), { suivi: false })
   e.selection(9).effacerAvant().effacerAvant()
