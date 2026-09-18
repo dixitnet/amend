@@ -32,6 +32,16 @@ export function monterMenuCompte(container) {
   pastille.className = 'compte-pastille'
   pastille.textContent = '…'
   pastille.title = 'Mon compte'
+  // La pastille porte **sa** couleur (18/09) : la même que son curseur et
+  // ses modifications dans le texte. C'est ce qui fait le lien entre « moi
+  // dans l'application » et « moi dans le document », un des premiers
+  // repères que cherche quelqu'un qui relit à plusieurs. Elle reste creuse
+  // là où la couleur n'a pas de sens — la liste des documents.
+  const teinte = couleur && couleur()
+  if (teinte) {
+    pastille.style.setProperty('--user-color', teinte)
+    pastille.classList.add('compte-pastille-coloree')
+  }
 
   const liste = document.createElement('div')
   liste.className = 'menu-flottant-liste menu-flottant-droite'

@@ -443,6 +443,21 @@ a { color: var(--accent); }
   cursor: pointer;
 }
 .compte-pastille:hover { color: var(--fg); border-color: var(--fg); }
+/* Dans un document, la pastille porte la couleur de la personne — celle de
+   son curseur et de ses modifications. Même dessin que les pastilles de
+   présence, et c'est voulu : c'est la même information, vue de l'autre bout
+   du bandeau. */
+.compte-pastille.compte-pastille-coloree {
+  background: var(--user-color);
+  border-color: var(--bg);
+  color: white;
+}
+.compte-pastille.compte-pastille-coloree:hover {
+  color: white;
+  border-color: var(--bg);
+  outline: 2px solid var(--user-color);
+  outline-offset: 1px;
+}
 .menu-compte { margin-left: 4px; }
 
 /* "Qui est connecté" (voir presence.js) — un rond par connexion, pas par

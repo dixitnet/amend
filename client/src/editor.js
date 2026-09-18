@@ -113,9 +113,10 @@ export function mountEditor(root, docId, user, docMeta) {
   // forme, faire sortir le document. Les zones séparent par **nature du
   // geste**, pas par fréquence d'usage :
   //
-  //   gauche — où je suis  : retour, nouveau, titre (éditable), favori, état
+  //   gauche — où je suis  : retour, nouveau, favori, titre (éditable)
   //   centre — qui est là  : les pastilles de présence, seules
-  //   droite — ce que je fais au document : texte / forme / sortie, puis moi
+  //   droite — ce que je fais au document : texte / forme / sortie,
+  //            puis l'état de la connexion et moi
   //
   // L'intérêt n'est pas cosmétique. Chaque chantier à venir a déjà sa place
   // sans nouveau bouton (aperçu PDF → panneau de mise en page ; publication
@@ -196,30 +197,9 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   zoneGauche.appendChild(nouveauBtn)
 
-  // Le titre reste éditable en place (confirmé le 17/09) : c'est le nom du
-  // lieu où l'on est, pas une fonction — d'où sa place dans la zone de
-  // navigation, et non parmi les outils.
-  const titleInput = document.createElement('input')
-  titleInput.className = 'doc-title'
-  titleInput.value = docMeta.title
-  titleInput.title = 'Titre du document — modifiable directement'
-  let titleSaveTimer = null
-  titleInput.addEventListener('input', () => {
-    // Broadcast on every keystroke (cheap — just a relay, see provider.js)
-    // so other open tabs update live, same spirit as the document body;
-    // the actual persistence below stays debounced.
-    provider.sendTitle(titleInput.value)
-    clearTimeout(titleSaveTimer)
-    titleSaveTimer = setTimeout(() => {
-      fetch(`/api/docs/${docId}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title: titleInput.value }),
-      }).catch(() => {})
-    }, 500)
-  })
-  zoneGauche.appendChild(titleInput)
-
+  // L'étoile précède le titre (18/09) : elle qualifie le document, elle
+  // n'agit pas dessus — sa place est du côté du nom, pas du côté des
+  // outils.
   const starBtn = document.createElement('button')
   starBtn.type = 'button'
   starBtn.className = 'star-btn'
@@ -249,10 +229,31 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   zoneGauche.appendChild(starBtn)
 
-  const status = document.createElement('span')
-  status.className = 'connection-status'
-  status.setAttribute('role', 'status')
-  zoneGauche.appendChild(status)
+  // Le titre reste éditable en place (confirmé le 17/09) : c'est le nom du
+  // lieu où l'on est, pas une fonction — d'où sa place dans la zone de
+  // navigation, et non parmi les outils.
+  const titleInput = document.createElement('input')
+  titleInput.className = 'doc-title'
+  titleInput.value = docMeta.title
+  titleInput.title = 'Titre du document — modifiable directement'
+  let titleSaveTimer = null
+  titleInput.addEventListener('input', () => {
+    // Broadcast on every keystroke (cheap — just a relay, see provider.js)
+    // so other open tabs update live, same spirit as the document body;
+    // the actual persistence below stays debounced.
+    provider.sendTitle(titleInput.value)
+    clearTimeout(titleSaveTimer)
+    titleSaveTimer = setTimeout(() => {
+      fetch(`/api/docs/${docId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: titleInput.value }),
+      }).catch(() => {})
+    }, 500)
+  })
+  zoneGauche.appendChild(titleInput)
+
+
 
   // --- Zone centre : qui est là --------------------------------------------
 
@@ -278,8 +279,7 @@ export function mountEditor(root, docId, user, docMeta) {
   const trackToggle = document.createElement('input')
   trackToggle.type = 'checkbox'
   trackToggle.checked = true
-  trackToggleLabel.append(trackToggle, document.createTextNode(' Suivi'))
-  trackToggleLabel.title = 'Suivi des modifications'
+  trackToggleLabel.append(trackToggle, document.createTextNode(' Suivi des modifications'))
   groupeTexte.appendChild(trackToggleLabel)
 
   const tkCount = document.createElement('span')
@@ -371,7 +371,15 @@ export function mountEditor(root, docId, user, docMeta) {
   // 4. Moi. À l'extrême droite, séparée des pastilles de présence par toute
   // la largeur du bandeau : les deux sont des ronds colorés, et les
   // confondre serait fâcheux.
-  monterMenuCompte(zoneDroite)
+  // Le voyant d'état ferme la rangée, juste avant la pastille du compte
+  // (18/09) : l'état de l'enregistrement se range avec ce qui parle de la
+  // session, pas avec le nom du document.
+  const status = document.createElement('span')
+  status.className = 'connection-status'
+  status.setAttribute('role', 'status')
+  zoneDroite.appendChild(status)
+
+  monterMenuCompte(zoneDroite, { couleur: () => user.color })
 
   // Le serveur seul sait qui peut publier : on le lui demande plutôt que de
   // rejouer la règle ici, où elle finirait par diverger.
