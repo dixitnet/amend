@@ -107,7 +107,15 @@ test('appuyer plusieurs fois sur retour arrière efface plusieurs caractères', 
   for (let i = 0; i < 5; i++) e.effacerAvant()
   assert.equal(e.texte(), 'Le chat dort.', 'aucun caractère ne doit disparaître du document')
   assert.equal(e.texteAccepte(), 'Le dort.', 'cinq frappes doivent barrer cinq caractères')
-  assert.equal(e.marques().length, 1)
+  // Volontairement pas `marques().length === 1` : chaque marque porte son
+  // horodatage, donc deux frappes séparées par un changement de
+  // milliseconde produisent deux marques distinctes plutôt qu'une. Le test
+  // échouait une fois sur trois — une **assertion** fausse, pas un
+  // comportement faux. Ce qui compte est qu'aucune ne soit une insertion.
+  assert.ok(
+    e.marques().every((m) => m.startsWith('-')),
+    'effacer ne doit produire que des suppressions'
+  )
 })
 
 test('la suppression avant saute elle aussi ce qui est déjà barré', () => {

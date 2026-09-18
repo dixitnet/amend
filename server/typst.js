@@ -24,6 +24,7 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, copyFileSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { famillesTypst } from '../shared/style.js'
 
 export class TypstError extends Error {
   constructor(message, status = 500) {
@@ -73,6 +74,37 @@ export class Typst {
     } catch {
       return null
     }
+  }
+
+  /** Les familles de polices que la mise en page peut demander, et que
+   * cette machine **n'a pas** (18/09/2026).
+   *
+   * Typst remplace en silence une famille absente. Sur un serveur sans
+   * polices installées, il ne reste que ce qu'il embarque — Libertinus
+   * Serif, New Computer Modern, DejaVu Sans *Mono* — et « Système
+   * (sans-serif) » sort donc en serif, sans un mot. C'est invisible dans
+   * les journaux, invisible dans le code, et parfaitement visible dans le
+   * PDF de la personne qui avait choisi autre chose.
+   *
+   * On le dit donc une fois, au démarrage. Ce n'est pas une erreur — le PDF
+   * sort quand même, et les listes de repli de POLICES limitent les dégâts —
+   * mais c'est ce qu'il faut savoir avant de chercher ailleurs.
+   */
+  async policesManquantes() {
+    let installees
+    try {
+      const r = await this._executer([this.binaire, 'fonts'], { delaiMs: 10_000 })
+      if (r.code !== 0) return null
+      installees = new Set(
+        r.sortie
+          .split('\n')
+          .map((l) => l.trim().toLowerCase())
+          .filter(Boolean)
+      )
+    } catch {
+      return null
+    }
+    return famillesTypst().filter((f) => !installees.has(f.toLowerCase()))
   }
 
   /**

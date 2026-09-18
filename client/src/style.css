@@ -271,8 +271,6 @@ a { color: var(--accent); }
 .outline-level-1 .outline-link { font-weight: 600; }
 .outline-level-2 .outline-link { padding-left: 16px; }
 .outline-level-3 .outline-link { padding-left: 28px; }
-.outline-level-4 .outline-link { padding-left: 40px; }
-.outline-level-5 .outline-link { padding-left: 52px; }
 
 /* Bandeau pleine largeur au-dessus des trois colonnes, en quatre zones
    (17/09/2026 — voir le commentaire en tête de mountEditor). Les deux zones
@@ -516,7 +514,7 @@ a { color: var(--accent); }
   line-height: 1.6;
 }
 .ProseMirror p { margin: 0 0 1em; }
-.ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4, .ProseMirror h5 { line-height: 1.25; }
+.ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { line-height: 1.25; }
 
 .ProseMirror blockquote {
   margin: 0 0 1em;

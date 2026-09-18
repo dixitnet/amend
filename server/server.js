@@ -1076,6 +1076,24 @@ server.listen(PORT, () => {
       "Astuce : définis ANTHROPIC_API_KEY (voir .env.example) pour activer les suggestions IA."
     )
   }
+  // Typst, et ce qu'il aura sous la main pour composer. Une famille de
+  // polices absente est remplacée **en silence** : sans cette ligne, un PDF
+  // qui ne ressemble pas aux réglages choisis n'a aucune explication
+  // visible nulle part (constaté le 18/09).
+  typst.disponible().then((version) => {
+    if (!version) {
+      console.log('Typst est introuvable : l’export PDF répondra 501.')
+      return
+    }
+    console.log(`Typst : ${version}`)
+    typst.policesManquantes().then((manquantes) => {
+      if (!manquantes || !manquantes.length) return
+      console.log(
+        `Polices absentes de cette machine, remplacées en silence par Typst : ${manquantes.join(', ')}.\n` +
+          '  Sur Debian : sudo apt install fonts-dejavu fonts-liberation fonts-roboto'
+      )
+    })
+  })
 })
 
 // storage.appendUpdate now buffers updates in memory for up to

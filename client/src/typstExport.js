@@ -18,7 +18,7 @@
 // verbeux, mais ça supprime l'ambiguïté — un paragraphe qui commence par
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
-import { BLOCS, police, formatPage, styleParDefaut } from '../../shared/style.js'
+import { BLOCS, NIVEAUX_TITRE, police, formatPage, styleParDefaut } from '../../shared/style.js'
 
 // Caractères que Typst interprète en mode contenu. Le backslash d'abord,
 // sinon on échapperait ceux qu'on vient d'ajouter.
@@ -120,7 +120,7 @@ function tableauTypst(node) {
 function blocTypst(node) {
   switch (node.type.name) {
     case 'heading': {
-      const niveau = Math.min(5, Math.max(1, node.attrs.level))
+      const niveau = Math.min(NIVEAUX_TITRE, Math.max(1, node.attrs.level))
       return `#heading(level: ${niveau})[${inline(node)}]\n\n`
     }
     case 'paragraph':
@@ -161,7 +161,9 @@ function reglagesTypst(v) {
   const f = police(v.font)
   return {
     texte: [
-      `font: ${chaine(f.typst)}`,
+      // Une liste, pas un nom : Typst prend la première famille réellement
+      // présente sur la machine qui compose. Voir POLICES.
+      `font: (${f.typst.map(chaine).join(', ')})`,
       `size: ${v.size}pt`,
       `weight: ${v.bold ? '"bold"' : '"regular"'}`,
       `style: ${v.italic ? '"italic"' : '"normal"'}`,
@@ -231,7 +233,7 @@ function gabarit(style, titre) {
 // La langue décide des motifs de césure et de la forme des guillemets.
 // \`hyphenate\` vaut \`auto\` : les mots ne sont coupés que dans du texte
 // justifié — même règle que celle posée dans l'export navigateur.
-#set text(lang: "fr", font: ${chaine(police(corps.font).typst)}, size: ${corps.size}pt)
+#set text(lang: "fr", font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt)
 #set par(justify: ${corps.align === 'justify'})
 
 ${fonctions.join('\n\n')}

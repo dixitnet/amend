@@ -40,7 +40,7 @@ import {
   convertMillimetersToTwip,
 } from 'docx'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
-import { BLOCS } from '../../shared/style.js'
+import { BLOCS, NIVEAUX_TITRE } from '../../shared/style.js'
 
 /** Les réglages d'un bloc du modèle (voir shared/style.js) : « body »,
  * « quote », « h1 »… Un document enregistré avant le 16/09/2026 est déjà
@@ -265,7 +265,7 @@ function largeurUtilePx(style) {
 function blockToParagraphs(node, style, images) {
   switch (node.type.name) {
     case 'heading': {
-      const level = Math.min(5, Math.max(1, node.attrs.level))
+      const level = Math.min(NIVEAUX_TITRE, Math.max(1, node.attrs.level))
       // Chaque niveau a ses propres réglages complets depuis le 16/09/2026
       // — police, casse, alignement, espacement, et pas seulement sa taille.
       const bloc = reglages(style, `h${level}`)

@@ -413,8 +413,6 @@ export function mountEditor(root, docId, user, docMeta) {
     ['Titre 1', '1'],
     ['Titre 2', '2'],
     ['Titre 3', '3'],
-    ['Titre 4', '4'],
-    ['Titre 5', '5'],
   ]) {
     const opt = document.createElement('option')
     opt.value = value

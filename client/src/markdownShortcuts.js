@@ -28,7 +28,8 @@ function appliquer(view, commande) {
 export function markdownShortcutsPlugin(schema) {
   const regles = [
     {
-      motif: /^(#{1,5})\s$/,
+      // Trois niveaux depuis le 18/09/2026 : « #### » n'est plus un titre.
+      motif: /^(#{1,3})\s$/,
       appliquer: (view, m) =>
         appliquer(view, setBlockType(schema.nodes.heading, { level: m[1].length })),
     },

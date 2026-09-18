@@ -32,7 +32,7 @@ const outlineKey = new PluginKey('outline')
 const RENDER_INTERVAL_MS = 1000
 
 /**
- * Renders a "plan du document" panel listing every heading (levels 1-5),
+ * Renders a "plan du document" panel listing every heading (levels 1-3),
  * indented by level, that jumps the editor's selection (and scrolls it
  * into view) to a heading when clicked. The heading list itself is kept
  * incrementally in plugin state (scanHeadingsInRange/updateItemList —

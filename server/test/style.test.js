@@ -34,7 +34,7 @@ const BASE = `http://localhost:${PORT}`
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
 const { Storage } = await import('../storage.js')
-const { styleParDefaut, fusionner, reduire, migrer, BLOCS, PROPRIETES, VERSION_STYLE } =
+const { styleParDefaut, fusionner, reduire, migrer, BLOCS, PROPRIETES, VERSION_STYLE, NIVEAUX_TITRE } =
   await import('../../shared/style.js')
 await waitForServer()
 
@@ -65,7 +65,9 @@ async function creerDoc(c) {
 
 test('chaque niveau de titre a ses propres réglages, et le corps un retrait', () => {
   const d = styleParDefaut()
-  assert.deepEqual(Object.keys(d.blocs), ['body', 'quote', 'h1', 'h2', 'h3', 'h4', 'h5'])
+  // Trois niveaux depuis le 18/09/2026 — voir NIVEAUX_TITRE.
+  assert.deepEqual(Object.keys(d.blocs), ['body', 'quote', 'h1', 'h2', 'h3'])
+  assert.equal(NIVEAUX_TITRE, 3)
   // Chaque bloc porte toutes les propriétés déclarées — c'est ce qui permet
   // au formulaire et aux exports de ne connaître aucun nom en dur.
   for (const b of BLOCS) {
@@ -75,10 +77,11 @@ test('chaque niveau de titre a ses propres réglages, et le corps un retrait', (
   }
   assert.equal(d.blocs.body.firstLineIndent, 0)
   assert.equal(d.blocs.h1.size, 24)
-  assert.equal(d.blocs.h5.size, 13)
+  assert.equal(d.blocs.h3.size, 17)
+  assert.ok(!('h4' in d.blocs), 'aucun quatrième niveau ne doit subsister')
 })
 
-test('l’ancien format remonte : un bloc « heading » devient cinq', () => {
+test('l’ancien format remonte : un bloc « heading » devient trois', () => {
   const ancien = {
     page: { size: 'A5', marginTop: 10 },
     body: { font: 'serif', size: 10, align: 'justify', lineHeight: 1.5, spaceAfter: 6 },
@@ -88,7 +91,9 @@ test('l’ancien format remonte : un bloc « heading » devient cinq', () => {
   assert.equal(f.page.size, 'A5')
   assert.equal(f.blocs.body.align, 'justify')
   assert.equal(f.blocs.h1.size, 30)
-  assert.equal(f.blocs.h5.size, 12)
+  assert.equal(f.blocs.h3.size, 18)
+  // Les deux tailles en trop de l'ancien format sont simplement oubliées.
+  assert.ok(!('h4' in f.blocs))
   assert.equal(f.blocs.h3.spaceBefore, 20)
   // La citation suivait la règle du corps de texte : elle en hérite.
   assert.equal(f.blocs.quote.font, 'serif')

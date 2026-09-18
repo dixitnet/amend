@@ -1,7 +1,8 @@
 import { Schema } from 'prosemirror-model'
 import { tableNodes } from 'prosemirror-tables'
+import { NIVEAUX_TITRE } from '../../shared/style.js'
 
-// A deliberately small schema: paragraphs, headings (5 levels), hard
+// A deliberately small schema: paragraphs, headings (3 levels), hard
 // breaks, three kinds of list (à puces, numérotée, à cocher — les deux
 // dernières ajoutées le 15/09/2026), a blockquote,
 // bold/italic/underline/strike,
@@ -39,15 +40,22 @@ export const schema = new Schema({
       content: 'inline*',
       group: 'block',
       defining: true,
+      // Trois niveaux depuis le 18/09/2026 (voir NIVEAUX_TITRE dans
+      // shared/style.js). Les h4/h5 collés depuis une page web ou présents
+      // dans un document antérieur sont **ramenés au niveau 3** plutôt
+      // qu'ignorés : mieux vaut un titre trop peu profond qu'un titre
+      // devenu paragraphe. `toDOM` reborne aussi, pour qu'un document
+      // ancien ne fabrique pas un `<h5>` que rien ne sait plus styler.
       parseDOM: [
         { tag: 'h1', attrs: { level: 1 } },
         { tag: 'h2', attrs: { level: 2 } },
         { tag: 'h3', attrs: { level: 3 } },
-        { tag: 'h4', attrs: { level: 4 } },
-        { tag: 'h5', attrs: { level: 5 } },
+        { tag: 'h4', attrs: { level: NIVEAUX_TITRE } },
+        { tag: 'h5', attrs: { level: NIVEAUX_TITRE } },
+        { tag: 'h6', attrs: { level: NIVEAUX_TITRE } },
       ],
       toDOM(node) {
-        return [`h${node.attrs.level}`, 0]
+        return [`h${Math.min(NIVEAUX_TITRE, Math.max(1, node.attrs.level))}`, 0]
       },
     },
     blockquote: {

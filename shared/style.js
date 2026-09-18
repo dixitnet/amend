@@ -27,15 +27,43 @@ export const VERSION_STYLE = 2
 // police réglée ici, quelle que soit la machine qui ouvrira le fichier.
 // `docx` : le nom unique à demander à Word (pas de notion de pile de
 // replis). `typst` : le nom de la famille pour le rendu PDF.
+/** Les polices proposées dans le panneau de mise en page.
+ *
+ * `typst` est une **liste de repli**, pas un nom unique (18/09/2026), et
+ * c'est ce qui manquait. Typst remplace en silence une famille qu'il ne
+ * trouve pas : il n'embarque que Libertinus Serif, New Computer Modern et
+ * DejaVu Sans **Mono** — pas DejaVu Sans, pas Roboto, pas Libre Caslon.
+ * Sur un serveur sans polices installées, choisir « Système (sans-serif) »
+ * donnait donc un PDF en serif, sans un mot d'avertissement. C'est la cause
+ * la plus probable des écarts constatés entre le panneau et la sortie.
+ *
+ * Une liste laisse Typst prendre la première famille réellement présente.
+ * Les noms sont ordonnés du plus fidèle au plus sûr, et se terminent
+ * toujours par une famille embarquée : au pire, on sait ce qu'on obtient.
+ * Reste à installer les polices sur le serveur (voir
+ * claude/serveur-production-collabtext.md) pour que le premier nom gagne. */
 export const POLICES = [
-  { id: 'system', label: 'Système (sans-serif)', css: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif', docx: undefined, typst: 'DejaVu Sans' },
-  { id: 'serif', label: 'Serif (Georgia)', css: 'Georgia, "Times New Roman", serif', docx: 'Georgia', typst: 'Libertinus Serif' },
-  { id: 'times', label: 'Times New Roman', css: '"Times New Roman", Times, serif', docx: 'Times New Roman', typst: 'Libertinus Serif' },
-  { id: 'arial', label: 'Arial', css: 'Arial, Helvetica, sans-serif', docx: 'Arial', typst: 'DejaVu Sans' },
-  { id: 'mono', label: 'Monospace', css: '"Courier New", Courier, monospace', docx: 'Courier New', typst: 'DejaVu Sans Mono' },
-  { id: 'roboto', label: 'Roboto', css: '"Roboto", -apple-system, sans-serif', docx: 'Roboto', typst: 'Roboto' },
-  { id: 'libre-caslon-text', label: 'Libre Caslon Text', css: '"Libre Caslon Text", Georgia, serif', docx: 'Libre Caslon Text', typst: 'Libre Caslon Text' },
+  { id: 'system', label: 'Système (sans-serif)', css: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif', docx: undefined,
+    typst: ['DejaVu Sans', 'Liberation Sans', 'Helvetica', 'Arial', 'New Computer Modern Sans', 'Libertinus Serif'] },
+  { id: 'serif', label: 'Serif (Georgia)', css: 'Georgia, "Times New Roman", serif', docx: 'Georgia',
+    typst: ['Georgia', 'Libertinus Serif'] },
+  { id: 'times', label: 'Times New Roman', css: '"Times New Roman", Times, serif', docx: 'Times New Roman',
+    typst: ['Times New Roman', 'Liberation Serif', 'Libertinus Serif'] },
+  { id: 'arial', label: 'Arial', css: 'Arial, Helvetica, sans-serif', docx: 'Arial',
+    typst: ['Arial', 'Liberation Sans', 'Helvetica', 'DejaVu Sans', 'Libertinus Serif'] },
+  { id: 'mono', label: 'Monospace', css: '"Courier New", Courier, monospace', docx: 'Courier New',
+    typst: ['DejaVu Sans Mono', 'Liberation Mono', 'Courier New'] },
+  { id: 'roboto', label: 'Roboto', css: '"Roboto", -apple-system, sans-serif', docx: 'Roboto',
+    typst: ['Roboto', 'DejaVu Sans', 'Liberation Sans', 'Libertinus Serif'] },
+  { id: 'libre-caslon-text', label: 'Libre Caslon Text', css: '"Libre Caslon Text", Georgia, serif', docx: 'Libre Caslon Text',
+    typst: ['Libre Caslon Text', 'Libertinus Serif'] },
 ]
+
+/** Toutes les familles nommées quelque part, pour que le serveur puisse
+ * dire au démarrage lesquelles manquent (voir server/typst.js). */
+export function famillesTypst() {
+  return [...new Set(POLICES.flatMap((p) => p.typst))]
+}
 
 export const ALIGNEMENTS = [
   { id: 'left', label: 'Gauche' },
@@ -114,7 +142,15 @@ export const BLOCS = [
     // mais devenue modifiable puisque la citation a maintenant son bloc.
     defauts: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 0, spaceAfter: 8, firstLineIndent: 0 },
   },
-  ...[24, 20, 17, 15, 13].map((taille, i) => ({
+  // **Trois niveaux, pas cinq** (18/09/2026). Cinq niveaux de titre, c'est
+  // une table des matières qu'on ne lit plus et un panneau de mise en page
+  // qui déroule soixante-dix réglages. Le document de test le disait déjà à
+  // sa façon : ses 204 titres de niveaux 4 et 5 n'étaient pas des titres
+  // mais des citations (voir claude/proto-export-pdf-typst-pagedjs.md, §5).
+  // Tout ce qui dérive des niveaux — formulaire, CSS, exports, plan du
+  // document — se déduit de ce tableau : il n'y a que cette ligne à
+  // changer si l'on veut revenir en arrière.
+  ...[24, 20, 17].map((taille, i) => ({
     id: `h${i + 1}`,
     label: `Titre ${i + 1}`,
     balise: `h${i + 1}`,
@@ -122,6 +158,11 @@ export const BLOCS = [
     defauts: { font: 'system', size: taille, bold: true, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 16, spaceAfter: 8, firstLineIndent: 0 },
   })),
 ]
+
+/** Le nombre de niveaux de titre. Déduit de BLOCS, jamais écrit deux
+ * fois : les sérialiseurs et le schéma s'y réfèrent pour borner ce qu'ils
+ * acceptent. */
+export const NIVEAUX_TITRE = BLOCS.filter((b) => b.docxHeading !== null).length
 
 export const PAGE_DEFAUT = {
   size: 'A4',
@@ -220,8 +261,12 @@ export function migrer(ancien) {
   }
   if (ancien.heading) {
     const { sizes, ...commun } = ancien.heading
-    const tailles = Array.isArray(sizes) && sizes.length === 5 ? sizes : [24, 20, 17, 15, 13]
-    for (let i = 0; i < 5; i++) out.blocs[`h${i + 1}`] = { ...commun, size: tailles[i] }
+    // L'ancien format portait cinq tailles ; il n'y a plus que trois
+    // niveaux (18/09). Les deux dernières sont simplement ignorées — un
+    // document qui s'en servait a ses titres ramenés au niveau 3, ce que
+    // fait aussi le schéma à la lecture.
+    const tailles = Array.isArray(sizes) && sizes.length >= 3 ? sizes : [24, 20, 17]
+    for (let i = 0; i < NIVEAUX_TITRE; i++) out.blocs[`h${i + 1}`] = { ...commun, size: tailles[i] }
   }
   return out
 }
