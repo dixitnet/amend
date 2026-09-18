@@ -22,8 +22,12 @@ function initiales(texte) {
 /**
  * Monte la pastille du compte et son menu dans `container`.
  * Ne bloque pas : la pastille apparaît dès que l'adresse est connue.
+ *
+ * `couleur` est une **fonction**, pas une valeur : la pastille est montée
+ * avant que la couleur de la personne soit connue (elle arrive avec les
+ * métadonnées du document), et une fonction se lit au bon moment.
  */
-export function monterMenuCompte(container) {
+export function monterMenuCompte(container, { couleur } = {}) {
   const menu = document.createElement('div')
   menu.className = 'menu-flottant menu-compte'
 
