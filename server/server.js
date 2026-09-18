@@ -14,6 +14,8 @@ import { Users } from './users.js'
 import { Typst, TypstError } from './typst.js'
 import { apercu } from './admin.js'
 import { Publications, peutPublier, porteePublication, NOM_PAGE } from './publication.js'
+import { createGzip } from 'node:zlib'
+import { fluxTar } from './archive.js'
 import {
   readSession,
   sessionCookieHeader,
@@ -96,6 +98,49 @@ function essaiPublicationAutorise(req) {
     }
   }
   return passages.length <= ESSAIS_PUBLICATION
+}
+
+/** Le mode d'emploi glissé dans l'archive. Une sauvegarde qu'on retrouve
+ * dans deux ans sans savoir quoi en faire ne sert à personne — et le jour
+ * où l'on en a besoin est rarement le jour où l'on a l'esprit clair. */
+function modeDEmploiRestauration(nom) {
+  return `# Restaurer cette sauvegarde
+
+Archive : ${nom}
+Prise le : ${new Date().toISOString()}
+Contenu  : le dossier \`data/\` de amend.ink — documents, images, comptes,
+           accès, pages publiées, journaux d'événements.
+
+## Ce qui n'est PAS dedans
+
+Le fichier \`.env\` (clés Anthropic et Mailgun, SESSION_SECRET,
+ADMIN_EMAILS), le Caddyfile et l'unité systemd. Ce sont des secrets : ils
+n'ont pas à transiter par un navigateur.
+
+**Restaurer \`data/\` sans son \`.env\` d'origine déconnecte tout le monde
+(SESSION_SECRET change) et, si ADMIN_EMAILS manque, plus personne ne peut
+entrer.** Sauvegardez ces fichiers séparément.
+
+## La procédure
+
+    sudo systemctl stop amend
+    mv /opt/amend/data /opt/amend/data.avant-restauration
+    tar xzf ${nom} -C /opt/amend
+    sudo systemctl start amend
+    systemctl status amend --no-pager | head -8
+
+L'archive se déplie en un dossier \`data/\` : \`-C /opt/amend\` le met
+donc au bon endroit. L'ancien dossier est conservé à côté — ne l'effacez
+qu'après avoir vérifié que l'application répond et qu'un document s'ouvre.
+
+## Une précaution qui vaut la peine
+
+Cette sauvegarde a été prise pendant que l'application tournait. C'est sans
+danger — les registres sont écrits de façon atomique, les journaux sont en
+ajout seul — mais faites l'essai **une fois**, sur une instance jetable,
+avant d'en avoir besoin. Une sauvegarde jamais restaurée n'est pas une
+sauvegarde.
+`
 }
 
 const SUPPORT_PAR_HEURE = 5
@@ -804,6 +849,55 @@ const TARIFS_IA = {
   // adresses, ni même leur nombre (décision du 17/09 : le compteur ne sera
   // pas public). L'écriture reste ouverte, c'est tout l'intérêt du
   // formulaire ; la lecture, non.
+  // --- Sauvegarde : télécharger tout `data/` (18/09/2026) ---
+  //
+  // C'est **la route la plus sensible de l'application** : une requête, et
+  // l'on obtient tous les documents, toutes les adresses, toutes les
+  // images. Administrateurs seuls, par cookie de session (jamais un jeton
+  // dans l'URL : une adresse se recopie, se colle, se retrouve dans un
+  // historique — un cookie non), et chaque usage laisse une trace.
+  //
+  // Ce qui n'y est **jamais** : `.env`. Les secrets ne transitent pas par
+  // un navigateur. Ils doivent être sauvegardés, mais ailleurs et
+  // autrement — voir claude/conception-sauvegarde.md.
+  if (pathname === '/api/admin/sauvegarde' && req.method === 'GET') {
+    const email = readSession(req)
+    if (!isAdminEmail(email)) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+
+    // Les écritures en attente d'abord : `appendUpdate` garde les mises à
+    // jour en mémoire jusqu'à 200 ms. Sans ça l'archive rate la dernière
+    // fraction de seconde — la seule qu'on regretterait vraiment.
+    await storage.flushAll()
+
+    const horodatage = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')
+    const nom = `amend-${horodatage}.tar.gz`
+    metrics.log('sauvegarde', { email })
+
+    res.writeHead(200, {
+      'content-type': 'application/gzip',
+      'content-disposition': `attachment; filename="${nom}"`,
+      // La taille n'est pas connue d'avance (on compresse au fil de l'eau)
+      // et c'est assumé : le navigateur affichera une progression sans
+      // total plutôt qu'on ne fabrique l'archive en mémoire pour compter.
+      'cache-control': 'no-store',
+    })
+
+    const tar = fluxTar(DATA_DIR, {
+      prefixe: 'data',
+      // Un `.tmp` est une écriture en cours : ce n'est jamais un état
+      // cohérent, et il n'a rien à faire dans une sauvegarde.
+      ignorer: (rel) => rel.endsWith('.tmp'),
+      supplements: [{ nom: 'RESTAURATION.md', contenu: modeDEmploiRestauration(nom) }],
+    })
+    const gzip = createGzip({ level: 6 })
+    tar.on('error', (err) => {
+      console.error('Sauvegarde interrompue :', err.message)
+      res.destroy()
+    })
+    tar.pipe(gzip).pipe(res)
+    return
+  }
+
   if (pathname === '/api/admin/waitlist' && req.method === 'GET') {
     if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
     return sendJson(res, 200, { inscrits: storage.waitlist() })

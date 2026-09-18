@@ -195,6 +195,19 @@ export async function mountAdmin(root) {
         ${chiffre(nombre(s.connexionsEnCours.reduce((a, r) => a + r.connectes, 0)), 'connexions en cours')}
         ${chiffre(octets(s.dataDirOctets), 'données sur disque')}
       </div>
+
+      <h2>Sauvegarde</h2>
+      <p class="bo-note">Une archive de tout <code>data/</code> — documents,
+      images, comptes, accès, pages publiées — prise pendant que
+      l'application tourne, sans coupure. Elle contient sa propre procédure
+      de restauration.<br>
+      <strong>Le fichier <code>.env</code> n'y est pas</strong> : les
+      secrets ne transitent pas par un navigateur. Restaurer les données
+      sans lui déconnecte tout le monde et peut fermer la porte à tout le
+      monde — il se sauvegarde séparément.</p>
+      <p><a class="btn-preset" href="/api/admin/sauvegarde" download>Télécharger la sauvegarde (${octets(
+        s.dataDirOctets
+      )} avant compression)</a></p>
       ${
         s.connexionsEnCours.length
           ? `<ul class="bo-liste">${s.connexionsEnCours
