@@ -268,6 +268,19 @@ a { color: var(--accent); }
   text-overflow: ellipsis;
 }
 .outline-link:hover { background: var(--bg); }
+/* Où l'on travaille (18/09/2026). Deux degrés, et c'est voulu : le titre
+   qui contient le curseur se détache franchement, et ceux qui y mènent —
+   la section de niveau 1 quand on écrit dans un sous-titre — restent
+   lisibles sans crier. Un plan de cinquante entrées où seule la ligne
+   courante ressort ne dit pas *où* elle se trouve. */
+.outline-courante .outline-link {
+  background: color-mix(in srgb, var(--accent, #5f7a4a) 14%, transparent);
+  color: var(--fg);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent, #5f7a4a);
+}
+.outline-chemin .outline-link { color: var(--fg); }
+.outline-item:not(.outline-courante):not(.outline-chemin) .outline-link { color: var(--muted); }
 .outline-level-1 .outline-link { font-weight: 600; }
 .outline-level-2 .outline-link { padding-left: 16px; }
 .outline-level-3 .outline-link { padding-left: 28px; }

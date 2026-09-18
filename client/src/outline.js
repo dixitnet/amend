@@ -42,9 +42,43 @@ const RENDER_INTERVAL_MS = 1000
  * still skips rebuilding the DOM entirely when the list hasn't actually
  * changed (signature-based skip, same principle as changesPanel.js).
  */
+/** L'indice du titre sous lequel se trouve `pos` : le dernier titre qui
+ * le précède. `-1` quand le curseur est avant le premier titre — un
+ * document commence souvent par un paragraphe, et ce n'est pas une
+ * anomalie. */
+export function indexSectionCourante(items, pos) {
+  let trouve = -1
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].pos <= pos) trouve = i
+    else break
+  }
+  return trouve
+}
+
+/** Les titres qui mènent au titre `index` : ses ascendants, du plus général
+ * au plus proche. C'est ce qui permet de voir « où l'on est » et pas
+ * seulement « sous quel titre » — dans un plan à trois niveaux, la section
+ * de niveau 1 compte autant que le sous-titre qu'on est en train d'écrire. */
+export function cheminVers(items, index) {
+  const chemin = new Set()
+  if (index < 0) return chemin
+  let niveau = items[index].level
+  for (let i = index - 1; i >= 0 && niveau > 1; i--) {
+    if (items[i].level < niveau) {
+      chemin.add(i)
+      niveau = items[i].level
+    }
+  }
+  return chemin
+}
+
 export function mountOutlinePanel(container) {
   let view = null
   let lastSignature = null
+  // Les éléments du plan, dans l'ordre de la liste : la mise en évidence se
+  // rejoue à chaque frappe, elle ne doit pas relire le DOM.
+  let liens = []
+  let indexCourant = null
 
   function goTo(pos) {
     if (!view) return
@@ -98,6 +132,7 @@ export function mountOutlinePanel(container) {
 
     const list = document.createElement('ul')
     list.className = 'outline-list'
+    liens = []
     for (const item of items) {
       const li = document.createElement('li')
       li.className = `outline-item outline-level-${item.level}`
@@ -110,8 +145,57 @@ export function mountOutlinePanel(container) {
       link.onclick = () => goTo(item.pos)
       li.appendChild(link)
       list.appendChild(li)
+      liens.push(li)
     }
     container.appendChild(list)
+    // La liste vient d'être refaite : la mise en évidence aussi, sinon elle
+    // disparaîtrait à chaque titre ajouté.
+    indexCourant = null
+    majSectionCourante()
+  }
+
+  /** Met en évidence la section où se trouve le curseur, et la ramène dans
+   * le champ si elle en est sortie (18/09/2026).
+   *
+   * Appelé à **chaque** transaction, donc volontairement sans rendu : on
+   * déplace deux classes, rien de plus. Le plan lui-même n'est reconstruit
+   * qu'une fois par seconde, et seulement s'il a changé — sans cette
+   * séparation, suivre le curseur voudrait dire redessiner la liste à
+   * chaque frappe.
+   *
+   * Le défilement ne se déclenche **que lorsqu'on change de section** : un
+   * panneau qui se recentre pendant qu'on lit fait perdre tout repère
+   * (même règle que le panneau des modifications, voir
+   * claude/conception-marge-annotations.md). */
+  function majSectionCourante() {
+    if (!view || !liens.length) return
+    const items = outlineKey.getState(view.state)
+    if (items.length !== liens.length) return
+    const index = indexSectionCourante(items, view.state.selection.head)
+    if (index === indexCourant) return
+    indexCourant = index
+
+    const chemin = cheminVers(items, index)
+    liens.forEach((li, i) => {
+      li.classList.toggle('outline-courante', i === index)
+      li.classList.toggle('outline-chemin', chemin.has(i))
+    })
+    if (index >= 0) amenerDansLeChamp(liens[index])
+  }
+
+  /** Fait défiler le plan juste ce qu'il faut pour montrer `el` — et rien
+   * si on le voit déjà. `scrollIntoView` ferait défiler tous les ancêtres,
+   * page comprise ; ici on ne touche qu'à la colonne du plan. */
+  function amenerDansLeChamp(el) {
+    const boite = container.closest('.outline-sidebar') || container
+    const cadre = boite.getBoundingClientRect()
+    const cible = el.getBoundingClientRect()
+    const marge = 8
+    if (cible.top < cadre.top + marge) {
+      boite.scrollTop -= cadre.top + marge - cible.top
+    } else if (cible.bottom > cadre.bottom - marge) {
+      boite.scrollTop += cible.bottom - (cadre.bottom - marge)
+    }
   }
 
   const throttledRender = throttle(() => render(false), RENDER_INTERVAL_MS)
@@ -126,7 +210,12 @@ export function mountOutlinePanel(container) {
       view = editorView
       render(true) // first paint immediately, no need to wait a second on load
       return {
-        update: () => throttledRender(),
+        update: () => {
+          throttledRender()
+          // Hors du throttle : suivre le curseur doit être immédiat, c'est
+          // tout l'intérêt.
+          majSectionCourante()
+        },
         destroy: () => {
           view = null
         },

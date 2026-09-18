@@ -400,3 +400,38 @@ test('tout accepter puis tout rejeter ne laisse aucune trace', () => {
   assert.equal(e.sautsEnAttente(), 0)
   valide(e)
 })
+
+// ================================================ le plan du document
+
+test('le plan sait sous quel titre se trouve le curseur', async () => {
+  const { indexSectionCourante, cheminVers } = await import('../src/outline.js')
+  const titres = [
+    { pos: 0, level: 1, text: 'Un' },
+    { pos: 10, level: 2, text: 'Un.a' },
+    { pos: 20, level: 3, text: 'Un.a.i' },
+    { pos: 30, level: 1, text: 'Deux' },
+  ]
+  // Avant le premier titre : un document commence souvent par un
+  // paragraphe, et ce n'est pas une anomalie.
+  assert.equal(indexSectionCourante(titres, 0), 0)
+  assert.equal(indexSectionCourante([{ pos: 5, level: 1, text: 'T' }], 2), -1)
+  assert.equal(indexSectionCourante(titres, 15), 1)
+  assert.equal(indexSectionCourante(titres, 25), 2)
+  assert.equal(indexSectionCourante(titres, 999), 3)
+})
+
+test('le plan connaît le chemin qui mène au titre courant', () => {
+  // Dans un plan à trois niveaux, savoir qu'on écrit sous « Un.a.i » ne
+  // sert à rien si on ne voit pas que c'est dans « Un ».
+  return import('../src/outline.js').then(({ cheminVers }) => {
+    const titres = [
+      { pos: 0, level: 1, text: 'Un' },
+      { pos: 10, level: 2, text: 'Un.a' },
+      { pos: 20, level: 3, text: 'Un.a.i' },
+      { pos: 30, level: 1, text: 'Deux' },
+    ]
+    assert.deepEqual([...cheminVers(titres, 2)].sort(), [0, 1])
+    assert.deepEqual([...cheminVers(titres, 3)], [], 'un titre de niveau 1 n’a pas d’ascendant')
+    assert.deepEqual([...cheminVers(titres, -1)], [])
+  })
+})
