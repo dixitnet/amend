@@ -616,12 +616,37 @@ span.author-color {
    document (font-size: 0 just makes them invisible) — the emoji is a CSS
    ::after, not stored text — so the cursor, selection, copy/paste and the
    .md export all still see the literal marker, only the display changes. */
+/* Le marqueur « !! » (voir tkMarker.js). Il reste du **vrai texte** dans le
+   document et dans les exports — c'est tout l'intérêt : on peut le taper,
+   le chercher, le copier. Seul son dessin change.
+
+   Le texte garde donc sa largeur, simplement transparent, et l'émoji est
+   peint par-dessus en position absolue. C'est ce qui fait que le curseur se
+   pose au bon endroit (19/09/2026).
+
+   Le montage précédent — texte en `font-size: 0`, émoji en `::after` —
+   donnait au texte une largeur **nulle** : le curseur placé avant et le
+   curseur placé après tombaient au même point, à gauche de l'émoji. La
+   position dans le document était juste, c'est l'affichage qui mentait.
+   Le retrait à droite réserve la place du pictogramme, pour qu'il ne
+   déborde pas sur la lettre suivante. */
 .tk-marker {
-  font-size: 0;
+  position: relative;
+  color: transparent;
+  padding-right: 0.75em;
 }
 .tk-marker::after {
   content: '⚠️';
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: initial;
   font-size: 1rem;
+  line-height: inherit;
+  /* Le pictogramme n'est qu'un dessin : cliquer dessus doit placer le
+     curseur dans le texte qu'il recouvre, pas le sélectionner lui. */
+  pointer-events: none;
+  user-select: none;
 }
 
 .remote-cursor {
