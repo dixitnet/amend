@@ -180,6 +180,7 @@ function reglagesTypst(v) {
     align: v.align === 'justify' ? 'left' : v.align || 'left',
     avant: v.spaceBefore || 0,
     apres: v.spaceAfter || 0,
+    retrait: (Number(v.indent) || 0) * PT_PAR_MM,
     uppercase: !!v.uppercase,
   }
 }
@@ -187,16 +188,28 @@ function reglagesTypst(v) {
 /** Un bloc réglable -> une fonction Typst qui le rend. */
 function fonctionBloc(nom, v) {
   const r = reglagesTypst(v)
-  const corps = r.uppercase ? 'upper(corps)' : 'corps'
-  return `#let ${nom}(corps) = {
-  v(${r.avant}pt, weak: true)
+  let corps = r.uppercase ? 'upper(corps)' : 'corps'
+  // Retrait du bloc entier : `pad` est le seul outil de Typst pour ça, et
+  // il n'a pas l'inconvénient du `block()` retiré le 19/09 — le retrait de
+  // première ligne continue de s'appliquer à l'intérieur (vérifié en
+  // compilant). On ne l'écrit pas quand il est nul, pour ne pas envelopper
+  // tous les paragraphes du document sans raison.
+  if (r.retrait > 0) corps = `pad(left: ${r.retrait.toFixed(2)}pt, ${corps})`
+  // Un `v()` **faible de zéro n'est pas rien** : posé entre deux blocs, il
+  // écrase l'espacement de paragraphe au lieu de s'y ajouter, et les lignes
+  // finissent par se chevaucher. C'est ce qui avait fait disparaître
+  // l'espace après les titres (signalé par Sylvain le 19/09). On ne l'écrit
+  // donc que s'il vaut quelque chose ; le reste du temps, c'est `par.spacing`
+  // qui tient l'espacement, et lui seul.
+  const avant = r.avant > 0 ? `\n  v(${r.avant}pt, weak: true)` : ''
+  const apres = r.apres > 0 ? `\n  v(${r.apres}pt, weak: true)` : ''
+  return `#let ${nom}(corps) = {${avant}
   set text(${r.texte})
   set par(${r.par})
   // Aucun conteneur ici : il sortirait le paragraphe du flux, ce qui annule
   // le retrait de première ligne et l'espacement entre paragraphes.
   set align(${r.align})
-  // L'espace après est porté par par.spacing ci-dessus, pas par un v().
-  ${corps}
+  ${corps}${apres}
 }`
 }
 
@@ -215,6 +228,14 @@ function gabarit(style, titre) {
   // réglages propres, demandés le 16/09/2026.
   const titres = BLOCS.filter((b) => b.docxHeading !== null).map((b) => {
     const niveau = Number(b.id.slice(1))
+    // Belle page pour les titres de niveau 1 : `to: "odd"` insère au
+    // besoin une page blanche ; `weak` évite d'en insérer une au tout
+    // début du document, quand on y est déjà.
+    const saut =
+      niveau === 1 && p.titre1PageImpaire ? 'pagebreak(to: "odd", weak: true)\n  ' : ''
+    if (saut) {
+      return `#show heading.where(level: ${niveau}): it => {\n  ${saut}amend-${b.id}(it.body)\n}`
+    }
     return `#show heading.where(level: ${niveau}): it => amend-${b.id}(it.body)`
   })
   const fonctionsTitres = BLOCS.filter((b) => b.docxHeading !== null).map((b) =>
@@ -224,6 +245,9 @@ function gabarit(style, titre) {
   const numerotation = p.pageNumbers && p.pageNumbers.enabled
     ? `numbering: "1", number-align: center,`
     : ''
+  // Un titre ne reste pas seul en bas d'une page : `sticky` le fait
+  // descendre avec le texte qu'il annonce.
+  const solidaires = p.titresSolidaires === false ? '' : '#show heading: set block(sticky: true)\n'
   const depart = p.pageNumbers && p.pageNumbers.enabled
     ? `#counter(page).update(${Math.max(1, Number(p.pageNumbers.startAt) || 1)})\n`
     : ''
@@ -248,7 +272,7 @@ ${fonctionsTitres.join('\n\n')}
 
 ${titres.join('\n')}
 
-${depart}`
+${solidaires}${depart}`
 }
 
 /** La source Typst complète d'un document. */

@@ -117,14 +117,42 @@ test('l’alignement justifié ne devient pas un alignement à droite', () => {
   assert.match(centre, /align\(center\)/)
 })
 
-test('un espacement n’est appliqué qu’une fois', () => {
-  // Piège repéré le 18/09 : l'espace après un paragraphe était écrit deux
-  // fois — dans `par(spacing:)` et dans un `v()` explicite. Une seule
-  // source désormais : par.spacing.
-  const f = fonction(source({ blocs: { body: { spaceAfter: 6, spaceBefore: 0 } } }), 'body')
-  const occurrences = (f.match(/6pt/g) || []).length
-  assert.equal(occurrences, 1, `l'espace après apparaît ${occurrences} fois`)
-  assert.doesNotMatch(f, /v\(6pt, weak: true\)/)
+test('un espace nul ne s’écrit pas — un v() faible de zéro écraserait l’espacement', () => {
+  // Découvert en compilant, le 19/09 : `v(0pt, weak: true)` n'est pas
+  // neutre. Posé entre deux blocs, il **remplace** l'espacement de
+  // paragraphe au lieu de s'y ajouter — les lignes finissaient par se
+  // chevaucher, et l'espace après les titres avait disparu. On ne l'écrit
+  // donc que s'il vaut quelque chose.
+  const nul = fonction(source({ blocs: { body: { spaceAfter: 0, spaceBefore: 0 } } }), 'body')
+  assert.doesNotMatch(nul, /v\(0pt/)
+
+  const titre = fonction(source({ blocs: { h1: { spaceBefore: 16, spaceAfter: 8 } } }), 'h1')
+  assert.match(titre, /v\(16pt, weak: true\)/, 'espace avant le titre')
+  assert.match(titre, /v\(8pt, weak: true\)/, 'espace après le titre')
+})
+
+test('le retrait à gauche enveloppe le bloc, et seulement s’il existe', () => {
+  const avec = fonction(source({ blocs: { quote: { indent: 10 } } }), 'quote')
+  assert.match(avec, /pad\(left: 28\.35pt, corps\)/)
+  const sans = fonction(source({ blocs: { quote: { indent: 0 } } }), 'quote')
+  assert.doesNotMatch(sans, /pad\(/)
+})
+
+test('les titres ne restent pas seuls en bas de page, sauf si on le demande', () => {
+  assert.match(source({}), /#show heading: set block\(sticky: true\)/)
+  assert.doesNotMatch(
+    source({ page: { titresSolidaires: false } }),
+    /sticky: true/
+  )
+})
+
+test('les titres 1 peuvent ouvrir une page impaire', () => {
+  const normal = source({})
+  assert.doesNotMatch(normal, /pagebreak\(to: "odd"/)
+  const livre = source({ page: { titre1PageImpaire: true } })
+  assert.match(livre, /pagebreak\(to: "odd", weak: true\)/)
+  // Seulement le niveau 1 : un titre 2 en belle page n'aurait pas de sens.
+  assert.equal((livre.match(/pagebreak\(to: "odd"/g) || []).length, 1)
 })
 
 test('le paragraphe reste dans le flux : ni block(), ni align() enveloppant', () => {

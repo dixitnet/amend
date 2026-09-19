@@ -105,6 +105,11 @@ export const PROPRIETES = [
   // modèle déclaratif : cette seule ligne, plus une valeur par défaut sur
   // le bloc « corps », suffit à le faire exister partout.
   { id: 'firstLineIndent', label: 'Retrait de 1re ligne', type: 'nombre', unite: 'mm', min: 0, max: 50, pas: 0.5 },
+  // Retrait du bloc entier, à gauche (19/09/2026) — demandé pour la
+  // citation, qui se distingue traditionnellement par sa marge et non par
+  // un retrait de première ligne. Disponible sur tous les blocs : rien ne
+  // justifierait de le réserver à un seul.
+  { id: 'indent', label: 'Retrait à gauche', type: 'nombre', unite: 'mm', min: 0, max: 100, pas: 0.5 },
 ]
 
 const PAR_ID = Object.fromEntries(PROPRIETES.map((p) => [p.id, p]))
@@ -131,7 +136,7 @@ export const BLOCS = [
     label: 'Texte courant',
     balise: 'p',
     docxHeading: null,
-    defauts: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 0, spaceAfter: 8, firstLineIndent: 0 },
+    defauts: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 0, spaceAfter: 8, firstLineIndent: 0, indent: 0 },
   },
   {
     id: 'quote',
@@ -140,7 +145,9 @@ export const BLOCS = [
     docxHeading: null,
     // Aligné sur le texte courant depuis le 13/09/2026 — décision conservée,
     // mais devenue modifiable puisque la citation a maintenant son bloc.
-    defauts: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 0, spaceAfter: 8, firstLineIndent: 0 },
+    // Retrait de 10 mm par défaut (19/09/2026) : c'est ce qui fait *lire*
+    // une citation comme une citation, sans italique ni guillemets ajoutés.
+    defauts: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 0, spaceAfter: 8, firstLineIndent: 0, indent: 10 },
   },
   // **Trois niveaux, pas cinq** (18/09/2026). Cinq niveaux de titre, c'est
   // une table des matières qu'on ne lit plus et un panneau de mise en page
@@ -155,7 +162,7 @@ export const BLOCS = [
     label: `Titre ${i + 1}`,
     balise: `h${i + 1}`,
     docxHeading: i,
-    defauts: { font: 'system', size: taille, bold: true, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 16, spaceAfter: 8, firstLineIndent: 0 },
+    defauts: { font: 'system', size: taille, bold: true, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 16, spaceAfter: 8, firstLineIndent: 0, indent: 0 },
   })),
 ]
 
@@ -173,6 +180,19 @@ export const PAGE_DEFAUT = {
   // Numérotation : export PDF seulement — aucun sens dans un éditeur en
   // défilement continu.
   pageNumbers: { enabled: false, startAt: 1 },
+  // Mise en page des titres (19/09/2026), export seulement — l'éditeur est
+  // un défilement continu, il n'a pas de bas de page.
+  //
+  // `titresSolidaires` empêche un titre de rester seul en bas d'une page,
+  // séparé du texte qu'il annonce : il part à la page suivante avec lui.
+  // Activé par défaut, parce que l'inverse est un défaut de composition,
+  // jamais un choix.
+  titresSolidaires: true,
+  // `titre1PageImpaire` ouvre chaque titre de niveau 1 sur une belle page
+  // (page de droite dans un livre), en insérant au besoin une page blanche.
+  // À l'inverse du précédent, c'est une convention d'ouvrage : désactivé
+  // par défaut.
+  titre1PageImpaire: false,
 }
 
 // --- Fabrication et fusion ------------------------------------------------

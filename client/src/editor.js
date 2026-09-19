@@ -308,19 +308,22 @@ export function mountEditor(root, docId, user, docMeta) {
   miseEnPageBtn.onclick = () => ouvrirPanneauStyle(docId)
   groupeForme.appendChild(miseEnPageBtn)
 
+  // L'historique ferme la rangée, seul dans son groupe (19/09/2026) : il ne
+  // touche pas au document, il le regarde — c'est le seul geste de la zone
+  // droite qui ne change rien.
+  const groupeHistorique = document.createElement('div')
+  groupeHistorique.className = 'banniere-groupe'
   const historyLink = document.createElement('a')
   historyLink.href = `#/doc/${docId}/versions`
   historyLink.className = 'btn-preset history-link'
   historyLink.textContent = 'Historique'
-  groupeForme.appendChild(historyLink)
+  groupeHistorique.appendChild(historyLink)
 
   // 3. Faire sortir. Un seul bouton (17/09/2026) : les accès et les exports
   // répondaient déjà à la même question — *qui d'autre voit ce document, et
   // sous quelle forme* — et occupaient deux places distinctes dans la barre.
   // C'est aussi le logement naturel de la publication de page (§1 de la
   // feuille de route) le jour où elle arrivera.
-  const groupeSortie = document.createElement('div')
-  groupeSortie.className = 'banniere-groupe'
   const menuPartage = menuDeroulant('Partager ▾', { classe: 'menu-partage' })
 
   const accesItem = document.createElement('button')
@@ -365,9 +368,12 @@ export function mountEditor(root, docId, user, docMeta) {
   }
 
   menuPartage.liste.append(accesItem, sepExports, titreExports, exportMdItem, exportDocxItem, exportPdfItem, sepPublier, publierItem)
-  groupeSortie.appendChild(menuPartage.el)
+  // Mise en page et Partager voisinent : ce sont les deux gestes qui
+  // décident de la **forme sous laquelle le document sort** — l'un la
+  // compose, l'autre la distribue.
+  groupeForme.appendChild(menuPartage.el)
 
-  zoneDroite.append(groupeTexte, groupeForme, groupeSortie)
+  zoneDroite.append(groupeTexte, groupeForme, groupeHistorique)
 
   // 4. Moi. À l'extrême droite, séparée des pastilles de présence par toute
   // la largeur du bandeau : les deux sont des ronds colorés, et les

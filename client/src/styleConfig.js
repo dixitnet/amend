@@ -95,6 +95,11 @@ export async function resetDocStyle(docId) {
 
 const MM_EN_PT = 72 / 25.4
 
+/** Des millimètres du modèle vers les points du CSS. */
+function enPt(mm) {
+  return Math.round((Number(mm) || 0) * MM_EN_PT * 100) / 100
+}
+
 /** Les déclarations CSS d'un bloc. Engendrées à partir des valeurs du bloc,
  * sans liste de propriétés en dur : un réglage ajouté au modèle qui
  * n'apparaît pas ici est simplement ignoré à l'export, jamais une erreur. */
@@ -107,8 +112,11 @@ function blocCss(valeurs) {
     `text-transform: ${valeurs.uppercase ? 'uppercase' : 'none'}`,
     `text-align: ${valeurs.align || 'left'}`,
     `line-height: ${valeurs.lineHeight ?? 1.15}`,
-    `margin: ${valeurs.spaceBefore ?? 0}pt 0 ${valeurs.spaceAfter ?? 0}pt 0`,
-    `text-indent: ${Math.round((valeurs.firstLineIndent || 0) * MM_EN_PT * 100) / 100}pt`,
+    // Le retrait à gauche est une marge, et non un `padding` : c'est ce
+    // qui le fait se comporter comme dans un traitement de texte, et ce que
+    // reproduit `pad()` côté Typst.
+    `margin: ${valeurs.spaceBefore ?? 0}pt 0 ${valeurs.spaceAfter ?? 0}pt ${enPt(valeurs.indent)}pt`,
+    `text-indent: ${enPt(valeurs.firstLineIndent)}pt`,
   ]
   // Césures : uniquement sur du texte justifié. Justifier sans couper, ce
   // serait le pire des deux mondes — les espaces s'étirent sans rien pour

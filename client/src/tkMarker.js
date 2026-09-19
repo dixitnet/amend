@@ -111,7 +111,9 @@ export function mountTkMarker(container, { onCycle } = {}) {
     const count = tkKey.getState(view.state)?.count ?? 0
     if (count === lastRenderedCount) return
     lastRenderedCount = count
-    container.textContent = count > 0 ? `⚠️ ${count}` : ''
+    // « 12 !! » et non un pictogramme (19/09/2026) : dans le bandeau, le
+    // compteur se lit comme les deux autres — un nombre, puis ce qu'il compte.
+    container.textContent = count > 0 ? `${count} !!` : ''
     container.classList.toggle('cliquable', count > 0)
     container.title =
       count > 0

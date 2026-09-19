@@ -108,9 +108,12 @@ function paragraphProps(block, { lineHeight } = {}) {
   }
   // Retrait de première ligne (16/09/2026) — en millimètres dans le modèle,
   // en twips pour `docx`.
-  if (block.firstLineIndent) {
-    props.indent = { firstLine: convertMillimetersToTwip(block.firstLineIndent) }
-  }
+  // Retrait de première ligne et retrait du bloc entier partagent la même
+  // propriété Word, d'où la construction en une fois.
+  const indent = {}
+  if (block.firstLineIndent) indent.firstLine = convertMillimetersToTwip(block.firstLineIndent)
+  if (block.indent) indent.left = convertMillimetersToTwip(block.indent)
+  if (Object.keys(indent).length) props.indent = indent
   return props
 }
 
@@ -273,6 +276,12 @@ function blockToParagraphs(node, style, images) {
         new Paragraph({
           heading: HEADING_LEVELS[level - 1],
           ...paragraphProps(bloc),
+          // « Paragraphes solidaires » de Word : le titre suit le texte
+          // qu'il annonce plutôt que de rester seul en bas d'une page
+          // (19/09/2026). Le passage des titres 1 en belle page, lui, n'a
+          // pas d'équivalent simple en .docx — il demanderait une section
+          // par titre — et reste propre à l'export PDF.
+          keepNext: (style && style.page ? style.page.titresSolidaires : true) !== false,
           children: inlineToRuns(node, bloc, bloc.size),
         }),
       ]

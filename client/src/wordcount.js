@@ -73,7 +73,9 @@ export function mountWordCount(container) {
     if (signature === last) return
     last = signature
     const wordLabel = words === 1 ? 'mot' : 'mots'
-    const charLabel = chars === 1 ? 'caractère' : 'caractères'
+    // « signes » plutôt que « caractères » (19/09/2026) : c'est le mot du
+    // métier, et il tient dans le bandeau.
+    const charLabel = chars === 1 ? 'signe' : 'signes'
     container.textContent = selecting
       ? `Sélection : ${words} ${wordLabel}, ${chars} ${charLabel}`
       : `${words} ${wordLabel}, ${chars} ${charLabel}`

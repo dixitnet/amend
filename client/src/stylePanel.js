@@ -135,6 +135,24 @@ function groupePage(page) {
   depart.value = (page.pageNumbers && page.pageNumbers.startAt) || 1
   grille.appendChild(champ('Première page', depart))
 
+  // Deux réglages qui ne concernent que la sortie paginée (19/09/2026) :
+  // l'éditeur défile, il n'a pas de bas de page.
+  const solidaires = document.createElement('input')
+  solidaires.type = 'checkbox'
+  solidaires.checked = page.titresSolidaires !== false
+  const champSolidaires = champ('Jamais de titre en bas de page', solidaires)
+  champSolidaires.title =
+    "Un titre seul en bas d'une page part à la page suivante avec le texte qu'il annonce."
+  grille.appendChild(champSolidaires)
+
+  const bellePage = document.createElement('input')
+  bellePage.type = 'checkbox'
+  bellePage.checked = !!page.titre1PageImpaire
+  const champBellePage = champ('Titres 1 en page impaire', bellePage)
+  champBellePage.title =
+    "Chaque titre de niveau 1 ouvre une page de droite, comme dans un livre — une page blanche est insérée si besoin. Export PDF seulement."
+  grille.appendChild(champBellePage)
+
   fieldset.appendChild(grille)
   return {
     el: fieldset,
@@ -142,6 +160,8 @@ function groupePage(page) {
       size: taille.value,
       ...Object.fromEntries(Object.entries(marges).map(([k, el]) => [k, Number(el.value)])),
       pageNumbers: { enabled: numeros.checked, startAt: Number(depart.value) || 1 },
+      titresSolidaires: solidaires.checked,
+      titre1PageImpaire: bellePage.checked,
     }),
   }
 }
