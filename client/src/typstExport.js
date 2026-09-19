@@ -159,6 +159,7 @@ const PT_PAR_MM = 72 / 25.4
  * ailleurs dans la chaîne PDF. */
 function reglagesTypst(v) {
   const f = police(v.font)
+  const interligne = `${(Number(v.lineHeight) || 1.15).toFixed(2)}em - 1em + 0.2em`
   return {
     texte: [
       // Une liste, pas un nom : Typst prend la première famille réellement
@@ -170,8 +171,10 @@ function reglagesTypst(v) {
     ].join(', '),
     par: [
       `justify: ${v.align === 'justify'}`,
-      `leading: ${(Number(v.lineHeight) || 1.15).toFixed(2)}em - 1em + 0.2em`,
-      `spacing: ${v.spaceAfter || 0}pt`,
+      `leading: ${interligne}`,
+      // `spacing` REMPLACE l'interligne, il ne s'y ajoute pas : sans le
+      // `leading`, un spaceAfter nul ferait se chevaucher les paragraphes.
+      `spacing: ${interligne} + ${v.spaceAfter || 0}pt`,
       `first-line-indent: (amount: ${((v.firstLineIndent || 0) * PT_PAR_MM).toFixed(2)}pt, all: true)`,
     ].join(', '),
     align: v.align === 'justify' ? 'left' : v.align || 'left',
@@ -189,8 +192,11 @@ function fonctionBloc(nom, v) {
   v(${r.avant}pt, weak: true)
   set text(${r.texte})
   set par(${r.par})
-  block(width: 100%, align(${r.align})[#${corps}])
-  v(${r.apres}pt, weak: true)
+  // Aucun conteneur ici : il sortirait le paragraphe du flux, ce qui annule
+  // le retrait de première ligne et l'espacement entre paragraphes.
+  set align(${r.align})
+  // L'espace après est porté par par.spacing ci-dessus, pas par un v().
+  ${corps}
 }`
 }
 

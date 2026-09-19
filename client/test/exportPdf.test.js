@@ -92,7 +92,9 @@ test('chaque propriété réglable atteint la source', () => {
   assert.match(f, /justify: true/)
   assert.match(f, /leading:/)
   assert.match(f, /v\(7pt, weak: true\)/, 'espace avant')
-  assert.match(f, /v\(6pt, weak: true\)/, 'espace après')
+  // L'espace après passe par par.spacing, ajouté à l'interligne : c'est
+  // ce qui empêche les paragraphes de se chevaucher quand il vaut 0.
+  assert.match(f, /spacing: 1\.50em - 1em \+ 0\.2em \+ 6pt/, 'espace après')
   // 5 mm en points : c'est la conversion, et c'est là qu'on se trompe.
   assert.match(f, /first-line-indent: \(amount: 14\.17pt/)
 
@@ -116,15 +118,33 @@ test('l’alignement justifié ne devient pas un alignement à droite', () => {
 })
 
 test('un espacement n’est appliqué qu’une fois', () => {
-  // Piège repéré le 18/09 : l'espace après un paragraphe est écrit deux
-  // fois — dans `par(spacing:)` et dans un `v()` explicite. Typst fait
-  // s'effondrer les espacements faibles voisins (c'est le maximum qui
-  // gagne, pas la somme), donc le résultat reste juste ; mais deux sources
-  // pour une même valeur, c'est une divergence qui attend son heure.
+  // Piège repéré le 18/09 : l'espace après un paragraphe était écrit deux
+  // fois — dans `par(spacing:)` et dans un `v()` explicite. Une seule
+  // source désormais : par.spacing.
   const f = fonction(source({ blocs: { body: { spaceAfter: 6, spaceBefore: 0 } } }), 'body')
   const occurrences = (f.match(/6pt/g) || []).length
-  assert.ok(occurrences <= 2, `l'espace après apparaît ${occurrences} fois`)
-  assert.match(f, /v\(6pt, weak: true\)/)
+  assert.equal(occurrences, 1, `l'espace après apparaît ${occurrences} fois`)
+  assert.doesNotMatch(f, /v\(6pt, weak: true\)/)
+})
+
+test('le paragraphe reste dans le flux : ni block(), ni align() enveloppant', () => {
+  // Le bug du 19/09 : `block(width: 100%, align(...)[#corps])` sortait le
+  // paragraphe du flux du document. Typst n'appliquait alors ni le retrait
+  // de première ligne ni l'espacement entre paragraphes — les réglages
+  // étaient bien écrits dans la source, mais sans aucun effet visible.
+  const f = fonction(source({ blocs: { body: { firstLineIndent: 5, align: 'left' } } }), 'body')
+  assert.doesNotMatch(f, /block\(/)
+  assert.match(f, /set align\(left\)/)
+  assert.match(f, /first-line-indent: \(amount: 14\.17pt/)
+})
+
+test('un espace après nul ne fait pas se chevaucher les paragraphes', () => {
+  // par.spacing REMPLACE l'interligne, il ne s'y ajoute pas : à 0, les
+  // lignes de deux paragraphes voisins se superposaient. On y ajoute donc
+  // toujours l'interligne, pour que 0 signifie « comme deux lignes ».
+  const f = fonction(source({ blocs: { body: { spaceAfter: 0, lineHeight: 1.15 } } }), 'body')
+  assert.match(f, /spacing: 1\.15em - 1em \+ 0\.2em \+ 0pt/)
+  assert.doesNotMatch(f, /spacing: 0pt/)
 })
 
 test('chaque niveau de titre a sa propre fonction, et pas une de plus', () => {
