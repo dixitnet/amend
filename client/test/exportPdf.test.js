@@ -249,3 +249,13 @@ test('le style par défaut produit une source complète', () => {
   }
   assert.match(src, /#set text\(lang: "fr"/)
 })
+
+test('la langue du document n’est plus écrite en dur', () => {
+  // Jusqu'au 19/09/2026 le gabarit écrivait `lang: "fr"` quoi qu'il
+  // arrive : un texte anglais se coupait selon les motifs français.
+  assert.match(source({}), /#set text\(lang: "fr"/)
+  assert.match(source({ page: { langue: 'en' } }), /#set text\(lang: "en"/)
+  // Une valeur inconnue retombe sur le français plutôt que de produire une
+  // source que Typst refuserait.
+  assert.match(source({ page: { langue: 'klingon' } }), /#set text\(lang: "fr"/)
+})

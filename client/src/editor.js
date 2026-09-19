@@ -53,6 +53,7 @@ import { loadDocStyle } from './styleConfig.js'
 import { ouvrirPanneauStyle } from './stylePanel.js'
 import { ouvrirPanneauPublication } from './publicationPanel.js'
 import { messageFugace } from './images.js'
+import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -340,6 +341,31 @@ export function mountEditor(root, docId, user, docMeta) {
   titreExports.className = 'menu-flottant-entete'
   titreExports.textContent = 'Exporter'
 
+  // Ce que l'export met dans le fichier (19/09/2026) — question restée
+  // sans réponse jusque-là, avec pour conséquence des exports où un mot
+  // remplacé et son remplaçant se suivaient. Le choix se fait ici, au-dessus
+  // des trois formats, parce qu'il vaut pour les trois.
+  const varianteSelect = document.createElement('select')
+  varianteSelect.className = 'menu-flottant-choix'
+  for (const v of VARIANTES) {
+    const o = document.createElement('option')
+    o.value = v.id
+    o.textContent = v.label
+    o.title = v.aide
+    varianteSelect.appendChild(o)
+  }
+  varianteSelect.value = FINAL
+  varianteSelect.onclick = (e) => e.stopPropagation()
+  const varianteAide = document.createElement('span')
+  varianteAide.className = 'menu-flottant-aide'
+  const majAide = () => {
+    varianteAide.textContent = (VARIANTES.find((v) => v.id === varianteSelect.value) || VARIANTES[0]).aide
+  }
+  majAide()
+  varianteSelect.onchange = majAide
+  /** Le document à exporter, dans la variante choisie. */
+  const docAExporter = () => documentPourExport(view.state.doc, varianteSelect.value)
+
   const exportMdItem = document.createElement('button')
   exportMdItem.type = 'button'
   exportMdItem.textContent = 'Markdown (.md)'
@@ -367,7 +393,7 @@ export function mountEditor(root, docId, user, docMeta) {
     ouvrirPanneauPublication(docId, () => view.state.doc, () => titleInput.value)
   }
 
-  menuPartage.liste.append(accesItem, sepExports, titreExports, exportMdItem, exportDocxItem, exportPdfItem, sepPublier, publierItem)
+  menuPartage.liste.append(accesItem, sepExports, titreExports, varianteSelect, varianteAide, exportMdItem, exportDocxItem, exportPdfItem, sepPublier, publierItem)
   // Mise en page et Partager voisinent : ce sont les deux gestes qui
   // décident de la **forme sous laquelle le document sort** — l'un la
   // compose, l'autre la distribue.
@@ -916,7 +942,7 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   exportMdItem.onclick = () => {
     menuPartage.fermer()
-    const markdown = docToMarkdown(view.state.doc)
+    const markdown = docToMarkdown(docAExporter())
     downloadText(markdown, markdownFilename(titleInput.value))
   }
   exportDocxItem.onclick = async () => {
@@ -929,7 +955,7 @@ export function mountEditor(root, docId, user, docMeta) {
     // chargée que si quelqu'un clique vraiment sur "Word (.docx)", pas au
     // chargement initial de l'éditeur.
     const [{ style }, { downloadDocx }] = await Promise.all([loadDocStyle(docId), import('./docxExport.js')])
-    await downloadDocx(view.state.doc, style, titleInput.value)
+    await downloadDocx(docAExporter(), style, titleInput.value)
   }
   exportPdfItem.onclick = async () => {
     menuPartage.fermer()
@@ -947,7 +973,7 @@ export function mountEditor(root, docId, user, docMeta) {
         loadDocStyle(docId),
         import('./typstExport.js'),
       ])
-      await downloadTypstPdf(view.state.doc, style, titleInput.value, docId)
+      await downloadTypstPdf(docAExporter(), style, titleInput.value, docId)
     } catch (err) {
       messageFugace(err.message || "le PDF n'a pas pu être composé", { erreur: true })
     } finally {

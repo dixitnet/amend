@@ -18,7 +18,7 @@
 // verbeux, mais ça supprime l'ambiguïté — un paragraphe qui commence par
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
-import { BLOCS, NIVEAUX_TITRE, police, formatPage, styleParDefaut } from '../../shared/style.js'
+import { BLOCS, NIVEAUX_TITRE, police, formatPage, styleParDefaut, langue } from '../../shared/style.js'
 
 // Caractères que Typst interprète en mode contenu. Le backslash d'abord,
 // sinon on échapperait ceux qu'on vient d'ajouter.
@@ -37,8 +37,8 @@ function chaine(v) {
 
 /** Le contenu inline d'un nœud : texte, marques, sauts de ligne, images.
  * Les marques du suivi des modifications ressortent en texte normal — même
- * convention que les trois autres exports : « l'état présent » est pris au
- * pied de la lettre, rien n'est accepté ni rejeté au passage. */
+ * variante d'export (voir exportVariante.js) : le document reçu ici a déjà
+ * eu ses marques de suivi résolues. */
 function inline(node) {
   let out = ''
   node.forEach((child) => {
@@ -263,7 +263,7 @@ function gabarit(style, titre) {
 // La langue décide des motifs de césure et de la forme des guillemets.
 // \`hyphenate\` vaut \`auto\` : les mots ne sont coupés que dans du texte
 // justifié — même règle que celle posée dans l'export navigateur.
-#set text(lang: "fr", font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt)
+#set text(lang: ${chaine(langue(p.langue).id)}, font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt)
 #set par(justify: ${corps.align === 'justify'})
 
 ${fonctions.join('\n\n')}

@@ -79,6 +79,21 @@ export const INTERLIGNES = [
   { id: 2, label: 'Double' },
 ]
 
+/** La langue du document. Elle ne change rien à l'interface : elle décide
+ * des **motifs de césure** et de la forme des guillemets à la composition.
+ * Un texte anglais composé en français se coupe aux mauvais endroits — et
+ * jusqu'au 19/09/2026 le gabarit d'export écrivait « fr » en dur, quoi
+ * qu'il arrive. Deux langues seulement pour l'instant, c'est ce dont on a
+ * besoin ; en ajouter une est une ligne. */
+export const LANGUES = [
+  { id: 'fr', label: 'Français', docx: 'fr-FR' },
+  { id: 'en', label: 'English', docx: 'en-GB' },
+]
+
+export function langue(id) {
+  return LANGUES.find((l) => l.id === id) || LANGUES[0]
+}
+
 export const FORMATS_PAGE = [
   { id: 'A4', label: 'A4', mm: [210, 297] },
   { id: 'A5', label: 'A5', mm: [148, 210] },
@@ -173,6 +188,8 @@ export const NIVEAUX_TITRE = BLOCS.filter((b) => b.docxHeading !== null).length
 
 export const PAGE_DEFAUT = {
   size: 'A4',
+  // Langue du document — césures et guillemets, pas l'interface.
+  langue: 'fr',
   marginTop: 25,
   marginRight: 20,
   marginBottom: 25,

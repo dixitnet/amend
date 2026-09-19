@@ -5,13 +5,12 @@
 // strong/em/underline/strike) — no external Markdown library needed for
 // such a small, fixed set of node/mark types.
 //
-// Tracked changes (insertion/deletion marks) are exported as plain text
-// either way — "l'état présent" (the file as it stands right now) is taken
-// literally: nothing has been accepted or rejected yet, so both a pending
-// insertion and a pending deletion are still part of the current document
-// and both come out as ordinary text, with no special Markdown markup for
-// either. (Worth revisiting later if what's wanted is instead "export as if
-// everything pending were accepted".)
+// Ce que le document contient au moment où il arrive ici a déjà été
+// décidé : `exportVariante.js` résout les marques du suivi avant de passer
+// le document à ce fichier — acceptées pour « document final », rendues en
+// souligné/barré ordinaire pour « version en cours ». Les marques
+// insertion/suppression qui parviendraient tout de même jusqu'ici sont donc
+// sans effet, à dessein.
 
 /** Wraps `text` in a Markdown emphasis-style delimiter (**, *, ~~), pulling
  * any leading/trailing whitespace outside the delimiters first. CommonMark

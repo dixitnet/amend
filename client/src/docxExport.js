@@ -7,10 +7,12 @@
 // (voir styleConfig.js/stylePanel.js) : ce fichier et typstExport.js sont les
 // deux seuls endroits qui la prennent réellement en compte.
 //
-// Comme dans mdExport.js/typstExport.js, "l'état présent" du document est
-// pris tel quel : les marques insertion/suppression du suivi des
-// modifications ressortent en texte normal, rien n'est accepté ni rejeté
-// au passage.
+// Ce que le document contient au moment où il arrive ici a déjà été
+// décidé : `exportVariante.js` résout les marques du suivi avant de passer
+// le document à ce fichier — acceptées pour « document final », rendues en
+// souligné/barré ordinaire pour « version en cours ». Les marques
+// insertion/suppression qui parviendraient tout de même jusqu'ici sont donc
+// sans effet, à dessein.
 //
 // Bibliothèque `docx` (dolanmiu/docx, npm) plutôt qu'une implémentation
 // maison du format .docx (un zip de XML avec son propre schéma OOXML) —
@@ -40,7 +42,7 @@ import {
   convertMillimetersToTwip,
 } from 'docx'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
-import { BLOCS, NIVEAUX_TITRE } from '../../shared/style.js'
+import { BLOCS, NIVEAUX_TITRE, langue } from '../../shared/style.js'
 
 /** Les réglages d'un bloc du modèle (voir shared/style.js) : « body »,
  * « quote », « h1 »… Un document enregistré avant le 16/09/2026 est déjà
@@ -48,7 +50,12 @@ import { BLOCS, NIVEAUX_TITRE } from '../../shared/style.js'
  * toujours ici — la garde ne sert qu'au cas d'un appel direct. */
 function reglages(style, blocId) {
   const defini = BLOCS.find((b) => b.id === blocId)
-  return (style.blocs && style.blocs[blocId]) || (defini && defini.defauts) || DEFAULT_STYLE.blocs.body
+  const bloc = (style.blocs && style.blocs[blocId]) || (defini && defini.defauts) || DEFAULT_STYLE.blocs.body
+  // La langue est une propriété du document, pas du bloc — mais c'est le
+  // bloc qui voyage jusqu'aux runs, seul endroit où Word la porte. On la
+  // pose donc ici plutôt que de faire descendre le style entier à travers
+  // une douzaine de signatures.
+  return { ...bloc, _langue: langue(style.page && style.page.langue).docx }
 }
 import { safeFilenameBase } from './mdExport.js'
 
@@ -128,6 +135,10 @@ function baseRunProps(block, sizePt) {
     bold: !!block.bold,
     italics: !!block.italic,
     allCaps: !!block.uppercase,
+    // Langue du texte : Word s'en sert pour la césure et le correcteur
+    // orthographique — sans elle, un document anglais arrive souligné de
+    // rouge d'un bout à l'autre.
+    ...(block._langue ? { language: { value: block._langue } } : {}),
   }
 }
 

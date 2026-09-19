@@ -14,6 +14,8 @@ import {
   BLOCS,
   PROPRIETES,
   FORMATS_PAGE,
+  LANGUES,
+  langue,
   styleParDefaut,
   fusionner,
 } from './styleConfig.js'
@@ -108,6 +110,21 @@ function groupePage(page) {
   taille.value = page.size
   grille.appendChild(champ('Format', taille))
 
+  // La langue du document (19/09/2026) : elle ne change rien à l'interface,
+  // elle décide des césures et des guillemets à la composition.
+  const lang = document.createElement('select')
+  for (const l of LANGUES) {
+    const o = document.createElement('option')
+    o.value = l.id
+    o.textContent = l.label
+    lang.appendChild(o)
+  }
+  lang.value = langue(page.langue).id
+  const champLangue = champ('Langue', lang)
+  champLangue.title =
+    "Décide des coupures de mots et de la forme des guillemets dans les exports. Sans rapport avec la langue de l'interface."
+  grille.appendChild(champLangue)
+
   const marges = {}
   for (const [cle, libelle] of [
     ['marginTop', 'Marge haute'],
@@ -160,6 +177,7 @@ function groupePage(page) {
       size: taille.value,
       ...Object.fromEntries(Object.entries(marges).map(([k, el]) => [k, Number(el.value)])),
       pageNumbers: { enabled: numeros.checked, startAt: Number(depart.value) || 1 },
+      langue: lang.value,
       titresSolidaires: solidaires.checked,
       titre1PageImpaire: bellePage.checked,
     }),

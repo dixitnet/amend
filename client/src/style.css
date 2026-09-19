@@ -468,6 +468,30 @@ a { color: var(--accent); }
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+/* Le choix de ce que l'export met dans le fichier : un contrôle, et non un
+   item de menu — cliquer dessus ne déclenche rien, ça règle les trois
+   boutons qui suivent. */
+.menu-flottant-choix {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 2px 12px 4px;
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: inherit;
+}
+.menu-flottant-aide {
+  display: block;
+  padding: 0 12px 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+  max-width: 260px;
+  white-space: normal;
+}
 .menu-flottant-separateur { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
 .menu-flottant-bouton { height: 28px; display: inline-flex; align-items: center; white-space: nowrap; }
 
