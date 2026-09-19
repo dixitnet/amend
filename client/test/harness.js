@@ -26,16 +26,20 @@ export const UTILISATEUR = { name: 'Alice', color: '#3d5a80' }
 export const IA = { name: 'IA', color: '#5f7a4a' }
 
 /** Un document à partir d'une liste de paragraphes (ou de `{h: n, texte}`
- * pour un titre). */
+ * pour un titre, `{citation: 'texte'}` pour une citation). */
 export function doc(...blocs) {
   return schema.node(
     'doc',
     null,
-    blocs.map((b) =>
-      typeof b === 'string'
-        ? schema.node('paragraph', null, b ? [schema.text(b)] : [])
-        : schema.node('heading', { level: b.h }, [schema.text(b.texte)])
-    )
+    blocs.map((b) => {
+      if (typeof b === 'string') return schema.node('paragraph', null, b ? [schema.text(b)] : [])
+      if (b.citation !== undefined) {
+        return schema.node('blockquote', null, [
+          schema.node('paragraph', null, [schema.text(b.citation)]),
+        ])
+      }
+      return schema.node('heading', { level: b.h }, [schema.text(b.texte)])
+    })
   )
 }
 
@@ -83,7 +87,9 @@ export function editeur(document, { suivi = true, user = UTILISATEUR } = {}) {
       const lignes = []
       state.doc.forEach((n) => {
         let s = ''
-        n.forEach((enfant) => {
+        // `descendants`, et non `forEach` : le texte d'une citation est
+        // dans le paragraphe qu'elle contient, d'un niveau plus bas.
+        n.descendants((enfant) => {
           if (!enfant.isText) return
           if (enfant.marks.some((m) => m.type.name === 'deletion')) return
           s += enfant.text

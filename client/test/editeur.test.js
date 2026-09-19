@@ -435,3 +435,49 @@ test('le plan connaît le chemin qui mène au titre courant', () => {
     assert.deepEqual([...cheminVers(titres, -1)], [])
   })
 })
+
+// ============================ supprimer plusieurs blocs à la fois
+
+test('supprimer un paragraphe et une citation ensemble les barre, sans rien perdre', () => {
+  // Bug signalé par Sylvain le 19/09/2026. Pris séparément, chacun de ces
+  // blocs se barrait correctement ; sélectionnés et supprimés ensemble, ils
+  // disparaissaient sans laisser de trace — ProseMirror ne sachant pas
+  // fusionner un paragraphe avec une citation, il produisait une forme de
+  // transaction que la réécriture ne reconnaissait pas, et la suppression
+  // passait alors hors suivi.
+  const e = editeur(doc('premier', { citation: 'citation' }, 'dernier'))
+  e.selection(3, 18).effacerAvant()
+  assert.equal(e.texte(), 'premier\ncitation\ndernier', 'aucun texte ne doit disparaître')
+  assert.equal(e.nbBlocs(), 3, 'les blocs restent distincts tant que rien n’est accepté')
+  assert.deepEqual(e.marques(), ['-emier', '-citatio'])
+  assert.equal(e.texteAccepte(), 'pr\nn\ndernier')
+})
+
+test('taper par-dessus une sélection qui couvre un paragraphe et une citation', () => {
+  // Variante plus traître du même défaut : ProseMirror produit ici un
+  // `replaceAround`, une forme que la réécriture ignorait tout autant.
+  const e = editeur(doc('premier', { citation: 'citation' }))
+  e.selection(3, 14).taper('X')
+  assert.equal(e.texteAccepte(), 'prX\nation')
+  assert.ok(
+    e.marques().includes('+X'),
+    'la frappe doit être marquée comme une insertion'
+  )
+  assert.ok(
+    e.marques().some((m) => m === '-emier'),
+    'le texte remplacé reste barré'
+  )
+})
+
+test('supprimer plusieurs paragraphes ordinaires reste barré, pas fusionné', () => {
+  const e = editeur(doc('premier', 'second', 'troisième'))
+  e.selection(3, 16).effacerAvant()
+  assert.equal(e.texte(), 'premier\nsecond\ntroisième')
+  assert.equal(e.texteAccepte(), 'pr\n\ntroisième')
+})
+
+test('suivi désactivé, la suppression de plusieurs blocs efface pour de bon', () => {
+  const e = editeur(doc('premier', { citation: 'citation' }, 'dernier'), { suivi: false })
+  e.selection(3, 18).effacerAvant()
+  assert.equal(e.texteAccepte(), 'prn\ndernier')
+})

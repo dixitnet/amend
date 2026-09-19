@@ -224,9 +224,99 @@ function rewriteSplitForTracking(state, step, user) {
  * simple text edit or a plain top-level split (see comment below) — the
  * caller should then apply the original transaction untouched.
  */
+/** Le texte brut d'une tranche, ou `null` si elle contient autre chose que
+ * des blocs de texte (une image, un tableau, une liste…). Sert à décider si
+ * un remplacement est une simple frappe ou une opération structurelle. */
+function texteDeLaTranche(slice) {
+  let texte = ''
+  let pur = true
+  slice.content.descendants((node) => {
+    if (node.isText) {
+      texte += node.text
+      return false
+    }
+    if (!node.isTextblock) pur = false
+    return pur
+  })
+  return pur ? texte : null
+}
+
+/**
+ * Effacer (ou taper par-dessus) une sélection qui **traverse des blocs de
+ * natures différentes** — un paragraphe et une citation, par exemple.
+ *
+ * Bug signalé par Sylvain le 19/09/2026 : pris séparément, chacun de ces
+ * blocs se barrait correctement ; supprimés ensemble, ils disparaissaient
+ * sans laisser la moindre trace. La raison est entièrement du côté de
+ * ProseMirror : il ne sait pas fusionner un paragraphe avec une citation,
+ * alors au lieu d'un simple `replace` avec une tranche vide, il remplace
+ * toute la plage par un bloc neuf (`replace` dont la tranche contient un
+ * paragraphe) ou, si on tape par-dessus, par un `replaceAround`. Dans les
+ * deux cas, la réécriture en suivi ne reconnaissait pas la forme de la
+ * transaction et renvoyait `null` — ce qui fait appliquer la suppression
+ * d'origine, telle quelle, hors suivi. Le pire des deux mondes : le suivi
+ * était actif, et le texte partait pour de bon.
+ *
+ * On ne s'appuie donc pas sur la forme du pas, mais sur la sélection : ce
+ * qui disparaît, c'est ce qui était sélectionné. On le barre, et on insère
+ * la frappe éventuelle au début — exactement la convention du cas simple.
+ * La structure des blocs, elle, n'est pas touchée : rien n'est fusionné
+ * tant que la modification n'est pas acceptée.
+ */
+function effacementMultiBloc(state, tr, step, user) {
+  if (step.jsonID !== 'replace' && step.jsonID !== 'replaceAround') return null
+  // Un collage a son propre chemin (richPastePlugin) : ne pas s'en mêler.
+  if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'paste') return null
+  const { from, to } = state.selection
+  if (!(to > from)) return null
+  // Le cas d'un seul bloc est traité par la voie normale, plus fine.
+  if (dansUnSeulBloc(state, from, to)) return null
+  // La sélection doit bien être ce que le pas efface, sinon on ne sait pas
+  // de quoi il s'agit (bascule de liste, changement de bloc…).
+  if (step.from > from || step.to < to) return null
+  const texte = texteDeLaTranche(step.slice)
+  if (texte === null) return null
+
+  const insertionType = state.schema.marks.insertion
+  const deletionType = state.schema.marks.deletion
+  if (!insertionType || !deletionType) return null
+
+  const ts = Date.now()
+  const delMark = deletionType.create({ user: user.name, userColor: user.color, ts })
+  const out = state.tr
+  markRangeForTrackedDeletion(state, out, from, to, delMark)
+
+  let curseur = out.mapping.map(from)
+  if (texte.length > 0 && positionUtilisable(out.doc, curseur)) {
+    const insMark = insertionType.create({ user: user.name, userColor: user.color, ts })
+    const authorMark = state.schema.marks.authorColor?.create({
+      user: user.name,
+      userColor: user.color,
+    })
+    out.insert(curseur, state.schema.text(texte))
+    const fin = curseur + texte.length
+    out.addMark(curseur, fin, insMark)
+    if (authorMark) out.addMark(curseur, fin, authorMark)
+    curseur = fin
+  }
+
+  if (out.steps.length === 0) return seulementLeCurseur(state, from)
+  if (positionUtilisable(out.doc, curseur)) {
+    out.setSelection(TextSelection.create(out.doc, curseur))
+  }
+  out.setMeta('trackChangesInternal', true)
+  return out
+}
+
 export function rewriteForTracking(state, tr, user) {
   if (tr.steps.length !== 1) return null
   const step = tr.steps[0]
+
+  // Une sélection qui traverse plusieurs blocs de natures différentes ne
+  // produit pas la forme de transaction attendue plus bas : traitée à part.
+  const multiBloc = effacementMultiBloc(state, tr, step, user)
+  if (multiBloc) return multiBloc
+
   if (step.jsonID !== 'replace') return null
 
   const { from, to, slice } = step
