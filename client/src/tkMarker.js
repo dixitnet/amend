@@ -111,9 +111,10 @@ export function mountTkMarker(container, { onCycle } = {}) {
     const count = tkKey.getState(view.state)?.count ?? 0
     if (count === lastRenderedCount) return
     lastRenderedCount = count
-    // « 12 !! » et non un pictogramme (19/09/2026) : dans le bandeau, le
-    // compteur se lit comme les deux autres — un nombre, puis ce qu'il compte.
-    container.textContent = count > 0 ? `${count} !!` : ''
+    // « 12 ⚠️, » (19/09/2026) : le même pictogramme que dans le texte, pour
+    // qu'on reconnaisse d'un coup d'œil ce qui est compté, et la virgule qui
+    // l'enchaîne aux deux autres compteurs du bandeau.
+    container.textContent = count > 0 ? `${count} \u26a0\ufe0f,` : ''
     container.classList.toggle('cliquable', count > 0)
     container.title =
       count > 0
