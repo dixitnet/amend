@@ -269,18 +269,19 @@ export function mountEditor(root, docId, user, docMeta) {
   const groupeTexte = document.createElement('div')
   groupeTexte.className = 'banniere-groupe'
 
-  // L'interrupteur du suivi vivait dans la colonne de droite, où il pouvait
-  // défiler hors de vue. Il remonte dans le bandeau (17/09) : c'est l'état
-  // le plus important à voir d'un coup d'œil — savoir si ce qu'on tape sera
-  // enregistré comme une proposition ou comme une modification directe —
-  // et il doit rester visible en permanence pour un éditeur.
+  // L'interrupteur du suivi ne vit plus dans le bandeau (19/09) : il prend
+  // la tête de la colonne de droite, en position fixe, aligné sur la barre
+  // de mise en forme du texte. Il y gagne la place d'être **vu** — c'est
+  // l'état le plus important de l'éditeur, celui qui décide si ce qu'on
+  // tape sera une proposition ou une modification directe, et une case à
+  // cocher perdue entre deux compteurs ne le disait pas.
+  // Construit ici, posé plus bas dans la colonne (voir `suiviEntete`).
   const trackToggleLabel = document.createElement('label')
   trackToggleLabel.className = 'track-toggle'
   const trackToggle = document.createElement('input')
   trackToggle.type = 'checkbox'
   trackToggle.checked = true
   trackToggleLabel.append(trackToggle, document.createTextNode(' Suivi des modifications'))
-  groupeTexte.appendChild(trackToggleLabel)
 
   const tkCount = document.createElement('span')
   tkCount.className = 'tk-count'
@@ -511,13 +512,21 @@ export function mountEditor(root, docId, user, docMeta) {
 
   const sidebar = document.createElement('div')
   sidebar.className = 'sidebar'
+  // L'en-tête ne défile pas : l'interrupteur du suivi doit être là quoi
+  // qu'on ait fait défiler en dessous.
+  const suiviEntete = document.createElement('div')
+  suiviEntete.className = 'suivi-entete'
+  suiviEntete.appendChild(trackToggleLabel)
+  const sidebarCorps = document.createElement('div')
+  sidebarCorps.className = 'sidebar-corps'
   const aiSection = document.createElement('div')
   aiSection.className = 'sidebar-section ai-section'
   const changesSection = document.createElement('div')
   changesSection.className = 'sidebar-section changes-section'
   const commentsSection = document.createElement('div')
   commentsSection.className = 'sidebar-section comments-section'
-  sidebar.append(aiSection, changesSection, commentsSection)
+  sidebarCorps.append(aiSection, changesSection, commentsSection)
+  sidebar.append(suiviEntete, sidebarCorps)
 
   const outlineSidebar = document.createElement('div')
   outlineSidebar.className = 'outline-sidebar'
@@ -751,8 +760,13 @@ export function mountEditor(root, docId, user, docMeta) {
     setTrackChangesEnabled(view, trackToggle.checked)
   })
   // Keep the checkbox in sync if the plugin state ever changes elsewhere.
+  // La classe porte l'état jusqu'à l'en-tête, qui change franchement de
+  // couleur : on doit savoir dans quel mode on écrit sans avoir à chercher
+  // une coche.
   const syncToggle = () => {
-    trackToggle.checked = isCorrecteur ? true : isTrackChangesEnabled(view.state)
+    const actif = isCorrecteur ? true : isTrackChangesEnabled(view.state)
+    trackToggle.checked = actif
+    suiviEntete.classList.toggle('actif', actif)
   }
 
   /** Style de bloc commun à toute la sélection : '' pour un paragraphe, le

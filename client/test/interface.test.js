@@ -175,8 +175,12 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   assert.ok(racine.querySelector('.banniere-centre .presence-bar'), 'les pastilles de présence')
   assert.ok(racine.querySelector('.banniere-droite .connection-status'), 'le voyant, à droite')
   assert.ok(racine.querySelector('.banniere-droite .compte-pastille'), 'la pastille du compte')
-  assert.ok(racine.querySelector('.track-toggle'), 'l’interrupteur du suivi')
-  assert.match(racine.querySelector('.track-toggle').textContent, /Suivi des modifications/)
+  // L'interrupteur du suivi est en tête de la colonne de droite, hors du
+  // corps qui défile (19/09) : c'est ce qui le rend toujours visible.
+  const suivi = racine.querySelector('.sidebar > .suivi-entete > .track-toggle')
+  assert.ok(suivi, 'l’interrupteur du suivi, en tête de colonne et hors défilement')
+  assert.match(suivi.textContent, /Suivi des modifications/)
+  assert.ok(racine.querySelector('.sidebar > .sidebar-corps > .ai-section'), 'le corps qui défile')
   assert.ok(racine.querySelector('.ProseMirror'), 'la zone d’édition')
 
   if (editeur && editeur.destroy) editeur.destroy()

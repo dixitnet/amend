@@ -19,7 +19,17 @@ async function requestSuggestion(docId, text, instruction) {
 
 const PRESETS = [
   { label: 'Plus concis', instruction: 'Rends ce passage plus concis, sans en changer le sens.' },
-  { label: 'Plus formel', instruction: 'Réécris ce passage dans un registre plus formel.' },
+  // « Corriger » remplace « Plus formel » (19/09) : changer de registre est
+  // une demande rare et qu'on formule mieux soi-même ; corriger est ce
+  // qu'on demande dix fois par jour. L'instruction dit explicitement de ne
+  // pas réécrire — sans quoi le modèle en profite pour reformuler, et la
+  // proposition devient illisible à relire.
+  {
+    label: 'Corriger',
+    instruction:
+      "Corrige l'orthographe, la grammaire, la conjugaison et la typographie de ce passage. " +
+      'Ne reformule pas, ne change pas le style, ne coupe rien : seules les fautes sont corrigées.',
+  },
   { label: 'Clarifier', instruction: 'Clarifie ce passage pour le rendre plus facile à comprendre.' },
 ]
 
@@ -47,15 +57,15 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
     return
   }
 
-  const hint = document.createElement('p')
-  hint.className = 'ai-hint'
-  hint.textContent = 'Sélectionne un passage dans le texte, puis demande une reformulation.'
-  container.appendChild(hint)
+  // Le mode d'emploi tient dans le repère du champ et dans l'état du
+  // panneau (19/09) : une phrase d'explication permanente prenait deux
+  // lignes dans une colonne étroite, pour une information qu'on ne lit
+  // qu'une fois.
 
   const presetsRow = document.createElement('div')
   presetsRow.className = 'ai-presets'
   const textarea = document.createElement('textarea')
-  textarea.placeholder = 'Instruction (ex. "plus percutant", "corrige les répétitions"...)'
+  textarea.placeholder = 'Sélectionnez un passage, puis dites quoi en faire…'
   textarea.rows = 2
 
   for (const preset of PRESETS) {
@@ -83,7 +93,7 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
   })
 
   const runBtn = document.createElement('button')
-  runBtn.textContent = 'Suggérer une reformulation'
+  runBtn.textContent = 'Demander à l’IA'
   runBtn.className = 'btn-primary'
   container.appendChild(runBtn)
 

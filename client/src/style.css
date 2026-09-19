@@ -234,13 +234,47 @@ a { color: var(--accent); }
   width: 320px;
   flex-shrink: 0;
   border-left: 1px solid var(--border);
-  overflow-y: auto;
   background: var(--panel-bg);
+  /* Un en-tête qui ne bouge pas, un corps qui défile (19/09/2026). */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
+.sidebar-corps { flex: 1; overflow-y: auto; }
+
+/* L'interrupteur du suivi des modifications, en tête de colonne.
+   Aligné sur la barre de mise en forme du texte (mêmes hauteur et retrait)
+   pour que les deux colonnes commencent à la même ligne, et **franchement
+   coloré** : c'est l'état qui décide si ce qu'on tape sera une proposition
+   ou une modification directe, et une case à cocher perdue entre deux
+   compteurs ne le disait pas. */
+.suivi-entete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  min-height: 47px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+.suivi-entete .track-toggle { font-size: 13px; font-weight: 600; gap: 8px; cursor: pointer; }
+.suivi-entete .track-toggle input { accent-color: currentColor; width: 15px; height: 15px; cursor: pointer; }
+/* Suivi actif : la couleur de l'application, pleine. Éteint : gris, et ça
+   se voit aussi. */
+.suivi-entete.actif {
+  background: var(--accent);
+  color: white;
+}
+.suivi-entete.actif .track-toggle input { accent-color: white; }
+.suivi-entete .track-toggle:has(input:disabled) { cursor: default; }
 .sidebar-section {
   padding: 16px;
   border-bottom: 1px solid var(--border);
 }
+.sidebar-section.ai-section { padding: 12px 16px; }
+.sidebar-section.ai-section h3 { margin-bottom: 6px; }
 .sidebar-section h3 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 
 .outline-sidebar {
@@ -738,21 +772,34 @@ button.btn-reject { background: transparent; color: var(--danger); border: 1px s
 button.btn-primary { background: var(--accent); color: white; width: 100%; padding: 8px; margin-top: 8px; font-size: 13px; }
 .btn-preset { background: var(--bg); border: 1px solid var(--border); color: var(--fg); }
 
-/* ---------- AI panel ---------- */
-.ai-hint { font-size: 12px; color: var(--muted); margin-top: 0; }
-.ai-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+/* ---------- Panneau IA ----------
+   Resserré le 19/09 : la colonne fait 320 px, chaque ligne y coûte cher, et
+   le panneau prenait la moitié de la hauteur pour trois boutons et un
+   champ. La phrase d'explication permanente a disparu — elle vit dans le
+   repère du champ — et les espacements sont divisés par deux. */
+.ai-hint { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+.ai-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .ai-section textarea {
   width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
   color: var(--fg);
-  padding: 8px;
+  padding: 7px 8px;
   font-family: inherit;
   font-size: 13px;
   resize: vertical;
+  display: block;
+  /* `display: block` : sans lui, une textarea est en ligne et traîne
+     derrière elle l'espace d'une ligne de texte — l'espace inexpliqué sous
+     le bouton venait de là, pas d'une marge. */
+  margin-bottom: 6px;
 }
-.ai-status { font-size: 12px; color: var(--muted); min-height: 1.2em; }
+.ai-section .btn-primary { margin-top: 0; padding: 7px; }
+/* Ne réserve de la place que quand il y a quelque chose à dire. */
+.ai-status { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.ai-status:empty { display: none; }
 
 /* ---------- Comments panel (comments.js) ---------- */
 .comments-section textarea {
