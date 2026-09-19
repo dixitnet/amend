@@ -196,6 +196,10 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
+  // Sans ce type, le manifeste part en application/octet-stream et les
+  // navigateurs l'ignorent en silence — l'icône d'écran d'accueil ne
+  // s'installe jamais, sans le moindre message.
+  '.webmanifest': 'application/manifest+json',
   '.woff2': 'font/woff2',
 }
 
