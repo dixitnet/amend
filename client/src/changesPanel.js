@@ -104,6 +104,37 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
     element.scrollIntoView({ block: 'nearest' })
   }
 
+  /** La modification qui suit la position `pos` dans le document, **sans
+   * boucler**. Sert après une validation : on continue vers le bas, on ne
+   * remonte pas.
+   *
+   * Signalé par Sylvain le 20/09/2026 : accepter une modification faisait
+   * passer à celle du dessus. Rien ne déplaçait la sélection après coup —
+   * le curseur restait là où le passage validé venait de disparaître, et la
+   * carte mise en avant se trouvait être la précédente. Relire, c'est
+   * descendre : on va donc explicitement à la suivante.
+   *
+   * `>=` et non `>` : la modification suivante peut commencer exactement là
+   * où finissait celle qu'on vient de valider, deux corrections voisines
+   * étant le cas ordinaire dans une relecture serrée. */
+  function prochaineApres(changes, pos) {
+    return changes.find((c) => c.from >= pos) || null
+  }
+
+  /** Après une validation ou un rejet : on se pose sur la modification
+   * suivante s'il y en a une. Sinon on ne bouge pas — arrivé au bout d'une
+   * relecture, remonter au début est une surprise, pas un service. */
+  function continuerVersLeBas(depart) {
+    if (!view) return
+    const changes = mergeAdjacentChanges(changesKey.getState(view.state)?.raw ?? [])
+    const cible = prochaineApres(changes, depart)
+    if (!cible) return
+    const { state, dispatch } = view
+    const to = Math.min(cible.to, state.doc.content.size)
+    dispatch(state.tr.setSelection(TextSelection.create(state.doc, cible.from, to)))
+    scrollChangeToMiddle(cible.from)
+  }
+
   /** Va à la modification suivante (ou précédente) dans l'ordre du
    * document, en boucle, et la sélectionne — c'est le geste réel d'une
    * relecture, et il évite de viser à la souris. */
@@ -216,11 +247,19 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         const acceptBtn = document.createElement('button')
         acceptBtn.textContent = 'Accepter'
         acceptBtn.className = 'btn-accept'
-        acceptBtn.onclick = () => acceptChange(view, change)
+        acceptBtn.onclick = () => {
+          const depart = change.from
+          acceptChange(view, change)
+          continuerVersLeBas(depart)
+        }
         const rejectBtn = document.createElement('button')
         rejectBtn.textContent = 'Rejeter'
         rejectBtn.className = 'btn-reject'
-        rejectBtn.onclick = () => rejectChange(view, change)
+        rejectBtn.onclick = () => {
+          const depart = change.from
+          rejectChange(view, change)
+          continuerVersLeBas(depart)
+        }
         actions.append(acceptBtn, rejectBtn)
       }
 
