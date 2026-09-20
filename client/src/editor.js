@@ -56,7 +56,7 @@ import { messageFugace } from './images.js'
 import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
 import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
 import { ouvrirPlan } from './planFeuille.js'
-import { fermerFeuille, sansColonnePlan } from './feuille.js'
+import { fermerFeuille, media, REQUETE_PETIT_ECRAN } from './feuille.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -467,7 +467,21 @@ export function mountEditor(root, docId, user, docMeta) {
     opt.textContent = label
     headingSelect.appendChild(opt)
   }
-  toolbar.appendChild(headingSelect)
+  // Trois groupes (20/09/2026). Sur ordinateur ils se suivent sur une
+  // ligne, comme avant ; sur téléphone la barre descend au-dessus du
+  // clavier et ils deviennent des onglets, faute de quoi quinze boutons
+  // occuperaient trois rangées et la moitié de l'écran.
+  const groupeTexte2 = document.createElement('div')
+  groupeTexte2.className = 'barre-groupe'
+  groupeTexte2.dataset.groupe = 'texte'
+  const groupeInserer = document.createElement('div')
+  groupeInserer.className = 'barre-groupe'
+  groupeInserer.dataset.groupe = 'inserer'
+  const groupeRelire = document.createElement('div')
+  groupeRelire.className = 'barre-groupe'
+  groupeRelire.dataset.groupe = 'relire'
+
+  groupeTexte2.appendChild(headingSelect)
 
   const boldBtn = mkButton('B', 'gras (Ctrl-B)')
   const italicBtn = mkButton('I', 'italique (Ctrl-I)')
@@ -484,7 +498,8 @@ export function mountEditor(root, docId, user, docMeta) {
   // c'est ce qui la distingue d'une option de mise en page (20/09/2026).
   const tocBtn = mkButton('Sommaire', 'Insérer une table des matières ici')
   tocBtn.classList.add('btn-texte')
-  toolbar.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn, quoteBtn, hrBtn, tocBtn)
+  groupeTexte2.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn)
+  groupeInserer.append(quoteBtn, hrBtn, tocBtn)
 
   // Groupe tableau : le bouton d'insertion est toujours là, les commandes de
   // structure n'apparaissent que lorsque le curseur est dans un tableau
@@ -506,8 +521,32 @@ export function mountEditor(root, docId, user, docMeta) {
   const tableGroup = document.createElement('span')
   tableGroup.className = 'table-group'
   tableGroup.append(rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn)
-  toolbar.append(tableBtn, tableGroup)
+  groupeInserer.append(tableBtn, tableGroup)
 
+  // Les onglets : une rangée d'étiquettes qui n'apparaît qu'en bas d'écran.
+  const onglets = document.createElement('div')
+  onglets.className = 'barre-onglets'
+  const boutonsOnglet = {}
+  for (const [cle, libelle] of [
+    ['texte', 'Texte'],
+    ['inserer', 'Insérer'],
+    ['relire', 'Relire'],
+  ]) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'barre-onglet'
+    b.textContent = libelle
+    b.onclick = () => choisirOnglet(cle)
+    boutonsOnglet[cle] = b
+    onglets.appendChild(b)
+  }
+  function choisirOnglet(cle) {
+    toolbar.dataset.onglet = cle
+    for (const [k, b] of Object.entries(boutonsOnglet)) b.classList.toggle('actif', k === cle)
+  }
+  choisirOnglet('texte')
+
+  toolbar.append(groupeTexte2, groupeInserer, groupeRelire, onglets)
   main.appendChild(toolbar)
 
   const editorContainer = document.createElement('div')
@@ -559,7 +598,7 @@ export function mountEditor(root, docId, user, docMeta) {
   // Le zoom appartient à la colonne du texte, pas au bandeau (17/09/2026) :
   // c'est un réglage de confort de lecture, propre à cet écran et à cette
   // personne — il ne touche ni au document ni à ce qui en sortira.
-  toolbar.appendChild(zoomSelect)
+  groupeTexte2.appendChild(zoomSelect)
 
   const sidebar = document.createElement('div')
   sidebar.className = 'sidebar'
@@ -578,6 +617,23 @@ export function mountEditor(root, docId, user, docMeta) {
   commentsSection.className = 'sidebar-section comments-section'
   sidebarCorps.append(aiSection, changesSection, commentsSection)
   sidebar.append(suiviEntete, sidebarCorps)
+
+  // L'interrupteur du suivi change de place avec la largeur (20/09/2026),
+  // et **une seule fois pour toutes** : il est déménagé, jamais dupliqué.
+  // Deux cases à cocher pour un même état, ce serait deux états à tenir
+  // d'accord, et un jour l'une affichant le contraire de l'autre. Sur
+  // téléphone la colonne de droite n'existe plus, et cet interrupteur est
+  // précisément ce qu'on ne peut pas se permettre de perdre : c'est lui qui
+  // dit si ce qu'on tape est une proposition ou une modification directe.
+  const petitEcranMedia = media(REQUETE_PETIT_ECRAN)
+  function placerLeSuivi() {
+    if (petitEcranMedia.matches) groupeRelire.appendChild(trackToggleLabel)
+    else suiviEntete.appendChild(trackToggleLabel)
+  }
+  placerLeSuivi()
+  // Un iPad qui passe en Split View change de largeur **sans recharger** :
+  // on écoute, on ne décide pas une fois pour toutes au chargement.
+  if (petitEcranMedia.addEventListener) petitEcranMedia.addEventListener('change', placerLeSuivi)
 
   const outlineSidebar = document.createElement('div')
   outlineSidebar.className = 'outline-sidebar'

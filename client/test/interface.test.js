@@ -56,6 +56,12 @@ function installerDom() {
   globalThis.CSS = w.CSS || { escape: (s) => s }
   globalThis.requestAnimationFrame = (fn) => setTimeout(() => fn(Date.now()), 0)
   globalThis.cancelAnimationFrame = (id) => clearTimeout(id)
+  // jsdom ne connaît pas `matchMedia`. On le comble ici — l'application,
+  // elle, ne doit pas s'y fier aveuglément non plus (voir `media()` dans
+  // feuille.js) : c'est ce test qui a attrapé l'oubli.
+  if (!w.matchMedia) {
+    w.matchMedia = (requete) => ({ matches: false, media: requete, addEventListener() {}, removeEventListener() {} })
+  }
   // `getBoundingClientRect` renvoie des zéros dans jsdom : suffisant, tant
   // qu'il ne renvoie pas `undefined`.
   if (!w.Element.prototype.getBoundingClientRect) {
@@ -182,6 +188,61 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   assert.match(suivi.textContent, /Suivi des modifications/)
   assert.ok(racine.querySelector('.sidebar > .sidebar-corps > .ai-section'), 'le corps qui défile')
   assert.ok(racine.querySelector('.ProseMirror'), 'la zone d’édition')
+
+  // La barre d'outils est découpée en trois groupes depuis le 20/09 : sur
+  // ordinateur ils se suivent sur une ligne, sur téléphone ils deviennent
+  // des onglets. Les trois doivent exister, et le bouton Plan avec eux —
+  // c'est la seule porte vers le plan quand sa colonne disparaît.
+  for (const groupe of ['texte', 'inserer', 'relire']) {
+    assert.ok(
+      racine.querySelector(`.format-toolbar .barre-groupe[data-groupe="${groupe}"]`),
+      `le groupe ${groupe}`
+    )
+  }
+  assert.equal(racine.querySelectorAll('.barre-onglet').length, 3, 'trois onglets')
+  assert.ok(racine.querySelector('.banniere-gauche .btn-plan'), 'le bouton Plan')
+
+  if (editeur && editeur.destroy) editeur.destroy()
+})
+
+test('sur petit écran, l’interrupteur du suivi descend dans la barre — sans se dupliquer', async () => {
+  // L'état le plus important de l'éditeur ne peut pas disparaître avec la
+  // colonne de droite. Il est **déménagé**, jamais recopié : deux cases
+  // pour un même état finiraient par se contredire.
+  const dom = installerDom()
+  await oublierLaSession()
+  installerFetch({ '/api/auth/me': { email: 'moi@example.com', admin: false } })
+  dom.window.matchMedia = (requete) => ({
+    matches: /max-width: 700px/.test(requete),
+    media: requete,
+    addEventListener() {},
+    removeEventListener() {},
+  })
+  globalThis.WebSocket = class {
+    constructor() { this.readyState = 0 }
+    addEventListener() {}
+    removeEventListener() {}
+    send() {}
+    close() {}
+  }
+  const guetteur = surveillerLesErreurs()
+  const { mountEditor } = await import('../src/editor.js')
+  const racine = dom.window.document.getElementById('app')
+  const editeur = mountEditor(
+    racine,
+    'abcdefgh1234',
+    { name: 'Moi', color: '#e07a5f' },
+    { title: 'Essai', myRole: 'editeur', myName: 'Moi', myColor: '#e07a5f' }
+  )
+  await respirer()
+
+  assert.deepEqual(guetteur.fin(), [], 'une erreur au montage en petit écran')
+  assert.equal(racine.querySelectorAll('.track-toggle').length, 1, 'un seul interrupteur, toujours')
+  assert.ok(
+    racine.querySelector('.barre-groupe[data-groupe="relire"] .track-toggle'),
+    'et il est dans l’onglet Relire'
+  )
+  assert.ok(!racine.querySelector('.suivi-entete .track-toggle'), 'plus dans la colonne')
 
   if (editeur && editeur.destroy) editeur.destroy()
 })

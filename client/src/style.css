@@ -2172,3 +2172,95 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 @media (max-width: 1100px) {
   .btn-plan { display: inline-flex; align-items: center; }
 }
+
+/* --- La barre d'outils sur petit écran (20/09/2026) ----------------------
+   Sur ordinateur, les trois groupes se suivent sur une ligne et les onglets
+   n'existent pas : rien ne change. Sous 700 px, la barre quitte le haut de
+   la colonne pour s'ancrer en bas — près des pouces et du clavier, comme le
+   font les traitements de texte mobiles — et les groupes deviennent des
+   onglets. */
+.barre-groupe { display: contents; }
+.barre-onglets { display: none; }
+
+@media (max-width: 700px) {
+  .format-toolbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    /* Au-dessus du clavier quand il est là, au-dessus de la zone sûre
+       sinon. `env(keyboard-inset-height, 0rem)` : la valeur de repli doit
+       porter une unité, faute de quoi Safari ignore toute la déclaration.
+       Les navigateurs qui ne connaissent pas cette variable posent la barre
+       au ras du bas, où `100dvh` l'aura déjà remontée avec le reste. */
+    bottom: env(keyboard-inset-height, 0rem);
+    z-index: 40;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--panel-bg);
+    flex-direction: column;
+    align-items: stretch;
+  }
+  /* Un seul groupe à la fois : une rangée, jamais deux. */
+  .barre-groupe {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .barre-groupe::-webkit-scrollbar { display: none; }
+  .format-toolbar[data-onglet='texte'] .barre-groupe[data-groupe='texte'],
+  .format-toolbar[data-onglet='inserer'] .barre-groupe[data-groupe='inserer'],
+  .format-toolbar[data-onglet='relire'] .barre-groupe[data-groupe='relire'] {
+    display: flex;
+  }
+  .barre-onglets {
+    display: flex;
+    gap: 4px;
+    order: 2;
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+  }
+  .barre-onglet {
+    flex: 1;
+    min-height: 40px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .barre-onglet.actif { background: var(--bg); color: var(--fg); font-weight: 600; }
+  /* La colonne de texte laisse la place à la barre, sinon les dernières
+     lignes du document sont inatteignables. */
+  .editor-container { padding-bottom: 140px; }
+  /* Le bandeau se vide : ne restent que le retour, le plan, le titre, le
+     voyant et la pastille du compte. */
+  .back-link span, .btn-nouveau { display: none; }
+  .top-banner { padding: 4px 8px; gap: 6px; }
+  .banniere-centre { display: none; }
+}
+
+/* L'interrupteur de suivi est déménagé dans la barre du bas sur petit
+   écran (editor.js) : il doit y rester lisible et coloré, c'est l'état le
+   plus important de l'éditeur. */
+@media (max-width: 700px) {
+  .barre-groupe .track-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+}

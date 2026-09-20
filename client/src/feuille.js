@@ -140,14 +140,28 @@ export function ouvrirFeuille(titre, { hauteur = 0.5, modale = false, surFermetu
   return poste
 }
 
+/** Une requête média, sans supposer que `matchMedia` existe. Elle manque
+ * dans jsdom — et le test de fumée de l'éditeur l'a immédiatement attrapé,
+ * ce qui est exactement son rôle. Un repli « grand écran » plutôt qu'une
+ * exception : une interface un peu large vaut mieux qu'une page blanche. */
+export function media(requete) {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return { matches: false, addEventListener() {}, removeEventListener() {} }
+  }
+  return window.matchMedia(requete)
+}
+
 /** Vrai quand l'interface doit passer en mode « une seule colonne ». Une
  * seule définition, partagée par tout ce qui en dépend : le jour où le
  * seuil bouge, il bouge ici et dans le CSS, nulle part ailleurs. */
+export const REQUETE_PETIT_ECRAN = '(max-width: 700px)'
+export const REQUETE_SANS_COLONNE_PLAN = '(max-width: 1100px)'
+
 export function petitEcran() {
-  return window.matchMedia('(max-width: 700px)').matches
+  return media(REQUETE_PETIT_ECRAN).matches
 }
 
 /** Vrai dès que le plan n'a plus sa colonne (téléphone et tablette). */
 export function sansColonnePlan() {
-  return window.matchMedia('(max-width: 1100px)').matches
+  return media(REQUETE_SANS_COLONNE_PLAN).matches
 }
