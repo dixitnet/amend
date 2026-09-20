@@ -20,14 +20,21 @@
 // commentaires retournent dans le panneau latéral, qui reste monté.
 
 import { Plugin } from 'prosemirror-state'
-import { resolveCommentRange, addComment, commentsPluginKey } from './comments.js'
+import {
+  resolveCommentRange,
+  addComment,
+  commentsPluginKey,
+  ajouterReponse,
+  estUneReponse,
+  modifierTexte,
+  peutModifier,
+  reponsesDe,
+  supprimerFil,
+} from './comments.js'
 
 const ECART_MINIMAL = 8 // px entre deux cartes empilées
 const DELAI_RECALCUL_MS = 100
 
-function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
 
 function tempsRelatif(ts) {
   const s = Math.round((Date.now() - ts) / 1000)
@@ -39,7 +46,7 @@ function tempsRelatif(ts) {
   return `il y a ${Math.round(h / 24)} j`
 }
 
-export function mountCommentsGutter(gutter, ydoc, commentsMap) {
+export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
   let view = null
   let actif = null // id du commentaire déployé
   let timer = null
@@ -64,36 +71,229 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
     const pos = view.state.selection.head
     let trouve = null
     commentsMap.forEach((c, id) => {
+      if (estUneReponse(c)) return
       const range = resolveCommentRange(view.state, ydoc, c)
       if (range && pos >= range.from && pos <= range.to) trouve = id
     })
     return trouve
   }
 
+  /** Une ligne de métadonnées : qui, quand, et si le texte a été repris.
+   * « modifié » compte : un texte qui change sous les yeux des autres sans
+   * rien dire est plus troublant qu'utile. */
+  function meta(commentaire) {
+    const el = document.createElement('div')
+    el.className = 'carte-meta'
+    const nom = document.createElement('strong')
+    nom.textContent = commentaire.author
+    el.append(nom, document.createTextNode(` · ${tempsRelatif(commentaire.createdAt)}`))
+    if (commentaire.editedAt) {
+      const repris = document.createElement('span')
+      repris.className = 'carte-modifie'
+      repris.textContent = ' · modifié'
+      repris.title = `Repris ${tempsRelatif(commentaire.editedAt)}`
+      el.appendChild(repris)
+    }
+    return el
+  }
+
+  /** Passe un bloc de texte en correction : une zone de saisie, Enregistrer
+   * et Annuler. Échap annule aussi — on n'oblige personne à viser un bouton
+   * dans une marge de 260 px. */
+  function editer(bloc, commentaire, id, apres) {
+    const zone = document.createElement('textarea')
+    zone.className = 'carte-edition'
+    zone.value = commentaire.text
+    zone.rows = Math.min(8, Math.max(2, Math.ceil(commentaire.text.length / 34)))
+    const actions = document.createElement('div')
+    actions.className = 'carte-actions'
+    const valider = document.createElement('button')
+    valider.type = 'button'
+    valider.className = 'btn-accept'
+    valider.textContent = 'Enregistrer'
+    const annuler = document.createElement('button')
+    annuler.type = 'button'
+    annuler.textContent = 'Annuler'
+    actions.append(valider, annuler)
+
+    const terminer = () => {
+      bloc.dataset.edition = ''
+      delete bloc.dataset.edition
+      apres()
+    }
+    valider.onclick = (e) => {
+      e.stopPropagation()
+      modifierTexte(commentsMap, id, zone.value)
+      terminer()
+    }
+    annuler.onclick = (e) => {
+      e.stopPropagation()
+      terminer()
+    }
+    zone.onkeydown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        terminer()
+      }
+      // Ctrl/⌘+Entrée enregistre : le raccourci qu'on essaie d'instinct.
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        modifierTexte(commentsMap, id, zone.value)
+        terminer()
+      }
+    }
+    bloc.textContent = ''
+    bloc.append(zone, actions)
+    bloc.dataset.edition = 'oui'
+    zone.focus()
+    zone.setSelectionRange(zone.value.length, zone.value.length)
+  }
+
+  /** Un message du fil — le commentaire lui-même, ou une réponse. Les deux
+   * se corrigent de la même façon, d'où une seule fonction. */
+  function messageDOM(commentaire, id, { racine }) {
+    const bloc = document.createElement('div')
+    bloc.className = racine ? 'carte-message' : 'carte-message carte-reponse'
+    if (!racine) bloc.style.setProperty('--user-color', commentaire.color)
+
+    const redessiner = () => {
+      bloc.textContent = ''
+      bloc.appendChild(meta(commentaire))
+      const texte = document.createElement('div')
+      texte.className = 'carte-texte'
+      texte.textContent = commentaire.text
+      bloc.appendChild(texte)
+
+      const actions = document.createElement('div')
+      actions.className = 'carte-actions'
+      // Corriger n'est proposé qu'à l'auteur — convention d'interface, pas
+      // serrure (voir la note en tête de comments.js).
+      if (peutModifier(commentaire, user)) {
+        const modifier = document.createElement('button')
+        modifier.type = 'button'
+        modifier.textContent = 'Modifier'
+        modifier.onclick = (e) => {
+          e.stopPropagation()
+          editer(bloc, commentaire, id, redessiner)
+        }
+        actions.appendChild(modifier)
+      }
+      if (racine) {
+        const resoudre = document.createElement('button')
+        resoudre.type = 'button'
+        resoudre.className = 'btn-accept'
+        resoudre.textContent = 'Résoudre'
+        resoudre.onclick = (e) => {
+          e.stopPropagation()
+          // Le fil entier, réponses comprises.
+          supprimerFil(ydoc, commentsMap, id)
+        }
+        actions.appendChild(resoudre)
+      } else if (peutModifier(commentaire, user)) {
+        const supprimer = document.createElement('button')
+        supprimer.type = 'button'
+        supprimer.textContent = 'Supprimer'
+        supprimer.onclick = (e) => {
+          e.stopPropagation()
+          supprimerFil(ydoc, commentsMap, id)
+        }
+        actions.appendChild(supprimer)
+      }
+      if (actions.childElementCount) bloc.appendChild(actions)
+    }
+    redessiner()
+    return bloc
+  }
+
+  /** Le champ de réponse — sur la carte active seulement. Six zones de
+   * saisie empilées dans la marge seraient illisibles, et personne ne
+   * répond à un commentaire qu'il n'est pas en train de lire. */
+  function champReponse(id) {
+    const forme = document.createElement('form')
+    forme.className = 'carte-repondre'
+    const zone = document.createElement('textarea')
+    zone.rows = 1
+    zone.placeholder = 'Répondre…'
+    const envoyer = document.createElement('button')
+    envoyer.type = 'submit'
+    envoyer.textContent = 'Répondre'
+    forme.append(zone, envoyer)
+    forme.onsubmit = (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!ajouterReponse(commentsMap, user, id, zone.value)) return
+      zone.value = ''
+      zone.rows = 1
+    }
+    zone.onkeydown = (e) => {
+      e.stopPropagation()
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        forme.requestSubmit()
+      }
+    }
+    // La zone grandit avec le texte : une réponse de trois lignes ne se
+    // tape pas dans une fente d'une ligne.
+    zone.oninput = () => {
+      zone.rows = Math.min(6, Math.max(1, zone.value.split('\n').length))
+    }
+    forme.onclick = (e) => e.stopPropagation()
+    return forme
+  }
+
   function construireCarte(commentaire, id) {
     const carte = document.createElement('div')
     carte.className = 'carte-commentaire'
     carte.style.setProperty('--user-color', commentaire.color)
-    carte.innerHTML = `
-      <div class="carte-meta"><strong>${escapeHtml(commentaire.author)}</strong> · ${tempsRelatif(commentaire.createdAt)}</div>
-      <div class="carte-texte"></div>
-      <div class="carte-actions"><button type="button" class="btn-accept">Résoudre</button></div>
-    `
-    carte.querySelector('.carte-texte').textContent = commentaire.text
-    carte.querySelector('button').onclick = (e) => {
-      e.stopPropagation()
-      commentsMap.delete(id)
-    }
     carte.addEventListener('click', () => {
       actif = id
       // Venir de la carte, c'est demander à voir le passage : on reprend
       // l'ancrage par défaut, au début de celui-ci.
       ancrage = null
-      const range = view && resolveCommentRange(view.state, ydoc, commentaire)
+      const courant = commentsMap.get(id)
+      const range = view && courant && resolveCommentRange(view.state, ydoc, courant)
       if (range) centrer(range.from)
       rendre()
     })
+    remplirCarte(carte, commentaire, id)
     return carte
+  }
+
+  /** Redessine le contenu d'une carte : le message, ses réponses, et le
+   * champ de réponse si elle est active.
+   *
+   * Deux précautions, sans lesquelles la carte se dérobe sous les doigts :
+   * on ne redessine pas une carte dont un bloc est en cours de correction,
+   * ni une carte dont la réponse est commencée — le rendu est déclenché à
+   * chaque frappe dans le document, y compris par les autres participants. */
+  function remplirCarte(carte, commentaire, id) {
+    if (carte.querySelector('[data-edition]')) return
+    const brouillon = carte.querySelector('.carte-repondre textarea')
+    const enCours = brouillon && brouillon.value.trim() !== ''
+    const reponses = reponsesDe(commentsMap, id)
+    const signature = [
+      commentaire.text,
+      commentaire.editedAt || 0,
+      carte.classList.contains('active'),
+      reponses.map((r) => `${r.id}:${r.text}:${r.editedAt || 0}`).join('|'),
+    ].join('~')
+    if (carte.dataset.signature === signature) return
+    if (enCours && carte.dataset.signature !== undefined) {
+      // Une réponse est en train d'être écrite : on garde la carte telle
+      // quelle plutôt que de faire disparaître ce qui est tapé. Elle se
+      // remettra à jour dès que le champ sera vide.
+      return
+    }
+    carte.dataset.signature = signature
+    carte.textContent = ''
+    carte.appendChild(messageDOM(commentaire, id, { racine: true }))
+    if (reponses.length) {
+      const fil = document.createElement('div')
+      fil.className = 'carte-fil'
+      for (const r of reponses) fil.appendChild(messageDOM(r, r.id, { racine: false }))
+      carte.appendChild(fil)
+    }
+    if (carte.classList.contains('active')) carte.appendChild(champReponse(id))
   }
 
   /** Amène `pos` au milieu de la zone d'édition — la carte, ancrée à la
@@ -126,6 +326,9 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
     const items = []
     const vivants = new Set()
     commentsMap.forEach((commentaire, id) => {
+      // Une réponse n'a pas de carte à elle : elle vit dans celle de son
+      // parent.
+      if (estUneReponse(commentaire)) return
       const range = resolveCommentRange(view.state, ydoc, commentaire)
       // Ancre non résoluble (document pas encore lié) ou passage vide : on
       // ne dessine pas — et surtout on ne supprime pas, c'est le rôle de
@@ -137,10 +340,12 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap) {
         carte = construireCarte(commentaire, id)
         cartes.set(id, carte)
         gutter.appendChild(carte)
-      } else {
-        carte.querySelector('.carte-texte').textContent = commentaire.text
       }
+      // L'état actif d'abord : le champ de réponse n'existe que sur la
+      // carte active, donc remplirCarte doit le connaître avant de
+      // redessiner.
       carte.classList.toggle('active', id === actif)
+      remplirCarte(carte, commentaire, id)
       let y = 0
       try {
         const depuis = ancrage && ancrage.id === id && ancrage.pos >= range.from && ancrage.pos <= range.to

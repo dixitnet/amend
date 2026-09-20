@@ -1852,3 +1852,84 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .toc-niveau-2 { padding-left: 20px; }
 .toc-niveau-3 { padding-left: 36px; color: var(--muted); }
 .toc-vide { margin: 0; padding: 2px 4px; font-size: 13px; color: var(--muted); }
+
+/* --- Fils de commentaires (20/09/2026) -----------------------------------
+   Une réponse n'a pas de carte à elle : elle vit dans celle de son parent,
+   décalée et filetée de la couleur de qui l'a écrite. Un seul niveau, donc
+   un seul décalage — la marge fait 260 px, elle ne supporterait pas une
+   arborescence. */
+.carte-fil {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.carte-reponse {
+  padding-left: 8px;
+  border-left: 2px solid var(--user-color, var(--border));
+}
+.carte-modifie { font-style: italic; }
+/* Les réponses restent repliées avec la carte : deux lignes chacune tant
+   qu'on ne s'y intéresse pas, sinon une conversation un peu nourrie pousse
+   toutes les cartes suivantes hors de l'écran. */
+.carte-fil .carte-texte {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.carte-commentaire.active .carte-fil .carte-texte,
+.carte-commentaire:hover .carte-fil .carte-texte { display: block; overflow: visible; }
+/* Le champ de réponse n'existe que sur la carte active — six zones de
+   saisie empilées dans la marge seraient illisibles. */
+.carte-repondre {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.carte-repondre textarea,
+.carte-edition {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  resize: vertical;
+}
+.carte-repondre button {
+  align-self: flex-end;
+  width: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.carte-repondre button:hover { background: var(--border); }
+/* Une carte en correction ne doit pas se replier sous les doigts. */
+.carte-message[data-edition] .carte-actions { display: flex; }
+
+/* Le rappel des réponses dans le panneau latéral — en lecture seule : la
+   conversation a lieu dans la marge. */
+.comment-replies {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.comment-reply {
+  padding-left: 8px;
+  border-left: 2px solid var(--user-color, var(--border));
+  color: var(--muted);
+}
+.comment-reply strong { color: var(--fg); }

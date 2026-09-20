@@ -677,7 +677,7 @@ export function mountEditor(root, docId, user, docMeta) {
       richPastePlugin(() => user),
       pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),
-      mountCommentsGutter(commentsGutter, ydoc, commentsMap),
+      mountCommentsGutter(commentsGutter, ydoc, commentsMap, user),
       mountGutterComposer(commentsGutter, ydoc, commentsMap, user),
       mountChangesPanel(changesSection, { canReview: docMeta.myRole !== 'correcteur' }),
       mountOutlinePanel(outlineSection),

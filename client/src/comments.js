@@ -27,6 +27,34 @@ import {
 // supprime purement et simplement (`commentsMap.delete`) plutôt que de le
 // garder consultable — contrairement au suivi des modifications, un
 // commentaire résolu ne laisse aucune trace.
+//
+// --- Les fils de discussion (20/09/2026) ---------------------------------
+//
+// Une réponse est une entrée de premier niveau de la même map, portant un
+// champ `parent`. Ce n'est pas la forme la plus élégante — la map mélange
+// deux natures d'entrées, et tout ce qui la parcourt doit le savoir — mais
+// c'est la seule qui ne perde rien.
+//
+// Un commentaire est rangé **en bloc** : `commentsMap.set(id, {…})`
+// synchronise la valeur entière, Yjs ne fusionne pas à l'intérieur. Si les
+// réponses étaient un tableau dans cet objet, répondre s'écrirait
+// `set(id, {...c, replies: [...c.replies, nouvelle]})` — et deux personnes
+// répondant en même temps enverraient chacune sa version complète de
+// l'objet : la dernière écraserait l'autre, et une réponse disparaîtrait
+// sans que personne ne le sache. Avec une clé par réponse, deux réponses
+// simultanées sont deux clés différentes, cas que Yjs gère nativement.
+// C'est vérifié par un test qui fait converger deux documents.
+//
+// Un seul niveau : une réponse ne porte jamais de réponse (`ajouterReponse`
+// refuse un parent qui est lui-même une réponse). C'est une demande, et
+// c'est aussi ce qui garde une carte de marge lisible.
+//
+// Qui peut corriger quoi : une **convention d'interface**, pas une
+// protection. Les commentaires vivent dans le document Yjs, où tout
+// participant peut techniquement écrire — comme il peut déjà réécrire le
+// texte. On compare les noms affichés faute de mieux : le client ne connaît
+// pas sa propre adresse (le serveur ne lui envoie que `myName` et
+// `myColor`).
 
 export const commentsPluginKey = new PluginKey('comments')
 
@@ -76,12 +104,30 @@ export function resolveCommentRange(state, ydoc, comment) {
  *
  * La suppression est faite par tous les clients connectés en même temps ;
  * c'est sans conséquence, Yjs déduplique une suppression concurrente. */
-export function purgeOrphanComments(state, ydoc, commentsMap) {
+/** Les entrées à supprimer, d'après une fonction qui sait résoudre une
+ * ancre. Séparé de `purgeOrphanComments` pour être éprouvable sans monter
+ * une liaison Yjs/ProseMirror complète — c'est ici que se logent les deux
+ * règles qui comptent, et elles méritaient des tests à elles. */
+export function orphelins(commentsMap, resoudre) {
   const aSupprimer = []
   commentsMap.forEach((comment, id) => {
-    const range = resolveCommentRange(state, ydoc, comment)
+    // Une réponse n'a pas d'ancre : elle serait vue comme orpheline dès le
+    // premier passage. Son sort suit celui de son parent, juste en dessous.
+    if (estUneReponse(comment)) return
+    const range = resoudre(comment)
     if (range && range.to <= range.from) aSupprimer.push(id)
   })
+  // Le passage commenté a disparu : le fil entier s'en va avec lui.
+  for (const parentId of [...aSupprimer]) {
+    for (const reponse of reponsesDe(commentsMap, parentId)) aSupprimer.push(reponse.id)
+  }
+  return aSupprimer
+}
+
+export function purgeOrphanComments(state, ydoc, commentsMap) {
+  const aSupprimer = orphelins(commentsMap, (comment) =>
+    resolveCommentRange(state, ydoc, comment)
+  )
   if (!aSupprimer.length) return 0
   ydoc.transact(() => {
     for (const id of aSupprimer) commentsMap.delete(id)
@@ -100,6 +146,7 @@ export function commentsPlugin(ydoc, commentsMap) {
     const decos = []
     const docSize = state.doc.content.size
     commentsMap.forEach((comment, id) => {
+      if (estUneReponse(comment)) return
       const range = resolveCommentRange(state, ydoc, comment)
       if (!range) return
       const from = Math.max(0, Math.min(range.from, docSize))
@@ -176,6 +223,90 @@ export function addComment(view, ydoc, commentsMap, user, text) {
   return true
 }
 
+/** Vrai pour une réponse, faux pour un commentaire ancré dans le texte. */
+export function estUneReponse(commentaire) {
+  return !!(commentaire && commentaire.parent)
+}
+
+/** Les commentaires ancrés, réponses exclues — ce que la marge dessine. */
+export function commentairesAncres(commentsMap) {
+  const out = []
+  commentsMap.forEach((commentaire, id) => {
+    if (!estUneReponse(commentaire)) out.push([id, commentaire])
+  })
+  return out
+}
+
+/** Les réponses d'un commentaire, dans l'ordre où elles ont été écrites.
+ * `createdAt` peut être identique pour deux réponses écrites à la même
+ * milliseconde sur deux machines : on départage par l'identifiant, pour que
+ * tout le monde voie le **même** ordre. */
+export function reponsesDe(commentsMap, parentId) {
+  const out = []
+  commentsMap.forEach((commentaire, id) => {
+    if (commentaire && commentaire.parent === parentId) out.push({ ...commentaire, id })
+  })
+  out.sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  return out
+}
+
+function nouvelIdentifiant(prefixe) {
+  return `${prefixe}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+/** Ajoute une réponse à un commentaire. Refuse de répondre à une réponse :
+ * un seul niveau. Renvoie l'identifiant créé, ou null. */
+export function ajouterReponse(commentsMap, user, parentId, text) {
+  const texte = String(text || '').trim()
+  if (!texte) return null
+  const parent = commentsMap.get(parentId)
+  if (!parent || estUneReponse(parent)) return null
+  const id = nouvelIdentifiant('r')
+  commentsMap.set(id, {
+    id,
+    parent: parentId,
+    author: user.name,
+    color: user.color,
+    text: texte,
+    createdAt: Date.now(),
+  })
+  return id
+}
+
+/** Vrai si cette personne peut corriger ce commentaire. Convention, pas
+ * protection — voir la note en tête de fichier. */
+export function peutModifier(commentaire, user) {
+  return !!commentaire && !!user && commentaire.author === user.name
+}
+
+/** Corrige le texte d'un commentaire ou d'une réponse. `editedAt` est posé
+ * pour que les autres sachent qu'un texte a changé sous leurs yeux : un
+ * commentaire qui se réécrit sans le dire est plus troublant qu'utile. */
+export function modifierTexte(commentsMap, id, texte) {
+  const courant = commentsMap.get(id)
+  if (!courant) return false
+  const propre = String(texte || '').trim()
+  if (!propre || propre === courant.text) return false
+  commentsMap.set(id, { ...courant, text: propre, editedAt: Date.now() })
+  return true
+}
+
+/** Résout un commentaire : il s'en va, **et ses réponses avec lui**. Sans
+ * ça, elles resteraient dans le fichier, invisibles et éternelles. En une
+ * seule transaction, pour que les autres participants ne voient jamais un
+ * fil à moitié effacé. */
+export function supprimerFil(ydoc, commentsMap, id) {
+  const commentaire = commentsMap.get(id)
+  if (!commentaire) return 0
+  const aSupprimer = estUneReponse(commentaire)
+    ? [id]
+    : [id, ...reponsesDe(commentsMap, id).map((r) => r.id)]
+  ydoc.transact(() => {
+    for (const cle of aSupprimer) commentsMap.delete(cle)
+  })
+  return aSupprimer.length
+}
+
 function relativeTime(ts) {
   const s = Math.round((Date.now() - ts) / 1000)
   if (s < 10) return "à l'instant"
@@ -203,7 +334,9 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
     const header = document.createElement('div')
     header.className = 'changes-header'
     const title = document.createElement('h3')
-    title.textContent = `Commentaires (${commentsMap.size})`
+    // Le compte est celui des commentaires, pas des messages : une
+    // conversation de six réponses reste un commentaire.
+    title.textContent = `Commentaires (${commentairesAncres(commentsMap).length})`
     header.appendChild(title)
     container.appendChild(header)
 
@@ -253,7 +386,7 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
       // La map Yjs déclenche déjà un ré-rendu via l'observer plus bas.
     }
 
-    if (commentsMap.size === 0) {
+    if (commentairesAncres(commentsMap).length === 0) {
       const empty = document.createElement('p')
       empty.className = 'changes-empty'
       empty.textContent = 'Aucun commentaire pour le moment.'
@@ -261,8 +394,7 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
       return
     }
 
-    const entries = []
-    commentsMap.forEach((c) => entries.push(c))
+    const entries = commentairesAncres(commentsMap).map(([, c]) => c)
     // Ordre du document plutôt que d'ajout, quand la position est encore
     // résoluble — plus utile pour s'y retrouver dans un document long.
     entries.sort((a, b) => {
@@ -283,7 +415,9 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
 
       const meta = document.createElement('div')
       meta.className = 'change-meta'
-      meta.innerHTML = `<strong>${escapeHtml(c.author)}</strong> · ${relativeTime(c.createdAt)}`
+      meta.innerHTML = `<strong>${escapeHtml(c.author)}</strong> · ${relativeTime(c.createdAt)}${
+        c.editedAt ? ' · modifié' : ''
+      }`
 
       const text = document.createElement('div')
       text.className = 'change-text'
@@ -295,10 +429,34 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
       resolveBtn.type = 'button'
       resolveBtn.textContent = 'Résoudre'
       resolveBtn.className = 'btn-accept'
-      resolveBtn.onclick = () => commentsMap.delete(c.id)
+      resolveBtn.onclick = () => supprimerFil(ydoc, commentsMap, c.id)
       actions.appendChild(resolveBtn)
 
-      item.append(meta, text, actions)
+      item.append(meta, text)
+      // Le panneau latéral **montre** les fils, il ne les tient pas : on y
+      // lit les réponses, on répond et l'on corrige dans la marge, où la
+      // conversation a lieu. En dessous de 1100 px de large la marge
+      // disparaît (style.css) et ce panneau reprend la main : il doit donc
+      // au moins dire qu'une discussion existe, plutôt que de faire croire
+      // à un commentaire resté sans réponse.
+      const fil = reponsesDe(commentsMap, c.id)
+      if (fil.length) {
+        const liste = document.createElement('div')
+        liste.className = 'comment-replies'
+        for (const r of fil) {
+          const ligne = document.createElement('div')
+          ligne.className = 'comment-reply'
+          ligne.style.setProperty('--user-color', r.color)
+          const qui = document.createElement('strong')
+          qui.textContent = r.author
+          const quoi = document.createElement('span')
+          quoi.textContent = ` ${r.text}`
+          ligne.append(qui, quoi)
+          liste.appendChild(ligne)
+        }
+        item.appendChild(liste)
+      }
+      item.appendChild(actions)
       item.addEventListener('click', (e) => {
         if (e.target.closest('.change-actions')) return
         scrollToComment(c)
