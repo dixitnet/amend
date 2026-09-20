@@ -55,6 +55,8 @@ import { ouvrirPanneauPublication } from './publicationPanel.js'
 import { messageFugace } from './images.js'
 import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
 import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
+import { ouvrirPlan } from './planFeuille.js'
+import { fermerFeuille, sansColonnePlan } from './feuille.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -165,6 +167,18 @@ export function mountEditor(root, docId, user, docMeta) {
   backLink.className = 'back-link'
   backLink.textContent = '← Mes documents'
   zoneGauche.appendChild(backLink)
+
+  // Le plan n'a plus de colonne sous 1100 px (20/09/2026) : ce bouton est
+  // la seule porte vers lui sur tablette et téléphone, et c'est l'exigence
+  // la plus explicite du chantier — naviguer simplement dans un document
+  // long. Caché au-dessus de ce seuil, où la colonne est là.
+  const planBtn = document.createElement('button')
+  planBtn.type = 'button'
+  planBtn.className = 'btn-preset btn-plan'
+  planBtn.textContent = 'Plan'
+  planBtn.title = 'Naviguer dans le document par ses titres'
+  planBtn.onclick = () => ouvrirPlan(outlineSidebar)
+  zoneGauche.appendChild(planBtn)
 
   // « + Nouveau » partout, y compris dans un document qu'on ne fait que
   // relire : créer un document ne demande qu'une session, jamais un rôle sur

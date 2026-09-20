@@ -217,7 +217,15 @@ a { color: var(--accent); }
 .app-shell {
   display: flex;
   flex-direction: column;
+  /* `dvh` et non `vh` (20/09/2026) : sur téléphone, `100vh` vaut la hauteur
+     de l'écran **barres comprises**, donc une partie de l'application se
+     trouve en permanence sous la barre d'adresse ou sous le clavier.
+     `100dvh` suit la zone réellement visible, y compris à l'ouverture du
+     clavier, et sans une ligne de JavaScript — ce qui vaut mieux qu'un
+     écouteur `visualViewport` rejoué à chaque frappe (rapports de charge
+     n°1 et n°2). Le repli en `vh` sert aux navigateurs qui ignorent `dvh`. */
   height: 100vh;
+  height: 100dvh;
 }
 .editor-layout {
   display: flex;
@@ -786,10 +794,18 @@ span.author-color {
    relit une liste entière. Le survol suffit à dire « celle-ci » sans rien
    déplacer. */
 .change-actions { display: none; gap: 6px; margin-top: 6px; }
-.change-item.courante .change-actions,
-.change-item:hover .change-actions { display: flex; }
-/* Idem pour le texte replié : le survol le déroule, sans attendre un clic. */
-.change-item:hover .change-text { display: block; overflow: visible; }
+.change-item.courante .change-actions { display: flex; }
+/* Le survol n'existe pas au doigt (20/09/2026). Tant que ces règles
+   valaient pour tout le monde, une modification longue était **illisible**
+   sur tablette : son texte restait replié à deux lignes, et rien ne
+   permettait de le dérouler. Elles passent donc sous `hover: hover`, et
+   l'entrée courante — qu'un simple toucher suffit à désigner — reprend tout
+   ce que le survol offrait. */
+@media (hover: hover) {
+  .change-item:hover .change-actions { display: flex; }
+  .change-item:hover .change-text { display: block; overflow: visible; }
+}
+.change-item.courante .change-text { display: block; overflow: visible; }
 
 button.btn-accept, button.btn-reject, button.btn-primary, .btn-preset {
   border: none;
@@ -887,11 +903,28 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   cursor: pointer;
 }
 
-@media (max-width: 800px) {
-  .app-shell { height: auto; }
-  .editor-layout { flex-direction: column; height: auto; }
-  .sidebar, .outline-sidebar { width: 100%; }
-  .editor-container { padding: 16px 0; }
+/* ---------- Petit écran : une seule colonne -----------------------------
+   Refondu le 20/09/2026 (voir claude/conception-mobile.md).
+   L'ancienne règle empilait les trois colonnes dans l'ordre du DOM —
+   `outlineSidebar, main, sidebar` — si bien qu'il fallait faire défiler le
+   **plan entier** d'un document de quarante pages avant d'atteindre la
+   première ligne de texte. Et `height: auto` sur `app-shell` faisait perdre
+   le défilement propre à chaque colonne : l'éditeur défilait avec la page,
+   ce qui rend faux tout ce qui calcule un `scrollTop` sur
+   `.editor-container` (centrage d'une modification, d'un commentaire).
+
+   Le principe est inverse : le texte occupe seul la colonne, le plan et les
+   panneaux sortent du flux et se convoquent. */
+@media (max-width: 1100px) {
+  /* Le plan quitte le flux : il vivra dans une feuille (voir feuille.js). */
+  .outline-sidebar { display: none; }
+}
+@media (max-width: 700px) {
+  .sidebar { display: none; }
+  .editor-container { padding: 12px 0; }
+  /* Le conteneur garde son propre défilement : c'est lui qui sait centrer
+     un passage, et c'est la seule chose qui rende la relecture possible. */
+  .editor-layout { min-height: 0; }
 }
 
 /* ---------- Mise en page : structure commune ----------------------------
@@ -1432,12 +1465,14 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
    voisine. On la fait passer au-dessus plutôt que de recalculer tout
    l'empilement à chaque mouvement de souris — c'est transitoire, et
    recalculer ferait sauter la pile sous le curseur. */
-.carte-commentaire:hover { z-index: 3; }
-.carte-commentaire.active .carte-texte,
-.carte-commentaire:hover .carte-texte { display: block; overflow: visible; }
 .carte-actions { display: none; gap: 6px; margin-top: 6px; }
-.carte-commentaire.active .carte-actions,
-.carte-commentaire:hover .carte-actions { display: flex; }
+.carte-commentaire.active .carte-texte { display: block; overflow: visible; }
+.carte-commentaire.active .carte-actions { display: flex; }
+@media (hover: hover) {
+  .carte-commentaire:hover { z-index: 3; }
+  .carte-commentaire:hover .carte-texte { display: block; overflow: visible; }
+  .carte-commentaire:hover .carte-actions { display: flex; }
+}
 .carte-actions button {
   width: auto;
   padding: 3px 8px;
@@ -1501,6 +1536,21 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 /* Les boutons de tableau portent des mots, pas des pictogrammes : ils
    n'apparaissent que dans un tableau, autant qu'ils se lisent. */
 .btn-tool.btn-texte { width: auto; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+
+/* Cibles tactiles (20/09/2026). 30 px convient à une souris, pas à un
+   doigt : Apple recommande 44 pt, Material 48 dp. On ne grossit pas tout le
+   monde pour autant — `pointer: coarse` ne vise que les appareils dont le
+   pointeur principal est imprécis, donc un doigt, et laisse l'ordinateur
+   (et l'iPad avec trackpad) tel quel. */
+@media (pointer: coarse) {
+  .btn-tool { width: 44px; height: 44px; }
+  .btn-tool.btn-texte { width: auto; min-height: 44px; padding: 0 14px; font-size: 14px; }
+  .menu-flottant-liste button,
+  .menu-flottant-liste a { min-height: 44px; display: flex; align-items: center; }
+  .carte-actions button,
+  .change-actions button { min-height: 40px; padding: 8px 14px; }
+  .outline-link { min-height: 40px; display: flex; align-items: center; }
+}
 .table-group { display: inline-flex; gap: 4px; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--border); }
 .table-group[hidden] { display: none; }
 
@@ -1887,8 +1937,10 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.carte-commentaire.active .carte-fil .carte-texte,
-.carte-commentaire:hover .carte-fil .carte-texte { display: block; overflow: visible; }
+.carte-commentaire.active .carte-fil .carte-texte { display: block; overflow: visible; }
+@media (hover: hover) {
+  .carte-commentaire:hover .carte-fil .carte-texte { display: block; overflow: visible; }
+}
 /* Le champ de réponse n'existe que sur la carte active — six zones de
    saisie empilées dans la marge seraient illisibles. */
 .carte-repondre {
@@ -1940,3 +1992,123 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   color: var(--muted);
 }
 .comment-reply strong { color: var(--fg); }
+
+/* --- Feuilles basses (20/09/2026) ---------------------------------------
+   La brique d'interface du petit écran : ce qui ne peut pas rester affiché
+   se convoque, puis se rend. Voir feuille.js pour les règles d'usage. */
+.feuille {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  max-height: var(--feuille-hauteur, 50dvh);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -6px 28px rgb(0 0 0 / 18%);
+  /* La zone sûre du bas (barre d'accueil de l'iPhone) : sans ça, la
+     dernière entrée de la liste est inatteignable. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: feuille-monte 0.16s ease-out;
+}
+.feuille.feuille-pleine { max-height: 92dvh; }
+@keyframes feuille-monte {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feuille { animation: none; }
+}
+.feuille-voile {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  background: rgb(0 0 0 / 35%);
+}
+/* La poignée dit « ça se tire » — mais elle ne remplace jamais la croix :
+   un utilisateur non averti ne devine pas le geste (NN/g). */
+.feuille-poignee {
+  flex-shrink: 0;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+}
+.feuille-poignee::before {
+  content: '';
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+.feuille-entete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.feuille-entete h2 {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.feuille-fermer {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  font-size: 17px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.feuille-fermer:hover { background: var(--border); }
+.feuille-corps {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 14px 14px;
+  -webkit-overflow-scrolling: touch;
+}
+.feuille-filtre {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 16px; /* 16 px au moins : en deçà, iOS zoome sur le champ. */
+  min-height: 44px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.feuille-vide { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+
+/* Le plan transplanté : il perd sa colonne, pas son contenu. */
+.outline-sidebar.outline-dans-feuille {
+  display: block;
+  width: auto;
+  border-right: none;
+  overflow: visible;
+  background: transparent;
+  padding: 0;
+}
+.outline-sidebar.outline-dans-feuille h3 { display: none; }
+
+/* Le bouton Plan n'existe que là où la colonne n'est plus. */
+.btn-plan { display: none; }
+@media (max-width: 1100px) {
+  .btn-plan { display: inline-flex; align-items: center; }
+}
