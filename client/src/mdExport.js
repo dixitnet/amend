@@ -12,6 +12,8 @@
 // insertion/suppression qui parviendraient tout de même jusqu'ici sont donc
 // sans effet, à dessein.
 
+import { entrees } from './tableOfContents.js'
+
 /** Wraps `text` in a Markdown emphasis-style delimiter (**, *, ~~), pulling
  * any leading/trailing whitespace outside the delimiters first. CommonMark
  * emphasis can't start or end with whitespace right inside its delimiters
@@ -116,10 +118,21 @@ function imageEnMarkdown(node) {
   return `![${node.attrs.alt || 'image'}](${base}${node.attrs.src})`
 }
 
+/** La table des matières : la liste des titres au moment de l'export, en
+ * liste à puces indentée par niveau. Pas de numéros de page — un fichier
+ * Markdown n'a pas de pages. */
+function tableDesMatieresMarkdown(node, doc) {
+  const lignes = []
+  for (const t of entrees(doc, node.attrs.profondeur)) {
+    lignes.push(`${'  '.repeat(t.level - 1)}- ${t.text}`)
+  }
+  return lignes.length ? [...lignes, ''] : []
+}
+
 /** One block node's Markdown lines, including its trailing blank-line
  * separator (blocks are joined with '\n' afterwards, so consecutive blocks
  * end up one blank line apart, like normal Markdown paragraphs). */
-function blockToLines(node) {
+function blockToLines(node, doc) {
   switch (node.type.name) {
     case 'heading':
       return [`${'#'.repeat(node.attrs.level)} ${inlineToMarkdown(node)}`, '']
@@ -139,6 +152,12 @@ function blockToLines(node) {
       return [...tableToLines(node), '']
     case 'image':
       return [imageEnMarkdown(node), '']
+    case 'table_of_contents':
+      // Le Markdown n'a pas de table calculée : on écrit la liste des
+      // titres telle qu'elle est au moment de l'export. Les numéros de page
+      // n'auraient de toute façon aucun sens dans un fichier qui n'a pas de
+      // pages.
+      return tableDesMatieresMarkdown(node, doc)
     case 'horizontal_rule':
       // Le Markdown n'a pas de notion de saut de page (voir typstExport.js
       // pour ce que devient ce même nœud à l'export PDF) — la ligne
@@ -152,7 +171,7 @@ function blockToLines(node) {
 /** The whole document as a Markdown string, ready to save as a .md file. */
 export function docToMarkdown(doc) {
   const lines = []
-  doc.forEach((node) => lines.push(...blockToLines(node)))
+  doc.forEach((node) => lines.push(...blockToLines(node, doc)))
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`
 }
 

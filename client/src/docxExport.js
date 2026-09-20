@@ -35,6 +35,7 @@ import {
   NumberFormat,
   Footer,
   Header,
+  TableOfContents,
   ImageRun,
   Table,
   TableRow,
@@ -389,6 +390,13 @@ function blockToParagraphs(node, style, images) {
         }),
       ]
     }
+    case 'table_of_contents': {
+      // Word calcule la table à l'ouverture du fichier (`updateFields`
+      // ci-dessous le lui demande) : `headingStyleRange` dit seulement
+      // quels niveaux de titre reprendre.
+      const n = Math.min(NIVEAUX_TITRE, Math.max(1, Number(node.attrs.profondeur) || 2))
+      return [new TableOfContents('Table des matières', { hyperlink: true, headingStyleRange: `1-${n}` })]
+    }
     case 'horizontal_rule':
       // Saut de page — même rôle qu'à l'export PDF (voir typstExport.js) :
       // ce nœud ne dessine jamais de trait, juste un saut de page.
@@ -396,6 +404,15 @@ function blockToParagraphs(node, style, images) {
     default:
       return []
   }
+}
+
+/** Vrai si le document porte au moins une table des matières. */
+function contientTable(doc) {
+  let trouve = false
+  doc.descendants((n) => {
+    if (n.type.name === 'table_of_contents') trouve = true
+  })
+  return trouve
 }
 
 /** Construit le fichier .docx entier sous forme de Blob, prêt à
@@ -475,6 +492,9 @@ export async function buildDocxBlob(doc, style, titre = '') {
   }
 
   const docxDocument = new Document({
+    // Sans ça, Word ouvre le fichier avec une table des matières vide et
+    // ne la calcule que si l'on pense à cliquer « Mettre à jour ».
+    ...(contientTable(doc) ? { features: { updateFields: true } } : {}),
     // Sans ce drapeau, Word ignore l'en-tête des pages paires.
     ...(headers ? { evenAndOddHeaderAndFooters: true } : {}),
     // Les listes numérotées exigent une configuration de numérotation

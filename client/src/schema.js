@@ -150,6 +150,35 @@ export const schema = new Schema({
     // ligne : le trait en pointillés dans l'éditeur (style.css) est
     // justement là pour rappeler que sa fonction réelle est "page suivante
     // à l'impression", pas une simple séparation visuelle.
+    // Table des matières (20/09/2026). Un nœud **atomique** : il n'a pas de
+    // contenu qu'on saisisse, il en *annonce* un, calculé à partir des
+    // titres du document. On l'insère où l'on veut dans le texte — c'est
+    // toute la différence avec une table des matières de traitement de
+    // texte, qui vit au début ou nulle part.
+    //
+    // `profondeur` est le dernier niveau de titre repris (1 à
+    // NIVEAUX_TITRE). Il vit sur le nœud, et non dans la feuille de style :
+    // deux tables dans un même document peuvent n'avoir ni le même
+    // périmètre ni le même propos — un sommaire général en tête, le détail
+    // d'une partie plus loin.
+    table_of_contents: {
+      group: 'block',
+      atom: true,
+      selectable: true,
+      attrs: { profondeur: { default: 2 } },
+      parseDOM: [
+        {
+          tag: 'div[data-table-of-contents]',
+          getAttrs(dom) {
+            const n = Number(dom.getAttribute('data-profondeur'))
+            return { profondeur: Number.isFinite(n) && n >= 1 ? n : 2 }
+          },
+        },
+      ],
+      toDOM(node) {
+        return ['div', { 'data-table-of-contents': '', 'data-profondeur': String(node.attrs.profondeur) }]
+      },
+    },
     horizontal_rule: {
       group: 'block',
       parseDOM: [{ tag: 'hr' }],

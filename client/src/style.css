@@ -1791,3 +1791,64 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 }
 .publication-message { margin: 8px 0 0; font-size: 13px; }
 .publication-message.erreur { color: var(--danger); }
+
+/* --- Table des matières (20/09/2026) -------------------------------------
+   Le bloc posé dans le texte. Volontairement discret : ce qu'on voit à
+   l'écran est un aperçu de ce que l'export composera, pas une décoration.
+   Les numéros de page n'y figurent pas — ils n'existent qu'une fois le
+   document paginé, et en montrer de faux serait pire que de n'en montrer
+   aucun. */
+.toc-bloc {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px 12px;
+  margin: 1.2em 0;
+  background: var(--bg-soft, transparent);
+}
+.toc-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.toc-profondeur {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.toc-profondeur select {
+  font: inherit;
+  font-size: 12px;
+  padding: 1px 4px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: inherit;
+}
+.toc-liste { display: flex; flex-direction: column; }
+/* Chaque entrée mène à son titre : une table des matières qu'on ne peut
+   pas suivre n'est qu'un dessin. */
+.toc-ligne {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: inherit;
+  cursor: pointer;
+}
+.toc-ligne:hover { background: var(--border); }
+.toc-niveau-2 { padding-left: 20px; }
+.toc-niveau-3 { padding-left: 36px; color: var(--muted); }
+.toc-vide { margin: 0; padding: 2px 4px; font-size: 13px; color: var(--muted); }

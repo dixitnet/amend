@@ -143,8 +143,16 @@ function blocTypst(node) {
     case 'image':
       return imageTypst(node) + '\n\n'
     case 'horizontal_rule':
-      // Dans Amend la ligne horizontale EST un saut de page (voir schema.js).
+      // Dans amend.ink la ligne horizontale EST un saut de page (voir schema.js).
       return '#pagebreak(weak: true)\n\n'
+    case 'table_of_contents': {
+      // `title: none` : le bloc ne s'intitule pas lui-même — si l'auteur
+      // veut « Sommaire » au-dessus, il l'écrit, comme n'importe quel
+      // titre, et il choisit son niveau. Le style vient du texte courant,
+      // d'où l'enveloppe `amend-corps`.
+      const n = Math.min(NIVEAUX_TITRE, Math.max(1, Number(node.attrs.profondeur) || 2))
+      return `#amend-corps[#outline(title: none, depth: ${n}, indent: auto)]\n\n`
+    }
     default:
       return ''
   }

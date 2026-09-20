@@ -54,6 +54,7 @@ import { ouvrirPanneauStyle } from './stylePanel.js'
 import { ouvrirPanneauPublication } from './publicationPanel.js'
 import { messageFugace } from './images.js'
 import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
+import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -465,7 +466,11 @@ export function mountEditor(root, docId, user, docMeta) {
   const taskListBtn = mkButton('☑', 'liste à cocher')
   const quoteBtn = mkButton('”', 'citation')
   const hrBtn = mkButton('—', 'Insérer une ligne (devient un saut de page à l’export PDF)')
-  toolbar.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn, quoteBtn, hrBtn)
+  // La table des matières se pose dans le texte, là où le curseur est :
+  // c'est ce qui la distingue d'une option de mise en page (20/09/2026).
+  const tocBtn = mkButton('Sommaire', 'Insérer une table des matières ici')
+  tocBtn.classList.add('btn-texte')
+  toolbar.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn, quoteBtn, hrBtn, tocBtn)
 
   // Groupe tableau : le bouton d'insertion est toujours là, les commandes de
   // structure n'apparaissent que lorsque le curseur est dans un tableau
@@ -665,6 +670,7 @@ export function mountEditor(root, docId, user, docMeta) {
       // correcteur suivi activé — c'est son rôle même (15/09/2026).
       trackChangesPlugin({ enabled: docMeta.myRole === 'correcteur' }),
       selectionHighlightPlugin(),
+      tableOfContentsPlugin(),
       // Avant richPastePlugin : une capture d'écran collée est une image,
       // pas un collage de texte (voir images.js).
       imagesPlugin({ docId, peutInserer: docMeta.myRole !== 'correcteur' }),
@@ -777,6 +783,9 @@ export function mountEditor(root, docId, user, docMeta) {
   if (isCorrecteur) {
     menuPartage.el.hidden = true
     miseEnPageBtn.hidden = true
+    // Poser une table des matières, c'est décider de la structure du
+    // document — même raisonnement que pour les tableaux.
+    tocBtn.hidden = true
   }
   if (isCorrecteur) {
     trackToggle.disabled = true
@@ -917,6 +926,10 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   quoteBtn.onclick = () => {
     toggleWrap(schema.nodes.blockquote)(view.state, view.dispatch)
+    view.focus()
+  }
+  tocBtn.onclick = () => {
+    insererTable(view.state, view.dispatch)
     view.focus()
   }
   hrBtn.onclick = () => {
