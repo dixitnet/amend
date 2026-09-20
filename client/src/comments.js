@@ -307,6 +307,19 @@ export function supprimerFil(ydoc, commentsMap, id) {
   return aSupprimer.length
 }
 
+/** L'identifiant du commentaire dont le passage contient `pos`, ou null.
+ * Sert à la marge comme à la feuille du petit écran : un seul endroit où
+ * l'on décide « de quel commentaire parle-t-on ». */
+export function commentaireAuPoint(state, ydoc, commentsMap, pos) {
+  let trouve = null
+  commentsMap.forEach((commentaire, id) => {
+    if (estUneReponse(commentaire)) return
+    const range = resolveCommentRange(state, ydoc, commentaire)
+    if (range && pos >= range.from && pos <= range.to) trouve = id
+  })
+  return trouve
+}
+
 function relativeTime(ts) {
   const s = Math.round((Date.now() - ts) / 1000)
   if (s < 10) return "à l'instant"

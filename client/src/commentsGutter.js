@@ -23,6 +23,7 @@ import { Plugin } from 'prosemirror-state'
 import {
   resolveCommentRange,
   addComment,
+  commentaireAuPoint,
   commentsPluginKey,
   ajouterReponse,
   estUneReponse,
@@ -68,14 +69,7 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
    * déploie tout seul, sans qu'on ait à cliquer. */
   function commentaireSousLeCurseur() {
     if (!view) return null
-    const pos = view.state.selection.head
-    let trouve = null
-    commentsMap.forEach((c, id) => {
-      if (estUneReponse(c)) return
-      const range = resolveCommentRange(view.state, ydoc, c)
-      if (range && pos >= range.from && pos <= range.to) trouve = id
-    })
-    return trouve
+    return commentaireAuPoint(view.state, ydoc, commentsMap, view.state.selection.head)
   }
 
   /** Une ligne de métadonnées : qui, quand, et si le texte a été repris.

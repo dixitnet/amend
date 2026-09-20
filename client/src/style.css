@@ -2264,3 +2264,82 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
     color: var(--accent);
   }
 }
+
+/* --- Relire et commenter au doigt (20/09/2026) --------------------------- */
+.barre-relecture { display: flex; align-items: center; gap: 6px; }
+.barre-relecture[hidden] { display: none; }
+.barre-relecture-position {
+  min-width: 52px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Le bouton qui suit la sélection. Au-dessus d'elle, jamais en dessous :
+   sous la sélection se trouvent le pouce qui vient de la faire et la barre
+   de suggestions du clavier. */
+.bouton-commenter {
+  position: absolute;
+  z-index: 35;
+  min-height: 38px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 19px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 22%);
+  cursor: pointer;
+}
+.bouton-commenter[hidden] { display: none; }
+
+/* Les messages d'un fil, dans la feuille. Mêmes conventions que la marge —
+   filet à la couleur de qui parle, réponses décalées d'un cran, un seul. */
+.feuille-message {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.feuille-message:last-of-type { border-bottom: none; }
+.feuille-reponse {
+  padding-left: 12px;
+  border-left: 2px solid var(--user-color, var(--border));
+  margin-left: 4px;
+}
+.feuille-meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.feuille-texte { font-size: 15px; line-height: 1.45; white-space: pre-wrap; }
+.feuille-actions { display: flex; gap: 8px; margin-top: 8px; }
+.feuille-actions button {
+  width: auto;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.feuille-repondre { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.feuille-repondre textarea,
+.feuille-edition {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  /* 16 px au moins : en deçà, iOS zoome sur le champ à la mise au point, et
+     l'on se retrouve avec un document agrandi au hasard. */
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  resize: vertical;
+}
+.feuille-repondre button {
+  align-self: flex-end;
+  width: auto;
+  min-height: 44px;
+  padding: 0 18px;
+}

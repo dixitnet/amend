@@ -26,7 +26,7 @@ import {
 import { mountChangesPanel } from './changesPanel.js'
 import { openAccessPanel } from './accessPanel.js'
 import { mountAIPanel } from './aiPanel.js'
-import { commentsPlugin, mountCommentsPanel } from './comments.js'
+import { commentsPlugin, mountCommentsPanel, commentaireAuPoint, addComment } from './comments.js'
 import { mountCommentsGutter, mountGutterComposer } from './commentsGutter.js'
 import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
@@ -56,7 +56,12 @@ import { messageFugace } from './images.js'
 import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
 import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
 import { ouvrirPlan } from './planFeuille.js'
-import { fermerFeuille, media, REQUETE_PETIT_ECRAN } from './feuille.js'
+import {
+  ouvrirFilCommentaire,
+  monterBarreRelecture,
+  monterBoutonCommenter,
+} from './relectureTactile.js'
+import { fermerFeuille, media, ouvrirFeuille, petitEcran, REQUETE_PETIT_ECRAN } from './feuille.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -441,6 +446,61 @@ export function mountEditor(root, docId, user, docMeta) {
     })
     .catch(() => {})
 
+  /** Écrire un commentaire sur la sélection, en feuille. Modale, celle-ci :
+   * on est en train d'écrire, il n'y a rien d'autre à faire. */
+  function ouvrirComposeurTactile() {
+    const selection = view.state.selection
+    if (selection.empty) return
+    const feuille = ouvrirFeuille('Nouveau commentaire', { hauteur: 0.4, modale: true })
+    const forme = document.createElement('form')
+    forme.className = 'feuille-repondre'
+    const zone = document.createElement('textarea')
+    zone.rows = 3
+    zone.placeholder = 'Votre commentaire…'
+    const envoyer = document.createElement('button')
+    envoyer.type = 'submit'
+    envoyer.className = 'btn-accept'
+    envoyer.textContent = 'Commenter'
+    forme.append(zone, envoyer)
+    forme.onsubmit = (e) => {
+      e.preventDefault()
+      if (!zone.value.trim()) return
+      // La sélection a pu bouger pendant qu'on écrivait (quelqu'un d'autre
+      // édite) : on la repose telle qu'elle était au moment du geste.
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, selection.from, selection.to)))
+      addComment(view, ydoc, commentsMap, user, zone.value.trim())
+      feuille.fermer()
+    }
+    feuille.corps.appendChild(forme)
+    zone.focus()
+  }
+
+  /** Le greffon du petit écran : il ne décide rien, il relie. */
+  function tactilePlugin() {
+    return new Plugin({
+      props: {
+        handleClick(vue, pos) {
+          if (!petitEcran()) return false
+          const id = commentaireAuPoint(vue.state, ydoc, commentsMap, pos)
+          if (!id) return false
+          // On n'empêche pas le curseur de se poser : on ouvre **en plus**.
+          // Refuser le clic laisserait le doigt sans effet visible dans le
+          // texte, ce qui se sent comme un raté.
+          setTimeout(() => ouvrirFilCommentaire(view, ydoc, commentsMap, user, id), 0)
+          return false
+        },
+      },
+      view() {
+        return {
+          update() {
+            relecture.rendre()
+            commenter.placer()
+          },
+        }
+      },
+    })
+  }
+
   const layout = document.createElement('div')
   layout.className = 'editor-layout'
 
@@ -545,6 +605,28 @@ export function mountEditor(root, docId, user, docMeta) {
     for (const [k, b] of Object.entries(boutonsOnglet)) b.classList.toggle('actif', k === cle)
   }
   choisirOnglet('texte')
+
+  // La relecture au doigt : un parcours, pas une liste (20/09/2026). La
+  // liste des modifications reste dans la colonne de droite, qui n'existe
+  // pas sur téléphone ; cette barre la remplace là où il n'y a pas la place.
+  const relecture = monterBarreRelecture(() => view, {
+    canReview: docMeta.myRole !== 'correcteur',
+  })
+  groupeRelire.appendChild(relecture.el)
+
+  // Et la porte vers les commentaires : le fil du passage où est le
+  // curseur, ou rien à ouvrir si l'on n'est pas dans un passage commenté.
+  const filBtn = document.createElement('button')
+  filBtn.type = 'button'
+  filBtn.className = 'btn-tool btn-texte'
+  filBtn.textContent = 'Commentaire'
+  filBtn.title = 'Ouvrir le fil du passage où se trouve le curseur'
+  filBtn.onclick = () => {
+    const id = commentaireAuPoint(view.state, ydoc, commentsMap, view.state.selection.head)
+    if (id) ouvrirFilCommentaire(view, ydoc, commentsMap, user, id)
+    else messageFugace('Aucun commentaire à cet endroit du texte.')
+  }
+  groupeRelire.appendChild(filBtn)
 
   toolbar.append(groupeTexte2, groupeInserer, groupeRelire, onglets)
   main.appendChild(toolbar)
@@ -747,6 +829,11 @@ export function mountEditor(root, docId, user, docMeta) {
       richPastePlugin(() => user),
       pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),
+      // Le tactile (20/09/2026) : toucher un passage commenté ouvre son fil
+      // en feuille, et la barre de relecture se tient à jour. Ce greffon
+      // n'existe que pour le petit écran — au-dessus de 700 px, la marge et
+      // la colonne de droite font tout cela mieux, et il ne fait rien.
+      tactilePlugin(),
       mountCommentsGutter(commentsGutter, ydoc, commentsMap, user),
       mountGutterComposer(commentsGutter, ydoc, commentsMap, user),
       mountChangesPanel(changesSection, { canReview: docMeta.myRole !== 'correcteur' }),
@@ -816,6 +903,13 @@ export function mountEditor(root, docId, user, docMeta) {
 
   const view = new EditorView(editorContainer, { state })
   editorContainer.appendChild(commentsGutter)
+
+  // Le bouton « Commenter » qui suit la sélection, sur petit écran
+  // seulement : il remplace le « + » de la marge, qui n'a plus de marge où
+  // vivre. Posé **au-dessus** de la sélection — en dessous, il tomberait
+  // sous le pouce qui vient de sélectionner, et sous la barre de
+  // suggestions du clavier.
+  const commenter = monterBoutonCommenter(editorContainer, () => view, ouvrirComposeurTactile)
   // dispatchTransaction needs a reference to `view` itself, so it's wired
   // up right after construction rather than passed in the initial props.
   view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => user) })
