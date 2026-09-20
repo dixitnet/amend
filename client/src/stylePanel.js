@@ -14,6 +14,7 @@ import {
   BLOCS,
   PROPRIETES,
   FORMATS_PAGE,
+  CONTENUS_ENTETE,
   LANGUES,
   langue,
   styleParDefaut,
@@ -152,6 +153,46 @@ function groupePage(page) {
   depart.value = (page.pageNumbers && page.pageNumbers.startAt) || 1
   grille.appendChild(champ('Première page', depart))
 
+  // En-têtes (20/09/2026) : un côté gauche et un côté droit, toujours
+  // centrés. Le champ de texte libre n'apparaît que quand il sert.
+  const cotes = {}
+  for (const [cle, libelle] of [
+    ['gauche', 'En-tête pages de gauche'],
+    ['droite', 'En-tête pages de droite'],
+  ]) {
+    const courant = (page.entete && page.entete[cle]) || { type: 'rien', texte: '' }
+    const choix = document.createElement('select')
+    for (const c of CONTENUS_ENTETE) {
+      const o = document.createElement('option')
+      o.value = c.id
+      o.textContent = c.label
+      choix.appendChild(o)
+    }
+    choix.value = courant.type || 'rien'
+    const texte = document.createElement('input')
+    texte.type = 'text'
+    texte.value = courant.texte || ''
+    texte.placeholder = 'Texte de l’en-tête'
+    const champTexte = champ(`${libelle} — texte`, texte)
+    const majVisible = () => {
+      champTexte.hidden = choix.value !== 'texte'
+    }
+    majVisible()
+    choix.onchange = majVisible
+    const champChoix = champ(libelle, choix)
+    champChoix.title =
+      "« Titre 1 courant » reprend le dernier titre de niveau 1 rencontré. Dans l’export Word, faute d’équivalent fiable, c’est le titre du document qui est écrit."
+    grille.append(champChoix, champTexte)
+    cotes[cle] = { choix, texte }
+  }
+
+  const sautOuverture = document.createElement('input')
+  sautOuverture.type = 'checkbox'
+  sautOuverture.checked = !(page.entete && page.entete.sautOuverture === false)
+  const champSaut = champ('Pas d’en-tête sur les pages de titre 1', sautOuverture)
+  champSaut.title = "Une page qui porte un titre de niveau 1 reste nue : c’est une ouverture."
+  grille.appendChild(champSaut)
+
   // Deux réglages qui ne concernent que la sortie paginée (19/09/2026) :
   // l'éditeur défile, il n'a pas de bas de page.
   const solidaires = document.createElement('input')
@@ -178,6 +219,11 @@ function groupePage(page) {
       ...Object.fromEntries(Object.entries(marges).map(([k, el]) => [k, Number(el.value)])),
       pageNumbers: { enabled: numeros.checked, startAt: Number(depart.value) || 1 },
       langue: lang.value,
+      entete: {
+        gauche: { type: cotes.gauche.choix.value, texte: cotes.gauche.texte.value },
+        droite: { type: cotes.droite.choix.value, texte: cotes.droite.texte.value },
+        sautOuverture: sautOuverture.checked,
+      },
       titresSolidaires: solidaires.checked,
       titre1PageImpaire: bellePage.checked,
     }),

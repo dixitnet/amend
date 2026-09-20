@@ -259,3 +259,50 @@ test('la langue du document n’est plus écrite en dur', () => {
   // source que Typst refuserait.
   assert.match(source({ page: { langue: 'klingon' } }), /#set text\(lang: "fr"/)
 })
+
+// ===================================================== les en-têtes
+
+test('aucun en-tête n’est installé quand les deux côtés sont vides', () => {
+  assert.doesNotMatch(source({}), /header:/)
+})
+
+test('chaque côté reçoit son contenu, et les pages paires sont celles de gauche', () => {
+  const src = source({
+    page: {
+      entete: {
+        gauche: { type: 'texte', texte: 'Transitions urbaines' },
+        droite: { type: 'titre', texte: '' },
+      },
+    },
+  })
+  assert.match(src, /header: context/)
+  // `calc.even` : les pages paires sont les pages de gauche d'un document
+  // relié. Le texte libre est une chaîne Typst, le titre courant une
+  // requête sur les titres réellement placés.
+  assert.match(src, /if calc\.even\(ici\) \{ "Transitions urbaines" \} else \{ courant \}/)
+  assert.match(src, /query\(heading\.where\(level: 1\)\)/)
+})
+
+test('un texte libre vide vaut « rien »', () => {
+  const src = source({
+    page: { entete: { gauche: { type: 'texte', texte: '   ' }, droite: { type: 'rien', texte: '' } } },
+  })
+  assert.doesNotMatch(src, /header:/)
+})
+
+test('le texte d’en-tête est échappé, pas recopié tel quel', () => {
+  const src = source({
+    page: { entete: { droite: { type: 'texte', texte: 'Guillemets "ici" et \\ ailleurs' } } },
+  })
+  assert.match(src, /\\"ici\\"/)
+  assert.doesNotMatch(src, /[^\\]"ici"/)
+})
+
+test('les pages portant un titre 1 restent nues, sauf si on le refuse', () => {
+  const avec = source({ page: { entete: { droite: { type: 'titre' } } } })
+  assert.match(avec, /if true and ouverture/)
+  const sans = source({
+    page: { entete: { droite: { type: 'titre' }, sautOuverture: false } },
+  })
+  assert.match(sans, /if false and ouverture/)
+})

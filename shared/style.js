@@ -210,15 +210,64 @@ export const PAGE_DEFAUT = {
   // À l'inverse du précédent, c'est une convention d'ouvrage : désactivé
   // par défaut.
   titre1PageImpaire: false,
+  // En-têtes de page (20/09/2026). Deux côtés indépendants — pages de
+  // gauche (paires) et de droite (impaires) — parce que c'est la seule
+  // distinction qui compte dans un document relié ; toujours centrés,
+  // parce que trois emplacements par bandeau, c'est six listes déroulantes
+  // pour un besoin qui n'en demande pas tant.
+  //
+  // `type` vaut 'rien', 'texte' (le champ `texte` à côté) ou 'titre' (le
+  // dernier titre de niveau 1 rencontré — le titre courant).
+  //
+  // `sautOuverture` laisse nue toute page **portant** un titre 1, et non
+  // seulement celles qui commencent par lui : quand un titre 1 tombe au
+  // milieu d'une page, l'en-tête nommerait le chapitre précédent alors que
+  // le suivant a commencé. Le supprimer est plus sûr, et la distinction
+  // disparaît dès que `titre1PageImpaire` est actif.
+  entete: {
+    gauche: { type: 'rien', texte: '' },
+    droite: { type: 'rien', texte: '' },
+    sautOuverture: true,
+  },
 }
 
+/** Ce qu'un en-tête peut porter. */
+export const CONTENUS_ENTETE = [
+  { id: 'rien', label: 'Rien' },
+  { id: 'texte', label: 'Texte libre' },
+  { id: 'titre', label: 'Titre 1 courant' },
+]
+
 // --- Fabrication et fusion ------------------------------------------------
+
+/** Vrai pour un réglage de page qui en contient d'autres (`pageNumbers`,
+ * `entete`). Les traiter par leur **forme** plutôt que par leur nom évite
+ * d'ajouter un cas particulier à la fusion à chaque réglage composé. */
+function estGroupe(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v)
+}
+
+/** Copie d'un réglage de page, sous-groupes compris — sur deux niveaux, ce
+ * qui suffit au modèle et évite une récursion générale dont personne n'a
+ * besoin. */
+function copiePage(page) {
+  const out = {}
+  for (const [k, v] of Object.entries(page)) {
+    if (!estGroupe(v)) {
+      out[k] = v
+      continue
+    }
+    out[k] = {}
+    for (const [k2, v2] of Object.entries(v)) out[k][k2] = estGroupe(v2) ? { ...v2 } : v2
+  }
+  return out
+}
 
 /** La feuille de style complète, telle que le code la définit. */
 export function styleParDefaut() {
   const blocs = {}
   for (const b of BLOCS) blocs[b.id] = { ...b.defauts }
-  return { version: VERSION_STYLE, page: { ...PAGE_DEFAUT, pageNumbers: { ...PAGE_DEFAUT.pageNumbers } }, blocs }
+  return { version: VERSION_STYLE, page: copiePage(PAGE_DEFAUT), blocs }
 }
 
 /** Empile des couches partielles par-dessus les valeurs par défaut, de la
@@ -236,7 +285,20 @@ export function fusionner(...couches) {
     // du format actuel peut très bien n'en porter aucun non plus.
     const c = estAncienFormat(couche) ? migrer(couche) : couche
     if (c.page) {
-      out.page = { ...out.page, ...c.page, pageNumbers: { ...out.page.pageNumbers, ...(c.page.pageNumbers || {}) } }
+      for (const [k, v] of Object.entries(c.page)) {
+        if (estGroupe(out.page[k])) {
+          // Un groupe se complète, il ne se remplace pas : une couche qui
+          // ne porte qu'un seul de ses réglages ne doit pas effacer les
+          // autres.
+          const fusion = { ...out.page[k] }
+          for (const [k2, v2] of Object.entries(v || {})) {
+            fusion[k2] = estGroupe(fusion[k2]) ? { ...fusion[k2], ...(v2 || {}) } : v2
+          }
+          out.page[k] = fusion
+        } else {
+          out.page[k] = v
+        }
+      }
     }
     if (c.blocs) {
       for (const b of BLOCS) {
@@ -257,10 +319,18 @@ export function reduire(style) {
   const out = { version: VERSION_STYLE }
   const page = {}
   for (const [k, v] of Object.entries(style.page || {})) {
-    if (k === 'pageNumbers') {
-      const pn = {}
-      for (const [k2, v2] of Object.entries(v || {})) if (base.page.pageNumbers[k2] !== v2) pn[k2] = v2
-      if (Object.keys(pn).length) page.pageNumbers = pn
+    if (estGroupe(base.page[k])) {
+      const diff = {}
+      for (const [k2, v2] of Object.entries(v || {})) {
+        if (estGroupe(base.page[k][k2])) {
+          const d2 = {}
+          for (const [k3, v3] of Object.entries(v2 || {})) if (base.page[k][k2][k3] !== v3) d2[k3] = v3
+          // Un sous-groupe se note entier dès qu'il diffère : un en-tête
+          // « texte libre » sans son texte ne veut rien dire.
+          if (Object.keys(d2).length) diff[k2] = { ...base.page[k][k2], ...v2 }
+        } else if (base.page[k][k2] !== v2) diff[k2] = v2
+      }
+      if (Object.keys(diff).length) page[k] = diff
     } else if (base.page[k] !== v) page[k] = v
   }
   if (Object.keys(page).length) out.page = page

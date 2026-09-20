@@ -213,6 +213,44 @@ function fonctionBloc(nom, v) {
 }`
 }
 
+/** Un côté d'en-tête, en source Typst — ou `null` s'il ne porte rien. */
+function coteEntete(cote) {
+  if (!cote) return null
+  if (cote.type === 'texte') {
+    const t = String(cote.texte || '').trim()
+    return t ? chaine(t) : null
+  }
+  if (cote.type === 'titre') return 'courant'
+  return null
+}
+
+/** L'en-tête complet, prêt à être glissé dans le `#set page(...)`. Renvoie
+ * une chaîne vide quand les deux côtés sont vides : inutile d'installer un
+ * bandeau qui ne dira jamais rien. */
+function enteteTypst(p) {
+  const e = (p && p.entete) || {}
+  const gauche = coteEntete(e.gauche)
+  const droite = coteEntete(e.droite)
+  if (!gauche && !droite) return ''
+  // `sautOuverture` : on regarde s'il existe un titre de niveau 1 **sur**
+  // cette page, et pas seulement à son sommet.
+  const saut = e.sautOuverture === false ? 'false' : 'true'
+  return `
+  header: context {
+    let ici = here().page()
+    let titres = query(heading.where(level: 1))
+    let ouverture = titres.filter(t => t.location().page() == ici).len() > 0
+    if ${saut} and ouverture {
+      none
+    } else {
+      let avant = titres.filter(t => t.location().page() <= ici)
+      let courant = if avant.len() > 0 { avant.last().body } else { none }
+      let contenu = if calc.even(ici) { ${gauche || 'none'} } else { ${droite || 'none'} }
+      if contenu != none { align(center, contenu) }
+    }
+  },`
+}
+
 /** Le gabarit complet : page, langue, blocs, titres. */
 function gabarit(style, titre) {
   const complet = style && style.blocs ? style : styleParDefaut()
@@ -242,6 +280,12 @@ function gabarit(style, titre) {
     fonctionBloc(`amend-${b.id}`, complet.blocs[b.id])
   )
 
+  // L'en-tête (20/09/2026). Deux côtés, toujours centrés, et rien du tout
+  // sur une page qui porte un titre 1 — voir shared/style.js pour le
+  // raisonnement. Écrit comme un `context` Typst parce que le contenu
+  // dépend de la page composée : on interroge les titres réellement placés,
+  // seul moyen d'avoir un titre courant juste.
+  const entete = enteteTypst(p)
   const numerotation = p.pageNumbers && p.pageNumbers.enabled
     ? `numbering: "1", number-align: center,`
     : ''
@@ -258,7 +302,7 @@ function gabarit(style, titre) {
   width: ${format.mm[0]}mm,
   height: ${format.mm[1]}mm,
   margin: (top: ${p.marginTop}mm, bottom: ${p.marginBottom}mm, left: ${p.marginLeft}mm, right: ${p.marginRight}mm),
-  ${numerotation}
+  ${numerotation}${entete}
 )
 // La langue décide des motifs de césure et de la forme des guillemets.
 // \`hyphenate\` vaut \`auto\` : les mots ne sont coupés que dans du texte

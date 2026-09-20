@@ -34,6 +34,7 @@ import {
   PageNumber,
   NumberFormat,
   Footer,
+  Header,
   ImageRun,
   Table,
   TableRow,
@@ -400,7 +401,7 @@ function blockToParagraphs(node, style, images) {
 /** Construit le fichier .docx entier sous forme de Blob, prêt à
  * télécharger — même feuille de style (`style`, voir styleConfig.js) que
  * l'export PDF. */
-export async function buildDocxBlob(doc, style) {
+export async function buildDocxBlob(doc, style, titre = '') {
   const images = { octetsPar: await chargerImages(doc), largeurUtile: largeurUtilePx(style) }
   const children = []
   doc.forEach((node) => {
@@ -424,6 +425,35 @@ export async function buildDocxBlob(doc, style) {
     },
   }
 
+  // En-têtes (20/09/2026). Word sait distinguer pages paires et impaires,
+  // c'est donc la même idée que dans le PDF. Deux limites assumées, dites
+  // aussi dans l'infobulle du panneau : le « titre 1 courant » n'a pas
+  // d'équivalent fiable ici (il passerait par un champ STYLEREF que la
+  // bibliothèque ne sait pas écrire) et devient le titre du document ; et
+  // « pas d'en-tête sur les pages de titre 1 » n'a pas d'équivalent du tout
+  // — Word ne sait distinguer que la première page.
+  const entete = page.entete || DEFAULT_STYLE.page.entete || {}
+  const texteEntete = (cote) => {
+    if (!cote || cote.type === 'rien') return ''
+    if (cote.type === 'titre') return String(titre || '')
+    return String(cote.texte || '')
+  }
+  const enteteDroite = texteEntete(entete.droite)
+  const enteteGauche = texteEntete(entete.gauche)
+  const bandeau = (texte) =>
+    new Header({
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: texte ? [new TextRun({ text: texte })] : [],
+        }),
+      ],
+    })
+  const headers =
+    enteteDroite || enteteGauche
+      ? { default: bandeau(enteteDroite), even: bandeau(enteteGauche) }
+      : null
+
   let footers
   if (pageNumbers.enabled) {
     // Bas de page centré, comme `@bottom-center` en CSS d'impression (voir
@@ -445,6 +475,8 @@ export async function buildDocxBlob(doc, style) {
   }
 
   const docxDocument = new Document({
+    // Sans ce drapeau, Word ignore l'en-tête des pages paires.
+    ...(headers ? { evenAndOddHeaderAndFooters: true } : {}),
     // Les listes numérotées exigent une configuration de numérotation
     // déclarée au niveau du document (contrairement aux puces, qui ont un
     // raccourci intégré) — trois niveaux suffisent à ce que le schéma
@@ -473,6 +505,7 @@ export async function buildDocxBlob(doc, style) {
     sections: [
       {
         properties: { page: pageProperties },
+        ...(headers ? { headers } : {}),
         ...(footers ? { footers } : {}),
         // Un document vide a quand même besoin d'un paragraphe — sinon
         // certaines versions de Word refusent d'ouvrir le fichier.
@@ -488,7 +521,7 @@ export async function buildDocxBlob(doc, style) {
  * fichier que markdownFilename (mdExport.js), juste une extension
  * différente. */
 export async function downloadDocx(doc, style, title) {
-  const blob = await buildDocxBlob(doc, style)
+  const blob = await buildDocxBlob(doc, style, title)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
