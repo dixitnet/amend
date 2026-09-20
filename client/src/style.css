@@ -581,7 +581,14 @@ a { color: var(--accent); }
   min-height: 100%;
   padding: 0 20px;
   outline: none;
-  font-size: 17px;
+  /* 18 px (20/09/2026, demande de Sylvain — auparavant 17). Cette taille
+     est celle de **l'écran**, et non celle du document : la feuille de
+     style du document (tailles en points, polices, interlignes) ne touche
+     plus l'éditeur depuis que le PDF sort de Typst côté serveur. L'éditeur
+     n'est donc pas un WYSIWYG, et c'est ce qui rendra possible de faire
+     suivre à cette taille le réglage d'accessibilité du système — voir
+     claude/conception-mobile.md. */
+  font-size: 18px;
   line-height: 1.6;
 }
 .ProseMirror p { margin: 0 0 1em; }
