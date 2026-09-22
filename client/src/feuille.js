@@ -73,11 +73,16 @@ export function ouvrirFeuille(titre, { hauteur = 0.5, modale = false, surFermetu
 
   // Le bouton « retour » du téléphone doit fermer la feuille, et non quitter
   // le document : on pousse une entrée d'historique, et on l'écoute.
+  // `window.history` et non `history` tout court : dans un environnement
+  // sans navigateur complet, la variable globale n'existe pas, et une
+  // feuille qui refuse de se fermer parce que l'historique manque serait un
+  // défaut bien réel pour un confort optionnel.
+  const historique = typeof window !== 'undefined' && window.history ? window.history : null
   const marque = { feuille: true }
   try {
-    history.pushState(marque, '')
+    if (historique) historique.pushState(marque, '')
   } catch {
-    /* environnements sans historique (tests) : la croix suffit */
+    /* environnements sans historique : la croix suffit */
   }
   let fermeeParHistorique = false
 
@@ -125,9 +130,9 @@ export function ouvrirFeuille(titre, { hauteur = 0.5, modale = false, surFermetu
     if (voile) voile.remove()
     // On ne dépile l'historique que si ce n'est pas lui qui nous ferme,
     // sinon on remonterait d'un cran de trop et l'on quitterait le document.
-    if (!fermeeParHistorique && history.state && history.state.feuille) {
+    if (!fermeeParHistorique && historique && historique.state && historique.state.feuille) {
       try {
-        history.back()
+        historique.back()
       } catch {
         /* sans historique, rien à défaire */
       }

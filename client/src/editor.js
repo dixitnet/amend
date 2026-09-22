@@ -26,7 +26,13 @@ import {
 import { mountChangesPanel } from './changesPanel.js'
 import { openAccessPanel } from './accessPanel.js'
 import { mountAIPanel } from './aiPanel.js'
-import { commentsPlugin, mountCommentsPanel, commentaireAuPoint, addComment } from './comments.js'
+import {
+  commentsPlugin,
+  mountCommentsPanel,
+  commentaireAuPoint,
+  commentairesAncres,
+  addComment,
+} from './comments.js'
 import { mountCommentsGutter, mountGutterComposer } from './commentsGutter.js'
 import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
@@ -56,6 +62,7 @@ import { messageFugace } from './images.js'
 import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
 import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
 import { ouvrirPlan } from './planFeuille.js'
+import { monterInterfaceTelephone } from './iphone.js'
 import {
   ouvrirFilCommentaire,
   monterBarreRelecture,
@@ -709,13 +716,12 @@ export function mountEditor(root, docId, user, docMeta) {
   // dit si ce qu'on tape est une proposition ou une modification directe.
   const petitEcranMedia = media(REQUETE_PETIT_ECRAN)
   function placerLeSuivi() {
-    if (petitEcranMedia.matches) groupeRelire.appendChild(trackToggleLabel)
-    else suiviEntete.appendChild(trackToggleLabel)
+    // Sur téléphone, l'interrupteur vit dans le menu ⋯ (iphone.js) et c'est
+    // ce menu qui va le chercher : on ne le place ici que pour l'ordinateur
+    // et la tablette, où il tient la tête de la colonne de droite.
+    if (!petitEcranMedia.matches) suiviEntete.appendChild(trackToggleLabel)
   }
   placerLeSuivi()
-  // Un iPad qui passe en Split View change de largeur **sans recharger** :
-  // on écoute, on ne décide pas une fois pour toutes au chargement.
-  if (petitEcranMedia.addEventListener) petitEcranMedia.addEventListener('change', placerLeSuivi)
 
   const outlineSidebar = document.createElement('div')
   outlineSidebar.className = 'outline-sidebar'
@@ -1179,8 +1185,48 @@ export function mountEditor(root, docId, user, docMeta) {
     return btn
   }
 
+  // --- L'interface téléphone (22/09/2026, voir iphone.js). Montée en
+  // dernier : elle ne construit presque rien, elle replace et masque ce qui
+  // précède. Rejouée au changement de largeur, parce qu'un téléphone qu'on
+  // tourne et un iPad qui sort de Split View changent de largeur sans
+  // recharger la page.
+  let telephone = null
+  function ajusterTelephone() {
+    const petit = petitEcranMedia.matches
+    if (petit && !telephone) {
+      telephone = monterInterfaceTelephone({
+        racine: shell,
+        topBanner,
+        titleInput,
+        toolbar,
+        outlineSidebar,
+        trackToggleLabel,
+        getView: () => view,
+        estCorrecteur: () => docMeta.myRole === 'correcteur',
+        nbCommentaires: () => commentairesAncres(commentsMap).length,
+        ouvrirCommentaire: () => {
+          const id =
+            commentaireAuPoint(view.state, ydoc, commentsMap, view.state.selection.head) ||
+            (commentairesAncres(commentsMap)[0] || [])[0]
+          if (id) ouvrirFilCommentaire(view, ydoc, commentsMap, user, id)
+          else messageFugace('Aucun commentaire dans ce document.')
+        },
+      })
+    } else if (!petit && telephone) {
+      telephone.demonter()
+      telephone = null
+    }
+    // L'interrupteur du suivi vit dans le menu ⋯ sur téléphone, et en tête
+    // de la colonne de droite ailleurs : `placerLeSuivi` n'a plus à s'en
+    // occuper ici, le menu le prend au moment où il s'ouvre.
+    if (!petit) placerLeSuivi()
+  }
+  ajusterTelephone()
+  if (petitEcranMedia.addEventListener) petitEcranMedia.addEventListener('change', ajusterTelephone)
+
   return {
     destroy() {
+      if (telephone) telephone.demonter()
       view.destroy()
       provider.destroy()
       presence.destroy()

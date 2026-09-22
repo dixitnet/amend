@@ -2364,3 +2364,145 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 tr.bo-traite { opacity: 0.6; }
 .bo-traites { margin-top: 12px; }
 .bo-traites summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+
+/* ======================================================================
+   L'interface iPhone (22/09/2026) — voir iphone.js pour le raisonnement.
+
+   Deux moments : on lit, ou on écrit. En lecture, l'écran ne porte que le
+   texte. En écriture, une rangée d'outils au ras du clavier, et rien
+   d'autre. Ce bloc est surtout une liste de choses qu'on ne montre pas :
+   chaque bouton gardé coûte au texte, et l'écran ne s'agrandira pas.
+   ====================================================================== */
+@media (max-width: 700px) {
+  /* --- Ce qui disparaît du téléphone. Rien n'est retiré du code ni du
+     serveur : ces fonctions restent entières sur un écran d'ordinateur. */
+  .tel-lecture .top-banner,
+  .tel-edition .top-banner,
+  .tel-lecture .format-toolbar,
+  .tel-lecture .marge-commentaires,
+  .tel-edition .marge-commentaires,
+  .tel-lecture .sidebar,
+  .tel-edition .sidebar,
+  .tel-lecture .outline-sidebar,
+  .tel-edition .outline-sidebar,
+  /* Insertion, mise en forme du document, sorties : hors du téléphone. */
+  .tel-edition .barre-onglets,
+  .tel-edition .barre-groupe[data-groupe='inserer'],
+  .tel-edition .zoom-select,
+  .tel-edition .heading-select + .btn-tool[title^='liste à cocher'] {
+    display: none !important;
+  }
+
+  /* --- L'en-tête : retour (ou coche), titre, menu. Trois éléments. */
+  .tel-entete {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 6px 4px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    flex-shrink: 0;
+  }
+  .tel-gauche,
+  .tel-plus {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--fg);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 10px;
+  }
+  .tel-edition .tel-gauche { color: var(--accent); font-weight: 700; }
+  .tel-titre {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+  }
+
+  /* --- Le crayon : en lecture seulement, là où le pouce arrive. */
+  .tel-crayon {
+    position: fixed;
+    right: 18px;
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    z-index: 45;
+    width: 56px;
+    height: 56px;
+    border: none;
+    border-radius: 28px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 26%);
+    cursor: pointer;
+  }
+  .tel-edition .tel-crayon { display: none; }
+
+  /* --- En lecture : rien que le texte. Le curseur ne clignote pas, la
+     sélection reste possible (on peut vouloir copier un passage). */
+  .tel-lecture .ProseMirror { caret-color: transparent; }
+  .tel-lecture .editor-container { padding-bottom: 96px; }
+
+  /* --- En écriture : une seule rangée, au ras du clavier, qu'on fait
+     défiler du doigt si elle déborde — le geste d'Obsidian. */
+  .tel-edition .format-toolbar {
+    flex-direction: row;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .tel-edition .barre-groupe[data-groupe='texte'],
+  .tel-edition .barre-groupe[data-groupe='relire'] {
+    display: flex;
+    flex: 0 0 auto;
+  }
+  .tel-edition .format-toolbar {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tel-edition .format-toolbar::-webkit-scrollbar { display: none; }
+  .tel-edition .editor-container { padding-bottom: 96px; }
+
+  /* --- Le menu ⋯ */
+  .tel-menu { display: flex; flex-direction: column; }
+  .tel-menu-entree {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 0 4px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    font-size: 16px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .tel-menu-entree:last-child { border-bottom: none; }
+  .tel-menu-entree em { color: var(--muted); font-style: normal; font-size: 14px; }
+  .tel-menu-suivi { cursor: default; }
+  .tel-menu-suivi .track-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    font-size: 16px;
+    font-weight: 400;
+    border: none;
+    padding: 0;
+    color: inherit;
+  }
+  .tel-menu-suivi .track-toggle input { width: 22px; height: 22px; }
+}

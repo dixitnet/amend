@@ -205,15 +205,15 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   if (editeur && editeur.destroy) editeur.destroy()
 })
 
-test('sur petit écran, l’interrupteur du suivi descend dans la barre — sans se dupliquer', async () => {
-  // L'état le plus important de l'éditeur ne peut pas disparaître avec la
-  // colonne de droite. Il est **déménagé**, jamais recopié : deux cases
-  // pour un même état finiraient par se contredire.
+test('sur iPhone : un en-tête de trois éléments, un crayon, et rien d’autre', async () => {
+  // L'interface téléphone n'est pas l'interface de bureau en plus étroit :
+  // on lit, ou on écrit (voir iphone.js). Ce test vérifie surtout des
+  // **absences** — c'est là tout le propos.
   const dom = installerDom()
   await oublierLaSession()
   installerFetch({ '/api/auth/me': { email: 'moi@example.com', admin: false } })
   dom.window.matchMedia = (requete) => ({
-    matches: /max-width: 700px/.test(requete),
+    matches: /max-width: (700|1100)px/.test(requete),
     media: requete,
     addEventListener() {},
     removeEventListener() {},
@@ -236,16 +236,49 @@ test('sur petit écran, l’interrupteur du suivi descend dans la barre — sans
   )
   await respirer()
 
-  assert.deepEqual(guetteur.fin(), [], 'une erreur au montage en petit écran')
-  assert.equal(racine.querySelectorAll('.track-toggle').length, 1, 'un seul interrupteur, toujours')
-  assert.ok(
-    racine.querySelector('.barre-groupe[data-groupe="relire"] .track-toggle'),
-    'et il est dans l’onglet Relire'
-  )
-  assert.ok(!racine.querySelector('.suivi-entete .track-toggle'), 'plus dans la colonne')
+  assert.deepEqual(guetteur.fin(), [], 'une erreur au montage sur téléphone')
 
+  const entete = racine.querySelector('.tel-entete')
+  assert.ok(entete, 'l’en-tête du téléphone')
+  assert.equal(entete.children.length, 3, 'trois éléments, jamais plus')
+  assert.equal(racine.querySelector('.tel-titre').textContent, 'Essai')
+  assert.ok(racine.querySelector('.tel-crayon'), 'le crayon, porte d’entrée de l’écriture')
+
+  // On ouvre en **lecture** : c'est la décision centrale.
+  assert.ok(racine.querySelector('.app-shell').classList.contains('tel-lecture'))
+  assert.equal(editeur.view.props.editable(), false, 'le document ne se modifie pas tant qu’on lit')
+
+  // Le crayon fait passer en écriture, la coche en sort.
+  racine.querySelector('.tel-crayon').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  assert.ok(racine.querySelector('.app-shell').classList.contains('tel-edition'))
+  assert.equal(editeur.view.props.editable(), true)
+  racine.querySelector('.tel-gauche').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  assert.ok(racine.querySelector('.app-shell').classList.contains('tel-lecture'))
+
+  // L'interrupteur du suivi n'existe qu'une fois, et il est dans le menu.
+  assert.equal(racine.querySelectorAll('.track-toggle').length, 0, 'pas dans la page')
+  racine.querySelector('.tel-plus').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  const feuille = dom.window.document.querySelector('.feuille')
+  assert.ok(feuille, 'le menu s’ouvre en feuille')
+  assert.equal(feuille.querySelectorAll('.track-toggle').length, 1, 'un seul interrupteur, dans le menu')
+  assert.match(feuille.textContent, /Plan du document/)
+  assert.match(feuille.textContent, /Commentaires/)
+  // Et rien de ce qui n'a pas sa place sur un téléphone.
+  for (const absent of ['Mise en page', 'Partager', 'Historique', 'Exporter']) {
+    assert.ok(!feuille.textContent.includes(absent), `${absent} n’a rien à faire ici`)
+  }
+
+  const { fermerFeuille } = await import('../src/feuille.js')
+  fermerFeuille()
+  // On laisse retomber les minuteurs **avant** de détruire la vue :
+  // y-prosemirror diffère ses propres transactions (`updateMetas`), et une
+  // transaction qui arrive après `destroy()` jette contre un DOM disparu.
+  // C'est une course du banc d'essai, pas de l'application — mais l'ordre
+  // compte, ici comme ailleurs.
+  await new Promise((r) => setTimeout(r, 250))
   if (editeur && editeur.destroy) editeur.destroy()
 })
+
 
 test('la liste des documents se monte pour une personne connectée', async () => {
   const dom = installerDom()
