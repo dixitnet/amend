@@ -8,7 +8,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, readFileSync, existsSync, appendFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -112,7 +112,10 @@ test('rien d’autre que les champs prévus n’est enregistré', async () => {
   assert.ok(!brut.includes('secret'))
   assert.deepEqual(
     Object.keys(dernier).sort(),
-    ['docId', 'ecran', 'email', 'erreurs', 'intention', 'message', 'navigateur', 'role', 'ts', 'version'].sort()
+    // `id` depuis le 22/09/2026 : c'est lui que vise le bouton « Traiter ».
+    // Ce test a fait exactement son travail en le signalant — la liste des
+    // champs enregistrés est fermée, et tout ajout doit être délibéré.
+    ['docId', 'ecran', 'email', 'erreurs', 'id', 'intention', 'message', 'navigateur', 'role', 'ts', 'version'].sort()
   )
 })
 
@@ -145,8 +148,95 @@ test('le back-office voit les retours', async () => {
   const res = await fetch(`${BASE}/api/admin/overview`, { headers: { cookie: cookie('admin@example.com') } })
   const d = await res.json()
   assert.ok(d.flux.support.recus7j >= 1)
-  assert.ok(d.flux.support.derniers.length >= 1)
-  assert.equal(d.flux.support.derniers[0].ts >= d.flux.support.derniers.slice(-1)[0].ts, true, 'le plus récent en tête')
+  assert.ok(d.flux.support.aTraiter.length >= 1)
+  assert.equal(
+    d.flux.support.aTraiter[0].ts >= d.flux.support.aTraiter.slice(-1)[0].ts,
+    true,
+    'le plus récent en tête'
+  )
+  assert.ok(d.flux.support.aTraiter[0].cle, 'chaque retour porte la clé qui permet de le traiter')
+})
+
+// ============================================ marquer un retour traité
+
+const apercu = async (email = 'admin@example.com') =>
+  (await fetch(`${BASE}/api/admin/overview`, { headers: { cookie: cookie(email) } })).json()
+
+const traiter = (cle, traite, email = 'admin@example.com') =>
+  fetch(`${BASE}/api/admin/support/${encodeURIComponent(cle)}/traite`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: cookie(email) },
+    body: JSON.stringify({ traite }),
+  })
+
+test('un retour traité quitte la liste à traiter, sans quitter le fichier', async () => {
+  // La garantie qui justifie « traiter » plutôt que « supprimer » : rien de
+  // ce qu'une personne a signalé n'est effacé. Un bug revient parfois trois
+  // semaines plus tard.
+  const avant = await apercu()
+  const cible = avant.flux.support.aTraiter[0]
+  const lignesAvant = journal().length
+
+  assert.equal((await traiter(cible.cle, true)).status, 200)
+
+  const apres = await apercu()
+  assert.ok(!apres.flux.support.aTraiter.some((r) => r.cle === cible.cle), 'il sort de la liste')
+  const range = apres.flux.support.traites.find((r) => r.cle === cible.cle)
+  assert.ok(range, 'et se retrouve parmi les traités')
+  assert.equal(range.message, cible.message, 'avec son message intact')
+  assert.equal(range.traite.par, 'admin@example.com', 'on sait qui l’a traité')
+  assert.equal(journal().length, lignesAvant, 'le journal reste en ajout seul, rien n’y est retiré')
+  assert.equal(apres.flux.support.recus30j, avant.flux.support.recus30j, 'et le compte ne bouge pas')
+})
+
+test('on peut rouvrir un retour classé trop vite', async () => {
+  const cible = (await apercu()).flux.support.traites[0]
+  assert.equal((await traiter(cible.cle, false)).status, 200)
+  const apres = await apercu()
+  assert.ok(apres.flux.support.aTraiter.some((r) => r.cle === cible.cle), 'il revient à traiter')
+  assert.ok(!apres.flux.support.traites.some((r) => r.cle === cible.cle))
+})
+
+test('seul un administrateur peut traiter', async () => {
+  const cible = (await apercu()).flux.support.aTraiter[0]
+  const res = await fetch(`${BASE}/api/admin/support/${encodeURIComponent(cible.cle)}/traite`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: cookie('quidam@example.com') },
+    body: JSON.stringify({ traite: true }),
+  })
+  assert.equal(res.status, 403)
+  // Et la décision est bien côté serveur : le retour n'a pas bougé.
+  assert.ok((await apercu()).flux.support.aTraiter.some((r) => r.cle === cible.cle))
+})
+
+test('sans session, c’est refusé aussi', async () => {
+  const cible = (await apercu()).flux.support.aTraiter[0]
+  const res = await fetch(`${BASE}/api/admin/support/${encodeURIComponent(cible.cle)}/traite`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ traite: true }),
+  })
+  assert.equal(res.status, 403)
+})
+
+test('une clé inventée est refusée — la table ne se remplit pas de fantômes', async () => {
+  assert.equal((await traiter('s-inexistant-000000', true)).status, 404)
+})
+
+test('un retour reçu avant l’ajout des identifiants se traite par son horodatage', async () => {
+  // Les entrées écrites avant le 22/09/2026 n'ont pas de champ `id`. Elles
+  // doivent rester traitables, sans quoi la fonction n'arriverait que pour
+  // les retours à venir.
+  const f = join(process.env.DATA_DIR, 'events-support.jsonl')
+  const ancien = { ts: Date.now() - 2 * 24 * 3600 * 1000, email: 'ancien@example.com', intention: 'bug', message: 'reçu avant' }
+  appendFileSync(f, JSON.stringify(ancien) + '\n', 'utf8')
+
+  const vue = await apercu()
+  const cible = vue.flux.support.aTraiter.find((r) => r.message === 'reçu avant')
+  assert.ok(cible, 'le retour ancien est bien listé')
+  assert.equal(cible.cle, String(ancien.ts), 'son horodatage lui sert de clé')
+  assert.equal((await traiter(cible.cle, true)).status, 200)
+  assert.ok((await apercu()).flux.support.traites.some((r) => r.cle === String(ancien.ts)))
 })
 
 test.after(async () => {

@@ -12,6 +12,7 @@ import { Metrics } from './metrics.js'
 import { Uploads } from './uploads.js'
 import { Users } from './users.js'
 import { Typst, TypstError } from './typst.js'
+import { SupportTraites, cleDuRetour } from './supportTraites.js'
 import { apercu } from './admin.js'
 import { Publications, peutPublier, porteePublication, NOM_PAGE } from './publication.js'
 import { createGzip } from 'node:zlib'
@@ -177,6 +178,7 @@ const uploads = new Uploads(DATA_DIR, {
 const publications = new Publications(DATA_DIR)
 const metrics = new Metrics(DATA_DIR)
 metrics.prune()
+const supportTraites = new SupportTraites(DATA_DIR)
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -615,8 +617,38 @@ const TARIFS_IA = {
     return sendJson(
       res,
       200,
-      apercu({ storage, rooms, metrics, uploads, users, tarifsIA: TARIFS_IA, dataDir: DATA_DIR, waitlistPath: storage.waitlistPath })
+      apercu({
+        storage,
+        rooms,
+        metrics,
+        uploads,
+        users,
+        tarifsIA: TARIFS_IA,
+        dataDir: DATA_DIR,
+        waitlistPath: storage.waitlistPath,
+        supportTraites,
+      })
     )
+  }
+
+  // Marquer un retour comme traité, ou le rouvrir (22/09/2026). C'est la
+  // **première action** du back-office, resté jusqu'ici en lecture seule :
+  // elle ne touche ni aux documents ni aux comptes, et n'écrit que dans une
+  // table annexe — le journal des retours, lui, reste en ajout seul, et rien
+  // de ce qu'une personne a signalé n'est jamais effacé. C'est aussi
+  // pourquoi « traiter » plutôt que « supprimer » : un bug revient parfois
+  // trois semaines plus tard, et il faut pouvoir retrouver son signalement.
+  const supportTraiteMatch = pathname.match(/^\/api\/admin\/support\/([^/]{1,60})\/traite$/)
+  if (supportTraiteMatch && req.method === 'POST') {
+    if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    const body = await readJsonBody(req)
+    const cle = decodeURIComponent(supportTraiteMatch[1])
+    // Le retour doit exister : sans cette vérification, la table se
+    // remplirait de clés inventées, et l'on ne s'en apercevrait jamais.
+    const connus = new Set(metrics.read('support', 0).map((r) => cleDuRetour(r)))
+    if (!connus.has(cle)) return sendJson(res, 404, { error: 'retour introuvable' })
+    supportTraites.marquer(cle, readSession(req), body.traite !== false)
+    return sendJson(res, 200, { ok: true, traite: body.traite !== false })
   }
 
   // --- Authentification (voir claude/conception-gestion-utilisateurs.md,
@@ -1002,7 +1034,11 @@ const TARIFS_IA = {
       return sendJson(res, 429, { error: 'trop de messages envoyés — réessayez dans une heure' })
     }
 
-    metrics.log('support', { email, intention, message, ...contexte })
+    // Un identifiant propre depuis le 22/09/2026 : c'est lui que vise le
+    // bouton « Traiter » du back-office. Les retours reçus avant n'en ont
+    // pas, et sont désignés par leur horodatage (voir cleDuRetour).
+    const idRetour = `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    metrics.log('support', { id: idRetour, email, intention, message, ...contexte })
 
     const titres = { question: 'Question', idee: 'Proposition', bug: 'Signalement de bug' }
     const lignes = [

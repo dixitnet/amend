@@ -1,7 +1,13 @@
-// Back-office (page #/admin) — lecture seule, réservé aux administrateurs.
-// Voir claude/conception-backoffice.md : trois blocs (utilisateurs,
-// documents, serveur) et aucune action, pour n'ouvrir aucune surface
-// nouvelle. Aucun contenu de document n'est affiché, titres exceptés.
+// Back-office (page #/admin), réservé aux administrateurs. Voir
+// claude/conception-backoffice.md : trois blocs (utilisateurs, documents,
+// serveur). Aucun contenu de document n'est affiché, titres exceptés.
+//
+// Une seule action depuis le 22/09/2026 : marquer un retour comme traité.
+// Le parti pris « aucune action » tenait tant que la page ne servait qu'à
+// regarder ; dès qu'elle sert à **travailler** une liste, ne pas pouvoir
+// dire « celui-ci, c'est fait » la rend inutilisable au bout de trente
+// retours. C'est la seule action, elle n'écrit que dans une table annexe,
+// et elle se défait.
 
 const NBSP = ' '
 
@@ -48,6 +54,62 @@ function chiffre(valeur, libelle, precision) {
   }</div>`
 }
 
+/** Une ligne de retour. `traite` bascule le libellé du bouton : la même
+ * action dans les deux sens, parce qu'on se trompe, et qu'un retour classé
+ * trop vite doit pouvoir revenir. */
+function ligneRetour(r) {
+  const intitule = { question: 'Question', idee: 'Idée', bug: 'Bug' }[r.intention] || r.intention || '—'
+  const contexte = [
+    r.docId ? `<a href="#/doc/${esc(r.docId)}">document</a>${r.role ? ` (${esc(r.role)})` : ''}` : '',
+    r.navigateur ? `<span title="${esc(r.navigateur)}">navigateur</span>` : '',
+    r.erreurs && r.erreurs.length
+      ? `<span class="bo-attente" title="${esc(r.erreurs.join(' | '))}">${r.erreurs.length} erreur(s)</span>`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return `<tr class="${r.traite ? 'bo-traite' : ''}">
+    <td>${date(r.ts)}</td>
+    <td>${esc(r.email || '—')}</td>
+    <td>${esc(intitule)}</td>
+    <td class="bo-message">${esc(r.message || '')}</td>
+    <td class="bo-contexte">${contexte}</td>
+    <td><button type="button" class="bo-action" data-cle="${esc(r.cle)}" data-traite="${
+    r.traite ? 'oui' : 'non'
+  }">${r.traite ? 'Rouvrir' : 'Traiter'}</button></td>
+  </tr>`
+}
+
+function tableRetours(lignes) {
+  return `<table class="bo-table">
+    <thead><tr><th>Quand</th><th>Qui</th><th>Quoi</th><th>Message</th><th>Contexte</th><th></th></tr></thead>
+    <tbody>${lignes.map(ligneRetour).join('')}</tbody>
+  </table>`
+}
+
+function sectionRetours(support) {
+  if (!support) return ''
+  const aTraiter = support.aTraiter || []
+  const traites = support.traites || []
+  if (!aTraiter.length && !traites.length) return ''
+  return `<h2>Retours reçus</h2>
+    <p class="bo-note">${nombre(support.recus7j)} sur 7 jours, ${nombre(
+    support.recus30j
+  )} sur 30. Envoyés par la palette de contact, conservés ici même si le courrier n'est pas parti.</p>
+    ${
+      aTraiter.length
+        ? tableRetours(aTraiter)
+        : '<p class="bo-note">Tout est traité.</p>'
+    }
+    ${
+      traites.length
+        ? `<details class="bo-traites"><summary>${nombre(traites.length)} déjà traité(s)</summary>${tableRetours(
+            traites
+          )}</details>`
+        : ''
+    }`
+}
+
 export async function mountAdmin(root) {
   root.innerHTML = '<div class="home"><p>Chargement…</p></div>'
   const res = await fetch('/api/admin/overview')
@@ -71,36 +133,7 @@ export async function mountAdmin(root) {
       <h1>Back-office</h1>
       <p class="bo-note">Vue au ${new Date(d.genereLe).toLocaleString('fr-FR')}. Lecture seule.</p>
 
-      ${
-        f.support && f.support.derniers.length
-          ? `<h2>Retours reçus</h2>
-      <p class="bo-note">${nombre(f.support.recus7j)} sur 7 jours, ${nombre(
-              f.support.recus30j
-            )} sur 30. Envoyés par la palette de contact, conservés ici même si le courrier n'est pas parti.</p>
-      <table class="bo-table">
-        <thead><tr><th>Quand</th><th>Qui</th><th>Quoi</th><th>Message</th><th>Contexte</th></tr></thead>
-        <tbody>${f.support.derniers
-          .map(
-            (r) => `<tr>
-              <td>${date(r.ts)}</td>
-              <td>${esc(r.email || '—')}</td>
-              <td>${esc({ question: 'Question', idee: 'Idée', bug: 'Bug' }[r.intention] || r.intention || '—')}</td>
-              <td class="bo-message">${esc(r.message || '')}</td>
-              <td class="bo-contexte">${[
-                r.docId ? `<a href="#/doc/${esc(r.docId)}">document</a>${r.role ? ` (${esc(r.role)})` : ''}` : '',
-                r.navigateur ? `<span title="${esc(r.navigateur)}">navigateur</span>` : '',
-                r.erreurs && r.erreurs.length
-                  ? `<span class="bo-attente" title="${esc(r.erreurs.join(' | '))}">${r.erreurs.length} erreur(s)</span>`
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' · ')}</td>
-            </tr>`
-          )
-          .join('')}</tbody>
-      </table>`
-          : ''
-      }
+      ${sectionRetours(f.support)}
 
       <h2>Utilisateurs</h2>
       <p class="bo-note"><a href="#/inscrits">Voir la liste d'attente →</a></p>
@@ -275,4 +308,30 @@ export async function mountAdmin(root) {
   }.</p>
     </div>
   `
+
+  // Un seul écouteur sur la racine plutôt qu'un par bouton : la page est
+  // rendue d'un bloc par `innerHTML`, et des écouteurs posés sur les
+  // boutons disparaîtraient au prochain rendu.
+  root.addEventListener('click', async (e) => {
+    const bouton = e.target.closest('.bo-action')
+    if (!bouton) return
+    const cle = bouton.dataset.cle
+    const traite = bouton.dataset.traite !== 'oui'
+    bouton.disabled = true
+    try {
+      const reponse = await fetch(`/api/admin/support/${encodeURIComponent(cle)}/traite`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ traite }),
+      })
+      if (!reponse.ok) throw new Error('refus du serveur')
+      // On relit la page entière : le retour change de table, et les
+      // compteurs avec lui. Redessiner à la main ce que le serveur sait
+      // calculer serait deux vérités à tenir d'accord.
+      await mountAdmin(root)
+    } catch {
+      bouton.disabled = false
+      bouton.textContent = 'Échec — réessayer'
+    }
+  })
 }

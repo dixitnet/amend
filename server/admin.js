@@ -5,6 +5,7 @@
 
 import { statSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { cleDuRetour } from './supportTraites.js'
 
 const JOUR = 24 * 60 * 60 * 1000
 
@@ -71,7 +72,7 @@ function enEuros(entree, sortie, tarifs) {
   return Math.round(Math.max(0, brut) * 10000) / 10000
 }
 
-export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, dataDir, waitlistPath }) {
+export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, dataDir, waitlistPath, supportTraites }) {
   const docs = storage.allDocs()
   // Les comptes (data/users.json) : pour l'instant juste le nom affiché et
   // la couleur. C'est ici qu'on vient lire un nom mal saisi tant qu'il n'y a
@@ -240,14 +241,26 @@ export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, data
     // ici *en plus* du courrier : Mailgun est l'unique porte d'entrée de
     // l'application, et un signalement qui ne serait qu'un email disparaît
     // avec lui. Les vingt derniers, le plus récent en tête.
-    support: {
-      recus7j: metrics.read('support', depuis(7)).length,
-      recus30j: metrics.read('support', depuis(30)).length,
-      derniers: metrics
-        .read('support', depuis(30))
-        .slice(-20)
-        .reverse(),
-    },
+    support: (() => {
+      const table = supportTraites ? supportTraites.tous() : {}
+      // Chaque retour porte son état de traitement — c'est la seule
+      // information que le back-office ajoute au journal, et elle vit dans
+      // un fichier à part (voir supportTraites.js).
+      const avecEtat = (r) => {
+        const cle = cleDuRetour(r)
+        return { ...r, cle, traite: table[cle] || null }
+      }
+      const trente = metrics.read('support', depuis(30)).map(avecEtat)
+      return {
+        recus7j: metrics.read('support', depuis(7)).length,
+        recus30j: trente.length,
+        // Les non traités d'abord, quelle que soit leur date : c'est la
+        // seule liste qu'on ouvre le back-office pour lire. Les traités
+        // suivent, toujours consultables.
+        aTraiter: trente.filter((r) => !r.traite).slice(-40).reverse(),
+        traites: trente.filter((r) => r.traite).slice(-40).reverse(),
+      }
+    })(),
   }
 
   // --- Serveur

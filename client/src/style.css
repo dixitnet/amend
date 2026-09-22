@@ -2343,3 +2343,24 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   min-height: 44px;
   padding: 0 18px;
 }
+
+/* --- Back-office : traiter un retour (22/09/2026) ------------------------ */
+.bo-action {
+  width: auto;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bo-action:hover { background: var(--border); }
+.bo-action:disabled { opacity: 0.5; cursor: default; }
+/* Un retour traité reste lisible, mais cesse de réclamer l'attention. */
+tr.bo-traite { opacity: 0.6; }
+.bo-traites { margin-top: 12px; }
+.bo-traites summary { cursor: pointer; color: var(--muted); font-size: 13px; }
