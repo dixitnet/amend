@@ -320,6 +320,39 @@ function mountAppHome(root, email) {
   })
   wrap.appendChild(form)
 
+  // Créer depuis un téléphone (23/09/2026) : un bouton rond en bas à
+  // droite, et le document s'ouvre tout de suite, sans titre. Saisir un
+  // titre dans un champ avant même d'avoir écrit une ligne est une friction
+  // d'ordinateur ; sur téléphone on ouvre, on écrit, et l'on nomme en
+  // touchant le titre — c'est ce que fait l'éditeur depuis l'interface
+  // iPhone. Le formulaire complet reste sur grand écran (masqué en CSS
+  // ici), où il ne coûte rien.
+  const creerFab = document.createElement('button')
+  creerFab.type = 'button'
+  creerFab.className = 'doc-fab'
+  creerFab.textContent = '+'
+  creerFab.setAttribute('aria-label', 'Nouveau document')
+  creerFab.onclick = async () => {
+    creerFab.disabled = true
+    try {
+      const res = await fetch('/api/docs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: '' }),
+      })
+      if (res.status === 401) {
+        location.hash = '#/login'
+        return
+      }
+      if (!res.ok) return
+      const doc = await res.json()
+      location.hash = `#/doc/${doc.id}`
+    } finally {
+      creerFab.disabled = false
+    }
+  }
+  wrap.appendChild(creerFab)
+
   const titreListe = document.createElement('h2')
   // Pas `doc-list-title` : cette classe désigne déjà le titre de chaque
   // document dans la liste (voir plus bas). La réutiliser appliquait à

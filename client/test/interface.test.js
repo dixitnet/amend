@@ -280,6 +280,45 @@ test('sur iPhone : un en-tête de trois éléments, un crayon, et rien d’autre
 })
 
 
+test('sur iPhone, la liste des documents offre un bouton rond pour créer', async () => {
+  // Le pendant du crayon de l'éditeur : on ouvre d'abord, on nomme ensuite.
+  // Le formulaire titré reste dans la page pour le grand écran (masqué en
+  // CSS), donc ce test vérifie la présence du bouton et son action, pas
+  // l'absence du formulaire — une règle CSS ne se teste pas ici.
+  const dom = installerDom()
+  await oublierLaSession()
+  let creation = null
+  globalThis.fetch = async (url, options) => {
+    const chemin = String(url)
+    if (chemin.includes('/api/auth/me')) {
+      return { ok: true, status: 200, json: async () => ({ email: 'moi@example.com', admin: false }) }
+    }
+    if (chemin === '/api/docs' && options && options.method === 'POST') {
+      creation = JSON.parse(options.body)
+      return { ok: true, status: 200, json: async () => ({ id: 'nouveau123456' }) }
+    }
+    if (chemin.includes('/api/docs')) {
+      return { ok: true, status: 200, json: async () => ({ docs: [] }) }
+    }
+    return { ok: true, status: 200, json: async () => ({}) }
+  }
+  const guetteur = surveillerLesErreurs()
+  const { mountHome } = await import('../src/home.js')
+  const racine = dom.window.document.getElementById('app')
+  await mountHome(racine)
+  await respirer()
+
+  assert.deepEqual(guetteur.fin(), [], 'une erreur au montage de la liste')
+  const fab = racine.querySelector('.doc-fab')
+  assert.ok(fab, 'le bouton de création')
+  assert.equal(fab.getAttribute('aria-label'), 'Nouveau document')
+
+  fab.dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  await respirer()
+  assert.deepEqual(creation, { title: '' }, 'on crée sans titre, on nommera dans l’éditeur')
+  assert.equal(dom.window.location.hash, '#/doc/nouveau123456', 'et le document s’ouvre')
+})
+
 test('la liste des documents se monte pour une personne connectée', async () => {
   const dom = installerDom()
   await oublierLaSession()

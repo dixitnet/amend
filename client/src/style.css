@@ -2506,3 +2506,99 @@ tr.bo-traite { opacity: 0.6; }
   }
   .tel-menu-suivi .track-toggle input { width: 22px; height: 22px; }
 }
+
+/* ======================================================================
+   « Mes documents » sur iPhone (23/09/2026).
+
+   Même principe que l'éditeur : ce n'est pas la page de bureau rétrécie,
+   c'est une liste qu'on parcourt au pouce. Une ligne par document sur deux
+   niveaux — le nom, puis la date —, un bouton rond pour créer, et rien
+   d'autre. Les réglages d'instance, la suppression et le formulaire de
+   création titré restent sur grand écran, où ils ne gênent personne.
+   ====================================================================== */
+@media (max-width: 700px) {
+  .home {
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px
+      calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Ce qui n'a pas sa place ici. */
+  .home > .subtitle,
+  .home > .style-admin-link,
+  .home > .new-doc-form,
+  .doc-list .delete-doc-btn {
+    display: none;
+  }
+  .home > h1 { margin: 0 0 10px; }
+  .auth-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .auth-status a { margin-left: 0; }
+
+  /* Une ligne = deux niveaux, et toute la ligne est touchable. La grille de
+     trois colonnes du bureau poussait la date hors de l'écran dès qu'un
+     titre était un peu long. */
+  .doc-list li {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 0;
+  }
+  .doc-list-title {
+    min-height: 52px;
+    gap: 8px;
+    padding-top: 8px;
+  }
+  /* Le lien occupe toute la largeur restante : on vise le nom, pas une
+     zone de texte de deux millimètres de haut. */
+  .doc-list-title > a {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 0;
+    font-size: 16px;
+  }
+  .doc-list li > .doc-date {
+    text-align: left;
+    padding-bottom: 10px;
+    font-size: 12px;
+  }
+  .star-btn { min-width: 40px; min-height: 40px; font-size: 20px; }
+  .doc-list-heading { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+
+  /* Le bouton de création : même geste que le crayon de l'éditeur, même
+     place, pour qu'on n'ait pas à réapprendre d'un écran à l'autre. */
+  .doc-fab {
+    position: fixed;
+    right: 18px;
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    z-index: 45;
+    width: 56px;
+    height: 56px;
+    border: none;
+    border-radius: 28px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 28px;
+    line-height: 1;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 26%);
+    cursor: pointer;
+  }
+  .doc-fab:disabled { opacity: 0.6; }
+
+  /* La palette « Un retour ? » quitte le téléphone (demande du 23/09) :
+     un bouton flottant permanent au-dessus du texte, sur un écran de cette
+     taille, prend la place de ce qu'on est venu lire. Elle reste entière
+     sur ordinateur, où la phase de test en a besoin. */
+  .contact-hote { display: none; }
+}
+
+/* Sur grand écran, le bouton rond n'a pas lieu d'être : le formulaire de
+   création est juste au-dessus de la liste. */
+.doc-fab { display: none; }
+@media (max-width: 700px) {
+  .doc-fab { display: block; }
+}

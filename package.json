@@ -11,7 +11,7 @@
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "build:client": "cd client && npm install && npm run build",
-    "test:server": "node --test server/test/*.test.js",
+    "test:server": "node --test --test-concurrency=1 server/test/*.test.js",
     "loadtest": "node tools/loadtest.js"
   },
   "devDependencies": {
