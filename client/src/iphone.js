@@ -58,6 +58,7 @@ export function monterInterfaceTelephone(pieces) {
     estCorrecteur,
     nbCommentaires,
     ouvrirCommentaire,
+    outilsEssentiels = [],
   } = pieces
 
   let mode = 'lecture'
@@ -79,7 +80,50 @@ export function monterInterfaceTelephone(pieces) {
   plus.textContent = '⋯'
   plus.setAttribute('aria-label', 'Plus')
 
-  entete.append(gauche, titre, plus)
+  // --- Les outils essentiels, dans l'en-tête (23/09/2026).
+  //
+  // Pourquoi là, et pas au-dessus du clavier comme le font Google Docs ou
+  // Obsidian : sur un iPhone, Safari intercale déjà **deux** rangées à
+  // nous entre le texte et le clavier — la pastille du site et sa barre de
+  // formulaire (∧ ∨ ✓) — qu'aucune API ne permet de retirer. Une troisième
+  // rangée à nous ne laissait plus que trois lignes de texte visibles.
+  // L'en-tête, lui, existe de toute façon : il accueille les deux ou trois
+  // gestes de frappe, et le reste part dans le menu ⋯.
+  const outils = document.createElement('div')
+  outils.className = 'tel-outils'
+  const placeDesOutils = new Map()
+  for (const b of outilsEssentiels) {
+    if (b) placeDesOutils.set(b, { parent: b.parentNode, voisin: b.nextSibling })
+  }
+
+  const filBouton = document.createElement('button')
+  filBouton.type = 'button'
+  filBouton.className = 'tel-outil'
+  filBouton.textContent = '💬'
+  filBouton.title = 'Commentaires'
+  filBouton.setAttribute('aria-label', 'Commentaires')
+  filBouton.onclick = () => ouvrirCommentaire()
+
+  function prendreLesOutils() {
+    for (const b of outilsEssentiels) if (b) outils.appendChild(b)
+    outils.appendChild(filBouton)
+  }
+  function rendreLesOutils() {
+    // Rendus exactement à leur place : ce sont les boutons de l'éditeur,
+    // pas des copies, et leur ordre dans la barre a un sens.
+    // À rebours : le voisin de droite du premier bouton est le second, qui
+    // n'est de retour qu'une fois traité. Dans l'autre sens, le navigateur
+    // jette « The child can not be found in the parent ».
+    for (const b of [...outilsEssentiels].reverse()) {
+      const place = placeDesOutils.get(b)
+      if (!place || !place.parent) continue
+      const voisin = place.voisin && place.voisin.parentNode === place.parent ? place.voisin : null
+      place.parent.insertBefore(b, voisin)
+    }
+    filBouton.remove()
+  }
+
+  entete.append(gauche, titre, outils, plus)
 
   // --- Le crayon : en lecture seulement, en bas à droite, là où le pouce
   // arrive. C'est le geste d'entrée dans l'écriture.
@@ -143,6 +187,14 @@ export function monterInterfaceTelephone(pieces) {
       return b
     }
 
+    if (mode === 'edition') {
+      entree('Mise en forme', () => {
+        // Même principe que le plan : la barre est **déménagée**, pas
+        // recopiée. Ses boutons gardent leurs gestionnaires et leur état.
+        ouvrirBarreOutils()
+      })
+    }
+
     entree('Plan du document', () => {
       // `ouvrirPlan` ferme cette feuille en s'ouvrant : jamais deux
       // feuilles empilées (voir feuille.js).
@@ -174,6 +226,20 @@ export function monterInterfaceTelephone(pieces) {
     })
   }
 
+  /** La barre d'outils au complet, le temps d'une feuille. */
+  function ouvrirBarreOutils() {
+    const place = toolbar.parentNode
+    const voisin = toolbar.nextSibling
+    ouvrirFeuille('Mise en forme', {
+      hauteur: 0.4,
+      surFermeture() {
+        toolbar.classList.remove('barre-dans-feuille')
+        if (place) place.insertBefore(toolbar, voisin)
+      },
+    }).corps.appendChild(toolbar)
+    toolbar.classList.add('barre-dans-feuille')
+  }
+
   // --- Le passage d'un mode à l'autre.
   function appliquer() {
     const view = getView()
@@ -182,6 +248,8 @@ export function monterInterfaceTelephone(pieces) {
     gauche.textContent = mode === 'edition' ? '✓' : '‹'
     gauche.setAttribute('aria-label', mode === 'edition' ? 'Terminer' : 'Mes documents')
     if (view) view.setProps({ editable: () => mode === 'edition' })
+    if (mode === 'edition') prendreLesOutils()
+    else rendreLesOutils()
     reglerLaZoneVisible()
   }
 
@@ -220,14 +288,9 @@ export function monterInterfaceTelephone(pieces) {
   // sont des propositions, c'est le suivi qui s'en charge, pas le mode.
   racine.prepend(entete)
   racine.appendChild(crayon)
-  // La barre d'outils doit rester au-dessus du clavier. Sur iPhone, ni
-  // `dvh` ni `env(keyboard-inset-height)` ne le permettent — voir
-  // clavier.js, qui mesure ce que le clavier recouvre réellement.
-  // Combien de pixels, en bas, sont pris par la barre d'outils : c'est ce
-  // que ProseMirror doit retrancher de la zone qu'il croit visible.
-  // Ce qui, en bas, recouvre réellement le texte. La barre d'outils, elle,
-  // est dans le flux (voir style.css) : elle ne recouvre rien. Reste le
-  // crayon, en lecture, et c'est tout — mais la règle est écrite une fois
+  // Ce qui, en bas, recouvre réellement le texte. En écriture, plus rien : la
+  // barre a quitté le bas de l'écran pour l'en-tête. Reste le crayon, en
+  // lecture, et c'est tout — mais la règle est écrite une fois
   // pour toutes, de sorte qu'une future barre flottante s'y range aussi.
   const hauteurCouvrante = () => {
     const flottants = mode === 'lecture' ? [crayon] : []
@@ -269,6 +332,7 @@ export function monterInterfaceTelephone(pieces) {
     estEnEdition: () => mode === 'edition',
     demonter() {
       arreterLeSuivi()
+      rendreLesOutils()
       entete.remove()
       crayon.remove()
       // L'interrupteur est rendu à l'éditeur, qui le remettra en tête de

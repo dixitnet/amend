@@ -205,7 +205,7 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   if (editeur && editeur.destroy) editeur.destroy()
 })
 
-test('sur iPhone : un en-tête de trois éléments, un crayon, et rien d’autre', async () => {
+test('sur iPhone : un en-tête sobre, un crayon, et rien d’autre', async () => {
   // L'interface téléphone n'est pas l'interface de bureau en plus étroit :
   // on lit, ou on écrit (voir iphone.js). Ce test vérifie surtout des
   // **absences** — c'est là tout le propos.
@@ -240,7 +240,9 @@ test('sur iPhone : un en-tête de trois éléments, un crayon, et rien d’autre
 
   const entete = racine.querySelector('.tel-entete')
   assert.ok(entete, 'l’en-tête du téléphone')
-  assert.equal(entete.children.length, 3, 'trois éléments, jamais plus')
+  // Retour, titre, les outils de frappe, le menu — et jamais plus.
+  assert.equal(entete.children.length, 4, 'quatre éléments, jamais plus')
+  assert.equal(racine.querySelector('.tel-outils').children.length, 0, 'aucun outil tant qu’on lit')
   assert.equal(racine.querySelector('.tel-titre').textContent, 'Essai')
   assert.ok(racine.querySelector('.tel-crayon'), 'le crayon, porte d’entrée de l’écriture')
 
@@ -252,14 +254,28 @@ test('sur iPhone : un en-tête de trois éléments, un crayon, et rien d’autre
   racine.querySelector('.tel-crayon').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
   assert.ok(racine.querySelector('.app-shell').classList.contains('tel-edition'))
   assert.equal(editeur.view.props.editable(), true)
+  // Les outils essentiels montent dans l'en-tête : la barre du bas ne
+  // dispute plus sa rangée aux deux que Safari s'y réserve déjà.
+  const outils = racine.querySelector('.tel-outils')
+  assert.ok(outils.children.length >= 3, 'gras, italique et les commentaires')
+  assert.ok([...outils.children].some((b) => b.textContent === 'B'), 'le vrai bouton gras, déménagé')
+  assert.equal(racine.querySelectorAll('.format-toolbar [title^="gras"]').length, 0, 'et non recopié')
   // Le passage en écriture rend la main au navigateur avant de reprendre le
   // focus (voir iphone.js) : sans ce tour de boucle, Safari continue de
   // traiter le texte comme non modifiable et toucher un mot ne déplace pas
   // le curseur. On vérifie donc que la mise au point arrive **après**, et
   // pas dans le même temps.
   await respirer()
+  // Le menu d'écriture donne accès au reste de la mise en forme.
+  racine.querySelector('.tel-plus').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  assert.match(dom.window.document.querySelector('.feuille').textContent, /Mise en forme/)
+  dom.window.document.querySelector('.feuille-fermer').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+
   racine.querySelector('.tel-gauche').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
   assert.ok(racine.querySelector('.app-shell').classList.contains('tel-lecture'))
+  // Et les boutons sont rendus à la barre en quittant l'écriture.
+  assert.equal(racine.querySelector('.tel-outils').children.length, 0)
+  assert.equal(racine.querySelectorAll('.format-toolbar [title^="gras"]').length, 1, 'rendu à sa place')
 
   // L'interrupteur du suivi n'existe qu'une fois, et il est dans le menu.
   assert.equal(racine.querySelectorAll('.track-toggle').length, 0, 'pas dans la page')

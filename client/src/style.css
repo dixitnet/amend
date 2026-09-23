@@ -2393,6 +2393,51 @@ tr.bo-traite { opacity: 0.6; }
   /* --- Ce qui disparaît du téléphone. Rien n'est retiré du code ni du
      serveur : ces fonctions restent entières sur un écran d'ordinateur. */
   .tel-lecture .top-banner,
+  /* --- Les outils dans l'en-tête, et plus de rangée en bas -------------
+     Safari s'intercale déjà avec deux rangées à lui entre le texte et le
+     clavier (la pastille du site et la barre ∧ ∨ ✓), qu'aucune API ne
+     permet de retirer. Une troisième, la nôtre, ne laissait plus que trois
+     lignes de texte. Elle passe donc dans l'en-tête, qui existe de toute
+     façon, et le reste dans le menu ⋯. */
+  .tel-outils { display: none; }
+  .tel-edition .tel-outils {
+    display: flex;
+    gap: 4px;
+    /* Le titre s'efface en écriture : ce sont les outils qui tiennent le
+       centre, sans quoi tout l'en-tête se tasse à gauche. */
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+  }
+  .tel-edition .tel-outils .btn-tool,
+  .tel-outil {
+    min-width: 40px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    font-size: 17px;
+    cursor: pointer;
+  }
+  .tel-edition .tel-outils .btn-tool.actif { background: var(--bg); color: var(--accent); }
+  /* Le titre cède la place : il reste lisible en lecture, et dans le menu. */
+  .tel-edition .tel-titre { display: none; }
+  /* La barre d'outils ne s'affiche plus qu'une fois déménagée dans sa
+     feuille — jamais au bas de l'écran. */
+  .tel-edition .format-toolbar { display: none; }
+  .tel-edition .format-toolbar.barre-dans-feuille {
+    display: flex;
+    position: static;
+    border: none;
+    background: none;
+    padding: 0;
+  }
+
   .tel-edition .top-banner,
   .tel-lecture .format-toolbar,
   .tel-lecture .marge-commentaires,
@@ -2401,11 +2446,7 @@ tr.bo-traite { opacity: 0.6; }
   .tel-edition .sidebar,
   .tel-lecture .outline-sidebar,
   .tel-edition .outline-sidebar,
-  /* Insertion, mise en forme du document, sorties : hors du téléphone. */
-  .tel-edition .barre-onglets,
-  .tel-edition .barre-groupe[data-groupe='inserer'],
-  .tel-edition .zoom-select,
-  .tel-edition .heading-select + .btn-tool[title^='liste à cocher'] {
+  .tel-edition .zoom-select {
     display: none !important;
   }
 
@@ -2470,22 +2511,12 @@ tr.bo-traite { opacity: 0.6; }
      pas un document sous un bouton. */
   .tel-lecture .editor-container { padding-bottom: 96px; }
 
-  /* --- En écriture : une seule rangée, au ras du clavier, qu'on fait
-     défiler du doigt si elle déborde — le geste d'Obsidian. */
-  .tel-edition .format-toolbar {
-    flex-direction: row;
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-  }
-  .tel-edition .barre-groupe[data-groupe='texte'],
-  .tel-edition .barre-groupe[data-groupe='relire'] {
-    display: flex;
-    flex: 0 0 auto;
-  }
-  .tel-edition .format-toolbar {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .tel-edition .format-toolbar::-webkit-scrollbar { display: none; }
+  /* --- Dans la feuille « Mise en forme », la barre retrouve la place
+     qu'elle n'avait pas au bas de l'écran : ses trois onglets, le groupe
+     « Insérer » et les listes à cocher reviennent. */
+  .barre-dans-feuille .barre-onglets { display: flex; }
+  .barre-dans-feuille .barre-groupe { overflow-x: auto; }
+  .barre-dans-feuille .barre-groupe::-webkit-scrollbar { display: none; }
   .tel-edition .editor-container { padding-bottom: 24px; }
 
   /* --- Le menu ⋯ */

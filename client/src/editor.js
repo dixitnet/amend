@@ -1239,6 +1239,10 @@ export function mountEditor(root, docId, user, docMeta) {
         getView: () => view,
         estCorrecteur: () => docMeta.myRole === 'correcteur',
         nbCommentaires: () => commentairesAncres(commentsMap).length,
+        // Les deux gestes de frappe qui montent dans l'en-tête du
+        // téléphone. Ce sont les boutons eux-mêmes : ils y gardent leur
+        // état actif et reviennent dans la barre en quittant l'écriture.
+        outilsEssentiels: [boldBtn, italicBtn],
         ouvrirCommentaire: () => {
           const id =
             commentaireAuPoint(view.state, ydoc, commentsMap, view.state.selection.head) ||
