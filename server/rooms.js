@@ -4,8 +4,10 @@
 //
 // Wire protocol on the WebSocket, by frame type:
 //   binary frame  -> a raw Yjs update (opaque bytes, persisted + relayed)
-//   text frame    -> a JSON control message, currently only:
+//   text frame    -> a JSON control message :
 //                    { type: 'awareness', payload: <any> } (relayed as-is)
+//                    { type: 'synced' } (envoyé une fois, à la fin du rejeu
+//                    initial — voir join())
 
 export class Rooms {
   constructor(storage) {
@@ -30,6 +32,17 @@ export class Rooms {
     for (const update of this.storage.readUpdates(docId)) {
       conn.send(update, { binary: true })
     }
+    // Fin du rejeu (23/09/2026). Sans ce message, le client n'a **aucun
+    // moyen** de savoir quand le document est complet : il reçoit un flot
+    // d'opérations et les applique une à une, si bien que le texte se
+    // recompose sous les yeux de qui ouvre la page — paragraphe après
+    // paragraphe sur un gros document. C'était le défaut d'ergonomie le
+    // plus voyant de l'application.
+    //
+    // Une ligne de plus dans le protocole, ignorée par un client ancien
+    // (voir _handleText, qui laisse tomber les types inconnus) : le
+    // déploiement peut donc se faire dans n'importe quel ordre.
+    conn.send(JSON.stringify({ type: 'synced' }))
 
     conn.on('message', (data, isBinary) => this._onMessage(docId, member, data, isBinary))
     conn.on('close', () => this._leave(docId, member))

@@ -37,6 +37,21 @@ const DEFAULT_MAX_UNCOMPACTED_OPS = 1000
 // est suivie de ~500 opérations de répit.
 const COMPACTION_TRIGGER_RATIO = 1.5
 
+// Seuil en **octets** (23/09/2026). Compter les opérations ne suffit pas, et
+// les mesures du 23/09 le montrent sans appel : sur le document le plus
+// lourd du Mac de développement, 165 opérations sur 6 827 portaient 94 Mo
+// sur 96. Elles viennent des reconnexions — un client qui a des
+// modifications en attente renvoie l'état **entier** du document
+// (provider.js), et le serveur, qui ne sait pas lire une opération Yjs, ne
+// peut pas savoir qu'elle n'apporte rien : il l'ajoute comme les autres.
+//
+// Conséquence : un document ayant subi deux cents reconnexions pèserait
+// 120 Mo pour deux cents opérations — très en dessous du seuil en
+// opérations, donc **jamais compacté**, et rejoué en entier à chaque
+// ouverture. C'est le seul scénario où le stockage pouvait croître sans
+// limite, et il ne demandait qu'un second seuil.
+const DEFAULT_MAX_UNCOMPACTED_BYTES = 4 * 1024 * 1024
+
 // La feuille de style ne vit plus ici : sa définition est dans
 // shared/style.js, importée telle quelle par le serveur ET par le client.
 // Avant le 16/09/2026, DEFAULT_STYLE était recopié à la main des deux
@@ -74,9 +89,17 @@ function proprietaire(meta) {
 }
 
 export class Storage {
-  constructor(dataDir, { maxUncompactedOps = DEFAULT_MAX_UNCOMPACTED_OPS, compactionTrigger } = {}) {
+  constructor(
+    dataDir,
+    {
+      maxUncompactedOps = DEFAULT_MAX_UNCOMPACTED_OPS,
+      compactionTrigger,
+      maxUncompactedBytes = DEFAULT_MAX_UNCOMPACTED_BYTES,
+    } = {}
+  ) {
     this.dataDir = dataDir
     this.maxUncompactedOps = maxUncompactedOps
+    this.maxUncompactedBytes = maxUncompactedBytes
     // Seuil de déclenchement, distinct du nombre d'opérations conservées
     // (voir COMPACTION_TRIGGER_RATIO). Réglable pour les tests.
     this.compactionTrigger = compactionTrigger || Math.ceil(maxUncompactedOps * COMPACTION_TRIGGER_RATIO)
@@ -488,7 +511,13 @@ export class Storage {
     } catch {
       operations = null
     }
-    return { octets, operations, aCompacter: operations !== null && operations > this.compactionTrigger }
+    return {
+      octets,
+      operations,
+      aCompacter:
+        (operations !== null && operations > this.compactionTrigger) ||
+        (octets !== null && octets > this.maxUncompactedBytes),
+    }
   }
 
   /** true si cette adresse a un rôle sur au moins un document — sert de
@@ -785,11 +814,16 @@ export class Storage {
     const times = this._readTimes(id, entries.length)
     const registry = this._readRegistry()
     const meta = registry[id]
+    const octets = entries.length ? entries[entries.length - 1].end : 0
     return {
       count: entries.length,
+      octets,
       maxUncompactedOps: this.maxUncompactedOps,
       compactionTrigger: this.compactionTrigger,
-      needsCompaction: entries.length > this.compactionTrigger,
+      maxUncompactedBytes: this.maxUncompactedBytes,
+      // Deux seuils, et il suffit que l'un soit franchi : beaucoup de
+      // petites frappes, ou peu d'opérations mais très grosses.
+      needsCompaction: entries.length > this.compactionTrigger || octets > this.maxUncompactedBytes,
       oldestTs: times.length ? times[0] : (meta ? meta.createdAt : null),
       newestTs: times.length ? times[times.length - 1] : (meta ? meta.updatedAt : null),
     }

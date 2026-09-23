@@ -13,6 +13,7 @@ import { Uploads } from './uploads.js'
 import { Users } from './users.js'
 import { Typst, TypstError } from './typst.js'
 import { SupportTraites, cleDuRetour } from './supportTraites.js'
+import { Versions } from './versions.js'
 import { apercu } from './admin.js'
 import { Publications, peutPublier, porteePublication, NOM_PAGE } from './publication.js'
 import { createGzip } from 'node:zlib'
@@ -179,6 +180,7 @@ const publications = new Publications(DATA_DIR)
 const metrics = new Metrics(DATA_DIR)
 metrics.prune()
 const supportTraites = new SupportTraites(DATA_DIR)
+const versions = new Versions(DATA_DIR)
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -516,12 +518,26 @@ async function handleApi(req, res, url) {
       return sendJson(res, 400, { error: 'baseTs et keepFromIndex (nombres) requis' })
     }
     try {
+      const instantane = Buffer.from(body.baseSnapshot, 'base64')
       const result = await storage.compactDoc(id, {
-        baseSnapshot: Buffer.from(body.baseSnapshot, 'base64'),
+        baseSnapshot: instantane,
         baseTs: body.baseTs,
         keepFromIndex: body.keepFromIndex,
         expectedTotalBeforeCompaction: body.expectedTotalBeforeCompaction,
       })
+      // Une version enregistrée avant chaque compactage (23/09/2026).
+      // C'est ce que le compactage allait effacer, et le client vient de le
+      // calculer pour nous : ne pas le garder serait jeter la seule mémoire
+      // du document qui existe encore à cet instant. Après la compaction et
+      // non avant : si elle échoue, le journal est intact et il n'y a rien à
+      // sauver.
+      try {
+        versions.enregistrer(id, instantane, { ts: body.baseTs, origine: 'compactage' })
+      } catch (err) {
+        // Best-effort : une version qu'on n'a pas pu écrire ne doit pas
+        // faire échouer une compaction qui, elle, a réussi.
+        console.error(`[versions] échec d'enregistrement pour ${id} :`, err.message)
+      }
       return sendJson(res, 200, result)
     } catch (err) {
       // Journal changé entre-temps (autre compaction, nouvelles frappes) ou

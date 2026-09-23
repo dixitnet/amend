@@ -624,6 +624,10 @@ a { color: var(--accent); }
   padding: 24px 0;
   display: flex;
   justify-content: center;
+  /* Bloc de référence du masque de chargement, qui ne doit couvrir que la
+     zone d'édition — sans cela, `inset: 0` le ferait remonter jusqu'à la
+     fenêtre et masquer aussi le bandeau et les panneaux, qui sont prêts. */
+  position: relative;
 }
 .ProseMirror {
   width: 100%;
@@ -2601,4 +2605,29 @@ tr.bo-traite { opacity: 0.6; }
 .doc-fab { display: none; }
 @media (max-width: 700px) {
   .doc-fab { display: block; }
+}
+
+/* --- Masque de chargement (23/09/2026) -----------------------------------
+   Le serveur rejoue le journal opération par opération : sans ce voile, on
+   voit le document se recomposer en ouvrant la page. Il couvre la zone
+   d'édition, et elle seule — le bandeau, la barre d'outils et les panneaux
+   restent visibles et utilisables, parce qu'ils sont déjà prêts, eux. */
+.masque-chargement {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  transition: opacity 0.2s ease-out;
+}
+.masque-chargement p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.masque-parti { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .masque-chargement { transition: none; }
 }

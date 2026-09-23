@@ -35,6 +35,9 @@ export class SimpleProvider extends EventTarget {
     this.awareness = new Awareness(ydoc)
     this.awareness.setLocalStateField('user', user)
     this.connected = false
+    // Vrai une fois que le serveur a fini de rejouer le journal (message
+    // `synced`). Sert au masque de chargement de l'éditeur.
+    this.synced = false
     this._closedByUser = false
     this._reconnectDelay = 1000
     this._ws = null
@@ -177,6 +180,15 @@ export class SimpleProvider extends EventTarget {
         applyAwarenessUpdate(this.awareness, fromBase64(msg.data), this)
       } catch {
         // ignore malformed awareness payloads
+      }
+    } else if (msg.type === 'synced') {
+      // Le serveur a fini de rejouer le journal : le document est complet.
+      // `synced` reste vrai ensuite — une reconnexion rejoue le journal,
+      // mais on a déjà le document à l'écran, il n'y a plus de masque à
+      // lever.
+      if (!this.synced) {
+        this.synced = true
+        this.dispatchEvent(new Event('synced'))
       }
     } else if (msg.type === 'title' && typeof msg.title === 'string') {
       // Relayed, not persisted here — whoever changed it already saved it

@@ -70,3 +70,49 @@ test('hystérésis : après compaction, le document a de la marge avant la suiva
   await ecrire(storage, doc.id, 2) // 16
   assert.equal(storage.getHistoryMeta(doc.id).needsCompaction, true, 'et redemander une compaction une fois la marge consommée')
 })
+
+// ============================================ le seuil en octets
+
+/** Seuils minuscules : 10 opérations conservées (donc déclenchement à 15),
+ * et 2 ko de journal. */
+function storagePetitsSeuils() {
+  return new Storage(dataDir, { maxUncompactedOps: 10, maxUncompactedBytes: 2048 })
+}
+
+test('un journal lourd est à compacter même avec très peu d’opérations', async () => {
+  // Le scénario mesuré le 23/09 : un client qui se reconnecte renvoie
+  // l'état entier du document, et le serveur — qui ne sait pas lire une
+  // opération Yjs — l'ajoute comme les autres. Trois reconnexions d'un gros
+  // document, et le journal pèse des mégaoctets pour trois opérations. Sans
+  // seuil en octets, il n'était JAMAIS compacté, et rejoué en entier à
+  // chaque ouverture.
+  const storage = storagePetitsSeuils()
+  const id = 'gros-et-court'
+  for (let i = 0; i < 3; i++) storage.appendUpdate(id, Buffer.alloc(1024, i + 1))
+  await storage.flushAll()
+
+  const meta = storage.getHistoryMeta(id)
+  assert.equal(meta.count, 3, 'trois opérations seulement')
+  assert.ok(meta.count < meta.compactionTrigger, 'très en dessous du seuil en opérations')
+  assert.ok(meta.octets > meta.maxUncompactedBytes, 'mais au-dessus du seuil en octets')
+  assert.equal(meta.needsCompaction, true)
+})
+
+test('un journal léger et court n’est pas à compacter', async () => {
+  const storage = storagePetitsSeuils()
+  const id = 'petit-et-court'
+  await ecrire(storage, id, 3)
+  const meta = storage.getHistoryMeta(id)
+  assert.equal(meta.needsCompaction, false)
+  assert.ok(meta.octets < meta.maxUncompactedBytes)
+})
+
+test('le diagnostic du back-office suit la même règle', async () => {
+  // Deux vérités sur « faut-il compacter » finiraient par se contredire.
+  const storage = storagePetitsSeuils()
+  const id = 'diagnostic'
+  for (let i = 0; i < 3; i++) storage.appendUpdate(id, Buffer.alloc(1024, i + 1))
+  await storage.flushAll()
+  assert.equal(storage.getHistoryMeta(id).needsCompaction, true)
+  assert.equal(storage.journalInfo(id).aCompacter, true)
+})

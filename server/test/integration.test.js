@@ -59,6 +59,21 @@ function once(target, event) {
   return new Promise((resolve) => target.addEventListener(event, resolve, { once: true }))
 }
 
+/** Le prochain message **qui n'est pas** la fin du rejeu. Depuis le
+ * 23/09/2026, le serveur clôt le rejeu initial par `{type:'synced'}` (voir
+ * rooms.js) : c'est donc le premier message que reçoit toute connexion, et
+ * les tests qui attendaient « le premier message » attrapaient celui-là. */
+function onceUpdate(target) {
+  return new Promise((resolve) => {
+    const surMessage = (e) => {
+      if (typeof e.data === 'string' && e.data.includes('"synced"')) return
+      target.removeEventListener('message', surMessage)
+      resolve(e)
+    }
+    target.addEventListener('message', surMessage)
+  })
+}
+
 function withTimeout(promise, ms, label) {
   let timer
   const timeout = new Promise((_, reject) => {
@@ -99,7 +114,7 @@ test('relays binary updates between two live clients', async () => {
   await withTimeout(Promise.all([once(alice, 'open'), once(bob, 'open')]), 2000, 'open')
 
   const payload = new Uint8Array([1, 2, 3, 4, 5])
-  const received = withTimeout(once(bob, 'message'), 2000, 'bob message')
+  const received = withTimeout(onceUpdate(bob), 2000, 'bob message')
   alice.send(payload)
   const event = await received
   assert.deepEqual(new Uint8Array(event.data), payload)
@@ -115,7 +130,7 @@ test('relays JSON awareness frames but does not persist them', async () => {
   await withTimeout(Promise.all([once(alice, 'open'), once(bob, 'open')]), 2000, 'open')
 
   const msg = JSON.stringify({ type: 'awareness', payload: { cursor: 42, user: 'Alice' } })
-  const received = withTimeout(once(bob, 'message'), 2000, 'bob awareness')
+  const received = withTimeout(onceUpdate(bob), 2000, 'bob awareness')
   alice.send(msg)
   const event = await received
   assert.equal(event.data, msg)
@@ -128,7 +143,9 @@ test('relays JSON awareness frames but does not persist them', async () => {
   const carol = connect(doc.id, 'Carol')
   await withTimeout(once(carol, 'open'), 2000, 'carol open')
   let gotSomething = false
-  carol.addEventListener('message', () => {
+  carol.addEventListener('message', (e) => {
+    // La fin du rejeu ne compte pas : elle est envoyée à toute connexion.
+    if (typeof e.data === 'string' && e.data.includes('"synced"')) return
     gotSomething = true
   })
   await new Promise((r) => setTimeout(r, 200))
@@ -153,7 +170,10 @@ test('persists binary updates and replays them to a new client', async () => {
 
   const bob = connect(doc.id, 'Bob')
   const seen = []
-  bob.addEventListener('message', (e) => seen.push(new Uint8Array(e.data)))
+  bob.addEventListener('message', (e) => {
+    if (typeof e.data === 'string') return // la fin du rejeu
+    seen.push(new Uint8Array(e.data))
+  })
   await withTimeout(once(bob, 'open'), 2000, 'bob open')
   await new Promise((r) => setTimeout(r, 200))
   assert.equal(seen.length, 2)

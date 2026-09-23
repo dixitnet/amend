@@ -106,8 +106,33 @@ export async function runCompactionIfNeeded(docId) {
     // qui laisse ~500 opérations de répit avant la compaction suivante —
     // sans quoi la première frappe d'après remettait le document « à
     // compacter » et chaque connexion relançait le travail.
-    const keepFromIndex = entries.length - (meta.maxUncompactedOps - 1)
+    let keepFromIndex = entries.length - (meta.maxUncompactedOps - 1)
+
+    // Le poids compte autant que le nombre (23/09/2026). Une compaction
+    // déclenchée par les octets trouve souvent **peu** d'opérations — deux
+    // cents reconnexions à 600 ko, par exemple : la règle au nombre
+    // donnerait alors un index négatif, et l'on repartirait sans rien
+    // faire, en laissant le journal grossir indéfiniment. On remonte donc
+    // aussi depuis la fin en cumulant les tailles réelles, et l'on garde la
+    // borne la plus basse des deux — c'est-à-dire on compacte le plus.
+    const budget = Math.max(1, Math.floor((meta.maxUncompactedBytes || 0) / 2))
+    if (budget > 1) {
+      let cumul = 0
+      let borne = entries.length
+      while (borne > 0) {
+        // base64 : quatre caractères pour trois octets.
+        const taille = Math.ceil((entries[borne - 1].data.length * 3) / 4)
+        if (cumul + taille > budget) break
+        cumul += taille
+        borne--
+      }
+      keepFromIndex = Math.max(keepFromIndex, borne)
+    }
+
+    // Il faut laisser au moins une opération à fusionner, sinon la
+    // « compaction » remplacerait une opération par elle-même.
     if (keepFromIndex <= 0) return
+    if (keepFromIndex > entries.length) return
 
     const scratch = new Y.Doc()
     let baseSnapshot
