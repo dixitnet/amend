@@ -638,16 +638,37 @@ a { color: var(--accent); }
      Exprimée en `rem` depuis le 20/09 : 1,125 rem vaut exactement 18 px sur
      un ordinateur (base de 16), suit la taille de corps réglée sur iPhone
      (base de 17 par défaut, davantage en accessibilité), et suit la taille
-     de base choisie dans un navigateur de bureau. */
-  font-size: 1.125rem;
+     de base choisie dans un navigateur de bureau.
+
+     Multipliée par `--echelle`, que pose la liste de zoom (23/09/2026).
+     Ce n'était pas le cas avant : le zoom passait par la propriété CSS
+     `zoom` sur le conteneur. Elle a un défaut rédhibitoire ici — elle
+     crée un second système de coordonnées. ProseMirror calcule ses
+     défilements en mêlant `getBoundingClientRect`, qui rend des pixels
+     visuels, et `scrollTop`, qui compte dans l'espace zoomé : à 150 %
+     l'écart est d'un facteur et demi, la colonne arrivait au bout de ce
+     qu'elle pouvait défiler et la ligne en cours de frappe passait sous
+     les rangées que Safari ajoute au-dessus du clavier. Signalé par
+     Sylvain, reproduit au banc (défilement 676 sur un maximum de 676).
+
+     Une échelle de corps n'a pas ce défaut : tout reste dans un seul
+     espace. Et elle suffit à tout agrandir, parce que la colonne se
+     mesure en `ch` et les images en pourcentage — elles suivent donc le
+     corps, ce qu'un zoom de navigateur faisait déjà. */
+  font-size: calc(1.125rem * var(--echelle, 1));
   line-height: 1.6;
 }
 .ProseMirror p { margin: 0 0 1em; }
 .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { line-height: 1.25; }
 
+/* Le retrait en `em` et non en pixels (23/09/2026) : depuis que le zoom
+   passe par une échelle de corps et non par la propriété `zoom`, ce qui est
+   exprimé en pixels ne suit plus l'agrandissement. À 150 %, un texte de
+   27 px gardait un retrait de 14 px et les citations se serraient contre
+   leur filet. Le filet, lui, reste à 3 px : un trait est un trait. */
 .ProseMirror blockquote {
   margin: 0 0 1em;
-  padding-left: 14px;
+  padding-left: 0.8em;
   border-left: 3px solid var(--border);
   color: var(--muted);
 }

@@ -162,6 +162,13 @@ const MAX_JSON_BODY = 20_000
 const MAX_COMPACT_BODY = 20_000_000
 // La source Typst d'un livre entier : 531 ko mesurés sur 524 000 signes.
 const MAX_TYPST_BODY = 4_000_000
+// La publication poste le document entier, en blocs structurés : même ordre
+// de grandeur que la source Typst. Elle lisait jusqu'ici avec la limite par
+// défaut, celle d'un champ de formulaire — 20 ko, soit une dizaine de
+// paragraphes. Au-delà, le corps était refusé et, comme la socket était
+// coupée sans réponse (voir readJsonBody), Caddy renvoyait 502. Signalé en
+// production par Sylvain le 23/09/2026.
+const MAX_PUBLICATION_BODY = 4_000_000
 
 const storage = new Storage(DATA_DIR)
 const rooms = new Rooms(storage)
@@ -220,16 +227,27 @@ function readJsonBody(req, maxSize = MAX_JSON_BODY) {
   return new Promise((resolve, reject) => {
     let size = 0
     const chunks = []
+    // `depasse` plutôt que `req.destroy()` (23/09/2026). Couper la socket
+    // ici empêchait la réponse 413 de partir : l'appelant la demandait sur
+    // une connexion déjà morte, le client ne recevait rien, et derrière un
+    // reverse proxy cela se lit « 502 Bad Gateway ». On cesse d'accumuler,
+    // on laisse le reste du corps s'écouler à la poubelle, et la réponse
+    // part normalement.
+    let depasse = false
     req.on('data', (chunk) => {
+      if (depasse) return
       size += chunk.length
       if (size > maxSize) {
+        depasse = true
+        chunks.length = 0
         reject(Object.assign(new Error('payload too large'), { status: 413 }))
-        req.destroy()
+        req.resume()
         return
       }
       chunks.push(chunk)
     })
     req.on('end', () => {
+      if (depasse) return
       if (chunks.length === 0) return resolve({})
       try {
         resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')))
@@ -994,7 +1012,7 @@ const TARIFS_IA = {
       if (!autorise) {
         return sendJson(res, 403, { error: 'la publication est réservée aux administrateurs pour l’instant' })
       }
-      const body = await readJsonBody(req)
+      const body = await readJsonBody(req, MAX_PUBLICATION_BODY)
       if (!Array.isArray(body.blocs)) return sendJson(res, 400, { error: 'document illisible' })
       if (body.blocs.length > 20000) return sendJson(res, 413, { error: 'document trop volumineux à publier' })
       const etat = publications.publier(id, { titre: body.titre || doc.title, blocs: body.blocs })

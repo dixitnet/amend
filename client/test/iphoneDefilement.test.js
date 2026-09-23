@@ -31,10 +31,22 @@ function installerDom() {
   globalThis.document = w.document
   globalThis.history = w.history
   Object.defineProperty(globalThis, 'navigator', { value: w.navigator, configurable: true, writable: true })
-  for (const k of ['HTMLElement', 'Node', 'Element', 'MutationObserver', 'Event', 'KeyboardEvent']) globalThis[k] = w[k]
+  for (const k of ['HTMLElement', 'Node', 'Element', 'MutationObserver', 'Event', 'KeyboardEvent', 'getComputedStyle', 'DocumentFragment', 'Range', 'Text']) {
+    globalThis[k] = w[k]
+  }
   w.matchMedia = (r) => ({ matches: true, media: r, addEventListener() {}, removeEventListener() {} })
   globalThis.matchMedia = w.matchMedia
   w.Element.prototype.scrollIntoView = function () {}
+  // jsdom ne fait pas de mise en page : ProseMirror, qui demande des
+  // rectangles pour amener le curseur dans le champ de vision, tombe sinon
+  // sur « target.getClientRects is not a function ».
+  const rect = { top: 0, bottom: 20, left: 0, right: 10, width: 10, height: 20 }
+  for (const proto of [w.Element.prototype, w.Range.prototype, w.Text.prototype]) {
+    proto.getClientRects = function () {
+      return Object.assign([rect], { item: () => rect })
+    }
+    proto.getBoundingClientRect = proto.getBoundingClientRect || (() => rect)
+  }
   globalThis.requestAnimationFrame = (fn) => { fn(0); return 1 }
   globalThis.cancelAnimationFrame = () => {}
   Object.defineProperty(w, 'innerHeight', { value: 664, configurable: true, writable: true })

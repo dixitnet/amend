@@ -347,18 +347,31 @@ export function monterInterfaceTelephone(pieces) {
     if (vientDeSOuvrir) view.dispatch(view.state.tr.scrollIntoView())
   }
 
-  // --- Le toucher fait autorité (23/09/2026).
+  // --- Le toucher fait autorité (23/09/2026, revu le même jour).
   //
-  // Safari sur iPhone avale parfois la pose du curseur : après un défilement
-  // à l'élan, le premier toucher ne fait qu'arrêter la course ; et un
-  // recouvrement de mise en page entre l'appui et le relâchement lui fait
-  // annuler le placement. Dans les deux cas le doigt semble sans effet, et
-  // c'est précisément quand le curseur était loin — donc quand on a fait
-  // défiler pour aller le chercher.
+  // Sylvain, en creusant : « quand je scrolle vers le bas et que le curseur
+  // disparaît **au-dessus**, impossible de le repositionner. Dans l'autre
+  // sens ça marche. »
   //
-  // On ne se substitue pas au navigateur : on le laisse faire, et on ne
-  // reprend la main que s'il n'a rien fait. Un glissement, un appui long
-  // (la sélection de mot), un toucher à plusieurs doigts : on n'y touche pas.
+  // Cette dissymétrie est le fait décisif, et elle a une cause : la logique
+  // d'évitement du clavier d'iOS est elle-même dissymétrique. iOS ne sait
+  // que remonter le contenu pour dégager le curseur de dessous le clavier ;
+  // il n'a rien à faire quand le curseur est plus bas que la zone visible,
+  // et il agit quand il est plus haut. Au premier toucher, Safari ramène
+  // donc la vue sur l'ancien curseur — le texte saute sous le doigt, et le
+  // placement qu'il venait de calculer ne vaut plus rien.
+  //
+  // La première version de ce rattrapage ne corrigeait pas ce cas : elle ne
+  // reprenait la main que si la sélection n'avait **pas** bougé. Or ici elle
+  // bouge — pas là où le doigt s'est posé, mais elle bouge. On se taisait
+  // donc précisément quand il fallait parler.
+  //
+  // La règle est maintenant celle-ci, et elle ne dépend d'aucune hypothèse
+  // sur ce que fait le navigateur : on note **au relâchement du doigt**, et
+  // tout de suite, la position du texte sous lui ; puis, une fois le
+  // navigateur passé, on s'assure que le curseur y est. Prendre la position
+  // à cet instant-là est essentiel : si Safari fait défiler entre-temps, les
+  // mêmes coordonnées d'écran ne désignent plus le même mot.
   let depart = null
   racine.addEventListener(
     'touchstart',
@@ -379,21 +392,44 @@ export function monterInterfaceTelephone(pieces) {
       const touche = e.changedTouches && e.changedTouches[0]
       if (!d || !view || !touche || mode !== 'edition') return
       if (!view.dom.contains(e.target)) return
+      // Un glissement, c'est un défilement. Un appui long, c'est la
+      // sélection de mot de Safari. Ni l'un ni l'autre ne nous regarde.
       if (Math.abs(touche.clientX - d.x) > 8 || Math.abs(touche.clientY - d.y) > 8) return
       if (Date.now() - d.t > 500) return
-      const avant = view.state.selection
-      const x = touche.clientX
-      const y = touche.clientY
+      // Lu maintenant, avant tout défilement du navigateur.
+      const point = view.posAtCoords({ left: touche.clientX, top: touche.clientY })
+      if (!point) return
+      const vise = point.pos
       setTimeout(() => {
         if (mode !== 'edition') return
-        // Le navigateur a fait son travail : on ne le refait pas.
-        if (!view.state.selection.eq(avant)) return
-        const point = view.posAtCoords({ left: x, top: y })
-        if (!point) return
-        const sel = TextSelection.near(view.state.doc.resolve(point.pos))
-        if (sel.eq(avant)) return
-        view.dispatch(view.state.tr.setSelection(sel))
-        view.focus()
+        const sel = view.state.selection
+        // Le navigateur a sélectionné un mot (double toucher) : on respecte.
+        if (!sel.empty) return
+        if (Math.abs(sel.from - vise) > 1) {
+          // La mise au point **avant** la transaction, et seulement si elle
+          // manque : appelée après, elle ramène la colonne en haut du texte
+          // — le navigateur amène l'élément qui prend le focus dans le
+          // champ de vision, et cet élément, c'est tout le document.
+          if (!view.hasFocus()) view.focus()
+          view.dispatch(view.state.tr.setSelection(
+            TextSelection.near(view.state.doc.resolve(Math.min(vise, view.state.doc.content.size)))
+          ))
+        }
+        // Et, dans tous les cas, on s'assure de **voir** le curseur. Même
+        // quand Safari l'a posé au bon endroit, sa logique d'évitement du
+        // clavier a pu faire sauter la colonne sur l'ancienne position
+        // entre-temps : le curseur est juste, mais on ne le voit pas, ce
+        // qui se vit exactement comme un toucher sans effet.
+        //
+        // Dans une transaction à part, à l'image suivante : portée par
+        // celle qui pose la sélection, la consigne ne prend pas —
+        // ProseMirror décide d'amener la sélection dans le champ de vision
+        // avant que le DOM ne porte la nouvelle. Constaté au banc, sonde à
+        // l'appui (défilement 0 → 1164 au second envoi).
+        requestAnimationFrame(() => {
+          if (mode !== 'edition') return
+          view.dispatch(view.state.tr.scrollIntoView())
+        })
       }, 60)
     },
     { passive: true }

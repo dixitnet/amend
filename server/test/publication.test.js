@@ -244,3 +244,37 @@ test.after(async () => {
   await new Promise((r) => setTimeout(r, 50))
   process.exit(0)
 })
+
+// ============================================ la taille du document publié
+
+test('un document long se publie — la limite n’est plus celle d’un formulaire', async () => {
+  // Signalé en production le 23/09/2026 : « la publication a échoué (502) ».
+  // La route lisait le corps avec la limite par défaut, 20 ko, c'est-à-dire
+  // une dizaine de paragraphes. Un document réel la dépassait toujours.
+  const admin = cookie('admin@example.com')
+  const doc = await creerDoc(admin, 'Un long document')
+  const blocs = []
+  for (let i = 0; i < 600; i++) {
+    blocs.push(...texte(`Paragraphe ${i} : le zonage a longtemps servi de boussole aux documents d’urbanisme.`))
+  }
+  const corps = JSON.stringify({ titre: 'Un long document', blocs })
+  assert.ok(corps.length > 20_000, `le corps doit dépasser l’ancienne limite (${corps.length} octets)`)
+  const r = await publier(admin, doc.id, { titre: 'Un long document', blocs })
+  assert.equal(r.status, 200, 'un document de taille ordinaire se publie')
+  const page = await fetch(`${BASE}/p/${(await r.json()).pubId}`)
+  assert.equal(page.status, 200)
+  assert.match(await page.text(), /Paragraphe 599/)
+})
+
+test('un corps vraiment démesuré reçoit un 413, et non rien du tout', async () => {
+  // L'autre moitié du défaut : la socket était coupée avant que la réponse
+  // ne parte. Le client ne recevait donc aucune réponse — ce qu'un reverse
+  // proxy traduit par « 502 Bad Gateway ». Une limite doit se dire.
+  const admin = cookie('admin@example.com')
+  const doc = await creerDoc(admin, 'Démesuré')
+  const bloc = texte('x'.repeat(2000))[0]
+  const blocs = new Array(3000).fill(bloc)
+  const r = await publier(admin, doc.id, { titre: 'Démesuré', blocs })
+  assert.equal(r.status, 413, 'la réponse arrive, et elle dit pourquoi')
+  assert.match(JSON.stringify(await r.json()), /large|volumineux/i)
+})

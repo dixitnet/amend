@@ -652,13 +652,15 @@ export function mountEditor(root, docId, user, docMeta) {
   // Facteur d'agrandissement (50/100/150%) : un confort de lecture propre à
   // chaque personne/navigateur, donc mémorisé dans le localStorage (même
   // principe que le nom/couleur dans user.js) plutôt que synchronisé via
-  // Yjs — ça n'a rien d'un réglage du document. `zoom` plutôt que
-  // `transform: scale()` : ça reste pleinement pris en compte dans la mise
-  // en page (défilement, `coordsAtPos`, clics) exactement comme un zoom de
-  // navigateur, alors qu'un `transform` demanderait de compenser la taille
-  // et casserait le calcul de défilement centré déjà fait pour le panneau
-  // des modifications/commentaires (changesPanel.js/comments.js) et le
-  // panneau "Plan du document" (outline.js).
+  // Yjs — ça n'a rien d'un réglage du document. Ni `zoom` ni
+  // `transform: scale()` (23/09/2026) : une **échelle de corps**, posée en
+  // variable CSS et appliquée à la taille du texte. Les deux autres créent
+  // un second système de coordonnées, et ProseMirror mêle des pixels
+  // visuels (`getBoundingClientRect`) et des pixels de défilement
+  // (`scrollTop`) — à 150 % l'écart d'un facteur et demi faisait passer la
+  // ligne en cours de frappe sous le clavier. Une échelle de corps suffit
+  // à tout agrandir : la colonne se mesure en `ch` et les images en
+  // pourcentage de la colonne, elles suivent donc le corps.
   const zoomSelect = document.createElement('select')
   zoomSelect.className = 'zoom-select'
   zoomSelect.title = "Facteur d'agrandissement du texte"
@@ -677,10 +679,13 @@ export function mountEditor(root, docId, user, docMeta) {
   } catch {
     // localStorage indisponible (navigation privée...) — reste sur 100%.
   }
+  const poserLEchelle = (pct) => {
+    editorContainer.style.setProperty('--echelle', String(Number(pct) / 100))
+  }
   zoomSelect.value = storedZoom
-  editorContainer.style.zoom = `${storedZoom}%`
+  poserLEchelle(storedZoom)
   zoomSelect.addEventListener('change', () => {
-    editorContainer.style.zoom = `${zoomSelect.value}%`
+    poserLEchelle(zoomSelect.value)
     try {
       localStorage.setItem('collabtext:zoom', zoomSelect.value)
     } catch {
