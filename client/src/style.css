@@ -2196,7 +2196,14 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
        porter une unité, faute de quoi Safari ignore toute la déclaration.
        Les navigateurs qui ne connaissent pas cette variable posent la barre
        au ras du bas, où `100dvh` l'aura déjà remontée avec le reste. */
-    bottom: env(keyboard-inset-height, 0rem);
+    /* Deux mesures, et l'on prend la plus grande (23/09/2026).
+       `env(keyboard-inset-height)` n'existe que dans les navigateurs
+       Chromium ; Safari l'ignore et renvoie le repli, zéro — la barre se
+       retrouvait alors **sous le clavier** sur iPhone, et ne réapparaissait
+       qu'à sa fermeture. `--clavier` est mesurée en JavaScript à partir de
+       la fenêtre visuelle, seule chose qui bouge sur iOS quand le clavier
+       s'ouvre (voir clavier.js). */
+    bottom: max(env(keyboard-inset-height, 0rem), var(--clavier, 0px));
     z-index: 40;
     flex-wrap: nowrap;
     gap: 6px;
@@ -2437,7 +2444,7 @@ tr.bo-traite { opacity: 0.6; }
   .tel-crayon {
     position: fixed;
     right: 18px;
-    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px) + var(--clavier, 0px));
     z-index: 45;
     width: 56px;
     height: 56px;
@@ -2472,7 +2479,9 @@ tr.bo-traite { opacity: 0.6; }
     scrollbar-width: none;
   }
   .tel-edition .format-toolbar::-webkit-scrollbar { display: none; }
-  .tel-edition .editor-container { padding-bottom: 96px; }
+  /* De quoi écrire la dernière ligne sans qu'elle passe sous la barre —
+     ni sous le clavier, dont la hauteur est mesurée par clavier.js. */
+  .tel-edition .editor-container { padding-bottom: calc(96px + var(--clavier, 0px)); }
 
   /* --- Le menu ⋯ */
   .tel-menu { display: flex; flex-direction: column; }

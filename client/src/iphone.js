@@ -35,6 +35,7 @@
 // document long.
 
 import { ouvrirFeuille, fermerFeuille } from './feuille.js'
+import { suivreLeClavier } from './clavier.js'
 import { ouvrirPlan } from './planFeuille.js'
 
 /**
@@ -193,13 +194,30 @@ export function monterInterfaceTelephone(pieces) {
     mode = 'edition'
     appliquer()
     const view = getView()
-    if (view) view.focus()
+    if (!view) return
+    // Le cycle blur → focus différé (23/09/2026), et il n'est pas
+    // décoratif. Safari sur iPhone décide de la façon dont il traite une
+    // touche **au moment où il prend le nœud en charge** : un élément passé
+    // de `contenteditable="false"` à `"true"` sans repasser par une mise au
+    // point continue d'être traité comme un texte que l'on ne modifie pas,
+    // et toucher le texte ne déplace alors pas le curseur — exactement ce
+    // que Sylvain a constaté. Rendre la main au navigateur entre les deux
+    // (un tour de boucle) suffit à lui faire relire l'état du nœud.
+    view.dom.blur()
+    setTimeout(() => {
+      if (mode !== 'edition') return
+      view.focus()
+    }, 0)
   }
 
   // Un correcteur entre en écriture comme un éditeur : ses modifications
   // sont des propositions, c'est le suivi qui s'en charge, pas le mode.
   racine.prepend(entete)
   racine.appendChild(crayon)
+  // La barre d'outils doit rester au-dessus du clavier. Sur iPhone, ni
+  // `dvh` ni `env(keyboard-inset-height)` ne le permettent — voir
+  // clavier.js, qui mesure ce que le clavier recouvre réellement.
+  const arreterLeSuivi = suivreLeClavier(racine)
   // L'interrupteur du suivi quitte la colonne de droite, qui n'existe plus
   // ici : il est retiré de la page et n'apparaît que dans le menu ⋯. Le
   // laisser dans une colonne masquée reviendrait à le rendre introuvable
@@ -211,6 +229,7 @@ export function monterInterfaceTelephone(pieces) {
   return {
     estEnEdition: () => mode === 'edition',
     demonter() {
+      arreterLeSuivi()
       entete.remove()
       crayon.remove()
       // L'interrupteur est rendu à l'éditeur, qui le remettra en tête de

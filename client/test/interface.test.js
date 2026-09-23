@@ -252,6 +252,12 @@ test('sur iPhone : un en-tête de trois éléments, un crayon, et rien d’autre
   racine.querySelector('.tel-crayon').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
   assert.ok(racine.querySelector('.app-shell').classList.contains('tel-edition'))
   assert.equal(editeur.view.props.editable(), true)
+  // Le passage en écriture rend la main au navigateur avant de reprendre le
+  // focus (voir iphone.js) : sans ce tour de boucle, Safari continue de
+  // traiter le texte comme non modifiable et toucher un mot ne déplace pas
+  // le curseur. On vérifie donc que la mise au point arrive **après**, et
+  // pas dans le même temps.
+  await respirer()
   racine.querySelector('.tel-gauche').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
   assert.ok(racine.querySelector('.app-shell').classList.contains('tel-lecture'))
 
