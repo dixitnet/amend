@@ -201,3 +201,57 @@ test('petitEcran suit la requête média, il n’est pas deviné', () => {
   globalThis.matchMedia = window.matchMedia
   assert.equal(petitEcran(), false)
 })
+
+test('une feuille qui en remplace une autre ne déclenche pas de retour d’historique', () => {
+  // LE bug du 23/09 : ouvrir le plan depuis le menu ⋯ n'affichait rien.
+  // Fermer la première feuille appelait `history.back()`, qui est
+  // **asynchrone** ; la seconde était construite et posait son écouteur
+  // `popstate` avant que l'évènement ne soit distribué, si bien que c'est
+  // elle qui le recevait — et elle se fermait aussitôt. La feuille
+  // s'ouvrait et disparaissait dans la même image, ce qui ne se distingue
+  // pas de « rien ne s'affiche ».
+  //
+  // On ne peut pas reproduire la course elle-même dans jsdom, qui ne
+  // distribue pas `popstate` sur `history.back()`. Ce qu'on vérifie est la
+  // cause : une feuille remplacée ne touche plus à l'historique, et une
+  // seule entrée est empilée pour les deux.
+  const w = installerDom()
+  let retours = 0
+  let empilements = 0
+  const back = w.history.back.bind(w.history)
+  const push = w.history.pushState.bind(w.history)
+  w.history.back = () => {
+    retours++
+    back()
+  }
+  w.history.pushState = (...args) => {
+    empilements++
+    push(...args)
+  }
+
+  ouvrirFeuille('Menu')
+  const plan = ouvrirFeuille('Plan du document')
+
+  assert.equal(retours, 0, 'la feuille remplacée ne dépile rien')
+  assert.equal(empilements, 1, 'une seule entrée pour « une feuille est ouverte »')
+  assert.equal(feuilles().length, 1)
+  assert.ok(plan.estOuverte())
+  assert.match(document.querySelector('.feuille-entete h2').textContent, /Plan/)
+
+  // Et en se fermant normalement, la seconde dépile bien l'entrée héritée.
+  plan.fermer()
+  assert.equal(retours, 1)
+})
+
+test('le bouton retour ferme toujours la feuille, même après un remplacement', async () => {
+  // Le pendant du test précédent : en n'empilant pas les entrées
+  // d'historique, on ne doit pas avoir désarmé le bouton « retour ».
+  const w = installerDom()
+  ouvrirFeuille('Menu')
+  ouvrirFeuille('Plan du document')
+  await new Promise((r) => setTimeout(r, 0))
+  assert.equal(feuilles().length, 1)
+
+  w.dispatchEvent(new w.Event('popstate'))
+  assert.equal(feuilles().length, 0, 'un vrai retour, lui, ferme bien')
+})

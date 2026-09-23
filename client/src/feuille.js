@@ -35,8 +35,22 @@ export function fermerFeuille() {
  * façon dont la feuille se ferme, y compris quand une autre la chasse.
  */
 export function ouvrirFeuille(titre, { hauteur = 0.5, modale = false, surFermeture = null } = {}) {
-  // Jamais d'empilement.
-  fermerFeuille()
+  // Jamais d'empilement. Une feuille qui en remplace une autre reprend
+  // **l'entrée d'historique de celle-ci** au lieu d'en créer une seconde.
+  //
+  // Sans cela, le plan ne s'affichait pas du tout (bug signalé le
+  // 23/09/2026), et le chemin était le suivant : fermer la première feuille
+  // appelait `history.back()`, qui est **asynchrone** ; la seconde feuille
+  // était construite et posait son écouteur `popstate` avant que
+  // l'évènement ne soit distribué ; c'est donc elle qui le recevait, et
+  // elle se fermait aussitôt. La feuille s'ouvrait et disparaissait dans la
+  // même image — indiscernable de « rien ne s'affiche ».
+  //
+  // Une entrée d'historique pour « une feuille est ouverte », et non une
+  // par feuille : c'est aussi le modèle juste, puisqu'il n'y en a jamais
+  // deux.
+  const remplaceUneAutre = !!ouverte
+  if (ouverte) ouverte.fermer({ remplacee: true })
 
   const el = document.createElement('div')
   el.className = `feuille${modale ? ' feuille-modale' : ''}`
@@ -80,7 +94,7 @@ export function ouvrirFeuille(titre, { hauteur = 0.5, modale = false, surFermetu
   const historique = typeof window !== 'undefined' && window.history ? window.history : null
   const marque = { feuille: true }
   try {
-    if (historique) historique.pushState(marque, '')
+    if (historique && !remplaceUneAutre) historique.pushState(marque, '')
   } catch {
     /* environnements sans historique : la croix suffit */
   }
@@ -121,16 +135,18 @@ export function ouvrirFeuille(titre, { hauteur = 0.5, modale = false, surFermetu
     }
   }, { passive: true })
 
-  function fermer() {
+  function fermer({ remplacee = false } = {}) {
     if (ouverte !== poste) return
     ouverte = null
     document.removeEventListener('keydown', surTouche, true)
     window.removeEventListener('popstate', surRetour)
     el.remove()
     if (voile) voile.remove()
-    // On ne dépile l'historique que si ce n'est pas lui qui nous ferme,
-    // sinon on remonterait d'un cran de trop et l'on quitterait le document.
-    if (!fermeeParHistorique && historique && historique.state && historique.state.feuille) {
+    // On ne dépile l'historique que si ce n'est pas lui qui nous ferme
+    // (sinon on remonterait d'un cran de trop et l'on quitterait le
+    // document), ni lorsqu'une autre feuille prend la place : celle-ci
+    // hérite de l'entrée et la dépilera à son tour.
+    if (!remplacee && !fermeeParHistorique && historique && historique.state && historique.state.feuille) {
       try {
         historique.back()
       } catch {
