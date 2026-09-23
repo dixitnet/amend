@@ -135,3 +135,38 @@ test('un correcteur ne se voit proposer ni Accepter ni Rejeter', async () => {
   assert.equal(entrees(panneau).length, 1)
   assert.equal(panneau.querySelectorAll('.change-actions button').length, 0)
 })
+
+test('la consigne de défilement survit à la réécriture en suivi', () => {
+  // Banc iPhone du 23/09/2026 : en suivi de modifications, on écrivait
+  // sous la barre d'outils sans que rien ne défile. La transaction
+  // d'origine porte « ramène le curseur dans le champ de vision » — c'est
+  // ProseMirror qui la pose sur toute saisie ; `rewriteForTracking` en
+  // construit une autre, qui ne la portait pas. Défaut de tous les écrans,
+  // trouvé sur le petit.
+  installerDom()
+  const doc = schema.node('doc', null, [schema.node('paragraph', null, [schema.text('Un texte de départ.')])])
+  let state = EditorState.create({ doc, plugins: [trackChangesPlugin()] })
+  const view = new EditorView(document.getElementById('editeur'), { state })
+  view.dispatch(view.state.tr.setMeta('setTrackChanges', true))
+
+  // On intercepte la transaction réellement appliquée.
+  let appliquee = null
+  const vraiApply = view.state.constructor.prototype.apply
+  view.state.constructor.prototype.apply = function (tr) {
+    appliquee = tr
+    return vraiApply.call(this, tr)
+  }
+  try {
+    const tr = view.state.tr
+      .setSelection(TextSelection.create(view.state.doc, 5))
+      .insertText('AJOUT')
+      .scrollIntoView()
+    assert.equal(tr.scrolledIntoView, true, 'la transaction d’origine la porte')
+    makeDispatchTransaction(view, () => ALICE)(tr)
+    assert.notEqual(appliquee, tr, 'elle a bien été réécrite pour le suivi')
+    assert.equal(appliquee.scrolledIntoView, true, 'et la consigne a suivi')
+  } finally {
+    view.state.constructor.prototype.apply = vraiApply
+    view.destroy()
+  }
+})

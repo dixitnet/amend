@@ -2188,22 +2188,16 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 
 @media (max-width: 700px) {
   .format-toolbar {
-    position: fixed;
+    /* Dans le flux, et non `fixed` (23/09/2026). Mesuré au banc : posée
+       par-dessus, la barre recouvrait les dernières lignes sans que rien
+       ne puisse les en sortir — dans un document court, la colonne ne
+       défile pas, il n'y a donc aucun défilement à corriger. En la
+       laissant occuper sa place au bas de la colonne, la zone de texte
+       s'arrête d'elle-même au bon endroit, et ProseMirror n'a plus rien à
+       deviner. C'est la coquille qui se charge du clavier, plus haut. */
+    order: 2;
     left: 0;
     right: 0;
-    /* Au-dessus du clavier quand il est là, au-dessus de la zone sûre
-       sinon. `env(keyboard-inset-height, 0rem)` : la valeur de repli doit
-       porter une unité, faute de quoi Safari ignore toute la déclaration.
-       Les navigateurs qui ne connaissent pas cette variable posent la barre
-       au ras du bas, où `100dvh` l'aura déjà remontée avec le reste. */
-    /* Deux mesures, et l'on prend la plus grande (23/09/2026).
-       `env(keyboard-inset-height)` n'existe que dans les navigateurs
-       Chromium ; Safari l'ignore et renvoie le repli, zéro — la barre se
-       retrouvait alors **sous le clavier** sur iPhone, et ne réapparaissait
-       qu'à sa fermeture. `--clavier` est mesurée en JavaScript à partir de
-       la fenêtre visuelle, seule chose qui bouge sur iOS quand le clavier
-       s'ouvre (voir clavier.js). */
-    bottom: max(env(keyboard-inset-height, 0rem), var(--clavier, 0px));
     z-index: 40;
     flex-wrap: nowrap;
     gap: 6px;
@@ -2247,14 +2241,25 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
     cursor: pointer;
   }
   .barre-onglet.actif { background: var(--bg); color: var(--fg); font-weight: 600; }
-  /* La colonne de texte laisse la place à la barre, sinon les dernières
-     lignes du document sont inatteignables. */
-  .editor-container { padding-bottom: 140px; }
+  /* La barre occupe sa place : la colonne n'a plus qu'un peu d'air en bas. */
+  .editor-container { order: 1; padding-bottom: 24px; }
   /* Le bandeau se vide : ne restent que le retour, le plan, le titre, le
      voyant et la pastille du compte. */
   .back-link span, .btn-nouveau { display: none; }
   .top-banner { padding: 4px 8px; gap: 6px; }
   .banniere-centre { display: none; }
+}
+
+/* --- La coquille s'arrête au clavier (23/09/2026) -----------------------
+   Mesuré au banc : sans cela, `.editor-container` descend jusqu'en bas de
+   la page, donc **sous le clavier**. ProseMirror, qui juge de la visibilité
+   d'après ce rectangle-là, croit alors la dernière ligne visible et ne fait
+   plus défiler : on tape dans le vide. En rétrécissant la coquille, la zone
+   de défilement s'arrête là où commence le clavier, et le rembourrage du
+   conteneur redevient constant — donc plus de contenu qui glisse sous le
+   doigt à l'ouverture du clavier, ce qui brouillait la pose du curseur. */
+@media (max-width: 700px) and (pointer: coarse) {
+  .app-shell { height: calc(100dvh - var(--clavier, 0px)); }
 }
 
 /* L'interrupteur de suivi est déménagé dans la barre du bas sur petit
@@ -2461,6 +2466,8 @@ tr.bo-traite { opacity: 0.6; }
   /* --- En lecture : rien que le texte. Le curseur ne clignote pas, la
      sélection reste possible (on peut vouloir copier un passage). */
   .tel-lecture .ProseMirror { caret-color: transparent; }
+  /* En lecture il n'y a pas de barre, mais il y a le crayon : on ne finit
+     pas un document sous un bouton. */
   .tel-lecture .editor-container { padding-bottom: 96px; }
 
   /* --- En écriture : une seule rangée, au ras du clavier, qu'on fait
@@ -2479,9 +2486,7 @@ tr.bo-traite { opacity: 0.6; }
     scrollbar-width: none;
   }
   .tel-edition .format-toolbar::-webkit-scrollbar { display: none; }
-  /* De quoi écrire la dernière ligne sans qu'elle passe sous la barre —
-     ni sous le clavier, dont la hauteur est mesurée par clavier.js. */
-  .tel-edition .editor-container { padding-bottom: calc(96px + var(--clavier, 0px)); }
+  .tel-edition .editor-container { padding-bottom: 24px; }
 
   /* --- Le menu ⋯ */
   .tel-menu { display: flex; flex-direction: column; }

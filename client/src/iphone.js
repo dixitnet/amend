@@ -34,7 +34,7 @@
 // des modifications, les commentaires, et le plan pour se déplacer dans un
 // document long.
 
-import { ouvrirFeuille, fermerFeuille } from './feuille.js'
+import { ouvrirFeuille } from './feuille.js'
 import { suivreLeClavier } from './clavier.js'
 import { ouvrirPlan } from './planFeuille.js'
 
@@ -151,7 +151,12 @@ export function monterInterfaceTelephone(pieces) {
 
     const n = nbCommentaires()
     entree('Commentaires', () => {
-      fermerFeuille()
+      // Surtout pas de `fermerFeuille()` ici (banc du 23/09/2026) : la
+      // fermeture passe par `history.back()`, qui est **asynchrone**. Son
+      // `popstate` arrivait après l'ouverture du fil et refermait celui-ci
+      // aussitôt — l'entrée du menu semblait ne rien faire, exactement le
+      // défaut qu'avait le plan. On laisse donc la nouvelle feuille
+      // remplacer l'ancienne : elle hérite de son entrée d'historique.
       ouvrirCommentaire()
     }, n ? `${n}` : 'aucun')
 
@@ -177,6 +182,7 @@ export function monterInterfaceTelephone(pieces) {
     gauche.textContent = mode === 'edition' ? '✓' : '‹'
     gauche.setAttribute('aria-label', mode === 'edition' ? 'Terminer' : 'Mes documents')
     if (view) view.setProps({ editable: () => mode === 'edition' })
+    reglerLaZoneVisible()
   }
 
   gauche.onclick = () => {
@@ -217,7 +223,40 @@ export function monterInterfaceTelephone(pieces) {
   // La barre d'outils doit rester au-dessus du clavier. Sur iPhone, ni
   // `dvh` ni `env(keyboard-inset-height)` ne le permettent — voir
   // clavier.js, qui mesure ce que le clavier recouvre réellement.
-  const arreterLeSuivi = suivreLeClavier(racine)
+  // Combien de pixels, en bas, sont pris par la barre d'outils : c'est ce
+  // que ProseMirror doit retrancher de la zone qu'il croit visible.
+  // Ce qui, en bas, recouvre réellement le texte. La barre d'outils, elle,
+  // est dans le flux (voir style.css) : elle ne recouvre rien. Reste le
+  // crayon, en lecture, et c'est tout — mais la règle est écrite une fois
+  // pour toutes, de sorte qu'une future barre flottante s'y range aussi.
+  const hauteurCouvrante = () => {
+    const flottants = mode === 'lecture' ? [crayon] : []
+    let bas = 0
+    for (const el of flottants) {
+      const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null
+      if (r && r.height) bas = Math.max(bas, Math.round(r.height) + 24)
+    }
+    return bas
+  }
+  // Mesuré au banc (23/09/2026) : ProseMirror juge de la visibilité d'après
+  // le rectangle du conteneur de défilement et ne voit pas ce qui flotte
+  // par-dessus. `scrollThreshold` dit à partir d'où faire défiler,
+  // `scrollMargin` jusqu'où le faire.
+  function reglerLaZoneVisible() {
+    const view = getView()
+    if (!view) return
+    const bord = { top: 0, right: 0, bottom: hauteurCouvrante(), left: 0 }
+    view.setProps({ scrollThreshold: bord, scrollMargin: bord })
+  }
+
+  function ramenerLeCurseur() {
+    const view = getView()
+    if (!view || mode !== 'edition') return
+    reglerLaZoneVisible()
+    view.dispatch(view.state.tr.scrollIntoView())
+  }
+
+  const arreterLeSuivi = suivreLeClavier(racine, ramenerLeCurseur)
   // L'interrupteur du suivi quitte la colonne de droite, qui n'existe plus
   // ici : il est retiré de la page et n'apparaît que dans le menu ⋯. Le
   // laisser dans une colonne masquée reviendrait à le rendre introuvable
@@ -237,7 +276,10 @@ export function monterInterfaceTelephone(pieces) {
       trackToggleLabel.remove()
       racine.classList.remove('tel-lecture', 'tel-edition')
       const view = getView()
-      if (view) view.setProps({ editable: () => true })
+      if (view) {
+        const zero = { top: 0, right: 0, bottom: 0, left: 0 }
+        view.setProps({ editable: () => true, scrollThreshold: zero, scrollMargin: zero })
+      }
     },
   }
 }

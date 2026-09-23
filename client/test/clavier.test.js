@@ -121,3 +121,26 @@ test('sans fenêtre visuelle, rien ne casse', () => {
   assert.equal(typeof arreter, 'function')
   arreter()
 })
+
+test("le changement de hauteur est annoncé, et seulement quand il change", () => {
+  // Pourquoi c'est nécessaire : l'ouverture du clavier rétrécit la zone de
+  // texte sans rien déplacer dans le document. Sans ce signal, le curseur
+  // reste là où il était — c'est-à-dire sous le clavier.
+  const w = installerDom({ innerHeight: 800 })
+  const el = w.document.getElementById('shell')
+  const vues = []
+  const arreter = suivreLeClavier(el, (h) => vues.push(h))
+
+  w.visualViewport.height = 460
+  w.visualViewport._emettre('resize')
+  assert.deepEqual(vues, [0, 340], "l'état initial, puis le clavier")
+
+  // Un défilement qui ne change rien ne doit pas réveiller l'interface.
+  w.visualViewport._emettre('scroll')
+  assert.deepEqual(vues, [0, 340], 'aucune annonce inutile')
+
+  w.visualViewport.height = 800
+  w.visualViewport._emettre('resize')
+  assert.deepEqual(vues, [0, 340, 0], 'et la fermeture est annoncée')
+  arreter()
+})

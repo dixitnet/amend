@@ -610,7 +610,16 @@ export function makeDispatchTransaction(view, getUser) {
       !isRemoteOrigin(tr)
     ) {
       const rewritten = rewriteForTracking(view.state, tr, getUser())
-      if (rewritten) finalTr = rewritten
+      if (rewritten) {
+        finalTr = rewritten
+        // La transaction d'origine portait la consigne « ramène le curseur
+        // dans le champ de vision » — c'est ProseMirror qui la pose sur
+        // toute saisie. La réécrite, construite de zéro, ne la porte pas :
+        // on écrivait donc sous la barre d'outils, ou sous le clavier, sans
+        // que rien ne défile (banc iPhone, 23/09/2026). Défaut présent en
+        // suivi de modifications seulement, sur tous les écrans.
+        if (tr.scrolledIntoView) finalTr = finalTr.scrollIntoView()
+      }
     }
     const newState = view.state.apply(finalTr)
     view.updateState(newState)
