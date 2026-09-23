@@ -662,7 +662,10 @@ export function mountEditor(root, docId, user, docMeta) {
   const zoomSelect = document.createElement('select')
   zoomSelect.className = 'zoom-select'
   zoomSelect.title = "Facteur d'agrandissement du texte"
-  for (const pct of ['50', '100', '150']) {
+  // Cinq crans (23/09/2026). 75 et 125 ajoutés parce que c'est ce réglage
+  // qui remplace, sur téléphone, le suivi de la taille système : entre 100
+  // et 150 il manquait le petit pas, celui qu'on fait le plus souvent.
+  for (const pct of ['50', '75', '100', '125', '150']) {
     const opt = document.createElement('option')
     opt.value = pct
     opt.textContent = `${pct}%`
@@ -1243,6 +1246,10 @@ export function mountEditor(root, docId, user, docMeta) {
         // téléphone. Ce sont les boutons eux-mêmes : ils y gardent leur
         // état actif et reviennent dans la barre en quittant l'écriture.
         outilsEssentiels: [boldBtn, italicBtn],
+        // Le zoom quitte la barre d'outils pour le menu ⋯ : sur téléphone
+        // c'est lui qui règle la taille du texte, ce n'est plus un
+        // agrandissement passager (voir style.css).
+        zoomSelect,
         ouvrirCommentaire: () => {
           const id =
             commentaireAuPoint(view.state, ydoc, commentsMap, view.state.selection.head) ||

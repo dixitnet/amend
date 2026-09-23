@@ -34,6 +34,7 @@
 // des modifications, les commentaires, et le plan pour se déplacer dans un
 // document long.
 
+import { TextSelection } from 'prosemirror-state'
 import { ouvrirFeuille } from './feuille.js'
 import { suivreLeClavier } from './clavier.js'
 import { ouvrirPlan } from './planFeuille.js'
@@ -59,6 +60,7 @@ export function monterInterfaceTelephone(pieces) {
     nbCommentaires,
     ouvrirCommentaire,
     outilsEssentiels = [],
+    zoomSelect = null,
   } = pieces
 
   let mode = 'lecture'
@@ -212,6 +214,19 @@ export function monterInterfaceTelephone(pieces) {
       ouvrirCommentaire()
     }, n ? `${n}` : 'aucun')
 
+    // La taille du texte. Sur téléphone, c'est ici qu'elle se règle : le
+    // suivi de la taille système a été abandonné au profit de ce zoom, qui
+    // a l'avantage d'être le même partout et de ne pas faire doublon avec
+    // le menu aA de Safari (voir style.css).
+    if (zoomSelect) {
+      const ligneZoom = document.createElement('div')
+      ligneZoom.className = 'tel-menu-entree tel-menu-zoom'
+      const nomZoom = document.createElement('span')
+      nomZoom.textContent = 'Taille du texte'
+      ligneZoom.append(nomZoom, zoomSelect)
+      liste.appendChild(ligneZoom)
+    }
+
     // Le suivi des modifications : l'interrupteur lui-même, déménagé dans
     // le menu. Pas une copie — l'état est unique.
     const ligneSuivi = document.createElement('div')
@@ -222,7 +237,7 @@ export function monterInterfaceTelephone(pieces) {
     feuille.corps.appendChild(liste)
     feuille.el.addEventListener('click', (e) => {
       // Refermer sur une entrée qui ne mène nulle part ailleurs.
-      if (e.target.closest('.tel-menu-suivi')) return
+      if (e.target.closest('.tel-menu-suivi') || e.target.closest('.tel-menu-zoom')) return
     })
   }
 
@@ -312,14 +327,79 @@ export function monterInterfaceTelephone(pieces) {
     view.setProps({ scrollThreshold: bord, scrollMargin: bord })
   }
 
-  function ramenerLeCurseur() {
+  // Ramener le curseur **à l'ouverture du clavier seulement** (23/09/2026).
+  //
+  // La version précédente le faisait à chaque changement de hauteur. Or sur
+  // iOS la fenêtre visuelle bouge aussi quand on fait défiler, clavier
+  // ouvert : la barre du navigateur se replie et se déplie. On ramenait donc
+  // la vue au curseur au moment même où l'on s'en éloignait du doigt — et le
+  // toucher qui suivait tombait sur un texte qui venait de sauter, donc sur
+  // rien. Sylvain : « quand le curseur est hors écran, le toucher n'a pas
+  // d'effet ». On ne le fait plus qu'au passage de zéro à quelque chose.
+  let clavierOuvert = false
+  function auClavier(hauteur) {
+    const ouvert = hauteur > 0
+    const vientDeSOuvrir = ouvert && !clavierOuvert
+    clavierOuvert = ouvert
     const view = getView()
     if (!view || mode !== 'edition') return
     reglerLaZoneVisible()
-    view.dispatch(view.state.tr.scrollIntoView())
+    if (vientDeSOuvrir) view.dispatch(view.state.tr.scrollIntoView())
   }
 
-  const arreterLeSuivi = suivreLeClavier(racine, ramenerLeCurseur)
+  // --- Le toucher fait autorité (23/09/2026).
+  //
+  // Safari sur iPhone avale parfois la pose du curseur : après un défilement
+  // à l'élan, le premier toucher ne fait qu'arrêter la course ; et un
+  // recouvrement de mise en page entre l'appui et le relâchement lui fait
+  // annuler le placement. Dans les deux cas le doigt semble sans effet, et
+  // c'est précisément quand le curseur était loin — donc quand on a fait
+  // défiler pour aller le chercher.
+  //
+  // On ne se substitue pas au navigateur : on le laisse faire, et on ne
+  // reprend la main que s'il n'a rien fait. Un glissement, un appui long
+  // (la sélection de mot), un toucher à plusieurs doigts : on n'y touche pas.
+  let depart = null
+  racine.addEventListener(
+    'touchstart',
+    (e) => {
+      depart =
+        e.touches.length === 1
+          ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
+          : null
+    },
+    { passive: true }
+  )
+  racine.addEventListener(
+    'touchend',
+    (e) => {
+      const d = depart
+      depart = null
+      const view = getView()
+      const touche = e.changedTouches && e.changedTouches[0]
+      if (!d || !view || !touche || mode !== 'edition') return
+      if (!view.dom.contains(e.target)) return
+      if (Math.abs(touche.clientX - d.x) > 8 || Math.abs(touche.clientY - d.y) > 8) return
+      if (Date.now() - d.t > 500) return
+      const avant = view.state.selection
+      const x = touche.clientX
+      const y = touche.clientY
+      setTimeout(() => {
+        if (mode !== 'edition') return
+        // Le navigateur a fait son travail : on ne le refait pas.
+        if (!view.state.selection.eq(avant)) return
+        const point = view.posAtCoords({ left: x, top: y })
+        if (!point) return
+        const sel = TextSelection.near(view.state.doc.resolve(point.pos))
+        if (sel.eq(avant)) return
+        view.dispatch(view.state.tr.setSelection(sel))
+        view.focus()
+      }, 60)
+    },
+    { passive: true }
+  )
+
+  const arreterLeSuivi = suivreLeClavier(racine, auClavier)
   // L'interrupteur du suivi quitte la colonne de droite, qui n'existe plus
   // ici : il est retiré de la page et n'apparaît que dans le menu ⋯. Le
   // laisser dans une colonne masquée reviendrait à le rendre introuvable

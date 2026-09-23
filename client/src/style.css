@@ -102,46 +102,32 @@ html, body {
   height: 100%;
 }
 
-/* ---------- Taille du texte et accessibilité (20/09/2026) ---------------
-   Le texte de l'éditeur doit suivre le réglage d'affichage du système —
-   Réglages → Affichage et luminosité → Taille du texte sur iPhone et iPad,
-   tailles d'accessibilité comprises. Demande de Sylvain, et enjeu
-   d'accessibilité : quelqu'un qui a agrandi le texte de son téléphone l'a
-   fait pour lire, pas pour lire partout sauf ici.
+/* ---------- Taille du texte (23/09/2026) --------------------------------
+   Une taille fixe, et un zoom à nous. C'est un revirement : jusqu'ici la
+   racine portait `font: -apple-system-body` sur les appareils tactiles,
+   seul mécanisme qui expose au web le réglage « Taille du texte » d'iOS.
+   Trois raisons de l'abandonner, toutes constatées :
 
-   `font: -apple-system-body` est le seul mécanisme qui expose ce réglage au
-   web (WebKit sur les plateformes Apple). Il fixe la taille de base de la
-   racine, et tout ce qui s'exprime en `rem` suit. Deux pièges, tous deux
-   documentés :
+   - **Safari le fait déjà, et mieux.** Le menu aA de la barre d'adresse
+     (« Page Zoom » depuis iOS 27) agrandit un site, se retient **par site**
+     et survit aux visites suivantes. Nous n'avions donc pas comblé un
+     manque : nous avions ajouté un second réglage à côté d'un réglage
+     système. Bear a fait les deux et ses utilisateurs s'y perdent.
+   - **C'est une propriété raccourcie**, qui impose aussi San Francisco et
+     une taille sur laquelle nous n'avons pas la main — elle monte à plus
+     de 50 px aux tailles d'accessibilité, où l'éditeur n'est de toute
+     façon plus utilisable.
+   - **Elle n'existe que chez WebKit.** La mise en page dépendait donc du
+     navigateur, et rien de ce qu'on mesurait au banc (Chromium) ne disait
+     ce que voyait un iPhone.
 
-   - c'est une **propriété raccourcie** : elle impose aussi San Francisco
-     comme famille. D'où `font-family` redéclarée juste après, dans cet
-     ordre, sans quoi toute l'application change de police ;
-   - ailleurs (Chrome, Firefox, ordinateur), la valeur est simplement
-     ignorée : les `rem` retombent alors sur la taille de base du
-     navigateur, qui est **elle aussi** un réglage de la personne. Le repli
-     n'est donc pas un pis-aller, c'est le même principe.
-
-   `text-size-adjust: 100%` désactive l'agrandissement automatique que
-   Safari applique de son propre chef en paysage — il ne bride ni le zoom ni
-   le réglage système. Ce qu'il ne faut **jamais** écrire ici, c'est
-   `text-size-adjust: none`, qui annulerait tout ce qui précède en silence. */
+   Reste ce qu'il faut garder : `text-size-adjust: 100%` désactive
+   l'agrandissement automatique que Safari applique de son propre chef en
+   paysage. Ne **jamais** écrire `text-size-adjust: none` ici : cela
+   briderait aussi le zoom de la personne. */
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-}
-/* Restreint aux appareils tactiles, et ce n'est pas un détail : sur macOS,
-   Safari comprend `-apple-system-body` mais le résout à la taille du corps
-   **du système de bureau**, soit 13 px. Appliquée partout, cette règle
-   rapetissait donc toute l'interface sur un Mac au lieu de l'adapter. Un
-   iPad avec trackpad annonce `pointer: fine` et garde lui aussi la base du
-   navigateur — ce qui tombe bien : avec un clavier et un pointeur, il est
-   un ordinateur portable, et l'étude dit qu'il doit le rester. */
-@media (pointer: coarse) {
-  html {
-    font: -apple-system-body;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  }
 }
 
 body {
@@ -2165,12 +2151,10 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .outline-sidebar.outline-dans-feuille h3 { display: none; }
 
 /* Le bouton Plan n'existe que là où la colonne n'est plus. */
-/* Le zoom fait double emploi avec le réglage de taille du système, qui
-   vaut pour toutes les applications et pour tout le monde. Il reste sur
-   ordinateur, où il sert d'agrandissement passager. */
-@media (pointer: coarse) {
-  .zoom-select { display: none; }
-}
+/* Le zoom existe partout (23/09/2026) : c'est lui, désormais, qui règle la
+   taille du texte sur téléphone — voir plus haut. Sur petit écran il ne vit
+   pas dans la barre d'outils mais dans le menu ⋯, où l'on va chercher les
+   réglages ; la règle qui le masque est donc portée sur la barre. */
 
 .btn-plan { display: none; }
 @media (max-width: 1100px) {
@@ -2446,7 +2430,8 @@ tr.bo-traite { opacity: 0.6; }
   .tel-edition .sidebar,
   .tel-lecture .outline-sidebar,
   .tel-edition .outline-sidebar,
-  .tel-edition .zoom-select {
+  .tel-edition .format-toolbar .zoom-select,
+  .tel-lecture .format-toolbar .zoom-select {
     display: none !important;
   }
 
@@ -2518,6 +2503,14 @@ tr.bo-traite { opacity: 0.6; }
   .barre-dans-feuille .barre-groupe { overflow-x: auto; }
   .barre-dans-feuille .barre-groupe::-webkit-scrollbar { display: none; }
   .tel-edition .editor-container { padding-bottom: 24px; }
+
+  /* Le zoom dans le menu : une ligne comme les autres, avec sa liste à
+     droite, assez haute pour le doigt. */
+  .tel-menu-zoom .zoom-select {
+    margin: 0;
+    min-height: 40px;
+    font-size: 16px;
+  }
 
   /* --- Le menu ⋯ */
   .tel-menu { display: flex; flex-direction: column; }
