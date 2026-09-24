@@ -4,6 +4,7 @@ import {
   scanChangesInRange,
   updateChangeList,
   mergeAdjacentChanges,
+  pairReplacements,
   acceptChange,
   rejectChange,
   acceptAllChanges,
@@ -53,6 +54,13 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
   // et le mouseup d'un clic faisait perdre ce clic).
   let elementsParCle = new Map()
   let cleCourante = null
+  // Identifiants de groupe (voir pairReplacements) dont l'entrée
+  // « remplacement » est actuellement dépliée en « traiter séparément »
+  // dans le panneau — un simple affichage, aucun effet sur le document.
+  let groupesDetailles = new Set()
+  function changesAffichees(raw) {
+    return pairReplacements(mergeAdjacentChanges(raw))
+  }
   // A signature of the last rendered change list, so we can skip rebuilding
   // the whole panel (and re-creating every Accepter/Rejeter button) when a
   // transaction doesn't actually touch the tracked changes — e.g. a remote
@@ -126,7 +134,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
    * relecture, remonter au début est une surprise, pas un service. */
   function continuerVersLeBas(depart) {
     if (!view) return
-    const changes = mergeAdjacentChanges(changesKey.getState(view.state)?.raw ?? [])
+    const changes = changesAffichees(changesKey.getState(view.state)?.raw ?? [])
     const cible = prochaineApres(changes, depart)
     if (!cible) return
     const { state, dispatch } = view
@@ -140,7 +148,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
    * relecture, et il évite de viser à la souris. */
   function allerA(direction) {
     if (!view) return
-    const changes = mergeAdjacentChanges(changesKey.getState(view.state)?.raw ?? [])
+    const changes = changesAffichees(changesKey.getState(view.state)?.raw ?? [])
     if (!changes.length) return
     const pos = view.state.selection.head
     const cible =
@@ -157,7 +165,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
   function render(force) {
     if (!view) return
     const raw = changesKey.getState(view.state)?.raw ?? []
-    const changes = mergeAdjacentChanges(raw)
+    const changes = changesAffichees(raw)
     const signature = signatureOf(changes)
     if (!force && signature === lastSignature) {
       majEntreeCourante(changes)
@@ -230,12 +238,28 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
       const meta = document.createElement('div')
       meta.className = 'change-meta'
       const typeLabel =
-        change.type === 'insertion' ? 'ajout' : change.type === 'deletion' ? 'suppression' : 'saut de paragraphe'
+        change.type === 'insertion'
+          ? 'ajout'
+          : change.type === 'deletion'
+            ? 'suppression'
+            : change.type === 'remplacement'
+              ? 'remplacement'
+              : 'saut de paragraphe'
       meta.innerHTML = `<strong>${escapeHtml(change.user)}</strong> · ${typeLabel} · ${relativeTime(change.ts)}`
 
       const text = document.createElement('div')
       text.className = 'change-text'
-      text.textContent = change.text.length > 140 ? change.text.slice(0, 140) + '…' : change.text
+      if (change.type === 'remplacement') {
+        const ancien = document.createElement('span')
+        ancien.className = 'change-ancien'
+        ancien.textContent = tronque(change.ancien, 90)
+        const nouveau = document.createElement('span')
+        nouveau.className = 'change-nouveau'
+        nouveau.textContent = tronque(change.nouveau, 90)
+        text.append(ancien, document.createTextNode(' → '), nouveau)
+      } else {
+        text.textContent = tronque(change.text, 140)
+      }
 
       const actions = document.createElement('div')
       actions.className = 'change-actions'
@@ -261,9 +285,30 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
           continuerVersLeBas(depart)
         }
         actions.append(acceptBtn, rejectBtn)
+        // Un remplacement se décide d'un bloc par défaut, mais reste deux
+        // modifications distinctes en dessous (une insertion, une
+        // suppression) : ce lien donne accès aux deux décisions séparées
+        // sans les imposer — voir claude/etude-suivi-remplacement.md,
+        // projet Amend.
+        if (change.type === 'remplacement') {
+          const detailBtn = document.createElement('button')
+          detailBtn.type = 'button'
+          detailBtn.className = 'change-detail-toggle'
+          const detaillee = groupesDetailles.has(change.groupe)
+          detailBtn.textContent = detaillee ? 'Regrouper' : 'Traiter séparément'
+          detailBtn.onclick = () => {
+            if (detaillee) groupesDetailles.delete(change.groupe)
+            else groupesDetailles.add(change.groupe)
+            render(true)
+          }
+          actions.append(detailBtn)
+        }
       }
 
       item.append(meta, text, actions)
+      if (change.type === 'remplacement' && groupesDetailles.has(change.groupe)) {
+        item.appendChild(construireDetail(change))
+      }
       // Clicking the item itself (not Accepter/Rejeter) scrolls the editor
       // to that change, centered — a quick way to see a change in its real
       // context before deciding on it. `closest` rather than checking
@@ -271,7 +316,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
       // node (or any future control added inside .change-actions) is still
       // caught.
       item.addEventListener('click', (e) => {
-        if (e.target.closest('.change-actions')) return
+        if (e.target.closest('.change-actions') || e.target.closest('.change-detail')) return
         // Le clic place aussi le curseur dans la modification (17/09/2026).
         // Sans ça, l'entrée cliquée ne devenait pas « courante » — et
         // depuis que les boutons Accepter/Rejeter ne s'affichent que sur
@@ -314,6 +359,54 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
 
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  }
+
+  function tronque(s, n) {
+    return s.length > n ? s.slice(0, n) + '…' : s
+  }
+
+  /** Le détail « traiter séparément » d'une entrée remplacement (voir le
+   * lien du même nom dans render ci-dessous) : les deux modifications
+   * d'origine, chacune avec sa propre décision — accepter/rejeter l'ancien
+   * texte barré (change.deletion) indépendamment du nouveau souligné
+   * (change.insertion), exactement comme avant l'ajout du pairage. */
+  function construireDetail(change) {
+    const detail = document.createElement('div')
+    detail.className = 'change-detail'
+    for (const [sous, libelle] of [
+      [change.deletion, 'Ancien'],
+      [change.insertion, 'Nouveau'],
+    ]) {
+      const ligne = document.createElement('div')
+      ligne.className = 'change-detail-row'
+      const texte = document.createElement('span')
+      texte.className = `change-detail-text change-${sous.type}`
+      texte.textContent = `${libelle} : ${tronque(sous.text, 90)}`
+      const actionsDetail = document.createElement('div')
+      actionsDetail.className = 'change-detail-actions'
+      if (canReview) {
+        const acceptBtn = document.createElement('button')
+        acceptBtn.textContent = 'Accepter'
+        acceptBtn.className = 'btn-accept'
+        acceptBtn.onclick = () => {
+          const depart = sous.from
+          acceptChange(view, sous)
+          continuerVersLeBas(depart)
+        }
+        const rejectBtn = document.createElement('button')
+        rejectBtn.textContent = 'Rejeter'
+        rejectBtn.className = 'btn-reject'
+        rejectBtn.onclick = () => {
+          const depart = sous.from
+          rejectChange(view, sous)
+          continuerVersLeBas(depart)
+        }
+        actionsDetail.append(acceptBtn, rejectBtn)
+      }
+      ligne.append(texte, actionsDetail)
+      detail.appendChild(ligne)
+    }
+    return detail
   }
 
   const plugin = new Plugin({

@@ -71,6 +71,21 @@ function isRemoteOrigin(tr) {
   return !!tr.getMeta(ySyncPluginKey)
 }
 
+/** A short id shared by a replacement's deletion mark and its insertion
+ * mark — set only when a selection is genuinely replaced by typed/pasted
+ * text (see rewriteForTracking and effacementMultiBloc below), never for a
+ * plain insertion or a plain deletion. Used purely for display: pairing
+ * the two halves into one "remplacement" entry in the changes panel (see
+ * pairReplacements) — accept/reject still act on each mark independently
+ * underneath, exactly as before (see claude/etude-suivi-remplacement.md,
+ * projet Amend). Not cryptographically unique, doesn't need to be: it only
+ * has to avoid colliding with another replacement typed in the same
+ * millisecond by the same author, which Math.random's few extra bits cover
+ * comfortably for this purpose. */
+function idDeGroupe(ts) {
+  return `${ts}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 /** Marks `[from, to)` (in `state.doc`, pre-edit) as a tracked deletion in
  * `tr` — except any span that is itself still a pending (unaccepted)
  * insertion from anyone, which really gets removed instead of
@@ -282,13 +297,14 @@ function effacementMultiBloc(state, tr, step, user) {
   if (!insertionType || !deletionType) return null
 
   const ts = Date.now()
-  const delMark = deletionType.create({ user: user.name, userColor: user.color, ts })
+  const groupe = texte.length > 0 ? idDeGroupe(ts) : null
+  const delMark = deletionType.create({ user: user.name, userColor: user.color, ts, groupe })
   const out = state.tr
   markRangeForTrackedDeletion(state, out, from, to, delMark)
 
   let curseur = out.mapping.map(from)
   if (texte.length > 0 && positionUtilisable(out.doc, curseur)) {
-    const insMark = insertionType.create({ user: user.name, userColor: user.color, ts })
+    const insMark = insertionType.create({ user: user.name, userColor: user.color, ts, groupe })
     const authorMark = state.schema.marks.authorColor?.create({
       user: user.name,
       userColor: user.color,
@@ -360,8 +376,14 @@ export function rewriteForTracking(state, tr, user) {
   }
 
   const ts = Date.now()
-  const insMark = insertionType.create({ user: user.name, userColor: user.color, ts })
-  const delMark = deletionType.create({ user: user.name, userColor: user.color, ts })
+  // Un vrai remplacement — une sélection non vide, et quelque chose à
+  // insérer à la place — partage un identifiant de groupe entre les deux
+  // marques (voir idDeGroupe ci-dessus). Un simple effacement (rien à
+  // insérer) ou une frappe au curseur (rien à effacer) n'en a pas besoin :
+  // il n'y a qu'une seule moitié.
+  const groupe = cibleTo > cibleFrom && slice.size > 0 ? idDeGroupe(ts) : null
+  const insMark = insertionType.create({ user: user.name, userColor: user.color, ts, groupe })
+  const delMark = deletionType.create({ user: user.name, userColor: user.color, ts, groupe })
   const authorMark = state.schema.marks.authorColor?.create({ user: user.name, userColor: user.color })
   const out = state.tr
 
@@ -651,6 +673,7 @@ export function scanChangesInRange(doc, from, to) {
           user: mark.attrs.user,
           userColor: mark.attrs.userColor,
           ts: mark.attrs.ts,
+          groupe: mark.attrs.groupe || null,
           text: node.text,
         })
       }
@@ -680,10 +703,59 @@ export function mergeAdjacentChanges(raw) {
   return merged
 }
 
+/** Pairs a merged insertion immediately followed by a merged deletion that
+ * share the same non-null `groupe` into one display "remplacement" entry —
+ * the panel equivalent of what typing over a selection actually is:
+ * swapping one passage for another, not two unrelated changes (see
+ * claude/etude-suivi-remplacement.md, projet Amend). Deliberately only
+ * pairs adjacent entries: a replacement's insertion always sits
+ * immediately before its matching deletion in the document, by
+ * construction (see rewriteForTracking/effacementMultiBloc) — no need to
+ * search further, and safer not to (two same-`groupe` spans that end up
+ * apart, e.g. after other edits nearby, are exactly the case where forcing
+ * a pairing would confuse more than it'd help).
+ *
+ * Underlying document state is untouched by this — it only reshapes the
+ * *list* handed to the panel. `change.insertion`/`change.deletion` on the
+ * resulting entry keep the two original sub-changes, so acceptChange/
+ * rejectChange can still act on each mark independently (whole-group
+ * accept/reject, or "traiter séparément" in the panel). A groupe that has
+ * lost its other half (that half already accepted/rejected on its own)
+ * simply stops pairing — no special-casing needed, the condition below
+ * just never matches. */
+export function pairReplacements(changes) {
+  const out = []
+  for (let i = 0; i < changes.length; i++) {
+    const a = changes[i]
+    const b = changes[i + 1]
+    if (a.type === 'insertion' && b && b.type === 'deletion' && a.groupe && a.groupe === b.groupe && a.to === b.from) {
+      out.push({
+        type: 'remplacement',
+        groupe: a.groupe,
+        from: a.from,
+        to: b.to,
+        user: a.user,
+        userColor: a.userColor,
+        ts: a.ts,
+        ancien: b.text,
+        nouveau: a.text,
+        insertion: a,
+        deletion: b,
+      })
+      i++ // b est consommée avec a
+    } else {
+      out.push(a)
+    }
+  }
+  return out
+}
+
 /** Lists every tracked change currently in the document, merging adjacent
- * spans from the same author/type for a cleaner "changes" panel. */
+ * spans from the same author/type for a cleaner "changes" panel, and
+ * pairing replacement insertion/deletion pairs into one entry (see
+ * pairReplacements). */
 export function listChanges(doc) {
-  return mergeAdjacentChanges(scanChangesInRange(doc, 0, doc.content.size))
+  return pairReplacements(mergeAdjacentChanges(scanChangesInRange(doc, 0, doc.content.size)))
 }
 
 /** Incrementally updates a raw (unmerged) change list — as returned by
@@ -718,6 +790,22 @@ export function updateChangeList(raw, tr) {
 
 export function acceptChange(view, change) {
   const tr = view.state.tr
+  if (change.type === 'remplacement') {
+    // Accepter le tout : la proposition entre dans le texte (on retire
+    // seulement la marque d'insertion) et l'ancien texte barré s'efface
+    // pour de bon. La marque retirée d'abord, quelle que soit l'action,
+    // parce qu'elle ne change jamais la taille du document — la
+    // suppression, elle, en change une, alors elle passe en dernier pour
+    // ne jamais invalider les positions de l'autre moitié (voir
+    // pairReplacements : l'insertion précède toujours la suppression dans
+    // le document, donc l'ordre ici est sans risque dans les deux sens,
+    // mais autant garder une seule règle facile à vérifier).
+    tr.removeMark(change.insertion.from, change.insertion.to, view.state.schema.marks.insertion)
+    retirerTexte(view.state, tr, change.deletion.from, change.deletion.to)
+    tr.setMeta('trackChangesInternal', true)
+    view.dispatch(tr)
+    return
+  }
   if (change.type === 'break') {
     // Accepter un saut de paragraphe en attente : juste effacer le
     // marqueur, la coupure elle-même reste (c'est déjà l'état réel du
@@ -763,6 +851,17 @@ function retirerTexte(state, tr, from, to) {
 
 export function rejectChange(view, change) {
   const tr = view.state.tr
+  if (change.type === 'remplacement') {
+    // Rejeter le tout : la proposition disparaît (l'insertion est
+    // vraiment retirée) et l'ancien texte est restauré (on retire
+    // seulement sa marque de suppression). Même règle d'ordre que dans
+    // acceptChange ci-dessus.
+    tr.removeMark(change.deletion.from, change.deletion.to, view.state.schema.marks.deletion)
+    retirerTexte(view.state, tr, change.insertion.from, change.insertion.to)
+    tr.setMeta('trackChangesInternal', true)
+    view.dispatch(tr)
+    return
+  }
   if (change.type === 'break') {
     // Rejeter un saut de paragraphe : le seul moyen de vraiment l'annuler
     // est de refusionner les deux blocs qu'il a créés — l'exact inverse

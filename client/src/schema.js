@@ -283,7 +283,7 @@ export const schema = new Schema({
     // the author's color; accept keeps it (drops the mark), reject removes
     // the text entirely.
     insertion: {
-      attrs: { user: {}, userColor: {}, ts: {} },
+      attrs: { user: {}, userColor: {}, ts: {}, groupe: { default: null } },
       // Deliberately NOT inclusive: text typed right after an
       // insertion/deletion span must never silently inherit that mark —
       // every span's attribution has to come from an explicit addMark call
@@ -320,7 +320,7 @@ export const schema = new Schema({
     // Text proposed for removal. Kept in the document (struck through)
     // until accepted (removes it for real) or rejected (drops the mark).
     deletion: {
-      attrs: { user: {}, userColor: {}, ts: {} },
+      attrs: { user: {}, userColor: {}, ts: {}, groupe: { default: null } },
       inclusive: false,
       // Pas de parseDOM — même raison que insertion ci-dessus.
       toDOM(mark) {

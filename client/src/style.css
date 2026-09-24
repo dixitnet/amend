@@ -852,6 +852,33 @@ span.author-color {
 }
 .change-item.courante .change-text { display: block; overflow: visible; }
 .change-deletion .change-text { text-decoration: line-through; opacity: 0.7; }
+/* Remplacement (24/09/2026, voir claude/etude-suivi-remplacement.md) :
+   ancien texte barré, nouveau souligné, dans le même style que la marque
+   correspondante dans l'éditeur (ins.tracked-insertion/del.tracked-deletion
+   plus haut) — le panneau et le texte se lisent avec le même vocabulaire
+   visuel. */
+.change-ancien { text-decoration: line-through; opacity: 0.7; }
+.change-nouveau { text-decoration: underline; text-decoration-color: var(--user-color, var(--accent)); }
+/* Le lien « traiter séparément »/« regrouper » : un bouton, mais discret —
+   ce n'est pas l'action principale de l'entrée. */
+.change-detail-toggle {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 5px 2px;
+}
+.change-detail-toggle:hover { color: var(--fg); }
+/* Le détail déplié : les deux moitiés du remplacement, chacune avec sa
+   propre décision — toujours visible une fois ouvert, sans dépendre du
+   survol ou de l'entrée courante (voir .change-actions plus haut) : on l'a
+   demandé explicitement, il n'a pas à se cacher. */
+.change-detail { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.change-detail-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.change-detail-text { font-size: 12px; word-break: break-word; }
+.change-detail-actions { display: flex; gap: 6px; flex-shrink: 0; }
 /* Les actions apparaissent sur l'entrée courante **et au survol** : on
    accepte souvent une modification qu'on vient de lire sans avoir cliqué
    dessus, et exiger un clic préalable ajouterait un geste à celui qui

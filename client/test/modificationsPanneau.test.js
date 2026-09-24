@@ -11,7 +11,7 @@ import { JSDOM } from 'jsdom'
 import { EditorState, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { schema } from '../src/schema.js'
-import { trackChangesPlugin, makeDispatchTransaction } from '../src/trackChanges.js'
+import { trackChangesPlugin, makeDispatchTransaction, listChanges } from '../src/trackChanges.js'
 import { mountChangesPanel } from '../src/changesPanel.js'
 
 const ALICE = { name: 'Alice', color: '#3d5a80' }
@@ -134,6 +134,79 @@ test('un correcteur ne se voit proposer ni Accepter ni Rejeter', async () => {
 
   assert.equal(entrees(panneau).length, 1)
   assert.equal(panneau.querySelectorAll('.change-actions button').length, 0)
+})
+
+/** Un éditeur en suivi de modifications, avec le panneau monté, et un mot
+ * remplacé par un autre — frappe par-dessus une sélection, le geste que
+ * pairReplacements regroupe en une seule entrée « remplacement » (voir
+ * claude/etude-suivi-remplacement.md, projet Amend). */
+function monterAvecUnRemplacement() {
+  installerDom()
+  const panneau = document.getElementById('panneau')
+  const doc = schema.node('doc', null, [schema.node('paragraph', null, [schema.text('Le chat mange.')])])
+  const state = EditorState.create({
+    doc,
+    plugins: [trackChangesPlugin({ enabled: true }), mountChangesPanel(panneau, { canReview: true })],
+  })
+  const view = new EditorView(document.getElementById('editeur'), { state })
+  view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => ALICE) })
+
+  // « chat » (positions 4 à 8) remplacé par « chien ».
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 4, 8)))
+  view.dispatch(view.state.tr.insertText('chien', 4, 8))
+  return { view, panneau }
+}
+
+test('remplacer une sélection en tapant par-dessus ne fait qu’une seule entrée', async () => {
+  const { panneau } = monterAvecUnRemplacement()
+  await new Promise((r) => setTimeout(r, 30))
+  const liste = entrees(panneau)
+  assert.equal(liste.length, 1, 'une carte, pas deux (voir claude/etude-suivi-remplacement.md)')
+  assert.ok(liste[0].className.includes('change-remplacement'))
+  assert.equal(panneau.querySelector('.change-ancien').textContent, 'chat')
+  assert.equal(panneau.querySelector('.change-nouveau').textContent, 'chien')
+})
+
+test('accepter un remplacement groupé retire l’ancien et garde le nouveau', async () => {
+  const { view, panneau } = monterAvecUnRemplacement()
+  await new Promise((r) => setTimeout(r, 30))
+  accepter(entrees(panneau)[0]).dispatchEvent(new window.Event('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(view.state.doc.textContent, 'Le chien mange.')
+  assert.equal(listChanges(view.state.doc).length, 0, 'plus rien en attente')
+})
+
+test('rejeter un remplacement groupé restaure l’ancien et efface le nouveau', async () => {
+  const { view, panneau } = monterAvecUnRemplacement()
+  await new Promise((r) => setTimeout(r, 30))
+  rejeter(entrees(panneau)[0]).dispatchEvent(new window.Event('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(view.state.doc.textContent, 'Le chat mange.')
+  assert.equal(listChanges(view.state.doc).length, 0, 'plus rien en attente')
+})
+
+test('« traiter séparément » redonne accès aux deux décisions', async () => {
+  const { view, panneau } = monterAvecUnRemplacement()
+  await new Promise((r) => setTimeout(r, 30))
+  const carte = entrees(panneau)[0]
+  const toggle = [...carte.querySelectorAll('button')].find((b) => b.textContent === 'Traiter séparément')
+  assert.ok(toggle, 'le lien existe')
+  toggle.dispatchEvent(new window.Event('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 30))
+
+  const lignes = panneau.querySelectorAll('.change-detail-row')
+  assert.equal(lignes.length, 2, 'ancien et nouveau, chacun avec sa décision')
+
+  // Accepter seulement le nouveau texte (l'insertion) : le mot ajouté
+  // reste, l'ancien redevient une entrée normale, seule.
+  const boutonNouveau = [...lignes[1].querySelectorAll('button')].find((b) => b.textContent === 'Accepter')
+  boutonNouveau.dispatchEvent(new window.Event('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 30))
+
+  const restant = entrees(panneau)
+  assert.equal(restant.length, 1, 'il reste l’ancien texte, seul')
+  assert.ok(restant[0].className.includes('change-deletion'), 'ce n’est plus un remplacement groupé')
+  assert.equal(view.state.doc.textContent, 'Le chienchat mange.', 'le nouveau est resté, l’ancien encore barré')
 })
 
 test('la consigne de défilement survit à la réécriture en suivi', () => {
