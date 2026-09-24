@@ -19,9 +19,6 @@ import {
   selectionHighlightPlugin,
   richPastePlugin,
   pendingBreakPlugin,
-  listChanges,
-  acceptChange,
-  rejectChange,
 } from './trackChanges.js'
 import { mountChangesPanel } from './changesPanel.js'
 import { openAccessPanel } from './accessPanel.js'
@@ -963,18 +960,6 @@ export function mountEditor(root, docId, user, docMeta) {
   // up right after construction rather than passed in the initial props.
   view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => user) })
 
-  // TEMPORAIRE (test de charge du 13/09/2026, a retirer apres) : expose la
-  // vue pour piloter des transactions depuis un script externe.
-  window.__debugPmView = view
-  window.__debugUser = user
-  window.__debugSetTrackChanges = (enabled) => setTrackChangesEnabled(view, enabled)
-  // Diagnostic du 14/09/2026 (bug de collage signalé) : accès direct à la
-  // couche Yjs pour comparer l'état du document ProseMirror à l'état Yjs
-  // sous-jacent — à retirer avec le reste de ce bloc temporaire.
-  window.__debugProvider = provider
-  window.__debugYdoc = ydoc
-  window.__debugYXml = yXml
-
   // Un correcteur reste toujours en suivi de modifications — ne peut ni
   // désactiver le suivi, ni en sortir (voir
   // claude/conception-gestion-utilisateurs.md, projet Amend). Appliqué ici
@@ -1288,12 +1273,3 @@ export function mountEditor(root, docId, user, docMeta) {
   }
 }
 
-// TEMPORAIRE (campagne de tests de charge, a retirer une fois terminee) :
-// expose la fonction de montage elle-meme (pour monter plusieurs
-// "utilisateurs" simules dans un seul onglet, sans ouvrir autant de vrais
-// onglets) et les fonctions de suivi des modifications necessaires pour
-// scripter accepter/rejeter en masse.
-window.__debugMountEditor = mountEditor
-window.__debugListChanges = listChanges
-window.__debugAcceptChange = acceptChange
-window.__debugRejectChange = rejectChange
