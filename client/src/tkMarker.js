@@ -1,3 +1,4 @@
+import { defilerVers } from './defilement.js'
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import { touchedBlockRange } from './incrementalScan.js'
@@ -89,16 +90,7 @@ export function mountTkMarker(container, { onCycle } = {}) {
     view.focus()
     // Centrer comme le font les panneaux latéraux, plutôt que de se
     // contenter du défilement minimal de scrollIntoView.
-    const conteneur = view.dom.closest('.editor-container')
-    if (conteneur) {
-      try {
-        const coords = view.coordsAtPos(suivant.from)
-        const rect = conteneur.getBoundingClientRect()
-        conteneur.scrollTop += coords.top - (rect.top + conteneur.clientHeight / 2)
-      } catch {
-        /* position hors écran pendant un re-rendu : le scrollIntoView suffit */
-      }
-    }
+    defilerVers(view, suivant.from, { fraction: 0.5 })
     if (onCycle) onCycle(marqueurs.indexOf(suivant) + 1, marqueurs.length)
   }
 

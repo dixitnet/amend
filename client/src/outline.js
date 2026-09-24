@@ -1,3 +1,4 @@
+import { defilerVers } from './defilement.js'
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { updateItemList } from './incrementalScan.js'
 import { throttle } from './throttle.js'
@@ -87,7 +88,13 @@ export function mountOutlinePanel(container) {
     const $pos = view.state.doc.resolve(Math.min(pos + 1, view.state.doc.content.size))
     const tr = view.state.tr.setSelection(TextSelection.near($pos))
     view.dispatch(tr)
-    view.focus()
+    // Pas de `view.focus()` quand le document ne se modifie pas (24/09/2026).
+    // Donner le focus fait amener au navigateur l'élément modifiable dans le
+    // champ de vision — et cet élément, c'est tout le texte : la page
+    // remontait à son début, écrasant le déplacement qu'on demandait juste
+    // après. Sur téléphone, en lecture, on navigue pour lire ; le focus n'a
+    // rien à y faire, et il ouvrirait le clavier pour rien.
+    if (view.editable) view.focus()
     // Not tr.scrollIntoView(): that only scrolls the minimum distance needed
     // to bring the position into view, which in practice lands the heading
     // near the bottom of the editor when jumping forward in a long
@@ -102,12 +109,9 @@ export function mountOutlinePanel(container) {
    * `scrollTop` delta that works regardless of current scroll position. */
   function scrollHeadingToTop(pos) {
     if (!view) return
-    const container = view.dom.closest('.editor-container')
-    if (!container) return
-    const coords = view.coordsAtPos(pos)
-    const containerTop = container.getBoundingClientRect().top
-    const margin = 16 // small gap so the heading isn't flush against the edge
-    container.scrollTop += coords.top - containerTop - margin
+    // La zone qui défile n'est plus toujours `.editor-container` : sur
+    // téléphone c'est la page (voir defilement.js).
+    defilerVers(view, pos, { marge: 16 })
   }
 
   function render(force) {

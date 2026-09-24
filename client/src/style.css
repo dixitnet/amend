@@ -2263,8 +2263,58 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
    de défilement s'arrête là où commence le clavier, et le rembourrage du
    conteneur redevient constant — donc plus de contenu qui glisse sous le
    doigt à l'ouverture du clavier, ce qui brouillait la pose du curseur. */
+/* --- Sur téléphone, c'est la page qui défile (24/09/2026) --------------
+   Renversement, et le motif n'est pas esthétique. Le texte vivait dans
+   `.editor-container`, une colonne qui défile pour son compte. Or WebKit
+   bâtit le placement du curseur et l'évitement du clavier autour du
+   défilement **de la page** : dans un défilement interne, poser le curseur
+   au doigt après avoir fait défiler échouait, et le curseur restait en haut
+   du document (signalé par Sylvain les 23 et 24/09/2026, jamais reproduit
+   sous Chromium). On rend donc à Safari sa propre mécanique.
+
+   Conséquence : plus besoin de retrancher la hauteur du clavier de la
+   coquille — c'est le navigateur qui remonte la page sur le curseur, et il
+   le fait mieux que nous. `--clavier` ne sert plus qu'au crayon flottant.
+
+   Quatre endroits du code faisaient `conteneur.scrollTop += …` : ils passent
+   par `defilement.js`, qui reconnaît la zone qui défile vraiment. */
 @media (max-width: 700px) and (pointer: coarse) {
-  .app-shell { height: calc(100dvh - var(--clavier, 0px)); }
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+  }
+  .app-shell {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .editor-layout,
+  .editor-main {
+    display: block;
+    min-height: 0;
+  }
+  .editor-container {
+    display: block;
+    overflow: visible;
+    flex: none;
+    height: auto;
+  }
+  .ProseMirror {
+    min-height: 0;
+    margin: 0 auto;
+  }
+  /* L'en-tête reste là : il porte le retour, les outils et le menu. */
+  .tel-entete {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  /* Le masque de chargement ne peut plus se caler sur le conteneur, qui
+     fait maintenant la hauteur du document entier. */
+  .masque-chargement {
+    position: fixed;
+    inset: 0;
+  }
 }
 
 /* L'interrupteur de suivi est déménagé dans la barre du bas sur petit

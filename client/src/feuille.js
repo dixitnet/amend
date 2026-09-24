@@ -19,6 +19,23 @@
 // Ce fichier ne connaît aucun contenu : il ouvre, ferme, et rend un corps à
 // remplir. Le plan, les commentaires et la relecture s'en servent.
 
+// Le navigateur ne restaure plus le défilement lui-même (24/09/2026).
+//
+// Depuis que c'est la page qui défile sur téléphone, fermer une feuille
+// ramenait le document à son début. Le chemin : `fermer()` dépile l'entrée
+// d'historique de la feuille ; le `popstate` qui s'ensuit déclenche la
+// restauration automatique du défilement, et la position enregistrée avec
+// cette entrée était celle d'avant. Toucher un titre du plan amenait donc
+// bien au titre — mesuré au banc : la page passait à 2 892 px et s'y
+// tenait une image — puis revenait à zéro une fraction de seconde plus
+// tard, sans que rien ne le signale.
+//
+// Une application qui gère elle-même ses déplacements doit prendre cette
+// restauration à sa charge : c'est ce que dit `manual`.
+if (typeof history !== 'undefined' && 'scrollRestoration' in history) {
+  history.scrollRestoration = 'manual'
+}
+
 let ouverte = null
 
 /** Ferme la feuille ouverte, s'il y en a une. */
@@ -51,6 +68,13 @@ export function ouvrirFeuille(titre, { hauteur = 0.5, modale = false, surFermetu
   // deux.
   const remplaceUneAutre = !!ouverte
   if (ouverte) ouverte.fermer({ remplacee: true })
+  // On ne fige **pas** la page derrière la feuille (24/09/2026, essayé puis
+  // retiré). `overflow: hidden` sur la racine empêche aussi les défilements
+  // demandés par le code : toucher un titre du plan n'allait plus nulle
+  // part, et la barre de relecture ne pouvait plus amener la modification
+  // suivante sous les yeux alors qu'elle vit elle-même dans une feuille.
+  // Qu'un doigt posé à côté fasse défiler le document est le moindre mal —
+  // c'est d'ailleurs ce que font les feuilles d'iOS.
 
   const el = document.createElement('div')
   el.className = `feuille${modale ? ' feuille-modale' : ''}`

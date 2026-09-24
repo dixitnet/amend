@@ -308,13 +308,18 @@ export function monterInterfaceTelephone(pieces) {
   // lecture, et c'est tout — mais la règle est écrite une fois
   // pour toutes, de sorte qu'une future barre flottante s'y range aussi.
   const hauteurCouvrante = () => {
-    const flottants = mode === 'lecture' ? [crayon] : []
-    let bas = 0
-    for (const el of flottants) {
-      const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null
-      if (r && r.height) bas = Math.max(bas, Math.round(r.height) + 24)
+    if (mode === 'lecture') {
+      const r = crayon && crayon.getBoundingClientRect ? crayon.getBoundingClientRect() : null
+      return r && r.height ? Math.round(r.height) + 24 : 0
     }
-    return bas
+    // En écriture, c'est le clavier. Depuis que la page défile, Safari
+    // remonte lui-même le texte pour le dégager — mais ProseMirror, lui,
+    // croit la fenêtre entière visible et pourrait s'arrêter trop bas. On
+    // lui dit donc ce que le clavier recouvre : ceinture et bretelles, sans
+    // conflit puisque les deux tirent dans le même sens.
+    const mesure = racine.style.getPropertyValue('--clavier')
+    const clavier = parseInt(mesure, 10)
+    return Number.isFinite(clavier) && clavier > 0 ? clavier : 0
   }
   // Mesuré au banc (23/09/2026) : ProseMirror juge de la visibilité d'après
   // le rectangle du conteneur de défilement et ne voit pas ce qui flotte
@@ -394,8 +399,12 @@ export function monterInterfaceTelephone(pieces) {
       if (!view.dom.contains(e.target)) return
       // Un glissement, c'est un défilement. Un appui long, c'est la
       // sélection de mot de Safari. Ni l'un ni l'autre ne nous regarde.
-      if (Math.abs(touche.clientX - d.x) > 8 || Math.abs(touche.clientY - d.y) > 8) return
-      if (Date.now() - d.t > 500) return
+      // Desserrés le 24/09/2026 : un pouce qui se pose en bas d'écran roule
+      // facilement d'une dizaine de pixels, et un toucher tranquille passe
+      // la demi-seconde. Trop serrés, ces garde-fous écartaient le
+      // rattrapage en silence, précisément quand on en avait besoin.
+      if (Math.abs(touche.clientX - d.x) > 15 || Math.abs(touche.clientY - d.y) > 15) return
+      if (Date.now() - d.t > 700) return
       // Lu maintenant, avant tout défilement du navigateur.
       const point = view.posAtCoords({ left: touche.clientX, top: touche.clientY })
       if (!point) return

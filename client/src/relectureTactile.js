@@ -18,6 +18,7 @@
 // modifications (`listChanges`, `acceptChange`, `rejectChange`) viennent du
 // modèle déjà écrit. Seule l'enveloppe change.
 
+import { defilerVers } from './defilement.js'
 import { TextSelection } from 'prosemirror-state'
 import { ouvrirFeuille, petitEcran } from './feuille.js'
 import {
@@ -43,15 +44,7 @@ function tempsRelatif(ts) {
 /** Amène une position au milieu de la zone d'édition — au-dessus de la
  * feuille, donc : on doit voir le passage dont on parle. */
 function centrer(view, pos, fraction = 0.3) {
-  const conteneur = view.dom.closest('.editor-container')
-  if (!conteneur) return
-  try {
-    const coords = view.coordsAtPos(pos)
-    const rect = conteneur.getBoundingClientRect()
-    conteneur.scrollTop += coords.top - (rect.top + conteneur.clientHeight * fraction)
-  } catch {
-    /* position pas encore dessinée */
-  }
+  defilerVers(view, pos, { fraction })
 }
 
 // --------------------------------------------------- les commentaires
