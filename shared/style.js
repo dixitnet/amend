@@ -313,9 +313,23 @@ export function fusionner(...couches) {
  * défaut. C'est ce qu'on enregistre : un document ne fige que ses propres
  * choix, et hérite du reste — donc une valeur par défaut qui change plus
  * tard profite à tout le monde sauf à ceux qui l'ont explicitement
- * changée. */
-export function reduire(style) {
+ * changée.
+ *
+ * `instance` (feuille complète de l'instance) : à passer pour un
+ * **document**. Une valeur est alors gardée si elle s'écarte du défaut du
+ * code **ou** de l'instance. Sans ce second cas, un réglage ramené à sa
+ * valeur codée en dur alors que l'instance en a une autre — page A4 quand
+ * l'instance est en A5 — ne différait de rien, disparaissait du fichier,
+ * et le document retombait silencieusement sur l'instance à la relecture.
+ * Signalé en production le 26/09/2026 : « le passage en A4 ne
+ * s'enregistre pas ». On ne compare pas **seulement** à l'instance : le
+ * document cesserait de figer ce qu'il en a hérité, et un changement
+ * ultérieur de l'instance refluerait sur lui. */
+export function reduire(style, instance = null) {
   const base = styleParDefaut()
+  const bases = instance ? [base, instance] : [base]
+  // Vrai si `v` s'écarte d'au moins une base, lue par `lire`.
+  const ecarte = (v, lire) => bases.some((b) => lire(b) !== v)
   const out = { version: VERSION_STYLE }
   const page = {}
   for (const [k, v] of Object.entries(style.page || {})) {
@@ -324,23 +338,27 @@ export function reduire(style) {
       for (const [k2, v2] of Object.entries(v || {})) {
         if (estGroupe(base.page[k][k2])) {
           const d2 = {}
-          for (const [k3, v3] of Object.entries(v2 || {})) if (base.page[k][k2][k3] !== v3) d2[k3] = v3
+          for (const [k3, v3] of Object.entries(v2 || {})) {
+            if (ecarte(v3, (b) => b.page?.[k]?.[k2]?.[k3])) d2[k3] = v3
+          }
           // Un sous-groupe se note entier dès qu'il diffère : un en-tête
           // « texte libre » sans son texte ne veut rien dire.
           if (Object.keys(d2).length) diff[k2] = { ...base.page[k][k2], ...v2 }
-        } else if (base.page[k][k2] !== v2) diff[k2] = v2
+        } else if (ecarte(v2, (b) => b.page?.[k]?.[k2])) diff[k2] = v2
       }
       if (Object.keys(diff).length) page[k] = diff
-    } else if (base.page[k] !== v) page[k] = v
+    } else if (ecarte(v, (b) => b.page?.[k])) page[k] = v
   }
   if (Object.keys(page).length) out.page = page
   const blocs = {}
-  for (const b of BLOCS) {
-    const courant = (style.blocs || {})[b.id]
+  for (const bl of BLOCS) {
+    const courant = (style.blocs || {})[bl.id]
     if (!courant) continue
     const diff = {}
-    for (const [k, v] of Object.entries(courant)) if (base.blocs[b.id][k] !== v) diff[k] = v
-    if (Object.keys(diff).length) blocs[b.id] = diff
+    for (const [k, v] of Object.entries(courant)) {
+      if (ecarte(v, (b) => b.blocs?.[bl.id]?.[k])) diff[k] = v
+    }
+    if (Object.keys(diff).length) blocs[bl.id] = diff
   }
   if (Object.keys(blocs).length) out.blocs = blocs
   return out

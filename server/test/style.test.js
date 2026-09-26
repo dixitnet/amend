@@ -114,6 +114,21 @@ test('on n’enregistre que les écarts, jamais la feuille entière', () => {
   })
 })
 
+test('un document garde un réglage ramené au défaut du code quand l’instance diffère', () => {
+  // Signalé en production le 26/09/2026 : « le passage en A4 ne
+  // s'enregistre pas ». A4 est la valeur codée en dur ; comparé au seul
+  // défaut du code, il ne s'écartait de rien et disparaissait du fichier.
+  const instance = fusionner({ page: { size: 'A5' }, blocs: { body: { font: 'serif' } } })
+  const choisi = fusionner(instance, { page: { size: 'A4' } })
+  const r = reduire(choisi, instance)
+  assert.equal(r.page.size, 'A4')
+  // Et ce qui vient de l'instance reste figé dans le document, comme avant :
+  // un changement ultérieur de l'instance ne doit pas refluer sur lui.
+  assert.equal(r.blocs.body.font, 'serif')
+  // Sans instance (style de l'instance lui-même), rien ne change.
+  assert.deepEqual(reduire(fusionner({ page: { size: 'A4' } })), { version: VERSION_STYLE })
+})
+
 test('les couches s’empilent de la plus générale à la plus précise', () => {
   const instance = { blocs: { body: { font: 'serif', size: 10 } } }
   const document = { blocs: { body: { size: 12 }, h1: { align: 'center' } } }
@@ -191,6 +206,14 @@ test('la mise en page se lit avec l’accès, ne se change qu’en éditeur', as
 
 test('le fichier écrit reste petit : les écarts, pas la feuille entière', async () => {
   const admin = cookie('admin@example.com')
+  // Instance remise aux valeurs du code : les tests précédents l'ont
+  // modifiée, et un document enregistre aussi ce qui s'écarte de
+  // l'instance (voir le test suivant) — ce n'est pas ce qu'on mesure ici.
+  await fetch(`${BASE}/api/style`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', cookie: admin },
+    body: JSON.stringify(styleParDefaut()),
+  })
   const doc = await creerDoc(admin)
   await fetch(`${BASE}/api/docs/${doc.id}/style`, {
     method: 'PUT',
@@ -200,6 +223,30 @@ test('le fichier écrit reste petit : les écarts, pas la feuille entière', asy
   const brut = JSON.parse(readFileSync(join(process.env.DATA_DIR, `${doc.id}.style.json`), 'utf8'))
   assert.deepEqual(brut, { version: VERSION_STYLE, blocs: { h2: { italic: true } } })
   assert.ok(existsSync(join(process.env.DATA_DIR, `${doc.id}.style.json`)))
+})
+
+test('passer un document en A4 s’enregistre, même quand l’instance est en A5', async () => {
+  const admin = cookie('admin@example.com')
+  const poser = (url, style) =>
+    fetch(`${BASE}${url}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: admin },
+      body: JSON.stringify(style),
+    })
+  await poser('/api/style', fusionner({ page: { size: 'A5' } }))
+  const doc = await creerDoc(admin)
+  const herite = (await (await fetch(`${BASE}/api/docs/${doc.id}/style`, { headers: { cookie: admin } })).json()).style
+  assert.equal(herite.page.size, 'A5')
+
+  // Ce que fait le panneau : la feuille effective, avec le format changé.
+  const pose = await poser(`/api/docs/${doc.id}/style`, { ...herite, page: { ...herite.page, size: 'A4' } })
+  assert.equal(pose.status, 200)
+  const relu = await (await fetch(`${BASE}/api/docs/${doc.id}/style`, { headers: { cookie: admin } })).json()
+  assert.equal(relu.style.page.size, 'A4', 'le document est retombé sur le format de l’instance')
+  const brut = JSON.parse(readFileSync(join(process.env.DATA_DIR, `${doc.id}.style.json`), 'utf8'))
+  assert.equal(brut.page.size, 'A4')
+
+  await poser('/api/style', styleParDefaut())
 })
 
 test.after(async () => {

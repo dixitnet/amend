@@ -161,7 +161,10 @@ export class Storage {
   }
 
   setDocStyle(id, style) {
-    return this._ecrireStyle(this._stylePath(id), style)
+    // L'instance est passée à `reduire` : sans elle, un réglage ramené à
+    // la valeur codée en dur (page A4 quand l'instance est en A5) disparaît
+    // du fichier et le document retombe sur l'instance — voir `reduire`.
+    return this._ecrireStyle(this._stylePath(id), style, this.getStyle())
   }
 
   /** Repasse un document à l'héritage : on efface son fichier, il resuit le
@@ -184,10 +187,10 @@ export class Storage {
    * un réglage qu'on n'a pas touché continue de suivre le défaut, et un
    * réglage ajouté plus tard au modèle apparaît tout seul. Écriture
    * atomique, comme le registre. */
-  _ecrireStyle(path, style) {
+  _ecrireStyle(path, style, instance = null) {
     const complet = fusionner(style)
     const tmp = path + '.tmp'
-    writeFileSync(tmp, JSON.stringify(reduire(complet), null, 2), 'utf8')
+    writeFileSync(tmp, JSON.stringify(reduire(complet, instance), null, 2), 'utf8')
     renameSync(tmp, path)
     return complet
   }
