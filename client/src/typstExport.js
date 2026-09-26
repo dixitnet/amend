@@ -67,16 +67,25 @@ function inline(node) {
 
 /** Une image. Le nom de fichier seul : le serveur dépose les images du
  * document dans `images/` à côté de la source, et `--root` interdit d'aller
- * voir ailleurs. */
+ * voir ailleurs.
+ *
+ * `disponible` : une variable Typst (pas une valeur JS), définie par
+ * l'appelant dans un bloc #context — voir le cas 'image' de blocTypst.
+ * Nécessaire parce que Typst refuse de comparer un ratio et une longueur :
+ * `calc.min(100%, 600pt)` échoue à la compilation ("cannot compare length
+ * and ratio"), trouvé en compilant réellement une source générée avec une
+ * image ayant une largeur enregistrée — donc systématiquement, pour toute
+ * image collée. `page.width`/`page.margin` ne sont lisibles qu'au moment de
+ * la mise en page (d'où #context), jamais à la déclaration. */
 function imageTypst(node) {
   const src = String(node.attrs.src || '')
   const nom = src.split('/').pop()
   if (!/^[A-Za-z0-9_-]+\.(png|jpg)$/.test(nom)) return ''
   const largeur = node.attrs.largeur
   const alt = node.attrs.alt ? `, alt: ${chaine(node.attrs.alt)}` : ''
-  // `width: 100%` plafonné à la largeur réelle du fichier : une petite
-  // capture ne doit pas être étirée jusqu'au flou.
-  const taille = largeur ? `, width: calc.min(100%, ${largeur}pt * 0.75)` : ', width: 100%'
+  // Plafonné à la largeur réelle du fichier : une petite capture ne doit
+  // pas être étirée jusqu'au flou.
+  const taille = largeur ? `, width: calc.min(disponible, ${largeur}pt * 0.75)` : ', width: disponible'
   return `#figure(image(${chaine('images/' + nom)}${taille}${alt}), caption: none)`
 }
 
@@ -140,8 +149,23 @@ function blocTypst(node) {
       return listeTypst(node, 'list')
     case 'table':
       return tableauTypst(node)
-    case 'image':
-      return imageTypst(node) + '\n\n'
+    case 'image': {
+      // #context : voir le commentaire d'imageTypst pour pourquoi
+      // `disponible` doit être une longueur déjà résolue, jamais `100%`.
+      const fig = imageTypst(node)
+      if (!fig) return ''
+      // `[${fig}]` : on est en mode code dans #context {...}, et fig
+      // commence par `#figure(...)` (mode contenu — c'est aussi ce
+      // qu'attend inline() ci-dessus, seul autre appelant). Les crochets
+      // rebasculent en mode contenu le temps de cette expression, sans
+      // rien changer à ce que renvoie imageTypst.
+      return `#context {
+  let disponible = page.width - page.margin.left - page.margin.right
+  [${fig}]
+}
+
+`
+    }
     case 'horizontal_rule':
       // Dans amend.ink la ligne horizontale EST un saut de page (voir schema.js).
       return '#pagebreak(weak: true)\n\n'

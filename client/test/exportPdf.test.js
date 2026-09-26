@@ -16,6 +16,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { doc } from './harness.js'
+import { schema } from '../src/schema.js'
 import { docToTypst } from '../src/typstExport.js'
 import { fusionner, styleParDefaut, BLOCS, PROPRIETES, NIVEAUX_TITRE, POLICES } from '../../shared/style.js'
 
@@ -305,4 +306,36 @@ test('les pages portant un titre 1 restent nues, sauf si on le refuse', () => {
     page: { entete: { droite: { type: 'titre' }, sautOuverture: false } },
   })
   assert.match(sans, /if false and ouverture/)
+})
+
+// ===================================================== les images
+
+test('une image passe par #context pour calculer sa largeur disponible', () => {
+  // Le 26/09/2026, compiler pour de vrai une source générée (le binaire
+  // Typst n'avait jamais été installé ni testé sur ce projet) a montré que
+  // `calc.min(100%, largeur*0.75pt)` ne compile pas : Typst refuse de
+  // comparer un ratio et une longueur. Corrigé en lisant page.width et
+  // page.margin au moment de la mise en page, via #context, dans une
+  // variable `disponible` (une longueur, jamais un pourcentage).
+  const document = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Avant.')]),
+    schema.node('image', { src: '/api/docs/abc/images/photo.png', alt: '', largeur: 800, hauteur: 600 }),
+    schema.node('paragraph', null, [schema.text('Après.')]),
+  ])
+  const src = docToTypst(document, styleParDefaut, 'Document')
+
+  assert.ok(src.includes('images/photo.png'), "le chemin de l'image atteint la source")
+  assert.match(src, /#context \{\s*let disponible = page\.width - page\.margin\.left - page\.margin\.right/)
+  assert.match(src, /width: calc\.min\(disponible, 800pt \* 0\.75\)/)
+  // Le bug trouvé en compilant réellement : jamais 100% comparé à une longueur.
+  assert.doesNotMatch(src, /calc\.min\(100%/)
+})
+
+test("une image sans largeur enregistrée prend toute la largeur disponible", () => {
+  const document = schema.node('doc', null, [
+    schema.node('image', { src: '/api/docs/abc/images/sans-taille.png', alt: '', largeur: null, hauteur: null }),
+  ])
+  const src = docToTypst(document, styleParDefaut, 'Document')
+  assert.match(src, /width: disponible/)
+  assert.doesNotMatch(src, /width: 100%/)
 })
