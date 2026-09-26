@@ -16,6 +16,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { doc } from './harness.js'
+import { schema } from '../src/schema.js'
 import { docToTypst } from '../src/typstExport.js'
 import { fusionner, styleParDefaut, BLOCS, PROPRIETES, NIVEAUX_TITRE, POLICES } from '../../shared/style.js'
 
@@ -305,4 +306,42 @@ test('les pages portant un titre 1 restent nues, sauf si on le refuse', () => {
     page: { entete: { droite: { type: 'titre' }, sautOuverture: false } },
   })
   assert.match(sans, /if false and ouverture/)
+})
+
+// ===================================================== les images
+
+test('une image est centrée sur sa propre page, horizontalement et verticalement', () => {
+  // Demandé par Sylvain le 26/09/2026 : une image isolée par un saut de
+  // page avant et après, #align(center + horizon) pour la centrer sur les
+  // deux axes. Passe par #context {} parce que Typst refuse de comparer un
+  // ratio et une longueur dans calc.min (vérifié en compilant réellement —
+  // voir le commentaire dans typstExport.js) : `disponible`, la largeur de
+  // colonne en points, doit être lue via page.width/page.margin au moment
+  // de la mise en page, pas écrite en `100%`.
+  const document = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Avant.')]),
+    schema.node('image', { src: '/api/docs/abc/images/photo.png', alt: '', largeur: 800, hauteur: 600 }),
+    schema.node('paragraph', null, [schema.text('Après.')]),
+  ])
+  const src = docToTypst(document, styleParDefaut, 'Document')
+
+  const i = src.indexOf('images/photo.png')
+  assert.ok(i > -1, 'le chemin de l’image atteint la source')
+
+  const avant = src.slice(0, i)
+  const apres = src.slice(i)
+  assert.match(avant.slice(-400), /#pagebreak\(weak: true\)\s*#context \{[\s\S]*let disponible = page\.width - page\.margin\.left - page\.margin\.right[\s\S]*align\(center \+ horizon\)\[/, 'saut de page, puis disponible calculé, puis align(center + horizon)')
+  assert.match(apres.slice(0, 400), /\]\s*\}\s*#pagebreak\(weak: true\)/, 'un saut de page juste après')
+  // La largeur ne compare jamais 100% à une longueur — c'est exactement le
+  // bug trouvé en compilant réellement une image avec `largeur` défini.
+  assert.match(src, /width: calc\.min\(disponible, 800pt \* 0\.75\)/)
+  assert.doesNotMatch(src, /calc\.min\(100%/)
+})
+
+test('une image plus petite que la colonne n’est pas étirée', () => {
+  const document = schema.node('doc', null, [
+    schema.node('image', { src: '/api/docs/abc/images/petite.png', alt: '', largeur: 200, hauteur: 150 }),
+  ])
+  const src = docToTypst(document, styleParDefaut, 'Document')
+  assert.match(src, /width: calc\.min\(disponible, 200pt \* 0\.75\)/)
 })
