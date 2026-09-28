@@ -33,6 +33,41 @@ export class TypstError extends Error {
   }
 }
 
+/** Le passage du document où Typst a buté, en texte lisible — ou `''`
+ * (28/09/2026).
+ *
+ * Typst désigne la ligne et la colonne fautives de la source engendrée
+ * (`┌─ main.typ:412:18`). Cette source est du code que personne n'a écrit
+ * à la main ; on en retire donc le balisage (appels, crochets, échappements)
+ * pour ne rendre que le texte qui l'entoure, celui que la personne peut
+ * retrouver dans son document. Sur un long texte collé, « expected comma »
+ * seul ne permettait pas de savoir où chercher. */
+export function passageFautif(erreur, source) {
+  const debutErreur = erreur.indexOf('error:')
+  const m = /main\.typ:(\d+):(\d+)/.exec(debutErreur > -1 ? erreur.slice(debutErreur) : erreur)
+  if (!m) return ''
+  const ligne = String(source).split('\n')[Number(m[1]) - 1]
+  if (!ligne) return ''
+  // Colonnes de Typst en caractères, pas en unités UTF-16.
+  const car = Array.from(ligne)
+  const col = Math.min(car.length, Math.max(0, Number(m[2]) - 1))
+  const debut = Math.max(0, col - 60)
+  const fin = Math.min(car.length, col + 60)
+  let brut = car.slice(debut, fin).join('')
+  // Coupé au milieu d'un appel (`rps[` pour `#amend-corps[`) : on retire
+  // ce qui en reste. Un `[` de texte est toujours échappé, donc un `[` nu
+  // est du balisage.
+  if (debut > 0) brut = brut.replace(/^[\w-]*(?:\([^()]*\))?\[/u, '')
+  const texte = brut
+    .replace(/\\(.)|#linebreak\(\)|#[a-z][a-z-]*(?:\([^()]*\))?\[|[[\]]/gu, (tout, echappe) =>
+      echappe !== undefined ? echappe : tout === '#linebreak()' ? ' ' : ''
+    )
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!texte) return ''
+  return `${debut > 0 ? '…' : ''}${texte}${fin < car.length ? '…' : ''}`
+}
+
 const DEFAUTS = {
   binaire: 'typst',
   memoireMo: 400,
@@ -164,11 +199,14 @@ export class Typst {
       if (r.code !== 0) {
         // Le message de Typst désigne la ligne fautive de la source, donc
         // du code qu'on a nous-mêmes engendré : utile dans les journaux,
-        // incompréhensible pour qui lit. On ne renvoie que la première
-        // ligne, et on garde le reste côté serveur.
+        // incompréhensible pour qui lit. On renvoie la première ligne, plus
+        // le texte du document autour de l'endroit fautif (passageFautif),
+        // et on garde le reste côté serveur.
         console.error('Typst a refusé la source :', r.erreur.slice(0, 2000))
         const premiere = (r.erreur.split('\n').find((l) => l.includes('error:')) || '').trim()
-        throw new TypstError(premiere ? `composition impossible — ${premiere}` : 'composition impossible', 422)
+        const passage = passageFautif(r.erreur, source)
+        const ou = passage ? `, près de « ${passage} »` : ''
+        throw new TypstError(premiere ? `composition impossible — ${premiere}${ou}` : 'composition impossible', 422)
       }
 
       const pdf = join(racine, 'sortie.pdf')
