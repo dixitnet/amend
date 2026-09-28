@@ -93,11 +93,13 @@ export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, data
         documents: 0,
         editeur: 0,
         correcteur: 0,
+        lecteur: 0,
         depuis: acces.grantedAt,
         statut: 'invite',
       }
       e.documents++
       if (acces.role === 'editeur') e.editeur++
+      else if (acces.role === 'lecteur') e.lecteur++
       else e.correcteur++
       e.depuis = Math.min(e.depuis, acces.grantedAt || maintenant)
       if (acces.status === 'actif') e.statut = 'actif'

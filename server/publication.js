@@ -24,6 +24,7 @@
 // à sa page, ou l'inverse.
 
 import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs'
+import { capabilities } from './roles.js'
 import { join } from 'node:path'
 import { randomInt } from 'node:crypto'
 import { MOTS_PUBLICATION } from './motsPublication.js'
@@ -80,14 +81,15 @@ export function porteePublication() {
 /**
  * Cette personne peut-elle publier ce document ?
  * `admin` et `proprietaire` sont des booléens, `role` le rôle sur le
- * document. Un correcteur ne publie jamais, quelle que soit la portée.
+ * document. Un correcteur ou un lecteur ne publie jamais, quelle que soit
+ * la portée : publier, c'est décider du document (`canManageDocument`).
  */
 export function peutPublier({ admin, proprietaire, role }) {
   const portee = porteePublication()
   if (admin) return true
   if (portee === 'admins') return false
   if (portee === 'proprietaires') return !!proprietaire
-  return role === 'editeur'
+  return !!capabilities(role).canManageDocument
 }
 
 const ECHAPPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }

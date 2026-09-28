@@ -380,7 +380,7 @@ function mountAppHome(root, email) {
     }
     for (const doc of docs) {
       const item = document.createElement('li')
-      const canManage = doc.myRole !== 'correcteur'
+      const canManage = !!(doc.myCapabilities && doc.myCapabilities.canManageDocument)
 
       const starBtn = document.createElement('button')
       starBtn.type = 'button'

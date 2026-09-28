@@ -8,6 +8,7 @@ import { appendFile as appendFileAsync } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomId } from './ws.js'
 import { fusionner, reduire } from '../shared/style.js'
+import { capabilities } from './roles.js'
 
 // How long updates sit in memory before being flushed to disk together —
 // see appendUpdate/_flush below (correctif 4.1.2 : écritures asynchrones).
@@ -250,16 +251,14 @@ export class Storage {
     const registry = this._readRegistry()
     return Object.entries(registry)
       .filter(([, meta]) => {
-        if (!Array.isArray(meta.access)) return true
-        if (!email) return false
+        if (!email || !Array.isArray(meta.access)) return false
         return meta.access.some((a) => a.email === email)
       })
       .map(([id, meta]) => ({
         id,
         ...meta,
-        myRole: Array.isArray(meta.access)
-          ? (meta.access.find((a) => a.email === email) || {}).role || null
-          : 'editeur',
+        myRole: (meta.access.find((a) => a.email === email) || {}).role || null,
+        myCapabilities: capabilities((meta.access.find((a) => a.email === email) || {}).role || null),
         // Pour que la liste sache afficher « Supprimer » au propriétaire et
         // « Quitter » aux autres, sans une requête par document.
         owner: proprietaire(meta),
@@ -287,8 +286,8 @@ export class Storage {
    * éditrice du document (voir claude/conception-gestion-utilisateurs.md,
    * projet Amend). Un document créé sans email (ne devrait plus arriver
    * depuis que POST /api/docs exige une session, mais gardé permissif ici)
-   * n'a pas de liste d'accès — traité comme ouvert à tous, comme les
-   * documents créés avant cette fonctionnalité (voir hasAccessControl). */
+   * n'a pas de liste d'accès — et n'est donc accessible à personne depuis
+   * le 28/09/2026 (voir roleFor). */
   createDoc(title, creatorEmail) {
     const registry = this._readRegistry()
     const id = randomId()
@@ -308,12 +307,16 @@ export class Storage {
 
   /** Rôle de cet email sur ce document, ou null si aucun accès. Un
    * document sans liste d'accès (créé avant cette fonctionnalité, ou sans
-   * creatorEmail — voir createDoc) est traité comme ouvert : tout le monde
-   * y est "editeur", pour ne pas casser les documents existants. */
+   * creatorEmail — voir createDoc) était traité comme ouvert : tout le
+   * monde y était « editeur », **même sans session**. Fermé le 28/09/2026
+   * (claude/etude-roles-serveur.md, phase 0) : aucun document de
+   * production n'était dans ce cas (0 à migrer le 14/09), et une porte
+   * ouverte dans le code reste une porte ouverte. Un tel document n'est
+   * accessible qu'aux administrateurs, par les routes qui les distinguent. */
   roleFor(id, email) {
     const doc = this.getDoc(id)
     if (!doc) return null
-    if (!Array.isArray(doc.access)) return 'editeur'
+    if (!Array.isArray(doc.access)) return null
     if (!email) return null
     const entry = doc.access.find((a) => a.email === email)
     return entry ? entry.role : null
@@ -381,12 +384,6 @@ export class Storage {
     doc.access = doc.access.filter((a) => a.email !== email)
     this._writeRegistry(registry)
     return { ok: true }
-  }
-
-  /** true si ce document a une gestion des droits active (voir roleFor). */
-  hasAccessControl(id) {
-    const doc = this.getDoc(id)
-    return !!(doc && Array.isArray(doc.access))
   }
 
   /** Liste des accès, **sans les jetons d'invitation** : cette liste est

@@ -26,6 +26,7 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
         <select>
           <option value="editeur">Éditeur</option>
           <option value="correcteur">Correcteur</option>
+          <option value="lecteur">Lecteur</option>
         </select>
         <button type="submit">Inviter</button>
       </form>

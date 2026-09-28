@@ -33,6 +33,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
+import { ROLES } from '../../server/roles.js'
 
 /** Un DOM de navigateur, posé dans les globales que le code attend. Les
  * quelques absences de jsdom qui feraient échouer un montage pour de
@@ -169,7 +170,7 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
     racine,
     'abcdefgh1234',
     { name: 'Moi', color: '#e07a5f' },
-    { title: 'Essai', myRole: 'editeur', myName: 'Moi', myColor: '#e07a5f', jeSuisProprietaire: true, owner: 'moi@example.com' }
+    { title: 'Essai', myRole: 'editeur', myCapabilities: ROLES.editeur, myName: 'Moi', myColor: '#e07a5f', jeSuisProprietaire: true, owner: 'moi@example.com' }
   )
   await respirer()
 
@@ -201,6 +202,48 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   }
   assert.equal(racine.querySelectorAll('.barre-onglet').length, 3, 'trois onglets')
   assert.ok(racine.querySelector('.banniere-gauche .btn-plan'), 'le bouton Plan')
+  assert.equal(racine.querySelector('.ProseMirror').getAttribute('contenteditable'), 'true', 'un éditeur écrit')
+
+  if (editeur && editeur.destroy) editeur.destroy()
+})
+
+test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', async () => {
+  // Rôle « lecteur », phase 0 de claude/etude-roles-serveur.md (28/09) :
+  // l'éditeur se règle sur les **capacités** reçues du serveur, jamais sur
+  // le nom du rôle. Tenu par l'interface seulement, comme le correcteur.
+  const dom = installerDom()
+  await oublierLaSession()
+  installerFetch({
+    '/api/auth/me': { email: 'moi@example.com', admin: false },
+    '/publication': { publiee: false, autorise: false, portee: 'admins' },
+    '/style': { style: null, propre: false },
+  })
+  globalThis.WebSocket = class {
+    constructor() {
+      this.readyState = 0
+    }
+    addEventListener() {}
+    removeEventListener() {}
+    send() {}
+    close() {}
+  }
+  const guetteur = surveillerLesErreurs()
+  const { mountEditor } = await import('../src/editor.js')
+  const racine = dom.window.document.getElementById('app')
+  const editeur = mountEditor(
+    racine,
+    'abcdefgh1234',
+    { name: 'Moi', color: '#e07a5f' },
+    { title: 'Essai', myRole: 'lecteur', myCapabilities: ROLES.lecteur, myName: 'Moi', myColor: '#e07a5f' }
+  )
+  await respirer()
+  assert.deepEqual(guetteur.fin(), [], 'une erreur au montage pour un lecteur')
+
+  assert.equal(racine.querySelector('.ProseMirror').getAttribute('contenteditable'), 'false', 'le texte ne s’édite pas')
+  assert.ok(racine.querySelector('.format-toolbar').hidden, 'pas de barre de mise en forme')
+  assert.ok(racine.querySelector('.suivi-entete .track-toggle').hidden, 'pas d’interrupteur de suivi : rien à suivre')
+  assert.ok(racine.querySelector('.marge-commentaires'), 'la marge des commentaires est là')
+  assert.match(racine.querySelector('.ai-section').textContent, /réservée/, 'l’IA lui est refusée, et on le dit')
 
   if (editeur && editeur.destroy) editeur.destroy()
 })
@@ -232,7 +275,7 @@ test('sur iPhone : un en-tête sobre, un crayon, et rien d’autre', async () =>
     racine,
     'abcdefgh1234',
     { name: 'Moi', color: '#e07a5f' },
-    { title: 'Essai', myRole: 'editeur', myName: 'Moi', myColor: '#e07a5f' }
+    { title: 'Essai', myRole: 'editeur', myCapabilities: ROLES.editeur, myName: 'Moi', myColor: '#e07a5f' }
   )
   await respirer()
 

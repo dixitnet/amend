@@ -35,11 +35,12 @@ const AI_TEST_COOKIE = sessionCookieHeader('ai-test@example.com', { secure: fals
 // Ces tests portent sur le relais WebSocket / la persistance, pas sur la
 // gestion des droits (couverte séparément par access.test.js) — les
 // documents créés ici passent directement par Storage plutôt que par
-// POST /api/docs (qui exige désormais une session, voir
-// claude/conception-gestion-utilisateurs.md, projet Amend), et restent
-// donc des documents "ouverts" sans liste d'accès, comme avant cette
-// fonctionnalité.
+// POST /api/docs. Ils ont un éditeur, `TESTEUR`, dont chaque requête et
+// chaque connexion porte le cookie : depuis le 28/09/2026 un document sans
+// liste d'accès n'est plus « ouvert à tous », il n'est ouvert à personne.
 const directStorage = new Storage(process.env.DATA_DIR)
+const TESTEUR = 'testeur@example.com'
+const COOKIE = sessionCookieHeader(TESTEUR, { secure: false }).split(';')[0]
 
 function waitForServer() {
   return new Promise((resolve, reject) => {
@@ -83,11 +84,17 @@ function withTimeout(promise, ms, label) {
 }
 
 async function createDoc(title) {
-  return directStorage.createDoc(title)
+  const doc = directStorage.createDoc(title, TESTEUR)
+  // Le compte de l'IA des deux derniers tests doit aussi y avoir accès.
+  directStorage.inviteEmail(doc.id, 'ai-test@example.com', 'editeur', TESTEUR)
+  directStorage.acceptInvitation(doc.id, 'ai-test@example.com')
+  return doc
 }
 
 function connect(docId, user) {
-  const ws = new WebSocket(`ws://localhost:${PORT}/ws/${docId}?user=${encodeURIComponent(user)}`)
+  const ws = new WebSocket(`ws://localhost:${PORT}/ws/${docId}?user=${encodeURIComponent(user)}`, {
+    headers: { cookie: COOKIE },
+  })
   ws.binaryType = 'arraybuffer'
   return ws
 }
@@ -97,7 +104,7 @@ test('creates and lists documents', async () => {
   assert.ok(doc.id)
   assert.equal(doc.title, 'Mon brouillon')
 
-  const res = await fetch(`${BASE}/api/docs`)
+  const res = await fetch(`${BASE}/api/docs`, { headers: { cookie: COOKIE } })
   const { docs } = await res.json()
   assert.ok(docs.some((d) => d.id === doc.id))
 })
@@ -206,8 +213,7 @@ test('accepte plus de 10 connexions simultanées sur un même document', async (
 
 test('AI endpoint reports missing API key clearly (501)', async () => {
   // Le document est exigé depuis le 15/09/2026 : le droit `canUseAI` se
-  // vérifie sur un document précis. Créé sans liste d'accès, il est
-  // « ouvert » — tout le monde y est éditeur (voir Storage.roleFor).
+  // vérifie sur un document précis (createDoc y invite le compte de l'IA).
   const doc = await createDoc('Doc IA')
   const res = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',

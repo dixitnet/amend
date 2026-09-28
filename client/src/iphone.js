@@ -57,6 +57,9 @@ export function monterInterfaceTelephone(pieces) {
     trackToggleLabel,
     getView,
     estCorrecteur,
+    // Faux pour un lecteur (28/09/2026) : pas de crayon, le document se
+    // lit et se commente.
+    peutEcrire = () => true,
     nbCommentaires,
     ouvrirCommentaire,
     outilsEssentiels = [],
@@ -134,6 +137,7 @@ export function monterInterfaceTelephone(pieces) {
   crayon.className = 'tel-crayon'
   crayon.textContent = '✏️'
   crayon.setAttribute('aria-label', 'Modifier le document')
+  crayon.hidden = !peutEcrire()
 
   function majTitre() {
     titre.textContent = titleInput.value || 'Sans titre'

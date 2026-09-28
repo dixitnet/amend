@@ -155,9 +155,13 @@ export async function mountAdmin(root) {
                   : '<span class="bo-attente">—</span>'
               }</td>
               <td>${nombre(p.documents)}</td>
-              <td>${p.editeur ? `${p.editeur} éditeur` : ''}${p.editeur && p.correcteur ? ', ' : ''}${
-              p.correcteur ? `${p.correcteur} correcteur` : ''
-            }</td>
+              <td>${[
+                p.editeur ? `${p.editeur} éditeur` : '',
+                p.correcteur ? `${p.correcteur} correcteur` : '',
+                p.lecteur ? `${p.lecteur} lecteur` : '',
+              ]
+                .filter(Boolean)
+                .join(', ')}</td>
               <td>${date(p.depuis)}</td>
               <td>${p.statut === 'actif' ? 'actif' : '<span class="bo-attente">en attente</span>'}</td>
             </tr>`

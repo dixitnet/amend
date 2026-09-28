@@ -1,7 +1,7 @@
 // Migration ponctuelle (voir claude/conception-gestion-utilisateurs.md,
 // projet Amend) : les documents créés avant la gestion des utilisateurs
 // n'ont pas de liste d'accès et restent "ouverts à tout le monde" par
-// compatibilité (voir Storage.roleFor/hasAccessControl). C'est sans risque
+// compatibilité (voir Storage.roleFor). C'est sans risque
 // tant que basic-auth filtre qui arrive jusqu'au serveur, mais devient une
 // vraie fuite le jour où ce filtre est retiré. Ce script attribue le rôle
 // éditeur, sur tous les documents qui n'ont pas encore de liste d'accès, à
@@ -22,11 +22,13 @@ if (!email || !email.includes('@')) {
 }
 
 const storage = new Storage(dataDir)
-const docs = storage.listDocs() // sans email : renvoie aussi bien les documents ouverts que les autres
+// Le registre lui-même : depuis le 28/09/2026, listDocs sans email ne
+// renvoie plus rien (un document sans liste d'accès n'est plus « ouvert »).
+const docs = Object.entries(storage._readRegistry()).map(([id, meta]) => ({ id, ...meta }))
 let migrated = 0
 
 for (const doc of docs) {
-  if (storage.hasAccessControl(doc.id)) continue // déjà géré, ne pas toucher aux accès existants
+  if (Array.isArray(doc.access)) continue // déjà géré, ne pas toucher aux accès existants
   storage.grantAccess(doc.id, email, 'editeur')
   migrated++
   console.log(`  migré : ${doc.id} — ${doc.title}`)

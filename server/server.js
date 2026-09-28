@@ -331,7 +331,7 @@ async function handleApi(req, res, url) {
     if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
     const email = readSession(req)
     const myRole = storage.roleFor(docMatch[1], email)
-    if (storage.hasAccessControl(docMatch[1]) && !myRole) {
+    if (!myRole) {
       return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
     }
     // `myName`/`myColor` voyagent avec les métadonnées du document plutôt
@@ -347,7 +347,10 @@ async function handleApi(req, res, url) {
       ...doc,
       owner: proprio,
       jeSuisProprietaire: !!email && proprio === email,
-      myRole: myRole || 'editeur',
+      myRole,
+      // Ce que le client lit pour décider ce qu'il montre (28/09/2026) :
+      // les capacités, jamais le nom du rôle — voir server/roles.js.
+      myCapabilities: capabilities(myRole),
       myName: compte ? compte.nom : null,
       myColor: compte ? compte.couleur : null,
       onlineCount: rooms.presenceCount(doc.id),
@@ -476,7 +479,7 @@ async function handleApi(req, res, url) {
   if (imageMatch && req.method === 'GET') {
     const id = imageMatch[1]
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
-    if (storage.hasAccessControl(id) && !storage.roleFor(id, readSession(req))) {
+    if (!storage.roleFor(id, readSession(req))) {
       return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
     }
     const chemin = uploads.chemin(id, imageMatch[2])
@@ -505,7 +508,7 @@ async function handleApi(req, res, url) {
   if (historyMatch && req.method === 'GET') {
     const id = historyMatch[1]
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
-    if (storage.hasAccessControl(id) && !storage.roleFor(id, readSession(req))) {
+    if (!storage.roleFor(id, readSession(req))) {
       return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
     }
     return sendJson(res, 200, storage.getHistoryMeta(id))
@@ -515,7 +518,7 @@ async function handleApi(req, res, url) {
   if (historyRawMatch && req.method === 'GET') {
     const id = historyRawMatch[1]
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
-    if (storage.hasAccessControl(id) && !storage.roleFor(id, readSession(req))) {
+    if (!storage.roleFor(id, readSession(req))) {
       return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
     }
     return sendJson(res, 200, { entries: storage.getHistoryRaw(id) })
@@ -583,7 +586,7 @@ async function handleApi(req, res, url) {
     if (req.method === 'GET') {
       // Lire la mise en page suit l'accès au document : un correcteur la
       // voit, il ne la change pas.
-      if (storage.hasAccessControl(id) && !role) {
+      if (!role) {
         return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
       }
       return sendJson(res, 200, { style: storage.getDocStyle(id), propre: storage.hasOwnStyle(id) })
@@ -986,7 +989,7 @@ const TARIFS_IA = {
     if (!doc) return sendJson(res, 404, { error: 'document introuvable' })
     const email = readSession(req)
     const role = storage.roleFor(id, email)
-    if (storage.hasAccessControl(id) && !role) {
+    if (!role) {
       return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
     }
     const autorise = peutPublier({
@@ -1214,7 +1217,7 @@ server.on('upgrade', (req, socket) => {
     rejectUpgrade(socket, 404, 'Not Found')
     return
   }
-  if (storage.hasAccessControl(docId) && !storage.roleFor(docId, readSession(req))) {
+  if (!storage.roleFor(docId, readSession(req))) {
     rejectUpgrade(socket, 403, 'Forbidden')
     return
   }

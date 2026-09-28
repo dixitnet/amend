@@ -108,6 +108,15 @@ function toggleList(listType, itemType) {
 
 export function mountEditor(root, docId, user, docMeta) {
   root.innerHTML = ''
+  // Ce que cette personne peut faire ici (28/09/2026, phase 0 de
+  // claude/etude-roles-serveur.md) : des capacités envoyées par le
+  // serveur avec les métadonnées, jamais un nom de rôle testé en dur —
+  // c'est ce qui permet d'ouvrir l'IA aux correcteurs, ou d'inventer un
+  // rôle, en ne touchant qu'à server/roles.js. À défaut (ne devrait pas
+  // arriver), rien n'est permis.
+  const cap = docMeta.myCapabilities || {}
+  // Écrire dans le texte, librement ou en suivi. Un lecteur ne le peut pas.
+  const peutProposer = !!(cap.canEditFreely || cap.canProposeChanges)
 
   // Full-width banner: document identity/status, spans the whole page above
   // the three-column layout (plan / text / assistance) — deliberately kept
@@ -614,7 +623,7 @@ export function mountEditor(root, docId, user, docMeta) {
   // liste des modifications reste dans la colonne de droite, qui n'existe
   // pas sur téléphone ; cette barre la remplace là où il n'y a pas la place.
   const relecture = monterBarreRelecture(() => view, {
-    canReview: docMeta.myRole !== 'correcteur',
+    canReview: !!cap.canReviewChanges,
   })
   groupeRelire.appendChild(relecture.el)
 
@@ -831,12 +840,12 @@ export function mountEditor(root, docId, user, docMeta) {
       yUndoPlugin(),
       // Un éditeur arrive suivi désactivé (il écrit son document), un
       // correcteur suivi activé — c'est son rôle même (15/09/2026).
-      trackChangesPlugin({ enabled: docMeta.myRole === 'correcteur' }),
+      trackChangesPlugin({ enabled: !cap.canEditFreely }),
       selectionHighlightPlugin(),
       tableOfContentsPlugin(),
       // Avant richPastePlugin : une capture d'écran collée est une image,
       // pas un collage de texte (voir images.js).
-      imagesPlugin({ docId, peutInserer: docMeta.myRole !== 'correcteur' }),
+      imagesPlugin({ docId, peutInserer: !!cap.canEditFreely }),
       richPastePlugin(() => user),
       pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),
@@ -847,7 +856,7 @@ export function mountEditor(root, docId, user, docMeta) {
       tactilePlugin(),
       mountCommentsGutter(commentsGutter, ydoc, commentsMap, user),
       mountGutterComposer(commentsGutter, ydoc, commentsMap, user),
-      mountChangesPanel(changesSection, { canReview: docMeta.myRole !== 'correcteur' }),
+      mountChangesPanel(changesSection, { canReview: !!cap.canReviewChanges }),
       mountOutlinePanel(outlineSection),
       mountWordCount(wordCount),
       mountTkMarker(tkCount),
@@ -912,7 +921,13 @@ export function mountEditor(root, docId, user, docMeta) {
     ],
   })
 
-  const view = new EditorView(editorContainer, { state })
+  const view = new EditorView(editorContainer, {
+    state,
+    // Un lecteur (28/09/2026) ne touche pas au texte : la vue n'est pas
+    // modifiable. Il sélectionne, et commente — la gouttière ne passe pas
+    // par l'édition. Tenu par l'interface, comme le suivi du correcteur.
+    editable: () => peutProposer,
+  })
   editorContainer.appendChild(commentsGutter)
 
   // --- Le masque de chargement (23/09/2026).
@@ -970,7 +985,8 @@ export function mountEditor(root, docId, user, docMeta) {
   // (contact.js) — une même page ne se comporte pas pareil selon le rôle,
   // et c'est la première chose qu'on demanderait sinon.
   window.__amendRole = docMeta.myRole || null
-  const isCorrecteur = docMeta.myRole === 'correcteur'
+  // « Correcteur » ici veut dire : ne modifie qu'en suivi, ou pas du tout.
+  const isCorrecteur = !cap.canEditFreely
   // Mise en page et exports réservés aux éditeurs (16/09/2026). Pour la
   // mise en page, le serveur vérifie `canManageDocument` et la restriction
   // est donc réelle. Pour les exports, elle ne l'est pas : les trois sont
@@ -989,6 +1005,11 @@ export function mountEditor(root, docId, user, docMeta) {
     trackToggle.disabled = true
     trackToggleLabel.title = 'Les correcteurs proposent toujours leurs modifications en suivi de modifications.'
     if (!isTrackChangesEnabled(view.state)) setTrackChangesEnabled(view, true)
+  }
+  if (!peutProposer) {
+    // Lecteur : ni suivi (rien à suivre), ni barre de mise en forme.
+    trackToggleLabel.hidden = true
+    toolbar.hidden = true
   }
 
   trackToggle.addEventListener('change', () => {
@@ -1201,7 +1222,7 @@ export function mountEditor(root, docId, user, docMeta) {
     view.focus()
   }
 
-  mountAIPanel(aiSection, () => view, { docId, canUseAI: docMeta.myRole !== 'correcteur' })
+  mountAIPanel(aiSection, () => view, { docId, canUseAI: !!cap.canUseAI })
   const comments = mountCommentsPanel(commentsSection, ydoc, commentsMap, () => view, user)
 
   function mkButton(label, title) {
@@ -1230,7 +1251,8 @@ export function mountEditor(root, docId, user, docMeta) {
         outlineSidebar,
         trackToggleLabel,
         getView: () => view,
-        estCorrecteur: () => docMeta.myRole === 'correcteur',
+        estCorrecteur: () => !cap.canEditFreely,
+        peutEcrire: () => peutProposer,
         nbCommentaires: () => commentairesAncres(commentsMap).length,
         // Les deux gestes de frappe qui montent dans l'en-tête du
         // téléphone. Ce sont les boutons eux-mêmes : ils y gardent leur

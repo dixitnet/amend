@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import WebSocket from 'ws'
 
 const PORT = 18788
 process.env.PORT = String(PORT)
@@ -85,6 +86,76 @@ test('créer un document connecté en fait l’auteur éditeur', async () => {
   // Pas de session du tout : refusé aussi (pas de mode anonyme).
   const anonRes = await fetch(`${BASE}/api/docs/${doc.id}`)
   assert.equal(anonRes.status, 403)
+})
+
+test('les capacités voyagent avec les métadonnées, et un lecteur ne fait que commenter', async () => {
+  // Phase 0 de claude/etude-roles-serveur.md (28/09/2026) : le client lit
+  // `myCapabilities`, jamais le nom du rôle. Et le rôle « lecteur » existe.
+  const alice = cookieFor('alice-cap@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: alice },
+      body: JSON.stringify({ title: 'Capacités' }),
+    })
+  ).json()
+  const storage = new Storage(process.env.DATA_DIR)
+  storage.inviteEmail(doc.id, 'corr-cap@example.com', 'correcteur', 'alice-cap@example.com')
+  storage.acceptInvitation(doc.id, 'corr-cap@example.com')
+  storage.inviteEmail(doc.id, 'lect-cap@example.com', 'lecteur', 'alice-cap@example.com')
+  storage.acceptInvitation(doc.id, 'lect-cap@example.com')
+
+  const meta = async (cookie) => (await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie } })).json()
+  const editeur = await meta(alice)
+  assert.equal(editeur.myCapabilities.canEditFreely, true)
+  assert.equal(editeur.myCapabilities.canComment, true)
+  const correcteur = await meta(cookieFor('corr-cap@example.com'))
+  assert.equal(correcteur.myRole, 'correcteur')
+  assert.deepEqual(
+    [correcteur.myCapabilities.canEditFreely, correcteur.myCapabilities.canProposeChanges, correcteur.myCapabilities.canComment, correcteur.myCapabilities.canUseAI],
+    [false, true, true, false]
+  )
+  const lecteur = await meta(cookieFor('lect-cap@example.com'))
+  assert.equal(lecteur.myRole, 'lecteur')
+  assert.equal(lecteur.myCapabilities.canComment, true)
+  for (const [k, v] of Object.entries(lecteur.myCapabilities)) {
+    if (typeof v === 'boolean' && k !== 'canComment') assert.equal(v, false, k)
+  }
+})
+
+test("un document sans liste d'accès n'est plus ouvert à tous", async () => {
+  // Jusqu'au 28/09/2026, tout le monde y était éditeur, même sans session.
+  const storage = new Storage(process.env.DATA_DIR)
+  const doc = storage.createDoc('Sans liste')
+  assert.equal((await fetch(`${BASE}/api/docs/${doc.id}`)).status, 403)
+  assert.equal((await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie: cookieFor('x@example.com') } })).status, 403)
+  const liste = await (await fetch(`${BASE}/api/docs`, { headers: { cookie: cookieFor('x@example.com') } })).json()
+  assert.ok(!liste.docs.some((d) => d.id === doc.id))
+})
+
+test("l'ouverture du WebSocket est refusée sans accès au document", async () => {
+  // Aucun test ne le vérifiait (cartographie du 28/09/2026).
+  const alice = cookieFor('alice-ws@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: alice },
+      body: JSON.stringify({ title: 'WS' }),
+    })
+  ).json()
+  const tenter = (headers) =>
+    new Promise((resolve) => {
+      const ws = new WebSocket(`ws://localhost:${PORT}/ws/${doc.id}?user=X`, { headers })
+      ws.on('open', () => {
+        ws.close()
+        resolve('ouvert')
+      })
+      ws.on('unexpected-response', (_req, res) => resolve(res.statusCode))
+      ws.on('error', () => resolve('erreur'))
+    })
+  assert.equal(await tenter({}), 403)
+  assert.equal(await tenter({ cookie: cookieFor('bob-ws@example.com') }), 403)
+  assert.equal(await tenter({ cookie: alice }), 'ouvert')
 })
 
 test('invitation nominative : entrée « en attente », puis accès à la première visite', async () => {
