@@ -28,6 +28,12 @@ function inline(node) {
       if (img) out.push(img)
       return
     }
+    // Une note (28/09/2026) : son texte, dans le même modèle fermé. Le
+    // serveur numérote lui-même, dans l'ordre de la page.
+    if (child.type.name === 'footnote') {
+      out.push({ type: 'note', contenu: inline(child) })
+      return
+    }
     if (!child.isText) return
     const marques = child.marks.map((m) => m.type.name).filter((n) => MARQUES_GARDEES.has(n))
     out.push({ type: 'texte', texte: child.text, marques })

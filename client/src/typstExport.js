@@ -19,6 +19,7 @@
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
 import { BLOCS, NIVEAUX_TITRE, police, formatPage, styleParDefaut, langue } from '../../shared/style.js'
+import { numerosDesNotes } from './notes.js'
 
 // Caractères que Typst interprète en mode contenu. Le backslash d'abord,
 // sinon on échapperait ceux qu'on vient d'ajouter.
@@ -92,6 +93,14 @@ function inline(node) {
       out += imageTypst(child)
       return
     }
+    // L'appel de note (28/09/2026) : un numéro en exposant. La note
+    // elle-même est écrite en fin de document par docToTypst — des notes
+    // de fin, pas de bas de page, pour le moment (décision de Sylvain) ;
+    // `#footnote[…]` est la ligne à changer le jour où on le voudra.
+    if (child.type.name === 'footnote') {
+      if (NOTES.has(child)) out += `#super[${NOTES.get(child)}]`
+      return
+    }
     if (!child.isText) return
     let t = protegerDebut(echapper(child.text))
     for (const mark of child.marks) {
@@ -105,6 +114,26 @@ function inline(node) {
     out += t
   })
   return out
+}
+
+/** Les numéros des notes du document en cours d'export — posés par
+ * docToTypst, lus par inline(). */
+let NOTES = new Map()
+
+/** La section des notes, en fin de document : un titre qui n'en est pas
+ * un (pas d'entrée dans la table des matières), puis une liste numérotée
+ * dont chaque entrée passe par inline() — marques et échappement du texte
+ * courant, une taille en dessous. Rien si le document n'a pas de note. */
+function notesTypst() {
+  if (!NOTES.size) return ''
+  const entrees = [...NOTES.keys()].map((node) => `[${inline(node)}]`)
+  return `#pagebreak(weak: true)
+
+#amend-h2[Notes]
+
+#amend-corps[#text(size: 0.9em)[#enum(numbering: "1.", ${entrees.join(', ')})]]
+
+`
 }
 
 /** Une image. Le nom de fichier seul : le serveur dépose les images du
@@ -400,11 +429,14 @@ ${solidaires}${depart}`
 
 /** La source Typst complète d'un document. */
 export function docToTypst(doc, style, titre) {
+  NOTES = numerosDesNotes(doc)
   let corps = ''
   doc.forEach((node) => {
     corps += blocTypst(node)
   })
-  return gabarit(style, titre) + '\n' + corps
+  const notes = notesTypst()
+  NOTES = new Map()
+  return gabarit(style, titre) + '\n' + corps + notes
 }
 
 /** Demande le PDF au serveur et déclenche son téléchargement. Renvoie une

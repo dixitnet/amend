@@ -13,6 +13,7 @@
 // sans effet, à dessein.
 
 import { entrees } from './tableOfContents.js'
+import { numerosDesNotes } from './notes.js'
 
 /** Wraps `text` in a Markdown emphasis-style delimiter (**, *, ~~), pulling
  * any leading/trailing whitespace outside the delimiters first. CommonMark
@@ -41,11 +42,30 @@ function markTextToMarkdown(text, marks) {
   return out
 }
 
+/** Les numéros des notes du document en cours d'export — posés par
+ * docToMarkdown, lus par inlineToMarkdown. */
+let NOTES = new Map()
+
 function inlineToMarkdown(node) {
   let out = ''
   node.forEach((child) => {
     if (child.isText) out += markTextToMarkdown(child.text, child.marks)
     else if (child.type.name === 'hard_break') out += '  \n'
+    // L'appel de note : `[^n]`, syntaxe reconnue par Pandoc, GitHub,
+    // Obsidian. Les définitions sont groupées en fin de fichier.
+    else if (child.type.name === 'footnote' && NOTES.has(child)) out += `[^${NOTES.get(child)}]`
+  })
+  return out
+}
+
+/** Le texte d'une note, sur une ligne : un retour à la ligne dans une
+ * définition `[^n]:` demande une indentation que tous les lecteurs ne
+ * comprennent pas. */
+function noteEnMarkdown(node) {
+  let out = ''
+  node.forEach((child) => {
+    if (child.isText) out += markTextToMarkdown(child.text, child.marks)
+    else if (child.type.name === 'hard_break') out += ' '
   })
   return out
 }
@@ -170,8 +190,12 @@ function blockToLines(node, doc) {
 
 /** The whole document as a Markdown string, ready to save as a .md file. */
 export function docToMarkdown(doc) {
+  NOTES = numerosDesNotes(doc)
   const lines = []
   doc.forEach((node) => lines.push(...blockToLines(node, doc)))
+  // Les notes, en fin de fichier (28/09/2026) : une définition par note.
+  for (const [node, n] of NOTES) lines.push(`[^${n}]: ${noteEnMarkdown(node)}`)
+  NOTES = new Map()
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`
 }
 

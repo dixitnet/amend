@@ -120,6 +120,14 @@ function documentComplet(temoins) {
     n('table_of_contents', { profondeur: 3 }),
     n('horizontal_rule'),
     n('heading', { level: 3 }, texte('Titre 3')),
+    // Deux notes (28/09/2026), dont une piégée et une avec marques et
+    // retour à la ligne : elles ressortent en fin de document.
+    par(
+      texte('Un appel'),
+      n('footnote', null, [...texte('Note #piégée [x] (y) // fin', [m('em')]), schema.node('hard_break'), ...texte('- suite')]),
+      texte(' puis un autre'),
+      n('footnote', null, texte('Seconde note.'))
+    ),
     ...temoins,
   ])
 }

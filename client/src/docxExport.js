@@ -41,8 +41,10 @@ import {
   TableRow,
   TableCell,
   WidthType,
+  EndnoteReferenceRun,
   convertMillimetersToTwip,
 } from 'docx'
+import { numerosDesNotes } from './notes.js'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
 import { BLOCS, NIVEAUX_TITRE, langue } from '../../shared/style.js'
 
@@ -148,12 +150,22 @@ function baseRunProps(block, sizePt) {
  * ProseMirror — même détail que typstExport.js : les marques
  * insertion/suppression du suivi des modifications ne changent rien au
  * texte (voir la note en tête de fichier). */
+/** Les numéros des notes du document en cours d'export — posés par
+ * buildDocxBlob, lus par inlineToRuns. */
+let NOTES = new Map()
+
 function inlineToRuns(node, block, sizePt, extra = null) {
   const runs = []
   const base = extra ? { ...baseRunProps(block, sizePt), ...extra } : baseRunProps(block, sizePt)
   node.forEach((child) => {
     if (child.type.name === 'hard_break') {
       runs.push(new TextRun({ ...base, text: '', break: 1 }))
+      return
+    }
+    // Une note (28/09/2026) : une vraie note de fin Word, dont le texte est
+    // déclaré sur le document (voir buildDocxBlob). Word renumérote.
+    if (child.type.name === 'footnote') {
+      if (NOTES.has(child)) runs.push(new EndnoteReferenceRun(NOTES.get(child)))
       return
     }
     if (!child.isText) return
@@ -420,10 +432,19 @@ function contientTable(doc) {
  * l'export PDF. */
 export async function buildDocxBlob(doc, style, titre = '') {
   const images = { octetsPar: await chargerImages(doc), largeurUtile: largeurUtilePx(style) }
+  NOTES = numerosDesNotes(doc)
   const children = []
   doc.forEach((node) => {
     children.push(...blockToParagraphs(node, style, images))
   })
+  // Les notes de fin : le texte de chacune, au style du corps, une taille
+  // en dessous — Word les place en fin de document et les numérote.
+  const corpsNotes = reglages(style, 'body')
+  const endnotes = {}
+  for (const [node, n] of NOTES) {
+    endnotes[n] = { children: [new Paragraph({ children: inlineToRuns(node, corpsNotes, Math.max(6, corpsNotes.size - 1)) })] }
+  }
+  NOTES = new Map()
 
   const page = style.page || DEFAULT_STYLE.page
   const [widthMm, heightMm] = PAGE_SIZES_MM[page.size] || PAGE_SIZES_MM.A4
@@ -495,6 +516,7 @@ export async function buildDocxBlob(doc, style, titre = '') {
     // Sans ça, Word ouvre le fichier avec une table des matières vide et
     // ne la calcule que si l'on pense à cliquer « Mettre à jour ».
     ...(contientTable(doc) ? { features: { updateFields: true } } : {}),
+    ...(Object.keys(endnotes).length ? { endnotes } : {}),
     // Sans ce drapeau, Word ignore l'en-tête des pages paires.
     ...(headers ? { evenAndOddHeaderAndFooters: true } : {}),
     // Les listes numérotées exigent une configuration de numérotation

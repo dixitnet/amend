@@ -404,3 +404,23 @@ test('une tâche cochée n’emploie plus un nom de symbole qui a disparu de Typ
   assert.doesNotMatch(src, /sym\.ballot/)
   assert.ok(src.includes('#box[☒] #strike[') && src.includes('#box[☐] '), src)
 })
+
+// ===================================================== les notes
+
+test('les notes : un appel en exposant, et la liste en fin de document', () => {
+  // Des notes de fin partout, décision du 28/09/2026 (voir
+  // claude/conception-notes-bas-de-page.md) : pas de #footnote, une
+  // section « Notes » après un saut de page faible.
+  const note = (t) => schema.node('footnote', null, [schema.text(t)])
+  const document = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Un'), note('Première (piégée) #x'), schema.text(' deux'), note('Seconde')]),
+  ])
+  const src = docToTypst(document, styleParDefaut, 'Document')
+  assert.ok(src.includes('#amend-corps[Un#super[1] deux#super[2]]'), src.slice(-300))
+  assert.doesNotMatch(src, /#footnote/)
+  const i = src.indexOf('#amend-h2[Notes]')
+  assert.ok(i > src.indexOf('#super[2]'), 'la section des notes vient après le texte')
+  assert.match(src.slice(i), /#enum\(numbering: "1\.", \[Première \(piégée\) \\#x\], \[Seconde\]\)/)
+  // Sans note : pas de section.
+  assert.doesNotMatch(docToTypst(doc('Rien.'), styleParDefaut, 'D'), /Notes/)
+})

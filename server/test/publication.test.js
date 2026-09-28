@@ -103,6 +103,27 @@ test('les marques de suivi ne figurent pas sur une page publiée', () => {
   assert.ok(html.includes('texte'))
 })
 
+test('les notes : numérotées par le serveur, en fin de page, échappées, jamais imbriquées', () => {
+  const html = rendre({
+    titre: 'T',
+    blocs: [
+      { type: 'paragraphe', contenu: [
+        { type: 'texte', texte: 'Un', marques: [] },
+        { type: 'note', contenu: [{ type: 'texte', texte: 'Première <b>note</b>', marques: ['em'] }, { type: 'note', contenu: [{ type: 'texte', texte: 'imbriquée', marques: [] }] }] },
+        { type: 'note', contenu: [{ type: 'texte', texte: 'Seconde', marques: [] }] },
+      ] },
+    ],
+  })
+  assert.match(html, /<sup class="note-appel" id="appel-1"><a href="#note-1">1<\/a><\/sup>/)
+  assert.match(html, /id="appel-2"/)
+  assert.match(html, /<li id="note-1"><em>Première &lt;b&gt;note&lt;\/b&gt;<\/em> <a href="#appel-1"/)
+  assert.match(html, /<li id="note-2">Seconde /)
+  assert.doesNotMatch(html, /imbriquée/)
+  assert.doesNotMatch(html, /<b>/)
+  // Un rendu sans note n'a pas de section Notes.
+  assert.doesNotMatch(rendre({ titre: 'T', blocs: [{ type: 'paragraphe', contenu: [] }] }), /class="notes"/)
+})
+
 test('une image ne peut désigner qu’un fichier du document', () => {
   const html = rendre({
     titre: 'T',

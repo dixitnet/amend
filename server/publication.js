@@ -102,7 +102,12 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ECHAPPE
 // personne n'a à lire les ratures de l'auteur.
 const MARQUES = { strong: 'strong', em: 'em', underline: 'u', strike: 's' }
 
-function inline(morceaux) {
+/** Les notes de la page en cours de rendu (28/09/2026) : le serveur les
+ * numérote lui-même, dans l'ordre où il les rencontre — jamais d'après un
+ * numéro venu du client. Remplie par inline(), écrite par rendre(). */
+let NOTES = []
+
+function inline(morceaux, dansUneNote = false) {
   if (!Array.isArray(morceaux)) return ''
   let out = ''
   for (const m of morceaux) {
@@ -113,6 +118,15 @@ function inline(morceaux) {
     }
     if (m.type === 'image') {
       out += image(m)
+      continue
+    }
+    // Une note : l'appel en exposant, lié à son texte en fin de page (et
+    // retour). Pas de note dans une note : ignorée à ce niveau.
+    if (m.type === 'note') {
+      if (dansUneNote) continue
+      const n = NOTES.length + 1
+      NOTES.push(inline(m.contenu, true))
+      out += `<sup class="note-appel" id="appel-${n}"><a href="#note-${n}">${n}</a></sup>`
       continue
     }
     if (m.type !== 'texte' || typeof m.texte !== 'string') continue
@@ -209,6 +223,13 @@ table { border-collapse: collapse; width: 100%; margin: 1.4em 0; font-size: 0.92
 td { border: 1px solid var(--bord); padding: 6px 9px; vertical-align: top; }
 hr { border: none; border-top: 1px solid var(--bord); margin: 2.4em 0; }
 a { color: var(--accent); }
+.note-appel { font-size: 0.72em; line-height: 0; vertical-align: super; }
+.note-appel a { text-decoration: none; padding: 0 2px; }
+.notes { margin-top: 3em; padding-top: 1em; border-top: 1px solid var(--bord); font-size: 0.88em; }
+.notes h2 { font-size: 1.05em; margin: 0 0 0.6em; }
+.notes ol { padding-left: 1.6em; }
+.notes li { margin-bottom: 0.4em; }
+.note-retour { text-decoration: none; margin-left: 0.3em; }
 .pied { max-width: 38em; margin: 0 auto; padding: 0 20px 48px; font-size: 13px; color: var(--muted);
   font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; border-top: 1px solid var(--bord); padding-top: 16px; }
 .pied span { color: var(--fg); font-weight: 600; }
@@ -218,7 +239,13 @@ a { color: var(--accent); }
 /** La page complète. Aucun script, aucune ressource extérieure : une page
  * publiée ne charge rien, ne mesure rien, ne suit personne. */
 export function rendre({ titre, blocs, publieLe }) {
-  const corps = (Array.isArray(blocs) ? blocs : []).map(bloc).join('\n')
+  NOTES = []
+  let corps = (Array.isArray(blocs) ? blocs : []).map(bloc).join('\n')
+  if (NOTES.length) {
+    const items = NOTES.map((t, i) => `<li id="note-${i + 1}">${t} <a href="#appel-${i + 1}" class="note-retour" aria-label="Retour au texte">↩</a></li>`)
+    corps += `\n<section class="notes"><h2>Notes</h2><ol>${items.join('')}</ol></section>`
+  }
+  NOTES = []
   const date = new Date(publieLe || Date.now()).toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long',
