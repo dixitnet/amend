@@ -30,6 +30,25 @@ function echapper(texte) {
   return out
 }
 
+/** Le début d'un morceau de texte, quand il suit une expression Typst.
+ *
+ * Tout morceau mis en forme devient un appel (`#emph[…]`), comme un retour
+ * à la ligne (`#linebreak()`) ou une image. Dans le balisage, Typst
+ * **prolonge** une telle expression par ce qui la suit immédiatement : une
+ * parenthèse ouvre une nouvelle liste d'arguments, un point suivi d'une
+ * lettre un accès de champ. « *ANRU*(Agence nationale…) » devenait donc
+ * `#emph[ANRU](Agence nationale…)` — et « error: expected comma », tout le
+ * PDF refusé (signalé le 28/09/2026 sur un long texte collé, où l'espace
+ * avant la parenthèse disparaît souvent). Vérifié en compilant.
+ *
+ * On échappe donc ces deux caractères en tête de **chaque** morceau : c'est
+ * sans effet visible quand rien ne le précède, et on n'a pas à savoir ce
+ * qui le précède. Pas ailleurs : échapper tous les points casserait la
+ * conversion de « ... » en « … ». */
+function protegerDebut(texte) {
+  return texte.replace(/^\(/, '\\(').replace(/^\.(?=[\p{L}\p{N}_])/u, '\\.')
+}
+
 /** Une chaîne littérale Typst (pour les arguments, pas le contenu). */
 function chaine(v) {
   return '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
@@ -51,7 +70,7 @@ function inline(node) {
       return
     }
     if (!child.isText) return
-    let t = echapper(child.text)
+    let t = protegerDebut(echapper(child.text))
     for (const mark of child.marks) {
       const n = mark.type.name
       if (n === 'strong') t = `#strong[${t}]`

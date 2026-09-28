@@ -339,3 +339,38 @@ test("une image sans largeur enregistrée prend toute la largeur disponible", ()
   assert.match(src, /width: disponible/)
   assert.doesNotMatch(src, /width: 100%/)
 })
+
+// ===================================================== après une mise en forme
+
+test('une parenthèse ou un point collés à une mise en forme restent du texte', () => {
+  // Signalé le 28/09/2026 (« composition impossible — error: expected
+  // comma ») sur un long texte collé : `#emph[ANRU](Agence…)` se lit en
+  // Typst comme un nouvel appel, `#strong[Note].Voir` comme un accès de
+  // champ. Voir protegerDebut dans typstExport.js.
+  const em = schema.marks.em.create()
+  const strong = schema.marks.strong.create()
+  const document = schema.node('doc', null, [
+    schema.node('paragraph', null, [
+      schema.text('ANRU', [em]),
+      schema.text('(Agence nationale pour la rénovation urbaine) '),
+      schema.text('Note', [strong]),
+      schema.text('.Voir plus loin'),
+      schema.node('hard_break'),
+      schema.text('(après un retour à la ligne)'),
+    ]),
+  ])
+  const src = docToTypst(document, styleParDefaut, 'Document')
+  assert.ok(src.includes('#emph[ANRU]\\(Agence nationale'), src)
+  assert.ok(src.includes('#strong[Note]\\.Voir plus loin'), src)
+  assert.ok(src.includes('#linebreak()\\(après un retour'), src)
+})
+
+test('les points de suspension ne sont pas échappés', () => {
+  // Échapper tous les points empêcherait Typst de changer « ... » en « … ».
+  const strong = schema.marks.strong.create()
+  const document = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Et', [strong]), schema.text('... la suite. Fin.')]),
+  ])
+  const src = docToTypst(document, styleParDefaut, 'Document')
+  assert.ok(src.includes('#strong[Et]... la suite. Fin.'), src)
+})
