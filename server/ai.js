@@ -27,6 +27,26 @@ export class AIRequestError extends Error {
  * @param {string} text - the selected passage to rewrite
  * @param {string} instruction - what the user asked for, e.g. "plus concis"
  */
+/** La réponse du modèle, débarrassée de ce qu'on lui a demandé de ne pas
+ * mettre et qu'il met parfois quand même : des guillemets triples ou une
+ * clôture de code (```) autour du texte, les balises <passage>, des
+ * guillemets qui enferment tout le passage. Le texte lui-même n'est jamais
+ * touché : on ne retire qu'une enveloppe complète, en tête et en queue. */
+export function nettoyerSuggestion(brut) {
+  let t = String(brut || '').trim()
+  for (let n = 0; n < 4; n++) {
+    const avant = t
+    t = t.replace(/^```[a-z]*\s*\n?([\s\S]*?)\n?\s*```$/u, '$1').trim()
+    t = t.replace(/^"""\s*\n?([\s\S]*?)\n?\s*"""$/u, '$1').trim()
+    t = t.replace(/^<passage>\s*\n?([\s\S]*?)\n?\s*<\/passage>$/u, '$1').trim()
+    // Des guillemets qui enferment tout, et seulement tout : un passage qui
+    // en contient d'autres à l'intérieur n'est pas déballé.
+    t = t.replace(/^"([^"]*)"$/u, '$1').replace(/^« ?([^«»]*) ?»$/u, '$1').trim()
+    if (t === avant) break
+  }
+  return t
+}
+
 export async function suggestEdit(config, text, instruction) {
   const apiKey = config.apiKey || process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -61,7 +81,11 @@ export async function suggestEdit(config, text, instruction) {
     messages: [
       {
         role: 'user',
-        content: `Instruction : ${userInstruction}\n\nPassage à réécrire :\n"""\n${text}\n"""`,
+        // Le passage entre balises, pas entre guillemets triples : le modèle
+        // les reproduisait dans sa réponse, et ils atterrissaient dans le
+        // document (signalé par Sylvain le 28/09/2026). nettoyerSuggestion
+        // retire ce qui passerait quand même.
+        content: `Instruction : ${userInstruction}\n\n<passage>\n${text}\n</passage>\n\nRéponds par le passage réécrit seulement, sans balises ni guillemets.`,
       },
     ],
   }
@@ -95,11 +119,12 @@ export async function suggestEdit(config, text, instruction) {
   }
 
   const data = await response.json()
-  const suggestion = (data.content || [])
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text)
-    .join('')
-    .trim()
+  const suggestion = nettoyerSuggestion(
+    (data.content || [])
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('')
+  )
 
   if (!suggestion) {
     throw new AIRequestError("Réponse vide de l'API Claude.", 502)
