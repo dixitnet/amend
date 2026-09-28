@@ -374,3 +374,33 @@ test('les points de suspension ne sont pas échappés', () => {
   const src = docToTypst(document, styleParDefaut, 'Document')
   assert.ok(src.includes('#strong[Et]... la suite. Fin.'), src)
 })
+
+test('ce que Typst lirait comme du code reste du texte (trouvé par le test qui compile)', () => {
+  // typstReel.test.js, 28/09/2026 : `//` ouvrait un commentaire jusqu'à
+  // la fin du paragraphe ; `--`, `---`, `-?` devenaient tirets et césure ;
+  // `;` après une marque était avalé ; `= `, `- `, `/ `, `1. ` en tête de
+  // paragraphe devenaient titre, liste, définition, énumération.
+  const strong = schema.marks.strong.create()
+  const src = (...enfants) => docToTypst(schema.node('doc', null, [schema.node('paragraph', null, enfants)]), styleParDefaut, 'D')
+  assert.ok(src(schema.text('http://a.b/c a--b c---d e-?f')).includes('http:\\//a.b/c a\\--b c\\-\\--d e\\-?f'))
+  assert.ok(src(schema.text('x', [strong]), schema.text('; suite')).includes('#strong[x]\\; suite'))
+  for (const debut of ['= Titre', '- puce', '+ puce', '/ terme', '12. item']) {
+    const s = src(schema.text(debut))
+    assert.ok(s.includes(`[${debut[0] === '1' ? '12\\.' : '\\' + debut[0]}`), `${debut} → ${s.slice(-60)}`)
+  }
+  // Mais pas au milieu d'un texte : « 3.5 » ou « a/b » ne changent pas.
+  assert.ok(src(schema.text('vaut 3.5 ou a/b')).includes('[vaut 3.5 ou a/b]'))
+})
+
+test('une tâche cochée n’emploie plus un nom de symbole qui a disparu de Typst', () => {
+  // `sym.ballot.x` n'existe plus en 0.15 : toute liste cochée cassait le PDF.
+  const document = schema.node('doc', null, [
+    schema.node('task_list', null, [
+      schema.node('task_item', { checked: true }, [schema.node('paragraph', null, [schema.text('fait')])]),
+      schema.node('task_item', { checked: false }, [schema.node('paragraph', null, [schema.text('à faire')])]),
+    ]),
+  ])
+  const src = docToTypst(document, styleParDefaut, 'D')
+  assert.doesNotMatch(src, /sym\.ballot/)
+  assert.ok(src.includes('#box[☒] #strike[') && src.includes('#box[☐] '), src)
+})

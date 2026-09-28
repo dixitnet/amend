@@ -27,7 +27,14 @@ const SPECIAUX = ['\\', '#', '$', '*', '_', '`', '<', '>', '@', '~', '[', ']', '
 function echapper(texte) {
   let out = texte
   for (const c of SPECIAUX) out = out.split(c).join('\\' + c)
-  return out
+  // Deux séquences que Typst lit même en mode contenu (trouvées le
+  // 28/09/2026 en compilant un document de pièges) : `//` ouvre un
+  // commentaire jusqu'à la fin de la ligne — tout le paragraphe, avec son
+  // crochet fermant, donc « unclosed delimiter » ; `--`, `---` et `-?`
+  // deviennent tiret demi-cadratin, cadratin et césure conditionnelle. Le
+  // PDF doit montrer ce que l'éditeur montre ; les autres exports ne
+  // convertissent rien. (`/*` est déjà neutralisé par l'échappement de `*`.)
+  return out.replace(/\/(?=\/)/g, '\\/').replace(/-(?=[-?])/g, '\\-')
 }
 
 /** Le début d'un morceau de texte, quand il suit une expression Typst.
@@ -44,9 +51,25 @@ function echapper(texte) {
  * On échappe donc ces deux caractères en tête de **chaque** morceau : c'est
  * sans effet visible quand rien ne le précède, et on n'a pas à savoir ce
  * qui le précède. Pas ailleurs : échapper tous les points casserait la
- * conversion de « ... » en « … ». */
+ * conversion de « ... » en « … ».
+ *
+ * Le point-virgule aussi (28/09) : après une expression, il la termine et
+ * Typst l'avale — « #emph[x]; suite » sort « x suite ». */
 function protegerDebut(texte) {
-  return texte.replace(/^\(/, '\\(').replace(/^\.(?=[\p{L}\p{N}_])/u, '\\.')
+  return (
+    texte
+      .replace(/^\(/, '\\(')
+      .replace(/^\.(?=[\p{L}\p{N}_])/u, '\\.')
+      .replace(/^;/, '\\;')
+      // En tête d'un bloc de contenu `[…]`, Typst lit aussi ses structures
+      // de ligne : `= ` un titre (qui déclenche nos règles de titre —
+      // « pagebreaks are not allowed inside of containers » quand le
+      // titre 1 ouvre sur belle page), `- ` et `+ ` une liste, `/ ` une
+      // liste de définitions (« expected colon »), `1. ` une énumération.
+      // Un paragraphe qui commence ainsi est courant dans un texte collé.
+      .replace(/^[=\-+/]/, (c) => '\\' + c)
+      .replace(/^(\d+)\./, '$1\\.')
+  )
 }
 
 /** Une chaîne littérale Typst (pour les arguments, pas le contenu). */
@@ -116,7 +139,12 @@ function listeTypst(node, fonction) {
       corps += blocTypst(enfant)
     })
     if (node.type.name === 'task_list') {
-      corps = `#box[#sym.ballot${item.attrs.checked ? '.x' : ''}] ` + (item.attrs.checked ? `#strike[${corps}]` : corps)
+      // Les caractères eux-mêmes (U+2610, U+2612), pas `sym.ballot.x` : ce
+      // nom n'existe plus dans Typst 0.15 (« unknown symbol modifier »), et
+      // toute liste de tâches cochée faisait échouer le PDF — trouvé le
+      // 28/09/2026 par le test qui compile pour de vrai. Un caractère ne
+      // dépend d'aucune version.
+      corps = `#box[${item.attrs.checked ? '☒' : '☐'}] ` + (item.attrs.checked ? `#strike[${corps}]` : corps)
     }
     items.push(`[${corps}]`)
   })
