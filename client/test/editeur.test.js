@@ -481,3 +481,44 @@ test('suivi désactivé, la suppression de plusieurs blocs efface pour de bon', 
   e.selection(3, 18).effacerAvant()
   assert.equal(e.texteAccepte(), 'prn\ndernier')
 })
+
+// ======================================================= l'IA et les remplacements
+
+test('une correction de l’IA fait une carte « remplacement », pas deux', () => {
+  // Signalé par Sylvain le 28/09/2026 : les marques posées par le diff de
+  // l'IA n'avaient pas de groupe, donc jamais de pairage.
+  const e = editeur(doc('Le chat dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe.'))
+  insertAISuggestion(e.view, 1, finDoc(e), 'Le chat dort sur le tapis bleu, devant la cheminée, pendant que la pluie tombe.', IA)
+  const liste = listChanges(e.doc)
+  assert.equal(liste.length, 1, JSON.stringify(liste.map((c) => [c.type, c.text])))
+  assert.equal(liste[0].type, 'remplacement')
+  assert.equal(liste[0].ancien, 'rouge,')
+  assert.equal(liste[0].nouveau, 'bleu,')
+  // Le nouveau précède l'ancien barré, comme à la frappe.
+  assert.ok(liste[0].insertion.to === liste[0].deletion.from)
+  acceptAllChanges(e.view)
+  assert.equal(e.texte(), 'Le chat dort sur le tapis bleu, devant la cheminée, pendant que la pluie tombe.')
+  valide(e)
+})
+
+test('plusieurs mots corrigés : un remplacement par mot, et un ajout seul reste un ajout', () => {
+  const origine = 'Le chat dort sur le tapis, devant la cheminée, pendant que la pluie tombe sur le toit.'
+  const e = editeur(doc(origine))
+  insertAISuggestion(e.view, 1, finDoc(e), 'Le chien dort sur le grand tapis, devant la cheminée, pendant que la pluie tombe sur le toit.', IA)
+  const types = listChanges(e.doc).map((c) => c.type)
+  assert.deepEqual(types, ['remplacement', 'insertion'], JSON.stringify(types))
+  rejectAllChanges(e.view)
+  assert.equal(e.texte(), origine)
+})
+
+test('une réécriture complète en un paragraphe est un remplacement, même à distance', () => {
+  const e = editeur(doc('Le chat dort sur le tapis rouge.'))
+  insertAISuggestion(e.view, 1, finDoc(e), 'Un félin sommeille sur le tapis écarlate.', IA)
+  const liste = listChanges(e.doc)
+  assert.equal(liste.length, 1)
+  assert.equal(liste[0].type, 'remplacement')
+  assert.equal(liste[0].nouveau, 'Un félin sommeille sur le tapis écarlate.')
+  rejectAllChanges(e.view)
+  assert.equal(e.nbBlocs(), 1)
+  assert.equal(e.texte(), 'Le chat dort sur le tapis rouge.')
+})

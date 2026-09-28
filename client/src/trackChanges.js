@@ -696,6 +696,9 @@ export function mergeAdjacentChanges(raw) {
     if (last && last.type === c.type && last.user === c.user && last.to === c.from) {
       last.to = c.to
       last.text += c.text
+      // Le groupe survit à la fusion : un mot tapé à la suite d'un
+      // remplacement en fait partie, il ne le casse pas.
+      if (!last.groupe && c.groupe) last.groupe = c.groupe
     } else {
       merged.push({ ...c })
     }
@@ -728,7 +731,15 @@ export function pairReplacements(changes) {
   for (let i = 0; i < changes.length; i++) {
     const a = changes[i]
     const b = changes[i + 1]
-    if (a.type === 'insertion' && b && b.type === 'deletion' && a.groupe && a.groupe === b.groupe && a.to === b.from) {
+    // Deux moitiés d'un même groupe, qui se suivent dans la liste : une
+    // insertion et une suppression, dans un ordre ou dans l'autre. La
+    // frappe met le nouveau avant l'ancien barré ; une réécriture entière
+    // par l'IA met le nouveau paragraphe **après** l'ancien (28/09/2026).
+    const paire =
+      b && a.groupe && a.groupe === b.groupe && a.type !== b.type && ['insertion', 'deletion'].includes(a.type) && ['insertion', 'deletion'].includes(b.type)
+    if (paire) {
+      const insertion = a.type === 'insertion' ? a : b
+      const deletion = a.type === 'deletion' ? a : b
       out.push({
         type: 'remplacement',
         groupe: a.groupe,
@@ -737,10 +748,10 @@ export function pairReplacements(changes) {
         user: a.user,
         userColor: a.userColor,
         ts: a.ts,
-        ancien: b.text,
-        nouveau: a.text,
-        insertion: a,
-        deletion: b,
+        ancien: deletion.text,
+        nouveau: insertion.text,
+        insertion,
+        deletion,
       })
       i++ // b est consommée avec a
     } else {
@@ -917,10 +928,37 @@ const BIG_REWRITE_RATIO = 0.3
 function replayDiffOps(tr, schema, blockFrom, ops, insMark, delMark, authorMark) {
   let srcPos = blockFrom
   let changed = false
-  for (const op of ops) {
+  const insererTexte = (pos, texte, marque) => {
+    // Un nœud texte ProseMirror ne contient pas de saut de ligne : au
+    // niveau d'un diff fin (quelques mots), un saut venu de la
+    // suggestion se lit comme une espace.
+    tr.insert(pos, schema.text(texte.replace(/[\r\n]+/g, ' ')))
+    tr.addMark(pos, pos + texte.length, marque)
+    if (authorMark) tr.addMark(pos, pos + texte.length, authorMark)
+  }
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i]
     if (!op.text) continue
     if (op.type === 'equal') {
       srcPos += op.text.length
+      continue
+    }
+    const suivant = ops[i + 1]
+    if (op.type === 'delete' && suivant && suivant.type === 'insert' && suivant.text) {
+      // Un mot remplacé par un autre : les deux moitiés partagent un
+      // groupe, et le nouveau texte précède l'ancien barré — exactement ce
+      // que produit une frappe par-dessus une sélection
+      // (rewriteForTracking), et ce que pairReplacements réunit en une
+      // seule carte « remplacement ». Signalé par Sylvain le 28/09/2026 :
+      // une correction de l'IA faisait toujours deux cartes.
+      const groupe = idDeGroupe(insMark.attrs.ts)
+      const mFrom = tr.mapping.map(srcPos)
+      const mTo = tr.mapping.map(srcPos + op.text.length)
+      tr.addMark(mFrom, mTo, delMark.type.create({ ...delMark.attrs, groupe }))
+      insererTexte(mFrom, suivant.text, insMark.type.create({ ...insMark.attrs, groupe }))
+      srcPos += op.text.length
+      changed = true
+      i++ // l'insertion est consommée avec la suppression
     } else if (op.type === 'delete') {
       const mFrom = tr.mapping.map(srcPos)
       const mTo = tr.mapping.map(srcPos + op.text.length)
@@ -928,13 +966,7 @@ function replayDiffOps(tr, schema, blockFrom, ops, insMark, delMark, authorMark)
       srcPos += op.text.length
       changed = true
     } else if (op.type === 'insert') {
-      const insPos = tr.mapping.map(srcPos)
-      // Un nœud texte ProseMirror ne contient pas de saut de ligne : au
-      // niveau d'un diff fin (quelques mots), un saut venu de la
-      // suggestion se lit comme une espace.
-      tr.insert(insPos, schema.text(op.text.replace(/[\r\n]+/g, ' ')))
-      tr.addMark(insPos, insPos + op.text.length, insMark)
-      if (authorMark) tr.addMark(insPos, insPos + op.text.length, authorMark)
+      insererTexte(tr.mapping.map(srcPos), op.text, insMark)
       changed = true
     }
   }
@@ -987,11 +1019,27 @@ function applyParagraphDiff(tr, schema, block, newText, insMark, delMark, author
   const bigRewrite = block.fullyCovered && oldText && newText && diffChangeRatio(oldText, newText, ops) >= BIG_REWRITE_RATIO
 
   if (bigRewrite) {
+    let noeuds = blocsDepuisTexte(schema, block.nodeType, block.nodeAttrs, newText, insMark, authorMark)
+    // Un paragraphe réécrit en un paragraphe : un remplacement, une carte
+    // (28/09/2026). En plusieurs, on garde une suppression et des
+    // insertions séparées — un groupe ne réunit que deux moitiés.
+    let marqueSuppression = delMark
+    if (noeuds.length === 1 && block.textTo > block.textFrom) {
+      const groupe = idDeGroupe(insMark.attrs.ts)
+      marqueSuppression = delMark.type.create({ ...delMark.attrs, groupe })
+      noeuds = blocsDepuisTexte(
+        schema,
+        block.nodeType,
+        block.nodeAttrs,
+        newText,
+        insMark.type.create({ ...insMark.attrs, groupe }),
+        authorMark
+      )
+    }
     if (block.textTo > block.textFrom) {
-      tr.addMark(tr.mapping.map(block.textFrom), tr.mapping.map(block.textTo), delMark)
+      tr.addMark(tr.mapping.map(block.textFrom), tr.mapping.map(block.textTo), marqueSuppression)
     }
     const insertAt = tr.mapping.map(block.nodeEnd)
-    const noeuds = blocsDepuisTexte(schema, block.nodeType, block.nodeAttrs, newText, insMark, authorMark)
     if (!noeuds.length) return block.textTo > block.textFrom
     tr.insert(insertAt, noeuds)
     return true
