@@ -96,6 +96,18 @@ function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
   const insertionType = state.schema.marks.insertion
   const ranges = []
   state.doc.nodesBetween(from, to, (node, pos) => {
+    // Une note entière dans la sélection (28/09/2026) : suivie par son
+    // attribut `suivi`, pas par une marque — voir schema.js. Déjà proposée
+    // à la suppression : rien à faire. Proposée à l'insertion : elle
+    // disparaît, comme du texte inséré en attente.
+    if (node.type.name === 'footnote') {
+      // Partiellement couverte : c'est son texte qu'on barre, on descend.
+      if (pos < from || pos + node.nodeSize > to) return true
+      const suivi = node.attrs.suivi
+      if (suivi && suivi.type === 'deletion') return false
+      ranges.push({ from: pos, to: pos + node.nodeSize, note: node, removeReally: !!suivi })
+      return false
+    }
     if (!node.isText) return
     const start = Math.max(pos, from)
     const end = Math.min(pos + node.nodeSize, to)
@@ -107,8 +119,19 @@ function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
     const mFrom = tr.mapping.map(r.from)
     const mTo = tr.mapping.map(r.to)
     if (r.removeReally) tr.delete(mFrom, mTo)
-    else tr.addMark(mFrom, mTo, delMark)
+    else if (r.note) {
+      const { user, userColor, ts } = delMark.attrs
+      tr.setNodeMarkup(mFrom, null, { ...r.note.attrs, suivi: { type: 'deletion', user, userColor, ts } })
+    } else tr.addMark(mFrom, mTo, delMark)
   }
+}
+
+/** `true` si [f, t) est déjà proposé à la suppression — du texte barré, ou
+ * une note entière portant `suivi.type === 'deletion'`. */
+function dejaSupprime(state, f, t, deletionType) {
+  if (state.doc.rangeHasMark(f, t, deletionType)) return true
+  const node = state.doc.nodeAt(f)
+  return !!(node && node.type.name === 'footnote' && t - f === node.nodeSize && node.attrs.suivi && node.attrs.suivi.type === 'deletion')
 }
 
 /** True when `step` is a "pure" structural split — Enter pressed inside a
@@ -157,7 +180,7 @@ function caractereAEffacer(state, from, to, versLArriere) {
   // boucle plus longtemps que le bloc lui-même.
   for (let n = fin - debut; n >= 0; n--) {
     if (f < debut || t > fin || f >= t) return null
-    if (!state.doc.rangeHasMark(f, t, deletionType)) return { from: f, to: t }
+    if (!dejaSupprime(state, f, t, deletionType)) return { from: f, to: t }
     if (versLArriere) {
       f -= 1
       t -= 1
@@ -180,7 +203,9 @@ function caractereAEffacer(state, from, to, versLArriere) {
 function dansUnSeulBloc(state, from, to) {
   const $from = state.doc.resolve(from)
   const $to = state.doc.resolve(to)
-  return $from.parent.isTextblock && $from.sameParent($to)
+  // `inlineContent` et non `isTextblock` : le texte d'une note (un nœud
+  // inline à contenu, voir schema.js) se suit comme celui d'un paragraphe.
+  return $from.parent.inlineContent && $from.sameParent($to)
 }
 
 /** Une transaction qui ne fait que déplacer le curseur. Sert quand il n'y a
@@ -452,7 +477,7 @@ export function rewriteForTracking(state, tr, user) {
 /** Une position où l'on peut réellement poser un curseur de texte. */
 function positionUtilisable(doc, pos) {
   if (pos < 0 || pos > doc.content.size) return false
-  return doc.resolve(pos).parent.isTextblock
+  return doc.resolve(pos).parent.inlineContent
 }
 
 /**
@@ -606,11 +631,15 @@ export function effacementSuivi(getUser, versLArriere) {
       debut = sel.from
       fin = sel.to
     } else if (versLArriere) {
-      debut = sel.from - 1
+      // Un nœud entier avant le curseur (une note) : c'est lui qu'on
+      // efface, pas « un caractère » qui tomberait au milieu de son texte.
+      const avant = sel.$from.nodeBefore
+      debut = sel.from - (avant && !avant.isText ? avant.nodeSize : 1)
       fin = sel.from
     } else {
+      const apres = sel.$from.nodeAfter
       debut = sel.from
-      fin = sel.from + 1
+      fin = sel.from + (apres && !apres.isText ? apres.nodeSize : 1)
     }
     if (debut < 0 || fin > state.doc.content.size || debut >= fin) return false
     if (!dansUnSeulBloc(state, debut, fin)) return false
@@ -661,6 +690,26 @@ export function scanChangesInRange(doc, from, to) {
       const { user, userColor, ts } = node.attrs.trackedBreak
       raw.push({ type: 'break', from: pos, to: pos, user, userColor, ts, text: 'Saut de paragraphe' })
     }
+    // Une note proposée (insérée ou supprimée) entière : une entrée à part,
+    // qui ne se fond jamais avec le texte voisin (`noeud`). Le texte
+    // **dans** une note qui n'est pas elle-même en attente est parcouru
+    // comme celui d'un paragraphe.
+    if (node.type.name === 'footnote') {
+      const suivi = node.attrs.suivi
+      if (!suivi || pos < from || pos >= to) return !suivi
+      raw.push({
+        type: suivi.type,
+        noeud: 'note',
+        from: pos,
+        to: pos + node.nodeSize,
+        user: suivi.user,
+        userColor: suivi.userColor,
+        ts: suivi.ts,
+        groupe: null,
+        text: `Note : ${node.textContent}`,
+      })
+      return false
+    }
     if (!node.isText) return
     if (pos < from || pos >= to) return
     for (const type of ['insertion', 'deletion']) {
@@ -693,7 +742,7 @@ export function mergeAdjacentChanges(raw) {
   const merged = []
   for (const c of raw) {
     const last = merged[merged.length - 1]
-    if (last && last.type === c.type && last.user === c.user && last.to === c.from) {
+    if (last && !last.noeud && !c.noeud && last.type === c.type && last.user === c.user && last.to === c.from) {
       last.to = c.to
       last.text += c.text
       // Le groupe survit à la fusion : un mot tapé à la suite d'un
@@ -823,6 +872,12 @@ export function acceptChange(view, change) {
     // document depuis la frappe/le collage — voir rewriteSplitForTracking).
     const node = view.state.doc.nodeAt(change.from)
     if (node) tr.setNodeMarkup(change.from, null, { ...node.attrs, trackedBreak: null })
+  } else if (change.noeud) {
+    // Une note : accepter son insertion, c'est lever l'attente ; accepter
+    // sa suppression, c'est la retirer.
+    const node = view.state.doc.nodeAt(change.from)
+    if (node && change.type === 'deletion') tr.delete(change.from, change.to)
+    else if (node) tr.setNodeMarkup(change.from, null, { ...node.attrs, suivi: null })
   } else {
     const markType = view.state.schema.marks[change.type]
     if (change.type === 'deletion') retirerTexte(view.state, tr, change.from, change.to)
@@ -888,6 +943,12 @@ export function rejectChange(view, change) {
       const node = view.state.doc.nodeAt(change.from)
       if (node) tr.setNodeMarkup(change.from, null, { ...node.attrs, trackedBreak: null })
     }
+  } else if (change.noeud) {
+    // Rejeter l'insertion d'une note, c'est la retirer ; rejeter sa
+    // suppression, c'est lever l'attente.
+    const node = view.state.doc.nodeAt(change.from)
+    if (node && change.type === 'insertion') tr.delete(change.from, change.to)
+    else if (node) tr.setNodeMarkup(change.from, null, { ...node.attrs, suivi: null })
   } else {
     const markType = view.state.schema.marks[change.type]
     if (change.type === 'insertion') retirerTexte(view.state, tr, change.from, change.to)

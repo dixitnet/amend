@@ -156,8 +156,12 @@ export function editeur(document, { suivi = true, user = UTILISATEUR } = {}) {
       // maillon qu'on imite ici par une suppression ordinaire, et c'est
       // précisément celui qui posait problème avant l'interception.
       if (!effacementSuivi(() => user, true)(state, dispatcher) && !baseKeymap.Backspace(state, dispatcher)) {
-        const { from, to, empty } = state.selection
-        if (empty) dispatcher(state.tr.delete(Math.max(0, from - 1), from))
+        const { from, to, empty, $from } = state.selection
+        // Un nœud entier avant le curseur (une note) : le navigateur
+        // l'efface d'un coup, comme un caractère.
+        const avant = $from.nodeBefore
+        const taille = avant && !avant.isText ? avant.nodeSize : 1
+        if (empty) dispatcher(state.tr.delete(Math.max(0, from - taille), from))
         else dispatcher(state.tr.delete(from, to))
       }
       return this
@@ -165,8 +169,10 @@ export function editeur(document, { suivi = true, user = UTILISATEUR } = {}) {
     /** Suppression avant (touche Suppr / fn+Retour sur un Mac). */
     effacerApres() {
       if (!effacementSuivi(() => user, false)(state, dispatcher) && !baseKeymap.Delete(state, dispatcher)) {
-        const { from, to, empty } = state.selection
-        if (empty) dispatcher(state.tr.delete(from, Math.min(state.doc.content.size, from + 1)))
+        const { from, to, empty, $from } = state.selection
+        const apres = $from.nodeAfter
+        const taille = apres && !apres.isText ? apres.nodeSize : 1
+        if (empty) dispatcher(state.tr.delete(from, Math.min(state.doc.content.size, from + taille)))
         else dispatcher(state.tr.delete(from, to))
       }
       return this

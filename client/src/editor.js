@@ -58,6 +58,7 @@ import { ouvrirPanneauPublication } from './publicationPanel.js'
 import { messageFugace } from './images.js'
 import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
 import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
+import { footnotesPlugin, insererNote, monterListeDesNotes, selectionContientUneNote } from './footnotes.js'
 import { ouvrirPlan } from './planFeuille.js'
 import { monterInterfaceTelephone } from './iphone.js'
 import {
@@ -571,8 +572,12 @@ export function mountEditor(root, docId, user, docMeta) {
   // c'est ce qui la distingue d'une option de mise en page (20/09/2026).
   const tocBtn = mkButton('Sommaire', 'Insérer une table des matières ici')
   tocBtn.classList.add('btn-texte')
+  // Une note (28/09/2026) : ouverte à qui peut écrire, correcteur compris —
+  // en suivi, elle naît proposée.
+  const noteBtn = mkButton('Note', 'Insérer une note ici (Ctrl/⌘+Alt+F)')
+  noteBtn.classList.add('btn-texte')
   groupeTexte2.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn)
-  groupeInserer.append(quoteBtn, hrBtn, tocBtn)
+  groupeInserer.append(quoteBtn, hrBtn, noteBtn, tocBtn)
 
   // Groupe tableau : le bouton d'insertion est toujours là, les commandes de
   // structure n'apparaissent que lorsque le curseur est dans un tableau
@@ -854,6 +859,7 @@ export function mountEditor(root, docId, user, docMeta) {
       // n'existe que pour le petit écran — au-dessus de 700 px, la marge et
       // la colonne de droite font tout cela mieux, et il ne fait rien.
       tactilePlugin(),
+      footnotesPlugin(() => user, { surChangement: (v) => listeNotes && listeNotes.rafraichir(v) }),
       mountCommentsGutter(commentsGutter, ydoc, commentsMap, user),
       mountGutterComposer(commentsGutter, ydoc, commentsMap, user),
       mountChangesPanel(changesSection, { canReview: !!cap.canReviewChanges }),
@@ -876,6 +882,7 @@ export function mountEditor(root, docId, user, docMeta) {
         'Mod-b': toggleMark(schema.marks.strong),
         'Mod-i': toggleMark(schema.marks.em),
         'Mod-u': toggleMark(schema.marks.underline),
+        'Mod-Alt-f': (state, dispatch, v) => insererNote(v, user),
         // Falls through to the plain Enter/baseKeymap handling below
         // whenever the cursor isn't inside a list item.
         // Les trois familles de liste partagent les mêmes gestes : la
@@ -929,6 +936,10 @@ export function mountEditor(root, docId, user, docMeta) {
     editable: () => peutProposer,
   })
   editorContainer.appendChild(commentsGutter)
+  // La liste des notes (28/09/2026) : une barre repliée au pied de la
+  // colonne de texte, rafraîchie par footnotesPlugin.
+  const listeNotes = monterListeDesNotes(main, () => view)
+  listeNotes.rafraichir(view)
 
   // --- Le masque de chargement (23/09/2026).
   //
@@ -1216,10 +1227,18 @@ export function mountEditor(root, docId, user, docMeta) {
   headingSelect.onchange = () => {
     if (headingSelect.value === '') {
       setBlockType(schema.nodes.paragraph)(view.state, view.dispatch)
+    } else if (selectionContientUneNote(view.state)) {
+      // Un titre ne porte pas de note (schema.js) : on le dit plutôt que
+      // de laisser ProseMirror refuser en silence.
+      messageFugace('Un titre ne peut pas contenir de note.', { erreur: true })
+      syncHeadingSelect()
     } else {
       setBlockType(schema.nodes.heading, { level: Number(headingSelect.value) })(view.state, view.dispatch)
     }
     view.focus()
+  }
+  noteBtn.onclick = () => {
+    if (!insererNote(view, user)) messageFugace('Une note se pose dans un paragraphe, pas dans un titre.', { erreur: true })
   }
 
   mountAIPanel(aiSection, () => view, { docId, canUseAI: !!cap.canUseAI })

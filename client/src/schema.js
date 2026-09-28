@@ -37,7 +37,10 @@ export const schema = new Schema({
     },
     heading: {
       attrs: { level: { default: 2 }, trackedBreak: { default: null } },
-      content: 'inline*',
+      // Pas de note dans un titre (décision du 28/09/2026) : un titre se
+      // retrouve dans la table des matières et l'en-tête de page, où un
+      // appel de note n'a rien à faire. D'où `inline` moins `footnote`.
+      content: '(text | hard_break)*',
       group: 'block',
       defining: true,
       // Trois niveaux depuis le 18/09/2026 (voir NIVEAUX_TITRE dans
@@ -239,6 +242,33 @@ export const schema = new Schema({
       },
     },
     text: { group: 'inline' },
+    // Note (28/09/2026, claude/conception-notes-bas-de-page.md). La note
+    // **vit dans son appel** : un nœud inline qui contient son texte.
+    // Couper, coller ou supprimer l'appel emporte la note ; le numéro
+    // n'est jamais stocké, il est compté à l'affichage et à l'export. Pas
+    // de bloc ni de note dans une note (`content`), pas de note dans un
+    // titre (voir heading).
+    //
+    // `suivi` : le suivi des modifications d'un nœud entier. Les marques
+    // ne tiennent pas sur un nœud qui n'est pas du texte (y-prosemirror ne
+    // synchronise que celles des nœuds texte), d'où un attribut, comme
+    // `trackedBreak` sur les paragraphes : null, ou { type: 'insertion' |
+    // 'deletion', user, userColor, ts }.
+    footnote: {
+      inline: true,
+      group: 'inline',
+      content: '(text | hard_break)*',
+      atom: true,
+      draggable: false,
+      attrs: { suivi: { default: null } },
+      // Le rendu dans l'éditeur est une NodeView (footnotes.js) ; ceci sert
+      // au presse-papiers, pour qu'une note copiée dans amend.ink y
+      // revienne entière.
+      parseDOM: [{ tag: 'span[data-note]', contentElement: '.note-contenu' }],
+      toDOM() {
+        return ['span', { 'data-note': '', class: 'note' }, ['span', { class: 'note-contenu' }, 0]]
+      },
+    },
     hard_break: {
       inline: true,
       group: 'inline',

@@ -2767,3 +2767,70 @@ tr.bo-traite { opacity: 0.6; }
 @media (prefers-reduced-motion: reduce) {
   .masque-chargement { transition: none; }
 }
+
+/* --- Les notes (28/09/2026, claude/conception-notes-bas-de-page.md) --- */
+/* Le numéro est un compteur CSS : insérer une note au début renumérote
+   tout, sans JavaScript. Une note proposée à la suppression ne compte pas. */
+.ProseMirror { counter-reset: note; }
+.note-appel {
+  counter-increment: note;
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: super;
+  padding: 0 2px;
+  margin: 0 1px;
+  border-radius: 3px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  cursor: pointer;
+  user-select: none;
+}
+.note-appel::before { content: counter(note); font-weight: 600; }
+.note-appel:hover, .note-appel.ProseMirror-selectednode { background: color-mix(in srgb, var(--accent) 28%, transparent); outline: none; }
+.note-appel.note-inseree { box-shadow: inset 0 -2px 0 var(--user-color, var(--accent)); }
+.note-appel.note-supprimee { counter-increment: none; text-decoration: line-through; color: var(--user-color, var(--muted)); background: transparent; }
+.note-appel.note-supprimee::before { content: '×'; }
+
+.note-fenetre {
+  position: absolute;
+  z-index: 30;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  font-size: 0.92rem;
+}
+.note-fenetre-entete {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.note-fenetre-fermer {
+  border: none; background: none; font-size: 18px; line-height: 1; cursor: pointer; color: var(--muted); padding: 2px 6px;
+}
+.note-fenetre-fermer:hover { color: var(--fg); }
+.note-fenetre-corps { padding: 10px 12px; }
+.note-fenetre-corps .ProseMirror { padding: 0; min-height: 2.4em; max-height: 40vh; overflow-y: auto; font-size: 0.95em; counter-reset: none; }
+@media (max-width: 700px) {
+  /* Sur téléphone, une feuille en bas de l'écran, comme les commentaires. */
+  .note-fenetre { position: fixed; left: 0 !important; right: 0; bottom: 0; top: auto !important; width: auto !important; border-radius: 12px 12px 0 0; }
+}
+
+.notes-fin {
+  flex: none;
+  max-width: 78ch;
+  width: 100%;
+  margin: 0 auto;
+  padding: 4px 20px 8px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.notes-fin[hidden] { display: none; }
+.notes-fin summary { cursor: pointer; padding: 6px 0; user-select: none; }
+.notes-fin ol { margin: 4px 0 0; padding-left: 1.6em; max-height: 30vh; overflow-y: auto; color: var(--fg); }
+.notes-fin li { cursor: pointer; padding: 2px 0; }
+.notes-fin li:hover { color: var(--accent); }
+.notes-fin li.note-inseree { text-decoration: underline; text-decoration-color: var(--accent); }
+.notes-fin li.note-supprimee { text-decoration: line-through; color: var(--muted); }

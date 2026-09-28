@@ -63,6 +63,15 @@ function marquesResolues(schema, node, mode) {
 function inlineResolu(schema, node, mode) {
   const out = []
   node.forEach((child) => {
+    if (child.type.name === 'footnote') {
+      // Une note (28/09/2026) : suivie par son attribut `suivi`, et son
+      // texte se résout comme celui d'un paragraphe.
+      const suivi = child.attrs.suivi
+      if (mode === FINAL && suivi && suivi.type === 'deletion') return
+      const attrs = mode === FINAL ? { ...child.attrs, suivi: null } : child.attrs
+      out.push(child.type.create(attrs, inlineResolu(schema, child, mode), child.marks))
+      return
+    }
     if (!child.isText) {
       // Une image insérée puis proposée à la suppression : même règle que
       // pour le texte.
