@@ -2834,3 +2834,9 @@ tr.bo-traite { opacity: 0.6; }
 .notes-fin li:hover { color: var(--accent); }
 .notes-fin li.note-inseree { text-decoration: underline; text-decoration-color: var(--accent); }
 .notes-fin li.note-supprimee { text-decoration: line-through; color: var(--muted); }
+
+/* Un nœud de bloc suivi entier (une image, 29/09/2026) : proposé, un liseré
+   à la couleur de l'auteur ; supprimé, estompé et barré. */
+.ProseMirror .noeud-insere { outline: 2px dashed var(--user-color, var(--accent)); outline-offset: 3px; }
+.ProseMirror .noeud-supprime { opacity: 0.45; position: relative; }
+.ProseMirror .noeud-supprime::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 3px solid var(--user-color, var(--danger, #b3261e)); }

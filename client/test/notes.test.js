@@ -56,7 +56,7 @@ test('insérer une note en suivi : la note entière est la proposition', () => {
   const l = listChanges(e.doc)
   assert.equal(l.length, 1)
   assert.equal(l[0].type, 'insertion')
-  assert.equal(l[0].noeud, 'note')
+  assert.equal(l[0].noeud, 'footnote')
   // Rejeter : la note disparaît. Accepter : elle reste, sans attente.
   const e2 = editeur(e.doc)
   rejectAllChanges(e2.view)
@@ -179,4 +179,44 @@ test('à l’export : une note supprimée disparaît, une note proposée reste, 
   for (const { node } of notesDuDocument(final)) assert.equal(node.attrs.suivi, null)
   const cours = documentPourExport(d, EN_COURS)
   assert.deepEqual(notes(cours), ['supprimée', 'proposée', 'gardé ajouté retiré'])
+})
+
+// ===================================================== l'image, même mécanisme
+
+test('une image est suivie entière par le même attribut : insérée, supprimée, résolue', () => {
+  // S4 du rapport du 28/09 : un seul mécanisme pour les nœuds (`suivi`),
+  // lu par suiviDuNoeud. L'image en est le second usager après la note.
+  const image = (suivi = null) => schema.node('image', { src: '/api/docs/x/images/a.png', suivi })
+  const d = schema.node('doc', null, [p(schema.text('Avant.')), image(), p(schema.text('Après.'))])
+  const e = editeur(d)
+  // Sélectionner l'image (position 8) et effacer, en suivi : barrée.
+  e.view.dispatch(e.state.tr.setSelection(NodeSelection.create(e.doc, 8)))
+  e.effacerAvant()
+  assert.equal(e.doc.childCount, 3, 'toujours là')
+  const l = listChanges(e.doc)
+  assert.deepEqual(l.map((c) => [c.type, c.noeud, c.text]), [['deletion', 'image', 'Image']])
+  // Résolution : elle disparaît du final, reste dans l'état en cours.
+  assert.equal(documentPourExport(e.doc, FINAL).childCount, 2)
+  assert.equal(documentPourExport(e.doc, EN_COURS).childCount, 3)
+  // Rejeter : plus d'attente. Accepter : plus d'image.
+  const r = editeur(e.doc)
+  rejectAllChanges(r.view)
+  assert.equal(r.doc.childCount, 3)
+  assert.equal(r.doc.child(1).attrs.suivi, null)
+  acceptAllChanges(e.view)
+  assert.equal(e.doc.childCount, 2)
+
+  // Une image proposée par Bob : Alice l'efface, elle est barrée (pas retirée).
+  const d2 = schema.node('doc', null, [p(schema.text('A')), image({ type: 'insertion', user: 'Bob', userColor: '#000', ts: 1 })])
+  const a = editeur(d2)
+  a.view.dispatch(a.state.tr.setSelection(NodeSelection.create(a.doc, 3)))
+  a.effacerAvant()
+  assert.equal(a.doc.childCount, 2)
+  assert.equal(a.doc.child(1).attrs.suivi.type, 'deletion')
+  // Sa propre proposition, en revanche, s'efface pour de bon.
+  const d3 = schema.node('doc', null, [p(schema.text('A')), image({ type: 'insertion', user: UTILISATEUR.name, userColor: '#000', ts: 1 })])
+  const s = editeur(d3)
+  s.view.dispatch(s.state.tr.setSelection(NodeSelection.create(s.doc, 3)))
+  s.effacerAvant()
+  assert.equal(s.doc.childCount, 1)
 })

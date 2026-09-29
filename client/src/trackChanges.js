@@ -1,4 +1,4 @@
-import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection, NodeSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import { canJoin } from 'prosemirror-transform'
 import { ySyncPluginKey } from 'y-prosemirror'
@@ -92,20 +92,39 @@ function idDeGroupe(ts) {
  * double-marking it. Shared by rewriteForTracking (plain edits) and
  * richPastePlugin (multi-line paste replacing a selection) so both mark a
  * replaced selection the same way. Mutates `tr`. */
+/** Vrai pour un nœud suivi **entier** par son attribut `suivi` (image,
+ * note — voir schema.js), par opposition au texte, suivi par des marques. */
+export function estNoeudSuivi(node) {
+  return !node.isText && !!node.type.spec.attrs && 'suivi' in node.type.spec.attrs
+}
+
+/** L'état de suivi d'un nœud suivi entier : null, ou { type, user,
+ * userColor, ts }. Le seul lecteur de l'attribut. */
+export function suiviDuNoeud(node) {
+  return estNoeudSuivi(node) ? node.attrs.suivi || null : null
+}
+
+/** Ce que le panneau affiche pour un nœud suivi entier. */
+function libelleDuNoeud(node) {
+  if (node.type.name === 'footnote') return `Note : ${node.textContent}`
+  if (node.type.name === 'image') return node.attrs.alt ? `Image : ${node.attrs.alt}` : 'Image'
+  return node.type.name
+}
+
 function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
   const insertionType = state.schema.marks.insertion
   const ranges = []
   state.doc.nodesBetween(from, to, (node, pos) => {
-    // Une note entière dans la sélection (28/09/2026) : suivie par son
-    // attribut `suivi`, pas par une marque — voir schema.js. Déjà proposée
-    // à la suppression : rien à faire. Proposée à l'insertion : elle
-    // disparaît, comme du texte inséré en attente.
-    if (node.type.name === 'footnote') {
-      // Partiellement couverte : c'est son texte qu'on barre, on descend.
+    // Un nœud suivi entier dans la sélection (note, image) : par son
+    // attribut `suivi`, pas par une marque — voir schema.js. Déjà proposé
+    // à la suppression : rien à faire. Proposé à l'insertion **par la même
+    // personne** : il disparaît, comme du texte qu'on vient de taper.
+    if (estNoeudSuivi(node)) {
+      // Partiellement couvert : c'est son texte qu'on barre, on descend.
       if (pos < from || pos + node.nodeSize > to) return true
-      const suivi = node.attrs.suivi
+      const suivi = suiviDuNoeud(node)
       if (suivi && suivi.type === 'deletion') return false
-      ranges.push({ from: pos, to: pos + node.nodeSize, note: node, removeReally: !!suivi })
+      ranges.push({ from: pos, to: pos + node.nodeSize, noeud: node, removeReally: !!suivi && suivi.user === delMark.attrs.user })
       return false
     }
     if (!node.isText) return
@@ -119,9 +138,9 @@ function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
     const mFrom = tr.mapping.map(r.from)
     const mTo = tr.mapping.map(r.to)
     if (r.removeReally) tr.delete(mFrom, mTo)
-    else if (r.note) {
+    else if (r.noeud) {
       const { user, userColor, ts } = delMark.attrs
-      tr.setNodeMarkup(mFrom, null, { ...r.note.attrs, suivi: { type: 'deletion', user, userColor, ts } })
+      tr.setNodeMarkup(mFrom, null, { ...r.noeud.attrs, suivi: { type: 'deletion', user, userColor, ts } })
     } else tr.addMark(mFrom, mTo, delMark)
   }
 }
@@ -131,7 +150,8 @@ function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
 function dejaSupprime(state, f, t, deletionType) {
   if (state.doc.rangeHasMark(f, t, deletionType)) return true
   const node = state.doc.nodeAt(f)
-  return !!(node && node.type.name === 'footnote' && t - f === node.nodeSize && node.attrs.suivi && node.attrs.suivi.type === 'deletion')
+  const suivi = node && t - f === node.nodeSize ? suiviDuNoeud(node) : null
+  return !!(suivi && suivi.type === 'deletion')
 }
 
 /** True when `step` is a "pure" structural split — Enter pressed inside a
@@ -589,6 +609,18 @@ export function pendingBreakPlugin() {
               })
             )
           }
+          // Un nœud de bloc suivi entier (une image) : même langage visuel.
+          // La note, inline, se décore elle-même (footnotes.js).
+          const suivi = node.isBlock ? suiviDuNoeud(node) : null
+          if (suivi) {
+            decos.push(
+              Decoration.node(pos, pos + node.nodeSize, {
+                class: suivi.type === 'insertion' ? 'noeud-insere' : 'noeud-supprime',
+                style: `--user-color:${suivi.userColor}`,
+                title: `${libelleDuNoeud(node)} ${suivi.type === 'insertion' ? 'ajoutée' : 'supprimée'} par ${suivi.user}`,
+              })
+            )
+          }
         })
         return DecorationSet.create(state.doc, decos)
       },
@@ -625,6 +657,21 @@ export function effacementSuivi(getUser, versLArriere) {
   return (state, dispatch) => {
     if (!isTrackChangesEnabled(state)) return false
     const sel = state.selection
+    // Un nœud de bloc sélectionné entier (une image) : suivi par son
+    // attribut, sans passer par la réécriture, qui ne connaît que le
+    // texte dans un bloc.
+    if (sel instanceof NodeSelection && estNoeudSuivi(sel.node)) {
+      const user = getUser()
+      const ts = Date.now()
+      const tr = state.tr
+      const suivi = suiviDuNoeud(sel.node)
+      if (suivi && suivi.type === 'deletion') return true
+      if (suivi && suivi.type === 'insertion' && suivi.user === user.name) tr.delete(sel.from, sel.to)
+      else tr.setNodeMarkup(sel.from, null, { ...sel.node.attrs, suivi: { type: 'deletion', user: user.name, userColor: user.color, ts } })
+      tr.setMeta('trackChangesInternal', true)
+      if (dispatch) dispatch(tr)
+      return true
+    }
     let debut
     let fin
     if (!sel.empty) {
@@ -694,19 +741,19 @@ export function scanChangesInRange(doc, from, to) {
     // qui ne se fond jamais avec le texte voisin (`noeud`). Le texte
     // **dans** une note qui n'est pas elle-même en attente est parcouru
     // comme celui d'un paragraphe.
-    if (node.type.name === 'footnote') {
-      const suivi = node.attrs.suivi
+    if (estNoeudSuivi(node)) {
+      const suivi = suiviDuNoeud(node)
       if (!suivi || pos < from || pos >= to) return !suivi
       raw.push({
         type: suivi.type,
-        noeud: 'note',
+        noeud: node.type.name,
         from: pos,
         to: pos + node.nodeSize,
         user: suivi.user,
         userColor: suivi.userColor,
         ts: suivi.ts,
         groupe: null,
-        text: `Note : ${node.textContent}`,
+        text: libelleDuNoeud(node),
       })
       return false
     }

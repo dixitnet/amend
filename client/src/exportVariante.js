@@ -32,6 +32,7 @@
 // moins bien qu'un PDF où l'on voit ce qui est proposé.
 
 import { TK_MARKER } from './tkMarker.js'
+import { estNoeudSuivi, suiviDuNoeud } from './trackChanges.js'
 
 export const FINAL = 'final'
 export const EN_COURS = 'encours'
@@ -63,19 +64,16 @@ function marquesResolues(schema, node, mode) {
 function inlineResolu(schema, node, mode) {
   const out = []
   node.forEach((child) => {
-    if (child.type.name === 'footnote') {
-      // Une note (28/09/2026) : suivie par son attribut `suivi`, et son
-      // texte se résout comme celui d'un paragraphe.
-      const suivi = child.attrs.suivi
+    if (estNoeudSuivi(child)) {
+      // Un nœud suivi entier (une note) : par son attribut `suivi` ; son
+      // texte, s'il en a, se résout comme celui d'un paragraphe.
+      const suivi = suiviDuNoeud(child)
       if (mode === FINAL && suivi && suivi.type === 'deletion') return
       const attrs = mode === FINAL ? { ...child.attrs, suivi: null } : child.attrs
-      out.push(child.type.create(attrs, inlineResolu(schema, child, mode), child.marks))
+      out.push(child.type.create(attrs, child.isLeaf ? null : inlineResolu(schema, child, mode), child.marks))
       return
     }
     if (!child.isText) {
-      // Une image insérée puis proposée à la suppression : même règle que
-      // pour le texte.
-      if (mode === FINAL && aLaMarque(child, 'deletion')) return
       out.push(child.mark(marquesResolues(schema, child, mode)))
       return
     }
@@ -92,6 +90,13 @@ function inlineResolu(schema, node, mode) {
 
 /** Un bloc, résolu — ou `null` s'il ne doit pas survivre. */
 function blocResolu(schema, node, mode) {
+  // Un bloc suivi entier (une image, 29/09/2026) : supprimé, il s'en va ;
+  // proposé, il reste, sans l'attente.
+  if (estNoeudSuivi(node)) {
+    const suivi = suiviDuNoeud(node)
+    if (mode === FINAL && suivi && suivi.type === 'deletion') return null
+    return mode === FINAL && suivi ? node.type.create({ ...node.attrs, suivi: null }, node.content, node.marks) : node
+  }
   if (node.isTextblock) {
     const contenu = inlineResolu(schema, node, mode)
     // Un bloc vidé par les suppressions disparaît ; un bloc qui était

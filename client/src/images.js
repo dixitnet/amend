@@ -20,7 +20,7 @@
 
 import { Plugin, PluginKey } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
-import { ySyncPluginKey } from 'y-prosemirror'
+import { isTrackChangesEnabled } from './trackChanges.js'
 
 /** Largeur maximale conservée à l'envoi. Au-delà, personne ne voit la
  * différence à l'écran ni à l'impression, et le poids est divisé par
@@ -100,22 +100,14 @@ async function preparer(fichier) {
   return { blob, largeur, hauteur }
 }
 
-function compterImages(doc) {
-  let n = 0
-  doc.descendants((node) => {
-    if (node.type.name === 'image') n++
-  })
-  return n
-}
 
-/** Le greffon. `peutInserer` vaut faux pour un correcteur : une image est
- * un nœud, donc hors suivi des modifications avec l'architecture actuelle —
- * la supprimer ne laisserait aucune trace dans le panneau des
- * modifications. Tant que le suivi ne descend pas au niveau des nœuds,
- * insérer et supprimer une image restent réservés à l'éditeur (même
- * raisonnement que pour les lignes de tableau). Le serveur applique la même
- * règle de son côté : celle-ci n'est pas la seule protection. */
-export function imagesPlugin({ docId, peutInserer }) {
+/** Le greffon. `peutInserer` suit le serveur, qui réserve le dépôt du
+ * fichier à `canManageDocument`. Depuis le 29/09/2026 une image est un
+ * nœud suivi entier (attribut `suivi`, schema.js) : insérée en suivi, elle
+ * est proposée ; supprimée en suivi, elle est barrée — un correcteur peut
+ * donc en retirer une, et ça passe par le panneau des modifications, là
+ * où c'était interdit faute de trace. */
+export function imagesPlugin({ docId, peutInserer, getUser }) {
   return new Plugin({
     key: cle,
     state: {
@@ -150,21 +142,9 @@ export function imagesPlugin({ docId, peutInserer }) {
           messageFugace("Seul un éditeur peut ajouter une image à ce document.", { erreur: true })
           return true
         }
-        deposer(view, docId, fichier)
+        deposer(view, docId, fichier, getUser)
         return true
       },
-    },
-    // Un correcteur ne fait pas disparaître une image sans laisser de
-    // trace. Les transactions venues des autres participants (y-prosemirror
-    // les marque comme telles) passent toujours : les filtrer ferait
-    // diverger son document de celui des autres, ce qui serait un bien
-    // pire défaut que celui qu'on corrige ici.
-    filterTransaction(tr, state) {
-      if (peutInserer || !tr.docChanged) return true
-      if (tr.getMeta(ySyncPluginKey)) return true
-      if (compterImages(tr.doc) >= compterImages(state.doc)) return true
-      messageFugace("Un correcteur ne peut pas supprimer une image.", { erreur: true })
-      return false
     },
   })
 }
@@ -172,7 +152,7 @@ export function imagesPlugin({ docId, peutInserer }) {
 /** Dépose l'image puis insère le nœud à la place du repère. Tout est local
  * jusqu'à la dernière transaction : un échec de dépôt ne laisse rien
  * derrière lui. */
-async function deposer(view, docId, fichier) {
+async function deposer(view, docId, fichier, getUser) {
   // Une image est un bloc : elle se pose après le bloc où se trouve le
   // curseur, jamais au milieu d'une phrase.
   const $from = view.state.selection.$from
@@ -207,11 +187,16 @@ async function deposer(view, docId, fichier) {
       messageFugace("L'image a été déposée mais son emplacement a disparu.", { erreur: true })
       return
     }
+    // En suivi, l'image naît proposée (attribut `suivi`, schema.js) : la
+    // réécriture du suivi n'a rien à faire, la proposition est sur le nœud.
+    const user = getUser ? getUser() : null
+    const suivi =
+      isTrackChangesEnabled(view.state) && user
+        ? { type: 'insertion', user: user.name, userColor: user.color, ts: Date.now() }
+        : null
     const tr = view.state.tr
       .setMeta(cle, { retirer: id })
-      .insert(trouve[0].from, view.state.schema.nodes.image.create({ src, largeur, hauteur }))
-    // Insertion d'un nœud : hors suivi des modifications, comme les autres
-    // changements de structure (voir trackChanges.js).
+      .insert(trouve[0].from, view.state.schema.nodes.image.create({ src, largeur, hauteur, suivi }))
     tr.setMeta('trackChangesInternal', true)
     view.dispatch(tr)
   } catch (err) {

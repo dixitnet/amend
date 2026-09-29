@@ -107,7 +107,7 @@ test('en suivi : la note naît proposée, son texte fait partie de la propositio
   interne.dispatch(interne.state.tr.insertText('Proposée'))
   const l = listChanges(e.view.state.doc)
   assert.equal(l.length, 1, 'une seule proposition : la note entière')
-  assert.equal(l[0].noeud, 'note')
+  assert.equal(l[0].noeud, 'footnote')
   assert.equal(l[0].text, 'Note : Proposée')
   const autre = e.vuParUnAutre()
   assert.equal(autre.nodeAt(3).attrs.suivi.type, 'insertion', 'l’attente voyage dans Yjs')

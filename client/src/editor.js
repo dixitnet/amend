@@ -850,7 +850,9 @@ export function mountEditor(root, docId, user, docMeta) {
       tableOfContentsPlugin(),
       // Avant richPastePlugin : une capture d'écran collée est une image,
       // pas un collage de texte (voir images.js).
-      imagesPlugin({ docId, peutInserer: !!cap.canEditFreely }),
+      // `peutInserer` suit le serveur, qui réserve le dépôt du fichier à
+      // canManageDocument ; supprimer une image, elle, est suivi (29/09).
+      imagesPlugin({ docId, peutInserer: !!cap.canManageDocument, getUser: () => user }),
       richPastePlugin(() => user),
       pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),

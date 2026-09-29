@@ -212,7 +212,10 @@ export const schema = new Schema({
       group: 'block',
       atom: true,
       draggable: false,
-      attrs: { src: {}, alt: { default: '' }, largeur: { default: null }, hauteur: { default: null } },
+      // `suivi` (29/09/2026) : le suivi des modifications du nœud entier,
+      // même forme que sur la note — voir footnote plus bas. Une image
+      // insérée ou supprimée en suivi est une proposition comme une autre.
+      attrs: { src: {}, alt: { default: '' }, largeur: { default: null }, hauteur: { default: null }, suivi: { default: null } },
       // Seules les images servies par cette instance sont acceptées à
       // l'analyse d'un collage : sans ce filtre, coller depuis une page web
       // planterait dans le document un lien vers un serveur tiers — une
@@ -251,9 +254,12 @@ export const schema = new Schema({
     //
     // `suivi` : le suivi des modifications d'un nœud entier. Les marques
     // ne tiennent pas sur un nœud qui n'est pas du texte (y-prosemirror ne
-    // synchronise que celles des nœuds texte), d'où un attribut, comme
-    // `trackedBreak` sur les paragraphes : null, ou { type: 'insertion' |
-    // 'deletion', user, userColor, ts }.
+    // synchronise que celles des nœuds texte), d'où un attribut : null, ou
+    // { type: 'insertion' | 'deletion', user, userColor, ts }. **Tout nœud
+    // qui porte cet attribut est suivi entier** par trackChanges.js (image,
+    // note, demain une ligne de tableau) — un seul mécanisme, lu par
+    // `suiviDuNoeud`. Le saut de paragraphe garde son `trackedBreak`, qui
+    // marque une coupure et non un nœud.
     footnote: {
       inline: true,
       group: 'inline',
