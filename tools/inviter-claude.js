@@ -23,6 +23,7 @@
 // document.
 
 import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Agents, DUREE_DEFAUT_JOURS, ROLES_AGENT } from '../server/agents.js'
@@ -81,7 +82,14 @@ export function trouverDocument(storage, designation) {
 
 function main() {
   const { mots, options } = analyser(process.argv.slice(2))
-  const dataDir = process.env.DATA_DIR || join(RACINE, 'data')
+  // Le dossier de données, comme le fait le serveur : la variable
+  // d'environnement, sinon le .env (c'est là que la production met
+  // DATA_DIR=/opt/amend/data — un shell SSH ne le connaît pas), sinon
+  // ./data. Sans ce détour, le script travaillerait dans le mauvais dossier.
+  const dataDir = resolve(process.env.DATA_DIR || lireCleDuEnv('DATA_DIR') || join(RACINE, 'data'))
+  if (!existsSync(join(dataDir, 'docs.json'))) {
+    echec(`Aucun docs.json dans ${dataDir} : ce n'est pas le dossier de données du serveur. Indiquez-le : DATA_DIR=/chemin/vers/data node tools/inviter-claude.js …`)
+  }
   const storage = new Storage(dataDir)
   const agents = new Agents(dataDir)
 
