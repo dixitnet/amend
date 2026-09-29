@@ -882,13 +882,21 @@ const TARIFS_IA = {
     if (!capabilities(storage.roleFor(docId, email)).canUseAI) {
       return sendJson(res, 403, { error: "votre rôle sur ce document ne permet pas d'utiliser l'IA" })
     }
+    // Le flux `ia` porte, depuis le 30/09/2026, la raison d'arrêt et les
+    // jetons de réflexion : c'est ce qui aurait montré tout de suite que
+    // Sonnet 5 dépensait la moitié du budget à réfléchir.
+    const tracer = (usage) =>
+      metrics.log('ia', { email, docId, entree: usage.entree, sortie: usage.sortie, reflexion: usage.reflexion, arret: usage.arret })
     try {
       const { suggestion, usage } = await suggestEdit({}, body.text, body.instruction)
-      metrics.log('ia', { email, docId, entree: usage.entree, sortie: usage.sortie })
+      tracer(usage)
       return sendJson(res, 200, { suggestion })
     } catch (err) {
       if (err instanceof AIConfigError) return sendJson(res, 501, { error: err.message })
-      if (err instanceof AIRequestError) return sendJson(res, err.status || 502, { error: err.message })
+      if (err instanceof AIRequestError) {
+        if (err.usage) tracer(err.usage) // une réponse coupée a coûté quand même
+        return sendJson(res, err.status || 502, { error: err.message })
+      }
       throw err
     }
   }
