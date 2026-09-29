@@ -1,0 +1,16 @@
+# À installer sur la MACHINE DE SAUVEGARDE (le NAS), pas sur la production.
+# → /etc/systemd/system/amend-sauvegarde.service
+[Unit]
+Description=Tirer la sauvegarde d'amend.ink depuis la production
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=syg
+# Le script vit chez l'utilisateur, avec son fichier de réglages
+# (~/.config/amend-sauvegarde.conf). Voir deploy/SAUVEGARDE.md.
+ExecStart=/home/syg/bin/tirer-sauvegarde.sh
+# Une sauvegarde qui traîne plus d'une heure a un problème : mieux vaut
+# échouer bruyamment que bloquer la suivante.
+TimeoutStartSec=3600

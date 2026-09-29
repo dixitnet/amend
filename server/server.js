@@ -15,6 +15,8 @@ import { Users } from './users.js'
 import { Typst, TypstError } from './typst.js'
 import { SupportTraites, cleDuRetour } from './supportTraites.js'
 import { Versions } from './versions.js'
+import { Agents } from './agents.js'
+import { Mcp } from './mcp.js'
 import { apercu } from './admin.js'
 import { Publications, peutPublier, porteePublication, NOM_PAGE } from './publication.js'
 import { createGzip } from 'node:zlib'
@@ -189,6 +191,11 @@ const versions = new Versions(DATA_DIR)
 // et compacte le journal.
 const repliques = new Repliques(storage, { versions })
 const rooms = new Rooms(storage, repliques)
+// Les agents invités sur un document (29/09/2026, server/agents.js et
+// server/mcp.js) : une adresse secrète par invitation, un document, un rôle,
+// une échéance.
+const agents = new Agents(DATA_DIR)
+const mcp = new Mcp({ agents, storage, rooms, metrics })
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -394,6 +401,9 @@ async function handleApi(req, res, url) {
       return sendJson(res, 403, { error: 'seul le propriétaire peut supprimer ce document' })
     }
     const ok = storage.deleteDoc(docMatch[1])
+    // Les adresses des agents invités sur ce document ne mènent plus nulle
+    // part : on les révoque plutôt que d'attendre qu'elles expirent.
+    agents.revoquerDocument(docMatch[1])
     // Sans ça, les images d'un document supprimé resteraient sur le disque
     // pour toujours — et resteraient lisibles par leur URL si l'identifiant
     // venait à être réattribué.
@@ -1166,8 +1176,72 @@ function servirPublication(req, res, pathname) {
   return false
 }
 
+/** D'où vient la requête. Derrière Caddy, la connexion est toujours
+ * locale : on lit alors le premier maillon de X-Forwarded-For, que Caddy
+ * écrase avec l'adresse réelle du client. */
+function origineDe(req) {
+  const ip = req.socket.remoteAddress || 'inconnue'
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') {
+    const transmis = req.headers['x-forwarded-for']
+    if (transmis) return String(transmis).split(',')[0].trim().slice(0, 64) || ip
+  }
+  return ip
+}
+
+const TAILLE_MAX_MCP = 256 * 1024
+
+/**
+ * `/mcp/<secret>` — le connecteur d'un document (voir server/mcp.js). Toutes
+ * les raisons de refuser l'adresse (inconnue, expirée, révoquée, document
+ * supprimé, invitant sans droits) donnent **la même réponse**, 404 : rien
+ * ne dit à quelqu'un qui devine si une adresse a existé.
+ */
+async function traiterMcp(req, res, url) {
+  const enTetes = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
+  const repondre = (status, corps) => {
+    const charge = corps === undefined ? '' : JSON.stringify(corps)
+    res.writeHead(status, { ...enTetes, 'content-length': Buffer.byteLength(charge) })
+    res.end(charge)
+  }
+  const origine = origineDe(req)
+  if (agents.bloque(origine)) return repondre(429, { error: 'trop d’essais' })
+  const m = url.pathname.match(/^\/mcp\/([A-Za-z0-9_-]{1,64})$/)
+  const acces = m ? agents.acces(m[1], storage) : null
+  if (!acces) {
+    agents.noterEchec(origine)
+    return repondre(404, { error: 'not found' })
+  }
+  if (req.method !== 'POST') {
+    // Pas de flux serveur : le protocole permet de le dire par un 405.
+    res.writeHead(405, { ...enTetes, allow: 'POST' })
+    return res.end(JSON.stringify({ error: 'method not allowed' }))
+  }
+  const corps = await readJsonBody(req, TAILLE_MAX_MCP)
+  const { status, body } = await mcp.traiter(corps, acces)
+  if (body === undefined) {
+    res.writeHead(status, { 'cache-control': 'no-store', 'content-length': 0 })
+    return res.end()
+  }
+  repondre(status, body)
+}
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
+  // Ce serveur ne parle pas OAuth : les connecteurs qui sondent ces adresses
+  // doivent recevoir un 404 net, pas la page d'accueil du repli SPA — qu'un
+  // client lirait comme une réponse valide.
+  if (/^\/\.well-known\/(oauth-|openid-configuration)/.test(url.pathname)) {
+    res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+    return res.end('{"error":"not found"}')
+  }
+  if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
+    traiterMcp(req, res, url).catch((err) => {
+      if (res.headersSent) return res.end()
+      res.writeHead(err.status || 500, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+      res.end(JSON.stringify({ error: err.status ? err.message : 'erreur interne' }))
+    })
+    return
+  }
   if (url.pathname.startsWith('/p/') && req.method === 'GET') {
     if (servirPublication(req, res, url.pathname)) return
   }

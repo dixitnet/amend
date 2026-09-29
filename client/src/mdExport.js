@@ -14,6 +14,7 @@
 
 import { entrees } from './tableOfContents.js'
 import { numerosDesNotes } from './notes.js'
+import { adresseAutorisee } from '../../shared/liens.js'
 
 /** Wraps `text` in a Markdown emphasis-style delimiter (**, *, ~~), pulling
  * any leading/trailing whitespace outside the delimiters first. CommonMark
@@ -37,6 +38,13 @@ function markTextToMarkdown(text, marks) {
     else if (name === 'em') out = wrapEmphasis(out, '*')
     else if (name === 'strike') out = wrapEmphasis(out, '~~')
     else if (name === 'underline') out = `<u>${out}</u>` // an HTML tag, not whitespace-sensitive
+    else if (name === 'link') {
+      // Un lien (30/09/2026). L'adresse repasse par la liste blanche : ce
+      // qui n'en est pas une n'est jamais écrit. Les parenthèses sont
+      // encodées, sans quoi l'une d'elles refermerait le lien trop tôt.
+      const href = adresseAutorisee(mark.attrs.href)
+      if (href && out.trim() !== '') out = `[${out}](${href.replace(/\(/g, '%28').replace(/\)/g, '%29')})`
+    }
     // insertion / deletion: no wrapper — see note above.
   }
   return out

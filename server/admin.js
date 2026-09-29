@@ -279,6 +279,17 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
     // moins de cinq minutes.
     repliques: repliques ? repliques.snapshot() : [],
     dataDirOctets: tailleDossier(dataDir),
+    // L'heure de la dernière copie tirée par la machine de sauvegarde
+    // (deploy/tirer-sauvegarde.sh, via `signaler`). Absente tant qu'aucune
+    // copie distante n'a jamais eu lieu.
+    sauvegardeDistante: (() => {
+      try {
+        const { ts } = JSON.parse(readFileSync(join(dataDir, 'sauvegarde-distante.json'), 'utf8'))
+        return typeof ts === 'number' ? { ts } : null
+      } catch {
+        return null
+      }
+    })(),
     listeAttente: (() => {
       try {
         if (!existsSync(waitlistPath)) return { total: 0, dernier: null }

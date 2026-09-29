@@ -1,0 +1,14 @@
+# → /etc/systemd/system/amend-sauvegarde.timer
+[Unit]
+Description=Sauvegarde quotidienne d'amend.ink
+
+[Timer]
+# La nuit, quand personne n'écrit ; le hasard évite de tomber pile sur
+# l'heure ronde où tout le monde lance ses tâches.
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15min
+# Si le NAS était éteint à l'heure dite, il rattrape au démarrage.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

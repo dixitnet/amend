@@ -42,9 +42,11 @@ import {
   TableCell,
   WidthType,
   EndnoteReferenceRun,
+  ExternalHyperlink,
   convertMillimetersToTwip,
 } from 'docx'
 import { numerosDesNotes } from './notes.js'
+import { adresseAutorisee } from '../../shared/liens.js'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
 import { BLOCS, NIVEAUX_TITRE, langue } from '../../shared/style.js'
 
@@ -173,13 +175,29 @@ function inlineToRuns(node, block, sizePt, extra = null) {
     let italics = base.italics
     let strike = false
     let underline
+    let lien = null
     for (const mark of child.marks) {
       const name = mark.type.name
       if (name === 'strong') bold = true
       else if (name === 'em') italics = true
       else if (name === 'strike') strike = true
       else if (name === 'underline') underline = { type: UnderlineType.SINGLE }
+      else if (name === 'link') lien = adresseAutorisee(mark.attrs.href)
       // insertion / deletion : texte normal, voir la note en tête de fichier.
+    }
+    if (lien) {
+      // Un vrai lien Word (30/09/2026), souligné et coloré directement sur
+      // le run : le style « Hyperlink » n'existe pas dans un document que
+      // nous fabriquons, et sans lui Word montrerait un texte ordinaire.
+      runs.push(
+        new ExternalHyperlink({
+          link: lien,
+          children: [
+            new TextRun({ ...base, bold, italics, strike, color: '1A4D8F', underline: { type: UnderlineType.SINGLE }, text: child.text }),
+          ],
+        })
+      )
+      return
     }
     runs.push(new TextRun({ ...base, bold, italics, strike, underline, text: child.text }))
   })

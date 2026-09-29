@@ -162,6 +162,39 @@ export class Rooms {
     if (members.size === 0) this.rooms.delete(docId)
   }
 
+  /** Lit le document depuis le serveur (agents invités) : `fn(ydoc)` sur
+   * la réplique, retenue le temps de la lecture. */
+  async lireDocument(docId, fn) {
+    await this.repliques.obtenir(docId)
+    this.repliques.retenir(docId)
+    try {
+      return fn(this.repliques.repliques.get(docId).doc)
+    } finally {
+      this.repliques.relacher(docId)
+    }
+  }
+
+  /** Écrit dans le document depuis le serveur : `fn(ydoc)` modifie la
+   * réplique ; l'opération est persistée puis relayée à tous les
+   * participants connectés, exactement comme si un client l'avait
+   * envoyée. */
+  async ecrireDocument(docId, fn) {
+    await this.repliques.obtenir(docId)
+    this.repliques.retenir(docId)
+    try {
+      const { update, resultat, erreur } = this.repliques.ecrire(docId, fn)
+      if (update) {
+        const octets = Buffer.from(update)
+        this.storage.appendUpdate(docId, octets)
+        this._broadcast(docId, null, octets, { binary: true })
+      }
+      if (erreur) throw erreur
+      return resultat
+    } finally {
+      this.repliques.relacher(docId)
+    }
+  }
+
   presenceCount(docId) {
     return this.rooms.get(docId)?.size ?? 0
   }

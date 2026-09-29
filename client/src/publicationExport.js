@@ -14,6 +14,8 @@
 // accepté ni rejeté au passage — mais personne n'a à lire les ratures de
 // l'auteur sur une page publique.
 
+import { adresseAutorisee } from '../../shared/liens.js'
+
 const MARQUES_GARDEES = new Set(['strong', 'em', 'underline', 'strike'])
 
 function inline(node) {
@@ -36,7 +38,13 @@ function inline(node) {
     }
     if (!child.isText) return
     const marques = child.marks.map((m) => m.type.name).filter((n) => MARQUES_GARDEES.has(n))
-    out.push({ type: 'texte', texte: child.text, marques })
+    const morceau = { type: 'texte', texte: child.text, marques }
+    // Un lien (30/09/2026) : l'adresse seule, déjà passée par la liste
+    // blanche — et le serveur la revérifie, il ne fait confiance à personne.
+    const lien = child.marks.find((m) => m.type.name === 'link')
+    const href = lien && adresseAutorisee(lien.attrs.href)
+    if (href) morceau.lien = href
+    out.push(morceau)
   })
   return out
 }

@@ -1,6 +1,7 @@
 import { Schema } from 'prosemirror-model'
 import { tableNodes } from 'prosemirror-tables'
 import { NIVEAUX_TITRE } from '../../shared/style.js'
+import { adresseAutorisee } from '../../shared/liens.js'
 
 // A deliberately small schema: paragraphs, headings (3 levels), hard
 // breaks, three kinds of list (à puces, numérotée, à cocher — les deux
@@ -312,6 +313,36 @@ export const schema = new Schema({
       parseDOM: [{ tag: 's' }, { tag: 'strike' }],
       toDOM() {
         return ['s', 0]
+      },
+    },
+    // Un lien (30/09/2026). Une mise en forme comme les autres : elle ne
+    // passe pas par le suivi des modifications (voir trackChanges.js) — mais,
+    // contrairement au gras, elle change **où mène** un texte que d'autres
+    // lisent, donc un correcteur n'en pose pas (voir editor.js).
+    //
+    // L'adresse est vérifiée à trois endroits, jamais un seul : à la saisie
+    // (liens.js), ici au collage (`parseDOM`) et ici encore à l'affichage
+    // (`toDOM`) — parce que le contenu d'un document arrive aussi par Yjs,
+    // d'un client qui n'est pas forcément le nôtre. Un `href` qui ne passe
+    // pas la liste blanche (shared/liens.js) ne produit **pas** de lien : le
+    // texte reste du texte.
+    link: {
+      attrs: { href: {} },
+      // Taper juste après un lien ne prolonge pas le lien : on en sort.
+      inclusive: false,
+      parseDOM: [
+        {
+          tag: 'a[href]',
+          getAttrs(dom) {
+            const href = adresseAutorisee(dom.getAttribute('href'))
+            return href ? { href } : false
+          },
+        },
+      ],
+      toDOM(mark) {
+        const href = adresseAutorisee(mark.attrs.href)
+        if (!href) return ['span', { class: 'lien-refuse', title: 'Adresse refusée' }, 0]
+        return ['a', { href, class: 'lien', rel: 'noopener noreferrer nofollow', target: '_blank' }, 0]
       },
     },
     // Text proposed as an addition — by a human (when "suivi des

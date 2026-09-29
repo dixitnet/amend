@@ -58,6 +58,7 @@ import { messageFugace } from './images.js'
 import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
 import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
 import { footnotesPlugin, insererNote, monterListeDesNotes, selectionContientUneNote } from './footnotes.js'
+import { liensPlugin, commandeLien } from './liens.js'
 import { ouvrirPlan } from './planFeuille.js'
 import { monterInterfaceTelephone } from './iphone.js'
 import {
@@ -117,6 +118,15 @@ export function mountEditor(root, docId, user, docMeta) {
   const cap = docMeta.myCapabilities || {}
   // Écrire dans le texte, librement ou en suivi. Un lecteur ne le peut pas.
   const peutProposer = !!(cap.canEditFreely || cap.canProposeChanges)
+  // Poser un lien (30/09/2026) : les éditeurs. Une mise en forme qui change
+  // où mène un texte lu par d'autres ne passe pas par le suivi ; un
+  // correcteur, dont tout le travail doit rester visible et rejetable, n'en
+  // pose donc pas (voir liens.js).
+  const peutPoserLien = () => !!cap.canEditFreely
+  const refuserLien = () =>
+    messageFugace('Un correcteur ne pose pas de lien : proposez le texte, et mettez l’adresse en commentaire.', {
+      erreur: true,
+    })
 
   // Full-width banner: document identity/status, spans the whole page above
   // the three-column layout (plan / text / assistance) — deliberately kept
@@ -576,7 +586,11 @@ export function mountEditor(root, docId, user, docMeta) {
   const noteBtn = mkButton('Note', 'Insérer une note ici (Ctrl/⌘+Alt+F)')
   noteBtn.classList.add('btn-texte')
   groupeTexte2.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn)
-  groupeInserer.append(quoteBtn, hrBtn, noteBtn, tocBtn)
+  // Un lien (30/09/2026) : réservé à qui écrit librement, voir liens.js.
+  const lienBtn = mkButton('Lien', 'Ajouter ou modifier un lien (Ctrl/⌘+K)')
+  lienBtn.classList.add('btn-texte')
+  if (!cap.canEditFreely) lienBtn.hidden = true
+  groupeInserer.append(quoteBtn, hrBtn, lienBtn, noteBtn, tocBtn)
 
   // Groupe tableau : le bouton d'insertion est toujours là, les commandes de
   // structure n'apparaissent que lorsque le curseur est dans un tableau
@@ -850,6 +864,7 @@ export function mountEditor(root, docId, user, docMeta) {
       // `peutInserer` suit le serveur, qui réserve le dépôt du fichier à
       // canManageDocument ; supprimer une image, elle, est suivi (29/09).
       imagesPlugin({ docId, peutInserer: !!cap.canManageDocument, getUser: () => user }),
+      liensPlugin({ peutPoser: peutPoserLien, surRefus: refuserLien }),
       richPastePlugin(() => user),
       pendingBreakPlugin(),
       commentsPlugin(ydoc, commentsMap),
@@ -882,6 +897,7 @@ export function mountEditor(root, docId, user, docMeta) {
         'Mod-i': toggleMark(schema.marks.em),
         'Mod-u': toggleMark(schema.marks.underline),
         'Mod-Alt-f': (state, dispatch, v) => insererNote(v, user),
+        'Mod-k': commandeLien({ peutPoser: peutPoserLien, surRefus: refuserLien }),
         // Falls through to the plain Enter/baseKeymap handling below
         // whenever the cursor isn't inside a list item.
         // Les trois familles de liste partagent les mêmes gestes : la
@@ -1240,6 +1256,9 @@ export function mountEditor(root, docId, user, docMeta) {
       setBlockType(schema.nodes.heading, { level: Number(headingSelect.value) })(view.state, view.dispatch)
     }
     view.focus()
+  }
+  lienBtn.onclick = () => {
+    commandeLien({ peutPoser: peutPoserLien, surRefus: refuserLien })(view.state, view.dispatch, view)
   }
   noteBtn.onclick = () => {
     if (!insererNote(view, user)) messageFugace('Une note se pose dans un paragraphe, pas dans un titre.', { erreur: true })

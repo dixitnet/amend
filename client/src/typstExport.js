@@ -19,6 +19,7 @@
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
 import { BLOCS, NIVEAUX_TITRE, police, formatPage, styleParDefaut, langue } from '../../shared/style.js'
+import { adresseAutorisee } from '../../shared/liens.js'
 
 // Caractères que Typst interprète en mode contenu. Le backslash d'abord,
 // sinon on échapperait ceux qu'on vient d'ajouter.
@@ -109,6 +110,13 @@ function inline(node) {
       else if (n === 'em') t = `#emph[${t}]`
       else if (n === 'underline') t = `#underline[${t}]`
       else if (n === 'strike') t = `#strike[${t}]`
+      else if (n === 'link') {
+        // Un lien (30/09/2026) : `chaine` échappe l'antislash et le guillemet,
+        // les seuls caractères qui sortiraient d'une chaîne Typst ; la liste
+        // blanche fait le reste.
+        const href = adresseAutorisee(mark.attrs.href)
+        if (href) t = `#link(${chaine(href)})[${t}]`
+      }
       // insertion / deletion / authorColor : texte normal, voir plus haut.
     }
     out += t
@@ -400,6 +408,9 @@ function gabarit(style, titre) {
 // Les notes de bas de page (29/09/2026) : le corps de texte, une taille
 // en dessous. Un réglage « Notes » dans la feuille de style plus tard.
 #show footnote.entry: set text(size: ${Math.max(6, corps.size - 1)}pt)
+// Les liens (30/09/2026) : soulignés, sans couleur — un PDF s'imprime, et
+// une couleur qui porte le sens disparaît en noir et blanc.
+#show link: underline
 
 ${fonctions.join('\n\n')}
 

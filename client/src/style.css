@@ -78,6 +78,9 @@
   /* Fond des marques de suivi dans le logo (voir logo.js) — la même
      teinte très pâle que le surlignage d'une modification dans le texte. */
   --surlignage: #eef1e6;
+  /* Les liens (30/09/2026) : un bleu, à part du vert d'accent — qui est
+     aussi celui de l'IA, et un lien ne doit pas ressembler à une proposition. */
+  --lien: #1a4d8f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -91,6 +94,7 @@
     --danger: #ff8a80;
     --ok: #7fd99a;
     --surlignage: #2c3324;
+    --lien: #8ab4e8;
   }
 }
 
@@ -2845,3 +2849,47 @@ tr.bo-traite { opacity: 0.6; }
    correction de l'IA — en une carte. Un liseré double le distingue. */
 .change-item.change-lot { border-left-style: double; border-left-width: 5px; }
 .change-item.change-lot .change-text { color: var(--muted); }
+
+/* --- Les liens (30/09/2026) --- */
+.ProseMirror a.lien {
+  color: var(--lien);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: text; /* un clic place le curseur ; Ctrl/⌘+clic ouvre */
+}
+.ProseMirror a.lien:hover { text-decoration-thickness: 2px; }
+.ProseMirror[contenteditable="false"] a.lien { cursor: pointer; }
+.ProseMirror .lien-refuse { text-decoration: wavy underline; text-decoration-color: #b3261e; }
+
+.lien-bulle, .lien-fenetre {
+  position: absolute;
+  z-index: 31;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  font-size: 0.9rem;
+}
+.lien-bulle { display: flex; align-items: center; gap: 2px; padding: 3px; max-width: min(420px, calc(100% - 24px)); }
+.lien-bulle button {
+  border: none; background: none; cursor: pointer; padding: 5px 8px; border-radius: 5px;
+  color: var(--fg); font: inherit; font-size: 13px; white-space: nowrap;
+}
+.lien-bulle button:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.lien-bulle .lien-bulle-ouvrir { color: var(--lien); overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+
+.lien-fenetre { width: min(380px, calc(100% - 24px)); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.lien-fenetre-titre { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.lien-fenetre label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.lien-fenetre input {
+  font: inherit; font-size: 14px; padding: 7px 9px; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.lien-fenetre input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.lien-fenetre-erreur { margin: 0; font-size: 12px; color: #b3261e; }
+.lien-fenetre-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 700px) {
+  /* Comme la fenêtre d'une note : une feuille en bas de l'écran. */
+  .lien-fenetre { position: fixed; left: 0 !important; right: 0; bottom: 0; top: auto !important; width: auto; border-radius: 12px 12px 0 0; }
+  .lien-bulle { position: fixed; left: 8px !important; right: 8px; bottom: 8px; top: auto !important; max-width: none; justify-content: space-between; }
+}

@@ -204,6 +204,27 @@ test('chaque texte piège ressort tel quel dans le PDF', { skip: SANS_TYPST || (
   assert.deepEqual(perdus, [], `texte altéré dans le PDF :\n${perdus.join('\n')}`)
 })
 
+test('les liens compilent, et l’adresse arrive dans le PDF comme une vraie annotation', { skip: SANS_TYPST }, async () => {
+  const lien = (href) => schema.marks.link.create({ href })
+  const d = schema.node('doc', null, [
+    par(
+      texte('Voir '),
+      texte('la page', [lien('https://exemple.org/a_(b)?x=1&y="2"#f')]),
+      texte(' et '),
+      texte('gras', [lien('https://exemple.org/'), m('strong')]),
+      texte(' puis '),
+      texte('#let x = 1 // piège', [lien('mailto:moi@exemple.org')]),
+      texte('.')
+    ),
+  ])
+  const pdf = await compiler(docToTypst(d, STYLE_SIMPLE, 'Liens'))
+  // Un lien Typst est une annotation PDF avec /URI : le texte brut du PDF,
+  // avant compression des flux, la porte en clair.
+  const brut = pdf.toString('latin1')
+  assert.match(brut, /\/URI\s?\(https:\/\/exemple\.org\/a_\(b\)\?x=1&y=%222%22#f\)/)
+  assert.match(brut, /\/URI\s?\(mailto:moi@exemple\.org\)/)
+})
+
 /** Générateur à graine fixe (mulberry32) : un échec se rejoue à
  * l'identique. */
 function hasard(graine) {

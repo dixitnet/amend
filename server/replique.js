@@ -184,6 +184,39 @@ export class Repliques {
     return { ok: true }
   }
 
+  /**
+   * Écrit dans le document **depuis le serveur** (un agent invité, voir
+   * agents.js) : `fn(doc)` modifie la réplique, et l'opération qui en
+   * résulte est rendue pour être persistée et relayée. `{ update,
+   * resultat, erreur }` — si `fn` a levé une exception après avoir déjà
+   * écrit, l'opération partielle est quand même rendue : la réplique et le
+   * journal ne doivent jamais diverger.
+   */
+  ecrire(id, fn) {
+    const r = this.repliques.get(id)
+    if (!r) throw new Error('réplique absente')
+    let update = null
+    const ecoute = (u) => {
+      update = update ? Y.mergeUpdates([update, u]) : u
+    }
+    r.doc.on('update', ecoute)
+    let resultat
+    let erreur = null
+    try {
+      resultat = fn(r.doc)
+    } catch (err) {
+      erreur = err
+    } finally {
+      r.doc.off('update', ecoute)
+    }
+    if (update) {
+      r.ops++
+      r.octets += update.length
+      if (this._aCompacter(r)) this._planifierCompactage(id, this.delaiCompactageMs)
+    }
+    return { update, resultat, erreur }
+  }
+
   _aCompacter(r) {
     return r.ops > this.storage.compactionTrigger || r.octets > this.storage.maxUncompactedBytes
   }

@@ -24,6 +24,7 @@
 // à sa page, ou l'inverse.
 
 import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs'
+import { adresseAutorisee } from '../shared/liens.js'
 import { capabilities } from './roles.js'
 import { join } from 'node:path'
 import { randomInt } from 'node:crypto'
@@ -136,6 +137,13 @@ function inline(morceaux, dansUneNote = false) {
       const balise = MARQUES[nom]
       if (balise) t = `<${balise}>${t}</${balise}>`
     }
+    // Un lien (30/09/2026). Le serveur ne croit pas l'adresse que le client
+    // lui donne : elle repasse par la liste blanche (http, https, mailto),
+    // et ce qui n'en est pas une donne du texte simple. `noopener` pour que
+    // la page cible ne puisse pas agir sur celle-ci, `nofollow` pour qu'une
+    // page publique d'amend.ink ne serve pas à valoriser n'importe quel site.
+    const href = typeof m.lien === 'string' ? adresseAutorisee(m.lien) : null
+    if (href) t = `<a href="${esc(href)}" rel="noopener noreferrer nofollow">${t}</a>`
     out += t
   }
   return out

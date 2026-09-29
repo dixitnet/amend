@@ -44,6 +44,21 @@ function duree(sec) {
   return j ? `${j}${NBSP}j${NBSP}${h}${NBSP}h` : h ? `${h}${NBSP}h${NBSP}${m}${NBSP}min` : `${m}${NBSP}min`
 }
 
+/** Où en est la copie régulière tirée par la machine de sauvegarde. Au-delà
+ * de 36 h sans nouvelle, c'est une alerte : une sauvegarde qui s'arrête en
+ * silence est pire que pas de sauvegarde, parce qu'on croit en avoir une. */
+export function copieDistante(etat, maintenant) {
+  if (!etat) {
+    return `<p class="bo-note bo-alerte">Aucune copie distante signalée. La sauvegarde régulière tirée par
+      une autre machine n'est pas en place (<code>deploy/SAUVEGARDE.md</code>) : les données n'existent
+      qu'ici.</p>`
+  }
+  const sec = Math.max(0, Math.round((maintenant - etat.ts) / 1000))
+  const vieille = sec > 36 * 3600
+  return `<p class="bo-note${vieille ? ' bo-alerte' : ''}">Dernière copie tirée par la machine de sauvegarde :
+    ${sec < 60 ? 'à l’instant' : `il y a ${duree(sec)}`}${vieille ? ' — plus de 36 h, la copie régulière s’est arrêtée' : ''}.</p>`
+}
+
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
@@ -246,6 +261,7 @@ export async function mountAdmin(root) {
       <p><a class="btn-preset" href="/api/admin/sauvegarde" download>Télécharger la sauvegarde (${octets(
         s.dataDirOctets
       )} avant compression)</a></p>
+      ${copieDistante(s.sauvegardeDistante, d.genereLe)}
       ${
         s.connexionsEnCours.length
           ? `<ul class="bo-liste">${s.connexionsEnCours

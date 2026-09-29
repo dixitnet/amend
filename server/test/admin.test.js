@@ -4,7 +4,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -111,6 +111,22 @@ test('la vue agrège utilisateurs, documents et flux — et ne laisse fuir aucun
   // Un jeton d'invitation vaut une session au nom de la personne invitée :
   // il ne doit apparaître nulle part dans la vue d'administration.
   assert.equal(JSON.stringify(vue).includes(jetonInvitation), false)
+})
+
+test("la vue dit quand la machine de sauvegarde a tiré une copie pour la dernière fois", async () => {
+  const chef = { headers: { cookie: cookieFor('chef@example.com') } }
+  const avant = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
+  assert.equal(avant.serveur.sauvegardeDistante, null, 'aucune copie distante tant que personne ne l’a signalée')
+
+  const ts = Date.now() - 3 * 60 * 60 * 1000
+  writeFileSync(join(process.env.DATA_DIR, 'sauvegarde-distante.json'), JSON.stringify({ ts }))
+  const apres = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
+  assert.equal(apres.serveur.sauvegardeDistante.ts, ts)
+
+  // Un fichier abîmé ne casse pas la vue : on préfère dire « rien signalé ».
+  writeFileSync(join(process.env.DATA_DIR, 'sauvegarde-distante.json'), '{pas du json')
+  const abime = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
+  assert.equal(abime.serveur.sauvegardeDistante, null)
 })
 
 test.after(async () => {
