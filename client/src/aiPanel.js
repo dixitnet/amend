@@ -1,5 +1,5 @@
 import { TextSelection } from 'prosemirror-state'
-import { insertAISuggestion, insertAIParagraphSuggestions, getTextBlocksInRange } from './trackChanges.js'
+import { insertAISuggestion, insertAIParagraphSuggestions, getTextBlocksInRange, porteDesModifications } from './trackChanges.js'
 import { AI_USER } from './user.js'
 
 /** Calls the AI-suggest endpoint for one piece of text. Returns
@@ -107,6 +107,14 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
     const { from, to, $from, $to } = view.state.selection
     if (from === to) {
       status.textContent = "Sélectionne d'abord un passage dans le texte."
+      return
+    }
+    // L'IA travaille sur le texte tel qu'il se lit, jamais sur des
+    // modifications en attente (S3 du rapport du 28/09/2026) : elle
+    // recevrait les mots barrés mêlés aux nouveaux, et son diff se
+    // rejouerait par-dessus des marques existantes.
+    if (porteDesModifications(view.state.doc, from, to)) {
+      status.textContent = 'Ce passage porte des modifications en attente : accepte-les ou rejette-les d’abord.'
       return
     }
     const instruction = textarea.value.trim()

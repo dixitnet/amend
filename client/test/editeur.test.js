@@ -32,6 +32,7 @@ import {
   rejectAllChanges,
   listChanges,
   getTextBlocksInRange,
+  porteDesModifications,
 } from '../src/trackChanges.js'
 
 /** Le document est-il structurellement valide ? `check()` lève si un nœud
@@ -626,4 +627,14 @@ test('S1 — ce que le suivi ne sait pas suivre est refusé à un correcteur, pa
   toggleMark(schema.marks.strong)(ed.state, ed.view.dispatch)
   assert.equal(refus.length, 2)
   assert.ok(aGras(ed, 1))
+})
+
+test('S3 — l’IA ne travaille pas sur un passage qui porte des modifications en attente', () => {
+  const e = editeur(doc('Le chat dort sur le tapis rouge.'))
+  assert.equal(porteDesModifications(e.doc, 1, finDoc(e)), false)
+  e.selection(4, 8).taper('chien')
+  assert.equal(porteDesModifications(e.doc, 1, finDoc(e)), true)
+  assert.equal(porteDesModifications(e.doc, 15, finDoc(e)), false, 'ailleurs dans le paragraphe, rien')
+  acceptAllChanges(e.view)
+  assert.equal(porteDesModifications(e.doc, 1, finDoc(e)), false)
 })

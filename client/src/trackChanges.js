@@ -757,6 +757,14 @@ export function makeDispatchTransaction(view, getUser, { peutModifierLibrement =
   }
 }
 
+/** `true` si [from, to] porte au moins une modification en attente —
+ * marque d'insertion ou de suppression, nœud suivi entier, saut de
+ * paragraphe (S3 du rapport du 28/09/2026 : l'IA ne travaille jamais sur
+ * des marques en attente, elle recevrait le texte barré). */
+export function porteDesModifications(doc, from, to) {
+  return scanChangesInRange(doc, from, to).length > 0
+}
+
 /** Every raw (unmerged) tracked change touching doc positions in
  * [from, to) — insertions/deletions (via marks) and pending paragraph
  * breaks (via the trackedBreak attr). Used both for a full-document scan
