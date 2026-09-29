@@ -11,6 +11,7 @@ import {
   acceptAllChanges,
   rejectAllChanges,
 } from './trackChanges.js'
+import { defilerVers } from './defilement.js'
 
 // Au-delà de ce nombre de modifications en attente, le panneau devient
 // difficile à suivre (voir rapport-test-charge-1.md, constat 2.3 : 1985
@@ -331,9 +332,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         // l'entrée courante, il aurait fallu cliquer dans le texte pour
         // pouvoir décider. Cliquer une entrée, c'est dire « celle-ci » :
         // le panneau et le texte le disent maintenant ensemble.
-        const to = Math.min(change.to, view.state.doc.content.size)
-        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, change.from, to)))
-        scrollChangeToMiddle(change.from)
+        allerVers(change.from, change.to)
       })
       // Mise en évidence réciproque : survoler l'entrée éclaire le passage
       // dans le texte. L'inverse (le passage sous le curseur éclaire son
@@ -348,21 +347,27 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
     majEntreeCourante(changes)
   }
 
-  /** Scrolls `.editor-container` (the editor's own scrolling element — see
-   * editor.js) so `pos` lands in the vertical middle of it, rather than
-   * merely visible — same `coordsAtPos`-against-container-rect approach as
-   * outline.js's scrollHeadingToTop, but centered instead of pinned to the
-   * top: a change is usually short, so seeing what's around it (on both
-   * sides) matters more than pinning its start edge. */
+  /** Amène `pos` au milieu de la zone visible, colonne d'édition sur
+   * ordinateur, page sur téléphone (voir defilement.js). Avant le 29/09/2026,
+   * ce panneau ne connaissait que `.editor-container` : depuis que le
+   * téléphone fait défiler la page, cliquer une entrée ne déplaçait donc
+   * plus rien là-bas. Une modification est en général courte : la voir au
+   * milieu, avec du contexte des deux côtés, compte plus que d'épingler son
+   * début en haut. */
   function scrollChangeToMiddle(pos) {
     if (!view) return
-    const container = view.dom.closest('.editor-container')
-    if (!container) return
-    const clamped = Math.min(pos, view.state.doc.content.size)
-    const coords = view.coordsAtPos(clamped)
-    const containerRect = container.getBoundingClientRect()
-    const middle = containerRect.top + container.clientHeight / 2
-    container.scrollTop += coords.top - middle
+    defilerVers(view, Math.min(pos, view.state.doc.content.size), { fraction: 0.5 })
+  }
+
+  /** Sélectionne l'intervalle [from, to] et le centre à l'écran. Même
+   * geste pour une entrée entière et pour l'une des deux moitiés d'un
+   * remplacement dépliée en « traiter séparément ». */
+  function allerVers(from, to) {
+    if (!view) return
+    const taille = view.state.doc.content.size
+    const de = Math.min(from, taille)
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, de, Math.min(Math.max(to, de), taille))))
+    scrollChangeToMiddle(de)
   }
 
   function escapeHtml(s) {
@@ -420,6 +425,16 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         }
         actionsDetail.append(acceptBtn, rejectBtn)
       }
+      // Cliquer une moitié (« Ancien » ou « Nouveau ») y conduit, comme
+      // cliquer une entrée (signalé par Sylvain le 29/09/2026 : en
+      // « traiter séparément », le clic ne faisait rien, l'entrée écartant
+      // volontairement tout ce qui se trouve dans le détail pour ne pas
+      // réagir aux boutons). Les boutons gardent leur propre geste.
+      ligne.classList.add('cliquable')
+      ligne.addEventListener('click', (e) => {
+        if (e.target.closest('.change-detail-actions')) return
+        allerVers(sous.from, sous.to)
+      })
       ligne.append(texte, actionsDetail)
       detail.appendChild(ligne)
     }

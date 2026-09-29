@@ -209,6 +209,66 @@ test('« traiter séparément » redonne accès aux deux décisions', async () =
   assert.equal(view.state.doc.textContent, 'Le chienchat mange.', 'le nouveau est resté, l’ancien encore barré')
 })
 
+/** « Traiter séparément » ouvert sur le remplacement chat → chien. */
+async function ouvrirLeDetail() {
+  const { view, panneau } = monterAvecUnRemplacement()
+  await new Promise((r) => setTimeout(r, 30))
+  const carte = entrees(panneau)[0]
+  const toggle = [...carte.querySelectorAll('button')].find((b) => b.textContent === 'Traiter séparément')
+  toggle.dispatchEvent(new window.Event('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 30))
+  return { view, panneau, lignes: panneau.querySelectorAll('.change-detail-row') }
+}
+
+test('cliquer une moitié en « traiter séparément » la sélectionne (29/09/2026)', async () => {
+  const { view, lignes } = await ouvrirLeDetail()
+  // « chien » souligné en 4-9, « chat » barré en 9-13.
+  lignes[1].querySelector('.change-detail-text').dispatchEvent(new window.Event('click', { bubbles: true }))
+  assert.equal(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to), 'chien', 'le nouveau texte')
+  lignes[0].querySelector('.change-detail-text').dispatchEvent(new window.Event('click', { bubbles: true }))
+  assert.equal(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to), 'chat', 'l’ancien texte')
+})
+
+test('cliquer une moitié fait défiler jusqu’à elle, à mi-hauteur', async () => {
+  const { view, panneau, lignes } = await ouvrirLeDetail()
+  // La colonne d'édition déborde et défile : c'est elle qui doit bouger.
+  const colonne = document.querySelector('.editor-container')
+  colonne.style.overflowY = 'auto'
+  Object.defineProperty(colonne, 'scrollHeight', { value: 2000, configurable: true })
+  Object.defineProperty(colonne, 'clientHeight', { value: 400, configurable: true })
+  colonne.scrollTop = 0
+  view.coordsAtPos = () => ({ top: 500, bottom: 520, left: 0, right: 0 })
+  lignes[0].querySelector('.change-detail-text').dispatchEvent(new window.Event('click', { bubbles: true }))
+  assert.equal(colonne.scrollTop, 300, '500 − la moitié des 400 px visibles')
+  assert.ok(panneau.querySelectorAll('.change-detail-row').length === 2, 'le détail reste ouvert')
+})
+
+test('sur téléphone, cliquer une entrée fait défiler la page', async () => {
+  const { view, panneau } = monterAvecUnRemplacement()
+  await new Promise((r) => setTimeout(r, 30))
+  // La colonne ne défile pas (overflow visible) : c'est la page.
+  const appels = []
+  window.scrollTo = (x, y) => appels.push([x, y])
+  view.coordsAtPos = () => ({ top: 1000, bottom: 1020, left: 0, right: 0 })
+  entrees(panneau)[0].dispatchEvent(new window.Event('click', { bubbles: true }))
+  assert.equal(appels.length, 1, 'la page a été défilée')
+  assert.ok(appels[0][1] > 0)
+})
+
+test('valider une moitié passe à la suivante et y fait défiler', async () => {
+  const { view, panneau, lignes } = await ouvrirLeDetail()
+  const appels = []
+  window.scrollTo = (x, y) => appels.push([x, y])
+  view.coordsAtPos = () => ({ top: 900, bottom: 920, left: 0, right: 0 })
+  // Accepter le nouveau texte : l'ancien, barré, devient l'entrée suivante.
+  const bouton = [...lignes[1].querySelectorAll('button')].find((b) => b.textContent === 'Accepter')
+  bouton.dispatchEvent(new window.Event('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to), 'chat')
+  assert.equal(appels.length, 1, 'un seul défilement : celui de la validation, pas celui du clic sur la ligne')
+  assert.equal(panneau.querySelectorAll('.change-item').length, 1)
+})
+
 test('la consigne de défilement survit à la réécriture en suivi', () => {
   // Banc iPhone du 23/09/2026 : en suivi de modifications, on écrivait
   // sous la barre d'outils sans que rien ne défile. La transaction

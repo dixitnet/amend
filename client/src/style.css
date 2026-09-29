@@ -881,6 +881,7 @@ span.author-color {
    demandé explicitement, il n'a pas à se cacher. */
 .change-detail { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
 .change-detail-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.change-detail-row.cliquable { cursor: pointer; }
 .change-detail-text { font-size: 12px; word-break: break-word; }
 .change-detail-actions { display: flex; gap: 6px; flex-shrink: 0; }
 /* Les actions apparaissent sur l'entrée courante **et au survol** : on
