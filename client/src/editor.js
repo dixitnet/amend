@@ -986,7 +986,12 @@ export function mountEditor(root, docId, user, docMeta) {
   const commenter = monterBoutonCommenter(editorContainer, () => view, ouvrirComposeurTactile)
   // dispatchTransaction needs a reference to `view` itself, so it's wired
   // up right after construction rather than passed in the initial props.
-  view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => user) })
+  view.setProps({
+    dispatchTransaction: makeDispatchTransaction(view, () => user, {
+      peutModifierLibrement: () => !!cap.canEditFreely,
+      surRefus: () => messageFugace('Cette modification ne peut pas être suivie : elle est réservée aux éditeurs.', { erreur: true }),
+    }),
+  })
 
   // Un correcteur reste toujours en suivi de modifications — ne peut ni
   // désactiver le suivi, ni en sortir (voir

@@ -716,7 +716,18 @@ export function effacementSuivi(getUser, versLArriere) {
   }
 }
 
-export function makeDispatchTransaction(view, getUser) {
+/**
+ * `peutModifierLibrement` : vrai pour qui a le droit d'écrire hors suivi
+ * (un éditeur). Pour les autres — un correcteur —, **ce que le suivi ne
+ * sait pas suivre est refusé** (S1 du rapport du 28/09/2026) : fusionner ou
+ * scinder des blocs hors premier niveau, changer un paragraphe en titre,
+ * mettre en forme, cocher une tâche… Avant, ces gestes passaient hors
+ * suivi, sans un mot : autant de portes de sortie du suivi pour quelqu'un
+ * dont le rôle est de proposer. Une règle, écrite ici une fois, qui
+ * remplace les cas particuliers (boutons cachés, gardes par greffon) et
+ * couvre ceux qu'on n'a pas listés. `surRefus` prévient la personne.
+ */
+export function makeDispatchTransaction(view, getUser, { peutModifierLibrement = () => true, surRefus = () => {} } = {}) {
   return function dispatchTransaction(tr) {
     let finalTr = tr
     if (
@@ -726,6 +737,10 @@ export function makeDispatchTransaction(view, getUser) {
       !isRemoteOrigin(tr)
     ) {
       const rewritten = rewriteForTracking(view.state, tr, getUser())
+      if (!rewritten && !peutModifierLibrement()) {
+        surRefus(tr)
+        return
+      }
       if (rewritten) {
         finalTr = rewritten
         // La transaction d'origine portait la consigne « ramène le curseur
@@ -805,16 +820,24 @@ export function scanChangesInRange(doc, from, to) {
  * guarantees. */
 export function mergeAdjacentChanges(raw) {
   const merged = []
+  // La dernière entrée de chaque type et auteur : un texte qui porte à la
+  // fois une insertion (d'Alice) et une suppression (de Bob) produit des
+  // entrées entrelacées — ins, del, ins, del — et chaque moitié doit
+  // quand même se recoller à la sienne (29/09/2026).
+  const dernieres = new Map()
   for (const c of raw) {
-    const last = merged[merged.length - 1]
-    if (last && !last.noeud && !c.noeud && last.type === c.type && last.user === c.user && last.to === c.from) {
+    const cle = `${c.type}|${c.user}`
+    const last = dernieres.get(cle)
+    if (last && !last.noeud && !c.noeud && last.to === c.from) {
       last.to = c.to
       last.text += c.text
       // Le groupe survit à la fusion : un mot tapé à la suite d'un
       // remplacement en fait partie, il ne le casse pas.
       if (!last.groupe && c.groupe) last.groupe = c.groupe
     } else {
-      merged.push({ ...c })
+      const copie = { ...c }
+      merged.push(copie)
+      dernieres.set(cle, copie)
     }
   }
   return merged

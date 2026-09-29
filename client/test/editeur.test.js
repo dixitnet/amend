@@ -24,7 +24,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { editeur, doc, IA, schema } from './harness.js'
-import { toggleMark } from 'prosemirror-commands'
+import { toggleMark, setBlockType, splitBlock } from 'prosemirror-commands'
 import {
   insertAISuggestion,
   insertAIParagraphSuggestions,
@@ -600,4 +600,30 @@ test('D8 — un mot changé dans une phrase courte n’est pas une réécriture 
   const f = editeur(doc('Le chat dort ici.'))
   insertAISuggestion(f.view, 1, finDoc(f), 'Un chien court ailleurs.', IA)
   assert.equal(f.nbBlocs(), 2)
+})
+
+test('S1 — ce que le suivi ne sait pas suivre est refusé à un correcteur, pas à un éditeur', () => {
+  const refus = []
+  const corr = editeur(doc('Un deux.'), { libre: false, surRefus: () => refus.push(1) })
+  // Mettre en gras : hors suivi → refusé, le document ne bouge pas.
+  corr.selection(1, 3)
+  toggleMark(schema.marks.strong)(corr.state, corr.view.dispatch)
+  assert.equal(refus.length, 1)
+  assert.ok(!aGras(corr, 1))
+  // Changer le paragraphe en titre : refusé aussi.
+  corr.selection(2)
+  setBlockType(schema.nodes.heading, { level: 1 })(corr.state, corr.view.dispatch)
+  assert.equal(refus.length, 2)
+  assert.equal(corr.doc.child(0).type.name, 'paragraph')
+  // Mais taper, effacer, couper un paragraphe (Entrée) : suivis, donc permis.
+  corr.selection(3).taper('X')
+  splitBlock(corr.state, corr.view.dispatch)
+  assert.equal(refus.length, 2)
+  assert.equal(corr.nbBlocs(), 2)
+  // Un éditeur en suivi : le gras passe, hors suivi, comme avant.
+  const ed = editeur(doc('Un deux.'), { surRefus: () => refus.push(1) })
+  ed.selection(1, 3)
+  toggleMark(schema.marks.strong)(ed.state, ed.view.dispatch)
+  assert.equal(refus.length, 2)
+  assert.ok(aGras(ed, 1))
 })

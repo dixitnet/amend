@@ -48,7 +48,7 @@ export function doc(...blocs) {
  * `updateState`). C'est suffisant parce que rien de ce qu'on teste ici ne
  * touche au DOM — et c'est justement ce qui rend ces tests possibles.
  */
-export function editeur(document, { suivi = true, user = UTILISATEUR } = {}) {
+export function editeur(document, { suivi = true, user = UTILISATEUR, libre = true, surRefus } = {}) {
   let state = EditorState.create({
     doc: document,
     plugins: [trackChangesPlugin({ enabled: suivi })],
@@ -65,7 +65,7 @@ export function editeur(document, { suivi = true, user = UTILISATEUR } = {}) {
       dispatcher(tr)
     },
   }
-  const dispatcher = makeDispatchTransaction(view, () => user)
+  const dispatcher = makeDispatchTransaction(view, () => user, { peutModifierLibrement: () => libre, surRefus })
 
   return {
     view,
