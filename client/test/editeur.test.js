@@ -23,7 +23,8 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { editeur, doc, IA } from './harness.js'
+import { editeur, doc, IA, schema } from './harness.js'
+import { toggleMark } from 'prosemirror-commands'
 import {
   insertAISuggestion,
   insertAIParagraphSuggestions,
@@ -521,4 +522,82 @@ test('une réécriture complète en un paragraphe est un remplacement, même à 
   rejectAllChanges(e.view)
   assert.equal(e.nbBlocs(), 1)
   assert.equal(e.texte(), 'Le chat dort sur le tapis rouge.')
+})
+
+// ======================================================= le rapport du 28/09/2026
+
+const BOB = { name: 'Bob', color: '#8a5a2b' }
+const enGras = (e, from, to) => {
+  e.suivi(false).selection(from, to)
+  toggleMark(schema.marks.strong)(e.state, e.view.dispatch)
+  e.suivi(true)
+  return e
+}
+const aGras = (e, pos) => {
+  const n = e.doc.nodeAt(pos)
+  return !!(n && n.marks.some((m) => m.type.name === 'strong'))
+}
+
+test('D1 — en suivi, taper au milieu d’un mot en gras reste en gras', () => {
+  const e = enGras(editeur(doc('Un mot.')), 4, 7)
+  e.selection(5).taper('X')
+  assert.ok(aGras(e, 5), 'le X a perdu le gras')
+  assert.deepEqual(e.marques(), ['+X'])
+  // Et hors d'un mot en gras, rien n'est ajouté.
+  e.selection(1).taper('Y')
+  assert.ok(!aGras(e, 1))
+})
+
+test('D2 — effacer l’insertion en attente d’un autre la barre, la sienne s’efface', () => {
+  const e = editeur(doc('Le  dort.'))
+  e.selection(4).taper('chat')
+  const b = editeur(e.doc, { user: BOB })
+  b.selection(4, 8).effacerAvant()
+  assert.equal(b.texte(), 'Le chat dort.', 'le texte d’Alice est encore là, barré')
+  const types = listChanges(b.doc).map((c) => `${c.type}:${c.user}`).sort()
+  assert.deepEqual(types, ['deletion:Bob', 'insertion:Alice'])
+  // Accepter tout : le texte disparaît ; rejeter tout : il reste (proposé).
+  const a = editeur(b.doc)
+  acceptAllChanges(a.view)
+  assert.equal(a.texte(), 'Le  dort.')
+  // Alice efface sa propre proposition : elle s'en va pour de bon.
+  const e2 = editeur(doc('Le  dort.'))
+  e2.selection(4).taper('chat')
+  e2.selection(4, 8).effacerAvant()
+  assert.equal(e2.texte(), 'Le  dort.')
+  assert.equal(listChanges(e2.doc).length, 0)
+})
+
+test('D5 — une réécriture entière par l’IA garde la mise en forme du paragraphe', () => {
+  const e = enGras(editeur(doc('Le chat dort sur le tapis rouge.')), 1, 32)
+  insertAISuggestion(e.view, 1, finDoc(e), 'Un félin sommeille sur un tapis écarlate, tranquille.', IA)
+  acceptAllChanges(e.view)
+  assert.equal(e.texte(), 'Un félin sommeille sur un tapis écarlate, tranquille.')
+  assert.ok(aGras(e, 1), 'le gras a disparu')
+  // Diff fin : un mot remplacé au milieu d'un passage en gras reste en gras.
+  const f = enGras(editeur(doc('Le chat dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe.')), 4, 8)
+  insertAISuggestion(f.view, 1, finDoc(f), 'Le chien dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe.', IA)
+  acceptAllChanges(f.view)
+  assert.ok(aGras(f, 4), 'le mot inséré a perdu le gras du mot remplacé')
+})
+
+test('D7 — une réponse vide de l’IA ne fait rien', () => {
+  const e = editeur(doc('Le chat dort.'))
+  insertAISuggestion(e.view, 1, finDoc(e), '   ', IA)
+  assert.equal(listChanges(e.doc).length, 0)
+  assert.equal(e.texte(), 'Le chat dort.')
+})
+
+test('D8 — un mot changé dans une phrase courte n’est pas une réécriture entière', () => {
+  const e = editeur(doc('Le chat dort sur le tapis rouge.'))
+  insertAISuggestion(e.view, 1, finDoc(e), 'Le chat dort sur le tapis bleu.', IA)
+  assert.equal(e.nbBlocs(), 1, 'pas de second paragraphe')
+  const l = listChanges(e.doc)
+  assert.equal(l.length, 1)
+  assert.equal(l[0].type, 'remplacement')
+  assert.equal(l[0].ancien, 'rouge.')
+  // Quatre mots changés sur cinq : là, oui.
+  const f = editeur(doc('Le chat dort ici.'))
+  insertAISuggestion(f.view, 1, finDoc(f), 'Un chien court ailleurs.', IA)
+  assert.equal(f.nbBlocs(), 2)
 })

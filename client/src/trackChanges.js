@@ -131,8 +131,13 @@ function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
     const start = Math.max(pos, from)
     const end = Math.min(pos + node.nodeSize, to)
     if (start >= end) return
-    const alreadyInsertion = !!insertionType.isInSet(node.marks)
-    ranges.push({ from: start, to: end, removeReally: alreadyInsertion })
+    // Retiré pour de bon seulement si c'est **sa propre** insertion en
+    // attente (D2 du rapport du 28/09/2026) : effacer ce qu'un autre vient
+    // de proposer le barre, comme n'importe quel texte — sinon un
+    // correcteur pouvait faire disparaître sans trace la proposition d'un
+    // éditeur.
+    const insertion = insertionType.isInSet(node.marks)
+    ranges.push({ from: start, to: end, removeReally: !!insertion && insertion.attrs.user === delMark.attrs.user })
   })
   for (const r of ranges) {
     const mFrom = tr.mapping.map(r.from)
@@ -210,6 +215,16 @@ function caractereAEffacer(state, from, to, versLArriere) {
     }
   }
   return null
+}
+
+/** Les marques de mise en forme (gras, italique, souligné, barré) que
+ * ProseMirror donnerait à une frappe à cet endroit — celles du curseur,
+ * ou celles posées en attente (Ctrl+B sur une sélection vide). Jamais les
+ * marques du suivi ni la couleur d'auteur, qui sont posées à part. */
+export const MARQUES_MISE_EN_FORME = new Set(['strong', 'em', 'underline', 'strike'])
+function marquesDeMiseEnForme(state) {
+  const marques = state.storedMarks || state.selection.$from.marks()
+  return marques.filter((m) => MARQUES_MISE_EN_FORME.has(m.type.name))
 }
 
 /** `true` si [from, to] tient dans un seul bloc de texte.
@@ -451,7 +466,10 @@ export function rewriteForTracking(state, tr, user) {
       // deletion mark used to leak onto brand-new text sitting right
       // next to one). `insert` places a bare, markless text node — the
       // only marks it gets are the ones we add explicitly below.
-      out.insert(insPos, state.schema.text(text))
+      // …sauf la mise en forme active au curseur (gras, italique…) : taper
+      // au milieu d'un mot en gras reste en gras, en suivi comme hors
+      // suivi (D1 du rapport du 28/09/2026).
+      out.insert(insPos, state.schema.text(text, marquesDeMiseEnForme(state)))
       const insEnd = insPos + text.length
       out.addMark(insPos, insEnd, insMark)
       if (authorMark) out.addMark(insPos, insEnd, authorMark)
@@ -1029,6 +1047,18 @@ export function rejectAllChanges(view) {
  * it) — easy to tune if it feels off in practice.
  */
 const BIG_REWRITE_RATIO = 0.3
+/** …et au moins autant de mots touchés (ajoutés ou retirés). */
+const BIG_REWRITE_MIN_MOTS = 4
+
+/** Le nombre de mots que les opérations d'un diff ajoutent ou retirent. */
+function motsChanges(ops) {
+  let n = 0
+  for (const op of ops) {
+    if (op.type === 'equal') continue
+    n += op.text.split(/\s+/).filter(Boolean).length
+  }
+  return n
+}
 
 /** Replays a word/letter-level diff into `tr` as tracked insert/delete
  * marks anchored at `blockFrom`. Mutates `tr`. Returns true if anything
@@ -1039,8 +1069,10 @@ function replayDiffOps(tr, schema, blockFrom, ops, insMark, delMark, authorMark)
   const insererTexte = (pos, texte, marque) => {
     // Un nœud texte ProseMirror ne contient pas de saut de ligne : au
     // niveau d'un diff fin (quelques mots), un saut venu de la
-    // suggestion se lit comme une espace.
-    tr.insert(pos, schema.text(texte.replace(/[\r\n]+/g, ' ')))
+    // suggestion se lit comme une espace. Le mot inséré prend la mise en
+    // forme du texte qu'il remplace ou qui le précède (29/09/2026).
+    const miseEnForme = marquesDuDebut(tr.doc, pos).length ? marquesDuDebut(tr.doc, pos) : marquesAvant(tr.doc, pos)
+    tr.insert(pos, schema.text(texte.replace(/[\r\n]+/g, ' '), miseEnForme))
     tr.addMark(pos, pos + texte.length, marque)
     if (authorMark) tr.addMark(pos, pos + texte.length, authorMark)
   }
@@ -1081,6 +1113,21 @@ function replayDiffOps(tr, schema, blockFrom, ops, insMark, delMark, authorMark)
   return changed
 }
 
+/** Les marques de mise en forme du texte qui finit à `pos`. */
+function marquesAvant(doc, pos) {
+  const noeud = doc.resolve(pos).nodeBefore
+  if (!noeud || !noeud.isText) return []
+  return noeud.marks.filter((m) => MARQUES_MISE_EN_FORME.has(m.type.name))
+}
+
+/** Les marques de mise en forme du texte qui commence à `pos`. */
+function marquesDuDebut(doc, pos) {
+  const $pos = doc.resolve(pos)
+  const noeud = $pos.nodeAfter
+  if (!noeud || !noeud.isText) return []
+  return noeud.marks.filter((m) => MARQUES_MISE_EN_FORME.has(m.type.name))
+}
+
 /** Fraction of `oldText`/`newText` that a diff's insert+delete ops touch,
  * out of the longer of the two texts. */
 function diffChangeRatio(oldText, newText, ops) {
@@ -1107,8 +1154,8 @@ function diffChangeRatio(oldText, newText, ops) {
  * sauts de ligne compris — or un nœud texte ProseMirror n'a pas de sauts de
  * ligne : le document devenait invalide et la coupure n'apparaissait nulle
  * part. Une ligne, un bloc. */
-function blocsDepuisTexte(schema, nodeType, nodeAttrs, texte, insMark, authorMark) {
-  const marks = authorMark ? [insMark, authorMark] : [insMark]
+function blocsDepuisTexte(schema, nodeType, nodeAttrs, texte, insMark, authorMark, miseEnForme = []) {
+  const marks = [...miseEnForme, insMark, ...(authorMark ? [authorMark] : [])]
   return String(texte)
     .split(/\r\n|\r|\n/)
     .map((l) => l.trim())
@@ -1124,10 +1171,24 @@ function applyParagraphDiff(tr, schema, block, newText, insMark, delMark, author
   if (oldText === newText) return false
   const ops = diffWords(oldText, newText)
 
-  const bigRewrite = block.fullyCovered && oldText && newText && diffChangeRatio(oldText, newText, ops) >= BIG_REWRITE_RATIO
+  // Une réécriture entière demande **et** une part suffisante du texte
+  // **et** un nombre de mots suffisant (D8 du rapport du 28/09/2026) :
+  // « tapis rouge. » → « tapis bleu. » dans une phrase courte touchait 35 %
+  // des signes et basculait tout le paragraphe en barré + nouveau.
+  const bigRewrite =
+    block.fullyCovered &&
+    oldText &&
+    newText &&
+    diffChangeRatio(oldText, newText, ops) >= BIG_REWRITE_RATIO &&
+    motsChanges(ops) >= BIG_REWRITE_MIN_MOTS
 
   if (bigRewrite) {
-    let noeuds = blocsDepuisTexte(schema, block.nodeType, block.nodeAttrs, newText, insMark, authorMark)
+    // Le nouveau paragraphe reprend la mise en forme du **premier** mot de
+    // l'ancien (D5 du rapport du 28/09/2026) : un paragraphe entièrement
+    // en gras le reste. Imparfait pour un paragraphe mêlé — le diff mot à
+    // mot, lui, garde tout sur les mots inchangés.
+    const miseEnForme = marquesDuDebut(tr.doc, block.textFrom)
+    let noeuds = blocsDepuisTexte(schema, block.nodeType, block.nodeAttrs, newText, insMark, authorMark, miseEnForme)
     // Un paragraphe réécrit en un paragraphe : un remplacement, une carte
     // (28/09/2026). En plusieurs, on garde une suppression et des
     // insertions séparées — un groupe ne réunit que deux moitiés.
@@ -1141,7 +1202,8 @@ function applyParagraphDiff(tr, schema, block, newText, insMark, delMark, author
         block.nodeAttrs,
         newText,
         insMark.type.create({ ...insMark.attrs, groupe }),
-        authorMark
+        authorMark,
+        miseEnForme
       )
     }
     if (block.textTo > block.textFrom) {
@@ -1204,6 +1266,10 @@ export function getTextBlocksInRange(doc, from, to) {
  * any tracked change at all.
  */
 export function insertAISuggestion(view, from, to, suggestion, aiUser) {
+  // Une réponse vide ne fait rien (D7 du rapport du 28/09/2026) : le
+  // serveur la refuse déjà, mais barrer toute la sélection serait le pire
+  // des deux comportements.
+  if (!String(suggestion || '').trim()) return
   const schema = view.state.schema
   const ts = Date.now()
   const insMark = schema.marks.insertion.create({ user: aiUser.name, userColor: aiUser.color, ts })
@@ -1292,7 +1358,7 @@ export function insertAIParagraphSuggestions(view, blocks, suggestions, aiUser) 
   let changed = false
   for (let i = 0; i < blocks.length; i++) {
     const suggestion = suggestions[i]
-    if (suggestion == null) continue
+    if (suggestion == null || !String(suggestion).trim()) continue
     const didChange = applyParagraphDiff(tr, schema, blocks[i], suggestion, insMark, delMark, authorMark)
     changed = changed || didChange
   }
