@@ -5,6 +5,7 @@ import {
   updateChangeList,
   mergeAdjacentChanges,
   pairReplacements,
+  regrouperEnLots,
   acceptChange,
   rejectChange,
   acceptAllChanges,
@@ -59,7 +60,12 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
   // dans le panneau — un simple affichage, aucun effet sur le document.
   let groupesDetailles = new Set()
   function changesAffichees(raw) {
-    return pairReplacements(mergeAdjacentChanges(raw))
+    return regrouperEnLots(pairReplacements(mergeAdjacentChanges(raw)))
+  }
+  /** La clé d'un dépliage (« traiter séparément ») : le groupe d'un
+   * remplacement, ou l'auteur et l'instant d'un lot. */
+  function cleDetail(change) {
+    return change.type === 'lot' ? `lot:${change.user}:${change.ts}` : change.groupe
   }
   // A signature of the last rendered change list, so we can skip rebuilding
   // the whole panel (and re-creating every Accepter/Rejeter button) when a
@@ -244,7 +250,9 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
             ? 'suppression'
             : change.type === 'remplacement'
               ? 'remplacement'
-              : 'saut de paragraphe'
+              : change.type === 'lot'
+                ? `${change.membres.length} changements`
+                : 'saut de paragraphe'
       meta.innerHTML = `<strong>${escapeHtml(change.user)}</strong> · ${typeLabel} · ${relativeTime(change.ts)}`
 
       const text = document.createElement('div')
@@ -290,15 +298,15 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         // suppression) : ce lien donne accès aux deux décisions séparées
         // sans les imposer — voir claude/etude-suivi-remplacement.md,
         // projet Amend.
-        if (change.type === 'remplacement') {
+        if (change.type === 'remplacement' || change.type === 'lot') {
           const detailBtn = document.createElement('button')
           detailBtn.type = 'button'
           detailBtn.className = 'change-detail-toggle'
-          const detaillee = groupesDetailles.has(change.groupe)
+          const detaillee = groupesDetailles.has(cleDetail(change))
           detailBtn.textContent = detaillee ? 'Regrouper' : 'Traiter séparément'
           detailBtn.onclick = () => {
-            if (detaillee) groupesDetailles.delete(change.groupe)
-            else groupesDetailles.add(change.groupe)
+            if (detaillee) groupesDetailles.delete(cleDetail(change))
+            else groupesDetailles.add(cleDetail(change))
             render(true)
           }
           actions.append(detailBtn)
@@ -306,7 +314,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
       }
 
       item.append(meta, text, actions)
-      if (change.type === 'remplacement' && groupesDetailles.has(change.groupe)) {
+      if ((change.type === 'remplacement' || change.type === 'lot') && groupesDetailles.has(cleDetail(change))) {
         item.appendChild(construireDetail(change))
       }
       // Clicking the item itself (not Accepter/Rejeter) scrolls the editor
@@ -373,15 +381,24 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
   function construireDetail(change) {
     const detail = document.createElement('div')
     detail.className = 'change-detail'
-    for (const [sous, libelle] of [
-      [change.deletion, 'Ancien'],
-      [change.insertion, 'Nouveau'],
-    ]) {
+    // Un remplacement : ses deux moitiés. Un lot : chacun de ses membres,
+    // avec le libellé de sa nature.
+    const lignes =
+      change.type === 'lot'
+        ? change.membres.map((m) => [
+            m,
+            m.type === 'remplacement' ? `${m.ancien} → ${m.nouveau}` : m.type === 'insertion' ? 'Ajout' : m.type === 'deletion' ? 'Suppression' : 'Saut',
+          ])
+        : [
+            [change.deletion, 'Ancien'],
+            [change.insertion, 'Nouveau'],
+          ]
+    for (const [sous, libelle] of lignes) {
       const ligne = document.createElement('div')
       ligne.className = 'change-detail-row'
       const texte = document.createElement('span')
       texte.className = `change-detail-text change-${sous.type}`
-      texte.textContent = `${libelle} : ${tronque(sous.text, 90)}`
+      texte.textContent = sous.type === 'remplacement' ? tronque(libelle, 120) : `${libelle} : ${tronque(sous.text, 90)}`
       const actionsDetail = document.createElement('div')
       actionsDetail.className = 'change-detail-actions'
       if (canReview) {

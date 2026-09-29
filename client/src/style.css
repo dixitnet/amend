@@ -2840,3 +2840,8 @@ tr.bo-traite { opacity: 0.6; }
 .ProseMirror .noeud-insere { outline: 2px dashed var(--user-color, var(--accent)); outline-offset: 3px; }
 .ProseMirror .noeud-supprime { opacity: 0.45; position: relative; }
 .ProseMirror .noeud-supprime::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 3px solid var(--user-color, var(--danger, #b3261e)); }
+
+/* Un lot (S2, 29/09/2026) : les changements d'un même geste — une
+   correction de l'IA — en une carte. Un liseré double le distingue. */
+.change-item.change-lot { border-left-style: double; border-left-width: 5px; }
+.change-item.change-lot .change-text { color: var(--muted); }

@@ -11,7 +11,7 @@ import { JSDOM } from 'jsdom'
 import { EditorState, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { schema } from '../src/schema.js'
-import { trackChangesPlugin, makeDispatchTransaction, listChanges } from '../src/trackChanges.js'
+import { trackChangesPlugin, makeDispatchTransaction, listChanges, insertAISuggestion, regrouperEnLots } from '../src/trackChanges.js'
 import { mountChangesPanel } from '../src/changesPanel.js'
 
 const ALICE = { name: 'Alice', color: '#3d5a80' }
@@ -242,4 +242,67 @@ test('la consigne de défilement survit à la réécriture en suivi', () => {
     view.state.constructor.prototype.apply = vraiApply
     view.destroy()
   }
+})
+
+// ============================================ un geste de l'IA, une carte (S2)
+
+const IA = { name: 'IA', color: '#5f7a4a' }
+
+function monterAvecUneCorrectionIA() {
+  installerDom()
+  const panneau = document.getElementById('panneau')
+  const doc = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Le chat dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe sur le toit de la vieille maison du village.')]),
+  ])
+  const state = EditorState.create({
+    doc,
+    plugins: [trackChangesPlugin({ enabled: true }), mountChangesPanel(panneau, { canReview: true })],
+  })
+  const view = new EditorView(document.getElementById('editeur'), { state })
+  view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => ALICE) })
+  insertAISuggestion(view, 1, view.state.doc.content.size - 1, 'Le chien dort sur le grand tapis bleu, devant la cheminée, pendant que la neige tombe sur le toit de la vieille maison du village.', IA)
+  return { view, panneau }
+}
+
+test('une correction de l’IA fait une seule carte, avec le compte de ses changements', async () => {
+  const { view, panneau } = monterAvecUneCorrectionIA()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(listChanges(view.state.doc).length, 4, 'quatre modifications en dessous')
+  const liste = entrees(panneau)
+  assert.equal(liste.length, 1, 'une carte')
+  assert.ok(liste[0].className.includes('change-lot'))
+  assert.match(liste[0].querySelector('.change-meta').textContent, /IA · 4 changements/)
+  // « Traiter séparément » montre les quatre, chacune avec ses boutons.
+  const detailBtn = [...liste[0].querySelectorAll('button')].find((b) => b.textContent === 'Traiter séparément')
+  detailBtn.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const lignes = panneau.querySelectorAll('.change-detail-row')
+  assert.equal(lignes.length, 4)
+  assert.match(lignes[0].textContent, /chat → chien/)
+})
+
+test('accepter le lot accepte tout ; le rejeter rend le texte d’origine', async () => {
+  const a = monterAvecUneCorrectionIA()
+  await new Promise((r) => setTimeout(r, 30))
+  a.view.dispatch(a.view.state.tr.setSelection(TextSelection.create(a.view.state.doc, 5)))
+  await new Promise((r) => setTimeout(r, 30))
+  ;[...entrees(a.panneau)[0].querySelectorAll('button')].find((b) => b.textContent === 'Accepter').click()
+  assert.equal(listChanges(a.view.state.doc).length, 0)
+  assert.equal(a.view.state.doc.textContent, 'Le chien dort sur le grand tapis bleu, devant la cheminée, pendant que la neige tombe sur le toit de la vieille maison du village.')
+
+  const r = monterAvecUneCorrectionIA()
+  await new Promise((r2) => setTimeout(r2, 30))
+  r.view.dispatch(r.view.state.tr.setSelection(TextSelection.create(r.view.state.doc, 5)))
+  await new Promise((r2) => setTimeout(r2, 30))
+  ;[...entrees(r.panneau)[0].querySelectorAll('button')].find((b) => b.textContent === 'Rejeter').click()
+  assert.equal(listChanges(r.view.state.doc).length, 0)
+  assert.equal(r.view.state.doc.textContent, 'Le chat dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe sur le toit de la vieille maison du village.')
+})
+
+test('regrouperEnLots : même auteur et même instant, deux entrées au moins', () => {
+  const e = (type, from, to, user, ts) => ({ type, from, to, user, userColor: '#000', ts, text: 'x' })
+  const lots = regrouperEnLots([e('insertion', 1, 2, 'IA', 5), e('deletion', 2, 3, 'IA', 5), e('insertion', 9, 10, 'Alice', 5), e('insertion', 12, 13, 'IA', 7)])
+  assert.deepEqual(lots.map((c) => c.type), ['lot', 'insertion', 'insertion'])
+  assert.equal(lots[0].membres.length, 2)
+  assert.equal(lots[0].to, 3)
 })

@@ -906,6 +906,47 @@ export function pairReplacements(changes) {
   return out
 }
 
+/** Regroupe en **lots** les modifications d'un même geste (S2 du rapport
+ * du 28/09/2026) : une correction de l'IA sur un paragraphe, un collage de
+ * plusieurs lignes, produisent des marques qui partagent un auteur et un
+ * même `ts`. Deux entrées ou plus qui se suivent avec ce même couple
+ * deviennent une seule carte « n changements », à accepter ou rejeter
+ * d'un geste — le détail reste accessible (« traiter séparément »), comme
+ * pour un remplacement. Une frappe humaine, un caractère à la fois, a un
+ * `ts` par caractère fusionné par mergeAdjacentChanges : elle n'est pas
+ * concernée. */
+export function regrouperEnLots(changes) {
+  const out = []
+  for (let i = 0; i < changes.length; i++) {
+    const a = changes[i]
+    const membres = [a]
+    while (i + 1 < changes.length && a.ts != null && changes[i + 1].user === a.user && changes[i + 1].ts === a.ts) {
+      membres.push(changes[++i])
+    }
+    if (membres.length < 2) {
+      out.push(a)
+      continue
+    }
+    out.push({
+      type: 'lot',
+      user: a.user,
+      userColor: a.userColor,
+      ts: a.ts,
+      from: membres[0].from,
+      to: membres[membres.length - 1].to,
+      membres,
+      text: membres.map((m) => (m.type === 'remplacement' ? `${m.ancien} → ${m.nouveau}` : m.text)).join(' · '),
+    })
+  }
+  return out
+}
+
+/** Les membres d'un lot **tels qu'ils sont maintenant** dans le document :
+ * après chaque décision les positions bougent, on relit. */
+function membresDuLot(doc, lot) {
+  return listChanges(doc).filter((c) => c.user === lot.user && c.ts === lot.ts)
+}
+
 /** Lists every tracked change currently in the document, merging adjacent
  * spans from the same author/type for a cleaner "changes" panel, and
  * pairing replacement insertion/deletion pairs into one entry (see
@@ -945,6 +986,14 @@ export function updateChangeList(raw, tr) {
 }
 
 export function acceptChange(view, change) {
+  if (change.type === 'lot') {
+    // Membre après membre, en relisant le document à chaque fois : une
+    // décision change les positions des suivantes.
+    for (let m = membresDuLot(view.state.doc, change); m.length; m = membresDuLot(view.state.doc, change)) {
+      acceptChange(view, m[0])
+    }
+    return
+  }
   const tr = view.state.tr
   if (change.type === 'remplacement') {
     // Accepter le tout : la proposition entre dans le texte (on retire
@@ -1012,6 +1061,12 @@ function retirerTexte(state, tr, from, to) {
 }
 
 export function rejectChange(view, change) {
+  if (change.type === 'lot') {
+    for (let m = membresDuLot(view.state.doc, change); m.length; m = membresDuLot(view.state.doc, change)) {
+      rejectChange(view, m[0])
+    }
+    return
+  }
   const tr = view.state.tr
   if (change.type === 'remplacement') {
     // Rejeter le tout : la proposition disparaît (l'insertion est
