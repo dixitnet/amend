@@ -133,8 +133,11 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
     status.textContent = 'Demande en cours…'
     try {
       if ($from.sameParent($to)) {
-        // Single paragraph/heading selected — one request, as before.
-        const text = view.state.doc.textBetween(from, to, '\n')
+        // Single paragraph/heading selected — one request, as before. Le
+        // texte vient du même endroit que pour plusieurs paragraphes : avec
+        // `\n` pour un saut de ligne et ⟦n⟧ à la place d'une note.
+        const [bloc] = getTextBlocksInRange(view.state.doc, from, to)
+        const text = bloc ? bloc.text : view.state.doc.textBetween(from, to, '\n')
         const result = await requestSuggestion(docId, text, instruction)
         if (!result.ok) {
           status.textContent = result.error
@@ -152,7 +155,9 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
         status.textContent = `Demande en cours… (${blocks.length} paragraphes)`
         const results = await Promise.all(
           blocks.map((block) =>
-            block.text.trim() ? requestSuggestion(docId, block.text, instruction) : Promise.resolve({ ok: true, suggestion: block.text })
+            // Un bloc sans texte (une note seule, une image) n'a rien à
+            // corriger : pas de requête.
+            block.texteDiff.trim() ? requestSuggestion(docId, block.text, instruction) : Promise.resolve({ ok: true, suggestion: block.text })
           )
         )
         const failed = results.find((r) => !r.ok)

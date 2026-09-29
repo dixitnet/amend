@@ -710,3 +710,121 @@ test('S6 — l’IA : sélection partielle, deux paragraphes pour deux, titre, l
   insertAISuggestion(y.view, 1, 14, 'Le chat dort.', IA)
   assert.equal(listChanges(y.doc).length, 0)
 })
+
+// ================================ l’IA face aux notes et aux sauts de ligne
+//
+// 30/09/2026 (signalé par Sylvain : des paragraphes « remplacés par un
+// paragraphe tronqué »). Une note ou un saut de ligne dans le paragraphe
+// partait vers l'IA collé au texte, sans repère ; le modèle « corrigeait »
+// ce bruit, le diff basculait en réécriture entière et la note disparaissait.
+// Désormais : `\n` pour un saut, ⟦n⟧ pour une note ou une image, un diff qui
+// ne touche jamais aux atomes, et des positions justes après eux.
+
+const pNoeuds = (...contenu) => schema.node('paragraph', null, contenu)
+const noteDe = (texte) => schema.node('footnote', { suivi: null }, [schema.text(texte)])
+const sautDeLigne = () => schema.node('hard_break')
+/** Le texte d'un paragraphe avec ⟦⟧ à la place de chaque note et `\n` pour
+ * un saut de ligne — sans descendre dans les notes. */
+function lecture(p) {
+  let t = ''
+  p.forEach((n) => {
+    if (n.isText) t += n.text
+    else if (n.type.name === 'footnote') t += '⟦⟧'
+    else if (n.type.name === 'hard_break') t += '\n'
+  })
+  return t
+}
+
+test('l’IA reçoit un repère à la place d’une note, et un saut de ligne comme tel', () => {
+  const d = schema.node('doc', null, [
+    pNoeuds(schema.text('La ville se transforme'), noteDe('Voir Grisot, 2020.'), schema.text(' lentement.'), sautDeLigne(), schema.text('Seconde ligne.')),
+  ])
+  const e = editeur(d)
+  const [bloc] = getTextBlocksInRange(e.view.state.doc, 1, d.content.size - 1)
+  assert.equal(bloc.text, 'La ville se transforme⟦1⟧ lentement.\nSeconde ligne.')
+  assert.equal(bloc.texteDiff, 'La ville se transforme lentement.\nSeconde ligne.')
+  assert.equal(bloc.atomes, 2)
+  // Les positions : après la note (20 positions pour 18 caractères + 2
+  // bornes), « lentement » commence 20 positions plus loin que la fin de
+  // « transforme », pas 0.
+  assert.equal(bloc.posDe(0), 1)
+  assert.equal(bloc.posDe('La ville se transforme'.length), 1 + 'La ville se transforme'.length, 'la borne va à la tranche d’avant la note')
+  assert.equal(bloc.posDe('La ville se transforme'.length + 1), 1 + 'La ville se transforme'.length + 20 + 1)
+})
+
+test('une correction à côté d’une note ne touche que le mot fautif, et la note reste', () => {
+  const d = schema.node('doc', null, [
+    pNoeuds(schema.text('La ville se tranforme'), noteDe('Voir Grisot, 2020.'), schema.text(' lentement, et les habitans suivent.')),
+  ])
+  const e = editeur(d)
+  // Le modèle a gardé le repère : deux corrections, de part et d'autre.
+  insertAISuggestion(e.view, 1, d.content.size - 1, 'La ville se transforme⟦1⟧ lentement, et les habitants suivent.', IA)
+  assert.equal(e.nbBlocs(), 1, 'pas de réécriture entière')
+  const notes = []
+  e.view.state.doc.descendants((n) => {
+    if (n.type.name === 'footnote') notes.push(n)
+  })
+  assert.equal(notes.length, 1, 'la note est toujours là')
+  assert.equal(notes[0].marks.length, 0, 'et ne porte aucune marque')
+  acceptAllChanges(e.view)
+  assert.equal(lecture(e.view.state.doc.firstChild), 'La ville se transforme⟦⟧ lentement, et les habitants suivent.')
+  valide(e)
+})
+
+test('si le modèle perd le repère, la note reste où elle était', () => {
+  const d = schema.node('doc', null, [pNoeuds(schema.text('Un texte'), noteDe('La note.'), schema.text(' avec une fote.'))])
+  const e = editeur(d)
+  insertAISuggestion(e.view, 1, d.content.size - 1, 'Un texte avec une faute.', IA)
+  acceptAllChanges(e.view)
+  assert.equal(lecture(e.view.state.doc.firstChild), 'Un texte⟦⟧ avec une faute.')
+  valide(e)
+})
+
+test('un paragraphe avec une note n’est jamais barré d’un bloc, même très réécrit', () => {
+  const d = schema.node('doc', null, [pNoeuds(schema.text('Le chat dort sur le tapis rouge.'), noteDe('Note.'))])
+  const e = editeur(d)
+  insertAISuggestion(e.view, 1, d.content.size - 1, 'Un félin sommeille sur le tapis écarlate.⟦1⟧', IA)
+  assert.equal(e.nbBlocs(), 1)
+  acceptAllChanges(e.view)
+  assert.equal(lecture(e.view.state.doc.firstChild), 'Un félin sommeille sur le tapis écarlate.⟦⟧', 'la note a survécu à la réécriture')
+  valide(e)
+})
+
+test('les mots de deux lignes ne sont plus soudés, et le saut de ligne n’est jamais marqué', () => {
+  const d = schema.node('doc', null, [pNoeuds(schema.text('Première ligne'), sautDeLigne(), schema.text('seconde ligne avec chomage.'))])
+  const e = editeur(d)
+  const [bloc] = getTextBlocksInRange(e.view.state.doc, 1, d.content.size - 1)
+  assert.equal(bloc.text, 'Première ligne\nseconde ligne avec chomage.')
+  // Le modèle a remplacé le saut par une espace et corrigé l'accent : seul
+  // l'accent est marqué.
+  insertAISuggestion(e.view, 1, d.content.size - 1, 'Première ligne seconde ligne avec chômage.', IA)
+  assert.equal(e.nbBlocs(), 1)
+  const p = e.view.state.doc.firstChild
+  assert.equal(p.child(1).type.name, 'hard_break')
+  assert.equal(p.child(1).marks.length, 0)
+  let marques = 0
+  p.descendants((n) => {
+    if (n.isText && n.marks.some((m) => m.type.name === 'insertion' || m.type.name === 'deletion')) marques += n.text.length
+  })
+  assert.equal(marques, 2, 'o barré, ô ajouté — rien d’autre')
+  acceptAllChanges(e.view)
+  assert.equal(lecture(e.view.state.doc.firstChild), 'Première ligne\nseconde ligne avec chômage.')
+  valide(e)
+})
+
+test('plusieurs paragraphes, dont un avec note : chacun est corrigé chez lui', () => {
+  const d = schema.node('doc', null, [
+    pNoeuds(schema.text('Premier paragraphe avec une fote.')),
+    pNoeuds(schema.text('Deuxième'), noteDe('N.'), schema.text(' paragraphe, sans faute.')),
+    pNoeuds(schema.text('Troisieme paragraphe.')),
+  ])
+  const e = editeur(d)
+  const blocs = getTextBlocksInRange(e.view.state.doc, 1, d.content.size - 1)
+  assert.deepEqual(blocs.map((b) => b.text), ['Premier paragraphe avec une fote.', 'Deuxième⟦1⟧ paragraphe, sans faute.', 'Troisieme paragraphe.'])
+  insertAIParagraphSuggestions(e.view, blocs, ['Premier paragraphe avec une faute.', 'Deuxième⟦1⟧ paragraphe, sans faute.', 'Troisième paragraphe.'], IA)
+  acceptAllChanges(e.view)
+  assert.equal(e.nbBlocs(), 3)
+  assert.equal(e.view.state.doc.child(1).child(1).type.name, 'footnote')
+  assert.equal(e.view.state.doc.child(2).textContent, 'Troisième paragraphe.')
+  valide(e)
+})
