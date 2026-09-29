@@ -638,3 +638,75 @@ test('S3 — l’IA ne travaille pas sur un passage qui porte des modifications 
   acceptAllChanges(e.view)
   assert.equal(porteDesModifications(e.doc, 1, finDoc(e)), false)
 })
+
+// ======================================================= S6 : les scénarios qui tenaient
+
+/** Accepter tout doit donner `attendu`, rejeter tout doit rendre `origine`. */
+function allerRetour(fabrique, attendu, origine) {
+  const a = fabrique()
+  acceptAllChanges(a.view)
+  valide(a)
+  assert.equal(a.texte(), attendu, 'après acceptation')
+  const r = fabrique()
+  rejectAllChanges(r.view)
+  valide(r)
+  assert.equal(r.texte(), origine, 'après rejet')
+  assert.equal(listChanges(r.doc).length, 0)
+}
+
+test('S6 — effacer ou remplacer du texte déjà barré ne le fait jamais disparaître', () => {
+  const e = editeur(doc('Le chat dort.'))
+  e.selection(4, 8).effacerAvant()
+  e.selection(4, 8).effacerAvant()
+  assert.equal(e.texte(), 'Le chat dort.')
+  assert.equal(e.texteAccepte(), 'Le  dort.')
+  e.selection(4, 8).taper('chien')
+  assert.ok(e.texte().includes('chat'))
+  assert.equal(e.texteAccepte(), 'Le chien dort.')
+  // Une sélection qui mêle du barré et du normal, puis une frappe.
+  const f = editeur(doc('Le chat dort.'))
+  f.selection(4, 8).effacerAvant()
+  f.selection(4, 13).taper('X')
+  assert.equal(f.texteAccepte(), 'Le X.')
+  assert.ok(f.texte().includes('chat') && f.texte().includes('dort'))
+})
+
+test('S6 — deux auteurs se relaient sur le même mot, chacun garde sa trace', () => {
+  const x = editeur(doc('Le chat dort.'))
+  x.selection(4, 8).taper('chien')
+  const b = editeur(x.doc, { user: BOB })
+  b.selection(4, 9).taper('tigre')
+  valide(b)
+  assert.equal(b.texteAccepte(), 'Le tigre dort.')
+  assert.ok(b.texte().includes('chat'), 'le premier mot est toujours là, barré')
+})
+
+test('S6 — hors suivi, taper juste après un passage barré n’hérite pas du barré', () => {
+  const x = editeur(doc('Le chat dort.'))
+  x.selection(4, 8).effacerAvant()
+  x.suivi(false).selection(8).taper('X')
+  const n = x.doc.nodeAt(8)
+  assert.ok(n && !n.marks.some((m) => m.type.name === 'deletion'))
+})
+
+test('S6 — une sélection sur deux paragraphes, effacée ou remplacée, va et revient', () => {
+  allerRetour(() => { const x = editeur(doc('Premier.', 'Second.')); x.selection(4, 15).effacerAvant(); return x }, 'Pre\nnd.', 'Premier.\nSecond.')
+  allerRetour(() => { const x = editeur(doc('Premier.', 'Second.')); x.selection(4, 15).taper('X'); return x }, 'PreX\nnd.', 'Premier.\nSecond.')
+})
+
+test('S6 — l’IA : sélection partielle, deux paragraphes pour deux, titre, liste, insécables', () => {
+  allerRetour(() => { const x = editeur(doc('Le chat dort sur le tapis.')); insertAISuggestion(x.view, 4, 13, 'chien court', IA); return x }, 'Le chien court sur le tapis.', 'Le chat dort sur le tapis.')
+  allerRetour(() => { const x = editeur(doc('Le chat dort.', 'Le chien court.')); insertAISuggestion(x.view, 1, x.doc.content.size - 1, 'Le chat ronfle.\nLe chien galope.', IA); return x }, 'Le chat ronfle.\nLe chien galope.', 'Le chat dort.\nLe chien court.')
+  allerRetour(() => { const x = editeur(doc({ h: 1, texte: 'Titre' }, 'Texte.')); insertAISuggestion(x.view, 1, x.doc.content.size - 1, 'Grand titre\nTexte long.', IA); return x }, 'Grand titre\nTexte long.', 'Titre\nTexte.')
+  allerRetour(() => { const x = editeur(doc('Il a dit : bonjour.')); insertAISuggestion(x.view, 1, 20, 'Il a dit : « bonjour ».', IA); return x }, 'Il a dit : « bonjour ».', 'Il a dit : bonjour.')
+  const liste = schema.node('doc', null, [schema.node('bullet_list', null, [schema.node('list_item', null, [schema.node('paragraph', null, [schema.text('Le chat dort sur le tapis rouge.')])])])])
+  const x = editeur(liste)
+  insertAISuggestion(x.view, 3, 35, 'Le chat dort sur le tapis bleu.', IA)
+  valide(x)
+  acceptAllChanges(x.view)
+  assert.equal(x.doc.textContent, 'Le chat dort sur le tapis bleu.')
+  // Une réponse identique ne fait rien.
+  const y = editeur(doc('Le chat dort.'))
+  insertAISuggestion(y.view, 1, 14, 'Le chat dort.', IA)
+  assert.equal(listChanges(y.doc).length, 0)
+})

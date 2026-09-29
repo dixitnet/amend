@@ -148,6 +148,9 @@ function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
       tr.setNodeMarkup(mFrom, null, { ...r.noeud.attrs, suivi: { type: 'deletion', user, userColor, ts } })
     } else tr.addMark(mFrom, mTo, delMark)
   }
+  // Le nombre de morceaux (texte ou nœud) que la sélection contenait —
+  // zéro pour une sélection qui ne couvre que des bords de blocs.
+  return ranges.length
 }
 
 /** `true` si [f, t) est déjà proposé à la suppression — du texte barré, ou
@@ -447,7 +450,7 @@ export function rewriteForTracking(state, tr, user) {
   const authorMark = state.schema.marks.authorColor?.create({ user: user.name, userColor: user.color })
   const out = state.tr
 
-  if (cibleTo > cibleFrom) markRangeForTrackedDeletion(state, out, cibleFrom, cibleTo, delMark)
+  const morceaux = cibleTo > cibleFrom ? markRangeForTrackedDeletion(state, out, cibleFrom, cibleTo, delMark) : 0
 
   // Position du curseur une fois la frappe appliquée — calculée au moment
   // où l'on insère, pas après coup : `mapping.map(from)` rejoué à la fin
@@ -495,7 +498,19 @@ export function rewriteForTracking(state, tr, user) {
   // Une réécriture qui ne produit aucun pas ne doit **jamais** renvoyer
   // `null` quand il s'agissait d'un effacement : l'appelant appliquerait
   // alors la suppression d'origine, telle quelle, hors suivi.
-  if (out.steps.length === 0) return effacement ? seulementLeCurseur(state, versLArriere ? cibleFrom : cibleTo) : null
+  //
+  // Même chose pour une sélection **déjà barrée** qu'on efface ou qu'on
+  // remplace par rien : il n'y a aucun pas à faire (la marque est déjà
+  // là — et si l'instant est le même, addMark ne produit rien), mais
+  // laisser passer la suppression d'origine retirerait le texte pour de
+  // bon. Trouvé par un test qui n'échouait qu'une fois sur trois (29/09).
+  // Une sélection qui ne couvre que des bords de blocs (une fusion) n'a
+  // rien à barrer : elle passe la main, hors suivi, comme avant.
+  if (out.steps.length === 0) {
+    if (effacement) return seulementLeCurseur(state, versLArriere ? cibleFrom : cibleTo)
+    if (morceaux > 0) return seulementLeCurseur(state, cibleFrom)
+    return null
+  }
   // Le curseur va **après ce qu'on vient de taper** (17/09/2026).
   //
   // Sans ça, la sélection d'origine était simplement reportée à travers les
