@@ -19,7 +19,6 @@
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
 import { BLOCS, NIVEAUX_TITRE, police, formatPage, styleParDefaut, langue } from '../../shared/style.js'
-import { numerosDesNotes } from './notes.js'
 
 // Caractères que Typst interprète en mode contenu. Le backslash d'abord,
 // sinon on échapperait ceux qu'on vient d'ajouter.
@@ -93,12 +92,13 @@ function inline(node) {
       out += imageTypst(child)
       return
     }
-    // L'appel de note (28/09/2026) : un numéro en exposant. La note
-    // elle-même est écrite en fin de document par docToTypst — des notes
-    // de fin, pas de bas de page, pour le moment (décision de Sylvain) ;
-    // `#footnote[…]` est la ligne à changer le jour où on le voudra.
+    // Une note (28/09/2026) : une vraie note de bas de page Typst, qui
+    // numérote, place en bas de page et gère les débordements. Décision
+    // de Sylvain du 29/09 — les autres exports restent en notes de fin.
+    // Le texte passe par inline() : marques et échappement du texte
+    // courant.
     if (child.type.name === 'footnote') {
-      if (NOTES.has(child)) out += `#super[${NOTES.get(child)}]`
+      out += `#footnote[${inline(child)}]`
       return
     }
     if (!child.isText) return
@@ -114,26 +114,6 @@ function inline(node) {
     out += t
   })
   return out
-}
-
-/** Les numéros des notes du document en cours d'export — posés par
- * docToTypst, lus par inline(). */
-let NOTES = new Map()
-
-/** La section des notes, en fin de document : un titre qui n'en est pas
- * un (pas d'entrée dans la table des matières), puis une liste numérotée
- * dont chaque entrée passe par inline() — marques et échappement du texte
- * courant, une taille en dessous. Rien si le document n'a pas de note. */
-function notesTypst() {
-  if (!NOTES.size) return ''
-  const entrees = [...NOTES.keys()].map((node) => `[${inline(node)}]`)
-  return `#pagebreak(weak: true)
-
-#amend-h2[Notes]
-
-#amend-corps[#text(size: 0.9em)[#enum(numbering: "1.", ${entrees.join(', ')})]]
-
-`
 }
 
 /** Une image. Le nom de fichier seul : le serveur dépose les images du
@@ -417,6 +397,9 @@ function gabarit(style, titre) {
 // justifié — même règle que celle posée dans l'export navigateur.
 #set text(lang: ${chaine(langue(p.langue).id)}, font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt)
 #set par(justify: ${corps.align === 'justify'})
+// Les notes de bas de page (29/09/2026) : le corps de texte, une taille
+// en dessous. Un réglage « Notes » dans la feuille de style plus tard.
+#show footnote.entry: set text(size: ${Math.max(6, corps.size - 1)}pt)
 
 ${fonctions.join('\n\n')}
 
@@ -429,14 +412,11 @@ ${solidaires}${depart}`
 
 /** La source Typst complète d'un document. */
 export function docToTypst(doc, style, titre) {
-  NOTES = numerosDesNotes(doc)
   let corps = ''
   doc.forEach((node) => {
     corps += blocTypst(node)
   })
-  const notes = notesTypst()
-  NOTES = new Map()
-  return gabarit(style, titre) + '\n' + corps + notes
+  return gabarit(style, titre) + '\n' + corps
 }
 
 /** Demande le PDF au serveur et déclenche son téléchargement. Renvoie une
