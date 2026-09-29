@@ -1,16 +1,11 @@
-// Historique léger (voir server/storage.js : getHistoryMeta/getHistoryRaw/
-// compactDoc, et README.md pour la conception complète). Deux
-// responsabilités bien séparées :
-//   - reconstruire le Markdown d'une version passée à partir des opérations
-//     Yjs brutes (pour la page de consultation, voir versions.js) ;
-//   - déclencher la compaction quand le serveur signale qu'il y a trop
-//     d'opérations stockées (needsCompaction).
-// Les deux se font ici plutôt que côté serveur parce que fusionner des
-// mises à jour Yjs est une opération Yjs — voir l'invariant "zéro
-// dépendance yjs côté serveur" documenté en tête de server/storage.js.
-// L'un et l'autre travaillent sur un Y.Doc jetable, jamais sur celui de
-// l'éditeur en cours (ydoc dans editor.js) : aucun risque d'interférer
-// avec une session d'édition en cours.
+// Historique léger (voir server/storage.js : getHistoryMeta/getHistoryRaw) :
+// reconstruire le Markdown d'une version passée à partir des opérations
+// Yjs brutes (pour la page de consultation, voir versions.js). Sur un Y.Doc
+// jetable, jamais sur celui de l'éditeur en cours (ydoc dans editor.js).
+//
+// Le compactage, qui vivait aussi ici, est fait par le serveur depuis le
+// 29/09/2026 (server/replique.js) : il tient une réplique du document, et
+// l'instantané n'a plus à être calculé par un navigateur.
 
 import * as Y from 'yjs'
 import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror'
@@ -20,15 +15,6 @@ import { docToMarkdown } from './mdExport.js'
 // Doit correspondre au nom utilisé dans editor.js (ydoc.getXmlFragment(...))
 // — sinon la reconstruction retomberait sur un fragment vide.
 const XML_FRAGMENT_NAME = 'prosemirror-content'
-
-function bytesToBase64(bytes) {
-  let binary = ''
-  const chunkSize = 0x8000 // évite un dépassement de pile avec un très gros tableau
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
-  }
-  return btoa(binary)
-}
 
 function base64ToBytes(base64) {
   const binary = atob(base64)
@@ -75,87 +61,4 @@ export function groupIntoVersions(entries) {
     }
   }
   return versions.reverse()
-}
-
-/** À appeler ponctuellement (ex. juste après la connexion, voir editor.js)
- * pour compacter le journal d'un document si le serveur estime qu'il y a
- * trop d'opérations stockées. Ne fait rien si ce n'est pas nécessaire.
- * Best-effort et silencieux : un échec (réseau, ou une autre compaction/de
- * nouvelles frappes survenues entre-temps — le serveur répond alors 409)
- * n'affecte ni l'édition en cours ni la consultation de l'historique, juste
- * la taille du journal sur disque ; un prochain appel (une prochaine
- * connexion, la sienne ou celle de quelqu'un d'autre) retentera. */
-export async function runCompactionIfNeeded(docId) {
-  try {
-    const metaRes = await fetch(`/api/docs/${docId}/history`)
-    if (!metaRes.ok) return
-    const meta = await metaRes.json()
-    if (!meta.needsCompaction) return
-
-    const rawRes = await fetch(`/api/docs/${docId}/history/raw`)
-    if (!rawRes.ok) return
-    const { entries } = await rawRes.json()
-    if (entries.length !== meta.count) return // a changé entre-temps, on laisse la prochaine tentative s'en charger
-
-    // On garde les maxUncompactedOps dernières opérations, moins une :
-    // l'instantané fusionné occupe lui-même une "opération" dans le journal
-    // résultant (voir getHistoryMeta/compactDoc côté serveur), donc le
-    // compte retombe exactement à maxUncompactedOps et pas un de plus.
-    // Depuis le 15/09/2026 le seuil de déclenchement est de toute façon plus
-    // haut que ce nombre (compactionTrigger, hystérésis côté serveur), ce
-    // qui laisse ~500 opérations de répit avant la compaction suivante —
-    // sans quoi la première frappe d'après remettait le document « à
-    // compacter » et chaque connexion relançait le travail.
-    let keepFromIndex = entries.length - (meta.maxUncompactedOps - 1)
-
-    // Le poids compte autant que le nombre (23/09/2026). Une compaction
-    // déclenchée par les octets trouve souvent **peu** d'opérations — deux
-    // cents reconnexions à 600 ko, par exemple : la règle au nombre
-    // donnerait alors un index négatif, et l'on repartirait sans rien
-    // faire, en laissant le journal grossir indéfiniment. On remonte donc
-    // aussi depuis la fin en cumulant les tailles réelles, et l'on garde la
-    // borne la plus basse des deux — c'est-à-dire on compacte le plus.
-    const budget = Math.max(1, Math.floor((meta.maxUncompactedBytes || 0) / 2))
-    if (budget > 1) {
-      let cumul = 0
-      let borne = entries.length
-      while (borne > 0) {
-        // base64 : quatre caractères pour trois octets.
-        const taille = Math.ceil((entries[borne - 1].data.length * 3) / 4)
-        if (cumul + taille > budget) break
-        cumul += taille
-        borne--
-      }
-      keepFromIndex = Math.max(keepFromIndex, borne)
-    }
-
-    // Il faut laisser au moins une opération à fusionner, sinon la
-    // « compaction » remplacerait une opération par elle-même.
-    if (keepFromIndex <= 0) return
-    if (keepFromIndex > entries.length) return
-
-    const scratch = new Y.Doc()
-    let baseSnapshot
-    try {
-      for (let i = 0; i < keepFromIndex; i++) {
-        Y.applyUpdate(scratch, base64ToBytes(entries[i].data))
-      }
-      baseSnapshot = Y.encodeStateAsUpdate(scratch)
-    } finally {
-      scratch.destroy()
-    }
-
-    await fetch(`/api/docs/${docId}/compact`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        baseSnapshot: bytesToBase64(baseSnapshot),
-        baseTs: entries[keepFromIndex - 1].ts,
-        keepFromIndex,
-        expectedTotalBeforeCompaction: entries.length,
-      }),
-    })
-  } catch {
-    // Best-effort — voir le commentaire de la fonction.
-  }
 }

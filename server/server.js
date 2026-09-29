@@ -7,6 +7,7 @@ import { dirname } from 'node:path'
 import { isWebSocketUpgrade, acceptWebSocket } from './ws.js'
 import { Storage } from './storage.js'
 import { Rooms } from './rooms.js'
+import { Repliques } from './replique.js'
 import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
 import { Metrics } from './metrics.js'
 import { Uploads } from './uploads.js'
@@ -156,10 +157,6 @@ function supportAutorise(email) {
   return true
 }
 const MAX_JSON_BODY = 20_000
-// La requête de compaction transporte un instantané Yjs déjà fusionné
-// (encodé en base64) — potentiellement bien plus gros qu'un simple champ
-// de formulaire, d'où une limite à part, nettement plus large.
-const MAX_COMPACT_BODY = 20_000_000
 // La source Typst d'un livre entier : 531 ko mesurés sur 524 000 signes.
 const MAX_TYPST_BODY = 4_000_000
 // La publication poste le document entier, en blocs structurés : même ordre
@@ -171,7 +168,6 @@ const MAX_TYPST_BODY = 4_000_000
 const MAX_PUBLICATION_BODY = 4_000_000
 
 const storage = new Storage(DATA_DIR)
-const rooms = new Rooms(storage)
 // Les seuils viennent du .env (voir .env.example) et sont lus ici, pas au
 // chargement du module : loadDotEnv() ne s'exécute qu'après les imports.
 const users = new Users(DATA_DIR)
@@ -188,6 +184,11 @@ const metrics = new Metrics(DATA_DIR)
 metrics.prune()
 const supportTraites = new SupportTraites(DATA_DIR)
 const versions = new Versions(DATA_DIR)
+// Le serveur tient une réplique de chaque document ouvert (29/09/2026,
+// server/replique.js) : c'est elle qui sert l'état, vérifie les lecteurs
+// et compacte le journal.
+const repliques = new Repliques(storage, { versions })
+const rooms = new Rooms(storage, repliques)
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -526,45 +527,21 @@ async function handleApi(req, res, url) {
 
   const compactMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/compact$/)
   if (compactMatch && req.method === 'POST') {
+    // Depuis le 29/09/2026 le serveur compacte lui-même, depuis sa réplique
+    // (server/replique.js) — automatiquement au seuil et quand la salle se
+    // vide. Cette route déclenche un compactage à la demande ; elle ne
+    // reçoit plus d'instantané du client.
     const id = compactMatch[1]
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
     if (!capabilities(storage.roleFor(id, readSession(req))).canManageDocument) {
       return sendJson(res, 403, { error: 'réservé aux éditeurs' })
     }
-    const body = await readJsonBody(req, MAX_COMPACT_BODY)
-    if (typeof body.baseSnapshot !== 'string' || !body.baseSnapshot) {
-      return sendJson(res, 400, { error: 'baseSnapshot (base64) requis' })
-    }
-    if (typeof body.baseTs !== 'number' || typeof body.keepFromIndex !== 'number') {
-      return sendJson(res, 400, { error: 'baseTs et keepFromIndex (nombres) requis' })
-    }
     try {
-      const instantane = Buffer.from(body.baseSnapshot, 'base64')
-      const result = await storage.compactDoc(id, {
-        baseSnapshot: instantane,
-        baseTs: body.baseTs,
-        keepFromIndex: body.keepFromIndex,
-        expectedTotalBeforeCompaction: body.expectedTotalBeforeCompaction,
-      })
-      // Une version enregistrée avant chaque compactage (23/09/2026).
-      // C'est ce que le compactage allait effacer, et le client vient de le
-      // calculer pour nous : ne pas le garder serait jeter la seule mémoire
-      // du document qui existe encore à cet instant. Après la compaction et
-      // non avant : si elle échoue, le journal est intact et il n'y a rien à
-      // sauver.
-      try {
-        versions.enregistrer(id, instantane, { ts: body.baseTs, origine: 'compactage' })
-      } catch (err) {
-        // Best-effort : une version qu'on n'a pas pu écrire ne doit pas
-        // faire échouer une compaction qui, elle, a réussi.
-        console.error(`[versions] échec d'enregistrement pour ${id} :`, err.message)
-      }
-      return sendJson(res, 200, result)
+      await repliques.obtenir(id)
+      const result = await repliques.compacter(id)
+      return sendJson(res, 200, result || { count: 0 })
     } catch (err) {
-      // Journal changé entre-temps (autre compaction, nouvelles frappes) ou
-      // paramètres hors limites : le client recalcule et réessaie, ce n'est
-      // pas une erreur serveur.
-      return sendJson(res, 409, { error: err.message })
+      return sendJson(res, 500, { error: err.message })
     }
   }
 
@@ -657,6 +634,7 @@ const TARIFS_IA = {
       apercu({
         storage,
         rooms,
+        repliques,
         metrics,
         uploads,
         users,
@@ -1223,7 +1201,24 @@ server.on('upgrade', (req, socket) => {
   }
   const user = (url.searchParams.get('user') || 'Anonyme').slice(0, 60)
   const conn = acceptWebSocket(req, socket)
-  rooms.join(docId, conn, user)
+  // Ce que cette personne peut faire, et le nom de son compte : la salle
+  // s'en sert pour ne laisser passer d'un lecteur que ses commentaires.
+  const emailSession = readSession(req)
+  const compteSession = users.get(emailSession)
+  let vecteur = null
+  try {
+    const sv = url.searchParams.get('sv')
+    if (sv) vecteur = Buffer.from(sv, 'base64')
+  } catch {
+    vecteur = null
+  }
+  rooms.join(
+    docId,
+    conn,
+    user,
+    { capabilities: capabilities(storage.roleFor(docId, emailSession)), nom: compteSession ? compteSession.nom : user },
+    { vecteur }
+  )
   // Journal des connexions : la liste d'accès dit qui *peut* venir, elle ne
   // dit jamais qui vient (voir claude/conception-backoffice.md §3). On
   // n'enregistre que l'adresse de session, le document et la durée — jamais
@@ -1282,6 +1277,7 @@ async function shutdown(signal) {
   } catch (err) {
     console.error('Erreur pendant la sauvegarde finale :', err)
   }
+  repliques.fermer()
   process.exit(0)
 }
 process.on('SIGINT', () => shutdown('SIGINT'))

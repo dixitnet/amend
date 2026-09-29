@@ -240,7 +240,11 @@ class Redacteur {
   }
   connecter() {
     return new Promise((resolve) => {
-      const ws = new WebSocket(`${WS_BASE}/ws/${this.docId}?user=${encodeURIComponent(this.nom)}`, {
+      // `sv` : ce que ce rédacteur a déjà — le serveur n'envoie que le reste
+      // (protocole du 29/09/2026, voir server/rooms.js).
+      const sv = Buffer.from(Y.encodeStateVector(this.doc)).toString('base64')
+      this.synchronise = false
+      const ws = new WebSocket(`${WS_BASE}/ws/${this.docId}?user=${encodeURIComponent(this.nom)}&sv=${encodeURIComponent(sv)}`, {
         headers: COOKIE ? { cookie: COOKIE } : {},
       })
       this.ws = ws
@@ -251,7 +255,14 @@ class Redacteur {
         this.stats.recus++
         this.stats.octetsRecus += data.length
         this.dernierMessage = Date.now()
-        if (!isBinary) return
+        if (!isBinary) {
+          try {
+            const m = JSON.parse(data.toString())
+            if (m.type === 'synced') this.synchronise = true
+            if (m.type === 'refuse') this.stats.erreurs++
+          } catch {}
+          return
+        }
         try { Y.applyUpdate(this.doc, new Uint8Array(data), 'distant') } catch { this.stats.erreurs++ }
       })
       ws.on('close', () => { this.connecte = false; if (ouvert) this.stats.coupures++; else resolve('refusé') })
@@ -259,10 +270,11 @@ class Redacteur {
       setTimeout(() => resolve(ouvert ? 'ouvert' : 'délai'), 15000)
     })
   }
-  /** Attend la fin du rejeu du journal : plus rien reçu depuis `silenceMs`. */
+  /** Attend la fin de l'envoi initial : le message `synced` (depuis le
+   * 29/09/2026), ou, à défaut, plus rien reçu depuis `silenceMs`. */
   async attendreRejeu(silenceMs = 800, maxMs = 120000) {
     const t0 = Date.now()
-    while (Date.now() - this.dernierMessage < silenceMs && Date.now() - t0 < maxMs) await dors(100)
+    while (!this.synchronise && Date.now() - this.dernierMessage < silenceMs && Date.now() - t0 < maxMs) await dors(50)
     return Date.now() - t0
   }
   _paragraphes() {

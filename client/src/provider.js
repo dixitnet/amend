@@ -22,9 +22,13 @@ function fromBase64(b64) {
  *     { type: 'awareness', data: base64(<encoded awareness update>) },
  *     which is never persisted (cursors/presence are ephemeral).
  *
- * This intentionally does not implement the full y-websocket sync protocol
- * (sync-step1/2) — the server instead replays its whole update log to every
- * new connection, which Yjs can merge in any order.
+ * Depuis le 29/09/2026 le serveur tient une réplique du document
+ * (server/replique.js) et la synchronisation se fait en deux temps, comme
+ * le prévoit Yjs : à l'ouverture, ce client envoie son vecteur d'état
+ * ({ type: 'sync', sv }) ; le serveur répond par ce qui manque au client
+ * (une trame binaire), puis par { type: 'synced', sv } avec son propre
+ * vecteur ; le client renvoie alors seulement ce qui manque au serveur —
+ * ses modifications faites hors ligne — et non plus l'état complet.
  */
 export class SimpleProvider extends EventTarget {
   constructor(ydoc, docId, user) {
@@ -59,9 +63,16 @@ export class SimpleProvider extends EventTarget {
     this.likelyRejected = false
     this._consecutiveFailedAttempts = 0
 
+    // Vrai entre le `synced` d'une connexion et sa fermeture : c'est
+    // seulement là qu'une frappe part telle quelle. Entre l'ouverture et
+    // `synced`, elle attend — le serveur n'a peut-être pas encore ce qui la
+    // précède (des modifications hors ligne), et une opération qui s'appuie
+    // sur de l'inconnu serait refusée comme « hors séquence ». À `synced`,
+    // la différence envoyée la contient.
+    this._pretAEnvoyer = false
     this._onDocUpdate = (update, origin) => {
       if (origin === this) return
-      if (this.connected) {
+      if (this.connected && this._pretAEnvoyer) {
         this._sendBinary(update)
         this.saving = true
         this.dispatchEvent(new Event('status'))
@@ -100,7 +111,11 @@ export class SimpleProvider extends EventTarget {
 
   _wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    return `${proto}//${location.host}/ws/${this.docId}?user=${encodeURIComponent(this.user.name)}`
+    // « Voilà ce que j'ai » dès l'ouverture : le serveur ne renverra que le
+    // reste. Dans l'URL plutôt qu'en premier message, pour que la réponse
+    // ne dépende pas d'une course avec le chargement de la réplique.
+    const sv = encodeURIComponent(toBase64(Y.encodeStateVector(this.ydoc)))
+    return `${proto}//${location.host}/ws/${this.docId}?user=${encodeURIComponent(this.user.name)}&sv=${sv}`
   }
 
   _connect() {
@@ -112,6 +127,7 @@ export class SimpleProvider extends EventTarget {
     ws.addEventListener('open', () => {
       openedThisAttempt = true
       this.connected = true
+      this._pretAEnvoyer = false
       this._reconnectDelay = 1000
       this._consecutiveFailedAttempts = 0
       this.likelyRejected = false
@@ -119,19 +135,10 @@ export class SimpleProvider extends EventTarget {
       // Announce presence once connected.
       const update = encodeAwarenessUpdate(this.awareness, [this.ydoc.clientID])
       this._sendText(JSON.stringify({ type: 'awareness', data: toBase64(update) }))
-      // Re-send this tab's entire document state, not just new updates
-      // going forward. Two reasons: any edit made while disconnected never
-      // actually reached the server (see _onDocUpdate above — `_sendBinary`
-      // is a no-op while offline), and this "replay everything" relay
-      // doesn't implement sync-step1/2 to ask the server what it's
-      // missing. Yjs updates are idempotent/commutative, so re-sending the
-      // full state is always safe — the server and every peer just merge
-      // it, whether or not they already had all of it.
-      if (this.hasPendingLocalChanges) {
-        this._sendBinary(Y.encodeStateAsUpdate(this.ydoc))
-        this.hasPendingLocalChanges = false
-        this.dispatchEvent(new Event('status'))
-      }
+      // Ce qui a été fait hors ligne part à la réception de `synced`, qui
+      // porte le vecteur du serveur : seulement la différence (voir
+      // _handleText). Avant le 29/09, c'était l'état entier du document à
+      // chaque reconnexion — la cause des journaux de 100 Mo.
     })
 
     ws.addEventListener('message', (event) => {
@@ -144,6 +151,7 @@ export class SimpleProvider extends EventTarget {
 
     ws.addEventListener('close', () => {
       this.connected = false
+      this._pretAEnvoyer = false
       if (!openedThisAttempt) {
         this._consecutiveFailedAttempts += 1
         // 3 in a row without ever reaching 'open': treat as a likely
@@ -182,14 +190,37 @@ export class SimpleProvider extends EventTarget {
         // ignore malformed awareness payloads
       }
     } else if (msg.type === 'synced') {
-      // Le serveur a fini de rejouer le journal : le document est complet.
-      // `synced` reste vrai ensuite — une reconnexion rejoue le journal,
-      // mais on a déjà le document à l'écran, il n'y a plus de masque à
-      // lever.
+      // Le serveur a envoyé ce qui nous manquait : le document est complet.
+      // À notre tour : ce qui lui manque, d'après le vecteur qu'il joint —
+      // rien du tout dans le cas courant, nos modifications hors ligne
+      // sinon. Un serveur ancien, sans vecteur, reçoit l'état entier si on
+      // a des modifications en attente (toujours correct, juste lourd).
+      let manquant = null
+      try {
+        manquant = typeof msg.sv === 'string' && msg.sv ? Y.encodeStateAsUpdate(this.ydoc, fromBase64(msg.sv)) : null
+      } catch {
+        manquant = null
+      }
+      if (manquant && manquant.length > 2) this._sendBinary(manquant)
+      else if (!manquant && this.hasPendingLocalChanges) this._sendBinary(Y.encodeStateAsUpdate(this.ydoc))
+      this._pretAEnvoyer = true
+      if (this.hasPendingLocalChanges) {
+        this.hasPendingLocalChanges = false
+        this.dispatchEvent(new Event('status'))
+      }
+      // `synced` reste vrai ensuite : une reconnexion resynchronise, mais
+      // on a déjà le document à l'écran, il n'y a plus de masque à lever.
       if (!this.synced) {
         this.synced = true
         this.dispatchEvent(new Event('synced'))
       }
+    } else if (msg.type === 'refuse') {
+      // Le serveur n'a pas accepté une opération de ce client (un lecteur
+      // qui a touché au texte, en contournant l'interface) : l'état local
+      // diverge de celui des autres. Le plus sûr est de le jeter et de
+      // recharger — brutal, et réservé à un cas qu'un client honnête ne
+      // rencontre jamais.
+      this.dispatchEvent(new CustomEvent('refuse', { detail: { raison: msg.raison || '' } }))
     } else if (msg.type === 'title' && typeof msg.title === 'string') {
       // Relayed, not persisted here — whoever changed it already saved it
       // via PATCH /api/docs/:id (see editor.js). This just tells everyone

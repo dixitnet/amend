@@ -34,7 +34,6 @@ import { mountCommentsGutter, mountGutterComposer } from './commentsGutter.js'
 import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
 import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
-import { runCompactionIfNeeded } from './historySnapshot.js'
 import { mountTkMarker } from './tkMarker.js'
 import { markdownShortcutsPlugin } from './markdownShortcuts.js'
 import { taskListPlugin } from './taskList.js'
@@ -804,17 +803,12 @@ export function mountEditor(root, docId, user, docMeta) {
   provider.addEventListener('status', renderConnectionStatus)
   renderConnectionStatus()
 
-  // Compaction en tâche de fond (voir historySnapshot.js/server/storage.js) :
-  // ne fait rien si le journal n'a pas encore dépassé le seuil, et échoue
-  // silencieusement sinon (une autre personne connectée s'en chargera) —
-  // pas la peine d'attendre ni de bloquer l'ouverture de l'éditeur pour ça.
-  // Un léger délai après la première connexion plutôt qu'immédiat, pour ne
-  // pas rivaliser avec le chargement initial du document.
-  let compactionTried = false
-  provider.addEventListener('status', () => {
-    if (compactionTried || !provider.connected) return
-    compactionTried = true
-    setTimeout(() => runCompactionIfNeeded(docId), 3000)
+  // Le serveur compacte lui-même depuis sa réplique (29/09/2026) : plus
+  // rien à faire ici. Ce qu'il peut nous dire, en revanche, c'est qu'il a
+  // **refusé** une opération — l'état local diverge, on recharge.
+  provider.addEventListener('refuse', (e) => {
+    messageFugace(`Modification refusée par le serveur : ${e.detail.raison}. Rechargement…`, { erreur: true })
+    setTimeout(() => location.reload(), 1500)
   })
 
   // Live title sync between rédacteurs (correctif 4.1.1) — never overwrite

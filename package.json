@@ -2,7 +2,7 @@
   "name": "collabtext",
   "version": "0.1.0",
   "private": true,
-  "description": "Édition collaborative de texte avec suivi des modifications et assistance IA — auto-hébergé, zéro dépendance côté serveur.",
+  "description": "Édition collaborative de texte avec suivi des modifications et assistance IA — auto-hébergé, une seule dépendance côté serveur (yjs).",
   "type": "module",
   "engines": {
     "node": ">=18.0.0"
@@ -14,10 +14,12 @@
     "test:server": "node --test --test-concurrency=1 server/test/*.test.js",
     "loadtest": "node tools/loadtest.js"
   },
+  "dependencies": {
+    "yjs": "^13.6.18"
+  },
   "devDependencies": {
     "pm2": "^7.0.4",
     "ws": "^8.18.0",
-    "yjs": "^13.6.18",
     "y-protocols": "^1.0.6"
   }
 }

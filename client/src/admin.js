@@ -230,6 +230,7 @@ export async function mountAdmin(root) {
         ${chiffre(`${nombre(s.rssMo)}${NBSP}Mo`, 'mémoire du process', 'plafond 700 Mo')}
         ${chiffre(duree(s.uptimeSec), 'sans redémarrage', `pid ${s.pid}`)}
         ${chiffre(nombre(s.connexionsEnCours.reduce((a, r) => a + r.connectes, 0)), 'connexions en cours')}
+        ${chiffre(nombre((s.repliques || []).length), 'documents en mémoire', 'plafond 20')}
         ${chiffre(octets(s.dataDirOctets), 'données sur disque')}
       </div>
 

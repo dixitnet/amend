@@ -366,11 +366,7 @@ test("l'historique et la compaction ne sont plus ouverts à qui a l'identifiant"
     const res = await fetch(`${BASE}${url}`)
     assert.equal(res.status, 403, url)
   }
-  const compactAnonyme = await fetch(`${BASE}/api/docs/${doc.id}/compact`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ baseSnapshot: 'AAA=', baseTs: Date.now(), keepFromIndex: 0 }),
-  })
+  const compactAnonyme = await fetch(`${BASE}/api/docs/${doc.id}/compact`, { method: 'POST' })
   assert.equal(compactAnonyme.status, 403)
 
   // Un correcteur lit l'historique (c'est lire le document) mais ne le
@@ -386,24 +382,22 @@ test("l'historique et la compaction ne sont plus ouverts à qui a l'identifiant"
   )
   const compactCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}/compact`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: correcteurCookie },
-    body: JSON.stringify({ baseSnapshot: 'AAA=', baseTs: Date.now(), keepFromIndex: 0 }),
+    headers: { cookie: correcteurCookie },
   })
   assert.equal(compactCorrecteur.status, 403)
 
-  // L'éditeur, lui, passe les contrôles : la réponse dépend ensuite des
-  // paramètres de compaction, pas des droits (409 = journal incohérent avec
-  // la demande, ce qui prouve qu'on est allé jusqu'au traitement).
+  // L'éditeur, lui, passe les contrôles. Depuis le 29/09/2026 la route ne
+  // reçoit plus d'instantané : elle demande au serveur de compacter depuis
+  // sa réplique, et répond ce que le compactage a fait.
   assert.equal(
     (await fetch(`${BASE}/api/docs/${doc.id}/history/raw`, { headers: { cookie: editorCookie } })).status,
     200
   )
   const compactEditeur = await fetch(`${BASE}/api/docs/${doc.id}/compact`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: editorCookie },
-    body: JSON.stringify({ baseSnapshot: 'AAA=', baseTs: Date.now(), keepFromIndex: 99999 }),
+    headers: { cookie: editorCookie },
   })
-  assert.equal(compactEditeur.status, 409)
+  assert.equal(compactEditeur.status, 200)
 })
 
 test('la feuille de style et le diagnostic sont réservés aux administrateurs', async () => {

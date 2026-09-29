@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import * as Y from 'yjs'
 
 const PORT = 18787
 process.env.PORT = String(PORT)
@@ -91,8 +92,9 @@ async function createDoc(title) {
   return doc
 }
 
-function connect(docId, user) {
-  const ws = new WebSocket(`ws://localhost:${PORT}/ws/${docId}?user=${encodeURIComponent(user)}`, {
+function connect(docId, user, sv = null) {
+  const q = sv ? `&sv=${encodeURIComponent(Buffer.from(sv).toString('base64'))}` : ''
+  const ws = new WebSocket(`ws://localhost:${PORT}/ws/${docId}?user=${encodeURIComponent(user)}${q}`, {
     headers: { cookie: COOKIE },
   })
   ws.binaryType = 'arraybuffer'
@@ -114,18 +116,52 @@ test('404s on an unknown document', async () => {
   assert.equal(res.status, 404)
 })
 
+/** Une vraie opération Yjs (le serveur les lit depuis le 29/09/2026 : une
+ * suite d'octets arbitraires est ignorée, ni persistée ni relayée). */
+function operation(texte) {
+  const d = new Y.Doc()
+  d.getXmlFragment('prosemirror-content').insert(0, [new Y.XmlText(texte)])
+  return Y.encodeStateAsUpdate(d)
+}
+
+/** Le texte d'un document reconstruit depuis les trames binaires reçues. */
+function texteDe(trames) {
+  const d = new Y.Doc()
+  for (const t of trames) Y.applyUpdate(d, t)
+  return d.getXmlFragment('prosemirror-content').toString()
+}
+
 test('relays binary updates between two live clients', async () => {
   const doc = await createDoc('Collab test')
   const alice = connect(doc.id, 'Alice')
   const bob = connect(doc.id, 'Bob')
   await withTimeout(Promise.all([once(alice, 'open'), once(bob, 'open')]), 2000, 'open')
+  await new Promise((r) => setTimeout(r, 100))
 
-  const payload = new Uint8Array([1, 2, 3, 4, 5])
+  const payload = operation('Bonjour')
   const received = withTimeout(onceUpdate(bob), 2000, 'bob message')
   alice.send(payload)
   const event = await received
   assert.deepEqual(new Uint8Array(event.data), payload)
 
+  alice.close()
+  bob.close()
+})
+
+test('une suite d’octets qui n’est pas une opération Yjs n’est ni relayée ni gardée', async () => {
+  const doc = await createDoc('Bruit')
+  const alice = connect(doc.id, 'Alice')
+  const bob = connect(doc.id, 'Bob')
+  await withTimeout(Promise.all([once(alice, 'open'), once(bob, 'open')]), 2000, 'open')
+  await new Promise((r) => setTimeout(r, 100))
+  const recu = []
+  bob.addEventListener('message', (e) => {
+    if (typeof e.data !== 'string') recu.push(1)
+  })
+  alice.send(new Uint8Array([1, 2, 3, 4, 5]))
+  await new Promise((r) => setTimeout(r, 300))
+  assert.equal(recu.length, 0)
+  assert.equal(directStorage.readUpdates(doc.id).length, 0)
   alice.close()
   bob.close()
 })
@@ -165,28 +201,74 @@ test('persists binary updates and replays them to a new client', async () => {
   const alice = connect(doc.id, 'Alice')
   await withTimeout(once(alice, 'open'), 2000, 'alice open')
 
-  const update1 = new Uint8Array([9, 9, 9])
-  const update2 = new Uint8Array([7, 7])
+  await new Promise((r) => setTimeout(r, 100))
+  const update1 = operation('Un')
+  const update2 = operation('Deux')
   alice.send(update1)
   alice.send(update2)
   // Give the server a moment to persist both (single-threaded but async I/O
   // ordering isn't guaranteed to have completed before we open the next
   // connection otherwise).
-  await new Promise((r) => setTimeout(r, 150))
+  await new Promise((r) => setTimeout(r, 300))
   alice.close()
+  assert.equal(directStorage.readUpdates(doc.id).length, 2, 'les deux opérations sont au journal')
 
+  // Un nouveau client ne reçoit plus le journal opération par opération
+  // (29/09/2026) mais **l'état** de la réplique, en une trame — puis
+  // `synced` avec le vecteur d'état du serveur.
   const bob = connect(doc.id, 'Bob')
   const seen = []
+  let synced = null
   bob.addEventListener('message', (e) => {
-    if (typeof e.data === 'string') return // la fin du rejeu
+    if (typeof e.data === 'string') {
+      if (e.data.includes('"synced"')) synced = JSON.parse(e.data)
+      return
+    }
     seen.push(new Uint8Array(e.data))
   })
   await withTimeout(once(bob, 'open'), 2000, 'bob open')
-  await new Promise((r) => setTimeout(r, 200))
-  assert.equal(seen.length, 2)
-  assert.deepEqual(seen[0], update1)
-  assert.deepEqual(seen[1], update2)
+  await new Promise((r) => setTimeout(r, 300))
+  assert.equal(seen.length, 1, 'un seul instantané')
+  assert.equal(texteDe(seen), texteDe([update1, update2]))
+  assert.ok(synced && typeof synced.sv === 'string' && synced.sv.length > 0, 'synced porte le vecteur du serveur')
   bob.close()
+})
+
+test('un client qui dit ce qu’il a ne reçoit que le reste, et n’envoie que ce qui manque', async () => {
+  const doc = await createDoc('Sync')
+  const u1 = operation('Déjà connu')
+  directStorage.appendUpdate(doc.id, Buffer.from(u1))
+  await directStorage.flushAll()
+
+  // Le client a déjà u1 ; il a aussi une modification faite hors ligne.
+  const local = new Y.Doc()
+  Y.applyUpdate(local, u1)
+  local.getXmlFragment('prosemirror-content').insert(0, [new Y.XmlText('Hors ligne')])
+
+  const ws = connect(doc.id, 'Alice', Y.encodeStateVector(local))
+  const recu = []
+  let synced = null
+  ws.addEventListener('message', (e) => {
+    if (typeof e.data === 'string') {
+      if (e.data.includes('"synced"')) synced = JSON.parse(e.data)
+      return
+    }
+    recu.push(new Uint8Array(e.data))
+  })
+  await withTimeout(once(ws, 'open'), 2000, 'open')
+  await new Promise((r) => setTimeout(r, 300))
+  assert.ok(synced, 'synced reçu')
+  // Rien ne manque au client : aucune trame binaire (ou une trame vide).
+  assert.ok(recu.every((t) => t.length <= 2), `le serveur a renvoyé ${recu.length} trame(s) alors que le client avait tout`)
+  // Le client envoie ce qui manque au serveur : la différence, pas l'état.
+  const diff = Y.encodeStateAsUpdate(local, Buffer.from(synced.sv, 'base64'))
+  assert.ok(diff.length < Y.encodeStateAsUpdate(local).length, 'la différence est plus petite que l’état')
+  ws.send(diff)
+  await new Promise((r) => setTimeout(r, 300))
+  const journal = directStorage.readUpdates(doc.id)
+  assert.equal(journal.length, 2)
+  assert.ok(texteDe(journal).includes('Hors ligne'))
+  ws.close()
 })
 
 test('refuses a WebSocket connection to an unknown document', async () => {

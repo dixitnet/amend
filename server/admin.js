@@ -72,7 +72,7 @@ function enEuros(entree, sortie, tarifs) {
   return Math.round(Math.max(0, brut) * 10000) / 10000
 }
 
-export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, dataDir, waitlistPath, supportTraites }) {
+export function apercu({ storage, rooms, repliques = null, metrics, uploads, users, tarifsIA, dataDir, waitlistPath, supportTraites }) {
   const docs = storage.allDocs()
   // Les comptes (data/users.json) : pour l'instant juste le nom affiché et
   // la couleur. C'est ici qu'on vient lire un nom mal saisi tant qu'il n'y a
@@ -274,6 +274,10 @@ export function apercu({ storage, rooms, metrics, uploads, users, tarifsIA, data
     heapUtiliseMo: Math.round(memoire.heapUsed / 1048576),
     node: process.version,
     connexionsEnCours: rooms.snapshot(),
+    // Les documents que le serveur tient en mémoire (server/replique.js,
+    // 29/09/2026) : ceux des salles occupées, plus ceux libérés depuis
+    // moins de cinq minutes.
+    repliques: repliques ? repliques.snapshot() : [],
     dataDirOctets: tailleDossier(dataDir),
     listeAttente: (() => {
       try {

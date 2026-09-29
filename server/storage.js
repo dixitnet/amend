@@ -865,10 +865,10 @@ export class Storage {
    *
    * Chaîné via _flushChain comme le reste des écritures, pour ne jamais
    * s'exécuter en même temps qu'un flush sur le même document. */
-  compactDoc(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction }) {
+  compactDoc(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction, tout = false }) {
     const prev = this._flushChain.get(id) || Promise.resolve()
     const result = prev.then(() =>
-      this._doCompact(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction })
+      this._doCompact(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction, tout })
     )
     // La chaîne elle-même ne doit jamais rester rejetée, sinon plus aucun
     // flush ni compaction futurs pour ce document ne pourraient s'exécuter
@@ -877,12 +877,15 @@ export class Storage {
     return result
   }
 
-  async _doCompact(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction }) {
+  async _doCompact(id, { baseSnapshot, baseTs, keepFromIndex, expectedTotalBeforeCompaction, tout = false }) {
     // Une compaction précédente (ou de nouvelles frappes) a pu changer le
     // journal depuis que le client a calculé baseSnapshot — mieux vaut
     // échouer proprement que d'écraser des opérations que le client n'a
     // pas prises en compte dans sa fusion.
     const entries = this._walkLog(id)
+    // `tout` (29/09/2026) : l'instantané vient de la réplique du serveur,
+    // qui a tout vu — il remplace le journal entier, rien à garder.
+    if (tout) keepFromIndex = entries.length
     if (
       typeof expectedTotalBeforeCompaction === 'number' &&
       entries.length !== expectedTotalBeforeCompaction
