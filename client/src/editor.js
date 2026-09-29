@@ -837,9 +837,12 @@ export function mountEditor(root, docId, user, docMeta) {
       ySyncPlugin(yXml),
       yCursorPlugin(provider.awareness, { cursorBuilder: buildCursor }),
       yUndoPlugin(),
-      // Un éditeur arrive suivi désactivé (il écrit son document), un
-      // correcteur suivi activé — c'est son rôle même (15/09/2026).
-      trackChangesPlugin({ enabled: !cap.canEditFreely }),
+      // Tout le monde arrive suivi **activé** (Sylvain, 29/09/2026) : un
+      // éditeur qui veut écrire sans trace le coupe lui-même, ce qui vaut
+      // mieux qu'une modification directe faite par mégarde sur le texte
+      // d'un autre. Du 15 au 29/09, l'éditeur arrivait suivi désactivé. Le
+      // correcteur, lui, ne peut pas le couper (voir plus bas).
+      trackChangesPlugin({ enabled: true }),
       selectionHighlightPlugin(),
       tableOfContentsPlugin(),
       // Avant richPastePlugin : une capture d'écran collée est une image,
