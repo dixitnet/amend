@@ -30,6 +30,9 @@ export class Rooms {
     this.repliques = repliques
     /** @type {Map<string, Set<{conn: import('./ws.js').WebSocketConnection, user: string}>>} */
     this.rooms = new Map()
+    /** La présence des agents invités (server/presenceAgents.js), posée
+     * par server.js : un participant qui arrive la reçoit avec l'état. */
+    this.presenceAgents = null
   }
 
   /**
@@ -98,6 +101,12 @@ export class Rooms {
     if (etat && etat.length > 2) member.conn.send(Buffer.from(etat), { binary: true })
     const sv = this.repliques.vecteur(docId)
     member.conn.send(JSON.stringify({ type: 'synced', sv: sv ? Buffer.from(sv).toString('base64') : null }))
+    if (this.presenceAgents) for (const message of this.presenceAgents.messagesPour(docId)) member.conn.send(message)
+  }
+
+  /** Un message de contrôle (texte) à toute la salle, sans expéditeur. */
+  diffuserTexte(docId, texte) {
+    this._broadcast(docId, null, texte, { binary: false })
   }
 
   _onMessage(docId, member, data, isBinary) {

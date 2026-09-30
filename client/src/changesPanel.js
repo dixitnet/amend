@@ -10,6 +10,8 @@ import {
   rejectChange,
   acceptAllChanges,
   rejectAllChanges,
+  rejectAgentChanges,
+  estModificationDAgent,
 } from './trackChanges.js'
 import { defilerVers } from './defilement.js'
 
@@ -214,6 +216,19 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
       rejectAll.className = 'btn-reject'
       rejectAll.onclick = () => rejectAllChanges(view)
       bulk.append(acceptAll, rejectAll)
+      // « Tout rejeter — Claude » (30/09/2026) : un agent zélé peut proposer
+      // des dizaines de corrections ; défaire son passage ne doit pas
+      // obliger à les traiter une à une, ni à rejeter aussi celles des
+      // personnes.
+      const deClaude = changes.filter(estModificationDAgent).length
+      if (deClaude > 0) {
+        const rejectAgent = document.createElement('button')
+        rejectAgent.textContent = `Tout rejeter — Claude (${deClaude})`
+        rejectAgent.className = 'btn-reject btn-reject-claude'
+        rejectAgent.title = 'Rejette toutes les modifications proposées par Claude, sans toucher à celles des personnes'
+        rejectAgent.onclick = () => rejectAgentChanges(view)
+        bulk.appendChild(rejectAgent)
+      }
       header.appendChild(bulk)
     }
     container.appendChild(header)

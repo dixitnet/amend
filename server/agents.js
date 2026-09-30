@@ -37,6 +37,32 @@ const FORME_SECRET = /^[A-Za-z0-9_-]{22}$/
 const ECHECS_MAX = 30
 const ECHECS_FENETRE_MS = 10 * 60_000
 
+/** Qui a le droit d'inviter Claude sur un document (30/09/2026). Réglé dans
+ * le .env par `CLAUDE_AGENT`, sur le modèle de `PUBLICATION_WEB` :
+ * `admins` pendant la phase de test — c'est la valeur par défaut, et celle
+ * de toute valeur inconnue —, `proprietaires` ou `editeurs` ensuite.
+ * L'ouverture est un changement de configuration, pas de code. */
+export const PORTEES_AGENT = ['admins', 'proprietaires', 'editeurs']
+
+export function porteeAgent() {
+  const v = String(process.env.CLAUDE_AGENT || 'admins').trim().toLowerCase()
+  return PORTEES_AGENT.includes(v) ? v : 'admins'
+}
+
+/**
+ * Cette personne peut-elle inviter Claude sur ce document ? `admin` et
+ * `proprietaire` sont des booléens, `role` le rôle sur le document. Un
+ * correcteur ou un lecteur n'invite jamais, quelle que soit la portée
+ * (`canInvite`) : inviter, c'est décider qui lit le texte.
+ */
+export function peutInviterAgent({ admin, proprietaire, role }) {
+  const portee = porteeAgent()
+  if (admin) return true
+  if (portee === 'admins') return false
+  if (portee === 'proprietaires') return !!proprietaire
+  return !!capabilities(role).canInvite
+}
+
 export function empreinte(secret) {
   return createHash('sha256').update(secret).digest('hex')
 }
@@ -207,6 +233,27 @@ export class Agents {
     entree.expiresAt = this.maintenant() + Math.round(nombre * JOUR_MS)
     this._ecrire()
     return entree.expiresAt
+  }
+
+  /** Une nouvelle adresse pour la même invitation (rôle et nom conservés) ;
+   * l'ancienne cesse de marcher au même instant. Sert quand une adresse a
+   * été perdue ou montrée à quelqu'un qui n'aurait pas dû la voir. La
+   * nouvelle est créée avant que l'ancienne ne soit révoquée : si la
+   * création échoue, rien ne change. */
+  regenerer(id, { par, jours = DUREE_DEFAUT_JOURS } = {}) {
+    this._synchroniser()
+    const ancien = this.agents.find((a) => a.id === id && !a.revokedAt)
+    if (!ancien) return { ok: false, raison: 'invitation introuvable' }
+    const r = this.inviter({ docId: ancien.docId, role: ancien.role, jours, par, nom: ancien.nom })
+    if (!r.ok) return r
+    this.revoquer(id)
+    return { ...r, remplace: id }
+  }
+
+  /** Ce que le panneau des accès montre d'un document : les invitations
+   * vivantes ou expirées (une expirée se prolonge), pas les révoquées. */
+  pourDocument(docId) {
+    return this.lister(docId).filter((a) => a.etat !== 'révoquée')
   }
 
   /** Ce qu'on peut montrer : jamais le secret, jamais son empreinte. */

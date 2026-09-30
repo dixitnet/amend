@@ -15,11 +15,11 @@
     "loadtest": "node tools/loadtest.js"
   },
   "dependencies": {
+    "y-protocols": "^1.0.6",
     "yjs": "^13.6.18"
   },
   "devDependencies": {
     "pm2": "^7.0.4",
-    "ws": "^8.18.0",
-    "y-protocols": "^1.0.6"
+    "ws": "^8.18.0"
   }
 }

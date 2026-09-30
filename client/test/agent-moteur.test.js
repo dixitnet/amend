@@ -24,7 +24,7 @@ import {
   relativePositionToAbsolutePosition,
 } from 'y-prosemirror'
 import { schema } from '../src/schema.js'
-import { acceptAllChanges, rejectAllChanges, insertAISuggestion } from '../src/trackChanges.js'
+import { acceptAllChanges, rejectAllChanges, insertAISuggestion, rejectAgentChanges, estModificationDAgent, listChanges } from '../src/trackChanges.js'
 import { doc as fabriqueDoc, editeur, IA } from './harness.js'
 
 // Le yjs du serveur, chargé depuis le même fichier que celui du moteur
@@ -213,4 +213,21 @@ test('les fils et les réponses de l’agent ont la forme que le client attend',
   assert.equal(carte.get(resultat.r.id).parent, resultat.c.id)
   assert.equal(carte.get(resultat.r.id).author, 'IA')
   assert.equal(resultat.liste[0].reponses.length, 1)
+})
+
+test('« Tout rejeter — Claude » reconnaît ce que l’agent écrit, et lui seul', () => {
+  const avant = fabriqueDoc('Ils mange des pomme au marché.')
+  const CLAUDE = { name: 'Claude (pour Sylvain)', color: '#5f7a4a' }
+  const { client } = ecrire(avant, (s) =>
+    proposer(s, [{ bloc: 1, avant: 'Ils mange', apres: 'Ils mangent' }, { bloc: 1, avant: 'des pomme au', apres: 'des pommes au' }], CLAUDE)
+  )
+  const propose = relu(client)
+  assert.ok(listChanges(propose).length >= 2)
+  assert.ok(listChanges(propose).every(estModificationDAgent), 'tout ce qu’il a écrit est reconnu comme sien')
+  const e = editeur(propose, { suivi: false })
+  rejectAgentChanges(e.view)
+  assert.equal(e.texte(), 'Ils mange des pomme au marché.')
+  assert.equal(listChanges(e.doc).length, 0)
+  // Et le nom « IA » du panneau (même vert) n'est pas pris pour Claude.
+  assert.equal(estModificationDAgent({ user: 'IA', userColor: '#5f7a4a' }), false)
 })

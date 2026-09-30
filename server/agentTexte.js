@@ -130,6 +130,21 @@ function decrireBloc(el, contexte, n) {
   return { n, nom: el.nodeName, niveau, contexte, texte, segments, enAttente, el }
 }
 
+/** Où poser le curseur de l'agent pour montrer qu'il travaille sur ce
+ * bloc : une position relative Yjs (JSON) au début de son texte, ou `null`
+ * si le bloc n'existe pas ou n'a pas de texte (que des atomes). */
+export function ancreDeBloc(ydoc, numero) {
+  const bloc = blocsDuDocument(ydoc)[numero - 1]
+  if (!bloc) return null
+  const segment = bloc.segments.find((s) => s.xt && s.visible) || bloc.segments.find((s) => s.xt)
+  if (!segment) return null
+  try {
+    return Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(segment.xt, segment.debut, 0))
+  } catch {
+    return null
+  }
+}
+
 /** Comme blocsDuDocument, mais réduit à ce qu'un agent lit : pas de
  * segments ni d'éléments Yjs, rien qui puisse fuiter dans une réponse. */
 export function resume(bloc) {

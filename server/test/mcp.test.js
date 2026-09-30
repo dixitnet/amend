@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import WebSocket from 'ws'
 import * as Y from 'yjs'
+import { Awareness, applyAwarenessUpdate } from 'y-protocols/awareness'
 
 const PORT = 18791
 process.env.PORT = String(PORT)
@@ -347,6 +348,58 @@ test('un corps trop gros est refusé sans faire tomber le serveur', async () => 
   assert.equal(res.status, 413)
   const encore = await rpc(secret, 'ping')
   assert.deepEqual(encore.result, {})
+})
+
+test('Claude se voit dans la salle : pastille et curseur sur le bloc qu’il lit, y compris pour qui arrive après', async () => {
+  const doc = await documentDeTest()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com', nom: 'Claude (pour Alice)' })
+
+  /** Un navigateur qui regarde : le document, et l'awareness des autres. */
+  async function spectateur() {
+    const y = new Y.Doc()
+    const aw = new Awareness(new Y.Doc())
+    const ws = new WebSocket(`ws://localhost:${PORT}/ws/${doc.id}?user=Alice`, { headers: { cookie: cookie('alice@example.com') } })
+    ws.on('message', (data, binaire) => {
+      if (binaire) return Y.applyUpdate(y, new Uint8Array(data))
+      let msg
+      try {
+        msg = JSON.parse(data.toString('utf8'))
+      } catch {
+        return
+      }
+      if (msg.type === 'awareness') applyAwarenessUpdate(aw, Buffer.from(msg.data, 'base64'), 'test')
+    })
+    await new Promise((resolve, reject) => {
+      ws.on('open', resolve)
+      ws.on('error', reject)
+    })
+    return { y, aw, ws }
+  }
+  const agentsVus = (aw) => [...aw.getStates().entries()].filter(([id, e]) => id !== aw.clientID && e && e.agent).map(([, e]) => e)
+
+  const premier = await spectateur()
+  await new Promise((r) => setTimeout(r, 250))
+  assert.equal(agentsVus(premier.aw).length, 0, 'personne tant que Claude n’a rien fait')
+
+  await appeler(secret, 'lire', { de: 3, nombre: 1 })
+  await new Promise((r) => setTimeout(r, 150))
+  const vus = agentsVus(premier.aw)
+  assert.equal(vus.length, 1)
+  assert.equal(vus[0].user.name, 'Claude (pour Alice)')
+  assert.equal(vus[0].user.color, '#5f7a4a')
+
+  // Son curseur est sur le bloc 3 (« Ils mange des pomme… »).
+  const rel = Y.createRelativePositionFromJSON(vus[0].cursor.head)
+  const abs = Y.createAbsolutePositionFromRelativePosition(rel, premier.y)
+  assert.ok(abs, 'la position se résout dans le document du navigateur')
+  assert.match(abs.type.toString(), /Ils mange des pomme/)
+
+  // Quelqu'un qui arrive maintenant le voit sans attendre un renouvellement.
+  const tardif = await spectateur()
+  await new Promise((r) => setTimeout(r, 300))
+  assert.equal(agentsVus(tardif.aw).length, 1)
+  premier.ws.close()
+  tardif.ws.close()
 })
 
 test.after(async () => {

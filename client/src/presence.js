@@ -19,7 +19,9 @@ import { relativePositionToAbsolutePosition, ySyncPluginKey } from 'y-prosemirro
 import { createRelativePositionFromJSON } from 'yjs'
 
 function initials(name) {
-  const words = (name || '').trim().split(/\s+/).filter(Boolean)
+  // « Claude (pour Sylvain) » se résume à Claude : ce qui suit la
+  // parenthèse dit pour qui il travaille, pas qui il est.
+  const words = (name || '').replace(/\([^)]*\)/g, ' ').trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return '?'
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
   return (words[0][0] + words[1][0]).toUpperCase()
@@ -113,6 +115,13 @@ export function mountPresenceBar(container, provider, contexte = {}) {
       chip.textContent = initials(user.name)
       chip.title = soi ? `${user.name} (vous)` : `Aller au curseur de ${user.name}`
       if (soi) chip.classList.add('presence-moi')
+      // Claude invité sur le document (30/09/2026) : une pastille comme les
+      // autres, reconnaissable au liseré en pointillés — ce n'est pas une
+      // personne devant un écran, et on doit le voir d'un coup d'œil.
+      if (state.agent) {
+        chip.classList.add('presence-agent')
+        chip.title = `Aller au curseur de ${user.name}`
+      }
 
       chip.onclick = () => {
         const view = getView && getView()

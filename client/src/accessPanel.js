@@ -5,6 +5,8 @@
 // nommant le document, et son lien ouvre le document directement. Voir
 // claude/conception-gestion-utilisateurs.md (projet Amend).
 
+import { monterSectionClaude } from './claudeAccess.js'
+
 // Les libellés des rôles, dans la langue de l'interface. Un rôle inconnu
 // s'affiche tel quel plutôt que de disparaître — c'est ce qui fera
 // apparaître « lecteur » sans toucher à ce fichier.
@@ -33,6 +35,7 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
       <p class="invite-message" hidden></p>
       <h3>Accès</h3>
       <ul class="access-list"></ul>
+      <div class="claude-mount"></div>
       <button type="button" class="close-btn">Fermer</button>
     </div>
   `
@@ -194,6 +197,10 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
     const data = await res.json()
     renderAccess(data.access)
   }
+
+  // Inviter Claude (30/09/2026) : une section à part, qui ne se montre que
+  // s'il y a quelque chose à y faire.
+  monterSectionClaude(overlay.querySelector('.claude-mount'), docId)
 
   load()
 }

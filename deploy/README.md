@@ -47,3 +47,29 @@ L'adresse n'est affichée qu'une fois ; elle s'ajoute dans Claude
 (Paramètres → Connecteurs → Ajouter un connecteur personnalisé), sans
 identifiant. Le journal `data/events-agents.jsonl` dit quel outil a servi,
 jamais ce qui a été lu ni écrit.
+
+### Depuis l'interface (30/09/2026)
+
+Le même geste existe dans **Partager → Gérer les accès**, section « Claude » :
+rôle (correcteur ou lecteur), durée (24 h, 7 jours, 30 jours), l'adresse
+montrée une fois avec un bouton Copier, puis pour chaque invitation
+Prolonger, Régénérer (nouvelle adresse, l'ancienne meurt aussitôt) et
+Révoquer. Le script reste utile en secours et pour les invitations faites
+sans navigateur ; les deux écrivent dans le même registre
+(`data/agents.json`).
+
+Qui peut inviter se règle dans le `.env` :
+
+    CLAUDE_AGENT=admins        # ou proprietaires, ou editeurs
+
+`admins` (par défaut, et pour toute valeur inconnue) : les seules adresses
+de `ADMIN_EMAILS`. Changer la valeur demande un redémarrage du service
+(`sudo systemctl restart amend`). Quelle que soit la valeur, tout éditeur
+voit les invitations du document et peut les révoquer ; créer, prolonger
+ou régénérer suit la portée.
+
+Tant que Claude travaille, une pastille « CL » apparaît dans la barre des
+participants (renouvelée toutes les dix secondes, retirée deux minutes après
+son dernier appel ou à la révocation), avec un curseur au dernier bloc
+lu ou modifié. Le bouton « Tout rejeter — Claude (n) » du panneau des
+modifications défait tout son passage sans toucher à celui des personnes.

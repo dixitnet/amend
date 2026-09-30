@@ -15,7 +15,8 @@ import { Users } from './users.js'
 import { Typst, TypstError } from './typst.js'
 import { SupportTraites, cleDuRetour } from './supportTraites.js'
 import { Versions } from './versions.js'
-import { Agents } from './agents.js'
+import { Agents, peutInviterAgent, porteeAgent, ROLES_AGENT } from './agents.js'
+import { PresenceAgents } from './presenceAgents.js'
 import { Mcp } from './mcp.js'
 import { apercu } from './admin.js'
 import { Publications, peutPublier, porteePublication, NOM_PAGE } from './publication.js'
@@ -195,7 +196,11 @@ const rooms = new Rooms(storage, repliques)
 // server/mcp.js) : une adresse secrète par invitation, un document, un rôle,
 // une échéance.
 const agents = new Agents(DATA_DIR)
-const mcp = new Mcp({ agents, storage, rooms, metrics })
+// Claude « présent » dans la barre des participants tant qu'il travaille
+// (30/09/2026, server/presenceAgents.js).
+const presenceAgents = new PresenceAgents(rooms)
+rooms.presenceAgents = presenceAgents
+const mcp = new Mcp({ agents, storage, rooms, metrics, presence: presenceAgents })
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -403,6 +408,7 @@ async function handleApi(req, res, url) {
     const ok = storage.deleteDoc(docMatch[1])
     // Les adresses des agents invités sur ce document ne mènent plus nulle
     // part : on les révoque plutôt que d'attendre qu'elles expirent.
+    for (const a of agents.lister(docMatch[1])) presenceAgents.retirer(a.id)
     agents.revoquerDocument(docMatch[1])
     // Sans ça, les images d'un document supprimé resteraient sur le disque
     // pour toujours — et resteraient lisibles par leur URL si l'identifiant
@@ -876,6 +882,88 @@ const TARIFS_IA = {
     return sendJson(res, 200, { ok: true })
   }
 
+
+  // --- Inviter Claude sur un document (30/09/2026, server/agents.js) ---
+  //
+  // Le panneau des accès montre les invitations à tous ceux qui gèrent les
+  // accès, et n'en laisse créer, prolonger ou régénérer qu'à ceux que
+  // `CLAUDE_AGENT` autorise (les admins pendant la phase de test).
+  // **Révoquer** reste ouvert à tous ceux qui gèrent les accès : couper un
+  // accès ne demande pas plus de droits que de le voir. L'adresse du
+  // connecteur n'est rendue qu'à la création et à la régénération, avec
+  // `no-store` ; ni la liste ni les journaux ne la portent jamais.
+  const agentsMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/agents(?:\/(ag-[0-9a-f]{8})(?:\/(prolonger|regenerer))?)?$/)
+  if (agentsMatch) {
+    const id = agentsMatch[1]
+    const agentId = agentsMatch[2]
+    const action = agentsMatch[3]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const email = readSession(req)
+    const role = storage.roleFor(id, email)
+    if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    const autorise = peutInviterAgent({ admin: isAdminEmail(email), proprietaire: storage.isOwner(id, email), role })
+    const secretEnvoye = (status, corps) => {
+      const payload = JSON.stringify(corps)
+      res.writeHead(status, {
+        'content-type': 'application/json; charset=utf-8',
+        'content-length': Buffer.byteLength(payload),
+        'cache-control': 'no-store',
+      })
+      res.end(payload)
+    }
+    const trace = (outil, agent) => metrics.log('agents', { agent, docId: id, outil, ok: true, par: email })
+    const adresseDe = (secret) => `${APP_BASE_URL}/mcp/${secret}`
+    const vivante = agentId ? agents.pourDocument(id).find((a) => a.id === agentId) : null
+    if (agentId && !vivante) return sendJson(res, 404, { error: 'invitation introuvable' })
+
+    if (!agentId && req.method === 'GET') {
+      return sendJson(res, 200, { autorise, portee: porteeAgent(), roles: ROLES_AGENT, agents: agents.pourDocument(id) })
+    }
+
+    if (!agentId && req.method === 'POST') {
+      if (!autorise) return sendJson(res, 403, { error: "vous n'avez pas le droit d'inviter Claude sur ce document" })
+      const body = await readJsonBody(req)
+      const prenom = String(users.nomDe(email) || email.split('@')[0]).trim().split(/\s+/)[0]
+      const r = agents.inviter({
+        docId: id,
+        role: String(body.role || ''),
+        jours: body.jours == null ? undefined : Number(body.jours),
+        par: email,
+        nom: `Claude (pour ${prenom})`,
+      })
+      if (!r.ok) return sendJson(res, 400, { error: r.raison })
+      trace('invitation', r.id)
+      return secretEnvoye(200, { id: r.id, adresse: adresseDe(r.secret), expiresAt: r.expiresAt })
+    }
+
+    if (agentId && !action && req.method === 'DELETE') {
+      agents.revoquer(agentId)
+      presenceAgents.retirer(agentId)
+      trace('revocation', agentId)
+      return sendJson(res, 200, { ok: true })
+    }
+
+    if (agentId && action === 'prolonger' && req.method === 'POST') {
+      if (!autorise) return sendJson(res, 403, { error: "vous n'avez pas le droit d'inviter Claude sur ce document" })
+      const body = await readJsonBody(req)
+      const fin = agents.prolonger(agentId, body.jours == null ? undefined : Number(body.jours))
+      if (!fin) return sendJson(res, 400, { error: 'durée invalide' })
+      trace('prolongation', agentId)
+      return sendJson(res, 200, { expiresAt: fin })
+    }
+
+    if (agentId && action === 'regenerer' && req.method === 'POST') {
+      if (!autorise) return sendJson(res, 403, { error: "vous n'avez pas le droit d'inviter Claude sur ce document" })
+      const body = await readJsonBody(req)
+      const r = agents.regenerer(agentId, { par: email, jours: body.jours == null ? undefined : Number(body.jours) })
+      if (!r.ok) return sendJson(res, 400, { error: r.raison })
+      presenceAgents.retirer(agentId)
+      trace('regeneration', r.id)
+      return secretEnvoye(200, { id: r.id, adresse: adresseDe(r.secret), expiresAt: r.expiresAt, remplace: r.remplace })
+    }
+
+    return sendJson(res, 405, { error: 'méthode non permise' })
+  }
 
   if (pathname === '/api/ai/suggest' && req.method === 'POST') {
     // Contrôle en deux temps depuis le 15/09/2026 : une session valide

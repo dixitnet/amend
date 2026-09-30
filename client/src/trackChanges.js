@@ -1130,6 +1130,34 @@ export function acceptAllChanges(view) {
   }
 }
 
+/** Le vert de l'IA, que le serveur donne aux agents invités (Claude) et
+ * que les couleurs de participants n'utilisent jamais (server/users.js). */
+export const COULEUR_AGENT = '#5f7a4a'
+
+/**
+ * Cette modification est-elle celle d'un agent invité (Claude) ? Le serveur
+ * lui donne le vert réservé et un nom qui commence par « Claude » (« Claude
+ * (pour Sylvain) »). Les deux à la fois : une personne qui s'appelle Claude
+ * n'a pas ce vert, et l'IA du panneau, qui l'a, s'appelle « IA ».
+ */
+export function estModificationDAgent(change) {
+  return change.userColor === COULEUR_AGENT && /^Claude(\s|$)/.test(change.user || '')
+}
+
+/** Rejette d'un coup toutes les modifications d'un agent invité, sans
+ * toucher à celles des personnes. Renvoie combien d'entrées ont été
+ * rejetées. */
+export function rejectAgentChanges(view) {
+  const deClaude = () => listChanges(view.state.doc).filter(estModificationDAgent)
+  let rejetees = 0
+  // Le plafond n'est là que pour qu'un rejet qui ne retire rien ne boucle pas.
+  for (let a = deClaude(); a.length && rejetees < 100_000; a = deClaude()) {
+    rejectChange(view, a[0])
+    rejetees++
+  }
+  return rejetees
+}
+
 export function rejectAllChanges(view) {
   for (let changes = listChanges(view.state.doc); changes.length; changes = listChanges(view.state.doc)) {
     rejectChange(view, changes[0])

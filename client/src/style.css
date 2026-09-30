@@ -596,6 +596,8 @@ a { color: var(--accent); }
 /* Sa propre pastille ne mène nulle part : on est déjà à son curseur. */
 .presence-avatar.presence-moi { cursor: default; }
 .presence-avatar.presence-moi:hover { outline: none; }
+/* Claude invité : le même rond, cerclé de pointillés. */
+.presence-avatar.presence-agent { border: 1px dashed rgba(255, 255, 255, 0.85); box-shadow: 0 0 0 1px var(--user-color, var(--accent)); }
 
 /* Le curseur visé clignote deux secondes : arriver au bon endroit sans
    savoir lequel des curseurs on cherchait ne sert à rien. */
@@ -812,7 +814,7 @@ span.author-color {
 /* ---------- Changes panel ---------- */
 .changes-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
 .changes-header h3 { margin: 0; }
-.changes-bulk { display: flex; gap: 6px; }
+.changes-bulk { display: flex; flex-wrap: wrap; gap: 6px; }
 .changes-empty { color: var(--muted); font-size: 13px; }
 .changes-warning {
   font-size: 12.5px;
@@ -1218,6 +1220,48 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   cursor: pointer;
 }
 .access-modal .close-btn { margin-top: 4px; }
+
+/* ---------- Inviter Claude (30/09/2026, claudeAccess.js) ---------- */
+.claude-section { margin-top: 4px; }
+.claude-aide { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.invite-form.claude-form { grid-template-columns: 1fr 1fr auto; margin-bottom: 4px; }
+.claude-form[hidden], .claude-adresse[hidden] { display: none; }
+.claude-adresse {
+  margin: 8px 0 12px;
+  padding: 10px;
+  border: 1px solid var(--accent, #5f7a4a);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #5f7a4a) 8%, var(--bg));
+}
+.claude-adresse-titre { margin: 0 0 6px; font-size: 12px; font-weight: 600; }
+.claude-adresse-champ { display: flex; gap: 6px; }
+.claude-adresse-champ input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.claude-adresse-champ button {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.claude-adresse-alerte { margin: 8px 0 0; font-size: 11px; color: var(--muted); }
+.claude-mode-emploi { margin-top: 6px; font-size: 12px; }
+.claude-mode-emploi summary { cursor: pointer; }
+.claude-mode-emploi p { margin: 6px 0 0; }
+.claude-mode-emploi code { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.claude-list li.claude-ligne { flex-wrap: wrap; }
+.claude-detail { flex-basis: 100%; margin: 0; font-size: 11px; color: var(--muted); }
+
 
 .login-sent { color: var(--muted); font-size: 13px; }
 

@@ -60,6 +60,7 @@ function monterAvecTroisModifs() {
   return { view, panneau }
 }
 
+const clic = (el) => el.dispatchEvent(new window.Event('click', { bubbles: true }))
 const entrees = (panneau) => [...panneau.querySelectorAll('.change-item')]
 const accepter = (entree) =>
   [...entree.querySelectorAll('button')].find((b) => b.textContent === 'Accepter')
@@ -267,6 +268,76 @@ test('valider une moitié passe à la suivante et y fait défiler', async () => 
   assert.equal(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to), 'chat')
   assert.equal(appels.length, 1, 'un seul défilement : celui de la validation, pas celui du clic sur la ligne')
   assert.equal(panneau.querySelectorAll('.change-item').length, 1)
+})
+
+/** Deux passages barrés par Alice, deux par Claude (l'agent invité). */
+function monterAvecAliceEtClaude() {
+  installerDom()
+  const panneau = document.getElementById('panneau')
+  const doc = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('alpha bravo charlie delta echo foxtrot golf hotel')]),
+  ])
+  const state = EditorState.create({
+    doc,
+    plugins: [trackChangesPlugin({ enabled: true }), mountChangesPanel(panneau, { canReview: true })],
+  })
+  const view = new EditorView(document.getElementById('editeur'), { state })
+  let auteur = ALICE
+  view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => auteur) })
+  const CLAUDE = { name: 'Claude (pour Sylvain)', color: '#5f7a4a' }
+  // « golf » (43-47), « charlie » (13-20), « bravo » (7-12), « alpha » (1-6),
+  // du dernier vers le premier pour que les positions ne bougent pas.
+  for (const [qui, from, to] of [[ALICE, 43, 47], [CLAUDE, 13, 20], [ALICE, 7, 12], [CLAUDE, 1, 6]]) {
+    auteur = qui
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)))
+    view.dispatch(view.state.tr.delete(from, to))
+  }
+  return { view, panneau }
+}
+
+const boutonClaude = (panneau) => [...panneau.querySelectorAll('button')].find((b) => /^Tout rejeter — Claude/.test(b.textContent))
+
+test('« Tout rejeter — Claude » ne rejette que les modifications de Claude (30/09/2026)', async () => {
+  const { view, panneau } = monterAvecAliceEtClaude()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(entrees(panneau).length, 4)
+  const bouton = boutonClaude(panneau)
+  assert.ok(bouton, 'le bouton existe quand Claude a proposé quelque chose')
+  assert.match(bouton.textContent, /\(2\)/, 'il dit combien')
+
+  clic(bouton)
+  await new Promise((r) => setTimeout(r, 30))
+  const restant = listChanges(view.state.doc)
+  assert.equal(restant.length, 2, 'les deux d’Alice restent')
+  assert.ok(restant.every((c) => c.user === 'Alice'))
+  // Les passages de Claude sont revenus tels quels ; ceux d'Alice sont toujours barrés.
+  const texteBrut = view.state.doc.textContent
+  assert.match(texteBrut, /alpha/)
+  assert.match(texteBrut, /charlie/)
+  assert.equal(boutonClaude(panneau), undefined, 'plus rien de Claude : le bouton disparaît')
+})
+
+test('sans modification de Claude, pas de bouton Claude ; une personne nommée Claude n’en est pas une', async () => {
+  const { panneau } = monterAvecTroisModifs()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(boutonClaude(panneau), undefined)
+
+  installerDom()
+  const p = document.getElementById('panneau')
+  const state = EditorState.create({
+    doc: schema.node('doc', null, [schema.node('paragraph', null, [schema.text('alpha bravo charlie')])]),
+    plugins: [trackChangesPlugin({ enabled: true }), mountChangesPanel(p, { canReview: true })],
+  })
+  const view = new EditorView(document.getElementById('editeur'), { state })
+  // Une vraie personne prénommée Claude : pas le vert réservé.
+  const CLAUDE_MARTIN = { name: 'Claude Martin', color: '#a05a2c' }
+  view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => CLAUDE_MARTIN) })
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 7, 12)))
+  view.dispatch(view.state.tr.delete(7, 12))
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 6)))
+  view.dispatch(view.state.tr.delete(1, 6))
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(boutonClaude(p), undefined)
 })
 
 test('la consigne de défilement survit à la réécriture en suivi', () => {

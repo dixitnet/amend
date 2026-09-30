@@ -12,7 +12,7 @@
 // pouvoir que ses outils ne lui donnent — pas de modification directe, pas
 // de suppression, pas d'accès à un autre document.
 
-import { blocsDuDocument, commenter, fils, proposer, repondre, statistiques, REMPLACEMENTS_MAX } from './agentTexte.js'
+import { ancreDeBloc, blocsDuDocument, commenter, fils, proposer, repondre, statistiques, REMPLACEMENTS_MAX } from './agentTexte.js'
 
 export const COULEUR_AGENT = '#5f7a4a' // le vert de l'IA, réservé (client/src/user.js)
 const VERSIONS_CONNUES = ['2025-06-18', '2025-03-26', '2024-11-05']
@@ -155,11 +155,14 @@ const OUTILS = [
 ]
 
 export class Mcp {
-  constructor({ agents, storage, rooms, metrics = null, maintenant = () => Date.now() }) {
+  constructor({ agents, storage, rooms, metrics = null, presence = null, maintenant = () => Date.now() }) {
     this.agents = agents
     this.storage = storage
     this.rooms = rooms
     this.metrics = metrics
+    /** La présence de l'agent dans le document (server/presenceAgents.js),
+     * ou null : le connecteur marche pareil sans. */
+    this.presence = presence
     this.maintenant = maintenant
     this.ecritures = new Map()
   }
@@ -252,9 +255,25 @@ export class Mcp {
       sortie = { texte: 'Le document n’a pas pu être lu ou modifié pour le moment. Réessaie dans un instant.', erreur: true }
     }
     this.agents.noterUsage(agent.id)
+    await this._montrerPresence(agent, sortie)
     // Le journal dit qui a fait quoi, combien — jamais le contenu.
     if (this.metrics) this.metrics.log('agents', { agent: agent.id, docId: agent.docId, outil: outil.name, ok: !sortie.erreur, ...(sortie.comptes || {}) })
     return texte(sortie.texte, !!sortie.erreur)
+  }
+
+  /** « Claude est là » : une pastille dans la barre des participants et,
+   * quand l'outil désigne un bloc, un curseur posé dessus. Ne fait jamais
+   * échouer l'appel. */
+  async _montrerPresence(agent, sortie) {
+    if (!this.presence) return
+    try {
+      const ancre = sortie.bloc
+        ? await this.rooms.lireDocument(agent.docId, (ydoc) => ancreDeBloc(ydoc, sortie.bloc)).catch(() => null)
+        : null
+      this.presence.signaler(agent, { ancre, couleur: COULEUR_AGENT })
+    } catch (err) {
+      console.error('[mcp] présence :', err && err.message)
+    }
   }
 
   _tropEcrit(id) {
@@ -282,7 +301,7 @@ export class Mcp {
       case 'lire': {
         const de = entier(args.de, 1, 1, 1_000_000)
         const nombre = entier(args.nombre, LIRE_PAR_DEFAUT, 1, LIRE_MAX)
-        return this.rooms.lireDocument(docId, (ydoc) => ({ texte: lireDe(titre(), blocsDuDocument(ydoc), de, nombre) }))
+        return this.rooms.lireDocument(docId, (ydoc) => ({ texte: lireDe(titre(), blocsDuDocument(ydoc), de, nombre), bloc: de }))
       }
 
       case 'chercher': {
@@ -309,6 +328,7 @@ export class Mcp {
           texte: lignes.join('\n'),
           erreur: !verdict.appliques.length,
           comptes: { appliques: verdict.appliques.length, refuses: verdict.refuses.length },
+          bloc: verdict.appliques.length ? verdict.appliques[verdict.appliques.length - 1].bloc : null,
         }
       }
 
@@ -324,7 +344,8 @@ export class Mcp {
           else lignes.push(`Refusé — commentaire ${i + 1}${liste[i] && liste[i].bloc ? ` (bloc ${liste[i].bloc})` : ''} : ${v.raison}`)
         })
         if (ok) lignes.unshift(`${ok} commentaire(s) posé(s).`)
-        return { texte: lignes.join('\n'), erreur: !ok, comptes: { appliques: ok, refuses: verdicts.length - ok } }
+        const dernier = verdicts.map((v, i) => (v.ok ? liste[i].bloc : null)).filter(Boolean).pop() || null
+        return { texte: lignes.join('\n'), erreur: !ok, comptes: { appliques: ok, refuses: verdicts.length - ok }, bloc: dernier }
       }
 
       case 'repondre': {
