@@ -49,7 +49,18 @@ export function courrierAvecBouton({ titre, intro, libelleBouton, lien, apres })
   return { text, html }
 }
 
+// Un envoi de remplacement, **pour les tests seulement** (01/10/2026) : le
+// vrai appel part vers Mailgun par HTTPS, et un essai qui veut vérifier le
+// chemin de réussite d'un courrier n'a pas à le faire. Posé en mémoire, par
+// du code, jamais par la configuration : rien dans le `.env` ne peut
+// détourner un courrier.
+let envoiDeRemplacement = null
+export function remplacerEnvoi(fn) {
+  envoiDeRemplacement = typeof fn === 'function' ? fn : null
+}
+
 export function sendMail({ to, subject, text, html, replyTo }) {
+  if (envoiDeRemplacement) return Promise.resolve(envoiDeRemplacement({ to, subject, text, html, replyTo }))
   const apiKey = process.env.MAILGUN_API_KEY
   const domain = process.env.MAILGUN_DOMAIN
   // Mailgun a deux zones distinctes avec des identifiants et une API

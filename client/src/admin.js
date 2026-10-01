@@ -2,12 +2,18 @@
 // claude/conception-backoffice.md : trois blocs (utilisateurs, documents,
 // serveur). Aucun contenu de document n'est affiché, titres exceptés.
 //
-// Une seule action depuis le 22/09/2026 : marquer un retour comme traité.
-// Le parti pris « aucune action » tenait tant que la page ne servait qu'à
-// regarder ; dès qu'elle sert à **travailler** une liste, ne pas pouvoir
-// dire « celui-ci, c'est fait » la rend inutilisable au bout de trente
-// retours. C'est la seule action, elle n'écrit que dans une table annexe,
-// et elle se défait.
+// Deux actions. Marquer un retour comme traité (22/09/2026) : le parti pris
+// « aucune action » tenait tant que la page ne servait qu'à regarder ; dès
+// qu'elle sert à **travailler** une liste, ne pas pouvoir dire « celui-ci,
+// c'est fait » la rend inutilisable au bout de trente retours. Elle n'écrit
+// que dans une table annexe, et elle se défait. Embarquer un bêta-testeur
+// (01/10/2026, src/embarquement.js) : la seule qui touche à autre chose
+// que ce tableau — elle crée un document et envoie un courrier, d'où la
+// confirmation en deux clics.
+
+import { brancherEmbarquement } from './embarquement.js'
+
+const ecouteurTraite = new WeakSet()
 
 const NBSP = ' '
 
@@ -125,9 +131,61 @@ function sectionRetours(support) {
     }`
 }
 
-export async function mountAdmin(root) {
+/** Combien d'adresses d'attente on montre en haut du back-office : de quoi
+ * traiter la file du jour sans quitter la page. Le reste est à un lien. */
+const ATTENTE_VISIBLES = 5
+
+function ligneAttente(l) {
+  return `<tr>
+    <td>${esc(l.email)}${l.inscriptions > 1 ? ` <span class="bo-attente" title="Inscrite plusieurs fois">×${nombre(l.inscriptions)}</span>` : ''}</td>
+    <td>${date(l.ts)}</td>
+    <td data-embarquer-zone><button type="button" class="bo-action" data-embarquer="${esc(l.email)}">Embarquer</button>
+      <span class="bo-embarquer-msg bo-note" role="status"></span></td>
+  </tr>`
+}
+
+/** Le bloc du haut : qui attend, et le moyen de les faire entrer. Absent si
+ * la route n'a pas répondu — le reste du back-office n'en dépend pas. */
+function sectionAttente(att, info) {
+  if (!att) return ''
+  const attente = (att.file || []).filter((l) => l.statut === 'attente')
+  const visibles = attente.slice(0, ATTENTE_VISIBLES)
+  return `<h2>Liste d'attente (${nombre(att.enAttente ?? attente.length)})</h2>
+    ${info ? `<p class="bo-note bo-ok" role="status">${esc(info)}</p>` : ''}
+    <p class="bo-note">Embarquer crée un document de bienvenue dont la personne est propriétaire, et lui envoie l'invitation par courrier.</p>
+    ${
+      visibles.length
+        ? `<table class="bo-table">
+      <thead><tr><th>Adresse</th><th>Inscrite le</th><th></th></tr></thead>
+      <tbody>${visibles.map(ligneAttente).join('')}</tbody>
+    </table>`
+        : '<p class="bo-note">Personne n\'attend.</p>'
+    }
+    <p class="bo-note"><a href="#/inscrits">${
+      attente.length > visibles.length ? `Voir les ${nombre(attente.length)} adresses →` : 'Toute la liste →'
+    }</a></p>`
+}
+
+/** Pour embarquer une adresse qui n'est pas sur la liste (quelqu'un de
+ * rencontré, un retour par courrier). Même action, même confirmation. */
+function formulaireEmbarquer() {
+  return `<form class="bo-embarquer-form" data-embarquer-form data-embarquer-zone>
+    <label>Embarquer une adresse
+      <input type="email" name="email" placeholder="prenom@exemple.fr" autocomplete="off" required>
+    </label>
+    <button type="submit" class="bo-action">Embarquer</button>
+    <span class="bo-embarquer-msg bo-note" role="status"></span>
+  </form>`
+}
+
+export async function mountAdmin(root, info) {
   root.innerHTML = '<div class="home"><p>Chargement…</p></div>'
-  const res = await fetch('/api/admin/overview')
+  // La file d'attente est lue en même temps que la vue d'ensemble, mais
+  // sa panne ne doit pas emporter le back-office : on la perd seule.
+  const [res, resAttente] = await Promise.all([
+    fetch('/api/admin/overview'),
+    fetch('/api/admin/waitlist').catch(() => null),
+  ])
   if (res.status === 403) {
     root.innerHTML = '<div class="home"><p>Réservé aux administrateurs.</p><a href="#/">← Retour</a></div>'
     return
@@ -137,6 +195,7 @@ export async function mountAdmin(root) {
     return
   }
   const d = await res.json()
+  const att = resAttente && resAttente.ok ? await resAttente.json().catch(() => null) : null
   const u = d.utilisateurs
   const doc = d.documents
   const f = d.flux
@@ -146,12 +205,14 @@ export async function mountAdmin(root) {
     <div class="home backoffice">
       <p class="bo-retour"><a href="#/">← Retour aux documents</a></p>
       <h1>Back-office</h1>
-      <p class="bo-note">Vue au ${new Date(d.genereLe).toLocaleString('fr-FR')}. Lecture seule.</p>
+      <p class="bo-note">Vue au ${new Date(d.genereLe).toLocaleString('fr-FR')}. On n'y lit aucun contenu de document.</p>
+
+      ${sectionAttente(att, info)}
 
       ${sectionRetours(f.support)}
 
       <h2>Utilisateurs</h2>
-      <p class="bo-note"><a href="#/inscrits">Voir la liste d'attente →</a></p>
+      ${formulaireEmbarquer()}
       <div class="bo-chiffres">
         ${chiffre(nombre(u.total), 'personnes connues')}
         ${chiffre(nombre(u.actifs), 'déjà venues')}
@@ -330,11 +391,22 @@ export async function mountAdmin(root) {
     </div>
   `
 
+  // Après un embarquement on redessine tout : la file, les compteurs et la
+  // table des utilisateurs ont changé en même temps.
+  brancherEmbarquement(root, ({ email }) =>
+    mountAdmin(root, `Document créé, invitation envoyée à ${email}.`)
+  )
+
   // Un seul écouteur sur la racine plutôt qu'un par bouton : la page est
   // rendue d'un bloc par `innerHTML`, et des écouteurs posés sur les
   // boutons disparaîtraient au prochain rendu.
+  // `[data-cle]` : les boutons d'embarquement portent la même classe, et
+  // ne doivent surtout pas passer par ici. Et un seul écouteur par racine :
+  // chaque redessin en empilait un de plus.
+  if (ecouteurTraite.has(root)) return
+  ecouteurTraite.add(root)
   root.addEventListener('click', async (e) => {
-    const bouton = e.target.closest('.bo-action')
+    const bouton = e.target.closest('.bo-action[data-cle]')
     if (!bouton) return
     const cle = bouton.dataset.cle
     const traite = bouton.dataset.traite !== 'oui'

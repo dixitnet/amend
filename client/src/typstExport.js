@@ -18,7 +18,7 @@
 // verbeux, mais ça supprime l'ambiguïté — un paragraphe qui commence par
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
-import { BLOCS, NIVEAUX_TITRE, police, formatPage, styleParDefaut, langue } from '../../shared/style.js'
+import { BLOCS, NIVEAUX_TITRE, police, dimensionsPage, styleParDefaut, langue } from '../../shared/style.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 
 // Caractères que Typst interprète en mode contenu. Le backslash d'abord,
@@ -351,7 +351,9 @@ function enteteTypst(p) {
 function gabarit(style, titre) {
   const complet = style && style.blocs ? style : styleParDefaut()
   const p = complet.page
-  const format = formatPage(p.size)
+  // Orientation et format libre comprises : `dimensionsPage` rend la page
+  // telle qu'elle sortira, Typst n'a pas besoin de `flipped`.
+  const [largeurPage, hauteurPage] = dimensionsPage(p)
   const corps = complet.blocs.body
 
   const fonctions = [
@@ -395,8 +397,8 @@ function gabarit(style, titre) {
   return `// Engendré par amend.ink — ne pas modifier à la main.
 #set document(title: ${chaine(titre || 'Document')})
 #set page(
-  width: ${format.mm[0]}mm,
-  height: ${format.mm[1]}mm,
+  width: ${largeurPage}mm,
+  height: ${hauteurPage}mm,
   margin: (top: ${p.marginTop}mm, bottom: ${p.marginBottom}mm, left: ${p.marginLeft}mm, right: ${p.marginRight}mm),
   ${numerotation}${entete}
 )

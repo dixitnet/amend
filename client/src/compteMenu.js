@@ -96,10 +96,7 @@ export function monterMenuCompte(container, { couleur } = {}) {
           const backoffice = document.createElement('a')
           backoffice.href = '#/admin'
           backoffice.textContent = 'Back-office'
-          const styleDefaut = document.createElement('a')
-          styleDefaut.href = '#/style'
-          styleDefaut.textContent = 'Style par défaut'
-          liste.append(sep, backoffice, styleDefaut)
+          liste.append(sep, backoffice)
         }
       })
       .catch(() => {})

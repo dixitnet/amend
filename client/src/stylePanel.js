@@ -5,15 +5,20 @@
 // s'est affiché tout seul.
 //
 // Le même formulaire sert deux fois :
-//  - page `#/style` — le **style par défaut** de l'instance, réservé aux
-//    administrateurs, point de départ des nouveaux documents ;
-//  - panneau ouvert depuis un document — sa **mise en page à lui**,
-//    réservée aux éditeurs (16/09/2026).
+//  - panneau ouvert depuis un document (« Personnaliser ce document… » du
+//    menu Exporter) — les **réglages propres à ce document**, par-dessus son
+//    modèle, réservés aux éditeurs (16/09/2026, repris le 01/10/2026 avec
+//    les modèles) ;
+//  - éditeur d'un modèle, dans « Gérer mes modèles » (voir modeles.js).
 
 import {
   BLOCS,
   PROPRIETES,
   FORMATS_PAGE,
+  FORMATS_ANCIENS,
+  ORIENTATIONS,
+  BORNES_FORMAT,
+  UTILE_MIN,
   CONTENUS_ENTETE,
   LANGUES,
   langue,
@@ -101,8 +106,15 @@ function groupePage(page) {
   const grille = document.createElement('div')
   grille.className = 'style-grille'
 
+  // Format de page (01/10/2026) : A4, A5 ou libre. L'orientation ne se
+  // demande que pour un format nommé ; un format libre porte directement
+  // ses deux côtés, et c'est leur ordre qui dit portrait ou paysage.
   const taille = document.createElement('select')
-  for (const f of FORMATS_PAGE) {
+  // Un format retiré de la liste (Letter) reste affiché tant que le
+  // document l'utilise : sinon le select afficherait A4 et l'enregistrement
+  // changerait le format sans qu'on l'ait demandé.
+  const formats = [...FORMATS_PAGE, ...FORMATS_ANCIENS.filter((f) => f.id === page.size)]
+  for (const f of formats) {
     const o = document.createElement('option')
     o.value = f.id
     o.textContent = f.label
@@ -110,6 +122,43 @@ function groupePage(page) {
   }
   taille.value = page.size
   grille.appendChild(champ('Format', taille))
+
+  const orientation = document.createElement('select')
+  for (const o of ORIENTATIONS) {
+    const opt = document.createElement('option')
+    opt.value = o.id
+    opt.textContent = o.label
+    orientation.appendChild(opt)
+  }
+  orientation.value = page.orientation || 'portrait'
+  const champOrientation = champ('Orientation', orientation)
+  grille.appendChild(champOrientation)
+
+  const largeur = document.createElement('input')
+  largeur.type = 'number'
+  largeur.min = BORNES_FORMAT.min
+  largeur.max = BORNES_FORMAT.max
+  largeur.step = 0.5
+  largeur.value = page.largeur
+  const champLargeur = champ('Largeur', largeur, 'mm')
+  const hauteur = document.createElement('input')
+  hauteur.type = 'number'
+  hauteur.min = BORNES_FORMAT.min
+  hauteur.max = BORNES_FORMAT.max
+  hauteur.step = 0.5
+  hauteur.value = page.hauteur
+  const champHauteur = champ('Hauteur', hauteur, 'mm')
+  champLargeur.title = champHauteur.title = `De ${BORNES_FORMAT.min} à ${BORNES_FORMAT.max} mm.`
+  grille.append(champLargeur, champHauteur)
+
+  const majFormat = () => {
+    const libre = taille.value === 'personnalise'
+    champOrientation.hidden = libre
+    champLargeur.hidden = !libre
+    champHauteur.hidden = !libre
+  }
+  majFormat()
+  taille.onchange = majFormat
 
   // La langue du document (19/09/2026) : elle ne change rien à l'interface,
   // elle décide des césures et des guillemets à la composition.
@@ -139,7 +188,9 @@ function groupePage(page) {
     n.max = 100
     n.value = page[cle]
     marges[cle] = n
-    grille.appendChild(champ(libelle, n, 'mm'))
+    const c = champ(libelle, n, 'mm')
+    c.title = `Si les marges ne laissent pas ${UTILE_MIN} mm de texte, elles sont réduites à l'enregistrement.`
+    grille.appendChild(c)
   }
 
   const numeros = document.createElement('input')
@@ -216,6 +267,9 @@ function groupePage(page) {
     el: fieldset,
     lire: () => ({
       size: taille.value,
+      orientation: orientation.value,
+      largeur: Number(largeur.value),
+      hauteur: Number(hauteur.value),
       ...Object.fromEntries(Object.entries(marges).map(([k, el]) => [k, Number(el.value)])),
       pageNumbers: { enabled: numeros.checked, startAt: Number(depart.value) || 1 },
       langue: lang.value,
@@ -263,7 +317,7 @@ export function formulaireStyle(style) {
  * refuse l'enregistrement de toute façon. */
 export function ouvrirPanneauStyle(docId, { onEnregistre } = {}) {
   import('./styleConfig.js').then(async ({ loadDocStyle, saveDocStyle, resetDocStyle }) => {
-    const { style, propre } = await loadDocStyle(docId)
+    const { style, propre, ecarts, modele } = await loadDocStyle(docId)
 
     // Mêmes classes que le panneau de partage (accessPanel.js) : c'est
     // `name-modal-overlay` qui porte le fond sombre et le centrage, et
@@ -280,12 +334,18 @@ export function ouvrirPanneauStyle(docId, { onEnregistre } = {}) {
     modal.className = 'style-modal'
 
     const titre = document.createElement('h2')
-    titre.textContent = 'Mise en page du document'
+    titre.textContent = 'Personnaliser ce document'
     const note = document.createElement('p')
     note.className = 'bo-note'
-    note.textContent = propre
-      ? "Ce document a sa propre mise en page : elle ne suit plus le style par défaut de l'instance."
-      : "Ce document suit le style par défaut. Dès que vous enregistrez, il aura le sien et n'en bougera plus."
+    // Toujours dire ce qu'on touche : ici le document seulement, jamais son
+    // modèle (le piège de Word : « changer mon document » ou « changer le
+    // modèle » ?).
+    const nomModele = modele ? `« ${modele.nom} »` : 'son modèle'
+    note.textContent =
+      (ecarts > 0
+        ? `Ce document est basé sur ${nomModele}, avec ${ecarts} réglage${ecarts > 1 ? 's' : ''} propre${ecarts > 1 ? 's' : ''}. `
+        : `Ce document est basé sur ${nomModele}, sans réglage propre pour l'instant. `) +
+      "Ce que vous changez ici ne vaut que pour ce document : le modèle, lui, ne bouge pas."
     modal.append(titre, note)
 
     const formulaire = formulaireStyle(style)
@@ -316,10 +376,10 @@ export function ouvrirPanneauStyle(docId, { onEnregistre } = {}) {
     const revenir = document.createElement('button')
     revenir.type = 'button'
     revenir.className = 'btn-texte'
-    revenir.textContent = 'Revenir au style par défaut'
+    revenir.textContent = 'Revenir au modèle'
     revenir.hidden = !propre
     revenir.onclick = async () => {
-      statut.textContent = 'Retour au style par défaut…'
+      statut.textContent = 'Retour au modèle…'
       try {
         const r = await resetDocStyle(docId)
         if (onEnregistre) onEnregistre(r.style)
@@ -353,54 +413,4 @@ export function ouvrirPanneauStyle(docId, { onEnregistre } = {}) {
     overlay.appendChild(modal)
     document.body.appendChild(overlay)
   })
-}
-
-/** La page `#/style` — le style **par défaut** de l'instance, réservée aux
- * administrateurs. Même formulaire, autre portée. */
-export async function mountAdminStyle(root) {
-  const { loadStyle, saveStyle } = await import('./styleConfig.js')
-  root.innerHTML = ''
-  const wrap = document.createElement('div')
-  wrap.className = 'home'
-
-  const retour = document.createElement('a')
-  retour.href = '#/'
-  retour.className = 'back-link'
-  retour.textContent = '← Mes documents'
-  wrap.appendChild(retour)
-
-  const h1 = document.createElement('h1')
-  h1.textContent = 'Style par défaut'
-  const sous = document.createElement('p')
-  sous.className = 'subtitle'
-  sous.textContent =
-    "Le point de départ des documents qui n'ont pas leur propre mise en page. Chaque document peut ensuite avoir la sienne, réglée par ses éditeurs — et à partir de là il ne suit plus cette page. Ces réglages s'appliquent aux exports, pas à l'éditeur, qui garde volontairement sa typographie fixe pour rester lisible quels que soient les choix faits ici."
-  wrap.append(h1, sous)
-
-  const statut = document.createElement('p')
-  statut.className = 'style-status'
-  wrap.appendChild(statut)
-
-  const formulaire = formulaireStyle(fusionner(await loadStyle()))
-  wrap.appendChild(formulaire.el)
-
-  const barre = document.createElement('div')
-  barre.className = 'style-actions'
-  const enregistrer = document.createElement('button')
-  enregistrer.type = 'button'
-  enregistrer.className = 'btn-primary'
-  enregistrer.textContent = 'Enregistrer'
-  enregistrer.onclick = async () => {
-    statut.textContent = 'Enregistrement…'
-    try {
-      await saveStyle(formulaire.lire())
-      location.hash = '#/'
-    } catch {
-      statut.textContent = "Échec de l'enregistrement — réessaie."
-    }
-  }
-  barre.appendChild(enregistrer)
-  wrap.appendChild(barre)
-
-  root.appendChild(wrap)
 }

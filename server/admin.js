@@ -292,11 +292,17 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
     })(),
     listeAttente: (() => {
       try {
-        if (!existsSync(waitlistPath)) return { total: 0, dernier: null }
+        if (!existsSync(waitlistPath)) return { total: 0, dernier: null, enAttente: 0 }
         const liste = JSON.parse(readFileSync(waitlistPath, 'utf8'))
-        return { total: liste.length, dernier: liste.length ? liste[liste.length - 1].ts : null }
+        return {
+          total: liste.length,
+          dernier: liste.length ? liste[liste.length - 1].ts : null,
+          // Les adresses qui attendent vraiment (ni embarquées, ni déjà
+          // venues par une invitation) : le chiffre qu'on vient voir.
+          enAttente: storage.fileAttente().enAttente,
+        }
       } catch {
-        return { total: null, dernier: null }
+        return { total: null, dernier: null, enAttente: null }
       }
     })(),
   }

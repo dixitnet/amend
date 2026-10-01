@@ -13,6 +13,10 @@ export {
   ALIGNEMENTS,
   INTERLIGNES,
   FORMATS_PAGE,
+  FORMATS_ANCIENS,
+  ORIENTATIONS,
+  BORNES_FORMAT,
+  UTILE_MIN,
   CONTENUS_ENTETE,
   LANGUES,
   langue,
@@ -24,9 +28,11 @@ export {
   reduire,
   police,
   formatPage,
+  dimensionsPage,
+  assainir,
 } from '../../shared/style.js'
 
-import { BLOCS, POLICES, formatPage, police, styleParDefaut } from '../../shared/style.js'
+import { BLOCS, POLICES, dimensionsPage, police, styleParDefaut } from '../../shared/style.js'
 
 /** Pile CSS de la police d'un bloc. */
 export function fontFamily(fontId) {
@@ -65,15 +71,17 @@ export async function saveStyle(style) {
 }
 
 /** La mise en page effective d'un document : valeurs par défaut du code,
- * puis style de l'instance, puis celui du document. `propre` dit si le
- * document a fait ses propres choix ou s'il suit encore le défaut. */
+ * puis le calque de son **modèle**, puis ses propres écarts. Renvoie
+ * `{ style, propre, ecarts, modele }` : `propre` dit si le document a un
+ * fichier d'écarts, `ecarts` combien de réglages s'écartent réellement de
+ * son modèle, `modele` `{ id, nom, portee }`. */
 export async function loadDocStyle(docId) {
   try {
     const res = await fetch(`/api/docs/${docId}/style`)
-    if (!res.ok) return { style: styleParDefaut(), propre: false }
+    if (!res.ok) return { style: styleParDefaut(), propre: false, ecarts: 0, modele: null }
     return await res.json()
   } catch {
-    return { style: styleParDefaut(), propre: false }
+    return { style: styleParDefaut(), propre: false, ecarts: 0, modele: null }
   }
 }
 
@@ -87,12 +95,47 @@ export async function saveDocStyle(docId, style) {
   return res.json()
 }
 
-/** Rend au document l'héritage du style par défaut de l'instance. */
+/** Rend au document son modèle : ses écarts propres sont effacés. */
 export async function resetDocStyle(docId) {
   const res = await fetch(`/api/docs/${docId}/style`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`échec (${res.status})`)
   return res.json()
 }
+
+// --- Les modèles de mise en page (01/10/2026) ----------------------------
+
+async function appelModeles(url, methode, corps) {
+  const res = await fetch(url, {
+    method: methode,
+    headers: { 'content-type': 'application/json' },
+    body: corps === undefined ? undefined : JSON.stringify(corps),
+  })
+  const donnees = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(donnees.error || `échec (${res.status})`)
+    err.status = res.status
+    err.donnees = donnees
+    throw err
+  }
+  return donnees
+}
+
+/** Les modèles que cette personne voit : `{ modeles, admin }`. Chaque
+ * modèle porte son style **complet**, ce qu'il permet de modifier
+ * (`modifiable`, `supprimable`) et combien de documents l'utilisent. */
+export const chargerModeles = () => appelModeles('/api/modeles', 'GET')
+
+/** Choisit le modèle d'un document (réservé aux éditeurs). Par défaut les
+ * écarts propres du document sont abandonnés. */
+export const choisirModele = (docId, modeleId, { garderEcarts = false } = {}) =>
+  appelModeles(`/api/docs/${docId}/modele`, 'PUT', { modeleId, garderEcarts })
+
+/** Duplique un modèle en un nouveau. `portee: 'instance'` : administrateurs. */
+export const creerModele = ({ nom, depuis, portee }) => appelModeles('/api/modeles', 'POST', { nom, depuis, portee })
+
+export const modifierModele = (id, changements) => appelModeles(`/api/modeles/${id}`, 'PUT', changements)
+
+export const supprimerModele = (id) => appelModeles(`/api/modeles/${id}`, 'DELETE')
 
 // --- Traduction en CSS ----------------------------------------------------
 
@@ -143,8 +186,8 @@ export function buildStyleCss(style, { scope }) {
  * l'éditeur, qui défile sans pagination : export PDF seulement. */
 export function buildPageCss(style, { scope } = {}) {
   const p = (style && style.page) || styleParDefaut().page
-  const format = formatPage(p.size)
-  const taille = format.id === 'Letter' ? 'letter' : format.id
+  const [largeurPage, hauteurPage] = dimensionsPage(p)
+  const taille = `${largeurPage}mm ${hauteurPage}mm`
   const pageNumbers = p.pageNumbers || { enabled: false, startAt: 1 }
   const corps = (style && style.blocs && style.blocs.body) || styleParDefaut().blocs.body
   const bottomCenter = pageNumbers.enabled

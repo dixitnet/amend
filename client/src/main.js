@@ -1,6 +1,6 @@
 import { mountHome } from './home.js'
 import { mountEditor } from './editor.js'
-import { mountAdminStyle } from './stylePanel.js'
+import { mountModeles } from './modeles.js'
 import { mountAdmin } from './admin.js'
 import { mountInscrits } from './inscrits.js'
 import { monterPaletteContact } from './contact.js'
@@ -65,8 +65,16 @@ async function route() {
     return
   }
 
+  if (hash === '#/modeles') {
+    mountModeles(app)
+    return
+  }
+
+  // L'ancienne page du style par défaut (avant le 01/10/2026) : c'est
+  // maintenant le modèle « Par défaut » de la page des modèles. Les
+  // marque-pages continuent de marcher.
   if (hash === '#/style') {
-    mountAdminStyle(app)
+    location.replace('#/modeles')
     return
   }
 

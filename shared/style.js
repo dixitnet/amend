@@ -94,11 +94,37 @@ export function langue(id) {
   return LANGUES.find((l) => l.id === id) || LANGUES[0]
 }
 
+/** Les formats de page proposés (01/10/2026) : A4, A5, et un format libre.
+ * Décision de Sylvain — pas de catalogue plus large pour l'instant ; le
+ * format libre couvre le reste. `mm` est la page **en portrait** ; pour
+ * « personnalisé » il vaut `null`, les dimensions sont alors `largeur` et
+ * `hauteur` de la page, telles qu'écrites (pas d'orientation à choisir :
+ * 210 × 148 *est* un paysage). */
 export const FORMATS_PAGE = [
   { id: 'A4', label: 'A4', mm: [210, 297] },
   { id: 'A5', label: 'A5', mm: [148, 210] },
-  { id: 'Letter', label: 'Letter (US)', mm: [215.9, 279.4] },
+  { id: 'personnalise', label: 'Personnalisé…', mm: null },
 ]
+
+/** Valeurs encore lues mais plus proposées : Letter a été retiré de la
+ * liste le 01/10/2026. Un document qui l'a déjà continue de s'exporter en
+ * Letter — le retirer d'ici le ferait retomber en A4 sans prévenir. */
+export const FORMATS_ANCIENS = [{ id: 'Letter', label: 'Letter (US) — ancien', mm: [215.9, 279.4] }]
+
+export const ORIENTATIONS = [
+  { id: 'portrait', label: 'Portrait' },
+  { id: 'paysage', label: 'Paysage' },
+]
+
+/** Bornes d'un côté de page libre, en mm : de la fiche cartonnée au
+ * demi-A2. Au-dessous, la composition n'a plus de sens ; au-dessus, le PDF
+ * n'a plus d'imprimante. */
+export const BORNES_FORMAT = { min: 80, max: 450 }
+
+/** Largeur utile minimale entre les marges, en mm. Un format étroit avec de
+ * grandes marges ne laisserait plus de place pour une ligne de texte, et
+ * Typst comme Word refusent alors de composer. */
+export const UTILE_MIN = 40
 
 // --- Propriétés d'un bloc -------------------------------------------------
 
@@ -188,6 +214,11 @@ export const NIVEAUX_TITRE = BLOCS.filter((b) => b.docxHeading !== null).length
 
 export const PAGE_DEFAUT = {
   size: 'A4',
+  // Portrait ou paysage, pour les formats nommés (01/10/2026). Un format
+  // personnalisé porte directement ses deux côtés.
+  orientation: 'portrait',
+  largeur: 148,
+  hauteur: 210,
   // Langue du document — césures et guillemets, pas l'interface.
   langue: 'fr',
   marginTop: 25,
@@ -324,10 +355,23 @@ export function fusionner(...couches) {
  * Signalé en production le 26/09/2026 : « le passage en A4 ne
  * s'enregistre pas ». On ne compare pas **seulement** à l'instance : le
  * document cesserait de figer ce qu'il en a hérité, et un changement
- * ultérieur de l'instance refluerait sur lui. */
-export function reduire(style, instance = null) {
+ * ultérieur de l'instance refluerait sur lui.
+ *
+ * Deux régimes, donc. Un document **sans modèle choisi** (« Par défaut »)
+ * garde le comportement ci-dessus : dès qu'on y touche, il fige ce qu'il
+ * tient de l'instance. Un document **avec un modèle choisi** (01/10/2026)
+ * passe `{ seulement: true }` : il ne garde que ce qui diffère de son
+ * modèle, et suit le reste quand le modèle change — c'est ce que « Basé sur
+ * Livre, 2 réglages propres » promet. */
+export function reduire(style, instance = null, { seulement = false } = {}) {
   const base = styleParDefaut()
-  const bases = instance ? [base, instance] : [base]
+  // `seulement` (01/10/2026) : ne comparer **qu'à** `instance`, pas au code
+  // en plus. C'est l'écart pur au modèle d'un document : une valeur qui
+  // égale celle du modèle n'est pas enregistrée, et suit donc le modèle
+  // quand il change — là où la comparaison double ci-dessus fige tout ce
+  // que le document tient de l'instance (comportement conservé pour les
+  // documents sur « Par défaut »).
+  const bases = instance ? (seulement ? [instance] : [base, instance]) : [base]
   // Vrai si `v` s'écarte d'au moins une base, lue par `lire`.
   const ecarte = (v, lire) => bases.some((b) => lire(b) !== v)
   const out = { version: VERSION_STYLE }
@@ -403,7 +447,114 @@ export function police(id) {
 }
 
 export function formatPage(id) {
-  return FORMATS_PAGE.find((f) => f.id === id) || FORMATS_PAGE[0]
+  return FORMATS_PAGE.find((f) => f.id === id) || FORMATS_ANCIENS.find((f) => f.id === id) || FORMATS_PAGE[0]
+}
+
+function borner(valeur, defaut, min, max) {
+  const n = Number(valeur)
+  if (!Number.isFinite(n)) return defaut
+  return Math.min(max, Math.max(min, Math.round(n * 10) / 10))
+}
+
+/** `[largeur, hauteur]` de la page en mm, orientation comprise — **la seule
+ * fonction que les exports (Typst, Word, CSS) appellent pour savoir la
+ * taille d'une page**. Ne lève jamais : une valeur absente ou hors bornes
+ * retombe sur une valeur utilisable. */
+export function dimensionsPage(page) {
+  const p = page || {}
+  const f = formatPage(p.size)
+  if (f.id === 'personnalise') {
+    return [
+      borner(p.largeur, PAGE_DEFAUT.largeur, BORNES_FORMAT.min, BORNES_FORMAT.max),
+      borner(p.hauteur, PAGE_DEFAUT.hauteur, BORNES_FORMAT.min, BORNES_FORMAT.max),
+    ]
+  }
+  const [l, h] = f.mm
+  return p.orientation === 'paysage' ? [h, l] : [l, h]
+}
+
+// --- Assainissement -------------------------------------------------------
+
+/** Remet une feuille de style **complète** dans le domaine de ce que le
+ * modèle sait rendre : listes fermées respectées, nombres dans leurs
+ * bornes, booléens booléens. Appelé par le serveur à chaque écriture
+ * (document, instance, modèle) — jamais pour rejeter, toujours pour
+ * ramener : une valeur invalide reprend sa valeur par défaut.
+ *
+ * Pourquoi maintenant : un modèle est partagé (celui de l'instance touche
+ * tout le monde), et une marge `"abc"` ou un côté de page à 0 ferait
+ * échouer l'export de chacun de ceux qui l'utilisent, avec un message
+ * d'erreur de Typst à la clé. Aucun texte libre n'entre dans la feuille de
+ * style à part le texte d'un en-tête, borné ici. */
+export function assainir(style) {
+  const base = styleParDefaut()
+  const complet = fusionner(style)
+  const p = complet.page
+
+  const nombre = (v, defaut, min, max) => borner(v, defaut, min, max)
+  const dans = (liste, v, defaut) => (liste.some((x) => String(x.id) === String(v)) ? v : defaut)
+  const booleen = (v, defaut) => (typeof v === 'boolean' ? v : defaut)
+
+  const page = {
+    ...p,
+    size: dans([...FORMATS_PAGE, ...FORMATS_ANCIENS], p.size, base.page.size),
+    orientation: dans(ORIENTATIONS, p.orientation, base.page.orientation),
+    largeur: nombre(p.largeur, base.page.largeur, BORNES_FORMAT.min, BORNES_FORMAT.max),
+    hauteur: nombre(p.hauteur, base.page.hauteur, BORNES_FORMAT.min, BORNES_FORMAT.max),
+    langue: dans(LANGUES, p.langue, base.page.langue),
+    titresSolidaires: booleen(p.titresSolidaires, base.page.titresSolidaires),
+    titre1PageImpaire: booleen(p.titre1PageImpaire, base.page.titre1PageImpaire),
+  }
+  for (const cle of ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']) {
+    page[cle] = nombre(p[cle], base.page[cle], 0, 100)
+  }
+  // Les marges ne mangent jamais la page : si elles laissent moins de
+  // UTILE_MIN, on les réduit **proportionnellement**.
+  const [l, h] = dimensionsPage(page)
+  const serrer = (a, b, cote) => {
+    const total = page[a] + page[b]
+    const permis = Math.max(0, cote - UTILE_MIN)
+    if (total > permis && total > 0) {
+      const k = permis / total
+      page[a] = Math.floor(page[a] * k * 10) / 10
+      page[b] = Math.floor(page[b] * k * 10) / 10
+    }
+  }
+  serrer('marginLeft', 'marginRight', l)
+  serrer('marginTop', 'marginBottom', h)
+
+  const pn = p.pageNumbers || base.page.pageNumbers
+  page.pageNumbers = {
+    enabled: booleen(pn.enabled, false),
+    startAt: Math.round(nombre(pn.startAt, 1, 1, 9999)),
+  }
+  const en = p.entete || base.page.entete
+  const cote = (c) => ({
+    type: dans(CONTENUS_ENTETE, c && c.type, 'rien'),
+    texte: typeof (c && c.texte) === 'string' ? c.texte.slice(0, 200) : '',
+  })
+  page.entete = {
+    gauche: cote(en.gauche),
+    droite: cote(en.droite),
+    sautOuverture: booleen(en.sautOuverture, true),
+  }
+
+  const blocs = {}
+  for (const b of BLOCS) {
+    const v = complet.blocs[b.id] || {}
+    const out = {}
+    for (const prop of PROPRIETES) {
+      const defaut = b.defauts[prop.id]
+      const valeur = v[prop.id]
+      if (prop.type === 'choix') {
+        const ok = prop.options.find((o) => String(o.id) === String(valeur))
+        out[prop.id] = ok ? ok.id : defaut
+      } else if (prop.type === 'booleen') out[prop.id] = booleen(valeur, defaut)
+      else out[prop.id] = nombre(valeur, defaut, prop.min, prop.max)
+    }
+    blocs[b.id] = out
+  }
+  return { version: VERSION_STYLE, page, blocs }
 }
 
 export function bloc(id) {

@@ -6,10 +6,14 @@
 // répond 403 à tout le reste, et cette page n'affiche donc rien qu'elle
 // n'ait obtenu de là.
 //
-// Le fichier empile les envois sans dédupliquer (décision du 14/09) : on
-// voit donc les doublons, marqués comme tels plutôt que masqués — une
+// Le fichier empile les envois sans dédupliquer (décision du 14/09) : une
 // personne qui s'inscrit trois fois est une information, pas un bug à
-// cacher.
+// cacher. Depuis le 01/10/2026 la page montre **une ligne par adresse**,
+// avec le nombre d'inscriptions (×3), parce qu'on y vient pour embarquer
+// des gens et qu'on n'embarque pas une personne trois fois ; le serveur
+// fait le regroupement (`fileAttente()`), la page ne recompte rien.
+
+import { brancherEmbarquement } from './embarquement.js'
 
 function date(ts) {
   if (!ts) return '—'
@@ -22,7 +26,13 @@ function date(ts) {
   })
 }
 
-export async function mountInscrits(root) {
+const STATUTS = {
+  attente: 'en attente',
+  embarque: 'embarquée',
+  acces: 'a déjà accès',
+}
+
+export async function mountInscrits(root, info) {
   root.innerHTML = ''
   const wrap = document.createElement('div')
   wrap.className = 'home backoffice'
@@ -57,51 +67,78 @@ export async function mountInscrits(root) {
     return
   }
 
-  const inscrits = Array.isArray(donnees.inscrits) ? donnees.inscrits : []
-  if (!inscrits.length) {
+  const file = Array.isArray(donnees.file) ? donnees.file : []
+  if (!file.length) {
     sous.textContent = 'Personne pour l’instant.'
     return
   }
 
-  const uniques = new Set(inscrits.map((i) => i.email))
-  sous.textContent =
-    uniques.size === inscrits.length
-      ? `${uniques.size} adresse${uniques.size > 1 ? 's' : ''}.`
-      : `${uniques.size} adresse${uniques.size > 1 ? 's' : ''} pour ${inscrits.length} inscriptions (doublons compris).`
+  brancherEmbarquement(root, ({ email }) =>
+    mountInscrits(root, `Document créé, invitation envoyée à ${email}.`)
+  )
 
-  // La plus récente en haut : c'est ce qu'on vient voir.
-  const lignes = [...inscrits].sort((a, b) => (b.ts || 0) - (a.ts || 0))
-  const vues = new Set()
+  const inscriptions = file.reduce((n, l) => n + (l.inscriptions || 1), 0)
+  const enAttente = file.filter((l) => l.statut === 'attente').length
+  sous.textContent =
+    `${file.length} adresse${file.length > 1 ? 's' : ''}` +
+    (inscriptions > file.length ? ` pour ${inscriptions} inscriptions (doublons compris)` : '') +
+    ` — ${enAttente} en attente.`
+
+  if (info) {
+    const ok = document.createElement('p')
+    ok.className = 'bo-note bo-ok'
+    ok.setAttribute('role', 'status')
+    ok.textContent = info
+    wrap.appendChild(ok)
+  }
+
+  // Ceux qui attendent d'abord, dans l'ordre d'arrivée : c'est la file
+  // qu'on vient vider. Les autres suivent, déjà servis.
+  const lignes = [...file].sort(
+    (a, b) => (a.statut === 'attente' ? 0 : 1) - (b.statut === 'attente' ? 0 : 1) || (a.rang || 0) - (b.rang || 0)
+  )
 
   const table = document.createElement('table')
   table.className = 'inscrits-table'
   const thead = document.createElement('thead')
-  thead.innerHTML = '<tr><th>Adresse</th><th>Inscription</th><th>Rang</th></tr>'
+  thead.innerHTML = '<tr><th>Adresse</th><th>Inscription</th><th>Rang</th><th>Statut</th></tr>'
   table.appendChild(thead)
 
   const tbody = document.createElement('tbody')
-  // On numérote depuis la plus ancienne, pour que le rang veuille dire
-  // « place dans la file » et pas « position dans ce tableau ».
-  const rangs = new Map()
-  ;[...inscrits].sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((i, n) => {
-    if (!rangs.has(i.email)) rangs.set(i.email, n + 1)
-  })
-
-  for (const i of lignes) {
+  for (const l of lignes) {
     const tr = document.createElement('tr')
     const tdMail = document.createElement('td')
-    tdMail.textContent = i.email || '—'
-    const tdDate = document.createElement('td')
-    tdDate.textContent = date(i.ts)
-    const tdRang = document.createElement('td')
-    if (vues.has(i.email)) {
-      tdRang.textContent = 'doublon'
-      tdRang.className = 'doublon'
-    } else {
-      tdRang.textContent = `n° ${rangs.get(i.email)}`
-      vues.add(i.email)
+    tdMail.textContent = l.email || '—'
+    if (l.inscriptions > 1) {
+      const fois = document.createElement('span')
+      fois.className = 'doublon'
+      fois.title = 'Inscrite plusieurs fois'
+      fois.textContent = ` ×${l.inscriptions}`
+      tdMail.appendChild(fois)
     }
-    tr.append(tdMail, tdDate, tdRang)
+    const tdDate = document.createElement('td')
+    tdDate.textContent = date(l.ts)
+    const tdRang = document.createElement('td')
+    tdRang.textContent = `n° ${l.rang}`
+    const tdStatut = document.createElement('td')
+    tdStatut.dataset.embarquerZone = ''
+    if (l.statut === 'attente') {
+      const bouton = document.createElement('button')
+      bouton.type = 'button'
+      bouton.className = 'bo-action'
+      bouton.dataset.embarquer = l.email
+      bouton.textContent = 'Embarquer'
+      const msg = document.createElement('span')
+      msg.className = 'bo-embarquer-msg bo-note'
+      msg.setAttribute('role', 'status')
+      tdStatut.append(bouton, msg)
+    } else {
+      tdStatut.textContent =
+        l.statut === 'embarque' && l.embarque && l.embarque.ts
+          ? `embarquée le ${date(l.embarque.ts)}`
+          : STATUTS[l.statut] || l.statut || '—'
+    }
+    tr.append(tdMail, tdDate, tdRang, tdStatut)
     tbody.appendChild(tr)
   }
   table.appendChild(tbody)

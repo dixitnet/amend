@@ -53,6 +53,7 @@ import { mountPresenceBar } from './presence.js'
 import { monterMenuCompte } from './compteMenu.js'
 import { loadDocStyle } from './styleConfig.js'
 import { ouvrirPanneauStyle } from './stylePanel.js'
+import { monterModeleDocument } from './modeleDocument.js'
 import { ouvrirPanneauPublication } from './publicationPanel.js'
 import { messageFugace } from './images.js'
 import { documentPourExport, VARIANTES, FINAL } from './exportVariante.js'
@@ -163,9 +164,11 @@ export function mountEditor(root, docId, user, docMeta) {
   zoneDroite.className = 'banniere-zone banniere-droite'
   topBanner.append(zoneGauche, zoneCentre, zoneDroite)
 
+  const menusDeroulants = []
   /** Un menu déroulant : un bouton, une liste flottante, fermée au clic
-   * ailleurs. Deux usages ici (Partager, et le compte dans compteMenu.js) —
-   * d'où la fabrique plutôt que deux copies du même mécanisme. */
+   * ailleurs. Plusieurs usages (Partager, Exporter, et le compte dans
+   * compteMenu.js) — d'où la fabrique plutôt que des copies du même
+   * mécanisme. */
   function menuDeroulant(libelle, { classe = '', titre = '' } = {}) {
     const menu = document.createElement('div')
     menu.className = `menu-flottant ${classe}`.trim()
@@ -178,14 +181,25 @@ export function mountEditor(root, docId, user, docMeta) {
     liste.className = 'menu-flottant-liste menu-flottant-droite'
     liste.hidden = true
     menu.append(bouton, liste)
+    // Le clic sur le bouton ne remonte pas au document (sinon le menu se
+    // fermerait aussitôt) : c'est donc à lui de fermer les **autres** menus
+    // — avec Partager et Exporter côte à côte, deux listes ouvertes à la fois
+    // se recouvriraient.
     bouton.onclick = (e) => {
       e.stopPropagation()
-      liste.hidden = !liste.hidden
+      const ouvrir = liste.hidden
+      for (const autre of menusDeroulants) autre.fermer()
+      liste.hidden = !ouvrir
+      // Un menu peut avoir quelque chose à relire à chaque ouverture (le
+      // modèle de mise en page, que le menu Exporter montre).
+      if (ouvrir && ref.surOuverture) ref.surOuverture()
     }
     document.addEventListener('click', (e) => {
       if (!menu.contains(e.target)) liste.hidden = true
     })
-    return { el: menu, liste, fermer: () => { liste.hidden = true } }
+    const ref = { el: menu, liste, fermer: () => { liste.hidden = true }, surOuverture: null }
+    menusDeroulants.push(ref)
+    return ref
   }
 
   // --- Zone gauche : où je suis --------------------------------------------
@@ -341,16 +355,9 @@ export function mountEditor(root, docId, user, docMeta) {
   const groupeForme = document.createElement('div')
   groupeForme.className = 'banniere-groupe'
 
-  // Mise en page du document (16/09/2026) — réservée aux éditeurs, comme
-  // renommer ou supprimer : c'est `canManageDocument` côté serveur qui
-  // décide, ce bouton n'est que la porte.
-  const miseEnPageBtn = document.createElement('button')
-  miseEnPageBtn.type = 'button'
-  miseEnPageBtn.className = 'btn-tool btn-texte'
-  miseEnPageBtn.textContent = 'Mise en page'
-  miseEnPageBtn.title = "Format, marges, styles des titres et du texte — propres à ce document"
-  miseEnPageBtn.onclick = () => ouvrirPanneauStyle(docId)
-  groupeForme.appendChild(miseEnPageBtn)
+  // La mise en page du document n'a plus de bouton à elle (01/10/2026) : elle
+  // se choisit dans le menu **Exporter**, qui est le geste qui la rend
+  // visible — voir monterModeleDocument (modeleDocument.js).
 
   // L'historique ferme la rangée, seul dans son groupe (19/09/2026) : il ne
   // touche pas au document, il le regarde — c'est le seul geste de la zone
@@ -363,12 +370,16 @@ export function mountEditor(root, docId, user, docMeta) {
   historyLink.textContent = 'Historique'
   groupeHistorique.appendChild(historyLink)
 
-  // 3. Faire sortir. Un seul bouton (17/09/2026) : les accès et les exports
-  // répondaient déjà à la même question — *qui d'autre voit ce document, et
-  // sous quelle forme* — et occupaient deux places distinctes dans la barre.
-  // C'est aussi le logement naturel de la publication de page (§1 de la
-  // feuille de route) le jour où elle arrivera.
+  // 3. Faire sortir. Un seul bouton du 17/09 au 01/10/2026 : les accès et
+  // les exports répondaient déjà à la même question — *qui d'autre voit ce
+  // document, et sous quelle forme*. Séparés le 01/10 : le menu portait
+  // trop de choses (accès, variante, trois formats, publication) et le choix
+  // du modèle de mise en page, qui ne concerne que la forme du fichier
+  // produit, vient s'ajouter à la forme. **Partager** = à qui (accès,
+  // publication sur le web) ; **Exporter** = sous quelle forme (variante,
+  // formats).
   const menuPartage = menuDeroulant('Partager ▾', { classe: 'menu-partage' })
+  const menuExport = menuDeroulant('Exporter ▾', { classe: 'menu-export' })
 
   const accesItem = document.createElement('button')
   accesItem.type = 'button'
@@ -377,12 +388,6 @@ export function mountEditor(root, docId, user, docMeta) {
     menuPartage.fermer()
     openAccessPanel(docId, { jeSuisProprietaire: !!docMeta.jeSuisProprietaire })
   }
-
-  const sepExports = document.createElement('hr')
-  sepExports.className = 'menu-flottant-separateur'
-  const titreExports = document.createElement('span')
-  titreExports.className = 'menu-flottant-entete'
-  titreExports.textContent = 'Exporter'
 
   // Ce que l'export met dans le fichier (19/09/2026) — question restée
   // sans réponse jusque-là, avec pour conséquence des exports où un mot
@@ -436,11 +441,25 @@ export function mountEditor(root, docId, user, docMeta) {
     ouvrirPanneauPublication(docId, () => view.state.doc, () => titleInput.value)
   }
 
-  menuPartage.liste.append(accesItem, sepExports, titreExports, varianteSelect, varianteAide, exportMdItem, exportDocxItem, exportPdfItem, sepPublier, publierItem)
-  // Mise en page et Partager voisinent : ce sont les deux gestes qui
-  // décident de la **forme sous laquelle le document sort** — l'un la
-  // compose, l'autre la distribue.
-  groupeForme.appendChild(menuPartage.el)
+  menuPartage.liste.append(accesItem, sepPublier, publierItem)
+  // En tête du menu : le modèle de mise en page, propriété du document. Le
+  // menu n'existe que pour les éditeurs (voir `isCorrecteur` plus bas), qui
+  // sont aussi ceux que le serveur laisse changer le modèle.
+  const modeleDoc = monterModeleDocument({
+    docId,
+    ouvrirPersonnaliser: (id, options) => {
+      menuExport.fermer()
+      ouvrirPanneauStyle(id, options)
+    },
+  })
+  menuExport.surOuverture = () => modeleDoc.charger()
+  const sepModele = document.createElement('hr')
+  sepModele.className = 'menu-flottant-separateur'
+  menuExport.liste.append(modeleDoc.el, sepModele, varianteSelect, varianteAide, exportMdItem, exportDocxItem, exportPdfItem)
+  // Mise en page, Exporter et Partager voisinent : ce sont les gestes qui
+  // décident de la **forme sous laquelle le document sort** et de **qui le
+  // reçoit**.
+  groupeForme.append(menuExport.el, menuPartage.el)
 
   zoneDroite.append(groupeTexte, groupeForme, groupeHistorique)
 
@@ -1027,7 +1046,7 @@ export function mountEditor(root, docId, user, docMeta) {
   // où il sortira d'une route serveur (chantier Typst).
   if (isCorrecteur) {
     menuPartage.el.hidden = true
-    miseEnPageBtn.hidden = true
+    menuExport.el.hidden = true
     // Poser une table des matières, c'est décider de la structure du
     // document — même raisonnement que pour les tableaux.
     tocBtn.hidden = true
@@ -1204,12 +1223,12 @@ export function mountEditor(root, docId, user, docMeta) {
     view.focus()
   }
   exportMdItem.onclick = () => {
-    menuPartage.fermer()
+    menuExport.fermer()
     const markdown = docToMarkdown(docAExporter())
     downloadText(markdown, markdownFilename(titleInput.value))
   }
   exportDocxItem.onclick = async () => {
-    menuPartage.fermer()
+    menuExport.fermer()
     // Toujours re-demander la feuille de style (jamais la copie chargée au
     // montage) : l'admin a pu la changer sur "Mise en page" depuis, un
     // export doit refléter ce qui est enregistré maintenant — même
@@ -1221,7 +1240,7 @@ export function mountEditor(root, docId, user, docMeta) {
     await downloadDocx(docAExporter(), style, titleInput.value)
   }
   exportPdfItem.onclick = async () => {
-    menuPartage.fermer()
+    menuExport.fermer()
     // Le PDF sort désormais d'un vrai moteur de composition, côté serveur
     // (voir claude/proto-export-pdf-typst-pagedjs.md) : notes de bas de
     // page, césures françaises, table des matières paginée et recto-verso

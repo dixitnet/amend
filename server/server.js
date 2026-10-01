@@ -36,7 +36,10 @@ import {
   isLoginAllowed,
 } from './auth.js'
 import { sendMail, courrierAvecBouton } from './mailgun.js'
+import { ecrireModele, TITRE_BIENVENUE } from './modeleBienvenue.js'
 import { capabilities, isValidRole } from './roles.js'
+import { ID_DEFAUT } from '../shared/modeles.js'
+import { fusionner } from '../shared/style.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -561,6 +564,19 @@ async function handleApi(req, res, url) {
     }
   }
 
+  // L'état de la mise en page d'un document tel que l'éditeur le montre : la
+  // feuille effective, s'il a des écarts propres (et combien), et son modèle.
+  const resumeModele = (modeleId) => {
+    const m = storage.modeles.obtenir(modeleId)
+    return m ? { id: m.id, nom: m.nom, portee: m.portee } : null
+  }
+  const etatStyleDoc = (docId) => ({
+    style: storage.getDocStyle(docId),
+    propre: storage.hasOwnStyle(docId),
+    ecarts: storage.ecartsDuDocument(docId),
+    modele: resumeModele(storage.modeleDuDocument(docId)),
+  })
+
   if (pathname === '/api/style' && req.method === 'GET') {
     return sendJson(res, 200, storage.getStyle())
   }
@@ -582,17 +598,43 @@ async function handleApi(req, res, url) {
       if (!role) {
         return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
       }
-      return sendJson(res, 200, { style: storage.getDocStyle(id), propre: storage.hasOwnStyle(id) })
+      return sendJson(res, 200, etatStyleDoc(id))
     }
     if (req.method === 'PUT' || req.method === 'DELETE') {
       if (!capabilities(role).canManageDocument) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
       if (req.method === 'DELETE') {
-        // Revenir au style par défaut de l'instance.
-        return sendJson(res, 200, { style: storage.resetDocStyle(id), propre: false })
+        // Revenir à son modèle : on efface les écarts propres du document.
+        storage.resetDocStyle(id)
+        return sendJson(res, 200, etatStyleDoc(id))
       }
       const body = await readJsonBody(req)
-      return sendJson(res, 200, { style: storage.setDocStyle(id, body), propre: true })
+      storage.setDocStyle(id, body)
+      return sendJson(res, 200, etatStyleDoc(id))
     }
+  }
+
+  // --- Modèle de mise en page d'un document (01/10/2026) ---
+  // Le modèle est une **propriété du document** : le même pour tous ses
+  // collaborateurs, suivi par les exports. Le choisir est un geste d'éditeur
+  // (`canManageDocument`, comme les écarts). On ne peut choisir qu'un
+  // modèle qu'on voit ; un document peut en revanche déjà porter celui d'un
+  // collaborateur — le re-choisir ne change rien.
+  const docModeleMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/modele$/)
+  if (docModeleMatch && req.method === 'PUT') {
+    const id = docModeleMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const email = readSession(req)
+    const role = storage.roleFor(id, email)
+    if (!role) return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+    if (!capabilities(role).canManageDocument) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    const body = await readJsonBody(req)
+    const modele = typeof body.modeleId === 'string' ? storage.modeles.obtenir(body.modeleId) : null
+    if (!modele) return sendJson(res, 404, { error: 'modèle introuvable' })
+    if (modele.id !== storage.modeleDuDocument(id)) {
+      if (!storage.modeles.visiblePour(modele, email)) return sendJson(res, 404, { error: 'modèle introuvable' })
+      storage.setDocModele(id, modele.id, { garderEcarts: body.garderEcarts === true })
+    }
+    return sendJson(res, 200, etatStyleDoc(id))
   }
   if (pathname === '/api/style' && req.method === 'PUT') {
     // Feuille de style partagée par toute l'instance, pas par document —
@@ -601,6 +643,96 @@ async function handleApi(req, res, url) {
     if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
     const body = await readJsonBody(req)
     return sendJson(res, 200, storage.setStyle(body))
+  }
+
+  // --- Les modèles de mise en page (01/10/2026, server/modeles.js) ---
+  // Livrés (dans le code), de l'instance (administrateurs), personnels (une
+  // personne). Voir claude/etude-modeles-mise-en-page.md §0.
+  const PERSOS_MAX = 50
+  const vueModele = (m, email, admin, usages) => ({
+    id: m.id,
+    nom: m.nom,
+    portee: m.portee,
+    description: m.description || null,
+    defaut: m.id === ID_DEFAUT,
+    style: fusionner(m.style),
+    modifiable: storage.modeles.peutModifier(m, email, admin),
+    // « Par défaut » ne se supprime pas ; les autres, tant qu'ils ne servent pas.
+    supprimable: m.id !== ID_DEFAUT && storage.modeles.peutModifier(m, email, admin),
+    utilisePar: usages ? usages.get(m.id) || 0 : 0,
+  })
+  if (pathname === '/api/modeles' && req.method === 'GET') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const admin = isAdminEmail(email)
+    const usages = storage.usagesModeles()
+    const modeles = storage.modeles.lister(email).map((m) => vueModele(m, email, admin, usages))
+    return sendJson(res, 200, { modeles, admin })
+  }
+  if (pathname === '/api/modeles' && req.method === 'POST') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const admin = isAdminEmail(email)
+    const body = await readJsonBody(req)
+    const instance = body.portee === 'instance'
+    if (instance && !admin) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    const depuis = typeof body.depuis === 'string' ? storage.modeles.obtenir(body.depuis) : null
+    // Jamais une page blanche : on part d'un modèle qu'on voit.
+    if (!depuis || !storage.modeles.visiblePour(depuis, email)) {
+      return sendJson(res, 404, { error: 'modèle de départ introuvable' })
+    }
+    if (!instance && storage.modeles.lister(email).filter((m) => m.portee === 'perso').length >= PERSOS_MAX) {
+      return sendJson(res, 409, { error: `vous avez déjà ${PERSOS_MAX} modèles personnels` })
+    }
+    try {
+      const cree = storage.modeles.creer({ nom: body.nom, depuis: depuis.id, portee: instance ? 'instance' : 'perso', email })
+      return sendJson(res, 200, vueModele(cree, email, admin))
+    } catch (err) {
+      return sendJson(res, 400, { error: err.message })
+    }
+  }
+  const modeleMatch = pathname.match(/^\/api\/modeles\/([A-Za-z0-9_-]+)$/)
+  if (modeleMatch) {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const admin = isAdminEmail(email)
+    const modele = storage.modeles.obtenir(modeleMatch[1])
+    // Un modèle personnel d'un autre n'existe pas pour vous.
+    if (!modele || !storage.modeles.visiblePour(modele, email)) return sendJson(res, 404, { error: 'modèle introuvable' })
+    if (req.method === 'GET') return sendJson(res, 200, vueModele(modele, email, admin))
+    if (req.method === 'PUT' || req.method === 'DELETE') {
+      if (!storage.modeles.peutModifier(modele, email, admin)) {
+        return sendJson(res, 403, {
+          error: modele.portee === 'livre' ? 'un modèle livré ne se modifie pas : dupliquez-le' : 'ce modèle ne vous appartient pas',
+        })
+      }
+      if (req.method === 'DELETE') {
+        if (modele.id === ID_DEFAUT) return sendJson(res, 403, { error: '« Par défaut » ne se supprime pas' })
+        try {
+          storage.modeles.supprimer(modele.id)
+          return sendJson(res, 200, { ok: true })
+        } catch (err) {
+          if (err.utilisePar) {
+            return sendJson(res, 409, { error: `ce modèle est utilisé par ${err.utilisePar} document(s)`, utilisePar: err.utilisePar })
+          }
+          return sendJson(res, 400, { error: err.message })
+        }
+      }
+      const body = await readJsonBody(req)
+      if (body.nom !== undefined && modele.id === ID_DEFAUT) {
+        return sendJson(res, 400, { error: 'le nom de « Par défaut » ne se change pas' })
+      }
+      try {
+        if (body.nom !== undefined) storage.modeles.renommer(modele.id, body.nom)
+        if (body.style !== undefined) {
+          if (!body.style || typeof body.style !== 'object') return sendJson(res, 400, { error: 'mise en page invalide' })
+          storage.modeles.ecrireStyle(modele.id, body.style)
+        }
+      } catch (err) {
+        return sendJson(res, 400, { error: err.message })
+      }
+      return sendJson(res, 200, vueModele(storage.modeles.obtenir(modele.id), email, admin))
+    }
   }
 
   // Point de diagnostic temporaire pour le test de charge du 13/09/2026
@@ -1057,7 +1189,72 @@ const TARIFS_IA = {
 
   if (pathname === '/api/admin/waitlist' && req.method === 'GET') {
     if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
-    return sendJson(res, 200, { inscrits: storage.waitlist() })
+    // `inscrits` : le fichier tel quel (doublons compris). `file` : une ligne
+    // par adresse, la plus ancienne d'abord, avec son statut (attente,
+    // embarque, acces) ; `enAttente` : combien attendent vraiment.
+    return sendJson(res, 200, { inscrits: storage.waitlist(), ...storage.fileAttente() })
+  }
+
+  // --- Embarquer un testeur (01/10/2026) ---
+  //
+  // Un clic du back-office : on crée **pour cette personne** un premier
+  // document à contenu type, dont elle est la propriétaire (décision de
+  // Sylvain : c'est son document — pas dans la liste de l'administrateur,
+  // et pas lisible par lui), et on lui envoie l'invitation comme éditrice.
+  //
+  // Ordre pensé pour qu'un échec ne laisse rien derrière lui : le document
+  // est créé, rempli, puis le courrier part en dernier ; s'il échoue, le
+  // document est supprimé — mieux vaut rien qu'un document que personne ne
+  // sait ouvrir. La liste d'attente n'est touchée qu'à la réussite.
+  if (pathname === '/api/admin/embarquer' && req.method === 'POST') {
+    const admin = readSession(req)
+    if (!isAdminEmail(admin)) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    const body = await readJsonBody(req)
+    const email = normalizeEmail(body.email)
+    if (!email) return sendJson(res, 400, { error: 'adresse email invalide' })
+    if (storage.emailHasAnyAccess(email)) {
+      return sendJson(res, 409, { error: 'cette adresse a déjà accès à un document' })
+    }
+    const doc = storage.createDoc(TITRE_BIENVENUE, email)
+    const annuler = () => {
+      storage.deleteDoc(doc.id)
+      uploads.supprimerDocument(doc.id)
+    }
+    const { token } = storage.inviteEmail(doc.id, email, 'editeur', admin)
+    try {
+      await rooms.ecrireDocument(doc.id, (ydoc) => ecrireModele(ydoc))
+    } catch (err) {
+      console.error("Échec de l'écriture du document de bienvenue :", err.message)
+      annuler()
+      return sendJson(res, 500, { error: "le document de bienvenue n'a pas pu être créé" })
+    }
+    const lien = `${APP_BASE_URL}/#/invite/${token}`
+    const de = users.nomDe(admin) || admin
+    try {
+      await sendMail({
+        to: email,
+        subject: 'Bienvenue sur amend.ink',
+        ...courrierAvecBouton({
+          titre: 'Bienvenue sur amend.ink',
+          intro:
+            `${de} vous ouvre un premier document sur amend.ink, pour essayer l'application : ` +
+            `un petit mode d'emploi à tester directement dans le texte. Ce document est le vôtre. ` +
+            `Ce lien l'ouvre sans mot de passe ni inscription ; il reste valable 14 jours.`,
+          libelleBouton: 'Ouvrir mon document',
+          lien,
+          apres: "Si vous n'attendiez pas ce message, ignorez-le.",
+        }),
+      })
+      metrics.log('mail', { type: 'embarquement', ok: true })
+    } catch (err) {
+      console.error("Échec d'envoi du courrier d'embarquement :", err.message)
+      metrics.log('mail', { type: 'embarquement', ok: false, erreur: err.message })
+      annuler()
+      return sendJson(res, 502, { error: "le courrier n'a pas pu être envoyé : rien n'a été créé" })
+    }
+    const surListe = storage.marquerEmbarque(email, doc.id, admin) > 0
+    metrics.log('embarquements', { docId: doc.id, surListe })
+    return sendJson(res, 200, { email, docId: doc.id, titre: doc.title, surListe })
   }
 
   // --- Publier sur le web (17/09/2026, voir server/publication.js) ---

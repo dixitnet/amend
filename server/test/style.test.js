@@ -171,7 +171,7 @@ test('dès qu’un éditeur y touche, le document ne suit plus l’instance', as
   await fetch(`${BASE}/api/style`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json', cookie: admin },
-    body: JSON.stringify(fusionner({ blocs: { h1: { size: 99 } } })),
+    body: JSON.stringify(fusionner({ blocs: { h1: { size: 90 } } })),
   })
   const vue = await (await fetch(`${BASE}/api/docs/${doc.id}/style`, { headers: { cookie: admin } })).json()
   assert.equal(vue.style.blocs.h1.size, 40, "le style d'instance a reflué sur un document qui avait choisi")
@@ -179,7 +179,7 @@ test('dès qu’un éditeur y touche, le document ne suit plus l’instance', as
   // DELETE le remet à l'héritage.
   const remis = await (await fetch(`${BASE}/api/docs/${doc.id}/style`, { method: 'DELETE', headers: { cookie: admin } })).json()
   assert.equal(remis.propre, false)
-  assert.equal(remis.style.blocs.h1.size, 99)
+  assert.equal(remis.style.blocs.h1.size, 90)
 })
 
 test('la mise en page se lit avec l’accès, ne se change qu’en éditeur', async () => {

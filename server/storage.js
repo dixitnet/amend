@@ -7,7 +7,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync,
 import { appendFile as appendFileAsync } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomId } from './ws.js'
-import { fusionner, reduire } from '../shared/style.js'
+import { fusionner, reduire, assainir } from '../shared/style.js'
+import { compterEcarts, ID_DEFAUT } from '../shared/modeles.js'
+import { Modeles } from './modeles.js'
 import { capabilities } from './roles.js'
 
 // How long updates sit in memory before being flushed to disk together —
@@ -107,6 +109,15 @@ export class Storage {
     this.registryPath = join(dataDir, 'docs.json')
     this.stylePath = join(dataDir, 'style.json')
     this.waitlistPath = join(dataDir, 'waitlist.json')
+    // Les modèles de mise en page (01/10/2026, server/modeles.js). Le
+    // registre ne sait rien des documents : on lui donne de quoi compter
+    // ceux qui utilisent un modèle, et de quoi lire / écrire « Par défaut »,
+    // qui est le style de l'instance.
+    this.modeles = new Modeles(join(dataDir, 'modeles'), {
+      lireInstance: () => this._lireStyle(this.stylePath),
+      ecrireInstance: (style) => this.setStyle(style),
+      enUsage: (id) => this.compterUsagesModele(id),
+    })
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true })
     if (!existsSync(this.registryPath)) {
       writeFileSync(this.registryPath, JSON.stringify({}), 'utf8')
@@ -155,25 +166,91 @@ export class Storage {
     return existsSync(this._stylePath(id))
   }
 
+  /** Le modèle de mise en page d'un document (01/10/2026) : son
+   * identifiant s'il en a choisi un et qu'il existe encore, sinon « Par
+   * défaut ». C'est une **propriété du document** — enregistrée avec lui,
+   * la même pour tous ses collaborateurs. */
+  modeleDuDocument(id) {
+    const meta = this._readRegistry()[id]
+    return this.modeles.effectif(meta && meta.modele)
+  }
+
   /** La feuille de style effective d'un document : valeurs par défaut du
-   * code, puis style de l'instance, puis celui du document. */
+   * code, puis le calque de son modèle (« Par défaut » = le style de
+   * l'instance, tant qu'il n'a pas choisi), puis ses propres écarts. */
   getDocStyle(id) {
-    return fusionner(this._lireStyle(this.stylePath), this._lireStyle(this._stylePath(id)))
+    return fusionner(this.modeles.couche(this.modeleDuDocument(id)), this._lireStyle(this._stylePath(id)))
+  }
+
+  /** Le calque de son modèle, complet : ce par rapport à quoi un document
+   * enregistre ses écarts (voir `reduire`). */
+  _baseDuDocument(id) {
+    return fusionner(this.modeles.couche(this.modeleDuDocument(id)))
   }
 
   setDocStyle(id, style) {
-    // L'instance est passée à `reduire` : sans elle, un réglage ramené à
-    // la valeur codée en dur (page A4 quand l'instance est en A5) disparaît
-    // du fichier et le document retombe sur l'instance — voir `reduire`.
-    return this._ecrireStyle(this._stylePath(id), style, this.getStyle())
+    // Le modèle est passé à `reduire` : sans lui, un réglage ramené à la
+    // valeur codée en dur (page A4 quand le modèle est en A5) disparaît du
+    // fichier et le document retombe sur son modèle — voir `reduire`.
+    // Deux régimes (voir `reduire`) : un document sur « Par défaut » fige
+    // ce qu'il tient de l'instance (comportement d'avant les modèles) ; un
+    // document qui a **choisi** un modèle n'enregistre que ses écarts à lui.
+    const seulement = this.modeleDuDocument(id) !== ID_DEFAUT
+    return this._ecrireStyle(this._stylePath(id), style, this._baseDuDocument(id), { seulement })
   }
 
-  /** Repasse un document à l'héritage : on efface son fichier, il resuit le
-   * style par défaut de l'instance. */
+  /** Combien de réglages propres ce document porte **réellement** par
+   * rapport à son modèle : on compare la feuille effective à celle du
+   * modèle, plutôt que de compter le fichier — un document sur « Par
+   * défaut » en a figé beaucoup qui ne s'écartent de rien. */
+  ecartsDuDocument(id) {
+    if (!this.hasOwnStyle(id)) return 0
+    return compterEcarts(reduire(this.getDocStyle(id), this._baseDuDocument(id), { seulement: true }))
+  }
+
+  /** Repasse un document à son modèle : on efface son fichier d'écarts. */
   resetDocStyle(id) {
     const p = this._stylePath(id)
     if (existsSync(p)) unlinkSync(p)
     return this.getDocStyle(id)
+  }
+
+  /** Change le modèle d'un document. Par défaut ses écarts propres sont
+   * **abandonnés** : un réglage de page fait pour l'ancien modèle (un A5
+   * demandé sur « Livre ») n'a plus de sens sur le nouveau, et conserver
+   * des écarts en silence ferait que le document ne ressemble ni à l'un ni à
+   * l'autre. `garderEcarts` les conserve quand même. Renvoie `null` si le
+   * document n'existe pas. */
+  setDocModele(id, modeleId, { garderEcarts = false } = {}) {
+    const registry = this._readRegistry()
+    if (!registry[id]) return null
+    if (modeleId === ID_DEFAUT) delete registry[id].modele
+    else registry[id].modele = modeleId
+    this._writeRegistry(registry)
+    if (!garderEcarts) this.resetDocStyle(id)
+    return this.getDocStyle(id)
+  }
+
+  /** Tous les décomptes d'un coup (identifiant → nombre), pour la liste des
+   * modèles : un seul passage sur le registre plutôt qu'un par modèle. */
+  usagesModeles() {
+    const n = new Map()
+    for (const meta of Object.values(this._readRegistry())) {
+      const id = this.modeles.effectif(meta && meta.modele)
+      n.set(id, (n.get(id) || 0) + 1)
+    }
+    return n
+  }
+
+  /** Combien de documents utilisent ce modèle. « Par défaut » compte aussi
+   * ceux qui n'en ont jamais choisi, et ceux dont le modèle a disparu. */
+  compterUsagesModele(modeleId) {
+    let n = 0
+    for (const meta of Object.values(this._readRegistry())) {
+      const effectif = this.modeles.effectif(meta && meta.modele)
+      if (effectif === modeleId) n++
+    }
+    return n
   }
 
   _lireStyle(path) {
@@ -188,10 +265,14 @@ export class Storage {
    * un réglage qu'on n'a pas touché continue de suivre le défaut, et un
    * réglage ajouté plus tard au modèle apparaît tout seul. Écriture
    * atomique, comme le registre. */
-  _ecrireStyle(path, style, instance = null) {
-    const complet = fusionner(style)
+  _ecrireStyle(path, style, instance = null, options = {}) {
+    // `assainir` : ce qui est enregistré est toujours dans le domaine que
+    // le modèle sait rendre (listes fermées, bornes) — un modèle partagé
+    // porteur d'une marge « abc » ferait échouer l'export de tous ses
+    // documents.
+    const complet = assainir(style)
     const tmp = path + '.tmp'
-    writeFileSync(tmp, JSON.stringify(reduire(complet, instance), null, 2), 'utf8')
+    writeFileSync(tmp, JSON.stringify(reduire(complet, instance, options), null, 2), 'utf8')
     renameSync(tmp, path)
     return complet
   }
@@ -224,6 +305,68 @@ export class Storage {
     } catch {
       return []
     }
+  }
+
+  /** Marque comme « embarquées » toutes les inscriptions de cette adresse
+   * (01/10/2026) : la personne a reçu son premier document. La ligne reste
+   * dans le fichier — c'est le journal des inscriptions, pas une file qu'on
+   * vide — et porte `embarque: { ts, docId, par }`. Sans effet si l'adresse
+   * n'est pas dans la liste (on peut embarquer quelqu'un qui n'a rien
+   * déposé). */
+  marquerEmbarque(email, docId, par) {
+    let list
+    try {
+      list = JSON.parse(readFileSync(this.waitlistPath, 'utf8'))
+    } catch {
+      return 0
+    }
+    let n = 0
+    for (const ligne of list) {
+      if (ligne && ligne.email === email) {
+        ligne.embarque = { ts: Date.now(), docId, par }
+        n++
+      }
+    }
+    if (!n) return 0
+    const tmp = this.waitlistPath + '.tmp'
+    writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf8')
+    renameSync(tmp, this.waitlistPath)
+    return n
+  }
+
+  /** La liste d'attente **vue comme une file** : une ligne par adresse (la
+   * première inscription fixe le rang, les suivantes sont comptées), la plus
+   * ancienne d'abord, avec un statut :
+   *
+   *  - `attente`  : personne ne lui a rien ouvert ;
+   *  - `embarque` : elle a reçu son premier document (`embarque` en dit
+   *    quand et lequel) ;
+   *  - `acces`    : elle a déjà accès à un document par une autre voie — on
+   *    ne l'embarque pas, on ne la compte pas parmi celles qui attendent.
+   *
+   * `enAttente` : combien d'adresses sont au statut `attente`. Lecture
+   * seule, réservée aux administrateurs comme `waitlist()`. */
+  fileAttente() {
+    const premieres = new Map()
+    for (const ligne of this.waitlist()) {
+      if (!ligne || typeof ligne.email !== 'string') continue
+      const vue = premieres.get(ligne.email)
+      if (!vue) {
+        premieres.set(ligne.email, { email: ligne.email, ts: ligne.ts || 0, inscriptions: 1, embarque: ligne.embarque || null })
+      } else {
+        vue.inscriptions++
+        if (ligne.ts && ligne.ts < vue.ts) vue.ts = ligne.ts
+        if (ligne.embarque && !vue.embarque) vue.embarque = ligne.embarque
+      }
+    }
+    const file = [...premieres.values()]
+      .sort((a, b) => a.ts - b.ts)
+      .map((l, i) => ({
+        ...l,
+        rang: i + 1,
+        statut: l.embarque ? 'embarque' : this.emailHasAnyAccess(l.email) ? 'acces' : 'attente',
+      }))
+    return { file, enAttente: file.filter((l) => l.statut === 'attente').length }
   }
 
   _readRegistry() {

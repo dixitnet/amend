@@ -44,11 +44,12 @@ import {
   EndnoteReferenceRun,
   ExternalHyperlink,
   convertMillimetersToTwip,
+  PageOrientation,
 } from 'docx'
 import { numerosDesNotes } from './notes.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
-import { BLOCS, NIVEAUX_TITRE, langue } from '../../shared/style.js'
+import { BLOCS, NIVEAUX_TITRE, langue, dimensionsPage } from '../../shared/style.js'
 
 /** Les réglages d'un bloc du modèle (voir shared/style.js) : « body »,
  * « quote », « h1 »… Un document enregistré avant le 16/09/2026 est déjà
@@ -64,15 +65,6 @@ function reglages(style, blocId) {
   return { ...bloc, _langue: langue(style.page && style.page.langue).docx }
 }
 import { safeFilenameBase } from './mdExport.js'
-
-// Dimensions standard en millimètres — converties en twips (1/20e de point,
-// l'unité de `docx`) via `convertMillimetersToTwip`, même valeurs que
-// `buildPageCss` (styleConfig.js) utilise en CSS pour l'export PDF.
-const PAGE_SIZES_MM = {
-  A4: [210, 297],
-  A5: [148, 210],
-  Letter: [215.9, 279.4],
-}
 
 const ALIGN_MAP = {
   left: AlignmentType.LEFT,
@@ -302,7 +294,7 @@ async function chargerImages(doc) {
  * marges de la feuille de style. */
 function largeurUtilePx(style) {
   const page = style.page || DEFAULT_STYLE.page
-  const [largeurMm] = PAGE_SIZES_MM[page.size] || PAGE_SIZES_MM.A4
+  const [largeurMm] = dimensionsPage(page)
   const utileMm = largeurMm - (page.marginLeft || 0) - (page.marginRight || 0)
   return Math.max(50, Math.round((utileMm / 25.4) * 96))
 }
@@ -465,13 +457,21 @@ export async function buildDocxBlob(doc, style, titre = '') {
   NOTES = new Map()
 
   const page = style.page || DEFAULT_STYLE.page
-  const [widthMm, heightMm] = PAGE_SIZES_MM[page.size] || PAGE_SIZES_MM.A4
+  const [widthMm, heightMm] = dimensionsPage(page)
   const pageNumbers = page.pageNumbers || DEFAULT_STYLE.page.pageNumbers
 
+  // Word écrit toujours la page **en portrait** (largeur ≤ hauteur) et
+  // porte l'orientation à part : pour un paysage il faut donc donner les
+  // côtés dans l'ordre portrait avec `orientation: LANDSCAPE`, et la
+  // bibliothèque les permute à l'écriture. Donner 297 × 210 sans le
+  // drapeau ouvrirait une page paysage que Word traite comme portrait
+  // (mise en page et impression à l'envers).
+  const paysage = widthMm > heightMm
   const pageProperties = {
     size: {
-      width: convertMillimetersToTwip(widthMm),
-      height: convertMillimetersToTwip(heightMm),
+      width: convertMillimetersToTwip(paysage ? heightMm : widthMm),
+      height: convertMillimetersToTwip(paysage ? widthMm : heightMm),
+      ...(paysage ? { orientation: PageOrientation.LANDSCAPE } : {}),
     },
     margin: {
       top: convertMillimetersToTwip(page.marginTop),

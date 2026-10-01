@@ -290,9 +290,9 @@ function mountAppHome(root, email) {
   wrap.appendChild(authStatus)
 
   const styleLink = document.createElement('a')
-  styleLink.href = '#/style'
+  styleLink.href = '#/modeles'
   styleLink.className = 'style-admin-link'
-  styleLink.textContent = 'Mise en page →'
+  styleLink.textContent = 'Gérer mes modèles →'
   wrap.appendChild(styleLink)
 
   const form = document.createElement('form')
