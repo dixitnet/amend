@@ -31,7 +31,7 @@ import { doc as fabriqueDoc, editeur, IA } from './harness.js'
 // (sinon les `instanceof` du moteur ne reconnaîtraient rien).
 const racine = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const YS = await import(pathToFileURL(join(racine, 'node_modules', 'yjs', 'dist', 'yjs.mjs')).href)
-const { proposer, commenter, repondre, fils } = await import(pathToFileURL(join(racine, 'server', 'agentTexte.js')).href)
+const { proposer, ajouter, commenter, repondre, fils } = await import(pathToFileURL(join(racine, 'server', 'agentTexte.js')).href)
 
 /** Un document ProseMirror → un Y.Doc côté serveur ET côté client. */
 function mondes(pmDoc) {
@@ -230,4 +230,104 @@ test('« Tout rejeter — Claude » reconnaît ce que l’agent écrit, et lui s
   assert.equal(listChanges(e.doc).length, 0)
   // Et le nom « IA » du panneau (même vert) n'est pas pris pour Claude.
   assert.equal(estModificationDAgent({ user: 'IA', userColor: '#5f7a4a' }), false)
+})
+
+// --- Paragraphes ajoutés ------------------------------------------------------
+
+test('un paragraphe ajouté : marques d’insertion de l’agent, accepter le garde, rejeter le retire en entier', () => {
+  const avant = fabriqueDoc('Premier paragraphe.', 'Deuxième paragraphe.', 'Troisième paragraphe.')
+  const CLAUDE = { name: 'Claude (pour Sylvain)', color: '#5f7a4a' }
+  const { client, resultat } = ecrire(avant, (s) => ajouter(s, [{ apres_bloc: 2, texte: 'Une transition ajoutée.' }], CLAUDE))
+  assert.deepEqual(resultat.appliques, [{ index: 0, bloc: 3, paragraphes: 1 }])
+  assert.deepEqual(resultat.refuses, [])
+  const propose = relu(client)
+  assert.equal(propose.childCount, 4)
+  const bloc = propose.child(2)
+  assert.equal(bloc.type.name, 'paragraph')
+  assert.equal(bloc.attrs.trackedBreak, null, 'le saut n’est pas une modification de plus')
+  assert.deepEqual(
+    forme(bloc).map(([t, m]) => [t, m.map((x) => x.replace(/:g\d+$/, ':g'))]),
+    [['Une transition ajoutée.', ['authorColor:Claude (pour Sylvain):#5f7a4a', 'insertion:Claude (pour Sylvain):#5f7a4a:gnull']]]
+  )
+  const changes = listChanges(propose)
+  assert.equal(changes.length, 1)
+  assert.ok(changes.every(estModificationDAgent))
+
+  const accepter = editeur(propose, { suivi: false })
+  acceptAllChanges(accepter.view)
+  assert.equal(accepter.texte(), 'Premier paragraphe.\nDeuxième paragraphe.\nUne transition ajoutée.\nTroisième paragraphe.')
+  assert.equal(listChanges(accepter.doc).length, 0)
+
+  for (const defaire of [rejectAllChanges, rejectAgentChanges]) {
+    const refuser = editeur(propose, { suivi: false })
+    defaire(refuser.view)
+    assert.equal(refuser.texte(), 'Premier paragraphe.\nDeuxième paragraphe.\nTroisième paragraphe.')
+    assert.equal(refuser.doc.childCount, 3, 'pas de bloc vide laissé derrière')
+  }
+})
+
+test('plusieurs lignes, plusieurs ajouts au même endroit, et au tout début : dans l’ordre donné', () => {
+  const avant = fabriqueDoc('Un.', 'Deux.')
+  const { client, resultat } = ecrire(avant, (s) =>
+    ajouter(
+      s,
+      [
+        { apres_bloc: 1, texte: 'A1.\n\n  A2.  ' },
+        { apres_bloc: 1, texte: 'B.' },
+        { apres_bloc: 0, texte: 'Début.' },
+        { apres_bloc: 2, texte: 'Fin.' },
+      ],
+      AGENT
+    )
+  )
+  assert.deepEqual(resultat.refuses, [])
+  assert.deepEqual(resultat.appliques.map((a) => a.paragraphes), [2, 1, 1, 1])
+  const e = editeur(relu(client), { suivi: false })
+  assert.equal(e.texte(), 'Début.\nUn.\nA1.\nA2.\nB.\nDeux.\nFin.')
+  acceptAllChanges(e.view)
+  assert.equal(e.texte(), 'Début.\nUn.\nA1.\nA2.\nB.\nDeux.\nFin.')
+  assert.equal(listChanges(e.doc).length, 0)
+})
+
+test('un ajout refusé dit pourquoi : bloc inconnu, texte vide, liste, citation, trop de lignes', () => {
+  const citation = schema.node('blockquote', null, [schema.node('paragraph', null, [schema.text('Une citation.')])])
+  const liste = schema.node('bullet_list', null, [
+    schema.node('list_item', null, [schema.node('paragraph', null, [schema.text('Un item.')])]),
+  ])
+  const avant = schema.node('doc', null, [schema.node('paragraph', null, [schema.text('Premier.')]), citation, liste])
+  const { client, resultat } = ecrire(avant, (s) =>
+    ajouter(
+      s,
+      [
+        { apres_bloc: 9, texte: 'x' },
+        { apres_bloc: 1, texte: '  \n ' },
+        { apres_bloc: 2, texte: 'dans la citation' },
+        { apres_bloc: 3, texte: 'dans la liste' },
+        { apres_bloc: 1, texte: Array.from({ length: 11 }, (_, i) => `L${i}`).join('\n') },
+        { apres_bloc: -1, texte: 'x' },
+        { apres_bloc: 1, texte: 'Celui-ci passe.' },
+      ],
+      AGENT
+    )
+  )
+  assert.equal(resultat.appliques.length, 1)
+  assert.equal(resultat.appliques[0].index, 6)
+  assert.deepEqual(resultat.refuses.map((r) => r.index), [0, 1, 2, 3, 4, 5])
+  assert.match(resultat.refuses[0].raison, /pas de bloc 9/)
+  assert.match(resultat.refuses[1].raison, /vide/)
+  assert.match(resultat.refuses[2].raison, /citation/)
+  assert.match(resultat.refuses[3].raison, /liste/)
+  const e = editeur(relu(client), { suivi: false })
+  assert.equal(e.doc.childCount, 4)
+  assert.equal(e.doc.child(1).textContent, 'Celui-ci passe.')
+})
+
+test('rien d’accepté, rien d’écrit : le document ne bouge pas', () => {
+  const avant = fabriqueDoc('Un.')
+  const { serveur } = mondes(avant)
+  let ecrit = false
+  serveur.on('update', () => (ecrit = true))
+  const r = ajouter(serveur, [{ apres_bloc: 5, texte: 'x' }], AGENT)
+  assert.equal(r.appliques.length, 0)
+  assert.equal(ecrit, false)
 })

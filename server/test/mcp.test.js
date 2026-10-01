@@ -174,10 +174,12 @@ test('les outils dépendent du rôle : le lecteur ne propose pas, le correcteur 
   const correcteur = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
   const lecteur = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
   const noms = async (s) => (await rpc(s, 'tools/list')).result.tools.map((t) => t.name).sort()
-  assert.deepEqual(await noms(correcteur.secret), ['chercher', 'commentaires', 'commenter', 'lire', 'plan', 'proposer', 'repondre'])
+  assert.deepEqual(await noms(correcteur.secret), ['ajouter', 'chercher', 'commentaires', 'commenter', 'lire', 'plan', 'proposer', 'repondre'])
   assert.deepEqual(await noms(lecteur.secret), ['chercher', 'commentaires', 'commenter', 'lire', 'plan', 'repondre'])
   const refus = await rpc(lecteur.secret, 'tools/call', { name: 'proposer', arguments: { remplacements: [{ bloc: 2, avant: 'mardi', apres: 'lundi' }] } })
   assert.equal(refus.error.code, -32602)
+  const refusAjout = await rpc(lecteur.secret, 'tools/call', { name: 'ajouter', arguments: { ajouts: [{ apres_bloc: 1, texte: 'x' }] } })
+  assert.equal(refusAjout.error.code, -32602)
   const outils = (await rpc(correcteur.secret, 'tools/list')).result.tools
   for (const o of outils) {
     assert.equal(o.inputSchema.type, 'object')
@@ -270,6 +272,28 @@ test('proposer écrit en suivi de modifications : persisté, relayé aux connect
   }
   assert.match(rejoue.getXmlFragment("prosemirror-content").toString(), /insertion/)
   ws.close()
+})
+
+test('ajouter pose un paragraphe en suivi de modifications, relu par le serveur, et explique ses refus', async () => {
+  const doc = await documentDeTest()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
+  const avant = texteDe(await appeler(secret, 'lire', { de: 1, nombre: 100 }))
+  const nombreAvant = (avant.match(/^\[\d+\]/gm) || []).length
+
+  const r = await appeler(secret, 'ajouter', { ajouts: [{ apres_bloc: 1, texte: 'Un paragraphe de transition.\nEt un second.' }, { apres_bloc: 999, texte: 'x' }] })
+  assert.ok(!r.isError, texteDe(r))
+  assert.match(texteDe(r), /2 paragraphe\(s\) ajouté\(s\) en suivi de modifications/)
+  assert.match(texteDe(r), /ont changé : relis/)
+  assert.match(texteDe(r), /Refusé — ajout 2 \(après le bloc 999\) : .*pas de bloc 999/)
+
+  const apres = texteDe(await appeler(secret, 'lire', { de: 1, nombre: 100 }))
+  assert.equal((apres.match(/^\[\d+\]/gm) || []).length, nombreAvant + 2)
+  assert.match(apres, /\[2\] Un paragraphe de transition\. {2}⚑/)
+  assert.match(apres, /\[3\] Et un second\. {2}⚑/)
+
+  const vide = await appeler(secret, 'ajouter', { ajouts: [{ apres_bloc: 1, texte: '   ' }] })
+  assert.ok(vide.isError)
+  assert.match(texteDe(vide), /vide/)
 })
 
 test('commenter, commentaires, repondre : la marge d’un lecteur aussi', async () => {

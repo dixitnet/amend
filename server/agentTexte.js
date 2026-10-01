@@ -365,6 +365,90 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
   return { appliques: appliques.sort((a, b) => a.index - b.index), refuses: refuses.sort((a, b) => a.index - b.index) }
 }
 
+// --- Paragraphes ajoutés -----------------------------------------------------
+
+export const AJOUTS_MAX = 20
+const LIGNES_PAR_AJOUT_MAX = 10
+
+/**
+ * Ajoute des paragraphes entiers, en suivi de modifications, **juste après**
+ * un bloc : `[{ apres_bloc, texte }]` (`apres_bloc: 0` : tout au début du
+ * document). Une ligne du texte, un paragraphe.
+ *
+ * Même forme que ce que l'IA du panneau écrit quand elle ajoute un bloc
+ * (client/src/trackChanges.js, `blocsDepuisTexte`) : un paragraphe ordinaire
+ * dont tout le texte porte la marque `insertion`, sans `trackedBreak` — le
+ * saut qui le sépare n'est pas une modification de plus à relire. Accepter
+ * lève la marque ; rejeter retire le texte **et** le bloc (`retirerTexte`).
+ *
+ * Jugé comme `proposer` : chaque ajout seul, ce qui est refusé est rapporté
+ * avec sa raison. Les numéros de blocs de la demande sont ceux de **avant**
+ * l'appel (deux ajouts après le même bloc se suivent dans l'ordre donné).
+ *
+ * `{ appliques: [{ index, bloc, paragraphes }], refuses: [{ index, bloc, raison }] }`
+ * où `bloc` est le numéro du premier paragraphe ajouté.
+ */
+export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
+  const blocs = blocsDuDocument(ydoc)
+  const racine = ydoc.getXmlFragment(NOM_TEXTE)
+  const appliques = []
+  const refuses = []
+  const retenus = []
+  const refuse = (index, bloc, raison) => refuses.push({ index, bloc, raison })
+
+  ajouts.forEach((a, index) => {
+    const numero = a && Number.isInteger(a.apres_bloc) && a.apres_bloc >= 0 ? a.apres_bloc : null
+    if (numero === null) return refuse(index, a && a.apres_bloc, '`apres_bloc` doit être un numéro de bloc (0 pour tout au début)')
+    if (typeof a.texte !== 'string') return refuse(index, numero, '`texte` doit être du texte')
+    if (a.texte.length > LONGUEUR_APRES_MAX) return refuse(index, numero, `\`texte\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
+    const lignes = a.texte.split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean)
+    if (!lignes.length) return refuse(index, numero, 'le texte est vide')
+    if (lignes.length > LIGNES_PAR_AJOUT_MAX) return refuse(index, numero, `au plus ${LIGNES_PAR_AJOUT_MAX} paragraphes par ajout`)
+    let ancre = null
+    if (numero > 0) {
+      const bloc = blocs[numero - 1]
+      if (!bloc) return refuse(index, numero, `il n'y a pas de bloc ${numero}`)
+      // Comme un correcteur dans l'éditeur : un saut de paragraphe se suit au
+      // premier niveau du document, pas dans une liste ni une citation.
+      if (bloc.contexte.length) {
+        return refuse(index, numero, `le bloc ${numero} est dans ${bloc.contexte.includes('blockquote') ? 'une citation' : 'une liste'} : un paragraphe ne s'ajoute pas à cet endroit — ajoute-le après le bloc qui la précède ou la suit, ou propose-le dans un commentaire`)
+      }
+      ancre = bloc.el
+    }
+    retenus.push({ index, numero, ancre, lignes })
+  })
+
+  if (!retenus.length) return { appliques, refuses: refuses.sort((a, b) => a.index - b.index) }
+
+  const trace = { user: auteur.name, userColor: auteur.color, ts, groupe: null }
+  const couleur = { user: auteur.name, userColor: auteur.color }
+  // Le dernier bloc posé après chaque ancre : un second ajout au même endroit
+  // vient après le premier, pas avant.
+  const dernier = new Map()
+  ydoc.transact(() => {
+    for (const { index, numero, ancre, lignes } of retenus) {
+      const cle = ancre || 'debut'
+      const base = dernier.get(cle) || ancre
+      let position = base ? racine.toArray().indexOf(base) + 1 : 0
+      if (base && position === 0) {
+        refuse(index, numero, "le bloc n'est plus là")
+        continue
+      }
+      for (const ligne of lignes) {
+        const el = new Y.XmlElement('paragraph')
+        racine.insert(position, [el])
+        const xt = new Y.XmlText()
+        el.insert(0, [xt])
+        xt.insert(0, ligne, { insertion: trace, authorColor: couleur })
+        dernier.set(cle, el)
+        position += 1
+      }
+      appliques.push({ index, bloc: numero + 1, paragraphes: lignes.length })
+    }
+  }, 'agent')
+  return { appliques: appliques.sort((a, b) => a.index - b.index), refuses: refuses.sort((a, b) => a.index - b.index) }
+}
+
 // --- Commentaires -----------------------------------------------------------
 
 function identifiant(prefixe) {
