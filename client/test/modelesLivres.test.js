@@ -10,14 +10,15 @@ import { doc } from './harness.js'
 import { docToTypst } from '../src/typstExport.js'
 import { buildDocxBlob } from '../src/docxExport.js'
 import { fusionner, assainir, dimensionsPage, POLICES } from '../../shared/style.js'
-import { MODELES_LIVRES, libelleFormat, compterEcarts } from '../../shared/modeles.js'
+import { MODELES_LIVRES, modeleLivre, libelleFormat, compterEcarts } from '../../shared/modeles.js'
 
 const D = doc({ h: 1, texte: 'Titre' }, 'Un paragraphe.', { h: 2, texte: 'Sous-titre' }, { citation: 'Une citation.' })
 
-test('quatre modèles livrés, aux identifiants et noms uniques', () => {
-  assert.deepEqual(MODELES_LIVRES.map((m) => m.id), ['manuscrit', 'livre', 'note', 'texte-brut'])
-  assert.equal(new Set(MODELES_LIVRES.map((m) => m.nom)).size, 4)
+test('un seul modèle livré : « Texte brut » (les modèles de goût ont été retirés le 02/10/2026)', () => {
+  assert.deepEqual(MODELES_LIVRES.map((m) => m.id), ['texte-brut'])
+  assert.equal(MODELES_LIVRES[0].nom, 'Texte brut')
   for (const m of MODELES_LIVRES) assert.ok(m.description.length > 20, m.id)
+  for (const retire of ['manuscrit', 'livre', 'note']) assert.equal(modeleLivre(retire), null, retire)
 })
 
 for (const m of MODELES_LIVRES) {
@@ -53,12 +54,11 @@ test('les formats se lisent : A4, A5, paysage, personnalisé, ancien', () => {
   assert.equal(libelleFormat(undefined), 'A4')
 })
 
-test('les modèles livrés sont visiblement différents : le format et la police du corps', () => {
-  const f = (id) => fusionner(MODELES_LIVRES.find((m) => m.id === id).style)
-  assert.equal(f('livre').page.size, 'A5')
-  assert.equal(f('manuscrit').page.size, 'A4')
-  assert.notEqual(f('livre').blocs.body.font, f('note').blocs.body.font)
-  assert.equal(f('livre').blocs.body.align, 'justify')
+test('« Texte brut » n’impose rien : A4, une seule police, pas de numéros de page', () => {
+  const f = fusionner(modeleLivre('texte-brut').style)
+  assert.equal(f.page.size, 'A4')
+  assert.equal(f.page.pageNumbers.enabled, false)
+  for (const b of ['body', 'quote', 'h1', 'h2', 'h3']) assert.equal(f.blocs[b].font, 'system', b)
 })
 
 test('compterEcarts compte les valeurs, pas les groupes', () => {

@@ -7,7 +7,9 @@
 // ensemble (décision de Sylvain, 01/10/2026). Trois portées :
 //
 //  - **livré**    : défini ici, dans le code. Immuable : on le duplique pour
-//    partir de lui. C'est ce qui rend la fonction utile dès le premier jour.
+//    partir de lui. Il n'y en a qu'un, « Texte brut » (02/10/2026) : les
+//    modèles de goût (Manuscrit, Livre, Note) ont été retirés, chacun se
+//    fait à son idée à partir de « Par défaut » ou de « Texte brut ».
 //  - **instance** : créé par un administrateur, visible de tous. Le modèle
 //    « Par défaut » en est un cas particulier : c'est le style par défaut de
 //    l'instance (`data/style.json`), celui que la page `#/style` réglait.
@@ -16,7 +18,7 @@
 // Les modèles livrés ne portent que leurs **écarts aux valeurs du code**,
 // comme tout calque (voir `fusionner`). Ils sont donc autonomes : le style
 // par défaut de l'instance ne s'y mêle pas — un administrateur qui met sa
-// police maison dans « Par défaut » ne change pas « Manuscrit ».
+// police maison dans « Par défaut » ne change pas « Texte brut ».
 //
 // Ce que les valeurs d'usine ci-dessous valent sur du papier se juge sur un
 // vrai PDF, pas sur le papier : elles sont un point de départ raisonnable,
@@ -36,71 +38,6 @@ export const PORTEES = ['livre', 'instance', 'perso']
 const IDENTIQUE = (taille, extra = {}) => ({ size: taille, ...extra })
 
 export const MODELES_LIVRES = [
-  {
-    id: 'manuscrit',
-    nom: 'Manuscrit',
-    description: 'La page de relecture : empattement, corps 12, interligne 1,5, retrait de première ligne, pages numérotées.',
-    style: {
-      page: {
-        size: 'A4',
-        marginTop: 25,
-        marginRight: 25,
-        marginBottom: 25,
-        marginLeft: 25,
-        pageNumbers: { enabled: true, startAt: 1 },
-      },
-      blocs: {
-        body: { font: 'times', size: 12, lineHeight: 1.5, spaceAfter: 0, firstLineIndent: 12 },
-        quote: { font: 'times', size: 11, lineHeight: 1.15, indent: 15, spaceBefore: 6, spaceAfter: 6 },
-        h1: { font: 'times', size: 16, align: 'center', spaceBefore: 24, spaceAfter: 12 },
-        h2: { font: 'times', size: 14, spaceBefore: 18, spaceAfter: 6 },
-        h3: { font: 'times', size: 12, italic: true, spaceBefore: 12, spaceAfter: 6 },
-      },
-    },
-  },
-  {
-    id: 'livre',
-    nom: 'Livre',
-    description: 'Un livre au petit format : justifié, corps 10,5, retrait de première ligne, titres centrés, pages numérotées.',
-    style: {
-      page: {
-        size: 'A5',
-        marginTop: 20,
-        marginRight: 18,
-        marginBottom: 22,
-        marginLeft: 18,
-        pageNumbers: { enabled: true, startAt: 1 },
-      },
-      blocs: {
-        body: { font: 'libre-caslon-text', size: 10.5, align: 'justify', lineHeight: 1.15, spaceAfter: 0, firstLineIndent: 5 },
-        quote: { font: 'libre-caslon-text', size: 10, align: 'justify', indent: 8, spaceBefore: 4, spaceAfter: 4 },
-        h1: { font: 'libre-caslon-text', size: 20, align: 'center', spaceBefore: 36, spaceAfter: 18 },
-        h2: { font: 'libre-caslon-text', size: 14, align: 'center', spaceBefore: 18, spaceAfter: 8 },
-        h3: { font: 'libre-caslon-text', size: 11, italic: true, align: 'center', spaceBefore: 12, spaceAfter: 6 },
-      },
-    },
-  },
-  {
-    id: 'note',
-    nom: 'Note',
-    description: 'Une note ou un rapport court : sans empattement, titres marqués, pas de retrait, un espace entre paragraphes.',
-    style: {
-      page: {
-        size: 'A4',
-        marginTop: 20,
-        marginRight: 20,
-        marginBottom: 20,
-        marginLeft: 20,
-      },
-      blocs: {
-        body: { font: 'arial', size: 10.5, spaceAfter: 7 },
-        quote: { font: 'arial', size: 10, indent: 8, spaceAfter: 7 },
-        h1: { font: 'arial', size: 20, spaceBefore: 18, spaceAfter: 8 },
-        h2: { font: 'arial', size: 15, spaceBefore: 14, spaceAfter: 6 },
-        h3: { font: 'arial', size: 12, uppercase: true, spaceBefore: 12, spaceAfter: 4 },
-      },
-    },
-  },
   {
     id: 'texte-brut',
     nom: 'Texte brut',
