@@ -738,7 +738,40 @@ export function mountEditor(root, docId, user, docMeta) {
   // Le zoom appartient à la colonne du texte, pas au bandeau (17/09/2026) :
   // c'est un réglage de confort de lecture, propre à cet écran et à cette
   // personne — il ne touche ni au document ni à ce qui en sortira.
-  groupeTexte2.appendChild(zoomSelect)
+  // Les numéros de bloc (02/10/2026). Le numéro que Claude donne à un bloc
+  // quand il relit le document (`plan`, `lire`) — pour dire « relis le
+  // bloc 42 » ou comprendre « bloc 17 » dans un de ses commentaires. Un
+  // confort d'affichage, comme le zoom : propre à cette personne et à ce
+  // navigateur (localStorage), éteint par défaut, absent du document comme
+  // de tout export. Le comptage lui-même est fait par la feuille de style
+  // (compteur CSS, voir `.numeros-blocs` dans style.css) : rien à recalculer
+  // à la frappe.
+  const numerosBtn = mkButton('#', '')
+  numerosBtn.classList.add('btn-numeros')
+  let numerosActifs = false
+  try {
+    numerosActifs = localStorage.getItem('collabtext:numeros-blocs') === '1'
+  } catch {
+    // localStorage indisponible : éteint, comme au départ.
+  }
+  const poserLesNumeros = (actif) => {
+    numerosActifs = actif
+    editorContainer.classList.toggle('numeros-blocs', actif)
+    numerosBtn.setAttribute('aria-pressed', String(actif))
+    numerosBtn.title = actif
+      ? 'Masquer les numéros de bloc'
+      : 'Afficher les numéros de bloc (ceux que Claude voit en relisant le document)'
+  }
+  poserLesNumeros(numerosActifs)
+  numerosBtn.addEventListener('click', () => {
+    poserLesNumeros(!numerosActifs)
+    try {
+      localStorage.setItem('collabtext:numeros-blocs', numerosActifs ? '1' : '0')
+    } catch {
+      // tant pis, le réglage ne sera pas mémorisé la prochaine fois.
+    }
+  })
+  groupeTexte2.append(numerosBtn, zoomSelect)
 
   const sidebar = document.createElement('div')
   sidebar.className = 'sidebar'

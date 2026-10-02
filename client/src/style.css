@@ -430,6 +430,15 @@ a { color: var(--accent); }
 /* Le zoom est en bout de barre de mise en forme (17/09/2026), poussé à
    droite : c'est un réglage de lecture, pas un outil de rédaction. */
 .zoom-select { margin-left: auto; }
+/* Le bouton des numéros de bloc se range juste avant le zoom : c'est lui qui
+   prend la poussée vers la droite, et le zoom se colle à lui. */
+.btn-numeros { margin-left: auto; font-size: 13px; }
+.btn-numeros + .zoom-select { margin-left: 4px; }
+.btn-numeros[aria-pressed='true'] {
+  border-color: var(--accent, #5f7a4a);
+  color: var(--accent, #5f7a4a);
+  background: color-mix(in srgb, var(--accent, #5f7a4a) 12%, var(--bg));
+}
 .heading-select, .zoom-select {
   height: 30px;
   border: 1px solid var(--border);
@@ -2989,3 +2998,73 @@ tr.bo-traite { opacity: 0.6; }
   font-size: 13px;
 }
 .modele-formulaire select { min-height: 32px; font: inherit; font-size: 13px; }
+
+/* --- Numéros de bloc (02/10/2026) -------------------------------------------
+   Le numéro que Claude donne à chaque bloc quand il relit le document
+   (server/agentTexte.js, `blocsDuDocument`) : tout bloc qui contient du
+   texte — paragraphe, titre, élément de liste ou de citation, cellule de
+   tableau — compté dans l'ordre du document, de 1 à N, **vides compris**. Les
+   notes et les images n'en sont pas. Le compteur CSS suit exactement cette
+   règle, et le navigateur renumérote seul quand on insère ou supprime un
+   bloc : rien à calculer à la frappe, rien dans le document ni dans les
+   exports (un pseudo-élément ne se copie pas non plus).
+
+   Pas sur téléphone (`.tel-lecture`, `.tel-edition`) : la barre de mise en
+   forme y est remplacée par l'interface dédiée (iphone.js), il n'y a pas de
+   bouton pour les éteindre — le réglage mémorisé sur un iPad ne doit pas
+   s'y imposer.
+
+   Tout est limité à l'éditeur principal (`.editor-container > .ProseMirror`) :
+   la petite fenêtre d'une note a son propre éditeur, et la table des
+   matières ses propres <p>, qui ne sont pas des blocs du document.
+
+   La place est prise sur le côté gauche de la colonne, dans son remplissage,
+   et non dans la marge : à 1280 px il ne reste pas de marge à gauche, et un
+   numéro hors du conteneur serait coupé. Le retrait gagné est compensé dans
+   la largeur maximale, pour que les lignes ne passent pas à la ligne à un
+   autre endroit quand on allume les numéros. */
+.app-shell:not(.tel-lecture):not(.tel-edition) .editor-container.numeros-blocs > .ProseMirror {
+  --n-corps: calc(1.125rem * var(--echelle, 1) * 0.6);
+  --n-gouttiere: calc(var(--n-corps) * 3);
+  counter-reset: note bloc;
+  position: relative;
+  padding-left: calc(20px + var(--n-gouttiere));
+  max-width: calc(78ch + var(--n-gouttiere));
+}
+.app-shell:not(.tel-lecture):not(.tel-edition) .editor-container.numeros-blocs > .ProseMirror :is(p, h1, h2, h3, h4, h5, h6):not([data-table-of-contents] *) {
+  counter-increment: bloc;
+}
+.app-shell:not(.tel-lecture):not(.tel-edition) .editor-container.numeros-blocs > .ProseMirror :is(p, h1, h2, h3, h4, h5, h6):not([data-table-of-contents] *)::before {
+  content: counter(bloc);
+  position: absolute;
+  left: 20px;
+  width: calc(var(--n-gouttiere) - var(--n-corps) * 0.5);
+  text-align: right;
+  font-family: system-ui, sans-serif;
+  font-size: var(--n-corps);
+  font-weight: 400;
+  /* La hauteur de ligne du corps de texte, pour tomber à la hauteur de sa
+     première ligne et non en haut de la boîte. */
+  line-height: calc(1.125rem * var(--echelle, 1) * 1.6);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+  font-style: normal;
+  color: var(--muted);
+  opacity: 0.7;
+  user-select: none;
+  pointer-events: none;
+}
+/* Un tableau : une cellule par bloc, mais on ne montre que le numéro de la
+   première de chaque ligne, dans la gouttière — les suivantes se déduisent,
+   et les montrer toutes ferait se chevaucher les numéros d'une même ligne. */
+.app-shell:not(.tel-lecture):not(.tel-edition) .editor-container.numeros-blocs > .ProseMirror :is(td, th) > p::before {
+  display: none;
+}
+.app-shell:not(.tel-lecture):not(.tel-edition) .editor-container.numeros-blocs > .ProseMirror :is(td, th):first-child > p::before {
+  display: block;
+  left: auto;
+  right: 100%;
+  margin-right: calc(var(--n-corps) * 0.5);
+  width: calc(var(--n-gouttiere) - var(--n-corps) * 0.5);
+}

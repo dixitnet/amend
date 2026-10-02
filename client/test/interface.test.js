@@ -207,6 +207,69 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   if (editeur && editeur.destroy) editeur.destroy()
 })
 
+test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvient', async () => {
+  // 02/10/2026. Un réglage d'affichage personnel, comme le zoom : il vit dans
+  // le navigateur, jamais dans le document. Le comptage lui-même est fait par
+  // la feuille de style (voir numerosBlocs.test.js).
+  const monter = async (avant) => {
+    const dom = installerDom()
+    await oublierLaSession()
+    // Le code lit `localStorage` comme une globale, pas `window.localStorage`.
+    Object.defineProperty(globalThis, 'localStorage', { value: dom.window.localStorage, configurable: true, writable: true })
+    if (avant) avant(dom.window)
+    installerFetch({
+      '/api/auth/me': { email: 'moi@example.com', admin: false },
+      '/publication': { publiee: false, autorise: false, portee: 'admins' },
+      '/style': { style: null, propre: false },
+    })
+    globalThis.WebSocket = class {
+      constructor() { this.readyState = 0 }
+      addEventListener() {}
+      removeEventListener() {}
+      send() {}
+      close() {}
+    }
+    const { mountEditor } = await import('../src/editor.js')
+    const racine = dom.window.document.getElementById('app')
+    const editeur = mountEditor(
+      racine,
+      'abcdefgh1234',
+      { name: 'Moi', color: '#e07a5f' },
+      { title: 'Essai', myRole: 'editeur', myCapabilities: ROLES.editeur, myName: 'Moi', myColor: '#e07a5f' }
+    )
+    await respirer()
+    return { dom, racine, editeur }
+  }
+
+  const { dom, racine, editeur } = await monter()
+  const bouton = racine.querySelector('.format-toolbar .barre-groupe[data-groupe="texte"] .btn-numeros')
+  assert.ok(bouton, 'le bouton est dans la barre, avec le zoom')
+  assert.equal(bouton.nextElementSibling, racine.querySelector('.zoom-select'), 'juste avant le zoom')
+  const colonne = racine.querySelector('.editor-container')
+  assert.equal(colonne.classList.contains('numeros-blocs'), false, 'éteint par défaut')
+  assert.equal(bouton.getAttribute('aria-pressed'), 'false')
+  assert.match(bouton.title, /Afficher/)
+
+  bouton.dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  assert.ok(colonne.classList.contains('numeros-blocs'), 'allumé')
+  assert.equal(bouton.getAttribute('aria-pressed'), 'true')
+  assert.match(bouton.title, /Masquer/)
+  assert.equal(dom.window.localStorage.getItem('collabtext:numeros-blocs'), '1')
+  // Rien dans le document : l'éditeur ne contient que ce qu'il contenait.
+  assert.equal(racine.querySelector('.ProseMirror').textContent.includes('1'), false)
+
+  bouton.dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  assert.equal(colonne.classList.contains('numeros-blocs'), false, 'éteint de nouveau')
+  assert.equal(dom.window.localStorage.getItem('collabtext:numeros-blocs'), '0')
+  if (editeur && editeur.destroy) editeur.destroy()
+
+  // Le réglage mémorisé est repris à l'ouverture suivante.
+  const suite = await monter((w) => w.localStorage.setItem('collabtext:numeros-blocs', '1'))
+  assert.ok(suite.racine.querySelector('.editor-container').classList.contains('numeros-blocs'))
+  assert.equal(suite.racine.querySelector('.btn-numeros').getAttribute('aria-pressed'), 'true')
+  if (suite.editeur && suite.editeur.destroy) suite.editeur.destroy()
+})
+
 test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', async () => {
   // Rôle « lecteur », phase 0 de claude/etude-roles-serveur.md (28/09) :
   // l'éditeur se règle sur les **capacités** reçues du serveur, jamais sur
