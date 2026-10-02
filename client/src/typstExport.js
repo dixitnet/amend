@@ -309,9 +309,14 @@ function fonctionBloc(nom, v) {
 }`
 }
 
-/** Un côté d'en-tête, en source Typst — ou `null` s'il ne porte rien. */
-function coteEntete(cote) {
+/** Un côté d'en-tête, en source Typst — ou `null` s'il ne porte rien.
+ * `titre` : le titre du document, pour le choix « Titre du document ». */
+function coteEntete(cote, titre) {
   if (!cote) return null
+  if (cote.type === 'titreDocument') {
+    const t = String(titre || '').trim()
+    return t ? chaine(t) : null
+  }
   if (cote.type === 'texte') {
     const t = String(cote.texte || '').trim()
     return t ? chaine(t) : null
@@ -323,10 +328,10 @@ function coteEntete(cote) {
 /** L'en-tête complet, prêt à être glissé dans le `#set page(...)`. Renvoie
  * une chaîne vide quand les deux côtés sont vides : inutile d'installer un
  * bandeau qui ne dira jamais rien. */
-function enteteTypst(p) {
+function enteteTypst(p, titre) {
   const e = (p && p.entete) || {}
-  const gauche = coteEntete(e.gauche)
-  const droite = coteEntete(e.droite)
+  const gauche = coteEntete(e.gauche, titre)
+  const droite = coteEntete(e.droite, titre)
   if (!gauche && !droite) return ''
   // `sautOuverture` : on regarde s'il existe un titre de niveau 1 **sur**
   // cette page, et pas seulement à son sommet.
@@ -383,7 +388,7 @@ function gabarit(style, titre) {
   // raisonnement. Écrit comme un `context` Typst parce que le contenu
   // dépend de la page composée : on interroge les titres réellement placés,
   // seul moyen d'avoir un titre courant juste.
-  const entete = enteteTypst(p)
+  const entete = enteteTypst(p, titre)
   const numerotation = p.pageNumbers && p.pageNumbers.enabled
     ? `numbering: "1", number-align: center,`
     : ''

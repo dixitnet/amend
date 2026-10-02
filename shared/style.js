@@ -262,10 +262,14 @@ export const PAGE_DEFAUT = {
   },
 }
 
-/** Ce qu'un en-tête peut porter. */
+/** Ce qu'un en-tête peut porter. `titreDocument` (02/10/2026) reprend le
+ * titre du document tel qu'il est au moment de l'export — le nom du
+ * fichier — et ne change pas d'une page à l'autre, à la différence de
+ * `titre`, le dernier titre de niveau 1 rencontré. */
 export const CONTENUS_ENTETE = [
   { id: 'rien', label: 'Rien' },
   { id: 'texte', label: 'Texte libre' },
+  { id: 'titreDocument', label: 'Titre du document' },
   { id: 'titre', label: 'Titre 1 courant' },
 ]
 

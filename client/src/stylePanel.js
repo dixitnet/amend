@@ -232,7 +232,7 @@ function groupePage(page) {
     choix.onchange = majVisible
     const champChoix = champ(libelle, choix)
     champChoix.title =
-      "« Titre 1 courant » reprend le dernier titre de niveau 1 rencontré. Dans l’export Word, faute d’équivalent fiable, c’est le titre du document qui est écrit."
+      "« Titre du document » reprend le titre du fichier, le même sur toutes les pages. « Titre 1 courant » reprend le dernier titre de niveau 1 rencontré ; dans l’export Word, faute d’équivalent fiable, c’est le titre du document qui est écrit."
     grille.append(champChoix, champTexte)
     cotes[cle] = { choix, texte }
   }

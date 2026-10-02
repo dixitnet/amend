@@ -284,6 +284,31 @@ test('chaque côté reçoit son contenu, et les pages paires sont celles de gauc
   assert.match(src, /query\(heading\.where\(level: 1\)\)/)
 })
 
+test('« Titre du document » écrit le titre du fichier, le même sur chaque page, échappé', () => {
+  const titre = 'Vie et mort de "Zan" \\ suite'
+  const src = docToTypst(
+    doc({ h: 1, texte: 'Un chapitre' }, 'Texte.'),
+    fusionner({ page: { entete: { gauche: { type: 'titreDocument' }, droite: { type: 'titreDocument' } } } }),
+    titre
+  )
+  assert.match(src, /header: context/)
+  assert.match(src, /if calc\.even\(ici\) \{ "Vie et mort de \\"Zan\\" \\\\ suite" \} else \{ "Vie et mort de \\"Zan\\" \\\\ suite" \}/)
+  // Contrairement au « titre 1 courant », la ligne de contenu n'utilise pas `courant`.
+  assert.doesNotMatch(src, /let contenu = .*courant/)
+  assert.doesNotMatch(src, /[^\\]"Zan"/)
+})
+
+test('« Titre du document » avec un titre vide ne met rien, et sans en-tête installé si les deux côtés sont vides', () => {
+  const sans = docToTypst(doc('Texte.'), fusionner({ page: { entete: { droite: { type: 'titreDocument' } } } }), '   ')
+  assert.doesNotMatch(sans, /header:/)
+  const mixte = docToTypst(
+    doc('Texte.'),
+    fusionner({ page: { entete: { gauche: { type: 'titreDocument' }, droite: { type: 'texte', texte: 'Maison' } } } }),
+    'Mon titre'
+  )
+  assert.match(mixte, /if calc\.even\(ici\) \{ "Mon titre" \} else \{ "Maison" \}/)
+})
+
 test('un texte libre vide vaut « rien »', () => {
   const src = source({
     page: { entete: { gauche: { type: 'texte', texte: '   ' }, droite: { type: 'rien', texte: '' } } },

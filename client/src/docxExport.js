@@ -491,7 +491,9 @@ export async function buildDocxBlob(doc, style, titre = '') {
   const entete = page.entete || DEFAULT_STYLE.page.entete || {}
   const texteEntete = (cote) => {
     if (!cote || cote.type === 'rien') return ''
-    if (cote.type === 'titre') return String(titre || '')
+    // « Titre du document » (02/10/2026) et, faute d'équivalent fiable,
+    // « Titre 1 courant » : dans les deux cas, le titre du document.
+    if (cote.type === 'titre' || cote.type === 'titreDocument') return String(titre || '')
     return String(cote.texte || '')
   }
   const enteteDroite = texteEntete(entete.droite)

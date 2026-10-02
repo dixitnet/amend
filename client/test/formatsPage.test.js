@@ -145,3 +145,20 @@ test('CSS : la règle @page porte les dimensions réelles', () => {
   assert.match(buildPageCss(assainir({ page: { size: 'A4', orientation: 'paysage' } })), /size: 297mm 210mm/)
   assert.match(buildPageCss(assainir({ page: { size: 'personnalise', largeur: 140, hauteur: 215 } })), /size: 140mm 215mm/)
 })
+
+test('« Titre du document » est un contenu d’en-tête valide : l’assainissement le garde, un inconnu est ramené', () => {
+  const ok = assainir({ page: { entete: { gauche: { type: 'titreDocument' }, droite: { type: 'nimporte-quoi', texte: 'x' } } } })
+  assert.equal(ok.page.entete.gauche.type, 'titreDocument')
+  assert.equal(ok.page.entete.droite.type, 'rien')
+})
+
+test('Word : « Titre du document » écrit le titre dans l’en-tête, côté gauche et côté droit', async () => {
+  const style = assainir({ page: { entete: { gauche: { type: 'titreDocument' }, droite: { type: 'titreDocument' } } } })
+  const blob = await buildDocxBlob(D, style, 'Mon titre')
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+  const entetes = Object.keys(zip.files).filter((f) => /^word\/header\d*\.xml$/.test(f))
+  assert.ok(entetes.length >= 1)
+  let tout = ''
+  for (const f of entetes) tout += await zip.file(f).async('string')
+  assert.ok(tout.includes('Mon titre'))
+})
