@@ -309,6 +309,29 @@ function fonctionBloc(nom, v) {
 }`
 }
 
+/** La règle Typst des notes de bas de page. Une note prend par défaut le
+ * style du bloc où elle est appelée (retrait de première ligne,
+ * alignement, italique, interligne…) : on la remet à l'état du corps de
+ * texte — police, interligne, justification —, sans retrait, graisse ni
+ * style, et on ne lui laisse que ses marques propres. Typst ajoute en outre
+ * de lui-même un retrait de 1 em à chaque note (`footnote.entry.indent`),
+ * qu'on supprime : la note part du bord gauche, numéro compris. Taille : corps − 2 pt
+ * (corps 11 → notes 9), l'usage des éditeurs français, plancher 7 pt. */
+export function regleNotes(corps) {
+  const r = reglagesTypst(corps)
+  const f = police(corps.font)
+  const taille = Math.max(7, corps.size - 2)
+  const texte = `font: (${f.typst.map(chaine).join(', ')}), size: ${taille}pt, weight: "regular", style: "normal"`
+  const par = r.par.replace(/first-line-indent: \(.*\)$/, 'first-line-indent: 0pt')
+  return `#set footnote.entry(indent: 0pt)
+#show footnote.entry: it => {
+  set text(${texte})
+  set par(${par})
+  set align(left)
+  it
+}`
+}
+
 /** Un côté d'en-tête, en source Typst — ou `null` s'il ne porte rien.
  * `titre` : le titre du document, pour le choix « Titre du document ». */
 function coteEntete(cote, titre) {
@@ -412,9 +435,8 @@ function gabarit(style, titre) {
 // justifié — même règle que celle posée dans l'export navigateur.
 #set text(lang: ${chaine(langue(p.langue).id)}, font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt)
 #set par(justify: ${corps.align === 'justify'})
-// Les notes de bas de page (29/09/2026) : le corps de texte, une taille
-// en dessous. Un réglage « Notes » dans la feuille de style plus tard.
-#show footnote.entry: set text(size: ${Math.max(6, corps.size - 1)}pt)
+// Les notes de bas de page (29/09/2026, reprises le 03/10) : voir regleNotes.
+${regleNotes(corps)}
 // Les liens (30/09/2026) : soulignés, sans couleur — un PDF s'imprime, et
 // une couleur qui porte le sens disparaît en noir et blanc.
 #show link: underline

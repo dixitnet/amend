@@ -443,5 +443,40 @@ test('les notes : de vraies notes de bas de page Typst', () => {
   const src = docToTypst(document, styleParDefaut, 'Document')
   assert.ok(src.includes('#amend-corps[Un#footnote[Première (piégée) \\#x] deux#footnote[Seconde]]'), src.slice(-300))
   assert.doesNotMatch(src, /#super\[|amend-h2\[Notes\]/)
-  assert.match(src, /#show footnote\.entry: set text\(size: 10pt\)/)
+  assert.match(src, /#show footnote\.entry: it => \{/)
+})
+
+test('les notes : corps − 2 pt, et le style du bloc d’appel ne déteint pas (03/10/2026)', () => {
+  // Typst donne à une note le style du paragraphe où elle est appelée :
+  // retrait de première ligne, alignement, italique. Sylvain a vu des
+  // notes décalées dans le PDF. La règle remet la note à l'état du corps
+  // de texte. Vérifié en compilant : voir typstReel.test.js.
+  const note = schema.node('footnote', null, [schema.text('Une note.')])
+  const document = schema.node('doc', null, [schema.node('paragraph', null, [schema.text('Un'), note])])
+  const regle = (couche) => {
+    const src = docToTypst(document, fusionner(couche), 'D')
+    const i = src.indexOf('#set footnote.entry')
+    assert.ok(i > -1)
+    return src.slice(i, src.indexOf('\n}', i))
+  }
+  const taille = (r) => Number(/size: ([\d.]+)pt/.exec(r)[1])
+  for (const size of [10, 11, 12]) {
+    assert.equal(taille(regle({ blocs: { body: { size } } })), size - 2)
+  }
+  // Plancher à 7 pt pour les petits corps.
+  assert.equal(taille(regle({ blocs: { body: { size: 8 } } })), 7)
+  // Le corps a un retrait de première ligne, un retrait à gauche, de
+  // l'italique et du gras : la note n'en garde rien.
+  const r = regle({ blocs: { body: { firstLineIndent: 8, indent: 6, italic: true, bold: true, align: 'center' } } })
+  assert.match(r, /first-line-indent: 0pt/)
+  // Le retrait de 1 em que Typst met de lui-même à chaque note est supprimé.
+  assert.match(r, /#set footnote\.entry\(indent: 0pt\)/)
+  assert.doesNotMatch(r, /pad\(/)
+  assert.match(r, /weight: "regular"/)
+  assert.match(r, /style: "normal"/)
+  assert.match(r, /set align\(left\)/)
+  // Elle suit en revanche la justification et l'interligne du corps.
+  assert.match(regle({ blocs: { body: { align: 'justify' } } }), /justify: true/)
+  assert.match(regle({ blocs: { body: { align: 'left' } } }), /justify: false/)
+  assert.match(regle({ blocs: { body: { lineHeight: 1.5 } } }), /leading: 1\.50em/)
 })
