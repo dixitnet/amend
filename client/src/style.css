@@ -760,8 +760,12 @@ span.author-color {
    modification du document, jamais une marque stockée dedans (donc absent
    des exports .md/.pdf, comme voulu). */
 .comment-highlight {
-  background: color-mix(in srgb, var(--comment-color, var(--accent)) 22%, transparent);
-  border-bottom: 2px solid var(--comment-color, var(--accent));
+  /* Un jaune unique pour tous les commentateurs (03/10/2026), comme Word,
+     LibreOffice et Google Docs. Le fond teinté de la couleur de l'auteur,
+     avec un trait dessous, ressemblait trop à une insertion — qui est
+     aussi un fond teinté de la couleur de son auteur. La couleur de la
+     personne reste sur la carte du commentaire et sa pastille. */
+  background: color-mix(in srgb, #f5c518 32%, transparent);
 }
 
 /* "!!" marker (see tkMarker.js): the real "!!" characters stay in the
