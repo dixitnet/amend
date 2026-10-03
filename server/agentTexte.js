@@ -50,18 +50,28 @@ const estMot = (c) => !!c && CARACTERE_DE_MOT.test(c)
 
 /**
  * Les blocs de texte du document, dans l'ordre : `[{ n, nom, niveau,
- * contexte, texte, segments, enAttente }]`. `n` commence à 1 et compte
+ * contexte, texte, segments, enAttente, notes }]`. `n` commence à 1 et compte
  * **tous** les blocs, vides compris — un numéro ne dépend pas de ce qu'on
  * choisit d'afficher.
  *
  * `texte` est le texte **tel qu'il se lirait si tout ce qui est en attente
  * était accepté** : les insertions y sont, les suppressions n'y sont pas. Un
  * saut de ligne y vaut `\n`, une note ou une image `⟦k⟧`.
+ *
+ * `notes` : les notes de bas de page du bloc, avec leur texte (voir
+ * `lireContenu`) — c'est ce qui permet de les lire, de les corriger et de
+ * les commenter sans en faire des blocs : elles n'ont pas de numéro de bloc,
+ * pour que celui que l'éditeur affiche reste celui de l'agent.
  */
 export function blocsDuDocument(ydoc) {
   const racine = ydoc.getXmlFragment(NOM_TEXTE)
   const blocs = []
   parcourir(racine, [])
+  // Le numéro que le lecteur voit sur une note : sa place parmi les notes du
+  // document, dans l'ordre — celles proposées à la suppression n'en ont plus
+  // (l'éditeur les barre sans les compter).
+  let compte = 0
+  for (const b of blocs) for (const note of b.notes) note.numero = note.supprimee ? null : ++compte
   return blocs
 
   function parcourir(parent, contexte) {
@@ -82,10 +92,27 @@ function estBlocTexte(el) {
 }
 
 function decrireBloc(el, contexte, n) {
+  const contenu = lireContenu(el)
+  const enAttente = !!el.getAttribute('trackedBreak') || contenu.enAttente
+  const niveau = el.nodeName === 'heading' ? Number(el.getAttribute('level')) || 1 : null
+  return { n, nom: el.nodeName, niveau, contexte, texte: contenu.texte, segments: contenu.segments, enAttente, notes: contenu.notes, el }
+}
+
+/**
+ * Le contenu en ligne d'un élément (un bloc, ou une note) : ses segments de
+ * texte, le texte visible, et les notes qu'il porte. Une note a la même forme
+ * qu'un bloc — du texte dans des XmlText, des sauts de ligne en éléments — et
+ * se lit donc par le même chemin.
+ *
+ * `notes[]` : `{ k, el, texte, segments, suivi, supprimee, enAttente }` où
+ * `k` est le repère ⟦k⟧ que le texte du bloc montre à sa place.
+ */
+function lireContenu(el) {
   const segments = []
+  const notes = []
   let texte = ''
   let atomes = 0
-  let enAttente = !!el.getAttribute('trackedBreak')
+  let enAttente = false
   const ajouter = (seg) => {
     seg.decalage = texte.length
     seg.visible = !seg.supprime
@@ -122,12 +149,25 @@ function decrireBloc(el, contexte, n) {
       const supprime = !!(suivi && suivi.type === 'deletion')
       let marque
       if (enfant.nodeName === 'hard_break') marque = '\n'
-      else marque = `⟦${++atomes}⟧`
+      else {
+        marque = `⟦${++atomes}⟧`
+        if (enfant.nodeName === 'footnote') {
+          const interne = lireContenu(enfant)
+          notes.push({
+            k: atomes,
+            el: enfant,
+            texte: interne.texte,
+            segments: interne.segments,
+            suivi: suivi || null,
+            supprimee: supprime,
+            enAttente: !!suivi || interne.enAttente,
+          })
+        }
+      }
       ajouter({ xt: null, texte: marque, attrs: {}, atome: true, nom: enfant.nodeName, supprime, enAttente: !!suivi })
     }
   }
-  const niveau = el.nodeName === 'heading' ? Number(el.getAttribute('level')) || 1 : null
-  return { n, nom: el.nodeName, niveau, contexte, texte, segments, enAttente, el }
+  return { segments, texte, enAttente: enAttente || notes.some((x) => x.enAttente), notes }
 }
 
 /** Où poser le curseur de l'agent pour montrer qu'il travaille sur ce
@@ -148,13 +188,25 @@ export function ancreDeBloc(ydoc, numero) {
 /** Comme blocsDuDocument, mais réduit à ce qu'un agent lit : pas de
  * segments ni d'éléments Yjs, rien qui puisse fuiter dans une réponse. */
 export function resume(bloc) {
-  return { n: bloc.n, type: bloc.nom, niveau: bloc.niveau, contexte: bloc.contexte, texte: bloc.texte, enAttente: bloc.enAttente }
+  return {
+    n: bloc.n,
+    type: bloc.nom,
+    niveau: bloc.niveau,
+    contexte: bloc.contexte,
+    texte: bloc.texte,
+    enAttente: bloc.enAttente,
+    notes: bloc.notes.map((x) => ({ k: x.k, numero: x.numero, texte: x.texte, enAttente: x.enAttente, supprimee: x.supprimee })),
+  }
 }
 
 export function statistiques(blocs) {
   let mots = 0
-  for (const b of blocs) mots += (b.texte.match(/\S+/g) || []).length
-  return { blocs: blocs.length, mots }
+  let notes = 0
+  for (const b of blocs) {
+    mots += (b.texte.match(/\S+/g) || []).length
+    notes += b.notes.filter((x) => !x.supprimee).length
+  }
+  return { blocs: blocs.length, mots, notes }
 }
 
 // --- Retrouver un passage --------------------------------------------------
@@ -169,11 +221,12 @@ export function situer(bloc, citation) {
   if (!citation) return { ok: false, raison: 'le texte à retrouver est vide' }
   const exact = occurrences(bloc.texte, citation)
   if (exact.length === 1) return { ok: true, debut: exact[0], fin: exact[0] + citation.length, approche: false }
-  if (exact.length > 1) return { ok: false, raison: `ce passage apparaît ${exact.length} fois dans le bloc ${bloc.n} : allonge-le pour qu'il soit unique` }
+  const lieu = bloc.lieu || `le bloc ${bloc.n}`
+  if (exact.length > 1) return { ok: false, raison: `ce passage apparaît ${exact.length} fois dans ${lieu} : allonge-le pour qu'il soit unique` }
   const large = occurrences(normaliser(bloc.texte), normaliser(citation))
   if (large.length === 1) return { ok: true, debut: large[0], fin: large[0] + citation.length, approche: true }
-  if (large.length > 1) return { ok: false, raison: `ce passage apparaît ${large.length} fois dans le bloc ${bloc.n} : allonge-le pour qu'il soit unique` }
-  return { ok: false, raison: `ce passage est introuvable dans le bloc ${bloc.n} — recopie-le exactement, tel que lire le montre (le texte a peut-être changé depuis)` }
+  if (large.length > 1) return { ok: false, raison: `ce passage apparaît ${large.length} fois dans ${lieu} : allonge-le pour qu'il soit unique` }
+  return { ok: false, raison: `ce passage est introuvable dans ${lieu} — recopie-le exactement, tel que lire le montre (le texte a peut-être changé depuis)` }
 }
 
 function occurrences(texte, motif) {
@@ -220,6 +273,51 @@ function plageDansLeTexte(bloc, debut, fin, { permettreMarques = false } = {}) {
   const de = couverts[0].debut + (debut - couverts[0].decalage)
   const jusqua = couverts[couverts.length - 1].debut + (fin - couverts[couverts.length - 1].decalage)
   return { ok: true, xt, de, jusqua, segments: couverts }
+}
+
+// --- Une note comme cible ---------------------------------------------------
+
+/**
+ * Ce sur quoi porte une demande : le bloc `numero`, ou — quand `note` est
+ * donné — **le texte d'une de ses notes**, qui a la même forme qu'un bloc
+ * (`texte`, `segments`) et se retrouve donc par les mêmes fonctions.
+ * `{ refus }` si la cible n'existe pas ou ne peut pas être corrigée.
+ *
+ * Une note qui vient d'être proposée (insertion en attente) n'est pas suivie
+ * mot à mot par l'éditeur : la proposition, c'est la note entière. On n'y
+ * superpose donc rien, comme on ne corrige pas le texte qu'un autre vient de
+ * proposer. Une note proposée à la suppression non plus.
+ */
+function cibleDe(blocs, numero, note, { pourCorriger = true } = {}) {
+  const bloc = blocs[numero - 1]
+  if (!bloc) return { refus: `il n'y a pas de bloc ${numero}` }
+  if (note === undefined || note === null) return bloc
+  if (!Number.isInteger(note) || note < 1) return { refus: '`note` doit être le repère ⟦k⟧ de la note dans le bloc (un entier à partir de 1)' }
+  const trouvee = bloc.notes.find((x) => x.k === note)
+  if (!trouvee) {
+    return { refus: bloc.notes.length ? `il n'y a pas de note ⟦${note}⟧ dans le bloc ${numero} (notes de ce bloc : ${bloc.notes.map((x) => `⟦${x.k}⟧`).join(', ')})` : `le bloc ${numero} ne porte aucune note` }
+  }
+  if (pourCorriger && trouvee.suivi) {
+    return {
+      refus:
+        trouvee.suivi.type === 'deletion'
+          ? `la note ⟦${note}⟧ du bloc ${numero} est déjà proposée à la suppression : attends qu'un éditeur la traite`
+          : `la note ⟦${note}⟧ du bloc ${numero} vient d'être proposée : son texte ne se corrige pas avant qu'un éditeur l'ait acceptée ou refusée`,
+    }
+  }
+  return {
+    n: bloc.n,
+    nom: 'note',
+    contexte: [],
+    texte: trouvee.texte,
+    segments: trouvee.segments,
+    enAttente: trouvee.enAttente,
+    notes: [],
+    el: trouvee.el,
+    lieu: `la note ⟦${note}⟧ du bloc ${numero}`,
+    note: trouvee,
+    bloc,
+  }
 }
 
 // --- Proposer --------------------------------------------------------------
@@ -296,8 +394,8 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
     if (typeof r.avant !== 'string' || typeof r.apres !== 'string') return refuse(index, numero, '`avant` et `apres` doivent être du texte')
     if (r.avant.length > LONGUEUR_AVANT_MAX) return refuse(index, numero, `\`avant\` est trop long (${LONGUEUR_AVANT_MAX} signes au plus) : propose plusieurs remplacements courts`)
     if (r.apres.length > LONGUEUR_APRES_MAX) return refuse(index, numero, `\`apres\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
-    const bloc = blocs[numero - 1]
-    if (!bloc) return refuse(index, numero, `il n'y a pas de bloc ${numero}`)
+    const bloc = cibleDe(blocs, numero, r.note)
+    if (bloc.refus) return refuse(index, numero, bloc.refus)
     const trouve = situer(bloc, r.avant)
     if (!trouve.ok) return refuse(index, numero, trouve.raison)
     // Un nœud texte ProseMirror ne porte pas de saut de ligne.
@@ -449,25 +547,271 @@ export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
   return { appliques: appliques.sort((a, b) => a.index - b.index), refuses: refuses.sort((a, b) => a.index - b.index) }
 }
 
+// --- Notes ajoutées -----------------------------------------------------------
+
+export const NOTES_MAX = 20
+const LONGUEUR_NOTE_MAX = 2000
+
+/** Le tronçon d'un delta Yjs à partir de `point` (en signes), avec ses
+ * attributs : ce qu'il faut recopier dans le nouveau texte quand un appel de
+ * note coupe un paragraphe en deux. */
+function queueDuDelta(delta, point) {
+  const out = []
+  let index = 0
+  for (const op of delta) {
+    const longueur = typeof op.insert === 'string' ? op.insert.length : 1
+    if (index + longueur <= point) {
+      index += longueur
+      continue
+    }
+    if (typeof op.insert === 'string') {
+      const morceau = op.insert.slice(Math.max(0, point - index))
+      if (morceau) out.push(op.attributes ? { insert: morceau, attributes: op.attributes } : { insert: morceau })
+    } else out.push(op)
+    index += longueur
+  }
+  return out
+}
+
+/** Les commentaires dont l'ancre est dans `xt` à partir de `point` : à
+ * remettre sur le nouveau texte une fois le paragraphe coupé. Une ancre se
+ * range sur un élément Yjs précis — le texte recopié étant de nouveaux
+ * éléments, sans cela les commentaires placés après l'appel perdraient leur
+ * passage. Un commentaire à cheval sur le point est ramené à ce qui précède. */
+function ancresADeplacer(ydoc, xt, point) {
+  const carte = ydoc.getMap(NOM_COMMENTAIRES)
+  const abs = (json) => {
+    try {
+      return json ? Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(json), ydoc) : null
+    } catch {
+      return null
+    }
+  }
+  const out = []
+  carte.forEach((c, id) => {
+    if (!c || typeof c !== 'object') return
+    const de = abs(c.anchorFrom)
+    const a = abs(c.anchorTo)
+    const deDansXt = de && de.type === xt
+    const aDansXt = a && a.type === xt
+    if (!deDansXt && !aDansXt) return
+    out.push({
+      id,
+      valeur: c,
+      de: deDansXt && de.index >= point ? de.index - point : null,
+      a: aDansXt && a.index > point ? a.index - point : null,
+    })
+  })
+  return out
+}
+
+function remettreLesAncres(ydoc, deplacements, xt, nouveau) {
+  const carte = ydoc.getMap(NOM_COMMENTAIRES)
+  for (const d of deplacements) {
+    if (d.de === null && d.a === null) continue
+    const suivante = { ...d.valeur }
+    if (d.de !== null) suivante.anchorFrom = Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(nouveau, d.de, 0))
+    if (d.a !== null) {
+      // À cheval : le début reste avant l'appel, la fin le suivrait dans un
+      // autre texte, et une ancre ne se compte que dans un seul. On la ramène
+      // à la fin de ce qui précède l'appel.
+      suivante.anchorTo =
+        d.de === null
+          ? Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(xt, xt.length, 0))
+          : Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(nouveau, d.a, 0))
+    }
+    carte.set(d.id, suivante)
+  }
+}
+
+/**
+ * Ajoute des notes de bas de page, en suivi de modifications :
+ * `[{ bloc, apres, texte }]` — l'appel se pose **juste après** le passage
+ * `apres` (une citation exacte et unique dans le bloc ; sans `apres`, à la
+ * fin du bloc), et `texte` est la note.
+ *
+ * Même forme que ce que l'éditeur écrit quand une personne insère une note
+ * avec le suivi allumé (client/src/footnotes.js, `insererNote`) : un élément
+ * `footnote` dont l'attribut `suivi` vaut `{ type: 'insertion', user,
+ * userColor, ts }`, qui contient son texte, sans marque — la proposition,
+ * c'est la note entière. Accepter lève l'attribut ; rejeter retire la note.
+ *
+ * Poser un appel au milieu d'une ligne coupe son texte en deux dans Yjs (un
+ * nœud ne se glisse pas dans un XmlText) : c'est ce que fait aussi le client.
+ * Les commentaires ancrés après l'appel sont suivis sur le nouveau texte.
+ *
+ * Refusé : dans un titre (le schéma n'y admet pas de note), un texte vide ou
+ * trop long, un endroit qui tombe au milieu d'une proposition en attente.
+ *
+ * `{ appliques: [{ index, bloc }], refuses: [{ index, bloc, raison }] }`
+ */
+export function ajouterNotes(ydoc, demandes, auteur, ts = Date.now()) {
+  const blocs = blocsDuDocument(ydoc)
+  const appliques = []
+  const refuses = []
+  const retenus = []
+  const refuse = (index, bloc, raison) => refuses.push({ index, bloc, raison })
+
+  demandes.forEach((d, index) => {
+    const numero = d && Number.isInteger(d.bloc) ? d.bloc : null
+    if (numero === null) return refuse(index, d && d.bloc, 'numéro de bloc manquant ou invalide')
+    if (typeof d.texte !== 'string') return refuse(index, numero, '`texte` doit être du texte')
+    // Une note ne porte ni paragraphe ni liste : un saut de ligne y serait
+    // une espace.
+    const texte = d.texte.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+    if (!texte) return refuse(index, numero, 'le texte de la note est vide')
+    if (texte.length > LONGUEUR_NOTE_MAX) return refuse(index, numero, `le texte de la note est trop long (${LONGUEUR_NOTE_MAX} signes au plus)`)
+    const bloc = blocs[numero - 1]
+    if (!bloc) return refuse(index, numero, `il n'y a pas de bloc ${numero}`)
+    if (bloc.nom === 'heading') {
+      return refuse(index, numero, `le bloc ${numero} est un titre : un titre reprend dans la table des matières et l'en-tête de page, où un appel de note n'a rien à faire — pose la note dans le paragraphe qui suit`)
+    }
+    if (d.apres !== undefined && d.apres !== null && typeof d.apres !== 'string') return refuse(index, numero, '`apres` doit être un passage du bloc (ou rester absent pour la fin du bloc)')
+
+    if (!d.apres) {
+      retenus.push({ index, numero, el: bloc.el, xt: null, point: null, texte })
+      return
+    }
+    const trouve = situer(bloc, d.apres)
+    if (!trouve.ok) return refuse(index, numero, trouve.raison)
+    const plage = plageDansLeTexte(bloc, trouve.fin - 1, trouve.fin, { permettreMarques: true })
+    if (!plage.ok) return refuse(index, numero, plage.raison)
+    const seg = plage.segments[0]
+    // Au milieu d'une proposition d'un autre, non : on ne s'y glisse pas.
+    if (seg.enAttente && plage.jusqua > seg.debut && plage.jusqua < seg.fin) {
+      return refuse(index, numero, "l'endroit est dans une modification déjà en attente : attends qu'un éditeur la traite, ou place la note après elle")
+    }
+    retenus.push({ index, numero, el: bloc.el, xt: plage.xt, point: plage.jusqua, texte })
+  })
+
+  if (!retenus.length) return { appliques, refuses: refuses.sort((a, b) => a.index - b.index) }
+
+  const suivi = { type: 'insertion', user: auteur.name, userColor: auteur.color, ts }
+  const fabriquer = (texte) => {
+    const note = new Y.XmlElement('footnote')
+    note.setAttribute('suivi', { ...suivi })
+    return { note, texte }
+  }
+  // Les appels qui tombent dans un même texte, du plus loin au plus proche :
+  // couper à un point ne déplace que ce qui le suit. À point égal, ils se
+  // posent d'un seul geste, dans l'ordre demandé.
+  const groupes = new Map() // xt → Map(point → [retenu])
+  const alaFin = new Map() // el → [retenu]
+  for (const r of retenus) {
+    if (r.xt) {
+      if (!groupes.has(r.xt)) groupes.set(r.xt, new Map())
+      const parPoint = groupes.get(r.xt)
+      if (!parPoint.has(r.point)) parPoint.set(r.point, [])
+      parPoint.get(r.point).push(r)
+    } else {
+      if (!alaFin.has(r.el)) alaFin.set(r.el, [])
+      alaFin.get(r.el).push(r)
+    }
+  }
+  const poses = new Set()
+  const poser = (parent, position, rs) => {
+    const fabriques = rs.map((r) => fabriquer(r.texte))
+    parent.insert(position, fabriques.map((f) => f.note))
+    // Le texte d'une note s'écrit une fois la note intégrée au document.
+    fabriques.forEach((f, i) => {
+      const xt = new Y.XmlText()
+      f.note.insert(0, [xt])
+      xt.insert(0, f.texte)
+      poses.add(rs[i])
+    })
+  }
+
+  ydoc.transact(() => {
+    for (const [xt, parPoint] of groupes) {
+      const parent = xt.parent
+      const position = parent ? parent.toArray().indexOf(xt) : -1
+      if (position === -1) {
+        for (const rs of parPoint.values()) for (const r of rs) refuse(r.index, r.numero, "le bloc n'est plus là")
+        continue
+      }
+      const points = [...parPoint.keys()].sort((a, b) => b - a)
+      for (const point of points) {
+        const rs = parPoint.get(point)
+        const longueur = xt.length
+        if (point <= 0) poser(parent, position, rs)
+        else if (point >= longueur) poser(parent, position + 1, rs)
+        else {
+          const queue = queueDuDelta(xt.toDelta(), point)
+          const deplacements = ancresADeplacer(ydoc, xt, point)
+          xt.delete(point, longueur - point)
+          const suite = new Y.XmlText()
+          parent.insert(position + 1, [suite])
+          suite.applyDelta(queue, { sanitize: false })
+          remettreLesAncres(ydoc, deplacements, xt, suite)
+          poser(parent, position + 1, rs)
+        }
+      }
+    }
+    for (const [el, rs] of alaFin) poser(el, el.length, rs)
+  }, 'agent')
+
+  for (const r of retenus) if (poses.has(r)) appliques.push({ index: r.index, bloc: r.numero })
+  return { appliques: appliques.sort((a, b) => a.index - b.index), refuses: refuses.sort((a, b) => a.index - b.index) }
+}
+
 // --- Commentaires -----------------------------------------------------------
 
 function identifiant(prefixe) {
   return `${prefixe}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-/** Un commentaire ancré sur `citation`, dans le bloc `bloc`. */
-export function commenter(ydoc, { bloc: numero, citation, texte }, auteur) {
-  const propre = String(texte || '').trim()
+const ANCRE_NOTE_MAX = 60
+
+/**
+ * Où ancrer un commentaire qui porte sur une note : **le texte qui touche
+ * son appel**, pas le texte de la note. Une ancre à l'intérieur d'une note
+ * tomberait dans un nœud que l'éditeur ne dessine pas dans la colonne du
+ * texte — la carte n'aurait nulle part où se poser. Le commentaire dit de
+ * quelle note il parle (voir `commenter`).
+ */
+function ancreDeNote(cible) {
+  const freres = cible.bloc.el.toArray()
+  const i = freres.indexOf(cible.el)
+  const avant = freres[i - 1]
+  if (avant instanceof Y.XmlText && avant.length > 0) {
+    return { ok: true, xt: avant, de: Math.max(0, avant.length - ANCRE_NOTE_MAX), jusqua: avant.length }
+  }
+  const apres = freres[i + 1]
+  if (apres instanceof Y.XmlText && apres.length > 0) {
+    return { ok: true, xt: apres, de: 0, jusqua: Math.min(apres.length, ANCRE_NOTE_MAX) }
+  }
+  return { ok: false, raison: `aucun texte autour de l'appel de la note ⟦${cible.note.k}⟧ du bloc ${cible.n} : commente plutôt le bloc, avec une citation` }
+}
+
+/**
+ * Un commentaire ancré sur `citation`, dans le bloc `bloc`. Avec `note` (le
+ * repère ⟦k⟧ d'une note du bloc), il porte sur cette note : il est ancré sur
+ * le texte qui précède son appel, et son texte commence par « À propos de la
+ * note 12 : » pour que la personne sache de quoi il parle. `citation` est
+ * alors inutile.
+ */
+export function commenter(ydoc, { bloc: numero, citation, texte, note }, auteur) {
+  let propre = String(texte || '').trim()
   if (!propre) return { ok: false, raison: 'le commentaire est vide' }
-  if (propre.length > LONGUEUR_COMMENTAIRE_MAX) return { ok: false, raison: `le commentaire est trop long (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
   if (!Number.isInteger(numero)) return { ok: false, raison: 'numéro de bloc manquant ou invalide' }
   const blocs = blocsDuDocument(ydoc)
-  const bloc = blocs[numero - 1]
-  if (!bloc) return { ok: false, raison: `il n'y a pas de bloc ${numero}` }
-  const trouve = situer(bloc, String(citation || ''))
-  if (!trouve.ok) return { ok: false, raison: trouve.raison }
-  const plage = plageDansLeTexte(bloc, trouve.debut, trouve.fin, { permettreMarques: true })
-  if (!plage.ok) return { ok: false, raison: plage.raison }
+  let plage
+  if (note !== undefined && note !== null) {
+    const cible = cibleDe(blocs, numero, note, { pourCorriger: false })
+    if (cible.refus) return { ok: false, raison: cible.refus }
+    plage = ancreDeNote(cible)
+    if (!plage.ok) return plage
+    const nom = cible.note.numero ? `la note ${cible.note.numero}` : `la note ⟦${note}⟧ du bloc ${numero}`
+    propre = `À propos de ${nom} : ${propre}`
+  } else {
+    const bloc = blocs[numero - 1]
+    if (!bloc) return { ok: false, raison: `il n'y a pas de bloc ${numero}` }
+    const trouve = situer(bloc, String(citation || ''))
+    if (!trouve.ok) return { ok: false, raison: trouve.raison }
+    plage = plageDansLeTexte(bloc, trouve.debut, trouve.fin, { permettreMarques: true })
+    if (!plage.ok) return { ok: false, raison: plage.raison }
+  }
+  if (propre.length > LONGUEUR_COMMENTAIRE_MAX) return { ok: false, raison: `le commentaire est trop long (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
   const id = identifiant('c')
   ydoc.transact(() => {
     ydoc.getMap(NOM_COMMENTAIRES).set(id, {

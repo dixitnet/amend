@@ -31,7 +31,7 @@ import { doc as fabriqueDoc, editeur, IA } from './harness.js'
 // (sinon les `instanceof` du moteur ne reconnaîtraient rien).
 const racine = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const YS = await import(pathToFileURL(join(racine, 'node_modules', 'yjs', 'dist', 'yjs.mjs')).href)
-const { proposer, ajouter, commenter, repondre, fils } = await import(pathToFileURL(join(racine, 'server', 'agentTexte.js')).href)
+const { proposer, ajouter, ajouterNotes, commenter, repondre, fils } = await import(pathToFileURL(join(racine, 'server', 'agentTexte.js')).href)
 
 /** Un document ProseMirror → un Y.Doc côté serveur ET côté client. */
 function mondes(pmDoc) {
@@ -330,4 +330,117 @@ test('rien d’accepté, rien d’écrit : le document ne bouge pas', () => {
   const r = ajouter(serveur, [{ apres_bloc: 5, texte: 'x' }], AGENT)
   assert.equal(r.appliques.length, 0)
   assert.equal(ecrit, false)
+})
+
+// --- Les notes de bas de page (03/10/2026) -----------------------------------------
+
+const CLAUDE_NOTES = { name: 'Claude (pour Sylvain)', color: '#5f7a4a' }
+
+/** Les notes d'un document ProseMirror : `[{ texte, suivi }]`. */
+function notesDe(pmDoc) {
+  const out = []
+  pmDoc.descendants((n) => {
+    if (n.type.name === 'footnote') out.push({ texte: n.textContent, suivi: n.attrs.suivi })
+  })
+  return out
+}
+
+test('une note ajoutée en suivi se lit comme une note proposée par une personne : accepter la garde, rejeter la retire', () => {
+  const avant = fabriqueDoc('Un premier paragraphe.', 'Le chat noir dort tranquillement.')
+  const { client, resultat } = ecrire(avant, (s) => ajouterNotes(s, [{ bloc: 2, apres: 'chat noir', texte: 'Un chat de gouttière.' }], CLAUDE_NOTES))
+  assert.deepEqual(resultat.appliques, [{ index: 0, bloc: 2 }])
+  const propose = relu(client)
+  // Le paragraphe garde son texte, coupé en deux autour de l'appel.
+  const p = propose.child(1)
+  assert.deepEqual([...Array(p.childCount).keys()].map((i) => p.child(i).type.name), ['text', 'footnote', 'text'])
+  assert.equal(p.child(0).text, 'Le chat noir')
+  assert.equal(p.child(2).text, ' dort tranquillement.')
+  const [n] = notesDe(propose)
+  assert.equal(n.texte, 'Un chat de gouttière.')
+  assert.equal(n.suivi.type, 'insertion')
+  assert.equal(n.suivi.user, 'Claude (pour Sylvain)')
+  assert.equal(n.suivi.userColor, '#5f7a4a')
+  // Même forme que `insererNote` (footnotes.js) : { type, user, userColor, ts }.
+  assert.deepEqual(Object.keys(n.suivi).sort(), ['ts', 'type', 'user', 'userColor'])
+
+  const changes = listChanges(propose)
+  assert.equal(changes.length, 1, 'une seule proposition à relire : la note entière')
+  assert.ok(changes.every(estModificationDAgent))
+
+  const accepter = editeur(propose, { suivi: false })
+  acceptAllChanges(accepter.view)
+  assert.deepEqual(notesDe(accepter.doc), [{ texte: 'Un chat de gouttière.', suivi: null }])
+  assert.equal(listChanges(accepter.doc).length, 0)
+
+  for (const defaire of [rejectAllChanges, rejectAgentChanges]) {
+    const refuser = editeur(propose, { suivi: false })
+    defaire(refuser.view)
+    assert.deepEqual(notesDe(refuser.doc), [], 'la note est retirée')
+    assert.equal(refuser.doc.child(1).textContent, 'Le chat noir dort tranquillement.')
+    assert.equal(refuser.doc.child(1).childCount, 1, 'le texte est de nouveau d’un seul tenant')
+  }
+})
+
+test('plusieurs notes dans un même paragraphe : mêmes positions pour le client que pour le serveur', () => {
+  const avant = fabriqueDoc('Un deux trois quatre cinq.')
+  const { client } = ecrire(avant, (s) =>
+    ajouterNotes(s, [{ bloc: 1, apres: 'deux', texte: 'N2' }, { bloc: 1, apres: 'quatre', texte: 'N4' }, { bloc: 1, texte: 'Fin' }], CLAUDE_NOTES)
+  )
+  const propose = relu(client)
+  assert.deepEqual(notesDe(propose).map((n) => n.texte), ['N2', 'N4', 'Fin'])
+  const e = editeur(propose, { suivi: false })
+  acceptAllChanges(e.view)
+  assert.equal(e.doc.child(0).textContent, 'Un deuxN2 trois quatreN4 cinq.Fin')
+})
+
+test('un commentaire posé après l’endroit d’une note ajoutée désigne toujours le même passage pour le client', () => {
+  const avant = fabriqueDoc('Zan naquit un mardi, et il mourut un jeudi, dit-on.')
+  const { client } = ecrire(avant, (s) => {
+    commenter(s, { bloc: 1, citation: 'un jeudi', texte: 'Après.' }, AGENT)
+    return ajouterNotes(s, [{ bloc: 1, apres: 'mardi', texte: 'Un mardi.' }], CLAUDE_NOTES)
+  })
+  const { doc: pm, mapping } = initProseMirrorDoc(client.getXmlFragment('prosemirror-content'), schema)
+  const [c] = [...client.getMap('comments').values()]
+  const fragment = client.getXmlFragment('prosemirror-content')
+  const de = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorFrom), mapping)
+  const a = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorTo), mapping)
+  assert.equal(pm.textBetween(de, a), 'un jeudi')
+})
+
+test('la correction d’une note se relit dans la note : accepter donne le texte corrigé, refuser rend l’original', () => {
+  const note = schema.node('footnote', { suivi: null }, [schema.text('Source : la mairie de Lyon, 1887.')])
+  const avant = schema.node('doc', null, [schema.node('paragraph', null, [schema.text('Zan naquit'), note, schema.text(' un mardi.')])])
+  const { client, resultat } = ecrire(avant, (s) => proposer(s, [{ bloc: 1, note: 1, avant: 'mairie de Lyon', apres: 'mairie de Paris' }], CLAUDE_NOTES))
+  assert.equal(resultat.refuses.length, 0)
+  const propose = relu(client)
+  const changes = listChanges(propose)
+  assert.ok(changes.length >= 1, 'la correction apparaît dans le panneau des modifications')
+  assert.ok(changes.every(estModificationDAgent))
+  // Dans la note, l'ancien et le nouveau texte coexistent jusqu'à la décision.
+  assert.match(notesDe(propose)[0].texte, /Lyon/)
+  assert.match(notesDe(propose)[0].texte, /Paris/)
+
+  const accepter = editeur(propose, { suivi: false })
+  acceptAllChanges(accepter.view)
+  assert.deepEqual(notesDe(accepter.doc), [{ texte: 'Source : la mairie de Paris, 1887.', suivi: null }])
+  const refuser = editeur(propose, { suivi: false })
+  rejectAllChanges(refuser.view)
+  assert.deepEqual(notesDe(refuser.doc), [{ texte: 'Source : la mairie de Lyon, 1887.', suivi: null }])
+  // Le texte du paragraphe n'a jamais bougé.
+  assert.equal(refuser.doc.child(0).child(0).text, 'Zan naquit')
+  assert.equal(refuser.doc.child(0).child(2).text, ' un mardi.')
+})
+
+test('un commentaire sur une note s’ancre sur le texte qui précède son appel', () => {
+  const note = schema.node('footnote', { suivi: null }, [schema.text('Source douteuse.')])
+  const avant = schema.node('doc', null, [schema.node('paragraph', null, [schema.text('Zan naquit un mardi'), note, schema.text(', dit-on.')])])
+  const { client, resultat } = ecrire(avant, (s) => commenter(s, { bloc: 1, note: 1, texte: 'À sourcer.' }, AGENT))
+  assert.ok(resultat.ok)
+  const { doc: pm, mapping } = initProseMirrorDoc(client.getXmlFragment('prosemirror-content'), schema)
+  const c = client.getMap('comments').get(resultat.id)
+  const fragment = client.getXmlFragment('prosemirror-content')
+  const de = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorFrom), mapping)
+  const a = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorTo), mapping)
+  assert.equal(pm.textBetween(de, a), 'Zan naquit un mardi')
+  assert.equal(c.text, 'À propos de la note 1 : À sourcer.')
 })

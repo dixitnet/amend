@@ -174,12 +174,14 @@ test('les outils dépendent du rôle : le lecteur ne propose pas, le correcteur 
   const correcteur = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
   const lecteur = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
   const noms = async (s) => (await rpc(s, 'tools/list')).result.tools.map((t) => t.name).sort()
-  assert.deepEqual(await noms(correcteur.secret), ['ajouter', 'chercher', 'commentaires', 'commenter', 'lire', 'plan', 'proposer', 'repondre'])
+  assert.deepEqual(await noms(correcteur.secret), ['ajouter', 'ajouter_note', 'chercher', 'commentaires', 'commenter', 'lire', 'plan', 'proposer', 'repondre'])
   assert.deepEqual(await noms(lecteur.secret), ['chercher', 'commentaires', 'commenter', 'lire', 'plan', 'repondre'])
   const refus = await rpc(lecteur.secret, 'tools/call', { name: 'proposer', arguments: { remplacements: [{ bloc: 2, avant: 'mardi', apres: 'lundi' }] } })
   assert.equal(refus.error.code, -32602)
   const refusAjout = await rpc(lecteur.secret, 'tools/call', { name: 'ajouter', arguments: { ajouts: [{ apres_bloc: 1, texte: 'x' }] } })
   assert.equal(refusAjout.error.code, -32602)
+  const refusNote = await rpc(lecteur.secret, 'tools/call', { name: 'ajouter_note', arguments: { notes: [{ bloc: 2, texte: 'x' }] } })
+  assert.equal(refusNote.error.code, -32602, 'un lecteur ne propose pas de note')
   const outils = (await rpc(correcteur.secret, 'tools/list')).result.tools
   for (const o of outils) {
     assert.equal(o.inputSchema.type, 'object')
@@ -294,6 +296,95 @@ test('ajouter pose un paragraphe en suivi de modifications, relu par le serveur,
   const vide = await appeler(secret, 'ajouter', { ajouts: [{ apres_bloc: 1, texte: '   ' }] })
   assert.ok(vide.isError)
   assert.match(texteDe(vide), /vide/)
+})
+
+/** Un document dont un paragraphe porte déjà une note. */
+async function documentAvecUneNote() {
+  const res = await fetch(`${BASE}/api/docs`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: cookie('alice@example.com') },
+    body: JSON.stringify({ title: 'Avec notes' }),
+  })
+  const doc = await res.json()
+  const y = new Y.Doc()
+  const f = y.getXmlFragment('prosemirror-content')
+  const p1 = new Y.XmlElement('paragraph')
+  f.push([p1])
+  const t1 = new Y.XmlText()
+  const note = new Y.XmlElement('footnote')
+  const t2 = new Y.XmlText()
+  const t3 = new Y.XmlText()
+  p1.push([t1, note, t3])
+  t1.insert(0, 'Zan naquit en 1887')
+  const interne = new Y.XmlText()
+  note.push([interne])
+  interne.insert(0, 'Archives de Lyon, cote 12.')
+  t3.insert(0, ', dit-on.')
+  const p2 = new Y.XmlElement('paragraph')
+  f.push([p2])
+  const t4 = new Y.XmlText()
+  p2.push([t4])
+  t4.insert(0, 'Il mourut jeune, et sans bruit.')
+  const h = new Y.XmlElement('heading')
+  h.setAttribute('level', 1)
+  f.push([h])
+  const t5 = new Y.XmlText()
+  h.push([t5])
+  t5.insert(0, 'Un titre')
+  storage.appendUpdate(doc.id, Buffer.from(Y.encodeStateAsUpdate(y)))
+  await storage.flushAll()
+  return doc
+}
+
+test('les notes de bas de page : lues sous leur bloc, trouvées, corrigées, commentées, ajoutées', async () => {
+  const doc = await documentAvecUneNote()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
+
+  const plan = texteDe(await appeler(secret, 'plan'))
+  assert.match(plan, /1 note\(s\) de bas de page/)
+  const lu = texteDe(await appeler(secret, 'lire'))
+  assert.match(lu, /\[1\] Zan naquit en 1887⟦1⟧, dit-on\.\n {6}⟦1⟧ note 1 : Archives de Lyon, cote 12\./)
+  assert.match(lu, /passe `note` avec son repère/)
+  const trouve = texteDe(await appeler(secret, 'chercher', { texte: 'archives' }))
+  assert.match(trouve, /\[1\] note ⟦1⟧ \(note 1\) : Archives de Lyon/)
+
+  // Corriger le texte de la note.
+  const corr = await appeler(secret, 'proposer', { remplacements: [{ bloc: 1, note: 1, avant: 'cote 12', apres: 'cote 21' }] })
+  assert.ok(!corr.isError, texteDe(corr))
+  assert.match(texteDe(await appeler(secret, 'lire')), /note 1 : Archives de Lyon, cote 21\. {2}⚑/)
+
+  // La commenter.
+  const com = await appeler(secret, 'commenter', { commentaires: [{ bloc: 1, note: 1, texte: 'Vérifier la cote.' }] })
+  assert.ok(!com.isError, texteDe(com))
+  assert.match(texteDe(await appeler(secret, 'commentaires')), /À propos de la note 1 : Vérifier la cote\./)
+
+  // En ajouter une, au milieu du texte du bloc 2, puis refus dans le titre.
+  const aj = await appeler(secret, 'ajouter_note', {
+    notes: [
+      { bloc: 2, apres: 'Il mourut jeune', texte: 'Selon le registre paroissial.' },
+      { bloc: 3, texte: 'Pas dans un titre.' },
+    ],
+  })
+  assert.ok(!aj.isError, texteDe(aj))
+  assert.match(texteDe(aj), /1 note\(s\) ajoutée\(s\) en suivi de modifications/)
+  assert.match(texteDe(aj), /Refusé — note 2 \(bloc 3\) : .*titre/)
+  const apres = texteDe(await appeler(secret, 'lire'))
+  assert.match(apres, /\[2\] Il mourut jeune⟦1⟧, et sans bruit\. {2}⚑\n {6}⟦1⟧ note 2 : Selon le registre paroissial\. {2}⚑/)
+
+  // La note ajoutée se corrige-t-elle ? Pas avant qu'on l'ait acceptée.
+  const trop = await appeler(secret, 'proposer', { remplacements: [{ bloc: 2, note: 1, avant: 'registre', apres: 'livre' }] })
+  assert.ok(trop.isError)
+  assert.match(texteDe(trop), /vient d'être proposée/)
+
+  // Le tout est persisté dans le journal, notes comprises.
+  let rejoue
+  for (let essai = 0; essai < 50; essai++) {
+    rejoue = new Y.Doc()
+    for (const op of new Storage(DATA_DIR).readUpdates(doc.id)) Y.applyUpdate(rejoue, op)
+    if (/registre paroissial/.test(rejoue.getXmlFragment('prosemirror-content').toString())) break
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  assert.match(rejoue.getXmlFragment('prosemirror-content').toString(), /registre paroissial/)
 })
 
 test('commenter, commentaires, repondre : la marge d’un lecteur aussi', async () => {

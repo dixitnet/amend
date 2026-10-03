@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import * as Y from 'yjs'
 import { Agents, empreinte } from '../agents.js'
 import { Storage } from '../storage.js'
-import { blocsDuDocument, commenter, fils, modificationsDe, proposer, repondre, situer } from '../agentTexte.js'
+import { ajouterNotes, blocsDuDocument, commenter, fils, modificationsDe, proposer, repondre, situer } from '../agentTexte.js'
 
 const dataDir = mkdtempSync(join(tmpdir(), 'collabtext-test-agents-'))
 process.on('exit', () => rmSync(dataDir, { recursive: true, force: true }))
@@ -442,4 +442,274 @@ test('le passage commenté ne montre pas ce qu’une suppression en attente a re
   commenter(y, { bloc: 1, citation: 'très beau', texte: 'Lourd.' }, AUTEUR)
   proposer(y, [{ bloc: 1, avant: 'très beau', apres: 'beau' }], AUTEUR)
   assert.equal(fils(y)[0].passage, 'beau')
+})
+
+// --- Les notes de bas de page (03/10/2026) ---------------------------------------
+
+/** Une note déjà dans le document : un élément `footnote` qui contient son
+ * texte. `suivi` : null, ou `{ type, user, userColor, ts }`. */
+function note(texte, suivi = null) {
+  return { note: texte, suivi }
+}
+
+/** Comme `bloc`, mais les morceaux `{ note, suivi }` deviennent des notes. */
+function blocAvecNotes(parent, nom, morceaux, attrs = {}) {
+  const el = new Y.XmlElement(nom)
+  parent.push([el])
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+  let xt = null
+  for (const m of morceaux) {
+    if (m && !Array.isArray(m) && typeof m === 'object' && m.note !== undefined) {
+      const fn = new Y.XmlElement('footnote')
+      el.push([fn])
+      if (m.suivi) fn.setAttribute('suivi', m.suivi)
+      const interne = new Y.XmlText()
+      fn.push([interne])
+      interne.insert(0, m.note)
+      xt = null
+      continue
+    }
+    if (m && !Array.isArray(m) && typeof m === 'object' && m.atome) {
+      el.push([new Y.XmlElement(m.atome)])
+      xt = null
+      continue
+    }
+    if (!xt) {
+      xt = new Y.XmlText()
+      el.push([xt])
+    }
+    const [texte, marques] = Array.isArray(m) ? m : [m, {}]
+    xt.insert(xt.length, texte, marques)
+  }
+  return el
+}
+
+const SUIVI_INS = { type: 'insertion', user: 'Marie', userColor: '#aa5555', ts: 1 }
+const SUIVI_DEL = { type: 'deletion', user: 'Marie', userColor: '#aa5555', ts: 1 }
+
+/** La forme d'un paragraphe : ses enfants, texte et notes. */
+function forme(el) {
+  const brut = (xt) => xt.toDelta().map((op) => op.insert).join('')
+  return el.toArray().map((c) => (c instanceof Y.XmlText ? brut(c) : `{${c.nodeName}${c.getAttribute('suivi') ? ':' + c.getAttribute('suivi').type : ''}|${c.toArray().map(brut).join('')}}`))
+}
+
+test('les notes se lisent : repère, numéro dans le document, texte — et celles qu’on barre ne comptent plus', () => {
+  const y = docAvec((f) => {
+    blocAvecNotes(f, 'paragraph', ['Zan naquit', note('Source : mairie.'), ' un mardi.'])
+    blocAvecNotes(f, 'paragraph', ['Il mourut', note('Archives.', SUIVI_DEL), ' jeune', { atome: 'image' }, '.', note('Voir aussi.', SUIVI_INS)])
+    blocAvecNotes(f, 'paragraph', ['Fin', note('Dernière.')])
+  })
+  const blocs = blocsDuDocument(y)
+  assert.equal(blocs[0].texte, 'Zan naquit⟦1⟧ un mardi.', 'le texte du bloc ne change pas : un repère')
+  assert.deepEqual(blocs[0].notes.map((n) => [n.k, n.numero, n.texte, n.enAttente]), [[1, 1, 'Source : mairie.', false]])
+  // Le repère ⟦k⟧ compte les images aussi ; le numéro, lui, ne compte que les notes.
+  assert.deepEqual(blocs[1].notes.map((n) => [n.k, n.numero, n.supprimee, n.enAttente]), [[1, null, true, true], [3, 2, false, true]])
+  assert.equal(blocs[1].texte, 'Il mourut jeune⟦2⟧.⟦3⟧', 'une note proposée à la suppression n’est plus dans le texte à relire')
+  assert.equal(blocs[2].notes[0].numero, 3, 'les numéros se suivent d’un bloc à l’autre')
+  assert.equal(blocs[1].enAttente, true, 'un bloc qui porte une note en attente est en attente')
+  assert.equal(blocs[0].enAttente, false)
+})
+
+test('poser une note au milieu d’une phrase coupe le texte en deux, la mise en forme suit', () => {
+  const y = docAvec((f) => bloc(f, 'paragraph', ['Le ', ['chat', { strong: {} }], ' noir dort.']))
+  const r = ajouterNotes(y, [{ bloc: 1, apres: 'chat', texte: 'Un chat de gouttière.' }], AUTEUR, 42)
+  assert.deepEqual(r.appliques, [{ index: 0, bloc: 1 }])
+  assert.deepEqual(r.refuses, [])
+  const p = y.getXmlFragment('prosemirror-content').get(0)
+  assert.deepEqual(forme(p), ['Le chat', '{footnote:insertion|Un chat de gouttière.}', ' noir dort.'])
+  const fn = p.toArray()[1]
+  assert.deepEqual(fn.getAttribute('suivi'), { type: 'insertion', user: 'Claude', userColor: '#5f7a4a', ts: 42 })
+  // La mise en forme du texte coupé est conservée de part et d'autre.
+  assert.deepEqual(p.toArray()[0].toDelta(), [{ insert: 'Le ' }, { insert: 'chat', attributes: { strong: {} } }])
+  const b = blocsDuDocument(y)[0]
+  assert.equal(b.texte, 'Le chat⟦1⟧ noir dort.')
+  assert.equal(b.notes[0].texte, 'Un chat de gouttière.')
+  assert.equal(b.enAttente, true)
+})
+
+test('une note se pose aussi à la fin d’un texte, avant une image, ou à la fin du bloc', () => {
+  const y = docAvec((f) => {
+    bloc(f, 'paragraph', ['Une phrase.'])
+    bloc(f, 'paragraph', ['Avant l’image', { atome: 'image' }, ' et après.'])
+    bloc(f, 'paragraph', [])
+  })
+  const r = ajouterNotes(
+    y,
+    [
+      { bloc: 1, apres: 'phrase.', texte: 'Fin de texte.' },
+      { bloc: 2, apres: 'Avant l’image', texte: 'Avant un atome.' },
+      { bloc: 2, texte: 'À la fin du bloc.' },
+      { bloc: 3, texte: 'Dans un bloc vide.' },
+    ],
+    AUTEUR
+  )
+  assert.equal(r.appliques.length, 4, JSON.stringify(r))
+  const f = y.getXmlFragment('prosemirror-content')
+  assert.deepEqual(forme(f.get(0)), ['Une phrase.', '{footnote:insertion|Fin de texte.}'])
+  assert.deepEqual(forme(f.get(1)), ['Avant l’image', '{footnote:insertion|Avant un atome.}', '{image|}', ' et après.', '{footnote:insertion|À la fin du bloc.}'])
+  assert.deepEqual(forme(f.get(2)), ['{footnote:insertion|Dans un bloc vide.}'])
+})
+
+test('plusieurs notes dans un même texte : chacune à sa place, dans l’ordre demandé quand elles se touchent', () => {
+  const y = docAvec((f) => bloc(f, 'paragraph', ['Un deux trois quatre cinq.']))
+  const r = ajouterNotes(
+    y,
+    [
+      { bloc: 1, apres: 'deux', texte: 'N1' },
+      { bloc: 1, apres: 'quatre', texte: 'N4' },
+      { bloc: 1, apres: 'deux', texte: 'N2 (au même endroit)' },
+      { bloc: 1, apres: 'Un', texte: 'N0' },
+    ],
+    AUTEUR
+  )
+  assert.equal(r.appliques.length, 4)
+  const p = y.getXmlFragment('prosemirror-content').get(0)
+  assert.deepEqual(forme(p), [
+    'Un',
+    '{footnote:insertion|N0}',
+    ' deux',
+    '{footnote:insertion|N1}',
+    '{footnote:insertion|N2 (au même endroit)}',
+    ' trois quatre',
+    '{footnote:insertion|N4}',
+    ' cinq.',
+  ])
+  assert.equal(blocsDuDocument(y)[0].texte, 'Un⟦1⟧ deux⟦2⟧⟦3⟧ trois quatre⟦4⟧ cinq.')
+})
+
+test('ce qui ne peut pas recevoir une note est refusé avec sa raison, le reste passe', () => {
+  const y = docAvec((f) => {
+    bloc(f, 'heading', ['Un titre'], { level: 1 })
+    bloc(f, 'paragraph', ['Le chat et le chat.'])
+    bloc(f, 'paragraph', ['Un ', ['ajout', { insertion: { user: 'Marie', userColor: '#a55', ts: 1, groupe: null }, authorColor: { user: 'Marie', userColor: '#a55' } }], ' en cours.'])
+    bloc(f, 'paragraph', ['Texte sain.'])
+  })
+  const r = ajouterNotes(
+    y,
+    [
+      { bloc: 1, apres: 'Un titre', texte: 'Non.' },
+      { bloc: 2, apres: 'chat', texte: 'Ambigu.' },
+      { bloc: 2, apres: 'chien', texte: 'Absent.' },
+      { bloc: 3, apres: 'aj', texte: 'Dans la proposition d’un autre.' },
+      { bloc: 4, apres: 'Texte', texte: '   ' },
+      { bloc: 99, apres: 'x', texte: 'Hors document.' },
+      { bloc: 4, apres: 'sain', texte: 'x'.repeat(2001) },
+      { bloc: 4, apres: 'sain', texte: 'Une note\nsur deux lignes.' },
+    ],
+    AUTEUR
+  )
+  assert.deepEqual(r.appliques, [{ index: 7, bloc: 4 }])
+  const raisons = Object.fromEntries(r.refuses.map((x) => [x.index, x.raison]))
+  assert.match(raisons[0], /titre/)
+  assert.match(raisons[1], /2 fois/)
+  assert.match(raisons[2], /introuvable/)
+  assert.match(raisons[3], /modification déjà en attente/)
+  assert.match(raisons[4], /vide/)
+  assert.match(raisons[5], /pas de bloc 99/)
+  assert.match(raisons[6], /trop long/)
+  assert.equal(blocsDuDocument(y)[3].notes[0].texte, 'Une note sur deux lignes.', 'un saut de ligne devient une espace')
+  // Rien n'a été écrit pour les refusés.
+  assert.equal(blocsDuDocument(y)[0].notes.length, 0)
+  assert.equal(blocsDuDocument(y)[2].notes.length, 0)
+})
+
+test('poser une note ne casse pas les commentaires : ceux d’après l’appel suivent le texte', () => {
+  const y = docAvec((f) => bloc(f, 'paragraph', ['Zan naquit un mardi, et il mourut un jeudi, dit-on.']))
+  commenter(y, { bloc: 1, citation: 'Zan', texte: 'Avant.' }, AUTEUR)
+  commenter(y, { bloc: 1, citation: 'un jeudi', texte: 'Après.' }, AUTEUR)
+  commenter(y, { bloc: 1, citation: 'mardi, et il mourut', texte: 'À cheval.' }, AUTEUR)
+  commenter(y, { bloc: 1, citation: 'dit-on.', texte: 'Au bout.' }, AUTEUR)
+  const r = ajouterNotes(y, [{ bloc: 1, apres: 'mardi', texte: 'Un mardi.' }], AUTEUR)
+  assert.equal(r.appliques.length, 1)
+  const passages = Object.fromEntries(fils(y).map((c) => [c.texte, c.passage]))
+  assert.equal(passages['Avant.'], 'Zan')
+  assert.equal(passages['Après.'], 'un jeudi', 'un commentaire placé après l’appel garde son passage')
+  assert.equal(passages['Au bout.'], 'dit-on.', 'même collé à la fin du texte')
+  assert.equal(passages['À cheval.'], 'mardi', 'à cheval sur l’appel : ramené à ce qui précède')
+  assert.ok(fils(y).every((c) => c.bloc === 1))
+})
+
+test('une demande de notes = une seule opération Yjs, et se rejoue ailleurs à l’identique', () => {
+  const y = docAvec((f) => bloc(f, 'paragraph', ['Un deux trois.']))
+  const autre = new Y.Doc()
+  Y.applyUpdate(autre, Y.encodeStateAsUpdate(y))
+  let transactions = 0
+  y.on('afterTransaction', (t) => {
+    if (t.changed.size) transactions++
+  })
+  ajouterNotes(y, [{ bloc: 1, apres: 'Un', texte: 'A' }, { bloc: 1, apres: 'deux', texte: 'B' }], AUTEUR)
+  assert.equal(transactions, 1)
+  Y.applyUpdate(autre, Y.encodeStateAsUpdate(y, Y.encodeStateVector(autre)))
+  assert.deepEqual(forme(autre.getXmlFragment('prosemirror-content').get(0)), forme(y.getXmlFragment('prosemirror-content').get(0)))
+})
+
+test('corriger une note : les mêmes marques qu’un paragraphe, dans le texte de la note', () => {
+  const y = docAvec((f) => {
+    blocAvecNotes(f, 'paragraph', ['Zan naquit', note('Source : la mairie de Lyon, 1887.'), ' un mardi.'])
+  })
+  const r = proposer(y, [{ bloc: 1, note: 1, avant: 'Lyon, 1887', apres: 'Lyon, 1878' }], AUTEUR, 7)
+  assert.deepEqual(r.refuses, [])
+  assert.equal(r.appliques.length, 1)
+  const n = blocsDuDocument(y)[0].notes[0]
+  // Le texte lu est celui d'après acceptation ; l'ancien est barré, pas perdu.
+  assert.equal(n.texte, 'Source : la mairie de Lyon, 1878.')
+  assert.equal(n.enAttente, true)
+  const interne = y.getXmlFragment('prosemirror-content').get(0).toArray()[1].toArray()[0]
+  const marques = interne.toDelta().filter((op) => op.attributes && (op.attributes.insertion || op.attributes.deletion))
+  assert.ok(marques.some((op) => op.attributes.insertion && op.attributes.insertion.user === 'Claude'))
+  assert.ok(marques.some((op) => op.attributes.deletion))
+  // Le texte du bloc, lui, n'a pas bougé.
+  assert.equal(blocsDuDocument(y)[0].texte, 'Zan naquit⟦1⟧ un mardi.')
+})
+
+test('corriger une note : ce qui est refusé l’est avec sa raison', () => {
+  const y = docAvec((f) => {
+    blocAvecNotes(f, 'paragraph', ['A', note('Une note.'), ' B', note('Nouvelle.', SUIVI_INS), ' C', note('Barrée.', SUIVI_DEL)])
+    bloc(f, 'paragraph', ['Sans note.'])
+  })
+  const r = proposer(
+    y,
+    [
+      { bloc: 1, note: 9, avant: 'Une', apres: 'La' },
+      { bloc: 1, note: 2, avant: 'Nouvelle', apres: 'Autre' },
+      { bloc: 1, note: 3, avant: 'Barrée', apres: 'Autre' },
+      { bloc: 2, note: 1, avant: 'Sans', apres: 'Avec' },
+      { bloc: 1, note: 1, avant: 'absent', apres: 'x' },
+      { bloc: 1, note: 0, avant: 'Une', apres: 'La' },
+      { bloc: 1, note: 1, avant: 'Une note', apres: 'Une autre note' },
+    ],
+    AUTEUR
+  )
+  assert.deepEqual(r.appliques, [{ index: 6, bloc: 1 }])
+  const raisons = Object.fromEntries(r.refuses.map((x) => [x.index, x.raison]))
+  assert.match(raisons[0], /pas de note ⟦9⟧ dans le bloc 1/)
+  assert.match(raisons[1], /vient d'être proposée/)
+  assert.match(raisons[2], /déjà proposée à la suppression/)
+  assert.match(raisons[3], /ne porte aucune note/)
+  assert.match(raisons[4], /introuvable dans la note ⟦1⟧ du bloc 1/)
+  assert.match(raisons[5], /repère/)
+})
+
+test('commenter une note : ancré contre son appel, et le commentaire dit de quelle note il parle', () => {
+  const y = docAvec((f) => {
+    blocAvecNotes(f, 'paragraph', ['Zan naquit un mardi', note('Source douteuse.'), ', dit-on.'])
+    blocAvecNotes(f, 'paragraph', [note('Note en tête.'), 'Texte après.'])
+    blocAvecNotes(f, 'paragraph', [note('Note seule.')])
+  })
+  const a = commenter(y, { bloc: 1, note: 1, texte: 'À sourcer.' }, AUTEUR)
+  assert.ok(a.ok)
+  const b = commenter(y, { bloc: 2, note: 1, texte: 'Trop vague.' }, AUTEUR)
+  assert.ok(b.ok)
+  const c = commenter(y, { bloc: 3, note: 1, texte: 'Rien autour.' }, AUTEUR)
+  assert.equal(c.ok, false)
+  assert.match(c.raison, /aucun texte autour/)
+  assert.equal(commenter(y, { bloc: 1, note: 4, texte: 'x' }, AUTEUR).ok, false)
+  // Deux commentaires posés dans la même milliseconde n'ont pas d'ordre garanti : on les retrouve par leur texte.
+  const par = Object.fromEntries(fils(y).map((c) => [c.texte, c]))
+  const premier = par['À propos de la note 1 : À sourcer.']
+  assert.equal(premier.passage, 'Zan naquit un mardi', 'le texte qui précède l’appel')
+  assert.equal(premier.bloc, 1)
+  const second = par['À propos de la note 2 : Trop vague.']
+  assert.equal(second.passage, 'Texte après.', 'sans texte avant, celui qui suit')
+  assert.equal(second.bloc, 2)
 })
