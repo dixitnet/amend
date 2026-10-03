@@ -1539,10 +1539,14 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   background: color-mix(in srgb, var(--user-color, var(--accent, #5f7a4a)) 7%, var(--bg));
   box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
 }
-/* Le passage éclairé quand on survole son entrée dans la liste. */
+/* Les blocs éclairés quand on survole son entrée dans la liste. */
 .ProseMirror .change-survol {
-  background: color-mix(in srgb, var(--accent, #5f7a4a) 22%, transparent);
-  border-radius: 2px;
+  /* Un gris sur le bloc entier (03/10/2026), pas un vert sur le texte : le
+     fond du bloc passe toujours derrière les marques d'insertion et de
+     suppression, qui gardent leur couleur. Un lot de Claude éclairé en
+     vert était illisible — c'est la couleur de ses propositions. */
+  background: color-mix(in srgb, var(--fg, #222) 9%, transparent);
+  border-radius: 3px;
 }
 
 /* --- Gouttière des commentaires (commentsGutter.js). Elle vit DANS le

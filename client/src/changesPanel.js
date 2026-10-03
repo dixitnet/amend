@@ -25,6 +25,27 @@ const PENDING_WARNING_THRESHOLD = 500
 
 const changesKey = new PluginKey('changesList')
 
+/** Les blocs que touche la plage [from, to] : un fond gris posé sur le
+ * **paragraphe entier**, jamais sur le texte (03/10/2026).
+ *
+ * Signalé par Sylvain : cliquer la carte d'un lot de Claude éclairait en
+ * vert toute la plage, et ce vert se confondait avec celui des propositions
+ * elles-mêmes — on ne distinguait plus les corrections. Une décoration en
+ * ligne ne dit pas si elle passe dessus ou dessous la marque d'insertion ;
+ * un fond sur le bloc, lui, est toujours **derrière** les marques. À
+ * retirer pour les lots si c'est trop à l'usage. */
+export function blocsConcernes(doc, from, to) {
+  const decos = []
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (node.isTextblock || (node.isBlock && node.isLeaf)) {
+      decos.push(Decoration.node(pos, pos + node.nodeSize, { class: 'change-survol' }))
+      return false
+    }
+    return true
+  })
+  return decos
+}
+
 function relativeTime(ts) {
   const s = Math.round((Date.now() - ts) / 1000)
   if (s < 10) return "à l'instant"
@@ -477,7 +498,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         const from = Math.max(0, Math.min(survol.from, taille))
         const to = Math.max(0, Math.min(survol.to, taille))
         if (from >= to) return null
-        return DecorationSet.create(state.doc, [Decoration.inline(from, to, { class: 'change-survol' })])
+        return DecorationSet.create(state.doc, blocsConcernes(state.doc, from, to))
       },
     },
     view(editorView) {

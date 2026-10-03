@@ -315,7 +315,9 @@ function fonctionBloc(nom, v) {
  * texte — police, interligne, justification —, sans retrait, graisse ni
  * style, et on ne lui laisse que ses marques propres. Typst ajoute en outre
  * de lui-même un retrait de 1 em à chaque note (`footnote.entry.indent`),
- * qu'on supprime : la note part du bord gauche, numéro compris. Taille : corps − 2 pt
+ * qu'on supprime : la note part du bord gauche, numéro compris. Le numéro,
+ * lui, est recomposé pour y glisser une demi-espace (0,15 em) avant le texte :
+ * Typst n'en met aucune, et le chiffre colle à la première lettre. Taille : corps − 2 pt
  * (corps 11 → notes 9), l'usage des éditeurs français, plancher 7 pt. */
 export function regleNotes(corps) {
   const r = reglagesTypst(corps)
@@ -328,7 +330,10 @@ export function regleNotes(corps) {
   set text(${texte})
   set par(${par})
   set align(left)
-  it
+  let n = counter(footnote).at(it.note.location())
+  super(numbering(it.note.numbering, ..n))
+  h(0.15em)
+  it.note.body
 }`
 }
 

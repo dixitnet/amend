@@ -475,6 +475,9 @@ test('les notes : corps − 2 pt, et le style du bloc d’appel ne déteint pas 
   assert.match(r, /weight: "regular"/)
   assert.match(r, /style: "normal"/)
   assert.match(r, /set align\(left\)/)
+  // Une demi-espace entre le numéro et le texte de la note (03/10/2026) :
+  // Typst n'en met pas, le chiffre collait à la première lettre.
+  assert.match(r, /super\(numbering\(it\.note\.numbering, \.\.n\)\)\n  h\(0\.15em\)\n  it\.note\.body/)
   // Elle suit en revanche la justification et l'interligne du corps.
   assert.match(regle({ blocs: { body: { align: 'justify' } } }), /justify: true/)
   assert.match(regle({ blocs: { body: { align: 'left' } } }), /justify: false/)
