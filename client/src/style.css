@@ -455,6 +455,9 @@ a { color: var(--accent); }
    présenter comme un bouton, pas comme un simple compteur. */
 .tk-count.cliquable { cursor: pointer; user-select: none; }
 .tk-count.cliquable:hover { text-decoration: underline; }
+/* Les compteurs de modifications et de commentaires (03/10/2026) : même
+   geste que les « !! », mais la couleur d'alerte est réservée à ceux-ci. */
+.compteur-relecture { color: var(--muted); }
 /* Voyant d'état (17/09/2026). Avant, une phrase de 290 px de large
    réservée en permanence dans le bandeau — la largeur du plus long des
    messages, pour un état qui est « à jour » presque tout le temps. Le

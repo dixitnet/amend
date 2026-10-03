@@ -35,6 +35,7 @@ import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
 import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
 import { mountTkMarker } from './tkMarker.js'
+import { mountCompteursRelecture } from './compteursRelecture.js'
 import { markdownShortcutsPlugin } from './markdownShortcuts.js'
 import { taskListPlugin } from './taskList.js'
 import {
@@ -344,6 +345,17 @@ export function mountEditor(root, docId, user, docMeta) {
   const tkCount = document.createElement('span')
   tkCount.className = 'tk-count'
   groupeTexte.appendChild(tkCount)
+
+  // Les compteurs de relecture (03/10/2026) : « 12 ✏️, » et « 5 💬, », sur
+  // le modèle du compteur des « !! » — un clic mène au suivant. Pas de
+  // compteur de modifications pour qui ne peut ni les relire ni en proposer.
+  const modifsCount = document.createElement('span')
+  modifsCount.className = 'tk-count compteur-relecture compteur-modifs'
+  if (peutProposer || cap.canReviewChanges) groupeTexte.appendChild(modifsCount)
+
+  const commentsCount = document.createElement('span')
+  commentsCount.className = 'tk-count compteur-relecture compteur-commentaires'
+  groupeTexte.appendChild(commentsCount)
 
   const wordCount = document.createElement('span')
   wordCount.className = 'word-count'
@@ -932,6 +944,13 @@ export function mountEditor(root, docId, user, docMeta) {
       mountOutlinePanel(outlineSection),
       mountWordCount(wordCount),
       mountTkMarker(tkCount),
+      mountCompteursRelecture(
+        {
+          modifications: peutProposer || cap.canReviewChanges ? modifsCount : null,
+          commentaires: commentsCount,
+        },
+        { ydoc, commentsMap }
+      ),
       keymap({
         // Retour arrière et Suppr sont pris en charge ici, **avant** le
         // comportement natif du navigateur : le suivi des modifications

@@ -23,7 +23,13 @@ import { defilerVers } from './defilement.js'
 // délibéré : un avertissement, pas un blocage de la frappe.
 const PENDING_WARNING_THRESHOLD = 500
 
-const changesKey = new PluginKey('changesList')
+export const changesKey = new PluginKey('changesList')
+
+/** Les modifications telles que le panneau les compte : remplacements
+ * appariés, et un lot (même auteur, même instant) pour une seule carte. */
+export function modificationsAffichees(raw) {
+  return regrouperEnLots(pairReplacements(mergeAdjacentChanges(raw)))
+}
 
 /** Les blocs que touche la plage [from, to] : un fond gris posé sur le
  * **paragraphe entier**, jamais sur le texte (03/10/2026).
@@ -83,9 +89,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
   // « remplacement » est actuellement dépliée en « traiter séparément »
   // dans le panneau — un simple affichage, aucun effet sur le document.
   let groupesDetailles = new Set()
-  function changesAffichees(raw) {
-    return regrouperEnLots(pairReplacements(mergeAdjacentChanges(raw)))
-  }
+  const changesAffichees = modificationsAffichees
   /** La clé d'un dépliage (« traiter séparément ») : le groupe d'un
    * remplacement, ou l'auteur et l'instant d'un lot. */
   function cleDetail(change) {
