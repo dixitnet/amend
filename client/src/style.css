@@ -1425,6 +1425,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .landing-form button:disabled { opacity: 0.6; cursor: default; }
 .landing-message { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
 .landing-pied { margin-top: 36px; text-align: center; font-size: 13px; color: var(--muted); }
+.landing-pied a { color: inherit; }
 
 /* ---------- Liste des inscrits (#/inscrits, administrateurs) ---------- */
 .inscrits-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
@@ -3036,7 +3037,10 @@ tr.bo-traite { opacity: 0.6; }
    autre endroit quand on allume les numéros. */
 .app-shell:not(.tel-lecture):not(.tel-edition) .editor-container.numeros-blocs > .ProseMirror {
   --n-corps: calc(1.125rem * var(--echelle, 1) * 0.6);
-  --n-gouttiere: calc(var(--n-corps) * 3);
+  /* Quatre « corps » de numéro et demi pour la gouttière : de la place pour
+     cinq chiffres (03/10/2026). À trois, le numéro 1000 passait sur deux
+     lignes — quatre chiffres tabulaires ne tiennent pas dans 2,5 corps. */
+  --n-gouttiere: calc(var(--n-corps) * 4);
   counter-reset: note bloc;
   position: relative;
   padding-left: calc(20px + var(--n-gouttiere));
@@ -3051,6 +3055,9 @@ tr.bo-traite { opacity: 0.6; }
   left: 20px;
   width: calc(var(--n-gouttiere) - var(--n-corps) * 0.5);
   text-align: right;
+  /* Jamais de retour à la ligne : un numéro qui se couperait en deux serait
+     pire qu'un numéro qui déborde un peu. */
+  white-space: nowrap;
   font-family: system-ui, sans-serif;
   font-size: var(--n-corps);
   font-weight: 400;

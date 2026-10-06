@@ -228,6 +228,11 @@ const MIME = {
   // s'installe jamais, sans le moindre message.
   '.webmanifest': 'application/manifest+json',
   '.woff2': 'font/woff2',
+  // Sans ces deux types, robots.txt et security.txt partaient en
+  // application/octet-stream (03/10/2026) : un robot d'indexation peut
+  // alors les ignorer.
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
 }
 
 function sendJson(res, status, body) {

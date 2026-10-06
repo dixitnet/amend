@@ -3,7 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>amend.ink</title>
+    <title>amend.ink — éditeur de texte collaboratif avec suivi des modifications</title>
+    <!-- Ce que lit un robot qui n'exécute pas le JavaScript (03/10/2026) :
+         la page n'est sinon qu'un <div> vide, et les filtres web
+         d'entreprise rangent dans « non catégorisé » — donc bloquent — ce
+         qu'ils ne comprennent pas. Titre, description et données
+         structurées disent ce qu'est le service ; le bloc <noscript> en bas
+         de page en donne le texte. -->
+    <meta
+      name="description"
+      content="amend.ink est un éditeur de texte collaboratif : écrire et relire à plusieurs, avec un vrai suivi des modifications, des commentaires et des exports (PDF, Word, Markdown). Accès sur invitation."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="amend.ink" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:title" content="amend.ink — éditeur de texte collaboratif avec suivi des modifications" />
+    <meta property="og:description" content="Écrire et relire à plusieurs, avec un vrai suivi des modifications." />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "amend.ink",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "fr",
+        "description": "Éditeur de texte collaboratif avec suivi des modifications, commentaires et exports PDF, Word et Markdown.",
+        "publisher": { "@type": "Organization", "name": "dixit.net", "legalName": "dixit.net SAS", "taxID": "812063188", "email": "contact@dixit.net", "address": { "@type": "PostalAddress", "streetAddress": "209 boulevard Auguste Péneau", "postalCode": "44300", "addressLocality": "Nantes", "addressCountry": "FR" } }
+      }
+    </script>
     <!-- Icônes : les fichiers vivent dans client/public/, que Vite recopie
          tel quel dans dist/ — d'où des chemins absolus, servis à la racine. -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -16,6 +43,22 @@
   </head>
   <body>
     <div id="app"></div>
+    <noscript>
+      <main style="max-width: 40rem; margin: 3rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; line-height: 1.5">
+        <h1>amend.ink</h1>
+        <p>
+          amend.ink est un éditeur de texte collaboratif, léger et auto-hébergé : on y écrit et on y relit à
+          plusieurs, avec un vrai suivi des modifications, des commentaires et des exports en PDF, Word et
+          Markdown. L'accès se fait sur invitation.
+        </p>
+        <p>Cette application a besoin de JavaScript pour fonctionner. Activez-le, puis rechargez la page.</p>
+        <p>
+          <a href="/mentions-legales.html">Mentions légales</a> ·
+          <a href="/confidentialite.html">Politique de confidentialité</a> ·
+          <a href="mailto:contact@dixit.net">contact@dixit.net</a>
+        </p>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

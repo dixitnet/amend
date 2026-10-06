@@ -73,9 +73,24 @@ function mountPublicLanding(root) {
   colonnes.append(carteListeAttente(), carteConnexion())
   wrap.appendChild(colonnes)
 
+  // Le pied de page porte les pages légales et le contact (03/10/2026) :
+  // ce sont les liens qu'un filtre web cherche pour classer un site, et
+  // ceux qu'un visiteur attend d'un service qui lui demande son adresse.
   const pied = document.createElement('p')
   pied.className = 'landing-pied'
-  pied.textContent = 'amend.ink'
+  const liens = [
+    ['Mentions légales', '/mentions-legales.html'],
+    ['Confidentialité', '/confidentialite.html'],
+    ['contact@dixit.net', 'mailto:contact@dixit.net'],
+  ]
+  pied.append('amend.ink')
+  for (const [libelle, href] of liens) {
+    pied.append(' · ')
+    const a = document.createElement('a')
+    a.href = href
+    a.textContent = libelle
+    pied.appendChild(a)
+  }
   wrap.appendChild(pied)
 
   root.appendChild(wrap)

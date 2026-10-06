@@ -134,3 +134,17 @@ test('la feuille de style limite les numéros à l’éditeur principal, hors t�
   assert.match(bloc, /user-select: none/)
   assert.match(bloc, /pointer-events: none/)
 })
+
+test('le numéro tient sur une ligne au-delà de 999 blocs (03/10/2026)', () => {
+  // Quatre chiffres tabulaires ne tenaient pas dans la gouttière d'origine
+  // (2,5 corps de numéro) : le 1000e bloc affichait « 100 » puis « 0 » sur
+  // deux lignes. Le banc ne mesure pas la largeur d'une police, il vérifie
+  // les deux garde-fous posés dans la feuille : une gouttière d'au moins
+  // quatre corps (cinq chiffres), et l'interdiction de couper.
+  const g = /--n-gouttiere:\s*calc\(var\(--n-corps\)\s*\*\s*([\d.]+)\)/.exec(CSS)
+  assert.ok(g, 'variable --n-gouttiere introuvable')
+  assert.ok(Number(g[1]) >= 4, `gouttière trop étroite : ${g[1]} corps`)
+  const i = CSS.indexOf(')::before {\n  content: counter(bloc);')
+  assert.ok(i > -1, 'règle du numéro introuvable')
+  assert.match(CSS.slice(i, CSS.indexOf('\n}', i)), /white-space:\s*nowrap/)
+})
