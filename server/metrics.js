@@ -10,6 +10,10 @@
 //   agents     : {ts, agent, docId, outil, ok, appliques?, refuses?} — ce que
 //                font les agents invités (mcp.js) : quel outil, combien,
 //                jamais le texte ni le secret de l'adresse
+//   dialogue   : {ts, email, docId, modele, entree, sortie, cacheLu, cacheEcrit,
+//                tours, arret, outils, modifs, commentaires, refus, ms} — le
+//                coût et l'effet des conversations de l'éditeur
+//                (dialogue.js) ; jamais un message ni un extrait du texte
 //   images     : {ts, email, docId, octets} — le disque est la seule
 //                ressource du VPS qu'un usage normal peut épuiser pour de
 //                bon ; ce flux dit à quelle vitesse il se remplit
@@ -20,7 +24,7 @@
 import { appendFileSync, readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 
-export const FLUX = ['connexions', 'ia', 'mail', 'images', 'agents']
+export const FLUX = ['connexions', 'ia', 'mail', 'images', 'agents', 'dialogue']
 const RETENTION_JOURS = 90
 
 export class Metrics {

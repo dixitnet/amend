@@ -437,6 +437,20 @@ test('les commentaires s’ancrent sur le passage cité et se retrouvent', () =>
   assert.deepEqual(fils(y)[0].reponses.map((x) => x.texte), ['Confirmé.'])
 })
 
+test('un commentaire masqué par les éditeurs (passage supprimé) n’est plus proposé à l’agent', () => {
+  const y = docAvec((f) => bloc(f, 'paragraph', ['Zan naquit un mardi, dit-on.']))
+  const r = commenter(y, { bloc: 1, citation: 'un mardi', texte: 'Vérifier la date.' }, AUTEUR)
+  repondre(y, { commentaire: r.id, texte: 'Confirmé.' }, AUTEUR)
+  assert.equal(fils(y).length, 1)
+  // Les éditeurs posent cette marque quand le passage est vide (comments.js) ;
+  // Ctrl+Z la lève, et le fil réapparaît.
+  y.getMap('commentsOrphelins').set(r.id, Date.now())
+  assert.equal(fils(y).length, 0)
+  y.getMap('commentsOrphelins').delete(r.id)
+  assert.equal(fils(y).length, 1)
+  assert.equal(fils(y)[0].reponses.length, 1)
+})
+
 test('le passage commenté ne montre pas ce qu’une suppression en attente a retiré', () => {
   const y = docAvec((f) => bloc(f, 'paragraph', ['Un très beau jour.']))
   commenter(y, { bloc: 1, citation: 'très beau', texte: 'Lourd.' }, AUTEUR)

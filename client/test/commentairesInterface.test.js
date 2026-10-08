@@ -24,6 +24,7 @@ import {
   ajouterReponse,
   commentairesAncres,
   purgeOrphanComments,
+  DELAI_ORPHELIN_MS,
   reponsesDe,
 } from '../src/comments.js'
 import { mountCommentsGutter } from '../src/commentsGutter.js'
@@ -261,10 +262,10 @@ test('résoudre depuis la carte emporte le fil entier', async () => {
   e.detruire()
 })
 
-test('supprimer le passage commenté emporte le fil, réponses comprises', async () => {
-  // La purge tourne à chaque changement du document. Sans la règle qui
-  // ignore les réponses, celle-ci serait effacée au premier passage ; sans
-  // celle qui les emporte, elle resterait dans le fichier pour toujours.
+test('supprimer le passage commenté masque le fil, réponses comprises — et l’efface au bout de sept jours', async () => {
+  // Le rapprochement tourne à chaque changement du document. Sans la règle
+  // qui ignore les réponses, celle-ci serait masquée au premier passage ; sans
+  // celle qui les suit, elle resterait dans le fichier pour toujours.
   const e = monterEditeur()
   e.commenter(4, 10, 'Sur un passage condamné')
   const id = [...e.commentsMap.keys()][0]
@@ -277,6 +278,13 @@ test('supprimer le passage commenté emporte le fil, réponses comprises', async
   purgeOrphanComments(e.view.state, e.ydoc, e.commentsMap)
   await e.rendu()
 
+  assert.equal(commentairesAncres(e.commentsMap).length, 0, 'plus rien à dessiner')
+  assert.equal(e.cartes().length, 0, 'plus de carte dans la marge')
+  assert.equal(e.commentsMap.size, 2, 'masqué, pas effacé : Ctrl+Z peut encore le rendre')
+
+  // Sept jours plus tard, le fil entier s’en va.
+  const plusTard = Date.now() + DELAI_ORPHELIN_MS + 1000
+  purgeOrphanComments(e.view.state, e.ydoc, e.commentsMap, plusTard)
   assert.equal(e.commentsMap.size, 0, 'le fil entier s’en va avec son passage')
   e.detruire()
 })

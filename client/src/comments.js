@@ -1,6 +1,7 @@
 import { Plugin, PluginKey } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import * as Y from 'yjs'
+import { ReplaceStep, ReplaceAroundStep } from 'prosemirror-transform'
 import {
   ySyncPluginKey,
   absolutePositionToRelativePosition,
@@ -62,135 +63,461 @@ function decodeAnchor(json) {
   return json ? Y.createRelativePositionFromJSON(json) : null
 }
 
-/** Résout la position actuelle (from/to) d'un commentaire, ou null si son
- * ancre ne pointe plus vers un endroit valable du document (ex. le type Yjs
- * auquel elle était relative a été détruit). Prend l'état ProseMirror
- * directement (pas la vue) : appelable aussi bien depuis le plugin de
- * décoration (qui ne reçoit qu'un state) que depuis le panneau (qui a la
- * vue sous la main). */
-export function resolveCommentRange(state, ydoc, comment) {
+function resoudreAncres(state, ydoc, anchorFrom, anchorTo) {
   const ystate = ySyncPluginKey.getState(state)
   if (!ystate) return null
   const from = relativePositionToAbsolutePosition(
     ydoc,
     ystate.type,
-    decodeAnchor(comment.anchorFrom),
+    decodeAnchor(anchorFrom),
     ystate.binding.mapping
   )
   const to = relativePositionToAbsolutePosition(
     ydoc,
     ystate.type,
-    decodeAnchor(comment.anchorTo),
+    decodeAnchor(anchorTo),
     ystate.binding.mapping
   )
   if (from == null || to == null) return null
   return { from: Math.min(from, to), to: Math.max(from, to) }
 }
 
-/** Supprime les commentaires dont le passage commenté n'existe plus
- * (demande du 15/09/2026 : « le commentaire d'un texte supprimé doit
- * disparaître »). Un commentaire est considéré orphelin quand ses deux
- * ancres se résolvent encore mais délimitent un intervalle vide — c'est
- * exactement ce que devient une ancre Yjs dont le texte a été retiré.
+/** Résout la position actuelle (from/to) d'un commentaire, ou null si son
+ * ancre ne pointe plus vers un endroit valable du document (ex. le type Yjs
+ * auquel elle était relative a été détruit). Prend l'état ProseMirror
+ * directement (pas la vue) : appelable aussi bien depuis le plugin de
+ * décoration (qui ne reçoit qu'un state) que depuis le panneau (qui a la
+ * vue sous la main).
  *
- * Deux précautions qui comptent :
- *  - une ancre *non résoluble* (resolveCommentRange renvoie null) n'est PAS
- *    un orphelin : c'est le cas au chargement, avant que la liaison Yjs ne
- *    soit prête, et supprimer là effacerait tous les commentaires du
- *    document ;
- *  - sous suivi des modifications, un texte « supprimé » reste présent,
- *    marqué — le commentaire survit donc jusqu'à l'acceptation de la
- *    suppression, ce qui est le comportement attendu.
- *
- * La suppression est faite par tous les clients connectés en même temps ;
- * c'est sans conséquence, Yjs déduplique une suppression concurrente. */
-/** Les entrées à supprimer, d'après une fonction qui sait résoudre une
- * ancre. Séparé de `purgeOrphanComments` pour être éprouvable sans monter
- * une liaison Yjs/ProseMirror complète — c'est ici que se logent les deux
- * règles qui comptent, et elles méritaient des tests à elles. */
+ * Quand l'ancre courante est vide (passage supprimé, ou bloc recréé puis
+ * geste annulé), les anciennes ancres (`anciennes`, voir le réancrage plus
+ * bas) sont essayées : après Ctrl+Z, Yjs fait suivre à l'une d'elles le
+ * texte rétabli. */
+export function resolveCommentRange(state, ydoc, comment) {
+  const principale = resoudreAncres(state, ydoc, comment.anchorFrom, comment.anchorTo)
+  if (principale && principale.to > principale.from) return principale
+  for (const a of comment.anciennes || []) {
+    const r = resoudreAncres(state, ydoc, a.anchorFrom, a.anchorTo)
+    if (r && r.to > r.from) return r
+  }
+  return principale
+}
+
+// --- Masquer plutôt que supprimer, et suivre le texte (08/10/2026) --------
+//
+// Deux défauts trouvés en rejouant les gestes d'écriture (batterie
+// `commentairesEdition.test.js`, confirmés dans Chrome) :
+//
+// 1. Un commentaire était **supprimé**, chez tous les participants et sans
+//    retour, dès que son passage se résolvait en intervalle vide. Or Entrée,
+//    Retour arrière en début de paragraphe, « paragraphe → titre »,
+//    citation, Tab dans une liste *recréent* le bloc : pour Yjs, les
+//    caractères de l'ancien bloc sont supprimés puis réinsérés ailleurs, et
+//    le passage « a disparu » alors que le texte est là. Annuler (Ctrl+Z)
+//    rendait le texte, jamais le commentaire.
+//
+//    Désormais un commentaire dont le passage est vide est **masqué** : une
+//    marque datée est posée dans `ydoc.getMap('commentsOrphelins')` (une
+//    carte à part : plusieurs clients peuvent marquer en même temps sans
+//    jamais réécrire un commentaire, donc sans écraser une ancre), et il
+//    n'est plus compté ni dessiné. Si son passage revient (Ctrl+Z, rejet
+//    d'une suppression suivie…), la marque est levée. Il n'est effacé
+//    pour de bon — avec son fil — qu'au bout de `DELAI_ORPHELIN_MS`.
+//    La règle du 15/09 (« le commentaire d'un texte supprimé doit
+//    disparaître ») reste vraie à l'écran ; seule l'irréversibilité tombe.
+//
+// 2. Après un geste de structure, l'ancre Yjs ne désigne plus le texte. Le
+//    greffon suit donc les passages **avec les positions ProseMirror** (ce
+//    que le serveur fait déjà pour Claude : `remettreLesAncres`,
+//    agentTexte.js) : à chaque transaction locale il reporte les bornes de
+//    chaque passage par le `mapping` de la transaction, et, si la transaction
+//    a changé la structure (voir `estStructurel`), réécrit les ancres Yjs là
+//    où elles ne disent plus la même chose. Seul l'auteur du geste réancre
+//    (une transaction distante n'est jamais « locale »). Les anciennes
+//    ancres mortes sont gardées (`anciennes`) : après Ctrl+Z, Yjs refait
+//    pointer l'ancien bloc vers sa copie rétablie (`redone`), et le
+//    commentaire revient avec le texte.
+//
+//    Même source pour le **surlignage** : avant, il était calculé dans
+//    `apply`, c'est-à-dire avant que le texte ait été écrit dans Yjs, et
+//    restait décalé de la longueur de ce qu'on venait de taper jusqu'au
+//    prochain rafraîchissement.
+//
+// Les frontières ne changent pas (écrire au bout du passage l'agrandit,
+// au début non) : c'est une décision à part, voir le rapport du 08/10.
+
+export const NOM_ORPHELINS = 'commentsOrphelins'
+/** Sept jours : le temps de s'apercevoir qu'un geste a emporté un passage. */
+export const DELAI_ORPHELIN_MS = 7 * 24 * 3600 * 1000
+/** Combien d'anciennes ancres on garde par commentaire. */
+const ANCIENNES_MAX = 4
+
+/** La carte des marques « passage vide depuis… » du document de ce
+ * commentaire, ou null pour une carte qui n'est pas dans un document. */
+export function carteOrphelins(commentsMap) {
+  return commentsMap && commentsMap.doc ? commentsMap.doc.getMap(NOM_ORPHELINS) : null
+}
+
+/** Ce commentaire est-il masqué (passage vide) ? */
+export function estMasque(commentsMap, id) {
+  const marques = carteOrphelins(commentsMap)
+  return !!marques && marques.has(id)
+}
+
+/** Pour qui doit se remettre à jour quand un commentaire apparaît, change
+ * ou se masque. Renvoie la fonction qui défait l'abonnement. */
+export function observerCommentaires(commentsMap, fn) {
+  const marques = carteOrphelins(commentsMap)
+  commentsMap.observe(fn)
+  if (marques) marques.observe(fn)
+  return () => {
+    commentsMap.unobserve(fn)
+    if (marques) marques.unobserve(fn)
+  }
+}
+
+/** Les commentaires dont le passage est vide, d'après une fonction qui sait
+ * résoudre une ancre — **et leurs réponses**. Séparé du reste pour être
+ * éprouvable sans monter une liaison Yjs/ProseMirror complète. Une ancre
+ * non résoluble (`null`) n'est PAS un orphelin : c'est le cas au chargement,
+ * avant que la liaison Yjs ne soit prête, et traiter cela en orphelin
+ * masquerait tous les commentaires du document à chaque ouverture. */
 export function orphelins(commentsMap, resoudre) {
   const aSupprimer = []
   commentsMap.forEach((comment, id) => {
     // Une réponse n'a pas d'ancre : elle serait vue comme orpheline dès le
     // premier passage. Son sort suit celui de son parent, juste en dessous.
     if (estUneReponse(comment)) return
-    const range = resoudre(comment)
+    const range = resoudre(comment, id)
     if (range && range.to <= range.from) aSupprimer.push(id)
   })
-  // Le passage commenté a disparu : le fil entier s'en va avec lui.
   for (const parentId of [...aSupprimer]) {
     for (const reponse of reponsesDe(commentsMap, parentId)) aSupprimer.push(reponse.id)
   }
   return aSupprimer
 }
 
-export function purgeOrphanComments(state, ydoc, commentsMap) {
-  const aSupprimer = orphelins(commentsMap, (comment) =>
-    resolveCommentRange(state, ydoc, comment)
+/** Met les marques d'accord avec ce que `resoudre` dit des passages :
+ * marque ce qui est vide, lève la marque de ce qui est revenu, retire les
+ * marques sans commentaire, et efface (avec leur fil) les commentaires
+ * masqués depuis plus de `DELAI_ORPHELIN_MS`. Une seule transaction.
+ * Renvoie le nombre de commentaires effacés pour de bon.
+ *
+ * Sous suivi des modifications un texte « supprimé » reste présent, marqué :
+ * son commentaire n'est donc jamais vide, et survit jusqu'à l'acceptation. */
+export function rapprocher(ydoc, commentsMap, resoudre, maintenant = Date.now()) {
+  const marques = ydoc.getMap(NOM_ORPHELINS)
+  const vides = new Set(
+    orphelins(commentsMap, resoudre).filter((id) => !estUneReponse(commentsMap.get(id)))
   )
-  if (!aSupprimer.length) return 0
-  ydoc.transact(() => {
-    for (const id of aSupprimer) commentsMap.delete(id)
+  const aMarquer = []
+  const aLever = new Set()
+  const aEffacer = []
+  commentsMap.forEach((comment, id) => {
+    if (estUneReponse(comment)) return
+    if (vides.has(id)) {
+      if (!marques.has(id)) aMarquer.push(id)
+    } else if (marques.has(id)) {
+      const range = resoudre(comment, id)
+      if (range && range.to > range.from) aLever.add(id)
+    }
   })
-  return aSupprimer.length
+  marques.forEach((depuis, id) => {
+    if (!commentsMap.has(id)) aLever.add(id)
+    else if (!aLever.has(id) && maintenant - depuis > DELAI_ORPHELIN_MS) aEffacer.push(id)
+  })
+  if (!aMarquer.length && !aLever.size && !aEffacer.length) return 0
+  ydoc.transact(() => {
+    for (const id of aMarquer) marques.set(id, maintenant)
+    for (const id of aLever) marques.delete(id)
+    for (const id of aEffacer) {
+      for (const r of reponsesDe(commentsMap, id)) commentsMap.delete(r.id)
+      commentsMap.delete(id)
+      marques.delete(id)
+    }
+  })
+  return aEffacer.length
+}
+
+/** Rapproche les marques de l'état courant de l'éditeur (voir `rapprocher`).
+ * Nom conservé : c'est l'ancienne purge, qui supprimait. */
+export function purgeOrphanComments(state, ydoc, commentsMap, maintenant = Date.now()) {
+  return rapprocher(ydoc, commentsMap, (comment) => resolveCommentRange(state, ydoc, comment), maintenant)
+}
+
+/** Les passages de tous les commentaires ancrés, d'après Yjs (id → {from,to}).
+ * Un commentaire dont l'ancre ne se résout pas n'y figure pas. */
+function resoudreTout(state, ydoc, commentsMap) {
+  const out = new Map()
+  commentsMap.forEach((comment, id) => {
+    if (estUneReponse(comment)) return
+    const range = resolveCommentRange(state, ydoc, comment)
+    if (range) out.set(id, range)
+  })
+  return out
+}
+
+function memesPlages(a, b) {
+  if (a.size !== b.size) return false
+  for (const [id, r] of a) {
+    const s = b.get(id)
+    if (!s || s.from !== r.from || s.to !== r.to) return false
+  }
+  return true
+}
+
+/** La transaction change-t-elle la **structure** (blocs scindés, fusionnés,
+ * recréés, imbriqués) et pas seulement du texte au fil d'un paragraphe ?
+ * C'est ce qui oblige Yjs à supprimer puis réinsérer des caractères. */
+export function estStructurel(tr) {
+  for (let i = 0; i < tr.steps.length; i++) {
+    const step = tr.steps[i]
+    if (step instanceof ReplaceAroundStep) return true
+    if (step instanceof ReplaceStep) {
+      const { slice } = step
+      if (slice.openStart > 0 || slice.openEnd > 0) return true
+      let bloc = false
+      slice.content.forEach((n) => {
+        if (!n.isInline) bloc = true
+      })
+      if (bloc) return true
+      const avant = tr.docs[i]
+      if (!avant.resolve(step.from).sameParent(avant.resolve(step.to))) return true
+    }
+  }
+  return false
+}
+
+/** Reporte des passages par le `mapping` d'une transaction. Le début reste
+ * devant ce qu'on écrit à sa hauteur, la fin passe derrière (le passage
+ * grandit quand on écrit au bout, comme avec l'ancre Yjs) — sauf si la
+ * transaction est structurelle : Entrée au bout d'un passage ne doit pas
+ * l'étendre au paragraphe suivant. */
+function reporter(ranges, tr, structurel) {
+  const out = new Map()
+  ranges.forEach(({ from, to }, id) => {
+    const f = tr.mapping.map(from, 1)
+    const t = tr.mapping.map(to, structurel ? -1 : 1)
+    out.set(id, { from: f, to: Math.max(f, t) })
+  })
+  return out
+}
+
+function decorer(doc, ranges, commentsMap) {
+  const decos = []
+  const taille = doc.content.size
+  ranges.forEach((range, id) => {
+    const comment = commentsMap.get(id)
+    if (!comment) return
+    const from = Math.max(0, Math.min(range.from, taille))
+    const to = Math.max(0, Math.min(range.to, taille))
+    if (from >= to) return
+    decos.push(
+      Decoration.inline(from, to, {
+        class: 'comment-highlight',
+        style: `--comment-color:${comment.color}`,
+      })
+    )
+  })
+  return DecorationSet.create(doc, decos)
 }
 
 /** Plugin ProseMirror : surligne (en décoration, rien de stocké dans le
- * document) le passage de chaque commentaire encore résoluble. Les
- * commentaires vivent dans `commentsMap`, un type Yjs indépendant de
- * ySyncPlugin — ses changements ne passent donc pas par une transaction
- * ProseMirror, d'où l'observer ci-dessous qui force un rafraîchissement via
- * `setMeta` (le même utilitaire que yCursorPlugin) à chaque modification. */
-export function commentsPlugin(ydoc, commentsMap) {
-  function buildDecorations(state) {
-    const decos = []
-    const docSize = state.doc.content.size
+ * document) le passage de chaque commentaire, le suit au fil des
+ * transactions, réancre après un geste de structure et tient à jour les
+ * marques des orphelins.
+ *
+ * `peutEcrire` : faux pour un lecteur, que le serveur empêche d'écrire hors
+ * de ses propres commentaires — il se contente de dessiner. Les commentaires
+ * vivent dans `commentsMap`, un type Yjs indépendant de ySyncPlugin : ses
+ * changements ne passent pas par une transaction ProseMirror, d'où
+ * l'observer ci-dessous qui force un rafraîchissement via `setMeta` (le même
+ * utilitaire que yCursorPlugin). */
+export function commentsPlugin(ydoc, commentsMap, { peutEcrire = () => true } = {}) {
+  // Les réancrages déjà faits : un état ProseMirror survit à plusieurs mises
+  // à jour de la vue, le réancrage ne doit être joué qu'une fois.
+  const traites = new WeakSet()
+
+  function etatInitial(state, annulation = null) {
+    const ranges = resoudreTout(state, ydoc, commentsMap)
+    return { ranges, decos: decorer(state.doc, ranges, commentsMap), reancrer: null, annulation }
+  }
+
+  /** Réécrit les ancres Yjs des passages que la transaction structurelle a
+   * déplacés sans que Yjs le sache. Les anciennes ancres, si elles sont
+   * mortes, sont gardées pour le Ctrl+Z. */
+  function reancrer(view, estimes) {
+    const ystate = ySyncPluginKey.getState(view.state)
+    if (!ystate) return
+    const taille = view.state.doc.content.size
+    const ecritures = []
+    estimes.forEach((est, id) => {
+      const comment = commentsMap.get(id)
+      if (!comment || est.to <= est.from || est.to > taille) return
+      const actuel = resolveCommentRange(view.state, ydoc, comment)
+      if (actuel && actuel.from === est.from && actuel.to === est.to) return
+      ecritures.push([id, comment, est])
+    })
+    if (!ecritures.length) return
+    const marques = ydoc.getMap(NOM_ORPHELINS)
+    ydoc.transact(() => {
+      for (const [id, comment, est] of ecritures) {
+        const principale = resoudreAncres(view.state, ydoc, comment.anchorFrom, comment.anchorTo)
+        const vivante = principale && principale.to > principale.from
+        const anciennes = [...(comment.anciennes || [])]
+        if (!vivante) {
+          anciennes.unshift({ anchorFrom: comment.anchorFrom, anchorTo: comment.anchorTo })
+        }
+        commentsMap.set(id, {
+          ...comment,
+          anchorFrom: Y.relativePositionToJSON(
+            absolutePositionToRelativePosition(est.from, ystate.type, ystate.binding.mapping)
+          ),
+          anchorTo: Y.relativePositionToJSON(
+            absolutePositionToRelativePosition(est.to, ystate.type, ystate.binding.mapping)
+          ),
+          anciennes: anciennes.slice(0, ANCIENNES_MAX),
+        })
+        marques.delete(id)
+      }
+    })
+  }
+
+  /** Après annuler / refaire : Yjs a fait suivre le texte rétabli aux
+   * anciennes ancres (`redone`), **sur cette machine seulement** — le lien
+   * n'est pas synchronisé. Les autres participants ne retrouveraient pas le
+   * passage. On réécrit donc, d'après ce qui est réellement résolu ici,
+   * les ancres qui ne désignent plus les caractères vivants. Une ancre déjà
+   * exacte est laissée telle quelle (rien n'est écrit). */
+  function normaliser(view) {
+    const ystate = ySyncPluginKey.getState(view.state)
+    if (!ystate) return
+    const ecritures = []
     commentsMap.forEach((comment, id) => {
       if (estUneReponse(comment)) return
-      const range = resolveCommentRange(state, ydoc, comment)
-      if (!range) return
-      const from = Math.max(0, Math.min(range.from, docSize))
-      const to = Math.max(0, Math.min(range.to, docSize))
-      if (from >= to) return
-      decos.push(
-        Decoration.inline(from, to, {
-          class: 'comment-highlight',
-          style: `--comment-color:${comment.color}`,
-        })
+      const vivant = resolveCommentRange(view.state, ydoc, comment)
+      if (!vivant || vivant.to <= vivant.from) return
+      const de = Y.relativePositionToJSON(
+        absolutePositionToRelativePosition(vivant.from, ystate.type, ystate.binding.mapping)
       )
+      const a = Y.relativePositionToJSON(
+        absolutePositionToRelativePosition(vivant.to, ystate.type, ystate.binding.mapping)
+      )
+      if (JSON.stringify(de) === JSON.stringify(comment.anchorFrom) && JSON.stringify(a) === JSON.stringify(comment.anchorTo)) return
+      ecritures.push([id, comment, de, a])
     })
-    return DecorationSet.create(state.doc, decos)
+    if (!ecritures.length) return
+    const marques = ydoc.getMap(NOM_ORPHELINS)
+    ydoc.transact(() => {
+      for (const [id, comment, de, a] of ecritures) {
+        // L'ancre qu'on quitte reste en réserve : refaire (Ctrl+Maj+Z)
+        // supprime de nouveau le texte rétabli, et c'est elle, pas la
+        // nouvelle, que Yjs fait alors suivre vers sa copie refaite.
+        const quittee = { anchorFrom: comment.anchorFrom, anchorTo: comment.anchorTo }
+        const anciennes = [quittee, ...(comment.anciennes || [])].filter(
+          (x, i, tous) => i === tous.findIndex((y) => JSON.stringify(y) === JSON.stringify(x))
+        )
+        commentsMap.set(id, {
+          ...comment,
+          anchorFrom: de,
+          anchorTo: a,
+          anciennes: anciennes.slice(0, ANCIENNES_MAX),
+        })
+        marques.delete(id)
+      }
+    })
   }
 
   return new Plugin({
     key: commentsPluginKey,
     state: {
       init(_config, state) {
-        return buildDecorations(state)
+        return etatInitial(state)
       },
-      apply(tr, old, _oldState, newState) {
-        if (!tr.docChanged && !tr.getMeta(commentsPluginKey)) return old
-        return buildDecorations(newState)
+      apply(tr, old, oldState, newState) {
+        const meta = tr.getMeta(ySyncPluginKey)
+        const distante = !!(meta && meta.isChangeOrigin)
+        const rafraichir = !!tr.getMeta(commentsPluginKey)
+        if (!tr.docChanged && !rafraichir) return old
+        // Transaction venue de Yjs (autre participant, annuler / refaire), ou
+        // simple rafraîchissement : Yjs est à jour, on le lit.
+        if (distante || rafraichir || !tr.docChanged) {
+          return etatInitial(newState, tr.docChanged && meta && meta.isUndoRedoOperation ? {} : null)
+        }
+        // Transaction locale : Yjs n'a pas encore reçu le texte (ySyncPlugin
+        // l'écrit dans la mise à jour de la vue, après celle-ci). On suit
+        // donc les passages avec la transaction elle-même.
+        const structurel = estStructurel(tr)
+        // Un commentaire arrivé d'un autre participant à l'instant n'est pas
+        // encore connu (le rafraîchissement est différé) : Yjs correspond
+        // encore à l'état d'avant la transaction, on le lit tel quel.
+        let connus = old.ranges
+        commentsMap.forEach((comment, id) => {
+          if (estUneReponse(comment) || connus.has(id)) return
+          const range = resolveCommentRange(oldState, ydoc, comment)
+          if (!range) return
+          if (connus === old.ranges) connus = new Map(connus)
+          connus.set(id, range)
+        })
+        const ranges = reporter(connus, tr, structurel)
+        // Une transaction ajoutée par un autre greffon (suivi des
+        // modifications) ne doit pas faire oublier un réancrage en attente.
+        const enAttente =
+          old.reancrer && !traites.has(old.reancrer) ? reporter(old.reancrer, tr, false) : null
+        return {
+          ranges,
+          decos: decorer(newState.doc, ranges, commentsMap),
+          reancrer: structurel ? ranges : enAttente,
+          annulation: null,
+        }
       },
     },
     props: {
       decorations(state) {
-        return commentsPluginKey.getState(state)
+        return commentsPluginKey.getState(state).decos
       },
     },
     view(view) {
-      const refresh = () => setMeta(view, commentsPluginKey, true)
-      commentsMap.observe(refresh)
+      let minuteur = null
+      let detruit = false
+      const surCarte = () => {
+        setMeta(view, commentsPluginKey, true)
+        // Pas dans l'observer : le texte n'est peut-être pas encore arrivé.
+        if (peutEcrire() && minuteur === null) {
+          minuteur = setTimeout(() => {
+            minuteur = null
+            if (!detruit) purgeOrphanComments(view.state, ydoc, commentsMap)
+          }, 0)
+        }
+      }
+      commentsMap.observe(surCarte)
       return {
-        // Après chaque changement du document, on efface les commentaires
-        // devenus orphelins (voir purgeOrphanComments). Fait ici plutôt que
-        // dans `apply` : c'est une écriture dans Yjs, elle n'a rien à faire
-        // dans le calcul d'un état ProseMirror, qui doit rester pur.
+        // Après chaque changement du document (Yjs est alors à jour) :
+        // réancrer si le geste a changé la structure, puis mettre les
+        // marques des orphelins d'accord avec ce qui est réellement là.
+        // Fait ici plutôt que dans `apply` : ce sont des écritures dans
+        // Yjs, elles n'ont rien à faire dans le calcul d'un état
+        // ProseMirror, qui doit rester pur.
         update(v, prevState) {
-          if (v.state.doc !== prevState.doc) purgeOrphanComments(v.state, ydoc, commentsMap)
+          if (v.state.doc === prevState.doc) return
+          const etat = commentsPluginKey.getState(v.state)
+          const enAttente = etat.reancrer && !traites.has(etat.reancrer) ? etat.reancrer : null
+          const aNormaliser = etat.annulation && !traites.has(etat.annulation) ? etat.annulation : null
+          if (aNormaliser) traites.add(aNormaliser)
+          if (enAttente) traites.add(enAttente)
+          if (peutEcrire()) {
+            if (enAttente) reancrer(v, enAttente)
+            if (aNormaliser) normaliser(v)
+            purgeOrphanComments(v.state, ydoc, commentsMap)
+          }
+          if (!enAttente && !memesPlages(resoudreTout(v.state, ydoc, commentsMap), etat.ranges)) {
+            setMeta(v, commentsPluginKey, true)
+          }
         },
         destroy() {
-          commentsMap.unobserve(refresh)
+          detruit = true
+          clearTimeout(minuteur)
+          commentsMap.unobserve(surCarte)
         },
       }
     },
@@ -220,6 +547,10 @@ export function addComment(view, ydoc, commentsMap, user, text) {
     text,
     createdAt: Date.now(),
   })
+  // Le surlignage tout de suite, et surtout le passage connu du greffon avant
+  // la prochaine frappe : il suit les passages avec les transactions, et ne
+  // reporte que ceux qu'il connaît. L'observer, lui, rafraîchit plus tard.
+  view.dispatch(view.state.tr.setMeta(commentsPluginKey, true))
   return true
 }
 
@@ -228,11 +559,12 @@ export function estUneReponse(commentaire) {
   return !!(commentaire && commentaire.parent)
 }
 
-/** Les commentaires ancrés, réponses exclues — ce que la marge dessine. */
+/** Les commentaires ancrés, réponses et commentaires masqués exclus — ce que
+ * la marge dessine. */
 export function commentairesAncres(commentsMap) {
   const out = []
   commentsMap.forEach((commentaire, id) => {
-    if (!estUneReponse(commentaire)) out.push([id, commentaire])
+    if (!estUneReponse(commentaire) && !estMasque(commentsMap, id)) out.push([id, commentaire])
   })
   return out
 }
@@ -496,11 +828,11 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
   }
 
   render()
-  commentsMap.observe(render)
+  const arreter = observerCommentaires(commentsMap, render)
 
   return {
     destroy() {
-      commentsMap.unobserve(render)
+      arreter()
     },
   }
 }

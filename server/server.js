@@ -18,6 +18,7 @@ import { Versions } from './versions.js'
 import { Agents, peutInviterAgent, porteeAgent, ROLES_AGENT } from './agents.js'
 import { PresenceAgents } from './presenceAgents.js'
 import { Mcp } from './mcp.js'
+import { Dialogue, DialogueErreur, peutDialoguer, porteeDialogue, modeleDialogue } from './dialogue.js'
 import { apercu } from './admin.js'
 import { Publications, peutPublier, porteePublication, NOM_PAGE } from './publication.js'
 import { createGzip } from 'node:zlib'
@@ -204,6 +205,10 @@ const agents = new Agents(DATA_DIR)
 const presenceAgents = new PresenceAgents(rooms)
 rooms.presenceAgents = presenceAgents
 const mcp = new Mcp({ agents, storage, rooms, metrics, presence: presenceAgents })
+// La fenêtre de dialogue de l'éditeur (07/10/2026, server/dialogue.js) : le
+// même moteur d'outils que le connecteur, au nom d'un agent qui n'existe que
+// le temps de la conversation.
+const dialogue = new Dialogue({ storage, rooms, metrics, presence: presenceAgents })
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -1100,6 +1105,48 @@ const TARIFS_IA = {
     }
 
     return sendJson(res, 405, { error: 'méthode non permise' })
+  }
+
+  // --- Dialogue avec Claude dans l'éditeur (07/10/2026) ---
+  // GET dit si la personne y a droit (le client n'affiche la palette que
+  // si oui) ; POST mène la conversation et répond en ndjson, une ligne par
+  // événement. Rien du texte du document ni des messages n'est journalisé.
+  const dialogueMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/dialogue$/)
+  if (dialogueMatch) {
+    const id = dialogueMatch[1]
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    const autorise = peutDialoguer({ admin: isAdminEmail(email), proprietaire: storage.isOwner(id, email), role: storage.roleFor(id, email) })
+    if (req.method === 'GET') {
+      return sendJson(res, 200, { autorise, portee: porteeDialogue(), modele: autorise ? modeleDialogue() : null })
+    }
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'méthode non permise' })
+    if (!autorise) return sendJson(res, 403, { error: "le dialogue avec Claude n'est pas ouvert à votre rôle sur ce document" })
+    let corps
+    try {
+      corps = await readJsonBody(req, 300_000)
+    } catch (err) {
+      return sendJson(res, err.status || 400, { error: err.status === 413 ? 'message trop volumineux' : 'requête illisible' })
+    }
+    const prenom = String(users.nomDe(email) || email.split('@')[0]).trim().split(/\s+/)[0]
+    let session
+    try {
+      session = dialogue.preparer({ email, prenom, docId: id, corps })
+    } catch (err) {
+      if (err instanceof DialogueErreur) return sendJson(res, err.status, { error: err.message })
+      throw err
+    }
+    let coupe = false
+    res.on('close', () => { coupe = true })
+    res.writeHead(200, {
+      'content-type': 'application/x-ndjson; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-accel-buffering': 'no',
+    })
+    await dialogue.converser(session, (evt) => { if (!coupe) res.write(JSON.stringify(evt) + '\n') }, () => coupe)
+    res.end()
+    return
   }
 
   if (pathname === '/api/ai/suggest' && req.method === 'POST') {

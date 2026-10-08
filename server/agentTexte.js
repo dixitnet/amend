@@ -24,9 +24,13 @@
 
 import * as Y from 'yjs'
 import { diffWords } from '../shared/diff.js'
+import { typographier } from '../shared/typographie.js'
 
 export const NOM_TEXTE = 'prosemirror-content'
 export const NOM_COMMENTAIRES = 'comments'
+/** Les commentaires dont le passage est vide, masqués par les éditeurs
+ * (client/src/comments.js) : sept jours en réserve, et invisibles d'ici. */
+export const NOM_ORPHELINS = 'commentsOrphelins'
 
 const LONGUEUR_AVANT_MAX = 2000
 const LONGUEUR_APRES_MAX = 4000
@@ -399,7 +403,8 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
     const trouve = situer(bloc, r.avant)
     if (!trouve.ok) return refuse(index, numero, trouve.raison)
     // Un nœud texte ProseMirror ne porte pas de saut de ligne.
-    const apres = r.apres.replace(/[\r\n]+/g, ' ')
+    // Typographié comme ce qu'on taperait dans l'éditeur (shared/typographie.js).
+    const apres = typographier(r.apres.replace(/[\r\n]+/g, ' '))
     const modifications = modificationsDe(r.avant, apres)
     if (!modifications.length) return refuse(index, numero, 'rien ne change entre `avant` et `apres`')
 
@@ -499,7 +504,7 @@ export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
     if (numero === null) return refuse(index, a && a.apres_bloc, '`apres_bloc` doit être un numéro de bloc (0 pour tout au début)')
     if (typeof a.texte !== 'string') return refuse(index, numero, '`texte` doit être du texte')
     if (a.texte.length > LONGUEUR_APRES_MAX) return refuse(index, numero, `\`texte\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
-    const lignes = a.texte.split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean)
+    const lignes = a.texte.split(/\r\n|\r|\n/).map((l) => typographier(l.trim())).filter(Boolean)
     if (!lignes.length) return refuse(index, numero, 'le texte est vide')
     if (lignes.length > LIGNES_PAR_AJOUT_MAX) return refuse(index, numero, `au plus ${LIGNES_PAR_AJOUT_MAX} paragraphes par ajout`)
     let ancre = null
@@ -658,7 +663,7 @@ export function ajouterNotes(ydoc, demandes, auteur, ts = Date.now()) {
     if (typeof d.texte !== 'string') return refuse(index, numero, '`texte` doit être du texte')
     // Une note ne porte ni paragraphe ni liste : un saut de ligne y serait
     // une espace.
-    const texte = d.texte.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+    const texte = typographier(d.texte.replace(/\s*[\r\n]+\s*/g, ' ').trim())
     if (!texte) return refuse(index, numero, 'le texte de la note est vide')
     if (texte.length > LONGUEUR_NOTE_MAX) return refuse(index, numero, `le texte de la note est trop long (${LONGUEUR_NOTE_MAX} signes au plus)`)
     const bloc = blocs[numero - 1]
@@ -791,7 +796,7 @@ function ancreDeNote(cible) {
  * alors inutile.
  */
 export function commenter(ydoc, { bloc: numero, citation, texte, note }, auteur) {
-  let propre = String(texte || '').trim()
+  let propre = typographier(String(texte || '').trim())
   if (!propre) return { ok: false, raison: 'le commentaire est vide' }
   if (!Number.isInteger(numero)) return { ok: false, raison: 'numéro de bloc manquant ou invalide' }
   const blocs = blocsDuDocument(ydoc)
@@ -833,8 +838,11 @@ export function fils(ydoc) {
   const carte = ydoc.getMap(NOM_COMMENTAIRES)
   const racines = []
   const reponses = new Map()
+  const masques = ydoc.getMap(NOM_ORPHELINS)
   carte.forEach((c, id) => {
     if (!c || typeof c !== 'object') return
+    // Un passage supprimé : le commentaire n'existe plus que pour Ctrl+Z.
+    if (masques.has(id)) return
     if (c.parent) {
       if (!reponses.has(c.parent)) reponses.set(c.parent, [])
       reponses.get(c.parent).push({ ...c, id })
@@ -896,7 +904,7 @@ function blocDe(ydoc, blocs, c) {
 
 /** Répond à un fil (un seul niveau, comme dans l'éditeur). */
 export function repondre(ydoc, { commentaire, texte }, auteur) {
-  const propre = String(texte || '').trim()
+  const propre = typographier(String(texte || '').trim())
   if (!propre) return { ok: false, raison: 'la réponse est vide' }
   if (propre.length > LONGUEUR_COMMENTAIRE_MAX) return { ok: false, raison: `la réponse est trop longue (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
   const carte = ydoc.getMap(NOM_COMMENTAIRES)

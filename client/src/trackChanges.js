@@ -4,6 +4,8 @@ import { canJoin } from 'prosemirror-transform'
 import { ySyncPluginKey } from 'y-prosemirror'
 import { diffWords } from './diff.js'
 import { touchedBlockRange } from './incrementalScan.js'
+import { typographier } from '../../shared/typographie.js'
+import { typographieKey } from './typographie.js'
 
 /**
  * Keeps the selection visibly highlighted even after the editor loses DOM
@@ -562,8 +564,10 @@ export function richPastePlugin(getUser) {
         const deletionType = state.schema.marks.deletion
         if (!insertionType || !deletionType) return false
 
-        const text = event.clipboardData && event.clipboardData.getData('text/plain')
-        if (!text) return false
+        const brut = event.clipboardData && event.clipboardData.getData('text/plain')
+        if (!brut) return false
+        // Typographié comme tout collage (shared/typographie.js).
+        const text = typographier(brut)
         const lines = text.split(/\r\n|\r|\n/)
         if (lines.length < 2) return false // collage simple : déjà pris en charge plus haut
 
@@ -765,6 +769,9 @@ export function makeDispatchTransaction(view, getUser, { peutModifierLibrement =
         // que rien ne défile (banc iPhone, 23/09/2026). Défaut présent en
         // suivi de modifications seulement, sur tous les écrans.
         if (tr.scrolledIntoView) finalTr = finalTr.scrollIntoView()
+        // La correction typographique à défaire d'un Retour arrière (typographie.js).
+        const typo = tr.getMeta(typographieKey)
+        if (typo) finalTr.setMeta(typographieKey, typo)
       }
     }
     const newState = view.state.apply(finalTr)

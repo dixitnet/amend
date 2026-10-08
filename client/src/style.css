@@ -3011,6 +3011,186 @@ tr.bo-traite { opacity: 0.6; }
 }
 .modele-formulaire select { min-height: 32px; font: inherit; font-size: 13px; }
 
+/* ---------- Dialogue avec Claude (07/10/2026) ---------- */
+
+/* Une palette posée au-dessus du bouton « Un retour ? » (même coin, même
+   idée : on garde le texte sous les yeux pendant qu'on en parle). Le bouton
+   « Claude » est à 56 px du bas : juste au-dessus de celui du contact. */
+.dialogue-hote {
+  position: fixed;
+  right: 16px;
+  bottom: 64px;
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+}
+.dialogue-bouton {
+  align-self: flex-end;
+  padding: 9px 16px;
+  min-height: 40px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+.dialogue-bouton:hover { filter: brightness(1.08); }
+.dialogue-palette {
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: 100%;
+  max-height: min(620px, calc(100vh - 140px));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.dialogue-palette[hidden] { display: none; }
+.dialogue-entete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.dialogue-entete h2 { margin: 0; font-size: 15px; flex: 1; }
+.dialogue-lien {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px;
+}
+.dialogue-lien:hover { color: var(--fg); }
+.dialogue-fermer {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dialogue-fermer:hover { color: var(--fg); background: var(--border); }
+.dialogue-fil {
+  flex: 1;
+  min-height: 140px;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.dialogue-vide { color: var(--muted); font-size: 13px; }
+.dialogue-vide p, .dialogue-message p { margin: 0 0 6px; }
+.dialogue-message { max-width: 92%; }
+.dialogue-message ul { margin: 0 0 6px; padding-left: 18px; }
+.dialogue-moi {
+  align-self: flex-end;
+  padding: 8px 12px;
+  border-radius: 12px 12px 2px 12px;
+  background: var(--surlignage);
+  white-space: pre-wrap;
+}
+.dialogue-claude { align-self: flex-start; }
+/* Le numéro d'un bloc cité : un bouton qui a l'air d'une référence. */
+.dialogue-bloc {
+  display: inline;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-bg);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.dialogue-bloc:hover { border-color: var(--accent); }
+.dialogue-activite { display: flex; flex-direction: column; gap: 4px; }
+.dialogue-outil, .dialogue-attente { font-size: 12px; color: var(--muted); }
+.dialogue-outil.fait { color: var(--ok); }
+.dialogue-outil.echec { color: var(--danger); }
+.dialogue-erreur { color: var(--danger); font-size: 13px; margin-top: 4px; }
+.dialogue-resume {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+}
+.dialogue-reglages {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+.dialogue-etiquette { display: flex; align-items: center; gap: 6px; }
+.dialogue-portee { min-height: 28px; font: inherit; font-size: 12px; max-width: 170px; }
+.dialogue-alerte { color: var(--danger); }
+.dialogue-pied { padding: 0 12px 10px; }
+.dialogue-saisie {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  /* 16px : en dessous, Safari sur iPhone zoome à la mise au point. */
+  font-size: 16px;
+  font-family: inherit;
+  resize: vertical;
+}
+.dialogue-saisie:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dialogue-barre { display: flex; gap: 8px; margin-top: 6px; }
+.dialogue-envoyer { min-height: 36px; }
+.dialogue-arreter {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+.dialogue-arreter[hidden] { display: none; }
+.dialogue-statut { margin: 6px 0 0; font-size: 12px; color: var(--danger); }
+.dialogue-statut:empty { display: none; }
+.dialogue-note { margin: 0; padding: 0 16px 10px; font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+/* Pas sur téléphone pour l'instant : comme la palette de contact, un bouton
+   flottant permanent y prendrait la place du texte, et l'écran n'a pas la
+   largeur d'une conversation à côté du document. La version mobile (feuille
+   basse) viendra avec le retour des premiers essais. */
+@media (max-width: 700px) {
+  .dialogue-hote { display: none; }
+}
+
 /* --- Numéros de bloc (02/10/2026) -------------------------------------------
    Le numéro que Claude donne à chaque bloc quand il relit le document
    (server/agentTexte.js, `blocsDuDocument`) : tout bloc qui contient du

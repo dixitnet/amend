@@ -23,6 +23,7 @@ import {
 import { mountChangesPanel } from './changesPanel.js'
 import { openAccessPanel } from './accessPanel.js'
 import { mountAIPanel } from './aiPanel.js'
+import { monterDialogue } from './dialogue.js'
 import {
   commentsPlugin,
   mountCommentsPanel,
@@ -37,6 +38,7 @@ import { docToMarkdown, markdownFilename, downloadText } from './mdExport.js'
 import { mountTkMarker } from './tkMarker.js'
 import { mountCompteursRelecture } from './compteursRelecture.js'
 import { markdownShortcutsPlugin } from './markdownShortcuts.js'
+import { typographiePlugin } from './typographie.js'
 import { taskListPlugin } from './taskList.js'
 import {
   tableEditing,
@@ -931,7 +933,9 @@ export function mountEditor(root, docId, user, docMeta) {
       liensPlugin({ peutPoser: peutPoserLien, surRefus: refuserLien }),
       richPastePlugin(() => user),
       pendingBreakPlugin(),
-      commentsPlugin(ydoc, commentsMap),
+      // Un lecteur dessine les commentaires mais n’écrit rien : le serveur
+      // refuserait ses marques d’orphelins et ses réancrages.
+      commentsPlugin(ydoc, commentsMap, { peutEcrire: () => peutProposer }),
       // Le tactile (20/09/2026) : toucher un passage commenté ouvre son fil
       // en feuille, et la barre de relecture se tient à jour. Ce greffon
       // n'existe que pour le petit écran — au-dessus de 700 px, la marge et
@@ -1005,6 +1009,9 @@ export function mountEditor(root, docId, user, docMeta) {
         },
       }),
       markdownShortcutsPlugin(schema),
+      // Apostrophes, guillemets, points de suspension et espaces insécables,
+      // à la frappe et au collage (shared/typographie.js). Sans interface.
+      typographiePlugin({ suiviActif: isTrackChangesEnabled }),
       taskListPlugin(schema),
       new Plugin({
         view: () => ({ update: () => syncToolbar() }),
@@ -1336,6 +1343,17 @@ export function mountEditor(root, docId, user, docMeta) {
   }
 
   mountAIPanel(aiSection, () => view, { docId, canUseAI: !!cap.canUseAI })
+  // Le dialogue avec Claude (07/10/2026) : la palette n'existe que si le
+  // serveur dit que la personne y a droit (CLAUDE_DIALOGUE dans le .env).
+  let dialogue = null
+  let demonte = false
+  if (cap.canUseAI) {
+    monterDialogue({ docId, getView: () => view }).then((d) => {
+      if (!d) return
+      if (demonte) d.destroy()
+      else dialogue = d
+    })
+  }
   const comments = mountCommentsPanel(commentsSection, ydoc, commentsMap, () => view, user)
 
   function mkButton(label, title) {
@@ -1397,6 +1415,8 @@ export function mountEditor(root, docId, user, docMeta) {
 
   return {
     destroy() {
+      demonte = true
+      if (dialogue) dialogue.destroy()
       if (telephone) telephone.demonter()
       view.destroy()
       provider.destroy()

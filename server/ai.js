@@ -3,6 +3,8 @@
 //
 // Deliberately dependency-free: uses Node's built-in fetch.
 
+import { typographier } from '../shared/typographie.js'
+
 // Sonnet 5 depuis le 16/09/2026 : 2 $ / 10 $ par million de jetons contre
 // 3 $ / 15 $ pour le 4.5, soit un tiers de moins pour le même travail de
 // reformulation. Surchargeable par AI_MODEL (.env) — et si on en change, il
@@ -194,11 +196,16 @@ export async function suggestEdit(config, text, instruction) {
     err.usage = usage
     throw err
   }
-  const suggestion = nettoyerSuggestion(
-    (data.content || [])
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('')
+  // Typographiée avant d'être comparée au passage d'origine : sans cela, un
+  // modèle qui rend des apostrophes droites faisait de chaque « ’ » du texte
+  // une « correction » (08/10/2026, shared/typographie.js).
+  const suggestion = typographier(
+    nettoyerSuggestion(
+      (data.content || [])
+        .filter((block) => block.type === 'text')
+        .map((block) => block.text)
+        .join('')
+    )
   )
 
   if (!suggestion) {
