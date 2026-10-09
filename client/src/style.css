@@ -3074,6 +3074,12 @@ tr.bo-traite { opacity: 0.6; }
   border-bottom: 1px solid var(--border);
 }
 .dialogue-entete h2 { margin: 0; font-size: 15px; flex: 1; }
+/* Le sous-titre de la fenêtre de Margo : « · IA d'amend.ink », plus discret que le nom. */
+.dialogue-entete h2 .dialogue-sous-titre {
+  font-weight: normal;
+  font-size: 0.8em;
+  color: var(--muted);
+}
 .dialogue-lien {
   border: none;
   background: transparent;

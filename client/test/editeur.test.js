@@ -497,8 +497,8 @@ test('une correction de l’IA fait une carte « remplacement », pas deux', () 
   assert.equal(liste[0].type, 'remplacement')
   assert.equal(liste[0].ancien, 'rouge,')
   assert.equal(liste[0].nouveau, 'bleu,')
-  // Le nouveau précède l'ancien barré, comme à la frappe.
-  assert.ok(liste[0].insertion.to === liste[0].deletion.from)
+  // L'ancien barré, puis le nouveau, comme à la frappe.
+  assert.ok(liste[0].deletion.to === liste[0].insertion.from)
   acceptAllChanges(e.view)
   assert.equal(e.texte(), 'Le chat dort sur le tapis bleu, devant la cheminée, pendant que la pluie tombe.')
   valide(e)

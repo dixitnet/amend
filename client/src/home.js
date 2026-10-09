@@ -275,7 +275,7 @@ function mountAppHome(root, email) {
   h1.appendChild(logoAmend({ taille: '30px', curseur: false }))
   const subtitle = document.createElement('p')
   subtitle.className = 'subtitle'
-  subtitle.textContent = 'Édition collaborative avec suivi des modifications et assistance IA.'
+  subtitle.textContent = 'Édition collaborative avec suivi des modifications, et Margo, l’IA qui propose sans décider.'
   wrap.append(h1, subtitle)
 
   const authStatus = document.createElement('p')

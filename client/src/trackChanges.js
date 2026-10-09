@@ -1158,13 +1158,15 @@ export function acceptAllChanges(view) {
 export const COULEUR_AGENT = '#5f7a4a'
 
 /**
- * Cette modification est-elle celle d'un agent invité (Claude) ? Le serveur
- * lui donne le vert réservé et un nom qui commence par « Claude » (« Claude
- * (pour Sylvain) »). Les deux à la fois : une personne qui s'appelle Claude
- * n'a pas ce vert, et l'IA du panneau, qui l'a, s'appelle « IA ».
+ * Cette modification est-elle celle d'une IA (Margo, ou Claude invité) ? Le
+ * vert réservé et un nom qui commence par « Margo » (« Margo (IA) », l'IA du
+ * panneau et du dialogue) ou « Claude » (« Claude (pour Sylvain) », le
+ * connecteur). Les deux à la fois : une personne qui s'appelle Margo ou
+ * Claude n'a pas ce vert. Les anciennes modifications de l'IA, signées
+ * « IA », n'en font pas partie.
  */
 export function estModificationDAgent(change) {
-  return change.userColor === COULEUR_AGENT && /^Claude(\s|$)/.test(change.user || '')
+  return change.userColor === COULEUR_AGENT && /^(Claude|Margo)(\s|$)/.test(change.user || '')
 }
 
 /** Rejette d'un coup toutes les modifications d'un agent invité, sans
@@ -1259,14 +1261,15 @@ function replayDiffOps(tr, schema, block, ops, insMark, delMark, authorMark) {
     }
     if (op.type === 'delete' && suivant && suivant.type === 'insert' && suivant.text) {
       // Un mot remplacé par un autre : les deux moitiés partagent un
-      // groupe, et le nouveau texte précède l'ancien barré — exactement ce
-      // que produit une frappe par-dessus une sélection
-      // (rewriteForTracking), et ce que pairReplacements réunit en une
-      // seule carte « remplacement ». Signalé par Sylvain le 28/09/2026 :
-      // une correction de l'IA faisait toujours deux cartes.
+      // groupe, et le nouveau texte vient **après** l'ancien barré — comme
+      // une frappe par-dessus une sélection (rewriteForTracking, ordre
+      // « ancien barré, puis nouveau » depuis le 09/10/2026), et ce que
+      // pairReplacements réunit en une seule carte « remplacement ». Signalé
+      // par Sylvain le 28/09/2026 : une correction de l'IA faisait toujours
+      // deux cartes.
       const groupe = idDeGroupe(insMark.attrs.ts)
-      const debut = tr.mapping.map(block.posDe(index))
       barrer(index, index + op.text.length, delMark.type.create({ ...delMark.attrs, groupe }))
+      const debut = tr.mapping.map(block.posDe(index + op.text.length))
       insererTexte(debut, suivant.text, insMark.type.create({ ...insMark.attrs, groupe }))
       index += op.text.length
       changed = true

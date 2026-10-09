@@ -170,7 +170,7 @@ test('une question : la réponse arrive en flux, le document n’est pas touché
   assert.ok(!journal.includes('cle-factice'))
 })
 
-test('une demande de correction écrit en suivi de modifications au nom de « Claude (pour …) », jamais en direct', async () => {
+test('une demande de correction écrit en suivi de modifications au nom de « Margo (IA) », jamais en direct', async () => {
   const doc = await documentDeTest()
   requetes.length = 0
   scenario = [
@@ -196,7 +196,7 @@ test('une demande de correction écrit en suivi de modifications au nom de « Cl
   assert.match(xml, /Ils mange<authorColor[^>]*><insertion[^>]*>nt<\/insertion>/)
   assert.match(xml, /des pomme<authorColor[^>]*><insertion[^>]*>s<\/insertion>/)
   assert.ok(!/<deletion/.test(xml))
-  assert.match(xml, /Claude \(pour /)
+  assert.match(xml, /Margo \(IA\)/)
 })
 
 test('le réglage de réflexion est retenu : refusé une fois, jamais redemandé', async () => {
@@ -238,15 +238,49 @@ test('les entrées invalides sont refusées avant tout appel payant', async () =
   assert.equal(requetes.length, 0)
 })
 
-test('une boucle d’outils sans fin s’arrête après dix étapes', async () => {
+test('une boucle d’outils sans fin : vingt étapes, puis un bilan sans outil au lieu d’une coupure sèche', async () => {
+  const { TOURS_MAX } = await import('../dialogue.js')
+  assert.equal(TOURS_MAX, 20)
   const doc = await documentDeTest()
   requetes.length = 0
-  scenario = Array.from({ length: 12 }, (_, i) => outil(`t${i}`, 'plan', {}))
+  scenario = [...Array.from({ length: TOURS_MAX }, (_, i) => outil(`t${i}`, 'plan', {})), texte('J’ai relu la moitié ; il reste la fin du chapitre. Relancez sur un passage plus court.')]
   const r = await dialoguer(doc.id, 'admin@example.com', msg('boucle'))
   assert.equal(r.status, 200)
-  assert.ok(r.evenements.some((e) => e.type === 'erreur'))
-  assert.equal(requetes.length, 10)
+  assert.equal(requetes.length, TOURS_MAX + 1)
+  // Les vingt premiers appels ont des outils à disposition ; le dernier n'en a plus le droit.
+  assert.ok(requetes.slice(0, TOURS_MAX).every((q) => !q.corps.tool_choice))
+  const dernier = requetes[TOURS_MAX].corps
+  assert.deepEqual(dernier.tool_choice, { type: 'none' })
+  assert.ok(Array.isArray(dernier.tools) && dernier.tools.length > 0, 'les outils restent déclarés : l’historique en contient')
+  const derniereEntree = dernier.messages[dernier.messages.length - 1].content
+  assert.match(JSON.stringify(derniereEntree), /nombre maximal d’étapes/)
+  // La personne reçoit le bilan de Margo, pas une erreur.
+  assert.ok(r.evenements.some((e) => e.type === 'texte' && /il reste la fin du chapitre/.test(e.texte)))
+  assert.ok(!r.evenements.some((e) => e.type === 'erreur'))
+  assert.equal(r.fin.usage.tours, TOURS_MAX + 1)
   scenario = []
+})
+
+test('si le bilan final est vide, l’erreur d’avant reste, avec la mention des modifications déjà posées', async () => {
+  const { TOURS_MAX } = await import('../dialogue.js')
+  const doc = await documentDeTest()
+  requetes.length = 0
+  scenario = [...Array.from({ length: TOURS_MAX }, (_, i) => outil(`v${i}`, 'plan', {})), { corps: { stop_reason: 'end_turn', content: [], usage: { input_tokens: 10, output_tokens: 0 } } }]
+  const r = await dialoguer(doc.id, 'admin@example.com', msg('boucle'))
+  assert.equal(requetes.length, TOURS_MAX + 1)
+  const erreur = r.evenements.find((e) => e.type === 'erreur')
+  assert.ok(erreur)
+  assert.match(erreur.message, /déjà posées/)
+  scenario = []
+})
+
+test('la consigne dit combien d’étapes il y a, et de lire large, de grouper et de paralléliser', async () => {
+  const { consigne, TOURS_MAX } = await import('../dialogue.js')
+  const c = consigne({ prenom: 'Sylvain', titre: 'Test', portee: { type: 'document' } })
+  assert.match(c, new RegExp(`au plus ${TOURS_MAX} étapes`))
+  assert.match(c, /en accepte jusqu’à 200/)
+  assert.match(c, /jusqu’à 30 remplacements/)
+  assert.match(c, /dans la même étape/)
 })
 
 test('une réponse déjà en cours pour la même personne et le même document : 429', async () => {

@@ -201,7 +201,7 @@ test('les blocs sont numérotés dans l’ordre, listes et citations comprises',
   assert.equal(blocs[4].texte, '')
 })
 
-test('un remplacement est un suivi de modifications : le nouveau texte précède l’ancien barré, même groupe', () => {
+test('un remplacement est un suivi de modifications : l’ancien texte barré puis le nouveau, même groupe', () => {
   const y = docAvec((f) => bloc(f, 'paragraph', ['Le ', ['chat', { strong: {} }], ' noir dort.']))
   const v = proposer(y, [{ bloc: 1, avant: 'chat', apres: 'chien' }], AUTEUR, 1234)
   assert.deepEqual(v.appliques, [{ index: 0, bloc: 1 }])
@@ -213,7 +213,7 @@ test('un remplacement est un suivi de modifications : le nouveau texte précède
   const del = segments.find((s) => s.attrs.deletion)
   assert.equal(ins.texte, 'chien')
   assert.equal(del.texte, 'chat')
-  assert.ok(segments.indexOf(ins) < segments.indexOf(del), 'le nouveau précède l’ancien')
+  assert.ok(segments.indexOf(del) < segments.indexOf(ins), 'l’ancien barré précède le nouveau')
   assert.deepEqual(ins.attrs.insertion, { user: 'Claude', userColor: '#5f7a4a', ts: 1234, groupe: ins.attrs.insertion.groupe })
   assert.match(ins.attrs.insertion.groupe, /^1234-[a-z0-9]+$/)
   assert.equal(del.attrs.deletion.groupe, ins.attrs.insertion.groupe)
@@ -281,7 +281,7 @@ test('insérer et supprimer sont des propositions sans groupe', () => {
   const deux = lectures(y, 2)
   assert.equal(deux.accepte, 'Un chômage massif.')
   assert.equal(deux.refuse, 'Un chomage massif.')
-  assert.deepEqual(deux.segments.filter((s) => s.attrs.insertion || s.attrs.deletion).map((s) => s.texte), ['ô', 'o'])
+  assert.deepEqual(deux.segments.filter((s) => s.attrs.insertion || s.attrs.deletion).map((s) => s.texte), ['o', 'ô'])
 })
 
 test('plusieurs remplacements dans un même bloc s’appliquent tous, du dernier au premier', () => {

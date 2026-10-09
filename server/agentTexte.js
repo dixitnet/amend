@@ -18,8 +18,8 @@
 //
 // Règle d'or : **un agent ne modifie jamais le texte directement.** Une
 // proposition est un suivi de modifications, exactement comme celui d'un
-// correcteur : le nouveau texte (marque `insertion`) précède l'ancien, barré
-// (marque `deletion`), les deux moitiés partageant un `groupe`. Rien ne
+// correcteur : l'ancien texte, barré (marque `deletion`), puis le nouveau
+// (marque `insertion`), les deux moitiés partageant un `groupe`. Rien ne
 // devient définitif avant qu'un éditeur l'accepte.
 
 import * as Y from 'yjs'
@@ -330,7 +330,7 @@ function cibleDe(blocs, numero, note, { pourCorriger = true } = {}) {
  * Découpe un remplacement `avant` → `apres` en modifications élémentaires,
  * **avec l'algorithme de l'IA du panneau** (shared/diff.js) : mot à mot, les
  * mots inchangés restent intacts, un mot remplacé par un autre est une paire
- * (nouveau avant ancien, un groupe), et un mot presque identique
+ * (ancien barré puis nouveau, un groupe), et un mot presque identique
  * (« chomage » → « chômage ») se réduit à la lettre. Une correction de trois
  * mots se relit donc en trois cartes, comme quand l'IA la propose.
  *
@@ -446,9 +446,10 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
   // le même.
   const rangs = new Map()
   for (const morceau of retenus) if (!rangs.has(morceau.xt)) rangs.set(morceau.xt, rangs.size)
-  // Du dernier au premier : chaque écriture ne décale que ce qui la suit. À
-  // position égale, la suppression avant l'insertion : le nouveau texte se
-  // place ainsi devant l'ancien barré.
+  // Du dernier au premier : chaque écriture ne décale que ce qui la suit. Le
+  // nouveau texte s'écrit à la fin de l'ancien barré (« ancien, puis nouveau »,
+  // comme une frappe par-dessus une sélection), donc l'insertion précède le
+  // marquage de la suppression, qui ne touche que `de..jusqua`.
   const ordre = [...retenus].sort((a, b) => rangs.get(a.xt) - rangs.get(b.xt) || b.de - a.de || b.jusqua - a.jusqua)
   const tracer = (groupe) => ({ user: auteur.name, userColor: auteur.color, ts, groupe })
   const couleur = { user: auteur.name, userColor: auteur.color }
@@ -456,8 +457,8 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
     for (const { xt, de, jusqua, nouveau, paire, forme } of ordre) {
       if (jusqua > de && nouveau && paire) {
         const groupe = `${ts}-${Math.random().toString(36).slice(2, 8)}`
-        xt.insert(de, nouveau, { ...forme, insertion: tracer(groupe), authorColor: couleur })
-        xt.format(de + nouveau.length, jusqua - de, { deletion: tracer(groupe) })
+        xt.insert(jusqua, nouveau, { ...forme, insertion: tracer(groupe), authorColor: couleur })
+        xt.format(de, jusqua - de, { deletion: tracer(groupe) })
       } else if (jusqua > de) {
         xt.format(de, jusqua - de, { deletion: tracer(null) })
       } else {

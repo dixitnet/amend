@@ -114,6 +114,45 @@ test('la portée : document, section en cours (jusqu’au titre de même niveau 
   assert.equal(libellePortee({ type: 'document' }), 'tout le document')
 })
 
+test('le sélecteur n’a que deux portées, et suit la sélection : du texte sélectionné → « La sélection », sinon « Tout le texte »', async () => {
+  const view = monterEditeur()
+  const poser = (from, to = from) => view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)))
+  const debutBloc = (n) => view.posAtDOM(blocsDuDom(view)[n - 1], 0)
+  const serveur = fauxServeur()
+  const d = await monterDialogue({ docId: 'doc-portee', getView: () => view, fetcher: serveur.fetcher })
+  const choix = document.querySelector('.dialogue-portee')
+  assert.deepEqual([...choix.options].map((o) => [o.value, o.textContent]), [['document', 'Tout le texte'], ['selection', 'La sélection']])
+
+  // Ouverte sur un simple curseur : tout le texte.
+  poser(debutBloc(2) + 2)
+  d.ouvrir()
+  assert.equal(choix.value, 'document')
+  d.replier()
+
+  // Ouverte avec du texte sélectionné : la sélection.
+  poser(debutBloc(2) + 1, debutBloc(4) + 4)
+  d.ouvrir()
+  assert.equal(choix.value, 'selection')
+  assert.equal(document.querySelector('.dialogue-indication').textContent, 'blocs 2 à 4')
+
+  // Palette ouverte : la portée suit la sélection, dans les deux sens.
+  poser(debutBloc(6) + 2)
+  document.dispatchEvent(new window.Event('selectionchange'))
+  await attendre(5)
+  assert.equal(choix.value, 'document')
+  poser(debutBloc(6) + 1, debutBloc(6) + 5)
+  document.dispatchEvent(new window.Event('selectionchange'))
+  await attendre(5)
+  assert.equal(choix.value, 'selection')
+
+  // Un choix fait à la main tient tant que la sélection ne bouge pas.
+  choix.value = 'document'
+  document.dispatchEvent(new window.Event('selectionchange'))
+  await attendre(5)
+  assert.equal(choix.value, 'document')
+  d.destroy()
+})
+
 test('sans droit, rien n’est ajouté à la page ; sans réponse du serveur non plus', async () => {
   const view = monterEditeur()
   const non = fauxServeur({ autorise: false })

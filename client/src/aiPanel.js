@@ -15,7 +15,7 @@ async function requestSuggestion(docId, text, instruction) {
     body: JSON.stringify({ docId, text, instruction }),
   })
   const data = await res.json()
-  if (!res.ok) return { ok: false, error: data.error || "Erreur lors de l'appel à l'IA." }
+  if (!res.ok) return { ok: false, error: data.error || "Erreur lors de l'appel à Margo." }
   return { ok: true, suggestion: data.suggestion }
 }
 
@@ -38,13 +38,13 @@ const PRESETS = [
 /**
  * A small "Assistance IA" panel: pick (or select) some text in the editor,
  * choose or type an instruction, and the AI's rewrite is inserted as a
- * tracked change (attributed to "IA") that anyone can accept or reject —
+ * tracked change (attributed to "Margo (IA)") that anyone can accept or reject —
  * exactly like a human suggestion.
  */
 export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}) {
   container.innerHTML = ''
   const title = document.createElement('h3')
-  title.textContent = 'Assistance IA'
+  title.textContent = 'Margo (IA)'
   container.appendChild(title)
 
   // Un correcteur n'a pas accès à l'IA (voir server/roles.js) : on le dit
@@ -54,7 +54,7 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
     const refus = document.createElement('p')
     refus.className = 'ai-hint'
     refus.textContent =
-      "L'assistance IA est réservée aux éditeurs du document."
+      "Margo, l’IA d’amend.ink, est réservée aux éditeurs du document."
     container.appendChild(refus)
     return
   }
@@ -95,7 +95,7 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
   })
 
   const runBtn = document.createElement('button')
-  runBtn.textContent = 'Demander à l’IA'
+  runBtn.textContent = 'Demander à Margo (IA)'
   runBtn.className = 'btn-primary'
   container.appendChild(runBtn)
 

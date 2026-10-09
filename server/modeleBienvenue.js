@@ -50,9 +50,9 @@ export const BLOCS_BIENVENUE = [
         T('Sélectionnez un passage : un bouton « Commenter » apparaît en face. Votre commentaire s’affiche dans la marge, et on peut y répondre.'),
       ],
       [
-        G('L’IA. '),
+        G('Margo, l’IA. '),
         T(
-          'Sélectionnez un paragraphe, décrivez ce que vous voulez (« corriger l’orthographe », « raccourcir ») et cliquez sur « Demander à l’IA ». La proposition arrive comme une modification en attente, jamais à votre place.'
+          'Sélectionnez un paragraphe, décrivez ce que vous voulez (« corriger l’orthographe », « raccourcir ») et cliquez sur « Demander à Margo (IA) ». La proposition arrive comme une modification en attente, jamais à votre place.'
         ),
       ],
       [

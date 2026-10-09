@@ -256,18 +256,20 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   let flashTimer = null
 
   const racine = el('div', 'dialogue-hote')
-  const bouton = el('button', 'dialogue-bouton', 'Claude')
+  const bouton = el('button', 'dialogue-bouton', 'Margo')
   bouton.type = 'button'
-  bouton.title = 'Dialoguer avec Claude à propos de ce texte'
+  bouton.title = 'Dialoguer avec Margo (IA) à propos de ce texte'
   bouton.setAttribute('aria-expanded', 'false')
 
   const palette = el('div', 'dialogue-palette')
   palette.hidden = true
   palette.setAttribute('role', 'dialog')
-  palette.setAttribute('aria-label', 'Dialogue avec Claude')
+  palette.setAttribute('aria-label', 'Dialogue avec Margo (IA)')
 
   const entete = el('div', 'dialogue-entete')
-  entete.appendChild(el('h2', null, 'Claude'))
+  const titre = el('h2', null, 'Margo')
+  titre.appendChild(el('small', 'dialogue-sous-titre', ' · IA d’amend.ink'))
+  entete.appendChild(titre)
   const nouvelle = el('button', 'dialogue-lien', 'Nouvelle conversation')
   nouvelle.type = 'button'
   const fermer = el('button', 'dialogue-fermer', '×')
@@ -282,7 +284,11 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   const reglages = el('div', 'dialogue-reglages')
   const etiquette = el('label', 'dialogue-etiquette', 'Porte sur')
   const choix = el('select', 'dialogue-portee')
-  for (const [v, t] of [['document', 'Tout le document'], ['section', 'La section en cours'], ['selection', 'Le passage sélectionné']]) {
+  // Deux portées seulement. Elle suit la sélection de l'éditeur : du texte
+  // sélectionné, « La sélection » ; sinon « Tout le texte » (voir
+  // `suivreLaSelection`). La section reste comprise par le serveur, mais
+  // l'interface ne la propose plus.
+  for (const [v, t] of [['document', 'Tout le texte'], ['selection', 'La sélection']]) {
     const o = el('option', null, t)
     o.value = v
     choix.appendChild(o)
@@ -295,14 +301,14 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   saisie.rows = 2
   saisie.maxLength = MESSAGE_MAX
   saisie.placeholder = 'Une question, une demande…'
-  saisie.setAttribute('aria-label', 'Votre message à Claude')
+  saisie.setAttribute('aria-label', 'Votre message à Margo')
   const envoyer = el('button', 'btn-primary dialogue-envoyer', 'Envoyer')
   envoyer.type = 'button'
   const arreter = el('button', 'dialogue-arreter', 'Arrêter')
   arreter.type = 'button'
   arreter.hidden = true
   const statut = el('p', 'dialogue-statut')
-  const note = el('p', 'dialogue-note', 'Claude lit le document pour vous répondre. Ce qu’il propose arrive en suivi de modifications : vous acceptez ou rejetez.')
+  const note = el('p', 'dialogue-note', 'Margo lit le document pour vous répondre. Ses propositions arrivent en suivi de modifications : vous acceptez ou rejetez.')
 
   const pied = el('div', 'dialogue-pied')
   const barre = el('div', 'dialogue-barre')
@@ -387,6 +393,14 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     descendre()
   }
 
+  /** Pose la portée d'après la sélection de l'éditeur : du texte sélectionné
+   * → « La sélection », un simple curseur → « Tout le texte ». */
+  function porteeSelonSelection() {
+    const view = getView()
+    if (!view) return
+    choix.value = view.state.selection.empty ? 'document' : 'selection'
+  }
+
   function majIndication() {
     const view = getView()
     const p = view ? porteeDe(view, choix.value) : { type: 'document' }
@@ -405,9 +419,9 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     if (!parts.length) return
     ligne.appendChild(el('span', null, `${parts.join(' · ')} — à relire dans le panneau des modifications.`))
     if (fin.modifications) {
-      const rejeter = el('button', 'dialogue-lien dialogue-rejeter', 'Tout rejeter — Claude')
+      const rejeter = el('button', 'dialogue-lien dialogue-rejeter', 'Tout rejeter — Margo')
       rejeter.type = 'button'
-      rejeter.title = 'Rejette toutes les modifications proposées par Claude, sans toucher à celles des personnes'
+      rejeter.title = 'Rejette toutes les modifications proposées par les IA (Margo, ou Claude invité), sans toucher à celles des personnes'
       let arme = false
       rejeter.addEventListener('click', () => {
         const view = getView()
@@ -418,7 +432,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
           rejeter.textContent = `Confirmer : rejeter ${n}`
           setTimeout(() => {
             arme = false
-            rejeter.textContent = 'Tout rejeter — Claude'
+            rejeter.textContent = 'Tout rejeter — Margo'
           }, 4000)
           return
         }
@@ -454,7 +468,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     const bulle = bulleClaude()
     const activite = el('div', 'dialogue-activite')
     bulle.appendChild(activite)
-    const attente = el('div', 'dialogue-attente', 'Claude réfléchit…')
+    const attente = el('div', 'dialogue-attente', 'Margo réfléchit…')
     activite.appendChild(attente)
     const inserer = (noeud) => activite.insertBefore(noeud, attente)
     descendre()
@@ -473,7 +487,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
         signal: enCours.signal,
       })
       if (!reponse.ok) {
-        let message = 'Claude n’est pas joignable pour le moment.'
+        let message = 'Margo n’est pas joignable pour le moment.'
         try {
           message = (await reponse.json()).error || message
         } catch {
@@ -488,7 +502,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
           rendreTexte(morceau, evt.texte, allerAuBloc)
           inserer(morceau)
         } else if (evt.type === 'outil') {
-          ligneOutil = el('div', 'dialogue-outil', `Claude ${evt.libelle}…`)
+          ligneOutil = el('div', 'dialogue-outil', `Margo ${evt.libelle}…`)
           inserer(ligneOutil)
         } else if (evt.type === 'outil_fin') {
           if (ligneOutil) {
@@ -529,6 +543,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     palette.hidden = false
     bouton.setAttribute('aria-expanded', 'true')
     bouton.hidden = false
+    porteeSelonSelection()
     majIndication()
     saisie.focus()
     descendre()
@@ -549,6 +564,26 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   envoyer.addEventListener('click', envoyerMessage)
   arreter.addEventListener('click', () => enCours && enCours.abort())
   choix.addEventListener('change', majIndication)
+  // La portée suit la sélection de l'éditeur tant qu'elle change : ni au
+  // simple focus du champ de saisie, ni quand la sélection ne bouge pas, pour
+  // ne pas défaire un choix que la personne vient de faire à la main. Le
+  // report à la tâche suivante laisse ProseMirror mettre son état à jour.
+  let derniere = ''
+  const cle = () => {
+    const view = getView()
+    return view ? `${view.state.selection.from}-${view.state.selection.to}` : ''
+  }
+  const suivreLaSelection = () => {
+    setTimeout(() => {
+      if (palette.hidden) return
+      const c = cle()
+      if (c === derniere) return
+      derniere = c
+      porteeSelonSelection()
+      majIndication()
+    }, 0)
+  }
+  document.addEventListener('selectionchange', suivreLaSelection)
   saisie.addEventListener('focus', majIndication)
   saisie.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
@@ -568,6 +603,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     destroy() {
       if (enCours) enCours.abort()
       clearTimeout(flashTimer)
+      document.removeEventListener('selectionchange', suivreLaSelection)
       racine.remove()
     },
   }

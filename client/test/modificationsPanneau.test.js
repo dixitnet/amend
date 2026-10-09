@@ -295,9 +295,9 @@ function monterAvecAliceEtClaude() {
   return { view, panneau }
 }
 
-const boutonClaude = (panneau) => [...panneau.querySelectorAll('button')].find((b) => /^Tout rejeter — Claude/.test(b.textContent))
+const boutonClaude = (panneau) => [...panneau.querySelectorAll('button')].find((b) => /^Tout rejeter — IA/.test(b.textContent))
 
-test('« Tout rejeter — Claude » ne rejette que les modifications de Claude (30/09/2026)', async () => {
+test('« Tout rejeter — IA » ne rejette que les modifications des IA (30/09/2026)', async () => {
   const { view, panneau } = monterAvecAliceEtClaude()
   await new Promise((r) => setTimeout(r, 30))
   assert.equal(entrees(panneau).length, 4)

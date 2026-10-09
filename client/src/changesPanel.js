@@ -248,9 +248,9 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
       const deClaude = changes.filter(estModificationDAgent).length
       if (deClaude > 0) {
         const rejectAgent = document.createElement('button')
-        rejectAgent.textContent = `Tout rejeter — Claude (${deClaude})`
+        rejectAgent.textContent = `Tout rejeter — IA (${deClaude})`
         rejectAgent.className = 'btn-reject btn-reject-claude'
-        rejectAgent.title = 'Rejette toutes les modifications proposées par Claude, sans toucher à celles des personnes'
+        rejectAgent.title = 'Rejette toutes les modifications proposées par les IA (Margo, ou Claude invité), sans toucher à celles des personnes'
         rejectAgent.onclick = () => rejectAgentChanges(view)
         bulk.appendChild(rejectAgent)
       }

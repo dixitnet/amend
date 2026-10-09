@@ -1122,7 +1122,7 @@ const TARIFS_IA = {
       return sendJson(res, 200, { autorise, portee: porteeDialogue(), modele: autorise ? modeleDialogue() : null })
     }
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'méthode non permise' })
-    if (!autorise) return sendJson(res, 403, { error: "le dialogue avec Claude n'est pas ouvert à votre rôle sur ce document" })
+    if (!autorise) return sendJson(res, 403, { error: "le dialogue avec Margo n'est pas ouvert à votre rôle sur ce document" })
     let corps
     try {
       corps = await readJsonBody(req, 300_000)

@@ -103,4 +103,7 @@ async function enregistrerNom(nom) {
 // Vert amande — la couleur identitaire de l'appli (voir --accent dans
 // style.css) — utilisée notamment pour surligner les propositions de l'IA,
 // pour bien les distinguer des couleurs personnelles des autres personnes.
-export const AI_USER = { name: 'IA', color: '#5f7a4a' }
+// Margo (nom donné à l'IA le 09/10/2026). « (IA) » reste dans le nom : on doit
+// voir d'un coup d'œil, dans le suivi et la présence, que ce n'est pas une
+// personne. Les anciennes modifications portent encore l'auteur « IA ».
+export const AI_USER = { name: 'Margo (IA)', color: '#5f7a4a' }
