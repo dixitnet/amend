@@ -17,8 +17,8 @@ import { ajouter, ajouterNotes, ancreDeBloc, blocsDuDocument, commenter, fils, p
 export const COULEUR_AGENT = '#5f7a4a' // le vert de l'IA, réservé (client/src/user.js)
 const VERSIONS_CONNUES = ['2025-06-18', '2025-03-26', '2024-11-05']
 const VERSION_PAR_DEFAUT = '2025-06-18'
-const LIRE_PAR_DEFAUT = 40
-const LIRE_MAX = 200
+export const LIRE_PAR_DEFAUT = 40
+export const LIRE_MAX = 200
 const SORTIE_MAX = 60_000
 const ECRITURES_MAX = 120
 const ECRITURES_FENETRE_MS = 60 * 60_000
