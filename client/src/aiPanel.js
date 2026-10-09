@@ -2,6 +2,8 @@ import { TextSelection } from 'prosemirror-state'
 import { insertAISuggestion, insertAIParagraphSuggestions, getTextBlocksInRange, porteDesModifications } from './trackChanges.js'
 import { AI_USER } from './user.js'
 
+const PASSAGE_CHANGE = 'Le passage a été modifié pendant la demande : la suggestion n’a pas été appliquée. Relance la demande.'
+
 /** Calls the AI-suggest endpoint for one piece of text. Returns
  * {ok: true, suggestion} or {ok: false, error}. */
 async function requestSuggestion(docId, text, instruction) {
@@ -143,6 +145,15 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
           status.textContent = result.error
           return
         }
+        // Pendant l'attente, un autre onglet a pu écrire dans le passage ou
+        // avant lui : `from` et `to` ne désignent alors plus le même texte, et
+        // la suggestion serait comparée à autre chose que ce que l'IA a lu
+        // (elle « supprimait » le texte du collègue — test du 09/10/2026).
+        const [blocMaintenant] = getTextBlocksInRange(view.state.doc, from, to)
+        if ((blocMaintenant ? blocMaintenant.text : view.state.doc.textBetween(from, to, '\n')) !== text) {
+          status.textContent = PASSAGE_CHANGE
+          return
+        }
         insertAISuggestion(view, from, to, result.suggestion, AI_USER)
       } else {
         // Selection spans several paragraphs: ask the AI about each
@@ -163,6 +174,14 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
         const failed = results.find((r) => !r.ok)
         if (failed) {
           status.textContent = failed.error
+          return
+        }
+        const blocsMaintenant = getTextBlocksInRange(view.state.doc, from, to)
+        if (
+          blocsMaintenant.length !== blocks.length ||
+          blocsMaintenant.some((b, i) => b.text !== blocks[i].text || b.textFrom !== blocks[i].textFrom)
+        ) {
+          status.textContent = PASSAGE_CHANGE
           return
         }
         insertAIParagraphSuggestions(

@@ -79,10 +79,12 @@ function buildCursor(user) {
   // sa pastille dans le bandeau (presence.js).
   cursor.dataset.user = user.name
   cursor.style.setProperty('--user-color', user.color)
-  const label = document.createElement('span')
-  label.classList.add('remote-cursor-label')
-  label.textContent = user.name
-  cursor.appendChild(label)
+  // L'étiquette du nom n'est PAS du texte : elle est dessinée par le CSS
+  // (`::after`, depuis `data-user`). Dans le DOM elle faisait partie de la
+  // sélection — un double-clic sur le mot où se tenait le curseur d'un autre
+  // onglet donnait « phraseSyg », et taper par-dessus brouillait le texte
+  // (constaté en prod le 09/10/2026).
+  cursor.contentEditable = 'false'
   return cursor
 }
 

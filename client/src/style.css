@@ -645,6 +645,14 @@ a { color: var(--accent); }
   min-height: 100%;
   padding: 0 20px;
   outline: none;
+  /* Requis par ProseMirror (il le signale en console s'il manque) : sans
+     `pre-wrap`, Chrome range chaque espace tapée dans le document sous
+     forme d'espace insécable (U+00A0) — plus de coupure de ligne à cet
+     endroit, une recherche « un deux » qui échoue, et la typographie qui
+     laisse l'insécable là où elle devrait poser une fine (constaté en
+     prod le 09/10/2026, test multi-utilisateurs). */
+  white-space: pre-wrap;
+  word-wrap: break-word;
   /* 18 px (20/09/2026, demande de Sylvain — auparavant 17). Cette taille
      est celle de **l'écran**, et non celle du document : la feuille de
      style du document (tailles en points, polices, interlignes) ne touche
@@ -814,8 +822,12 @@ span.author-color {
   border-left: 2px solid var(--user-color, var(--accent));
   word-break: normal;
   pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.remote-cursor-label {
+/* Le nom est dessiné, pas écrit : pas de texte dans le DOM de l'éditeur. */
+.remote-cursor::after {
+  content: attr(data-user);
   position: absolute;
   top: -1.2em;
   left: -2px;
