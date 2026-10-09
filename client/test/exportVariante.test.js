@@ -64,7 +64,7 @@ test('version en cours : ajout souligné, suppression barrée', () => {
   // Les trois sérialiseurs savent déjà rendre `underline` et `strike` : on
   // leur donne un document, pas une consigne.
   const cours = documentPourExport(remplacement(), EN_COURS)
-  assert.equal(texte(cours), 'Le maire peutdoit agir.')
+  assert.equal(texte(cours), 'Le maire doitpeut agir.')
   assert.deepEqual(marques(cours, 'underline'), ['peut'])
   assert.deepEqual(marques(cours, 'strike'), ['doit'])
   assert.deepEqual(marques(cours, 'insertion'), [], 'les marques de travail ne sortent pas telles quelles')

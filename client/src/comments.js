@@ -288,6 +288,22 @@ export function estStructurel(tr) {
   return false
 }
 
+/** La transaction est-elle un **remplacement tapé en suivi** (du texte tapé
+ * par-dessus une sélection) ? Le nouveau texte vient après l'ancien barré
+ * (09/10/2026) : il se trouve donc au bord de fin d'un passage commenté.
+ * Sans traitement, il y serait avalé — la fin de l'ancre désigne le
+ * caractère *suivant*, que l'insertion précède — et le commentaire
+ * glisserait sur le texte de remplacement au lieu de rester sur l'ancien. On
+ * traite donc ce geste comme un geste de structure : la fin du passage est
+ * reportée **avant** le texte inséré, puis les ancres Yjs sont réécrites.
+ *
+ * Le geste est signalé par `rewriteForTracking` (méta `remplacementFrappe`).
+ * Une réécriture de l'IA, elle, garde son contrat : le commentaire passe sur
+ * le nouveau texte quand on l'accepte. */
+export function estRemplacement(tr) {
+  return !!tr.getMeta('remplacementFrappe')
+}
+
 /** Reporte des passages par le `mapping` d'une transaction. Le début reste
  * devant ce qu'on écrit à sa hauteur, la fin passe derrière (le passage
  * grandit quand on écrit au bout, comme avec l'ancre Yjs) — sauf si la
@@ -447,7 +463,7 @@ export function commentsPlugin(ydoc, commentsMap, { peutEcrire = () => true } = 
         // Transaction locale : Yjs n'a pas encore reçu le texte (ySyncPlugin
         // l'écrit dans la mise à jour de la vue, après celle-ci). On suit
         // donc les passages avec la transaction elle-même.
-        const structurel = estStructurel(tr)
+        const structurel = estStructurel(tr) || estRemplacement(tr)
         // Un commentaire arrivé d'un autre participant à l'instant n'est pas
         // encore connu (le rafraîchissement est différé) : Yjs correspond
         // encore à l'état d'avant la transaction, on le lit tel quel.

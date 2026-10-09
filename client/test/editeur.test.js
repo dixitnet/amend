@@ -50,13 +50,14 @@ test('taper par-dessus une sélection : le curseur suit ce qu’on écrit', () =
   const e = editeur(doc('Le chat dort.'))
   e.selection(4, 8).taper('chien')
 
-  // Le texte remplacé est barré, pas retiré — c'est le suivi.
-  assert.equal(e.texte(), 'Le chienchat dort.')
+  // Le texte remplacé est barré, pas retiré — c'est le suivi — et le nouveau
+  // vient après lui (choix du 09/10/2026, comme Google Docs et Word).
+  assert.equal(e.texte(), 'Le chatchien dort.')
   // Mais ce qu'on lira une fois accepté est bien ce qu'on a tapé.
   assert.equal(e.texteAccepte(), 'Le chien dort.')
   // Et surtout : plus rien n'est sélectionné, le curseur est après « chien ».
   assert.ok(e.state.selection.empty, 'le mot remplacé est resté sélectionné')
-  assert.equal(e.state.selection.from, 9)
+  assert.equal(e.state.selection.from, 13)
   valide(e)
 })
 
@@ -76,13 +77,13 @@ test('remplacer d’un coup (collage simple) donne le même résultat que frappe
   assert.ok(colle.state.selection.empty)
 })
 
-test('effacer une sélection la barre et pose le curseur avant', () => {
+test('effacer une sélection la barre et pose le curseur après le passage barré', () => {
   const e = editeur(doc('Le chat dort.'))
   e.selection(4, 8).effacerAvant()
   assert.equal(e.texte(), 'Le chat dort.', 'le texte barré doit rester en place')
   assert.equal(e.texteAccepte(), 'Le  dort.')
   assert.ok(e.state.selection.empty)
-  assert.equal(e.state.selection.from, 4)
+  assert.equal(e.state.selection.from, 8)
 })
 
 test('effacer puis taper donne exactement ce que taper par-dessus donne', () => {
@@ -675,7 +676,7 @@ test('S6 — deux auteurs se relaient sur le même mot, chacun garde sa trace', 
   const x = editeur(doc('Le chat dort.'))
   x.selection(4, 8).taper('chien')
   const b = editeur(x.doc, { user: BOB })
-  b.selection(4, 9).taper('tigre')
+  b.selection(8, 13).taper('tigre')
   valide(b)
   assert.equal(b.texteAccepte(), 'Le tigre dort.')
   assert.ok(b.texte().includes('chat'), 'le premier mot est toujours là, barré')

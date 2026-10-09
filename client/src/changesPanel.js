@@ -451,7 +451,10 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         acceptBtn.textContent = 'Accepter'
         acceptBtn.className = 'btn-accept'
         acceptBtn.onclick = () => {
-          const depart = sous.from
+          // Pour une moitié de remplacement, on repart du début du couple :
+          // l'autre moitié peut se trouver avant celle qu'on valide (ancien
+          // barré, puis nouveau — 09/10/2026).
+          const depart = change.type === 'remplacement' ? change.from : sous.from
           acceptChange(view, sous)
           continuerVersLeBas(depart)
         }
@@ -459,7 +462,10 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         rejectBtn.textContent = 'Rejeter'
         rejectBtn.className = 'btn-reject'
         rejectBtn.onclick = () => {
-          const depart = sous.from
+          // Pour une moitié de remplacement, on repart du début du couple :
+          // l'autre moitié peut se trouver avant celle qu'on valide (ancien
+          // barré, puis nouveau — 09/10/2026).
+          const depart = change.type === 'remplacement' ? change.from : sous.from
           rejectChange(view, sous)
           continuerVersLeBas(depart)
         }

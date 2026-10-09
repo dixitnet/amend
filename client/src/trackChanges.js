@@ -462,7 +462,14 @@ export function rewriteForTracking(state, tr, user) {
   let curseur = null
 
   if (slice.size > 0) {
-    const insPos = out.mapping.map(cibleFrom)
+    // Taper par-dessus une sélection : l'ancien passage reste barré, le
+    // nouveau texte vient **après lui** (choix de Sylvain, 09/10/2026, comme
+    // Google Docs et Word : « ancien barré, puis nouveau »). Avant, le
+    // nouveau texte se plaçait devant et les deux se touchaient en une seule
+    // chaîne illisible (« banaleordinaire »). Sans sélection (frappe au
+    // curseur, rien de barré), cibleFrom et cibleTo sont confondus : rien ne
+    // change.
+    const insPos = out.mapping.map(cibleTo)
     const text = slice.content.textBetween(0, slice.content.size, '\n')
     if (text.length > 0) {
       // Use `insert`, not `insertText`: `insertText` looks at
@@ -494,7 +501,11 @@ export function rewriteForTracking(state, tr, user) {
   // dans le même ordre à l'écran. Seule la suppression avant pousse le
   // curseur de l'autre côté.
   if (curseur === null && cibleTo > cibleFrom) {
-    curseur = out.mapping.map(effacement && !versLArriere ? cibleTo : cibleFrom)
+    // Touche d'effacement : le curseur se pose du côté vers lequel on
+    // efface (voir plus haut). Sélection effacée d'un coup : **après** le
+    // passage barré (09/10/2026, avec l'ordre « ancien barré, puis nouveau »
+    // : effacer puis taper doit donner ce que taper par-dessus donne).
+    curseur = out.mapping.map(effacement ? (versLArriere ? cibleFrom : cibleTo) : cibleTo)
   }
 
   // Une réécriture qui ne produit aucun pas ne doit **jamais** renvoyer
@@ -526,6 +537,9 @@ export function rewriteForTracking(state, tr, user) {
     out.setSelection(TextSelection.create(out.doc, curseur))
   }
   out.setMeta('trackChangesInternal', true)
+  // Texte tapé par-dessus une sélection : le plugin des commentaires doit
+  // garder le passage commenté sur l'ancien texte barré (voir estRemplacement).
+  if (groupe) out.setMeta('remplacementFrappe', true)
   return out
 }
 
@@ -879,7 +893,8 @@ export function mergeAdjacentChanges(raw) {
  * swapping one passage for another, not two unrelated changes (see
  * claude/etude-suivi-remplacement.md, projet Amend). Deliberately only
  * pairs adjacent entries: a replacement's insertion always sits
- * immediately before its matching deletion in the document, by
+ * immediately next to its matching deletion (after it since 09/10/2026 for
+ * typing; after it for an AI rewrite too), by
  * construction (see rewriteForTracking/effacementMultiBloc) — no need to
  * search further, and safer not to (two same-`groupe` spans that end up
  * apart, e.g. after other edits nearby, are exactly the case where forcing
@@ -899,8 +914,9 @@ export function pairReplacements(changes) {
     const a = changes[i]
     const b = changes[i + 1]
     // Deux moitiés d'un même groupe, qui se suivent dans la liste : une
-    // insertion et une suppression, dans un ordre ou dans l'autre. La
-    // frappe met le nouveau avant l'ancien barré ; une réécriture entière
+    // insertion et une suppression, dans un ordre ou dans l'autre (des
+    // documents plus anciens ont le nouveau avant l'ancien barré ; la frappe
+    // met désormais le nouveau après ; une réécriture entière
     // par l'IA met le nouveau paragraphe **après** l'ancien (28/09/2026).
     const paire =
       b && a.groupe && a.groupe === b.groupe && a.type !== b.type && ['insertion', 'deletion'].includes(a.type) && ['insertion', 'deletion'].includes(b.type)

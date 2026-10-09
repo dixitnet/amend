@@ -207,7 +207,7 @@ test('« traiter séparément » redonne accès aux deux décisions', async () =
   const restant = entrees(panneau)
   assert.equal(restant.length, 1, 'il reste l’ancien texte, seul')
   assert.ok(restant[0].className.includes('change-deletion'), 'ce n’est plus un remplacement groupé')
-  assert.equal(view.state.doc.textContent, 'Le chienchat mange.', 'le nouveau est resté, l’ancien encore barré')
+  assert.equal(view.state.doc.textContent, 'Le chatchien mange.', 'le nouveau est resté, l’ancien encore barré')
 })
 
 /** « Traiter séparément » ouvert sur le remplacement chat → chien. */
