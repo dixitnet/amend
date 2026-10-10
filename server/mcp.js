@@ -12,6 +12,7 @@
 // pouvoir que ses outils ne lui donnent — pas de modification directe, pas
 // de suppression, pas d'accès à un autre document.
 
+import { Limiteur } from './limiteur.js'
 import { ajouter, ajouterNotes, ancreDeBloc, blocsDuDocument, commenter, fils, proposer, repondre, statistiques, AJOUTS_MAX, NOTES_MAX, REMPLACEMENTS_MAX } from './agentTexte.js'
 
 export const COULEUR_AGENT = '#5f7a4a' // le vert de l'IA, réservé (client/src/user.js)
@@ -225,7 +226,7 @@ export class Mcp {
      * ou null : le connecteur marche pareil sans. */
     this.presence = presence
     this.maintenant = maintenant
-    this.ecritures = new Map()
+    this.ecritures = new Limiteur({ max: ECRITURES_MAX, fenetreMs: ECRITURES_FENETRE_MS, maintenant: () => this.maintenant() })
   }
 
   /**
@@ -338,15 +339,7 @@ export class Mcp {
   }
 
   _tropEcrit(id) {
-    const maintenant = this.maintenant()
-    const recents = (this.ecritures.get(id) || []).filter((t) => maintenant - t < ECRITURES_FENETRE_MS)
-    if (recents.length >= ECRITURES_MAX) {
-      this.ecritures.set(id, recents)
-      return true
-    }
-    recents.push(maintenant)
-    this.ecritures.set(id, recents)
-    return false
+    return !this.ecritures.essayer(id)
   }
 
   async _executer(nom, args, acces) {

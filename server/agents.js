@@ -21,6 +21,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { capabilities } from './roles.js'
+import { Limiteur } from './limiteur.js'
 
 /** Les rôles qu'un agent peut porter. Jamais éditeur : un agent propose, un
  * humain décide. */
@@ -73,7 +74,7 @@ export class Agents {
     this.maintenant = maintenant
     /** Échecs de découverte de l'adresse, par origine — même principe que
      * pour les pages publiées : deviner ne doit pas être gratuit. */
-    this.echecs = new Map()
+    this.echecs = new Limiteur({ max: ECHECS_MAX, fenetreMs: ECHECS_FENETRE_MS, maintenant: () => this.maintenant() })
     this._derniereNote = new Map()
     this.signature = null
     this.agents = this._lire()
@@ -298,19 +299,10 @@ export class Agents {
   /** Vrai si cette origine a trop échoué récemment. On ne compte que les
    * adresses qui ne mènent nulle part. */
   bloque(origine) {
-    const maintenant = this.maintenant()
-    const recents = (this.echecs.get(origine) || []).filter((t) => maintenant - t < ECHECS_FENETRE_MS)
-    this.echecs.set(origine, recents)
-    return recents.length >= ECHECS_MAX
+    return this.echecs.atteint(origine)
   }
 
   noterEchec(origine) {
-    const maintenant = this.maintenant()
-    const recents = (this.echecs.get(origine) || []).filter((t) => maintenant - t < ECHECS_FENETRE_MS)
-    recents.push(maintenant)
-    this.echecs.set(origine, recents)
-    if (this.echecs.size > 5000) {
-      for (const [cle, v] of this.echecs) if (!v.some((t) => maintenant - t < ECHECS_FENETRE_MS)) this.echecs.delete(cle)
-    }
+    this.echecs.noter(origine)
   }
 }

@@ -18,7 +18,9 @@ import { Versions } from './versions.js'
 import { Agents, peutInviterAgent, porteeAgent, ROLES_AGENT } from './agents.js'
 import { PresenceAgents } from './presenceAgents.js'
 import { Mcp } from './mcp.js'
-import { Dialogue, DialogueErreur, peutDialoguer, porteeDialogue, modeleDialogue } from './dialogue.js'
+import { Dialogue, DialogueErreur, MESSAGES_PAR_HEURE, peutDialoguer, porteeDialogue, modeleDialogue } from './dialogue.js'
+import { Limiteur } from './limiteur.js'
+import { modeCsp, politiqueApplication, poserEnTetes } from './enTetes.js'
 import { apercu } from './admin.js'
 import { Publications, peutPublier, porteePublication, NOM_PAGE } from './publication.js'
 import { createGzip } from 'node:zlib'
@@ -93,21 +95,12 @@ const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`
 // cas réaliste.
 const ESSAIS_PUBLICATION = 30
 const ESSAIS_FENETRE_MS = 10 * 60_000
-const essaisPublication = new Map()
+const essaisPublication = new Limiteur({ max: ESSAIS_PUBLICATION, fenetreMs: ESSAIS_FENETRE_MS })
 function essaiPublicationAutorise(req) {
-  const ip = req.socket.remoteAddress || 'inconnu'
-  const maintenant = Date.now()
-  const passages = (essaisPublication.get(ip) || []).filter((t) => maintenant - t < ESSAIS_FENETRE_MS)
-  passages.push(maintenant)
-  essaisPublication.set(ip, passages)
-  // Un ménage occasionnel suffit : la carte ne grossit qu'avec le nombre
-  // d'adresses qui se trompent, pas avec le trafic.
-  if (essaisPublication.size > 5000) {
-    for (const [cle, v] of essaisPublication) {
-      if (!v.some((t) => maintenant - t < ESSAIS_FENETRE_MS)) essaisPublication.delete(cle)
-    }
-  }
-  return passages.length <= ESSAIS_PUBLICATION
+  // Derrière Caddy, `remoteAddress` vaut toujours 127.0.0.1 : sans
+  // `origineDe`, tous les visiteurs partageaient un seul compteur (audit du
+  // 10/10/2026, A9). Ici chaque tentative compte, y compris refusée.
+  return essaisPublication.noter(origineDe(req)) <= ESSAIS_PUBLICATION
 }
 
 /** Le mode d'emploi glissé dans l'archive. Une sauvegarde qu'on retrouve
@@ -155,33 +148,61 @@ sauvegarde.
 
 const INSCRIPTIONS_PAR_ORIGINE_HEURE = 5
 const INSCRIPTIONS_TOTAL_HEURE = 100
-const inscriptionsRecentes = new Map()
-let inscriptionsGlobales = []
+const inscriptionsParOrigine = new Limiteur({ max: INSCRIPTIONS_PAR_ORIGINE_HEURE, fenetreMs: 3600_000 })
+const inscriptionsTotal = new Limiteur({ max: INSCRIPTIONS_TOTAL_HEURE, fenetreMs: 3600_000 })
 function inscriptionAutorisee(origine) {
-  const maintenant = Date.now()
-  inscriptionsGlobales = inscriptionsGlobales.filter((t) => maintenant - t < 3600_000)
-  if (inscriptionsGlobales.length >= INSCRIPTIONS_TOTAL_HEURE) return false
-  const passages = (inscriptionsRecentes.get(origine) || []).filter((t) => maintenant - t < 3600_000)
-  if (passages.length >= INSCRIPTIONS_PAR_ORIGINE_HEURE) return false
-  passages.push(maintenant)
-  inscriptionsRecentes.set(origine, passages)
-  inscriptionsGlobales.push(maintenant)
-  if (inscriptionsRecentes.size > 5000) {
-    for (const [cle, v] of inscriptionsRecentes) if (!v.some((t) => maintenant - t < 3600_000)) inscriptionsRecentes.delete(cle)
-  }
+  if (inscriptionsTotal.atteint('tous') || inscriptionsParOrigine.atteint(origine)) return false
+  inscriptionsTotal.noter('tous')
+  inscriptionsParOrigine.noter(origine)
   return true
 }
 
 const SUPPORT_PAR_HEURE = 5
-const supportRecents = new Map()
+const supportRecents = new Limiteur({ max: SUPPORT_PAR_HEURE, fenetreMs: 3600_000 })
 function supportAutorise(email) {
-  const maintenant = Date.now()
-  const passages = (supportRecents.get(email) || []).filter((t) => maintenant - t < 3600_000)
-  if (passages.length >= SUPPORT_PAR_HEURE) return false
-  passages.push(maintenant)
-  supportRecents.set(email, passages)
+  return supportRecents.essayer(email)
+}
+
+// Quotas du 10/10/2026 (audit, S9 + S10 + S11). Tous en mémoire, par compte.
+//
+// IA : sans quota, un compte (et un compte s'obtient par une invitation)
+// pouvait se servir de la clé Anthropic de l'instance comme d'un modèle
+// gratuit. Même plafond horaire que le dialogue, plus un plafond
+// journalier.
+const SUGGESTIONS_PAR_JOUR = 150
+const suggestionsParHeure = new Limiteur({ max: MESSAGES_PAR_HEURE, fenetreMs: 3600_000 })
+const suggestionsParJour = new Limiteur({ max: SUGGESTIONS_PAR_JOUR, fenetreMs: 24 * 3600_000 })
+function suggestionAutorisee(email) {
+  if (suggestionsParHeure.atteint(email) || suggestionsParJour.atteint(email)) return false
+  suggestionsParHeure.noter(email)
+  suggestionsParJour.noter(email)
   return true
 }
+
+// Invitations : le titre du document part dans l'objet et le corps d'un
+// courriel envoyé depuis le domaine d'amend.ink vers n'importe quelle
+// adresse — un relais d'hameçonnage et un risque pour la réputation
+// Mailgun. Trois plafonds : par personne qui invite (heure et jour), et par
+// destinataire (personne ne doit recevoir dix invitations à la suite).
+const INVITATIONS_PAR_INVITANT_HEURE = 30
+const INVITATIONS_PAR_INVITANT_JOUR = 100
+const INVITATIONS_PAR_DESTINATAIRE_HEURE = 5
+const invitationsHeure = new Limiteur({ max: INVITATIONS_PAR_INVITANT_HEURE, fenetreMs: 3600_000 })
+const invitationsJour = new Limiteur({ max: INVITATIONS_PAR_INVITANT_JOUR, fenetreMs: 24 * 3600_000 })
+const invitationsDestinataire = new Limiteur({ max: INVITATIONS_PAR_DESTINATAIRE_HEURE, fenetreMs: 3600_000 })
+function invitationAutorisee(invitant, destinataire) {
+  if (invitationsHeure.atteint(invitant) || invitationsJour.atteint(invitant) || invitationsDestinataire.atteint(destinataire)) return false
+  invitationsHeure.noter(invitant)
+  invitationsJour.noter(invitant)
+  invitationsDestinataire.noter(destinataire)
+  return true
+}
+
+// Demandes de lien de connexion : par adresse (5 par heure, dans auth.js) et
+// par origine. Le refus est **silencieux** — la réponse reste « ok » — pour
+// ne rien apprendre à quelqu'un qui balaie des adresses.
+const LIENS_PAR_ORIGINE_HEURE = 20
+const liensParOrigine = new Limiteur({ max: LIENS_PAR_ORIGINE_HEURE, fenetreMs: 3600_000 })
 /** Un segment d'adresse décodé ; `%E0` seul donne un 400 et non une 500
  * (audit du 10/10/2026, A3). */
 function decoderSegment(segment) {
@@ -921,26 +942,34 @@ const TARIFS_IA = {
     // adresse qui a déjà un accès quelque part, ou une administratrice,
     // reçoit réellement un lien — tout le monde d'autre n'entre que par
     // une invitation à un document précis (voir isLoginAllowed, auth.js).
-    if (isLoginAllowed(email, storage) && canRequestReconnectLink(email)) {
+    //
+    // Le **temps** de réponse ne doit pas non plus trahir l'adresse (audit
+    // du 10/10/2026, S11) : l'envoi du courriel prend des centaines de
+    // millisecondes que les autres cas n'ont pas. On répond donc tout de
+    // suite et l'envoi se poursuit en arrière-plan.
+    const origineOk = liensParOrigine.noter(origineDe(req)) <= LIENS_PAR_ORIGINE_HEURE
+    if (origineOk && isLoginAllowed(email, storage) && canRequestReconnectLink(email)) {
       const token = createReconnectToken(email)
       const link = `${APP_BASE_URL}/#/login/verify/${token}`
-      try {
-        await sendMail({
-          to: email,
-          subject: 'Votre lien de connexion à amend.ink',
-          ...courrierAvecBouton({
-            titre: 'Connexion à amend.ink',
-            intro: 'Voici votre lien de connexion. Il est valable 20 minutes et ne sert qu’une fois.',
-            libelleBouton: 'Se connecter',
-            lien: link,
-            apres: "Si vous n'avez rien demandé, ignorez ce message : sans clic, rien ne se passe.",
-          }),
-        })
-        metrics.log('mail', { type: 'connexion', ok: true })
-      } catch (err) {
-        console.error("Échec d'envoi d'email de reconnexion :", err.message)
-        metrics.log('mail', { type: 'connexion', ok: false, erreur: err.message })
-      }
+      void (async () => {
+        try {
+          await sendMail({
+            to: email,
+            subject: 'Votre lien de connexion à amend.ink',
+            ...courrierAvecBouton({
+              titre: 'Connexion à amend.ink',
+              intro: 'Voici votre lien de connexion. Il est valable 20 minutes et ne sert qu’une fois.',
+              libelleBouton: 'Se connecter',
+              lien: link,
+              apres: "Si vous n'avez rien demandé, ignorez ce message : sans clic, rien ne se passe.",
+            }),
+          })
+          metrics.log('mail', { type: 'connexion', ok: true })
+        } catch (err) {
+          console.error("Échec d'envoi d'email de reconnexion :", err.message)
+          metrics.log('mail', { type: 'connexion', ok: false, erreur: err.message })
+        }
+      })()
     }
     return sendJson(res, 200, { ok: true })
   }
@@ -1008,6 +1037,9 @@ const TARIFS_IA = {
     const existant = storage.getAccess(id).find((a) => a.email === email)
     if (existant && existant.status === 'actif') {
       return sendJson(res, 409, { error: 'cette personne a déjà accès au document' })
+    }
+    if (!invitationAutorisee(inviter, email)) {
+      return sendJson(res, 429, { error: 'trop d’invitations envoyées pour le moment : réessayez plus tard' })
     }
     const { token, nouvelleEntree } = storage.inviteEmail(id, email, role, inviter)
     const lien = `${APP_BASE_URL}/#/invite/${token}`
@@ -1216,7 +1248,8 @@ const TARIFS_IA = {
     // puis le droit `canUseAI` sur le document concerné — la suggestion
     // consomme la clé de l'instance et écrit dans le document, deux choses
     // qu'un correcteur n'a pas à faire. Le quota par compte (modèle
-    // FREE/PRO envisagé) reste à venir.
+    // FREE/PRO envisagé) reste à venir ; en attendant, un plafond contre
+    // l'abus (voir `suggestionAutorisee`).
     const email = readSession(req)
     if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     const body = await readJsonBody(req)
@@ -1224,6 +1257,11 @@ const TARIFS_IA = {
     if (!docId || !storage.getDoc(docId)) return sendJson(res, 400, { error: 'document inconnu' })
     if (!capabilities(storage.roleFor(docId, email)).canUseAI) {
       return sendJson(res, 403, { error: "votre rôle sur ce document ne permet pas d'utiliser l'IA" })
+    }
+    if (!suggestionAutorisee(email)) {
+      return sendJson(res, 429, {
+        error: `Limite atteinte : ${MESSAGES_PAR_HEURE} suggestions par heure et ${SUGGESTIONS_PAR_JOUR} par jour. Reprenez un peu plus tard.`,
+      })
     }
     // Le flux `ia` porte, depuis le 30/09/2026, la raison d'arrêt et les
     // jetons de réflexion : c'est ce qui aurait montré tout de suite que
@@ -1627,8 +1665,12 @@ async function traiterMcp(req, res, url) {
   repondre(status, body)
 }
 
+const MODE_CSP = modeCsp(process.env.CSP_MODE)
+const POLITIQUE_CSP = politiqueApplication(APP_BASE_URL)
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
+  poserEnTetes(res, { mode: MODE_CSP, politique: POLITIQUE_CSP, chemin: url.pathname })
   // Ce serveur ne parle pas OAuth : les connecteurs qui sondent ces adresses
   // doivent recevoir un 404 net, pas la page d'accueil du repli SPA — qu'un
   // client lirait comme une réponse valide.

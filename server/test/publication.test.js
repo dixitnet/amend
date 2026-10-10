@@ -340,6 +340,25 @@ test('deviner une adresse coûte quelque chose', async () => {
   assert.equal(dernier, 429, 'aucune limite sur les adresses qui ne mènent nulle part')
 })
 
+test('chaque visiteur a son compteur, derrière Caddy comme ailleurs (A9)', async () => {
+  // Derrière Caddy, la connexion arrive toujours de 127.0.0.1 : sans
+  // `origineDe`, un seul visiteur qui devine épuisait le compteur de tous.
+  // Le test précédent a déjà saturé l'origine « locale » ; une autre origine,
+  // annoncée par X-Forwarded-For, doit rester libre.
+  // Trois mots, en lettres seulement : c'est le format d'un nom de page.
+  const lettre = (n) => String.fromCharCode(97 + (n % 26))
+  const essai = (ip, n) =>
+    fetch(`${BASE}/p/yy${lettre(n)}${lettre(Math.floor(n / 26))}-inconnu-vraiment`, { headers: { 'x-forwarded-for': ip } })
+  assert.equal((await essai('203.0.113.7', 0)).status, 404, 'un autre visiteur est puni pour les essais du premier')
+  let dernier = 404
+  for (let i = 0; i < 40; i++) {
+    dernier = (await essai('203.0.113.8', i)).status
+    if (dernier === 429) break
+  }
+  assert.equal(dernier, 429, 'ce visiteur-là, lui, est limité')
+  assert.equal((await essai('203.0.113.9', 99)).status, 404, 'et son voisin ne l’est pas')
+})
+
 test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   await new Promise((r) => setTimeout(r, 50))

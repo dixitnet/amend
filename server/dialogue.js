@@ -19,6 +19,7 @@
 // texte d'un message ni celui d'un document.
 
 import { createHash } from 'node:crypto'
+import { Limiteur } from './limiteur.js'
 import { Mcp, COULEUR_AGENT, LIRE_MAX } from './mcp.js'
 import { REMPLACEMENTS_MAX } from './agentTexte.js'
 import { capabilities } from './roles.js'
@@ -146,7 +147,7 @@ export class Dialogue {
     this.pause = pause
     this.collecteurs = new Map()
     this.enCours = new Set()
-    this.messages = new Map()
+    this.messages = new Limiteur({ max: MESSAGES_PAR_HEURE, fenetreMs: FENETRE_MS, maintenant: () => this.maintenant() })
     this.reflexion = new Map()
     // Le même moteur que le connecteur, au nom d'un agent qui n'existe que
     // le temps de la conversation : vérifié à chaque appel d'outil (le
@@ -197,14 +198,9 @@ export class Dialogue {
     const id = `dialogue-${createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 10)}-${docId}`
     if (this.enCours.has(id)) throw new DialogueErreur(429, 'Une réponse est déjà en cours pour ce document.')
     if (this.enCours.size >= SIMULTANES_MAX) throw new DialogueErreur(429, 'Margo a beaucoup de demandes en ce moment : réessayez dans un instant.')
-    const maintenant = this.maintenant()
-    const recents = (this.messages.get(email.toLowerCase()) || []).filter((t) => maintenant - t < FENETRE_MS)
-    if (recents.length >= MESSAGES_PAR_HEURE) {
-      this.messages.set(email.toLowerCase(), recents)
+    if (!this.messages.essayer(email.toLowerCase())) {
       throw new DialogueErreur(429, `Limite atteinte : ${MESSAGES_PAR_HEURE} messages par heure. Reprenez un peu plus tard.`)
     }
-    recents.push(maintenant)
-    this.messages.set(email.toLowerCase(), recents)
 
     const agent = { id, docId, nom: 'Margo (IA)', role: 'correcteur', par: email }
     return { email, prenom, docId, titre: doc.title || 'sans titre', messages: propres, portee, agent, acces: { agent, capabilities: capabilities('correcteur') } }

@@ -1,0 +1,28 @@
+# Caddyfile de production d'amend.ink (/etc/caddy/Caddyfile).
+#
+# Ce fichier n'est pas lu par l'application : c'est la copie versionnée de
+# ce qui tourne sur le VPS, pour qu'on sache ce qui y est posé. Après une
+# modification sur le VPS :
+#     sudo caddy validate --config /etc/caddy/Caddyfile
+#     sudo systemctl reload caddy
+#
+# Les en-têtes de sécurité de l'application (CSP, nosniff, cadres interdits…)
+# sont posés par le serveur lui-même (server/enTetes.js). Seul HSTS est ici :
+# il ne concerne que la couche HTTPS.
+#
+# Pas de `trusted_proxies` : Caddy écrase alors le X-Forwarded-For envoyé par
+# le client avec l'adresse réelle, et c'est ce que lit `origineDe`
+# (server/server.js) pour limiter le débit visiteur par visiteur. En ajouter
+# un permettrait à n'importe qui de choisir son « adresse ».
+
+amend.ink {
+    redir https://www.amend.ink{uri} permanent
+}
+
+www.amend.ink {
+    # Une semaine pour commencer ; si rien ne casse, passer à 31536000 (un an).
+    # Pas de includeSubDomains ni de preload : on ne s'engage que pour www.
+    header Strict-Transport-Security "max-age=604800"
+
+    reverse_proxy localhost:8787
+}

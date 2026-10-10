@@ -707,6 +707,110 @@ test('supprimer le document coupe toute la salle (A10)', async () => {
   assert.equal(await Promise.race([coupe, attendre(1500).then(() => false)]), true)
 })
 
+// ===================================================== quotas (audit, point 32)
+
+test('invitations : une même adresse ne reçoit pas plus de cinq invitations par heure (S10)', async () => {
+  const cookie = cookieFor('quota-dest@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Doc quota destinataire' }),
+    })
+  ).json()
+  const inviter = () =>
+    fetch(`${BASE}/api/docs/${doc.id}/invitations`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ email: 'cible@example.com', role: 'lecteur' }),
+    })
+  // Sans Mailgun l'envoi échoue (502) : c'est la tentative qui compte.
+  for (let i = 0; i < 5; i++) assert.equal((await inviter()).status, 502)
+  const sixieme = await inviter()
+  assert.equal(sixieme.status, 429)
+  assert.match((await sixieme.json()).error, /invitations/)
+})
+
+test('invitations : une personne ne peut pas en envoyer plus de trente par heure (S10)', async () => {
+  const cookie = cookieFor('quota-invitant@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Doc quota invitant' }),
+    })
+  ).json()
+  const statuts = []
+  for (let i = 0; i < 32; i++) {
+    const res = await fetch(`${BASE}/api/docs/${doc.id}/invitations`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ email: `invite${i}@example.com`, role: 'lecteur' }),
+    })
+    statuts.push(res.status)
+  }
+  assert.deepEqual(statuts.slice(0, 30), Array(30).fill(502))
+  assert.deepEqual(statuts.slice(30), [429, 429])
+})
+
+test('suggestions IA : trente par heure et par compte, puis 429 (S9)', async () => {
+  const cookie = cookieFor('quota-ia@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Doc quota IA' }),
+    })
+  ).json()
+  const demander = (c = cookie) =>
+    fetch(`${BASE}/api/ai/suggest`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: c },
+      body: JSON.stringify({ docId: doc.id, text: 'Un texte.', instruction: 'Corrige.' }),
+    })
+  // Sans clé Anthropic, l'appel s'arrête en 501 : la tentative est comptée.
+  for (let i = 0; i < 30; i++) assert.equal((await demander()).status, 501)
+  const trente_et_un = await demander()
+  assert.equal(trente_et_un.status, 429)
+  assert.match((await trente_et_un.json()).error, /suggestions par heure/)
+
+  // Le plafond est par compte : un autre compte n'est pas touché.
+  const autre = cookieFor('quota-ia-2@example.com')
+  const docAutre = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: autre },
+      body: JSON.stringify({ title: 'Doc quota IA 2' }),
+    })
+  ).json()
+  const res = await fetch(`${BASE}/api/ai/suggest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: autre },
+    body: JSON.stringify({ docId: docAutre.id, text: 'Un texte.', instruction: 'Corrige.' }),
+  })
+  assert.equal(res.status, 501)
+})
+
+test('un refus 403 ne consomme pas le quota IA', async () => {
+  const proprio = cookieFor('quota-proprio@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: proprio },
+      body: JSON.stringify({ title: 'Doc 403' }),
+    })
+  ).json()
+  const etranger = cookieFor('quota-etranger@example.com')
+  for (let i = 0; i < 35; i++) {
+    const res = await fetch(`${BASE}/api/ai/suggest`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: etranger },
+      body: JSON.stringify({ docId: doc.id, text: 'x', instruction: 'y' }),
+    })
+    assert.equal(res.status, 403)
+  }
+})
+
 test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   // Laisse le rapporteur TAP écrire le résultat du tout dernier test avant

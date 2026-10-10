@@ -7,6 +7,7 @@
 // possession de la boîte mail.
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { Limiteur } from './limiteur.js'
 
 const COOKIE_NAME = 'collabtext_session'
 const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 jours
@@ -154,22 +155,17 @@ export function readSession(req) {
 // vie, en mémoire (pas besoin de survivre à un redémarrage). ---
 const RECONNECT_TOKEN_TTL_MS = 20 * 60 * 1000 // 20 minutes
 const reconnectTokens = new Map() // token -> { email, expiresAt }
-const reconnectRateLimit = new Map() // email -> timestamps[]
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 const RATE_LIMIT_MAX = 5
+const reconnectRateLimit = new Limiteur({ max: RATE_LIMIT_MAX, fenetreMs: RATE_LIMIT_WINDOW_MS }) // par email
 
 export function canRequestReconnectLink(email) {
-  const now = Date.now()
-  const list = (reconnectRateLimit.get(email) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
-  reconnectRateLimit.set(email, list)
-  return list.length < RATE_LIMIT_MAX
+  return !reconnectRateLimit.atteint(email)
 }
 
 export function createReconnectToken(email) {
   const now = Date.now()
-  const list = reconnectRateLimit.get(email) || []
-  list.push(now)
-  reconnectRateLimit.set(email, list)
+  reconnectRateLimit.noter(email)
 
   const token = randomBytes(24).toString('base64url')
   reconnectTokens.set(token, { email, expiresAt: now + RECONNECT_TOKEN_TTL_MS })
