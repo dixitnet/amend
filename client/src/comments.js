@@ -67,20 +67,30 @@ function decodeAnchor(json) {
 function resoudreAncres(state, ydoc, anchorFrom, anchorTo) {
   const ystate = ySyncPluginKey.getState(state)
   if (!ystate) return null
-  const from = relativePositionToAbsolutePosition(
-    ydoc,
-    ystate.type,
-    decodeAnchor(anchorFrom),
-    ystate.binding.mapping
-  )
-  const to = relativePositionToAbsolutePosition(
-    ydoc,
-    ystate.type,
-    decodeAnchor(anchorTo),
-    ystate.binding.mapping
-  )
-  if (from == null || to == null) return null
-  return { from: Math.min(from, to), to: Math.max(from, to) }
+  // Pendant un observateur Yjs, la liaison ProseMirror peut ne pas encore
+  // connaître un bloc que Yjs vient de recevoir : y-prosemirror lève alors une
+  // TypeError (« reading 'nodeSize' »). Une ancre qui ne se résout pas encore
+  // vaut « non résoluble » (null), même contrat que `orphelins` — et que
+  // presence.js — : on ne la prend pas pour un orphelin, on recalculera au
+  // prochain passage.
+  try {
+    const from = relativePositionToAbsolutePosition(
+      ydoc,
+      ystate.type,
+      decodeAnchor(anchorFrom),
+      ystate.binding.mapping
+    )
+    const to = relativePositionToAbsolutePosition(
+      ydoc,
+      ystate.type,
+      decodeAnchor(anchorTo),
+      ystate.binding.mapping
+    )
+    if (from == null || to == null) return null
+    return { from: Math.min(from, to), to: Math.max(from, to) }
+  } catch {
+    return null
+  }
 }
 
 /** Résout la position actuelle (from/to) d'un commentaire, ou null si son
