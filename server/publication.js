@@ -25,6 +25,7 @@
 
 import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs'
 import { adresseAutorisee } from '../shared/liens.js'
+import { niveauDuPlan, intituleDuPlan, TITRES_MIN_POUR_UN_PLAN_PUBLIE } from '../shared/plan.js'
 import { capabilities } from './roles.js'
 import { join } from 'node:path'
 import { randomInt } from 'node:crypto'
@@ -108,6 +109,25 @@ const MARQUES = { strong: 'strong', em: 'em', underline: 'u', strike: 's' }
  * numéro venu du client. Remplie par inline(), écrite par rendre(). */
 let NOTES = []
 
+/** Les titres de la page en cours de rendu (10/10/2026), dans l'ordre du
+ * texte : le plan latéral en est tiré, et chaque titre reçoit l'ancre
+ * `titre-N` que ce plan vise. Remplie par bloc(), lue par rendre(). Les
+ * règles du plan (niveaux, titre vide) sont celles de l'éditeur :
+ * shared/plan.js. */
+let PLAN = []
+
+/** Le texte brut d'un titre, sans marque ni note : ce qu'on lit dans le plan. */
+function textePlat(morceaux) {
+  if (!Array.isArray(morceaux)) return ''
+  let out = ''
+  for (const m of morceaux) {
+    if (!m || typeof m !== 'object') continue
+    if (m.type === 'saut') out += ' '
+    else if (m.type === 'texte' && typeof m.texte === 'string') out += m.texte
+  }
+  return out
+}
+
 function inline(morceaux, dansUneNote = false) {
   if (!Array.isArray(morceaux)) return ''
   let out = ''
@@ -168,7 +188,8 @@ function bloc(n) {
     }
     case 'titre': {
       const niveau = Math.min(5, Math.max(1, Number(n.niveau) || 2))
-      return `<h${niveau}>${inline(n.contenu)}</h${niveau}>`
+      PLAN.push({ niveau: niveauDuPlan(niveau), texte: intituleDuPlan(textePlat(n.contenu)) })
+      return `<h${niveau} id="titre-${PLAN.length}">${inline(n.contenu)}</h${niveau}>`
     }
     case 'citation':
       return `<blockquote>${(n.blocs || []).map(bloc).join('')}</blockquote>`
@@ -242,18 +263,62 @@ a { color: var(--accent); }
   font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; border-top: 1px solid var(--bord); padding-top: 16px; }
 .pied span { color: var(--fg); font-weight: 600; }
 @media (max-width: 600px) { body { font-size: 17px; } main { padding: 28px 16px 64px; } }
+
+/* Le plan du document (10/10/2026) : sans script, donc de simples ancres.
+   Large : une colonne à gauche, qui reste en vue pendant qu'on lit. Étroit :
+   un « Plan du document » repliable sous le titre. */
+html { scroll-padding-top: 1em; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+.plan-lateral { display: none; }
+.plan-haut { margin: 0 0 1.6em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.4; }
+.plan-haut details { border: 1px solid var(--bord); border-radius: 6px; padding: 8px 12px; }
+.plan-haut summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+.plan-haut[open] summary, .plan-haut details[open] summary { margin-bottom: 6px; }
+.plan ul, .plan-haut ul, .plan-lateral ul { list-style: none; margin: 0; padding: 0; }
+.plan-lateral a, .plan-haut a { display: block; padding: 3px 0; color: var(--muted); text-decoration: none; }
+.plan-lateral a:hover, .plan-haut a:hover, .plan-lateral a:focus-visible, .plan-haut a:focus-visible { color: var(--fg); }
+.plan-lateral .niveau-1 a, .plan-haut .niveau-1 a { font-weight: 600; color: var(--fg); }
+.plan-lateral .niveau-2 a, .plan-haut .niveau-2 a { padding-left: 14px; }
+.plan-lateral .niveau-3 a, .plan-haut .niveau-3 a { padding-left: 26px; }
+.plan-titre { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+@media (min-width: 1100px) {
+  .page.avec-plan { display: grid; grid-template-columns: minmax(12em, 1fr) minmax(0, 38em) 1fr; column-gap: 2em; }
+  .page.avec-plan main { grid-column: 2; margin: 0; width: 100%; }
+  .page.avec-plan .pied { grid-column: 2; max-width: none; margin: 0; padding-left: 20px; padding-right: 20px; }
+  .plan-lateral {
+    display: block; grid-column: 1; grid-row: 1; justify-self: end; width: 100%; max-width: 17em;
+    position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto;
+    padding: 56px 0 32px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px; line-height: 1.4;
+  }
+  .plan-haut { display: none; }
+}
+@media print { .plan-lateral, .plan-haut { display: none !important; } }
 `
 
 /** La page complète. Aucun script, aucune ressource extérieure : une page
  * publiée ne charge rien, ne mesure rien, ne suit personne. */
 export function rendre({ titre, blocs, publieLe }) {
   NOTES = []
+  PLAN = []
   let corps = (Array.isArray(blocs) ? blocs : []).map(bloc).join('\n')
   if (NOTES.length) {
     const items = NOTES.map((t, i) => `<li id="note-${i + 1}">${t} <a href="#appel-${i + 1}" class="note-retour" aria-label="Retour au texte">↩</a></li>`)
     corps += `\n<section class="notes"><h2>Notes</h2><ol>${items.join('')}</ol></section>`
   }
   NOTES = []
+  const plan = PLAN
+  PLAN = []
+  // Le plan : seulement s'il y a de quoi s'y repérer. Deux fois le même
+  // contenu, l'un pour la colonne (large), l'autre pour le repli (étroit) ;
+  // le CSS n'en montre jamais qu'un, donc un lecteur d'écran n'en lit qu'un.
+  let planLateral = ''
+  let planHaut = ''
+  if (plan.length >= TITRES_MIN_POUR_UN_PLAN_PUBLIE) {
+    const liste = `<ul>${plan.map((t, i) => `<li class="niveau-${t.niveau}"><a href="#titre-${i + 1}">${esc(t.texte)}</a></li>`).join('')}</ul>`
+    planLateral = `<nav class="plan-lateral" aria-label="Plan du document"><p class="plan-titre">Plan du document</p>${liste}</nav>\n`
+    planHaut = `<nav class="plan-haut" aria-label="Plan du document"><details><summary>Plan du document</summary>${liste}</details></nav>\n`
+  }
   const date = new Date(publieLe || Date.now()).toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long',
@@ -269,11 +334,13 @@ export function rendre({ titre, blocs, publieLe }) {
 <style>${FEUILLE}</style>
 </head>
 <body>
-<main>
+<div class="page${plan.length >= TITRES_MIN_POUR_UN_PLAN_PUBLIE ? ' avec-plan' : ''}">
+${planLateral}<main>
 <h1>${esc(titre || 'Document')}</h1>
-${corps}
+${planHaut}${corps}
 </main>
 <p class="pied">Publié le ${esc(date)} avec <span>amend.ink</span></p>
+</div>
 </body>
 </html>
 `

@@ -145,6 +145,75 @@ test('la page ne charge rien de l’extérieur et demande à ne pas être index�
   assert.ok(html.includes('name="robots" content="noindex"'))
 })
 
+// ============================================================ le plan latéral (10/10/2026)
+
+const titre = (niveau, t) => ({ type: 'titre', niveau, contenu: t == null ? [] : [{ type: 'texte', texte: t, marques: [] }] })
+const para = (t) => ({ type: 'paragraphe', contenu: [{ type: 'texte', texte: t, marques: [] }] })
+const entreesDuPlan = (html) =>
+  [...html.matchAll(/<nav class="plan-lateral"[\s\S]*?<\/nav>/g)].flatMap((nav) =>
+    [...nav[0].matchAll(/<li class="niveau-(\d)"><a href="#(titre-\d+)">([^<]*)<\/a><\/li>/g)].map((m) => ({ niveau: Number(m[1]), ancre: m[2], texte: m[3] }))
+  )
+
+test('le plan reprend les titres du texte, dans l’ordre, chacun lié à une ancre qui existe', () => {
+  const html = rendre({ titre: 'T', blocs: [titre(1, 'Premier'), para('a'), titre(2, 'Sous-partie'), para('b'), titre(3, 'Détail'), titre(1, 'Second')] })
+  const plan = entreesDuPlan(html)
+  assert.deepEqual(plan.map((e) => [e.niveau, e.texte]), [[1, 'Premier'], [2, 'Sous-partie'], [3, 'Détail'], [1, 'Second']])
+  for (const e of plan) assert.ok(html.includes(`id="${e.ancre}">`), `l’ancre ${e.ancre} existe dans le texte`)
+  assert.ok(html.indexOf('id="titre-1">Premier') < html.indexOf('id="titre-4">Second'), 'les ancres suivent l’ordre du texte')
+})
+
+test('le plan suit les règles de l’éditeur : titre vide nommé, niveaux au-delà du dernier ramenés à lui', () => {
+  const html = rendre({ titre: 'T', blocs: [titre(1, 'A'), titre(2, null), titre(5, 'Très profond')] })
+  const plan = entreesDuPlan(html)
+  assert.equal(plan[1].texte, '(sans titre)')
+  assert.equal(plan[2].niveau, 3, 'un h5 d’un ancien document se range au dernier niveau du plan')
+  assert.ok(html.includes('<h5 id="titre-3">'), 'le titre garde sa balise dans le texte')
+})
+
+test('un titre dans une citation compte aussi, et le texte du plan est échappé', () => {
+  const html = rendre({ titre: 'T', blocs: [titre(1, 'Avant'), { type: 'citation', blocs: [titre(2, '<img src=x onerror=alert(1)>')] }] })
+  const plan = entreesDuPlan(html)
+  assert.equal(plan.length, 2)
+  assert.equal(plan[1].texte, '&lt;img src=x onerror=alert(1)&gt;')
+  assert.ok(!/<img src=x/.test(html))
+})
+
+test('les marques et les notes d’un titre ne passent pas dans le plan', () => {
+  const html = rendre({
+    titre: 'T',
+    blocs: [titre(1, 'Un'), { type: 'titre', niveau: 2, contenu: [{ type: 'texte', texte: 'Gras', marques: ['strong'] }, { type: 'note', contenu: [{ type: 'texte', texte: 'secrète', marques: [] }] }] }],
+  })
+  const plan = entreesDuPlan(html)
+  assert.equal(plan[1].texte, 'Gras')
+  assert.ok(!entreesDuPlan(html).some((e) => /secr/.test(e.texte)))
+})
+
+test('un seul titre, ou aucun : pas de plan', () => {
+  for (const blocs of [texte('rien'), [titre(1, 'Seul'), para('x')]]) {
+    const html = rendre({ titre: 'T', blocs })
+    assert.ok(!html.includes('<nav class="plan-lateral"') && !html.includes('<nav class="plan-haut"'))
+    assert.ok(html.includes('<div class="page">'), 'la page garde sa mise en page simple')
+  }
+})
+
+test('le plan est servi deux fois, pour la colonne et pour le repli, et la page reste sans script', () => {
+  const html = rendre({ titre: 'T', blocs: [titre(1, 'A'), titre(2, 'B')] })
+  assert.equal((html.match(/<nav class="plan-lateral"/g) || []).length, 1)
+  assert.equal((html.match(/<nav class="plan-haut"/g) || []).length, 1)
+  assert.ok(html.includes('<details><summary>Plan du document</summary>'))
+  assert.ok(!/<script/i.test(html) && !/https?:\/\//.test(html.replace(/<html lang="fr">/, '')))
+  assert.match(html, /@media print \{ \.plan-lateral, \.plan-haut \{ display: none/)
+})
+
+test('l’éditeur et la page publiée partagent les règles du plan', async () => {
+  const { niveauDuPlan, intituleDuPlan, TITRES_MIN_POUR_UN_PLAN_PUBLIE } = await import('../../shared/plan.js')
+  assert.equal(niveauDuPlan(0), 1)
+  assert.equal(niveauDuPlan(9), niveauDuPlan(3))
+  assert.equal(intituleDuPlan('  \n '), '(sans titre)')
+  assert.equal(intituleDuPlan(' Un   titre '), 'Un titre')
+  assert.equal(TITRES_MIN_POUR_UN_PLAN_PUBLIE, 2)
+})
+
 // ============================================================ le droit de publier
 
 test('la portée du .env décide, et un correcteur ne publie jamais', () => {

@@ -2,6 +2,7 @@ import { defilerVers } from './defilement.js'
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { updateItemList } from './incrementalScan.js'
 import { throttle } from './throttle.js'
+import { niveauDuPlan, intituleDuPlan } from '../../shared/plan.js'
 
 /** Every heading within [from, to), as { pos, level, text }. `pos` is the
  * position right before the heading node (its own doc position) —
@@ -139,11 +140,11 @@ export function mountOutlinePanel(container) {
     liens = []
     for (const item of items) {
       const li = document.createElement('li')
-      li.className = `outline-item outline-level-${item.level}`
+      li.className = `outline-item outline-level-${niveauDuPlan(item.level)}`
       const link = document.createElement('button')
       link.type = 'button'
       link.className = 'outline-link'
-      const label = item.text || '(sans titre)'
+      const label = intituleDuPlan(item.text)
       link.textContent = label
       link.title = label
       link.onclick = () => goTo(item.pos)
