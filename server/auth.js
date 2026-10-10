@@ -130,6 +130,14 @@ export function clearSessionCookieHeader({ secure }) {
   return parts.join('; ')
 }
 
+// Qui sait depuis quand les sessions d'une adresse valent (SessionsRevoquees,
+// branché par server.js). Un crochet plutôt qu'un import : auth.js n'a pas
+// à connaître le stockage (même raison que pour `isLoginAllowed`).
+let validesDepuis = () => 0
+export function definirRevocation(fn) {
+  validesDepuis = typeof fn === 'function' ? fn : () => 0
+}
+
 export function readSession(req) {
   const cookies = parseCookies(req)
   const raw = cookies[COOKIE_NAME]
@@ -145,7 +153,10 @@ export function readSession(req) {
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
     if (Date.now() - data.iat > SESSION_MAX_AGE_MS) return null
-    return data.email || null
+    if (!data.email) return null
+    // « Se déconnecter partout » (S8) : un cookie émis avant la révocation ne vaut plus.
+    if (!(data.iat > validesDepuis(data.email))) return null
+    return data.email
   } catch {
     return null
   }

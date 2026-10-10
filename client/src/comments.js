@@ -651,6 +651,7 @@ export function addComment(view, ydoc, commentsMap, user, text) {
   commentsMap.set(id, {
     id,
     author: user.name,
+    ...identifiantAuteur(user),
     color: user.color,
     anchorFrom,
     anchorTo,
@@ -708,6 +709,7 @@ export function ajouterReponse(commentsMap, user, parentId, text) {
     id,
     parent: parentId,
     author: user.name,
+    ...identifiantAuteur(user),
     color: user.color,
     text: texte,
     createdAt: Date.now(),
@@ -715,10 +717,21 @@ export function ajouterReponse(commentsMap, user, parentId, text) {
   return id
 }
 
-/** Vrai si cette personne peut corriger ce commentaire. Convention, pas
- * protection — voir la note en tête de fichier. */
+/** L'identifiant stable du compte, écrit dans chaque commentaire (`authorId`,
+ * audit S12) : c'est lui, et non le nom affiché — qui n'est pas unique —,
+ * que le serveur compare pour ne laisser un lecteur toucher qu'aux siens.
+ * Absent (compte sans identifiant : tests, anciens appels), on n'écrit rien. */
+function identifiantAuteur(user) {
+  return user && user.id ? { authorId: user.id } : {}
+}
+
+/** Vrai si cette personne peut corriger ce commentaire. Convention côté
+ * client — le serveur tient la règle pour un lecteur (`verifierLecteur`). Par
+ * identifiant quand le commentaire en porte un, par le nom pour ceux d'avant. */
 export function peutModifier(commentaire, user) {
-  return !!commentaire && !!user && commentaire.author === user.name
+  if (!commentaire || !user) return false
+  if (commentaire.authorId !== undefined && user.id) return commentaire.authorId === user.id
+  return commentaire.author === user.name
 }
 
 /** Corrige le texte d'un commentaire ou d'une réponse. `editedAt` est posé

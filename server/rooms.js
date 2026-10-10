@@ -134,7 +134,7 @@ export class Rooms {
       // Un lecteur : commentaires seulement, et les siens (replique.js).
       if (acces && acces.capabilities && !acces.capabilities.canProposeChanges && !acces.capabilities.canEditFreely) {
         const r = this.repliques.repliques.get(docId)
-        const verdict = r ? verifierLecteurDoc(r.doc, update, acces.nom) : { ok: false, raison: 'réplique absente' }
+        const verdict = r ? verifierLecteurDoc(r.doc, update, acces.nom, acces.id || null) : { ok: false, raison: 'réplique absente' }
         if (!verdict.ok) {
           member.conn.send(JSON.stringify({ type: 'refuse', raison: verdict.raison }))
           return
@@ -213,6 +213,14 @@ export class Rooms {
         // déjà partie
       }
     }
+    return n
+  }
+
+  /** Coupe toutes les connexions d'une adresse, dans tous les documents
+   * (« se déconnecter partout », S8). Même geste que `expulser`, partout. */
+  expulserPartout(email) {
+    let n = 0
+    for (const docId of [...this.rooms.keys()]) n += this.expulser(docId, email)
     return n
   }
 

@@ -519,6 +519,15 @@ export class Storage {
    * Il n'en a donc pas, et garde son comportement d'avant — tout le monde
    * y est éditeur, y compris pour le supprimer. Il n'en existe aucun en
    * production (migration du 14/09 : 0 document concerné). */
+  /** Les identifiants des documents dont cette adresse est propriétaire
+   * (quota par compte, S14). */
+  documentsDe(email) {
+    if (!email) return []
+    return Object.entries(this._readRegistry())
+      .filter(([, meta]) => proprietaire(meta) === email)
+      .map(([id]) => id)
+  }
+
   ownerOf(id) {
     return proprietaire(this.getDoc(id))
   }

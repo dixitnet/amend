@@ -59,6 +59,8 @@ export function remplacerEnvoi(fn) {
   envoiDeRemplacement = typeof fn === 'function' ? fn : null
 }
 
+const DELAI_MAILGUN_MS = 15_000
+
 export function sendMail({ to, subject, text, html, replyTo }) {
   if (envoiDeRemplacement) return Promise.resolve(envoiDeRemplacement({ to, subject, text, html, replyTo }))
   const apiKey = process.env.MAILGUN_API_KEY
@@ -105,6 +107,9 @@ export function sendMail({ to, subject, text, html, replyTo }) {
         })
       }
     )
+    // Sans délai, une API qui ne répond pas laisse la requête (et la
+    // personne qui attend son courrier) pendante indéfiniment (S11).
+    req.setTimeout(DELAI_MAILGUN_MS, () => req.destroy(new Error(`Mailgun n'a pas répondu en ${DELAI_MAILGUN_MS / 1000} s`)))
     req.on('error', (err) => reject(new MailSendError(err.message)))
     req.write(body)
     req.end()

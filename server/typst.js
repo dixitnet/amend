@@ -202,7 +202,15 @@ export class Typst {
         // incompréhensible pour qui lit. On renvoie la première ligne, plus
         // le texte du document autour de l'endroit fautif (passageFautif),
         // et on garde le reste côté serveur.
-        console.error('Typst a refusé la source :', r.erreur.slice(0, 2000))
+        // Le journal ne reçoit que les lignes de diagnostic, jamais les extraits
+        // de la source que Typst cite en dessous (S18) : ils contiennent le
+        // texte du document, et rien du texte n'est journalisé.
+        const diagnostics = r.erreur
+          .split('\n')
+          .filter((l) => /^\s*(error|warning):/.test(l))
+          .slice(0, 5)
+          .map((l) => l.trim().slice(0, 200))
+        console.error('Typst a refusé la source :', diagnostics.join(' | ') || '(sans diagnostic)')
         const premiere = (r.erreur.split('\n').find((l) => l.includes('error:')) || '').trim()
         const passage = passageFautif(r.erreur, source)
         const ou = passage ? `, près de « ${passage} »` : ''

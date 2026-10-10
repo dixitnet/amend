@@ -11,7 +11,7 @@ import { Repliques } from './replique.js'
 import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
 import { Metrics } from './metrics.js'
 import { Uploads } from './uploads.js'
-import { Users, raisonDeRefus } from './users.js'
+import { Users, raisonDeRefus, idCompte } from './users.js'
 import { Typst, TypstError } from './typst.js'
 import { SupportTraites, cleDuRetour } from './supportTraites.js'
 import { Versions } from './versions.js'
@@ -37,7 +37,10 @@ import {
   isAdminEmail,
   adminEmails,
   isLoginAllowed,
+  definirRevocation,
 } from './auth.js'
+import { SessionsRevoquees } from './sessions.js'
+import { origineAutorisee, methodeModifie } from './origine.js'
 import { sendMail, courrierAvecBouton } from './mailgun.js'
 import { ecrireModele, TITRE_BIENVENUE } from './modeleBienvenue.js'
 import { capabilities, isValidRole } from './roles.js'
@@ -96,6 +99,15 @@ const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`
 const ESSAIS_PUBLICATION = 30
 const ESSAIS_FENETRE_MS = 10 * 60_000
 const essaisPublication = new Limiteur({ max: ESSAIS_PUBLICATION, fenetreMs: ESSAIS_FENETRE_MS })
+/** Un extrait pour un objet de courriel : espaces ramenés à un seul (un
+ * retour à la ligne n'a rien à faire dans un en-tête), coupé à `max`. */
+function abrege(texte, max) {
+  const t = String(texte || '').replace(/\s+/g, ' ').trim()
+  return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t
+}
+
+const HISTORY_RAW_MAX_OCTETS = 32 * 1024 * 1024
+
 function essaiPublicationAutorise(req) {
   // Derrière Caddy, `remoteAddress` vaut toujours 127.0.0.1 : sans
   // `origineDe`, tous les visiteurs partageaient un seul compteur (audit du
@@ -237,6 +249,9 @@ try {
 // Les seuils viennent du .env (voir .env.example) et sont lus ici, pas au
 // chargement du module : loadDotEnv() ne s'exécute qu'après les imports.
 const users = new Users(DATA_DIR)
+// « Se déconnecter partout » (S8) : l'instant avant lequel les sessions d'une adresse ne valent plus.
+const sessionsRevoquees = new SessionsRevoquees(DATA_DIR)
+definirRevocation((email) => sessionsRevoquees.validesDepuis(email))
 // Rendu PDF (16/09/2026) — binaire appelé en sous-processus, sous plafond
 // mémoire, sous délai, et un rendu à la fois (voir server/typst.js).
 const typst = new Typst()
@@ -244,6 +259,18 @@ const uploads = new Uploads(DATA_DIR, {
   maxImageMo: process.env.MAX_IMAGE_MB,
   maxDocumentMo: process.env.MAX_DOC_IMAGES_MB,
 })
+// Plafonds par compte (audit S14, 10/10/2026) : sans eux, une adresse
+// obtenue par une invitation pouvait créer des documents sans fin et remplir
+// le disque d'images (100 Mo par document, autant de documents que voulu).
+// Lus à l'usage (le .env n'est chargé qu'après les imports), les valeurs
+// absurdes retombent sur le défaut ; les administrateurs n'en ont pas.
+function plafondCompte(nom, defaut) {
+  const v = Number(process.env[nom])
+  return Number.isFinite(v) && v > 0 ? v : defaut
+}
+const documentsMaxParCompte = () => plafondCompte('DOCUMENTS_MAX_PAR_COMPTE', 200)
+const imagesMaxParCompte = () => plafondCompte('IMAGES_MAX_PAR_COMPTE_MO', 500) * 1048576
+
 // Pages publiées (17/09/2026, voir server/publication.js).
 const publications = new Publications(DATA_DIR)
 const metrics = new Metrics(DATA_DIR)
@@ -414,6 +441,9 @@ async function handleApi(req, res, url) {
     const email = readSession(req)
     if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     const body = await readJsonBody(req)
+    if (!isAdminEmail(email) && storage.documentsDe(email).length >= documentsMaxParCompte()) {
+      return sendJson(res, 403, { error: `limite de ${documentsMaxParCompte()} documents par compte atteinte — supprimez-en pour en créer d’autres` })
+    }
     const doc = storage.createDoc(typeof body.title === 'string' ? body.title.slice(0, 200) : '', email)
     return sendJson(res, 201, doc)
   }
@@ -446,6 +476,9 @@ async function handleApi(req, res, url) {
       myCapabilities: capabilities(myRole),
       myName: compte ? compte.nom : null,
       myColor: compte ? compte.couleur : null,
+      // Écrit dans chacun de ses commentaires (S12) : le serveur le compare à
+      // celui de la session pour ne laisser un lecteur toucher qu'aux siens.
+      myId: idCompte(email),
       onlineCount: rooms.presenceCount(doc.id),
     })
   }
@@ -568,6 +601,15 @@ async function handleApi(req, res, url) {
     } catch (err) {
       return sendJson(res, err.status || 400, { error: err.message })
     }
+    // Le poids des images est celui de tous les documents du propriétaire, pas
+    // d'un seul (S14) : c'est son disque qui se remplit.
+    const proprio = storage.ownerOf(id)
+    if (proprio && !isAdminEmail(proprio)) {
+      const dejaLa = storage.documentsDe(proprio).reduce((somme, docId) => somme + uploads.octetsDocument(docId), 0)
+      if (dejaLa + buffer.length > imagesMaxParCompte()) {
+        return sendJson(res, 413, { error: `le propriétaire de ce document a atteint sa limite d’images (${Math.round(imagesMaxParCompte() / 1048576)} Mo en tout)` })
+      }
+    }
     let enregistree
     try {
       enregistree = uploads.enregistrer(id, buffer, mime)
@@ -627,6 +669,13 @@ async function handleApi(req, res, url) {
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
     if (!storage.roleFor(id, readSession(req))) {
       return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+    }
+    // Le journal est sérialisé en base64 d'un bloc : au-delà d'une taille
+    // raisonnable (il est compacté bien avant, à 4 Mo), on refuse plutôt que
+    // de bâtir une réponse de centaines de mégaoctets (S18).
+    const { octets } = storage.journalInfo(id)
+    if (octets != null && octets > HISTORY_RAW_MAX_OCTETS) {
+      return sendJson(res, 413, { error: 'le journal est trop volumineux pour être envoyé d’un bloc' })
     }
     return sendJson(res, 200, { entries: storage.getHistoryRaw(id) })
   }
@@ -987,6 +1036,19 @@ const TARIFS_IA = {
     return sendJson(res, 200, { ok: true })
   }
 
+  // Se déconnecter partout (audit S8, 10/10/2026) : toutes les sessions de
+  // l'adresse émises jusqu'ici cessent de valoir — ordinateur prêté, cookie
+  // volé, téléphone perdu — et ses connexions ouvertes sont coupées. Celle-ci
+  // comprise : le cookie est effacé dans la réponse.
+  if (pathname === '/api/auth/logout-all' && req.method === 'POST') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    sessionsRevoquees.revoquer(email)
+    rooms.expulserPartout(email)
+    res.setHeader('set-cookie', clearSessionCookieHeader({ secure: isSecureRequest(req) }))
+    return sendJson(res, 200, { ok: true })
+  }
+
   // --- Invitation nominative (remplace les liens partagés par rôle,
   // retirés le 15/09/2026) : l'éditeur saisit une adresse, la personne
   // reçoit un mail nommant le document, et son lien ouvre directement une
@@ -1046,7 +1108,9 @@ const TARIFS_IA = {
     try {
       await sendMail({
         to: email,
-        subject: `Invitation à collaborer sur « ${doc.title} »`,
+        // Le titre est de la personne qui invite, jusqu'à 200 caractères : un
+        // objet de courriel n'en porte qu'un extrait (S10).
+        subject: `Invitation à collaborer sur « ${abrege(doc.title, 60)} »`,
         ...courrierAvecBouton({
           titre: `Invitation à collaborer sur « ${doc.title} »`,
           intro:
@@ -1692,6 +1756,11 @@ const server = createServer((req, res) => {
     if (servirPublication(req, res, url.pathname)) return
   }
   if (url.pathname.startsWith('/api/')) {
+    // Une requête qui modifie doit venir de nous-mêmes (S13) — pas d'une
+    // autre page qui aurait poussé le navigateur de la personne.
+    if (methodeModifie(req.method) && !origineAutorisee(req, APP_BASE_URL)) {
+      return sendJson(res, 403, { error: 'origine de la requête refusée' })
+    }
     handleApi(req, res, url).catch((err) => {
       // Une erreur inattendue (sans `status`) se journalise et ne montre pas
       // son message au client : chemins, messages Yjs… (audit A3, S17).
@@ -1732,6 +1801,12 @@ server.on('upgrade', (req, socket) => {
     rejectUpgrade(socket, 403, 'Forbidden')
     return
   }
+  // Une WebSocket ouverte depuis une autre page porterait le cookie de la
+  // personne (S13) : la poignée de main n'est acceptée que de chez nous.
+  if (!origineAutorisee(req, APP_BASE_URL)) {
+    rejectUpgrade(socket, 403, 'Forbidden')
+    return
+  }
   const user = (url.searchParams.get('user') || 'Anonyme').slice(0, 60)
   const conn = acceptWebSocket(req, socket)
   // Ce que cette personne peut faire, et le nom de son compte : la salle
@@ -1749,7 +1824,7 @@ server.on('upgrade', (req, socket) => {
     docId,
     conn,
     user,
-    { capabilities: capabilities(storage.roleFor(docId, emailSession)), nom: compteSession ? compteSession.nom : user, email: emailSession },
+    { capabilities: capabilities(storage.roleFor(docId, emailSession)), nom: compteSession ? compteSession.nom : user, email: emailSession, id: idCompte(emailSession) },
     { vecteur }
   )
   // Journal des connexions : la liste d'accès dit qui *peut* venir, elle ne
@@ -1780,8 +1855,13 @@ server.on('error', (err) => {
   process.exit(1)
 })
 
-server.listen(PORT, () => {
-  console.log(`amend.ink en écoute sur http://localhost:${PORT}`)
+// Écoute sur la boucle locale par défaut (S19) : Caddy est sur la même
+// machine, et un port 8787 que le pare-feu laisserait passer permettrait de
+// contourner le proxy — donc de falsifier `X-Forwarded-*`, dont dépend
+// `origineDe`. `HOST=0.0.0.0` pour un conteneur ou un autre proxy.
+const HOST = process.env.HOST || '127.0.0.1'
+server.listen(PORT, HOST, () => {
+  console.log(`amend.ink en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`)
   console.log(`Données stockées dans ${DATA_DIR}`)
   if (!process.env.ANTHROPIC_API_KEY) {
     console.log(

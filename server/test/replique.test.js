@@ -106,6 +106,66 @@ test('verifierLecteur : le texte est refusé, un commentaire à son nom accepté
   assert.equal(verifierLecteur(serveur, suppressionSien, 'Léa').ok, true)
 })
 
+// --- S12 : « les siens » se reconnaît à l'identifiant du compte, pas au nom ---
+
+const commenterId = (doc, id, author, authorId, extra = {}) =>
+  operation(doc, () => doc.getMap('comments').set(id, { id, author, authorId, text: 'un avis', createdAt: 1, ...extra }))
+
+test('S12 : un lecteur renommé « Marie » ne touche pas aux commentaires de Marie', () => {
+  const serveur = new Y.Doc()
+  const marie = new Y.Doc()
+  const mienne = commenterId(marie, 'c1', 'Marie', 'id-marie')
+  Y.applyUpdate(serveur, mienne)
+
+  // L'intrus a pris le nom « Marie » : il sort un commentaire qui porte son propre identifiant…
+  const intrus = new Y.Doc()
+  Y.applyUpdate(intrus, Y.encodeStateAsUpdate(marie))
+  const supprime = operation(intrus, () => intrus.getMap('comments').delete('c1'))
+  assert.equal(verifierLecteur(serveur, supprime, 'Marie', 'id-intrus').ok, false, 'supprimer le commentaire d’une autre personne du même nom')
+  const remplace = commenterId(intrus, 'c1', 'Marie', 'id-intrus', { text: 'falsifié' })
+  assert.equal(verifierLecteur(serveur, remplace, 'Marie', 'id-intrus').ok, false, 'remplacer — le commentaire d’origine porte l’identifiant de Marie')
+
+  // … ou qui fait passer son commentaire pour celui de Marie (même identifiant).
+  const usurpe = commenterId(new Y.Doc(), 'c9', 'Marie', 'id-marie')
+  assert.equal(verifierLecteur(serveur, usurpe, 'Marie', 'id-intrus').ok, false, 'écrire sous l’identifiant d’une autre personne')
+
+  // Marie, elle, fait ce qu’elle veut des siens.
+  const suppressionMarie = operation(marie, () => marie.getMap('comments').delete('c1'))
+  assert.equal(verifierLecteur(serveur, suppressionMarie, 'Marie', 'id-marie').ok, true)
+  const nouveau = commenterId(marie, 'c2', 'Marie', 'id-marie')
+  assert.equal(verifierLecteur(serveur, nouveau, 'Marie', 'id-marie').ok, true)
+})
+
+test('S12 : le même nom ne suffit plus à écrire un commentaire neuf sans identifiant', () => {
+  const serveur = new Y.Doc()
+  // Sans authorId, un commentaire neuf n'est plus admis (il se ferait passer pour un « ancien »).
+  const sansId = commenter(new Y.Doc(), 'c1', 'Marie')
+  assert.equal(verifierLecteur(serveur, sansId, 'Marie', 'id-intrus').ok, false)
+  // Sans identifiant connu (outils, tests anciens), l'ancienne règle par le nom reste.
+  assert.equal(verifierLecteur(serveur, sansId, 'Marie').ok, true)
+})
+
+test('S12 : un commentaire d’avant (sans authorId) reste modifiable par qui porte son nom — et par lui seul', () => {
+  const serveur = new Y.Doc()
+  const ancien = new Y.Doc()
+  Y.applyUpdate(serveur, commenter(ancien, 'c1', 'Léa', 'avant'))
+
+  // Léa corrige son ancien commentaire (le client recopie l'objet et ajoute editedAt) : accepté,
+  // avec ou sans identifiant dans l'objet réécrit.
+  const corrige = operation(ancien, () => ancien.getMap('comments').set('c1', { id: 'c1', author: 'Léa', text: 'corrigé', createdAt: 1, editedAt: 2 }))
+  assert.equal(verifierLecteur(serveur, corrige, 'Léa', 'id-lea').ok, true)
+  Y.applyUpdate(serveur, corrige)
+
+  const corrigeAvecId = operation(ancien, () => ancien.getMap('comments').set('c1', { id: 'c1', author: 'Léa', authorId: 'id-lea', text: 'corrigé 2', createdAt: 1 }))
+  assert.equal(verifierLecteur(serveur, corrigeAvecId, 'Léa', 'id-lea').ok, true)
+
+  // Quelqu'un d'autre sous un autre nom : refusé.
+  const autre = new Y.Doc()
+  Y.applyUpdate(autre, Y.encodeStateAsUpdate(ancien))
+  const vol = operation(autre, () => autre.getMap('comments').delete('c1'))
+  assert.equal(verifierLecteur(serveur, vol, 'Marc', 'id-marc').ok, false)
+})
+
 test('racinesTouchees ne compte pas ce que le serveur a déjà', () => {
   const serveur = new Y.Doc()
   const client = new Y.Doc()

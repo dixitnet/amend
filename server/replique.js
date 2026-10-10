@@ -388,11 +388,26 @@ export function racinesTouchees(doc, update) {
 }
 
 /**
- * Un lecteur ne touche qu'aux commentaires, et qu'aux siens (le nom du
- * compte, celui que le client écrit dans `author`). `{ ok }` ou
+ * Un lecteur ne touche qu'aux commentaires, et qu'aux siens. `{ ok }` ou
  * `{ ok: false, raison }`.
+ *
+ * « Les siens » se reconnaît à `authorId`, l'identifiant stable du compte
+ * (`idCompte`, server/users.js) que le client écrit dans chaque commentaire
+ * depuis le 10/10/2026 — et non plus au nom affiché, qui n'est pas unique :
+ * un lecteur qui se renommait « Marie » modifiait les commentaires de Marie
+ * (audit S12).
+ *   - un commentaire **écrit** porte `authorId`, et c'est le sien ;
+ *   - un commentaire **supprimé ou remplacé** qui porte `authorId` doit être
+ *     le sien ;
+ *   - **exception d'héritage** : un commentaire d'avant cette règle n'a pas
+ *     d'`authorId`, seulement `author`. Il reste modifiable par qui porte ce
+ *     nom (comme avant) — c'est le reste connu de S12, qui disparaît avec les
+ *     commentaires d'avant. On ne peut pas en *créer* un nouveau de cette
+ *     façon : une valeur sans `authorId` n'est admise que si elle remplace un
+ *     commentaire du même identifiant, déjà sans `authorId`, au même nom.
+ * `id` absent (outils, anciens appels) : seule la comparaison par nom reste.
  */
-export function verifierLecteur(doc, update, nom) {
+export function verifierLecteur(doc, update, nom, id = null) {
   let touche
   try {
     touche = racinesTouchees(doc, update)
@@ -402,11 +417,32 @@ export function verifierLecteur(doc, update, nom) {
   for (const r of [...touche.inserees, ...touche.supprimees]) {
     if (r !== NOM_COMMENTAIRES) return { ok: false, raison: r === NOM_TEXTE ? 'un lecteur ne modifie pas le texte' : 'modification hors des commentaires' }
   }
-  for (const { valeurs } of [...touche.contenus, ...touche.supprimes]) {
+  const refus = { ok: false, raison: "un lecteur ne touche qu'à ses propres commentaires" }
+  const commentaires = doc.getMap(NOM_COMMENTAIRES)
+  const estUnCommentaire = (v) => v && typeof v === 'object' && 'author' in v
+  for (const { valeurs } of touche.supprimes) {
     for (const v of valeurs) {
-      if (v && typeof v === 'object' && 'author' in v && v.author !== nom) {
-        return { ok: false, raison: "un lecteur ne touche qu'à ses propres commentaires" }
+      if (!estUnCommentaire(v)) continue
+      if (id && v.authorId !== undefined) {
+        if (v.authorId !== id) return refus
+      } else if (v.author !== nom) return refus
+    }
+  }
+  for (const { valeurs } of touche.contenus) {
+    for (const v of valeurs) {
+      if (!estUnCommentaire(v)) continue
+      if (!id) {
+        if (v.author !== nom) return refus
+        continue
       }
+      if (v.authorId !== undefined) {
+        if (v.authorId !== id) return refus
+        continue
+      }
+      // Sans authorId : seulement le remplacement d'un commentaire d'avant.
+      const avant = typeof v.id === 'string' ? commentaires.get(v.id) : null
+      const heritage = avant && typeof avant === 'object' && avant.authorId === undefined && avant.author === nom
+      if (!heritage || v.author !== nom) return refus
     }
   }
   return { ok: true }

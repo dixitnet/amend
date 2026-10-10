@@ -139,3 +139,31 @@ test('le menu du compte : le nom et l’adresse en tête, « Changer mon nom… 
   assert.equal(pastille.textContent, 'MS')
   assert.match(document.querySelector('.menu-flottant-entete').textContent, /Marie Sklodowska/)
 })
+
+test('le menu du compte : « Se déconnecter partout » appelle le serveur, puis recharge (S8)', async () => {
+  installerDom()
+  const appels = fauxServeur()
+  let rechargee = false
+  globalThis.location = { hash: '#/doc/x', reload: () => (rechargee = true) }
+  const { monterMenuCompte } = await import('../src/compteMenu.js')
+  const { forgetSessionCache } = await import('../src/auth.js')
+  forgetSessionCache()
+  monterMenuCompte(document.getElementById('zone'), {})
+  await attendre()
+  await attendre()
+  const boutons = [...document.querySelectorAll('.menu-flottant-liste button')]
+  assert.deepEqual(
+    boutons.map((b) => b.textContent).filter((t) => /déconnecter/.test(t)),
+    ['Se déconnecter', 'Se déconnecter partout'],
+    'les deux, dans cet ordre'
+  )
+  document.querySelector('.compte-deconnexion-partout').click()
+  await attendre()
+  await attendre()
+  const appel = appels.find((a) => a.url === '/api/auth/logout-all')
+  assert.ok(appel, 'POST /api/auth/logout-all')
+  assert.equal(appel.opts.method, 'POST')
+  assert.equal(rechargee, true)
+  assert.equal(globalThis.location.hash, '#/')
+  delete globalThis.location
+})

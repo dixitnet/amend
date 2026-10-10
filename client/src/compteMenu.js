@@ -11,7 +11,7 @@
 // et l'éditeur y accèdent tous les deux, et l'appel à `/api/auth/me` sert
 // aussi à savoir si la personne est administratrice.
 
-import { getSessionEmail, logout } from './auth.js'
+import { getSessionEmail, logout, logoutEverywhere } from './auth.js'
 import { initials } from './presence.js'
 import { ouvrirChangementDeNom } from './nomCompte.js'
 
@@ -114,6 +114,23 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
       location.reload()
     }
 
+    const deconnexionPartout = document.createElement('button')
+    deconnexionPartout.type = 'button'
+    deconnexionPartout.className = 'compte-deconnexion-partout'
+    deconnexionPartout.textContent = 'Se déconnecter partout'
+    deconnexionPartout.title = 'Ferme votre session sur tous vos appareils, celui-ci compris'
+    deconnexionPartout.onclick = async () => {
+      deconnexionPartout.disabled = true
+      try {
+        await logoutEverywhere()
+      } catch {
+        /* le serveur injoignable : on se déconnecte au moins d'ici */
+        await logout().catch(() => {})
+      }
+      location.hash = '#/'
+      location.reload()
+    }
+
     // Les entrées d'administration ne s'ajoutent que si le serveur le dit —
     // il refuserait de toute façon les autres (403), mais un lien qui mène
     // à un refus est pire qu'un lien absent.
@@ -137,7 +154,7 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
       .finally(() => {
         const sep = document.createElement('hr')
         sep.className = 'menu-flottant-separateur'
-        liste.append(sep, deconnexion)
+        liste.append(sep, deconnexion, deconnexionPartout)
       })
   })
 

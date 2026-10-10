@@ -22,7 +22,32 @@ export function forgetSessionCache() {
   cachedEmail = undefined
 }
 
+/** Ce que ce navigateur garde de la personne qui part (audit C19) : les
+ * conversations avec Margo (`amend.dialogue.<document>`, en sessionStorage —
+ * des extraits du document) et les anciennes clés du nom et de la couleur
+ * (`collabtext:name`, `collabtext:color`, d'avant les comptes). Les réglages
+ * d'affichage (zoom, numéros de bloc) restent. */
+export function effacerTracesLocales() {
+  try {
+    const cles = []
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const cle = sessionStorage.key(i)
+      if (cle && cle.startsWith('amend.dialogue.')) cles.push(cle)
+    }
+    for (const cle of cles) sessionStorage.removeItem(cle)
+  } catch {
+    /* stockage indisponible (navigation privée, bloqué) : rien à effacer */
+  }
+  try {
+    localStorage.removeItem('collabtext:name')
+    localStorage.removeItem('collabtext:color')
+  } catch {
+    /* idem */
+  }
+}
+
 export async function logout() {
+  effacerTracesLocales()
   await fetch('/api/auth/logout', { method: 'POST' })
   forgetSessionCache()
 }
@@ -46,6 +71,15 @@ export async function verifyReconnectToken(token) {
   const data = await res.json()
   forgetSessionCache()
   return data.email
+}
+
+/** Déconnecte cette adresse de tous ses appareils (S8) : le serveur révoque
+ * les sessions émises jusqu'ici et coupe les connexions ouvertes. */
+export async function logoutEverywhere() {
+  effacerTracesLocales()
+  const res = await fetch('/api/auth/logout-all', { method: 'POST' })
+  forgetSessionCache()
+  return res.ok
 }
 
 /** Accepte une invitation nominative : le jeton porte à lui seul

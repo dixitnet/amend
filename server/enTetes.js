@@ -16,9 +16,13 @@
 
 export const MODES_CSP = ['off', 'report-only', 'enforce']
 
+/** Le mode de la CSP. **`enforce` par défaut** depuis le 10/10/2026 (la
+ * production l'était déjà par le .env, sans violation) : un .env qui oublie
+ * ou fait une faute de frappe ne désarme pas la politique. `report-only` et
+ * `off` restent possibles, écrits en toutes lettres. */
 export function modeCsp(valeur) {
   const v = String(valeur || '').trim().toLowerCase()
-  return MODES_CSP.includes(v) ? v : 'report-only'
+  return MODES_CSP.includes(v) ? v : 'enforce'
 }
 
 /** La politique de l'application. Scripts uniquement de l'origine (aucun

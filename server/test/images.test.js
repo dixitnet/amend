@@ -127,6 +127,20 @@ test('seuls le png et le jpeg sont acceptés', async () => {
   }
 })
 
+test('les octets doivent être ceux du type annoncé (S15) : un HTML déguisé en png est refusé', async () => {
+  const editeur = cookieFor('erin@example.com')
+  const doc = await creerDoc(editeur)
+  const html = Buffer.from('<html><script>alert(1)</script></html>')
+  assert.equal((await deposer(doc.id, editeur, { body: html, type: 'image/png' })).status, 415)
+  assert.equal((await deposer(doc.id, editeur, { body: html, type: 'image/jpeg' })).status, 415)
+  // Un vrai png annoncé comme jpeg n'est pas non plus ce qu'il dit être.
+  assert.equal((await deposer(doc.id, editeur, { body: PNG_1x1, type: 'image/jpeg' })).status, 415)
+  // Le vrai png, sous son vrai type, passe ; un jpeg aussi.
+  assert.equal((await deposer(doc.id, editeur)).status, 201)
+  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(20)])
+  assert.equal((await deposer(doc.id, editeur, { body: jpeg, type: 'image/jpeg' })).status, 201)
+})
+
 test('un nom de fichier fabriqué ne sort pas du dossier du document', async () => {
   const editeur = cookieFor('fred@example.com')
   const docA = await creerDoc(editeur, 'A')
@@ -156,7 +170,7 @@ test('le quota par document arrête le dépôt', async () => {
 
   assert.throws(() => uploads.enregistrer(docId, Buffer.alloc(100), 'image/png'), /limite d'images/)
   // Ce qui tient encore passe.
-  assert.ok(uploads.enregistrer(docId, Buffer.alloc(5), 'image/png').nom)
+  assert.ok(uploads.enregistrer(docId, Buffer.from([0xff, 0xd8, 0xff, 1, 2]), 'image/jpeg').nom)
 })
 
 test('les seuils se règlent par le .env, et une valeur absurde ne les efface pas', () => {

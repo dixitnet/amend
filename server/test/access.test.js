@@ -731,6 +731,36 @@ test('invitations : une même adresse ne reçoit pas plus de cinq invitations pa
   assert.match((await sixieme.json()).error, /invitations/)
 })
 
+test('invitations : l’objet du courrier ne porte qu’un extrait du titre, sur une seule ligne (S10)', async () => {
+  const { remplacerEnvoi } = await import('../mailgun.js')
+  const cookie = cookieFor('objet-courrier@example.com')
+  const titre = 'Un titre très long '.repeat(10) + '\nSecond « ligne »'
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: titre }),
+    })
+  ).json()
+  const envoyes = []
+  remplacerEnvoi((m) => envoyes.push(m))
+  try {
+    const res = await fetch(`${BASE}/api/docs/${doc.id}/invitations`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ email: 'objet-dest@example.com', role: 'lecteur' }),
+    })
+    assert.equal(res.status, 200)
+  } finally {
+    remplacerEnvoi(null)
+  }
+  assert.equal(envoyes.length, 1)
+  assert.ok(envoyes[0].subject.length <= 100, `objet de ${envoyes[0].subject.length} caractères`)
+  assert.ok(!/[\r\n]/.test(envoyes[0].subject), 'un retour à la ligne dans un objet de courriel')
+  assert.match(envoyes[0].subject, /^Invitation à collaborer sur « Un titre très long/)
+  assert.match(envoyes[0].subject, /…/)
+})
+
 test('invitations : une personne ne peut pas en envoyer plus de trente par heure (S10)', async () => {
   const cookie = cookieFor('quota-invitant@example.com')
   const doc = await (

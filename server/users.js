@@ -16,6 +16,7 @@
 // document en suivi de modifications, c'est la couleur qu'on lit d'un coup
 // d'œil. Rattachés au compte, ils la suivent partout.
 
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import { lireJson, ecrireJsonAtomique } from './fichiers.js'
@@ -56,6 +57,18 @@ export function couleurAutorisee(couleur) {
   if (!couleur) return null
   const c = String(couleur).toLowerCase()
   return REMPLACEMENTS[c] || c
+}
+
+/** L'identifiant stable d'un compte, écrit dans chacun de ses commentaires
+ * (`authorId`, S12) : 16 caractères tirés d'une empreinte SHA-256 de
+ * l'adresse. Le nom affiché n'est pas unique et change ; l'adresse, elle,
+ * ne doit pas voyager dans le document, que tous ses membres lisent. Sel
+ * fixe et public : l'identifiant doit rester le même après un changement de
+ * `SESSION_SECRET` — on ne le dérive donc d'aucun secret. Conséquence
+ * assumée : quelqu'un qui a déjà l'adresse d'une personne peut vérifier
+ * qu'elle a écrit un commentaire. */
+export function idCompte(email) {
+  return createHash('sha256').update(`amend:compte:${String(email || '').toLowerCase()}`).digest('hex').slice(0, 16)
 }
 
 export const NOM_MAX = 40

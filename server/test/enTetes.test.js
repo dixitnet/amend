@@ -34,11 +34,12 @@ function fausseReponse() {
 }
 
 test('le mode de la CSP : inconnu ou absent retombe sur « report-only »', () => {
-  assert.equal(modeCsp(undefined), 'report-only')
-  assert.equal(modeCsp(''), 'report-only')
-  assert.equal(modeCsp('nimporte'), 'report-only')
+  assert.equal(modeCsp(undefined), 'enforce')
+  assert.equal(modeCsp(''), 'enforce')
+  assert.equal(modeCsp('nimporte'), 'enforce')
   assert.equal(modeCsp('ENFORCE'), 'enforce')
   assert.equal(modeCsp(' off '), 'off')
+  assert.equal(modeCsp('report-only'), 'report-only')
 })
 
 test('la politique n’ouvre aucun script en ligne ni extérieur, et interdit les cadres', () => {
@@ -90,7 +91,9 @@ test('le serveur pose les en-têtes sur la page, l’API et une erreur', async (
     await res.arrayBuffer()
     assert.equal(res.headers.get('x-content-type-options'), 'nosniff', chemin)
     assert.equal(res.headers.get('x-frame-options'), 'DENY', chemin)
-    assert.match(res.headers.get('content-security-policy-report-only') || '', /default-src 'self'/, chemin)
+    // Sans CSP_MODE, la CSP est bloquante (défaut depuis le 10/10/2026).
+    assert.match(res.headers.get('content-security-policy') || '', /default-src 'self'/, chemin)
+    assert.equal(res.headers.get('content-security-policy-report-only'), null, chemin)
   }
 })
 

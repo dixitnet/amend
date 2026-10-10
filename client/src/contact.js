@@ -31,12 +31,23 @@ function noter(texte) {
   erreurs.push(String(texte).slice(0, 500))
   if (erreurs.length > 5) erreurs.shift()
 }
+/** Ce qu'on garde d'un `console.error(...)` : le nom et le message des
+ * **erreurs techniques** seulement (`TypeError: …`), coupés court. Les autres
+ * arguments — chaînes, objets, nœuds — peuvent contenir un extrait du texte
+ * du document, que l'interface promet de ne jamais envoyer (audit C18). */
+export function resumeErreurConsole(args) {
+  const techniques = args.filter((a) => a instanceof Error).map((a) => `${a.name}: ${a.message}`.slice(0, 200))
+  return techniques.length ? techniques.join(' ; ') : 'console.error (détail non joint)'
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (e) => noter(`${e.message} (${e.filename}:${e.lineno})`))
-  window.addEventListener('unhandledrejection', (e) => noter(`promesse rejetée : ${e.reason}`))
+  window.addEventListener('unhandledrejection', (e) =>
+    noter(`promesse rejetée : ${e.reason instanceof Error ? `${e.reason.name}: ${e.reason.message}`.slice(0, 200) : 'sans erreur technique'}`)
+  )
   const erreurOrigine = console.error
   console.error = (...args) => {
-    noter(args.map((a) => (a instanceof Error ? a.message : String(a))).join(' '))
+    noter(resumeErreurConsole(args))
     erreurOrigine.apply(console, args)
   }
 }

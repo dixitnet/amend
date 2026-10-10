@@ -57,6 +57,16 @@ function refus(status, message) {
   return Object.assign(new Error(message), { status })
 }
 
+const SIGNATURE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+const SIGNATURE_JPEG = Buffer.from([0xff, 0xd8, 0xff])
+
+/** Le type que disent les premiers octets, ou `null`. */
+export function typeReel(buffer) {
+  if (buffer.length >= SIGNATURE_PNG.length && buffer.subarray(0, 8).equals(SIGNATURE_PNG)) return 'image/png'
+  if (buffer.length >= SIGNATURE_JPEG.length && buffer.subarray(0, 3).equals(SIGNATURE_JPEG)) return 'image/jpeg'
+  return null
+}
+
 export class Uploads {
   constructor(dataDir, { maxImageMo, maxDocumentMo } = {}) {
     this.dir = join(dataDir, 'uploads')
@@ -103,6 +113,11 @@ export class Uploads {
     if (dejaLa + buffer.length > this.maxDocumentOctets) {
       throw refus(413, `ce document a atteint sa limite d'images (${Math.round(this.maxDocumentOctets / 1048576)} Mo)`)
     }
+    // Les octets doivent être ceux d'un PNG ou d'un JPEG, et du type annoncé :
+    // le Content-Type est écrit par le client, il ne prouve rien (S15,
+    // 10/10/2026). C'est la signature du format, pas un décodage : il suffit
+    // pour qu'un fichier HTML ou SVG déguisé ne soit jamais servi comme image.
+    if (typeReel(buffer) !== mime) throw refus(415, "le fichier n'est pas une image png ou jpeg valide")
     const dossier = this._dossier(docId)
     if (!existsSync(dossier)) mkdirSync(dossier, { recursive: true })
     const nom = `${randomId(16)}.${ext}`
