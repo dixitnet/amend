@@ -427,6 +427,12 @@ async function handleApi(req, res, url) {
     // pour toujours — et resteraient lisibles par leur URL si l'identifiant
     // venait à être réattribué.
     uploads.supprimerDocument(docMatch[1])
+    // La page publiée est une copie du document : elle ne lui survit pas
+    // (décision du 10/10/2026). Sans ça, l'adresse publique resterait en
+    // ligne alors que plus personne ne peut la republier ni la retirer.
+    if (publications.depublier(docMatch[1])) {
+      metrics.log('publication', { email, docId: docMatch[1], retiree: true, avecDocument: true })
+    }
     return sendJson(res, 200, { ok })
   }
 
@@ -776,9 +782,9 @@ async function handleApi(req, res, url) {
 // s'appuie dessus pour décider quoi que ce soit, un tarif périmé fausse un
 // affichage, jamais un comportement.
 const TARIFS_IA = {
-  modele: process.env.AI_MODEL || 'claude-sonnet-5',
-  entreeEurParMTok: Number(process.env.AI_PRICE_INPUT_EUR) || 1.73,
-  sortieEurParMTok: Number(process.env.AI_PRICE_OUTPUT_EUR) || 8.67,
+  modele: process.env.AI_MODEL || 'claude-haiku-5-5',
+  entreeEurParMTok: Number(process.env.AI_PRICE_INPUT_EUR) || 0.087,
+  sortieEurParMTok: Number(process.env.AI_PRICE_OUTPUT_EUR) || 0.434,
 }
 
 // Vue d'ensemble du back-office (voir claude/conception-backoffice.md) :

@@ -400,6 +400,21 @@ test('les espaces insécables et les apostrophes typographiques ne bloquent pas 
   assert.equal(lectures(z, 1).accepte, 'Vraiment ? Oui.')
 })
 
+test('une citation qui ne diffère que par la casse est retrouvée, sauf si elle est ambiguë', () => {
+  const y = docAvec((f) => bloc(f, 'paragraph', ['Les bailleurs sociaux paient.']))
+  const v = proposer(y, [{ bloc: 1, avant: 'les bailleurs sociaux', apres: 'Les bailleurs publics' }], AUTEUR)
+  assert.equal(v.appliques.length, 1, JSON.stringify(v.refuses))
+  assert.equal(lectures(y, 1).accepte, 'Les bailleurs publics paient.')
+  // Deux occurrences à la casse près : on ne devine pas laquelle.
+  const z = docAvec((f) => bloc(f, 'paragraph', ['Le Zan et le ZAN, puis le zan.']))
+  const w = proposer(z, [{ bloc: 1, avant: 'le zan', apres: 'le ZAN' }], AUTEUR)
+  assert.equal(w.appliques.length, 1, 'l’occurrence exacte « le zan » reste prioritaire')
+  const x = docAvec((f) => bloc(f, 'paragraph', ['Le Zan et le ZAN.']))
+  const u = proposer(x, [{ bloc: 1, avant: 'le zan', apres: 'le plan' }], AUTEUR)
+  assert.equal(u.appliques.length, 0)
+  assert.match(u.refuses[0].raison, /2 fois/)
+})
+
 test('un texte inséré n’hérite pas d’un lien qu’il suit, mais le mot remplacé dans un lien reste dans le lien', () => {
   const lien = { link: { href: 'https://a.org/' } }
   const y = docAvec((f) => bloc(f, 'paragraph', ['Voir ', ['la page', lien], ' et ', ['le site', lien], '.']))

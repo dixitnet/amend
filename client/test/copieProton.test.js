@@ -3,12 +3,18 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { copieProton } from '../src/admin.js'
+import { copieProton, copieDistante } from '../src/admin.js'
 
 const H = 3600_000
 const maintenant = Date.UTC(2026, 9, 10, 8, 0, 0)
 
-test('jamais envoyé : rien à afficher (la copie distante a sa propre alerte)', () => {
+test('copie distante jamais signalée : plus de message permanent (10/10/2026) ; arrêtée depuis plus de 36 h : alerte', () => {
+  assert.equal(copieDistante(null, maintenant), '')
+  assert.doesNotMatch(copieDistante({ ts: maintenant - 5 * H }, maintenant), /bo-alerte/)
+  assert.match(copieDistante({ ts: maintenant - 40 * H }, maintenant), /bo-alerte/)
+})
+
+test('jamais envoyé : rien à afficher', () => {
   assert.equal(copieProton(null, maintenant), '')
   assert.equal(copieProton(undefined, maintenant), '')
 })

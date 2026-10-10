@@ -132,9 +132,38 @@ function editeurEnSuivi() {
   const state = EditorState.create({ doc, plugins: [trackChangesPlugin({ enabled: true })] })
   const view = new EditorView(document.getElementById('editeur'), { state })
   view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => ALICE) })
-  for (const [from, to] of [[27, 32], [14, 20], [1, 6]]) {
-    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)))
-    view.dispatch(view.state.tr.delete(from, to))
+  // Trois modifications **distinctes** : à la milliseconde près elles
+  // porteraient le même instant et seraient comptées comme un lot.
+  const horloge = Date.now
+  let t = horloge()
+  try {
+    for (const [from, to] of [[27, 32], [14, 20], [1, 6]]) {
+      Date.now = () => (t += 1000)
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)))
+      view.dispatch(view.state.tr.delete(from, to))
+    }
+  } finally {
+    Date.now = horloge
+  }
+  return view
+}
+
+/** Trois modifications du même auteur au même instant : une passe de Margo,
+ * un lot — la carte du panneau dit « 3 changements ». */
+function editeurEnLot() {
+  installerDom()
+  const doc = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('alpha bravo charlie delta echo foxtrot golf')]),
+  ])
+  const state = EditorState.create({ doc, plugins: [trackChangesPlugin({ enabled: true })] })
+  const view = new EditorView(document.getElementById('editeur'), { state })
+  view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => ALICE) })
+  const horloge = Date.now
+  try {
+    Date.now = () => 1_800_000_000_000
+    for (const [from, to] of [[27, 32], [14, 20], [1, 6]]) view.dispatch(view.state.tr.delete(from, to))
+  } finally {
+    Date.now = horloge
   }
   return view
 }
@@ -182,6 +211,31 @@ test('accepter fait descendre à la suivante, et le compte diminue', () => {
   assert.equal(listChanges(view.state.doc).length, 2)
   assert.ok(view.state.selection.from >= avant, 'on ne remonte jamais')
   assert.match(barre.el.querySelector('.barre-relecture-position').textContent, /\/ 2$/)
+})
+
+test('un lot est une seule modification pour la barre, comme pour la carte : Accepter les décide toutes', () => {
+  const view = editeurEnLot()
+  assert.equal(listChanges(view.state.doc).length, 3, 'trois modifications dans le texte')
+  const barre = monterBarreRelecture(() => view)
+  document.body.appendChild(barre.el)
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)))
+  barre.rendre()
+  assert.match(barre.el.querySelector('.barre-relecture-position').textContent, /^1 \/ 1$/)
+
+  btn(barre.el, 'Accepter').dispatchEvent(new window.Event('click', { bubbles: true }))
+  assert.equal(listChanges(view.state.doc).length, 0, 'tout le lot est accepté d’un geste')
+  assert.equal(barre.el.hidden, true)
+})
+
+test('rejeter un lot les rejette toutes', () => {
+  const view = editeurEnLot()
+  const barre = monterBarreRelecture(() => view)
+  document.body.appendChild(barre.el)
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)))
+  barre.rendre()
+  btn(barre.el, 'Rejeter').dispatchEvent(new window.Event('click', { bubbles: true }))
+  assert.equal(listChanges(view.state.doc).length, 0)
+  assert.equal(view.state.doc.textContent, 'alpha bravo charlie delta echo foxtrot golf', 'le texte est rétabli')
 })
 
 test('la barre disparaît quand il n’y a plus rien à relire', () => {

@@ -699,15 +699,25 @@ export function mountEditor(root, docId, user, docMeta) {
 
   // Et la porte vers les commentaires : le fil du passage où est le
   // curseur, ou rien à ouvrir si l'on n'est pas dans un passage commenté.
+  let composeurMarge = null // le plugin de la marge, posé avec les greffons
   const filBtn = document.createElement('button')
   filBtn.type = 'button'
   filBtn.className = 'btn-tool btn-texte'
   filBtn.textContent = 'Commentaire'
-  filBtn.title = 'Ouvrir le fil du passage où se trouve le curseur'
+  filBtn.title = 'Commenter le passage sélectionné — ou ouvrir le fil du passage où se trouve le curseur'
   filBtn.onclick = () => {
+    // Un passage sélectionné : on le commente, comme avec le « ＋ » de la
+    // marge (le bouton s'appelle « Commentaire », il doit en créer un).
+    // Sinon, le curseur dans un passage déjà commenté : on ouvre son fil.
+    if (!view.state.selection.empty && cap.canComment !== false) {
+      if (petitEcran()) ouvrirComposeurTactile()
+      else if (composeurMarge && composeurMarge.ouvrirSurLaSelection()) return
+      else messageFugace('Impossible de commenter ce passage.')
+      return
+    }
     const id = commentaireAuPoint(view.state, ydoc, commentsMap, view.state.selection.head)
     if (id) ouvrirFilCommentaire(view, ydoc, commentsMap, user, id)
-    else messageFugace('Aucun commentaire à cet endroit du texte.')
+    else messageFugace('Sélectionnez un passage pour le commenter, ou placez le curseur dans un passage déjà commenté.')
   }
   groupeRelire.appendChild(filBtn)
 
@@ -962,7 +972,7 @@ export function mountEditor(root, docId, user, docMeta) {
       tactilePlugin(),
       footnotesPlugin(() => user, { surChangement: (v) => listeNotes && listeNotes.rafraichir(v) }),
       mountCommentsGutter(commentsGutter, ydoc, commentsMap, user),
-      mountGutterComposer(commentsGutter, ydoc, commentsMap, user),
+      (composeurMarge = mountGutterComposer(commentsGutter, ydoc, commentsMap, user)),
       mountChangesPanel(changesSection, { canReview: !!cap.canReviewChanges }),
       mountOutlinePanel(outlineSection),
       mountWordCount(wordCount),

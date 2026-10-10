@@ -112,7 +112,7 @@ test('GET dit qui a droit : administrateurs seuls par défaut, rien sans session
   const admin = await (await get('admin@example.com')).json()
   assert.equal(admin.autorise, true)
   assert.equal(admin.portee, 'admins')
-  assert.equal(admin.modele, 'claude-sonnet-5-5')
+  assert.equal(admin.modele, 'claude-haiku-5-5')
   const autre = await (await get('quelquun@example.com')).json()
   assert.equal(autre.autorise, false)
   assert.equal(autre.modele, null)
@@ -148,7 +148,7 @@ test('une question : la réponse arrive en flux, le document n’est pas touché
   assert.equal(requetes.length, 2)
   const premiere = requetes[0]
   assert.equal(premiere.headers['x-api-key'], 'cle-factice-de-test')
-  assert.equal(premiere.corps.model, 'claude-sonnet-5-5')
+  assert.equal(premiere.corps.model, 'claude-haiku-5-5')
   const noms = premiere.corps.tools.map((t) => t.name)
   assert.ok(noms.includes('plan') && noms.includes('proposer') && noms.includes('lire'))
   assert.ok(premiere.corps.tools[premiere.corps.tools.length - 1].cache_control)

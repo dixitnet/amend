@@ -50,15 +50,14 @@ function duree(sec) {
   return j ? `${j}${NBSP}j${NBSP}${h}${NBSP}h` : h ? `${h}${NBSP}h${NBSP}${m}${NBSP}min` : `${m}${NBSP}min`
 }
 
-/** Où en est la copie régulière tirée par la machine de sauvegarde. Au-delà
- * de 36 h sans nouvelle, c'est une alerte : une sauvegarde qui s'arrête en
+/** Où en est la copie régulière tirée par la machine de sauvegarde, quand il
+ * y en a une. Au-delà de 36 h sans nouvelle, c'est une alerte : une sauvegarde qui s'arrête en
  * silence est pire que pas de sauvegarde, parce qu'on croit en avoir une. */
 export function copieDistante(etat, maintenant) {
-  if (!etat) {
-    return `<p class="bo-note bo-alerte">Aucune copie distante signalée. La sauvegarde régulière tirée par
-      une autre machine n'est pas en place (<code>deploy/SAUVEGARDE.md</code>) : les données n'existent
-      qu'ici.</p>`
-  }
+  // Jamais signalée : on ne dit rien (décision du 10/10/2026). L'alerte
+  // permanente « aucune copie distante » est retirée du back-office ; celle
+  // d'une copie qui s'arrête (plus de 36 h) reste, plus bas.
+  if (!etat) return ''
   const sec = Math.max(0, Math.round((maintenant - etat.ts) / 1000))
   const vieille = sec > 36 * 3600
   return `<p class="bo-note${vieille ? ' bo-alerte' : ''}">Dernière copie tirée par la machine de sauvegarde :

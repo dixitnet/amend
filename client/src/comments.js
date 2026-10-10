@@ -319,6 +319,84 @@ function reporter(ranges, tr, structurel) {
   return out
 }
 
+// --- Couper-coller : le commentaire suit le passage (10/10/2026) -----------
+//
+// Couper un passage commenté le supprime ; sans rien d'autre, son commentaire
+// est masqué puis effacé au bout de sept jours — alors que le texte est
+// simplement ailleurs. Décision du 10/10 : il suit le passage collé.
+//
+// Rien ne voyage avec le presse-papiers (les commentaires ne sont pas dans le
+// schéma). On retient donc, par transaction locale, ce qu'une **suppression
+// pure** vient d'emporter — le texte, et où les passages commentés s'y
+// trouvaient — et, quand une transaction insère ensuite exactement ce texte,
+// les passages sont reposés dessus. Il faut que le texte inséré soit
+// identique et que les passages s'y retrouvent mot pour mot : sinon rien ne
+// bouge, et le commentaire reste masqué comme avant. Sous suivi des
+// modifications le texte « coupé » reste en place, barré : le commentaire
+// aussi, et le texte collé est une copie (rien à suivre).
+
+/** Combien de temps une coupe reste « en attente » d'être collée. */
+export const DELAI_COUPE_MS = 30 * 60 * 1000
+const COUPES_MAX = 3
+
+const texteDe = (slice) => slice.content.textBetween(0, slice.content.size, '\n', '\ufffc')
+
+/** Examine les étapes d'une transaction locale : retient les suppressions
+ * pures qui emportent des passages commentés, et repose les passages sur un
+ * texte collé identique. `connus` : positions (avant la transaction) de tous
+ * les passages. Renvoie les coupes encore en attente et les passages à
+ * reposer (id → {from, to}, dans le document d'après). */
+export function suivreCoupeColle(tr, connus, commentsMap, coupes, maintenant = Date.now()) {
+  let restantes = coupes.filter((c) => maintenant - c.t <= DELAI_COUPE_MS)
+  const suivis = new Map()
+  tr.steps.forEach((step, i) => {
+    if (!(step instanceof ReplaceStep)) return
+    const avant = tr.docs[i]
+    const apres = tr.docs[i + 1] || tr.doc
+    const jusqu = tr.mapping.slice(0, i)
+    // Suppression pure d'un morceau qui contient des passages commentés.
+    if (step.from < step.to && step.slice.size === 0) {
+      const morceaux = []
+      connus.forEach((r, id) => {
+        if (suivis.has(id) || !commentsMap.get(id)) return
+        const f = jusqu.map(r.from, 1)
+        const t = jusqu.map(r.to, -1)
+        if (t > f && f >= step.from && t <= step.to) {
+          morceaux.push({ id, debut: f - step.from, fin: t - step.from, texte: avant.textBetween(f, t, '\n', '\ufffc') })
+        }
+      })
+      if (morceaux.length) {
+        const coupe = avant.slice(step.from, step.to)
+        restantes = [{ t: maintenant, texte: texteDe(coupe), ouvert: coupe.openStart, morceaux }, ...restantes].slice(0, COUPES_MAX)
+      }
+      return
+    }
+    // Insertion d'un texte identique à une coupe en attente.
+    if (step.slice.size > 0 && restantes.length) {
+      const texte = texteDe(step.slice)
+      const k = restantes.findIndex((c) => c.texte === texte)
+      if (k < 0) return
+      const coupe = restantes[k]
+      const decalage = step.from + coupe.ouvert - step.slice.openStart
+      const apresSuite = tr.mapping.slice(i + 1)
+      const pris = new Set()
+      for (const m of coupe.morceaux) {
+        const f = decalage + m.debut
+        const t = decalage + m.fin
+        if (f < 0 || t > apres.content.size) continue
+        if (apres.textBetween(f, t, '\n', '\ufffc') !== m.texte) continue
+        suivis.set(m.id, { from: apresSuite.map(f, 1), to: apresSuite.map(t, -1) })
+        pris.add(m.id)
+      }
+      if (pris.size) {
+        coupe.morceaux = coupe.morceaux.filter((m) => !pris.has(m.id))
+        if (!coupe.morceaux.length) restantes = restantes.filter((_, j) => j !== k)
+      }
+    }
+  })
+  return { coupes: restantes, suivis }
+}
+
 function decorer(doc, ranges, commentsMap) {
   const decos = []
   const taille = doc.content.size
@@ -354,9 +432,9 @@ export function commentsPlugin(ydoc, commentsMap, { peutEcrire = () => true } = 
   // à jour de la vue, le réancrage ne doit être joué qu'une fois.
   const traites = new WeakSet()
 
-  function etatInitial(state, annulation = null) {
+  function etatInitial(state, annulation = null, coupes = []) {
     const ranges = resoudreTout(state, ydoc, commentsMap)
-    return { ranges, decos: decorer(state.doc, ranges, commentsMap), reancrer: null, annulation }
+    return { ranges, decos: decorer(state.doc, ranges, commentsMap), reancrer: null, annulation, coupes }
   }
 
   /** Réécrit les ancres Yjs des passages que la transaction structurelle a
@@ -458,7 +536,7 @@ export function commentsPlugin(ydoc, commentsMap, { peutEcrire = () => true } = 
         // Transaction venue de Yjs (autre participant, annuler / refaire), ou
         // simple rafraîchissement : Yjs est à jour, on le lit.
         if (distante || rafraichir || !tr.docChanged) {
-          return etatInitial(newState, tr.docChanged && meta && meta.isUndoRedoOperation ? {} : null)
+          return etatInitial(newState, tr.docChanged && meta && meta.isUndoRedoOperation ? {} : null, old.coupes)
         }
         // Transaction locale : Yjs n'a pas encore reçu le texte (ySyncPlugin
         // l'écrit dans la mise à jour de la vue, après celle-ci). On suit
@@ -476,6 +554,10 @@ export function commentsPlugin(ydoc, commentsMap, { peutEcrire = () => true } = 
           connus.set(id, range)
         })
         const ranges = reporter(connus, tr, structurel)
+        // Couper-coller : un passage emporté par une coupe et retrouvé dans
+        // un texte collé identique est reposé là.
+        const { coupes, suivis } = suivreCoupeColle(tr, connus, commentsMap, old.coupes || [])
+        suivis.forEach((r, id) => ranges.set(id, r))
         // Une transaction ajoutée par un autre greffon (suivi des
         // modifications) ne doit pas faire oublier un réancrage en attente.
         const enAttente =
@@ -483,8 +565,9 @@ export function commentsPlugin(ydoc, commentsMap, { peutEcrire = () => true } = 
         return {
           ranges,
           decos: decorer(newState.doc, ranges, commentsMap),
-          reancrer: structurel ? ranges : enAttente,
+          reancrer: structurel || suivis.size ? ranges : enAttente,
           annulation: null,
+          coupes,
         }
       },
     },

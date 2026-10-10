@@ -11,7 +11,7 @@
 //   2. ce qui était cassé — écrit **comme il doit se comporter**. Le 08/10/2026
 //      ces scénarios étaient marqués `todo` (16 défauts) ; les points 1 et 2 de
 //      la correction (masquer au lieu de supprimer, réancrer après un geste de
-//      structure) en ont réglé 15. Reste le couper-coller, `todo` : à trancher ;
+//      structure) en ont réglé 15. Le couper-coller, resté `todo`, est tranché le 10/10 : le commentaire suit ;
 //   3. ce qui est à trancher (frontières, remplacement intégral) — des
 //      diagnostics, pas des assertions : voir claude/rapport-tests-commentaires.md.
 //
@@ -597,13 +597,40 @@ test('à deux : l’Entrée de l’un avant le passage de l’autre ne détruit 
   assert.equal(a.map.size, 2, 'la réponse aussi')
 })
 
-test('couper-coller le passage ailleurs : le commentaire le suit (ou au moins n’est pas perdu en silence)', DEFAUT(7, 'masqué sept jours puis effacé : à trancher, voir le rapport'), () => {
+test('couper-coller le passage ailleurs : le commentaire le suit', () => {
   const { e, f, t } = commente()
   const morceau = e.view.state.doc.slice(f, t)
   e.supprimer(f, t)
   const p = e.pos('Second')
   e.view.dispatch(e.view.state.tr.replaceRange(p, p, morceau))
   assert.equal(e.nb(), 1)
+  assert.deepEqual(e.surlignages(), [PASSAGE], 'le surlignage est sur le texte collé')
+})
+
+test('couper-coller : l’autre participant voit le commentaire sur le texte collé, et rien n’est masqué', () => {
+  const { a, b } = deuxClients()
+  const f = a.pos(PASSAGE)
+  const t = f + PASSAGE.length
+  a.commenter(f, t)
+  sync(a, b)
+  const morceau = a.view.state.doc.slice(f, t)
+  a.supprimer(f, t)
+  const p = a.pos('Second')
+  a.view.dispatch(a.view.state.tr.replaceRange(p, p, morceau))
+  sync(a, b)
+  assert.equal(a.nb(), 1)
+  assert.equal(b.nb(), 1)
+  assert.deepEqual(b.surlignages(), [PASSAGE])
+  assert.equal(a.map.doc.getMap('commentsOrphelins').size, 0, 'plus de marque d’orphelin')
+})
+
+test('couper sans coller : le commentaire est masqué comme avant ; coller un autre texte ne le reprend pas', () => {
+  const { e, f, t } = commente()
+  e.supprimer(f, t)
+  assert.equal(e.nb(), 0)
+  const p = e.pos('Second')
+  e.taper(p, 'tout autre texte')
+  assert.equal(e.nb(), 0)
 })
 
 // =============================================================================

@@ -523,7 +523,7 @@ export function mountGutterComposer(gutter, ydoc, commentsMap, user) {
     bouton.hidden = false
   }
 
-  return new Plugin({
+  const plugin = new Plugin({
     view(editorView) {
       view = editorView
       return {
@@ -538,4 +538,13 @@ export function mountGutterComposer(gutter, ydoc, commentsMap, user) {
       }
     },
   })
+  /** Ouvre le composeur sur la sélection, comme le fait « ＋ » : pour le
+   * bouton « Commentaire » de la barre d'outils. Faux s'il n'y a rien de
+   * sélectionné. */
+  plugin.ouvrirSurLaSelection = () => {
+    if (positionDeLaSelection() === null) return false
+    bouton.click()
+    return !composeur.hidden
+  }
+  return plugin
 }

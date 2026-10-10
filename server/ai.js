@@ -5,12 +5,12 @@
 
 import { typographier } from '../shared/typographie.js'
 
-// Sonnet 5 depuis le 16/09/2026 : 2 $ / 10 $ par million de jetons contre
-// 3 $ / 15 $ pour le 4.5, soit un tiers de moins pour le même travail de
-// reformulation. Surchargeable par AI_MODEL (.env) — et si on en change, il
-// faut ajuster les deux tarifs du .env avec, sans quoi le coût affiché dans
-// le back-office devient faux en silence.
-const DEFAULT_MODEL = 'claude-sonnet-5'
+// Haiku 5.5 depuis le 10/10/2026 : le modèle le moins cher (0,10 $ / 0,50 $ par
+// million de jetons), et le banc d'essai (claude/rapport-banc-modeles.md) ne le
+// distingue pas de Sonnet pour la correction. Surchargeable par AI_MODEL
+// (.env) — et si on en change, il faut ajuster les deux tarifs du .env avec,
+// sans quoi le coût affiché dans le back-office devient faux en silence.
+const DEFAULT_MODEL = 'claude-haiku-5-5'
 const MAX_INPUT_CHARS = 8000
 
 export class AIConfigError extends Error {}

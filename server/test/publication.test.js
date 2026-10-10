@@ -294,6 +294,17 @@ test('retirer la page la fait disparaître pour de bon', async () => {
   assert.equal((await fetch(r.url)).status, 404)
 })
 
+test('supprimer le document supprime aussi sa page publiée', async () => {
+  const admin = cookie('admin@example.com')
+  const doc = await creerDoc(admin, 'Doc voué à disparaître')
+  const r = await (await publier(admin, doc.id, { titre: 'Doc', blocs: texte('à retirer avec lui') })).json()
+  assert.equal((await fetch(r.url)).status, 200)
+
+  const sup = await fetch(`${BASE}/api/docs/${doc.id}`, { method: 'DELETE', headers: { cookie: admin } })
+  assert.equal(sup.status, 200)
+  assert.equal((await fetch(r.url)).status, 404, 'l’adresse publique ne doit pas survivre au document')
+})
+
 test('le nom d’une page est fait de trois mots distincts', () => {
   const vus = new Set()
   for (let i = 0; i < 300; i++) {

@@ -24,7 +24,11 @@ import { REMPLACEMENTS_MAX } from './agentTexte.js'
 import { capabilities } from './roles.js'
 
 export const PORTEES_DIALOGUE = ['admins', 'proprietaires', 'editeurs']
-export const MODELE_PAR_DEFAUT = 'claude-sonnet-5-5'
+// Haiku 5.5 par défaut (10/10/2026) : le modèle le moins cher. Mesuré seulement
+// en correction (claude/rapport-banc-modeles.md) ; `proposer` tolère donc les
+// citations inexactes de casse. Au-delà de 100 000 jetons par requête, le
+// tarif de Haiku 5.5 est multiplié par cinq. `DIALOGUE_MODEL` pour en changer.
+export const MODELE_PAR_DEFAUT = 'claude-haiku-5-5'
 
 // Vingt étapes de travail (une étape = un aller-retour avec le modèle, donc un
 // appel d'outil ou plusieurs appels simultanés), puis **une dernière sans

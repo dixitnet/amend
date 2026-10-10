@@ -29,8 +29,15 @@ import {
   resolveCommentRange,
   supprimerFil,
 } from './comments.js'
-import { listChanges, acceptChange, rejectChange } from './trackChanges.js'
+import { listChanges, regrouperEnLots, acceptChange, rejectChange } from './trackChanges.js'
 import { noteDeLaPosition, ouvrirNoteDeLaModification } from './footnotes.js'
+
+/** Les modifications telles que la carte du panneau les compte : un lot
+ * (même auteur, même instant — typiquement une passe de Margo) est **une**
+ * modification, comme dans la colonne de droite. Avant le 10/10/2026 la
+ * barre comptait et décidait membre par membre : « Accepter » n'acceptait
+ * qu'un des « 4 changements » de la carte. */
+const aDecider = (doc) => regrouperEnLots(listChanges(doc))
 
 function tempsRelatif(ts) {
   const s = Math.round((Date.now() - ts) / 1000)
@@ -234,7 +241,7 @@ export function monterBarreRelecture(getView, { canReview = true } = {}) {
   function etat() {
     const view = getView()
     if (!view) return { liste: [], index: -1 }
-    const liste = listChanges(view.state.doc)
+    const liste = aDecider(view.state.doc)
     const pos = view.state.selection.from
     let index = liste.findIndex((c) => c.from <= pos && pos <= c.to)
     if (index === -1) index = liste.findIndex((c) => c.from >= pos)
@@ -272,7 +279,7 @@ export function monterBarreRelecture(getView, { canReview = true } = {}) {
     if (!view || index < 0 || !liste[index]) return
     const depart = liste[index].from
     action(view, liste[index])
-    const apres = listChanges(view.state.doc)
+    const apres = aDecider(view.state.doc)
     const suivante = apres.find((c) => c.from >= depart)
     if (suivante) {
       const to = Math.min(suivante.to, view.state.doc.content.size)

@@ -230,6 +230,20 @@ export function situer(bloc, citation) {
   const large = occurrences(normaliser(bloc.texte), normaliser(citation))
   if (large.length === 1) return { ok: true, debut: large[0], fin: large[0] + citation.length, approche: true }
   if (large.length > 1) return { ok: false, raison: `ce passage apparaît ${large.length} fois dans ${lieu} : allonge-le pour qu'il soit unique` }
+  // Dernier recours : sans tenir compte de la casse. Haiku 5.5 recopie parfois
+  // « les bailleurs » pour « Les bailleurs » (11 citations sur 223 au banc
+  // d'essai) ; on ne le renvoie pas recopier pour une majuscule.
+  const sansCasse = (s) => {
+    const m = normaliser(s).toLowerCase()
+    return m.length === s.length ? m : null // un changement de longueur décalerait les positions
+  }
+  const a = sansCasse(bloc.texte)
+  const b = sansCasse(citation)
+  if (a && b) {
+    const souple = occurrences(a, b)
+    if (souple.length === 1) return { ok: true, debut: souple[0], fin: souple[0] + citation.length, approche: true }
+    if (souple.length > 1) return { ok: false, raison: `ce passage apparaît ${souple.length} fois dans ${lieu} : allonge-le pour qu'il soit unique` }
+  }
   return { ok: false, raison: `ce passage est introuvable dans ${lieu} — recopie-le exactement, tel que lire le montre (le texte a peut-être changé depuis)` }
 }
 
