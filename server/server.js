@@ -11,7 +11,7 @@ import { Repliques } from './replique.js'
 import { suggestEdit, AIConfigError, AIRequestError } from './ai.js'
 import { Metrics } from './metrics.js'
 import { Uploads } from './uploads.js'
-import { Users } from './users.js'
+import { Users, raisonDeRefus } from './users.js'
 import { Typst, TypstError } from './typst.js'
 import { SupportTraites, cleDuRetour } from './supportTraites.js'
 import { Versions } from './versions.js'
@@ -840,15 +840,18 @@ const TARIFS_IA = {
     })
   }
 
-  // Le nom que la personne se donne à sa première ouverture de document.
-  // Une session valide suffit : on n'enregistre un nom que sur l'adresse de
+  // Le nom que la personne se donne à sa première ouverture de document — et
+  // qu'elle peut changer ensuite (10/10/2026, menu du compte). Une session
+  // valide suffit : on n'enregistre un nom que sur l'adresse de
   // la session elle-même, jamais sur une adresse passée en paramètre.
   if (pathname === '/api/auth/name' && req.method === 'POST') {
     const email = readSession(req)
     if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     const body = await readJsonBody(req)
+    const raison = raisonDeRefus(body.nom)
+    if (raison) return sendJson(res, 400, { error: raison })
     const compte = users.definirNom(email, body.nom)
-    if (!compte) return sendJson(res, 400, { error: 'nom vide' })
+    if (!compte) return sendJson(res, 400, { error: 'nom refusé' })
     return sendJson(res, 200, { nom: compte.nom, couleur: compte.couleur })
   }
 

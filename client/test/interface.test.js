@@ -182,6 +182,12 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   assert.ok(racine.querySelector('.banniere-centre .presence-bar'), 'les pastilles de présence')
   assert.ok(racine.querySelector('.banniere-droite .connection-status'), 'le voyant, à droite')
   assert.ok(racine.querySelector('.banniere-droite .compte-pastille'), 'la pastille du compte')
+  // L'aide : un bouton dans le bandeau, avant l'Historique, vers la page publiée.
+  const aide = racine.querySelector('.banniere-droite a.aide-link')
+  assert.ok(aide, 'le bouton Aide, dans le bandeau')
+  assert.equal(aide.getAttribute('href'), '/p/scissors-dad-mechanic')
+  assert.equal(aide.textContent, 'Aide')
+  assert.equal(aide.nextElementSibling && aide.nextElementSibling.textContent, 'Historique', 'juste avant l’Historique')
   // L'interrupteur du suivi est en tête de la colonne de droite, hors du
   // corps qui défile (19/09) : c'est ce qui le rend toujours visible.
   const suivi = racine.querySelector('.sidebar > .suivi-entete > .track-toggle')
@@ -391,6 +397,7 @@ test('sur iPhone : un en-tête sobre, un crayon, et rien d’autre', async () =>
   assert.equal(feuille.querySelectorAll('.track-toggle').length, 1, 'un seul interrupteur, dans le menu')
   assert.match(feuille.textContent, /Plan du document/)
   assert.match(feuille.textContent, /Commentaires/)
+  assert.match(feuille.textContent, /Aide/, 'l’aide est dans le menu du téléphone')
   // Et rien de ce qui n'a pas sa place sur un téléphone.
   for (const absent of ['Mise en page', 'Partager', 'Historique', 'Exporter']) {
     assert.ok(!feuille.textContent.includes(absent), `${absent} n’a rien à faire ici`)

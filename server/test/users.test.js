@@ -144,6 +144,38 @@ test('un nom vide est refusé, un nom trop long est coupé', async () => {
   assert.equal(nom.length, NOM_MAX)
 })
 
+test('on change de nom quand on veut : la couleur reste, le nom revient avec le document (10/10/2026)', async () => {
+  const cookie = cookieFor('gina@example.com')
+  const premier = await (await definirNom(cookie, 'Gina')).json()
+  const apres = await (await definirNom(cookie, '  Gina   Martin ')).json()
+  assert.equal(apres.nom, 'Gina Martin', 'espaces resserrés')
+  assert.equal(apres.couleur, premier.couleur, 'la couleur ne bouge pas')
+  const moi = await (await fetch(`${BASE}/api/auth/me`, { headers: { cookie } })).json()
+  assert.equal(moi.nom, 'Gina Martin')
+  const doc = await creerDoc(cookie)
+  const meta = await (await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie } })).json()
+  assert.equal(meta.myName, 'Gina Martin')
+})
+
+test('un nom qui se donne pour une IA est refusé, avec la raison ; « Claude » ou « Margo » restent des prénoms', async () => {
+  const cookie = cookieFor('hugo@example.com')
+  assert.equal((await definirNom(cookie, 'Hugo')).status, 200)
+  for (const mauvais of ['Margo (IA)', 'margo ( ia )', 'Claude (pour Marie)', 'Quelqu’un (IA)']) {
+    const res = await definirNom(cookie, mauvais)
+    assert.equal(res.status, 400, mauvais)
+    assert.match((await res.json()).error, /IA/)
+  }
+  assert.equal(new Users(process.env.DATA_DIR).nomDe('hugo@example.com'), 'Hugo', 'le nom d’avant reste')
+  assert.equal((await definirNom(cookie, 'Claude')).status, 200)
+  assert.equal((await definirNom(cookie, 'Margo')).status, 200)
+})
+
+test('les caractères de contrôle ne se logent pas dans un nom', async () => {
+  const cookie = cookieFor('ines@example.com')
+  const { nom } = await (await definirNom(cookie, 'In\u0000è\ns\u0007')).json()
+  assert.equal(nom, 'In è s')
+})
+
 test('le registre est un fichier lisible — c’est là qu’on corrige une faute de frappe', () => {
   const chemin = join(process.env.DATA_DIR, 'users.json')
   assert.equal(existsSync(chemin), true)

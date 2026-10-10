@@ -30,6 +30,7 @@ import {
   supprimerFil,
 } from './comments.js'
 import { listChanges, acceptChange, rejectChange } from './trackChanges.js'
+import { noteDeLaPosition, ouvrirNoteDeLaModification } from './footnotes.js'
 
 function tempsRelatif(ts) {
   const s = Math.round((Date.now() - ts) / 1000)
@@ -45,6 +46,15 @@ function tempsRelatif(ts) {
  * feuille, donc : on doit voir le passage dont on parle. */
 function centrer(view, pos, fraction = 0.3) {
   defilerVers(view, pos, { fraction })
+}
+
+/** Montre une modification : on centre le passage — ou l'appel de la note
+ * quand la modification est dans une note — et la note s'ouvre, sur le
+ * passage (même règle que dans le panneau des modifications). */
+function montrerLaModification(view, de, a) {
+  const note = noteDeLaPosition(view.state.doc, de)
+  centrer(view, note ? note.pos : de, 0.35)
+  if (note) ouvrirNoteDeLaModification(view, de, a)
 }
 
 // --------------------------------------------------- les commentaires
@@ -238,7 +248,7 @@ export function monterBarreRelecture(getView, { canReview = true } = {}) {
     const cible = liste[Math.max(0, Math.min(index, liste.length - 1))]
     const to = Math.min(cible.to, view.state.doc.content.size)
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, cible.from, to)))
-    centrer(view, cible.from, 0.35)
+    montrerLaModification(view, cible.from, to)
     rendre()
   }
 
@@ -267,7 +277,7 @@ export function monterBarreRelecture(getView, { canReview = true } = {}) {
     if (suivante) {
       const to = Math.min(suivante.to, view.state.doc.content.size)
       view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, suivante.from, to)))
-      centrer(view, suivante.from, 0.35)
+      montrerLaModification(view, suivante.from, to)
     }
     rendre()
   }

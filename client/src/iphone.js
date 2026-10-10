@@ -36,6 +36,7 @@
 
 import { TextSelection } from 'prosemirror-state'
 import { ouvrirFeuille } from './feuille.js'
+import { URL_AIDE } from './aide.js'
 import { suivreLeClavier } from './clavier.js'
 import { ouvrirPlan } from './planFeuille.js'
 
@@ -217,6 +218,12 @@ export function monterInterfaceTelephone(pieces) {
       // remplacer l'ancienne : elle hérite de son entrée d'historique.
       ouvrirCommentaire()
     }, n ? `${n}` : 'aucun')
+
+    // L'aide (10/10/2026) : la page publiée, dans un nouvel onglet — on
+    // retrouve le document en revenant.
+    entree('Aide', () => {
+      window.open(URL_AIDE, '_blank', 'noopener')
+    })
 
     // La taille du texte. Sur téléphone, c'est ici qu'elle se règle : le
     // suivi de la taille système a été abandonné au profit de ce zoom, qui

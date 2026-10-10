@@ -12,11 +12,16 @@
 // aussi à savoir si la personne est administratrice.
 
 import { getSessionEmail, logout } from './auth.js'
+import { initials } from './presence.js'
+import { lienAide } from './aide.js'
+import { ouvrirChangementDeNom } from './nomCompte.js'
 
-function initiales(texte) {
-  const t = (texte || '').trim()
-  if (!t) return '?'
-  return t.slice(0, 2).toUpperCase()
+/** Les initiales de la pastille : celles du **nom** quand on en a un — les
+ * mêmes que dans la liste des présents —, sinon le début de l'adresse. */
+function initiales(nom, email) {
+  if (nom) return initials(nom)
+  const t = (email || '').trim()
+  return t ? t.slice(0, 2).toUpperCase() : '?'
 }
 
 /**
@@ -26,8 +31,12 @@ function initiales(texte) {
  * `couleur` est une **fonction**, pas une valeur : la pastille est montée
  * avant que la couleur de la personne soit connue (elle arrive avec les
  * métadonnées du document), et une fonction se lit au bon moment.
+ *
+ * `surNom(nom)` est appelé quand la personne vient de changer son nom
+ * (10/10/2026) : l'éditeur y met à jour son identité dans le document en
+ * cours, sans recharger la page.
  */
-export function monterMenuCompte(container, { couleur } = {}) {
+export function monterMenuCompte(container, { couleur, surNom } = {}) {
   const menu = document.createElement('div')
   menu.className = 'menu-flottant menu-compte'
 
@@ -67,13 +76,36 @@ export function monterMenuCompte(container, { couleur } = {}) {
       menu.hidden = true
       return
     }
-    pastille.textContent = initiales(email)
-    pastille.title = email
-
+    let nomCourant = null
     const adresse = document.createElement('span')
     adresse.className = 'menu-flottant-entete'
-    adresse.textContent = email
+    // L'en-tête dit **qui je suis** : le nom, puis l'adresse qui prouve le
+    // compte. La pastille en reprend les initiales.
+    const majEntete = () => {
+      pastille.textContent = initiales(nomCourant, email)
+      pastille.title = nomCourant ? `${nomCourant} — ${email}` : email
+      adresse.textContent = nomCourant ? `${nomCourant} · ${email}` : email
+    }
+    majEntete()
     liste.appendChild(adresse)
+
+    const monNom = document.createElement('button')
+    monNom.type = 'button'
+    monNom.className = 'compte-mon-nom'
+    monNom.textContent = 'Changer mon nom…'
+    monNom.onclick = () => {
+      liste.hidden = true
+      ouvrirChangementDeNom({
+        nomActuel: nomCourant || '',
+        surChangement: (nom) => {
+          nomCourant = nom
+          majEntete()
+          if (surNom) surNom(nom)
+        },
+      })
+    }
+    const aide = lienAide({ libelle: 'Aide' })
+    liste.append(monNom, aide)
 
     const deconnexion = document.createElement('button')
     deconnexion.type = 'button'
@@ -90,6 +122,10 @@ export function monterMenuCompte(container, { couleur } = {}) {
     fetch('/api/auth/me')
       .then((r) => r.json())
       .then((moi) => {
+        if (moi.nom) {
+          nomCourant = moi.nom
+          majEntete()
+        }
         if (moi.admin) {
           const sep = document.createElement('hr')
           sep.className = 'menu-flottant-separateur'

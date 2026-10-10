@@ -1,5 +1,7 @@
 import { getSessionEmail, logout, requestReconnectLink } from './auth.js'
 import { logoAmend } from './logo.js'
+import { lienAide } from './aide.js'
+import { ouvrirChangementDeNom } from './nomCompte.js'
 
 export async function mountHome(root) {
   root.innerHTML = ''
@@ -64,6 +66,13 @@ function mountPublicLanding(root) {
     "L'application fonctionne, mais elle est en phase de lancement : " +
     "l'accès se fait uniquement sur invitation."
   entete.appendChild(avis)
+
+  // L'aide est lisible sans compte (10/10/2026) : c'est ici qu'un visiteur
+  // se demande ce qu'est l'application.
+  const aide = document.createElement('p')
+  aide.className = 'landing-avis'
+  aide.appendChild(lienAide({ libelle: 'Lire l’aide d’amend.ink →' }))
+  entete.appendChild(aide)
 
   wrap.appendChild(entete)
 
@@ -293,6 +302,36 @@ function mountAppHome(root, email) {
       authStatus.appendChild(lien)
     })
     .catch(() => {})
+  // L'aide et le nom (10/10/2026) : ce sont les deux choses qu'on vient
+  // chercher ici sans le dire. L'aide ouvre un nouvel onglet.
+  const aideLink = lienAide({ libelle: 'Aide' })
+  const nomLink = document.createElement('a')
+  nomLink.href = '#'
+  nomLink.textContent = 'Changer mon nom'
+  let nomAffiche = ''
+  const dire = document.createTextNode(`Connecté comme ${email} `)
+  authStatus.textContent = ''
+  authStatus.appendChild(dire)
+  fetch('/api/auth/me')
+    .then((r) => r.json())
+    .then((moi) => {
+      if (moi.nom) {
+        nomAffiche = moi.nom
+        dire.textContent = `Connecté comme ${moi.nom} (${email}) `
+      }
+    })
+    .catch(() => {})
+  nomLink.addEventListener('click', (e) => {
+    e.preventDefault()
+    ouvrirChangementDeNom({
+      nomActuel: nomAffiche,
+      surChangement: (nom) => {
+        nomAffiche = nom
+        dire.textContent = `Connecté comme ${nom} (${email}) `
+      },
+    })
+  })
+  authStatus.append(aideLink, nomLink)
   const logoutLink = document.createElement('a')
   logoutLink.href = '#'
   logoutLink.textContent = 'Se déconnecter'

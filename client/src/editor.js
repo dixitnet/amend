@@ -54,6 +54,7 @@ import {
 import { imagesPlugin } from './images.js'
 import { mountPresenceBar } from './presence.js'
 import { monterMenuCompte } from './compteMenu.js'
+import { lienAide } from './aide.js'
 import { loadDocStyle } from './styleConfig.js'
 import { ouvrirPanneauStyle } from './stylePanel.js'
 import { monterModeleDocument } from './modeleDocument.js'
@@ -384,7 +385,13 @@ export function mountEditor(root, docId, user, docMeta) {
   historyLink.href = `#/doc/${docId}/versions`
   historyLink.className = 'btn-preset history-link'
   historyLink.textContent = 'Historique'
-  groupeHistorique.appendChild(historyLink)
+  // L'aide (10/10/2026) : un bouton, pas une entrée de menu — quelqu'un qui
+  // cherche comment faire cherche d'abord un mot « Aide » dans le bandeau.
+  // Elle voisine avec l'Historique : ce sont les deux gestes qui ne touchent
+  // pas au document, on le regarde ou on s'informe. Elle ouvre un nouvel
+  // onglet : le document reste là où on l'a laissé.
+  const aideLink = lienAide({ classe: 'btn-preset history-link aide-link', libelle: 'Aide' })
+  groupeHistorique.append(aideLink, historyLink)
 
   // 3. Faire sortir. Un seul bouton du 17/09 au 01/10/2026 : les accès et
   // les exports répondaient déjà à la même question — *qui d'autre voit ce
@@ -490,7 +497,17 @@ export function mountEditor(root, docId, user, docMeta) {
   status.setAttribute('role', 'status')
   zoneDroite.appendChild(status)
 
-  monterMenuCompte(zoneDroite, { couleur: () => user.color })
+  monterMenuCompte(zoneDroite, {
+    couleur: () => user.color,
+    // Un nom changé en cours de route : les autres le voient tout de suite
+    // (présence, curseur), et les modifications à venir le portent. L'état
+    // de présence reçoit un **nouvel objet** — muter l'ancien ne dirait rien
+    // aux autres, y-protocols compare les valeurs.
+    surNom: (nom) => {
+      provider.awareness.setLocalStateField('user', { ...user, name: nom })
+      user.name = nom
+    },
+  })
 
   // Le serveur seul sait qui peut publier : on le lui demande plutôt que de
   // rejouer la règle ici, où elle finirait par diverger.

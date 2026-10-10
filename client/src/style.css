@@ -1018,6 +1018,16 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   font-size: 14px;
   margin-bottom: 12px;
 }
+.name-modal .name-modal-erreur { margin: -4px 0 10px; color: #b3261e; font-size: 13px; }
+.name-modal .name-modal-actions { display: flex; gap: 8px; }
+.name-modal .name-modal-actions button { flex: 1; }
+.name-modal .name-modal-annuler {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.name-modal button:disabled { opacity: 0.6; cursor: default; }
 .name-modal button {
   width: 100%;
   padding: 8px;

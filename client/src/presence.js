@@ -18,7 +18,7 @@
 import { relativePositionToAbsolutePosition, ySyncPluginKey } from 'y-prosemirror'
 import { createRelativePositionFromJSON } from 'yjs'
 
-function initials(name) {
+export function initials(name) {
   // « Claude (pour Sylvain) » se résume à Claude : ce qui suit la
   // parenthèse dit pour qui il travaille, pas qui il est.
   const words = (name || '').replace(/\([^)]*\)/g, ' ').trim().split(/\s+/).filter(Boolean)

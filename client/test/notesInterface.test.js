@@ -16,6 +16,7 @@ import { footnotesPlugin, insererNote, monterListeDesNotes } from '../src/footno
 import { trackChangesPlugin, makeDispatchTransaction, listChanges, setTrackChangesEnabled } from '../src/trackChanges.js'
 import { notesDuDocument } from '../src/notes.js'
 import { mountChangesPanel } from '../src/changesPanel.js'
+import { monterBarreRelecture } from '../src/relectureTactile.js'
 
 const ALICE = { name: 'Alice', color: '#3d5a80' }
 
@@ -185,4 +186,35 @@ test('une modification hors des notes n’ouvre aucune note', async () => {
   await e.attendre()
   clicSurLaCarte(0)
   assert.equal(e.fenetre(), null)
+})
+
+test('la barre de relecture (‹ ›) : aller à une modification dans une note ouvre la note, sur le passage', async () => {
+  const e = monter({ suivi: false, panneau: false })
+  e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 3)))
+  insererNote(e.view, ALICE)
+  await e.attendre()
+  let interne = e.fenetre().vueInterne
+  interne.dispatch(interne.state.tr.insertText('Acceptée'))
+  e.fenetre().querySelector('.note-fenetre-fermer').click()
+  setTrackChangesEnabled(e.view, true)
+  e.appel().dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }))
+  interne = e.fenetre().vueInterne
+  interne.dispatch(interne.state.tr.insertText(' plus', interne.state.doc.content.size, interne.state.doc.content.size))
+  e.fenetre().querySelector('.note-fenetre-fermer').click()
+  await e.attendre()
+  assert.equal(e.fenetre(), null)
+  // Une modification dans le texte, avant la note : la barre y va d'abord.
+  e.view.dispatch(e.view.state.tr.insertText('X', 2, 2))
+  e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1)))
+
+  const barre = monterBarreRelecture(() => e.view)
+  document.body.append(barre.el)
+  barre.rendre()
+  const [precedent, , suivant] = barre.el.querySelectorAll('button')
+  suivant.click() // de la modification du texte vers celle de la note
+  if (!e.fenetre()) suivant.click()
+  assert.ok(e.fenetre(), 'la note s’ouvre quand la barre arrive sur sa modification')
+  const sel = e.fenetre().vueInterne.state.selection
+  assert.equal(e.fenetre().vueInterne.state.doc.textBetween(sel.from, sel.to), ' plus')
+  assert.ok(precedent)
 })

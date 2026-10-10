@@ -59,6 +59,33 @@ export function couleurAutorisee(couleur) {
 
 export const NOM_MAX = 40
 
+/** Le nom, tel qu'on le range : sans caractères de contrôle, espaces
+ * resserrés, coupé à NOM_MAX. */
+export function nomPropre(nom) {
+  return String(nom || '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, NOM_MAX)
+    .trim()
+}
+
+/** Pourquoi un nom est refusé, ou `null` s'il est acceptable (10/10/2026,
+ * quand on a laissé chacun changer le sien).
+ *
+ * Deux sortes de noms seraient des mensonges dans la marge et la liste des
+ * présents : ceux qui se donnent pour **l'IA** — « Margo (IA) » est le
+ * nom de l'auteur des propositions de l'IA, et « Claude (pour X) » celui de
+ * l'assistant invité — et rien d'autre. « Claude » ou « Margo » tout court
+ * restent des prénoms. La couleur verte, réservée, est de toute façon ce
+ * que le suivi regarde pour reconnaître l'IA. */
+export function raisonDeRefus(nom) {
+  const propre = nomPropre(nom)
+  if (!propre) return 'le nom est vide'
+  if (/\(\s*(ia|pour)\b/i.test(propre)) return 'ce nom se donne pour celui d’une IA'
+  return null
+}
+
 export class Users {
   constructor(dataDir) {
     this.path = join(dataDir, 'users.json')
@@ -108,12 +135,11 @@ export class Users {
    * c'est ce qui la rend stable d'un appareil à l'autre. Renommer quelqu'un
    * plus tard ne la retire donc pas.
    *
-   * (Laisser la personne changer son nom et sa couleur reste à faire — noté
-   * avec Sylvain le 16/09 : on verra après les tests utilisateurs. D'ici
-   * là, corriger une faute de frappe se fait dans ce fichier.) */
+   * Changer son nom (10/10/2026) passe par ici aussi : la couleur ne change
+   * pas. La couleur, elle, reste à faire. */
   definirNom(email, nom) {
-    const propre = String(nom || '').trim().slice(0, NOM_MAX)
-    if (!email || !propre) return null
+    const propre = nomPropre(nom)
+    if (!email || raisonDeRefus(propre)) return null
     const registre = this._lire()
     const existant = registre[email]
     const compte = {
