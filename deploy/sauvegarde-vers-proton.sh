@@ -15,15 +15,20 @@
 #
 # Ce que le script utilise du CLI — seulement ce que Proton documente
 # (proton.me/support/drive-cli) : `filesystem list <dossier>` et
-# `filesystem upload <fichiers…> <dossier> --conflict-strategy skip`. Les deux
-# dossiers de destination (quotidiennes, secrets) doivent exister dans Proton
-# Drive : aucune commande de création n'est documentée, on les crée à la main.
+# `filesystem upload <fichiers…> <dossier>`, sans aucune option (la version
+# 0.9.0 ne connaît pas `--conflict-strategy`, essayé le 10/10/2026) : chaque
+# archive porte la date dans son nom, il n'y a jamais de conflit à régler.
+# Les deux dossiers de destination (quotidiennes, secrets) doivent exister
+# dans Proton Drive : aucune commande de création n'est documentée, on les
+# crée à la main.
 #
 # Réglages (~/.config/amend-proton.conf, lu comme du shell) :
 #   PROTON_CLI=/home/amend/bin/proton-drive   (défaut : `proton-drive` du PATH)
 #   PROTON_DEST=/my-files/Sauvegardes/amend   (défaut)
 #   PROTON_PREFIXE="dbus-run-session --"      (défaut : rien)
 #   export PROTON_DRIVE_CREDENTIALS_STORE=pass (où le CLI range sa session)
+#   PROTON_OPTIONS_ENVOI=""                  (options ajoutées à `filesystem upload`,
+#                                              si une version du CLI en demande)
 #   PROTON_RM="proton-drive filesystem …"     (défaut : vide = rien n'est jamais
 #                                              supprimé sur Proton)
 #   DEST=/opt/amend/sauvegardes               (où les archives sont rangées ici)
@@ -43,6 +48,7 @@ PROTON_CLI="${PROTON_CLI:-proton-drive}"
 PROTON_DEST="${PROTON_DEST:-/my-files/Sauvegardes/amend}"
 PROTON_PREFIXE="${PROTON_PREFIXE:-}"
 PROTON_RM="${PROTON_RM:-}"
+PROTON_OPTIONS_ENVOI="${PROTON_OPTIONS_ENVOI:-}"
 PROTON_DELAI="${PROTON_DELAI:-3000}" # secondes, par appel du CLI
 GARDER_LOCAL="${GARDER_LOCAL:-2}"
 GARDER_PROTON_QUOTIDIENNES="${GARDER_PROTON_QUOTIDIENNES:-7}"
@@ -136,7 +142,7 @@ for nature in quotidiennes secrets; do
 
   chemins=()
   for nom in "${a_envoyer[@]}"; do chemins+=("$DEST/$nature/$nom"); done
-  if ! proton filesystem upload "${chemins[@]}" "$PROTON_DEST/$nature" --conflict-strategy skip > "$DEST/.sortie" 2>&1; then
+  if ! proton filesystem upload "${chemins[@]}" "$PROTON_DEST/$nature" $PROTON_OPTIONS_ENVOI > "$DEST/.sortie" 2>&1; then
     echec "$nature : l'envoi a échoué ($(tail -n 1 "$DEST/.sortie" | cut -c1-200))"
     continue
   fi

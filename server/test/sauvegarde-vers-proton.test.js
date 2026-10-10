@@ -47,7 +47,7 @@ echo "$*" >> "${racine}/appels.log"
 cmd=$2; shift 2
 if [ "$cmd" = "upload" ]; then
   [ -n "\${FAUX_ECHEC:-}" ] && { echo "erreur réseau" >&2; exit 1; }
-  args=(); while [ $# -gt 0 ]; do case "$1" in --conflict-strategy) shift 2;; *) args+=("$1"); shift;; esac; done
+  args=(); while [ $# -gt 0 ]; do case "$1" in -*) echo "Unknown option '$1'" >&2; exit 1;; *) args+=("$1"); shift;; esac; done
   n=\${#args[@]}
   dest="\${args[$((n-1))]}"
   [ -d "${distant}$dest" ] || { echo "dossier introuvable : $dest" >&2; exit 1; }
@@ -97,6 +97,8 @@ test('un premier passage fabrique données et secrets, les envoie, relit le doss
   assert.equal(r.status, 0, r.stderr)
   assert.deepEqual(m.distantes('quotidiennes'), ['amend-20261009-041500.tar.gz'])
   assert.deepEqual(m.distantes('secrets'), ['amend-secrets-20261009-041500.tar.gz'])
+  // Aucune option passée au CLI : la 0.9.0 refuse `--conflict-strategy`.
+  assert.ok(m.envois().every((l) => !/ --/.test(l)), m.envois().join('\n'))
   assert.deepEqual(m.registre(), ['quotidiennes/amend-20261009-041500.tar.gz', 'secrets/amend-secrets-20261009-041500.tar.gz'])
   assert.ok(existsSync(join(m.dest, 'dernier-succes-proton')))
   assert.ok(!existsSync(join(m.dest, 'dernier-echec-proton')))
