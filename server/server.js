@@ -1482,7 +1482,9 @@ const TARIFS_IA = {
     if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     const body = await readJsonBody(req)
 
-    const INTENTIONS = { question: 'Question', idee: 'Idée', bug: 'Bug' }
+    // `avis` (10/10/2026) : le formulaire n'a plus qu'un champ, sans choix de
+    // nature. Les trois autres restent acceptés (retours déjà reçus, anciens clients).
+    const INTENTIONS = { avis: 'Avis', question: 'Question', idee: 'Idée', bug: 'Bug' }
     const intention = INTENTIONS[String(body.intention || '')] ? String(body.intention) : null
     if (!intention) return sendJson(res, 400, { error: 'intention inconnue' })
     const message = String(body.message || '').trim().slice(0, 4000)
@@ -1509,7 +1511,7 @@ const TARIFS_IA = {
     const idRetour = `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
     metrics.log('support', { id: idRetour, email, intention, message, ...contexte })
 
-    const titres = { question: 'Question', idee: 'Proposition', bug: 'Signalement de bug' }
+    const titres = { avis: 'Aide / avis', question: 'Question', idee: 'Proposition', bug: 'Signalement de bug' }
     const lignes = [
       `De : ${email}`,
       contexte.docId ? `Document : ${APP_BASE_URL}/#/doc/${contexte.docId} (${contexte.role || 'rôle inconnu'})` : null,

@@ -90,7 +90,7 @@ function chiffre(valeur, libelle, precision) {
  * action dans les deux sens, parce qu'on se trompe, et qu'un retour classé
  * trop vite doit pouvoir revenir. */
 function ligneRetour(r) {
-  const intitule = { question: 'Question', idee: 'Idée', bug: 'Bug' }[r.intention] || r.intention || '—'
+  const intitule = { avis: 'Avis', question: 'Question', idee: 'Idée', bug: 'Bug' }[r.intention] || r.intention || '—'
   const contexte = [
     r.docId ? `<a href="#/doc/${esc(r.docId)}">document</a>${r.role ? ` (${esc(r.role)})` : ''}` : '',
     r.navigateur ? `<span title="${esc(r.navigateur)}">navigateur</span>` : '',

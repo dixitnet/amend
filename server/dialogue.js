@@ -12,8 +12,8 @@
 // l'instance qui paie, non l'abonnement de la personne. D'où des plafonds
 // (étapes par message, jetons par message, messages par heure, une seule
 // réponse à la fois par personne et par document) et un interrupteur dans le
-// .env, `CLAUDE_DIALOGUE`, sur le modèle de `CLAUDE_AGENT` : `admins` par
-// défaut.
+// .env, `CLAUDE_DIALOGUE`, sur le modèle de `CLAUDE_AGENT` : `editeurs` par
+// défaut depuis le 10/10/2026 (`admins` avant).
 //
 // Le journal `dialogue` dit qui, combien de jetons, quels outils — jamais le
 // texte d'un message ni celui d'un document.
@@ -46,10 +46,16 @@ export const CONVERSATION_CARACTERES_MAX = 60_000
 const SORTIE_PAR_APPEL = 8_192
 const FENETRE_MS = 60 * 60_000
 
-/** Qui a le droit de dialoguer avec Claude (07/10/2026). `admins` pendant la
- * phase de test — valeur par défaut, et celle de toute valeur inconnue. */
+/** Qui a le droit de dialoguer avec Claude (07/10/2026). Depuis le
+ * 10/10/2026, **tout éditeur** par défaut (le droit IA reste celui des
+ * éditeurs : jamais un correcteur ni un lecteur). `admins` est la valeur de
+ * toute valeur inconnue du .env : se tromper dans le .env ferme la porte,
+ * ne l'ouvre pas. */
 export function porteeDialogue() {
-  const v = String(process.env.CLAUDE_DIALOGUE || 'admins').trim().toLowerCase()
+  const brut = String(process.env.CLAUDE_DIALOGUE || '').trim().toLowerCase()
+  // Absent ou vide : le défaut. Écrit mais inconnu : la valeur la plus fermée.
+  if (!brut) return 'editeurs'
+  const v = brut
   return PORTEES_DIALOGUE.includes(v) ? v : 'admins'
 }
 

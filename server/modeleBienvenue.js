@@ -72,11 +72,11 @@ export const BLOCS_BIENVENUE = [
       ),
     ],
   },
-  { type: 'heading', level: 2, texte: [T('Un retour ?')] },
+  { type: 'heading', level: 2, texte: [T('Aide / avis')] },
   {
     type: 'paragraph',
     texte: [
-      T('amend.ink est en phase de test, et votre avis compte. Le bouton « Un retour ? », en bas à droite, envoie une question, une idée ou un bug. Le document en cours et votre navigateur sont joints automatiquement, '),
+      T('amend.ink est en phase de test, et votre avis compte. Le bouton « Aide / avis », en bas à droite, ouvre l’aide et permet d’envoyer une question, une idée ou un bug. Le document en cours et votre navigateur sont joints automatiquement, '),
       G('jamais le contenu de vos documents'),
       T('. Même un message de trois mots est utile.'),
     ],

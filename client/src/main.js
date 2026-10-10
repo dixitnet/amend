@@ -13,6 +13,7 @@ const app = document.getElementById('app')
 let currentEditor = null
 
 async function route() {
+  monterContactSiConnecte()
   if (currentEditor) {
     currentEditor.destroy()
     currentEditor = null
@@ -96,10 +97,16 @@ async function route() {
 window.addEventListener('hashchange', route)
 route()
 
-// La palette de contact (phase de test) : montée une fois, hors du routage,
-// pour qu'elle survive aux changements de page — et seulement pour les
-// personnes connectées, un visiteur anonyme n'ayant rien à signaler qu'il
-// puisse décrire.
-getSessionEmail().then((email) => {
-  if (email) monterPaletteContact()
-})
+// La palette de contact (phase de test) : montée hors du routage, pour
+// qu'elle survive aux changements de page — et seulement pour les personnes
+// connectées, un visiteur anonyme n'ayant rien à signaler qu'il puisse
+// décrire. Vérifiée à **chaque** changement de page, pas seulement au
+// chargement : une personne invitée ouvre le lien d'invitation sans être
+// connectée, et sa session naît pendant la navigation (#/invite, puis
+// #/doc), sans rechargement. `getSessionEmail` est mis en cache et vidé à
+// chaque ouverture de session ; `monterPaletteContact` ne monte qu'une fois.
+function monterContactSiConnecte() {
+  getSessionEmail().then((email) => {
+    if (email) monterPaletteContact()
+  })
+}

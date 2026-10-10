@@ -181,6 +181,7 @@ test('une question : le flux s’affiche, les [n] mènent au bloc, la conversati
   const d = await monterDialogue({ docId: 'doc1', getView: () => view, fetcher: serveur.fetcher })
   assert.ok(d)
   assert.equal(document.querySelector('.dialogue-palette').hidden, true)
+  assert.equal(document.querySelector('.dialogue-bouton').textContent, 'Margo (IA)')
   clic(document.querySelector('.dialogue-bouton'))
   assert.equal(document.querySelector('.dialogue-palette').hidden, false)
 

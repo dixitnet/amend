@@ -93,6 +93,12 @@ test('le message est conservé même quand le courrier ne part pas', async () =>
   assert.deepEqual(dernier.erreurs, ['TypeError: x'])
 })
 
+test('l’intention « avis » (formulaire sans choix de nature) est acceptée et conservée', async () => {
+  const res = await envoyer(cookie('temoin@example.com'), { intention: 'avis', message: 'Un avis' })
+  assert.equal(res.status, 200)
+  assert.equal(journal().slice(-1)[0].intention, 'avis')
+})
+
 test('rien d’autre que les champs prévus n’est enregistré', async () => {
   // La garantie faite à l'utilisateur — « le contenu de vos documents,
   // jamais » — tient à ceci : le serveur lit une liste fermée de champs.

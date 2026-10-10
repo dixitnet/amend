@@ -127,7 +127,7 @@ test('embarquer : un document type dont l’invité est propriétaire, et un cou
   }
   assert.match(vu, /Bienvenue sur amend\.ink/)
   assert.match(vu, /Quatre choses à essayer/)
-  assert.match(vu, /Un retour \?/)
+  assert.match(vu, /Aide \/ avis/)
   assert.ok(!/insertion|deletion/.test(vu), 'ce n’est pas une proposition de quelqu’un')
 })
 

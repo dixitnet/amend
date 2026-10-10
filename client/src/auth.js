@@ -2,16 +2,23 @@
 // claude/conception-gestion-utilisateurs.md (projet Amend).
 
 let cachedEmail // undefined = pas encore vérifié, null = pas connecté
+let generation = 0 // change à chaque ouverture ou fermeture de session
 
 export async function getSessionEmail() {
   if (cachedEmail !== undefined) return cachedEmail
+  const depart = generation
   const res = await fetch('/api/auth/me')
   const data = await res.json()
-  cachedEmail = data.email || null
-  return cachedEmail
+  const email = data.email || null
+  // Une session ouverte pendant que cette requête était en vol (invitation
+  // acceptée au chargement de la page) la rend périmée : on ne la met pas en
+  // cache, sous peine de figer « non connecté » après la connexion.
+  if (depart === generation) cachedEmail = email
+  return email
 }
 
 export function forgetSessionCache() {
+  generation++
   cachedEmail = undefined
 }
 

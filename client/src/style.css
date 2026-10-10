@@ -1965,19 +1965,15 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   cursor: pointer;
 }
 .contact-fermer:hover { color: var(--fg); background: var(--border); }
-.contact-intentions { display: flex; gap: 6px; margin-bottom: 10px; }
-.contact-intention {
-  flex: 1;
-  min-height: 34px;
-  padding: 6px 4px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--muted);
-  font-size: 12px;
-  cursor: pointer;
+.contact-aide {
+  display: inline-block;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
 }
-.contact-intention.actif { border-color: var(--accent); color: var(--accent); background: var(--surlignage); }
+.contact-aide:hover { text-decoration: underline; }
 .contact-palette textarea {
   width: 100%;
   box-sizing: border-box;
@@ -2821,7 +2817,7 @@ tr.bo-traite { opacity: 0.6; }
   }
   .doc-fab:disabled { opacity: 0.6; }
 
-  /* La palette « Un retour ? » quitte le téléphone (demande du 23/09) :
+  /* La palette « Aide / avis » quitte le téléphone (demande du 23/09) :
      un bouton flottant permanent au-dessus du texte, sur un écran de cette
      taille, prend la place de ce qu'on est venu lire. Elle reste entière
      sur ordinateur, où la phase de test en a besoin. */
@@ -3035,7 +3031,7 @@ tr.bo-traite { opacity: 0.6; }
 
 /* ---------- Dialogue avec Claude (07/10/2026) ---------- */
 
-/* Une palette posée au-dessus du bouton « Un retour ? » (même coin, même
+/* Une palette posée au-dessus du bouton « Aide / avis » (même coin, même
    idée : on garde le texte sous les yeux pendant qu'on en parle). Le bouton
    « Claude » est à 56 px du bas : juste au-dessus de celui du contact. */
 .dialogue-hote {

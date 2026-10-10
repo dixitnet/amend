@@ -42,6 +42,7 @@ globalThis.fetch = async (url, init) => {
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
 const { Storage } = await import('../storage.js')
+const { porteeDialogue, peutDialoguer } = await import('../dialogue.js')
 await attendre()
 
 function attendre() {
@@ -294,6 +295,25 @@ test('une réponse déjà en cours pour la même personne et le même document :
   assert.equal(seconde.status, 429)
   liberer()
   assert.equal((await premiere).status, 200)
+})
+
+test('sans CLAUDE_DIALOGUE, la portée par défaut est « editeurs » ; une valeur inconnue ferme la porte', () => {
+  const avant = process.env.CLAUDE_DIALOGUE
+  try {
+    delete process.env.CLAUDE_DIALOGUE
+    assert.equal(porteeDialogue(), 'editeurs')
+    process.env.CLAUDE_DIALOGUE = '   '
+    assert.equal(porteeDialogue(), 'editeurs')
+    process.env.CLAUDE_DIALOGUE = 'tout-le-monde'
+    assert.equal(porteeDialogue(), 'admins')
+    assert.equal(peutDialoguer({ admin: false, proprietaire: false, role: 'editeur' }), false)
+    delete process.env.CLAUDE_DIALOGUE
+    assert.equal(peutDialoguer({ admin: false, proprietaire: false, role: 'editeur' }), true)
+    assert.equal(peutDialoguer({ admin: false, proprietaire: false, role: 'correcteur' }), false)
+    assert.equal(peutDialoguer({ admin: false, proprietaire: false, role: 'lecteur' }), false)
+  } finally {
+    process.env.CLAUDE_DIALOGUE = avant
+  }
 })
 
 test('la portée « editeurs » ouvre le dialogue aux éditeurs, jamais aux lecteurs ni aux correcteurs', async () => {

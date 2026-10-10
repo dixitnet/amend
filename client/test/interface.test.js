@@ -503,6 +503,14 @@ test('la palette de contact se monte', async () => {
   await respirer()
 
   assert.deepEqual(guetteur.fin(), [], 'une erreur au montage de la palette')
-  assert.ok(dom.window.document.querySelector('.contact-bouton'))
-  assert.equal(dom.window.document.querySelectorAll('.contact-intention').length, 3)
+  const bouton = dom.window.document.querySelector('.contact-bouton')
+  assert.ok(bouton)
+  assert.equal(bouton.textContent, 'Aide / avis')
+  // Plus de choix entre question, idée et bug : un lien vers l'aide et un champ.
+  assert.equal(dom.window.document.querySelectorAll('.contact-intention').length, 0)
+  const aide = dom.window.document.querySelector('.contact-palette a.contact-aide')
+  assert.ok(aide, 'le lien vers l’aide est dans la palette')
+  assert.equal(aide.getAttribute('target'), '_blank')
+  assert.match(aide.getAttribute('href'), /^\/p\//)
+  assert.equal(dom.window.document.querySelectorAll('.contact-palette textarea').length, 1)
 })

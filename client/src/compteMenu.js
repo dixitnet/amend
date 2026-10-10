@@ -13,7 +13,6 @@
 
 import { getSessionEmail, logout } from './auth.js'
 import { initials } from './presence.js'
-import { lienAide } from './aide.js'
 import { ouvrirChangementDeNom } from './nomCompte.js'
 
 /** Les initiales de la pastille : celles du **nom** quand on en a un — les
@@ -104,8 +103,7 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
         },
       })
     }
-    const aide = lienAide({ libelle: 'Aide' })
-    liste.append(monNom, aide)
+    liste.append(monNom)
 
     const deconnexion = document.createElement('button')
     deconnexion.type = 'button'

@@ -115,7 +115,7 @@ test('le lien d’aide ouvre la page publiée dans un nouvel onglet', () => {
   assert.equal(a.textContent, 'Aide')
 })
 
-test('le menu du compte : le nom et l’adresse en tête, « Changer mon nom… » et « Aide », et le nouveau nom se répercute', async () => {
+test('le menu du compte : le nom et l’adresse en tête, « Changer mon nom… » sans « Aide » (elle est dans « Aide / avis »), et le nouveau nom se répercute', async () => {
   installerDom()
   fauxServeur({ nom: 'Marie Curie' })
   const { monterMenuCompte } = await import('../src/compteMenu.js')
@@ -129,7 +129,8 @@ test('le menu du compte : le nom et l’adresse en tête, « Changer mon nom… 
   assert.equal(pastille.textContent, 'MC', 'initiales du nom, comme dans la liste des présents')
   assert.match(document.querySelector('.menu-flottant-entete').textContent, /Marie Curie · syl@example.com/)
   const boutons = [...document.querySelectorAll('.menu-flottant-liste button, .menu-flottant-liste a')].map((e) => e.textContent)
-  assert.ok(boutons.includes('Changer mon nom…') && boutons.includes('Aide'))
+  assert.ok(boutons.includes('Changer mon nom…'))
+  assert.ok(!boutons.includes('Aide'), 'l’aide n’est plus une entrée du menu du compte')
   document.querySelector('.compte-mon-nom').click()
   document.querySelector('.name-modal input').value = 'Marie Sklodowska'
   soumettre()

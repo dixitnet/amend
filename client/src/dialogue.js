@@ -256,7 +256,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   let flashTimer = null
 
   const racine = el('div', 'dialogue-hote')
-  const bouton = el('button', 'dialogue-bouton', 'Margo')
+  const bouton = el('button', 'dialogue-bouton', 'Margo (IA)')
   bouton.type = 'button'
   bouton.title = 'Dialoguer avec Margo (IA) à propos de ce texte'
   bouton.setAttribute('aria-expanded', 'false')

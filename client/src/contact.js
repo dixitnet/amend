@@ -1,4 +1,7 @@
-// La palette de contact (17/09/2026) — question, idée, signalement de bug.
+// La palette « Aide / avis » (17/09/2026, simplifiée le 10/10/2026).
+//
+// Un lien vers l'aide, puis un champ : plus de choix entre question, idée et
+// bug — la personne écrit, et le contexte technique joint dit le reste.
 //
 // **Une palette, pas une modale**, et c'est le point : on la garde ouverte
 // pendant qu'on montre le problème du doigt, on continue de lire le
@@ -14,13 +17,11 @@
 // l'écran, la version de l'application et les dernières erreurs de la
 // console. **Jamais de contenu de document** — ni le texte, ni le titre.
 
+import { lienAide } from './aide.js'
+
 const VERSION = '0.1.0'
 
-const INTENTIONS = [
-  { id: 'question', libelle: 'Une question', invite: 'Qu’est-ce qui n’est pas clair ?' },
-  { id: 'idee', libelle: 'Une idée', invite: 'Qu’est-ce qui vous manque ?' },
-  { id: 'bug', libelle: 'Un bug', invite: 'Qu’avez-vous fait, et qu’attendiez-vous ?' },
-]
+const INTENTION = 'avis'
 
 // Les dernières erreurs de la console, gardées de côté dès le chargement.
 // Un signalement de bug qui les emporte vaut dix allers-retours — et elles
@@ -60,43 +61,31 @@ export function monterPaletteContact() {
   const bouton = document.createElement('button')
   bouton.type = 'button'
   bouton.className = 'contact-bouton'
-  bouton.textContent = 'Un retour ?'
-  bouton.title = 'Poser une question, proposer une idée, signaler un bug'
+  bouton.textContent = 'Aide / avis'
+  bouton.title = 'Lire l’aide, poser une question, proposer une idée, signaler un bug'
   bouton.setAttribute('aria-expanded', 'false')
 
   const palette = document.createElement('div')
   palette.className = 'contact-palette'
   palette.hidden = true
   palette.setAttribute('role', 'dialog')
-  palette.setAttribute('aria-label', 'Nous écrire')
+  palette.setAttribute('aria-label', 'Aide et avis')
 
   const titre = document.createElement('h2')
-  titre.textContent = 'Nous écrire'
+  titre.textContent = 'Aide / avis'
   const sous = document.createElement('p')
   sous.className = 'contact-sous'
-  sous.textContent = 'amend.ink est en test. Tout retour est utile, même bref.'
+  sous.textContent = 'Une question, une idée, un bug ? amend.ink est en test : tout retour est utile, même bref.'
 
-  const choix = document.createElement('div')
-  choix.className = 'contact-intentions'
-  let intention = 'bug'
-  const boutonsIntention = INTENTIONS.map((i) => {
-    const b = document.createElement('button')
-    b.type = 'button'
-    b.className = 'contact-intention'
-    b.textContent = i.libelle
-    b.onclick = () => {
-      intention = i.id
-      for (const autre of boutonsIntention) autre.classList.toggle('actif', autre === b)
-      champ.placeholder = i.invite
-      champ.focus()
-    }
-    choix.appendChild(b)
-    return b
-  })
+  // L'aide d'abord : une question dont la réponse est écrite ne devrait pas
+  // devenir un message. Elle s'ouvre dans un nouvel onglet, le document reste
+  // là où on l'a laissé.
+  const aide = lienAide({ classe: 'contact-aide', libelle: 'Lire l’aide d’amend.ink →' })
 
   const champ = document.createElement('textarea')
   champ.rows = 4
   champ.maxLength = 4000
+  champ.placeholder = 'Votre question, votre idée, ce qui ne marche pas…'
   champ.setAttribute('aria-label', 'Votre message')
 
   const note = document.createElement('p')
@@ -121,9 +110,7 @@ export function monterPaletteContact() {
   fermer.title = 'Fermer'
   fermer.setAttribute('aria-label', 'Fermer')
 
-  palette.append(fermer, titre, sous, choix, champ, note, envoyer, statut)
-  boutonsIntention[2].classList.add('actif')
-  champ.placeholder = INTENTIONS[2].invite
+  palette.append(fermer, titre, aide, sous, champ, note, envoyer, statut)
 
   function basculer(ouvrir) {
     palette.hidden = !ouvrir
@@ -151,7 +138,7 @@ export function monterPaletteContact() {
       const res = await fetch('/api/support', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ intention, message, contexte: contexte() }),
+        body: JSON.stringify({ intention: INTENTION, message, contexte: contexte() }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || `échec (${res.status})`)
