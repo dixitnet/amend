@@ -6,6 +6,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, renameSync, unlinkSync, statSync } from 'node:fs'
 import { appendFile as appendFileAsync } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { lireJson, ecrireJsonAtomique } from './fichiers.js'
 import { randomId } from './ws.js'
 import { fusionner, reduire, assainir } from '../shared/style.js'
 import { compterEcarts, ID_DEFAUT } from '../shared/modeles.js'
@@ -65,7 +67,31 @@ const DEFAULT_MAX_UNCOMPACTED_BYTES = 4 * 1024 * 1024
  * 15/09/2026 : assez long pour survivre à un week-end ou à des vacances,
  * assez court pour qu'une invitation oubliée ne reste pas une porte
  * ouverte indéfiniment). */
+const WAITLIST_MAX_LIGNES = 20_000
+const WAITLIST_DOUBLON_MS = 60 * 60 * 1000
 const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000
+// Après la première acceptation, le lien reste valable ce temps-là seulement
+// (ouvrir le mail sur son téléphone puis sur son ordinateur), pas 14 jours :
+// un jeton ouvre une session au nom de la personne invitée.
+const INVITATION_GRACE_MS = 60 * 60 * 1000
+
+/** Ce qu'on garde d'un jeton d'invitation : son empreinte. Le jeton lui-même
+ * n'existe que dans le courrier envoyé. Audit du 10/10/2026, S1 et S5. */
+function empreinteJeton(token) {
+  return createHash('sha256').update(String(token)).digest('hex')
+}
+
+/** Une entrée d'accès sans rien de ce qui permet de se connecter : jeton en
+ * clair (ancien format), empreinte et expiration. Tout ce qui sort du
+ * stockage vers l'API passe par là. */
+function sansJeton(entree) {
+  const { token, tokenHash, tokenExpiresAt, ...reste } = entree
+  return reste
+}
+
+function accesSansJetons(meta) {
+  return Array.isArray(meta.access) ? meta.access.map(sansJeton) : meta.access
+}
 
 /** Le propriétaire d'un document, à partir de ses métadonnées brutes.
  *
@@ -288,10 +314,24 @@ export class Storage {
     } catch {
       list = []
     }
-    list.push({ email, ts: Date.now() })
+    // Bornes (audit du 10/10/2026, S4) : l'inscription est publique, donc
+    // la liste ne grossit pas sans limite. La même adresse revenue dans
+    // l'heure n'ajoute pas de ligne ; au-delà du plafond, on n'ajoute plus
+    // rien (c'est le signe d'un abus, pas d'un succès).
+    const maintenant = Date.now()
+    if (list.length >= WAITLIST_MAX_LIGNES) return false
+    for (let i = list.length - 1; i >= 0; i--) {
+      const ligne = list[i]
+      if (ligne && ligne.email === email) {
+        if (maintenant - (ligne.ts || 0) < WAITLIST_DOUBLON_MS) return false
+        break
+      }
+    }
+    list.push({ email, ts: maintenant })
     const tmp = this.waitlistPath + '.tmp'
     writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf8')
     renameSync(tmp, this.waitlistPath)
+    return true
   }
 
   /** La liste d'attente, telle quelle (dates comprises). **Réservée aux
@@ -370,19 +410,14 @@ export class Storage {
   }
 
   _readRegistry() {
-    try {
-      return JSON.parse(readFileSync(this.registryPath, 'utf8'))
-    } catch {
-      return {}
-    }
+    // Illisible ≠ vide : voir fichiers.js (audit A1).
+    return lireJson(this.registryPath, {})
   }
 
   _writeRegistry(registry) {
     // Write to a temp file then rename, so a crash mid-write can't corrupt
     // the registry.
-    const tmp = this.registryPath + '.tmp'
-    writeFileSync(tmp, JSON.stringify(registry, null, 2), 'utf8')
-    renameSync(tmp, this.registryPath)
+    ecrireJsonAtomique(this.registryPath, registry)
   }
 
   /** `email` : si fourni, ne renvoie que les documents accessibles à cette
@@ -400,6 +435,7 @@ export class Storage {
       .map(([id, meta]) => ({
         id,
         ...meta,
+        access: accesSansJetons(meta),
         myRole: (meta.access.find((a) => a.email === email) || {}).role || null,
         myCapabilities: capabilities((meta.access.find((a) => a.email === email) || {}).role || null),
         // Pour que la liste sache afficher « Supprimer » au propriétaire et
@@ -422,7 +458,9 @@ export class Storage {
     const registry = this._readRegistry()
     const meta = registry[id]
     if (!meta) return null
-    return { id, ...meta }
+    // Jamais de jeton d'invitation dans ce qui sort d'ici : getDoc() alimente
+    // des réponses de l'API lisibles par tout membre, lecteur compris.
+    return { id, ...meta, access: accesSansJetons(meta) }
   }
 
   /** `creatorEmail` : si fourni, cette personne devient immédiatement
@@ -538,10 +576,10 @@ export class Storage {
     const doc = this.getDoc(id)
     if (!doc || !Array.isArray(doc.access)) return []
     const owner = proprietaire(doc)
-    return doc.access.map(({ token, tokenExpiresAt, ...reste }) => ({
-      ...reste,
-      status: reste.status || 'actif',
-      proprietaire: reste.email === owner,
+    return doc.access.map((a) => ({
+      ...sansJeton(a),
+      status: a.status || 'actif',
+      proprietaire: a.email === owner,
     }))
   }
 
@@ -576,9 +614,10 @@ export class Storage {
   /** Invite une adresse précise sur ce document : crée une entrée d'accès
    * « en attente » et son jeton d'invitation nominatif. Remplace les liens
    * partagés par rôle (retirés le 15/09/2026) — un jeton ne vaut plus que
-   * pour une adresse, et c'est le mail reçu qui prouve l'identité. Le jeton
-   * n'est pas à usage unique : il reste valable jusqu'à son expiration,
-   * pour qu'on puisse ouvrir le mail sur son téléphone puis son ordinateur.
+   * pour une adresse, et c'est le mail reçu qui prouve l'identité. Seule
+   * l'empreinte du jeton est conservée ; il reste valable une heure après
+   * la première acceptation, pour qu'on puisse ouvrir le mail sur son
+   * téléphone puis son ordinateur.
    * Voir claude/conception-gestion-utilisateurs.md (projet Amend). */
   inviteEmail(id, email, role, invitedBy) {
     const registry = this._readRegistry()
@@ -597,10 +636,12 @@ export class Storage {
     entry.status = 'invite'
     entry.invitedBy = invitedBy || null
     entry.invitedAt = now
-    entry.token = randomId(24)
+    const token = randomId(24)
+    delete entry.token
+    entry.tokenHash = empreinteJeton(token)
     entry.tokenExpiresAt = now + INVITATION_TTL_MS
     this._writeRegistry(registry)
-    return { token: entry.token, nouvelleEntree }
+    return { token, nouvelleEntree }
   }
 
   /** Retrouve l'invitation correspondant à un jeton. Renvoie aussi les
@@ -611,7 +652,10 @@ export class Storage {
     const registry = this._readRegistry()
     for (const [id, doc] of Object.entries(registry)) {
       if (!Array.isArray(doc.access)) continue
-      const entry = doc.access.find((a) => a.token === token)
+      const h = empreinteJeton(token)
+      // `a.token` : ancien format, en clair, retiré au démarrage par
+      // purgerJetonsEnClair() ; gardé ici le temps d'une migration ratée.
+      const entry = doc.access.find((a) => a.tokenHash === h || (a.token && a.token === token))
       if (!entry) continue
       const expired = !entry.tokenExpiresAt || Date.now() > entry.tokenExpiresAt
       return { id, email: entry.email, role: entry.role, expired }
@@ -630,7 +674,7 @@ export class Storage {
       id,
       ...doc,
       access: Array.isArray(doc.access)
-        ? doc.access.map(({ token, tokenExpiresAt, ...reste }) => ({ ...reste, status: reste.status || 'actif' }))
+        ? doc.access.map((a) => ({ ...sansJeton(a), status: a.status || 'actif' }))
         : null,
     }))
   }
@@ -678,17 +722,47 @@ export class Storage {
     )
   }
 
+  /** Au démarrage : retire du registre tout jeton d'invitation conservé en
+   * clair (format antérieur au 10/10/2026). Ces jetons ont été lisibles par
+   * les membres des documents concernés : on ne les convertit pas, on les
+   * supprime. Une invitation non encore acceptée devient donc inutilisable ;
+   * la personne se reconnecte par lien magique (elle a déjà un accès) ou
+   * l'éditeur l'invite de nouveau. Renvoie le nombre de jetons retirés. */
+  purgerJetonsEnClair() {
+    const registry = this._readRegistry()
+    let retires = 0
+    for (const doc of Object.values(registry)) {
+      if (!Array.isArray(doc.access)) continue
+      for (const entry of doc.access) {
+        if (!('token' in entry)) continue
+        delete entry.token
+        delete entry.tokenHash
+        delete entry.tokenExpiresAt
+        retires++
+      }
+    }
+    if (retires) this._writeRegistry(registry)
+    return retires
+  }
+
   /** Bascule une invitation en accès actif (première connexion de la
-   * personne invitée). Le jeton reste valable jusqu'à son expiration. */
+   * personne invitée). Le jeton reste valable une heure de plus, pas
+   * davantage (INVITATION_GRACE_MS). */
   acceptInvitation(id, email) {
     const registry = this._readRegistry()
     const doc = registry[id]
     if (!doc || !Array.isArray(doc.access)) return null
     const entry = doc.access.find((a) => a.email === email)
     if (!entry) return null
+    const maintenant = Date.now()
     if (entry.status !== 'actif') {
       entry.status = 'actif'
-      entry.acceptedAt = Date.now()
+      entry.acceptedAt = maintenant
+      // Plus d'usage unique strict (téléphone puis ordinateur), mais un
+      // délai court : le lien ne vaut plus 14 jours de session.
+      if (entry.tokenExpiresAt) {
+        entry.tokenExpiresAt = Math.min(entry.tokenExpiresAt, maintenant + INVITATION_GRACE_MS)
+      }
     }
     this._writeRegistry(registry)
     return { id, role: entry.role }
@@ -754,6 +828,9 @@ export class Storage {
     if (existsSync(path)) unlinkSync(path)
     const timesPath = this._timesPath(id)
     if (existsSync(timesPath)) unlinkSync(timesPath)
+    // Les écarts de style propres au document ne lui survivent pas non plus.
+    const stylePath = this._stylePath(id)
+    if (existsSync(stylePath)) unlinkSync(stylePath)
     return true
   }
 

@@ -8,6 +8,7 @@ import {
   relativePositionToAbsolutePosition,
   setMeta,
 } from 'y-prosemirror'
+import { couleurSure, echapperHtml } from '../../shared/securite.js'
 
 // Commentaires ancrés dans le texte (évolution 4.2.4, conception du
 // 12/09/2026 dans README2.md) — un commentaire ne change rien au contenu du
@@ -409,7 +410,7 @@ function decorer(doc, ranges, commentsMap) {
     decos.push(
       Decoration.inline(from, to, {
         class: 'comment-highlight',
-        style: `--comment-color:${comment.color}`,
+        style: `--comment-color:${couleurSure(comment.color)}`,
       })
     )
   })
@@ -763,7 +764,7 @@ function relativeTime(ts) {
 }
 
 function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  return echapperHtml(s)
 }
 
 /** Panneau latéral "Commentaires" : composer un commentaire sur la
@@ -855,7 +856,7 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
     for (const c of entries) {
       const item = document.createElement('li')
       item.className = 'change-item comment-item'
-      item.style.setProperty('--user-color', c.color)
+      item.style.setProperty('--user-color', couleurSure(c.color))
 
       const meta = document.createElement('div')
       meta.className = 'change-meta'
@@ -890,7 +891,7 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
         for (const r of fil) {
           const ligne = document.createElement('div')
           ligne.className = 'comment-reply'
-          ligne.style.setProperty('--user-color', r.color)
+          ligne.style.setProperty('--user-color', couleurSure(r.color))
           const qui = document.createElement('strong')
           qui.textContent = r.author
           const quoi = document.createElement('span')

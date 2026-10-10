@@ -18,6 +18,7 @@
 
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
+import { lireJson, ecrireJsonAtomique } from './fichiers.js'
 
 /** La couleur de l'IA, réservée (17/09/2026).
  *
@@ -93,20 +94,15 @@ export class Users {
   }
 
   _lire() {
-    try {
-      return JSON.parse(readFileSync(this.path, 'utf8'))
-    } catch {
-      return {}
-    }
+    // Un fichier de comptes illisible n'est pas un fichier vide (audit A1).
+    return lireJson(this.path, {})
   }
 
   /** Écriture atomique (fichier temporaire puis rename), comme le registre
    * des documents : un arrêt en plein milieu ne laisse pas un fichier de
    * comptes tronqué. */
   _ecrire(registre) {
-    const tmp = this.path + '.tmp'
-    writeFileSync(tmp, JSON.stringify(registre, null, 2), 'utf8')
-    renameSync(tmp, this.path)
+    ecrireJsonAtomique(this.path, registre)
   }
 
   /** Le compte d'une adresse, ou `null` s'il n'a jamais été créé — ce qui

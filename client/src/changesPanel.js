@@ -15,6 +15,7 @@ import {
 } from './trackChanges.js'
 import { defilerVers } from './defilement.js'
 import { noteDeLaPosition, ouvrirNoteDeLaModification } from './footnotes.js'
+import { couleurSure, echapperHtml } from '../../shared/securite.js'
 
 // Au-delà de ce nombre de modifications en attente, le panneau devient
 // difficile à suivre (voir rapport-test-charge-1.md, constat 2.3 : 1985
@@ -283,7 +284,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
     for (const change of changes) {
       const item = document.createElement('li')
       item.className = `change-item change-${change.type}`
-      item.style.setProperty('--user-color', change.userColor)
+      item.style.setProperty('--user-color', couleurSure(change.userColor))
 
       const meta = document.createElement('div')
       meta.className = 'change-meta'
@@ -426,7 +427,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
   }
 
   function escapeHtml(s) {
-    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+    return echapperHtml(s)
   }
 
   function tronque(s, n) {

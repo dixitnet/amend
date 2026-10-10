@@ -24,6 +24,16 @@
 
 import { verifierLecteur as verifierLecteurDoc } from './replique.js'
 
+/** Ce qu'un client peut faire relayer aux autres par une trame texte : sa
+ * présence, et le nouveau titre s'il a le droit de renommer. Le reste
+ * (`refuse`, `synced`, tout type inconnu) appartient au serveur et n'est
+ * jamais relayé (audit du 10/10/2026, S6). */
+const AWARENESS_MAX_CARACTERES = 64 * 1024
+const TITRE_MAX_CARACTERES = 200
+/** Messages gardés pendant le chargement de la réplique, par participant. */
+const EN_ATTENTE_MAX_MESSAGES = 500
+const EN_ATTENTE_MAX_OCTETS = 8 * 1024 * 1024
+
 export class Rooms {
   constructor(storage, repliques) {
     this.storage = storage
@@ -53,9 +63,17 @@ export class Rooms {
     // Les messages arrivés pendant le chargement de la réplique sont
     // gardés, dans l'ordre, et traités une fois prêt : l'annonce de présence
     // part dès l'ouverture, elle ne doit pas se perdre.
+    member.octetsEnAttente = 0
     conn.on('message', (data, isBinary) => {
-      if (!member.pret) member.enAttente.push([data, isBinary])
-      else this._onMessage(docId, member, data, isBinary)
+      if (!member.pret) {
+        member.octetsEnAttente += data.length
+        if (member.enAttente.length >= EN_ATTENTE_MAX_MESSAGES || member.octetsEnAttente > EN_ATTENTE_MAX_OCTETS) {
+          member.enAttente = []
+          conn.close(1009)
+          return
+        }
+        member.enAttente.push([data, isBinary])
+      } else this._onMessage(docId, member, data, isBinary)
     })
     conn.on('close', () => this._leave(docId, member))
     conn.on('error', () => this._leave(docId, member))
@@ -133,21 +151,38 @@ export class Rooms {
       this._broadcast(docId, member, update, { binary: true })
       return
     }
-    // Text frames are JSON control messages (awareness/presence). Relay
-    // them to everyone else in the room; never persisted.
+    // Les trames texte sont des messages de contrôle JSON. Seuls deux types
+    // sont relayés aux autres (jamais conservés) : la présence, et le titre
+    // pour qui peut renommer. Le serveur reconstruit le message au lieu de
+    // relayer l'octet reçu : rien d'autre ne passe.
     let msg
     try {
       msg = JSON.parse(data.toString('utf8'))
     } catch {
       return // ignore malformed control messages
     }
-    if (msg && msg.type === 'sync') {
+    if (!msg || typeof msg !== 'object') return
+    if (msg.type === 'sync') {
       // Un `sync` après le chargement (reconnexion sur la même socket ne
       // se produit pas ; mais un client peut redemander) : on répond.
       this._envoyerEtat(docId, member, vecteurDe(data))
       return
     }
-    this._broadcast(docId, member, data, { binary: false })
+    if (msg.type === 'awareness' && typeof msg.data === 'string' && msg.data.length <= AWARENESS_MAX_CARACTERES) {
+      this._broadcast(docId, member, JSON.stringify({ type: 'awareness', data: msg.data }), { binary: false })
+      return
+    }
+    if (msg.type === 'title' && typeof msg.title === 'string') {
+      const acces = member.acces
+      // Sans `acces` (outils, tests) tout est permis, comme pour le reste.
+      if (acces && acces.capabilities && !acces.capabilities.canManageDocument) return
+      this._broadcast(
+        docId,
+        member,
+        JSON.stringify({ type: 'title', title: msg.title.slice(0, TITRE_MAX_CARACTERES) }),
+        { binary: false }
+      )
+    }
   }
 
   _broadcast(docId, from, data, opts) {
@@ -157,6 +192,28 @@ export class Rooms {
       if (member === from || !member.pret) continue
       member.conn.send(data, opts)
     }
+  }
+
+  /** Coupe les connexions de cette adresse sur ce document — révocation,
+   * départ, suppression : les droits d'une socket sont ceux du moment où
+   * elle s'est ouverte, il faut donc la refermer (audit S7, A10). Le client
+   * est prévenu (`refuse`) pour qu'il recharge et voie son nouvel état.
+   * Sans `email`, toute la salle : le document n'existe plus. */
+  expulser(docId, email = null) {
+    const members = this.rooms.get(docId)
+    if (!members) return 0
+    let n = 0
+    for (const member of [...members]) {
+      if (email && !(member.acces && member.acces.email === email)) continue
+      n++
+      try {
+        member.conn.send(JSON.stringify({ type: 'refuse', raison: 'accès modifié' }))
+        member.conn.close(1008)
+      } catch {
+        // déjà partie
+      }
+    }
+    return n
   }
 
   _leave(docId, member) {

@@ -82,6 +82,51 @@ test('une adresse invalide est refusée', async () => {
   assert.equal((await inscrire('pas-une-adresse')).status, 400)
 })
 
+// Audit du 10/10/2026, S4 : l'inscription est publique, donc bornée.
+const inscrireDepuis = (email, ip) =>
+  fetch(`${BASE}/api/waitlist`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
+    body: JSON.stringify({ email }),
+  })
+const lireListe = async () =>
+  (await (await fetch(`${BASE}/api/admin/waitlist`, { headers: { cookie: cookie('admin@example.com') } })).json()).inscrits
+
+test('une adresse de plus de 254 caractères est refusée', async () => {
+  const longue = `${'a'.repeat(250)}@example.com`
+  assert.equal((await inscrireDepuis(longue, '10.0.0.1')).status, 400)
+  assert.ok(!(await lireListe()).some((i) => i.email === longue))
+})
+
+test("la même adresse revenue dans l'heure n'ajoute pas de ligne", async () => {
+  await inscrireDepuis('repete@example.com', '10.0.0.2')
+  await inscrireDepuis('repete@example.com', '10.0.0.2')
+  await inscrireDepuis('repete@example.com', '10.0.0.3')
+  assert.equal((await lireListe()).filter((i) => i.email === 'repete@example.com').length, 1)
+})
+
+test('cinq inscriptions par heure et par origine, pas plus', async () => {
+  const statuts = []
+  for (let i = 0; i < 7; i++) statuts.push((await inscrireDepuis(`flux${i}@example.com`, '10.0.0.9')).status)
+  assert.deepEqual(statuts, [200, 200, 200, 200, 200, 429, 429])
+  // Une autre origine n'est pas touchée.
+  assert.equal((await inscrireDepuis('ailleurs@example.com', '10.0.0.10')).status, 200)
+  const adresses = (await lireListe()).map((i) => i.email)
+  assert.ok(!adresses.includes('flux5@example.com'))
+})
+
+test('la liste a un plafond', async () => {
+  const { Storage } = await import('../storage.js')
+  const st = new Storage(process.env.DATA_DIR)
+  const gros = Array.from({ length: 20000 }, (_, i) => ({ email: `x${i}@example.com`, ts: 1 }))
+  const { writeFileSync, readFileSync } = await import('node:fs')
+  const chemin = join(process.env.DATA_DIR, 'waitlist.json')
+  const avant = readFileSync(chemin, 'utf8')
+  writeFileSync(chemin, JSON.stringify(gros), 'utf8')
+  assert.equal(st.addToWaitlist('trop@example.com'), false)
+  writeFileSync(chemin, avant, 'utf8')
+})
+
 test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   await new Promise((r) => setTimeout(r, 50))

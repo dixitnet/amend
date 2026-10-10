@@ -31,6 +31,7 @@ import { StepMap } from 'prosemirror-transform'
 import { undo, redo } from 'y-prosemirror'
 import { isTrackChangesEnabled } from './trackChanges.js'
 import { notesDuDocument } from './notes.js'
+import { couleurSure } from '../../shared/securite.js'
 
 const cle = new PluginKey('footnotes')
 
@@ -185,7 +186,7 @@ class VueNote {
     const suivi = this.node.attrs.suivi
     this.dom.classList.toggle('note-inseree', !!suivi && suivi.type === 'insertion')
     this.dom.classList.toggle('note-supprimee', !!suivi && suivi.type === 'deletion')
-    if (suivi) this.dom.style.setProperty('--user-color', suivi.userColor || '')
+    if (suivi) this.dom.style.setProperty('--user-color', couleurSure(suivi.userColor))
     else this.dom.style.removeProperty('--user-color')
     this.dom.title = suivi
       ? `Note ${suivi.type === 'insertion' ? 'proposée' : 'supprimée'} par ${suivi.user}`

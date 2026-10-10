@@ -32,6 +32,7 @@ import {
   reponsesDe,
   supprimerFil,
 } from './comments.js'
+import { couleurSure } from '../../shared/securite.js'
 
 const ECART_MINIMAL = 8 // px entre deux cartes empilées
 const DELAI_RECALCUL_MS = 100
@@ -148,7 +149,7 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
   function messageDOM(commentaire, id, { racine }) {
     const bloc = document.createElement('div')
     bloc.className = racine ? 'carte-message' : 'carte-message carte-reponse'
-    if (!racine) bloc.style.setProperty('--user-color', commentaire.color)
+    if (!racine) bloc.style.setProperty('--user-color', couleurSure(commentaire.color))
 
     const redessiner = () => {
       bloc.textContent = ''
@@ -238,7 +239,7 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
   function construireCarte(commentaire, id) {
     const carte = document.createElement('div')
     carte.className = 'carte-commentaire'
-    carte.style.setProperty('--user-color', commentaire.color)
+    carte.style.setProperty('--user-color', couleurSure(commentaire.color))
     carte.addEventListener('click', () => {
       actif = id
       // Venir de la carte, c'est demander à voir le passage : on reprend

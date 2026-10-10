@@ -15,6 +15,7 @@
 // l'auteur sur une page publique.
 
 import { adresseAutorisee } from '../../shared/liens.js'
+import { imageAutorisee } from '../../shared/securite.js'
 
 const MARQUES_GARDEES = new Set(['strong', 'em', 'underline', 'strike'])
 
@@ -52,7 +53,7 @@ function inline(node) {
 function imageDe(node) {
   const src = String(node.attrs.src || '')
   const nom = src.split('/').pop()
-  if (!/^[A-Za-z0-9_-]{8,40}\.(png|jpg)$/.test(nom)) return null
+  if (!imageAutorisee(src) || !/^[A-Za-z0-9_-]{8,40}\.(png|jpg)$/.test(nom)) return null
   return { type: 'image', nom, alt: node.attrs.alt || '' }
 }
 

@@ -1,16 +1,16 @@
 [Unit]
-Description=CollabText backend
+Description=amend.ink backend
 After=network.target
 
 [Service]
 Type=simple
-User=collab
-WorkingDirectory=/opt/collabtext/app
+User=amend
+WorkingDirectory=/opt/amend/app
 ExecStart=/usr/bin/node server/server.js
-EnvironmentFile=/opt/collabtext/app/.env
+EnvironmentFile=/opt/amend/app/.env
 Restart=on-failure
 RestartSec=5
-MemoryMax=1500M
+MemoryMax=700M
 NoNewPrivileges=true
 
 [Install]

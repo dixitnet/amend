@@ -6,6 +6,7 @@ import { diffWords } from './diff.js'
 import { touchedBlockRange } from './incrementalScan.js'
 import { typographier } from '../../shared/typographie.js'
 import { typographieKey } from './typographie.js'
+import { couleurSure } from '../../shared/securite.js'
 
 /**
  * Keeps the selection visibly highlighted even after the editor loses DOM
@@ -655,7 +656,7 @@ export function pendingBreakPlugin() {
             decos.push(
               Decoration.node(pos, pos + node.nodeSize, {
                 class: 'pending-break',
-                style: `--user-color:${node.attrs.trackedBreak.userColor}`,
+                style: `--user-color:${couleurSure(node.attrs.trackedBreak.userColor)}`,
                 title: `Saut de paragraphe ajouté par ${node.attrs.trackedBreak.user}`,
               })
             )
@@ -667,7 +668,7 @@ export function pendingBreakPlugin() {
             decos.push(
               Decoration.node(pos, pos + node.nodeSize, {
                 class: suivi.type === 'insertion' ? 'noeud-insere' : 'noeud-supprime',
-                style: `--user-color:${suivi.userColor}`,
+                style: `--user-color:${couleurSure(suivi.userColor)}`,
                 title: `${libelleDuNoeud(node)} ${suivi.type === 'insertion' ? 'ajoutée' : 'supprimée'} par ${suivi.user}`,
               })
             )

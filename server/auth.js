@@ -15,15 +15,25 @@ const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 jours
 // Conséquence acceptée : un redémarrage du process déconnecte tout le
 // monde (les cookies existants ne se vérifient plus) — sans gravité pour un
 // premier déploiement, mais à définir dans .env en production pour l'éviter.
-const SESSION_SECRET = process.env.SESSION_SECRET || randomBytes(32).toString('hex')
-if (!process.env.SESSION_SECRET) {
-  console.log(
-    'Astuce : définis SESSION_SECRET dans .env pour que les sessions survivent à un redémarrage du serveur.'
-  )
+//
+// Lu **au premier usage**, pas à l'import : les imports s'exécutent avant que
+// server.js ne charge le `.env` (audit du 10/10/2026, A2). Lu à l'import, le
+// secret du `.env` n'était pris en compte que si systemd l'injectait
+// lui-même ; sur le Mac, chaque redémarrage déconnectait tout le monde.
+let secretSession = null
+function sessionSecret() {
+  if (secretSession) return secretSession
+  secretSession = process.env.SESSION_SECRET || randomBytes(32).toString('hex')
+  if (!process.env.SESSION_SECRET) {
+    console.log(
+      'Astuce : définis SESSION_SECRET dans .env pour que les sessions survivent à un redémarrage du serveur.'
+    )
+  }
+  return secretSession
 }
 
 function sign(value) {
-  return createHmac('sha256', SESSION_SECRET).update(value).digest('base64url')
+  return createHmac('sha256', sessionSecret()).update(value).digest('base64url')
 }
 
 export function parseCookies(req) {
@@ -47,7 +57,8 @@ export function parseCookies(req) {
  * n'apporterait pas grand-chose ici. */
 export function normalizeEmail(raw) {
   const email = String(raw || '').trim().toLowerCase()
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
+  // 254 caractères : la longueur maximale d'une adresse (RFC 5321).
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
   return email
 }
 

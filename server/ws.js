@@ -10,6 +10,12 @@ import { EventEmitter } from 'node:events'
 
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
 
+/** Plafond d'un message (et d'une trame) reçu d'un client. L'état complet
+ * d'un livre tient en quelques mégaoctets ; au-delà, on coupe (code 1009)
+ * plutôt que de laisser un participant remplir la mémoire du serveur.
+ * Audit du 10/10/2026, S3. */
+export const MESSAGE_MAX_OCTETS = 16 * 1024 * 1024
+
 const OPCODE = {
   CONTINUATION: 0x0,
   TEXT: 0x1,
@@ -70,12 +76,14 @@ function buildFrame(opcode, payload, fin = true) {
   return Buffer.concat([header, payload])
 }
 
+class ErreurTrop extends Error {}
+
 /**
  * Parses as many complete frames as are available at the start of `buf`.
  * Returns { frame: {fin, opcode, payload} | null, rest: Buffer }.
  * `frame` is null if `buf` does not yet contain a full frame.
  */
-function parseFrame(buf) {
+function parseFrame(buf, maxOctets = MESSAGE_MAX_OCTETS) {
   if (buf.length < 2) return { frame: null, rest: buf }
   const byte0 = buf[0]
   const byte1 = buf[1]
@@ -92,12 +100,11 @@ function parseFrame(buf) {
   } else if (len === 127) {
     if (buf.length < offset + 8) return { frame: null, rest: buf }
     const big = buf.readBigUInt64BE(offset)
-    if (big > BigInt(Number.MAX_SAFE_INTEGER)) {
-      throw new Error('frame too large')
-    }
+    if (big > BigInt(maxOctets)) throw new ErreurTrop('frame too large')
     len = Number(big)
     offset += 8
   }
+  if (len > maxOctets) throw new ErreurTrop('frame too large')
 
   let maskKey = null
   if (masked) {
@@ -106,7 +113,7 @@ function parseFrame(buf) {
     offset += 4
   }
 
-  if (buf.length < offset + len) return { frame: null, rest: buf }
+  if (buf.length < offset + len) return { frame: null, rest: buf, besoin: offset + len }
 
   let payload = buf.subarray(offset, offset + len)
   if (masked) {
@@ -132,10 +139,18 @@ export class WebSocketConnection extends EventEmitter {
    * et c'est justement le mécanisme qui garantit qu'une socket morte
    * libère sa place dans la salle (voir rooms.js) plutôt que d'attendre
    * l'expiration TCP. */
-  constructor(socket, { pingIntervalMs = 30000 } = {}) {
+  constructor(socket, { pingIntervalMs = 30000, maxMessageBytes = MESSAGE_MAX_OCTETS } = {}) {
     super()
     this.socket = socket
+    this._maxOctets = maxMessageBytes
+    this._fragOctets = 0
     this._buffer = Buffer.alloc(0)
+    // Morceaux reçus mais pas encore assemblés, et ce qu'il faut avoir reçu
+    // avant de relancer l'analyse : recoller le tampon à chaque paquet rend
+    // la réception d'une grosse trame quadratique (audit S3).
+    this._morceaux = []
+    this._octetsEnAttente = 0
+    this._besoin = 0
     this._fragOpcode = null
     this._fragChunks = []
     this._closed = false
@@ -159,18 +174,35 @@ export class WebSocketConnection extends EventEmitter {
   }
 
   _onData(chunk) {
-    this._buffer = this._buffer.length ? Buffer.concat([this._buffer, chunk]) : chunk
+    if (this._closed) return
+    this._morceaux.push(chunk)
+    this._octetsEnAttente += chunk.length
+    if (this._buffer.length + this._octetsEnAttente < this._besoin) return
+    this._buffer = Buffer.concat([this._buffer, ...this._morceaux])
+    this._morceaux = []
+    this._octetsEnAttente = 0
+    this._besoin = 0
     try {
       for (;;) {
-        const { frame, rest } = parseFrame(this._buffer)
-        if (!frame) break
+        const { frame, rest, besoin } = parseFrame(this._buffer, this._maxOctets)
+        if (!frame) {
+          this._besoin = besoin || 0
+          break
+        }
         this._buffer = rest
         this._handleFrame(frame)
         if (this._closed) break
       }
     } catch (err) {
-      this.emit('error', err)
-      this.terminate()
+      // Trop gros : on le dit (1009 « message too big ») avant de couper.
+      if (err instanceof ErreurTrop) {
+        this._buffer = Buffer.alloc(0)
+        this._morceaux = []
+        this.close(1009)
+      } else {
+        this.emit('error', err)
+        this.terminate()
+      }
     }
   }
 
@@ -184,11 +216,20 @@ export class WebSocketConnection extends EventEmitter {
         } else {
           this._fragOpcode = opcode
           this._fragChunks = [payload]
+          this._fragOctets = payload.length
         }
         break
       case OPCODE.CONTINUATION:
+        this._fragOctets += payload.length
+        if (this._fragOctets > this._maxOctets) {
+          this._fragChunks = []
+          this._fragOctets = 0
+          this.close(1009)
+          break
+        }
         this._fragChunks.push(payload)
         if (fin) {
+          this._fragOctets = 0
           const full = Buffer.concat(this._fragChunks)
           const isBinary = this._fragOpcode === OPCODE.BINARY
           this._fragChunks = []
@@ -224,6 +265,25 @@ export class WebSocketConnection extends EventEmitter {
   send(data, { binary = false } = {}) {
     const payload = Buffer.isBuffer(data) ? data : Buffer.from(data)
     this._sendRaw(binary ? OPCODE.BINARY : OPCODE.TEXT, payload)
+  }
+
+  /** Ferme proprement : trame CLOSE avec ce code, puis fin de la socket
+   * (elle est détruite d'office après une seconde si le client ne suit pas).
+   * Emet 'close' tout de suite : la salle libère la place. */
+  close(code = 1000) {
+    if (this._closed) return
+    this._closed = true
+    clearInterval(this._pingTimer)
+    try {
+      const raison = Buffer.alloc(2)
+      raison.writeUInt16BE(code, 0)
+      this.socket.end(buildFrame(OPCODE.CLOSE, raison))
+      const coupe = setTimeout(() => this.socket.destroy(), 1000)
+      coupe.unref?.()
+    } catch {
+      // déjà partie
+    }
+    this.emit('close')
   }
 
   terminate() {

@@ -20,6 +20,7 @@
 
 import { BLOCS, NIVEAUX_TITRE, police, dimensionsPage, styleParDefaut, langue } from '../../shared/style.js'
 import { adresseAutorisee } from '../../shared/liens.js'
+import { imageAutorisee } from '../../shared/securite.js'
 
 // Caractères que Typst interprète en mode contenu. Le backslash d'abord,
 // sinon on échapperait ceux qu'on vient d'ajouter.
@@ -139,7 +140,7 @@ function inline(node) {
 function imageTypst(node) {
   const src = String(node.attrs.src || '')
   const nom = src.split('/').pop()
-  if (!/^[A-Za-z0-9_-]+\.(png|jpg)$/.test(nom)) return ''
+  if (!imageAutorisee(src) || !/^[A-Za-z0-9_-]+\.(png|jpg)$/.test(nom)) return ''
   const largeur = node.attrs.largeur
   const alt = node.attrs.alt ? `, alt: ${chaine(node.attrs.alt)}` : ''
   // Plafonné à la largeur réelle du fichier : une petite capture ne doit

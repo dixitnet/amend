@@ -153,6 +153,25 @@ sauvegarde.
 `
 }
 
+const INSCRIPTIONS_PAR_ORIGINE_HEURE = 5
+const INSCRIPTIONS_TOTAL_HEURE = 100
+const inscriptionsRecentes = new Map()
+let inscriptionsGlobales = []
+function inscriptionAutorisee(origine) {
+  const maintenant = Date.now()
+  inscriptionsGlobales = inscriptionsGlobales.filter((t) => maintenant - t < 3600_000)
+  if (inscriptionsGlobales.length >= INSCRIPTIONS_TOTAL_HEURE) return false
+  const passages = (inscriptionsRecentes.get(origine) || []).filter((t) => maintenant - t < 3600_000)
+  if (passages.length >= INSCRIPTIONS_PAR_ORIGINE_HEURE) return false
+  passages.push(maintenant)
+  inscriptionsRecentes.set(origine, passages)
+  inscriptionsGlobales.push(maintenant)
+  if (inscriptionsRecentes.size > 5000) {
+    for (const [cle, v] of inscriptionsRecentes) if (!v.some((t) => maintenant - t < 3600_000)) inscriptionsRecentes.delete(cle)
+  }
+  return true
+}
+
 const SUPPORT_PAR_HEURE = 5
 const supportRecents = new Map()
 function supportAutorise(email) {
@@ -162,6 +181,15 @@ function supportAutorise(email) {
   passages.push(maintenant)
   supportRecents.set(email, passages)
   return true
+}
+/** Un segment d'adresse décodé ; `%E0` seul donne un 400 et non une 500
+ * (audit du 10/10/2026, A3). */
+function decoderSegment(segment) {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    throw Object.assign(new Error('adresse invalide'), { status: 400 })
+  }
 }
 const MAX_JSON_BODY = 20_000
 // La source Typst d'un livre entier : 531 ko mesurés sur 524 000 signes.
@@ -175,6 +203,16 @@ const MAX_TYPST_BODY = 4_000_000
 const MAX_PUBLICATION_BODY = 4_000_000
 
 const storage = new Storage(DATA_DIR)
+// Audit du 10/10/2026 (S1) : les jetons d'invitation conservés en clair ont
+// été lisibles par les membres des documents ; on les retire au démarrage.
+try {
+  const retires = storage.purgerJetonsEnClair()
+  if (retires) console.log(`[amend] ${retires} jeton(s) d'invitation en clair retiré(s) du registre`)
+} catch (err) {
+  // Registre illisible : le serveur démarre quand même (il répondra 500 et
+  // ne réécrira rien, voir fichiers.js) plutôt que de boucler au redémarrage.
+  console.error('[amend] registre des documents inutilisable au démarrage :', err.message)
+}
 // Les seuils viennent du .env (voir .env.example) et sont lus ici, pas au
 // chargement du module : loadDotEnv() ne s'exécute qu'après les imports.
 const users = new Users(DATA_DIR)
@@ -292,17 +330,25 @@ function readJsonBody(req, maxSize = MAX_JSON_BODY) {
 function readBinaryBody(req, maxSize) {
   return new Promise((resolve, reject) => {
     let size = 0
+    let depasse = false
     const chunks = []
     req.on('data', (chunk) => {
+      if (depasse) return
       size += chunk.length
       if (size > maxSize) {
+        // Même défaut que readJsonBody corrigé le 23/09 : couper la socket
+        // ici empêchait le 413 de partir (Caddy répondait 502). On jette la
+        // suite du corps, on répond, et la connexion est fermée ensuite.
+        depasse = true
+        chunks.length = 0
         reject(Object.assign(new Error('image trop lourde'), { status: 413 }))
-        req.destroy()
         return
       }
       chunks.push(chunk)
     })
-    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('end', () => {
+      if (!depasse) resolve(Buffer.concat(chunks))
+    })
     req.on('error', reject)
   })
 }
@@ -419,6 +465,9 @@ async function handleApi(req, res, url) {
       return sendJson(res, 403, { error: 'seul le propriétaire peut supprimer ce document' })
     }
     const ok = storage.deleteDoc(docMatch[1])
+    // Les connexions encore ouvertes ne doivent pas écrire dans un document
+    // qui n'existe plus (elles en recréeraient le journal).
+    rooms.expulser(docMatch[1])
     // Les adresses des agents invités sur ce document ne mènent plus nulle
     // part : on les révoque plutôt que d'attendre qu'elles expirent.
     for (const a of agents.lister(docMatch[1])) presenceAgents.retirer(a.id)
@@ -427,6 +476,7 @@ async function handleApi(req, res, url) {
     // pour toujours — et resteraient lisibles par leur URL si l'identifiant
     // venait à être réattribué.
     uploads.supprimerDocument(docMatch[1])
+    versions.supprimerDocument(docMatch[1])
     // La page publiée est une copie du document : elle ne lui survit pas
     // (décision du 10/10/2026). Sans ça, l'adresse publique resterait en
     // ligne alors que plus personne ne peut la republier ni la retirer.
@@ -821,7 +871,7 @@ const TARIFS_IA = {
   if (supportTraiteMatch && req.method === 'POST') {
     if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
     const body = await readJsonBody(req)
-    const cle = decodeURIComponent(supportTraiteMatch[1])
+    const cle = decoderSegment(supportTraiteMatch[1])
     // Le retour doit exister : sans cette vérification, la table se
     // remplirait de clés inventées, et l'on ne s'en apercevrait jamais.
     const connus = new Set(metrics.read('support', 0).map((r) => cleDuRetour(r)))
@@ -997,6 +1047,7 @@ const TARIFS_IA = {
     if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     const r = storage.leaveDoc(quitterMatch[1], email)
     if (r.error) return sendJson(res, r.error === 'document introuvable' ? 404 : 403, { error: r.error })
+    rooms.expulser(quitterMatch[1], email)
     return sendJson(res, 200, { ok: true })
   }
 
@@ -1025,11 +1076,12 @@ const TARIFS_IA = {
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
     const role = storage.roleFor(id, readSession(req))
     if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
-    const cible = decodeURIComponent(revokeMatch[2])
+    const cible = decoderSegment(revokeMatch[2])
     if (storage.isOwner(id, cible)) {
       return sendJson(res, 403, { error: 'le propriétaire ne peut pas être retiré du document' })
     }
     storage.revokeAccess(id, cible)
+    rooms.expulser(id, cible)
     return sendJson(res, 200, { ok: true })
   }
 
@@ -1455,6 +1507,10 @@ const TARIFS_IA = {
     const body = await readJsonBody(req)
     const email = normalizeEmail(body.email)
     if (!email) return sendJson(res, 400, { error: 'adresse email invalide' })
+    // Cinq inscriptions par heure et par origine, cent par heure en tout
+    // (audit du 10/10/2026, S4) : le formulaire est public et chaque appel
+    // réécrit le fichier.
+    if (!inscriptionAutorisee(origineDe(req))) return sendJson(res, 429, { error: 'trop de demandes, réessayez plus tard' })
     storage.addToWaitlist(email)
     return sendJson(res, 200, { ok: true })
   }
@@ -1593,7 +1649,12 @@ const server = createServer((req, res) => {
   }
   if (url.pathname.startsWith('/api/')) {
     handleApi(req, res, url).catch((err) => {
-      sendJson(res, err.status || 500, { error: err.message || 'erreur interne' })
+      // Une erreur inattendue (sans `status`) se journalise et ne montre pas
+      // son message au client : chemins, messages Yjs… (audit A3, S17).
+      // Les erreurs voulues (413, 400…) portent un `status` et gardent le leur.
+      if (!err.status) console.error(`[amend] erreur sur ${req.method} ${url.pathname} :`, err)
+      if (res.headersSent) return res.end()
+      sendJson(res, err.status || 500, { error: err.status ? err.message : 'erreur interne' })
     })
     return
   }
@@ -1644,7 +1705,7 @@ server.on('upgrade', (req, socket) => {
     docId,
     conn,
     user,
-    { capabilities: capabilities(storage.roleFor(docId, emailSession)), nom: compteSession ? compteSession.nom : user },
+    { capabilities: capabilities(storage.roleFor(docId, emailSession)), nom: compteSession ? compteSession.nom : user, email: emailSession },
     { vecteur }
   )
   // Journal des connexions : la liste d'accès dit qui *peut* venir, elle ne
@@ -1660,6 +1721,19 @@ server.on('upgrade', (req, socket) => {
   conn.on('close', () => {
     metrics.log('connexions', { email: emailConnexion, docId, debut: debutConnexion, dureeMs: Date.now() - debutConnexion })
   })
+})
+
+// Port déjà pris ou autre erreur d'écoute : sans ce gestionnaire, Node
+// plante sans dire pourquoi (le LaunchAgent a redémarré 6 638 fois sur
+// EADDRINUSE sans qu'aucune ligne ne l'explique — audit A3).
+server.on('error', (err) => {
+  console.error(
+    err && err.code === 'EADDRINUSE'
+      ? `[amend] le port ${PORT} est déjà utilisé : un autre serveur tourne-t-il encore ?`
+      : `[amend] erreur du serveur HTTP :`,
+    err && err.code === 'EADDRINUSE' ? '' : err
+  )
+  process.exit(1)
 })
 
 server.listen(PORT, () => {

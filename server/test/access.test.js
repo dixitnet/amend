@@ -526,6 +526,187 @@ test('la déconnexion efface la session (le cookie renvoyé ne revérifie plus)'
   assert.deepEqual(await afterRes.json(), { email: null, admin: false, nom: null, couleur: null })
 })
 
+// Audit du 10/10/2026, S1 : les jetons d'invitation étaient renvoyés à tout
+// membre d'un document par GET /api/docs et GET /api/docs/:id. Aucune
+// réponse de l'API ne doit contenir de jeton, quel que soit le rôle.
+function cherche(valeur, chemin = '') {
+  const trouves = []
+  if (Array.isArray(valeur)) valeur.forEach((v, i) => trouves.push(...cherche(v, `${chemin}[${i}]`)))
+  else if (valeur && typeof valeur === 'object') {
+    for (const [k, v] of Object.entries(valeur)) {
+      if (/^token/i.test(k)) trouves.push(`${chemin}.${k}`)
+      trouves.push(...cherche(v, `${chemin}.${k}`))
+    }
+  }
+  return trouves
+}
+
+test("aucune réponse de l'API ne contient de jeton d'invitation (S1)", async () => {
+  const editorCookie = cookieFor('carla@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editorCookie },
+      body: JSON.stringify({ title: 'Doc sans fuite' }),
+    })
+  ).json()
+  const storage = new Storage(process.env.DATA_DIR)
+  const { token: jetonLecteur } = storage.inviteEmail(doc.id, 'lena@example.com', 'lecteur', 'carla@example.com')
+  const { token: jetonEnAttente } = storage.inviteEmail(doc.id, 'enattente@example.com', 'correcteur', 'carla@example.com')
+  await fetch(`${BASE}/api/invitations/${jetonLecteur}`, { method: 'POST' })
+
+  for (const cookie of [editorCookie, cookieFor('lena@example.com')]) {
+    const unDoc = await (await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie } })).json()
+    assert.deepEqual(cherche(unDoc), [], 'GET /api/docs/:id')
+    const liste = await (await fetch(`${BASE}/api/docs`, { headers: { cookie } })).json()
+    assert.deepEqual(cherche(liste), [], 'GET /api/docs')
+    const brut = JSON.stringify(unDoc) + JSON.stringify(liste)
+    assert.equal(brut.includes(jetonEnAttente), false)
+    assert.equal(brut.includes(jetonLecteur), false)
+  }
+  // Et le registre ne garde que l'empreinte, jamais le jeton.
+  const registre = readFileSync(join(process.env.DATA_DIR, 'docs.json'), 'utf8')
+  assert.equal(registre.includes(jetonEnAttente), false)
+  assert.equal(registre.includes(jetonLecteur), false)
+})
+
+test("un lien d'invitation ne vaut plus qu'une heure après sa première acceptation (S5)", async () => {
+  const editorCookie = cookieFor('carla@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editorCookie },
+      body: JSON.stringify({ title: 'Doc lien court' }),
+    })
+  ).json()
+  const storage = new Storage(process.env.DATA_DIR)
+  const { token } = storage.inviteEmail(doc.id, 'bref@example.com', 'correcteur', 'carla@example.com')
+  assert.equal((await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })).status, 200)
+  const registre = JSON.parse(readFileSync(join(process.env.DATA_DIR, 'docs.json'), 'utf8'))
+  const entree = registre[doc.id].access.find((a) => a.email === 'bref@example.com')
+  assert.ok(entree.tokenExpiresAt <= Date.now() + 60 * 60 * 1000 + 1000)
+  assert.ok(entree.tokenExpiresAt > Date.now())
+  // Une heure plus tard : expiré.
+  entree.tokenExpiresAt = Date.now() - 1000
+  writeFileSync(join(process.env.DATA_DIR, 'docs.json'), JSON.stringify(registre), 'utf8')
+  assert.equal((await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })).status, 410)
+})
+
+test('les jetons en clair du registre sont retirés au démarrage (S1)', () => {
+  const dossier = mkdtempSync(join(tmpdir(), 'collabtext-test-purge-'))
+  try {
+    const st = new Storage(dossier)
+    const d = st.createDoc('Ancien format', 'chef@example.com')
+    st.grantAccess(d.id, 'ancien@example.com', 'correcteur')
+    const chemin = join(dossier, 'docs.json')
+    const reg = JSON.parse(readFileSync(chemin, 'utf8'))
+    const e = reg[d.id].access.find((a) => a.email === 'ancien@example.com')
+    e.token = 'jeton-en-clair-historique'
+    e.tokenExpiresAt = Date.now() + 1e9
+    writeFileSync(chemin, JSON.stringify(reg), 'utf8')
+    assert.equal(st.purgerJetonsEnClair(), 1)
+    assert.equal(readFileSync(chemin, 'utf8').includes('jeton-en-clair-historique'), false)
+    assert.equal(st.findInvitation('jeton-en-clair-historique'), null)
+    assert.equal(st.purgerJetonsEnClair(), 0)
+  } finally {
+    rmSync(dossier, { recursive: true, force: true })
+  }
+})
+
+// Audit du 10/10/2026, S6 et S7 : un participant ne peut relayer aux autres
+// que sa présence (et le titre s'il peut renommer), et une personne dont
+// l'accès est retiré perd sa connexion ouverte.
+function ouvrirWs(docId, cookie) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://localhost:${PORT}/ws/${docId}?user=X`, { headers: { cookie } })
+    const recus = []
+    ws.on('message', (data, isBinary) => {
+      if (!isBinary) recus.push(JSON.parse(data.toString('utf8')))
+    })
+    ws.on('open', () => resolve({ ws, recus }))
+    ws.on('error', reject)
+  })
+}
+const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
+
+test('un lecteur ne peut faire relayer ni « refuse », ni « synced », ni un titre (S6)', async () => {
+  const editorCookie = cookieFor('carla@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editorCookie },
+      body: JSON.stringify({ title: 'Doc salle' }),
+    })
+  ).json()
+  const storage = new Storage(process.env.DATA_DIR)
+  storage.grantAccess(doc.id, 'lecteur-ws@example.com', 'lecteur')
+  const editeur = await ouvrirWs(doc.id, editorCookie)
+  const lecteur = await ouvrirWs(doc.id, cookieFor('lecteur-ws@example.com'))
+  await attendre(200)
+  editeur.recus.length = 0
+
+  lecteur.ws.send(JSON.stringify({ type: 'refuse', raison: 'forgé' }))
+  lecteur.ws.send(JSON.stringify({ type: 'synced', sv: null }))
+  lecteur.ws.send(JSON.stringify({ type: 'title', title: 'Piraté' }))
+  lecteur.ws.send(JSON.stringify({ type: 'inconnu' }))
+  lecteur.ws.send(JSON.stringify({ type: 'awareness', data: 'AAAA' }))
+  await attendre(250)
+  assert.deepEqual(editeur.recus.map((m) => m.type), ['awareness'])
+
+  // L'éditeur, lui, peut faire relayer un titre.
+  lecteur.recus.length = 0
+  editeur.ws.send(JSON.stringify({ type: 'title', title: 'Nouveau titre' }))
+  await attendre(250)
+  assert.deepEqual(lecteur.recus, [{ type: 'title', title: 'Nouveau titre' }])
+  editeur.ws.close()
+  lecteur.ws.close()
+})
+
+test('révoquer un accès coupe la connexion ouverte de la personne (S7)', async () => {
+  const editorCookie = cookieFor('carla@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editorCookie },
+      body: JSON.stringify({ title: 'Doc révocation' }),
+    })
+  ).json()
+  const storage = new Storage(process.env.DATA_DIR)
+  storage.grantAccess(doc.id, 'partant@example.com', 'correcteur')
+  storage.grantAccess(doc.id, 'reste@example.com', 'correcteur')
+  const partant = await ouvrirWs(doc.id, cookieFor('partant@example.com'))
+  const reste = await ouvrirWs(doc.id, cookieFor('reste@example.com'))
+  const coupe = new Promise((resolve) => partant.ws.on('close', (code) => resolve(code)))
+  await attendre(100)
+  const res = await fetch(`${BASE}/api/docs/${doc.id}/access/${encodeURIComponent('partant@example.com')}`, {
+    method: 'DELETE',
+    headers: { cookie: editorCookie },
+  })
+  assert.equal(res.status, 200)
+  const code = await Promise.race([coupe, attendre(1500).then(() => null)])
+  assert.ok(code !== null, 'la socket de la personne retirée doit se fermer')
+  assert.ok(partant.recus.some((m) => m.type === 'refuse'), 'et le client est prévenu')
+  assert.equal(reste.ws.readyState, WebSocket.OPEN, "les autres participants ne sont pas touchés")
+  reste.ws.close()
+})
+
+test('supprimer le document coupe toute la salle (A10)', async () => {
+  const editorCookie = cookieFor('carla@example.com')
+  const doc = await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editorCookie },
+      body: JSON.stringify({ title: 'Doc éphémère' }),
+    })
+  ).json()
+  const present = await ouvrirWs(doc.id, editorCookie)
+  const coupe = new Promise((resolve) => present.ws.on('close', () => resolve(true)))
+  await attendre(100)
+  const res = await fetch(`${BASE}/api/docs/${doc.id}`, { method: 'DELETE', headers: { cookie: editorCookie } })
+  assert.equal(res.status, 200)
+  assert.equal(await Promise.race([coupe, attendre(1500).then(() => false)]), true)
+})
+
 test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   // Laisse le rapporteur TAP écrire le résultat du tout dernier test avant

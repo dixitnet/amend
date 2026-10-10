@@ -189,6 +189,15 @@ test('supprimer un document emporte ses images', async () => {
   assert.equal((await fetch(`${BASE}${src}`, { headers: { cookie: editeur } })).status, 404)
 })
 
+test('une image trop lourde reçoit un 413, et non une socket coupée (A4)', async () => {
+  const editeur = cookieFor('alice@example.com')
+  const doc = await creerDoc(editeur)
+  const trop = Buffer.alloc(6 * 1024 * 1024, 1)
+  const res = await deposer(doc.id, editeur, { body: trop })
+  assert.equal(res.status, 413)
+  assert.match(JSON.stringify(await res.json()), /lourde/)
+})
+
 test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   await new Promise((r) => setTimeout(r, 50))

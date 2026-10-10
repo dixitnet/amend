@@ -2,6 +2,7 @@ import { Schema } from 'prosemirror-model'
 import { tableNodes } from 'prosemirror-tables'
 import { NIVEAUX_TITRE } from '../../shared/style.js'
 import { adresseAutorisee } from '../../shared/liens.js'
+import { couleurSure, imageAutorisee } from '../../shared/securite.js'
 
 // A deliberately small schema: paragraphs, headings (3 levels), hard
 // breaks, three kinds of list (à puces, numérotée, à cocher — les deux
@@ -227,7 +228,7 @@ export const schema = new Schema({
           tag: 'img[src]',
           getAttrs(dom) {
             const src = dom.getAttribute('src') || ''
-            if (!/^\/api\/docs\/[A-Za-z0-9_-]+\/images\/[A-Za-z0-9_-]+\.(png|jpg)$/.test(src)) return false
+            if (!imageAutorisee(src)) return false
             return {
               src,
               alt: dom.getAttribute('alt') || '',
@@ -239,6 +240,10 @@ export const schema = new Schema({
       ],
       toDOM(node) {
         const { src, alt, largeur, hauteur } = node.attrs
+        // Le document partagé peut porter n'importe quel `src` (un pair qui
+        // écrit dans Yjs ne passe pas par parseDOM) : une adresse qui n'est
+        // pas celle d'une image de ce serveur n'est pas chargée.
+        if (!imageAutorisee(src)) return ['figure', { class: 'image-doc image-refusee', title: 'Image non autorisée' }]
         const img = { src, alt: alt || '' }
         if (largeur) img.width = String(largeur)
         if (hauteur) img.height = String(hauteur)
@@ -377,7 +382,7 @@ export const schema = new Schema({
           'ins',
           {
             class: 'tracked-insertion',
-            style: `--user-color:${mark.attrs.userColor}`,
+            style: `--user-color:${couleurSure(mark.attrs.userColor)}`,
             title: `Ajout de ${mark.attrs.user}`,
           },
           0,
@@ -395,7 +400,7 @@ export const schema = new Schema({
           'del',
           {
             class: 'tracked-deletion',
-            style: `--user-color:${mark.attrs.userColor}`,
+            style: `--user-color:${couleurSure(mark.attrs.userColor)}`,
             title: `Suppression proposée par ${mark.attrs.user}`,
           },
           0,
@@ -423,7 +428,7 @@ export const schema = new Schema({
           'span',
           {
             class: 'author-color',
-            style: `--author-color:${mark.attrs.userColor}`,
+            style: `--author-color:${couleurSure(mark.attrs.userColor)}`,
             title: `Écrit par ${mark.attrs.user}`,
           },
           0,

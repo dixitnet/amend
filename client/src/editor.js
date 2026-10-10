@@ -72,6 +72,7 @@ import {
   monterBoutonCommenter,
 } from './relectureTactile.js'
 import { fermerFeuille, media, ouvrirFeuille, petitEcran, REQUETE_PETIT_ECRAN } from './feuille.js'
+import { couleurSure } from '../../shared/securite.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -79,7 +80,7 @@ function buildCursor(user) {
   // Sert à retrouver le curseur d'une personne précise quand on clique sur
   // sa pastille dans le bandeau (presence.js).
   cursor.dataset.user = user.name
-  cursor.style.setProperty('--user-color', user.color)
+  cursor.style.setProperty('--user-color', couleurSure(user.color))
   // L'étiquette du nom n'est PAS du texte : elle est dessinée par le CSS
   // (`::after`, depuis `data-user`). Dans le DOM elle faisait partie de la
   // sélection — un double-clic sur le mot où se tenait le curseur d'un autre

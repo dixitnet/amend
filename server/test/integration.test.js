@@ -172,7 +172,9 @@ test('relays JSON awareness frames but does not persist them', async () => {
   const bob = connect(doc.id, 'Bob')
   await withTimeout(Promise.all([once(alice, 'open'), once(bob, 'open')]), 2000, 'open')
 
-  const msg = JSON.stringify({ type: 'awareness', payload: { cursor: 42, user: 'Alice' } })
+  // Le format réel du client (provider.js) : une mise à jour Yjs en base64.
+  // Le serveur reconstruit le message au lieu de le relayer tel quel (S6).
+  const msg = JSON.stringify({ type: 'awareness', data: 'AQIDBA==' })
   const received = withTimeout(onceUpdate(bob), 2000, 'bob awareness')
   alice.send(msg)
   const event = await received

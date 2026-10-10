@@ -21,7 +21,7 @@
 // Comme partout ailleurs ici, le serveur ne lit jamais le contenu : il
 // écrit des octets et il les rend.
 
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync, renameSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync, renameSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
 /** Un horodatage tient lieu de nom de fichier : il est unique en pratique,
@@ -40,6 +40,16 @@ export class Versions {
 
   _dossier(id) {
     return join(this.racine, id)
+  }
+
+  /** Le document est supprimé : ses versions ne servent plus à personne. */
+  supprimerDocument(id) {
+    if (!/^[A-Za-z0-9_-]+$/.test(String(id))) return
+    try {
+      rmSync(this._dossier(id), { recursive: true, force: true })
+    } catch {
+      // un dossier qui reste est une gêne, pas une erreur à renvoyer
+    }
   }
 
   /**

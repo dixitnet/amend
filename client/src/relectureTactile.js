@@ -31,6 +31,7 @@ import {
 } from './comments.js'
 import { listChanges, regrouperEnLots, acceptChange, rejectChange } from './trackChanges.js'
 import { noteDeLaPosition, ouvrirNoteDeLaModification } from './footnotes.js'
+import { couleurSure } from '../../shared/securite.js'
 
 /** Les modifications telles que la carte du panneau les compte : un lot
  * (même auteur, même instant — typiquement une passe de Margo) est **une**
@@ -71,7 +72,7 @@ function montrerLaModification(view, de, a) {
 function messageDOM(commentsMap, ydoc, user, commentaire, id, racine, rafraichir) {
   const bloc = document.createElement('div')
   bloc.className = racine ? 'feuille-message' : 'feuille-message feuille-reponse'
-  bloc.style.setProperty('--user-color', commentaire.color)
+  bloc.style.setProperty('--user-color', couleurSure(commentaire.color))
 
   const meta = document.createElement('div')
   meta.className = 'feuille-meta'

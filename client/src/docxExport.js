@@ -65,6 +65,7 @@ function reglages(style, blocId) {
   return { ...bloc, _langue: langue(style.page && style.page.langue).docx }
 }
 import { safeFilenameBase } from './mdExport.js'
+import { imageAutorisee } from '../../shared/securite.js'
 
 const ALIGN_MAP = {
   left: AlignmentType.LEFT,
@@ -271,7 +272,7 @@ function listToParagraphs(list, style, level) {
 async function chargerImages(doc) {
   const sources = new Set()
   doc.descendants((node) => {
-    if (node.type.name === 'image' && node.attrs.src) sources.add(node.attrs.src)
+    if (node.type.name === 'image' && imageAutorisee(node.attrs.src)) sources.add(node.attrs.src)
   })
   const octetsPar = new Map()
   await Promise.all(

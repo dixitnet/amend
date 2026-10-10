@@ -78,7 +78,13 @@ export function libelleCourt(href) {
   const a = adresseAutorisee(href)
   if (!a) return String(href || '')
   const u = new URL(a)
-  if (u.protocol === 'mailto:') return decodeURIComponent(u.pathname)
+  if (u.protocol === 'mailto:') {
+    try {
+      return decodeURIComponent(u.pathname)
+    } catch {
+      return u.pathname // `%E0` seul : mal formé, on montre tel quel (audit C20)
+    }
+  }
   return u.hostname.replace(/^www\./, '') + (u.pathname.length > 1 ? u.pathname : '')
 }
 
