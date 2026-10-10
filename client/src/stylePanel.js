@@ -22,6 +22,7 @@ import {
   CONTENUS_ENTETE,
   LANGUES,
   langue,
+  idPolice,
   styleParDefaut,
   fusionner,
 } from './styleConfig.js'
@@ -52,7 +53,9 @@ function controlePour(prop, valeur) {
       o.textContent = opt.label
       sel.appendChild(o)
     }
-    sel.value = String(valeur)
+    // Un document ou un modèle qui porte une police retirée de la liste
+    // (« Libre Caslon Text ») affiche son remplaçant, pas une case vide.
+    sel.value = String(prop.id === 'font' ? idPolice(valeur) : valeur)
     return { el: sel, lire: () => (typeof prop.options[0].id === 'number' ? Number(sel.value) : sel.value) }
   }
   if (prop.type === 'booleen') {

@@ -14,6 +14,24 @@ Port et chemin data déjà confirmés dans le code (`server/server.js`) :
 `PORT=8787` par défaut, `DATA_DIR=./data` par défaut — cohérent avec le
 `.env` du Mac de dev et avec `Caddyfile.local` ci-dessus.
 
+## Polices de l'export PDF
+
+Le menu de polices (`POLICES`, `shared/style.js`) ne propose que des polices
+**installées sur le serveur** : Typst remplace en silence une famille qu'il ne
+trouve pas. Sur Debian :
+
+    sudo apt install fonts-dejavu fonts-liberation fonts-roboto
+
+Typst embarque lui-même Libertinus Serif et DejaVu Sans Mono. Pour vérifier :
+
+    typst fonts | grep -iE "dejavu|liberation|roboto|libertinus"
+
+Au démarrage, le journal (`journalctl -u amend`) dit « Polices absentes de
+cette machine » si l'une des familles du menu manque. **Ajouter une police au
+menu suppose de l'installer ici d'abord**, et de compléter la liste
+`INSTALLEES` de `server/test/polices.test.js`. Word, lui, reçoit le nom que
+connaît un ordinateur (Arial, Times New Roman) : voir le champ `docx`.
+
 ## Inviter Claude sur un document (connecteur MCP)
 
 Voir `claude/etude-inviter-claude.md` (§11). Deux précautions côté serveur

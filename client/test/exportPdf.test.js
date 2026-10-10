@@ -83,9 +83,9 @@ test('chaque propriété réglable atteint la source', () => {
     },
   })
   const f = fonction(src, 'body')
-  // Une liste de repli, ordonnée du plus fidèle au plus sûr : Typst prend
-  // la première famille présente sur la machine qui compose.
-  assert.match(f, /font: \("Georgia", "Libertinus Serif"\)/)
+  // Une seule famille, et une police réellement installée : Libertinus
+  // Serif est embarquée par Typst (voir POLICES, shared/style.js).
+  assert.match(f, /font: \("Libertinus Serif"\)/)
   assert.match(f, /size: 10pt/)
   assert.match(f, /weight: "bold"/)
   assert.match(f, /style: "italic"/)
@@ -226,19 +226,13 @@ test('un paragraphe qui commence par un caractère de structure reste un paragra
 
 test('toutes les polices proposées ont un nom Typst', () => {
   // Ce test ne dit pas que la police **existe** sur la machine qui
-  // compose — Typst remplace en silence une famille absente, et c'est la
-  // cause la plus probable des écarts constatés. Il dit seulement qu'aucune
-  // entrée du menu ne part sans nom.
+  // compose — c'est `server/test/polices.test.js` qui garde la liste de ce
+  // que le serveur installe, et le journal de démarrage qui signale un
+  // manque. Il dit seulement qu'aucune entrée du menu ne part sans nom, et
+  // qu'elle n'en a **qu'un** : plus de liste de repli (10/10/2026), le menu ne
+  // propose que des polices installées.
   for (const p of POLICES) {
-    assert.ok(Array.isArray(p.typst) && p.typst.length, `police ${p.id} sans nom Typst`)
-    // La dernière famille de chaque liste doit être une de celles que Typst
-    // **embarque** : c'est ce qui garantit qu'on sait toujours ce qu'on
-    // obtient, même sur une machine sans aucune police installée.
-    const embarquees = ['Libertinus Serif', 'New Computer Modern', 'DejaVu Sans Mono']
-    assert.ok(
-      embarquees.some((e) => p.typst.includes(e)),
-      `police ${p.id} : aucun repli embarqué, Typst choisira à notre place`
-    )
+    assert.ok(Array.isArray(p.typst) && p.typst.length === 1, `police ${p.id} : une seule famille attendue`)
   }
 })
 

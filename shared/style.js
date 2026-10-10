@@ -29,35 +29,42 @@ export const VERSION_STYLE = 2
 // replis). `typst` : le nom de la famille pour le rendu PDF.
 /** Les polices proposées dans le panneau de mise en page.
  *
- * `typst` est une **liste de repli**, pas un nom unique (18/09/2026), et
- * c'est ce qui manquait. Typst remplace en silence une famille qu'il ne
- * trouve pas : il n'embarque que Libertinus Serif, New Computer Modern et
- * DejaVu Sans **Mono** — pas DejaVu Sans, pas Roboto, pas Libre Caslon.
- * Sur un serveur sans polices installées, choisir « Système (sans-serif) »
- * donnait donc un PDF en serif, sans un mot d'avertissement. C'est la cause
- * la plus probable des écarts constatés entre le panneau et la sortie.
+ * **Seules des polices réellement installées sur le serveur** (10/10/2026).
+ * Le choix d'une police n'a d'effet que sur les exports : l'éditeur garde sa
+ * police système (retiré le 13/09), la page publiée aussi. Or Typst remplace
+ * **en silence** une famille qu'il ne trouve pas : Arial, Helvetica, Georgia,
+ * Times New Roman, Courier New et Libre Caslon Text n'existent pas sur un
+ * serveur Debian, et le menu les promettait quand même (le PDF sortait en
+ * Liberation ou en Libertinus). Chaque entrée n'a donc plus qu'**une**
+ * famille `typst`, une police qu'on trouve sur une machine installée comme
+ * le dit `deploy/README.md` (`fonts-dejavu fonts-liberation fonts-roboto`),
+ * ou que Typst embarque (Libertinus Serif, DejaVu Sans Mono). Le libellé dit
+ * ce que le PDF utilise ; `docx` garde le nom que Word connaît : un
+ * ordinateur a Arial, pas Liberation Sans.
  *
- * Une liste laisse Typst prendre la première famille réellement présente.
- * Les noms sont ordonnés du plus fidèle au plus sûr, et se terminent
- * toujours par une famille embarquée : au pire, on sait ce qu'on obtient.
- * Reste à installer les polices sur le serveur (voir
- * claude/serveur-production-collabtext.md) pour que le premier nom gagne. */
+ * Ajouter une police ici suppose de l'installer sur le serveur ; au
+ * démarrage, `famillesTypst()` permet de dire laquelle manque. */
 export const POLICES = [
-  { id: 'system', label: 'Système (sans-serif)', css: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif', docx: undefined,
-    typst: ['DejaVu Sans', 'Liberation Sans', 'Helvetica', 'Arial', 'New Computer Modern Sans', 'Libertinus Serif'] },
-  { id: 'serif', label: 'Serif (Georgia)', css: 'Georgia, "Times New Roman", serif', docx: 'Georgia',
-    typst: ['Georgia', 'Libertinus Serif'] },
-  { id: 'times', label: 'Times New Roman', css: '"Times New Roman", Times, serif', docx: 'Times New Roman',
-    typst: ['Times New Roman', 'Liberation Serif', 'Libertinus Serif'] },
-  { id: 'arial', label: 'Arial', css: 'Arial, Helvetica, sans-serif', docx: 'Arial',
-    typst: ['Arial', 'Liberation Sans', 'Helvetica', 'DejaVu Sans', 'Libertinus Serif'] },
-  { id: 'mono', label: 'Monospace', css: '"Courier New", Courier, monospace', docx: 'Courier New',
-    typst: ['DejaVu Sans Mono', 'Liberation Mono', 'Courier New'] },
+  { id: 'system', label: 'Système (DejaVu Sans)', css: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif', docx: undefined,
+    typst: ['DejaVu Sans'] },
+  { id: 'arial', label: 'Liberation Sans (Arial dans Word)', css: 'Arial, Helvetica, sans-serif', docx: 'Arial',
+    typst: ['Liberation Sans'] },
+  { id: 'times', label: 'Liberation Serif (Times New Roman dans Word)', css: '"Times New Roman", Times, serif', docx: 'Times New Roman',
+    typst: ['Liberation Serif'] },
+  { id: 'serif', label: 'Libertinus Serif (Times New Roman dans Word)', css: '"Libertinus Serif", Georgia, serif', docx: 'Times New Roman',
+    typst: ['Libertinus Serif'] },
+  { id: 'mono', label: 'DejaVu Sans Mono (Courier New dans Word)', css: '"Courier New", Courier, monospace', docx: 'Courier New',
+    typst: ['DejaVu Sans Mono'] },
   { id: 'roboto', label: 'Roboto', css: '"Roboto", -apple-system, sans-serif', docx: 'Roboto',
-    typst: ['Roboto', 'DejaVu Sans', 'Liberation Sans', 'Libertinus Serif'] },
-  { id: 'libre-caslon-text', label: 'Libre Caslon Text', css: '"Libre Caslon Text", Georgia, serif', docx: 'Libre Caslon Text',
-    typst: ['Libre Caslon Text', 'Libertinus Serif'] },
+    typst: ['Roboto'] },
 ]
+
+/** Identifiants retirés de la liste, avec la police qui les remplaçait
+ * **déjà dans le PDF** : un document qui les avait choisis sort donc
+ * comme avant. « Libre Caslon Text » (retirée le 10/10/2026, absente du
+ * serveur) sortait en Libertinus Serif. `serif`, qui s'appelait « Georgia »,
+ * garde son identifiant : il sortait lui aussi en Libertinus Serif. */
+export const POLICES_RETIREES = { 'libre-caslon-text': 'serif' }
 
 /** Toutes les familles nommées quelque part, pour que le serveur puisse
  * dire au démarrage lesquelles manquent (voir server/typst.js). */
@@ -446,8 +453,15 @@ export function migrer(ancien) {
 
 // --- Petits accès ---------------------------------------------------------
 
+/** L'identifiant à retenir pour une police lue dans un document ou un
+ * modèle : celui d'une police retirée devient son remplaçant. */
+export function idPolice(id) {
+  return POLICES_RETIREES[id] || id
+}
+
 export function police(id) {
-  return POLICES.find((f) => f.id === id) || POLICES[0]
+  const retenu = idPolice(id)
+  return POLICES.find((f) => f.id === retenu) || POLICES[0]
 }
 
 export function formatPage(id) {
@@ -551,7 +565,9 @@ export function assainir(style) {
       const defaut = b.defauts[prop.id]
       const valeur = v[prop.id]
       if (prop.type === 'choix') {
-        const ok = prop.options.find((o) => String(o.id) === String(valeur))
+        // Une police retirée de la liste prend son remplaçant, pas le défaut.
+        const retenue = prop.id === 'font' ? idPolice(valeur) : valeur
+        const ok = prop.options.find((o) => String(o.id) === String(retenue))
         out[prop.id] = ok ? ok.id : defaut
       } else if (prop.type === 'booleen') out[prop.id] = booleen(valeur, defaut)
       else out[prop.id] = nombre(valeur, defaut, prop.min, prop.max)

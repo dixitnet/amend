@@ -10,6 +10,7 @@
 
 export {
   POLICES,
+  idPolice,
   ALIGNEMENTS,
   INTERLIGNES,
   FORMATS_PAGE,
