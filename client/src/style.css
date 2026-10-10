@@ -1966,14 +1966,21 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 }
 .contact-fermer:hover { color: var(--fg); background: var(--border); }
 .contact-aide {
-  display: inline-block;
-  margin: 0 0 8px;
-  font-size: 13px;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 14px;
   font-weight: 600;
-  color: var(--accent);
+  text-align: center;
   text-decoration: none;
 }
-.contact-aide:hover { text-decoration: underline; }
+.contact-aide:hover { filter: brightness(1.08); }
+.contact-aide:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .contact-palette textarea {
   width: 100%;
   box-sizing: border-box;

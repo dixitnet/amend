@@ -182,12 +182,9 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   assert.ok(racine.querySelector('.banniere-centre .presence-bar'), 'les pastilles de présence')
   assert.ok(racine.querySelector('.banniere-droite .connection-status'), 'le voyant, à droite')
   assert.ok(racine.querySelector('.banniere-droite .compte-pastille'), 'la pastille du compte')
-  // L'aide : un bouton dans le bandeau, avant l'Historique, vers la page publiée.
-  const aide = racine.querySelector('.banniere-droite a.aide-link')
-  assert.ok(aide, 'le bouton Aide, dans le bandeau')
-  assert.equal(aide.getAttribute('href'), '/p/scissors-dad-mechanic')
-  assert.equal(aide.textContent, 'Aide')
-  assert.equal(aide.nextElementSibling && aide.nextElementSibling.textContent, 'Historique', 'juste avant l’Historique')
+  // L'aide n'est plus dans le bandeau : elle est dans le bouton « Aide / avis ».
+  assert.ok(!racine.querySelector('.banniere-droite a.aide-link'), 'pas de bouton Aide dans le bandeau')
+  assert.ok(![...racine.querySelectorAll('.banniere-droite a')].some((a) => a.textContent === 'Aide'))
   // L'interrupteur du suivi est en tête de la colonne de droite, hors du
   // corps qui défile (19/09) : c'est ce qui le rend toujours visible.
   const suivi = racine.querySelector('.sidebar > .suivi-entete > .track-toggle')

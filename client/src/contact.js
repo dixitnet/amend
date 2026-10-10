@@ -75,7 +75,7 @@ export function monterPaletteContact() {
   titre.textContent = 'Aide / avis'
   const sous = document.createElement('p')
   sous.className = 'contact-sous'
-  sous.textContent = 'Une question, une idée, un bug ? amend.ink est en test : tout retour est utile, même bref.'
+  sous.textContent = 'Sinon, écrivez-nous : une question, une idée, un bug. amend.ink est en test, tout retour est utile, même bref.'
 
   // L'aide d'abord : une question dont la réponse est écrite ne devrait pas
   // devenir un message. Elle s'ouvre dans un nouvel onglet, le document reste

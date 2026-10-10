@@ -54,7 +54,6 @@ import {
 import { imagesPlugin } from './images.js'
 import { mountPresenceBar } from './presence.js'
 import { monterMenuCompte } from './compteMenu.js'
-import { lienAide } from './aide.js'
 import { loadDocStyle } from './styleConfig.js'
 import { ouvrirPanneauStyle } from './stylePanel.js'
 import { monterModeleDocument } from './modeleDocument.js'
@@ -386,13 +385,10 @@ export function mountEditor(root, docId, user, docMeta) {
   historyLink.href = `#/doc/${docId}/versions`
   historyLink.className = 'btn-preset history-link'
   historyLink.textContent = 'Historique'
-  // L'aide (10/10/2026) : un bouton, pas une entrée de menu — quelqu'un qui
-  // cherche comment faire cherche d'abord un mot « Aide » dans le bandeau.
-  // Elle voisine avec l'Historique : ce sont les deux gestes qui ne touchent
-  // pas au document, on le regarde ou on s'informe. Elle ouvre un nouvel
-  // onglet : le document reste là où on l'a laissé.
-  const aideLink = lienAide({ classe: 'btn-preset history-link aide-link', libelle: 'Aide' })
-  groupeHistorique.append(aideLink, historyLink)
+  // L'aide n'est plus dans le bandeau (10/10/2026) : elle est en tête du
+  // bouton flottant « Aide / avis » (contact.js), et dans le menu ⋯ sur
+  // téléphone (iphone.js).
+  groupeHistorique.append(historyLink)
 
   // 3. Faire sortir. Un seul bouton du 17/09 au 01/10/2026 : les accès et
   // les exports répondaient déjà à la même question — *qui d'autre voit ce
