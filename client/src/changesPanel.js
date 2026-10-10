@@ -14,6 +14,7 @@ import {
   estModificationDAgent,
 } from './trackChanges.js'
 import { defilerVers } from './defilement.js'
+import { noteDeLaPosition, ouvrirNoteDeLaModification } from './footnotes.js'
 
 // Au-delà de ce nombre de modifications en attente, le panneau devient
 // difficile à suivre (voir rapport-test-charge-1.md, constat 2.3 : 1985
@@ -174,7 +175,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
     const { state, dispatch } = view
     const to = Math.min(cible.to, state.doc.content.size)
     dispatch(state.tr.setSelection(TextSelection.create(state.doc, cible.from, to)))
-    scrollChangeToMiddle(cible.from)
+    montrerLaModification(cible.from, to)
   }
 
   /** Va à la modification suivante (ou précédente) dans l'ordre du
@@ -192,8 +193,10 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
     const { state, dispatch } = view
     const to = Math.min(cible.to, state.doc.content.size)
     dispatch(state.tr.setSelection(TextSelection.create(state.doc, cible.from, to)))
-    scrollChangeToMiddle(cible.from)
     view.focus()
+    // Après le focus : une note qui s'ouvre prend le sien, pour qu'on puisse
+    // continuer dedans.
+    montrerLaModification(cible.from, to)
   }
 
   function render(force) {
@@ -406,8 +409,20 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
     if (!view) return
     const taille = view.state.doc.content.size
     const de = Math.min(from, taille)
-    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, de, Math.min(Math.max(to, de), taille))))
-    scrollChangeToMiddle(de)
+    const fin = Math.min(Math.max(to, de), taille)
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, de, fin)))
+    montrerLaModification(de, fin)
+  }
+
+  /** Amène la modification à l'écran. Si elle est dans une note de bas de
+   * page, c'est l'appel de la note qu'on centre (le texte de la note n'a
+   * pas de place dans la page) et la fenêtre de la note s'ouvre sur le
+   * passage. */
+  function montrerLaModification(de, a) {
+    if (!view) return
+    const note = noteDeLaPosition(view.state.doc, de)
+    scrollChangeToMiddle(note ? note.pos : de)
+    if (note) ouvrirNoteDeLaModification(view, de, a)
   }
 
   function escapeHtml(s) {

@@ -1,0 +1,18 @@
+# À installer sur la PRODUCTION (le VPS), pas sur le NAS.
+# → /etc/systemd/system/amend-proton.service
+[Unit]
+Description=Sauvegarde d'amend.ink vers Proton Drive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=amend
+# Le script et son fichier de réglages (~/.config/amend-proton.conf) : voir
+# deploy/SAUVEGARDE.md §8.
+ExecStart=/opt/amend/app/deploy/sauvegarde-vers-proton.sh
+# Doucement : le VPS n'a qu'un cœur et 1 Go, et l'application tourne dessus.
+Nice=19
+IOSchedulingClass=idle
+# Un envoi qui traîne plus de deux heures a un problème.
+TimeoutStartSec=7200

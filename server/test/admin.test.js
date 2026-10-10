@@ -129,6 +129,21 @@ test("la vue dit quand la machine de sauvegarde a tiré une copie pour la derni�
   assert.equal(abime.serveur.sauvegardeDistante, null)
 })
 
+test("la vue dit quand le serveur a envoyé sa sauvegarde sur Proton pour la dernière fois", async () => {
+  const chef = { headers: { cookie: cookieFor('chef@example.com') } }
+  const avant = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
+  assert.equal(avant.serveur.sauvegardeProton, null, 'rien tant que l’envoi n’a jamais réussi')
+
+  const ts = Date.now() - 5 * 60 * 60 * 1000
+  writeFileSync(join(process.env.DATA_DIR, 'sauvegarde-proton.json'), JSON.stringify({ ts }))
+  const apres = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
+  assert.equal(apres.serveur.sauvegardeProton.ts, ts)
+
+  writeFileSync(join(process.env.DATA_DIR, 'sauvegarde-proton.json'), '{pas du json')
+  const abime = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
+  assert.equal(abime.serveur.sauvegardeProton, null)
+})
+
 test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   // Même raison que dans access.test.js : le serveur garde la boucle

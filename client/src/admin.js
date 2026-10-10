@@ -65,6 +65,18 @@ export function copieDistante(etat, maintenant) {
     ${sec < 60 ? 'à l’instant' : `il y a ${duree(sec)}`}${vieille ? ' — plus de 36 h, la copie régulière s’est arrêtée' : ''}.</p>`
 }
 
+/** L'envoi quotidien vers Proton Drive, fait par le serveur lui-même
+ * (deploy/sauvegarde-vers-proton.sh). Facultatif : tant qu'il n'a jamais eu
+ * lieu, on ne dit rien (la copie distante a sa propre alerte) ; une fois en
+ * place, plus de 36 h sans nouvelle est une alerte comme pour elle. */
+export function copieProton(etat, maintenant) {
+  if (!etat) return ''
+  const sec = Math.max(0, Math.round((maintenant - etat.ts) / 1000))
+  const vieille = sec > 36 * 3600
+  return `<p class="bo-note${vieille ? ' bo-alerte' : ''}">Dernier envoi sur Proton Drive :
+    ${sec < 60 ? 'à l’instant' : `il y a ${duree(sec)}`}${vieille ? ' — plus de 36 h, l’envoi vers Proton s’est arrêté' : ''}.</p>`
+}
+
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
@@ -323,6 +335,7 @@ export async function mountAdmin(root, info) {
         s.dataDirOctets
       )} avant compression)</a></p>
       ${copieDistante(s.sauvegardeDistante, d.genereLe)}
+      ${copieProton(s.sauvegardeProton, d.genereLe)}
       ${
         s.connexionsEnCours.length
           ? `<ul class="bo-liste">${s.connexionsEnCours

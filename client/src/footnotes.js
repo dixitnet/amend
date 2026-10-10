@@ -97,6 +97,37 @@ export function insererNote(view, user) {
   return true
 }
 
+/** La note qui contient la position `pos` (le texte de la note), ou celle qui
+ * **est** à `pos` (la note entière proposée ou supprimée). `null` si la
+ * position est dans le texte ordinaire. `pos` est celle de l'appel dans le
+ * document ; `dedans` dit si `pos` est dans le texte de la note. */
+export function noteDeLaPosition(doc, pos) {
+  if (!doc || pos < 0 || pos > doc.content.size) return null
+  const $pos = doc.resolve(pos)
+  for (let d = $pos.depth; d > 0; d--) {
+    if ($pos.node(d).type.name === 'footnote') return { pos: $pos.before(d), dedans: true }
+  }
+  const apres = doc.nodeAt(pos)
+  if (apres && apres.type.name === 'footnote') return { pos, dedans: false }
+  return null
+}
+
+/** Le panneau des modifications mène à une modification qui est **dans une
+ * note** (ou qui est la note) : le texte de la note n'est visible que dans sa
+ * fenêtre, fermée par défaut, donc défiler jusqu'à l'appel ne montrait rien
+ * (signalé par Sylvain le 09/10/2026). On ouvre la fenêtre, et on y
+ * sélectionne le passage. Rend vrai si une note a été ouverte. */
+export function ouvrirNoteDeLaModification(view, from, to) {
+  const note = noteDeLaPosition(view.state.doc, from)
+  if (!note) return false
+  const vue = [...vues].find((v) => v.vueExterne === view && v.getPos() === note.pos)
+  if (!vue) return false
+  vue.ouvrir()
+  // Dans le texte de la note : décaler d'un cran (+1 pour entrer dans le nœud).
+  if (note.dedans) vue.selectionner(from - note.pos - 1, to - note.pos - 1)
+  return true
+}
+
 /** Le greffon : la vue de nœud, et un rafraîchissement de la liste de fin
  * à chaque changement du document. */
 export function footnotesPlugin(getUser, { surChangement } = {}) {
@@ -250,6 +281,18 @@ class VueNote {
       this.fermer()
     }
     document.addEventListener('mousedown', this.surClicDehors, true)
+  }
+
+  /** Sélectionne un passage du texte de la note, dans sa fenêtre. */
+  selectionner(de, a) {
+    if (!this.vueInterne) return
+    const doc = this.vueInterne.state.doc
+    const bord = (n) => Math.max(0, Math.min(n, doc.content.size))
+    try {
+      this.vueInterne.dispatch(this.vueInterne.state.tr.setSelection(TextSelection.create(doc, bord(de), bord(a))).scrollIntoView())
+    } catch {
+      // Une position qui n'est plus valable (le document a bougé) : la fenêtre reste ouverte, c'est l'essentiel.
+    }
   }
 
   /** Sous l'appel, dans les limites du conteneur ; en bas de l'écran sur

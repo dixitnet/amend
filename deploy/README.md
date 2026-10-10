@@ -7,7 +7,7 @@ directe, pour éviter de retaper les heredocs à la main sur le tiny.
 
 - `collabtext.service` → `/etc/systemd/system/collabtext.service`
 - `Caddyfile.local` → `/etc/caddy/Caddyfile` (phase réseau local, sans domaine)
-- **Sauvegarde** : voir `SAUVEGARDE.md` (`sauvegarde-serveur.sh` sur la production, `tirer-sauvegarde.sh` et `amend-sauvegarde.{service,timer}` sur le NAS). Les anciens `backup.sh` et `collabtext-backup.*` (la production *poussait* vers le NAS) sont remplacés : une production prise pouvait effacer ses propres sauvegardes.
+- **Sauvegarde** : voir `SAUVEGARDE.md` (`sauvegarde-serveur.sh` sur la production, `tirer-sauvegarde.sh` et `amend-sauvegarde.{service,timer}` sur le NAS). Un envoi quotidien vers Proton Drive part en plus du VPS lui-même (`sauvegarde-vers-proton.sh`, `amend-proton.{service,timer}` : `SAUVEGARDE.md` §8). Les anciens `backup.sh` et `collabtext-backup.*` (la production *poussait* vers le NAS) sont remplacés : une production prise pouvait effacer ses propres sauvegardes.
 - `deploy.sh` → `/opt/collabtext/deploy.sh` (`chmod +x`) — mises à jour manuelles
 
 Port et chemin data déjà confirmés dans le code (`server/server.js`) :

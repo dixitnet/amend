@@ -15,15 +15,17 @@ import { schema } from '../src/schema.js'
 import { footnotesPlugin, insererNote, monterListeDesNotes } from '../src/footnotes.js'
 import { trackChangesPlugin, makeDispatchTransaction, listChanges, setTrackChangesEnabled } from '../src/trackChanges.js'
 import { notesDuDocument } from '../src/notes.js'
+import { mountChangesPanel } from '../src/changesPanel.js'
 
 const ALICE = { name: 'Alice', color: '#3d5a80' }
 
 function installerDom() {
-  const dom = new JSDOM('<!DOCTYPE html><body><div class="editor-main"><div class="editor-container"><div id="editeur"></div></div></div></body>', {
+  const dom = new JSDOM('<!DOCTYPE html><body><div class="editor-main"><div class="editor-container"><div id="editeur"></div></div></div><div id="panneau"></div></body>', {
     url: 'http://localhost/',
     pretendToBeVisual: true,
   })
   const w = dom.window
+  w.Element.prototype.scrollIntoView = () => {} // jsdom ne l'a pas ; le panneau s'en sert
   globalThis.window = w
   globalThis.document = w.document
   Object.defineProperty(globalThis, 'navigator', { value: w.navigator, configurable: true, writable: true })
@@ -35,7 +37,7 @@ function installerDom() {
   return dom
 }
 
-function monter({ suivi = false, texte = 'Un texte suivi.' } = {}) {
+function monter({ suivi = false, texte = 'Un texte suivi.', panneau = false } = {}) {
   installerDom()
   const ydoc = new Y.Doc()
   const frag = ydoc.getXmlFragment('prosemirror')
@@ -44,7 +46,12 @@ function monter({ suivi = false, texte = 'Un texte suivi.' } = {}) {
   let liste
   const state = EditorState.create({
     schema,
-    plugins: [ySyncPlugin(frag), trackChangesPlugin({ enabled: suivi }), footnotesPlugin(() => ALICE, { surChangement: (v) => liste && liste.rafraichir(v) })],
+    plugins: [
+      ySyncPlugin(frag),
+      trackChangesPlugin({ enabled: suivi }),
+      footnotesPlugin(() => ALICE, { surChangement: (v) => liste && liste.rafraichir(v) }),
+      ...(panneau ? [mountChangesPanel(document.getElementById('panneau'), { canReview: true })] : []),
+    ],
   })
   const view = new EditorView(document.getElementById('editeur'), { state })
   view.setProps({ dispatchTransaction: makeDispatchTransaction(view, () => ALICE) })
@@ -130,4 +137,52 @@ test('une note sans attente : taper dedans est suivi mot à mot', async () => {
   const l = listChanges(e.view.state.doc)
   assert.deepEqual(l.map((c) => [c.type, c.text]), [['insertion', ' plus']])
   assert.equal(notesDuDocument(e.view.state.doc)[0].node.textContent, 'Acceptée plus')
+})
+
+// ===================================== le panneau des modifications et les notes
+
+const clicSurLaCarte = (indice = 0) => document.querySelectorAll('#panneau li')[indice].dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+
+test('une modification dans le texte d’une note : cliquer sa carte ouvre la note, sur le passage (09/10/2026)', async () => {
+  const e = monter({ suivi: false, panneau: true })
+  e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 3)))
+  insererNote(e.view, ALICE)
+  await e.attendre()
+  let interne = e.fenetre().vueInterne
+  interne.dispatch(interne.state.tr.insertText('Acceptée'))
+  e.fenetre().querySelector('.note-fenetre-fermer').click()
+  setTrackChangesEnabled(e.view, true)
+  e.appel().dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }))
+  interne = e.fenetre().vueInterne
+  interne.dispatch(interne.state.tr.insertText(' plus', interne.state.doc.content.size, interne.state.doc.content.size))
+  e.fenetre().querySelector('.note-fenetre-fermer').click()
+  await e.attendre()
+  assert.equal(e.fenetre(), null, 'la note est fermée')
+  assert.ok(document.querySelectorAll('#panneau li').length >= 1, 'la modification est dans le panneau')
+
+  clicSurLaCarte(0)
+  assert.ok(e.fenetre(), 'la note s’ouvre')
+  const sel = e.fenetre().vueInterne.state.selection
+  assert.deepEqual([sel.from, sel.to], [8, 13], 'et le passage modifié y est sélectionné')
+  assert.equal(e.fenetre().vueInterne.state.doc.textBetween(sel.from, sel.to), ' plus')
+})
+
+test('une note proposée en entier : cliquer sa carte ouvre la note', async () => {
+  const e = monter({ suivi: true, panneau: true })
+  e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 3)))
+  insererNote(e.view, ALICE)
+  await e.attendre()
+  e.fenetre().querySelector('.note-fenetre-fermer').click()
+  await e.attendre()
+  assert.equal(e.fenetre(), null)
+  clicSurLaCarte(0)
+  assert.ok(e.fenetre(), 'la note proposée s’ouvre quand on va à sa carte')
+})
+
+test('une modification hors des notes n’ouvre aucune note', async () => {
+  const e = monter({ suivi: true, panneau: true })
+  e.view.dispatch(e.view.state.tr.insertText('X', 2, 2))
+  await e.attendre()
+  clicSurLaCarte(0)
+  assert.equal(e.fenetre(), null)
 })

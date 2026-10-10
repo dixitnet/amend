@@ -1,0 +1,15 @@
+# À installer sur la PRODUCTION (le VPS).
+# → /etc/systemd/system/amend-proton.timer
+[Unit]
+Description=Sauvegarde quotidienne d'amend.ink vers Proton Drive
+
+[Timer]
+# La nuit, après le tirage du NAS (3 h 30) pour ne pas lire les mêmes
+# fichiers en même temps.
+OnCalendar=*-*-* 04:15:00
+RandomizedDelaySec=10min
+# Si le VPS était éteint à l'heure dite, il rattrape au démarrage.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

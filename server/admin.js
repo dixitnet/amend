@@ -290,6 +290,17 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
         return null
       }
     })(),
+    // L'heure du dernier envoi vers Proton Drive (deploy/sauvegarde-vers-proton.sh,
+    // lancé par amend-proton.timer). Absente tant que cet envoi n'a jamais
+    // réussi — il est facultatif, contrairement à la copie distante.
+    sauvegardeProton: (() => {
+      try {
+        const { ts } = JSON.parse(readFileSync(join(dataDir, 'sauvegarde-proton.json'), 'utf8'))
+        return typeof ts === 'number' ? { ts } : null
+      } catch {
+        return null
+      }
+    })(),
     listeAttente: (() => {
       try {
         if (!existsSync(waitlistPath)) return { total: 0, dernier: null, enAttente: 0 }
