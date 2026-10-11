@@ -20,6 +20,7 @@
 
 import { createHash } from 'node:crypto'
 import { Limiteur } from './limiteur.js'
+import { urlAnthropic } from './ai.js'
 import { Mcp, COULEUR_AGENT, LIRE_MAX } from './mcp.js'
 import { REMPLACEMENTS_MAX } from './agentTexte.js'
 import { capabilities } from './roles.js'
@@ -364,7 +365,7 @@ export class Dialogue {
       for (let essai = 0; ; essai++) {
         let reponse
         try {
-          reponse = await fetcher('https://api.anthropic.com/v1/messages', {
+          reponse = await fetcher(urlAnthropic(), {
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify(corps),

@@ -5,6 +5,13 @@
 
 import { typographier } from '../shared/typographie.js'
 
+/** L'adresse des messages de l'API. `ANTHROPIC_API_URL` ne sert qu'aux essais
+ * (un faux serveur local : `tools/faux-anthropic.js`, protocole de test
+ * global) ; en production la variable est absente. */
+export function urlAnthropic() {
+  return `${(process.env.ANTHROPIC_API_URL || 'https://api.anthropic.com').replace(/\/$/, '')}/v1/messages`
+}
+
 // Haiku 5.5 depuis le 10/10/2026 : le modèle le moins cher (0,10 $ / 0,50 $ par
 // million de jetons), et le banc d'essai (claude/rapport-banc-modeles.md) ne le
 // distingue pas de Sonnet pour la correction. Surchargeable par AI_MODEL
@@ -135,7 +142,7 @@ export async function suggestEdit(config, text, instruction) {
   const appeler = async (thinking) => {
     let response
     try {
-      response = await fetcher('https://api.anthropic.com/v1/messages', {
+      response = await fetcher(urlAnthropic(), {
         method: 'POST',
         headers: {
           'content-type': 'application/json',

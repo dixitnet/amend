@@ -890,6 +890,9 @@ async function handleApi(req, res, url) {
           uptimeSec: process.uptime(),
           memory: process.memoryUsage(),
           loopLagMs,
+          connexions: rooms.totalConnexions(),
+          salles: rooms.rooms.size,
+          repliques: rooms.repliques ? rooms.repliques.repliques.size : 0,
         })
         resolve()
       })

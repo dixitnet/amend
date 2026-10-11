@@ -3,7 +3,8 @@
 // bibliothèque. Voir claude/conception-gestion-utilisateurs.md (projet
 // Amend) pour le choix et son contexte.
 
-import { request } from 'node:https'
+import { request as requestHttps } from 'node:https'
+import { request as requestHttp } from 'node:http'
 
 export class MailConfigError extends Error {}
 export class MailSendError extends Error {}
@@ -70,6 +71,10 @@ export function sendMail({ to, subject, text, html, replyTo }) {
   // compte de Sylvain est en zone EU, d'où ce choix par défaut. Réglable
   // via MAILGUN_API_HOST si jamais un compte US est utilisé un jour.
   const apiHost = process.env.MAILGUN_API_HOST || 'api.eu.mailgun.net'
+  // `MAILGUN_API_URL` (ex. http://127.0.0.1:19002) : un faux Mailgun local
+  // pour les essais (tools/faux-mailgun.js). Absent en production.
+  const faux = process.env.MAILGUN_API_URL ? new URL(process.env.MAILGUN_API_URL) : null
+  const request = faux && faux.protocol === 'http:' ? requestHttp : requestHttps
   if (!apiKey || !domain) {
     return Promise.reject(
       new MailConfigError('MAILGUN_API_KEY et MAILGUN_DOMAIN requis (voir .env.example)')
@@ -90,7 +95,8 @@ export function sendMail({ to, subject, text, html, replyTo }) {
     const req = request(
       {
         method: 'POST',
-        hostname: apiHost,
+        hostname: faux ? faux.hostname : apiHost,
+        ...(faux && faux.port ? { port: Number(faux.port) } : {}),
         path: `/v3/${encodeURIComponent(domain)}/messages`,
         headers: {
           authorization: `Basic ${auth}`,

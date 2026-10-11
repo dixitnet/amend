@@ -269,6 +269,14 @@ export class Rooms {
     }
   }
 
+  /** Toutes les connexions de toutes les salles (sonde du banc d'essai : voir
+   * si quelqu'un d'autre est là). */
+  totalConnexions() {
+    let n = 0
+    for (const membres of this.rooms.values()) n += membres.size
+    return n
+  }
+
   presenceCount(docId) {
     return this.rooms.get(docId)?.size ?? 0
   }

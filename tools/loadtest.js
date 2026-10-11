@@ -18,7 +18,7 @@
 
 import { WebSocket } from 'ws'
 import * as Y from 'yjs'
-import { readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, chmodSync, appendFileSync, statSync, mkdirSync, unlinkSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -225,10 +225,16 @@ class Observatoire {
 
 // ------------------------------------------------------------------ client
 
+// Les connexions ouvertes par ce process : la sonde indépendante
+// (tools/observer.js) les retranche du total du serveur pour savoir si
+// quelqu'un d'autre est là — voir `suivreLeBanc` plus bas.
+let connexionsDuBanc = 0
+
 class Redacteur {
-  constructor(docId, nom) {
+  constructor(docId, nom, cookie = null) {
     this.docId = docId
     this.nom = nom
+    this.cookie = cookie ?? COOKIE
     this.doc = new Y.Doc()
     this.frag = this.doc.getXmlFragment(FRAG)
     this.stats = { actions: 0, recus: 0, octetsRecus: 0, erreurs: 0, coupures: 0 }
@@ -245,12 +251,12 @@ class Redacteur {
       const sv = Buffer.from(Y.encodeStateVector(this.doc)).toString('base64')
       this.synchronise = false
       const ws = new WebSocket(`${WS_BASE}/ws/${this.docId}?user=${encodeURIComponent(this.nom)}&sv=${encodeURIComponent(sv)}`, {
-        headers: COOKIE ? { cookie: COOKIE } : {},
+        headers: this.cookie ? { cookie: this.cookie } : {},
       })
       this.ws = ws
       this.dernierMessage = Date.now()
       let ouvert = false
-      ws.on('open', () => { ouvert = true; this.connecte = true; resolve('ouvert') })
+      ws.on('open', () => { ouvert = true; this.connecte = true; connexionsDuBanc++; resolve('ouvert') })
       ws.on('message', (data, isBinary) => {
         this.stats.recus++
         this.stats.octetsRecus += data.length
@@ -265,7 +271,7 @@ class Redacteur {
         }
         try { Y.applyUpdate(this.doc, new Uint8Array(data), 'distant') } catch { this.stats.erreurs++ }
       })
-      ws.on('close', () => { this.connecte = false; if (ouvert) this.stats.coupures++; else resolve('refusé') })
+      ws.on('close', () => { this.connecte = false; if (ouvert) { connexionsDuBanc--; this.stats.coupures++ } else resolve('refusé') })
       ws.on('error', () => {})
       setTimeout(() => resolve(ouvert ? 'ouvert' : 'délai'), 15000)
     })
@@ -281,7 +287,7 @@ class Redacteur {
     const out = []
     for (let i = 0; i < this.frag.length; i++) {
       const n = this.frag.get(i)
-      if (n instanceof Y.XmlElement && n.length && n.get(0) instanceof Y.XmlText) out.push(n.get(0))
+      if (n instanceof Y.XmlElement && n.length && n.get(0) instanceof Y.XmlText && !n.getAttribute('sonde')) out.push(n.get(0))
     }
     return out
   }
@@ -360,6 +366,131 @@ const scenarios = {
 
   // S1 — rejeu de journal sous connexions répétées. Coût client nul,
   // coût serveur = taille du journal, payé sur la boucle d'événements.
+  // MIX — des personnes, pas des clients identiques (protocole de test
+  // global, §3.1) : des rédacteurs qui écrivent par rafales, des relecteurs
+  // qui touchent au texte de loin en loin, des lecteurs qui ne font que tenir
+  // une connexion. Mesure en plus la **propagation** d'une frappe entre deux
+  // clients (une paire-sonde) et le temps d'ouverture jusqu'à `synced`.
+  //
+  //   node tools/loadtest.js mix --profil ecrit:3,relit:2,lecteur:5 --minutes 5 \
+  //        --sortie tests/campagne/nuit1-C1.csv [--arrivee-ms 200]
+  //   --cookie-relit / --cookie-lecteur : sessions des comptes correcteur et
+  //   lecteur ($AMEND_COOKIE_RELIT, $AMEND_COOKIE_LECTEUR) ; à défaut, la session principale.
+  //
+  // Plusieurs process de ~8 clients plutôt qu'un seul de 40 (rapport n°3, §5).
+  async mix(obs) {
+    const profil = Object.fromEntries(String(opt('profil', 'ecrit:3,relit:2,lecteur:5')).split(',').map((x) => {
+      const [n, v] = x.split(':')
+      return [n.trim(), Number(v)]
+    }))
+    const minutes = nombre('minutes', 5)
+    const arriveeMs = nombre('arrivee-ms', 200)
+    const sortie = opt('sortie', '')
+    const cookies = {
+      ecrit: COOKIE,
+      relit: opt('cookie-relit', process.env.AMEND_COOKIE_RELIT || COOKIE),
+      lecteur: opt('cookie-lecteur', process.env.AMEND_COOKIE_LECTEUR || COOKIE),
+    }
+    const groupes = { ecrit: [], relit: [], lecteur: [] }
+    const ouvertures = { ecrit: [], relit: [], lecteur: [] }
+    const prefixe = `mix${process.pid}`
+
+    // La paire-sonde : A écrit un caractère par seconde dans son paragraphe,
+    // B note quand il le voit arriver. Même process, même horloge.
+    const a = new Redacteur(DOC, `${prefixe}-sonde-a`, cookies.ecrit)
+    const b = new Redacteur(DOC, `${prefixe}-sonde-b`, cookies.ecrit)
+    await Promise.all([a.connecter(), b.connecter()])
+    await Promise.all([a.attendreRejeu(), b.attendreRejeu()])
+    const paragrapheSonde = new Y.XmlElement('paragraph')
+    paragrapheSonde.setAttribute('sonde', '1')
+    const texteSonde = new Y.XmlText('⟦sonde⟧')
+    a.doc.transact(() => {
+      paragrapheSonde.insert(0, [texteSonde])
+      a.frag.insert(a.frag.length, [paragrapheSonde])
+    }, 'charge')
+    const envois = new Map()
+    const propagations = []
+    b.frag.observeDeep((evenements) => {
+      for (const e of evenements) {
+        if (e.target instanceof Y.XmlText && e.target.toString().startsWith('⟦sonde⟧')) {
+          const t0 = envois.get(e.target.length)
+          if (t0 !== undefined) { propagations.push(Math.round(performance.now() - t0)); envois.delete(e.target.length) }
+        }
+      }
+    })
+    const timerSonde = setInterval(() => {
+      if (obs.arret) return
+      envois.set(texteSonde.length + 1, performance.now())
+      a.doc.transact(() => texteSonde.insert(texteSonde.length, '.'), 'charge')
+    }, 1000)
+
+    if (sortie) { mkdirSync(dirname(sortie), { recursive: true }); writeFileSync(sortie, 't_s,connectes,actions,recus,octets_recus,erreurs,coupures,propagation_ms_derniere\n') }
+    const tous = () => [...groupes.ecrit, ...groupes.relit, ...groupes.lecteur]
+    const fin = Date.now() + minutes * 60000
+    const t0 = Date.now()
+
+    // Arrivée étalée : une salle qui se remplit, pas 40 portes qui claquent.
+    const boucles = []
+    for (const [nomProfil, n] of Object.entries(profil)) {
+      for (let i = 0; i < (n || 0); i++) {
+        if (obs.arret) break
+        const c = new Redacteur(DOC, `${prefixe}-${nomProfil}-${i}`, cookies[nomProfil])
+        groupes[nomProfil].push(c)
+        const tOuv = performance.now()
+        await c.connecter()
+        await c.attendreRejeu()
+        ouvertures[nomProfil].push(Math.round(performance.now() - tOuv))
+        if (nomProfil === 'ecrit') {
+          // Rafales : 4 à 8 gestes à 60–300 ms, puis 3 à 10 s de pause.
+          boucles.push((async () => {
+            while (Date.now() < fin && !obs.arret) {
+              await c.taper(4 + rnd(5), 60, 240, obs)
+              await dors(3000 + rnd(7000))
+            }
+          })())
+        } else if (nomProfil === 'relit') {
+          boucles.push((async () => {
+            while (Date.now() < fin && !obs.arret) {
+              await dors(4000 + rnd(8000))
+              try { c.action() } catch { c.stats.erreurs++ }
+            }
+          })())
+        }
+        await dors(arriveeMs)
+      }
+    }
+    const finProgression = progression('mix', () =>
+      `${tous().filter((c) => c.connecte).length} connectés, ${tous().reduce((x, c) => x + c.stats.actions, 0)} actions, propagation ${propagations.length ? propagations[propagations.length - 1] + ' ms' : '…'}`)
+    const timerCsv = setInterval(() => {
+      if (!sortie) return
+      const t = tous()
+      appendFileSync(sortie, [((Date.now() - t0) / 1000).toFixed(0), t.filter((c) => c.connecte).length, t.reduce((x, c) => x + c.stats.actions, 0), t.reduce((x, c) => x + c.stats.recus, 0), t.reduce((x, c) => x + c.stats.octetsRecus, 0), t.reduce((x, c) => x + c.stats.erreurs, 0), t.reduce((x, c) => x + c.stats.coupures, 0), propagations.length ? propagations[propagations.length - 1] : ''].join(',') + '\n')
+    }, 1000)
+    while (Date.now() < fin && !obs.arret) await dors(500)
+    await Promise.all(boucles)
+    clearInterval(timerSonde)
+    clearInterval(timerCsv)
+    finProgression()
+    await dors(3000)
+    const lot = [a, b, ...tous()].filter((c) => c.connecte)
+    const quant = (v, q) => { const t = v.slice().sort((x, y) => x - y); return t.length ? t[Math.min(t.length - 1, Math.floor(t.length * q))] : null }
+    const resume = (v) => ({ n: v.length, p50: quant(v, 0.5), p95: quant(v, 0.95), max: quant(v, 1) })
+    const res = {
+      profil,
+      minutes,
+      connectes: lot.length,
+      actions: tous().reduce((x, c) => x + c.stats.actions, 0),
+      messagesRecus: tous().reduce((x, c) => x + c.stats.recus, 0),
+      erreurs: [a, b, ...tous()].reduce((x, c) => x + c.stats.erreurs, 0),
+      coupures: [a, b, ...tous()].reduce((x, c) => x + c.stats.coupures, 0),
+      ouvertureJusquaSynced_ms: Object.fromEntries(Object.entries(ouvertures).map(([k, v]) => [k, resume(v)])),
+      propagation_ms: { ...resume(propagations), p99: quant(propagations, 0.99), sansReponse: envois.size },
+      convergence: convergence(lot),
+    }
+    ;[a, b, ...tous()].forEach((c) => c.fermer())
+    return res
+  },
+
   async s1(obs) {
     const clients = nombre('clients', 4)
     const cycles = nombre('cycles', 10)
@@ -572,6 +703,7 @@ Ensuite, plus rien à passer (document par défaut : ${DOC_PAR_DEFAUT}) :
   node tools/loadtest.js s1   --clients 4 --cycles 10
   node tools/loadtest.js s2   --clients 8 --ops 150   # plusieurs process plutôt que --clients élevé
   node tools/loadtest.js s3   --paliers 100,500,1000
+  node tools/loadtest.js mix  --profil ecrit:3,relit:2,lecteur:5 --minutes 5 --sortie tests/campagne/essai.csv
   node tools/loadtest.js s4   --mo 5
   node tools/loadtest.js s5   --clients 5 --minutes 10
   node tools/loadtest.js s6   --clients 30
@@ -580,6 +712,29 @@ Options : --doc <id> --base <url> --cookie "collabtext_session=…"`)
 }
 
 const obs = new Observatoire()
+
+// Le banc se déclare à la sonde indépendante (tools/observer.js), qui en
+// retranche les connexions du total du serveur : tout le reste est
+// « quelqu'un d'autre ». Et il écoute son arrêt : un seuil rouge ou une
+// connexion étrangère coupe le banc.
+const ICI = dirname(fileURLToPath(import.meta.url))
+const FICHIER_BANC = join(ICI, '.banc.json')
+const FICHIER_ARRET = join(ICI, '.arret')
+const demarreA = Date.now()
+const timerBanc = setInterval(() => {
+  try { writeFileSync(FICHIER_BANC, JSON.stringify({ pid: process.pid, clients: connexionsDuBanc, scenario, date: new Date().toISOString() })) } catch { /* sans importance */ }
+  try {
+    if (existsSync(FICHIER_ARRET) && statSync(FICHIER_ARRET).mtimeMs > demarreA && statSync(FICHIER_ARRET).size > 0) {
+      obs.stop(`arrêt demandé par la sonde : ${readFileSync(FICHIER_ARRET, 'utf8').trim()}`)
+    }
+  } catch { /* fichier en cours d'écriture */ }
+}, 1000)
+process.on('SIGINT', () => {
+  obs.stop('interruption (Ctrl-C ou sonde indépendante)')
+  setTimeout(() => process.exit(2), 8000).unref() // un scénario qui ne regarde pas `obs.arret` ne doit pas bloquer
+})
+process.on('exit', () => { try { unlinkSync(FICHIER_BANC) } catch { /* déjà parti */ } })
+
 try {
   await ouvrirSession()
   if (!DOC) DOC = DOC_PAR_DEFAUT
@@ -588,6 +743,7 @@ try {
   obs.demarrer()
   const resultat = await scenarios[scenario](obs)
   await dors(2500)
+  clearInterval(timerBanc)
   const resume = obs.fin()
   console.log('\n--- résultat du scénario ---')
   console.log(JSON.stringify(resultat ?? {}, null, 2))
