@@ -55,6 +55,24 @@ test('une socket qui répond aux pings reste connectée', async () => {
 })
 
 
+test('un pair qui coupe net (FIN sans trame de fermeture) libère aussitôt sa place', async () => {
+  // Les sockets d'une montée en version HTTP sont semi-ouvertes : sans
+  // gestionnaire de `end`, la connexion restait comptée dans la salle
+  // jusqu'au ping suivant. Serveur de test en allowHalfOpen, comme http.
+  const { conn, client, srv } = await new Promise((resolve) => {
+    const srv = createServer({ allowHalfOpen: true }, (sock) => {
+      resolve({ srv, conn: new WebSocketConnection(sock, { pingIntervalMs: 60000 }), client })
+    })
+    let client
+    srv.listen(0, '127.0.0.1', () => { client = connect(srv.address().port, '127.0.0.1'); client.on('error', () => {}) })
+  })
+  const ferme = new Promise((resolve) => { conn.on('close', () => resolve(true)); setTimeout(() => resolve(false), 1000) })
+  client.end() // FIN, rien d'autre
+  assert.equal(await ferme, true, 'la connexion coupée net aurait dû être libérée sans attendre le ping')
+  client.destroy()
+  srv.close()
+})
+
 // --- Plafond de taille (audit du 10/10/2026, S3) ---
 
 function trameMasquee(opcode, payload, fin = true) {

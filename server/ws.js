@@ -158,6 +158,12 @@ export class WebSocketConnection extends EventEmitter {
 
     socket.on('data', (chunk) => this._onData(chunk))
     socket.on('close', () => this._onClose())
+    // Les sockets d'une montée en version HTTP sont semi-ouvertes : quand le
+    // pair coupe net (FIN sans trame de fermeture : onglet tué, outil de
+    // charge, réseau qui tombe proprement), Node n'émet que `end` et la
+    // personne reste comptée dans la salle jusqu'au ping suivant (30 à 60 s).
+    // Trouvé par le banc d'essai (tools/observer.js, connexions étrangères).
+    socket.on('end', () => this.terminate())
     socket.on('error', (err) => this.emit('error', err))
 
     // Keep-alive: ping every `pingIntervalMs` (30s by default), drop the
