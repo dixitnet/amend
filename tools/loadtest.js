@@ -718,7 +718,9 @@ const obs = new Observatoire()
 // « quelqu'un d'autre ». Et il écoute son arrêt : un seuil rouge ou une
 // connexion étrangère coupe le banc.
 const ICI = dirname(fileURLToPath(import.meta.url))
-const FICHIER_BANC = join(ICI, '.banc.json')
+// Un fichier par process (`.banc-<pid>.json`) : plusieurs bancs à la fois
+// (C2, plusieurs process de ~8 clients) s'additionnent côté sonde.
+const FICHIER_BANC = join(ICI, `.banc-${process.pid}.json`)
 const FICHIER_ARRET = join(ICI, '.arret')
 const demarreA = Date.now()
 const timerBanc = setInterval(() => {

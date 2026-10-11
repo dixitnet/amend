@@ -20,12 +20,13 @@
 //   --get-max 2000     temps d'un GET ordinaire en ms, 3 relevés de suite
 //   --tolerance 1      connexions WebSocket permises en plus du banc
 //
-// Le banc écrit tools/.banc.json (`{"pid":…,"clients":N}`) ; --controle N
+// Chaque process de banc écrit tools/.banc-<pid>.json (`{"pid":…,"clients":N}`) ;
+// la sonde les additionne (plusieurs process à la fois : C2) ; --controle N
 // ajoute les onglets de contrôle ouverts à la main. Toute connexion au-delà
 // — donc quelqu'un d'autre — arrête le banc (SIGINT au pid du banc, et
 // création du fichier tools/.arret).
 
-import { writeFileSync, appendFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs'
+import { writeFileSync, appendFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -54,13 +55,32 @@ function cookie() {
   if (direct) return direct
   const f = join(ICI, '.session-admin')
   if (existsSync(f)) {
-    try { return JSON.parse(readFileSync(f, 'utf8')).cookie || '' } catch { /* tombe sur l'erreur claire */ }
+    const brut = readFileSync(f, 'utf8').trim()
+    // Soit le cookie seul (« collabtext_session=… »), soit {"cookie": "…"}.
+    if (brut.startsWith('{')) { try { return JSON.parse(brut).cookie || '' } catch { /* tombe sur l'erreur claire */ } }
+    else if (brut) return brut
   }
   throw new Error('Pas de session administratrice : --cookie, $AMEND_ADMIN_COOKIE ou tools/.session-admin')
 }
 const COOKIE = cookie()
 
-const FICHIER_BANC = join(ICI, '.banc.json')
+/** Les bancs en cours : un fichier `.banc-<pid>.json` par process (l'ancien
+ * `.banc.json` est lu aussi). Un fichier qui n'a pas bougé depuis 10 s est
+ * celui d'un process mort : on l'ignore. */
+function bancs() {
+  const liste = []
+  try {
+    for (const nom of readdirSync(ICI)) {
+      if (!/^\.banc(-\d+)?\.json$/.test(nom)) continue
+      try {
+        const j = JSON.parse(readFileSync(join(ICI, nom), 'utf8'))
+        if (j.date && Date.now() - Date.parse(j.date) > 10000) continue
+        liste.push({ pid: j.pid, clients: j.clients || 0 })
+      } catch { /* en cours d'écriture */ }
+    }
+  } catch { /* dossier illisible */ }
+  return liste
+}
 const FICHIER_ARRET = join(ICI, '.arret')
 
 if (SORTIE) {
@@ -95,6 +115,7 @@ const debut = Date.now()
 const histoire = []
 let pidConnu = null
 let rouge = { lag: 0, get: 0, etrangers: 0 }
+let bancPrecedent = null // pour ignorer la montée en charge (le banc se déclare avec ~1 s de retard)
 let arrete = null
 
 function arreter(raison) {
@@ -103,7 +124,9 @@ function arreter(raison) {
   console.error(`\n⛔ ${new Date().toISOString().slice(11, 19)}  ${raison}`)
   if (SANS_ARRET) return
   try { writeFileSync(FICHIER_ARRET, `${raison}\n`) } catch { /* pas grave */ }
-  if (BANC_PID) { try { process.kill(BANC_PID, 'SIGINT') } catch { /* déjà parti */ } }
+  const pids = new Set(bancs().map((b) => b.pid))
+  if (BANC_PID) pids.add(BANC_PID)
+  for (const pid of pids) { try { process.kill(pid, 'SIGINT') } catch { /* déjà parti */ } }
 }
 
 async function releve() {
@@ -120,8 +143,7 @@ async function releve() {
     evenement = `injoignable:${String(err.message).slice(0, 40)}`
   }
   const wsMs = s ? await sondeWs() : ''
-  let banc = 0
-  try { banc = JSON.parse(readFileSync(FICHIER_BANC, 'utf8')).clients || 0 } catch { /* pas de banc en cours */ }
+  const banc = bancs().reduce((n, b) => n + b.clients, 0)
   const maintenant = new Date()
   if (!s) {
     ligne([maintenant.toISOString(), ((Date.now() - debut) / 1000).toFixed(1), '', '', '', '', '', '', '', '', banc, getMs, wsMs, evenement])
@@ -138,7 +160,11 @@ async function releve() {
   // Les connexions des autres : tout ce qui dépasse le banc, les onglets de
   // contrôle, la sonde elle-même (une WebSocket, brièvement) et la tolérance.
   const etrangers = (s.connexions ?? 0) - banc - CONTROLE
-  rouge.etrangers = etrangers > TOLERANCE ? rouge.etrangers + 1 : 0
+  // Tant que le banc bouge (démarrage échelonné des process, arrêt), le décalage
+  // entre ses connexions réelles et sa déclaration n'est pas un intrus.
+  const bancStable = bancPrecedent !== null && banc === bancPrecedent
+  bancPrecedent = banc
+  rouge.etrangers = bancStable && etrangers > TOLERANCE ? rouge.etrangers + 1 : 0
   rouge.lag = s.loopLagMs > LAG_MAX ? rouge.lag + 1 : 0
   rouge.get = getMs > GET_MAX ? rouge.get + 1 : 0
   if (rss > RSS_MAX) arreter(`RSS ${rss} Mo > seuil ${RSS_MAX} Mo`)

@@ -350,6 +350,17 @@ function poserCommentaires(ydoc, pmDoc, hasard, { n, reponses }) {
   return { ancres, reponses: rep }
 }
 
+/** Le document ProseMirror d'un profil (ou `null` pour les profils qui ne
+ * passent que par Yjs) : de quoi fabriquer la source Typst côté outil, comme
+ * le ferait le navigateur (tools/export-pdf.mjs, scénario C4). */
+export function documentProseMirror(profil, graine = 20261011) {
+  const def = PROFILS[profil]
+  if (!def) throw new Error(`profil inconnu : ${profil}`)
+  const hasard = prng(graine + [...profil].reduce((s, c) => s + c.charCodeAt(0), 0))
+  const sortie = def.fait(hasard)
+  return sortie.doc ? schema.nodeFromJSON(sortie.doc) : null
+}
+
 export function construire(profil, graine = 20261011) {
   const def = PROFILS[profil]
   if (!def) throw new Error(`profil inconnu : ${profil} (essayez « liste »)`)

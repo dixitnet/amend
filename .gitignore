@@ -7,9 +7,12 @@ data/
 mac-launchagent/
 tools/.session
 
-tools/.banc.json
+tools/.banc*.json
 tools/.arret
 tools/.session-admin
 tests/campagne/*.csv
 tests/campagne/fuzz/
 tests/campagne/*.log
+tests/campagne/*.pdf
+.DS_Store
+_a_supprimer/
