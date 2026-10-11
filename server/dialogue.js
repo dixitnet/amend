@@ -26,11 +26,14 @@ import { REMPLACEMENTS_MAX } from './agentTexte.js'
 import { capabilities } from './roles.js'
 
 export const PORTEES_DIALOGUE = ['admins', 'proprietaires', 'editeurs']
-// Haiku 5.5 par défaut (10/10/2026) : le modèle le moins cher. Mesuré seulement
-// en correction (claude/rapport-banc-modeles.md) ; `proposer` tolère donc les
-// citations inexactes de casse. Au-delà de 100 000 jetons par requête, le
-// tarif de Haiku 5.5 est multiplié par cinq. `DIALOGUE_MODEL` pour en changer.
-export const MODELE_PAR_DEFAUT = 'claude-haiku-5-5'
+// Sonnet 5.5 par défaut pour la fenêtre flottante (11/10/2026, décision de
+// Sylvain ; point 61 de la feuille de route) : environ 2 $ / 10 $ par million
+// de jetons, soit 14 centimes le message sans cache et 5,5 avec, contre moins
+// d'un centime pour Haiku. La barre latérale « Demander à Margo » reste sur
+// Haiku 5.5 (AI_MODEL, server/ai.js). `DIALOGUE_MODEL` pour changer celui-ci.
+// Le repli de réglage de la réflexion (`between_tools` d'abord) est déjà
+// dans `_appel`.
+export const MODELE_PAR_DEFAUT = 'claude-sonnet-5-5'
 
 // Vingt étapes de travail (une étape = un aller-retour avec le modèle, donc un
 // appel d'outil ou plusieurs appels simultanés), puis **une dernière sans
@@ -39,7 +42,11 @@ export const MODELE_PAR_DEFAUT = 'claude-haiku-5-5'
 // message d'erreur, sans savoir ce qui avait déjà été posé en suivi.
 export const TOURS_MAX = 20
 export const ENTREE_MAX = 400_000
-export const MESSAGES_PAR_HEURE = 30
+// Plafond de messages par compte et par heure : DIALOGUE_MESSAGES_PAR_HEURE
+// dans le .env (30 par défaut), lu au démarrage du service. Il est indépendant
+// de celui de la barre latérale « Demander à Margo » (AI_SUGGESTIONS_PAR_HEURE,
+// AI_SUGGESTIONS_PAR_JOUR, server.js) : les deux surfaces se règlent séparément.
+export const MESSAGES_PAR_HEURE_DEFAUT = 30
 export const SIMULTANES_MAX = 4
 export const CONVERSATION_MAX = 40
 export const MESSAGE_MAX = 8_000
@@ -59,6 +66,15 @@ export function porteeDialogue() {
   const v = brut
   return PORTEES_DIALOGUE.includes(v) ? v : 'admins'
 }
+
+/** Un entier strictement positif lu dans l'environnement, sinon le défaut.
+ * Lu à l'usage, pas à l'import : le .env n'est chargé qu'après les imports. */
+export function limiteEnv(nom, defaut) {
+  const v = Math.floor(Number(process.env[nom]))
+  return Number.isFinite(v) && v > 0 ? v : defaut
+}
+
+export const messagesParHeure = () => limiteEnv('DIALOGUE_MESSAGES_PAR_HEURE', MESSAGES_PAR_HEURE_DEFAUT)
 
 export function modeleDialogue() {
   return process.env.DIALOGUE_MODEL || MODELE_PAR_DEFAUT
@@ -154,7 +170,7 @@ export class Dialogue {
     this.pause = pause
     this.collecteurs = new Map()
     this.enCours = new Set()
-    this.messages = new Limiteur({ max: MESSAGES_PAR_HEURE, fenetreMs: FENETRE_MS, maintenant: () => this.maintenant() })
+    this.messages = new Limiteur({ max: messagesParHeure(), fenetreMs: FENETRE_MS, maintenant: () => this.maintenant() })
     this.reflexion = new Map()
     // Le même moteur que le connecteur, au nom d'un agent qui n'existe que
     // le temps de la conversation : vérifié à chaque appel d'outil (le
@@ -206,7 +222,7 @@ export class Dialogue {
     if (this.enCours.has(id)) throw new DialogueErreur(429, 'Une réponse est déjà en cours pour ce document.')
     if (this.enCours.size >= SIMULTANES_MAX) throw new DialogueErreur(429, 'Margo a beaucoup de demandes en ce moment : réessayez dans un instant.')
     if (!this.messages.essayer(email.toLowerCase())) {
-      throw new DialogueErreur(429, `Limite atteinte : ${MESSAGES_PAR_HEURE} messages par heure. Reprenez un peu plus tard.`)
+      throw new DialogueErreur(429, `Limite atteinte : ${this.messages.max} messages par heure. Reprenez un peu plus tard.`)
     }
 
     const agent = { id, docId, nom: 'Margo (IA)', role: 'correcteur', par: email }

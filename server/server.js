@@ -18,7 +18,7 @@ import { Versions } from './versions.js'
 import { Agents, peutInviterAgent, porteeAgent, ROLES_AGENT } from './agents.js'
 import { PresenceAgents } from './presenceAgents.js'
 import { Mcp } from './mcp.js'
-import { Dialogue, DialogueErreur, MESSAGES_PAR_HEURE, peutDialoguer, porteeDialogue, modeleDialogue } from './dialogue.js'
+import { Dialogue, DialogueErreur, limiteEnv, peutDialoguer, porteeDialogue, modeleDialogue } from './dialogue.js'
 import { Limiteur } from './limiteur.js'
 import { modeCsp, politiqueApplication, poserEnTetes } from './enTetes.js'
 import { apercu } from './admin.js'
@@ -181,8 +181,15 @@ function supportAutorise(email) {
 // pouvait se servir de la clé Anthropic de l'instance comme d'un modèle
 // gratuit. Même plafond horaire que le dialogue, plus un plafond
 // journalier.
-const SUGGESTIONS_PAR_JOUR = 150
-const suggestionsParHeure = new Limiteur({ max: MESSAGES_PAR_HEURE, fenetreMs: 3600_000 })
+//
+// Ces plafonds sont ceux de la barre latérale « Demander à Margo » (Haiku
+// 5.5). Ils sont indépendants de ceux de la fenêtre flottante (dialogue,
+// Sonnet 5.5 : DIALOGUE_MESSAGES_PAR_HEURE, server/dialogue.js). Réglés dans
+// le .env, ouverts très largement le 11/10/2026 (avant : 30 par heure et 150
+// par jour) puisqu'un appel à Haiku coûte moins d'un centime.
+const SUGGESTIONS_PAR_HEURE = limiteEnv('AI_SUGGESTIONS_PAR_HEURE', 1000)
+const SUGGESTIONS_PAR_JOUR = limiteEnv('AI_SUGGESTIONS_PAR_JOUR', 5000)
+const suggestionsParHeure = new Limiteur({ max: SUGGESTIONS_PAR_HEURE, fenetreMs: 3600_000 })
 const suggestionsParJour = new Limiteur({ max: SUGGESTIONS_PAR_JOUR, fenetreMs: 24 * 3600_000 })
 function suggestionAutorisee(email) {
   if (suggestionsParHeure.atteint(email) || suggestionsParJour.atteint(email)) return false
@@ -1327,7 +1334,7 @@ const TARIFS_IA = {
     }
     if (!suggestionAutorisee(email)) {
       return sendJson(res, 429, {
-        error: `Limite atteinte : ${MESSAGES_PAR_HEURE} suggestions par heure et ${SUGGESTIONS_PAR_JOUR} par jour. Reprenez un peu plus tard.`,
+        error: `Limite atteinte : ${SUGGESTIONS_PAR_HEURE} suggestions par heure et ${SUGGESTIONS_PAR_JOUR} par jour. Reprenez un peu plus tard.`,
       })
     }
     // Le flux `ia` porte, depuis le 30/09/2026, la raison d'arrêt et les
