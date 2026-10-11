@@ -6,3 +6,10 @@ data/
 *.timestamp-*.mjs
 mac-launchagent/
 tools/.session
+
+tools/.banc.json
+tools/.arret
+tools/.session-admin
+tests/campagne/*.csv
+tests/campagne/fuzz/
+tests/campagne/*.log

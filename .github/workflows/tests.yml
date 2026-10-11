@@ -1,0 +1,35 @@
+# Les tests à chaque envoi sur main et à chaque demande de fusion.
+# Node 22 : la version du serveur de production (package.json, "engines").
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: client
+      - name: Tests du serveur
+        run: npm run test:server
+      - name: Tests du client
+        run: npm run test:client
+      - name: Le client se compile
+        run: npm run build
+        working-directory: client

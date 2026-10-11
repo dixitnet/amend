@@ -3,11 +3,11 @@
 // Deliberately simple so a self-hosted instance needs nothing but a
 // writable folder.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, renameSync, unlinkSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, unlinkSync, statSync } from 'node:fs'
 import { appendFile as appendFileAsync } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { lireJson, ecrireJsonAtomique } from './fichiers.js'
+import { lireJson, ecrireJsonAtomique, ecrireAtomique } from './fichiers.js'
 import { randomId } from './ws.js'
 import { fusionner, reduire, assainir } from '../shared/style.js'
 import { compterEcarts, ID_DEFAUT } from '../shared/modeles.js'
@@ -297,9 +297,7 @@ export class Storage {
     // porteur d'une marge « abc » ferait échouer l'export de tous ses
     // documents.
     const complet = assainir(style)
-    const tmp = path + '.tmp'
-    writeFileSync(tmp, JSON.stringify(reduire(complet, instance, options), null, 2), 'utf8')
-    renameSync(tmp, path)
+    ecrireAtomique(path, JSON.stringify(reduire(complet, instance, options), null, 2))
     return complet
   }
 
@@ -328,9 +326,7 @@ export class Storage {
       }
     }
     list.push({ email, ts: maintenant })
-    const tmp = this.waitlistPath + '.tmp'
-    writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf8')
-    renameSync(tmp, this.waitlistPath)
+    ecrireAtomique(this.waitlistPath, JSON.stringify(list, null, 2))
     return true
   }
 
@@ -368,9 +364,7 @@ export class Storage {
       }
     }
     if (!n) return 0
-    const tmp = this.waitlistPath + '.tmp'
-    writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf8')
-    renameSync(tmp, this.waitlistPath)
+    ecrireAtomique(this.waitlistPath, JSON.stringify(list, null, 2))
     return n
   }
 
@@ -1003,9 +997,7 @@ export class Storage {
   }
 
   _writeTimes(id, times) {
-    const tmp = this._timesPath(id) + '.tmp'
-    writeFileSync(tmp, JSON.stringify(times), 'utf8')
-    renameSync(tmp, this._timesPath(id))
+    ecrireAtomique(this._timesPath(id), JSON.stringify(times))
   }
 
   /** Appelé depuis _flush juste après qu'un lot de `n` opérations a été
@@ -1144,9 +1136,7 @@ export class Storage {
     const snapLen = Buffer.alloc(4)
     snapLen.writeUInt32BE(baseSnapshot.length, 0)
     const newLog = Buffer.concat([snapLen, baseSnapshot, tailBuf])
-    const tmp = path + '.tmp'
-    writeFileSync(tmp, newLog)
-    renameSync(tmp, path)
+    ecrireAtomique(path, newLog)
 
     const times = this._readTimes(id, entries.length)
     const keptTimes = times.slice(keepFromIndex)

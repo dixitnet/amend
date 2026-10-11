@@ -23,7 +23,8 @@
 // publication tiré au sort, distinct, évite qu'on passe d'un document connu
 // à sa page, ou l'inverse.
 
-import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync } from 'node:fs'
+import { ecrireAtomique } from './fichiers.js'
 import { adresseAutorisee } from '../shared/liens.js'
 import { niveauDuPlan, intituleDuPlan, TITRES_MIN_POUR_UN_PLAN_PUBLIE } from '../shared/plan.js'
 import { capabilities } from './roles.js'
@@ -364,9 +365,7 @@ export class Publications {
   }
 
   _ecrire(index) {
-    const tmp = this.indexPath + '.tmp'
-    writeFileSync(tmp, JSON.stringify(index, null, 2), 'utf8')
-    renameSync(tmp, this.indexPath)
+    ecrireAtomique(this.indexPath, JSON.stringify(index, null, 2))
   }
 
   _pagePath(pubId) {
@@ -394,7 +393,7 @@ export class Publications {
     while (!existante && index[pubId]) pubId = nomDePage()
     const publieLe = existante ? existante.publieLe : Date.now()
     const html = rendre({ titre, blocs, publieLe })
-    writeFileSync(this._pagePath(pubId), html, 'utf8')
+    ecrireAtomique(this._pagePath(pubId), html)
     index[pubId] = { docId, titre: String(titre || '').slice(0, 300), publieLe, majLe: Date.now() }
     this._ecrire(index)
     return { pubId, ...index[pubId], octets: Buffer.byteLength(html) }

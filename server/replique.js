@@ -27,6 +27,7 @@
 import { Worker } from 'node:worker_threads'
 import { fileURLToPath } from 'node:url'
 import * as Y from 'yjs'
+import { NOM_TEXTE, NOM_COMMENTAIRES } from '../shared/protocole.js'
 
 /** Délai avant de libérer la réplique d'une salle vide : une reconnexion
  * dans la minute ne doit pas recharger le journal. */
@@ -39,8 +40,6 @@ const SEUIL_WORKER_OCTETS = 2 * 1024 * 1024
 /** Le compactage se déclenche un peu après la dernière frappe, pas dessus. */
 const DELAI_COMPACTAGE_MS = 5000
 
-const NOM_TEXTE = 'prosemirror-content'
-const NOM_COMMENTAIRES = 'comments'
 
 export class Repliques {
   constructor(storage, { versions = null, delaiLiberationMs = DELAI_LIBERATION_MS, max = MAX_REPLIQUES, seuilWorkerOctets = SEUIL_WORKER_OCTETS, delaiCompactageMs = DELAI_COMPACTAGE_MS } = {}) {

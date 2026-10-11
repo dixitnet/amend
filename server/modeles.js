@@ -14,7 +14,8 @@
 // libre ne peut entrer par là — un modèle de l'instance touche tous les
 // documents qui l'utilisent.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, unlinkSync, readdirSync } from 'node:fs'
+import { ecrireAtomique } from './fichiers.js'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { fusionner, reduire, assainir } from '../shared/style.js'
@@ -63,9 +64,7 @@ export class Modeles {
 
   _ecrire(modele) {
     if (!existsSync(this.dossier)) mkdirSync(this.dossier, { recursive: true })
-    const tmp = this._chemin(modele.id) + '.tmp'
-    writeFileSync(tmp, JSON.stringify(modele, null, 2), 'utf8')
-    renameSync(tmp, this._chemin(modele.id))
+    ecrireAtomique(this._chemin(modele.id), JSON.stringify(modele, null, 2))
   }
 
   /** Un modèle, ou `null`. Forme commune aux trois portées :

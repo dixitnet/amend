@@ -21,7 +21,8 @@
 // Aucun contenu de document n'y entre jamais. Les fichiers sont purgés au
 // démarrage au-delà de RETENTION_JOURS.
 
-import { appendFileSync, readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
+import { appendFileSync, readFileSync, existsSync } from 'node:fs'
+import { ecrireAtomique } from './fichiers.js'
 import { join } from 'node:path'
 
 export const FLUX = ['connexions', 'ia', 'mail', 'images', 'agents', 'dialogue']
@@ -82,10 +83,8 @@ export class Metrics {
       const chemin = this._chemin(flux)
       if (!existsSync(chemin)) continue
       const gardes = this.read(flux, limite)
-      const tmp = chemin + '.tmp'
       try {
-        writeFileSync(tmp, gardes.map((e) => JSON.stringify(e)).join('\n') + (gardes.length ? '\n' : ''), 'utf8')
-        renameSync(tmp, chemin)
+        ecrireAtomique(chemin, gardes.map((e) => JSON.stringify(e)).join('\n') + (gardes.length ? '\n' : ''))
         resultats[flux] = gardes.length
       } catch {
         // ignoré : la purge est un confort, pas une obligation

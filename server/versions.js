@@ -21,7 +21,8 @@
 // Comme partout ailleurs ici, le serveur ne lit jamais le contenu : il
 // écrit des octets et il les rend.
 
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync, renameSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, statSync, readFileSync, rmSync } from 'node:fs'
+import { ecrireAtomique } from './fichiers.js'
 import { join } from 'node:path'
 
 /** Un horodatage tient lieu de nom de fichier : il est unique en pratique,
@@ -66,10 +67,9 @@ export class Versions {
     // Temporaire puis renommage : une coupure laisse le dossier sans
     // version à demi écrite plutôt qu'avec un instantané tronqué, qui
     // serait pire que pas de version du tout.
-    writeFileSync(`${base}.bin.tmp`, instantane)
-    renameSync(`${base}.bin.tmp`, `${base}.bin`)
+    ecrireAtomique(`${base}.bin`, instantane)
     try {
-      writeFileSync(`${base}.json`, JSON.stringify({ ts, origine, par, nom }), 'utf8')
+      ecrireAtomique(`${base}.json`, JSON.stringify({ ts, origine, par, nom }))
     } catch {
       // Les métadonnées sont un confort ; l'instantané, lui, est écrit.
     }

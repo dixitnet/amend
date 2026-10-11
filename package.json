@@ -5,13 +5,15 @@
   "description": "Édition collaborative de texte avec suivi des modifications et assistance IA — auto-hébergé, une seule dépendance côté serveur (yjs).",
   "type": "module",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.22.0"
   },
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "build:client": "cd client && npm install && npm run build",
     "test:server": "node --test --test-concurrency=1 server/test/*.test.js",
+    "test:client": "cd client && npm test",
+    "test": "npm run test:server && npm run test:client",
     "loadtest": "node tools/loadtest.js"
   },
   "dependencies": {

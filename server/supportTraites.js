@@ -15,7 +15,8 @@
 //
 // Le fichier est une simple table : identifiant du retour → { ts, par }.
 
-import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
+import { ecrireAtomique } from './fichiers.js'
 import { join } from 'node:path'
 
 export class SupportTraites {
@@ -47,9 +48,7 @@ export class SupportTraites {
     // Écriture par fichier temporaire puis renommage : une coupure pendant
     // l'écriture laisse l'ancienne table intacte plutôt qu'un fichier
     // tronqué. Même précaution que pour le registre des documents.
-    const temporaire = `${this.chemin}.tmp`
-    writeFileSync(temporaire, JSON.stringify(table, null, 2), 'utf8')
-    renameSync(temporaire, this.chemin)
+    ecrireAtomique(this.chemin, JSON.stringify(table, null, 2))
     return true
   }
 }

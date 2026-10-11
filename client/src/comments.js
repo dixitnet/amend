@@ -9,6 +9,7 @@ import {
   setMeta,
 } from 'y-prosemirror'
 import { couleurSure, echapperHtml } from '../../shared/securite.js'
+import { NOM_ORPHELINS } from '../../shared/protocole.js'
 
 // Commentaires ancrés dans le texte (évolution 4.2.4, conception du
 // 12/09/2026 dans README2.md) — un commentaire ne change rien au contenu du
@@ -157,7 +158,7 @@ export function resolveCommentRange(state, ydoc, comment) {
 // Les frontières ne changent pas (écrire au bout du passage l'agrandit,
 // au début non) : c'est une décision à part, voir le rapport du 08/10.
 
-export const NOM_ORPHELINS = 'commentsOrphelins'
+export { NOM_ORPHELINS }
 /** Sept jours : le temps de s'apercevoir qu'un geste a emporté un passage. */
 export const DELAI_ORPHELIN_MS = 7 * 24 * 3600 * 1000
 /** Combien d'anciennes ancres on garde par commentaire. */

@@ -18,7 +18,8 @@
 // rename), lisible par le seul compte du service.
 
 import { createHash, randomBytes } from 'node:crypto'
-import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, renameSync, statSync } from 'node:fs'
+import { ecrireAtomique } from './fichiers.js'
 import { join } from 'node:path'
 import { capabilities } from './roles.js'
 import { Limiteur } from './limiteur.js'
@@ -118,9 +119,7 @@ export class Agents {
   }
 
   _ecrire() {
-    const tmp = `${this.chemin}.tmp`
-    writeFileSync(tmp, JSON.stringify({ agents: this.agents }, null, 2), { encoding: 'utf8', mode: 0o600 })
-    renameSync(tmp, this.chemin)
+    ecrireAtomique(this.chemin, JSON.stringify({ agents: this.agents }, null, 2), { mode: 0o600 })
     this.signature = this._signature()
   }
 

@@ -34,6 +34,8 @@ function initiales(nom, email) {
  * `surNom(nom)` est appelé quand la personne vient de changer son nom
  * (10/10/2026) : l'éditeur y met à jour son identité dans le document en
  * cours, sans recharger la page.
+ *
+ * `destroy()` retire aussi l'écouteur posé sur `document` (10/10/2026, C9).
  */
 export function monterMenuCompte(container, { couleur, surNom } = {}) {
   const menu = document.createElement('div')
@@ -66,9 +68,10 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
     e.stopPropagation()
     liste.hidden = !liste.hidden
   }
-  document.addEventListener('click', (e) => {
+  const fermerAuClicAilleurs = (e) => {
     if (!menu.contains(e.target)) liste.hidden = true
-  })
+  }
+  document.addEventListener('click', fermerAuClicAilleurs)
 
   getSessionEmail().then((email) => {
     if (!email) {
@@ -160,6 +163,7 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
 
   return {
     destroy() {
+      document.removeEventListener('click', fermerAuClicAilleurs)
       menu.remove()
     },
   }

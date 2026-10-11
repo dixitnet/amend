@@ -11,10 +11,11 @@ import * as Y from 'yjs'
 import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror'
 import { schema } from './schema.js'
 import { docToMarkdown } from './mdExport.js'
+import { NOM_TEXTE } from '../../shared/protocole.js'
 
 // Doit correspondre au nom utilisé dans editor.js (ydoc.getXmlFragment(...))
 // — sinon la reconstruction retomberait sur un fragment vide.
-const XML_FRAGMENT_NAME = 'prosemirror-content'
+const XML_FRAGMENT_NAME = NOM_TEXTE
 
 function base64ToBytes(base64) {
   const binary = atob(base64)

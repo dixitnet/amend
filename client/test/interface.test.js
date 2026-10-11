@@ -210,6 +210,47 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   if (editeur && editeur.destroy) editeur.destroy()
 })
 
+test('démonter l’éditeur retire ses écouteurs globaux et le rôle de la page', async () => {
+  // Audit du 10/10/2026, C9 : chaque document ouvert laissait des
+  // écouteurs sur `document` et un rôle périmé que la palette de contact
+  // joignait aux signalements faits depuis la page suivante.
+  const dom = installerDom()
+  await oublierLaSession()
+  installerFetch({
+    '/api/auth/me': { email: 'moi@example.com', admin: false },
+    '/publication': { publiee: false, autorise: false, portee: 'admins' },
+    '/style': { style: null, propre: false },
+  })
+  globalThis.WebSocket = class {
+    constructor() { this.readyState = 0 }
+    addEventListener() {}
+    removeEventListener() {}
+    send() {}
+    close() {}
+  }
+  const doc = dom.window.document
+  const posés = new Map()
+  const ajouter = doc.addEventListener.bind(doc)
+  const retirer = doc.removeEventListener.bind(doc)
+  doc.addEventListener = (type, f, o) => { posés.set(f, type); ajouter(type, f, o) }
+  doc.removeEventListener = (type, f, o) => { posés.delete(f); retirer(type, f, o) }
+
+  const { mountEditor } = await import('../src/editor.js')
+  const editeur = mountEditor(
+    doc.getElementById('app'),
+    'abcdefgh1234',
+    { name: 'Moi', color: '#e07a5f' },
+    { title: 'Essai', myRole: 'editeur', myCapabilities: ROLES.editeur, myName: 'Moi', myColor: '#e07a5f' }
+  )
+  await respirer()
+  assert.equal(dom.window.__amendRole, 'editeur')
+  assert.ok(posés.size > 0, 'l’éditeur écoute bien le document (sinon ce test ne prouve rien)')
+
+  editeur.destroy()
+  assert.equal(posés.size, 0, 'aucun écouteur de `document` ne survit au démontage')
+  assert.equal(dom.window.__amendRole, null, 'le rôle de la page quittée ne reste pas')
+})
+
 test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvient', async () => {
   // 02/10/2026. Un réglage d'affichage personnel, comme le zoom : il vit dans
   // le navigateur, jamais dans le document. Le comptage lui-même est fait par

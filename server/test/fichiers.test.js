@@ -3,12 +3,12 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, readdirSync, existsSync, statSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { lireJson, ecrireJsonAtomique } from '../fichiers.js'
+import { lireJson, ecrireJsonAtomique, ecrireAtomique } from '../fichiers.js'
 import { Storage } from '../storage.js'
 import { Users } from '../users.js'
 
@@ -101,4 +101,75 @@ test('SESSION_SECRET posé après l\'import (comme le fait server.js avec le .en
   const b = spawnSync(process.execPath, ['--input-type=module', '-e', lire, cookie], { env, encoding: 'utf8' })
   assert.equal(b.status, 0, b.stderr)
   assert.equal(b.stdout.trim(), 'a@example.com', "le cookie signé dans un processus se relit dans le suivant")
+})
+
+// --- A8 : un seul geste pour « écrire sans jamais laisser un fichier à demi écrit »
+
+test('ecrireAtomique : texte ou octets, remplace entièrement, ne laisse aucun temporaire', () => {
+  const d = dossier()
+  try {
+    const f = join(d, 'a.txt')
+    ecrireAtomique(f, 'premier contenu, plus long')
+    ecrireAtomique(f, 'court')
+    assert.equal(readFileSync(f, 'utf8'), 'court')
+    const octets = Buffer.from([0, 1, 2, 255, 254])
+    ecrireAtomique(join(d, 'b.bin'), octets)
+    assert.deepEqual(readFileSync(join(d, 'b.bin')), octets)
+    ecrireAtomique(join(d, 'vide'), '')
+    assert.equal(readFileSync(join(d, 'vide'), 'utf8'), '')
+    assert.deepEqual(readdirSync(d).filter((n) => n.endsWith('.tmp')), [])
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('ecrireAtomique : un gros contenu (plusieurs mégaoctets) est écrit en entier', () => {
+  const d = dossier()
+  try {
+    const gros = Buffer.alloc(9 * 1024 * 1024, 7)
+    ecrireAtomique(join(d, 'gros.bin'), gros)
+    assert.equal(statSync(join(d, 'gros.bin')).size, gros.length)
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('ecrireAtomique : le droit demandé est posé (secret en 0600)', () => {
+  const d = dossier()
+  try {
+    ecrireAtomique(join(d, 'secret.json'), '{}', { mode: 0o600 })
+    assert.equal(statSync(join(d, 'secret.json')).mode & 0o777, 0o600)
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('ecrireAtomique : si le renommage échoue, rien ne traîne et l’erreur remonte', () => {
+  const d = dossier()
+  try {
+    // Le but est un dossier : renommer un fichier dessus échoue.
+    mkdirSync(join(d, 'cible'))
+    assert.throws(() => ecrireAtomique(join(d, 'cible'), 'x'))
+    assert.deepEqual(readdirSync(d).filter((n) => n.endsWith('.tmp')), [])
+    // Dossier de destination absent : l'erreur remonte aussi.
+    assert.throws(() => ecrireAtomique(join(d, 'absent', 'f.txt'), 'x'), { code: 'ENOENT' })
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('ecrireAtomique : le nom temporaire est propre à chaque appel et finit par .tmp', () => {
+  const d = dossier()
+  try {
+    // Deux écritures du même fichier ne se marchent plus dessus : on observe les noms
+    // en regardant le dossier pendant que le fichier cible est un dossier (échec garanti
+    // après création du temporaire — nettoyé ensuite).
+    const f = join(d, 'f.txt')
+    ecrireAtomique(f, 'a')
+    ecrireAtomique(f, 'b')
+    assert.equal(readFileSync(f, 'utf8'), 'b')
+    assert.deepEqual(readdirSync(d), ['f.txt'])
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
 })

@@ -25,12 +25,8 @@
 import * as Y from 'yjs'
 import { diffWords } from '../shared/diff.js'
 import { typographier } from '../shared/typographie.js'
-
-export const NOM_TEXTE = 'prosemirror-content'
-export const NOM_COMMENTAIRES = 'comments'
-/** Les commentaires dont le passage est vide, masqués par les éditeurs
- * (client/src/comments.js) : sept jours en réserve, et invisibles d'ici. */
-export const NOM_ORPHELINS = 'commentsOrphelins'
+import { NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS } from '../shared/protocole.js'
+export { NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS }
 
 const LONGUEUR_AVANT_MAX = 2000
 const LONGUEUR_APRES_MAX = 4000

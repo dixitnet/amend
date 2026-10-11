@@ -10,7 +10,7 @@
 //  - l'écriture est atomique *et durable* : fichier temporaire, `fsync`,
 //    puis renommage.
 
-import { closeSync, copyFileSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs'
+import { closeSync, copyFileSync, fsyncSync, openSync, readFileSync, renameSync, unlinkSync, writeSync } from 'node:fs'
 
 const dejaMisDeCote = new Set()
 
@@ -43,16 +43,49 @@ export function lireJson(chemin, siAbsent = {}) {
   }
 }
 
-/** Écrit `valeur` en JSON dans un fichier temporaire, le synchronise sur
- * le disque, puis le renomme sur `chemin`. */
-export function ecrireJsonAtomique(chemin, valeur, indentation = 2) {
-  const tmp = `${chemin}.tmp`
-  const fd = openSync(tmp, 'w')
+let compteurTemporaire = 0
+
+/** Écrit `contenu` (texte ou octets) dans un fichier temporaire voisin, le
+ * synchronise sur le disque, puis le renomme sur `chemin` : une coupure laisse
+ * l'ancien fichier entier ou le nouveau entier, jamais un fichier à moitié
+ * écrit (audit A8, 10/10/2026 — onze copies de ce geste, sans `fsync`, avec un
+ * nom temporaire fixe qui se marchait dessus).
+ *
+ * Le nom temporaire est propre à l'appel (processus + compteur) et se termine
+ * toujours par `.tmp` : la sauvegarde et le back-office ignorent ce suffixe.
+ * `mode` : droits du fichier (0o600 pour un secret). Si le renommage échoue,
+ * le temporaire est retiré. */
+export function ecrireAtomique(chemin, contenu, { mode } = {}) {
+  const tmp = `${chemin}.${process.pid}-${++compteurTemporaire}.tmp`
+  const octets = typeof contenu === 'string' ? Buffer.from(contenu, 'utf8') : contenu
+  const fd = mode === undefined ? openSync(tmp, 'w') : openSync(tmp, 'w', mode)
   try {
-    writeSync(fd, JSON.stringify(valeur, null, indentation), null, 'utf8')
+    let ecrits = 0
+    while (ecrits < octets.length) ecrits += writeSync(fd, octets, ecrits, octets.length - ecrits)
     fsyncSync(fd)
-  } finally {
+  } catch (err) {
     closeSync(fd)
+    try {
+      unlinkSync(tmp)
+    } catch {
+      /* déjà parti */
+    }
+    throw err
   }
-  renameSync(tmp, chemin)
+  closeSync(fd)
+  try {
+    renameSync(tmp, chemin)
+  } catch (err) {
+    try {
+      unlinkSync(tmp)
+    } catch {
+      /* déjà parti */
+    }
+    throw err
+  }
+}
+
+/** Écrit `valeur` en JSON, atomiquement (voir `ecrireAtomique`). */
+export function ecrireJsonAtomique(chemin, valeur, indentation = 2) {
+  ecrireAtomique(chemin, JSON.stringify(valeur, null, indentation))
 }

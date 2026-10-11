@@ -16,7 +16,8 @@
 // le service trivial, et surtout ça reste dans ce que la bibliothèque
 // `docx` sait embarquer à l'export Word — elle ne connaît pas le WebP.
 
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync, rmSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, statSync, rmSync, unlinkSync } from 'node:fs'
+import { ecrireAtomique } from './fichiers.js'
 import { join } from 'node:path'
 import { randomId } from './ws.js'
 
@@ -121,7 +122,7 @@ export class Uploads {
     const dossier = this._dossier(docId)
     if (!existsSync(dossier)) mkdirSync(dossier, { recursive: true })
     const nom = `${randomId(16)}.${ext}`
-    writeFileSync(join(dossier, nom), buffer)
+    ecrireAtomique(join(dossier, nom), buffer)
     return { nom, octets: buffer.length }
   }
 

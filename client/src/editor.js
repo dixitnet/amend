@@ -72,6 +72,7 @@ import {
 } from './relectureTactile.js'
 import { fermerFeuille, media, ouvrirFeuille, petitEcran, REQUETE_PETIT_ECRAN } from './feuille.js'
 import { couleurSure } from '../../shared/securite.js'
+import { NOM_TEXTE, NOM_COMMENTAIRES } from '../../shared/protocole.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -171,6 +172,8 @@ export function mountEditor(root, docId, user, docMeta) {
   topBanner.append(zoneGauche, zoneCentre, zoneDroite)
 
   const menusDeroulants = []
+  // Les écouteurs posés hors de l'éditeur (document, matchMedia) : `destroy` les retire.
+  const ecouteursGlobaux = []
   /** Un menu déroulant : un bouton, une liste flottante, fermée au clic
    * ailleurs. Plusieurs usages (Partager, Exporter, et le compte dans
    * compteMenu.js) — d'où la fabrique plutôt que des copies du même
@@ -200,9 +203,13 @@ export function mountEditor(root, docId, user, docMeta) {
       // modèle de mise en page, que le menu Exporter montre).
       if (ouvrir && ref.surOuverture) ref.surOuverture()
     }
-    document.addEventListener('click', (e) => {
+    // Sur `document`, donc à retirer au démontage : sinon chaque document
+    // ouvert laisse un écouteur (et son menu entier) derrière lui.
+    const fermerAuClicAilleurs = (e) => {
       if (!menu.contains(e.target)) liste.hidden = true
-    })
+    }
+    document.addEventListener('click', fermerAuClicAilleurs)
+    ecouteursGlobaux.push(() => document.removeEventListener('click', fermerAuClicAilleurs))
     const ref = { el: menu, liste, fermer: () => { liste.hidden = true }, surOuverture: null }
     menusDeroulants.push(ref)
     return ref
@@ -494,7 +501,7 @@ export function mountEditor(root, docId, user, docMeta) {
   status.setAttribute('role', 'status')
   zoneDroite.appendChild(status)
 
-  monterMenuCompte(zoneDroite, {
+  const menuCompte = monterMenuCompte(zoneDroite, {
     couleur: () => user.color,
     // Un nom changé en cours de route : les autres le voient tout de suite
     // (présence, curseur), et les modifications à venir le portent. L'état
@@ -867,11 +874,11 @@ export function mountEditor(root, docId, user, docMeta) {
   // --- Yjs + collaboration wiring ---
   const ydoc = new Y.Doc()
   const provider = new SimpleProvider(ydoc, docId, user)
-  const yXml = ydoc.getXmlFragment('prosemirror-content')
+  const yXml = ydoc.getXmlFragment(NOM_TEXTE)
   // Commentaires ancrés (évolution 4.2.4) : un type Yjs séparé du texte,
   // synchronisé/persisté par la même plomberie sans rien changer au
   // contenu ni aux exports — voir comments.js.
-  const commentsMap = ydoc.getMap('comments')
+  const commentsMap = ydoc.getMap(NOM_COMMENTAIRES)
 
   // "à jour" / "enregistrement…" / "modifications non envoyées" rather than
   // just connecté/reconnexion — see provider.js's saving/hasPendingLocalChanges
@@ -1119,7 +1126,8 @@ export function mountEditor(root, docId, user, docMeta) {
   // Lu par la palette de contact pour joindre le rôle au signalement
   // (contact.js) — une même page ne se comporte pas pareil selon le rôle,
   // et c'est la première chose qu'on demanderait sinon.
-  window.__amendRole = docMeta.myRole || null
+  const roleCourant = docMeta.myRole || null
+  window.__amendRole = roleCourant
   // « Correcteur » ici veut dire : ne modifie qu'en suivi, ou pas du tout.
   const isCorrecteur = !cap.canEditFreely
   // Mise en page et exports réservés aux éditeurs (16/09/2026). Pour la
@@ -1437,17 +1445,26 @@ export function mountEditor(root, docId, user, docMeta) {
     if (!petit) placerLeSuivi()
   }
   ajusterTelephone()
-  if (petitEcranMedia.addEventListener) petitEcranMedia.addEventListener('change', ajusterTelephone)
+  if (petitEcranMedia.addEventListener) {
+    petitEcranMedia.addEventListener('change', ajusterTelephone)
+    ecouteursGlobaux.push(() => petitEcranMedia.removeEventListener('change', ajusterTelephone))
+  }
 
   return {
     destroy() {
       demonte = true
+      for (const retirer of ecouteursGlobaux.splice(0)) retirer()
+      menuCompte.destroy()
+      // Le rôle de la page qu'on quitte ne doit pas partir avec le
+      // signalement fait depuis la suivante (contact.js).
+      if (window.__amendRole === roleCourant) window.__amendRole = null
       if (dialogue) dialogue.destroy()
       if (telephone) telephone.demonter()
       view.destroy()
       provider.destroy()
       presence.destroy()
       comments.destroy()
+      ydoc.destroy()
     },
     view,
     user,
