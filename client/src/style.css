@@ -1012,6 +1012,9 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 /* Ne réserve de la place que quand il y a quelque chose à dire. */
 .ai-status { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
 .ai-status:empty { display: none; }
+.ai-quota { font-size: 11px; color: var(--muted); margin: 6px 0 0; line-height: 1.4; }
+.ai-quota:empty { display: none; }
+.ai-quota.ai-alerte { color: var(--danger, #b3261e); }
 
 /* ---------- Comments panel (comments.js) ---------- */
 .comments-section textarea {
@@ -1543,6 +1546,19 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .bo-table th, .bo-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
 .bo-table th { font-weight: 600; font-size: 12px; opacity: 0.7; }
 .bo-table td a { text-decoration: none; }
+.bo-ia-cartes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 12px 0; }
+.bo-ia-carte { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px 14px; margin: 0; min-width: 0; }
+.bo-ia-carte legend { font-weight: 600; padding: 0 6px; }
+.bo-ia-champ { display: grid; grid-template-columns: 1fr; gap: 2px; margin: 10px 0; font-size: 13px; }
+.bo-ia-champ > span { font-weight: 600; }
+.bo-ia-champ small { color: var(--muted); font-size: 11px; }
+.bo-ia-champ input, .bo-ia-champ select { font: inherit; padding: 5px 8px; max-width: 100%; }
+.bo-ia-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.bo-ia-message:empty { display: none; }
+.bo-ia-mail { font-size: 12px; color: var(--muted); font-weight: 400; word-break: break-all; }
+.bo-ia-jetons { font-size: 11px; color: var(--muted); }
+.bo-ia-table td { vertical-align: top; font-size: 13px; }
+.bo-ia-table tfoot th, .bo-ia-table tfoot td { border-top: 2px solid var(--border); }
 .bo-attente { font-size: 11px; opacity: 0.7; border: 1px solid var(--border); border-radius: 999px; padding: 1px 6px; }
 .bo-liste { list-style: none; padding: 0; margin: 6px 0; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
 
@@ -3279,6 +3295,9 @@ tr.bo-traite { opacity: 0.6; }
 .dialogue-arreter[hidden] { display: none; }
 .dialogue-statut { margin: 6px 0 0; font-size: 12px; color: var(--danger); }
 .dialogue-statut:empty { display: none; }
+.dialogue-indication.dialogue-alerte { color: var(--danger); }
+.dialogue-quota { margin: 0; padding: 0 16px 4px; font-size: 11px; color: var(--muted); line-height: 1.4; }
+.dialogue-quota:empty { display: none; }
 .dialogue-note { margin: 0; padding: 0 16px 10px; font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 /* Pas sur téléphone pour l'instant : comme la palette de contact, un bouton

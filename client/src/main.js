@@ -80,6 +80,12 @@ async function route() {
     return
   }
 
+  if (hash === '#/admin/ia') {
+    const { mountAdminIa } = await import('./adminIa.js')
+    mountAdminIa(app)
+    return
+  }
+
   if (hash === '#/admin') {
     const { mountAdmin } = await import('./admin.js')
     mountAdmin(app)

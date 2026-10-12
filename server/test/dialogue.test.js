@@ -18,7 +18,6 @@ process.env.MAILGUN_API_KEY = ''
 process.env.MAILGUN_DOMAIN = ''
 process.env.MAILGUN_API_HOST = '127.0.0.1'
 process.env.ADMIN_EMAILS = 'admin@example.com'
-process.env.CLAUDE_DIALOGUE = 'admins'
 
 const BASE = `http://localhost:${PORT}`
 
@@ -42,7 +41,6 @@ globalThis.fetch = async (url, init) => {
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
 const { Storage } = await import('../storage.js')
-const { porteeDialogue, peutDialoguer, limiteEnv, messagesParHeure, modeleDialogue, MESSAGES_PAR_HEURE_DEFAUT } = await import('../dialogue.js')
 await attendre()
 
 function attendre() {
@@ -58,6 +56,23 @@ function attendre() {
 
 const cookie = (email) => sessionCookieHeader(email, { secure: false }).split(';')[0]
 const storage = new Storage(DATA_DIR)
+
+// Les réglages de Margo se posent comme en production : par le back-office.
+const MARGO_DEFAUT = { modele: 'claude-sonnet-5-5', signesParDemande: 60_000, demandesParHeure: 30, signesParMois: 300_000, acces: 'admin' }
+async function reglerIa(margo) {
+  const res = await vraiFetch(`${BASE}/api/admin/ia`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', cookie: cookie('admin@example.com') },
+    body: JSON.stringify({ margo }),
+  })
+  assert.equal(res.status, 200, await res.clone().text())
+  return res.json()
+}
+async function consoIa() {
+  return (await vraiFetch(`${BASE}/api/admin/ia`, { headers: { cookie: cookie('admin@example.com') } })).json()
+}
+// Ces tests supposent, sauf mention, que Margo est réservée aux administrateurs.
+await reglerIa(MARGO_DEFAUT)
 
 async function documentDeTest(proprietaire = 'admin@example.com') {
   const res = await vraiFetch(`${BASE}/api/docs`, {
@@ -106,17 +121,18 @@ async function dialoguer(docId, email, corps) {
 
 const msg = (t) => ({ messages: [{ role: 'user', content: t }] })
 
-test('GET dit qui a droit : administrateurs seuls par défaut, rien sans session', async () => {
+test('GET dit qui a droit et où il en est : administrateurs seuls ici, rien sans session', async () => {
   const doc = await documentDeTest()
   const get = (email) => vraiFetch(`${BASE}/api/docs/${doc.id}/dialogue`, { headers: email ? { cookie: cookie(email) } : {} })
   assert.equal((await get(null)).status, 401)
   const admin = await (await get('admin@example.com')).json()
   assert.equal(admin.autorise, true)
-  assert.equal(admin.portee, 'admins')
   assert.equal(admin.modele, 'claude-sonnet-5-5')
+  assert.equal(admin.signesParDemande, 60_000)
+  assert.deepEqual(admin.mois, { utilises: 0, max: 300_000 })
+  assert.equal(admin.heure.max, 30)
   const autre = await (await get('quelquun@example.com')).json()
-  assert.equal(autre.autorise, false)
-  assert.equal(autre.modele, null)
+  assert.deepEqual(autre, { autorise: false }, 'rien d’autre à qui n’a pas accès')
 })
 
 test('POST refusé sans droit (403), sans session (401), sur un document inconnu (404)', async () => {
@@ -201,7 +217,7 @@ test('une demande de correction écrit en suivi de modifications au nom de « Ma
 })
 
 test('le réglage de réflexion est retenu : refusé une fois, jamais redemandé', async () => {
-  process.env.DIALOGUE_MODEL = 'claude-modele-de-test'
+  await reglerIa({ modele: 'claude-haiku-5-5' }) // un modèle encore jamais appelé dans ce fichier
   const doc = await documentDeTest()
   requetes.length = 0
   scenario = [{ status: 400, corps: { error: { type: 'invalid_request_error', message: 'thinking.type: between_tools is not supported' } } }, texte('Bonjour.'), texte('Encore bonjour.')]
@@ -211,7 +227,8 @@ test('le réglage de réflexion est retenu : refusé une fois, jamais redemandé
   const b = await dialoguer(doc.id, 'admin@example.com', msg('encore'))
   assert.equal(b.status, 200)
   assert.equal(requetes[2].corps.thinking.type, 'disabled')
-  delete process.env.DIALOGUE_MODEL
+  assert.equal(requetes[0].corps.model, 'claude-haiku-5-5', 'le modèle vient des réglages')
+  await reglerIa({ modele: 'claude-sonnet-5-5' })
 })
 
 test('une erreur de l’API devient un événement « erreur » lisible, sans fuite de clé', async () => {
@@ -297,63 +314,140 @@ test('une réponse déjà en cours pour la même personne et le même document :
   assert.equal((await premiere).status, 200)
 })
 
-test('sans CLAUDE_DIALOGUE, la portée par défaut est « editeurs » ; une valeur inconnue ferme la porte', () => {
-  const avant = process.env.CLAUDE_DIALOGUE
-  try {
-    delete process.env.CLAUDE_DIALOGUE
-    assert.equal(porteeDialogue(), 'editeurs')
-    process.env.CLAUDE_DIALOGUE = '   '
-    assert.equal(porteeDialogue(), 'editeurs')
-    process.env.CLAUDE_DIALOGUE = 'tout-le-monde'
-    assert.equal(porteeDialogue(), 'admins')
-    assert.equal(peutDialoguer({ admin: false, proprietaire: false, role: 'editeur' }), false)
-    delete process.env.CLAUDE_DIALOGUE
-    assert.equal(peutDialoguer({ admin: false, proprietaire: false, role: 'editeur' }), true)
-    assert.equal(peutDialoguer({ admin: false, proprietaire: false, role: 'correcteur' }), false)
-    assert.equal(peutDialoguer({ admin: false, proprietaire: false, role: 'lecteur' }), false)
-  } finally {
-    process.env.CLAUDE_DIALOGUE = avant
-  }
-})
-
-test('la portée « editeurs » ouvre le dialogue aux éditeurs, jamais aux lecteurs ni aux correcteurs', async () => {
-  process.env.CLAUDE_DIALOGUE = 'editeurs'
+test('l’accès est un niveau minimal : admin, éditeur, correcteur — jamais un lecteur', async () => {
   const doc = await documentDeTest('alice@example.com')
   storage.inviteEmail(doc.id, 'lect@example.com', 'lecteur', 'alice@example.com')
   storage.inviteEmail(doc.id, 'corr@example.com', 'correcteur', 'alice@example.com')
-  scenario = [texte('Bonjour.')]
-  assert.equal((await dialoguer(doc.id, 'alice@example.com', msg('bonjour'))).status, 200)
-  assert.equal((await dialoguer(doc.id, 'lect@example.com', msg('bonjour'))).status, 403)
-  assert.equal((await dialoguer(doc.id, 'corr@example.com', msg('bonjour'))).status, 403)
-  process.env.CLAUDE_DIALOGUE = 'admins'
+  const essayer = async (email) => {
+    scenario = [texte('Bonjour.')]
+    return (await dialoguer(doc.id, email, msg('bonjour'))).status
+  }
+  try {
+    await reglerIa({ acces: 'admin' })
+    assert.deepEqual([await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')], [403, 403, 403])
+
+    await reglerIa({ acces: 'editeur' })
+    assert.deepEqual([await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')], [200, 403, 403])
+
+    await reglerIa({ acces: 'correcteur' })
+    assert.deepEqual([await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')], [200, 403, 200])
+
+    // Un administrateur n’entre pas sur un document où il n’a aucun rôle : l’IA y écrirait sans droit.
+    assert.equal(await essayer('admin@example.com'), 403)
+  } finally {
+    await reglerIa({ acces: 'admin' })
+  }
 })
 
-test('les plafonds se règlent dans le .env, un nom par surface : valeurs absurdes, défaut', () => {
-  const sauve = { ...process.env }
+test('une demande trop grosse est refusée avant l’envoi, en signes ; les administrateurs aussi', async () => {
+  const doc = await documentDeTest() // 89 signes de texte
+  requetes.length = 0
+  scenario = []
   try {
-    process.env.TEST_PLAFOND = '50'
-    assert.equal(limiteEnv('TEST_PLAFOND', 7), 50)
-    for (const mauvais of ['', 'abc', '-3', '0', 'NaN', ' ']) {
-      process.env.TEST_PLAFOND = mauvais
-      assert.equal(limiteEnv('TEST_PLAFOND', 7), 7, `« ${mauvais} » retombe sur le défaut`)
-    }
-    process.env.TEST_PLAFOND = '12.7'
-    assert.equal(limiteEnv('TEST_PLAFOND', 7), 12)
-    delete process.env.TEST_PLAFOND
-    assert.equal(limiteEnv('TEST_PLAFOND', 7), 7)
+    await reglerIa({ signesParDemande: 100 })
+    const trop = await dialoguer(doc.id, 'admin@example.com', msg('x'.repeat(20)))
+    assert.equal(trop.status, 413)
+    assert.match(trop.erreur, /109\ssignes/)
+    assert.match(trop.erreur, /100\ssignes par demande/)
+    assert.ok(!/page/i.test(trop.erreur), 'on ne parle jamais en pages')
+    assert.equal(requetes.length, 0, 'aucun appel payant')
 
-    // La fenêtre flottante a son plafond et son modèle, indépendants de la barre latérale.
-    delete process.env.DIALOGUE_MESSAGES_PAR_HEURE
-    assert.equal(messagesParHeure(), MESSAGES_PAR_HEURE_DEFAUT)
-    process.env.DIALOGUE_MESSAGES_PAR_HEURE = '45'
-    assert.equal(messagesParHeure(), 45)
-    process.env.AI_SUGGESTIONS_PAR_HEURE = '999'
-    assert.equal(messagesParHeure(), 45, 'le réglage de la barre latérale ne touche pas la fenêtre')
-    delete process.env.DIALOGUE_MODEL
-    process.env.AI_MODEL = 'claude-haiku-5-5'
-    assert.equal(modeleDialogue(), 'claude-sonnet-5-5', 'AI_MODEL ne change pas le modèle de la fenêtre')
+    // La portée compte : une sélection d’un seul bloc passe, le document entier non.
+    scenario = [texte('Bien.')]
+    const un = await dialoguer(doc.id, 'admin@example.com', { messages: [{ role: 'user', content: 'x'.repeat(20) }], portee: { type: 'selection', de: 2, a: 2 } })
+    assert.equal(un.status, 200)
   } finally {
-    for (const k of Object.keys(process.env)) if (!(k in sauve)) delete process.env[k]
-    Object.assign(process.env, sauve)
+    await reglerIa({ signesParDemande: 60_000 })
+    scenario = []
+  }
+})
+
+test('le plafond mensuel : les signes comptent seulement si la réponse est complète, et le refus dit ce qui reste', async () => {
+  await reglerIa({ acces: 'editeur', signesParMois: 1000 })
+  try {
+    const doc = await documentDeTest('mois@example.com') // 89 signes de texte
+    // Une erreur de l’API ne compte rien en signes.
+    scenario = [{ status: 401, corps: { error: { message: 'invalid x-api-key' } } }]
+    const raté = await dialoguer(doc.id, 'mois@example.com', msg('a'.repeat(900)))
+    assert.ok(raté.evenements.some((e) => e.type === 'erreur'))
+    let conso = (await consoIa()).utilisateurs.find((u) => u.email === 'mois@example.com')
+    assert.equal(conso.margo.signes, 0)
+    assert.equal(conso.margo.echecs, 1)
+
+    // Une réponse complète : 900 + 89 = 989 signes.
+    scenario = [texte('Voilà.')]
+    assert.equal((await dialoguer(doc.id, 'mois@example.com', msg('a'.repeat(900)))).status, 200)
+    conso = (await consoIa()).utilisateurs.find((u) => u.email === 'mois@example.com')
+    assert.equal(conso.margo.signes, 989)
+    assert.equal(conso.margo.demandes, 1)
+    const etat = await (await vraiFetch(`${BASE}/api/docs/${doc.id}/dialogue`, { headers: { cookie: cookie('mois@example.com') } })).json()
+    assert.deepEqual(etat.mois, { utilises: 989, max: 1000 })
+
+    // La suivante dépasserait : refusée avant l’envoi, avec ce qu’il reste.
+    requetes.length = 0
+    scenario = []
+    const refus = await dialoguer(doc.id, 'mois@example.com', msg('bonjour'))
+    assert.equal(refus.status, 429)
+    assert.match(refus.erreur, /11\ssignes/)
+    assert.match(refus.erreur, /1er \p{L}+/u)
+    assert.equal(requetes.length, 0)
+  } finally {
+    await reglerIa({ acces: 'admin', signesParMois: 300_000 })
+  }
+})
+
+test('les jetons sont comptés par personne et par modèle, même quand la demande échoue', async () => {
+  await reglerIa({ acces: 'editeur' })
+  try {
+    const doc = await documentDeTest('jetons@example.com')
+    scenario = [outil('t1', 'plan', {}), texte('Fini.')]
+    await dialoguer(doc.id, 'jetons@example.com', msg('regarde'))
+    const apres = await consoIa()
+    const ligne = apres.utilisateurs.find((u) => u.email === 'jetons@example.com')
+    // 100 + 300 d’entrée, 20 + 40 de sortie, 500 de cache lu, 500 de cache écrit.
+    assert.equal(ligne.margo.entree, 400)
+    assert.equal(ligne.margo.sortie, 60)
+    assert.equal(ligne.margo.cacheLu, 500)
+    assert.equal(ligne.margo.cacheEcrit, 500)
+    assert.ok(ligne.margo.usd > 0)
+    const modele = apres.jetonsParModele['claude-sonnet-5-5']
+    assert.ok(modele.entree >= 400 && modele.parFonction.margo.entree >= 400)
+  } finally {
+    await reglerIa({ acces: 'admin' })
+  }
+})
+
+test('les demandes par heure : refus avec l’heure où une place se libère', async () => {
+  await reglerIa({ acces: 'editeur', demandesParHeure: 1 })
+  try {
+    const doc = await documentDeTest('heure@example.com')
+    scenario = [texte('Un.')]
+    assert.equal((await dialoguer(doc.id, 'heure@example.com', msg('un'))).status, 200)
+    requetes.length = 0
+    const refus = await dialoguer(doc.id, 'heure@example.com', msg('deux'))
+    assert.equal(refus.status, 429)
+    assert.match(refus.erreur, /1 demande par heure/)
+    assert.match(refus.erreur, /se libère à \d{2} h \d{2}/)
+    assert.equal(requetes.length, 0)
+  } finally {
+    await reglerIa({ acces: 'admin', demandesParHeure: 30 })
+  }
+})
+
+test('les lectures de Margo sont plafonnées comme la demande : au-delà, l’outil répond une limite', async () => {
+  const doc = await documentDeTest()
+  await reglerIa({ signesParDemande: 100 })
+  try {
+    requetes.length = 0
+    scenario = [outil('t1', 'lire', { de: 1, nombre: 3 }), texte('Je ne peux pas tout lire.')]
+    const r = await dialoguer(doc.id, 'admin@example.com', { messages: [{ role: 'user', content: 'hop' }], portee: { type: 'selection', de: 2, a: 2 } })
+    assert.equal(r.status, 200)
+    const retour = requetes[1].corps.messages.at(-1).content[0]
+    assert.equal(retour.is_error, true)
+    assert.match(retour.content, /Limite de lecture atteinte/)
+    assert.match(retour.content, /100\ssignes/)
+  } finally {
+    await reglerIa({ signesParDemande: 60_000 })
+    scenario = []
   }
 })

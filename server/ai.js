@@ -13,11 +13,11 @@ export function urlAnthropic() {
   return `${(process.env.ANTHROPIC_API_URL || 'https://api.anthropic.com').replace(/\/$/, '')}/v1/messages`
 }
 
-// Haiku 5.5 depuis le 10/10/2026 : le modèle le moins cher (0,10 $ / 0,50 $ par
-// million de jetons), et le banc d'essai (claude/rapport-banc-modeles.md) ne le
-// distingue pas de Sonnet pour la correction. Surchargeable par AI_MODEL
-// (.env) — et si on en change, il faut ajuster les deux tarifs du .env avec,
-// sans quoi le coût affiché dans le back-office devient faux en silence.
+// Haiku 5.5 par défaut (10/10/2026) : le modèle le moins cher (0,10 $ / 0,50 $
+// par million de jetons), et le banc d'essai (claude/rapport-banc-modeles.md)
+// ne le distingue pas de Sonnet pour la correction. Depuis le 13/10/2026 le
+// modèle se règle dans le back-office (Corrections IA, server/reglagesIa.js) et
+// arrive ici par `config.model` ; AI_MODEL n'est plus lue.
 const DEFAULT_MODEL = 'claude-haiku-5-5'
 const MAX_INPUT_CHARS = 8000
 
@@ -129,12 +129,12 @@ export async function suggestEdit(config, text, instruction) {
   }
   if (text.length > MAX_INPUT_CHARS) {
     throw new AIRequestError(
-      `Le passage sélectionné est trop long (max ${MAX_INPUT_CHARS} caractères).`,
+      `Un paragraphe est trop long pour une correction (${MAX_INPUT_CHARS} signes au plus, espaces compris).`,
       413
     )
   }
 
-  const model = config.model || process.env.AI_MODEL || DEFAULT_MODEL
+  const model = config.model || DEFAULT_MODEL
   const userInstruction = (instruction && instruction.trim()) || 'Améliore ce passage.'
   // `config.fetch` : pour les tests, qui ne parlent jamais à la vraie API.
   const fetcher = config.fetch || fetch
@@ -197,7 +197,7 @@ export async function suggestEdit(config, text, instruction) {
   // semblait « remplacé par un paragraphe tronqué ».
   if (data.stop_reason === 'max_tokens') {
     const err = new AIRequestError(
-      'La réponse de l’IA a été coupée avant la fin : sélectionne un passage plus court et réessaie.',
+      'La réponse de l’IA a été coupée avant la fin : sélectionnez un passage plus court et réessayez.',
       502
     )
     err.usage = usage

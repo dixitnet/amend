@@ -325,6 +325,7 @@ test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', asy
     '/api/auth/me': { email: 'moi@example.com', admin: false },
     '/publication': { publiee: false, autorise: false, portee: 'admins' },
     '/style': { style: null, propre: false },
+    '/ia': { corrections: { autorise: false }, margo: { autorise: false } },
   })
   globalThis.WebSocket = class {
     constructor() {
@@ -351,7 +352,8 @@ test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', asy
   assert.ok(racine.querySelector('.format-toolbar').hidden, 'pas de barre de mise en forme')
   assert.ok(racine.querySelector('.suivi-entete .track-toggle').hidden, 'pas d’interrupteur de suivi : rien à suivre')
   assert.ok(racine.querySelector('.marge-commentaires'), 'la marge des commentaires est là')
-  assert.match(racine.querySelector('.ai-section').textContent, /réservée/, 'l’IA lui est refusée, et on le dit')
+  assert.match(racine.querySelector('.ai-section').textContent, /Corrections IA/, 'le panneau porte son nom')
+  assert.match(racine.querySelector('.ai-section').textContent, /n’est pas ouverte à votre rôle/, 'l’IA lui est refusée, et on le dit')
 
   if (editeur && editeur.destroy) editeur.destroy()
 })

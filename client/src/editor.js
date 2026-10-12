@@ -1288,18 +1288,17 @@ export function mountEditor(root, docId, user, docMeta) {
     if (!insererNote(view, user)) messageFugace('Une note se pose dans un paragraphe, pas dans un titre.', { erreur: true })
   }
 
-  mountAIPanel(aiSection, () => view, { docId, canUseAI: !!cap.canUseAI })
-  // Le dialogue avec Claude (07/10/2026) : la palette n'existe que si le
-  // serveur dit que la personne y a droit (CLAUDE_DIALOGUE dans le .env).
+  // Corrections IA (la barre latérale) et Margo (le dialogue flottant), 13/10/2026 :
+  // le serveur dit à chacune si la personne y a droit (niveau d'accès réglé
+  // dans le back-office) et quelles sont ses limites, en signes.
+  const correctionsIA = mountAIPanel(aiSection, () => view, { docId })
   let dialogue = null
   let demonte = false
-  if (cap.canUseAI) {
-    monterDialogue({ docId, getView: () => view }).then((d) => {
-      if (!d) return
-      if (demonte) d.destroy()
-      else dialogue = d
-    })
-  }
+  monterDialogue({ docId, getView: () => view }).then((d) => {
+    if (!d) return
+    if (demonte) d.destroy()
+    else dialogue = d
+  })
   const comments = mountCommentsPanel(commentsSection, ydoc, commentsMap, () => view, user)
 
   function mkButton(label, title) {
@@ -1371,6 +1370,7 @@ export function mountEditor(root, docId, user, docMeta) {
       // signalement fait depuis la suivante (contact.js).
       oublierRoleDeLaPage(roleCourant)
       if (dialogue) dialogue.destroy()
+      correctionsIA.destroy()
       if (telephone) telephone.demonter()
       view.destroy()
       provider.destroy()

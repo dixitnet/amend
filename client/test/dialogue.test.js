@@ -14,7 +14,7 @@ import { EditorView } from 'prosemirror-view'
 import { schema } from '../src/schema.js'
 import { trackChangesPlugin, makeDispatchTransaction, listChanges } from '../src/trackChanges.js'
 import { mountChangesPanel } from '../src/changesPanel.js'
-import { monterDialogue, porteeDe, libellePortee, blocsDuDom, pourEnvoi, lireFlux, rendreTexte } from '../src/dialogue.js'
+import { monterDialogue, porteeDe, libellePortee, taillePortee, blocsDuDom, pourEnvoi, lireFlux, rendreTexte } from '../src/dialogue.js'
 
 const CLAUDE = { name: 'Claude (pour Sylvain)', color: '#5f7a4a' }
 const ALICE = { name: 'Alice', color: '#3d5a80' }
@@ -65,11 +65,11 @@ function ndjson(...evts) {
 }
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
 
-function fauxServeur({ autorise = true, reponses = [] } = {}) {
+function fauxServeur({ autorise = true, reponses = [], signesParDemande = 60000, mois = { utilises: 1200, max: 300000 } } = {}) {
   const appels = []
   const fetcher = async (url, options = {}) => {
     appels.push({ url, methode: options.method || 'GET', corps: options.body ? JSON.parse(options.body) : null })
-    if (!options.method) return json({ autorise, portee: 'admins', modele: 'claude-sonnet-5-5' })
+    if (!options.method) return json({ autorise, modele: 'claude-sonnet-5-5', signesParDemande, mois, heure: { utilisees: 0, max: 30 } })
     const suivante = reponses.shift()
     return typeof suivante === 'function' ? suivante() : suivante
   }
@@ -133,7 +133,7 @@ test('le sélecteur n’a que deux portées, et suit la sélection : du texte s�
   poser(debutBloc(2) + 1, debutBloc(4) + 4)
   d.ouvrir()
   assert.equal(choix.value, 'selection')
-  assert.equal(document.querySelector('.dialogue-indication').textContent, 'blocs 2 à 4')
+  assert.match(document.querySelector('.dialogue-indication').textContent, /^blocs 2 à 4 · \d+ \/ 60\u202f000\u00a0signes$/)
 
   // Palette ouverte : la portée suit la sélection, dans les deux sens.
   poser(debutBloc(6) + 2)
@@ -314,4 +314,49 @@ test('lireFlux : lignes coupées en deux morceaux, lignes illisibles ignorées',
   const recus = []
   await lireFlux({ body: flux }, (e) => recus.push(e))
   assert.deepEqual(recus, [{ type: 'texte', texte: 'a' }, { type: 'fin' }])
+})
+
+test('la taille de la portée se dit en signes, espaces compris — jamais en pages', async () => {
+  const view = monterEditeur()
+  const poser = (from, to = from) => view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)))
+  const serveur = fauxServeur({ signesParDemande: 50 })
+  const d = await monterDialogue({ docId: 'doc-signes', getView: () => view, fetcher: serveur.fetcher })
+  const indication = document.querySelector('.dialogue-indication')
+  poser(1)
+  d.ouvrir()
+  // Le document entier : tous les blocs numérotés, hors table des matières.
+  const total = blocsDuDom(view).reduce((n, e) => n + e.textContent.length, 0)
+  assert.equal(taillePortee(view, { type: 'document' }), total)
+  assert.equal(indication.textContent, `tout le document · ${total} / 50\u00a0signes`)
+  assert.ok(indication.classList.contains('dialogue-alerte'), 'au-delà de la limite : en alerte')
+  assert.ok(!/page/i.test(document.querySelector('.dialogue-palette').textContent))
+  assert.equal(taillePortee(view, { type: 'selection', de: 2, a: 2 }), 'Premier paragraphe.'.length)
+  // La consommation du mois, au bas de la palette.
+  assert.match(document.querySelector('.dialogue-quota').textContent, /^Ce mois-ci : 1\u202f200 \/ 300\u202f000\u00a0signes\.$/)
+  d.destroy()
+})
+
+test('une demande trop grosse n’est pas envoyée : on le dit en signes, sans appel', async () => {
+  const view = monterEditeur()
+  const serveur = fauxServeur({ signesParDemande: 100 })
+  const d = await monterDialogue({ docId: 'doc-gros', getView: () => view, fetcher: serveur.fetcher })
+  d.ouvrir() // curseur : tout le texte, plus de 100 signes
+  await envoyer('Que penses-tu de tout ça ?')
+  assert.match(document.querySelector('.dialogue-statut').textContent, /limite est de 100\u00a0signes par demande/)
+  assert.deepEqual(serveur.appels.filter((a) => a.methode === 'POST'), [])
+  d.destroy()
+})
+
+test('après une réponse, la consommation du mois est relue', async () => {
+  const view = monterEditeur()
+  const mois = { utilises: 0, max: 5000 }
+  const serveur = fauxServeur({ mois, reponses: [ndjson({ type: 'texte', texte: 'Bien.' }, { type: 'fin', modifications: 0, commentaires: 0, refus: 0, usage: {} })] })
+  const d = await monterDialogue({ docId: 'doc-quota', getView: () => view, fetcher: serveur.fetcher })
+  d.ouvrir()
+  assert.match(document.querySelector('.dialogue-quota').textContent, /0 \/ 5\u202f000/)
+  mois.utilises = 389
+  await envoyer('Une question.')
+  await attendre(30)
+  assert.match(document.querySelector('.dialogue-quota').textContent, /389 \/ 5\u202f000/)
+  d.destroy()
 })

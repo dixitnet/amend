@@ -21,9 +21,6 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'collabtext-test-access-'))
 // vrais courriers, et un test « sans clé Anthropic » appelait l'API. La
 // chaîne vide, elle, reste présente et vide. (Constaté le 17/09/2026.)
 process.env.ANTHROPIC_API_KEY = ''
-// Plafond de la barre latérale ramené à 30 par heure pour ce test (le défaut
-// de production est 1 000 depuis le 11/10/2026, réglable dans le .env).
-process.env.AI_SUGGESTIONS_PAR_HEURE = '30'
 process.env.MAILGUN_API_KEY = ''
 process.env.MAILGUN_DOMAIN = ''
 // Ceinture et bretelles : même si une clé passait, rien ne sort de la machine.
@@ -115,8 +112,8 @@ test('les capacités voyagent avec les métadonnées, et un lecteur ne fait que 
   const correcteur = await meta(cookieFor('corr-cap@example.com'))
   assert.equal(correcteur.myRole, 'correcteur')
   assert.deepEqual(
-    [correcteur.myCapabilities.canEditFreely, correcteur.myCapabilities.canProposeChanges, correcteur.myCapabilities.canComment, correcteur.myCapabilities.canUseAI],
-    [false, true, true, false]
+    [correcteur.myCapabilities.canEditFreely, correcteur.myCapabilities.canProposeChanges, correcteur.myCapabilities.canComment],
+    [false, true, true]
   )
   const lecteur = await meta(cookieFor('lect-cap@example.com'))
   assert.equal(lecteur.myRole, 'lecteur')
@@ -418,7 +415,7 @@ process.env.ADMIN_EMAILS = ''
   }
 })
 
-test('la suggestion IA : session exigée, et interdite au correcteur', async () => {
+test('la suggestion IA : session exigée, et fermée au correcteur par défaut (niveau « éditeur »)', async () => {
   const editorCookie = cookieFor('kim@example.com')
   const doc = await (
     await fetch(`${BASE}/api/docs`, {
@@ -436,9 +433,8 @@ test('la suggestion IA : session exigée, et interdite au correcteur', async () 
   assert.equal(anonRes.status, 401)
 
   // Le correcteur a une session valide et accès au document : c'est bien
-  // son rôle, et rien d'autre, qui lui ferme l'IA (décision du 15/09/2026 —
-  // la suggestion consomme la clé Anthropic de l'instance et écrit dans le
-  // document).
+  // le niveau d'accès réglé (« éditeur » par défaut, back-office), et rien
+  // d'autre, qui lui ferme l'IA. Voir ia-corrections.test.js pour les autres niveaux.
   const storage = new Storage(process.env.DATA_DIR)
   const { token } = storage.inviteEmail(doc.id, 'lou@example.com', 'correcteur', 'kim@example.com')
   await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })
@@ -775,44 +771,6 @@ test('invitations : une personne ne peut pas en envoyer plus de trente par heure
   }
   assert.deepEqual(statuts.slice(0, 30), Array(30).fill(502))
   assert.deepEqual(statuts.slice(30), [429, 429])
-})
-
-test('suggestions IA : trente par heure et par compte, puis 429 (S9)', async () => {
-  const cookie = cookieFor('quota-ia@example.com')
-  const doc = await (
-    await fetch(`${BASE}/api/docs`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', cookie },
-      body: JSON.stringify({ title: 'Doc quota IA' }),
-    })
-  ).json()
-  const demander = (c = cookie) =>
-    fetch(`${BASE}/api/ai/suggest`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', cookie: c },
-      body: JSON.stringify({ docId: doc.id, text: 'Un texte.', instruction: 'Corrige.' }),
-    })
-  // Sans clé Anthropic, l'appel s'arrête en 501 : la tentative est comptée.
-  for (let i = 0; i < 30; i++) assert.equal((await demander()).status, 501)
-  const trente_et_un = await demander()
-  assert.equal(trente_et_un.status, 429)
-  assert.match((await trente_et_un.json()).error, /suggestions par heure/)
-
-  // Le plafond est par compte : un autre compte n'est pas touché.
-  const autre = cookieFor('quota-ia-2@example.com')
-  const docAutre = await (
-    await fetch(`${BASE}/api/docs`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', cookie: autre },
-      body: JSON.stringify({ title: 'Doc quota IA 2' }),
-    })
-  ).json()
-  const res = await fetch(`${BASE}/api/ai/suggest`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: autre },
-    body: JSON.stringify({ docId: docAutre.id, text: 'Un texte.', instruction: 'Corrige.' }),
-  })
-  assert.equal(res.status, 501)
 })
 
 test('un refus 403 ne consomme pas le quota IA', async () => {

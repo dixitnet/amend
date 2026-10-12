@@ -72,7 +72,6 @@ export async function lancerInstance({
         MAILGUN_API_KEY: 'faux',
         MAILGUN_DOMAIN: 'test.local',
         MAILGUN_API_URL: `http://127.0.0.1:${port + 2}`,
-        CLAUDE_DIALOGUE: 'editeurs',
         CLAUDE_AGENT: 'editeurs',
         PUBLICATION_WEB: 'editeurs',
         ...env,

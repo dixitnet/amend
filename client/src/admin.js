@@ -80,7 +80,7 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
 
-/** Les deux usages de Margo côte à côte, en tokens (pas en euros : ils n'ont
+/** Les deux usages de l'IA (Corrections IA et Margo) côte à côte, en tokens (pas en euros : ils n'ont
  * pas le même modèle). « Entrée » est hors cache ; le cache lu et écrit sont
  * comptés à part, car ils ne se facturent pas au même prix. */
 function tableauTokens(t) {
@@ -107,11 +107,11 @@ function tableauTokens(t) {
   return `<table class="bo-table">
     <thead><tr><th></th><th>24 h</th><th>7 jours</th><th>30 jours</th></tr></thead>
     <tbody>
-      ${ligne('Barre latérale « Demander à Margo »', t.barreLaterale, false)}
-      ${ligne('Fenêtre flottante « Margo »', t.fenetre, true)}
+      ${ligne('Corrections IA (barre latérale)', t.barreLaterale, false)}
+      ${ligne('Margo (fenêtre flottante)', t.fenetre, true)}
     </tbody>
   </table>
-  <p class="bo-note">Un « message » est une demande à Margo (une suggestion pour la barre latérale, un message du dialogue pour la fenêtre). L'entrée de la fenêtre flottante s'ajoute du cache lu et du cache écrit pour donner le total lu par le modèle.</p>
+  <p class="bo-note">Un « message » est une demande à l'IA (une correction pour Corrections IA, un message du dialogue pour Margo). L'entrée de la fenêtre flottante s'ajoute du cache lu et du cache écrit pour donner le total lu par le modèle.</p>
   ${modeles}${personnes}`
 }
 
@@ -379,10 +379,11 @@ export async function mountAdmin(root, info) {
           : '<p class="bo-note">Personne connecté en ce moment.</p>'
       }
 
-      <h3>Consommation de Margo en tokens</h3>
+      <h3>Consommation de l'IA en tokens</h3>
+      <p class="bo-note"><a href="#/admin/ia">Réglages de l'IA et consommation par personne →</a> (modèle, limites en signes, accès, jetons par modèle).</p>
       ${tableauTokens(f.tokens)}
 
-      <h3>Barre latérale « Demander à Margo » (30 jours)</h3>
+      <h3>Corrections IA — barre latérale (30 jours)</h3>
       <div class="bo-chiffres">
         ${chiffre(euros(f.ia.coutEuros30j), 'sur 30 jours', `${euros(f.ia.coutEuros7j)} sur 7 jours`)}
         ${chiffre(euros(f.ia.coutEuros24h), 'dans les 24 h')}

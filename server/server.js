@@ -36,13 +36,16 @@ import { Agents } from './agents.js'
 import { PresenceAgents } from './presenceAgents.js'
 import { Mcp } from './mcp.js'
 import { Dialogue } from './dialogue.js'
+import { ReglagesIa } from './reglagesIa.js'
+import { UsageIa } from './usageIa.js'
+import { QuotasIa } from './quotasIa.js'
 import { modeCsp, politiqueApplication, poserEnTetes } from './enTetes.js'
 import { Publications } from './publication.js'
 import { chargerDotEnv } from './env.js'
 import { creerServiceStatique } from './statique.js'
 import { creerServicePages } from './pagesPubliees.js'
 import { traiterMcp } from './connecteur.js'
-import { readSession, definirRevocation } from './auth.js'
+import { isAdminEmail, readSession, definirRevocation } from './auth.js'
 import { SessionsRevoquees } from './sessions.js'
 import { origineAutorisee, methodeModifie } from './origine.js'
 import { capabilities } from './roles.js'
@@ -153,7 +156,12 @@ const mcp = new Mcp({ agents, storage, rooms, metrics, presence: presenceAgents 
 // La fenêtre de dialogue de l'éditeur (07/10/2026, server/dialogue.js) : le
 // même moteur d'outils que le connecteur, au nom d'un agent qui n'existe que
 // le temps de la conversation.
-const dialogue = new Dialogue({ storage, rooms, metrics, presence: presenceAgents })
+// Les réglages de l'IA (modèle, limites en signes, accès — data/reglages-ia.json)
+// et la consommation de chaque personne (data/usage-ia.json), 13/10/2026.
+const reglagesIa = new ReglagesIa(DATA_DIR)
+const usageIa = new UsageIa(DATA_DIR)
+const quotas = new QuotasIa({ reglages: reglagesIa, usage: usageIa })
+const dialogue = new Dialogue({ storage, rooms, quotas, estAdmin: isAdminEmail, metrics, presence: presenceAgents })
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -167,7 +175,7 @@ const dialogue = new Dialogue({ storage, rooms, metrics, presence: presenceAgent
 /** Tout ce dont les routes ont besoin, en un seul objet : elles ne voient ni
  * les variables de ce fichier ni ses imports (server/routes/*.js). */
 const ctx = {
-  agents, dialogue, mcp, metrics, presenceAgents, publications, repliques, rooms,
+  agents, dialogue, mcp, metrics, presenceAgents, quotas, reglagesIa, usageIa, publications, repliques, rooms,
   rangements, sessionsRevoquees, storage, supportTraites, typst, uploads, users, versions,
   documentsMaxParCompte, imagesMaxParCompte, APP_BASE_URL, DATA_DIR,
   ...limites,

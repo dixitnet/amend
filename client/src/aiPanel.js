@@ -1,22 +1,28 @@
 import { TextSelection } from 'prosemirror-state'
 import { insertAISuggestion, insertAIParagraphSuggestions, getTextBlocksInRange, porteDesModifications } from './trackChanges.js'
 import { AI_USER } from './user.js'
+import { rapport, signes } from '../../shared/signes.js'
 
 const PASSAGE_CHANGE = 'Le passage a été modifié pendant la demande : la suggestion n’a pas été appliquée. Relance la demande.'
 
-/** Calls the AI-suggest endpoint for one piece of text. Returns
- * {ok: true, suggestion} or {ok: false, error}. */
-async function requestSuggestion(docId, text, instruction) {
-  const res = await fetch('/api/ai/suggest', {
+/** Appelle le service Corrections IA pour **une demande** : un ou plusieurs
+ * passages (les paragraphes d'une sélection) partent ensemble, comptent pour
+ * une seule demande et pour la somme de leurs signes. Renvoie
+ * `{ok: true, suggestions}` (dans l'ordre des passages) ou `{ok: false, error}`. */
+async function requestSuggestions(fetcher, docId, textes, instruction) {
+  const res = await fetcher('/api/ai/suggest', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    // `docId` depuis le 15/09/2026 : le serveur vérifie le droit `canUseAI`
-    // sur ce document précis (un correcteur n'y a pas droit).
-    body: JSON.stringify({ docId, text, instruction }),
+    body: JSON.stringify({ docId, textes, instruction }),
   })
-  const data = await res.json()
-  if (!res.ok) return { ok: false, error: data.error || "Erreur lors de l'appel à Margo." }
-  return { ok: true, suggestion: data.suggestion }
+  let data = {}
+  try {
+    data = await res.json()
+  } catch {
+    // corps illisible : le message par défaut suffit
+  }
+  if (!res.ok) return { ok: false, error: data.error || 'Erreur lors de l’appel à Corrections IA.' }
+  return { ok: true, suggestions: data.suggestions }
 }
 
 const PRESETS = [
@@ -36,28 +42,58 @@ const PRESETS = [
 ]
 
 /**
- * A small "Assistance IA" panel: pick (or select) some text in the editor,
- * choose or type an instruction, and the AI's rewrite is inserted as a
- * tracked change (attributed to "Margo (IA)") that anyone can accept or reject —
- * exactly like a human suggestion.
+ * Le panneau « Corrections IA » : on sélectionne un passage, on choisit (ou on
+ * tape) une consigne, et la réécriture de l'IA est insérée en suivi de
+ * modifications (au nom de « Margo (IA) »), que n'importe qui accepte ou
+ * rejette — exactement comme la suggestion d'un collègue.
+ *
+ * Qui y a droit, le modèle et les limites sont des réglages d'instance
+ * (back-office) : le panneau les lit sur le serveur (`/api/docs/:id/ia`) et
+ * affiche la taille de la sélection et la consommation du mois, **en signes,
+ * espaces compris**. Le serveur reste seul juge.
+ *
+ * Renvoie `{ prete, destroy }` : `prete` se résout quand l'état est lu.
  */
-export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}) {
+export function mountAIPanel(container, getView, { docId, fetcher = (...a) => fetch(...a) } = {}) {
   container.innerHTML = ''
   const title = document.createElement('h3')
-  title.textContent = 'Margo (IA)'
+  title.textContent = 'Corrections IA'
   container.appendChild(title)
 
-  // Un correcteur n'a pas accès à l'IA (voir server/roles.js) : on le dit
-  // plutôt que de laisser un panneau qui répondrait 403 au premier clic.
-  // Le serveur reste seul juge — ceci n'est que l'interface.
-  if (!canUseAI) {
-    const refus = document.createElement('p')
-    refus.className = 'ai-hint'
-    refus.textContent =
-      "Margo, l’IA d’amend.ink, est réservée aux éditeurs du document."
-    container.appendChild(refus)
-    return
-  }
+  const corps = document.createElement('div')
+  container.appendChild(corps)
+  let retirer = () => {}
+  const prete = (async () => {
+    let etat = null
+    try {
+      const r = await fetcher(`/api/docs/${encodeURIComponent(docId)}/ia`, { credentials: 'same-origin' })
+      if (r.ok) etat = (await r.json()).corrections
+    } catch {
+      // réseau coupé : on le dit ci-dessous
+    }
+    if (!etat) {
+      const hint = document.createElement('p')
+      hint.className = 'ai-hint'
+      hint.textContent = 'Corrections IA n’est pas joignable pour le moment.'
+      corps.appendChild(hint)
+      return
+    }
+    // Un rôle sans accès (selon le niveau réglé dans le back-office) : on le dit
+    // plutôt que de laisser un panneau qui répondrait 403 au premier clic.
+    if (!etat.autorise) {
+      const refus = document.createElement('p')
+      refus.className = 'ai-hint'
+      refus.textContent = 'Corrections IA n’est pas ouverte à votre rôle sur ce document.'
+      corps.appendChild(refus)
+      return
+    }
+    retirer = monterCorps(corps, getView, { docId, fetcher, etat })
+  })()
+  return { prete, destroy: () => retirer() }
+}
+
+function monterCorps(container, getView, { docId, fetcher, etat }) {
+  const limites = { signesParDemande: etat.signesParDemande, mois: etat.mois }
 
   // Le mode d'emploi tient dans le repère du champ et dans l'état du
   // panneau (19/09) : une phrase d'explication permanente prenait deux
@@ -97,7 +133,7 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
   })
 
   const runBtn = document.createElement('button')
-  runBtn.textContent = 'Demander à Margo (IA)'
+  runBtn.textContent = 'Demander une correction'
   runBtn.className = 'btn-primary'
   container.appendChild(runBtn)
 
@@ -105,12 +141,63 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
   status.className = 'ai-status'
   container.appendChild(status)
 
+  // La taille de la sélection et la consommation du mois, en signes (espaces
+  // compris) : on voit venir la limite avant de la heurter.
+  const quota = document.createElement('p')
+  quota.className = 'ai-quota'
+  container.appendChild(quota)
+
+  /** Les passages que la sélection enverrait : un seul pour un paragraphe, un
+   * par paragraphe non vide pour plusieurs. `null` si rien n'est sélectionné. */
+  function passagesDeLaSelection(view) {
+    const { from, to, $from, $to } = view.state.selection
+    if (from === to) return null
+    if ($from.sameParent($to)) {
+      const [bloc] = getTextBlocksInRange(view.state.doc, from, to)
+      return { blocs: bloc ? [bloc] : null, textes: [bloc ? bloc.text : view.state.doc.textBetween(from, to, '\n')], unique: true }
+    }
+    // Un bloc sans texte (une note seule, une image) n'a rien à corriger : il ne part pas.
+    const blocs = getTextBlocksInRange(view.state.doc, from, to)
+    return { blocs, textes: blocs.filter((b) => b.texteDiff.trim()).map((b) => b.text), unique: false }
+  }
+
+  function majQuota() {
+    const view = getView()
+    const p = view ? passagesDeLaSelection(view) : null
+    const lignes = []
+    if (p) {
+      const taille = p.textes.reduce((n, t) => n + t.length, 0)
+      lignes.push(`Sélection : ${rapport(taille, limites.signesParDemande)} par demande.`)
+      quota.classList.toggle('ai-alerte', taille > limites.signesParDemande)
+    } else {
+      quota.classList.remove('ai-alerte')
+    }
+    if (limites.mois) lignes.push(`Ce mois-ci : ${rapport(limites.mois.utilises, limites.mois.max)}.`)
+    quota.textContent = lignes.join(' ')
+  }
+  async function rafraichir() {
+    try {
+      const r = await fetcher(`/api/docs/${encodeURIComponent(docId)}/ia`, { credentials: 'same-origin' })
+      if (!r.ok) return
+      const c = (await r.json()).corrections
+      if (c && c.autorise) {
+        limites.signesParDemande = c.signesParDemande
+        limites.mois = c.mois
+      }
+    } catch {
+      // l'affichage reste celui d'avant
+    }
+    majQuota()
+  }
+  document.addEventListener('selectionchange', majQuota)
+  majQuota()
+
   async function run() {
     const view = getView()
     if (!view) return
-    const { from, to, $from, $to } = view.state.selection
+    const { from, to } = view.state.selection
     if (from === to) {
-      status.textContent = "Sélectionne d'abord un passage dans le texte."
+      status.textContent = "Sélectionnez d'abord un passage dans le texte."
       return
     }
     // L'IA travaille sur le texte tel qu'il se lit, jamais sur des
@@ -118,10 +205,18 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
     // recevrait les mots barrés mêlés aux nouveaux, et son diff se
     // rejouerait par-dessus des marques existantes.
     if (porteDesModifications(view.state.doc, from, to)) {
-      status.textContent = 'Ce passage porte des modifications en attente : accepte-les ou rejette-les d’abord.'
+      status.textContent = 'Ce passage porte des modifications en attente : acceptez-les ou rejetez-les d’abord.'
       return
     }
     const instruction = textarea.value.trim()
+    const passages = passagesDeLaSelection(view)
+    // Trop gros ? On le dit avant d'envoyer, en signes : le serveur refuserait de toute façon.
+    const taille = passages.textes.reduce((n, t) => n + t.length, 0)
+    if (taille > limites.signesParDemande) {
+      status.textContent = `Cette sélection compte ${signes(taille)} ; la limite est de ${signes(limites.signesParDemande)} par demande. Sélectionnez un passage plus court.`
+      majQuota()
+      return
+    }
 
     // Collapse the selection right away, before the request even goes out:
     // selectionHighlightPlugin (trackChanges.js) washes the whole current
@@ -134,50 +229,31 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, to)))
 
     runBtn.disabled = true
-    status.textContent = 'Demande en cours…'
+    status.textContent = passages.unique ? 'Demande en cours…' : `Demande en cours… (${passages.blocs.length} paragraphes)`
     try {
-      if ($from.sameParent($to)) {
-        // Single paragraph/heading selected — one request, as before. Le
-        // texte vient du même endroit que pour plusieurs paragraphes : avec
-        // `\n` pour un saut de ligne et ⟦n⟧ à la place d'une note.
-        const [bloc] = getTextBlocksInRange(view.state.doc, from, to)
-        const text = bloc ? bloc.text : view.state.doc.textBetween(from, to, '\n')
-        const result = await requestSuggestion(docId, text, instruction)
-        if (!result.ok) {
-          status.textContent = result.error
-          return
-        }
+      // Une seule demande, même pour plusieurs paragraphes : elle compte pour
+      // une dans l'heure et pour la somme de leurs signes dans le mois. Chaque
+      // paragraphe est corrigé séparément côté serveur, pour qu'il se compare
+      // à son propre équivalent — pas de risque que toute la sélection se
+      // réduise à un seul gros remplacement.
+      const result = passages.textes.length ? await requestSuggestions(fetcher, docId, passages.textes, instruction) : { ok: true, suggestions: [] }
+      if (!result.ok) {
+        status.textContent = result.error
+        return
+      }
+      if (passages.unique) {
         // Pendant l'attente, un autre onglet a pu écrire dans le passage ou
         // avant lui : `from` et `to` ne désignent alors plus le même texte, et
         // la suggestion serait comparée à autre chose que ce que l'IA a lu
         // (elle « supprimait » le texte du collègue — test du 09/10/2026).
         const [blocMaintenant] = getTextBlocksInRange(view.state.doc, from, to)
-        if ((blocMaintenant ? blocMaintenant.text : view.state.doc.textBetween(from, to, '\n')) !== text) {
+        if ((blocMaintenant ? blocMaintenant.text : view.state.doc.textBetween(from, to, '\n')) !== passages.textes[0]) {
           status.textContent = PASSAGE_CHANGE
           return
         }
-        insertAISuggestion(view, from, to, result.suggestion, AI_USER)
+        insertAISuggestion(view, from, to, result.suggestions[0], AI_USER)
       } else {
-        // Selection spans several paragraphs: ask the AI about each
-        // paragraph separately (rather than one request for the whole
-        // block and hoping the reply still lines up paragraph-for-
-        // paragraph) so each one is diffed against its own, guaranteed
-        // counterpart — no risk of the whole selection collapsing into
-        // one merged "replace everything" change.
-        const blocks = getTextBlocksInRange(view.state.doc, from, to)
-        status.textContent = `Demande en cours… (${blocks.length} paragraphes)`
-        const results = await Promise.all(
-          blocks.map((block) =>
-            // Un bloc sans texte (une note seule, une image) n'a rien à
-            // corriger : pas de requête.
-            block.texteDiff.trim() ? requestSuggestion(docId, block.text, instruction) : Promise.resolve({ ok: true, suggestion: block.text })
-          )
-        )
-        const failed = results.find((r) => !r.ok)
-        if (failed) {
-          status.textContent = failed.error
-          return
-        }
+        const blocks = passages.blocs
         const blocsMaintenant = getTextBlocksInRange(view.state.doc, from, to)
         if (
           blocsMaintenant.length !== blocks.length ||
@@ -186,12 +262,11 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
           status.textContent = PASSAGE_CHANGE
           return
         }
-        insertAIParagraphSuggestions(
-          view,
-          blocks,
-          results.map((r) => r.suggestion),
-          AI_USER
-        )
+        // Les réponses reviennent dans l'ordre des paragraphes non vides ; les
+        // autres gardent leur texte.
+        let suivante = 0
+        const suggestions = blocks.map((b) => (b.texteDiff.trim() ? result.suggestions[suivante++] : b.text))
+        insertAIParagraphSuggestions(view, blocks, suggestions, AI_USER)
       }
       status.textContent = 'Suggestion ajoutée — à accepter ou rejeter dans le panneau des modifications.'
       view.focus()
@@ -199,8 +274,10 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
       status.textContent = `Erreur réseau : ${err.message}`
     } finally {
       runBtn.disabled = false
+      rafraichir()
     }
   }
 
   runBtn.onclick = run
+  return () => document.removeEventListener('selectionchange', majQuota)
 }

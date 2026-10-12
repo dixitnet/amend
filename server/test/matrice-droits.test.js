@@ -97,6 +97,8 @@ const LIGNES = [
   { couvre: '/api/modeles/:x', m: 'DELETE', chemin: () => '/api/modeles/inconnu', oui: CONNECTES },
   { couvre: '/api/debug/stats', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/overview', m: 'GET', oui: ['admin'] },
+  { couvre: '/api/admin/ia', m: 'GET', oui: ['admin'] },
+  { couvre: '/api/admin/ia', m: 'PUT', corps: {}, oui: ['admin'] },
   { couvre: '/api/admin/support/:x/traite', m: 'POST', chemin: () => '/api/admin/support/inconnu/traite', corps: {}, oui: ['admin'] },
   { couvre: '/api/admin/sauvegarde', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/waitlist', m: 'GET', oui: ['admin'] },
@@ -116,6 +118,7 @@ const LIGNES = [
   { couvre: '/api/docs/:x/agents', m: 'POST', corps: { role: 'correcteur', nom: 'Claude' }, oui: EDITEURS /* CLAUDE_AGENT=editeurs dans l'instance de test ; un administrateur sans accès au document n'y invite personne */ },
   // Lecture : toute personne connectée reçoit la réponse (« autorisé : non », au lieu d'un refus) ; ce qui compte est la valeur.
   { couvre: '/api/docs/:x/dialogue', m: 'GET', oui: CONNECTES, verifie: (qui, j) => j.autorise === EDITEURS.includes(qui) },
+  { couvre: '/api/docs/:x/ia', m: 'GET', oui: CONNECTES, verifie: (qui, j) => j.corrections.autorise === EDITEURS.includes(qui) && j.margo.autorise === EDITEURS.includes(qui) },
   { couvre: '/api/ai/suggest', m: 'POST', corps: { docId: '{doc}', texte: 'x' }, oui: EDITEURS },
   { couvre: '/api/docs/:x/publication', m: 'GET', oui: MEMBRES, verifie: (qui, j) => j.autorise === EDITEURS.includes(qui) },
   { couvre: '/api/docs/:x/publication', m: 'PUT', corps: {}, oui: EDITEURS },

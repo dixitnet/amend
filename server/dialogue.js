@@ -10,31 +10,24 @@
 //
 // Ce qui change par rapport au connecteur : c'est la clé Anthropic de
 // l'instance qui paie, non l'abonnement de la personne. D'où des plafonds
-// (étapes par message, jetons par message, messages par heure, une seule
-// réponse à la fois par personne et par document) et un interrupteur dans le
-// .env, `CLAUDE_DIALOGUE`, sur le modèle de `CLAUDE_AGENT` : `editeurs` par
-// défaut depuis le 10/10/2026 (`admins` avant).
+// techniques (étapes par message, jetons par message, une seule réponse à la
+// fois par personne et par document) et, depuis le 13/10/2026, les réglages
+// d'instance de Margo (server/reglagesIa.js) : modèle, signes par demande,
+// demandes par heure, signes par mois, niveau d'accès. Les variables
+// CLAUDE_DIALOGUE, DIALOGUE_MODEL et DIALOGUE_MESSAGES_PAR_HEURE du .env ne
+// sont plus lues.
 //
 // Le journal `dialogue` dit qui, combien de jetons, quels outils — jamais le
 // texte d'un message ni celui d'un document.
 
 import { createHash } from 'node:crypto'
 import { ErreurHttp } from './erreurs.js'
-import { Limiteur } from './limiteur.js'
 import { urlAnthropic } from './ai.js'
 import { Mcp, COULEUR_AGENT, LIRE_MAX } from './mcp.js'
 import { REMPLACEMENTS_MAX } from './agentTexte.js'
+import { blocsDuDocument } from './agentTexte.js'
 import { capabilities } from './roles.js'
-
-export const PORTEES_DIALOGUE = ['admins', 'proprietaires', 'editeurs']
-// Sonnet 5.5 par défaut pour la fenêtre flottante (11/10/2026, décision de
-// Sylvain ; point 61 de la feuille de route) : environ 2 $ / 10 $ par million
-// de jetons, soit 14 centimes le message sans cache et 5,5 avec, contre moins
-// d'un centime pour Haiku. La barre latérale « Demander à Margo » reste sur
-// Haiku 5.5 (AI_MODEL, server/ai.js). `DIALOGUE_MODEL` pour changer celui-ci.
-// Le repli de réglage de la réflexion (`between_tools` d'abord) est déjà
-// dans `_appel`.
-export const MODELE_PAR_DEFAUT = 'claude-sonnet-5-5'
+import { signes } from './quotasIa.js'
 
 // Vingt étapes de travail (une étape = un aller-retour avec le modèle, donc un
 // appel d'outil ou plusieurs appels simultanés), puis **une dernière sans
@@ -43,53 +36,16 @@ export const MODELE_PAR_DEFAUT = 'claude-sonnet-5-5'
 // message d'erreur, sans savoir ce qui avait déjà été posé en suivi.
 export const TOURS_MAX = 20
 export const ENTREE_MAX = 400_000
-// Plafond de messages par compte et par heure : DIALOGUE_MESSAGES_PAR_HEURE
-// dans le .env (30 par défaut), lu au démarrage du service. Il est indépendant
-// de celui de la barre latérale « Demander à Margo » (AI_SUGGESTIONS_PAR_HEURE,
-// AI_SUGGESTIONS_PAR_JOUR, server.js) : les deux surfaces se règlent séparément.
-export const MESSAGES_PAR_HEURE_DEFAUT = 30
 export const SIMULTANES_MAX = 4
 export const CONVERSATION_MAX = 40
 export const MESSAGE_MAX = 8_000
 export const CONVERSATION_CARACTERES_MAX = 60_000
 const SORTIE_PAR_APPEL = 8_192
-const FENETRE_MS = 60 * 60_000
-
-/** Qui a le droit de dialoguer avec Claude (07/10/2026). Depuis le
- * 10/10/2026, **tout éditeur** par défaut (le droit IA reste celui des
- * éditeurs : jamais un correcteur ni un lecteur). `admins` est la valeur de
- * toute valeur inconnue du .env : se tromper dans le .env ferme la porte,
- * ne l'ouvre pas. */
-export function porteeDialogue() {
-  const brut = String(process.env.CLAUDE_DIALOGUE || '').trim().toLowerCase()
-  // Absent ou vide : le défaut. Écrit mais inconnu : la valeur la plus fermée.
-  if (!brut) return 'editeurs'
-  const v = brut
-  return PORTEES_DIALOGUE.includes(v) ? v : 'admins'
-}
-
-/** Un entier strictement positif lu dans l'environnement, sinon le défaut.
- * Lu à l'usage, pas à l'import : le .env n'est chargé qu'après les imports. */
-export function limiteEnv(nom, defaut) {
-  const v = Math.floor(Number(process.env[nom]))
-  return Number.isFinite(v) && v > 0 ? v : defaut
-}
-
-export const messagesParHeure = () => limiteEnv('DIALOGUE_MESSAGES_PAR_HEURE', MESSAGES_PAR_HEURE_DEFAUT)
-
-export function modeleDialogue() {
-  return process.env.DIALOGUE_MODEL || MODELE_PAR_DEFAUT
-}
-
-/** Le droit de lire le texte avec l'IA est celui du bouton IA (`canUseAI`,
- * les éditeurs) ; la portée du .env ne fait que le restreindre. */
-export function peutDialoguer({ admin, proprietaire, role }) {
-  if (!capabilities(role).canUseAI) return false
-  const portee = porteeDialogue()
-  if (portee === 'editeurs') return true
-  if (portee === 'proprietaires') return !!(admin || proprietaire)
-  return !!admin
-}
+/** Les lectures de Margo (`lire`, `chercher`) sont plafonnées à la limite de
+ * signes par demande, majorée de 20 % : le texte rendu porte les numéros de
+ * bloc, qui ne sont pas du texte de la personne. */
+const MARGE_LECTURE = 1.2
+const LECTURES = new Set(['lire', 'chercher'])
 
 export class DialogueErreur extends ErreurHttp {}
 
@@ -158,20 +114,22 @@ function avecCache(messages) {
 }
 
 export class Dialogue {
-  constructor({ storage, rooms, metrics = null, presence = null, fetch: fetcher = null, maintenant = () => Date.now(), pause = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+  constructor({ storage, rooms, quotas, estAdmin = () => false, metrics = null, presence = null, fetch: fetcher = null, maintenant = () => Date.now(), pause = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
     this.storage = storage
+    this.rooms = rooms
+    this.quotas = quotas
     this.metrics = metrics
     this.fetcher = fetcher
     this.maintenant = maintenant
     this.pause = pause
     this.collecteurs = new Map()
     this.enCours = new Set()
-    this.messages = new Limiteur({ max: messagesParHeure(), fenetreMs: FENETRE_MS, maintenant: () => this.maintenant() })
     this.reflexion = new Map()
     // Le même moteur que le connecteur, au nom d'un agent qui n'existe que
     // le temps de la conversation : vérifié à chaque appel d'outil (le
-    // document existe, la personne a encore le droit d'utiliser l'IA).
-    const verifierAgent = (agent, stockage) => !!stockage.getDoc(agent.docId) && !!capabilities(stockage.roleFor(agent.docId, agent.par)).canUseAI
+    // document existe, la personne a encore accès à Margo).
+    const verifierAgent = (agent, stockage) =>
+      !!stockage.getDoc(agent.docId) && quotas.acces('margo', { admin: estAdmin(agent.par), role: stockage.roleFor(agent.docId, agent.par) })
     const collecteur = {
       log: (_flux, donnees) => {
         const liste = this.collecteurs.get(donnees.agent)
@@ -190,7 +148,7 @@ export class Dialogue {
 
   /** Les contrôles d'avant le flux : tout ce qui se refuse avec un vrai code
    * HTTP. Renvoie la session à passer à `converser`. */
-  preparer({ email, prenom, docId, corps }) {
+  async preparer({ email, prenom, docId, corps }) {
     const doc = this.storage.getDoc(docId)
     if (!doc) throw new DialogueErreur(404, 'document inconnu')
     if (!process.env.ANTHROPIC_API_KEY) throw new DialogueErreur(501, 'Aucune clé API configurée sur ce serveur.')
@@ -217,12 +175,28 @@ export class Dialogue {
     const id = `dialogue-${createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 10)}-${docId}`
     if (this.enCours.has(id)) throw new DialogueErreur(429, 'Une réponse est déjà en cours pour ce document.')
     if (this.enCours.size >= SIMULTANES_MAX) throw new DialogueErreur(429, 'Margo a beaucoup de demandes en ce moment : réessayez dans un instant.')
-    if (!this.messages.essayer(email.toLowerCase())) {
-      throw new DialogueErreur(429, `Limite atteinte : ${this.messages.max} messages par heure. Reprenez un peu plus tard.`)
-    }
+    // La taille de la demande, en signes (espaces compris) : le message de la
+    // personne et le texte de la portée, connus **avant** tout envoi. C'est ce
+    // chiffre que le client affiche, que le serveur contrôle et que le compteur
+    // mensuel retient si la réponse arrive entière.
+    const taille = (await this._taillePortee(docId, portee)) + propres[propres.length - 1].content.length
+    const reglages = this.quotas.verifier({ fonction: 'margo', email, taille })
 
     const agent = { id, docId, nom: 'Margo (IA)', role: 'correcteur', par: email }
-    return { email, prenom, docId, titre: doc.title || 'sans titre', messages: propres, portee, agent, acces: { agent, capabilities: capabilities('correcteur') } }
+    return { email, prenom, docId, titre: doc.title || 'sans titre', messages: propres, portee, agent, taille, modele: reglages.modele, signesParDemande: reglages.signesParDemande, acces: { agent, capabilities: capabilities('correcteur') } }
+  }
+
+  /** Les signes (espaces compris) du texte de la portée : ceux des blocs
+   * numérotés qu'elle couvre — tout le document, une section ou une sélection. */
+  async _taillePortee(docId, portee) {
+    return this.rooms.lireDocument(docId, (ydoc) => {
+      let total = 0
+      for (const b of blocsDuDocument(ydoc)) {
+        if (portee.type !== 'document' && (b.n < portee.de || b.n > portee.a)) continue
+        total += b.texte.length
+      }
+      return total
+    })
   }
 
   _portee(p) {
@@ -241,12 +215,22 @@ export class Dialogue {
    * `annule()` dit si le navigateur a coupé la connexion. Ne lève rien
    * après le début du flux : une erreur devient un événement `erreur`.
    */
-  async converser(session, emettre, annule = () => false) {
+  async converser(session, sortie, annule = () => false) {
     const { agent, acces } = session
+    // Une réponse est **réussie** si aucune erreur n'a été dite à la personne et
+    // que la connexion n'a pas été coupée : seule une réponse réussie compte
+    // dans les signes du mois.
+    let reussi = true
+    const emettre = (evt) => {
+      if (evt.type === 'erreur') reussi = false
+      sortie(evt)
+    }
+    let lus = 0
+    const plafondLecture = Math.ceil(session.signesParDemande * MARGE_LECTURE)
     this.enCours.add(agent.id)
     this.collecteurs.set(agent.id, [])
     const debut = this.maintenant()
-    const modele = modeleDialogue()
+    const modele = session.modele
     const cumul = { entree: 0, sortie: 0, cacheLu: 0, cacheEcrit: 0, tours: 0 }
     const outils = {}
     let arret = null
@@ -311,6 +295,14 @@ export class Dialogue {
             const r = await this.mcp._appeler({ name: d.name, arguments: d.input }, acces)
             contenu = (r.content || []).map((c) => c.text).join('\n')
             enErreur = !!r.isError
+            if (LECTURES.has(d.name) && !enErreur) {
+              if (lus + contenu.length > plafondLecture) {
+                contenu = `Limite de lecture atteinte pour cette demande (${signes(session.signesParDemande)} au plus, réglage de l’instance). Travaille avec ce que tu as déjà lu, ou invite la personne à restreindre la portée.`
+                enErreur = true
+              } else {
+                lus += contenu.length
+              }
+            }
           } catch (err) {
             contenu = 'Cet outil n’est pas disponible.'
             enErreur = true
@@ -329,7 +321,20 @@ export class Dialogue {
       const bilan = this._bilan(this.collecteurs.get(agent.id) || [])
       this.collecteurs.delete(agent.id)
       this.enCours.delete(agent.id)
-      emettre({ type: 'fin', ...bilan, usage: { ...cumul } })
+      if (annule()) reussi = false
+      sortie({ type: 'fin', ...bilan, usage: { ...cumul } })
+      try {
+        this.quotas.enregistrer({
+          email: session.email,
+          fonction: 'margo',
+          modele,
+          succes: reussi,
+          signes: session.taille,
+          jetons: cumul.tours ? { entree: cumul.entree, sortie: cumul.sortie, cacheLu: cumul.cacheLu, cacheEcrit: cumul.cacheEcrit } : null,
+        })
+      } catch (err) {
+        console.error('[dialogue] usage non enregistré :', err && err.message)
+      }
       if (this.metrics) {
         this.metrics.log('dialogue', {
           email: session.email,

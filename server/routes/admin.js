@@ -10,6 +10,8 @@ import { courrierAvecBouton, sendMail } from '../mailgun.js'
 import { TITRE_BIENVENUE, ecrireModele } from '../modeleBienvenue.js'
 import { cleDuRetour } from '../supportTraites.js'
 import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
+import { BORNES, DEFAUTS, FONCTIONS, MODELES, NIVEAUX, NOMS_FONCTION } from '../reglagesIa.js'
+import { TARIFS_USD, moisDe } from '../usageIa.js'
 
 /** Le mode d'emploi glissé dans l'archive. Une sauvegarde qu'on retrouve
  * dans deux ans sans savoir quoi en faire ne sert à personne — et le jour
@@ -56,7 +58,7 @@ sauvegarde.
 
 export async function routesAdmin(req, res, url, ctx) {
   const { pathname } = url
-  const { metrics, repliques, rooms, storage, supportTraites, uploads, users, APP_BASE_URL, DATA_DIR } = ctx
+  const { metrics, repliques, reglagesIa, rooms, storage, supportTraites, uploads, usageIa, users, APP_BASE_URL, DATA_DIR } = ctx
 
   // Point de diagnostic temporaire pour le test de charge du 13/09/2026
   // (voir README.md, section dédiée) : mémoire du processus et un indicateur
@@ -86,13 +88,49 @@ export async function routesAdmin(req, res, url, ctx) {
     })
   }
 
+  // Réglages de l'IA et consommation (13/10/2026) : une page dédiée du
+  // back-office. GET donne les réglages d'instance de Corrections IA et de Margo,
+  // et, pour un mois (le mois en cours par défaut), la consommation de chaque
+  // personne et les jetons par modèle. PUT modifie les réglages (tout ou rien).
+  // Tout se compte en signes, espaces compris.
+  if (pathname === '/api/admin/ia' && (req.method === 'GET' || req.method === 'PUT')) {
+    const admin = readSession(req)
+    if (!isAdminEmail(admin)) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    if (req.method === 'PUT') {
+      const body = await readJsonBody(req)
+      reglagesIa.modifier(body, admin)
+    }
+    const demande = url.searchParams.get('mois')
+    const courant = moisDe(Date.now())
+    const mois = demande && /^\d{4}-(0[1-9]|1[0-2])$/.test(demande) ? demande : courant
+    const detail = usageIa.detail(mois)
+    const comptes = users ? users.tous() : {}
+    const disponibles = [...new Set([courant, ...usageIa.moisDisponibles()])].sort().reverse()
+    const utilisateurs = detail.utilisateurs
+      .map((u) => ({ ...u, nom: (comptes[u.email] || {}).nom || null }))
+      .sort((a, b) => b.corrections.signes + b.margo.signes - (a.corrections.signes + a.margo.signes))
+    return sendJson(res, 200, {
+      reglages: reglagesIa.tous(),
+      defauts: DEFAUTS,
+      bornes: BORNES,
+      modeles: MODELES,
+      niveaux: NIVEAUX,
+      fonctions: FONCTIONS.map((id) => ({ id, nom: NOMS_FONCTION[id] })),
+      mois: detail.mois,
+      moisDisponibles: disponibles,
+      utilisateurs,
+      jetonsParModele: detail.modeles,
+      tarifsUsd: TARIFS_USD,
+    })
+  }
+
   // Tarifs du modèle, en euros par million de jetons — lus du .env comme le
 // reste des réglages (voir .env.example). Ils ne servent qu'à traduire les
 // jetons déjà journalisés en une somme lisible : rien dans l'application ne
 // s'appuie dessus pour décider quoi que ce soit, un tarif périmé fausse un
 // affichage, jamais un comportement.
 const TARIFS_IA = {
-  modele: process.env.AI_MODEL || 'claude-haiku-5-5',
+  modele: 'claude-haiku-5-5',
   entreeEurParMTok: Number(process.env.AI_PRICE_INPUT_EUR) || 0.087,
   sortieEurParMTok: Number(process.env.AI_PRICE_OUTPUT_EUR) || 0.434,
 }

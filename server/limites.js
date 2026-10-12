@@ -3,7 +3,6 @@
 // .env : les seuils réglables y sont lus à ce moment-là.
 
 import { Limiteur } from './limiteur.js'
-import { limiteEnv } from './dialogue.js'
 import { origineDe } from './http.js'
 
 export function creerLimites() {
@@ -53,28 +52,9 @@ export function creerLimites() {
     return supportRecents.essayer(email)
   }
 
-  // Quotas du 10/10/2026 (audit, S9 + S10 + S11). Tous en mémoire, par compte.
-  //
-  // IA : sans quota, un compte (et un compte s'obtient par une invitation)
-  // pouvait se servir de la clé Anthropic de l'instance comme d'un modèle
-  // gratuit. Même plafond horaire que le dialogue, plus un plafond
-  // journalier.
-  //
-  // Ces plafonds sont ceux de la barre latérale « Demander à Margo » (Haiku
-  // 5.5). Ils sont indépendants de ceux de la fenêtre flottante (dialogue,
-  // Sonnet 5.5 : DIALOGUE_MESSAGES_PAR_HEURE, server/dialogue.js). Réglés dans
-  // le .env, ouverts très largement le 11/10/2026 (avant : 30 par heure et 150
-  // par jour) puisqu'un appel à Haiku coûte moins d'un centime.
-  const SUGGESTIONS_PAR_HEURE = limiteEnv('AI_SUGGESTIONS_PAR_HEURE', 1000)
-  const SUGGESTIONS_PAR_JOUR = limiteEnv('AI_SUGGESTIONS_PAR_JOUR', 5000)
-  const suggestionsParHeure = new Limiteur({ max: SUGGESTIONS_PAR_HEURE, fenetreMs: 3600_000 })
-  const suggestionsParJour = new Limiteur({ max: SUGGESTIONS_PAR_JOUR, fenetreMs: 24 * 3600_000 })
-  function suggestionAutorisee(email) {
-    if (suggestionsParHeure.atteint(email) || suggestionsParJour.atteint(email)) return false
-    suggestionsParHeure.noter(email)
-    suggestionsParJour.noter(email)
-    return true
-  }
+  // Quotas du 10/10/2026 (audit, S9 + S10 + S11). Ceux de l'IA ont quitté ce
+  // fichier le 13/10/2026 : ils se règlent dans le back-office et se comptent
+  // en signes par personne (server/reglagesIa.js, server/quotasIa.js).
 
   // Invitations : le titre du document part dans l'objet et le corps d'un
   // courriel envoyé depuis le domaine d'amend.ink vers n'importe quelle
@@ -105,9 +85,6 @@ export function creerLimites() {
     essaiPublicationAutorise,
     inscriptionAutorisee,
     supportAutorise,
-    suggestionAutorisee,
-    SUGGESTIONS_PAR_HEURE,
-    SUGGESTIONS_PAR_JOUR,
     invitationAutorisee,
     liensParOrigine,
     LIENS_PAR_ORIGINE_HEURE,

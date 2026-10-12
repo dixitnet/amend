@@ -45,6 +45,14 @@ export class Limiteur {
     return this._recents(cle).length >= this.max
   }
 
+  /** L'instant (ms) où la plus ancienne tentative encore comptée sortira de la
+   * fenêtre — donc celui où une place se libère —, ou `null` si la clé n'a
+   * rien de compté. */
+  libereA(cle) {
+    const recents = this._recents(cle)
+    return recents.length ? Math.min(...recents) + this.fenetreMs : null
+  }
+
   /** Enregistre un événement et renvoie le nombre d'événements dans la
    * fenêtre, celui-ci compris. Pour les usages où **chaque tentative
    * compte**, y compris celles qu'on refuse (adresses de pages publiées). */

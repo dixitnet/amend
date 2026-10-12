@@ -13,6 +13,7 @@
 // ni le texte du document.
 
 import { defilerVers } from './defilement.js'
+import { rapport, signes } from '../../shared/signes.js'
 import { changesKey } from './changesPanel.js'
 import { rejectAgentChanges, estModificationDAgent, listChanges } from './trackChanges.js'
 
@@ -81,6 +82,16 @@ export function porteeDe(view, type) {
     }
   }
   return { type: 'section', de: i + 1, a: fin }
+}
+
+/** Les signes (espaces compris) du texte de la portée, tels qu'on les voit
+ * dans l'éditeur : c'est la taille que le serveur contrôlera, à quelques
+ * signes près (il compte le texte visible des blocs numérotés). */
+export function taillePortee(view, p) {
+  if (!view || !p) return 0
+  const els = blocsDuDom(view)
+  const retenus = p.type === 'document' ? els : els.slice(p.de - 1, p.a)
+  return retenus.reduce((n, el) => n + el.textContent.length, 0)
 }
 
 export function libellePortee(p) {
@@ -308,13 +319,14 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   arreter.type = 'button'
   arreter.hidden = true
   const statut = el('p', 'dialogue-statut')
+  const quota = el('p', 'dialogue-quota')
   const note = el('p', 'dialogue-note', 'Margo lit le document pour vous répondre. Ses propositions arrivent en suivi de modifications : vous acceptez ou rejetez.')
 
   const pied = el('div', 'dialogue-pied')
   const barre = el('div', 'dialogue-barre')
   barre.append(envoyer, arreter)
   pied.append(saisie, barre, statut)
-  palette.append(entete, fil, reglages, pied, note)
+  palette.append(entete, fil, reglages, pied, quota, note)
   racine.append(palette, bouton)
   hote.appendChild(racine)
 
@@ -404,8 +416,36 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   function majIndication() {
     const view = getView()
     const p = view ? porteeDe(view, choix.value) : { type: 'document' }
-    indication.textContent = p ? libellePortee(p) : 'rien n’est sélectionné'
-    indication.classList.toggle('dialogue-alerte', !p)
+    if (!p) {
+      indication.textContent = 'rien n’est sélectionné'
+      indication.classList.add('dialogue-alerte')
+      return
+    }
+    // La taille de la demande, en signes, avant l'envoi : la portée seule (le
+    // message s'y ajoute) rapportée à la limite par demande.
+    const taille = taillePortee(view, p)
+    indication.textContent = `${libellePortee(p)} · ${rapport(taille, limites.signesParDemande)}`
+    indication.classList.toggle('dialogue-alerte', taille > limites.signesParDemande)
+  }
+
+  /** Les limites et la consommation du mois, lues sur le serveur. */
+  const limites = { signesParDemande: Number(droit.signesParDemande) || Infinity, mois: droit.mois || null }
+  function majQuota() {
+    quota.textContent = limites.mois ? `Ce mois-ci : ${rapport(limites.mois.utilises, limites.mois.max)}.` : ''
+  }
+  async function rafraichirQuota() {
+    try {
+      const r = await fetcher(`/api/docs/${encodeURIComponent(docId)}/dialogue`, { credentials: 'same-origin' })
+      if (!r.ok) return
+      const d = await r.json()
+      if (d && d.autorise) {
+        limites.signesParDemande = Number(d.signesParDemande) || limites.signesParDemande
+        limites.mois = d.mois || limites.mois
+        majQuota()
+      }
+    } catch {
+      // l'affichage reste celui d'avant
+    }
   }
 
   // --- Résumé des modifications proposées ------------------------------
@@ -455,6 +495,12 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     const portee = porteeDe(view, choix.value)
     if (!portee) {
       statut.textContent = 'Sélectionnez d’abord un passage dans le texte, ou changez la portée.'
+      return
+    }
+    // Trop gros ? On le dit avant d'envoyer, en signes : le serveur refuserait de toute façon.
+    const taille = taillePortee(view, portee) + texte.length
+    if (taille > limites.signesParDemande) {
+      statut.textContent = `Cette demande porte sur ${signes(taille)} ; la limite est de ${signes(limites.signesParDemande)} par demande. Choisissez une portée plus courte.`
       return
     }
     statut.textContent = ''
@@ -534,6 +580,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
       arreter.hidden = true
       descendre()
       saisie.focus()
+      rafraichirQuota()
     }
   }
 
@@ -593,6 +640,7 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     if (e.key === 'Escape') replier()
   })
 
+  majQuota()
   dessiner()
 
   return {
