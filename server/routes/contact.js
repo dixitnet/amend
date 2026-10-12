@@ -102,7 +102,6 @@ export async function routesContact(req, res, url, ctx) {
     return sendJson(res, 200, { ok: true })
   }
 
-  sendJson(res, 404, { error: 'not found' })
-
+  // Rien d'autre ici : le 404 de repli est répondu une seule fois, par handleApi.
   return PAS_TRAITE
 }

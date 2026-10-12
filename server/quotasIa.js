@@ -37,11 +37,17 @@ export function accesIa(niveau, { admin = false, role = null } = {}) {
 }
 
 export class QuotasIa {
-  constructor({ reglages, usage, maintenant = () => Date.now() }) {
+  /** `registre` (facultatif) : les demandes de l'heure y sont gardées d'un redémarrage à l'autre. */
+  constructor({ reglages, usage, maintenant = () => Date.now(), registre = null }) {
     this.reglages = reglages
     this.usage = usage
     this.maintenant = maintenant
-    this.heure = Object.fromEntries(FONCTIONS.map((f) => [f, new Limiteur({ max: 1, fenetreMs: HEURE_MS, maintenant: () => this.maintenant() })]))
+    this.heure = Object.fromEntries(
+      FONCTIONS.map((f) => {
+        const l = new Limiteur({ max: 1, fenetreMs: HEURE_MS, maintenant: () => this.maintenant() })
+        return [f, registre ? registre.adopter(`ia-${f}-heure`, l) : l]
+      })
+    )
   }
 
   acces(fonction, personne) {

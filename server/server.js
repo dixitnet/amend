@@ -45,7 +45,8 @@ import { chargerDotEnv } from './env.js'
 import { creerServiceStatique } from './statique.js'
 import { creerServicePages } from './pagesPubliees.js'
 import { traiterMcp } from './connecteur.js'
-import { isAdminEmail, readSession, definirRevocation } from './auth.js'
+import { isAdminEmail, readSession, definirRevocation, limiteurLiensParAdresse } from './auth.js'
+import { RegistreLimiteurs } from './limiteurs.js'
 import { SessionsRevoquees } from './sessions.js'
 import { origineAutorisee, methodeModifie } from './origine.js'
 import { capabilities } from './roles.js'
@@ -59,9 +60,6 @@ const DATA_DIR = process.env.DATA_DIR || join(ROOT, 'data')
 const PORT = Number(process.env.PORT) || 8787
 const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`
 
-// Les plafonds (server/limites.js), créés ici parce que leurs seuils viennent du .env.
-const limites = creerLimites()
-
 const storage = new Storage(DATA_DIR)
 // Un seul serveur par dossier de données (audit A24), et des données dont on
 // connaît la version (audit A20) : voir donnees.js.
@@ -71,6 +69,13 @@ try {
   console.error(`[amend] ${err.message}`)
   process.exit(1)
 }
+// Les plafonds (server/limites.js), créés ici parce que leurs seuils viennent
+// du .env. Leurs compteurs sont gardés dans data/limiteurs.json
+// (server/limiteurs.js) : un déploiement ne les remet plus à zéro. Après le
+// verrou des données : une seconde instance qui s'arrête là n'écrit rien.
+const registreLimiteurs = new RegistreLimiteurs(DATA_DIR)
+registreLimiteurs.adopter('liens-par-adresse', limiteurLiensParAdresse)
+const limites = creerLimites({ registre: registreLimiteurs })
 const rangements = new Rangements(DATA_DIR)
 const MIGRATIONS = [
   {
@@ -160,7 +165,7 @@ const mcp = new Mcp({ agents, storage, rooms, metrics, presence: presenceAgents 
 // et la consommation de chaque personne (data/usage-ia.json), 13/10/2026.
 const reglagesIa = new ReglagesIa(DATA_DIR)
 const usageIa = new UsageIa(DATA_DIR)
-const quotas = new QuotasIa({ reglages: reglagesIa, usage: usageIa })
+const quotas = new QuotasIa({ reglages: reglagesIa, usage: usageIa, registre: registreLimiteurs })
 const dialogue = new Dialogue({ storage, rooms, quotas, estAdmin: isAdminEmail, metrics, presence: presenceAgents })
 
 // Plus de plafond de participants simultanés par document (le
@@ -368,6 +373,7 @@ async function shutdown(signal) {
     console.error('Erreur pendant la sauvegarde finale :', err)
   }
   repliques.fermer()
+  registreLimiteurs.arreter()
   process.exit(0)
 }
 process.on('SIGINT', () => shutdown('SIGINT'))

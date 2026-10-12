@@ -793,6 +793,26 @@ test('un refus 403 ne consomme pas le quota IA', async () => {
   }
 })
 
+test('une adresse d’API inconnue reçoit un seul 404, sans erreur au journal', async () => {
+  // Régression du 13/10/2026 : le dernier module de routes répondait 404 puis
+  // rendait la main, et le serveur répondait une seconde fois — « headers
+  // already sent » au journal à chaque adresse inconnue.
+  const erreurs = []
+  const origine = console.error
+  console.error = (...a) => erreurs.push(a.join(' '))
+  try {
+    for (const methode of ['GET', 'POST']) {
+      const res = await fetch(`${BASE}/api/cette-route-n-existe-pas`, { method: methode, headers: { origin: BASE } })
+      assert.equal(res.status, 404)
+      assert.deepEqual(await res.json(), { error: 'not found' })
+    }
+    await new Promise((r) => setTimeout(r, 30))
+  } finally {
+    console.error = origine
+  }
+  assert.deepEqual(erreurs, [])
+})
+
 test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   // Laisse le rapporteur TAP écrire le résultat du tout dernier test avant

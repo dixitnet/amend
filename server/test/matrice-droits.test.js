@@ -137,13 +137,15 @@ const EXCLUES = {
   '/ws/:x': 'WebSocket : les droits y sont vérifiés à l’ouverture (access.test.js, lecteur-serveur.test.js)',
 }
 
-/** Les routes de server.js, sous une forme normalisée : `pathname === '/api/x'`
+/** Les routes de server.js, sous une forme normalisée (Prettier peut couper l'appel
+ * `.match(...)` sur plusieurs lignes : les espaces et retours à la ligne autour du motif
+ * sont tolérés) : `pathname === '/api/x'`
  * et `pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/star$/)` deviennent
  * `/api/x` et `/api/docs/:x/star`. */
 export function routesDuServeur(source) {
   const routes = new Set()
   for (const m of source.matchAll(/pathname\s*===\s*'([^']+)'/g)) routes.add(m[1])
-  for (const m of source.matchAll(/(?:pathname|url\.pathname)\.match\(\/\^(.+?)\$\/\)/g)) {
+  for (const m of source.matchAll(/(?:pathname|url\.pathname)\.match\(\s*\/\^(.+?)\$\/\s*\)/g)) {
     let r = m[1].replace(/\\\//g, '/')
     r = r.replace(/\(\?:[^]*$/, '') // un suffixe facultatif (agents) : on garde le préfixe
     r = r.replace(/\([^()]*\)/g, ':x')

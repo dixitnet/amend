@@ -163,12 +163,15 @@ export function readSession(req) {
 }
 
 // --- Jetons de reconnexion (lien magique) : usage unique, courte durée de
-// vie, en mémoire (pas besoin de survivre à un redémarrage). ---
+// vie, en mémoire (pas besoin de survivre à un redémarrage). Le plafond de
+// demandes par adresse, lui, est gardé d'un redémarrage à l'autre : le
+// serveur l'adopte dans son registre (server/limiteurs.js). ---
 const RECONNECT_TOKEN_TTL_MS = 20 * 60 * 1000 // 20 minutes
 const reconnectTokens = new Map() // token -> { email, expiresAt }
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 const RATE_LIMIT_MAX = 5
 const reconnectRateLimit = new Limiteur({ max: RATE_LIMIT_MAX, fenetreMs: RATE_LIMIT_WINDOW_MS }) // par email
+export const limiteurLiensParAdresse = reconnectRateLimit
 
 export function canRequestReconnectLink(email) {
   return !reconnectRateLimit.atteint(email)

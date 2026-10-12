@@ -24,12 +24,14 @@ import { MODELES_LIVRES, modeleLivre, ID_DEFAUT, NOM_DEFAUT } from '../shared/mo
 const ID_STOCKE = /^m-[0-9a-f]{8}$/
 export const NOM_MAX = 60
 
+// eslint-disable-next-line no-control-regex
+const CARACTERES_DE_CONTROLE = /[\u0000-\u001f\u007f]/g
+
 /** Un nom de modèle propre, ou `null` : espaces compactés, caractères de
  * contrôle retirés, 1 à NOM_MAX caractères. */
 export function nomValide(nom) {
   if (typeof nom !== 'string') return null
-  // eslint-disable-next-line no-control-regex
-  const propre = nom.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()
+  const propre = nom.replace(CARACTERES_DE_CONTROLE, ' ').replace(/\s+/g, ' ').trim()
   if (!propre || propre.length > NOM_MAX) return null
   return propre
 }
