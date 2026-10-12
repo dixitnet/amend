@@ -474,9 +474,20 @@ test('les commentaires s’ancrent sur le passage cité et se retrouvent', () =>
   assert.equal(liste[0].passage, 'un mardi')
   assert.equal(liste[0].bloc, 1)
   assert.equal(liste[0].auteur, 'Claude')
-  // Le commentaire est celui du client : mêmes champs.
+  // Le commentaire est celui du client : mêmes champs — et, depuis le 13/10,
+  // l'`authorId` de l'agent (aucun compte ne peut le revendiquer).
   const brut = y.getMap('comments').get(r.id)
-  assert.deepEqual(Object.keys(brut).sort(), ['anchorFrom', 'anchorTo', 'author', 'color', 'createdAt', 'id', 'text'])
+  assert.deepEqual(Object.keys(brut).sort(), [
+    'anchorFrom',
+    'anchorTo',
+    'author',
+    'authorId',
+    'color',
+    'createdAt',
+    'id',
+    'text',
+  ])
+  assert.equal(brut.authorId, 'agent')
   // Répondre : un seul niveau.
   const rep = repondre(y, { commentaire: r.id, texte: 'Confirmé.' }, AUTEUR)
   assert.ok(rep.ok)

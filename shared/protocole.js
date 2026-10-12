@@ -12,3 +12,13 @@ export const NOM_COMMENTAIRES = 'comments'
 /** Les commentaires dont le passage est vide, masqués par les éditeurs, avec
  * la date du geste (`Y.Map`, voir client/src/comments.js). */
 export const NOM_ORPHELINS = 'commentsOrphelins'
+
+/** Ce qu'un commentaire dont l'auteur n'est pas un compte porte dans
+ * `authorId` (13/10/2026) :
+ *  - `AUTEUR_AGENT` : un agent invité (« Claude (pour Marie) ») ;
+ *  - `AUTEUR_INCONNU` : un commentaire d'avant l'identifiant stable, que le
+ *    serveur n'a pas pu rattacher à un compte (nom absent des membres du
+ *    document, ou porté par plusieurs). Personne ne s'en reconnaît l'auteur :
+ *    ni lecteur ni client ne peut le corriger. */
+export const AUTEUR_AGENT = 'agent'
+export const AUTEUR_INCONNU = 'inconnu'

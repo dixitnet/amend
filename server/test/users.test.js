@@ -33,7 +33,8 @@ const BASE = `http://localhost:${PORT}`
 
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
-const { Users, COULEURS, COULEUR_IA, couleurAutorisee, NOM_MAX } = await import('../users.js')
+const { Users, COULEURS, COULEURS_CHOIX, COULEUR_IA, couleurAutorisee, couleurChoisie, NOM_MAX } =
+  await import('../users.js')
 await waitForServer()
 
 function waitForServer() {
@@ -223,4 +224,89 @@ test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   await new Promise((r) => setTimeout(r, 50))
   process.exit(0)
+})
+
+// --- Choisir sa couleur (13/10/2026) -----------------------------------------
+
+function definirCouleur(cookie, couleur) {
+  return fetch(`${BASE}/api/auth/couleur`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
+    body: JSON.stringify({ couleur }),
+  })
+}
+
+test('on choisit sa couleur dans la palette : elle revient avec le document et avec /me, et survit à un renommage', async () => {
+  const cookie = cookieFor('jade@example.com')
+  const doc = await creerDoc(cookie)
+  const nomme = await (await definirNom(cookie, 'Jade')).json()
+  const voulue = COULEURS_CHOIX.find((c) => c !== nomme.couleur)
+  const res = await definirCouleur(cookie, voulue.toUpperCase())
+  assert.equal(res.status, 200)
+  assert.deepEqual(await res.json(), { nom: 'Jade', couleur: voulue })
+
+  const meta = await (await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie } })).json()
+  assert.equal(meta.myColor, voulue)
+  const moi = await (await fetch(`${BASE}/api/auth/me`, { headers: { cookie } })).json()
+  assert.equal(moi.couleur, voulue)
+  // La couleur choisie ne bouge pas quand on change de nom.
+  const apres = await (await definirNom(cookie, 'Jade Martin')).json()
+  assert.equal(apres.couleur, voulue)
+})
+
+test('une couleur hors palette est refusée : le vert de l’IA, le blanc, une valeur de CSS, du vide', async () => {
+  const cookie = cookieFor('kim@example.com')
+  const { couleur } = await (await definirNom(cookie, 'Kim')).json()
+  for (const mauvaise of [COULEUR_IA, '#588157', '#ffffff', '#12345', 'red', 'url(x)', '', null, 42, { a: 1 }]) {
+    const res = await definirCouleur(cookie, mauvaise)
+    assert.equal(res.status, 400, String(mauvaise))
+  }
+  const moi = await (await fetch(`${BASE}/api/auth/me`, { headers: { cookie } })).json()
+  assert.equal(moi.couleur, couleur, 'la couleur d’avant reste')
+})
+
+test('on ne colore que son propre compte, et seulement un compte qui a un nom', async () => {
+  assert.equal((await definirCouleur(null, COULEURS_CHOIX[0])).status, 401)
+  // Sans nom, pas de compte : rien à colorer (409), et aucun compte n'est créé.
+  const cookie = cookieFor('lou@example.com')
+  assert.equal((await definirCouleur(cookie, COULEURS_CHOIX[0])).status, 409)
+  assert.equal(new Users(process.env.DATA_DIR).get('lou@example.com'), null)
+  // Une adresse glissée dans le corps est ignorée, comme pour le nom.
+  await definirNom(cookie, 'Lou')
+  const autre = cookieFor('max@example.com')
+  await definirNom(autre, 'Max')
+  const avant = new Users(process.env.DATA_DIR).get('max@example.com').couleur
+  const voulue = COULEURS_CHOIX.find((c) => c !== avant)
+  const res = await fetch(`${BASE}/api/auth/couleur`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie },
+    body: JSON.stringify({ couleur: voulue, email: 'max@example.com' }),
+  })
+  assert.equal(res.status, 200)
+  assert.equal(new Users(process.env.DATA_DIR).get('max@example.com').couleur, avant)
+  assert.equal(new Users(process.env.DATA_DIR).get('lou@example.com').couleur, voulue)
+})
+
+test('la palette à choisir : seize couleurs distinctes, sans vert, qui contient celle du tirage au sort', () => {
+  assert.equal(COULEURS_CHOIX.length, 16)
+  assert.equal(new Set(COULEURS_CHOIX).size, 16)
+  for (const c of COULEURS) assert.ok(COULEURS_CHOIX.includes(c))
+  assert.ok(!COULEURS_CHOIX.includes(COULEUR_IA))
+  const teinte = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    if (max === min) return null
+    const d = max - min
+    const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+    return (h * 60 + 360) % 360
+  }
+  for (const c of COULEURS_CHOIX) {
+    assert.match(c, /^#[0-9a-f]{6}$/)
+    const h = teinte(c)
+    // Le vert de l'IA est vers 100° : rien entre 70° et 170°.
+    assert.ok(h === null || h < 70 || h > 170, `${c} (${h}°) est trop près du vert`)
+  }
+  assert.equal(couleurChoisie(' #3D5A80'), null, 'les espaces ne passent pas')
+  assert.equal(couleurChoisie('#3D5A80'), '#3d5a80')
 })

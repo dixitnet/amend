@@ -27,7 +27,8 @@
 import { Worker } from 'node:worker_threads'
 import { fileURLToPath } from 'node:url'
 import * as Y from 'yjs'
-import { NOM_TEXTE, NOM_COMMENTAIRES } from '../shared/protocole.js'
+import { NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS } from '../shared/protocole.js'
+import { analyser, comparer } from './correcteur.js'
 
 /** Délai avant de libérer la réplique d'une salle vide : une reconnexion
  * dans la minute ne doit pas recharger le journal. */
@@ -54,6 +55,9 @@ export class Repliques {
       max = MAX_REPLIQUES,
       seuilWorkerOctets = SEUIL_WORKER_OCTETS,
       delaiCompactageMs = DELAI_COMPACTAGE_MS,
+      apresChargement = null,
+      modeCorrecteur = () => 'observer',
+      surViolation = null,
     } = {}
   ) {
     this.storage = storage
@@ -63,6 +67,19 @@ export class Repliques {
     this.max = max
     this.seuilWorkerOctets = seuilWorkerOctets
     this.delaiCompactageMs = delaiCompactageMs
+    /** `(id, doc) => Uint8Array | null` : appelé une fois la réplique chargée,
+     * avant que quiconque la lise. Ce qu'il rend est une opération que le
+     * serveur a appliquée lui-même au document (rattachement des commentaires
+     * d'avant à un compte, server/auteursCommentaires.js) : elle est écrite
+     * au journal. Une exception est journalisée et n'empêche pas le
+     * chargement. */
+    this.apresChargement = apresChargement
+    /** `() => 'refuser' | 'observer' | 'off'` : ce que la règle du correcteur
+     * (server/correcteur.js) fait d'une opération qui la viole. Lu à chaque
+     * opération, pour qu'un réglage change sans redémarrer les répliques. */
+    this.modeCorrecteur = modeCorrecteur
+    /** `(info) => void` : appelé pour chaque violation (journal, métriques). */
+    this.surViolation = surViolation
     /** @type {Map<string, {doc: Y.Doc, refs: number, liberation: any, ops: number, octets: number, modifie: boolean, compactage: any, enCompactage: Promise|null}>} */
     this.repliques = new Map()
     /** Chargements en cours : deux connexions simultanées n'en font qu'un. */
@@ -95,21 +112,37 @@ export class Repliques {
     } else {
       for (const op of this.storage.readUpdates(id)) appliquerSansPlanter(doc, op)
     }
+    let maj = null
+    if (this.apresChargement) {
+      try {
+        maj = this.apresChargement(id, doc)
+        if (maj && maj.length) this.storage.appendUpdate(id, Buffer.from(maj))
+        else maj = null
+      } catch (err) {
+        console.error(`[replique] traitement après chargement de ${id} :`, err.message)
+        maj = null
+      }
+    }
     const replique = {
       doc,
+      /** Compte les opérations appliquées au document : une analyse gardée
+       * (règle du correcteur) ne vaut que pour la génération qu'elle a vue. */
+      generation: 0,
+      analyse: null,
       refs: 0,
       liberation: null,
       // Ce que le journal a accumulé depuis son dernier compactage — le
       // déclencheur du prochain, tenu en mémoire pour ne pas relire le
       // fichier à chaque frappe.
-      ops: info.operations || 0,
-      octets,
+      ops: (info.operations || 0) + (maj ? 1 : 0),
+      octets: octets + (maj ? maj.length : 0),
       // Modifié depuis la dernière version enregistrée : c'est ce qui
       // décide si la fin d'une session mérite une version.
-      modifie: false,
+      modifie: !!maj,
       compactage: null,
       enCompactage: null,
     }
+    doc.on('update', () => replique.generation++)
     this.repliques.set(id, replique)
     this._elaguer(id)
     // Un journal trop lourd au chargement : on compacte tout de suite,
@@ -200,6 +233,111 @@ export class Repliques {
     r.modifie = true
     if (this._aCompacter(r)) this._planifierCompactage(id, this.delaiCompactageMs)
     return { ok: true }
+  }
+
+  /**
+   * Applique l'opération d'un **correcteur**, après avoir vérifié qu'elle
+   * respecte sa règle (server/correcteur.js). `{ ok: true }`, ou `{ ok: false,
+   * raison, violation: true }` si elle la viole (refusée : ni appliquée, ni
+   * persistée, ni relayée), ou `{ ok: true, observee: true }` en mode
+   * « observer » : la violation est signalée mais l'opération passe.
+   *
+   * Comment on juge sans toucher au document avant de savoir : la règle se
+   * pose sur le texte **après** l'opération. On l'applique donc à la réplique,
+   * on compare, et si c'est refusé on **recharge** la réplique depuis le
+   * journal (où l'opération n'est pas) — le tout d'une traite, sans que rien
+   * d'autre puisse lire la réplique entre-temps. Une opération refusée est
+   * rare ; l'analyse d'« avant » est gardée d'une opération à la suivante.
+   *
+   * `noms` : les noms que le correcteur signe ; `idAuteur` : l'identifiant de
+   * son compte (ses commentaires).
+   */
+  appliquerCorrecteur(id, update, { noms = [], idAuteur = null, email = null } = {}) {
+    const mode = this.modeCorrecteur()
+    if (mode === 'off') return this.appliquer(id, update)
+    const r = this.repliques.get(id)
+    if (!r) return { ok: false, raison: 'réplique absente' }
+
+    // 1. Où l'opération écrit.
+    let touche
+    try {
+      touche = racinesTouchees(r.doc, update)
+    } catch {
+      return this.appliquer(id, update) // illisible : le verdict ordinaire
+    }
+    const signaler = (raison, detail) => {
+      const info = { id, email, mode, raison, detail }
+      if (this.surViolation) {
+        try {
+          this.surViolation(info)
+        } catch {
+          // la mesure ne doit rien empêcher
+        }
+      }
+      return info
+    }
+    const permises = new Set([NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS])
+    const ailleurs = [...touche.inserees, ...touche.supprimees].find((x) => !permises.has(x))
+    let violation = ailleurs
+      ? { raison: 'modification hors du texte et des commentaires', detail: `racine ${ailleurs}` }
+      : null
+    if (!violation) {
+      // Ses commentaires portent son identifiant, jamais celui d'un autre.
+      for (const { racine, valeurs } of touche.contenus) {
+        if (racine !== NOM_COMMENTAIRES) continue
+        if (valeurs.some((v) => !idAuteur || !v || typeof v !== 'object' || v.authorId !== idAuteur)) {
+          violation = { raison: 'un commentaire doit porter l’identifiant de son auteur', detail: 'commentaires' }
+          break
+        }
+      }
+    }
+    if (violation) {
+      // Constatée avant d'appliquer : rien à défaire.
+      const info = signaler(violation.raison, violation.detail)
+      if (mode === 'observer') {
+        const verdict = this.appliquer(id, update)
+        return verdict.ok ? { ok: true, observee: true } : verdict
+      }
+      return { ok: false, raison: info.raison, violation: true }
+    }
+    const texteTouche = touche.inserees.has(NOM_TEXTE) || touche.supprimees.has(NOM_TEXTE)
+    if (!texteTouche) return this.appliquer(id, update)
+
+    // 2. Le texte, avant et après.
+    const fragment = () => r.doc.getXmlFragment(NOM_TEXTE)
+    const avant = r.analyse && r.analyse.generation === r.generation ? r.analyse.valeur : analyser(fragment())
+    const appliquee = this.appliquer(id, update)
+    if (!appliquee.ok) return appliquee
+    const apres = analyser(fragment())
+    const verdict = comparer(avant, apres, noms)
+    if (verdict.ok) {
+      r.analyse = { generation: r.generation, valeur: apres }
+      return { ok: true }
+    }
+    const info = signaler(verdict.raison, verdict.detail)
+    if (mode === 'observer') {
+      r.analyse = { generation: r.generation, valeur: apres }
+      return { ok: true, observee: true }
+    }
+    this.recharger(id)
+    return { ok: false, raison: info.raison, violation: true }
+  }
+
+  /** Reconstruit la réplique d'après le journal : ce qui y a été appliqué
+   * sans y être écrit (une opération refusée) disparaît. Les références, les
+   * minuteries et les compteurs de la réplique restent. */
+  recharger(id) {
+    const r = this.repliques.get(id)
+    if (!r) return false
+    const doc = new Y.Doc()
+    for (const op of this.storage.readUpdates(id)) appliquerSansPlanter(doc, op)
+    const ancien = r.doc
+    r.doc = doc
+    r.analyse = null
+    r.generation++
+    doc.on('update', () => r.generation++)
+    ancien.destroy()
+    return true
   }
 
   /**
@@ -436,22 +574,19 @@ export function racinesTouchees(doc, update) {
  * `{ ok: false, raison }`.
  *
  * « Les siens » se reconnaît à `authorId`, l'identifiant stable du compte
- * (`idCompte`, server/users.js) que le client écrit dans chaque commentaire
- * depuis le 10/10/2026 — et non plus au nom affiché, qui n'est pas unique :
- * un lecteur qui se renommait « Marie » modifiait les commentaires de Marie
- * (audit S12).
- *   - un commentaire **écrit** porte `authorId`, et c'est le sien ;
- *   - un commentaire **supprimé ou remplacé** qui porte `authorId` doit être
- *     le sien ;
- *   - **exception d'héritage** : un commentaire d'avant cette règle n'a pas
- *     d'`authorId`, seulement `author`. Il reste modifiable par qui porte ce
- *     nom (comme avant) — c'est le reste connu de S12, qui disparaît avec les
- *     commentaires d'avant. On ne peut pas en *créer* un nouveau de cette
- *     façon : une valeur sans `authorId` n'est admise que si elle remplace un
- *     commentaire du même identifiant, déjà sans `authorId`, au même nom.
- * `id` absent (outils, anciens appels) : seule la comparaison par nom reste.
+ * (`idCompte`, server/users.js) — et à lui seul. Il y eut une exception
+ * d'héritage jusqu'au 13/10/2026 : un commentaire d'avant l'identifiant, qui
+ * n'avait que `author`, restait modifiable par qui portait ce nom (reste
+ * connu de l'audit S12). Elle est retirée : à son chargement, la réplique
+ * rattache chaque commentaire d'avant à un compte (`auteursCommentaires.js`),
+ * ou à `AUTEUR_INCONNU` que personne ne peut revendiquer. Donc :
+ *   - tout commentaire **écrit** doit porter `authorId`, et c'est le sien ;
+ *   - tout commentaire **supprimé ou remplacé** doit porter le sien ;
+ *   - une valeur de la table des commentaires qui n'est pas un commentaire
+ *     (pas d'objet, pas d'`authorId`) est refusée aussi ;
+ *   - sans identifiant de compte (`id` absent), aucun commentaire n'est touchable.
  */
-export function verifierLecteur(doc, update, nom, id = null) {
+export function verifierLecteur(doc, update, id = null) {
   let touche
   try {
     touche = racinesTouchees(doc, update)
@@ -466,32 +601,9 @@ export function verifierLecteur(doc, update, nom, id = null) {
       }
   }
   const refus = { ok: false, raison: "un lecteur ne touche qu'à ses propres commentaires" }
-  const commentaires = doc.getMap(NOM_COMMENTAIRES)
-  const estUnCommentaire = (v) => v && typeof v === 'object' && 'author' in v
-  for (const { valeurs } of touche.supprimes) {
-    for (const v of valeurs) {
-      if (!estUnCommentaire(v)) continue
-      if (id && v.authorId !== undefined) {
-        if (v.authorId !== id) return refus
-      } else if (v.author !== nom) return refus
-    }
-  }
-  for (const { valeurs } of touche.contenus) {
-    for (const v of valeurs) {
-      if (!estUnCommentaire(v)) continue
-      if (!id) {
-        if (v.author !== nom) return refus
-        continue
-      }
-      if (v.authorId !== undefined) {
-        if (v.authorId !== id) return refus
-        continue
-      }
-      // Sans authorId : seulement le remplacement d'un commentaire d'avant.
-      const avant = typeof v.id === 'string' ? commentaires.get(v.id) : null
-      const heritage = avant && typeof avant === 'object' && avant.authorId === undefined && avant.author === nom
-      if (!heritage || v.author !== nom) return refus
-    }
+  const estLeSien = (v) => !!id && v && typeof v === 'object' && v.authorId === id
+  for (const { valeurs } of [...touche.supprimes, ...touche.contenus]) {
+    for (const v of valeurs) if (!estLeSien(v)) return refus
   }
   return { ok: true }
 }

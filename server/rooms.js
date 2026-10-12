@@ -135,18 +135,30 @@ export class Rooms {
       if (acces && acces.capabilities && !acces.capabilities.canProposeChanges && !acces.capabilities.canEditFreely) {
         const r = this.repliques.repliques.get(docId)
         const verdict = r
-          ? verifierLecteurDoc(r.doc, update, acces.nom, acces.id || null)
+          ? verifierLecteurDoc(r.doc, update, acces.id || null)
           : { ok: false, raison: 'réplique absente' }
         if (!verdict.ok) {
           member.conn.send(JSON.stringify({ type: 'refuse', raison: verdict.raison }))
           return
         }
       }
-      const verdict = this.repliques.appliquer(docId, update)
+      // Un correcteur : son texte doit rester en suivi de modifications et à
+      // son nom (correcteur.js). Selon le réglage, une violation est refusée
+      // ou seulement signalée.
+      const cap = acces && acces.capabilities
+      const estCorrecteur = !!cap && cap.canProposeChanges && !cap.canEditFreely
+      const verdict = estCorrecteur
+        ? this.repliques.appliquerCorrecteur(docId, update, {
+            noms: acces.nomsDAuteur ? acces.nomsDAuteur() : [acces.nom, member.user],
+            idAuteur: acces.id || null,
+            email: acces.email || null,
+          })
+        : this.repliques.appliquer(docId, update)
       if (!verdict.ok) {
-        // Illisible ou hors séquence : ni persistée ni relayée. Le client
-        // est prévenu quand il peut y faire quelque chose (recharger).
-        if (/hors séquence/.test(verdict.raison))
+        // Illisible, hors séquence ou contraire à la règle du correcteur : ni
+        // persistée ni relayée. Le client est prévenu quand il peut y faire
+        // quelque chose (recharger).
+        if (verdict.violation || /hors séquence/.test(verdict.raison))
           member.conn.send(JSON.stringify({ type: 'refuse', raison: verdict.raison }))
         return
       }

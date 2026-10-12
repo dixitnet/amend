@@ -20,7 +20,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { lireJson, ecrireJsonAtomique } from './fichiers.js'
-import { COULEURS } from '../shared/identite.js'
+import { COULEURS, COULEURS_CHOIX } from '../shared/identite.js'
 
 /** La couleur de l'IA, réservée (17/09/2026).
  *
@@ -34,7 +34,7 @@ export const COULEUR_IA = '#5f7a4a'
 
 /** La palette des couleurs de personnes : `shared/identite.js`, commune au
  * serveur et au client. */
-export { COULEURS }
+export { COULEURS, COULEURS_CHOIX }
 
 /** Les couleurs retirées, et par quoi les remplacer. Un compte créé avant
  * le 17/09/2026 a pu recevoir un vert : on ne le laisse pas, mais on ne
@@ -67,6 +67,13 @@ export function idCompte(email) {
     .update(`amend:compte:${String(email || '').toLowerCase()}`)
     .digest('hex')
     .slice(0, 16)
+}
+
+/** La couleur demandée, rangée en minuscules, si elle est dans la palette
+ * proposée à la personne ; sinon `null` (13/10/2026). */
+export function couleurChoisie(couleur) {
+  const c = String(couleur || '').toLowerCase()
+  return COULEURS_CHOIX.includes(c) ? c : null
 }
 
 export const NOM_MAX = 40
@@ -146,7 +153,7 @@ export class Users {
    * plus tard ne la retire donc pas.
    *
    * Changer son nom (10/10/2026) passe par ici aussi : la couleur ne change
-   * pas. La couleur, elle, reste à faire. */
+   * pas. La changer est un geste à part (`definirCouleur`, 13/10/2026). */
   definirNom(email, nom) {
     const propre = nomPropre(nom)
     if (!email || raisonDeRefus(propre)) return null
@@ -162,6 +169,34 @@ export class Users {
     registre[email] = compte
     this._ecrire(registre)
     return compte
+  }
+
+  /** La couleur que la personne choisit (13/10/2026). Elle doit être dans la
+   * palette (`COULEURS_CHOIX`) et le compte doit exister : une couleur sans
+   * nom n'a rien à colorer, et le compte naît à la saisie du nom. Renvoie le
+   * compte, ou `null`. Les modifications déjà faites gardent la couleur
+   * qu'elles portaient : elle est écrite dans chaque marque. */
+  definirCouleur(email, couleur) {
+    const choisie = couleurChoisie(couleur)
+    if (!email || !choisie) return null
+    const registre = this._lire()
+    const existant = registre[email]
+    if (!existant) return null
+    const compte = { ...existant, couleur: choisie }
+    registre[email] = compte
+    this._ecrire(registre)
+    return compte
+  }
+
+  /** Efface le compte (suppression de compte, point 7, 13/10/2026) : nom,
+   * couleur et date de création disparaissent. Vrai s'il y en avait un. */
+  supprimer(email) {
+    if (!email) return false
+    const registre = this._lire()
+    if (!Object.hasOwn(registre, email)) return false
+    delete registre[email]
+    this._ecrire(registre)
+    return true
   }
 
   /** Pour le back-office : tous les comptes, indexés par email. */

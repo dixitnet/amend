@@ -16,7 +16,7 @@
 // la lecture, et la prochaine écriture les oublie. Retirer un accès ne demande
 // donc aucune opération ici.
 
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { ErreurHttp } from './erreurs.js'
@@ -46,6 +46,17 @@ export class Rangements {
 
   _chemin(email) {
     return join(this.dossier, `${idCompte(email)}.json`)
+  }
+
+  /** Efface le rangement d'une personne (suppression de compte). Les
+   * rangements des autres n'ont rien à apprendre : ils n'y mentionnent que
+   * des documents, et les orphelins s'écartent d'eux-mêmes (`elaguer`). */
+  supprimer(email) {
+    if (!email) return false
+    const chemin = this._chemin(email)
+    if (!existsSync(chemin)) return false
+    unlinkSync(chemin)
+    return true
   }
 
   /** Le rangement d'une personne (jamais d'exception pour un fichier absent). */

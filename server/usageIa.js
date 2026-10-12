@@ -150,6 +150,23 @@ export class UsageIa {
     this._enregistrerSurDisque()
   }
 
+  /** Efface la ligne de cette personne dans tous les mois (suppression de
+   * compte). Les totaux par modèle restent : ils ne désignent personne et
+   * c'est ce qui fait le coût réel de la clé. Renvoie le nombre de mois
+   * où elle figurait. */
+  oublier(email) {
+    const adresse = String(email).toLowerCase()
+    let n = 0
+    for (const m of Object.values(this.mois)) {
+      if (m && m.utilisateurs && Object.hasOwn(m.utilisateurs, adresse)) {
+        delete m.utilisateurs[adresse]
+        n++
+      }
+    }
+    if (n) this._enregistrerSurDisque()
+    return n
+  }
+
   /** Les mois pour lesquels on a des données, du plus récent au plus ancien. */
   moisDisponibles() {
     return Object.keys(this.mois).sort().reverse()

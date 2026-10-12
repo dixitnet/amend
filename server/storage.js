@@ -3,7 +3,7 @@
 // Deliberately simple so a self-hosted instance needs nothing but a
 // writable folder.
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { lireJson, ecrireJsonAtomique } from './fichiers.js'
@@ -78,6 +78,65 @@ function proprietaire(meta) {
   ).email
 }
 
+// --- L'index des comptes (point 12, 13/10/2026) -----------------------------
+//
+// Le registre est un fichier : relu et analysé en entier à chaque question,
+// « qu'est-ce que cette adresse peut voir ? » obligeait à le parcourir — et
+// surtout à l'analyser, ce qui coûte des millisecondes par appel à quelques
+// milliers de documents (mesure : voir la feuille de route). Le registre
+// reste la seule vérité sur le disque ; ce qui s'ajoute est **dérivé** et
+// jamais écrit : le registre analysé et, bâti sur lui, un index par adresse.
+// Les deux vivent en mémoire, valent tant que le fichier garde la même
+// signature (inode, taille, date à la nanoseconde), et se refont tout seuls
+// quand un autre programme le réécrit. Limite connue : une réécriture **sur
+// place**, de **même taille**, dans le même battement d'horloge du système de
+// fichiers, passerait inaperçue ; les programmes qui écrivent ce registre le
+// remplacent par renommage (inode neuf), et le serveur invalide en plus son
+// cache à chacune de ses écritures.
+
+/** Les entrées de l'index d'un registre. Rien n'est copié : ce sont des
+ * identifiants de documents. */
+function construireIndex(registre) {
+  /** @type {Map<string, Set<string>>} adresse → documents où elle a une entrée d'accès (corbeille comprise) */
+  const acces = new Map()
+  /** @type {Map<string, Set<string>>} adresse → documents qu'elle porte (corbeille comprise) */
+  const possedes = new Map()
+  /** @type {Map<string, string[]>} empreinte de jeton → documents */
+  const jetonsHash = new Map()
+  /** @type {Map<string, string[]>} jeton en clair (ancien format) → documents */
+  const jetonsClair = new Map()
+  /** @type {Set<string>} */
+  const corbeille = new Set()
+  const dans = (m, cle, id) => {
+    let ensemble = m.get(cle)
+    if (!ensemble) m.set(cle, (ensemble = new Set()))
+    ensemble.add(id)
+  }
+  const liste = (m, cle, id) => {
+    const l = m.get(cle)
+    if (l) l.push(id)
+    else m.set(cle, [id])
+  }
+  for (const [id, meta] of Object.entries(registre)) {
+    if (!meta || typeof meta !== 'object') continue
+    if (meta.corbeille) corbeille.add(id)
+    const porteur = proprietaire(meta)
+    if (porteur) dans(possedes, porteur, id)
+    if (!Array.isArray(meta.access)) continue
+    for (const a of meta.access) {
+      if (!a || typeof a !== 'object') continue
+      if (a.email) dans(acces, a.email, id)
+      if (a.tokenHash) liste(jetonsHash, a.tokenHash, id)
+      if (a.token) liste(jetonsClair, a.token, id)
+    }
+  }
+  return { acces, possedes, jetonsHash, jetonsClair, corbeille }
+}
+
+/** La fiche d'un document, copiée : ce qui sort de `Storage` ne partage
+ * jamais d'objet avec le registre en cache. */
+const copie = (meta) => structuredClone(meta)
+
 export class Storage {
   constructor(dataDir, { maxUncompactedOps, compactionTrigger, maxUncompactedBytes } = {}) {
     this.dataDir = dataDir
@@ -88,7 +147,7 @@ export class Storage {
       maxUncompactedOps,
       compactionTrigger,
       maxUncompactedBytes,
-      metaDoc: (id) => this._readRegistry()[id],
+      metaDoc: (id) => this._metaLu(id),
       apresEcriture: (id) => this._toucherEnDiffere(id),
       apresCompactage: (id) => this.touchDoc(id),
     })
@@ -97,6 +156,8 @@ export class Storage {
     this.styles = new StylesDocuments(dataDir, {
       lireRegistre: () => this._readRegistry(),
       ecrireRegistre: (registre) => this._writeRegistry(registre),
+      // Pour les questions qui ne modifient rien : le registre en cache.
+      consulterRegistre: () => this._instantane().registre,
     })
     this.modeles = this.styles.modeles
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true })
@@ -105,6 +166,8 @@ export class Storage {
       writeFileSync(this.registryPath, JSON.stringify({}), 'utf8')
     }
     this._touchPrevus = new Map() // id -> minuteur : `updatedAt` à écrire au plus tard dans TOUCH_MIN_MS
+    /** Le registre analysé et son index (voir `_instantane`). */
+    this._cache = null
   }
 
   // --- Les styles et les modèles (stylesDocuments.js) : mêmes noms qu'avant l'extraction ---
@@ -169,6 +232,41 @@ export class Storage {
     // Write to a temp file then rename, so a crash mid-write can't corrupt
     // the registry.
     ecrireJsonAtomique(this.registryPath, registry)
+    this._cache = null
+  }
+
+  /** Ce qui identifie l'état du fichier de registre : inode (le renommage
+   * atomique en donne un nouveau à chaque écriture), taille et date en
+   * nanosecondes. `null` si le fichier manque. */
+  _signatureRegistre() {
+    try {
+      const st = statSync(this.registryPath, { bigint: true })
+      return `${st.ino}:${st.size}:${st.mtimeNs}`
+    } catch {
+      return null
+    }
+  }
+
+  /** Le registre analysé et son index, en cache tant que le fichier n'a pas
+   * changé. **Partagé, donc en lecture seule** : qui modifie le registre
+   * passe par `_readRegistry()` (une copie neuve) puis `_writeRegistry`, ce
+   * qui vide aussi le cache. Un fichier illisible lève, comme toujours (A1). */
+  _instantane() {
+    const signature = this._signatureRegistre()
+    const c = this._cache
+    if (c && signature !== null && c.signature === signature) return c
+    const registre = this._readRegistry()
+    const neuf = { signature, registre, index: construireIndex(registre) }
+    this._cache = signature === null ? null : neuf
+    return neuf
+  }
+
+  /** La fiche d'un document dans le registre en cache, **sans copie** : pour
+   * lire un champ, jamais pour la rendre ni la modifier. `undefined` si le
+   * document n'existe pas (et pas de fausse trouvaille sur `constructor`). */
+  _metaLu(id) {
+    const registre = this._instantane().registre
+    return Object.hasOwn(registre, id) ? registre[id] : undefined
   }
 
   /** `email` : si fourni, ne renvoie que les documents accessibles à cette
@@ -177,25 +275,28 @@ export class Storage {
    * connecté ou non, pour ne pas casser les documents existants. Sans
    * email (pas connecté), seuls ces documents "ouverts" apparaissent. */
   listDocs(email) {
-    const registry = this._readRegistry()
+    if (!email) return []
+    const { registre, index } = this._instantane()
+    const ids = index.acces.get(email)
+    if (!ids) return []
     return (
-      Object.entries(registry)
-        .filter(([, meta]) => {
-          if (meta.corbeille) return false
-          if (!email || !Array.isArray(meta.access)) return false
-          return meta.access.some((a) => a.email === email)
+      [...ids]
+        .filter((id) => !registre[id].corbeille)
+        .map((id) => {
+          const meta = copie(registre[id])
+          const entree = meta.access.find((a) => a.email === email) || {}
+          return {
+            id,
+            ...meta,
+            access: accesSansJetons(meta),
+            myRole: entree.role || null,
+            myCapabilities: capabilities(entree.role || null),
+            // Pour que la liste sache afficher « Supprimer » au propriétaire et
+            // « Quitter » aux autres, sans une requête par document.
+            owner: proprietaire(meta),
+            jeSuisProprietaire: proprietaire(meta) === email,
+          }
         })
-        .map(([id, meta]) => ({
-          id,
-          ...meta,
-          access: accesSansJetons(meta),
-          myRole: (meta.access.find((a) => a.email === email) || {}).role || null,
-          myCapabilities: capabilities((meta.access.find((a) => a.email === email) || {}).role || null),
-          // Pour que la liste sache afficher « Supprimer » au propriétaire et
-          // « Quitter » aux autres, sans une requête par document.
-          owner: proprietaire(meta),
-          jeSuisProprietaire: !!email && proprietaire(meta) === email,
-        }))
         // Du plus récemment modifié au plus ancien. Les favoris sont personnels
         // (server/rangement.js) : c'est la page qui les met en tête.
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
@@ -203,12 +304,12 @@ export class Storage {
   }
 
   getDoc(id) {
-    const registry = this._readRegistry()
-    const meta = registry[id]
+    const meta = this._metaLu(id)
     if (!meta) return null
     // Jamais de jeton d'invitation dans ce qui sort d'ici : getDoc() alimente
     // des réponses de l'API lisibles par tout membre, lecteur compris.
-    return { id, ...meta, access: accesSansJetons(meta) }
+    const fiche = copie(meta)
+    return { id, ...fiche, access: accesSansJetons(fiche) }
   }
 
   /** `creatorEmail` : si fourni, cette personne devient immédiatement
@@ -243,7 +344,9 @@ export class Storage {
    * ouverte dans le code reste une porte ouverte. Un tel document n'est
    * accessible qu'aux administrateurs, par les routes qui les distinguent. */
   roleFor(id, email) {
-    const doc = this.getDoc(id)
+    // Sans copie : on ne lit que la liste d'accès (c'est le chemin le plus
+    // fréquent — chaque requête, chaque ouverture de WebSocket).
+    const doc = this._metaLu(id)
     if (!doc) return null
     // Un document à la corbeille n'a plus de rôle pour personne (12/10/2026) :
     // c'est le point de contrôle unique — API, WebSocket, connecteurs,
@@ -276,9 +379,106 @@ export class Storage {
    * quota de documents, mais comptent pour le disque (`avecCorbeille`). */
   documentsDe(email, { avecCorbeille = false } = {}) {
     if (!email) return []
-    return Object.entries(this._readRegistry())
-      .filter(([, meta]) => proprietaire(meta) === email && (avecCorbeille || !meta.corbeille))
-      .map(([id]) => id)
+    const { registre, index } = this._instantane()
+    return [...(index.possedes.get(email) || [])].filter((id) => avecCorbeille || !registre[id].corbeille)
+  }
+
+  /** Les identifiants de tous les documents où cette adresse a une entrée
+   * d'accès — actif, en attente, corbeille comprise (point 12). C'est ce que
+   * l'index rend gratuit, et ce dont la suppression d'un compte a besoin. */
+  documentsAvecAcces(email) {
+    if (!email) return []
+    return [...(this._instantane().index.acces.get(email) || [])]
+  }
+
+  // --- La suppression d'un compte (point 7, 13/10/2026) ---------------------
+  //
+  // Ce que devient chaque document de la personne, d'après le registre :
+  //   - elle ne le porte pas            → `quittes`   : son accès est retiré ;
+  //   - elle le porte, seule (ou avec
+  //     des invitations jamais acceptées) → `supprimes` : plus personne n'en
+  //     a besoin, il disparaît avec le reste ;
+  //   - elle le porte, et d'autres
+  //     personnes y travaillent, dont
+  //     au moins un éditeur             → `transferes` : l'éditeur le plus
+  //     ancien le reçoit (comme `transferOwnership`) ;
+  //   - elle le porte, et il n'y a que
+  //     des lecteurs ou correcteurs     → `bloquants` : on ne fait pas d'un
+  //     lecteur un éditeur à sa place. Elle doit choisir elle-même
+  //     (transférer à quelqu'un, ou supprimer le document).
+  // La corbeille n'y change rien : un document jeté est jugé comme les autres.
+
+  planSuppressionCompte(email) {
+    const plan = { quittes: [], supprimes: [], transferes: [], bloquants: [] }
+    if (!email) return plan
+    const { registre, index } = this._instantane()
+    const ids = new Set([...(index.acces.get(email) || []), ...(index.possedes.get(email) || [])])
+    for (const id of ids) {
+      const meta = registre[id]
+      const ligne = { id, title: meta.title || '', corbeille: !!meta.corbeille }
+      if (proprietaire(meta) !== email) {
+        plan.quittes.push(ligne)
+        continue
+      }
+      const autres = (Array.isArray(meta.access) ? meta.access : []).filter(
+        (a) => a && a.email && a.email !== email && (a.status || 'actif') === 'actif'
+      )
+      if (!autres.length) {
+        plan.supprimes.push(ligne)
+        continue
+      }
+      const editeurs = autres.filter((a) => a.role === 'editeur')
+      if (!editeurs.length) {
+        plan.bloquants.push(ligne)
+        continue
+      }
+      const heritier = editeurs.reduce((ancien, a) =>
+        (a.grantedAt || Infinity) < (ancien.grantedAt || Infinity) ? a : ancien
+      )
+      plan.transferes.push({ ...ligne, vers: heritier.email })
+    }
+    return plan
+  }
+
+  /** Applique à la fois les transferts et les départs du plan, **en une seule
+   * écriture** du registre, et efface l'adresse des fiches des autres
+   * documents (`invitedBy`, `corbeille.par`). Les documents à supprimer ne
+   * sont pas traités ici (`deleteDoc`, un par un, après les fichiers qui leur
+   * appartiennent). Renvoie les identifiants des documents conservés où la
+   * personne figurait. */
+  retirerCompte(email, plan) {
+    const registre = this._readRegistry()
+    const touches = []
+    const transferts = new Map(plan.transferes.map((t) => [t.id, t.vers]))
+    const quitter = new Set([...plan.quittes.map((q) => q.id), ...transferts.keys()])
+    for (const [id, meta] of Object.entries(registre)) {
+      if (!meta || typeof meta !== 'object') continue
+      let touche = false
+      if (transferts.has(id)) {
+        meta.owner = transferts.get(id)
+        touche = true
+      }
+      if (quitter.has(id) && Array.isArray(meta.access)) {
+        const avant = meta.access.length
+        meta.access = meta.access.filter((a) => !a || a.email !== email)
+        if (meta.access.length !== avant) touche = true
+      }
+      if (Array.isArray(meta.access)) {
+        for (const a of meta.access) {
+          if (a && a.invitedBy === email) {
+            a.invitedBy = null
+            touche = true
+          }
+        }
+      }
+      if (meta.corbeille && meta.corbeille.par === email) {
+        meta.corbeille.par = null
+        touche = true
+      }
+      if (touche && quitter.has(id)) touches.push(id)
+    }
+    this._writeRegistry(registre)
+    return touches
   }
 
   // --- La corbeille (12/10/2026, claude/conception-dossiers-corbeille.md) ---
@@ -309,8 +509,8 @@ export class Storage {
   }
 
   estALaCorbeille(id) {
-    const doc = this.getDoc(id)
-    return !!(doc && doc.corbeille)
+    const meta = this._metaLu(id)
+    return !!(meta && meta.corbeille)
   }
 
   /** La corbeille de cette personne : les documents qu'elle porte et qu'elle
@@ -318,27 +518,30 @@ export class Storage {
    * ancien. */
   listCorbeille(email) {
     if (!email) return []
-    return Object.entries(this._readRegistry())
-      .filter(([, meta]) => meta.corbeille && proprietaire(meta) === email)
-      .map(([id, meta]) => ({ id, title: meta.title, updatedAt: meta.updatedAt, corbeille: meta.corbeille }))
+    const { registre, index } = this._instantane()
+    return [...(index.possedes.get(email) || [])]
+      .filter((id) => registre[id].corbeille)
+      .map((id) => {
+        const meta = registre[id]
+        return { id, title: meta.title, updatedAt: meta.updatedAt, corbeille: { ...meta.corbeille } }
+      })
       .sort((a, b) => b.corbeille.le - a.corbeille.le)
   }
 
   /** Les documents à la corbeille depuis plus de `ms` millisecondes, tous
    * propriétaires confondus — pour la purge, le jour où on la branchera. */
   enCorbeilleDepuis(ms, maintenant = Date.now()) {
-    return Object.entries(this._readRegistry())
-      .filter(([, meta]) => meta.corbeille && maintenant - meta.corbeille.le > ms)
-      .map(([id]) => id)
+    const { registre, index } = this._instantane()
+    return [...index.corbeille].filter((id) => maintenant - registre[id].corbeille.le > ms)
   }
 
   ownerOf(id) {
-    return proprietaire(this.getDoc(id))
+    return proprietaire(this._metaLu(id))
   }
 
   isOwner(id, email) {
     if (!email) return false
-    return proprietaire(this.getDoc(id)) === email
+    return proprietaire(this._metaLu(id)) === email
   }
 
   /** Transfère la propriété. La cible doit **déjà avoir accès** au document
@@ -386,7 +589,7 @@ export class Storage {
    * ou 'invite' ; son absence (entrées antérieures au 15/09/2026) se lit
    * comme 'actif'. */
   getAccess(id) {
-    const doc = this.getDoc(id)
+    const doc = this._metaLu(id)
     if (!doc || !Array.isArray(doc.access)) return []
     const owner = proprietaire(doc)
     return doc.access.map((a) => ({
@@ -462,12 +665,14 @@ export class Storage {
    * personne au lieu d'un « lien inconnu » trompeur. Parcourt le registre
    * en mémoire, comme le reste de ce fichier — échelle assumée. */
   findInvitation(token) {
-    const registry = this._readRegistry()
-    for (const [id, doc] of Object.entries(registry)) {
+    const { registre, index } = this._instantane()
+    const h = empreinteJeton(token)
+    // `a.token` : ancien format, en clair, retiré au démarrage par
+    // purgerJetonsEnClair() ; gardé ici le temps d'une migration ratée.
+    const candidats = [...(index.jetonsHash.get(h) || []), ...(index.jetonsClair.get(token) || [])]
+    for (const id of candidats) {
+      const doc = registre[id]
       if (!Array.isArray(doc.access) || doc.corbeille) continue
-      const h = empreinteJeton(token)
-      // `a.token` : ancien format, en clair, retiré au démarrage par
-      // purgerJetonsEnClair() ; gardé ici le temps d'une migration ratée.
       const entry = doc.access.find((a) => a.tokenHash === h || (a.token && a.token === token))
       if (!entry) continue
       const expired = !entry.tokenExpiresAt || Date.now() > entry.tokenExpiresAt
@@ -482,14 +687,16 @@ export class Storage {
    * d'invitation en sont retirés, ils ne servent à personne ici et valent
    * une session. */
   allDocs() {
-    const registry = this._readRegistry()
-    return Object.entries(registry).map(([id, doc]) => ({
-      id,
-      ...doc,
-      access: Array.isArray(doc.access)
-        ? doc.access.map((a) => ({ ...sansJeton(a), status: a.status || 'actif' }))
-        : null,
-    }))
+    return Object.entries(this._instantane().registre).map(([id, meta]) => {
+      const doc = copie(meta)
+      return {
+        id,
+        ...doc,
+        access: Array.isArray(doc.access)
+          ? doc.access.map((a) => ({ ...sansJeton(a), status: a.status || 'actif' }))
+          : null,
+      }
+    })
   }
 
   /** true si cette adresse a un rôle sur au moins un document — sert de
@@ -501,8 +708,7 @@ export class Storage {
    * logique, même échelle assumée. */
   emailHasAnyAccess(email) {
     if (!email) return false
-    const registry = this._readRegistry()
-    return Object.values(registry).some((doc) => Array.isArray(doc.access) && doc.access.some((a) => a.email === email))
+    return this._instantane().index.acces.has(email)
   }
 
   /** Au démarrage : retire du registre tout jeton d'invitation conservé en
@@ -565,8 +771,7 @@ export class Storage {
    * pour la fin de la fenêtre. */
   _toucherEnDiffere(id) {
     if (this._touchPrevus.has(id)) return // déjà prévu : il prendra l'heure du moment
-    const registry = this._readRegistry()
-    const dernier = registry[id]?.updatedAt || 0
+    const dernier = this._metaLu(id)?.updatedAt || 0
     const attente = TOUCH_MIN_MS - (Date.now() - dernier)
     if (attente <= 0) return this.touchDoc(id)
     const minuteur = setTimeout(() => {

@@ -15,8 +15,9 @@ import {
   sessionCookieHeader,
 } from '../auth.js'
 import { courrierAvecBouton, sendMail } from '../mailgun.js'
-import { raisonDeRefus } from '../users.js'
+import { couleurChoisie, raisonDeRefus } from '../users.js'
 import { sendJson, readJsonBody, origineDe, PAS_TRAITE } from '../http.js'
+import { apercuSuppression, supprimerCompte } from '../suppressionCompte.js'
 
 export async function routesAuth(req, res, url, ctx) {
   const { pathname } = url
@@ -46,6 +47,18 @@ export async function routesAuth(req, res, url, ctx) {
     if (raison) return sendJson(res, 400, { error: raison })
     const compte = users.definirNom(email, body.nom)
     if (!compte) return sendJson(res, 400, { error: 'nom refusé' })
+    return sendJson(res, 200, { nom: compte.nom, couleur: compte.couleur })
+  }
+
+  // La couleur que la personne choisit (13/10/2026), dans la palette
+  // proposée. Comme le nom : l'adresse de la session, jamais une autre.
+  if (pathname === '/api/auth/couleur' && req.method === 'POST') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const body = await readJsonBody(req)
+    if (!couleurChoisie(body.couleur)) return sendJson(res, 400, { error: 'couleur hors de la palette' })
+    if (!users.get(email)) return sendJson(res, 409, { error: 'choisissez d’abord un nom' })
+    const compte = users.definirCouleur(email, body.couleur)
     return sendJson(res, 200, { nom: compte.nom, couleur: compte.couleur })
   }
 
@@ -115,6 +128,29 @@ export async function routesAuth(req, res, url, ctx) {
     rooms.expulserPartout(email)
     res.setHeader('set-cookie', clearSessionCookieHeader({ secure: isSecureRequest(req) }))
     return sendJson(res, 200, { ok: true })
+  }
+
+  // Supprimer son compte (point 7, 13/10/2026). L'aperçu dit, sans rien
+  // toucher, ce que devient chaque document ; le geste lui-même exige
+  // l'adresse en toutes lettres, comme on tape le nom d'un dépôt avant de le
+  // détruire — un clic distrait ne suffit pas. Toujours sur la session
+  // elle-même : jamais une adresse passée en paramètre.
+  if (pathname === '/api/auth/compte/suppression' && req.method === 'GET') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    return sendJson(res, 200, { email, ...apercuSuppression(ctx, email) })
+  }
+
+  if (pathname === '/api/auth/compte/supprimer' && req.method === 'POST') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const body = await readJsonBody(req)
+    if (normalizeEmail(body.confirmation) !== email) {
+      return sendJson(res, 400, { error: 'saisissez votre adresse pour confirmer' })
+    }
+    const bilan = await supprimerCompte(ctx, email)
+    res.setHeader('set-cookie', clearSessionCookieHeader({ secure: isSecureRequest(req) }))
+    return sendJson(res, 200, { ok: true, ...bilan })
   }
 
   // --- Invitation nominative (remplace les liens partagés par rôle,

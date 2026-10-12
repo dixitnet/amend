@@ -69,12 +69,17 @@ function commenter(doc, id, author, text = 'un avis') {
   return operation(doc, () => doc.getMap('comments').set(id, { id, author, text, createdAt: 1 }))
 }
 
-const lecteur = (nom) => ({ capabilities: capabilities('lecteur'), nom })
+const commenterId = (doc, id, author, authorId, extra = {}) =>
+  operation(doc, () =>
+    doc.getMap('comments').set(id, { id, author, authorId, text: 'un avis', createdAt: 1, ...extra })
+  )
+
+const lecteur = (nom, id = null) => ({ capabilities: capabilities('lecteur'), nom, id })
 const editeur = (nom) => ({ capabilities: capabilities('editeur'), nom })
 
 // --- verifierLecteur, au niveau des structures Yjs -------------------------
 
-test('verifierLecteur : le texte est refusé, un commentaire à son nom accepté, celui d’un autre refusé', () => {
+test('verifierLecteur : le texte est refusé, un commentaire à son identifiant accepté, celui d’un autre refusé', () => {
   const serveur = new Y.Doc()
   const client = new Y.Doc()
   Y.applyUpdate(serveur, ajouterTexte(client, 'Bonjour.'))
@@ -84,34 +89,29 @@ test('verifierLecteur : le texte est refusé, un commentaire à son nom accepté
   const divergent = new Y.Doc()
   Y.applyUpdate(divergent, Y.encodeStateAsUpdate(client))
   const texte = ajouterTexte(divergent, 'Ajout interdit.')
-  assert.equal(verifierLecteur(serveur, texte, 'Léa').ok, false)
-  assert.match(verifierLecteur(serveur, texte, 'Léa').raison, /texte/)
+  assert.equal(verifierLecteur(serveur, texte, 'id-lea').ok, false)
+  assert.match(verifierLecteur(serveur, texte, 'id-lea').raison, /texte/)
 
-  const sien = commenter(client, 'c1', 'Léa')
-  assert.equal(verifierLecteur(serveur, sien, 'Léa').ok, true)
+  const sien = commenterId(client, 'c1', 'Léa', 'id-lea')
+  assert.equal(verifierLecteur(serveur, sien, 'id-lea').ok, true)
   Y.applyUpdate(serveur, sien)
 
-  const autre = commenter(client, 'c2', 'Marc')
-  assert.equal(verifierLecteur(serveur, autre, 'Léa').ok, false)
+  const autre = commenterId(client, 'c2', 'Marc', 'id-marc')
+  assert.equal(verifierLecteur(serveur, autre, 'id-lea').ok, false)
 
   // Supprimer le commentaire d'un autre : refusé aussi (le contenu supprimé
-  // porte son nom).
+  // porte son identifiant).
   Y.applyUpdate(serveur, autre)
   const divergent2 = new Y.Doc()
   Y.applyUpdate(divergent2, Y.encodeStateAsUpdate(client))
   const suppression = operation(divergent2, () => divergent2.getMap('comments').delete('c2'))
-  assert.equal(verifierLecteur(serveur, suppression, 'Léa').ok, false)
+  assert.equal(verifierLecteur(serveur, suppression, 'id-lea').ok, false)
   // Supprimer le sien : accepté.
   const suppressionSien = operation(client, () => client.getMap('comments').delete('c1'))
-  assert.equal(verifierLecteur(serveur, suppressionSien, 'Léa').ok, true)
+  assert.equal(verifierLecteur(serveur, suppressionSien, 'id-lea').ok, true)
 })
 
 // --- S12 : « les siens » se reconnaît à l'identifiant du compte, pas au nom ---
-
-const commenterId = (doc, id, author, authorId, extra = {}) =>
-  operation(doc, () =>
-    doc.getMap('comments').set(id, { id, author, authorId, text: 'un avis', createdAt: 1, ...extra })
-  )
 
 test('S12 : un lecteur renommé « Marie » ne touche pas aux commentaires de Marie', () => {
   const serveur = new Y.Doc()
@@ -124,13 +124,13 @@ test('S12 : un lecteur renommé « Marie » ne touche pas aux commentaires de Ma
   Y.applyUpdate(intrus, Y.encodeStateAsUpdate(marie))
   const supprime = operation(intrus, () => intrus.getMap('comments').delete('c1'))
   assert.equal(
-    verifierLecteur(serveur, supprime, 'Marie', 'id-intrus').ok,
+    verifierLecteur(serveur, supprime, 'id-intrus').ok,
     false,
     'supprimer le commentaire d’une autre personne du même nom'
   )
   const remplace = commenterId(intrus, 'c1', 'Marie', 'id-intrus', { text: 'falsifié' })
   assert.equal(
-    verifierLecteur(serveur, remplace, 'Marie', 'id-intrus').ok,
+    verifierLecteur(serveur, remplace, 'id-intrus').ok,
     false,
     'remplacer — le commentaire d’origine porte l’identifiant de Marie'
   )
@@ -138,52 +138,58 @@ test('S12 : un lecteur renommé « Marie » ne touche pas aux commentaires de Ma
   // … ou qui fait passer son commentaire pour celui de Marie (même identifiant).
   const usurpe = commenterId(new Y.Doc(), 'c9', 'Marie', 'id-marie')
   assert.equal(
-    verifierLecteur(serveur, usurpe, 'Marie', 'id-intrus').ok,
+    verifierLecteur(serveur, usurpe, 'id-intrus').ok,
     false,
     'écrire sous l’identifiant d’une autre personne'
   )
 
   // Marie, elle, fait ce qu’elle veut des siens.
   const suppressionMarie = operation(marie, () => marie.getMap('comments').delete('c1'))
-  assert.equal(verifierLecteur(serveur, suppressionMarie, 'Marie', 'id-marie').ok, true)
+  assert.equal(verifierLecteur(serveur, suppressionMarie, 'id-marie').ok, true)
   const nouveau = commenterId(marie, 'c2', 'Marie', 'id-marie')
-  assert.equal(verifierLecteur(serveur, nouveau, 'Marie', 'id-marie').ok, true)
+  assert.equal(verifierLecteur(serveur, nouveau, 'id-marie').ok, true)
 })
 
-test('S12 : le même nom ne suffit plus à écrire un commentaire neuf sans identifiant', () => {
+test('S12 : un commentaire neuf sans identifiant est refusé, et sans identifiant de compte aucun commentaire n’est touchable', () => {
   const serveur = new Y.Doc()
-  // Sans authorId, un commentaire neuf n'est plus admis (il se ferait passer pour un « ancien »).
   const sansId = commenter(new Y.Doc(), 'c1', 'Marie')
-  assert.equal(verifierLecteur(serveur, sansId, 'Marie', 'id-intrus').ok, false)
-  // Sans identifiant connu (outils, tests anciens), l'ancienne règle par le nom reste.
-  assert.equal(verifierLecteur(serveur, sansId, 'Marie').ok, true)
+  assert.equal(verifierLecteur(serveur, sansId, 'id-marie').ok, false, 'commentaire sans authorId')
+  assert.equal(verifierLecteur(serveur, sansId).ok, false, 'et sans identifiant de compte non plus')
+  const avecId = commenterId(new Y.Doc(), 'c2', 'Marie', 'id-marie')
+  assert.equal(verifierLecteur(serveur, avecId).ok, false, 'un lecteur sans identifiant ne touche à rien')
+  assert.equal(verifierLecteur(serveur, avecId, 'id-marie').ok, true)
 })
 
-test('S12 : un commentaire d’avant (sans authorId) reste modifiable par qui porte son nom — et par lui seul', () => {
+test('13/10 : un commentaire d’avant (sans authorId) n’est plus modifiable par un lecteur du même nom', () => {
   const serveur = new Y.Doc()
   const ancien = new Y.Doc()
   Y.applyUpdate(serveur, commenter(ancien, 'c1', 'Léa', 'avant'))
 
-  // Léa corrige son ancien commentaire (le client recopie l'objet et ajoute editedAt) : accepté,
-  // avec ou sans identifiant dans l'objet réécrit.
+  // Léa, du même nom, tente de le corriger (en le réécrivant avec ou sans identifiant) ou de le supprimer.
   const corrige = operation(ancien, () =>
     ancien.getMap('comments').set('c1', { id: 'c1', author: 'Léa', text: 'corrigé', createdAt: 1, editedAt: 2 })
   )
-  assert.equal(verifierLecteur(serveur, corrige, 'Léa', 'id-lea').ok, true)
-  Y.applyUpdate(serveur, corrige)
-
-  const corrigeAvecId = operation(ancien, () =>
-    ancien
-      .getMap('comments')
-      .set('c1', { id: 'c1', author: 'Léa', authorId: 'id-lea', text: 'corrigé 2', createdAt: 1 })
+  assert.equal(verifierLecteur(serveur, corrige, 'id-lea').ok, false)
+  const divergent = new Y.Doc()
+  Y.applyUpdate(divergent, Y.encodeStateAsUpdate(serveur))
+  const vole = commenterId(divergent, 'c1', 'Léa', 'id-lea', { text: 'volé' })
+  assert.equal(
+    verifierLecteur(serveur, vole, 'id-lea').ok,
+    false,
+    'remplacer avec son identifiant : l’original n’est pas le sien'
   )
-  assert.equal(verifierLecteur(serveur, corrigeAvecId, 'Léa', 'id-lea').ok, true)
+  const supprime = operation(divergent, () => divergent.getMap('comments').delete('c1'))
+  assert.equal(verifierLecteur(serveur, supprime, 'id-lea').ok, false)
+})
 
-  // Quelqu'un d'autre sous un autre nom : refusé.
-  const autre = new Y.Doc()
-  Y.applyUpdate(autre, Y.encodeStateAsUpdate(ancien))
-  const vol = operation(autre, () => autre.getMap('comments').delete('c1'))
-  assert.equal(verifierLecteur(serveur, vol, 'Marc', 'id-marc').ok, false)
+test('13/10 : un lecteur n’écrit pas dans la table des commentaires autre chose qu’un commentaire à lui', () => {
+  const serveur = new Y.Doc()
+  const valeurs = [{ text: 'sans auteur' }, 'une chaîne', 42, null, { author: 'x' }]
+  for (const [i, v] of valeurs.entries()) {
+    const doc = new Y.Doc()
+    const update = operation(doc, () => doc.getMap('comments').set(`k${i}`, v))
+    assert.equal(verifierLecteur(serveur, update, 'id-lea').ok, false, JSON.stringify(v))
+  }
 })
 
 test('racinesTouchees ne compte pas ce que le serveur a déjà', () => {
@@ -210,7 +216,7 @@ test('dans la salle : un lecteur reçoit « refuse » pour le texte, et rien n�
   const connEditeur = fausseConnexion()
   const connLecteur = fausseConnexion()
   await rooms.join(id, connEditeur, 'Mona', editeur('Mona')).chargement
-  await rooms.join(id, connLecteur, 'Léa', lecteur('Léa')).chargement
+  await rooms.join(id, connLecteur, 'Léa', lecteur('Léa', 'id-lea')).chargement
   const avantEditeur = connEditeur.recu.length
   const journalAvant = storage.getHistoryMeta(id).count
 
@@ -234,7 +240,7 @@ test('dans la salle : un lecteur reçoit « refuse » pour le texte, et rien n�
   // le serveur) : ce qu'il envoie ensuite s'appuie sur du refusé, et le
   // serveur ne peut pas l'intégrer. Il est refusé aussi, avec la raison qui
   // dit de recharger — c'est ce que fait le client.
-  connLecteur.emettre(commenter(docLecteur, 'c-perdu', 'Léa'))
+  connLecteur.emettre(commenterId(docLecteur, 'c-perdu', 'Léa', 'id-lea'))
   assert.equal(connLecteur.controles().filter((m) => m.type === 'refuse').length, 2)
   assert.match(connLecteur.controles().at(-1).raison, /hors séquence/)
   assert.equal(storage.getHistoryMeta(id).count, journalAvant, 'rien dans le journal')
@@ -244,13 +250,13 @@ test('dans la salle : un lecteur reçoit « refuse » pour le texte, et rien n�
   // et persisté.
   const docRecharge = new Y.Doc()
   Y.applyUpdate(docRecharge, repliques.etat(id))
-  connLecteur.emettre(commenter(docRecharge, 'c-lea', 'Léa'))
+  connLecteur.emettre(commenterId(docRecharge, 'c-lea', 'Léa', 'id-lea'))
   assert.equal(connLecteur.controles().filter((m) => m.type === 'refuse').length, 2, 'pas de nouveau refus')
   assert.equal(connEditeur.recu.length, avantEditeur + 1, 'relayé à l’éditeur')
   assert.equal(repliques.repliques.get(id).doc.getMap('comments').size, 1)
 
   // Un commentaire au nom d'un autre : refusé.
-  connLecteur.emettre(commenter(docRecharge, 'c-faux', 'Mona'))
+  connLecteur.emettre(commenterId(docRecharge, 'c-faux', 'Mona', 'id-mona'))
   assert.equal(connLecteur.controles().filter((m) => m.type === 'refuse').length, 3)
   assert.equal(repliques.repliques.get(id).doc.getMap('comments').size, 1)
 

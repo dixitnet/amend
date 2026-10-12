@@ -66,6 +66,22 @@ export class RegistreLimiteurs {
     return limiteur
   }
 
+  /** Oublie une clé (une adresse, à la suppression d'un compte) dans tous les
+   * limiteurs adoptés, et dans l'état chargé mais pas encore adopté. Écrit
+   * tout de suite : c'est justement ce qui reste sur le disque qu'on efface. */
+  oublier(cle) {
+    let n = 0
+    for (const l of this.limiteurs.values()) if (l.oublier(cle)) n++
+    for (const etat of Object.values(this.etat)) {
+      if (etat && typeof etat === 'object' && Object.hasOwn(etat, cle)) {
+        delete etat[cle]
+        n++
+      }
+    }
+    this.sauver()
+    return n
+  }
+
   planifier() {
     if (this.minuteur) return
     this.minuteur = setTimeout(() => {

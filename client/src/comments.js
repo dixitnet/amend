@@ -53,11 +53,13 @@ import { NOM_ORPHELINS } from '../../shared/protocole.js'
 // c'est aussi ce qui garde une carte de marge lisible.
 //
 // Qui peut corriger quoi : une **convention d'interface**, pas une
-// protection. Les commentaires vivent dans le document Yjs, où tout
-// participant peut techniquement écrire — comme il peut déjà réécrire le
-// texte. On compare les noms affichés faute de mieux : le client ne connaît
-// pas sa propre adresse (le serveur ne lui envoie que `myName` et
-// `myColor`).
+// protection — sauf pour un lecteur, que le serveur tient (verifierLecteur).
+// Les commentaires vivent dans le document Yjs, où un éditeur peut
+// techniquement écrire — comme il peut déjà réécrire le texte. On compare
+// l'identifiant stable du compte (`authorId`, `myId` côté client), que le
+// serveur a aussi donné aux commentaires d'avant en chargeant le document
+// (13/10/2026, server/auteursCommentaires.js) ; le nom affiché ne sert plus
+// que de repli quand un identifiant manque (tests, outils).
 
 export const commentsPluginKey = new PluginKey('comments')
 

@@ -86,6 +86,24 @@ export class ListeAttente {
     return n
   }
 
+  /** Retire toutes les inscriptions de cette adresse (suppression de compte :
+   * la personne qui s'en va ne veut pas non plus rester dans la file).
+   * Renvoie le nombre de lignes retirées. */
+  retirer(email) {
+    let list
+    try {
+      list = JSON.parse(readFileSync(this.chemin, 'utf8'))
+    } catch {
+      return 0
+    }
+    if (!Array.isArray(list)) return 0
+    const cible = String(email).toLowerCase()
+    const gardees = list.filter((l) => !(l && typeof l.email === 'string' && l.email.toLowerCase() === cible))
+    const n = list.length - gardees.length
+    if (n) ecrireAtomique(this.chemin, JSON.stringify(gardees, null, 2))
+    return n
+  }
+
   /** La liste d'attente **vue comme une file** : une ligne par adresse (la
    * première inscription fixe le rang, les suivantes sont comptées), la plus
    * ancienne d'abord, avec un statut :

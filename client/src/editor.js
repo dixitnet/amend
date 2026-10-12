@@ -215,6 +215,12 @@ export function mountEditor(root, docId, user, docMeta) {
       provider.awareness.setLocalStateField('user', { ...user, name: nom })
       user.name = nom
     },
+    // Même geste pour la couleur (13/10/2026) : présence et curseur tout de
+    // suite, modifications à venir dans la nouvelle couleur.
+    surCouleur: (couleur) => {
+      provider.awareness.setLocalStateField('user', { ...user, color: couleur })
+      user.color = couleur
+    },
   })
 
   chargerPublication()

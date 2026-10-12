@@ -203,6 +203,26 @@ export class Modeles {
     return this.obtenir(id)
   }
 
+  /** Efface les modèles **personnels** d'une adresse (suppression de
+   * compte), qu'ils soient utilisés ou non : ce sont ses préférences, et
+   * personne d'autre ne peut les voir (`visiblePour`). Un document qui s'en
+   * servait retombe sur « Par défaut » (`couche`). Renvoie les identifiants
+   * effacés. */
+  supprimerPersonnels(email) {
+    if (!email || !existsSync(this.dossier)) return []
+    const effaces = []
+    for (const f of readdirSync(this.dossier)) {
+      const id = f.replace(/\.json$/, '')
+      if (!ID_STOCKE.test(id)) continue
+      const m = this._lire(id)
+      if (m && m.portee === 'perso' && m.proprietaire === email) {
+        unlinkSync(this._chemin(id))
+        effaces.push(id)
+      }
+    }
+    return effaces
+  }
+
   /** Supprime un modèle stocké. Refuse « Par défaut », un livré, et un
    * modèle **utilisé** : l'erreur porte le nombre de documents. */
   supprimer(id) {

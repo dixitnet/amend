@@ -25,6 +25,7 @@ import { creerLimites } from './limites.js'
 import { Storage } from './storage.js'
 import { Rooms } from './rooms.js'
 import { Repliques } from './replique.js'
+import { rattacherAuteurs } from './auteursCommentaires.js'
 import { Metrics } from './metrics.js'
 import { Uploads } from './uploads.js'
 import { Users, idCompte } from './users.js'
@@ -44,7 +45,7 @@ import { chargerDotEnv } from './env.js'
 import { creerServiceStatique } from './statique.js'
 import { creerServicePages } from './pagesPubliees.js'
 import { traiterMcp } from './connecteur.js'
-import { isAdminEmail, readSession, definirRevocation, limiteurLiensParAdresse } from './auth.js'
+import { isAdminEmail, readSession, definirRevocation, limiteurLiensParAdresse, SESSION_MAX_AGE_MS } from './auth.js'
 import { RegistreLimiteurs } from './limiteurs.js'
 import { SessionsRevoquees } from './sessions.js'
 import { origineAutorisee, methodeModifie } from './origine.js'
@@ -118,6 +119,8 @@ const users = new Users(DATA_DIR)
 // « Se déconnecter partout » (S8) : l'instant avant lequel les sessions d'une adresse ne valent plus.
 const sessionsRevoquees = new SessionsRevoquees(DATA_DIR)
 definirRevocation((email) => sessionsRevoquees.validesDepuis(email))
+// Un marqueur plus vieux que la vie d'un cookie (+ un jour de marge) ne peut plus rien refuser : on l'oublie.
+sessionsRevoquees.purger(SESSION_MAX_AGE_MS + 24 * 3600_000)
 // Rendu PDF (16/09/2026) — binaire appelé en sous-processus, sous plafond
 // mémoire, sous délai, et un rendu à la fois (voir server/typst.js).
 const typst = new Typst()
@@ -146,7 +149,42 @@ const versions = new Versions(DATA_DIR)
 // Le serveur tient une réplique de chaque document ouvert (29/09/2026,
 // server/replique.js) : c'est elle qui sert l'état, vérifie les lecteurs
 // et compacte le journal.
-const repliques = new Repliques(storage, { versions })
+const repliques = new Repliques(storage, {
+  versions,
+  // La règle du correcteur (point 8, 13/10/2026) : `CORRECTEUR_ETANCHE` vaut
+  // `observer` (défaut : on signale, on laisse passer), `refuser`, ou `off`.
+  modeCorrecteur: () => {
+    const v = String(process.env.CORRECTEUR_ETANCHE || '').toLowerCase()
+    return v === 'refuser' || v === 'off' ? v : 'observer'
+  },
+  surViolation: (info) => {
+    console.warn(
+      `[amend] correcteur (${info.mode}) ${info.email || '?'} sur ${info.id} : ${info.raison} — ${info.detail || ''}`
+    )
+    metrics.log('correcteur', {
+      email: info.email,
+      docId: info.id,
+      mode: info.mode,
+      raison: info.raison,
+      detail: info.detail || null,
+    })
+  },
+  // Les commentaires d'avant l'identifiant stable sont rattachés à un compte
+  // quand la réplique d'un document se charge (point 9, 13/10/2026).
+  apresChargement: (id, doc) => {
+    const membres = ((storage.getDoc(id) || {}).access || []).map((a) => ({
+      id: idCompte(a.email),
+      nom: users.nomDe(a.email),
+    }))
+    const bilan = rattacherAuteurs(doc, membres)
+    if (bilan.update) {
+      console.log(
+        `[amend] commentaires de ${id} : ${bilan.attribues} rattaché(s) à un compte, ${bilan.agents} à Claude, ${bilan.inconnus} sans auteur identifiable`
+      )
+    }
+    return bilan.update
+  },
+})
 const rooms = new Rooms(storage, repliques)
 // Les agents invités sur un document (29/09/2026, server/agents.js et
 // server/mcp.js) : une adresse secrète par invitation, un document, un rôle,
@@ -191,6 +229,7 @@ const ctx = {
   repliques,
   rooms,
   rangements,
+  registreLimiteurs,
   sessionsRevoquees,
   storage,
   supportTraites,
@@ -333,6 +372,10 @@ server.on('upgrade', (req, socket) => {
     {
       capabilities: capabilities(storage.roleFor(docId, emailSession)),
       nom: compteSession ? compteSession.nom : user,
+      // Les noms dont ses modifications peuvent être signées : celui du compte
+      // **à l'instant** (il a pu en changer depuis l'ouverture), celui de
+      // l'ouverture, et celui que son navigateur annonce.
+      nomsDAuteur: () => [users.nomDe(emailSession), compteSession && compteSession.nom, user].filter(Boolean),
       email: emailSession,
       id: idCompte(emailSession),
     },

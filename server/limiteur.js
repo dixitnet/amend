@@ -70,6 +70,14 @@ export class Limiteur {
     return recents.length
   }
 
+  /** Oublie tout ce qui est compté pour cette clé (suppression de compte :
+   * la clé est une adresse). Vrai s'il y avait quelque chose. */
+  oublier(cle) {
+    const existait = this.parCle.delete(cle)
+    if (existait && this.surChangement) this.surChangement()
+    return existait
+  }
+
   /** Ce qui est encore dans la fenêtre, `{ clé: [horodatages] }`, pour la sauvegarde. */
   exporter() {
     const maintenant = this.maintenant()

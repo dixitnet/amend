@@ -15,6 +15,8 @@ import { lierMenuAria } from './menuAria.js'
 import { getSessionEmail, logout, logoutEverywhere } from './auth.js'
 import { initials } from './presence.js'
 import { ouvrirChangementDeNom } from './nomCompte.js'
+import { ouvrirChoixDeCouleur } from './couleurCompte.js'
+import { ouvrirSuppressionDeCompte } from './suppressionCompte.js'
 
 /** Les initiales de la pastille : celles du **nom** quand on en a un — les
  * mêmes que dans la liste des présents —, sinon le début de l'adresse. */
@@ -36,9 +38,13 @@ function initiales(nom, email) {
  * (10/10/2026) : l'éditeur y met à jour son identité dans le document en
  * cours, sans recharger la page.
  *
+ * `surCouleur(couleur)` est appelé quand elle vient de changer sa couleur
+ * (13/10/2026) : l'éditeur la répercute sur la présence et sur ses
+ * prochaines modifications.
+ *
  * `destroy()` retire aussi l'écouteur posé sur `document` (10/10/2026, C9).
  */
-export function monterMenuCompte(container, { couleur, surNom } = {}) {
+export function monterMenuCompte(container, { couleur, surNom, surCouleur } = {}) {
   const menu = document.createElement('div')
   menu.className = 'menu-flottant menu-compte'
 
@@ -52,11 +58,13 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
   // dans l'application » et « moi dans le document », un des premiers
   // repères que cherche quelqu'un qui relit à plusieurs. Elle reste creuse
   // là où la couleur n'a pas de sens — la liste des documents.
-  const teinte = couleur && couleur()
-  if (teinte) {
+  const teindre = (teinte) => {
+    if (!teinte) return
     pastille.style.setProperty('--user-color', teinte)
     pastille.classList.add('compte-pastille-coloree')
   }
+  let couleurCourante = couleur ? couleur() : null
+  teindre(couleurCourante)
 
   const liste = document.createElement('div')
   liste.className = 'menu-flottant-liste menu-flottant-droite'
@@ -110,6 +118,23 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
     }
     liste.append(monNom)
 
+    const maCouleur = document.createElement('button')
+    maCouleur.type = 'button'
+    maCouleur.className = 'compte-ma-couleur'
+    maCouleur.textContent = 'Changer ma couleur…'
+    maCouleur.onclick = () => {
+      liste.hidden = true
+      ouvrirChoixDeCouleur({
+        couleurActuelle: couleurCourante || '',
+        surChangement: (nouvelle) => {
+          couleurCourante = nouvelle
+          teindre(nouvelle)
+          if (surCouleur) surCouleur(nouvelle)
+        },
+      })
+    }
+    liste.append(maCouleur)
+
     const deconnexion = document.createElement('button')
     deconnexion.type = 'button'
     deconnexion.textContent = 'Se déconnecter'
@@ -136,6 +161,15 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
       location.reload()
     }
 
+    const suppression = document.createElement('button')
+    suppression.type = 'button'
+    suppression.className = 'compte-supprimer compte-danger'
+    suppression.textContent = 'Supprimer mon compte…'
+    suppression.onclick = () => {
+      liste.hidden = true
+      ouvrirSuppressionDeCompte()
+    }
+
     // Les entrées d'administration ne s'ajoutent que si le serveur le dit —
     // il refuserait de toute façon les autres (403), mais un lien qui mène
     // à un refus est pire qu'un lien absent.
@@ -145,6 +179,12 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
         if (moi.nom) {
           nomCourant = moi.nom
           majEntete()
+        }
+        // La couleur du compte, quand la page n'en a pas fourni (la liste
+        // des documents n'a pas de métadonnées de document).
+        if (moi.couleur && !couleurCourante) {
+          couleurCourante = moi.couleur
+          teindre(moi.couleur)
         }
         if (moi.admin) {
           const sep = document.createElement('hr')
@@ -159,7 +199,7 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
       .finally(() => {
         const sep = document.createElement('hr')
         sep.className = 'menu-flottant-separateur'
-        liste.append(sep, deconnexion, deconnexionPartout)
+        liste.append(sep, deconnexion, deconnexionPartout, suppression)
       })
   })
 

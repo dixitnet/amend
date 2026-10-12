@@ -211,6 +211,27 @@ export class Agents {
     return true
   }
 
+  /** À la suppression d'un compte : les agents que cette adresse a invités
+   * agissent avec ses droits (`verifier`), ils sont donc tous révoqués, et
+   * son adresse est effacée de leurs fiches (elles restent quelques jours
+   * dans le fichier, révoquées). Renvoie `{ revoques, effaces }`. */
+  retirerPar(email) {
+    this._synchroniser()
+    let revoques = 0
+    let effaces = 0
+    for (const a of this.agents) {
+      if (a.par !== email) continue
+      if (!a.revokedAt) {
+        a.revokedAt = this.maintenant()
+        revoques++
+      }
+      a.par = null
+      effaces++
+    }
+    if (effaces) this._ecrire()
+    return { revoques, effaces }
+  }
+
   /** À la suppression d'un document : ses agents n'ont plus rien à lire. */
   revoquerDocument(docId) {
     this._synchroniser()

@@ -13,6 +13,44 @@
  * d'œil. */
 export const COULEURS = ['#e07a5f', '#3d5a80', '#8d6e63', '#f2cc8f', '#9b5de5', '#00b4d8', '#e56b6f', '#c9184a']
 
+/** Les couleurs que la personne peut choisir (13/10/2026) : les huit du tirage
+ * au sort, plus huit autres. Une palette et non une roue libre : une couleur
+ * choisie à la main finit blanche ou verte, et l'on ne lirait plus la marge. Le
+ * tirage au sort initial ne puise que dans `COULEURS`. Aucun vert, ici non
+ * plus. */
+export const COULEURS_CHOIX = [
+  ...COULEURS,
+  '#f48c06',
+  '#ffb703',
+  '#7209b7',
+  '#0077b6',
+  '#b5838d',
+  '#6d597a',
+  '#a44a3f',
+  '#ff006e',
+]
+
+/** Le nom d'une couleur de la palette, pour qui ne la voit pas (lecteur
+ * d'écran) et pour l'info-bulle. */
+export const NOMS_COULEURS = {
+  '#e07a5f': 'terracotta',
+  '#3d5a80': 'bleu nuit',
+  '#8d6e63': 'brun',
+  '#f2cc8f': 'sable',
+  '#9b5de5': 'violet',
+  '#00b4d8': 'cyan',
+  '#e56b6f': 'rose corail',
+  '#c9184a': 'framboise',
+  '#f48c06': 'orange',
+  '#ffb703': 'ambre',
+  '#7209b7': 'pourpre',
+  '#0077b6': 'bleu franc',
+  '#b5838d': 'vieux rose',
+  '#6d597a': 'prune',
+  '#a44a3f': 'rouille',
+  '#ff006e': 'magenta',
+}
+
 /** Les rôles, dans la langue de l'interface. Un rôle inconnu s'affiche tel
  * quel plutôt que de disparaître : le jour où un rôle entrera dans
  * `server/roles.js`, les badges l'afficheront sans qu'on touche à ces écrans. */

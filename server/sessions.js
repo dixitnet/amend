@@ -22,6 +22,15 @@
 import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { lireJson, ecrireJsonAtomique } from './fichiers.js'
+import { idCompte } from './users.js'
+
+/** La clé d'une adresse dans le fichier : son empreinte, pas l'adresse
+ * (suppression de compte, 13/10/2026). Un marqueur de révocation survit à la
+ * suppression du compte le temps que les cookies déjà émis expirent ; il ne
+ * doit pas, dans l'intervalle, garder l'adresse en clair. Les fichiers
+ * d'avant, indexés par adresse, sont toujours lus (`validesDepuis`) et
+ * réécrits sous la nouvelle clé à la première révocation. */
+const cleDe = (email) => `c:${idCompte(email)}`
 
 export class SessionsRevoquees {
   constructor(dataDir) {
@@ -52,15 +61,36 @@ export class SessionsRevoquees {
    * refusées ; 0 si elle n'a jamais rien révoqué. */
   validesDepuis(email) {
     if (!email) return 0
-    return Number(this._registre()[email]) || 0
+    const registre = this._registre()
+    return Number(registre[cleDe(email)]) || Number(registre[email]) || 0
   }
 
   /** Révoque toutes les sessions émises jusqu'ici pour cette adresse. */
   revoquer(email, maintenant = Date.now()) {
     if (!email) return 0
-    const registre = { ...this._registre(), [email]: maintenant }
+    const registre = { ...this._registre(), [cleDe(email)]: maintenant }
+    delete registre[email]
     ecrireJsonAtomique(this.path, registre)
     this._signature = null // relu au prochain appel
     return maintenant
+  }
+
+  /** Retire les marqueurs plus vieux que `ageMaxMs` : au-delà de la durée de
+   * vie d'une session, plus aucun cookie ne peut leur être antérieur, ils ne
+   * servent plus à rien — et ne doivent pas s'accumuler. Renvoie le nombre
+   * de marqueurs retirés. */
+  purger(ageMaxMs, maintenant = Date.now()) {
+    const registre = this._registre()
+    const gardes = {}
+    let retires = 0
+    for (const [cle, depuis] of Object.entries(registre)) {
+      if (maintenant - Number(depuis) > ageMaxMs) retires++
+      else gardes[cle] = depuis
+    }
+    if (retires) {
+      ecrireJsonAtomique(this.path, gardes)
+      this._signature = null
+    }
+    return retires
   }
 }

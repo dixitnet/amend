@@ -40,6 +40,7 @@ export const FLUX = [
   'embarquements',
   'versions',
   'corbeille',
+  'correcteur',
 ]
 const RETENTION_JOURS = 90
 
@@ -87,6 +88,48 @@ export class Metrics {
       }
     }
     return out
+  }
+
+  /** Efface une adresse des événements gardés (suppression de compte) : toute
+   * valeur qui est cette adresse devient `null`, l'événement reste — il
+   * compte toujours pour les statistiques, il ne désigne plus personne. Les
+   * lignes illisibles sont conservées telles quelles. Renvoie le nombre de
+   * valeurs effacées. */
+  effacer(email) {
+    const cible = String(email).toLowerCase()
+    let efface = 0
+    for (const flux of FLUX) {
+      const chemin = this._chemin(flux)
+      if (!existsSync(chemin)) continue
+      let brut
+      try {
+        brut = readFileSync(chemin, 'utf8')
+      } catch {
+        continue
+      }
+      let change = false
+      const lignes = brut.split('\n').map((ligne) => {
+        if (!ligne || !ligne.toLowerCase().includes(cible)) return ligne
+        try {
+          const e = JSON.parse(ligne)
+          let touche = false
+          for (const [k, v] of Object.entries(e)) {
+            if (typeof v === 'string' && v.toLowerCase() === cible) {
+              e[k] = null
+              touche = true
+              efface++
+            }
+          }
+          if (!touche) return ligne
+          change = true
+          return JSON.stringify(e)
+        } catch {
+          return ligne
+        }
+      })
+      if (change) ecrireAtomique(chemin, lignes.join('\n'))
+    }
+    return efface
   }
 
   /** Purge les événements trop anciens — à appeler au démarrage. Réécriture

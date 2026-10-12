@@ -173,6 +173,7 @@ const LIGNES = [
   { couvre: '/api/admin/embarquer', m: 'POST', corps: { email: '' }, oui: ['admin'] },
   { couvre: '/api/auth/me', m: 'GET', oui: QUI },
   { couvre: '/api/auth/name', m: 'POST', corps: { name: 'Nom Test' }, oui: CONNECTES },
+  { couvre: '/api/auth/couleur', m: 'POST', corps: { couleur: '#3d5a80' }, oui: CONNECTES },
   { couvre: '/api/auth/request-link', m: 'POST', corps: { email: 'inconnu-jamais@test.local' }, oui: QUI },
   { couvre: '/api/auth/verify', m: 'POST', corps: { token: 'x' }, oui: QUI },
   { couvre: '/api/auth/logout', m: 'POST', oui: QUI },
@@ -224,6 +225,11 @@ const LIGNES = [
   { couvre: '/api/docs/:x/publication', m: 'DELETE', oui: EDITEURS },
   { couvre: '/api/support', m: 'POST', corps: { message: 'bonjour' }, oui: CONNECTES },
   { couvre: '/api/waitlist', m: 'POST', corps: { email: 'attente@test.local' }, oui: QUI },
+  // L'aperçu de la suppression d'un compte ne touche à rien ; le geste, joué ici
+  // avec une confirmation fausse, s'arrête à la validation (400) : la
+  // suppression elle-même est jouée dans suppression-compte.test.js.
+  { couvre: '/api/auth/compte/suppression', m: 'GET', oui: CONNECTES },
+  { couvre: '/api/auth/compte/supprimer', m: 'POST', corps: { confirmation: 'pas-mon-adresse' }, oui: CONNECTES },
   // En dernier : elle révoque toutes les sessions des comptes de l'essai.
   { couvre: '/api/auth/logout-all', m: 'POST', oui: CONNECTES },
 ]

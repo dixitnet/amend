@@ -10,7 +10,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { Limiteur } from './limiteur.js'
 
 const COOKIE_NAME = 'collabtext_session'
-const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 jours
+export const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 jours
 
 // Pas de SESSION_SECRET dans .env : on en génère un aléatoire au démarrage.
 // Conséquence acceptée : un redémarrage du process déconnecte tout le
@@ -196,6 +196,20 @@ export function consumeReconnectToken(token) {
   if (!entry) return null
   if (Date.now() > entry.expiresAt) return null
   return entry.email
+}
+
+/** Oublie une adresse (suppression de compte) : ses liens de connexion en
+ * attente et son compteur de demandes. Renvoie le nombre de liens retirés. */
+export function oublierAdresse(email) {
+  let n = 0
+  for (const [token, entry] of reconnectTokens) {
+    if (entry.email === email) {
+      reconnectTokens.delete(token)
+      n++
+    }
+  }
+  reconnectRateLimit.oublier(email)
+  return n
 }
 
 // Nettoyage périodique des jetons expirés jamais consommés — évite une

@@ -12,11 +12,14 @@ import { compterEcarts, ID_DEFAUT } from '../shared/modeles.js'
 import { Modeles } from './modeles.js'
 
 export class StylesDocuments {
-  /** `lireRegistre()` et `ecrireRegistre(registre)` : le registre des documents. */
-  constructor(dataDir, { lireRegistre, ecrireRegistre }) {
+  /** `lireRegistre()` et `ecrireRegistre(registre)` : le registre des documents.
+   * `consulterRegistre()` : le même, en cache et **en lecture seule**, pour les
+   * questions qui ne modifient rien (à défaut, `lireRegistre`). */
+  constructor(dataDir, { lireRegistre, ecrireRegistre, consulterRegistre = lireRegistre }) {
     this.dataDir = dataDir
     this._lireRegistre = lireRegistre
     this._ecrireRegistre = ecrireRegistre
+    this._consulterRegistre = consulterRegistre
     this.stylePath = join(dataDir, 'style.json')
     // Les modèles de mise en page (01/10/2026, server/modeles.js). Le
     // registre ne sait rien des documents : on lui donne de quoi compter
@@ -64,7 +67,7 @@ export class StylesDocuments {
    * défaut ». C'est une **propriété du document** — enregistrée avec lui,
    * la même pour tous ses collaborateurs. */
   modeleDuDocument(id) {
-    const meta = this._lireRegistre()[id]
+    const meta = this._consulterRegistre()[id]
     return this.modeles.effectif(meta && meta.modele)
   }
 
@@ -128,7 +131,7 @@ export class StylesDocuments {
    * modèles : un seul passage sur le registre plutôt qu'un par modèle. */
   usagesModeles() {
     const n = new Map()
-    for (const meta of Object.values(this._lireRegistre())) {
+    for (const meta of Object.values(this._consulterRegistre())) {
       const id = this.modeles.effectif(meta && meta.modele)
       n.set(id, (n.get(id) || 0) + 1)
     }
@@ -139,7 +142,7 @@ export class StylesDocuments {
    * ceux qui n'en ont jamais choisi, et ceux dont le modèle a disparu. */
   compterUsagesModele(modeleId) {
     let n = 0
-    for (const meta of Object.values(this._lireRegistre())) {
+    for (const meta of Object.values(this._consulterRegistre())) {
       const effectif = this.modeles.effectif(meta && meta.modele)
       if (effectif === modeleId) n++
     }

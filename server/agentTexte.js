@@ -25,7 +25,7 @@
 import * as Y from 'yjs'
 import { diffWords } from '../shared/diff.js'
 import { typographier } from '../shared/typographie.js'
-import { NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS } from '../shared/protocole.js'
+import { AUTEUR_AGENT, NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS } from '../shared/protocole.js'
 export { NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS }
 
 const LONGUEUR_AVANT_MAX = 2000
@@ -967,6 +967,7 @@ export function commenter(ydoc, { bloc: numero, citation, texte, note }, auteur)
     ydoc.getMap(NOM_COMMENTAIRES).set(id, {
       id,
       author: auteur.name,
+      authorId: auteur.id || AUTEUR_AGENT,
       color: auteur.color,
       anchorFrom: Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(plage.xt, plage.de, 0)),
       anchorTo: Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(plage.xt, plage.jusqua, 0)),
@@ -1063,6 +1064,7 @@ export function repondre(ydoc, { commentaire, texte }, auteur) {
       id,
       parent: parent.id,
       author: auteur.name,
+      authorId: auteur.id || AUTEUR_AGENT,
       color: auteur.color,
       text: propre,
       createdAt: Date.now(),
