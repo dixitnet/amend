@@ -20,7 +20,8 @@ function neuf() {
   process.on('exit', () => rmSync(d, { recursive: true, force: true }))
   return { dir: d, r: new Rangements(d) }
 }
-const refus = (fn, statut, motif) => assert.throws(fn, (e) => e.status === statut && (!motif || motif.test(e.message)), `attendu ${statut} ${motif || ''}`)
+const refus = (fn, statut, motif) =>
+  assert.throws(fn, (e) => e.status === statut && (!motif || motif.test(e.message)), `attendu ${statut} ${motif || ''}`)
 
 test('un rangement neuf est vide, et chacun a le sien', () => {
   const { r } = neuf()
@@ -72,7 +73,11 @@ test('renommer, avec les mêmes règles', () => {
   const a = r.creerDossier(ALICE, 'A').dossier
   r.creerDossier(ALICE, 'B')
   refus(() => r.renommerDossier(ALICE, a.id, 'b'), 409)
-  assert.equal(r.renommerDossier(ALICE, a.id, 'a', null).dossier.nom, 'a', 'se renommer en changeant la casse est permis')
+  assert.equal(
+    r.renommerDossier(ALICE, a.id, 'a', null).dossier.nom,
+    'a',
+    'se renommer en changeant la casse est permis'
+  )
   refus(() => r.renommerDossier(ALICE, 'd_inconnu', 'Z'), 404)
 })
 

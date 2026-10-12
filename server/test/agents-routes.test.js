@@ -114,7 +114,10 @@ test('pendant la phase de test, seul un admin invite ; un éditeur voit la liste
   const vue = await (await api(doc, '', { moi: EDITEUR })).json()
   assert.equal(vue.autorise, false)
   assert.equal(vue.agents.length, 1)
-  assert.equal((await api(doc, `/${cree.id}/prolonger`, { methode: 'POST', corps: { jours: 30 }, moi: EDITEUR })).status, 403)
+  assert.equal(
+    (await api(doc, `/${cree.id}/prolonger`, { methode: 'POST', corps: { jours: 30 }, moi: EDITEUR })).status,
+    403
+  )
   assert.equal((await api(doc, `/${cree.id}/regenerer`, { methode: 'POST', moi: EDITEUR })).status, 403)
 
   // Mais couper l'accès lui est permis : il le voit, il peut le retirer.
@@ -142,7 +145,11 @@ test('la portée se règle par CLAUDE_AGENT, sans toucher au code', async () => 
     // Un correcteur, jamais, quelle que soit la portée.
     assert.equal((await api(doc, '', { methode: 'POST', corps: { role: 'correcteur' }, moi: CORRECTEUR })).status, 403)
     process.env.CLAUDE_AGENT = 'valeur-inconnue'
-    assert.equal((await api(doc, '', { methode: 'POST', corps: { role: 'correcteur' }, moi: EDITEUR })).status, 403, 'une valeur inconnue retombe sur admins')
+    assert.equal(
+      (await api(doc, '', { methode: 'POST', corps: { role: 'correcteur' }, moi: EDITEUR })).status,
+      403,
+      'une valeur inconnue retombe sur admins'
+    )
   } finally {
     delete process.env.CLAUDE_AGENT
   }
@@ -205,7 +212,11 @@ test('le journal dit qui a fait quoi, jamais l’adresse', async () => {
   assert.match(texte, /"outil":"invitation"/)
   assert.match(texte, /"outil":"revocation"/)
   assert.ok(!texte.includes(secretDe(cree.adresse)), 'le secret n’est dans aucun journal')
-  assert.ok(!existsSync(join(DATA_DIR, 'agents.json')) || !readFileSync(join(DATA_DIR, 'agents.json'), 'utf8').includes(secretDe(cree.adresse)), 'ni dans le registre')
+  assert.ok(
+    !existsSync(join(DATA_DIR, 'agents.json')) ||
+      !readFileSync(join(DATA_DIR, 'agents.json'), 'utf8').includes(secretDe(cree.adresse)),
+    'ni dans le registre'
+  )
 })
 
 // Le serveur garde la boucle d'événements : on rend la main explicitement,

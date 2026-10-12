@@ -24,7 +24,10 @@ import { writeFileSync, mkdirSync, appendFileSync } from 'node:fs'
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
-const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i === -1 ? d : args[i + 1] }
+const opt = (n, d) => {
+  const i = args.indexOf(`--${n}`)
+  return i === -1 ? d : args[i + 1]
+}
 const base = opt('base', null)
 const cookie = opt('cookie', null)
 const doc = opt('doc', null)
@@ -35,7 +38,9 @@ const pause = Number(opt('pause', 15))
 const cas = opt('cas', 'valide')
 const sortie = opt('sortie', null)
 if (!base || !cookie || !doc) {
-  console.error('usage : node tools/export-pdf.mjs --base URL --cookie "collabtext_session=…" --doc ID [--profil livre] [--paralleles N] [--vagues N] [--cas valide|erreur|trop-gros] [--sortie fichier.csv]')
+  console.error(
+    'usage : node tools/export-pdf.mjs --base URL --cookie "collabtext_session=…" --doc ID [--profil livre] [--paralleles N] [--vagues N] [--cas valide|erreur|trop-gros] [--sortie fichier.csv]'
+  )
   process.exit(1)
 }
 
@@ -54,8 +59,13 @@ if (cas === 'valide') {
   source = '= Titre\n' + 'Un paragraphe de remplissage assez long pour peser. '.repeat(50000)
 } else throw new Error(`cas inconnu : ${cas}`)
 const octets = Buffer.byteLength(source, 'utf8')
-console.log(`source ${cas} : ${octets} octets (${Math.round(octets / 1024)} Ko), ${paralleles} demande(s) simultanée(s) × ${vagues} vague(s), pause ${pause} s`)
-if (sortie) { mkdirSync(dirname(sortie), { recursive: true }); writeFileSync(sortie, 't_iso,vague,demande,statut,duree_ms,octets_pdf,message\n') }
+console.log(
+  `source ${cas} : ${octets} octets (${Math.round(octets / 1024)} Ko), ${paralleles} demande(s) simultanée(s) × ${vagues} vague(s), pause ${pause} s`
+)
+if (sortie) {
+  mkdirSync(dirname(sortie), { recursive: true })
+  writeFileSync(sortie, 't_iso,vague,demande,statut,duree_ms,octets_pdf,message\n')
+}
 
 const corps = JSON.stringify({ source })
 const lignes = []
@@ -63,23 +73,44 @@ let gardeFait = false
 
 async function une(v, i) {
   const t0 = Date.now()
-  let statut = 'réseau', octetsPdf = 0, message = ''
+  let statut = 'réseau',
+    octetsPdf = 0,
+    message = ''
   try {
-    const res = await fetch(`${base}/api/docs/${doc}/pdf`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: corps })
+    const res = await fetch(`${base}/api/docs/${doc}/pdf`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: corps,
+    })
     statut = res.status
     if (res.ok) {
       const buf = Buffer.from(await res.arrayBuffer())
       octetsPdf = buf.length
-      if (!gardeFait && args.includes('--garder') && sortie) { gardeFait = true; writeFileSync(sortie.replace(/\.csv$/, '') + '.pdf', buf) }
+      if (!gardeFait && args.includes('--garder') && sortie) {
+        gardeFait = true
+        writeFileSync(sortie.replace(/\.csv$/, '') + '.pdf', buf)
+      }
       if (buf.subarray(0, 5).toString() !== '%PDF-') message = 'réponse 200 mais pas un PDF'
     } else {
       message = ((await res.json().catch(() => ({}))).error || '').slice(0, 160).replace(/[",\n]/g, ' ')
     }
-  } catch (e) { message = String(e.message || e).replace(/[",\n]/g, ' ') }
-  const l = { t_iso: new Date(t0).toISOString(), vague: v, demande: i, statut, duree_ms: Date.now() - t0, octets_pdf: octetsPdf, message }
+  } catch (e) {
+    message = String(e.message || e).replace(/[",\n]/g, ' ')
+  }
+  const l = {
+    t_iso: new Date(t0).toISOString(),
+    vague: v,
+    demande: i,
+    statut,
+    duree_ms: Date.now() - t0,
+    octets_pdf: octetsPdf,
+    message,
+  }
   lignes.push(l)
   if (sortie) appendFileSync(sortie, Object.values(l).join(',') + '\n')
-  console.log(`  vague ${v} · demande ${i} · ${statut} · ${l.duree_ms} ms${octetsPdf ? ` · PDF ${Math.round(octetsPdf / 1024)} Ko` : ''}${message ? ` · ${message}` : ''}`)
+  console.log(
+    `  vague ${v} · demande ${i} · ${statut} · ${l.duree_ms} ms${octetsPdf ? ` · PDF ${Math.round(octetsPdf / 1024)} Ko` : ''}${message ? ` · ${message}` : ''}`
+  )
 }
 
 for (let v = 1; v <= vagues; v++) {
@@ -91,12 +122,25 @@ for (let v = 1; v <= vagues; v++) {
 const q = (a, p) => (a.length ? a[Math.min(a.length - 1, Math.floor(a.length * p))] : null)
 const par = {}
 for (const l of lignes) par[l.statut] = (par[l.statut] || 0) + 1
-const ok = lignes.filter((l) => l.statut === 200).map((l) => l.duree_ms).sort((a, b) => a - b)
+const ok = lignes
+  .filter((l) => l.statut === 200)
+  .map((l) => l.duree_ms)
+  .sort((a, b) => a - b)
 console.log('--- synthèse C4 ---')
-console.log(JSON.stringify({
-  cas, profil, source_octets: octets, paralleles, vagues,
-  statuts: par,
-  duree_ms_200: ok.length ? { min: ok[0], p50: q(ok, 0.5), p95: q(ok, 0.95), max: ok[ok.length - 1] } : null,
-  durees_tous_ms_max: Math.max(...lignes.map((l) => l.duree_ms)),
-  pdf_octets: lignes.find((l) => l.octets_pdf)?.octets_pdf ?? null,
-}, null, 2))
+console.log(
+  JSON.stringify(
+    {
+      cas,
+      profil,
+      source_octets: octets,
+      paralleles,
+      vagues,
+      statuts: par,
+      duree_ms_200: ok.length ? { min: ok[0], p50: q(ok, 0.5), p95: q(ok, 0.95), max: ok[ok.length - 1] } : null,
+      durees_tous_ms_max: Math.max(...lignes.map((l) => l.duree_ms)),
+      pdf_octets: lignes.find((l) => l.octets_pdf)?.octets_pdf ?? null,
+    },
+    null,
+    2
+  )
+)

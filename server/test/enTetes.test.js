@@ -74,7 +74,10 @@ test('enforce : l’en-tête qui bloque', () => {
 test('off : pas de CSP, mais les autres en-têtes restent', () => {
   const res = fausseReponse()
   poserEnTetes(res, { mode: 'off', politique: 'P', chemin: '/' })
-  assert.deepEqual(Object.keys(res.h).filter((k) => k.startsWith('content-security')), [])
+  assert.deepEqual(
+    Object.keys(res.h).filter((k) => k.startsWith('content-security')),
+    []
+  )
   assert.equal(res.h['x-content-type-options'], 'nosniff')
 })
 

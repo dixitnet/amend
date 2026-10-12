@@ -54,7 +54,6 @@ test('une socket qui répond aux pings reste connectée', async () => {
   assert.equal(ferme, false, 'une connexion qui pongue ne doit pas être coupée')
 })
 
-
 test('un pair qui coupe net (FIN sans trame de fermeture) libère aussitôt sa place', async () => {
   // Les sockets d'une montée en version HTTP sont semi-ouvertes : sans
   // gestionnaire de `end`, la connexion restait comptée dans la salle
@@ -64,9 +63,15 @@ test('un pair qui coupe net (FIN sans trame de fermeture) libère aussitôt sa p
       resolve({ srv, conn: new WebSocketConnection(sock, { pingIntervalMs: 60000 }), client })
     })
     let client
-    srv.listen(0, '127.0.0.1', () => { client = connect(srv.address().port, '127.0.0.1'); client.on('error', () => {}) })
+    srv.listen(0, '127.0.0.1', () => {
+      client = connect(srv.address().port, '127.0.0.1')
+      client.on('error', () => {})
+    })
   })
-  const ferme = new Promise((resolve) => { conn.on('close', () => resolve(true)); setTimeout(() => resolve(false), 1000) })
+  const ferme = new Promise((resolve) => {
+    conn.on('close', () => resolve(true))
+    setTimeout(() => resolve(false), 1000)
+  })
   client.end() // FIN, rien d'autre
   assert.equal(await ferme, true, 'la connexion coupée net aurait dû être libérée sans attendre le ping')
   client.destroy()
@@ -155,7 +160,10 @@ test('une grosse trame qui arrive par petits paquets est livrée entière', asyn
   for (let i = 0; i < payload.length; i++) payload[i] = i % 251
   const trame = trameMasquee(0x2, payload)
   for (let i = 0; i < trame.length; i += 7000) client.write(trame.subarray(i, i + 7000))
-  const { d, bin } = await Promise.race([recu, new Promise((_r, rej) => setTimeout(() => rej(new Error('rien reçu')), 2000))])
+  const { d, bin } = await Promise.race([
+    recu,
+    new Promise((_r, rej) => setTimeout(() => rej(new Error('rien reçu')), 2000)),
+  ])
   assert.equal(bin, true)
   assert.equal(d.length, payload.length)
   assert.ok(d.equals(payload))

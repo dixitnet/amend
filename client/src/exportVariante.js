@@ -39,7 +39,11 @@ export const EN_COURS = 'encours'
 
 export const VARIANTES = [
   { id: FINAL, label: 'Document final', aide: 'Toutes les modifications proposées sont acceptées.' },
-  { id: EN_COURS, label: 'Version en cours', aide: 'Les modifications proposées restent visibles : ajouts soulignés, suppressions barrées.' },
+  {
+    id: EN_COURS,
+    label: 'Version en cours',
+    aide: 'Les modifications proposées restent visibles : ajouts soulignés, suppressions barrées.',
+  },
 ]
 
 function aLaMarque(node, nom) {
@@ -50,9 +54,7 @@ function aLaMarque(node, nom) {
 function marquesResolues(schema, node, mode) {
   // Les marques propres au suivi ne survivent jamais telles quelles : ce
   // sont des marques de travail, pas de mise en forme.
-  const gardees = node.marks.filter(
-    (m) => !['insertion', 'deletion', 'authorColor'].includes(m.type.name)
-  )
+  const gardees = node.marks.filter((m) => !['insertion', 'deletion', 'authorColor'].includes(m.type.name))
   if (mode === FINAL) return gardees
   const ajouts = []
   if (aLaMarque(node, 'insertion') && schema.marks.underline) ajouts.push(schema.marks.underline.create())
@@ -103,9 +105,7 @@ function blocResolu(schema, node, mode) {
     // **déjà** vide reste, c'est un blanc voulu par son auteur.
     if (mode === FINAL && contenu.length === 0 && node.content.size > 0) return null
     const attrs =
-      mode === FINAL && node.attrs.trackedBreak !== undefined
-        ? { ...node.attrs, trackedBreak: null }
-        : node.attrs
+      mode === FINAL && node.attrs.trackedBreak !== undefined ? { ...node.attrs, trackedBreak: null } : node.attrs
     return node.type.create(attrs, contenu, node.marks)
   }
   const enfants = []

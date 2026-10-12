@@ -49,7 +49,8 @@ async function route() {
     const docId = docMatch[1]
     const res = await fetch(`/api/docs/${docId}`)
     if (res.status === 403) {
-      app.innerHTML = '<div class="home"><p>Vous n\'avez pas accès à ce document.</p><a href="#/login">Se connecter →</a></div>'
+      app.innerHTML =
+        '<div class="home"><p>Vous n\'avez pas accès à ce document.</p><a href="#/login">Se connecter →</a></div>'
       return
     }
     if (!res.ok) {

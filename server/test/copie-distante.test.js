@@ -13,7 +13,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, statSync, utimesSync, copyFileSync, chmodSync } from 'node:fs'
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  existsSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  copyFileSync,
+  chmodSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -57,8 +69,7 @@ function tirer(env = {}, args = []) {
   })
 }
 const liste = (d) => (existsSync(d) ? readdirSync(d).sort() : [])
-const contenu = (archive) =>
-  spawnSync('tar', ['tzf', archive], { encoding: 'utf8' }).stdout.split('\n').filter(Boolean)
+const contenu = (archive) => spawnSync('tar', ['tzf', archive], { encoding: 'utf8' }).stdout.split('\n').filter(Boolean)
 
 test('un passage tire les données et les secrets, se déplie, et signale la copie au serveur', opts, () => {
   const r = tirer()
@@ -118,7 +129,11 @@ test('une archive bien plus petite que la précédente est mise de côté, rien 
   assert.match(r.stderr, /gardée en .*\.suspecte/)
   const apres = liste(join(NAS, 'quotidiennes'))
   assert.equal(apres.filter((n) => n.endsWith('.suspecte')).length, 1)
-  assert.deepEqual(apres.filter((n) => n.endsWith('.tar.gz')), avant, 'aucune archive supprimée ni ajoutée')
+  assert.deepEqual(
+    apres.filter((n) => n.endsWith('.tar.gz')),
+    avant,
+    'aucune archive supprimée ni ajoutée'
+  )
   assert.ok(existsSync(join(NAS, 'dernier-echec')))
   rmSync(g)
   for (const n of apres.filter((n) => n.endsWith('.suspecte'))) rmSync(join(NAS, 'quotidiennes', n))

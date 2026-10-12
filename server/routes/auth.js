@@ -2,14 +2,26 @@
 // Extrait de server.js (point 43 de la feuille de route, 11/10/2026) : l'ordre des
 // routes et leur comportement sont inchangés.
 
-import { canRequestReconnectLink, clearSessionCookieHeader, consumeReconnectToken, createReconnectToken, isAdminEmail, isLoginAllowed, isSecureRequest, normalizeEmail, readSession, sessionCookieHeader } from '../auth.js'
+import {
+  canRequestReconnectLink,
+  clearSessionCookieHeader,
+  consumeReconnectToken,
+  createReconnectToken,
+  isAdminEmail,
+  isLoginAllowed,
+  isSecureRequest,
+  normalizeEmail,
+  readSession,
+  sessionCookieHeader,
+} from '../auth.js'
 import { courrierAvecBouton, sendMail } from '../mailgun.js'
 import { raisonDeRefus } from '../users.js'
 import { sendJson, readJsonBody, origineDe, PAS_TRAITE } from '../http.js'
 
 export async function routesAuth(req, res, url, ctx) {
   const { pathname } = url
-  const { metrics, rooms, sessionsRevoquees, storage, users, APP_BASE_URL, liensParOrigine, LIENS_PAR_ORIGINE_HEURE } = ctx
+  const { metrics, rooms, sessionsRevoquees, storage, users, APP_BASE_URL, liensParOrigine, LIENS_PAR_ORIGINE_HEURE } =
+    ctx
 
   if (pathname === '/api/auth/me' && req.method === 'GET') {
     const email = readSession(req)

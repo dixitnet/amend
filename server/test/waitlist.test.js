@@ -54,7 +54,7 @@ const inscrire = (email) =>
     body: JSON.stringify({ email }),
   })
 
-test("rien de la liste ne se lit sans être administrateur", async () => {
+test('rien de la liste ne se lit sans être administrateur', async () => {
   await inscrire('a@example.com')
   await inscrire('b@example.com')
   // Il n'existe aucune route publique de lecture, pas même un compteur.
@@ -90,7 +90,8 @@ const inscrireDepuis = (email, ip) =>
     body: JSON.stringify({ email }),
   })
 const lireListe = async () =>
-  (await (await fetch(`${BASE}/api/admin/waitlist`, { headers: { cookie: cookie('admin@example.com') } })).json()).inscrits
+  (await (await fetch(`${BASE}/api/admin/waitlist`, { headers: { cookie: cookie('admin@example.com') } })).json())
+    .inscrits
 
 test('une adresse de plus de 254 caractères est refusée', async () => {
   const longue = `${'a'.repeat(250)}@example.com`

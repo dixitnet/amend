@@ -88,7 +88,7 @@ export function richPastePlugin(getUser) {
           insertLine(lines[i])
         }
 
-            // Même règle que pour la frappe : le curseur se pose après ce qui
+        // Même règle que pour la frappe : le curseur se pose après ce qui
         // vient d'être collé, pas sur le passage barré qu'il remplace.
         if (pos >= 0 && pos <= tr.doc.content.size) tr.setSelection(TextSelection.create(tr.doc, pos))
         tr.setMeta('trackChangesInternal', true)
@@ -179,7 +179,11 @@ export function effacementSuivi(getUser, versLArriere) {
       const suivi = suiviDuNoeud(sel.node)
       if (suivi && suivi.type === 'deletion') return true
       if (suivi && suivi.type === 'insertion' && suivi.user === user.name) tr.delete(sel.from, sel.to)
-      else tr.setNodeMarkup(sel.from, null, { ...sel.node.attrs, suivi: { type: 'deletion', user: user.name, userColor: user.color, ts } })
+      else
+        tr.setNodeMarkup(sel.from, null, {
+          ...sel.node.attrs,
+          suivi: { type: 'deletion', user: user.name, userColor: user.color, ts },
+        })
       tr.setMeta('trackChangesInternal', true)
       if (dispatch) dispatch(tr)
       return true
@@ -221,7 +225,11 @@ export function effacementSuivi(getUser, versLArriere) {
  * remplace les cas particuliers (boutons cachés, gardes par greffon) et
  * couvre ceux qu'on n'a pas listés. `surRefus` prévient la personne.
  */
-export function makeDispatchTransaction(view, getUser, { peutModifierLibrement = () => true, surRefus = () => {} } = {}) {
+export function makeDispatchTransaction(
+  view,
+  getUser,
+  { peutModifierLibrement = () => true, surRefus = () => {} } = {}
+) {
   return function dispatchTransaction(tr) {
     let finalTr = tr
     if (

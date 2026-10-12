@@ -32,14 +32,22 @@ for (let i = 0; i < 100; i++) {
 
 const cookieFor = (email) => sessionCookieHeader(email, { secure: false }).split(';')[0]
 const creer = (cookie, title = 'Doc') =>
-  fetch(`${BASE}/api/docs`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: JSON.stringify({ title }) })
+  fetch(`${BASE}/api/docs`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie },
+    body: JSON.stringify({ title }),
+  })
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64'
 )
 const deposer = (docId, cookie) =>
-  fetch(`${BASE}/api/docs/${docId}/images`, { method: 'POST', headers: { 'content-type': 'image/png', cookie }, body: PNG })
+  fetch(`${BASE}/api/docs/${docId}/images`, {
+    method: 'POST',
+    headers: { 'content-type': 'image/png', cookie },
+    body: PNG,
+  })
 
 test('S14 : un compte ne crée pas plus de documents que son plafond ; un administrateur n’en a pas', async () => {
   const cookie = cookieFor('quota-docs@example.com')

@@ -10,7 +10,13 @@
 // les accepte ou les refuse une à une. Avant de rien écrire, la page montre
 // ce qui sera proposé ; l'état d'avant est gardé dans la foulée.
 
-import { dateLisible, libelleVersion, phraseRestauration, resumeComparaison, segmentsDeDiff } from './versionsAffichage.js'
+import {
+  dateLisible,
+  libelleVersion,
+  phraseRestauration,
+  resumeComparaison,
+  segmentsDeDiff,
+} from './versionsAffichage.js'
 
 function el(tag, classe, texte) {
   const e = document.createElement(tag)
@@ -51,7 +57,7 @@ export async function mountVersions(root, docId) {
   const sousTitre = el(
     'p',
     'subtitle',
-    'Les états de ce document que le serveur a gardés. Comparez-les, nommez ceux qui comptent, et restaurez-en un : la restauration est proposée en suivi de modifications, rien n’est effacé.',
+    'Les états de ce document que le serveur a gardés. Comparez-les, nommez ceux qui comptent, et restaurez-en un : la restauration est proposée en suivi de modifications, rien n’est effacé.'
   )
   const statut = el('p', 'style-status')
   statut.setAttribute('role', 'status')
@@ -146,7 +152,11 @@ export async function mountVersions(root, docId) {
       ajouterLigne(v.ts, l.titre, l.detail, l.nommee)
     }
     if (!versions.length) {
-      const vide = el('li', 'vr-vide', 'Aucune version enregistrée pour l’instant. Le serveur en garde une quand la dernière personne quitte le document après l’avoir modifié.')
+      const vide = el(
+        'li',
+        'vr-vide',
+        'Aucune version enregistrée pour l’instant. Le serveur en garde une quand la dernière personne quitte le document après l’avoir modifié.'
+      )
       liste.appendChild(vide)
     }
   }
@@ -170,12 +180,24 @@ export async function mountVersions(root, docId) {
   function dessinerComparaison(conteneur, c) {
     conteneur.appendChild(el('p', 'vr-resume', resumeComparaison(c)))
     if (c.approximatif) {
-      conteneur.appendChild(el('p', 'vr-avertissement', 'Le document est très différent : la comparaison est approximative, paragraphe par paragraphe dans l’ordre.'))
+      conteneur.appendChild(
+        el(
+          'p',
+          'vr-avertissement',
+          'Le document est très différent : la comparaison est approximative, paragraphe par paragraphe dans l’ordre.'
+        )
+      )
     }
     for (const x of c.changements) {
       const carte = el('div', `vr-changement ${x.type}`)
       const n = (x.apres || x.avant).n
-      carte.appendChild(el('span', 'vr-etiquette', { modifie: 'Modifié', ajoute: 'Ajouté', supprime: 'Supprimé' }[x.type] + ` — bloc ${n}`))
+      carte.appendChild(
+        el(
+          'span',
+          'vr-etiquette',
+          { modifie: 'Modifié', ajoute: 'Ajouté', supprime: 'Supprimé' }[x.type] + ` — bloc ${n}`
+        )
+      )
       const texte = el('p', 'vr-bloc')
       if (x.type === 'modifie') {
         for (const s of segmentsDeDiff(x.avant.texte, x.apres.texte)) {
@@ -195,7 +217,13 @@ export async function mountVersions(root, docId) {
   async function dessinerPanneau() {
     panneau.innerHTML = ''
     if (selection === null) {
-      panneau.appendChild(el('p', 'versions-preview-placeholder', 'Choisissez une version dans la liste pour la comparer à l’état actuel, la lire ou la restaurer.'))
+      panneau.appendChild(
+        el(
+          'p',
+          'versions-preview-placeholder',
+          'Choisissez une version dans la liste pour la comparer à l’état actuel, la lire ou la restaurer.'
+        )
+      )
       return
     }
     const courante = selection === 'courante'
@@ -224,13 +252,18 @@ export async function mountVersions(root, docId) {
         bouton('Lire le texte', mode === 'texte' ? 'actif' : '', () => {
           mode = 'texte'
           dessinerPanneau()
-        }),
+        })
       )
       if (mode === 'comparer') {
         const choix = el('select', 'vr-choix')
         choix.name = 'comparer-avec'
         choix.setAttribute('aria-label', 'Comparer avec')
-        const options = [['courante', 'avec la version actuelle'], ...versions.filter((x) => x.ts !== selection).map((x) => [x.ts, `avec ${libelleVersion(x).titre} (${dateLisible(x.ts)})`])]
+        const options = [
+          ['courante', 'avec la version actuelle'],
+          ...versions
+            .filter((x) => x.ts !== selection)
+            .map((x) => [x.ts, `avec ${libelleVersion(x).titre} (${dateLisible(x.ts)})`]),
+        ]
         for (const [valeur, libelle] of options) {
           const o = el('option', null, libelle)
           o.value = String(valeur)
@@ -308,7 +341,9 @@ export async function mountVersions(root, docId) {
 
     const supprimer = bouton('Supprimer', 'danger', () => {
       zoneDialogue.innerHTML = ''
-      zoneDialogue.appendChild(el('p', null, 'Cette version sera définitivement supprimée. Le document n’en est pas modifié.'))
+      zoneDialogue.appendChild(
+        el('p', null, 'Cette version sera définitivement supprimée. Le document n’en est pas modifié.')
+      )
       zoneDialogue.append(
         bouton('Confirmer la suppression', 'danger', async () => {
           try {
@@ -321,7 +356,7 @@ export async function mountVersions(root, docId) {
             statut.textContent = err.message
           }
         }),
-        bouton('Annuler', '', () => (zoneDialogue.innerHTML = '')),
+        bouton('Annuler', '', () => (zoneDialogue.innerHTML = ''))
       )
     })
 
@@ -340,8 +375,8 @@ export async function mountVersions(root, docId) {
           el(
             'p',
             'vr-detail',
-            'Rien n’est effacé : les changements arrivent dans le document comme des propositions, que vous acceptez ou refusez une à une. L’état actuel est gardé avant. Mises en forme, images, tableaux et notes de bas de page ne sont pas restaurés — seul le texte l’est.',
-          ),
+            'Rien n’est effacé : les changements arrivent dans le document comme des propositions, que vous acceptez ou refusez une à une. L’état actuel est gardé avant. Mises en forme, images, tableaux et notes de bas de page ne sont pas restaurés — seul le texte l’est.'
+          )
         )
         notes(zoneDialogue, r)
         zoneDialogue.append(
@@ -358,7 +393,7 @@ export async function mountVersions(root, docId) {
               statut.textContent = err.message
             }
           }),
-          bouton('Annuler', '', () => (zoneDialogue.innerHTML = '')),
+          bouton('Annuler', '', () => (zoneDialogue.innerHTML = ''))
         )
       } catch (err) {
         zoneDialogue.innerHTML = ''
@@ -373,8 +408,12 @@ export async function mountVersions(root, docId) {
 
   /** Ce que le moteur n'a pas pu proposer, et pourquoi. */
   function notes(conteneur, r) {
-    const lignes = [...r.refuses.map((x) => `bloc ${x.bloc} : ${x.raison}`), ...r.ignores.map((x) => `bloc ${x.bloc} : ${x.raison}`)]
-    if (r.approximatif) lignes.push('les deux états sont très différents : l’appariement des paragraphes est approximatif')
+    const lignes = [
+      ...r.refuses.map((x) => `bloc ${x.bloc} : ${x.raison}`),
+      ...r.ignores.map((x) => `bloc ${x.bloc} : ${x.raison}`),
+    ]
+    if (r.approximatif)
+      lignes.push('les deux états sont très différents : l’appariement des paragraphes est approximatif')
     if (!lignes.length) return
     const p = el('p', 'vr-avertissement', 'À reprendre à la main :')
     const ul = el('ul', 'vr-notes')
@@ -395,7 +434,9 @@ export async function mountVersions(root, docId) {
     statut.textContent = err.message
     return
   }
-  statut.textContent = versions.length ? `${versions.length} version${versions.length > 1 ? 's' : ''} enregistrée${versions.length > 1 ? 's' : ''}.` : ''
+  statut.textContent = versions.length
+    ? `${versions.length} version${versions.length > 1 ? 's' : ''} enregistrée${versions.length > 1 ? 's' : ''}.`
+    : ''
   selection = versions.length ? versions[0].ts : 'courante'
   mode = versions.length ? 'comparer' : 'texte'
   dessiner()

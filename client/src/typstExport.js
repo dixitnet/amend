@@ -402,8 +402,7 @@ function gabarit(style, titre) {
     // Belle page pour les titres de niveau 1 : `to: "odd"` insère au
     // besoin une page blanche ; `weak` évite d'en insérer une au tout
     // début du document, quand on y est déjà.
-    const saut =
-      niveau === 1 && p.titre1PageImpaire ? 'pagebreak(to: "odd", weak: true)\n  ' : ''
+    const saut = niveau === 1 && p.titre1PageImpaire ? 'pagebreak(to: "odd", weak: true)\n  ' : ''
     if (saut) {
       return `#show heading.where(level: ${niveau}): it => {\n  ${saut}amend-${b.id}(it.body)\n}`
     }
@@ -419,15 +418,14 @@ function gabarit(style, titre) {
   // dépend de la page composée : on interroge les titres réellement placés,
   // seul moyen d'avoir un titre courant juste.
   const entete = enteteTypst(p, titre)
-  const numerotation = p.pageNumbers && p.pageNumbers.enabled
-    ? `numbering: "1", number-align: center,`
-    : ''
+  const numerotation = p.pageNumbers && p.pageNumbers.enabled ? `numbering: "1", number-align: center,` : ''
   // Un titre ne reste pas seul en bas d'une page : `sticky` le fait
   // descendre avec le texte qu'il annonce.
   const solidaires = p.titresSolidaires === false ? '' : '#show heading: set block(sticky: true)\n'
-  const depart = p.pageNumbers && p.pageNumbers.enabled
-    ? `#counter(page).update(${Math.max(1, Number(p.pageNumbers.startAt) || 1)})\n`
-    : ''
+  const depart =
+    p.pageNumbers && p.pageNumbers.enabled
+      ? `#counter(page).update(${Math.max(1, Number(p.pageNumbers.startAt) || 1)})\n`
+      : ''
 
   return `// Engendré par amend.ink — ne pas modifier à la main.
 #set document(title: ${chaine(titre || 'Document')})

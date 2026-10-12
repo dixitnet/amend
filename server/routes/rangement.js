@@ -20,7 +20,10 @@ export async function routesRangement(req, res, url, ctx) {
 
   /** Les documents que la personne voit, corbeille comprise : le reste de son
    * rangement est oublié à la prochaine écriture. */
-  const visibles = new Set([...storage.listDocs(email).map((d) => d.id), ...storage.listCorbeille(email).map((d) => d.id)])
+  const visibles = new Set([
+    ...storage.listDocs(email).map((d) => d.id),
+    ...storage.listCorbeille(email).map((d) => d.id),
+  ])
   const vue = (r) => ({ dossiers: r.dossiers, placement: r.placement, favoris: r.favoris })
 
   if (pathname === '/api/rangement') {
@@ -42,7 +45,8 @@ export async function routesRangement(req, res, url, ctx) {
     const body = await readJsonBody(req)
     let r = null
     if (typeof body.nom === 'string') r = rangements.renommerDossier(email, id, body.nom, visibles)
-    if ('parent' in body) r = rangements.deplacerDossier(email, id, typeof body.parent === 'string' ? body.parent : null, visibles)
+    if ('parent' in body)
+      r = rangements.deplacerDossier(email, id, typeof body.parent === 'string' ? body.parent : null, visibles)
     if (!r) return sendJson(res, 400, { error: 'rien à changer : donnez un nom ou un dossier parent' })
     return sendJson(res, 200, { dossier: r.dossier, ...vue(r.rangement) })
   }
@@ -51,5 +55,9 @@ export async function routesRangement(req, res, url, ctx) {
   if (req.method !== 'PUT') return sendJson(res, 405, { error: 'méthode non permise' })
   if (!visibles.has(document[1])) return sendJson(res, 404, { error: 'document introuvable' })
   const body = await readJsonBody(req)
-  return sendJson(res, 200, vue(rangements.placerDocument(email, document[1], typeof body.dossier === 'string' ? body.dossier : null, visibles)))
+  return sendJson(
+    res,
+    200,
+    vue(rangements.placerDocument(email, document[1], typeof body.dossier === 'string' ? body.dossier : null, visibles))
+  )
 }

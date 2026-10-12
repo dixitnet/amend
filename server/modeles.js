@@ -79,10 +79,19 @@ export class Modeles {
       return { id: ID_DEFAUT, nom: NOM_DEFAUT, portee: 'instance', defaut: true, style: this.lireInstance() || {} }
     }
     const livre = modeleLivre(id)
-    if (livre) return { id: livre.id, nom: livre.nom, portee: 'livre', description: livre.description, style: livre.style }
+    if (livre)
+      return { id: livre.id, nom: livre.nom, portee: 'livre', description: livre.description, style: livre.style }
     const m = this._lire(id)
     if (!m) return null
-    return { id: m.id, nom: m.nom, portee: m.portee, proprietaire: m.proprietaire || null, creeLe: m.creeLe, modifieLe: m.modifieLe, style: m.style || {} }
+    return {
+      id: m.id,
+      nom: m.nom,
+      portee: m.portee,
+      proprietaire: m.proprietaire || null,
+      creeLe: m.creeLe,
+      modifieLe: m.modifieLe,
+      style: m.style || {},
+    }
   }
 
   existe(id) {

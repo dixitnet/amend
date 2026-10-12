@@ -77,7 +77,10 @@ try {
         const orphelins = readdirSync(uploads).filter(
           (d) => statSync(join(uploads, d)).isDirectory() && !docs.some((x) => x.id === d)
         )
-        if (orphelins.length) note(`  ! ${orphelins.length} dossier(s) d’images sans document au registre (supprimés depuis) : sans gravité`)
+        if (orphelins.length)
+          note(
+            `  ! ${orphelins.length} dossier(s) d’images sans document au registre (supprimés depuis) : sans gravité`
+          )
       }
     }
   }

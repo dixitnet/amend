@@ -26,9 +26,7 @@ export const BLOCS_BIENVENUE = [
   {
     type: 'paragraph',
     texte: [
-      T(
-        'amend.ink est un éditeur de texte à plusieurs mains : vous y écrivez seul ou à plusieurs, et on vous '
-      ),
+      T('amend.ink est un éditeur de texte à plusieurs mains : vous y écrivez seul ou à plusieurs, et on vous '),
       ['propose', { em: {} }],
       T(
         ' des corrections au lieu de les faire à votre place. C’est vous qui acceptez ou refusez. Ce document est le vôtre : vous en êtes le propriétaire, et personne d’autre n’y a accès tant que vous n’invitez personne.'
@@ -47,7 +45,9 @@ export const BLOCS_BIENVENUE = [
       ],
       [
         G('Un commentaire. '),
-        T('Sélectionnez un passage : un bouton « Commenter » apparaît en face. Votre commentaire s’affiche dans la marge, et on peut y répondre.'),
+        T(
+          'Sélectionnez un passage : un bouton « Commenter » apparaît en face. Votre commentaire s’affiche dans la marge, et on peut y répondre.'
+        ),
       ],
       [
         G('Margo, l’IA. '),
@@ -76,7 +76,9 @@ export const BLOCS_BIENVENUE = [
   {
     type: 'paragraph',
     texte: [
-      T('amend.ink est en phase de test, et votre avis compte. Le bouton « Aide / avis », en bas à droite, ouvre l’aide et permet d’envoyer une question, une idée ou un bug. Le document en cours et votre navigateur sont joints automatiquement, '),
+      T(
+        'amend.ink est en phase de test, et votre avis compte. Le bouton « Aide / avis », en bas à droite, ouvre l’aide et permet d’envoyer une question, une idée ou un bug. Le document en cours et votre navigateur sont joints automatiquement, '
+      ),
       G('jamais le contenu de vos documents'),
       T('. Même un message de trois mots est utile.'),
     ],

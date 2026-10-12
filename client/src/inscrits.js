@@ -73,9 +73,7 @@ export async function mountInscrits(root, info) {
     return
   }
 
-  brancherEmbarquement(root, ({ email }) =>
-    mountInscrits(root, `Document créé, invitation envoyée à ${email}.`)
-  )
+  brancherEmbarquement(root, ({ email }) => mountInscrits(root, `Document créé, invitation envoyée à ${email}.`))
 
   const inscriptions = file.reduce((n, l) => n + (l.inscriptions || 1), 0)
   const enAttente = file.filter((l) => l.statut === 'attente').length

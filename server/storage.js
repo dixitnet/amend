@@ -13,16 +13,12 @@ import { Journal } from './journal.js'
 import { ListeAttente } from './listeAttente.js'
 import { capabilities } from './roles.js'
 
-
 // `updatedAt` d'un document actif n'est réécrit dans le registre qu'une fois
 // toutes les 5 s (point 40, 11/10/2026) : chaque écriture relit, sérialise
 // et remplace `docs.json` en entier, et un flush a lieu toutes les 200 ms
 // par document qui reçoit des frappes. L'horodatage reste exact à 5 s près
 // (un dernier report est toujours planifié, et l'arrêt les applique tous).
 const TOUCH_MIN_MS = 5000
-
-
-
 
 // La feuille de style ne vit plus ici : sa définition est dans
 // shared/style.js, importée telle quelle par le serveur ET par le client.
@@ -83,14 +79,7 @@ function proprietaire(meta) {
 }
 
 export class Storage {
-  constructor(
-    dataDir,
-    {
-      maxUncompactedOps,
-      compactionTrigger,
-      maxUncompactedBytes,
-    } = {}
-  ) {
+  constructor(dataDir, { maxUncompactedOps, compactionTrigger, maxUncompactedBytes } = {}) {
     this.dataDir = dataDir
     // Le journal Yjs : voir journal.js. Il date le document dans le registre
     // quand une écriture ou un compactage a eu lieu, et lui demande sa fiche
@@ -119,17 +108,39 @@ export class Storage {
   }
 
   // --- Les styles et les modèles (stylesDocuments.js) : mêmes noms qu'avant l'extraction ---
-  getStyle() { return this.styles.getStyle() }
-  setStyle(style) { return this.styles.setStyle(style) }
-  hasOwnStyle(id) { return this.styles.hasOwnStyle(id) }
-  modeleDuDocument(id) { return this.styles.modeleDuDocument(id) }
-  getDocStyle(id) { return this.styles.getDocStyle(id) }
-  setDocStyle(id, style) { return this.styles.setDocStyle(id, style) }
-  ecartsDuDocument(id) { return this.styles.ecartsDuDocument(id) }
-  resetDocStyle(id) { return this.styles.resetDocStyle(id) }
-  setDocModele(id, modeleId, options) { return this.styles.setDocModele(id, modeleId, options) }
-  usagesModeles() { return this.styles.usagesModeles() }
-  compterUsagesModele(modeleId) { return this.styles.compterUsagesModele(modeleId) }
+  getStyle() {
+    return this.styles.getStyle()
+  }
+  setStyle(style) {
+    return this.styles.setStyle(style)
+  }
+  hasOwnStyle(id) {
+    return this.styles.hasOwnStyle(id)
+  }
+  modeleDuDocument(id) {
+    return this.styles.modeleDuDocument(id)
+  }
+  getDocStyle(id) {
+    return this.styles.getDocStyle(id)
+  }
+  setDocStyle(id, style) {
+    return this.styles.setDocStyle(id, style)
+  }
+  ecartsDuDocument(id) {
+    return this.styles.ecartsDuDocument(id)
+  }
+  resetDocStyle(id) {
+    return this.styles.resetDocStyle(id)
+  }
+  setDocModele(id, modeleId, options) {
+    return this.styles.setDocModele(id, modeleId, options)
+  }
+  usagesModeles() {
+    return this.styles.usagesModeles()
+  }
+  compterUsagesModele(modeleId) {
+    return this.styles.compterUsagesModele(modeleId)
+  }
 
   // --- La liste d'attente (listeAttente.js) : mêmes noms qu'avant l'extraction ---
 
@@ -167,26 +178,28 @@ export class Storage {
    * email (pas connecté), seuls ces documents "ouverts" apparaissent. */
   listDocs(email) {
     const registry = this._readRegistry()
-    return Object.entries(registry)
-      .filter(([, meta]) => {
-        if (meta.corbeille) return false
-        if (!email || !Array.isArray(meta.access)) return false
-        return meta.access.some((a) => a.email === email)
-      })
-      .map(([id, meta]) => ({
-        id,
-        ...meta,
-        access: accesSansJetons(meta),
-        myRole: (meta.access.find((a) => a.email === email) || {}).role || null,
-        myCapabilities: capabilities((meta.access.find((a) => a.email === email) || {}).role || null),
-        // Pour que la liste sache afficher « Supprimer » au propriétaire et
-        // « Quitter » aux autres, sans une requête par document.
-        owner: proprietaire(meta),
-        jeSuisProprietaire: !!email && proprietaire(meta) === email,
-      }))
-      // Du plus récemment modifié au plus ancien. Les favoris sont personnels
-      // (server/rangement.js) : c'est la page qui les met en tête.
-      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    return (
+      Object.entries(registry)
+        .filter(([, meta]) => {
+          if (meta.corbeille) return false
+          if (!email || !Array.isArray(meta.access)) return false
+          return meta.access.some((a) => a.email === email)
+        })
+        .map(([id, meta]) => ({
+          id,
+          ...meta,
+          access: accesSansJetons(meta),
+          myRole: (meta.access.find((a) => a.email === email) || {}).role || null,
+          myCapabilities: capabilities((meta.access.find((a) => a.email === email) || {}).role || null),
+          // Pour que la liste sache afficher « Supprimer » au propriétaire et
+          // « Quitter » aux autres, sans une requête par document.
+          owner: proprietaire(meta),
+          jeSuisProprietaire: !!email && proprietaire(meta) === email,
+        }))
+        // Du plus récemment modifié au plus ancien. Les favoris sont personnels
+        // (server/rangement.js) : c'est la page qui les met en tête.
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    )
   }
 
   getDoc(id) {
@@ -479,7 +492,6 @@ export class Storage {
     }))
   }
 
-
   /** true si cette adresse a un rôle sur au moins un document — sert de
    * base à isLoginAllowed (auth.js) : une personne déjà invitée quelque
    * part peut toujours se reconnecter par lien magique, même sans son
@@ -490,9 +502,7 @@ export class Storage {
   emailHasAnyAccess(email) {
     if (!email) return false
     const registry = this._readRegistry()
-    return Object.values(registry).some(
-      (doc) => Array.isArray(doc.access) && doc.access.some((a) => a.email === email)
-    )
+    return Object.values(registry).some((doc) => Array.isArray(doc.access) && doc.access.some((a) => a.email === email))
   }
 
   /** Au démarrage : retire du registre tout jeton d'invitation conservé en

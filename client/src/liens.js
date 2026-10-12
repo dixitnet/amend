@@ -36,9 +36,16 @@ export function lienAutour(doc, pos, type, { strict = false } = {}) {
   const morceaux = []
   parent.forEach((enfant, decalage) => {
     const mark = enfant.marks.find((m) => m.type === type)
-    morceaux.push({ from: debut + decalage, to: debut + decalage + enfant.nodeSize, href: mark ? mark.attrs.href : null, mark })
+    morceaux.push({
+      from: debut + decalage,
+      to: debut + decalage + enfant.nodeSize,
+      href: mark ? mark.attrs.href : null,
+      mark,
+    })
   })
-  let i = morceaux.findIndex((m) => m.href !== null && (strict ? pos > m.from && pos < m.to : pos >= m.from && pos <= m.to))
+  let i = morceaux.findIndex(
+    (m) => m.href !== null && (strict ? pos > m.from && pos < m.to : pos >= m.from && pos <= m.to)
+  )
   if (i === -1) return null
   // Frontière entre deux morceaux (pos == to du précédent == from du suivant) :
   // en mode non strict on préfère celui qui contient réellement la position.
@@ -83,7 +90,9 @@ export function insererTexteLie(view, texte, href) {
   const fin = view.state.selection.from
   poserLienSur(view, fin - texte.length, fin, href)
   // Le curseur sort du lien : on continue d'écrire après, pas dedans.
-  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, fin)).setMeta('trackChangesInternal', true))
+  view.dispatch(
+    view.state.tr.setSelection(TextSelection.create(view.state.doc, fin)).setMeta('trackChangesInternal', true)
+  )
 }
 
 function ouvrirAdresse(href) {

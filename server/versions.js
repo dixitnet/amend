@@ -132,7 +132,12 @@ export class Versions {
   renommer(id, ts, nom) {
     const v = this.trouver(id, ts)
     if (!v) return null
-    const fiche = { ts: v.ts, origine: v.origine === 'inconnue' ? 'compactage' : v.origine, par: v.par, nom: nom || null }
+    const fiche = {
+      ts: v.ts,
+      origine: v.origine === 'inconnue' ? 'compactage' : v.origine,
+      par: v.par,
+      nom: nom || null,
+    }
     ecrireAtomique(join(this._dossier(id), `${v.ts}.json`), JSON.stringify(fiche))
     return { ...v, nom: fiche.nom }
   }

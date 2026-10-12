@@ -40,7 +40,10 @@ test('storage : à la corbeille, plus de rôle pour personne, plus dans les list
   assert.equal(s.documentsDe(PROPRIO, { avecCorbeille: true }).length, 1, 'mais compté pour le disque')
   assert.ok(s.getDoc(d.id), 'la fiche est toujours là')
   assert.equal(s.estALaCorbeille(d.id), true)
-  assert.deepEqual(s.listCorbeille(PROPRIO).map((x) => x.id), [d.id])
+  assert.deepEqual(
+    s.listCorbeille(PROPRIO).map((x) => x.id),
+    [d.id]
+  )
   assert.deepEqual(s.listCorbeille(EDITEUR), [], 'la corbeille est celle du propriétaire')
 
   s.restaurerDeLaCorbeille(d.id)
@@ -117,16 +120,29 @@ const api = (chemin, qui, opts = {}) => inst.api(chemin, { cookie: inst.cookies[
 async function nouveauDocument(titre) {
   const c = await api('/api/docs', PROPRIO, { methode: 'POST', corps: { title: titre } })
   assert.equal(c.status, 201)
-  const inv = await api(`/api/docs/${c.json.id}/invitations`, PROPRIO, { methode: 'POST', corps: { email: EDITEUR, role: 'editeur' } })
+  const inv = await api(`/api/docs/${c.json.id}/invitations`, PROPRIO, {
+    methode: 'POST',
+    corps: { email: EDITEUR, role: 'editeur' },
+  })
   assert.equal(inv.status, 200)
   const courriers = await (await fetch(`${inst.fauxMailgun}/courriers`)).json()
-  const jeton = /#\/invite\/([A-Za-z0-9_-]+)/.exec([...courriers].reverse().find((x) => x.to === EDITEUR && x.text.includes('#/invite/')).text)[1]
-  assert.equal((await inst.api(`/api/invitations/${jeton}`, { methode: 'POST', cookie: inst.cookies[EDITEUR] })).status, 200)
+  const jeton = /#\/invite\/([A-Za-z0-9_-]+)/.exec(
+    [...courriers].reverse().find((x) => x.to === EDITEUR && x.text.includes('#/invite/')).text
+  )[1]
+  assert.equal(
+    (await inst.api(`/api/invitations/${jeton}`, { methode: 'POST', cookie: inst.cookies[EDITEUR] })).status,
+    200
+  )
   return c.json.id
 }
 
 test('démarrage', async () => {
-  inst = await lancerInstance({ port: 19930, comptes: [PROPRIO, EDITEUR, TIERS], admin: TIERS, env: { DOCUMENTS_MAX_PAR_COMPTE: '2' } })
+  inst = await lancerInstance({
+    port: 19930,
+    comptes: [PROPRIO, EDITEUR, TIERS],
+    admin: TIERS,
+    env: { DOCUMENTS_MAX_PAR_COMPTE: '2' },
+  })
   doc = await nouveauDocument('Mémoire')
 })
 
@@ -144,13 +160,19 @@ test('« supprimer » met à la corbeille : le document disparaît pour tous, sa
     const res = await api(`/api/docs/${doc}${chemin}`, PROPRIO)
     assert.ok([403, 404].includes(res.status), `${chemin} : ${res.status}`)
   }
-  assert.equal((await api(`/api/docs/${doc}/star`, PROPRIO, { methode: 'PATCH', corps: { starred: true } })).status, 403)
+  assert.equal(
+    (await api(`/api/docs/${doc}/star`, PROPRIO, { methode: 'PATCH', corps: { starred: true } })).status,
+    403
+  )
   assert.equal((await api(`/api/docs/${doc}`, PROPRIO, { methode: 'DELETE' })).status, 404, 'on ne jette pas deux fois')
 })
 
 test('la corbeille est celle du propriétaire', async () => {
   const liste = (await api('/api/corbeille', PROPRIO)).json.documents
-  assert.deepEqual(liste.map((d) => [d.id, d.title]), [[doc, 'Mémoire']])
+  assert.deepEqual(
+    liste.map((d) => [d.id, d.title]),
+    [[doc, 'Mémoire']]
+  )
   assert.equal(typeof liste[0].corbeille.le, 'number')
   assert.deepEqual((await api('/api/corbeille', EDITEUR)).json.documents, [])
   assert.equal((await api('/api/corbeille', undefined)).status, 401)
@@ -165,27 +187,47 @@ test('restaurer rend le document tel quel, à tous ses membres', async () => {
   assert.equal(r.json.title, 'Mémoire')
   assert.equal((await api(`/api/docs/${doc}`, EDITEUR)).status, 200)
   assert.deepEqual((await api('/api/corbeille', PROPRIO)).json.documents, [])
-  assert.equal((await api(`/api/corbeille/${doc}/restauration`, PROPRIO, { methode: 'POST' })).status, 404, 'plus dans la corbeille')
+  assert.equal(
+    (await api(`/api/corbeille/${doc}/restauration`, PROPRIO, { methode: 'POST' })).status,
+    404,
+    'plus dans la corbeille'
+  )
 })
 
 test('on ne supprime pour de bon que depuis la corbeille', async () => {
-  assert.equal((await api(`/api/corbeille/${doc}`, PROPRIO, { methode: 'DELETE' })).status, 404, 'un document vivant ne se supprime pas par là')
+  assert.equal(
+    (await api(`/api/corbeille/${doc}`, PROPRIO, { methode: 'DELETE' })).status,
+    404,
+    'un document vivant ne se supprime pas par là'
+  )
   await api(`/api/docs/${doc}`, PROPRIO, { methode: 'DELETE' })
   const r = await api(`/api/corbeille/${doc}`, PROPRIO, { methode: 'DELETE' })
   assert.equal(r.status, 200)
   assert.deepEqual((await api('/api/corbeille', PROPRIO)).json.documents, [])
-  assert.equal((await api(`/api/corbeille/${doc}/restauration`, PROPRIO, { methode: 'POST' })).status, 404, 'plus rien à restaurer')
+  assert.equal(
+    (await api(`/api/corbeille/${doc}/restauration`, PROPRIO, { methode: 'POST' })).status,
+    404,
+    'plus rien à restaurer'
+  )
 })
 
 test('la corbeille ne compte pas dans le quota, la restauration s’y soumet', async () => {
   // Plafond de 2 documents dans cette instance.
   const a = await nouveauDocument('A')
   const b = await nouveauDocument('B')
-  assert.equal((await api('/api/docs', PROPRIO, { methode: 'POST', corps: { title: 'C' } })).status, 403, 'plafond atteint')
+  assert.equal(
+    (await api('/api/docs', PROPRIO, { methode: 'POST', corps: { title: 'C' } })).status,
+    403,
+    'plafond atteint'
+  )
   await api(`/api/docs/${a}`, PROPRIO, { methode: 'DELETE' })
   const c = await api('/api/docs', PROPRIO, { methode: 'POST', corps: { title: 'C' } })
   assert.equal(c.status, 201, 'jeter libère de la place')
-  assert.equal((await api(`/api/corbeille/${a}/restauration`, PROPRIO, { methode: 'POST' })).status, 403, 'restaurer redonne le plafond')
+  assert.equal(
+    (await api(`/api/corbeille/${a}/restauration`, PROPRIO, { methode: 'POST' })).status,
+    403,
+    'restaurer redonne le plafond'
+  )
   await api(`/api/docs/${b}`, PROPRIO, { methode: 'DELETE' })
   assert.equal((await api(`/api/corbeille/${a}/restauration`, PROPRIO, { methode: 'POST' })).status, 200)
 })
@@ -197,13 +239,19 @@ test('vider la corbeille supprime tout ce qu’elle contient, et rien d’autre'
   const r = await api('/api/corbeille', PROPRIO, { methode: 'DELETE' })
   assert.equal(r.json.supprimes, avant)
   assert.deepEqual((await api('/api/corbeille', PROPRIO)).json.documents, [])
-  assert.deepEqual((await api('/api/docs', PROPRIO)).json.docs.map((d) => d.id), vivants)
+  assert.deepEqual(
+    (await api('/api/docs', PROPRIO)).json.docs.map((d) => d.id),
+    vivants
+  )
 })
 
 test('mettre à la corbeille ferme les connexions ouvertes', async () => {
-  for (const d of (await api('/api/docs', PROPRIO)).json.docs) await api(`/api/docs/${d.id}`, PROPRIO, { methode: 'DELETE' }) // sous le plafond
+  for (const d of (await api('/api/docs', PROPRIO)).json.docs)
+    await api(`/api/docs/${d.id}`, PROPRIO, { methode: 'DELETE' }) // sous le plafond
   const id = await nouveauDocument('Salle')
-  const ws = new WebSocket(`${inst.base.replace(/^http/, 'ws')}/ws/${id}?user=essai`, { headers: { cookie: inst.cookies[EDITEUR] } })
+  const ws = new WebSocket(`${inst.base.replace(/^http/, 'ws')}/ws/${id}?user=essai`, {
+    headers: { cookie: inst.cookies[EDITEUR] },
+  })
   const ferme = new Promise((resolve) => ws.on('close', () => resolve(true)))
   await new Promise((resolve, reject) => {
     ws.on('open', resolve)

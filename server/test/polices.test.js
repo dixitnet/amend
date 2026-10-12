@@ -10,7 +10,15 @@ import { POLICES, POLICES_RETIREES, police, famillesTypst, assainir, idPolice } 
 // (fonts-dejavu fonts-liberation fonts-roboto) a sous la main, plus ce que
 // Typst embarque (Libertinus Serif, DejaVu Sans Mono). Ajouter une police à
 // POLICES oblige à compléter cette liste — donc à y penser côté serveur.
-const INSTALLEES = new Set(['DejaVu Sans', 'DejaVu Sans Mono', 'Liberation Sans', 'Liberation Serif', 'Liberation Mono', 'Libertinus Serif', 'Roboto'])
+const INSTALLEES = new Set([
+  'DejaVu Sans',
+  'DejaVu Sans Mono',
+  'Liberation Sans',
+  'Liberation Serif',
+  'Liberation Mono',
+  'Libertinus Serif',
+  'Roboto',
+])
 
 test('chaque police proposée n’a qu’une famille Typst, et elle est installée', () => {
   for (const p of POLICES) {
@@ -36,7 +44,10 @@ test('aucune police propriétaire ne reste dans les libellés ou les familles du
 test('les identifiants sont uniques, et le libellé dit ce que le PDF utilise', () => {
   assert.equal(new Set(POLICES.map((p) => p.id)).size, POLICES.length)
   for (const p of POLICES) {
-    assert.ok(p.label.includes(p.typst[0]) || p.label.startsWith('Système'), `${p.id} : « ${p.label} » ne nomme pas ${p.typst[0]}`)
+    assert.ok(
+      p.label.includes(p.typst[0]) || p.label.startsWith('Système'),
+      `${p.id} : « ${p.label} » ne nomme pas ${p.typst[0]}`
+    )
   }
 })
 

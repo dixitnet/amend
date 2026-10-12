@@ -28,7 +28,19 @@ import { join } from 'node:path'
 // `publication`, `sauvegarde` et `embarquements` sont purgés comme les autres
 // (11/10/2026) : ils étaient écrits sans jamais être ni lus ni purgés.
 // `support` (les retours reçus) n'est volontairement pas purgé ici.
-export const FLUX = ['connexions', 'ia', 'mail', 'images', 'agents', 'dialogue', 'publication', 'sauvegarde', 'embarquements', 'versions', 'corbeille']
+export const FLUX = [
+  'connexions',
+  'ia',
+  'mail',
+  'images',
+  'agents',
+  'dialogue',
+  'publication',
+  'sauvegarde',
+  'embarquements',
+  'versions',
+  'corbeille',
+]
 const RETENTION_JOURS = 90
 
 export class Metrics {

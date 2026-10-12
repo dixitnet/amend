@@ -131,7 +131,12 @@ export function pairReplacements(changes) {
     // met désormais le nouveau après ; une réécriture entière
     // par l'IA met le nouveau paragraphe **après** l'ancien (28/09/2026).
     const paire =
-      b && a.groupe && a.groupe === b.groupe && a.type !== b.type && ['insertion', 'deletion'].includes(a.type) && ['insertion', 'deletion'].includes(b.type)
+      b &&
+      a.groupe &&
+      a.groupe === b.groupe &&
+      a.type !== b.type &&
+      ['insertion', 'deletion'].includes(a.type) &&
+      ['insertion', 'deletion'].includes(b.type)
     if (paire) {
       const insertion = a.type === 'insertion' ? a : b
       const deletion = a.type === 'deletion' ? a : b

@@ -150,7 +150,10 @@ export function construireVue({ docs, dossiers, courant = null, recherche = '', 
   }
   const avecChemin = (doc) => ({ doc, emplacement: libelleChemin(dossiers, dossierDe(doc, ids)) })
 
-  const favoris = trier(docs.filter((d) => d.starred && correspond(d)), tri).map(avecChemin)
+  const favoris = trier(
+    docs.filter((d) => d.starred && correspond(d)),
+    tri
+  ).map(avecChemin)
   const fil = chemin(dossiers, ouvert)
 
   if (mots.length) {
@@ -174,7 +177,10 @@ export function construireVue({ docs, dossiers, courant = null, recherche = '', 
     recherche: false,
     favoris,
     sousDossiers,
-    documents: trier(docs.filter((d) => dossierDe(d, ids) === ouvert), tri).map(avecChemin),
+    documents: trier(
+      docs.filter((d) => dossierDe(d, ids) === ouvert),
+      tri
+    ).map(avecChemin),
   }
 }
 

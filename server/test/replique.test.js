@@ -109,7 +109,9 @@ test('verifierLecteur : le texte est refusé, un commentaire à son nom accepté
 // --- S12 : « les siens » se reconnaît à l'identifiant du compte, pas au nom ---
 
 const commenterId = (doc, id, author, authorId, extra = {}) =>
-  operation(doc, () => doc.getMap('comments').set(id, { id, author, authorId, text: 'un avis', createdAt: 1, ...extra }))
+  operation(doc, () =>
+    doc.getMap('comments').set(id, { id, author, authorId, text: 'un avis', createdAt: 1, ...extra })
+  )
 
 test('S12 : un lecteur renommé « Marie » ne touche pas aux commentaires de Marie', () => {
   const serveur = new Y.Doc()
@@ -121,13 +123,25 @@ test('S12 : un lecteur renommé « Marie » ne touche pas aux commentaires de Ma
   const intrus = new Y.Doc()
   Y.applyUpdate(intrus, Y.encodeStateAsUpdate(marie))
   const supprime = operation(intrus, () => intrus.getMap('comments').delete('c1'))
-  assert.equal(verifierLecteur(serveur, supprime, 'Marie', 'id-intrus').ok, false, 'supprimer le commentaire d’une autre personne du même nom')
+  assert.equal(
+    verifierLecteur(serveur, supprime, 'Marie', 'id-intrus').ok,
+    false,
+    'supprimer le commentaire d’une autre personne du même nom'
+  )
   const remplace = commenterId(intrus, 'c1', 'Marie', 'id-intrus', { text: 'falsifié' })
-  assert.equal(verifierLecteur(serveur, remplace, 'Marie', 'id-intrus').ok, false, 'remplacer — le commentaire d’origine porte l’identifiant de Marie')
+  assert.equal(
+    verifierLecteur(serveur, remplace, 'Marie', 'id-intrus').ok,
+    false,
+    'remplacer — le commentaire d’origine porte l’identifiant de Marie'
+  )
 
   // … ou qui fait passer son commentaire pour celui de Marie (même identifiant).
   const usurpe = commenterId(new Y.Doc(), 'c9', 'Marie', 'id-marie')
-  assert.equal(verifierLecteur(serveur, usurpe, 'Marie', 'id-intrus').ok, false, 'écrire sous l’identifiant d’une autre personne')
+  assert.equal(
+    verifierLecteur(serveur, usurpe, 'Marie', 'id-intrus').ok,
+    false,
+    'écrire sous l’identifiant d’une autre personne'
+  )
 
   // Marie, elle, fait ce qu’elle veut des siens.
   const suppressionMarie = operation(marie, () => marie.getMap('comments').delete('c1'))
@@ -152,11 +166,17 @@ test('S12 : un commentaire d’avant (sans authorId) reste modifiable par qui po
 
   // Léa corrige son ancien commentaire (le client recopie l'objet et ajoute editedAt) : accepté,
   // avec ou sans identifiant dans l'objet réécrit.
-  const corrige = operation(ancien, () => ancien.getMap('comments').set('c1', { id: 'c1', author: 'Léa', text: 'corrigé', createdAt: 1, editedAt: 2 }))
+  const corrige = operation(ancien, () =>
+    ancien.getMap('comments').set('c1', { id: 'c1', author: 'Léa', text: 'corrigé', createdAt: 1, editedAt: 2 })
+  )
   assert.equal(verifierLecteur(serveur, corrige, 'Léa', 'id-lea').ok, true)
   Y.applyUpdate(serveur, corrige)
 
-  const corrigeAvecId = operation(ancien, () => ancien.getMap('comments').set('c1', { id: 'c1', author: 'Léa', authorId: 'id-lea', text: 'corrigé 2', createdAt: 1 }))
+  const corrigeAvecId = operation(ancien, () =>
+    ancien
+      .getMap('comments')
+      .set('c1', { id: 'c1', author: 'Léa', authorId: 'id-lea', text: 'corrigé 2', createdAt: 1 })
+  )
   assert.equal(verifierLecteur(serveur, corrigeAvecId, 'Léa', 'id-lea').ok, true)
 
   // Quelqu'un d'autre sous un autre nom : refusé.
@@ -204,7 +224,11 @@ test('dans la salle : un lecteur reçoit « refuse » pour le texte, et rien n�
   assert.match(refus[0].raison, /texte/)
   assert.equal(connEditeur.recu.length, avantEditeur, 'rien relayé à l’éditeur')
   assert.equal(storage.getHistoryMeta(id).count, journalAvant, 'rien dans le journal')
-  assert.equal(repliques.repliques.get(id).doc.getXmlFragment('prosemirror-content').length, 1, 'la réplique n’a pas bougé')
+  assert.equal(
+    repliques.repliques.get(id).doc.getXmlFragment('prosemirror-content').length,
+    1,
+    'la réplique n’a pas bougé'
+  )
 
   // Après un refus, le client a divergé (ses horloges Yjs ont avancé sans
   // le serveur) : ce qu'il envoie ensuite s'appuie sur du refusé, et le
@@ -297,7 +321,10 @@ test('le compactage remplace le journal par un instantané et enregistre une ver
   const relu = new Y.Doc()
   for (const op of storage.readUpdates(id)) Y.applyUpdate(relu, op)
   assert.equal(relu.getXmlFragment('prosemirror-content').length, 8)
-  assert.equal(relu.getXmlFragment('prosemirror-content').toString(), source.getXmlFragment('prosemirror-content').toString())
+  assert.equal(
+    relu.getXmlFragment('prosemirror-content').toString(),
+    source.getXmlFragment('prosemirror-content').toString()
+  )
 
   // Et le compactage automatique : au-delà du seuil (15), il se déclenche
   // tout seul, peu après la dernière opération.
@@ -323,7 +350,10 @@ test('un gros journal se rejoue dans un worker, avec le même résultat', async 
 
   const r = await repliques.obtenir(id)
   assert.equal(r.doc.getXmlFragment('prosemirror-content').length, 30)
-  assert.equal(r.doc.getXmlFragment('prosemirror-content').toString(), source.getXmlFragment('prosemirror-content').toString())
+  assert.equal(
+    r.doc.getXmlFragment('prosemirror-content').toString(),
+    source.getXmlFragment('prosemirror-content').toString()
+  )
   repliques.fermer()
 })
 

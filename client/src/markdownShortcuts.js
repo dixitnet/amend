@@ -30,8 +30,7 @@ export function markdownShortcutsPlugin(schema) {
     {
       // Trois niveaux depuis le 18/09/2026 : « #### » n'est plus un titre.
       motif: /^(#{1,3})\s$/,
-      appliquer: (view, m) =>
-        appliquer(view, setBlockType(schema.nodes.heading, { level: m[1].length })),
+      appliquer: (view, m) => appliquer(view, setBlockType(schema.nodes.heading, { level: m[1].length })),
     },
     {
       motif: /^\[([ xX]?)\]\s$/,
@@ -45,9 +44,7 @@ export function markdownShortcutsPlugin(schema) {
           if ($from.node(d).type === schema.nodes.task_item) {
             const pos = $from.before(d)
             view.dispatch(
-              view.state.tr
-                .setNodeMarkup(pos, undefined, { checked: true })
-                .setMeta('trackChangesInternal', true)
+              view.state.tr.setNodeMarkup(pos, undefined, { checked: true }).setMeta('trackChangesInternal', true)
             )
             break
           }
@@ -63,8 +60,7 @@ export function markdownShortcutsPlugin(schema) {
     {
       motif: /^(\d+)[.)]\s$/,
       liste: true,
-      appliquer: (view, m) =>
-        appliquer(view, wrapInList(schema.nodes.ordered_list, { order: Number(m[1]) || 1 })),
+      appliquer: (view, m) => appliquer(view, wrapInList(schema.nodes.ordered_list, { order: Number(m[1]) || 1 })),
     },
     {
       motif: /^>\s$/,

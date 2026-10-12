@@ -186,7 +186,15 @@ function inlineToRuns(node, block, sizePt, extra = null) {
         new ExternalHyperlink({
           link: lien,
           children: [
-            new TextRun({ ...base, bold, italics, strike, color: '1A4D8F', underline: { type: UnderlineType.SINGLE }, text: child.text }),
+            new TextRun({
+              ...base,
+              bold,
+              italics,
+              strike,
+              color: '1A4D8F',
+              underline: { type: UnderlineType.SINGLE },
+              text: child.text,
+            }),
           ],
         })
       )
@@ -245,10 +253,7 @@ function listItemToParagraphs(item, style, level, type, coche) {
       new Paragraph({
         ...paragraphProps(corps),
         ...puce,
-        children: [
-          ...marque,
-          ...inlineToRuns(child, corps, corps.size, tache && coche ? { strike: true } : null),
-        ],
+        children: [...marque, ...inlineToRuns(child, corps, corps.size, tache && coche ? { strike: true } : null)],
       })
     )
     premierBloc = false
@@ -378,9 +383,7 @@ function blockToParagraphs(node, style, images) {
       })
       // Largeur en pourcentage : le document Word garde des marges propres
       // quel que soit le format de page choisi dans la feuille de style.
-      return lignes.length
-        ? [new Table({ rows: lignes, width: { size: 100, type: WidthType.PERCENTAGE } })]
-        : []
+      return lignes.length ? [new Table({ rows: lignes, width: { size: 100, type: WidthType.PERCENTAGE } })] : []
     }
     case 'image': {
       // `corps` n'existait que dans le `case 'table'` voisin : tout export Word
@@ -392,7 +395,9 @@ function blockToParagraphs(node, style, images) {
         return [
           new Paragraph({
             ...paragraphProps(corps),
-            children: [new TextRun({ ...baseRunProps(corps, corps.size), italics: true, text: '[image non récupérée]' })],
+            children: [
+              new TextRun({ ...baseRunProps(corps, corps.size), italics: true, text: '[image non récupérée]' }),
+            ],
           }),
         ]
       }
@@ -411,7 +416,9 @@ function blockToParagraphs(node, style, images) {
                 width: Math.round(largeurSource * facteur),
                 height: Math.round(hauteurSource * facteur),
               },
-              altText: node.attrs.alt ? { description: node.attrs.alt, name: node.attrs.alt, title: node.attrs.alt } : undefined,
+              altText: node.attrs.alt
+                ? { description: node.attrs.alt, name: node.attrs.alt, title: node.attrs.alt }
+                : undefined,
             }),
           ],
         }),
@@ -458,7 +465,9 @@ export async function buildDocxBlob(doc, style, titre = '') {
     // en dessous — Word les place en fin de document et les numérote.
     const corpsNotes = reglages(style, 'body')
     for (const [node, n] of NOTES) {
-      endnotes[n] = { children: [new Paragraph({ children: inlineToRuns(node, corpsNotes, Math.max(6, corpsNotes.size - 1)) })] }
+      endnotes[n] = {
+        children: [new Paragraph({ children: inlineToRuns(node, corpsNotes, Math.max(6, corpsNotes.size - 1)) })],
+      }
     }
   } finally {
     NOTES = new Map()
@@ -515,10 +524,7 @@ export async function buildDocxBlob(doc, style, titre = '') {
         }),
       ],
     })
-  const headers =
-    enteteDroite || enteteGauche
-      ? { default: bandeau(enteteDroite), even: bandeau(enteteGauche) }
-      : null
+  const headers = enteteDroite || enteteGauche ? { default: bandeau(enteteDroite), even: bandeau(enteteGauche) } : null
 
   let footers
   if (pageNumbers.enabled) {

@@ -27,11 +27,16 @@ globalThis.fetch = async (url, init) => {
     const corps = JSON.parse(init.body)
     requetes.push(corps)
     const rep = reponse ? await reponse(corps) : succes('Texte corrigé.')
-    return new Response(JSON.stringify(rep.corps), { status: rep.status || 200, headers: { 'content-type': 'application/json' } })
+    return new Response(JSON.stringify(rep.corps), {
+      status: rep.status || 200,
+      headers: { 'content-type': 'application/json' },
+    })
   }
   return vraiFetch(url, init)
 }
-const succes = (texte, usage = { input_tokens: 50, output_tokens: 10 }) => ({ corps: { stop_reason: 'end_turn', content: [{ type: 'text', text: texte }], usage } })
+const succes = (texte, usage = { input_tokens: 50, output_tokens: 10 }) => ({
+  corps: { stop_reason: 'end_turn', content: [{ type: 'text', text: texte }], usage },
+})
 
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
@@ -50,19 +55,37 @@ const json = { 'content-type': 'application/json' }
 const storage = new Storage(DATA_DIR)
 
 async function document(proprietaire) {
-  const res = await vraiFetch(`${BASE}/api/docs`, { method: 'POST', headers: { ...json, cookie: cookie(proprietaire) }, body: JSON.stringify({ title: 'Doc' }) })
+  const res = await vraiFetch(`${BASE}/api/docs`, {
+    method: 'POST',
+    headers: { ...json, cookie: cookie(proprietaire) },
+    body: JSON.stringify({ title: 'Doc' }),
+  })
   return (await res.json()).id
 }
 async function regler(patch, email = 'admin@example.com') {
-  return vraiFetch(`${BASE}/api/admin/ia`, { method: 'PUT', headers: { ...json, cookie: cookie(email) }, body: JSON.stringify(patch) })
+  return vraiFetch(`${BASE}/api/admin/ia`, {
+    method: 'PUT',
+    headers: { ...json, cookie: cookie(email) },
+    body: JSON.stringify(patch),
+  })
 }
 async function conso() {
   return (await vraiFetch(`${BASE}/api/admin/ia`, { headers: { cookie: cookie('admin@example.com') } })).json()
 }
 const ligneDe = async (email) => (await conso()).utilisateurs.find((u) => u.email === email)
 const demander = (docId, email, corps) =>
-  vraiFetch(`${BASE}/api/ai/suggest`, { method: 'POST', headers: { ...json, cookie: cookie(email) }, body: JSON.stringify({ docId, instruction: 'Corrige.', ...corps }) })
-const RAZ = { modele: 'claude-haiku-5-5', signesParDemande: 30_000, demandesParHeure: 100, signesParMois: 500_000, acces: 'editeur' }
+  vraiFetch(`${BASE}/api/ai/suggest`, {
+    method: 'POST',
+    headers: { ...json, cookie: cookie(email) },
+    body: JSON.stringify({ docId, instruction: 'Corrige.', ...corps }),
+  })
+const RAZ = {
+  modele: 'claude-haiku-5-5',
+  signesParDemande: 30_000,
+  demandesParHeure: 100,
+  signesParMois: 500_000,
+  acces: 'editeur',
+}
 const remettre = () => regler({ corrections: RAZ })
 
 test('les réglages : réservés aux administrateurs, bornés, avec des messages clairs', async () => {
@@ -71,7 +94,11 @@ test('les réglages : réservés aux administrateurs, bornés, avec des messages
   assert.equal((await regler({ corrections: { signesParDemande: 500 } }, 'simple@example.com')).status, 403)
 
   const etat = await conso()
-  assert.deepEqual(etat.modeles.map((m) => m.id), ['claude-haiku-5-5', 'claude-sonnet-5-5'], 'Haiku et Sonnet seulement')
+  assert.deepEqual(
+    etat.modeles.map((m) => m.id),
+    ['claude-haiku-5-5', 'claude-sonnet-5-5'],
+    'Haiku et Sonnet seulement'
+  )
   assert.deepEqual(etat.niveaux, ['admin', 'editeur', 'correcteur'])
   assert.equal(etat.reglages.corrections.modele, 'claude-haiku-5-5')
   assert.equal(etat.reglages.margo.modele, 'claude-sonnet-5-5')
@@ -146,7 +173,9 @@ test('plusieurs paragraphes en une seule demande : une demande, la somme des sig
   assert.equal(ligne.corrections.demandes, 1, 'une sélection est une demande')
   assert.equal(ligne.corrections.signes, 'Premier.'.length + 'Deuxième paragraphe.'.length + 'Troisième.'.length)
   // Et elle ne prend qu'une place dans l'heure.
-  const etat = await (await vraiFetch(`${BASE}/api/docs/${doc}/ia`, { headers: { cookie: cookie('lot@example.com') } })).json()
+  const etat = await (
+    await vraiFetch(`${BASE}/api/docs/${doc}/ia`, { headers: { cookie: cookie('lot@example.com') } })
+  ).json()
   assert.equal(etat.corrections.heure.utilisees, 1)
   reponse = null
 })
@@ -160,7 +189,13 @@ test('un échec ne coûte rien en signes : erreur de l’API, réponse coupée �
   assert.equal(ligne.corrections.demandes, 0)
   assert.equal(ligne.corrections.echecs, 1)
 
-  reponse = () => ({ corps: { stop_reason: 'max_tokens', content: [{ type: 'text', text: 'coupé' }], usage: { input_tokens: 70, output_tokens: 4096 } } })
+  reponse = () => ({
+    corps: {
+      stop_reason: 'max_tokens',
+      content: [{ type: 'text', text: 'coupé' }],
+      usage: { input_tokens: 70, output_tokens: 4096 },
+    },
+  })
   const coupee = await demander(doc, 'echec@example.com', { text: 'Un texte.' })
   assert.equal(coupee.status, 502)
   assert.match((await coupee.json()).error, /coupée/)
@@ -184,7 +219,11 @@ test('la taille d’une demande est contrôlée en signes avant tout envoi — a
     assert.match(error, /100\ssignes par demande/)
     assert.ok(!/page/i.test(error))
     assert.equal(requetes.length, 0)
-    assert.equal((await demander(doc, 'taille@example.com', { text: 'a'.repeat(100) })).status, 200, 'pile à la limite : accepté')
+    assert.equal(
+      (await demander(doc, 'taille@example.com', { text: 'a'.repeat(100) })).status,
+      200,
+      'pile à la limite : accepté'
+    )
 
     const docAdmin = await document('admin@example.com')
     assert.equal((await demander(docAdmin, 'admin@example.com', { text: 'a'.repeat(101) })).status, 413)
@@ -214,7 +253,9 @@ test('le plafond mensuel : il reste N signes, la demande suivante qui dépasse e
     const autre = await document('mensuel-2@example.com')
     assert.equal((await demander(autre, 'mensuel-2@example.com', { text: 'a'.repeat(600) })).status, 200)
     // Margo a son propre compteur : Corrections IA épuisée ne la ferme pas.
-    const etat = await (await vraiFetch(`${BASE}/api/docs/${doc}/ia`, { headers: { cookie: cookie('mensuel@example.com') } })).json()
+    const etat = await (
+      await vraiFetch(`${BASE}/api/docs/${doc}/ia`, { headers: { cookie: cookie('mensuel@example.com') } })
+    ).json()
     assert.deepEqual(etat.corrections.mois, { utilises: 1000, max: 1000 })
     assert.equal(etat.margo.mois.utilises, 0)
   } finally {
@@ -257,7 +298,9 @@ test('l’accès est un niveau minimal par fonction : admin, éditeur, correcteu
     assert.deepEqual(await statuts(), [403, 403, 403, 403], 'l’administrateur sans rôle sur le document n’y écrit pas')
     // Les deux fonctions se règlent séparément.
     await regler({ corrections: { acces: 'editeur' }, margo: { acces: 'correcteur' } })
-    const etat = await (await vraiFetch(`${BASE}/api/docs/${doc}/ia`, { headers: { cookie: cookie('corr@example.com') } })).json()
+    const etat = await (
+      await vraiFetch(`${BASE}/api/docs/${doc}/ia`, { headers: { cookie: cookie('corr@example.com') } })
+    ).json()
     assert.equal(etat.corrections.autorise, false)
     assert.equal(etat.margo.autorise, true)
   } finally {
@@ -269,7 +312,14 @@ test('l’accès est un niveau minimal par fonction : admin, éditeur, correcteu
 test('entrées invalides : refusées avant tout appel payant', async () => {
   const doc = await document('invalide@example.com')
   requetes.length = 0
-  for (const corps of [{}, { text: '   ' }, { textes: [] }, { textes: ['ok', ''] }, { textes: ['ok', 3] }, { text: 'ok', instruction: 'x'.repeat(2001) }]) {
+  for (const corps of [
+    {},
+    { text: '   ' },
+    { textes: [] },
+    { textes: ['ok', ''] },
+    { textes: ['ok', 3] },
+    { text: 'ok', instruction: 'x'.repeat(2001) },
+  ]) {
     const res = await demander(doc, 'invalide@example.com', corps)
     assert.ok([400, 413].includes(res.status), JSON.stringify(corps).slice(0, 50))
   }

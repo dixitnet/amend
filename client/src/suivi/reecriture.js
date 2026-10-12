@@ -18,7 +18,12 @@ export function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
       if (pos < from || pos + node.nodeSize > to) return true
       const suivi = suiviDuNoeud(node)
       if (suivi && suivi.type === 'deletion') return false
-      ranges.push({ from: pos, to: pos + node.nodeSize, noeud: node, removeReally: !!suivi && suivi.user === delMark.attrs.user })
+      ranges.push({
+        from: pos,
+        to: pos + node.nodeSize,
+        noeud: node,
+        removeReally: !!suivi && suivi.user === delMark.attrs.user,
+      })
       return false
     }
     if (!node.isText) return
@@ -318,8 +323,7 @@ export function rewriteForTracking(state, tr, user) {
   let cibleFrom = from
   let cibleTo = to
   let versLArriere = false
-  const effacement =
-    slice.size === 0 && to > from && state.selection.empty && dansUnSeulBloc(state, from, to)
+  const effacement = slice.size === 0 && to > from && state.selection.empty && dansUnSeulBloc(state, from, to)
   if (effacement) {
     // Retour arrière : le curseur était à droite de ce qui disparaît.
     versLArriere = state.selection.head === to

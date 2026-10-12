@@ -13,7 +13,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Typst, TypstError, passageFautif } from '../typst.js'
 
-const LIGNE = '#amend-corps[Le rapport de l’#emph[ANRU](Agence nationale pour la rénovation urbaine) et la suite du texte.]'
+const LIGNE =
+  '#amend-corps[Le rapport de l’#emph[ANRU](Agence nationale pour la rénovation urbaine) et la suite du texte.]'
 const SOURCE = ['// Engendré par amend.ink', '#set page(width: 210mm)', '', LIGNE, ''].join('\n')
 // La parenthèse qui suit `#emph[ANRU]` : là où Typst bute réellement.
 const COLONNE = Array.from(LIGNE).indexOf('(') + 1
@@ -72,7 +73,10 @@ test('le refus de Typst renvoie le passage à la personne', async () => {
     await assert.rejects(typst.rendre(SOURCE), (e) => {
       assert.ok(e instanceof TypstError)
       assert.equal(e.status, 422)
-      assert.match(e.message, /^composition impossible — error: expected comma, près de « .*ANRU\(Agence nationale.* »$/)
+      assert.match(
+        e.message,
+        /^composition impossible — error: expected comma, près de « .*ANRU\(Agence nationale.* »$/
+      )
       return true
     })
   } finally {

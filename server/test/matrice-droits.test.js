@@ -28,7 +28,10 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DOSSIER_ROUTES = join(RACINE, 'server', 'routes')
 const SERVEUR_JS = [
   readFileSync(join(RACINE, 'server', 'server.js'), 'utf8'),
-  ...readdirSync(DOSSIER_ROUTES).filter((f) => f.endsWith('.js')).sort().map((f) => readFileSync(join(DOSSIER_ROUTES, f), 'utf8')),
+  ...readdirSync(DOSSIER_ROUTES)
+    .filter((f) => f.endsWith('.js'))
+    .sort()
+    .map((f) => readFileSync(join(DOSSIER_ROUTES, f), 'utf8')),
 ].join('\n')
 
 const ADMIN = 'admin@test.local'
@@ -37,7 +40,14 @@ const EDITEUR = 'editeur@test.local'
 const CORRECTEUR = 'correcteur@test.local'
 const LECTEUR = 'lecteur@test.local'
 const TIERS = 'tiers@test.local'
-const COMPTES = { proprio: PROPRIO, editeur: EDITEUR, correcteur: CORRECTEUR, lecteur: LECTEUR, tiers: TIERS, admin: ADMIN }
+const COMPTES = {
+  proprio: PROPRIO,
+  editeur: EDITEUR,
+  correcteur: CORRECTEUR,
+  lecteur: LECTEUR,
+  tiers: TIERS,
+  admin: ADMIN,
+}
 const QUI = ['anonyme', 'proprio', 'editeur', 'correcteur', 'lecteur', 'tiers', 'admin']
 
 // Groupes de personnes, pour que les lignes de la matrice se lisent.
@@ -53,12 +63,21 @@ const EDITEURS = ['proprio', 'editeur']
  * s'en sert (les autres se heurtent déjà au refus ou à l'absence du document).
  */
 const LIGNES = [
-  { couvre: '/api/docs', m: 'GET', oui: CONNECTES.concat('anonyme') /* la liste d'un anonyme est vide : 200 sans contenu */ },
+  {
+    couvre: '/api/docs',
+    m: 'GET',
+    oui: CONNECTES.concat('anonyme') /* la liste d'un anonyme est vide : 200 sans contenu */,
+  },
   { couvre: '/api/docs', m: 'POST', corps: { title: 'x' }, oui: CONNECTES },
   // Un administrateur n'a pas accès aux documents des autres : il gère l'instance, il ne lit pas les textes.
   { couvre: '/api/docs/:x', m: 'GET', oui: MEMBRES },
   { couvre: '/api/docs/:x', m: 'PATCH', corps: { title: 'renommé' }, oui: EDITEURS },
-  { couvre: '/api/docs/:x/star', m: 'PATCH', corps: { starred: true }, oui: MEMBRES /* favori personnel : tout membre, pour soi */ },
+  {
+    couvre: '/api/docs/:x/star',
+    m: 'PATCH',
+    corps: { starred: true },
+    oui: MEMBRES /* favori personnel : tout membre, pour soi */,
+  },
   { couvre: '/api/docs/:x', m: 'DELETE', jetable: true, oui: ['proprio'] },
   { couvre: '/api/docs/:x/pdf', m: 'POST', corps: { source: '= x' }, oui: EDITEURS },
   { couvre: '/api/docs/:x/images', m: 'POST', brut: { type: 'image/png', octets: 8 }, oui: EDITEURS },
@@ -69,21 +88,64 @@ const LIGNES = [
   { couvre: '/api/docs/:x/versions', m: 'GET', oui: MEMBRES },
   { couvre: '/api/docs/:x/versions', m: 'POST', corps: { nom: 'Envoi au comité' }, oui: EDITEURS },
   { couvre: '/api/docs/:x/versions', m: 'GET', chemin: (c) => `/api/docs/${c.doc}/versions/courante`, oui: MEMBRES },
-  { couvre: '/api/docs/:x/versions', m: 'PATCH', chemin: (c) => `/api/docs/${c.doc}/versions/1`, corps: { nom: 'x' }, oui: EDITEURS },
+  {
+    couvre: '/api/docs/:x/versions',
+    m: 'PATCH',
+    chemin: (c) => `/api/docs/${c.doc}/versions/1`,
+    corps: { nom: 'x' },
+    oui: EDITEURS,
+  },
   { couvre: '/api/docs/:x/versions', m: 'DELETE', chemin: (c) => `/api/docs/${c.doc}/versions/1`, oui: EDITEURS },
-  { couvre: '/api/docs/:x/versions', m: 'POST', chemin: (c) => `/api/docs/${c.doc}/versions/1/restauration`, corps: {}, oui: EDITEURS },
-  { couvre: '/api/docs/:x/comparaison', m: 'GET', chemin: (c) => `/api/docs/${c.doc}/comparaison?de=courante&vers=courante`, oui: MEMBRES },
+  {
+    couvre: '/api/docs/:x/versions',
+    m: 'POST',
+    chemin: (c) => `/api/docs/${c.doc}/versions/1/restauration`,
+    corps: {},
+    oui: EDITEURS,
+  },
+  {
+    couvre: '/api/docs/:x/comparaison',
+    m: 'GET',
+    chemin: (c) => `/api/docs/${c.doc}/comparaison?de=courante&vers=courante`,
+    oui: MEMBRES,
+  },
   // La corbeille (12/10/2026) : la personne connectée n'y voit que ses documents ; les gestes sur un document précis sont ceux du propriétaire (un document absent de sa corbeille répond 404 à tous).
   { couvre: '/api/corbeille', m: 'GET', oui: CONNECTES },
-  { couvre: '/api/corbeille', m: 'DELETE', oui: CONNECTES /* vide la corbeille de la personne, jamais celle d'un autre */ },
-  { couvre: '/api/corbeille/:x', m: 'POST', chemin: (c) => `/api/corbeille/${c.doc}/restauration`, oui: ['proprio'] /* 404 pour les autres */ },
+  {
+    couvre: '/api/corbeille',
+    m: 'DELETE',
+    oui: CONNECTES /* vide la corbeille de la personne, jamais celle d'un autre */,
+  },
+  {
+    couvre: '/api/corbeille/:x',
+    m: 'POST',
+    chemin: (c) => `/api/corbeille/${c.doc}/restauration`,
+    oui: ['proprio'] /* 404 pour les autres */,
+  },
   { couvre: '/api/corbeille/:x', m: 'DELETE', chemin: (c) => `/api/corbeille/${c.doc}`, oui: ['proprio'] },
   // Le rangement est celui de la personne connectée : rien à usurper, rien à lire chez les autres.
   { couvre: '/api/rangement', m: 'GET', oui: CONNECTES },
   { couvre: '/api/rangement/dossiers', m: 'POST', corps: { nom: 'Dossier matrice' }, oui: CONNECTES },
-  { couvre: '/api/rangement/dossiers/:x', m: 'PATCH', chemin: () => '/api/rangement/dossiers/d_inconnu', corps: { nom: 'x' }, oui: CONNECTES },
-  { couvre: '/api/rangement/dossiers/:x', m: 'DELETE', chemin: () => '/api/rangement/dossiers/d_inconnu', oui: CONNECTES },
-  { couvre: '/api/rangement/documents/:x', m: 'PUT', chemin: (c) => `/api/rangement/documents/${c.doc}`, corps: {}, oui: MEMBRES /* un document qu'on ne voit pas se range pas : 404 */ },
+  {
+    couvre: '/api/rangement/dossiers/:x',
+    m: 'PATCH',
+    chemin: () => '/api/rangement/dossiers/d_inconnu',
+    corps: { nom: 'x' },
+    oui: CONNECTES,
+  },
+  {
+    couvre: '/api/rangement/dossiers/:x',
+    m: 'DELETE',
+    chemin: () => '/api/rangement/dossiers/d_inconnu',
+    oui: CONNECTES,
+  },
+  {
+    couvre: '/api/rangement/documents/:x',
+    m: 'PUT',
+    chemin: (c) => `/api/rangement/documents/${c.doc}`,
+    corps: {},
+    oui: MEMBRES /* un document qu'on ne voit pas se range pas : 404 */,
+  },
   { couvre: '/api/style', m: 'GET', oui: QUI /* la feuille de style par défaut est lisible de tous */ },
   { couvre: '/api/style', m: 'PUT', corps: {}, oui: ['admin'] },
   { couvre: '/api/docs/:x/style', m: 'GET', oui: MEMBRES },
@@ -99,7 +161,13 @@ const LIGNES = [
   { couvre: '/api/admin/overview', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/ia', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/ia', m: 'PUT', corps: {}, oui: ['admin'] },
-  { couvre: '/api/admin/support/:x/traite', m: 'POST', chemin: () => '/api/admin/support/inconnu/traite', corps: {}, oui: ['admin'] },
+  {
+    couvre: '/api/admin/support/:x/traite',
+    m: 'POST',
+    chemin: () => '/api/admin/support/inconnu/traite',
+    corps: {},
+    oui: ['admin'],
+  },
   { couvre: '/api/admin/sauvegarde', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/waitlist', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/embarquer', m: 'POST', corps: { email: '' }, oui: ['admin'] },
@@ -110,17 +178,48 @@ const LIGNES = [
   { couvre: '/api/auth/logout', m: 'POST', oui: QUI },
   { couvre: '/api/invitations/:x', m: 'POST', chemin: () => '/api/invitations/jeton-inexistant', oui: QUI },
   { couvre: '/api/docs/:x/access', m: 'GET', oui: EDITEURS },
-  { couvre: '/api/docs/:x/invitations', m: 'POST', corps: { email: 'invite-matrice@test.local', role: 'lecteur' }, oui: EDITEURS },
+  {
+    couvre: '/api/docs/:x/invitations',
+    m: 'POST',
+    corps: { email: 'invite-matrice@test.local', role: 'lecteur' },
+    oui: EDITEURS,
+  },
   { couvre: '/api/docs/:x/access/moi', m: 'DELETE', jetable: true, oui: ['editeur', 'correcteur', 'lecteur'] },
   { couvre: '/api/docs/:x/owner', m: 'POST', jetable: true, corps: { email: 'editeur@test.local' }, oui: ['proprio'] },
-  { couvre: '/api/docs/:x/access/:x', m: 'DELETE', chemin: (c) => `/api/docs/${c.doc}/access/personne-matrice%40test.local`, oui: EDITEURS },
+  {
+    couvre: '/api/docs/:x/access/:x',
+    m: 'DELETE',
+    chemin: (c) => `/api/docs/${c.doc}/access/personne-matrice%40test.local`,
+    oui: EDITEURS,
+  },
   { couvre: '/api/docs/:x/agents', m: 'GET', oui: EDITEURS },
-  { couvre: '/api/docs/:x/agents', m: 'POST', corps: { role: 'correcteur', nom: 'Claude' }, oui: EDITEURS /* CLAUDE_AGENT=editeurs dans l'instance de test ; un administrateur sans accès au document n'y invite personne */ },
+  {
+    couvre: '/api/docs/:x/agents',
+    m: 'POST',
+    corps: { role: 'correcteur', nom: 'Claude' },
+    oui: EDITEURS /* CLAUDE_AGENT=editeurs dans l'instance de test ; un administrateur sans accès au document n'y invite personne */,
+  },
   // Lecture : toute personne connectée reçoit la réponse (« autorisé : non », au lieu d'un refus) ; ce qui compte est la valeur.
-  { couvre: '/api/docs/:x/dialogue', m: 'GET', oui: CONNECTES, verifie: (qui, j) => j.autorise === EDITEURS.includes(qui) },
-  { couvre: '/api/docs/:x/ia', m: 'GET', oui: CONNECTES, verifie: (qui, j) => j.corrections.autorise === EDITEURS.includes(qui) && j.margo.autorise === EDITEURS.includes(qui) },
+  {
+    couvre: '/api/docs/:x/dialogue',
+    m: 'GET',
+    oui: CONNECTES,
+    verifie: (qui, j) => j.autorise === EDITEURS.includes(qui),
+  },
+  {
+    couvre: '/api/docs/:x/ia',
+    m: 'GET',
+    oui: CONNECTES,
+    verifie: (qui, j) =>
+      j.corrections.autorise === EDITEURS.includes(qui) && j.margo.autorise === EDITEURS.includes(qui),
+  },
   { couvre: '/api/ai/suggest', m: 'POST', corps: { docId: '{doc}', texte: 'x' }, oui: EDITEURS },
-  { couvre: '/api/docs/:x/publication', m: 'GET', oui: MEMBRES, verifie: (qui, j) => j.autorise === EDITEURS.includes(qui) },
+  {
+    couvre: '/api/docs/:x/publication',
+    m: 'GET',
+    oui: MEMBRES,
+    verifie: (qui, j) => j.autorise === EDITEURS.includes(qui),
+  },
   { couvre: '/api/docs/:x/publication', m: 'PUT', corps: {}, oui: EDITEURS },
   { couvre: '/api/docs/:x/publication', m: 'DELETE', oui: EDITEURS },
   { couvre: '/api/support', m: 'POST', corps: { message: 'bonjour' }, oui: CONNECTES },
@@ -159,9 +258,16 @@ export function routesDuServeur(source) {
 test('toutes les routes de server.js sont dans la matrice (ou excusées, avec la raison)', () => {
   const declarees = new Set(LIGNES.map((l) => l.couvre))
   const routes = routesDuServeur(SERVEUR_JS)
-  assert.ok(routes.length > 30, `l'extraction des routes ne trouve presque rien (${routes.length}) — le motif a-t-il cassé ?`)
+  assert.ok(
+    routes.length > 30,
+    `l'extraction des routes ne trouve presque rien (${routes.length}) — le motif a-t-il cassé ?`
+  )
   const manquantes = routes.filter((r) => !declarees.has(r) && !(r in EXCLUES))
-  assert.deepEqual(manquantes, [], `route(s) de server.js absente(s) de la matrice des droits : ${manquantes.join(', ')}`)
+  assert.deepEqual(
+    manquantes,
+    [],
+    `route(s) de server.js absente(s) de la matrice des droits : ${manquantes.join(', ')}`
+  )
   // L'inverse : une ligne de matrice dont la route a disparu ne teste plus rien.
   const connues = new Set(routes)
   const fantomes = [...declarees].filter((r) => !connues.has(r))
@@ -191,11 +297,23 @@ async function jeton(mail) {
  * propriétaire n'invite que trois fois (le limiteur d'invitations est par
  * personne) : une ligne « jetable » a donc son propriétaire à elle. */
 async function documentNeuf(proprio) {
-  const cree = await inst.api('/api/docs', { cookie: cookies[proprio], methode: 'POST', corps: { title: `matrice ${++sequence}` } })
+  const cree = await inst.api('/api/docs', {
+    cookie: cookies[proprio],
+    methode: 'POST',
+    corps: { title: `matrice ${++sequence}` },
+  })
   assert.equal(cree.status, 201, `création : ${cree.status} ${cree.texte}`)
   const doc = cree.json.id
-  for (const [role, mail] of [['editeur', EDITEUR], ['correcteur', CORRECTEUR], ['lecteur', LECTEUR]]) {
-    const inv = await inst.api(`/api/docs/${doc}/invitations`, { cookie: cookies[proprio], methode: 'POST', corps: { email: mail, role } })
+  for (const [role, mail] of [
+    ['editeur', EDITEUR],
+    ['correcteur', CORRECTEUR],
+    ['lecteur', LECTEUR],
+  ]) {
+    const inv = await inst.api(`/api/docs/${doc}/invitations`, {
+      cookie: cookies[proprio],
+      methode: 'POST',
+      corps: { email: mail, role },
+    })
     assert.equal(inv.status, 200, `invitation ${role} : ${inv.status} ${inv.texte}`)
     const acc = await inst.api(`/api/invitations/${await jeton(mail)}`, { methode: 'POST' })
     assert.equal(acc.status, 200, `acceptation ${role} : ${acc.status} ${acc.texte}`)
@@ -204,8 +322,22 @@ async function documentNeuf(proprio) {
 }
 
 test('démarrage de l’instance de test', async () => {
-  inst = await lancerInstance({ port: 19890, comptes: [ADMIN, PROPRIO, EDITEUR, CORRECTEUR, LECTEUR, TIERS, ...Array.from({ length: 12 }, (_, i) => `proprio-${i}@test.local`)] })
-  cookies = { anonyme: null, ...Object.fromEntries(Object.entries(COMPTES).map(([k, mail]) => [k, inst.cookies[mail]])) }
+  inst = await lancerInstance({
+    port: 19890,
+    comptes: [
+      ADMIN,
+      PROPRIO,
+      EDITEUR,
+      CORRECTEUR,
+      LECTEUR,
+      TIERS,
+      ...Array.from({ length: 12 }, (_, i) => `proprio-${i}@test.local`),
+    ],
+  })
+  cookies = {
+    anonyme: null,
+    ...Object.fromEntries(Object.entries(COMPTES).map(([k, mail]) => [k, inst.cookies[mail]])),
+  }
   for (let i = 0; i < 12; i++) cookies[`proprio-${i}`] = inst.cookies[`proprio-${i}@test.local`]
 })
 
@@ -228,7 +360,11 @@ async function appeler(ligne, cookie, doc) {
   const res = await fetch(`${inst.base}${chemin}`, { method: ligne.m, headers: entetes, body, redirect: 'manual' })
   const texte = await res.text().catch(() => '')
   let json = null
-  try { json = JSON.parse(texte) } catch { /* pas du JSON */ }
+  try {
+    json = JSON.parse(texte)
+  } catch {
+    /* pas du JSON */
+  }
   return { statut: res.status, json }
 }
 
@@ -258,8 +394,12 @@ test('la matrice : chaque rôle ne fait que ce qu’il a le droit de faire', { t
       const passe = statut !== 401 && statut !== 403
       const refuse = statut === 401 || statut === 403 || statut === 404
       if (attendu && !passe) ecarts.push(`${ligne.m} ${ligne.couvre} : ${qui} devrait passer, a reçu ${statut}`)
-      if (!attendu && !refuse) ecarts.push(`${ligne.m} ${ligne.couvre} : ${qui} ne devrait PAS passer, a reçu ${statut}`)
-      if (ligne.verifie && statut === 200 && !ligne.verifie(qui, json || {})) ecarts.push(`${ligne.m} ${ligne.couvre} : la réponse pour ${qui} dit autre chose que prévu (${JSON.stringify(json).slice(0, 120)})`)
+      if (!attendu && !refuse)
+        ecarts.push(`${ligne.m} ${ligne.couvre} : ${qui} ne devrait PAS passer, a reçu ${statut}`)
+      if (ligne.verifie && statut === 200 && !ligne.verifie(qui, json || {}))
+        ecarts.push(
+          `${ligne.m} ${ligne.couvre} : la réponse pour ${qui} dit autre chose que prévu (${JSON.stringify(json).slice(0, 120)})`
+        )
       NOTES.push(`${ligne.m.padEnd(6)} ${ligne.couvre.padEnd(34)} ${qui.padEnd(10)} ${statut}`)
     }
   }

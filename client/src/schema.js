@@ -217,7 +217,13 @@ export const schema = new Schema({
       // `suivi` (29/09/2026) : le suivi des modifications du nœud entier,
       // même forme que sur la note — voir footnote plus bas. Une image
       // insérée ou supprimée en suivi est une proposition comme une autre.
-      attrs: { src: {}, alt: { default: '' }, largeur: { default: null }, hauteur: { default: null }, suivi: { default: null } },
+      attrs: {
+        src: {},
+        alt: { default: '' },
+        largeur: { default: null },
+        hauteur: { default: null },
+        suivi: { default: null },
+      },
       // Seules les images servies par cette instance sont acceptées à
       // l'analyse d'un collage : sans ce filtre, coller depuis une page web
       // planterait dans le document un lien vers un serveur tiers — une

@@ -47,7 +47,9 @@ export class RegistreLimiteurs {
   _charger() {
     try {
       const brut = lireJson(this.chemin, {})
-      return brut && brut.version === VERSION && brut.limiteurs && typeof brut.limiteurs === 'object' ? brut.limiteurs : {}
+      return brut && brut.version === VERSION && brut.limiteurs && typeof brut.limiteurs === 'object'
+        ? brut.limiteurs
+        : {}
     } catch {
       return {}
     }

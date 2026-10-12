@@ -24,5 +24,8 @@ export function imageAutorisee(src) {
 /** Échappement HTML qui accepte n'importe quelle valeur (un nom venu d'un
  * pair peut ne pas être du texte). */
 export function echapperHtml(valeur) {
-  return String(valeur ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+  return String(valeur ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  )
 }

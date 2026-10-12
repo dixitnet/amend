@@ -69,7 +69,14 @@ function replayDiffOps(tr, schema, block, ops, insMark, delMark, authorMark) {
       continue
     }
     const suivant = ops[i + 1]
-    if (op.type === 'delete' && /^\s+$/.test(op.text) && op.text.includes('\n') && suivant && suivant.type === 'insert' && /^\s+$/.test(suivant.text)) {
+    if (
+      op.type === 'delete' &&
+      /^\s+$/.test(op.text) &&
+      op.text.includes('\n') &&
+      suivant &&
+      suivant.type === 'insert' &&
+      /^\s+$/.test(suivant.text)
+    ) {
       // Le modèle a remplacé un saut de ligne par une espace : le saut
       // reste, et il n'y a rien à marquer.
       index += op.text.length
@@ -145,14 +152,16 @@ function diffChangeRatio(oldText, newText, ops) {
  * part. Une ligne, un bloc. */
 function blocsDepuisTexte(schema, nodeType, nodeAttrs, texte, insMark, authorMark, miseEnForme = []) {
   const marks = [...miseEnForme, insMark, ...(authorMark ? [authorMark] : [])]
-  return String(texte)
-    .split(/\r\n|\r|\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    // `trackedBreak: null` : les blocs ajoutés par l'IA portent déjà leur
-    // marque d'insertion, le saut qui les sépare n'est pas une
-    // modification de plus à relire.
-    .map((ligne) => nodeType.create({ ...nodeAttrs, trackedBreak: null }, schema.text(ligne, marks)))
+  return (
+    String(texte)
+      .split(/\r\n|\r|\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      // `trackedBreak: null` : les blocs ajoutés par l'IA portent déjà leur
+      // marque d'insertion, le saut qui les sépare n'est pas une
+      // modification de plus à relire.
+      .map((ligne) => nodeType.create({ ...nodeAttrs, trackedBreak: null }, schema.text(ligne, marks)))
+  )
 }
 
 function applyParagraphDiff(tr, schema, block, newText, insMark, delMark, authorMark) {
@@ -393,14 +402,7 @@ export function insertAISuggestion(view, from, to, suggestion, aiUser) {
       const dernier = blocks[blocks.length - 1]
       const modele = blocks[0]
       if (suggestion.trim() && dernier && modele) {
-        const noeuds = blocsDepuisTexte(
-          schema,
-          modele.nodeType,
-          modele.nodeAttrs,
-          suggestion,
-          insMark,
-          authorMark
-        )
+        const noeuds = blocsDepuisTexte(schema, modele.nodeType, modele.nodeAttrs, suggestion, insMark, authorMark)
         if (noeuds.length) {
           tr.insert(tr.mapping.map(dernier.nodeEnd), noeuds)
           changed = true

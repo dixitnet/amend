@@ -20,7 +20,20 @@ import { nombre, signes } from '../shared/signes.js'
 export { nombre, signes }
 
 const HEURE_MS = 3600_000
-const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+const MOIS = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+]
 
 const heureDeParis = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' })
 
@@ -80,8 +93,14 @@ export class QuotasIa {
     const cle = String(email).toLowerCase()
 
     if (taille > r.signesParDemande) {
-      const conseil = fonction === 'margo' ? 'Choisissez une portée plus courte (une section ou une sélection).' : 'Sélectionnez un passage plus court.'
-      throw new ErreurHttp(413, `${nom} : cette demande porte sur ${signes(taille)}, la limite est de ${signes(r.signesParDemande)} par demande. ${conseil}`)
+      const conseil =
+        fonction === 'margo'
+          ? 'Choisissez une portée plus courte (une section ou une sélection).'
+          : 'Sélectionnez un passage plus court.'
+      throw new ErreurHttp(
+        413,
+        `${nom} : cette demande porte sur ${signes(taille)}, la limite est de ${signes(r.signesParDemande)} par demande. ${conseil}`
+      )
     }
 
     const utilises = this.usage.signesDuMois(cle, fonction)
@@ -102,7 +121,10 @@ export class QuotasIa {
     if (limiteur.atteint(cle)) {
       const quand = limiteur.libereA(cle)
       const apres = quand ? ` Une place se libère à ${heureDeParis.format(new Date(quand)).replace(':', ' h ')}.` : ''
-      throw new ErreurHttp(429, `${nom} : limite atteinte, ${r.demandesParHeure} demande${r.demandesParHeure > 1 ? 's' : ''} par heure.${apres}`)
+      throw new ErreurHttp(
+        429,
+        `${nom} : limite atteinte, ${r.demandesParHeure} demande${r.demandesParHeure > 1 ? 's' : ''} par heure.${apres}`
+      )
     }
     limiteur.noter(cle)
     return r

@@ -44,8 +44,20 @@ export const BORNES = {
 }
 
 export const DEFAUTS = Object.freeze({
-  corrections: Object.freeze({ modele: 'claude-haiku-5-5', signesParDemande: 30_000, demandesParHeure: 100, signesParMois: 500_000, acces: 'editeur' }),
-  margo: Object.freeze({ modele: 'claude-sonnet-5-5', signesParDemande: 60_000, demandesParHeure: 30, signesParMois: 300_000, acces: 'editeur' }),
+  corrections: Object.freeze({
+    modele: 'claude-haiku-5-5',
+    signesParDemande: 30_000,
+    demandesParHeure: 100,
+    signesParMois: 500_000,
+    acces: 'editeur',
+  }),
+  margo: Object.freeze({
+    modele: 'claude-sonnet-5-5',
+    signesParDemande: 60_000,
+    demandesParHeure: 30,
+    signesParMois: 300_000,
+    acces: 'editeur',
+  }),
 })
 
 const CHAMPS_NOMBRE = Object.keys(BORNES)
@@ -83,13 +95,17 @@ export function validerModification(fonction, patch) {
   const sortie = {}
   for (const [champ, v] of Object.entries(patch)) {
     if (champ === 'modele') {
-      if (!MODELES.some((m) => m.id === v)) throw new ErreurHttp(400, `${nom} : modèle inconnu (${MODELES.map((m) => m.id).join(', ')} seulement).`)
+      if (!MODELES.some((m) => m.id === v))
+        throw new ErreurHttp(400, `${nom} : modèle inconnu (${MODELES.map((m) => m.id).join(', ')} seulement).`)
     } else if (champ === 'acces') {
       if (!NIVEAUX.includes(v)) throw new ErreurHttp(400, `${nom} : niveau d’accès inconnu (${NIVEAUX.join(', ')}).`)
     } else if (CHAMPS_NOMBRE.includes(champ)) {
       const { min, max } = BORNES[champ]
       if (!Number.isInteger(v) || v < min || v > max) {
-        throw new ErreurHttp(400, `${nom} : ${LIBELLES_CHAMP[champ]} doit être un entier entre ${fmt(min)} et ${fmt(max)}.`)
+        throw new ErreurHttp(
+          400,
+          `${nom} : ${LIBELLES_CHAMP[champ]} doit être un entier entre ${fmt(min)} et ${fmt(max)}.`
+        )
       }
     } else {
       throw new ErreurHttp(400, `${nom} : réglage inconnu « ${String(champ).slice(0, 40)} ».`)
@@ -147,7 +163,8 @@ export class ReglagesIa {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new ErreurHttp(400, 'réglages illisibles')
     const suivant = { corrections: { ...this.etat.corrections }, margo: { ...this.etat.margo } }
     for (const [fonction, champs] of Object.entries(patch)) {
-      if (!FONCTIONS.includes(fonction)) throw new ErreurHttp(400, `fonction inconnue : « ${String(fonction).slice(0, 40)} ».`)
+      if (!FONCTIONS.includes(fonction))
+        throw new ErreurHttp(400, `fonction inconnue : « ${String(fonction).slice(0, 40)} ».`)
       Object.assign(suivant[fonction], validerModification(fonction, champs))
     }
     const etat = { ...suivant, modifieLe: this.maintenant(), modifiePar: String(par || '') }

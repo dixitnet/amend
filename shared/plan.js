@@ -23,7 +23,9 @@ export function niveauDuPlan(niveau) {
 /** Le texte d'une ligne du plan. Un titre vide reste une ligne — on doit
  * pouvoir le retrouver pour le remplir —, sous le nom « (sans titre) ». */
 export function intituleDuPlan(texte) {
-  const t = String(texte == null ? '' : texte).replace(/\s+/g, ' ').trim()
+  const t = String(texte == null ? '' : texte)
+    .replace(/\s+/g, ' ')
+    .trim()
   return t || '(sans titre)'
 }
 

@@ -55,10 +55,13 @@ function embarquer(email, galette = ADMIN) {
 }
 
 const inscrire = (email) =>
-  fetch(`${BASE}/api/waitlist`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) })
+  fetch(`${BASE}/api/waitlist`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
 
-const liste = async () =>
-  (await fetch(`${BASE}/api/admin/waitlist`, { headers: { cookie: ADMIN } })).json()
+const liste = async () => (await fetch(`${BASE}/api/admin/waitlist`, { headers: { cookie: ADMIN } })).json()
 
 test('réservé aux administrateurs, adresse valide exigée', async () => {
   assert.equal((await embarquer('x@example.com', null)).status, 403)

@@ -77,7 +77,10 @@ export function copieProton(etat, maintenant) {
 }
 
 function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  return String(s ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  )
 }
 
 /** Les deux usages de l'IA (Corrections IA et Margo) côte à côte, en tokens (pas en euros : ils n'ont
@@ -96,12 +99,18 @@ function tableauTokens(t) {
       .join('')}</tr>`
   const modeles = t.fenetre.parModele.length
     ? `<p class="bo-note">Fenêtre flottante par modèle (30 jours) : ${t.fenetre.parModele
-        .map((m) => `${esc(m.modele)} — ${nombre(m.appels)} message(s), ${nombre(m.entree + m.cacheLu + m.cacheEcrit)} tokens en entrée, ${nombre(m.sortie)} en sortie`)
+        .map(
+          (m) =>
+            `${esc(m.modele)} — ${nombre(m.appels)} message(s), ${nombre(m.entree + m.cacheLu + m.cacheEcrit)} tokens en entrée, ${nombre(m.sortie)} en sortie`
+        )
         .join(' ; ')}.</p>`
     : ''
   const personnes = t.fenetre.parPersonne.length
     ? `<ul class="bo-liste">${t.fenetre.parPersonne
-        .map((p) => `<li>${esc(p.email)} — fenêtre flottante : ${nombre(p.appels)} message(s), ${nombre(p.entree + p.cacheLu + p.cacheEcrit)} tokens en entrée, ${nombre(p.sortie)} en sortie</li>`)
+        .map(
+          (p) =>
+            `<li>${esc(p.email)} — fenêtre flottante : ${nombre(p.appels)} message(s), ${nombre(p.entree + p.cacheLu + p.cacheEcrit)} tokens en entrée, ${nombre(p.sortie)} en sortie</li>`
+        )
         .join('')}</ul>`
     : ''
   return `<table class="bo-table">
@@ -142,8 +151,8 @@ function ligneRetour(r) {
     <td class="bo-message">${esc(r.message || '')}</td>
     <td class="bo-contexte">${contexte}</td>
     <td><button type="button" class="bo-action" data-cle="${esc(r.cle)}" data-traite="${
-    r.traite ? 'oui' : 'non'
-  }">${r.traite ? 'Rouvrir' : 'Traiter'}</button></td>
+      r.traite ? 'oui' : 'non'
+    }">${r.traite ? 'Rouvrir' : 'Traiter'}</button></td>
   </tr>`
 }
 
@@ -161,13 +170,9 @@ function sectionRetours(support) {
   if (!aTraiter.length && !traites.length) return ''
   return `<h2>Retours reçus</h2>
     <p class="bo-note">${nombre(support.recus7j)} sur 7 jours, ${nombre(
-    support.recus30j
-  )} sur 30. Envoyés par la palette de contact, conservés ici même si le courrier n'est pas parti.</p>
-    ${
-      aTraiter.length
-        ? tableRetours(aTraiter)
-        : '<p class="bo-note">Tout est traité.</p>'
-    }
+      support.recus30j
+    )} sur 30. Envoyés par la palette de contact, conservés ici même si le courrier n'est pas parti.</p>
+    ${aTraiter.length ? tableRetours(aTraiter) : '<p class="bo-note">Tout est traité.</p>'}
     ${
       traites.length
         ? `<details class="bo-traites"><summary>${nombre(traites.length)} déjà traité(s)</summary>${tableRetours(
@@ -271,11 +276,7 @@ export async function mountAdmin(root, info) {
           .map(
             (p) => `<tr>
               <td>${esc(p.email)}</td>
-              <td>${
-                p.nom
-                  ? esc(p.nom)
-                  : '<span class="bo-attente">—</span>'
-              }</td>
+              <td>${p.nom ? esc(p.nom) : '<span class="bo-attente">—</span>'}</td>
               <td>${nombre(p.documents)}</td>
               <td>${[
                 p.editeur ? `${p.editeur} éditeur` : '',
@@ -327,10 +328,12 @@ export async function mountAdmin(root, info) {
         ${chiffre(nombre(doc.corbeille ? doc.corbeille.documents : 0), 'à la corbeille', doc.corbeille && doc.corbeille.plusAncienJours !== null ? `le plus ancien : ${nombre(doc.corbeille.plusAncienJours)} j, ${octets(doc.corbeille.octetsJournaux)} de journaux` : 'pas de purge automatique')}
       </div>
       <p class="bo-note">Journaux : ${octets(doc.journaux.octetsTotal)} au total, le plus gros ${octets(
-    doc.journaux.plusGrosOctets
-  )}, ${nombre(doc.journaux.aCompacter)} au-dessus du seuil de compaction${
-    doc.journaux.sansHorodatage ? `, ${nombre(doc.journaux.sansHorodatage)} sans horodatage (antérieurs au suivi)` : ''
-  }${doc.sansControleDacces ? `. ${nombre(doc.sansControleDacces)} document(s) sans liste d'accès.` : '.'}</p>
+        doc.journaux.plusGrosOctets
+      )}, ${nombre(doc.journaux.aCompacter)} au-dessus du seuil de compaction${
+        doc.journaux.sansHorodatage
+          ? `, ${nombre(doc.journaux.sansHorodatage)} sans horodatage (antérieurs au suivi)`
+          : ''
+      }${doc.sansControleDacces ? `. ${nombre(doc.sansControleDacces)} document(s) sans liste d'accès.` : '.'}</p>
       <table class="bo-table">
         <thead><tr><th>Titre</th><th>Propriétaire</th><th>Participants</th><th>En ligne</th><th>Opérations</th><th>Poids</th><th>Modifié</th></tr></thead>
         <tbody>${doc.liste
@@ -388,10 +391,7 @@ export async function mountAdmin(root, info) {
         ${chiffre(euros(f.ia.coutEuros30j), 'sur 30 jours', `${euros(f.ia.coutEuros7j)} sur 7 jours`)}
         ${chiffre(euros(f.ia.coutEuros24h), 'dans les 24 h')}
         ${chiffre(nombre(f.ia.appels30j), 'suggestions', `${nombre(f.ia.appels7j)} sur 7 jours`)}
-        ${chiffre(
-          `${nombre(f.ia.tokensEntree30j)} / ${nombre(f.ia.tokensSortie30j)}`,
-          'tokens entrée / sortie'
-        )}
+        ${chiffre(`${nombre(f.ia.tokensEntree30j)} / ${nombre(f.ia.tokensSortie30j)}`, 'tokens entrée / sortie')}
       </div>
       ${
         f.ia.parPersonne.length
@@ -420,13 +420,13 @@ export async function mountAdmin(root, info) {
       <h3>Emails (30 jours)</h3>
       <p class="bo-note ${f.mail.echecs30j ? 'bo-alerte' : ''}">
         ${nombre(f.mail.envois30j)} envois, <strong>${nombre(f.mail.echecs30j)} échecs</strong>${
-    Object.keys(f.mail.parType).length
-      ? ' — ' +
-        Object.entries(f.mail.parType)
-          .map(([t, v]) => `${esc(t)} : ${v.ok} ok / ${v.echecs} échecs`)
-          .join(', ')
-      : ''
-  }.
+          Object.keys(f.mail.parType).length
+            ? ' — ' +
+              Object.entries(f.mail.parType)
+                .map(([t, v]) => `${esc(t)} : ${v.ok} ok / ${v.echecs} échecs`)
+                .join(', ')
+            : ''
+        }.
         ${
           f.mail.dernierEchec
             ? `Dernier échec le ${new Date(f.mail.dernierEchec.ts).toLocaleString('fr-FR')} : ${esc(
@@ -438,16 +438,14 @@ export async function mountAdmin(root, info) {
       </p>
 
       <p class="bo-note">Liste d'attente : ${nombre(s.listeAttente.total)} adresse(s)${
-    s.listeAttente.dernier ? `, dernière le ${date(s.listeAttente.dernier)}` : ''
-  }.</p>
+        s.listeAttente.dernier ? `, dernière le ${date(s.listeAttente.dernier)}` : ''
+      }.</p>
     </div>
   `
 
   // Après un embarquement on redessine tout : la file, les compteurs et la
   // table des utilisateurs ont changé en même temps.
-  brancherEmbarquement(root, ({ email }) =>
-    mountAdmin(root, `Document créé, invitation envoyée à ${email}.`)
-  )
+  brancherEmbarquement(root, ({ email }) => mountAdmin(root, `Document créé, invitation envoyée à ${email}.`))
 
   // Un seul écouteur sur la racine plutôt qu'un par bouton : la page est
   // rendue d'un bloc par `innerHTML`, et des écouteurs posés sur les

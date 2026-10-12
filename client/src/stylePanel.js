@@ -234,7 +234,7 @@ function groupePage(page) {
     choix.onchange = majVisible
     const champChoix = champ(libelle, choix)
     champChoix.title =
-      "« Titre du document » reprend le titre du fichier, le même sur toutes les pages. « Titre 1 courant » reprend le dernier titre de niveau 1 rencontré ; dans l’export Word, faute d’équivalent fiable, c’est le titre du document qui est écrit."
+      '« Titre du document » reprend le titre du fichier, le même sur toutes les pages. « Titre 1 courant » reprend le dernier titre de niveau 1 rencontré ; dans l’export Word, faute d’équivalent fiable, c’est le titre du document qui est écrit.'
     grille.append(champChoix, champTexte)
     cotes[cle] = { choix, texte }
   }
@@ -243,7 +243,7 @@ function groupePage(page) {
   sautOuverture.type = 'checkbox'
   sautOuverture.checked = !(page.entete && page.entete.sautOuverture === false)
   const champSaut = champ('Pas d’en-tête sur les pages de titre 1', sautOuverture)
-  champSaut.title = "Une page qui porte un titre de niveau 1 reste nue : c’est une ouverture."
+  champSaut.title = 'Une page qui porte un titre de niveau 1 reste nue : c’est une ouverture.'
   grille.appendChild(champSaut)
 
   // Deux réglages qui ne concernent que la sortie paginée (19/09/2026) :
@@ -252,8 +252,7 @@ function groupePage(page) {
   solidaires.type = 'checkbox'
   solidaires.checked = page.titresSolidaires !== false
   const champSolidaires = champ('Jamais de titre en bas de page', solidaires)
-  champSolidaires.title =
-    "Un titre seul en bas d'une page part à la page suivante avec le texte qu'il annonce."
+  champSolidaires.title = "Un titre seul en bas d'une page part à la page suivante avec le texte qu'il annonce."
   grille.appendChild(champSolidaires)
 
   const bellePage = document.createElement('input')
@@ -261,7 +260,7 @@ function groupePage(page) {
   bellePage.checked = !!page.titre1PageImpaire
   const champBellePage = champ('Titres 1 en page impaire', bellePage)
   champBellePage.title =
-    "Chaque titre de niveau 1 ouvre une page de droite, comme dans un livre — une page blanche est insérée si besoin. Export PDF seulement."
+    'Chaque titre de niveau 1 ouvre une page de droite, comme dans un livre — une page blanche est insérée si besoin. Export PDF seulement.'
   grille.appendChild(champBellePage)
 
   fieldset.appendChild(grille)
@@ -347,7 +346,7 @@ export function ouvrirPanneauStyle(docId, { onEnregistre } = {}) {
       (ecarts > 0
         ? `Ce document est basé sur ${nomModele}, avec ${ecarts} réglage${ecarts > 1 ? 's' : ''} propre${ecarts > 1 ? 's' : ''}. `
         : `Ce document est basé sur ${nomModele}, sans réglage propre pour l'instant. `) +
-      "Ce que vous changez ici ne vaut que pour ce document : le modèle, lui, ne bouge pas."
+      'Ce que vous changez ici ne vaut que pour ce document : le modèle, lui, ne bouge pas.'
     modal.append(titre, note)
 
     const formulaire = formulaireStyle(style)

@@ -116,8 +116,7 @@ class VueTable {
     if (items.length === 0) {
       const vide = document.createElement('p')
       vide.className = 'toc-vide'
-      vide.textContent =
-        'Aucun titre à ce niveau pour l’instant — la table se remplira toute seule.'
+      vide.textContent = 'Aucun titre à ce niveau pour l’instant — la table se remplira toute seule.'
       this.liste.appendChild(vide)
       this.signature = ''
       return
@@ -129,9 +128,7 @@ class VueTable {
       ligne.textContent = item.text
       ligne.onclick = () => {
         const { state, dispatch } = this.view
-        const tr = state.tr.setSelection(
-          state.selection.constructor.near(state.doc.resolve(item.pos + 1))
-        )
+        const tr = state.tr.setSelection(state.selection.constructor.near(state.doc.resolve(item.pos + 1)))
         dispatch(tr.scrollIntoView())
         this.view.focus()
       }

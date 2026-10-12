@@ -14,7 +14,13 @@ const dossier = () => mkdtempSync(join(tmpdir(), 'collabtext-test-reglages-ia-')
 test('sans fichier : les valeurs par défaut ; un fichier abîmé ou aux valeurs absurdes y retombe champ par champ', () => {
   const d = dossier()
   assert.deepEqual(new ReglagesIa(d).de('corrections'), DEFAUTS.corrections)
-  writeFileSync(join(d, 'reglages-ia.json'), JSON.stringify({ corrections: { modele: 'claude-opus-5', signesParDemande: 5000, demandesParHeure: -3, acces: 'tous' }, margo: 'x' }))
+  writeFileSync(
+    join(d, 'reglages-ia.json'),
+    JSON.stringify({
+      corrections: { modele: 'claude-opus-5', signesParDemande: 5000, demandesParHeure: -3, acces: 'tous' },
+      margo: 'x',
+    })
+  )
   const r = new ReglagesIa(d)
   assert.equal(r.de('corrections').modele, DEFAUTS.corrections.modele)
   assert.equal(r.de('corrections').signesParDemande, 5000, 'la valeur valable est gardée')
@@ -47,8 +53,22 @@ test('les signes ne comptent que pour les demandes réussies ; les jetons toujou
   const d = dossier()
   const horloge = { t: Date.parse('2026-10-12T10:00:00Z') }
   const u = new UsageIa(d, { maintenant: () => horloge.t })
-  u.enregistrer({ email: 'A@X.fr', fonction: 'corrections', modele: 'claude-haiku-5-5', succes: true, signes: 500, jetons: { entree: 100, sortie: 20 } })
-  u.enregistrer({ email: 'a@x.fr', fonction: 'corrections', modele: 'claude-haiku-5-5', succes: false, signes: 900, jetons: { entree: 40, sortie: 0 } })
+  u.enregistrer({
+    email: 'A@X.fr',
+    fonction: 'corrections',
+    modele: 'claude-haiku-5-5',
+    succes: true,
+    signes: 500,
+    jetons: { entree: 100, sortie: 20 },
+  })
+  u.enregistrer({
+    email: 'a@x.fr',
+    fonction: 'corrections',
+    modele: 'claude-haiku-5-5',
+    succes: false,
+    signes: 900,
+    jetons: { entree: 40, sortie: 0 },
+  })
   assert.equal(u.signesDuMois('a@x.fr', 'corrections'), 500, 'adresse insensible à la casse, l’échec ne compte pas')
   const detail = u.detail()
   assert.equal(detail.utilisateurs[0].corrections.echecs, 1)
@@ -88,7 +108,8 @@ test('le tableau des accès : un niveau minimal, jamais un lecteur ni quelqu’u
     ['correcteur', { admin: true, role: null }, false],
     ['inconnu', { admin: true, role: 'editeur' }, false],
   ]
-  for (const [niveau, personne, attendu] of cas) assert.equal(accesIa(niveau, personne), attendu, `${niveau} ${JSON.stringify(personne)}`)
+  for (const [niveau, personne, attendu] of cas)
+    assert.equal(accesIa(niveau, personne), attendu, `${niveau} ${JSON.stringify(personne)}`)
 })
 
 test('la vérification commune dit la règle en signes et l’heure où une place se libère', () => {
@@ -113,7 +134,13 @@ test('la vérification commune dit la règle en signes et l’heure où une plac
   assert.equal(heure.status, 429)
   assert.match(heure.message, /1 demande par heure\. Une place se libère à 1\d h 00/)
   horloge.t += 3601_000
-  usage.enregistrer({ email: 'p@x.fr', fonction: 'corrections', modele: 'claude-haiku-5-5', succes: true, signes: 1900 })
+  usage.enregistrer({
+    email: 'p@x.fr',
+    fonction: 'corrections',
+    modele: 'claude-haiku-5-5',
+    succes: true,
+    signes: 1900,
+  })
   const mois = ex(200)
   assert.equal(mois.status, 429)
   assert.match(mois.message, /100 signes/)

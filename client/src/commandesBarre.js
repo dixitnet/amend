@@ -76,11 +76,7 @@ export function styleDeBlocCommun(state) {
   state.doc.nodesBetween(from, to, (node) => {
     if (!node.isTextblock) return true
     const valeur =
-      node.type === schema.nodes.heading
-        ? String(node.attrs.level)
-        : node.type === schema.nodes.paragraph
-          ? ''
-          : null
+      node.type === schema.nodes.heading ? String(node.attrs.level) : node.type === schema.nodes.paragraph ? '' : null
     if (commun === undefined) commun = valeur
     else if (commun !== valeur) commun = null
     return false

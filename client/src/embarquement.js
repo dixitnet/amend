@@ -35,7 +35,11 @@ export async function embarquer(email) {
     if (res.ok) return { ok: true, ...donnees }
     return { ok: false, status: res.status, message: MESSAGES[res.status] || donnees.error || 'Refusé par le serveur.' }
   } catch {
-    return { ok: false, status: 0, message: "Le serveur n'a pas répondu : rien n'est sûr, regardez la liste avant de réessayer." }
+    return {
+      ok: false,
+      status: 0,
+      message: "Le serveur n'a pas répondu : rien n'est sûr, regardez la liste avant de réessayer.",
+    }
   }
 }
 

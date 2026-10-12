@@ -59,7 +59,10 @@ function prng(graine) {
 function sansCouper(texte, i) {
   // toString() d'un XmlText met les balises de mise en forme dans la chaîne :
   // les index se comptent sur le texte seul (un objet intégré compte pour 1).
-  const s = texte.toDelta().map((d) => (typeof d.insert === 'string' ? d.insert : '\ufffc')).join('')
+  const s = texte
+    .toDelta()
+    .map((d) => (typeof d.insert === 'string' ? d.insert : '\ufffc'))
+    .join('')
   const c = s.charCodeAt(i)
   const avant = s.charCodeAt(i - 1)
   return i > 0 && avant >= 0xd800 && avant <= 0xdbff && c >= 0xdc00 && c <= 0xdfff ? i - 1 : i
@@ -92,12 +95,26 @@ class Faux {
     return new Promise((resolve) => {
       this.synchro = false
       const sv = Buffer.from(Y.encodeStateVector(this.doc)).toString('base64')
-      const ws = new WebSocket(`${this.base.replace(/^http/, 'ws')}/ws/${this.docId}?user=${this.nom}&sv=${encodeURIComponent(sv)}`, { headers: { cookie: this.cookie } })
+      const ws = new WebSocket(
+        `${this.base.replace(/^http/, 'ws')}/ws/${this.docId}?user=${this.nom}&sv=${encodeURIComponent(sv)}`,
+        { headers: { cookie: this.cookie } }
+      )
       this.ws = ws
       ws.on('message', (data, binaire) => {
-        if (binaire) { try { Y.applyUpdate(this.doc, new Uint8Array(data), 'distant') } catch (e) { this.journal.push(`${this.nom} applyUpdate: ${e.message}`) } return }
+        if (binaire) {
+          try {
+            Y.applyUpdate(this.doc, new Uint8Array(data), 'distant')
+          } catch (e) {
+            this.journal.push(`${this.nom} applyUpdate: ${e.message}`)
+          }
+          return
+        }
         let m
-        try { m = JSON.parse(data.toString()) } catch { return }
+        try {
+          m = JSON.parse(data.toString())
+        } catch {
+          return
+        }
         if (m.type === 'refuse') this.journal.push(`${this.nom} REFUSÉ par le serveur : ${m.raison}`)
         if (m.type === 'synced') {
           // ce que le serveur n'a pas : le différentiel depuis son vecteur d'état
@@ -105,12 +122,21 @@ class Faux {
             const svServeur = m.sv ? new Uint8Array(Buffer.from(m.sv, 'base64')) : undefined
             const reste = Y.encodeStateAsUpdate(this.doc, svServeur)
             if (reste.length > 2) ws.send(reste)
-          } catch { /* on réessaiera à la prochaine connexion */ }
+          } catch {
+            /* on réessaiera à la prochaine connexion */
+          }
           this.synchro = true
           resolve()
         }
       })
-      ws.on('close', (code) => { if (this.ws === ws) { this.ws = null; this.synchro = false; this.journal.push(`${this.nom} connexion fermée (${code})`) } resolve() })
+      ws.on('close', (code) => {
+        if (this.ws === ws) {
+          this.ws = null
+          this.synchro = false
+          this.journal.push(`${this.nom} connexion fermée (${code})`)
+        }
+        resolve()
+      })
       ws.on('unexpected-response', (req, res) => this.journal.push(`${this.nom} réponse inattendue ${res.statusCode}`))
       ws.on('error', (e) => this.journal.push(`${this.nom} erreur ws : ${e.message}`))
       setTimeout(resolve, 8000)
@@ -122,10 +148,18 @@ class Faux {
     if (!ws) return
     this.ws = null
     this.synchro = false
-    try { brutal ? ws.terminate() : ws.close() } catch { /* déjà fermé */ }
+    try {
+      brutal ? ws.terminate() : ws.close()
+    } catch {
+      /* déjà fermé */
+    }
   }
 
-  paragraphes() { return this.frag.toArray().filter((n) => n instanceof Y.XmlElement && (n.nodeName === 'paragraph' || n.nodeName === 'heading')) }
+  paragraphes() {
+    return this.frag
+      .toArray()
+      .filter((n) => n instanceof Y.XmlElement && (n.nodeName === 'paragraph' || n.nodeName === 'heading'))
+  }
   textes() {
     const out = []
     for (const p of this.paragraphes()) for (const c of p.toArray()) if (c instanceof Y.XmlText) out.push(c)
@@ -158,7 +192,10 @@ class Faux {
         if (t.length > 2) {
           const i = sansCouper(t, entier(t.length - 1))
           const j = sansCouper(t, Math.min(t.length, i + 1 + entier(8)))
-          if (j > i) { t.delete(i, j - i); d = `supprime ${j - i} en ${i}` }
+          if (j > i) {
+            t.delete(i, j - i)
+            d = `supprime ${j - i} en ${i}`
+          }
         }
       } else if (r < 0.67 && textes.length) {
         const t = textes[entier(textes.length)]
@@ -174,7 +211,11 @@ class Faux {
         const t = p.toArray().find((c) => c instanceof Y.XmlText)
         if (t && t.length > 4) {
           const i = sansCouper(t, 1 + entier(t.length - 2))
-          const fin = t.toDelta().map((d) => (typeof d.insert === 'string' ? d.insert : '')).join('').slice(i)
+          const fin = t
+            .toDelta()
+            .map((d) => (typeof d.insert === 'string' ? d.insert : ''))
+            .join('')
+            .slice(i)
           t.delete(i, t.length - i)
           const q = new Y.XmlElement('paragraph')
           q.insert(0, [new Y.XmlText(fin)])
@@ -188,10 +229,25 @@ class Faux {
         const k = 1 + entier(tous.length - 1)
         const prec = tous[k - 1]
         const cour = tous[k]
-        if (prec instanceof Y.XmlElement && cour instanceof Y.XmlElement && ['paragraph', 'heading'].includes(prec.nodeName) && cour.nodeName === 'paragraph') {
+        if (
+          prec instanceof Y.XmlElement &&
+          cour instanceof Y.XmlElement &&
+          ['paragraph', 'heading'].includes(prec.nodeName) &&
+          cour.nodeName === 'paragraph'
+        ) {
           const tp = prec.toArray().find((c) => c instanceof Y.XmlText)
           const tc = cour.toArray().find((c) => c instanceof Y.XmlText)
-          if (tp && tc) { tp.insert(tp.length, tc.toDelta().map((d) => (typeof d.insert === 'string' ? d.insert : '')).join('')); this.frag.delete(k, 1); d = `fusionne les blocs ${k - 1}/${k}` }
+          if (tp && tc) {
+            tp.insert(
+              tp.length,
+              tc
+                .toDelta()
+                .map((d) => (typeof d.insert === 'string' ? d.insert : ''))
+                .join('')
+            )
+            this.frag.delete(k, 1)
+            d = `fusionne les blocs ${k - 1}/${k}`
+          }
         }
       } else if (r < 0.84 && ps.some((q) => q.nodeName === 'paragraph')) {
         // pas de note dans un titre : le schéma l'interdit, l'interface aussi
@@ -221,7 +277,10 @@ class Faux {
         const listes = this.frag.toArray().filter((n) => n instanceof Y.XmlElement && n.nodeName === 'bullet_list')
         if (listes.length) {
           const l = listes[entier(listes.length)]
-          if (l.length > 1) { l.delete(entier(l.length), 1); d = 'supprime un item' }
+          if (l.length > 1) {
+            l.delete(entier(l.length), 1)
+            d = 'supprime un item'
+          }
         }
       } else if (r < 0.95 && textes.length) {
         const t = textes[entier(textes.length)]
@@ -229,10 +288,14 @@ class Faux {
           const a = sansCouper(t, entier(t.length - 6))
           const id = `c-${this.nom}-${Date.now()}-${entier(1e6)}`
           this.commentaires.set(id, {
-            id, author: this.nom, authorId: `u-${this.nom}`, color: '#555',
+            id,
+            author: this.nom,
+            authorId: `u-${this.nom}`,
+            color: '#555',
             anchorFrom: Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(t, a)),
             anchorTo: Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(t, a + 5)),
-            text: `remarque de ${this.nom}`, createdAt: Date.now(),
+            text: `remarque de ${this.nom}`,
+            createdAt: Date.now(),
           })
           d = 'commente'
         }
@@ -241,12 +304,23 @@ class Faux {
         if (ancres.length) {
           const [pid] = ancres[entier(ancres.length)]
           const id = `r-${this.nom}-${Date.now()}-${entier(1e6)}`
-          this.commentaires.set(id, { id, parent: pid, author: this.nom, authorId: `u-${this.nom}`, color: '#555', text: 'réponse', createdAt: Date.now() })
+          this.commentaires.set(id, {
+            id,
+            parent: pid,
+            author: this.nom,
+            authorId: `u-${this.nom}`,
+            color: '#555',
+            text: 'réponse',
+            createdAt: Date.now(),
+          })
           d = 'répond'
         }
       } else {
         const ids = [...this.commentaires.keys()]
-        if (ids.length) { this.commentaires.delete(ids[entier(ids.length)]); d = 'supprime un commentaire' }
+        if (ids.length) {
+          this.commentaires.delete(ids[entier(ids.length)])
+          d = 'supprime un commentaire'
+        }
       }
     })
     return d
@@ -278,10 +352,18 @@ function verifierSchema(doc) {
   const avertissements = []
   const erreurs = []
   let json
-  try { json = YPM.yXmlFragmentToProsemirrorJSON(doc.getXmlFragment(NOM_TEXTE)) } catch (e) { return { erreurs: [`conversion impossible : ${e.message}`], avertissements } }
+  try {
+    json = YPM.yXmlFragmentToProsemirrorJSON(doc.getXmlFragment(NOM_TEXTE))
+  } catch (e) {
+    return { erreurs: [`conversion impossible : ${e.message}`], avertissements }
+  }
   try {
     const noeud = schema.nodeFromJSON({ type: 'doc', content: json.content || [] })
-    try { noeud.check() } catch (e) { avertissements.push(e.message.slice(0, 160)) }
+    try {
+      noeud.check()
+    } catch (e) {
+      avertissements.push(e.message.slice(0, 160))
+    }
   } catch (e) {
     erreurs.push(`nœud inconnu ou invalide : ${e.message.slice(0, 200)}`)
   }
@@ -294,7 +376,16 @@ async function lireDepuisServeur(base, cookie, docId) {
     const ws = new WebSocket(`${base.replace(/^http/, 'ws')}/ws/${docId}?user=verif`, { headers: { cookie } })
     ws.on('message', (data, binaire) => {
       if (binaire) Y.applyUpdate(doc, new Uint8Array(data), 'distant')
-      else { try { if (JSON.parse(data.toString()).type === 'synced') { ws.close(); resolve() } } catch { /* pas du JSON */ } }
+      else {
+        try {
+          if (JSON.parse(data.toString()).type === 'synced') {
+            ws.close()
+            resolve()
+          }
+        } catch {
+          /* pas du JSON */
+        }
+      }
     })
     ws.on('error', resolve)
     setTimeout(resolve, 10000)
@@ -304,32 +395,69 @@ async function lireDepuisServeur(base, cookie, docId) {
 
 // ------------------------------------------------------------------ essai
 
-export async function essai({ graine = 1, clients = 4, secondes = 10, opsParSeconde = 12, tauxCoupure = 0.03, redemarrages = 1, port = 18990, dossierRapports = null, silencieux = false } = {}) {
+export async function essai({
+  graine = 1,
+  clients = 4,
+  secondes = 10,
+  opsParSeconde = 12,
+  tauxCoupure = 0.03,
+  redemarrages = 1,
+  port = 18990,
+  dossierRapports = null,
+  silencieux = false,
+} = {}) {
   const hasard = prng(graine)
   const journal = []
   const inst = await lancerInstance({ port, comptes: ['fuzz@test.local'] })
   const cookie = inst.cookies['fuzz@test.local']
-  const rapport = { graine, clients, secondes, donnees: inst.data, ok: true, problemes: [], avertissements: [], ops: 0, coupures: 0, redemarrages: 0 }
+  const rapport = {
+    graine,
+    clients,
+    secondes,
+    donnees: inst.data,
+    ok: true,
+    problemes: [],
+    avertissements: [],
+    ops: 0,
+    coupures: 0,
+    redemarrages: 0,
+  }
   try {
     const creation = await inst.api('/api/docs', { cookie, methode: 'POST', corps: { title: `fuzz ${graine}` } })
-    if (!creation.json || !creation.json.id) throw new Error(`création du document refusée : ${creation.status} ${creation.texte.slice(0, 200)} (un serveur de l'essai précédent tient peut-être encore le port ${port} ?)`)
+    if (!creation.json || !creation.json.id)
+      throw new Error(
+        `création du document refusée : ${creation.status} ${creation.texte.slice(0, 200)} (un serveur de l'essai précédent tient peut-être encore le port ${port} ?)`
+      )
     const docId = creation.json.id
-    const faux = Array.from({ length: clients }, (_, i) => new Faux(`f${i + 1}`, inst.base, cookie, docId, hasard, journal))
+    const faux = Array.from(
+      { length: clients },
+      (_, i) => new Faux(`f${i + 1}`, inst.base, cookie, docId, hasard, journal)
+    )
     await Promise.all(faux.map((f) => f.connecter()))
     faux[0].agir()
     await dors(200)
 
     const fin = Date.now() + secondes * 1000
-    const prochainRedemarrage = Array.from({ length: redemarrages }, () => Date.now() + (0.2 + 0.6 * hasard()) * secondes * 1000).sort()
+    const prochainRedemarrage = Array.from(
+      { length: redemarrages },
+      () => Date.now() + (0.2 + 0.6 * hasard()) * secondes * 1000
+    ).sort()
     while (Date.now() < fin) {
       const f = faux[Math.floor(hasard() * faux.length)]
       if (f.ws || hasard() < 0.5) {
         const d = f.agir()
-        if (d) { rapport.ops++; journal.push(`${((Date.now() - (fin - secondes * 1000)) / 1000).toFixed(2)} ${f.nom} ${d}`) }
+        if (d) {
+          rapport.ops++
+          journal.push(`${((Date.now() - (fin - secondes * 1000)) / 1000).toFixed(2)} ${f.nom} ${d}`)
+        }
       }
       if (hasard() < tauxCoupure) {
-        if (f.ws) { const brutal = hasard() < 0.5; f.couper(brutal); rapport.coupures++; journal.push(`${f.nom} coupe (${brutal ? 'brutal' : 'propre'})`) }
-        else f.connecter()
+        if (f.ws) {
+          const brutal = hasard() < 0.5
+          f.couper(brutal)
+          rapport.coupures++
+          journal.push(`${f.nom} coupe (${brutal ? 'brutal' : 'propre'})`)
+        } else f.connecter()
       }
       if (prochainRedemarrage.length && Date.now() > prochainRedemarrage[0]) {
         prochainRedemarrage.shift()
@@ -343,11 +471,13 @@ export async function essai({ graine = 1, clients = 4, secondes = 10, opsParSeco
       }
       // quelques clients reviennent seuls
       for (const g of faux) if (!g.ws && hasard() < 0.15) g.connecter()
-      await dors(Math.max(1, Math.round(1000 / opsParSeconde * (0.5 + hasard()))))
+      await dors(Math.max(1, Math.round((1000 / opsParSeconde) * (0.5 + hasard()))))
     }
 
     // tout le monde revient, on laisse tout circuler
-    for (const g of faux) { g.couper(true) }
+    for (const g of faux) {
+      g.couper(true)
+    }
     await dors(300)
     await Promise.all(faux.map((g) => g.connecter()))
     await dors(1500)
@@ -357,14 +487,22 @@ export async function essai({ graine = 1, clients = 4, secondes = 10, opsParSeco
     await Promise.all(faux.map((g) => g.connecter()))
     await dors(1500)
 
-    if (process.env.FUZZ_DETAIL) for (const g of faux) journal.push(`fin : ${g.nom} ws=${g.ws && g.ws.readyState} synchro=${g.synchro} blocs=${g.frag.length} commentaires=${g.commentaires.size} sv=${empreinte(Y.encodeStateVector(g.doc))}`)
+    if (process.env.FUZZ_DETAIL)
+      for (const g of faux)
+        journal.push(
+          `fin : ${g.nom} ws=${g.ws && g.ws.readyState} synchro=${g.synchro} blocs=${g.frag.length} commentaires=${g.commentaires.size} sv=${empreinte(Y.encodeStateVector(g.doc))}`
+        )
     const vues = faux.map((g) => ({ nom: g.nom, ...instantane(g.doc) }))
     const serveur = instantane(await lireDepuisServeur(inst.base, cookie, docId))
     const ref = JSON.stringify([vues[0].contenu, vues[0].commentaires])
     for (const v of vues.slice(1)) {
-      if (JSON.stringify([v.contenu, v.commentaires]) !== ref) rapport.problemes.push(`${v.nom} diverge de ${vues[0].nom} (vecteurs ${v.sv} / ${vues[0].sv})${premiereDifference(vues[0], v)}`)
+      if (JSON.stringify([v.contenu, v.commentaires]) !== ref)
+        rapport.problemes.push(
+          `${v.nom} diverge de ${vues[0].nom} (vecteurs ${v.sv} / ${vues[0].sv})${premiereDifference(vues[0], v)}`
+        )
     }
-    if (JSON.stringify([serveur.contenu, serveur.commentaires]) !== ref) rapport.problemes.push(`le serveur diverge des clients (vecteurs ${serveur.sv} / ${vues[0].sv})`)
+    if (JSON.stringify([serveur.contenu, serveur.commentaires]) !== ref)
+      rapport.problemes.push(`le serveur diverge des clients (vecteurs ${serveur.sv} / ${vues[0].sv})`)
     const s = verifierSchema(faux[0].doc)
     rapport.problemes.push(...s.erreurs)
     rapport.avertissements.push(...s.avertissements)
@@ -372,7 +510,8 @@ export async function essai({ graine = 1, clients = 4, secondes = 10, opsParSeco
     // ce que le serveur a gardé survit à un plantage brutal
     await inst.redemarrer({ brutal: true })
     const apres = instantane(await lireDepuisServeur(inst.base, cookie, docId))
-    if (JSON.stringify([apres.contenu, apres.commentaires]) !== ref) rapport.problemes.push('le serveur a perdu du contenu au redémarrage brutal final')
+    if (JSON.stringify([apres.contenu, apres.commentaires]) !== ref)
+      rapport.problemes.push('le serveur a perdu du contenu au redémarrage brutal final')
 
     for (const g of faux) g.couper(true)
     rapport.ok = rapport.problemes.length === 0
@@ -384,16 +523,29 @@ export async function essai({ graine = 1, clients = 4, secondes = 10, opsParSeco
     await inst.arreter({ garderDonnees: !rapport.ok })
     if (dossierRapports && !rapport.ok) {
       mkdirSync(dossierRapports, { recursive: true })
-      writeFileSync(join(dossierRapports, `fuzz-${graine}.log`), journal.join('\n') + '\n\n' + JSON.stringify(rapport, null, 2) + '\n\n--- journal du serveur ---\n' + inst.journal.join('').slice(-4000))
+      writeFileSync(
+        join(dossierRapports, `fuzz-${graine}.log`),
+        journal.join('\n') +
+          '\n\n' +
+          JSON.stringify(rapport, null, 2) +
+          '\n\n--- journal du serveur ---\n' +
+          inst.journal.join('').slice(-4000)
+      )
     }
-    if (!silencieux) console.log(`graine ${String(graine).padStart(4)}  ${rapport.ok ? 'OK ' : 'ÉCHEC'}  ${rapport.ops} opérations, ${rapport.coupures} coupures, ${rapport.redemarrages} redémarrages${rapport.avertissements.length ? `, ${rapport.avertissements.length} avertissement(s)` : ''}${rapport.ok ? '' : '\n   - ' + rapport.problemes.join('\n   - ')}${rapport.avertissements.length ? '\n   ~ ' + [...new Set(rapport.avertissements)].join('\n   ~ ') : ''}`)
+    if (!silencieux)
+      console.log(
+        `graine ${String(graine).padStart(4)}  ${rapport.ok ? 'OK ' : 'ÉCHEC'}  ${rapport.ops} opérations, ${rapport.coupures} coupures, ${rapport.redemarrages} redémarrages${rapport.avertissements.length ? `, ${rapport.avertissements.length} avertissement(s)` : ''}${rapport.ok ? '' : '\n   - ' + rapport.problemes.join('\n   - ')}${rapport.avertissements.length ? '\n   ~ ' + [...new Set(rapport.avertissements)].join('\n   ~ ') : ''}`
+      )
   }
   return rapport
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2)
-  const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i === -1 ? d : args[i + 1] }
+  const opt = (n, d) => {
+    const i = args.indexOf(`--${n}`)
+    return i === -1 ? d : args[i + 1]
+  }
   const serie = Number(opt('serie', 0))
   const graine0 = Number(opt('graine', 1))
   const options = {
@@ -408,6 +560,10 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const graines = serie ? Array.from({ length: serie }, (_, i) => graine0 + i) : [graine0]
   let echecs = 0
   for (const g of graines) if (!(await essai({ ...options, graine: g })).ok) echecs++
-  console.log(echecs ? `\n${echecs} échec(s) sur ${graines.length} — journaux dans ${options.dossierRapports}/` : `\n${graines.length} essai(s) sans divergence`)
+  console.log(
+    echecs
+      ? `\n${echecs} échec(s) sur ${graines.length} — journaux dans ${options.dossierRapports}/`
+      : `\n${graines.length} essai(s) sans divergence`
+  )
   process.exit(echecs ? 1 : 0)
 }

@@ -134,7 +134,9 @@ export class Rooms {
       // Un lecteur : commentaires seulement, et les siens (replique.js).
       if (acces && acces.capabilities && !acces.capabilities.canProposeChanges && !acces.capabilities.canEditFreely) {
         const r = this.repliques.repliques.get(docId)
-        const verdict = r ? verifierLecteurDoc(r.doc, update, acces.nom, acces.id || null) : { ok: false, raison: 'réplique absente' }
+        const verdict = r
+          ? verifierLecteurDoc(r.doc, update, acces.nom, acces.id || null)
+          : { ok: false, raison: 'réplique absente' }
         if (!verdict.ok) {
           member.conn.send(JSON.stringify({ type: 'refuse', raison: verdict.raison }))
           return
@@ -144,7 +146,8 @@ export class Rooms {
       if (!verdict.ok) {
         // Illisible ou hors séquence : ni persistée ni relayée. Le client
         // est prévenu quand il peut y faire quelque chose (recharger).
-        if (/hors séquence/.test(verdict.raison)) member.conn.send(JSON.stringify({ type: 'refuse', raison: verdict.raison }))
+        if (/hors séquence/.test(verdict.raison))
+          member.conn.send(JSON.stringify({ type: 'refuse', raison: verdict.raison }))
         return
       }
       this.storage.appendUpdate(docId, update)

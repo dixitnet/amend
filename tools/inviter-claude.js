@@ -39,7 +39,10 @@ function lireCleDuEnv(cle) {
     if (!ligne || ligne.startsWith('#')) continue
     const egal = ligne.indexOf('=')
     if (egal === -1 || ligne.slice(0, egal).trim() !== cle) continue
-    return ligne.slice(egal + 1).trim().replace(/^["']|["']$/g, '')
+    return ligne
+      .slice(egal + 1)
+      .trim()
+      .replace(/^["']|["']$/g, '')
   }
   return null
 }
@@ -88,7 +91,9 @@ function main() {
   // ./data. Sans ce détour, le script travaillerait dans le mauvais dossier.
   const dataDir = resolve(process.env.DATA_DIR || lireCleDuEnv('DATA_DIR') || join(RACINE, 'data'))
   if (!existsSync(join(dataDir, 'docs.json'))) {
-    echec(`Aucun docs.json dans ${dataDir} : ce n'est pas le dossier de données du serveur. Indiquez-le : DATA_DIR=/chemin/vers/data node tools/inviter-claude.js …`)
+    echec(
+      `Aucun docs.json dans ${dataDir} : ce n'est pas le dossier de données du serveur. Indiquez-le : DATA_DIR=/chemin/vers/data node tools/inviter-claude.js …`
+    )
   }
   const storage = new Storage(dataDir)
   const agents = new Agents(dataDir)
@@ -107,16 +112,27 @@ function main() {
   }
 
   if (options.revoquer) {
-    return console.log(agents.revoquer(options.revoquer) ? `Invitation ${options.revoquer} révoquée.` : `Aucune invitation active ${options.revoquer}.`)
+    return console.log(
+      agents.revoquer(options.revoquer)
+        ? `Invitation ${options.revoquer} révoquée.`
+        : `Aucune invitation active ${options.revoquer}.`
+    )
   }
 
   if (options.prolonger) {
     const jusqua = agents.prolonger(options.prolonger, options.jours || DUREE_DEFAUT_JOURS)
-    return console.log(jusqua ? `Invitation ${options.prolonger} valable jusqu'au ${jour(jusqua)}.` : `Aucune invitation active ${options.prolonger}, ou durée invalide.`)
+    return console.log(
+      jusqua
+        ? `Invitation ${options.prolonger} valable jusqu'au ${jour(jusqua)}.`
+        : `Aucune invitation active ${options.prolonger}, ou durée invalide.`
+    )
   }
 
   const designation = mots.join(' ').trim()
-  if (!designation) echec('Usage : node tools/inviter-claude.js "<document>" --role correcteur|lecteur [--jours 7] [--par adresse] [--nom Claude]\n        --liste | --revoquer <id> | --prolonger <id> [--jours N]')
+  if (!designation)
+    echec(
+      'Usage : node tools/inviter-claude.js "<document>" --role correcteur|lecteur [--jours 7] [--par adresse] [--nom Claude]\n        --liste | --revoquer <id> | --prolonger <id> [--jours N]'
+    )
   const { doc, erreur } = trouverDocument(storage, designation)
   if (erreur) echec(erreur)
 
@@ -125,10 +141,21 @@ function main() {
   const role = options.role || 'correcteur'
   if (!ROLES_AGENT.includes(role)) echec(`Rôle « ${role} » refusé : ${ROLES_AGENT.join(' ou ')}.`)
 
-  const invitation = agents.inviter({ docId: doc.id, role, jours: options.jours ?? DUREE_DEFAUT_JOURS, par, nom: options.nom || 'Claude' })
+  const invitation = agents.inviter({
+    docId: doc.id,
+    role,
+    jours: options.jours ?? DUREE_DEFAUT_JOURS,
+    par,
+    nom: options.nom || 'Claude',
+  })
   if (!invitation.ok) echec(invitation.raison)
 
-  const base = (options.base || process.env.APP_BASE_URL || lireCleDuEnv('APP_BASE_URL') || 'https://www.amend.ink').replace(/\/+$/, '')
+  const base = (
+    options.base ||
+    process.env.APP_BASE_URL ||
+    lireCleDuEnv('APP_BASE_URL') ||
+    'https://www.amend.ink'
+  ).replace(/\/+$/, '')
   console.log(`
 Invitation ${invitation.id} — « ${doc.title} », rôle ${role}, valable jusqu'au ${jour(invitation.expiresAt)}.
 

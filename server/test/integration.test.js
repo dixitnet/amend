@@ -261,7 +261,10 @@ test('un client qui dit ce qu’il a ne reçoit que le reste, et n’envoie que 
   await new Promise((r) => setTimeout(r, 300))
   assert.ok(synced, 'synced reçu')
   // Rien ne manque au client : aucune trame binaire (ou une trame vide).
-  assert.ok(recu.every((t) => t.length <= 2), `le serveur a renvoyé ${recu.length} trame(s) alors que le client avait tout`)
+  assert.ok(
+    recu.every((t) => t.length <= 2),
+    `le serveur a renvoyé ${recu.length} trame(s) alors que le client avait tout`
+  )
   // Le client envoie ce qui manque au serveur : la différence, pas l'état.
   const diff = Y.encodeStateAsUpdate(local, Buffer.from(synced.sv, 'base64'))
   assert.ok(diff.length < Y.encodeStateAsUpdate(local).length, 'la différence est plus petite que l’état')
@@ -317,7 +320,7 @@ test('AI endpoint rejects empty text (400, after key check)', async () => {
     headers: { 'content-type': 'application/json', cookie: AI_TEST_COOKIE },
     body: JSON.stringify({ docId: doc.id, text: '   ', instruction: 'x' }),
   })
-process.env.ANTHROPIC_API_KEY = ''
+  process.env.ANTHROPIC_API_KEY = ''
   assert.equal(res.status, 400)
 })
 

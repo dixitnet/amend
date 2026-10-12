@@ -51,9 +51,7 @@ export async function ouvrirPanneauPublication(docId, getDoc, getTitre) {
   function dessiner() {
     corps.innerHTML = ''
     statut.className = `publication-statut ${etat.publiee ? 'publiee' : ''}`
-    statut.textContent = etat.publiee
-      ? 'Ce document a une page publique.'
-      : 'Ce document n’a pas de page publique.'
+    statut.textContent = etat.publiee ? 'Ce document a une page publique.' : 'Ce document n’a pas de page publique.'
 
     const explication = document.createElement('p')
     explication.className = 'bo-note'

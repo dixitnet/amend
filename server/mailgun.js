@@ -12,7 +12,10 @@ export class MailSendError extends Error {}
 /** Échappement HTML — les textes viennent d'un titre de document et d'une
  * adresse email, donc de saisie humaine. */
 function echapper(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  )
 }
 
 /**
@@ -76,9 +79,7 @@ export function sendMail({ to, subject, text, html, replyTo }) {
   const faux = process.env.MAILGUN_API_URL ? new URL(process.env.MAILGUN_API_URL) : null
   const request = faux && faux.protocol === 'http:' ? requestHttp : requestHttps
   if (!apiKey || !domain) {
-    return Promise.reject(
-      new MailConfigError('MAILGUN_API_KEY et MAILGUN_DOMAIN requis (voir .env.example)')
-    )
+    return Promise.reject(new MailConfigError('MAILGUN_API_KEY et MAILGUN_DOMAIN requis (voir .env.example)'))
   }
   const from = process.env.MAILGUN_FROM || `amend.ink <no-reply@${domain}>`
   const champs = { from, to, subject, text }
@@ -115,7 +116,9 @@ export function sendMail({ to, subject, text, html, replyTo }) {
     )
     // Sans délai, une API qui ne répond pas laisse la requête (et la
     // personne qui attend son courrier) pendante indéfiniment (S11).
-    req.setTimeout(DELAI_MAILGUN_MS, () => req.destroy(new Error(`Mailgun n'a pas répondu en ${DELAI_MAILGUN_MS / 1000} s`)))
+    req.setTimeout(DELAI_MAILGUN_MS, () =>
+      req.destroy(new Error(`Mailgun n'a pas répondu en ${DELAI_MAILGUN_MS / 1000} s`))
+    )
     req.on('error', (err) => reject(new MailSendError(err.message)))
     req.write(body)
     req.end()

@@ -62,7 +62,11 @@ test('hystérésis : après compaction, le document a de la marge avant la suiva
   assert.equal(meta.needsCompaction, false, 'la marge doit absorber les opérations qui suivent une compaction')
 
   await ecrire(storage, doc.id, 1) // 16
-  assert.equal(storage.getHistoryMeta(doc.id).needsCompaction, true, 'et redemander une compaction une fois la marge consommée')
+  assert.equal(
+    storage.getHistoryMeta(doc.id).needsCompaction,
+    true,
+    'et redemander une compaction une fois la marge consommée'
+  )
 })
 
 // ============================================ le seuil en octets

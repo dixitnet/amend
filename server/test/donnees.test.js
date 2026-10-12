@@ -44,7 +44,13 @@ test('une étape qui échoue laisse la version où elle était (elle sera retent
   writeFileSync(join(d, 'docs.json'), '{}')
   let essai = 0
   const etapes = [
-    { version: 1, nom: 'fragile', appliquer: () => { if (++essai === 1) throw new Error('boum') } },
+    {
+      version: 1,
+      nom: 'fragile',
+      appliquer: () => {
+        if (++essai === 1) throw new Error('boum')
+      },
+    },
   ]
   assert.throws(() => migrerDonnees(d, etapes, { cible: 1 }), /boum/)
   assert.equal(lireVersion(d), 0)
@@ -72,7 +78,11 @@ test('le verrou : refusé si une autre instance vivante le tient, repris si elle
   try {
     writeFileSync(join(d, '.pid'), `${autre.pid}\n`)
     assert.throws(() => verrouillerDonnees(d), /déjà/)
-    assert.equal(readFileSync(join(d, '.pid'), 'utf8').trim(), String(autre.pid), 'le verrou de l’autre n’est pas touché')
+    assert.equal(
+      readFileSync(join(d, '.pid'), 'utf8').trim(),
+      String(autre.pid),
+      'le verrou de l’autre n’est pas touché'
+    )
   } finally {
     await new Promise((resolve) => {
       autre.once('exit', resolve)

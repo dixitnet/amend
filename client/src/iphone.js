@@ -211,15 +211,19 @@ export function monterInterfaceTelephone(pieces) {
     })
 
     const n = nbCommentaires()
-    entree('Commentaires', () => {
-      // Surtout pas de `fermerFeuille()` ici (banc du 23/09/2026) : la
-      // fermeture passe par `history.back()`, qui est **asynchrone**. Son
-      // `popstate` arrivait après l'ouverture du fil et refermait celui-ci
-      // aussitôt — l'entrée du menu semblait ne rien faire, exactement le
-      // défaut qu'avait le plan. On laisse donc la nouvelle feuille
-      // remplacer l'ancienne : elle hérite de son entrée d'historique.
-      ouvrirCommentaire()
-    }, n ? `${n}` : 'aucun')
+    entree(
+      'Commentaires',
+      () => {
+        // Surtout pas de `fermerFeuille()` ici (banc du 23/09/2026) : la
+        // fermeture passe par `history.back()`, qui est **asynchrone**. Son
+        // `popstate` arrivait après l'ouverture du fil et refermait celui-ci
+        // aussitôt — l'entrée du menu semblait ne rien faire, exactement le
+        // défaut qu'avait le plan. On laisse donc la nouvelle feuille
+        // remplacer l'ancienne : elle hérite de son entrée d'historique.
+        ouvrirCommentaire()
+      },
+      n ? `${n}` : 'aucun'
+    )
 
     // L'aide (10/10/2026) : la page publiée, dans un nouvel onglet — on
     // retrouve le document en revenant.
@@ -394,10 +398,7 @@ export function monterInterfaceTelephone(pieces) {
   racine.addEventListener(
     'touchstart',
     (e) => {
-      depart =
-        e.touches.length === 1
-          ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
-          : null
+      depart = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null
     },
     { passive: true }
   )
@@ -433,9 +434,11 @@ export function monterInterfaceTelephone(pieces) {
           // — le navigateur amène l'élément qui prend le focus dans le
           // champ de vision, et cet élément, c'est tout le document.
           if (!view.hasFocus()) view.focus()
-          view.dispatch(view.state.tr.setSelection(
-            TextSelection.near(view.state.doc.resolve(Math.min(vise, view.state.doc.content.size)))
-          ))
+          view.dispatch(
+            view.state.tr.setSelection(
+              TextSelection.near(view.state.doc.resolve(Math.min(vise, view.state.doc.content.size)))
+            )
+          )
         }
         // Et, dans tous les cas, on s'assure de **voir** le curseur. Même
         // quand Safari l'a posé au bon endroit, sa logique d'évitement du

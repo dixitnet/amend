@@ -31,9 +31,13 @@ globalThis.fetch = async (url, init) => {
     const corps = JSON.parse(init.body)
     requetes.push({ url: String(url), headers: init.headers, corps })
     const suivant = scenario.shift()
-    if (!suivant) return new Response(JSON.stringify({ error: { message: 'appel non prévu par le scénario' } }), { status: 500 })
+    if (!suivant)
+      return new Response(JSON.stringify({ error: { message: 'appel non prévu par le scénario' } }), { status: 500 })
     const rep = typeof suivant === 'function' ? await suivant(corps) : suivant
-    return new Response(JSON.stringify(rep.corps), { status: rep.status || 200, headers: { 'content-type': 'application/json' } })
+    return new Response(JSON.stringify(rep.corps), {
+      status: rep.status || 200,
+      headers: { 'content-type': 'application/json' },
+    })
   }
   return vraiFetch(url, init)
 }
@@ -58,7 +62,13 @@ const cookie = (email) => sessionCookieHeader(email, { secure: false }).split(';
 const storage = new Storage(DATA_DIR)
 
 // Les réglages de Margo se posent comme en production : par le back-office.
-const MARGO_DEFAUT = { modele: 'claude-sonnet-5-5', signesParDemande: 60_000, demandesParHeure: 30, signesParMois: 300_000, acces: 'admin' }
+const MARGO_DEFAUT = {
+  modele: 'claude-sonnet-5-5',
+  signesParDemande: 60_000,
+  demandesParHeure: 30,
+  signesParMois: 300_000,
+  acces: 'admin',
+}
 async function reglerIa(margo) {
   const res = await vraiFetch(`${BASE}/api/admin/ia`, {
     method: 'PUT',
@@ -99,7 +109,13 @@ async function documentDeTest(proprietaire = 'admin@example.com') {
   return doc
 }
 
-const texte = (t) => ({ corps: { stop_reason: 'end_turn', content: [{ type: 'text', text: t }], usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 0, cache_creation_input_tokens: 500 } } })
+const texte = (t) => ({
+  corps: {
+    stop_reason: 'end_turn',
+    content: [{ type: 'text', text: t }],
+    usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 0, cache_creation_input_tokens: 500 },
+  },
+})
 const outil = (id, name, input, avant = '') => ({
   corps: {
     stop_reason: 'tool_use',
@@ -115,7 +131,10 @@ async function dialoguer(docId, email, corps) {
     body: JSON.stringify(corps),
   })
   if (res.status !== 200) return { status: res.status, erreur: (await res.json()).error }
-  const lignes = (await res.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  const lignes = (await res.text())
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l))
   return { status: 200, evenements: lignes, fin: lignes[lignes.length - 1] }
 }
 
@@ -123,7 +142,8 @@ const msg = (t) => ({ messages: [{ role: 'user', content: t }] })
 
 test('GET dit qui a droit et où il en est : administrateurs seuls ici, rien sans session', async () => {
   const doc = await documentDeTest()
-  const get = (email) => vraiFetch(`${BASE}/api/docs/${doc.id}/dialogue`, { headers: email ? { cookie: cookie(email) } : {} })
+  const get = (email) =>
+    vraiFetch(`${BASE}/api/docs/${doc.id}/dialogue`, { headers: email ? { cookie: cookie(email) } : {} })
   assert.equal((await get(null)).status, 401)
   const admin = await (await get('admin@example.com')).json()
   assert.equal(admin.autorise, true)
@@ -149,9 +169,15 @@ test('une question : la réponse arrive en flux, le document n’est pas touché
   const doc = await documentDeTest()
   requetes.length = 0
   scenario = [outil('t1', 'plan', {}, 'Je regarde le plan.'), texte('Le chapitre premier est court [2].')]
-  const r = await dialoguer(doc.id, 'admin@example.com', { messages: [{ role: 'user', content: 'Que dis-tu du début ?' }], portee: { type: 'document' } })
+  const r = await dialoguer(doc.id, 'admin@example.com', {
+    messages: [{ role: 'user', content: 'Que dis-tu du début ?' }],
+    portee: { type: 'document' },
+  })
   assert.equal(r.status, 200)
-  assert.deepEqual(r.evenements.map((e) => e.type), ['texte', 'outil', 'outil_fin', 'texte', 'fin'])
+  assert.deepEqual(
+    r.evenements.map((e) => e.type),
+    ['texte', 'outil', 'outil_fin', 'texte', 'fin']
+  )
   assert.equal(r.evenements[1].nom, 'plan')
   assert.equal(r.evenements[2].ok, true)
   assert.match(r.evenements[3].texte, /\[2\]/)
@@ -191,7 +217,9 @@ test('une demande de correction écrit en suivi de modifications au nom de « Ma
   const doc = await documentDeTest()
   requetes.length = 0
   scenario = [
-    outil('t1', 'proposer', { remplacements: [{ bloc: 3, avant: 'Ils mange des pomme', apres: 'Ils mangent des pommes' }] }),
+    outil('t1', 'proposer', {
+      remplacements: [{ bloc: 3, avant: 'Ils mange des pomme', apres: 'Ils mangent des pommes' }],
+    }),
     texte('Une correction proposée au bloc [3].'),
   ]
   const r = await dialoguer(doc.id, 'admin@example.com', msg('Corrige le paragraphe 3'))
@@ -220,10 +248,20 @@ test('le réglage de réflexion est retenu : refusé une fois, jamais redemandé
   await reglerIa({ modele: 'claude-haiku-5-5' }) // un modèle encore jamais appelé dans ce fichier
   const doc = await documentDeTest()
   requetes.length = 0
-  scenario = [{ status: 400, corps: { error: { type: 'invalid_request_error', message: 'thinking.type: between_tools is not supported' } } }, texte('Bonjour.'), texte('Encore bonjour.')]
+  scenario = [
+    {
+      status: 400,
+      corps: { error: { type: 'invalid_request_error', message: 'thinking.type: between_tools is not supported' } },
+    },
+    texte('Bonjour.'),
+    texte('Encore bonjour.'),
+  ]
   const a = await dialoguer(doc.id, 'admin@example.com', msg('bonjour'))
   assert.equal(a.evenements[0].type, 'texte')
-  assert.deepEqual(requetes.map((q) => q.corps.thinking && q.corps.thinking.type), ['between_tools', 'disabled'])
+  assert.deepEqual(
+    requetes.map((q) => q.corps.thinking && q.corps.thinking.type),
+    ['between_tools', 'disabled']
+  )
   const b = await dialoguer(doc.id, 'admin@example.com', msg('encore'))
   assert.equal(b.status, 200)
   assert.equal(requetes[2].corps.thinking.type, 'disabled')
@@ -248,11 +286,24 @@ test('les entrées invalides sont refusées avant tout appel payant', async () =
   const cas = [
     [{ messages: [] }, 400],
     [{ messages: [{ role: 'assistant', content: 'x' }] }, 400],
-    [{ messages: [{ role: 'user', content: 'a' }, { role: 'user', content: 'b' }] }, 400],
+    [
+      {
+        messages: [
+          { role: 'user', content: 'a' },
+          { role: 'user', content: 'b' },
+        ],
+      },
+      400,
+    ],
     [{ messages: [{ role: 'user', content: 'x'.repeat(8001) }] }, 413],
     [{}, 400],
   ]
-  for (const [corps, status] of cas) assert.equal((await dialoguer(doc.id, 'admin@example.com', corps)).status, status, JSON.stringify(corps).slice(0, 60))
+  for (const [corps, status] of cas)
+    assert.equal(
+      (await dialoguer(doc.id, 'admin@example.com', corps)).status,
+      status,
+      JSON.stringify(corps).slice(0, 60)
+    )
   assert.equal(requetes.length, 0)
 })
 
@@ -261,7 +312,10 @@ test('une boucle d’outils sans fin : vingt étapes, puis un bilan sans outil a
   assert.equal(TOURS_MAX, 20)
   const doc = await documentDeTest()
   requetes.length = 0
-  scenario = [...Array.from({ length: TOURS_MAX }, (_, i) => outil(`t${i}`, 'plan', {})), texte('J’ai relu la moitié ; il reste la fin du chapitre. Relancez sur un passage plus court.')]
+  scenario = [
+    ...Array.from({ length: TOURS_MAX }, (_, i) => outil(`t${i}`, 'plan', {})),
+    texte('J’ai relu la moitié ; il reste la fin du chapitre. Relancez sur un passage plus court.'),
+  ]
   const r = await dialoguer(doc.id, 'admin@example.com', msg('boucle'))
   assert.equal(r.status, 200)
   assert.equal(requetes.length, TOURS_MAX + 1)
@@ -269,7 +323,10 @@ test('une boucle d’outils sans fin : vingt étapes, puis un bilan sans outil a
   assert.ok(requetes.slice(0, TOURS_MAX).every((q) => !q.corps.tool_choice))
   const dernier = requetes[TOURS_MAX].corps
   assert.deepEqual(dernier.tool_choice, { type: 'none' })
-  assert.ok(Array.isArray(dernier.tools) && dernier.tools.length > 0, 'les outils restent déclarés : l’historique en contient')
+  assert.ok(
+    Array.isArray(dernier.tools) && dernier.tools.length > 0,
+    'les outils restent déclarés : l’historique en contient'
+  )
   const derniereEntree = dernier.messages[dernier.messages.length - 1].content
   assert.match(JSON.stringify(derniereEntree), /nombre maximal d’étapes/)
   // La personne reçoit le bilan de Margo, pas une erreur.
@@ -283,7 +340,10 @@ test('si le bilan final est vide, l’erreur d’avant reste, avec la mention de
   const { TOURS_MAX } = await import('../dialogue.js')
   const doc = await documentDeTest()
   requetes.length = 0
-  scenario = [...Array.from({ length: TOURS_MAX }, (_, i) => outil(`v${i}`, 'plan', {})), { corps: { stop_reason: 'end_turn', content: [], usage: { input_tokens: 10, output_tokens: 0 } } }]
+  scenario = [
+    ...Array.from({ length: TOURS_MAX }, (_, i) => outil(`v${i}`, 'plan', {})),
+    { corps: { stop_reason: 'end_turn', content: [], usage: { input_tokens: 10, output_tokens: 0 } } },
+  ]
   const r = await dialoguer(doc.id, 'admin@example.com', msg('boucle'))
   assert.equal(requetes.length, TOURS_MAX + 1)
   const erreur = r.evenements.find((e) => e.type === 'erreur')
@@ -305,7 +365,12 @@ test('une réponse déjà en cours pour la même personne et le même document :
   const doc = await documentDeTest()
   let liberer
   const porte = new Promise((r) => (liberer = r))
-  scenario = [async () => { await porte; return texte('fini') }]
+  scenario = [
+    async () => {
+      await porte
+      return texte('fini')
+    },
+  ]
   const premiere = dialoguer(doc.id, 'admin@example.com', msg('un'))
   await new Promise((r) => setTimeout(r, 200))
   const seconde = await dialoguer(doc.id, 'admin@example.com', msg('deux'))
@@ -324,13 +389,22 @@ test('l’accès est un niveau minimal : admin, éditeur, correcteur — jamais 
   }
   try {
     await reglerIa({ acces: 'admin' })
-    assert.deepEqual([await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')], [403, 403, 403])
+    assert.deepEqual(
+      [await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')],
+      [403, 403, 403]
+    )
 
     await reglerIa({ acces: 'editeur' })
-    assert.deepEqual([await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')], [200, 403, 403])
+    assert.deepEqual(
+      [await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')],
+      [200, 403, 403]
+    )
 
     await reglerIa({ acces: 'correcteur' })
-    assert.deepEqual([await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')], [200, 403, 200])
+    assert.deepEqual(
+      [await essayer('alice@example.com'), await essayer('lect@example.com'), await essayer('corr@example.com')],
+      [200, 403, 200]
+    )
 
     // Un administrateur n’entre pas sur un document où il n’a aucun rôle : l’IA y écrirait sans droit.
     assert.equal(await essayer('admin@example.com'), 403)
@@ -354,7 +428,10 @@ test('une demande trop grosse est refusée avant l’envoi, en signes ; les admi
 
     // La portée compte : une sélection d’un seul bloc passe, le document entier non.
     scenario = [texte('Bien.')]
-    const un = await dialoguer(doc.id, 'admin@example.com', { messages: [{ role: 'user', content: 'x'.repeat(20) }], portee: { type: 'selection', de: 2, a: 2 } })
+    const un = await dialoguer(doc.id, 'admin@example.com', {
+      messages: [{ role: 'user', content: 'x'.repeat(20) }],
+      portee: { type: 'selection', de: 2, a: 2 },
+    })
     assert.equal(un.status, 200)
   } finally {
     await reglerIa({ signesParDemande: 60_000 })
@@ -380,7 +457,9 @@ test('le plafond mensuel : les signes comptent seulement si la réponse est comp
     conso = (await consoIa()).utilisateurs.find((u) => u.email === 'mois@example.com')
     assert.equal(conso.margo.signes, 989)
     assert.equal(conso.margo.demandes, 1)
-    const etat = await (await vraiFetch(`${BASE}/api/docs/${doc.id}/dialogue`, { headers: { cookie: cookie('mois@example.com') } })).json()
+    const etat = await (
+      await vraiFetch(`${BASE}/api/docs/${doc.id}/dialogue`, { headers: { cookie: cookie('mois@example.com') } })
+    ).json()
     assert.deepEqual(etat.mois, { utilises: 989, max: 1000 })
 
     // La suivante dépasserait : refusée avant l’envoi, avec ce qu’il reste.
@@ -440,7 +519,10 @@ test('les lectures de Margo sont plafonnées comme la demande : au-delà, l’ou
   try {
     requetes.length = 0
     scenario = [outil('t1', 'lire', { de: 1, nombre: 3 }), texte('Je ne peux pas tout lire.')]
-    const r = await dialoguer(doc.id, 'admin@example.com', { messages: [{ role: 'user', content: 'hop' }], portee: { type: 'selection', de: 2, a: 2 } })
+    const r = await dialoguer(doc.id, 'admin@example.com', {
+      messages: [{ role: 'user', content: 'hop' }],
+      portee: { type: 'selection', de: 2, a: 2 },
+    })
     assert.equal(r.status, 200)
     const retour = requetes[1].corps.messages.at(-1).content[0]
     assert.equal(retour.is_error, true)

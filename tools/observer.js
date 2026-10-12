@@ -57,8 +57,13 @@ function cookie() {
   if (existsSync(f)) {
     const brut = readFileSync(f, 'utf8').trim()
     // Soit le cookie seul (« collabtext_session=… »), soit {"cookie": "…"}.
-    if (brut.startsWith('{')) { try { return JSON.parse(brut).cookie || '' } catch { /* tombe sur l'erreur claire */ } }
-    else if (brut) return brut
+    if (brut.startsWith('{')) {
+      try {
+        return JSON.parse(brut).cookie || ''
+      } catch {
+        /* tombe sur l'erreur claire */
+      }
+    } else if (brut) return brut
   }
   throw new Error('Pas de session administratrice : --cookie, $AMEND_ADMIN_COOKIE ou tools/.session-admin')
 }
@@ -76,22 +81,33 @@ function bancs() {
         const j = JSON.parse(readFileSync(join(ICI, nom), 'utf8'))
         if (j.date && Date.now() - Date.parse(j.date) > 10000) continue
         liste.push({ pid: j.pid, clients: j.clients || 0 })
-      } catch { /* en cours d'écriture */ }
+      } catch {
+        /* en cours d'écriture */
+      }
     }
-  } catch { /* dossier illisible */ }
+  } catch {
+    /* dossier illisible */
+  }
   return liste
 }
 const FICHIER_ARRET = join(ICI, '.arret')
 
 if (SORTIE) {
   mkdirSync(dirname(SORTIE), { recursive: true })
-  writeFileSync(SORTIE, 't_iso,t_s,pid,uptime_s,rss_mo,heap_mo,lag_ms,connexions,salles,repliques,banc,get_ms,ws_ms,evenement\n')
+  writeFileSync(
+    SORTIE,
+    't_iso,t_s,pid,uptime_s,rss_mo,heap_mo,lag_ms,connexions,salles,repliques,banc,get_ms,ws_ms,evenement\n'
+  )
 }
 const ligne = (champs) => SORTIE && appendFileSync(SORTIE, champs.join(',') + '\n')
 
 async function http(chemin, extra = {}) {
   const t0 = performance.now()
-  const res = await fetch(`${BASE}${chemin}`, { headers: { cookie: COOKIE }, signal: AbortSignal.timeout(15000), ...extra })
+  const res = await fetch(`${BASE}${chemin}`, {
+    headers: { cookie: COOKIE },
+    signal: AbortSignal.timeout(15000),
+    ...extra,
+  })
   const corps = await res.text()
   return { res, corps, ms: Math.round(performance.now() - t0) }
 }
@@ -104,10 +120,23 @@ async function sondeWs() {
   return new Promise((resolve) => {
     const t0 = performance.now()
     const ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${DOC}?user=sonde`, { headers: { cookie: COOKIE } })
-    const fin = (v) => { try { ws.terminate() } catch { /* déjà fermée */ } resolve(v) }
+    const fin = (v) => {
+      try {
+        ws.terminate()
+      } catch {
+        /* déjà fermée */
+      }
+      resolve(v)
+    }
     const garde = setTimeout(() => fin(-1), 10000)
-    ws.once('message', () => { clearTimeout(garde); fin(Math.round(performance.now() - t0)) })
-    ws.once('error', () => { clearTimeout(garde); fin(-1) })
+    ws.once('message', () => {
+      clearTimeout(garde)
+      fin(Math.round(performance.now() - t0))
+    })
+    ws.once('error', () => {
+      clearTimeout(garde)
+      fin(-1)
+    })
   })
 }
 
@@ -123,10 +152,20 @@ function arreter(raison) {
   arrete = raison
   console.error(`\n⛔ ${new Date().toISOString().slice(11, 19)}  ${raison}`)
   if (SANS_ARRET) return
-  try { writeFileSync(FICHIER_ARRET, `${raison}\n`) } catch { /* pas grave */ }
+  try {
+    writeFileSync(FICHIER_ARRET, `${raison}\n`)
+  } catch {
+    /* pas grave */
+  }
   const pids = new Set(bancs().map((b) => b.pid))
   if (BANC_PID) pids.add(BANC_PID)
-  for (const pid of pids) { try { process.kill(pid, 'SIGINT') } catch { /* déjà parti */ } }
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGINT')
+    } catch {
+      /* déjà parti */
+    }
+  }
 }
 
 async function releve() {
@@ -146,7 +185,22 @@ async function releve() {
   const banc = bancs().reduce((n, b) => n + b.clients, 0)
   const maintenant = new Date()
   if (!s) {
-    ligne([maintenant.toISOString(), ((Date.now() - debut) / 1000).toFixed(1), '', '', '', '', '', '', '', '', banc, getMs, wsMs, evenement])
+    ligne([
+      maintenant.toISOString(),
+      ((Date.now() - debut) / 1000).toFixed(1),
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      banc,
+      getMs,
+      wsMs,
+      evenement,
+    ])
     histoire.push({ erreur: true })
     return
   }
@@ -171,16 +225,46 @@ async function releve() {
   if (rouge.lag >= 3) arreter(`latence de boucle > ${LAG_MAX} ms sur 3 relevés`)
   if (rouge.get >= 3) arreter(`GET > ${GET_MAX} ms sur 3 relevés`)
   if (rouge.etrangers >= 2) arreter(`${etrangers} connexion(s) étrangère(s) au banc : quelqu'un d'autre est là`)
-  ligne([maintenant.toISOString(), ((Date.now() - debut) / 1000).toFixed(1), s.pid, Math.round(s.uptimeSec), rss, heap, s.loopLagMs.toFixed(2), s.connexions ?? '', s.salles ?? '', s.repliques ?? '', banc, getMs, wsMs, evenement])
-  histoire.push({ lag: s.loopLagMs, rss, getMs, ws: typeof wsMs === 'number' ? wsMs : null, connexions: s.connexions ?? 0 })
-  process.stdout.write(`\r${maintenant.toISOString().slice(11, 19)}  RSS ${rss} Mo  boucle ${s.loopLagMs.toFixed(1)} ms  GET ${getMs} ms  connexions ${s.connexions ?? '?'} (banc ${banc})   `)
+  ligne([
+    maintenant.toISOString(),
+    ((Date.now() - debut) / 1000).toFixed(1),
+    s.pid,
+    Math.round(s.uptimeSec),
+    rss,
+    heap,
+    s.loopLagMs.toFixed(2),
+    s.connexions ?? '',
+    s.salles ?? '',
+    s.repliques ?? '',
+    banc,
+    getMs,
+    wsMs,
+    evenement,
+  ])
+  histoire.push({
+    lag: s.loopLagMs,
+    rss,
+    getMs,
+    ws: typeof wsMs === 'number' ? wsMs : null,
+    connexions: s.connexions ?? 0,
+  })
+  process.stdout.write(
+    `\r${maintenant.toISOString().slice(11, 19)}  RSS ${rss} Mo  boucle ${s.loopLagMs.toFixed(1)} ms  GET ${getMs} ms  connexions ${s.connexions ?? '?'} (banc ${banc})   `
+  )
 }
 
 function resume() {
   const ok = histoire.filter((h) => !h.erreur)
-  const triees = (cle) => ok.map((h) => h[cle]).filter((v) => typeof v === 'number' && v >= 0).sort((a, b) => a - b)
+  const triees = (cle) =>
+    ok
+      .map((h) => h[cle])
+      .filter((v) => typeof v === 'number' && v >= 0)
+      .sort((a, b) => a - b)
   const q = (v, p) => (v.length ? Math.round(v[Math.min(v.length - 1, Math.floor(v.length * p))] * 100) / 100 : null)
-  const l = triees('lag'), g = triees('getMs'), w = triees('ws'), r = triees('rss')
+  const l = triees('lag'),
+    g = triees('getMs'),
+    w = triees('ws'),
+    r = triees('rss')
   const bilan = {
     relevés: histoire.length,
     injoignables: histoire.length - ok.length,
@@ -193,14 +277,28 @@ function resume() {
   console.log('\n' + JSON.stringify(bilan, null, 2))
 }
 
-console.log(`Observation de ${BASE} toutes les ${INTERVALLE_MS / 1000} s — seuils : boucle ${LAG_MAX} ms, RSS ${RSS_MAX} Mo, GET ${GET_MAX} ms${SANS_ARRET ? ' (passive : sans coupure)' : ''}`)
-try { if (existsSync(FICHIER_ARRET)) writeFileSync(FICHIER_ARRET, '') } catch { /* sans importance */ }
+console.log(
+  `Observation de ${BASE} toutes les ${INTERVALLE_MS / 1000} s — seuils : boucle ${LAG_MAX} ms, RSS ${RSS_MAX} Mo, GET ${GET_MAX} ms${SANS_ARRET ? ' (passive : sans coupure)' : ''}`
+)
+try {
+  if (existsSync(FICHIER_ARRET)) writeFileSync(FICHIER_ARRET, '')
+} catch {
+  /* sans importance */
+}
 let enCours = false
 const timer = setInterval(async () => {
   if (enCours) return // un relevé lent ne s'empile pas
   enCours = true
-  try { await releve() } finally { enCours = false }
+  try {
+    await releve()
+  } finally {
+    enCours = false
+  }
 }, INTERVALLE_MS)
-const sortir = () => { clearInterval(timer); resume(); process.exit(arrete ? 2 : 0) }
+const sortir = () => {
+  clearInterval(timer)
+  resume()
+  process.exit(arrete ? 2 : 0)
+}
 process.on('SIGINT', sortir)
 process.on('SIGTERM', sortir)

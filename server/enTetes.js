@@ -21,7 +21,9 @@ export const MODES_CSP = ['off', 'report-only', 'enforce']
  * ou fait une faute de frappe ne désarme pas la politique. `report-only` et
  * `off` restent possibles, écrits en toutes lettres. */
 export function modeCsp(valeur) {
-  const v = String(valeur || '').trim().toLowerCase()
+  const v = String(valeur || '')
+    .trim()
+    .toLowerCase()
   return MODES_CSP.includes(v) ? v : 'enforce'
 }
 

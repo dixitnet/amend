@@ -33,7 +33,10 @@ export function creerLimites({ registre = null } = {}) {
   // depuis une machine, qui est le cas réaliste.
   const ESSAIS_PUBLICATION = 30
   const ESSAIS_FENETRE_MS = 10 * 60_000
-  const essaisPublication = adopter('essais-publication', new Limiteur({ max: ESSAIS_PUBLICATION, fenetreMs: ESSAIS_FENETRE_MS }))
+  const essaisPublication = adopter(
+    'essais-publication',
+    new Limiteur({ max: ESSAIS_PUBLICATION, fenetreMs: ESSAIS_FENETRE_MS })
+  )
 
   function essaiPublicationAutorise(req) {
     // Derrière Caddy, `remoteAddress` vaut toujours 127.0.0.1 : sans
@@ -44,8 +47,14 @@ export function creerLimites({ registre = null } = {}) {
 
   const INSCRIPTIONS_PAR_ORIGINE_HEURE = 5
   const INSCRIPTIONS_TOTAL_HEURE = 100
-  const inscriptionsParOrigine = adopter('inscriptions-par-origine', new Limiteur({ max: INSCRIPTIONS_PAR_ORIGINE_HEURE, fenetreMs: 3600_000 }))
-  const inscriptionsTotal = adopter('inscriptions-total', new Limiteur({ max: INSCRIPTIONS_TOTAL_HEURE, fenetreMs: 3600_000 }))
+  const inscriptionsParOrigine = adopter(
+    'inscriptions-par-origine',
+    new Limiteur({ max: INSCRIPTIONS_PAR_ORIGINE_HEURE, fenetreMs: 3600_000 })
+  )
+  const inscriptionsTotal = adopter(
+    'inscriptions-total',
+    new Limiteur({ max: INSCRIPTIONS_TOTAL_HEURE, fenetreMs: 3600_000 })
+  )
   function inscriptionAutorisee(origine) {
     if (inscriptionsTotal.atteint('tous') || inscriptionsParOrigine.atteint(origine)) return false
     inscriptionsTotal.noter('tous')
@@ -71,11 +80,25 @@ export function creerLimites({ registre = null } = {}) {
   const INVITATIONS_PAR_INVITANT_HEURE = 30
   const INVITATIONS_PAR_INVITANT_JOUR = 100
   const INVITATIONS_PAR_DESTINATAIRE_HEURE = 5
-  const invitationsHeure = adopter('invitations-heure', new Limiteur({ max: INVITATIONS_PAR_INVITANT_HEURE, fenetreMs: 3600_000 }))
-  const invitationsJour = adopter('invitations-jour', new Limiteur({ max: INVITATIONS_PAR_INVITANT_JOUR, fenetreMs: 24 * 3600_000 }))
-  const invitationsDestinataire = adopter('invitations-destinataire', new Limiteur({ max: INVITATIONS_PAR_DESTINATAIRE_HEURE, fenetreMs: 3600_000 }))
+  const invitationsHeure = adopter(
+    'invitations-heure',
+    new Limiteur({ max: INVITATIONS_PAR_INVITANT_HEURE, fenetreMs: 3600_000 })
+  )
+  const invitationsJour = adopter(
+    'invitations-jour',
+    new Limiteur({ max: INVITATIONS_PAR_INVITANT_JOUR, fenetreMs: 24 * 3600_000 })
+  )
+  const invitationsDestinataire = adopter(
+    'invitations-destinataire',
+    new Limiteur({ max: INVITATIONS_PAR_DESTINATAIRE_HEURE, fenetreMs: 3600_000 })
+  )
   function invitationAutorisee(invitant, destinataire) {
-    if (invitationsHeure.atteint(invitant) || invitationsJour.atteint(invitant) || invitationsDestinataire.atteint(destinataire)) return false
+    if (
+      invitationsHeure.atteint(invitant) ||
+      invitationsJour.atteint(invitant) ||
+      invitationsDestinataire.atteint(destinataire)
+    )
+      return false
     invitationsHeure.noter(invitant)
     invitationsJour.noter(invitant)
     invitationsDestinataire.noter(destinataire)
@@ -86,7 +109,10 @@ export function creerLimites({ registre = null } = {}) {
   // par origine. Le refus est **silencieux** — la réponse reste « ok » — pour
   // ne rien apprendre à quelqu'un qui balaie des adresses.
   const LIENS_PAR_ORIGINE_HEURE = 20
-  const liensParOrigine = adopter('liens-par-origine', new Limiteur({ max: LIENS_PAR_ORIGINE_HEURE, fenetreMs: 3600_000 }))
+  const liensParOrigine = adopter(
+    'liens-par-origine',
+    new Limiteur({ max: LIENS_PAR_ORIGINE_HEURE, fenetreMs: 3600_000 })
+  )
 
   return {
     essaiPublicationAutorise,

@@ -105,7 +105,12 @@ test('une réponse coupée par le budget est refusée, jamais insérée — et s
 
 test('un modèle qui refuse « disabled » est rappelé avec « between_tools »', async () => {
   const api = fausseApi(
-    { status: 400, body: { error: { type: 'invalid_request_error', message: 'thinking.type: disabled is not supported on this model' } } },
+    {
+      status: 400,
+      body: {
+        error: { type: 'invalid_request_error', message: 'thinking.type: disabled is not supported on this model' },
+      },
+    },
     reponseTexte('Corrigé.')
   )
   const r = await suggestEdit({ apiKey: CLE_FACTICE, fetch: api.fetcher }, 'Corrigé', 'Corrige.')
@@ -117,7 +122,10 @@ test('un modèle qui refuse « disabled » est rappelé avec « between_tools »
 
 test('une autre erreur 400 n’est pas rejouée', async () => {
   const api = fausseApi({ status: 400, body: { error: { message: 'max_tokens: trop grand' } } })
-  await assert.rejects(suggestEdit({ apiKey: CLE_FACTICE, fetch: api.fetcher }, 'Texte', 'Corrige.'), /400 : max_tokens/)
+  await assert.rejects(
+    suggestEdit({ apiKey: CLE_FACTICE, fetch: api.fetcher }, 'Texte', 'Corrige.'),
+    /400 : max_tokens/
+  )
   assert.equal(api.requetes.length, 1)
 })
 

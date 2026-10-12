@@ -32,7 +32,10 @@ export async function routesIa(req, res, url, ctx) {
     if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
     const personne = { email, admin: isAdminEmail(email), role: storage.roleFor(id, email) }
-    return sendJson(res, 200, { corrections: etatPour(quotas, 'corrections', personne), margo: etatPour(quotas, 'margo', personne) })
+    return sendJson(res, 200, {
+      corrections: etatPour(quotas, 'corrections', personne),
+      margo: etatPour(quotas, 'margo', personne),
+    })
   }
 
   // --- Dialogue avec Claude dans l'éditeur (07/10/2026) ---
@@ -54,9 +57,13 @@ export async function routesIa(req, res, url, ctx) {
     try {
       corps = await readJsonBody(req, 300_000)
     } catch (err) {
-      return sendJson(res, err.status || 400, { error: err.status === 413 ? 'message trop volumineux' : 'requête illisible' })
+      return sendJson(res, err.status || 400, {
+        error: err.status === 413 ? 'message trop volumineux' : 'requête illisible',
+      })
     }
-    const prenom = String(users.nomDe(email) || email.split('@')[0]).trim().split(/\s+/)[0]
+    const prenom = String(users.nomDe(email) || email.split('@')[0])
+      .trim()
+      .split(/\s+/)[0]
     let session
     try {
       session = await dialogue.preparer({ email, prenom, docId: id, corps })
@@ -65,13 +72,21 @@ export async function routesIa(req, res, url, ctx) {
       throw err
     }
     let coupe = false
-    res.on('close', () => { coupe = true })
+    res.on('close', () => {
+      coupe = true
+    })
     res.writeHead(200, {
       'content-type': 'application/x-ndjson; charset=utf-8',
       'cache-control': 'no-store',
       'x-accel-buffering': 'no',
     })
-    await dialogue.converser(session, (evt) => { if (!coupe) res.write(JSON.stringify(evt) + '\n') }, () => coupe)
+    await dialogue.converser(
+      session,
+      (evt) => {
+        if (!coupe) res.write(JSON.stringify(evt) + '\n')
+      },
+      () => coupe
+    )
     res.end()
     return
   }
@@ -101,7 +116,9 @@ export async function routesIa(req, res, url, ctx) {
       return sendJson(res, 413, { error: `La consigne est trop longue (${INSTRUCTION_MAX} signes au plus).` })
     }
     if (!process.env.ANTHROPIC_API_KEY) {
-      return sendJson(res, 501, { error: 'Aucune clé API configurée. Définis ANTHROPIC_API_KEY dans le fichier .env du serveur.' })
+      return sendJson(res, 501, {
+        error: 'Aucune clé API configurée. Définis ANTHROPIC_API_KEY dans le fichier .env du serveur.',
+      })
     }
     const taille = textes.reduce((n, t) => n + t.length, 0)
     const reglages = quotas.verifier({ fonction: 'corrections', email, taille })
@@ -113,7 +130,15 @@ export async function routesIa(req, res, url, ctx) {
       if (!usage) return
       somme.entree += usage.entree || 0
       somme.sortie += usage.sortie || 0
-      metrics.log('ia', { email, docId, modele, entree: usage.entree, sortie: usage.sortie, reflexion: usage.reflexion, arret: usage.arret })
+      metrics.log('ia', {
+        email,
+        docId,
+        modele,
+        entree: usage.entree,
+        sortie: usage.sortie,
+        reflexion: usage.reflexion,
+        arret: usage.arret,
+      })
     }
     const resultats = await Promise.allSettled(textes.map((t) => suggestEdit({ model: modele }, t, instruction)))
     let echec = null
@@ -131,7 +156,8 @@ export async function routesIa(req, res, url, ctx) {
     quotas.enregistrer({ email, fonction: 'corrections', modele, succes: !echec, signes: taille, jetons: somme })
     if (echec) {
       if (echec instanceof AIConfigError) return sendJson(res, 501, { error: echec.message })
-      if (echec instanceof AIRequestError || echec instanceof ErreurHttp) return sendJson(res, echec.status || 502, { error: echec.message })
+      if (echec instanceof AIRequestError || echec instanceof ErreurHttp)
+        return sendJson(res, echec.status || 502, { error: echec.message })
       throw echec
     }
     return sendJson(res, 200, lot ? { suggestions } : { suggestion: suggestions[0] })

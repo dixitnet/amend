@@ -19,7 +19,8 @@ export async function cookieDeSession(email, secret = process.env.SESSION_SECRET
   // server/auth.js lit le secret **une fois** à son premier import : un second
   // secret dans le même process signerait des cookies que personne ne
   // reconnaîtrait. On le dit au lieu de laisser un 401 mystérieux.
-  if (secretFige && secretFige !== secret) throw new Error('un seul SESSION_SECRET par process (server/auth.js le fige au premier import)')
+  if (secretFige && secretFige !== secret)
+    throw new Error('un seul SESSION_SECRET par process (server/auth.js le fige au premier import)')
   secretFige = secret
   process.env.SESSION_SECRET = secret
   const { sessionCookieHeader } = await import('../server/auth.js')

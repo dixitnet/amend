@@ -11,7 +11,10 @@ function avecHorloge(options) {
 
 test('essayer autorise jusqu’au plafond, puis refuse sans rien consommer', () => {
   const { limiteur } = avecHorloge({ max: 3, fenetreMs: 100 })
-  assert.deepEqual([1, 2, 3, 4, 5].map(() => limiteur.essayer('a')), [true, true, true, false, false])
+  assert.deepEqual(
+    [1, 2, 3, 4, 5].map(() => limiteur.essayer('a')),
+    [true, true, true, false, false]
+  )
   assert.equal(limiteur.compter('a'), 3, 'un refus ne compte pas')
 })
 
@@ -35,7 +38,10 @@ test('chaque clé a son compteur', () => {
 
 test('noter compte aussi les tentatives refusées (adresses de pages publiées)', () => {
   const { limiteur } = avecHorloge({ max: 2, fenetreMs: 100 })
-  assert.deepEqual([1, 2, 3, 4].map(() => limiteur.noter('a')), [1, 2, 3, 4])
+  assert.deepEqual(
+    [1, 2, 3, 4].map(() => limiteur.noter('a')),
+    [1, 2, 3, 4]
+  )
   assert.equal(limiteur.atteint('a'), true)
 })
 

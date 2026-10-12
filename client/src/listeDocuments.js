@@ -13,14 +13,7 @@
 // dans le navigateur, par confort.
 
 import { boutonADeuxClics } from './deuxClics.js'
-import {
-  TRIS,
-  construireVue,
-  dateCorbeille,
-  libelleRole,
-  optionsDeplacement,
-  peutCreerDans,
-} from './rangementDocs.js'
+import { TRIS, construireVue, dateCorbeille, libelleRole, optionsDeplacement, peutCreerDans } from './rangementDocs.js'
 
 const CLE_TRI = 'amend.liste.tri'
 
@@ -326,7 +319,9 @@ export function monterListeDocuments(conteneur) {
     fil.appendChild(racine)
     vue.fil.forEach((d, i) => {
       fil.appendChild(el('span', 'fil-sep', '›'))
-      fil.appendChild(i === vue.fil.length - 1 ? el('span', 'fil-courant', d.nom) : bouton('fil-lien', d.nom, '', () => aller(d.id)))
+      fil.appendChild(
+        i === vue.fil.length - 1 ? el('span', 'fil-courant', d.nom) : bouton('fil-lien', d.nom, '', () => aller(d.id))
+      )
     })
     entete.appendChild(fil)
 
@@ -389,7 +384,11 @@ export function monterListeDocuments(conteneur) {
         const li = el('li', 'dossier-ligne')
         const ouvrir = bouton('dossier-ouvrir', '', `Ouvrir le dossier ${dossier.nom}`, () => aller(dossier.id))
         ouvrir.append(el('span', 'dossier-icone', '▸'), el('span', 'dossier-titre', dossier.nom))
-        const n = el('span', 'dossier-effectif', effectif === 0 ? 'vide' : `${effectif} document${effectif > 1 ? 's' : ''}`)
+        const n = el(
+          'span',
+          'dossier-effectif',
+          effectif === 0 ? 'vide' : `${effectif} document${effectif > 1 ? 's' : ''}`
+        )
         li.append(ouvrir, n)
         ul.appendChild(li)
       }
@@ -501,7 +500,13 @@ export function monterListeDocuments(conteneur) {
 
     if (vue.recherche) {
       const n = vue.documents.length
-      zone.appendChild(el('h3', 'resultats-titre', n === 0 ? 'Aucun document ne correspond.' : `${n} document${n > 1 ? 's' : ''} trouvé${n > 1 ? 's' : ''}`))
+      zone.appendChild(
+        el(
+          'h3',
+          'resultats-titre',
+          n === 0 ? 'Aucun document ne correspond.' : `${n} document${n > 1 ? 's' : ''} trouvé${n > 1 ? 's' : ''}`
+        )
+      )
       if (n) zone.appendChild(listeDeDocuments(vue.documents, true))
     } else {
       zone.appendChild(dessinerDossiers(vue))
@@ -511,13 +516,18 @@ export function monterListeDocuments(conteneur) {
     if (etat.corbeille.length && !vue.recherche) {
       const pied = el('div', 'corbeille-pied')
       pied.appendChild(
-        bouton('corbeille-ouvrir', `Corbeille (${etat.corbeille.length})`, 'Voir les documents mis à la corbeille', () => {
-          etat.enCorbeille = true
-          etat.saisie = null
-          etat.deplacement = null
-          dire('')
-          dessiner()
-        })
+        bouton(
+          'corbeille-ouvrir',
+          `Corbeille (${etat.corbeille.length})`,
+          'Voir les documents mis à la corbeille',
+          () => {
+            etat.enCorbeille = true
+            etat.saisie = null
+            etat.deplacement = null
+            dire('')
+            dessiner()
+          }
+        )
       )
       zone.appendChild(pied)
     }

@@ -72,7 +72,8 @@ const COMPTE_COMMENTAIRES = new Set(['commenter', 'repondre'])
 
 export function consigne({ prenom, titre, portee }) {
   let lieu = 'le document entier'
-  if (portee && portee.type === 'section') lieu = `la section autour du bloc ${portee.de} (blocs ${portee.de} à ${portee.a})`
+  if (portee && portee.type === 'section')
+    lieu = `la section autour du bloc ${portee.de} (blocs ${portee.de} à ${portee.a})`
   else if (portee && portee.type === 'selection') lieu = `le passage sélectionné (blocs ${portee.de} à ${portee.a})`
   return (
     `Tu t’appelles Margo : tu es l’IA d’amend.ink, un éditeur de texte collaboratif avec suivi des modifications (tu t’appuies sur un modèle de langage d’Anthropic, et tu le dis si on te le demande). ` +
@@ -97,7 +98,9 @@ const CONSIGNE_BILAN =
   'et ce qu’il reste à faire, puis invite la personne à relancer la demande pour la suite, de préférence sur un passage plus court.'
 
 function outilsApi(mcp, acces) {
-  const defs = mcp._outilsPour(acces).map(({ name, description, inputSchema }) => ({ name, description, input_schema: inputSchema }))
+  const defs = mcp
+    ._outilsPour(acces)
+    .map(({ name, description, inputSchema }) => ({ name, description, input_schema: inputSchema }))
   if (defs.length) defs[defs.length - 1] = { ...defs[defs.length - 1], cache_control: { type: 'ephemeral' } }
   return defs
 }
@@ -107,14 +110,25 @@ function outilsApi(mcp, acces) {
 function avecCache(messages) {
   const copie = messages.slice()
   const dernier = copie[copie.length - 1]
-  const blocs = typeof dernier.content === 'string' ? [{ type: 'text', text: dernier.content }] : dernier.content.slice()
+  const blocs =
+    typeof dernier.content === 'string' ? [{ type: 'text', text: dernier.content }] : dernier.content.slice()
   blocs[blocs.length - 1] = { ...blocs[blocs.length - 1], cache_control: { type: 'ephemeral' } }
   copie[copie.length - 1] = { ...dernier, content: blocs }
   return copie
 }
 
 export class Dialogue {
-  constructor({ storage, rooms, quotas, estAdmin = () => false, metrics = null, presence = null, fetch: fetcher = null, maintenant = () => Date.now(), pause = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+  constructor({
+    storage,
+    rooms,
+    quotas,
+    estAdmin = () => false,
+    metrics = null,
+    presence = null,
+    fetch: fetcher = null,
+    maintenant = () => Date.now(),
+    pause = (ms) => new Promise((r) => setTimeout(r, ms)),
+  }) {
     this.storage = storage
     this.rooms = rooms
     this.quotas = quotas
@@ -129,7 +143,8 @@ export class Dialogue {
     // le temps de la conversation : vérifié à chaque appel d'outil (le
     // document existe, la personne a encore accès à Margo).
     const verifierAgent = (agent, stockage) =>
-      !!stockage.getDoc(agent.docId) && quotas.acces('margo', { admin: estAdmin(agent.par), role: stockage.roleFor(agent.docId, agent.par) })
+      !!stockage.getDoc(agent.docId) &&
+      quotas.acces('margo', { admin: estAdmin(agent.par), role: stockage.roleFor(agent.docId, agent.par) })
     const collecteur = {
       log: (_flux, donnees) => {
         const liste = this.collecteurs.get(donnees.agent)
@@ -154,19 +169,24 @@ export class Dialogue {
     if (!process.env.ANTHROPIC_API_KEY) throw new DialogueErreur(501, 'Aucune clé API configurée sur ce serveur.')
     const messages = Array.isArray(corps && corps.messages) ? corps.messages : null
     if (!messages || !messages.length) throw new DialogueErreur(400, 'aucun message')
-    if (messages.length > CONVERSATION_MAX) throw new DialogueErreur(413, 'La conversation est trop longue : commencez-en une nouvelle.')
+    if (messages.length > CONVERSATION_MAX)
+      throw new DialogueErreur(413, 'La conversation est trop longue : commencez-en une nouvelle.')
     let total = 0
     const propres = messages.map((m, i) => {
       const role = m && m.role
       const contenu = m && typeof m.content === 'string' ? m.content.trim() : ''
-      if ((role !== 'user' && role !== 'assistant') || !contenu) throw new DialogueErreur(400, `message ${i + 1} invalide`)
-      if (contenu.length > MESSAGE_MAX) throw new DialogueErreur(413, `Le message ${i + 1} est trop long (${MESSAGE_MAX} caractères au plus).`)
+      if ((role !== 'user' && role !== 'assistant') || !contenu)
+        throw new DialogueErreur(400, `message ${i + 1} invalide`)
+      if (contenu.length > MESSAGE_MAX)
+        throw new DialogueErreur(413, `Le message ${i + 1} est trop long (${MESSAGE_MAX} caractères au plus).`)
       total += contenu.length
       return { role, content: contenu }
     })
-    if (propres[propres.length - 1].role !== 'user') throw new DialogueErreur(400, 'le dernier message doit venir de la personne')
+    if (propres[propres.length - 1].role !== 'user')
+      throw new DialogueErreur(400, 'le dernier message doit venir de la personne')
     if (propres[0].role !== 'user') throw new DialogueErreur(400, 'la conversation doit commencer par la personne')
-    if (total > CONVERSATION_CARACTERES_MAX) throw new DialogueErreur(413, 'La conversation est trop longue : commencez-en une nouvelle.')
+    if (total > CONVERSATION_CARACTERES_MAX)
+      throw new DialogueErreur(413, 'La conversation est trop longue : commencez-en une nouvelle.')
     for (let i = 1; i < propres.length; i++) {
       if (propres[i].role === propres[i - 1].role) throw new DialogueErreur(400, 'les messages doivent alterner')
     }
@@ -174,7 +194,8 @@ export class Dialogue {
     const portee = this._portee(corps.portee)
     const id = `dialogue-${createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 10)}-${docId}`
     if (this.enCours.has(id)) throw new DialogueErreur(429, 'Une réponse est déjà en cours pour ce document.')
-    if (this.enCours.size >= SIMULTANES_MAX) throw new DialogueErreur(429, 'Margo a beaucoup de demandes en ce moment : réessayez dans un instant.')
+    if (this.enCours.size >= SIMULTANES_MAX)
+      throw new DialogueErreur(429, 'Margo a beaucoup de demandes en ce moment : réessayez dans un instant.')
     // La taille de la demande, en signes (espaces compris) : le message de la
     // personne et le texte de la portée, connus **avant** tout envoi. C'est ce
     // chiffre que le client affiche, que le serveur contrôle et que le compteur
@@ -183,7 +204,19 @@ export class Dialogue {
     const reglages = this.quotas.verifier({ fonction: 'margo', email, taille })
 
     const agent = { id, docId, nom: 'Margo (IA)', role: 'correcteur', par: email }
-    return { email, prenom, docId, titre: doc.title || 'sans titre', messages: propres, portee, agent, taille, modele: reglages.modele, signesParDemande: reglages.signesParDemande, acces: { agent, capabilities: capabilities('correcteur') } }
+    return {
+      email,
+      prenom,
+      docId,
+      titre: doc.title || 'sans titre',
+      messages: propres,
+      portee,
+      agent,
+      taille,
+      modele: reglages.modele,
+      signesParDemande: reglages.signesParDemande,
+      acces: { agent, capabilities: capabilities('correcteur') },
+    }
   }
 
   /** Les signes (espaces compris) du texte de la portée : ceux des blocs
@@ -236,25 +269,46 @@ export class Dialogue {
     let arret = null
     try {
       const messages = session.messages.map((m) => ({ ...m }))
-      const systeme = [{ type: 'text', text: consigne({ prenom: session.prenom, titre: session.titre, portee: session.portee }), cache_control: { type: 'ephemeral' } }]
+      const systeme = [
+        {
+          type: 'text',
+          text: consigne({ prenom: session.prenom, titre: session.titre, portee: session.portee }),
+          cache_control: { type: 'ephemeral' },
+        },
+      ]
       const definitions = outilsApi(this.mcp, acces)
 
       for (let tour = 1; ; tour++) {
-        if (annule()) { arret = 'annule'; break }
+        if (annule()) {
+          arret = 'annule'
+          break
+        }
         // Après TOURS_MAX étapes de travail, un dernier appel **sans outil** :
         // Margo dit ce qui est fait et ce qui reste, au lieu d'être coupée net.
         const bilanFinal = tour > TOURS_MAX
         if (bilanFinal) {
           arret = 'tours'
           const dernier = messages[messages.length - 1]
-          dernier.content = [...(Array.isArray(dernier.content) ? dernier.content : [{ type: 'text', text: String(dernier.content) }]), { type: 'text', text: CONSIGNE_BILAN }]
+          dernier.content = [
+            ...(Array.isArray(dernier.content) ? dernier.content : [{ type: 'text', text: String(dernier.content) }]),
+            { type: 'text', text: CONSIGNE_BILAN },
+          ]
         }
         if (cumul.entree + cumul.cacheLu + cumul.cacheEcrit > ENTREE_MAX) {
           arret = 'jetons'
-          emettre({ type: 'erreur', message: 'Je m’arrête : cette demande a lu beaucoup de texte. Précisez le passage qui vous intéresse.' })
+          emettre({
+            type: 'erreur',
+            message: 'Je m’arrête : cette demande a lu beaucoup de texte. Précisez le passage qui vous intéresse.',
+          })
           break
         }
-        const reponse = await this._appel({ modele, systeme, definitions, messages: avecCache(messages), sansOutil: bilanFinal })
+        const reponse = await this._appel({
+          modele,
+          systeme,
+          definitions,
+          messages: avecCache(messages),
+          sansOutil: bilanFinal,
+        })
         cumul.tours = tour
         const u = reponse.usage || {}
         cumul.entree += u.input_tokens || 0
@@ -275,11 +329,19 @@ export class Dialogue {
         }
         if (bilanFinal) {
           arret = 'tours'
-          if (!ditQuelqueChose) emettre({ type: 'erreur', message: 'Je m’arrête : cette demande demande trop d’étapes. Les modifications déjà posées restent à relire dans le panneau ; reformulez la demande plus précisément, ou sur un passage plus court.' })
+          if (!ditQuelqueChose)
+            emettre({
+              type: 'erreur',
+              message:
+                'Je m’arrête : cette demande demande trop d’étapes. Les modifications déjà posées restent à relire dans le panneau ; reformulez la demande plus précisément, ou sur un passage plus court.',
+            })
           break
         }
         if (reponse.stop_reason === 'max_tokens') {
-          emettre({ type: 'erreur', message: 'La réponse de Margo a été coupée avant la fin. Demandez-lui un passage plus court.' })
+          emettre({
+            type: 'erreur',
+            message: 'La réponse de Margo a été coupée avant la fin. Demandez-lui un passage plus court.',
+          })
           break
         }
         const demandes = blocs.filter((b) => b.type === 'tool_use')
@@ -308,14 +370,28 @@ export class Dialogue {
             enErreur = true
           }
           emettre({ type: 'outil_fin', nom: d.name, ok: !enErreur })
-          resultats.push({ type: 'tool_result', tool_use_id: d.id, content: contenu, ...(enErreur ? { is_error: true } : {}) })
+          resultats.push({
+            type: 'tool_result',
+            tool_use_id: d.id,
+            content: contenu,
+            ...(enErreur ? { is_error: true } : {}),
+          })
         }
-        if (annule()) { arret = 'annule'; break }
+        if (annule()) {
+          arret = 'annule'
+          break
+        }
         messages.push({ role: 'user', content: resultats })
       }
     } catch (err) {
       arret = 'erreur'
-      emettre({ type: 'erreur', message: err instanceof DialogueErreur ? err.message : 'Margo n’a pas pu répondre pour le moment. Réessayez dans un instant.' })
+      emettre({
+        type: 'erreur',
+        message:
+          err instanceof DialogueErreur
+            ? err.message
+            : 'Margo n’a pas pu répondre pour le moment. Réessayez dans un instant.',
+      })
       if (!(err instanceof DialogueErreur)) console.error('[dialogue]', err && err.message)
     } finally {
       const bilan = this._bilan(this.collecteurs.get(agent.id) || [])
@@ -330,7 +406,9 @@ export class Dialogue {
           modele,
           succes: reussi,
           signes: session.taille,
-          jetons: cumul.tours ? { entree: cumul.entree, sortie: cumul.sortie, cacheLu: cumul.cacheLu, cacheEcrit: cumul.cacheEcrit } : null,
+          jetons: cumul.tours
+            ? { entree: cumul.entree, sortie: cumul.sortie, cacheLu: cumul.cacheLu, cacheEcrit: cumul.cacheEcrit }
+            : null,
         })
       } catch (err) {
         console.error('[dialogue] usage non enregistré :', err && err.message)
@@ -406,7 +484,10 @@ export class Dialogue {
         }
         derniereErreur = (data && data.error && data.error.message) || ''
         if (reponse.status === 400 && /thinking/i.test(derniereErreur)) break // essayer le réglage suivant
-        throw new DialogueErreur(502, `L’API Claude a répondu ${reponse.status}${derniereErreur ? ` : ${derniereErreur}` : ''}`)
+        throw new DialogueErreur(
+          502,
+          `L’API Claude a répondu ${reponse.status}${derniereErreur ? ` : ${derniereErreur}` : ''}`
+        )
       }
     }
     throw new DialogueErreur(502, `L’API Claude refuse le réglage de réflexion : ${derniereErreur}`)

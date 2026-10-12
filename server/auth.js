@@ -57,7 +57,9 @@ export function parseCookies(req) {
  * façon (voir l'en-tête de ce fichier), donc une validation plus stricte
  * n'apporterait pas grand-chose ici. */
 export function normalizeEmail(raw) {
-  const email = String(raw || '').trim().toLowerCase()
+  const email = String(raw || '')
+    .trim()
+    .toLowerCase()
   // 254 caractères : la longueur maximale d'une adresse (RFC 5321).
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
   return email
@@ -198,10 +200,13 @@ export function consumeReconnectToken(token) {
 
 // Nettoyage périodique des jetons expirés jamais consommés — évite une
 // fuite mémoire lente sur un process qui tourne des semaines.
-const cleanupTimer = setInterval(() => {
-  const now = Date.now()
-  for (const [token, entry] of reconnectTokens) {
-    if (now > entry.expiresAt) reconnectTokens.delete(token)
-  }
-}, 10 * 60 * 1000)
+const cleanupTimer = setInterval(
+  () => {
+    const now = Date.now()
+    for (const [token, entry] of reconnectTokens) {
+      if (now > entry.expiresAt) reconnectTokens.delete(token)
+    }
+  },
+  10 * 60 * 1000
+)
 cleanupTimer.unref?.()

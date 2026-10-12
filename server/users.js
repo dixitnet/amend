@@ -63,7 +63,10 @@ export function couleurAutorisee(couleur) {
  * assumée : quelqu'un qui a déjà l'adresse d'une personne peut vérifier
  * qu'elle a écrit un commentaire. */
 export function idCompte(email) {
-  return createHash('sha256').update(`amend:compte:${String(email || '').toLowerCase()}`).digest('hex').slice(0, 16)
+  return createHash('sha256')
+    .update(`amend:compte:${String(email || '').toLowerCase()}`)
+    .digest('hex')
+    .slice(0, 16)
 }
 
 export const NOM_MAX = 40
@@ -71,13 +74,15 @@ export const NOM_MAX = 40
 /** Le nom, tel qu'on le range : sans caractères de contrôle, espaces
  * resserrés, coupé à NOM_MAX. */
 export function nomPropre(nom) {
-  return String(nom || '')
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, NOM_MAX)
-    .trim()
+  return (
+    String(nom || '')
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, NOM_MAX)
+      .trim()
+  )
 }
 
 /** Pourquoi un nom est refusé, ou `null` s'il est acceptable (10/10/2026,
@@ -151,8 +156,7 @@ export class Users {
       email,
       nom: propre,
       couleur:
-        (existant && couleurAutorisee(existant.couleur)) ||
-        COULEURS[Math.floor(Math.random() * COULEURS.length)],
+        (existant && couleurAutorisee(existant.couleur)) || COULEURS[Math.floor(Math.random() * COULEURS.length)],
       createdAt: (existant && existant.createdAt) || Date.now(),
     }
     registre[email] = compte

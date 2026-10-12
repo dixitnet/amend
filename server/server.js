@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 
-
 import { isWebSocketUpgrade, acceptWebSocket } from './ws.js'
 import { verrouillerDonnees, migrerDonnees, DonneesIncompatibles } from './donnees.js'
 import { routesDocuments } from './routes/documents.js'
@@ -180,15 +179,50 @@ const dialogue = new Dialogue({ storage, rooms, quotas, estAdmin: isAdminEmail, 
 /** Tout ce dont les routes ont besoin, en un seul objet : elles ne voient ni
  * les variables de ce fichier ni ses imports (server/routes/*.js). */
 const ctx = {
-  agents, dialogue, mcp, metrics, presenceAgents, quotas, reglagesIa, usageIa, publications, repliques, rooms,
-  rangements, sessionsRevoquees, storage, supportTraites, typst, uploads, users, versions,
-  documentsMaxParCompte, imagesMaxParCompte, APP_BASE_URL, DATA_DIR,
+  agents,
+  dialogue,
+  mcp,
+  metrics,
+  presenceAgents,
+  quotas,
+  reglagesIa,
+  usageIa,
+  publications,
+  repliques,
+  rooms,
+  rangements,
+  sessionsRevoquees,
+  storage,
+  supportTraites,
+  typst,
+  uploads,
+  users,
+  versions,
+  documentsMaxParCompte,
+  imagesMaxParCompte,
+  APP_BASE_URL,
+  DATA_DIR,
   ...limites,
 }
 
 // Chaque module répond ou passe la main (PAS_TRAITE) ; le premier qui répond
 // gagne, dans cet ordre.
-const ROUTES = [routesDocuments, routesExport, routesImages, routesStyle, routesAdmin, routesAuth, routesAcces, routesAgents, routesIa, routesPublication, routesVersions, routesCorbeille, routesRangement, routesContact]
+const ROUTES = [
+  routesDocuments,
+  routesExport,
+  routesImages,
+  routesStyle,
+  routesAdmin,
+  routesAuth,
+  routesAcces,
+  routesAgents,
+  routesIa,
+  routesPublication,
+  routesVersions,
+  routesCorbeille,
+  routesRangement,
+  routesContact,
+]
 
 async function handleApi(req, res, url) {
   for (const route of ROUTES) {
@@ -216,7 +250,10 @@ const server = createServer((req, res) => {
   if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
     traiterMcp(req, res, url, ctx).catch((err) => {
       if (res.headersSent) return res.end()
-      res.writeHead(err.status || 500, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+      res.writeHead(err.status || 500, {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'no-store',
+      })
       res.end(JSON.stringify({ error: err.status ? err.message : 'erreur interne' }))
     })
     return
@@ -293,7 +330,12 @@ server.on('upgrade', (req, socket) => {
     docId,
     conn,
     user,
-    { capabilities: capabilities(storage.roleFor(docId, emailSession)), nom: compteSession ? compteSession.nom : user, email: emailSession, id: idCompte(emailSession) },
+    {
+      capabilities: capabilities(storage.roleFor(docId, emailSession)),
+      nom: compteSession ? compteSession.nom : user,
+      email: emailSession,
+      id: idCompte(emailSession),
+    },
     { vecteur }
   )
   // Journal des connexions : la liste d'accès dit qui *peut* venir, elle ne
@@ -307,7 +349,12 @@ server.on('upgrade', (req, socket) => {
   const debutConnexion = Date.now()
   const emailConnexion = readSession(req)
   conn.on('close', () => {
-    metrics.log('connexions', { email: emailConnexion, docId, debut: debutConnexion, dureeMs: Date.now() - debutConnexion })
+    metrics.log('connexions', {
+      email: emailConnexion,
+      docId,
+      debut: debutConnexion,
+      dureeMs: Date.now() - debutConnexion,
+    })
   })
 })
 
@@ -333,9 +380,7 @@ server.listen(PORT, HOST, () => {
   console.log(`amend.ink en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`)
   console.log(`Données stockées dans ${DATA_DIR}`)
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.log(
-      "Astuce : définis ANTHROPIC_API_KEY (voir .env.example) pour activer les suggestions IA."
-    )
+    console.log('Astuce : définis ANTHROPIC_API_KEY (voir .env.example) pour activer les suggestions IA.')
   }
   // Typst, et ce qu'il aura sous la main pour composer. Une famille de
   // polices absente est remplacée **en silence** : sans cette ligne, un PDF

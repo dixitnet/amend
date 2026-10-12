@@ -48,7 +48,11 @@ test('IA : la suggestion revient typographiée — un texte déjà juste ne prod
       usage: { input_tokens: 10, output_tokens: 10 },
     }),
   })
-  const r = await suggestEdit({ apiKey: 'sk-test-factice', fetch: api }, 'L’urbanisme, c’est aussi l’affaire de tous…', 'Corrige.')
+  const r = await suggestEdit(
+    { apiKey: 'sk-test-factice', fetch: api },
+    'L’urbanisme, c’est aussi l’affaire de tous…',
+    'Corrige.'
+  )
   assert.equal(r.suggestion, 'L’urbanisme, c’est aussi l’affaire de tous…', 'identique à l’original : rien à proposer')
 })
 

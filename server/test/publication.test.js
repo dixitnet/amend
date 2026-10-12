@@ -107,11 +107,20 @@ test('les notes : numérotées par le serveur, en fin de page, échappées, jama
   const html = rendre({
     titre: 'T',
     blocs: [
-      { type: 'paragraphe', contenu: [
-        { type: 'texte', texte: 'Un', marques: [] },
-        { type: 'note', contenu: [{ type: 'texte', texte: 'Première <b>note</b>', marques: ['em'] }, { type: 'note', contenu: [{ type: 'texte', texte: 'imbriquée', marques: [] }] }] },
-        { type: 'note', contenu: [{ type: 'texte', texte: 'Seconde', marques: [] }] },
-      ] },
+      {
+        type: 'paragraphe',
+        contenu: [
+          { type: 'texte', texte: 'Un', marques: [] },
+          {
+            type: 'note',
+            contenu: [
+              { type: 'texte', texte: 'Première <b>note</b>', marques: ['em'] },
+              { type: 'note', contenu: [{ type: 'texte', texte: 'imbriquée', marques: [] }] },
+            ],
+          },
+          { type: 'note', contenu: [{ type: 'texte', texte: 'Seconde', marques: [] }] },
+        ],
+      },
     ],
   })
   assert.match(html, /<sup class="note-appel" id="appel-1"><a href="#note-1">1<\/a><\/sup>/)
@@ -147,19 +156,41 @@ test('la page ne charge rien de l’extérieur et demande à ne pas être index�
 
 // ============================================================ le plan latéral (10/10/2026)
 
-const titre = (niveau, t) => ({ type: 'titre', niveau, contenu: t == null ? [] : [{ type: 'texte', texte: t, marques: [] }] })
+const titre = (niveau, t) => ({
+  type: 'titre',
+  niveau,
+  contenu: t == null ? [] : [{ type: 'texte', texte: t, marques: [] }],
+})
 const para = (t) => ({ type: 'paragraphe', contenu: [{ type: 'texte', texte: t, marques: [] }] })
 const entreesDuPlan = (html) =>
   [...html.matchAll(/<nav class="plan-lateral"[\s\S]*?<\/nav>/g)].flatMap((nav) =>
-    [...nav[0].matchAll(/<li class="niveau-(\d)"><a href="#(titre-\d+)">([^<]*)<\/a><\/li>/g)].map((m) => ({ niveau: Number(m[1]), ancre: m[2], texte: m[3] }))
+    [...nav[0].matchAll(/<li class="niveau-(\d)"><a href="#(titre-\d+)">([^<]*)<\/a><\/li>/g)].map((m) => ({
+      niveau: Number(m[1]),
+      ancre: m[2],
+      texte: m[3],
+    }))
   )
 
 test('le plan reprend les titres du texte, dans l’ordre, chacun lié à une ancre qui existe', () => {
-  const html = rendre({ titre: 'T', blocs: [titre(1, 'Premier'), para('a'), titre(2, 'Sous-partie'), para('b'), titre(3, 'Détail'), titre(1, 'Second')] })
+  const html = rendre({
+    titre: 'T',
+    blocs: [titre(1, 'Premier'), para('a'), titre(2, 'Sous-partie'), para('b'), titre(3, 'Détail'), titre(1, 'Second')],
+  })
   const plan = entreesDuPlan(html)
-  assert.deepEqual(plan.map((e) => [e.niveau, e.texte]), [[1, 'Premier'], [2, 'Sous-partie'], [3, 'Détail'], [1, 'Second']])
+  assert.deepEqual(
+    plan.map((e) => [e.niveau, e.texte]),
+    [
+      [1, 'Premier'],
+      [2, 'Sous-partie'],
+      [3, 'Détail'],
+      [1, 'Second'],
+    ]
+  )
   for (const e of plan) assert.ok(html.includes(`id="${e.ancre}">`), `l’ancre ${e.ancre} existe dans le texte`)
-  assert.ok(html.indexOf('id="titre-1">Premier') < html.indexOf('id="titre-4">Second'), 'les ancres suivent l’ordre du texte')
+  assert.ok(
+    html.indexOf('id="titre-1">Premier') < html.indexOf('id="titre-4">Second'),
+    'les ancres suivent l’ordre du texte'
+  )
 })
 
 test('le plan suit les règles de l’éditeur : titre vide nommé, niveaux au-delà du dernier ramenés à lui', () => {
@@ -171,7 +202,10 @@ test('le plan suit les règles de l’éditeur : titre vide nommé, niveaux au-d
 })
 
 test('un titre dans une citation compte aussi, et le texte du plan est échappé', () => {
-  const html = rendre({ titre: 'T', blocs: [titre(1, 'Avant'), { type: 'citation', blocs: [titre(2, '<img src=x onerror=alert(1)>')] }] })
+  const html = rendre({
+    titre: 'T',
+    blocs: [titre(1, 'Avant'), { type: 'citation', blocs: [titre(2, '<img src=x onerror=alert(1)>')] }],
+  })
   const plan = entreesDuPlan(html)
   assert.equal(plan.length, 2)
   assert.equal(plan[1].texte, '&lt;img src=x onerror=alert(1)&gt;')
@@ -181,7 +215,17 @@ test('un titre dans une citation compte aussi, et le texte du plan est échappé
 test('les marques et les notes d’un titre ne passent pas dans le plan', () => {
   const html = rendre({
     titre: 'T',
-    blocs: [titre(1, 'Un'), { type: 'titre', niveau: 2, contenu: [{ type: 'texte', texte: 'Gras', marques: ['strong'] }, { type: 'note', contenu: [{ type: 'texte', texte: 'secrète', marques: [] }] }] }],
+    blocs: [
+      titre(1, 'Un'),
+      {
+        type: 'titre',
+        niveau: 2,
+        contenu: [
+          { type: 'texte', texte: 'Gras', marques: ['strong'] },
+          { type: 'note', contenu: [{ type: 'texte', texte: 'secrète', marques: [] }] },
+        ],
+      },
+    ],
   })
   const plan = entreesDuPlan(html)
   assert.equal(plan[1].texte, 'Gras')
@@ -249,7 +293,9 @@ test('en phase de test, seul un administrateur publie', async () => {
 test('sans accès au document, on ne voit même pas son état de publication', async () => {
   const doc = await creerDoc(cookie('proprio@example.com'))
   assert.equal((await fetch(`${BASE}/api/docs/${doc.id}/publication`)).status, 403)
-  const res = await fetch(`${BASE}/api/docs/${doc.id}/publication`, { headers: { cookie: cookie('quidam@example.com') } })
+  const res = await fetch(`${BASE}/api/docs/${doc.id}/publication`, {
+    headers: { cookie: cookie('quidam@example.com') },
+  })
   assert.equal(res.status, 403)
 })
 
@@ -289,7 +335,10 @@ test('retirer la page la fait disparaître pour de bon', async () => {
   const r = await (await publier(admin, doc.id, { titre: 'Doc', blocs: texte('éphémère') })).json()
   assert.equal((await fetch(r.url)).status, 200)
 
-  const retrait = await fetch(`${BASE}/api/docs/${doc.id}/publication`, { method: 'DELETE', headers: { cookie: admin } })
+  const retrait = await fetch(`${BASE}/api/docs/${doc.id}/publication`, {
+    method: 'DELETE',
+    headers: { cookie: admin },
+  })
   assert.equal(retrait.status, 200)
   assert.equal((await fetch(r.url)).status, 404)
 })
@@ -348,7 +397,9 @@ test('chaque visiteur a son compteur, derrière Caddy comme ailleurs (A9)', asyn
   // Trois mots, en lettres seulement : c'est le format d'un nom de page.
   const lettre = (n) => String.fromCharCode(97 + (n % 26))
   const essai = (ip, n) =>
-    fetch(`${BASE}/p/yy${lettre(n)}${lettre(Math.floor(n / 26))}-inconnu-vraiment`, { headers: { 'x-forwarded-for': ip } })
+    fetch(`${BASE}/p/yy${lettre(n)}${lettre(Math.floor(n / 26))}-inconnu-vraiment`, {
+      headers: { 'x-forwarded-for': ip },
+    })
   assert.equal((await essai('203.0.113.7', 0)).status, 404, 'un autre visiteur est puni pour les essais du premier')
   let dernier = 404
   for (let i = 0; i < 40; i++) {

@@ -47,7 +47,9 @@ const ECHECS_FENETRE_MS = 10 * 60_000
 export const PORTEES_AGENT = ['admins', 'proprietaires', 'editeurs']
 
 export function porteeAgent() {
-  const v = String(process.env.CLAUDE_AGENT || 'admins').trim().toLowerCase()
+  const v = String(process.env.CLAUDE_AGENT || 'admins')
+    .trim()
+    .toLowerCase()
   return PORTEES_AGENT.includes(v) ? v : 'admins'
 }
 
@@ -137,7 +139,8 @@ export class Agents {
   inviter({ docId, role, jours = DUREE_DEFAUT_JOURS, par, nom = 'Claude' }) {
     this._synchroniser()
     if (!docId) return { ok: false, raison: 'document manquant' }
-    if (!ROLES_AGENT.includes(role)) return { ok: false, raison: `rôle « ${role} » refusé pour un agent (${ROLES_AGENT.join(', ')})` }
+    if (!ROLES_AGENT.includes(role))
+      return { ok: false, raison: `rôle « ${role} » refusé pour un agent (${ROLES_AGENT.join(', ')})` }
     if (!par) return { ok: false, raison: "la personne qui invite est requise : l'accès de l'agent en dépend" }
     const nombre = Number(jours)
     if (!Number.isFinite(nombre) || nombre <= 0 || nombre > DUREE_MAX_JOURS) {

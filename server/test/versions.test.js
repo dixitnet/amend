@@ -32,7 +32,10 @@ test('les versions se listent de la plus récente à la plus ancienne', () => {
   v.enregistrer('doc-b', octets(10), { ts: 100 })
   v.enregistrer('doc-b', octets(20), { ts: 300 })
   v.enregistrer('doc-b', octets(30), { ts: 200 })
-  assert.deepEqual(v.lister('doc-b').map((x) => x.ts), [300, 200, 100])
+  assert.deepEqual(
+    v.lister('doc-b').map((x) => x.ts),
+    [300, 200, 100]
+  )
   assert.equal(v.lister('doc-b')[0].octets, 20)
   assert.equal(v.octets('doc-b'), 60)
 })
@@ -79,7 +82,10 @@ test('un fichier étranger déposé dans le dossier est ignoré', () => {
   v.enregistrer('doc-f', octets(8), { ts: 1 })
   writeFileSync(join(dataDir, 'versions', 'doc-f', 'notes.txt'), 'bonjour', 'utf8')
   writeFileSync(join(dataDir, 'versions', 'doc-f', 'pasunts.bin'), 'x', 'utf8')
-  assert.deepEqual(v.lister('doc-f').map((x) => x.ts), [1])
+  assert.deepEqual(
+    v.lister('doc-f').map((x) => x.ts),
+    [1]
+  )
 })
 
 test('rien ne traîne en .tmp après une écriture', () => {

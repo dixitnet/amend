@@ -45,18 +45,42 @@ export const VERSION_STYLE = 2
  * Ajouter une police ici suppose de l'installer sur le serveur ; au
  * démarrage, `famillesTypst()` permet de dire laquelle manque. */
 export const POLICES = [
-  { id: 'system', label: 'Système (DejaVu Sans)', css: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif', docx: undefined,
-    typst: ['DejaVu Sans'] },
-  { id: 'arial', label: 'Liberation Sans (Arial dans Word)', css: 'Arial, Helvetica, sans-serif', docx: 'Arial',
-    typst: ['Liberation Sans'] },
-  { id: 'times', label: 'Liberation Serif (Times New Roman dans Word)', css: '"Times New Roman", Times, serif', docx: 'Times New Roman',
-    typst: ['Liberation Serif'] },
-  { id: 'serif', label: 'Libertinus Serif (Times New Roman dans Word)', css: '"Libertinus Serif", Georgia, serif', docx: 'Times New Roman',
-    typst: ['Libertinus Serif'] },
-  { id: 'mono', label: 'DejaVu Sans Mono (Courier New dans Word)', css: '"Courier New", Courier, monospace', docx: 'Courier New',
-    typst: ['DejaVu Sans Mono'] },
-  { id: 'roboto', label: 'Roboto', css: '"Roboto", -apple-system, sans-serif', docx: 'Roboto',
-    typst: ['Roboto'] },
+  {
+    id: 'system',
+    label: 'Système (DejaVu Sans)',
+    css: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+    docx: undefined,
+    typst: ['DejaVu Sans'],
+  },
+  {
+    id: 'arial',
+    label: 'Liberation Sans (Arial dans Word)',
+    css: 'Arial, Helvetica, sans-serif',
+    docx: 'Arial',
+    typst: ['Liberation Sans'],
+  },
+  {
+    id: 'times',
+    label: 'Liberation Serif (Times New Roman dans Word)',
+    css: '"Times New Roman", Times, serif',
+    docx: 'Times New Roman',
+    typst: ['Liberation Serif'],
+  },
+  {
+    id: 'serif',
+    label: 'Libertinus Serif (Times New Roman dans Word)',
+    css: '"Libertinus Serif", Georgia, serif',
+    docx: 'Times New Roman',
+    typst: ['Libertinus Serif'],
+  },
+  {
+    id: 'mono',
+    label: 'DejaVu Sans Mono (Courier New dans Word)',
+    css: '"Courier New", Courier, monospace',
+    docx: 'Courier New',
+    typst: ['DejaVu Sans Mono'],
+  },
+  { id: 'roboto', label: 'Roboto', css: '"Roboto", -apple-system, sans-serif', docx: 'Roboto', typst: ['Roboto'] },
 ]
 
 /** Identifiants retirés de la liste, avec la police qui les remplaçait
@@ -178,7 +202,19 @@ export const BLOCS = [
     label: 'Texte courant',
     balise: 'p',
     docxHeading: null,
-    defauts: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 0, spaceAfter: 8, firstLineIndent: 0, indent: 0 },
+    defauts: {
+      font: 'system',
+      size: 11,
+      bold: false,
+      italic: false,
+      uppercase: false,
+      align: 'left',
+      lineHeight: 1.15,
+      spaceBefore: 0,
+      spaceAfter: 8,
+      firstLineIndent: 0,
+      indent: 0,
+    },
   },
   {
     id: 'quote',
@@ -189,7 +225,19 @@ export const BLOCS = [
     // mais devenue modifiable puisque la citation a maintenant son bloc.
     // Retrait de 10 mm par défaut (19/09/2026) : c'est ce qui fait *lire*
     // une citation comme une citation, sans italique ni guillemets ajoutés.
-    defauts: { font: 'system', size: 11, bold: false, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 0, spaceAfter: 8, firstLineIndent: 0, indent: 10 },
+    defauts: {
+      font: 'system',
+      size: 11,
+      bold: false,
+      italic: false,
+      uppercase: false,
+      align: 'left',
+      lineHeight: 1.15,
+      spaceBefore: 0,
+      spaceAfter: 8,
+      firstLineIndent: 0,
+      indent: 10,
+    },
   },
   // **Trois niveaux, pas cinq** (18/09/2026). Cinq niveaux de titre, c'est
   // une table des matières qu'on ne lit plus et un panneau de mise en page
@@ -204,7 +252,19 @@ export const BLOCS = [
     label: `Titre ${i + 1}`,
     balise: `h${i + 1}`,
     docxHeading: i,
-    defauts: { font: 'system', size: taille, bold: true, italic: false, uppercase: false, align: 'left', lineHeight: 1.15, spaceBefore: 16, spaceAfter: 8, firstLineIndent: 0, indent: 0 },
+    defauts: {
+      font: 'system',
+      size: taille,
+      bold: true,
+      italic: false,
+      uppercase: false,
+      align: 'left',
+      lineHeight: 1.15,
+      spaceBefore: 16,
+      spaceAfter: 8,
+      firstLineIndent: 0,
+      indent: 0,
+    },
   })),
 ]
 

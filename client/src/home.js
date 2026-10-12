@@ -50,22 +50,21 @@ function mountPublicLanding(root) {
 
   const baseline = document.createElement('p')
   baseline.className = 'landing-baseline'
-  baseline.textContent = "Écrire et relire à plusieurs, avec un vrai suivi des modifications."
+  baseline.textContent = 'Écrire et relire à plusieurs, avec un vrai suivi des modifications.'
   entete.appendChild(baseline)
 
   const pitch = document.createElement('p')
   pitch.className = 'landing-pitch'
   pitch.textContent =
-    "amend.ink est un éditeur de texte collaboratif, léger et auto-hébergé. " +
-    "Chacun voit qui écrit quoi, propose ses corrections plutôt que de les " +
-    "imposer, et garde la main sur la mise en page et les exports."
+    'amend.ink est un éditeur de texte collaboratif, léger et auto-hébergé. ' +
+    'Chacun voit qui écrit quoi, propose ses corrections plutôt que de les ' +
+    'imposer, et garde la main sur la mise en page et les exports.'
   entete.appendChild(pitch)
 
   const avis = document.createElement('p')
   avis.className = 'landing-avis'
   avis.textContent =
-    "L'application fonctionne, mais elle est en phase de lancement : " +
-    "l'accès se fait uniquement sur invitation."
+    "L'application fonctionne, mais elle est en phase de lancement : " + "l'accès se fait uniquement sur invitation."
   entete.appendChild(avis)
 
   // L'aide est lisible sans compte (10/10/2026) : c'est ici qu'un visiteur
@@ -206,8 +205,7 @@ function carteConnexion() {
     // Volontairement ambigu : la réponse est la même que l'adresse soit
     // connue ou non, pour ne pas révéler qui a un accès (voir
     // server/server.js, /api/auth/request-link).
-    messageSucces:
-      'Si cette adresse est connue, un email vient de partir. Pensez aussi à vos indésirables.',
+    messageSucces: 'Si cette adresse est connue, un email vient de partir. Pensez aussi à vos indésirables.',
     onEnvoi: (email) => requestReconnectLink(email),
   })
   carte.append(form, message)
@@ -360,4 +358,3 @@ function mountAppHome(root, email) {
   root.appendChild(wrap)
   monterListeDocuments(liste)
 }
-

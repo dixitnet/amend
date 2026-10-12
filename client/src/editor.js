@@ -23,12 +23,7 @@ import {
 import { mountChangesPanel } from './changesPanel.js'
 import { mountAIPanel } from './aiPanel.js'
 import { monterDialogue } from './dialogue.js'
-import {
-  commentsPlugin,
-  mountCommentsPanel,
-  commentaireAuPoint,
-  commentairesAncres,
-} from './comments.js'
+import { commentsPlugin, mountCommentsPanel, commentaireAuPoint, commentairesAncres } from './comments.js'
 import { mountCommentsGutter, mountGutterComposer } from './commentsGutter.js'
 import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
@@ -55,11 +50,7 @@ import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
 import { footnotesPlugin, insererNote, monterListeDesNotes } from './footnotes.js'
 import { liensPlugin, commandeLien } from './liens.js'
 import { monterInterfaceTelephone } from './iphone.js'
-import {
-  ouvrirFilCommentaire,
-  monterBarreRelecture,
-  monterBoutonCommenter,
-} from './relectureTactile.js'
+import { ouvrirFilCommentaire, monterBarreRelecture, monterBoutonCommenter } from './relectureTactile.js'
 import { media, petitEcran, REQUETE_PETIT_ECRAN } from './feuille.js'
 import { couleurSure } from '../../shared/securite.js'
 import { NOM_TEXTE, NOM_COMMENTAIRES } from '../../shared/protocole.js'
@@ -249,8 +240,24 @@ export function mountEditor(root, docId, user, docMeta) {
     onglets,
     tableGroup,
     boutons: {
-      boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn, quoteBtn,
-      hrBtn, tocBtn, noteBtn, lienBtn, tableBtn, rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn,
+      boldBtn,
+      italicBtn,
+      underlineBtn,
+      strikeBtn,
+      listBtn,
+      orderedListBtn,
+      taskListBtn,
+      quoteBtn,
+      hrBtn,
+      tocBtn,
+      noteBtn,
+      lienBtn,
+      tableBtn,
+      rowAddBtn,
+      rowDelBtn,
+      colAddBtn,
+      colDelBtn,
+      tableDelBtn,
     },
   } = creerBarreOutils({ cap })
 
@@ -491,7 +498,8 @@ export function mountEditor(root, docId, user, docMeta) {
   view.setProps({
     dispatchTransaction: makeDispatchTransaction(view, () => user, {
       peutModifierLibrement: () => !!cap.canEditFreely,
-      surRefus: () => messageFugace('Cette modification ne peut pas être suivie : elle est réservée aux éditeurs.', { erreur: true }),
+      surRefus: () =>
+        messageFugace('Cette modification ne peut pas être suivie : elle est réservée aux éditeurs.', { erreur: true }),
     }),
   })
 
@@ -609,7 +617,8 @@ export function mountEditor(root, docId, user, docMeta) {
     commandeLien({ peutPoser: peutPoserLien, surRefus: refuserLien })(view.state, view.dispatch, view)
   }
   noteBtn.onclick = () => {
-    if (!insererNote(view, user)) messageFugace('Une note se pose dans un paragraphe, pas dans un titre.', { erreur: true })
+    if (!insererNote(view, user))
+      messageFugace('Une note se pose dans un paragraphe, pas dans un titre.', { erreur: true })
   }
 
   // Corrections IA (la barre latérale) et Margo (le dialogue flottant), 13/10/2026 :
@@ -697,4 +706,3 @@ export function mountEditor(root, docId, user, docMeta) {
     user,
   }
 }
-

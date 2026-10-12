@@ -44,9 +44,18 @@ const DELAI_COMPACTAGE_MS = 5000
  * ne doit pas remplir le disque. */
 const DELAI_VERSION_SESSION_MS = 10 * 60 * 1000
 
-
 export class Repliques {
-  constructor(storage, { versions = null, delaiVersionSessionMs = DELAI_VERSION_SESSION_MS, delaiLiberationMs = DELAI_LIBERATION_MS, max = MAX_REPLIQUES, seuilWorkerOctets = SEUIL_WORKER_OCTETS, delaiCompactageMs = DELAI_COMPACTAGE_MS } = {}) {
+  constructor(
+    storage,
+    {
+      versions = null,
+      delaiVersionSessionMs = DELAI_VERSION_SESSION_MS,
+      delaiLiberationMs = DELAI_LIBERATION_MS,
+      max = MAX_REPLIQUES,
+      seuilWorkerOctets = SEUIL_WORKER_OCTETS,
+      delaiCompactageMs = DELAI_COMPACTAGE_MS,
+    } = {}
+  ) {
     this.storage = storage
     this.versions = versions
     this.delaiVersionSessionMs = delaiVersionSessionMs
@@ -318,7 +327,9 @@ function appliquerSansPlanter(doc, op) {
 
 function rejouerDansUnWorker(chemin) {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(fileURLToPath(new URL('./repliqueWorker.js', import.meta.url)), { workerData: { chemin } })
+    const worker = new Worker(fileURLToPath(new URL('./repliqueWorker.js', import.meta.url)), {
+      workerData: { chemin },
+    })
     worker.once('message', (m) => resolve(Buffer.from(m)))
     worker.once('error', reject)
     worker.once('exit', (code) => {
@@ -357,7 +368,8 @@ function dansLeStore(doc, id) {
 export function racinesTouchees(doc, update) {
   const { structs, ds } = Y.decodeUpdate(update)
   const propres = structs.filter((s) => s instanceof Y.Item && Y.getState(doc.store, s.id.client) <= s.id.clock)
-  const dansMaj = (id) => propres.find((s) => s.id.client === id.client && id.clock >= s.id.clock && id.clock < s.id.clock + s.length)
+  const dansMaj = (id) =>
+    propres.find((s) => s.id.client === id.client && id.clock >= s.id.clock && id.clock < s.id.clock + s.length)
   const memo = new Map()
   function racineDe(s, prof = 0) {
     if (memo.has(s)) return memo.get(s)
@@ -374,7 +386,10 @@ export function racinesTouchees(doc, update) {
         }
         const it = dansLeStore(doc, ref)
         if (it) {
-          r = s.parent instanceof Y.ID && it.content instanceof Y.ContentType ? nomRacine(doc, it.content.type) : nomRacine(doc, it.parent)
+          r =
+            s.parent instanceof Y.ID && it.content instanceof Y.ContentType
+              ? nomRacine(doc, it.content.type)
+              : nomRacine(doc, it.parent)
           break
         }
       }
@@ -393,7 +408,7 @@ export function racinesTouchees(doc, update) {
   const supprimes = []
   ds.clients.forEach((ranges, cid) => {
     for (const range of ranges) {
-      for (let c = range.clock; c < range.clock + range.len; ) {
+      for (let c = range.clock; c < range.clock + range.len;) {
         const it = dansLeStore(doc, Y.createID(cid, c))
         if (!it) {
           // Inconnue de la réplique : si elle est dans la mise à jour
@@ -405,7 +420,8 @@ export function racinesTouchees(doc, update) {
         }
         if (!it.deleted) {
           supprimees.add(nomRacine(doc, it.parent))
-          if (it.content instanceof Y.ContentAny) supprimes.push({ racine: nomRacine(doc, it.parent), valeurs: it.content.arr })
+          if (it.content instanceof Y.ContentAny)
+            supprimes.push({ racine: nomRacine(doc, it.parent), valeurs: it.content.arr })
         }
         c = it.id.clock + it.length
       }
@@ -443,7 +459,11 @@ export function verifierLecteur(doc, update, nom, id = null) {
     return { ok: false, raison: `opération illisible (${err.message})` }
   }
   for (const r of [...touche.inserees, ...touche.supprimees]) {
-    if (r !== NOM_COMMENTAIRES) return { ok: false, raison: r === NOM_TEXTE ? 'un lecteur ne modifie pas le texte' : 'modification hors des commentaires' }
+    if (r !== NOM_COMMENTAIRES)
+      return {
+        ok: false,
+        raison: r === NOM_TEXTE ? 'un lecteur ne modifie pas le texte' : 'modification hors des commentaires',
+      }
   }
   const refus = { ok: false, raison: "un lecteur ne touche qu'à ses propres commentaires" }
   const commentaires = doc.getMap(NOM_COMMENTAIRES)

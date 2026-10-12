@@ -26,11 +26,17 @@ function attendreSortie(p, motif, ms = 15000) {
     const garde = setTimeout(() => reject(new Error(`délai dépassé en attendant « ${motif} » :\n${vu}`)), ms)
     const lire = (d) => {
       vu += d
-      if (vu.includes(motif)) { clearTimeout(garde); resolve(vu) }
+      if (vu.includes(motif)) {
+        clearTimeout(garde)
+        resolve(vu)
+      }
     }
     p.stdout.on('data', lire)
     p.stderr.on('data', lire)
-    p.once('exit', (c) => { clearTimeout(garde); reject(new Error(`sorti (${c}) avant « ${motif} » :\n${vu}`)) })
+    p.once('exit', (c) => {
+      clearTimeout(garde)
+      reject(new Error(`sorti (${c}) avant « ${motif} » :\n${vu}`))
+    })
   })
 }
 
@@ -42,16 +48,29 @@ export async function lancerInstance({
   comptes = ['admin@test.local'],
   admin = comptes[0],
   secret = SECRET_DU_PROCESSUS,
-  anthropic = {},                 // options passées au faux Anthropic (ex. { latence: '1,5', 'erreur-529': 0.1 })
+  anthropic = {}, // options passées au faux Anthropic (ex. { latence: '1,5', 'erreur-529': 0.1 })
   mailgun = {},
   env = {},
-  data = null,                    // un dossier à réutiliser (copie de données, restauration)
+  data = null, // un dossier à réutiliser (copie de données, restauration)
 } = {}) {
   const dossier = data || mkdtempSync(join(tmpdir(), 'amend-test-'))
   const fils = []
   const options = (o) => Object.entries(o).flatMap(([k, v]) => (v === true ? [`--${k}`] : [`--${k}`, String(v)]))
-  const fauxA = spawn(process.execPath, [join(RACINE, 'tools/faux-anthropic.js'), '--port', String(port + 1), ...options({ latence: '5,40', ...anthropic })], { stdio: ['ignore', 'pipe', 'pipe'] })
-  const fauxM = spawn(process.execPath, [join(RACINE, 'tools/faux-mailgun.js'), '--port', String(port + 2), ...options({ latence: '1,10', ...mailgun })], { stdio: ['ignore', 'pipe', 'pipe'] })
+  const fauxA = spawn(
+    process.execPath,
+    [
+      join(RACINE, 'tools/faux-anthropic.js'),
+      '--port',
+      String(port + 1),
+      ...options({ latence: '5,40', ...anthropic }),
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] }
+  )
+  const fauxM = spawn(
+    process.execPath,
+    [join(RACINE, 'tools/faux-mailgun.js'), '--port', String(port + 2), ...options({ latence: '1,10', ...mailgun })],
+    { stdio: ['ignore', 'pipe', 'pipe'] }
+  )
   fils.push(fauxA, fauxM)
   await Promise.all([attendreSortie(fauxA, 'faux Anthropic'), attendreSortie(fauxM, 'faux Mailgun')])
   const journal = []
@@ -84,8 +103,15 @@ export async function lancerInstance({
   const attendreServeur = async () => {
     const t0 = Date.now()
     for (;;) {
-      try { if ((await fetch(`${base}/api/auth/me`)).status < 500) return } catch { /* pas encore */ }
-      if (Date.now() - t0 > 15000) { fils.forEach((f) => f.kill()); throw new Error('le serveur de test ne répond pas :\n' + journal.join('')) }
+      try {
+        if ((await fetch(`${base}/api/auth/me`)).status < 500) return
+      } catch {
+        /* pas encore */
+      }
+      if (Date.now() - t0 > 15000) {
+        fils.forEach((f) => f.kill())
+        throw new Error('le serveur de test ne répond pas :\n' + journal.join(''))
+      }
       await new Promise((r) => setTimeout(r, 100))
     }
   }
@@ -95,18 +121,31 @@ export async function lancerInstance({
   const cookies = {}
   for (const c of comptes) cookies[c] = await cookieDeSession(c, secret)
   return {
-    base, port, secret, data: dossier, cookies, journal,
+    base,
+    port,
+    secret,
+    data: dossier,
+    cookies,
+    journal,
     fauxAnthropic: `http://127.0.0.1:${port + 1}`,
     fauxMailgun: `http://127.0.0.1:${port + 2}`,
     async api(chemin, { cookie, methode = 'GET', corps, entetes = {} } = {}) {
       const res = await fetch(`${base}${chemin}`, {
         method: methode,
-        headers: { ...(corps ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...entetes },
+        headers: {
+          ...(corps ? { 'content-type': 'application/json' } : {}),
+          ...(cookie ? { cookie } : {}),
+          ...entetes,
+        },
         body: corps ? JSON.stringify(corps) : undefined,
       })
       let json = null
       const texte = await res.text()
-      try { json = JSON.parse(texte) } catch { /* pas du JSON */ }
+      try {
+        json = JSON.parse(texte)
+      } catch {
+        /* pas du JSON */
+      }
       return { status: res.status, json, texte, entetes: res.headers }
     },
     /** Arrête puis relance le serveur seul (mêmes données, même port) :
@@ -124,25 +163,53 @@ export async function lancerInstance({
      * (SIGKILL au bout de 3 s) : sans cela, l'instance suivante, sur le même
      * port, parle à la précédente qui finit de s'éteindre. */
     async arreter({ garderDonnees = false } = {}) {
-      const attentes = fils.map((f) => new Promise((resolve) => {
-        if (f.exitCode !== null || f.signalCode !== null) return resolve()
-        const garde = setTimeout(() => { try { f.kill('SIGKILL') } catch { /* parti */ } }, 3000)
-        f.once('exit', () => { clearTimeout(garde); resolve() })
-        try { f.kill() } catch { resolve() }
-      }))
+      const attentes = fils.map(
+        (f) =>
+          new Promise((resolve) => {
+            if (f.exitCode !== null || f.signalCode !== null) return resolve()
+            const garde = setTimeout(() => {
+              try {
+                f.kill('SIGKILL')
+              } catch {
+                /* parti */
+              }
+            }, 3000)
+            f.once('exit', () => {
+              clearTimeout(garde)
+              resolve()
+            })
+            try {
+              f.kill()
+            } catch {
+              resolve()
+            }
+          })
+      )
       await Promise.all(attentes)
-      if (!data && !garderDonnees) { try { rmSync(dossier, { recursive: true, force: true }) } catch { /* sans importance */ } }
+      if (!data && !garderDonnees) {
+        try {
+          rmSync(dossier, { recursive: true, force: true })
+        } catch {
+          /* sans importance */
+        }
+      }
     },
   }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2)
-  const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i === -1 ? d : args[i + 1] }
+  const opt = (n, d) => {
+    const i = args.indexOf(`--${n}`)
+    return i === -1 ? d : args[i + 1]
+  }
   const comptes = String(opt('comptes', 'admin@test.local')).split(',')
   const inst = await lancerInstance({ port: Number(opt('port', 18900)), comptes, data: opt('data', null) })
   console.log(JSON.stringify({ base: inst.base, secret: inst.secret, data: inst.data, cookies: inst.cookies }))
-  const sortir = async () => { await inst.arreter(); process.exit(0) }
+  const sortir = async () => {
+    await inst.arreter()
+    process.exit(0)
+  }
   process.on('SIGINT', sortir)
   process.on('SIGTERM', sortir)
 }

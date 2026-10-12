@@ -58,7 +58,19 @@ sauvegarde.
 
 export async function routesAdmin(req, res, url, ctx) {
   const { pathname } = url
-  const { metrics, repliques, reglagesIa, rooms, storage, supportTraites, uploads, usageIa, users, APP_BASE_URL, DATA_DIR } = ctx
+  const {
+    metrics,
+    repliques,
+    reglagesIa,
+    rooms,
+    storage,
+    supportTraites,
+    uploads,
+    usageIa,
+    users,
+    APP_BASE_URL,
+    DATA_DIR,
+  } = ctx
 
   // Point de diagnostic temporaire pour le test de charge du 13/09/2026
   // (voir README.md, section dédiée) : mémoire du processus et un indicateur
@@ -125,17 +137,17 @@ export async function routesAdmin(req, res, url, ctx) {
   }
 
   // Tarifs du modèle, en euros par million de jetons — lus du .env comme le
-// reste des réglages (voir .env.example). Ils ne servent qu'à traduire les
-// jetons déjà journalisés en une somme lisible : rien dans l'application ne
-// s'appuie dessus pour décider quoi que ce soit, un tarif périmé fausse un
-// affichage, jamais un comportement.
-const TARIFS_IA = {
-  modele: 'claude-haiku-5-5',
-  entreeEurParMTok: Number(process.env.AI_PRICE_INPUT_EUR) || 0.087,
-  sortieEurParMTok: Number(process.env.AI_PRICE_OUTPUT_EUR) || 0.434,
-}
+  // reste des réglages (voir .env.example). Ils ne servent qu'à traduire les
+  // jetons déjà journalisés en une somme lisible : rien dans l'application ne
+  // s'appuie dessus pour décider quoi que ce soit, un tarif périmé fausse un
+  // affichage, jamais un comportement.
+  const TARIFS_IA = {
+    modele: 'claude-haiku-5-5',
+    entreeEurParMTok: Number(process.env.AI_PRICE_INPUT_EUR) || 0.087,
+    sortieEurParMTok: Number(process.env.AI_PRICE_OUTPUT_EUR) || 0.434,
+  }
 
-// Vue d'ensemble du back-office (voir claude/conception-backoffice.md) :
+  // Vue d'ensemble du back-office (voir claude/conception-backoffice.md) :
   // lecture seule, réservée aux administrateurs comme le diagnostic. Elle
   // n'ouvre aucune action et ne renvoie aucun contenu de document.
   if (pathname === '/api/admin/overview' && req.method === 'GET') {

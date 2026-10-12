@@ -5,7 +5,10 @@
 // (33 contre 55 pour un même fichier, constaté le 11/10/2026 : c'est ce qui
 // faisait varier le total annoncé).
 export default async function* (source) {
-  let reussis = 0, echecs = 0, ignores = 0, annules = 0
+  let reussis = 0,
+    echecs = 0,
+    ignores = 0,
+    annules = 0
   const noms = []
   for await (const e of source) {
     if (e.type !== 'test:pass' && e.type !== 'test:fail') continue
@@ -17,7 +20,11 @@ export default async function* (source) {
       echecs++
       const err = e.data.details && e.data.details.error
       if (err && /cancelled|timeout/i.test(String(err.failureType || ''))) annules++
-      const message = err ? String(err.message || err).split('\n')[0].slice(0, 200) : ''
+      const message = err
+        ? String(err.message || err)
+            .split('\n')[0]
+            .slice(0, 200)
+        : ''
       noms.push(`${e.data.name}${message ? ` — ${message}` : ''}`)
     }
   }

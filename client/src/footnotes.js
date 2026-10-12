@@ -275,7 +275,9 @@ class VueNote {
     this.vueInterne.focus()
     // Curseur en fin de note, là où l'on continue d'écrire.
     const fin = this.vueInterne.state.doc.content.size
-    this.vueInterne.dispatch(this.vueInterne.state.tr.setSelection(TextSelection.create(this.vueInterne.state.doc, fin)))
+    this.vueInterne.dispatch(
+      this.vueInterne.state.tr.setSelection(TextSelection.create(this.vueInterne.state.doc, fin))
+    )
 
     this.surClicDehors = (e) => {
       if (fenetre.contains(e.target) || this.dom.contains(e.target)) return
@@ -290,7 +292,9 @@ class VueNote {
     const doc = this.vueInterne.state.doc
     const bord = (n) => Math.max(0, Math.min(n, doc.content.size))
     try {
-      this.vueInterne.dispatch(this.vueInterne.state.tr.setSelection(TextSelection.create(doc, bord(de), bord(a))).scrollIntoView())
+      this.vueInterne.dispatch(
+        this.vueInterne.state.tr.setSelection(TextSelection.create(doc, bord(de), bord(a))).scrollIntoView()
+      )
     } catch {
       // Une position qui n'est plus valable (le document a bougé) : la fenêtre reste ouverte, c'est l'essentiel.
     }

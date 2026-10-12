@@ -185,7 +185,10 @@ test('les seuils se règlent par le .env, et une valeur absurde ne les efface pa
   // Une valeur vide, négative ou illisible retombe sur le défaut : un quota
   // NaN laisserait tout passer, ce qui est exactement ce qu'on ne veut pas.
   for (const absurde of ['', 'beaucoup', '-3', '0', undefined]) {
-    assert.equal(new Uploads(process.env.DATA_DIR, { maxImageMo: absurde }).maxImageOctets, DEFAUT_MAX_IMAGE_MO * 1024 * 1024)
+    assert.equal(
+      new Uploads(process.env.DATA_DIR, { maxImageMo: absurde }).maxImageOctets,
+      DEFAUT_MAX_IMAGE_MO * 1024 * 1024
+    )
   }
 })
 

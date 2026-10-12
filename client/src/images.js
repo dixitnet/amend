@@ -42,10 +42,13 @@ export function messageFugace(texte, { erreur = false } = {}) {
   bulle.className = `message-fugace${erreur ? ' erreur' : ''}`
   bulle.textContent = texte
   document.body.appendChild(bulle)
-  setTimeout(() => {
-    bulle.classList.add('sortant')
-    setTimeout(() => bulle.remove(), 400)
-  }, erreur ? 5000 : 2500)
+  setTimeout(
+    () => {
+      bulle.classList.add('sortant')
+      setTimeout(() => bulle.remove(), 400)
+    },
+    erreur ? 5000 : 2500
+  )
 }
 
 /** L'image d'un presse-papiers, ou `null`. On ne retient que les vrais
@@ -90,16 +93,11 @@ async function preparer(fichier) {
   }
   // Une image déjà petite et déjà dans un de nos deux formats n'a rien à
   // gagner à être ré-encodée : on garde l'original s'il est plus léger.
-  if (
-    facteur === 1 &&
-    (fichier.type === 'image/png' || fichier.type === 'image/jpeg') &&
-    fichier.size <= blob.size
-  ) {
+  if (facteur === 1 && (fichier.type === 'image/png' || fichier.type === 'image/jpeg') && fichier.size <= blob.size) {
     return { blob: fichier, largeur, hauteur }
   }
   return { blob, largeur, hauteur }
 }
-
 
 /** Le greffon. `peutInserer` suit le serveur, qui réserve le dépôt du
  * fichier à `canManageDocument`. Depuis le 29/09/2026 une image est un
@@ -121,9 +119,7 @@ export function imagesPlugin({ docId, peutInserer, getUser }) {
           const repere = document.createElement('div')
           repere.className = 'image-en-attente'
           repere.textContent = "Dépôt de l'image…"
-          set = set.add(tr.doc, [
-            Decoration.widget(action.ajouter.pos, repere, { id: action.ajouter.id, side: 1 }),
-          ])
+          set = set.add(tr.doc, [Decoration.widget(action.ajouter.pos, repere, { id: action.ajouter.id, side: 1 })])
         } else if (action && action.retirer) {
           set = set.remove(set.find(null, null, (spec) => spec.id === action.retirer))
         }
@@ -139,7 +135,7 @@ export function imagesPlugin({ docId, peutInserer, getUser }) {
         if (!fichier) return false
         event.preventDefault()
         if (!peutInserer) {
-          messageFugace("Seul un éditeur peut ajouter une image à ce document.", { erreur: true })
+          messageFugace('Seul un éditeur peut ajouter une image à ce document.', { erreur: true })
           return true
         }
         deposer(view, docId, fichier, getUser)
@@ -173,7 +169,7 @@ async function deposer(view, docId, fichier, getUser) {
     })
     if (!reponse.ok) {
       const detail = await reponse.json().catch(() => ({}))
-      throw new Error(detail.error || "le dépôt a été refusé")
+      throw new Error(detail.error || 'le dépôt a été refusé')
     }
     const { src } = await reponse.json()
 

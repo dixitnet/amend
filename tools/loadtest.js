@@ -18,7 +18,16 @@
 
 import { WebSocket } from 'ws'
 import * as Y from 'yjs'
-import { readFileSync, writeFileSync, existsSync, chmodSync, appendFileSync, statSync, mkdirSync, unlinkSync } from 'node:fs'
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  chmodSync,
+  appendFileSync,
+  statSync,
+  mkdirSync,
+  unlinkSync,
+} from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -29,8 +38,10 @@ import { fileURLToPath } from 'node:url'
 const FICHIER_SESSION = join(dirname(fileURLToPath(import.meta.url)), '.session')
 const DOC_PAR_DEFAUT = 'NtTqgGlcpGji' // « TEST CHARGE n°3 — à supprimer » en production
 
-const MOTS = ('urbanisme circulaire sol artificialisation friche densité foncier renouvellement ' +
-  'ville transition sobriété quartier îlot parcelle').split(' ')
+const MOTS = (
+  'urbanisme circulaire sol artificialisation friche densité foncier renouvellement ' +
+  'ville transition sobriété quartier îlot parcelle'
+).split(' ')
 const FRAG = 'prosemirror-content'
 const rnd = (n) => Math.floor(Math.random() * n)
 const dors = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -124,7 +135,9 @@ async function ouvrirSession() {
         const res = await api('/api/auth/me')
         const qui = res.ok ? (await res.json()).email : null
         if (!qui) throw new Error('la session mémorisée a expiré ou a été invalidée')
-        console.log(`Session reprise depuis tools/.session (${qui}, mémorisée le ${String(memo.date).slice(0, 16).replace('T', ' ')}).`)
+        console.log(
+          `Session reprise depuis tools/.session (${qui}, mémorisée le ${String(memo.date).slice(0, 16).replace('T', ' ')}).`
+        )
         return
       }
     } catch (err) {
@@ -132,7 +145,9 @@ async function ouvrirSession() {
     }
   }
 
-  throw new Error('Pas de session : passez --verify <jeton du lien reçu par email> une première fois (elle sera mémorisée), ou --cookie "collabtext_session=…"')
+  throw new Error(
+    'Pas de session : passez --verify <jeton du lien reçu par email> une première fois (elle sera mémorisée), ou --cookie "collabtext_session=…"'
+  )
 }
 
 // ------------------------------------------------------------- observation
@@ -143,7 +158,10 @@ async function ouvrirSession() {
  * appliquer, aucune sortie pendant plusieurs minutes). */
 function progression(libelle, calcul) {
   const timer = setInterval(() => process.stdout.write(`\r  ${libelle} — ${calcul()}   `), 5000)
-  return () => { clearInterval(timer); process.stdout.write('\n') }
+  return () => {
+    clearInterval(timer)
+    process.stdout.write('\n')
+  }
 }
 
 class Observatoire {
@@ -168,7 +186,13 @@ class Observatoire {
       const r = await api('/api/debug/stats')
       if (!r.ok) return
       const s = await r.json()
-      const e = { t: Date.now(), lag: s.loopLagMs, rss: Math.round(s.memory.rss / 1048576), pid: s.pid, up: s.uptimeSec }
+      const e = {
+        t: Date.now(),
+        lag: s.loopLagMs,
+        rss: Math.round(s.memory.rss / 1048576),
+        pid: s.pid,
+        up: s.uptimeSec,
+      }
       this.echantillons.push(e)
       if (this.pid && e.pid !== this.pid) this.stop(`le service a redémarré (pid ${this.pid} → ${e.pid}) — OOM ?`)
       this.pid = e.pid
@@ -180,7 +204,10 @@ class Observatoire {
     }
   }
   async _sonde() {
-    for (const [nom, chemin] of [['me', '/api/auth/me'], ['docs', '/api/docs']]) {
+    for (const [nom, chemin] of [
+      ['me', '/api/auth/me'],
+      ['docs', '/api/docs'],
+    ]) {
       const t0 = performance.now()
       try {
         await api(chemin)
@@ -214,7 +241,10 @@ class Observatoire {
       sondes: Object.fromEntries(
         Object.entries(parSonde).map(([n, v]) => {
           const t = v.slice().sort((a, b) => a - b)
-          return [n, { medianMs: t[Math.floor(t.length / 2)], p95Ms: t[Math.floor(t.length * 0.95)], maxMs: t[t.length - 1] }]
+          return [
+            n,
+            { medianMs: t[Math.floor(t.length / 2)], p95Ms: t[Math.floor(t.length * 0.95)], maxMs: t[t.length - 1] },
+          ]
         })
       ),
       arrêt: this.arret,
@@ -250,13 +280,21 @@ class Redacteur {
       // (protocole du 29/09/2026, voir server/rooms.js).
       const sv = Buffer.from(Y.encodeStateVector(this.doc)).toString('base64')
       this.synchronise = false
-      const ws = new WebSocket(`${WS_BASE}/ws/${this.docId}?user=${encodeURIComponent(this.nom)}&sv=${encodeURIComponent(sv)}`, {
-        headers: this.cookie ? { cookie: this.cookie } : {},
-      })
+      const ws = new WebSocket(
+        `${WS_BASE}/ws/${this.docId}?user=${encodeURIComponent(this.nom)}&sv=${encodeURIComponent(sv)}`,
+        {
+          headers: this.cookie ? { cookie: this.cookie } : {},
+        }
+      )
       this.ws = ws
       this.dernierMessage = Date.now()
       let ouvert = false
-      ws.on('open', () => { ouvert = true; this.connecte = true; connexionsDuBanc++; resolve('ouvert') })
+      ws.on('open', () => {
+        ouvert = true
+        this.connecte = true
+        connexionsDuBanc++
+        resolve('ouvert')
+      })
       ws.on('message', (data, isBinary) => {
         this.stats.recus++
         this.stats.octetsRecus += data.length
@@ -269,9 +307,19 @@ class Redacteur {
           } catch {}
           return
         }
-        try { Y.applyUpdate(this.doc, new Uint8Array(data), 'distant') } catch { this.stats.erreurs++ }
+        try {
+          Y.applyUpdate(this.doc, new Uint8Array(data), 'distant')
+        } catch {
+          this.stats.erreurs++
+        }
       })
-      ws.on('close', () => { this.connecte = false; if (ouvert) { connexionsDuBanc--; this.stats.coupures++ } else resolve('refusé') })
+      ws.on('close', () => {
+        this.connecte = false
+        if (ouvert) {
+          connexionsDuBanc--
+          this.stats.coupures++
+        } else resolve('refusé')
+      })
       ws.on('error', () => {})
       setTimeout(() => resolve(ouvert ? 'ouvert' : 'délai'), 15000)
     })
@@ -287,7 +335,8 @@ class Redacteur {
     const out = []
     for (let i = 0; i < this.frag.length; i++) {
       const n = this.frag.get(i)
-      if (n instanceof Y.XmlElement && n.length && n.get(0) instanceof Y.XmlText && !n.getAttribute('sonde')) out.push(n.get(0))
+      if (n instanceof Y.XmlElement && n.length && n.get(0) instanceof Y.XmlText && !n.getAttribute('sonde'))
+        out.push(n.get(0))
     }
     return out
   }
@@ -317,11 +366,17 @@ class Redacteur {
   async taper(nb, pauseMin = 50, pauseVar = 100, obs) {
     for (let i = 0; i < nb; i++) {
       if (obs && obs.arret) return
-      try { this.action() } catch { this.stats.erreurs++ }
+      try {
+        this.action()
+      } catch {
+        this.stats.erreurs++
+      }
       await dors(pauseMin + Math.random() * pauseVar)
     }
   }
-  fermer() { this.ws && this.ws.close() }
+  fermer() {
+    this.ws && this.ws.close()
+  }
   signature() {
     const s = this.frag.toString()
     let h = 0
@@ -356,7 +411,10 @@ const scenarios = {
     console.log(`Journal avant : ${JSON.stringify(await tailleJournal(DOC))}`)
     for (let i = 0; i < ops; i++) {
       c.action()
-      if (i % 200 === 0) { await dors(120); process.stdout.write(`\r  ${i}/${ops} opérations`) }
+      if (i % 200 === 0) {
+        await dors(120)
+        process.stdout.write(`\r  ${i}/${ops} opérations`)
+      }
       if (obs.arret) break
     }
     await dors(3000)
@@ -379,10 +437,14 @@ const scenarios = {
   //
   // Plusieurs process de ~8 clients plutôt qu'un seul de 40 (rapport n°3, §5).
   async mix(obs) {
-    const profil = Object.fromEntries(String(opt('profil', 'ecrit:3,relit:2,lecteur:5')).split(',').map((x) => {
-      const [n, v] = x.split(':')
-      return [n.trim(), Number(v)]
-    }))
+    const profil = Object.fromEntries(
+      String(opt('profil', 'ecrit:3,relit:2,lecteur:5'))
+        .split(',')
+        .map((x) => {
+          const [n, v] = x.split(':')
+          return [n.trim(), Number(v)]
+        })
+    )
     const minutes = nombre('minutes', 5)
     const arriveeMs = nombre('arrivee-ms', 200)
     const sortie = opt('sortie', '')
@@ -414,7 +476,10 @@ const scenarios = {
       for (const e of evenements) {
         if (e.target instanceof Y.XmlText && e.target.toString().startsWith('⟦sonde⟧')) {
           const t0 = envois.get(e.target.length)
-          if (t0 !== undefined) { propagations.push(Math.round(performance.now() - t0)); envois.delete(e.target.length) }
+          if (t0 !== undefined) {
+            propagations.push(Math.round(performance.now() - t0))
+            envois.delete(e.target.length)
+          }
         }
       }
     })
@@ -424,7 +489,10 @@ const scenarios = {
       a.doc.transact(() => texteSonde.insert(texteSonde.length, '.'), 'charge')
     }, 1000)
 
-    if (sortie) { mkdirSync(dirname(sortie), { recursive: true }); writeFileSync(sortie, 't_s,connectes,actions,recus,octets_recus,erreurs,coupures,propagation_ms_derniere\n') }
+    if (sortie) {
+      mkdirSync(dirname(sortie), { recursive: true })
+      writeFileSync(sortie, 't_s,connectes,actions,recus,octets_recus,erreurs,coupures,propagation_ms_derniere\n')
+    }
     const tous = () => [...groupes.ecrit, ...groupes.relit, ...groupes.lecteur]
     const fin = Date.now() + minutes * 60000
     const t0 = Date.now()
@@ -442,29 +510,52 @@ const scenarios = {
         ouvertures[nomProfil].push(Math.round(performance.now() - tOuv))
         if (nomProfil === 'ecrit') {
           // Rafales : 4 à 8 gestes à 60–300 ms, puis 3 à 10 s de pause.
-          boucles.push((async () => {
-            while (Date.now() < fin && !obs.arret) {
-              await c.taper(4 + rnd(5), 60, 240, obs)
-              await dors(3000 + rnd(7000))
-            }
-          })())
+          boucles.push(
+            (async () => {
+              while (Date.now() < fin && !obs.arret) {
+                await c.taper(4 + rnd(5), 60, 240, obs)
+                await dors(3000 + rnd(7000))
+              }
+            })()
+          )
         } else if (nomProfil === 'relit') {
-          boucles.push((async () => {
-            while (Date.now() < fin && !obs.arret) {
-              await dors(4000 + rnd(8000))
-              try { c.action() } catch { c.stats.erreurs++ }
-            }
-          })())
+          boucles.push(
+            (async () => {
+              while (Date.now() < fin && !obs.arret) {
+                await dors(4000 + rnd(8000))
+                try {
+                  c.action()
+                } catch {
+                  c.stats.erreurs++
+                }
+              }
+            })()
+          )
         }
         await dors(arriveeMs)
       }
     }
-    const finProgression = progression('mix', () =>
-      `${tous().filter((c) => c.connecte).length} connectés, ${tous().reduce((x, c) => x + c.stats.actions, 0)} actions, propagation ${propagations.length ? propagations[propagations.length - 1] + ' ms' : '…'}`)
+    const finProgression = progression(
+      'mix',
+      () =>
+        `${tous().filter((c) => c.connecte).length} connectés, ${tous().reduce((x, c) => x + c.stats.actions, 0)} actions, propagation ${propagations.length ? propagations[propagations.length - 1] + ' ms' : '…'}`
+    )
     const timerCsv = setInterval(() => {
       if (!sortie) return
       const t = tous()
-      appendFileSync(sortie, [((Date.now() - t0) / 1000).toFixed(0), t.filter((c) => c.connecte).length, t.reduce((x, c) => x + c.stats.actions, 0), t.reduce((x, c) => x + c.stats.recus, 0), t.reduce((x, c) => x + c.stats.octetsRecus, 0), t.reduce((x, c) => x + c.stats.erreurs, 0), t.reduce((x, c) => x + c.stats.coupures, 0), propagations.length ? propagations[propagations.length - 1] : ''].join(',') + '\n')
+      appendFileSync(
+        sortie,
+        [
+          ((Date.now() - t0) / 1000).toFixed(0),
+          t.filter((c) => c.connecte).length,
+          t.reduce((x, c) => x + c.stats.actions, 0),
+          t.reduce((x, c) => x + c.stats.recus, 0),
+          t.reduce((x, c) => x + c.stats.octetsRecus, 0),
+          t.reduce((x, c) => x + c.stats.erreurs, 0),
+          t.reduce((x, c) => x + c.stats.coupures, 0),
+          propagations.length ? propagations[propagations.length - 1] : '',
+        ].join(',') + '\n'
+      )
     }, 1000)
     while (Date.now() < fin && !obs.arret) await dors(500)
     await Promise.all(boucles)
@@ -473,7 +564,10 @@ const scenarios = {
     finProgression()
     await dors(3000)
     const lot = [a, b, ...tous()].filter((c) => c.connecte)
-    const quant = (v, q) => { const t = v.slice().sort((x, y) => x - y); return t.length ? t[Math.min(t.length - 1, Math.floor(t.length * q))] : null }
+    const quant = (v, q) => {
+      const t = v.slice().sort((x, y) => x - y)
+      return t.length ? t[Math.min(t.length - 1, Math.floor(t.length * q))] : null
+    }
     const resume = (v) => ({ n: v.length, p50: quant(v, 0.5), p95: quant(v, 0.95), max: quant(v, 1) })
     const res = {
       profil,
@@ -510,8 +604,16 @@ const scenarios = {
       const msRejeu = dernier - tMur
       const messages = lot.reduce((a, c) => a + c.stats.recus, 0) / clients
       const octets = lot.reduce((a, c) => a + c.stats.octetsRecus, 0) / clients
-      rejeux.push({ cycle, msOuverture: Math.round(msOuverture), msRejeu: Math.round(msRejeu), messages, koParClient: Math.round(octets / 1024) })
-      console.log(`  cycle ${cycle}/${cycles} — ouverture ${Math.round(msOuverture)} ms, rejeu complet ${Math.round(msRejeu)} ms, ${messages} messages/client`)
+      rejeux.push({
+        cycle,
+        msOuverture: Math.round(msOuverture),
+        msRejeu: Math.round(msRejeu),
+        messages,
+        koParClient: Math.round(octets / 1024),
+      })
+      console.log(
+        `  cycle ${cycle}/${cycles} — ouverture ${Math.round(msOuverture)} ms, rejeu complet ${Math.round(msRejeu)} ms, ${messages} messages/client`
+      )
       lot.forEach((c) => c.fermer())
       await dors(1000)
     }
@@ -540,8 +642,11 @@ const scenarios = {
     // le 15/09 à 40 clients : serveur à 0,04 ms de latence, générateur à
     // genoux). Pour charger vraiment la diffusion, lancer plusieurs process
     // en parallèle plutôt qu'augmenter --clients.
-    const finFrappe = progression('frappe', () =>
-      `${lot.reduce((a, c) => a + c.stats.actions, 0)}/${clients * ops} actions, ${lot.reduce((a, c) => a + c.stats.recus, 0)} messages reçus`)
+    const finFrappe = progression(
+      'frappe',
+      () =>
+        `${lot.reduce((a, c) => a + c.stats.actions, 0)}/${clients * ops} actions, ${lot.reduce((a, c) => a + c.stats.recus, 0)} messages reçus`
+    )
     await Promise.all(lot.map((c) => c.taper(ops, 50, 100, obs)))
     finFrappe()
     await dors(3000)
@@ -566,12 +671,22 @@ const scenarios = {
     const paliers = String(opt('paliers', '100,500,1000')).split(',').map(Number)
     const crees = []
     const mesures = []
-    const chrono = async (fn) => { const t0 = performance.now(); await fn(); return Math.round(performance.now() - t0) }
+    const chrono = async (fn) => {
+      const t0 = performance.now()
+      await fn()
+      return Math.round(performance.now() - t0)
+    }
     let cible = 0
     for (const palier of paliers) {
       while (crees.length < palier && !obs.arret) {
-        const r = await api('/api/docs', { method: 'POST', body: JSON.stringify({ title: `CHARGE S3 — à supprimer ${crees.length}` }) })
-        if (!r.ok) { obs.stop(`création de document refusée (${r.status})`); break }
+        const r = await api('/api/docs', {
+          method: 'POST',
+          body: JSON.stringify({ title: `CHARGE S3 — à supprimer ${crees.length}` }),
+        })
+        if (!r.ok) {
+          obs.stop(`création de document refusée (${r.status})`)
+          break
+        }
         crees.push((await r.json()).id)
         if (crees.length % 50 === 0) process.stdout.write(`\r  ${crees.length} documents créés`)
       }
@@ -581,14 +696,25 @@ const scenarios = {
         documents: cible,
         listeDocsMs: await chrono(() => api('/api/docs')),
         ouvertureDocMs: await chrono(() => api(`/api/docs/${DOC}`)),
-        creationMs: await chrono(() => api('/api/docs', { method: 'POST', body: JSON.stringify({ title: 'CHARGE S3 — à supprimer sonde' }) }).then(async (r) => { if (r.ok) crees.push((await r.json()).id) })),
+        creationMs: await chrono(() =>
+          api('/api/docs', { method: 'POST', body: JSON.stringify({ title: 'CHARGE S3 — à supprimer sonde' }) }).then(
+            async (r) => {
+              if (r.ok) crees.push((await r.json()).id)
+            }
+          )
+        ),
       }
       const sondeWs = new Redacteur(DOC, 'sonde-ws')
       m.ouvertureWsMs = await chrono(() => sondeWs.connecter())
       sondeWs.fermer()
       mesures.push(m)
-      console.log(`\n  ${cible} documents → liste ${m.listeDocsMs} ms, ouverture doc ${m.ouvertureDocMs} ms, création ${m.creationMs} ms, WS ${m.ouvertureWsMs} ms`)
-      if (m.listeDocsMs > 2000) { obs.stop(`GET /api/docs à ${m.listeDocsMs} ms`); break }
+      console.log(
+        `\n  ${cible} documents → liste ${m.listeDocsMs} ms, ouverture doc ${m.ouvertureDocMs} ms, création ${m.creationMs} ms, WS ${m.ouvertureWsMs} ms`
+      )
+      if (m.listeDocsMs > 2000) {
+        obs.stop(`GET /api/docs à ${m.listeDocsMs} ms`)
+        break
+      }
     }
     console.log(`\nNettoyage de ${crees.length} documents…`)
     let supprimes = 0
@@ -630,7 +756,8 @@ const scenarios = {
       convergence: convergence([c, temoin]),
       coupures: c.stats.coupures + temoin.stats.coupures,
     }
-    c.fermer(); temoin.fermer()
+    c.fermer()
+    temoin.fermer()
     return res
   },
 
@@ -643,7 +770,11 @@ const scenarios = {
     const minutes = nombre('minutes', 10)
     const avant = await tailleJournal(DOC)
     const lot = []
-    for (let i = 0; i < clients; i++) { const c = new Redacteur(DOC, `écrit-${i}`); lot.push(c); await c.connecter() }
+    for (let i = 0; i < clients; i++) {
+      const c = new Redacteur(DOC, `écrit-${i}`)
+      lot.push(c)
+      await c.connecter()
+    }
     await Promise.all(lot.map((c) => c.attendreRejeu()))
     const fin = Date.now() + minutes * 60000
     while (Date.now() < fin && !obs.arret) {
@@ -661,7 +792,11 @@ const scenarios = {
   async s6(obs) {
     const clients = nombre('clients', 50)
     const lot = []
-    for (let i = 0; i < clients; i++) { const c = new Redacteur(DOC, `tempete-${i}`); lot.push(c); await c.connecter() }
+    for (let i = 0; i < clients; i++) {
+      const c = new Redacteur(DOC, `tempete-${i}`)
+      lot.push(c)
+      await c.connecter()
+    }
     await Promise.all(lot.map((c) => c.attendreRejeu()))
     console.log(`${lot.filter((c) => c.connecte).length} connectés, on coupe tout…`)
     const t0 = performance.now()
@@ -724,18 +859,33 @@ const FICHIER_BANC = join(ICI, `.banc-${process.pid}.json`)
 const FICHIER_ARRET = join(ICI, '.arret')
 const demarreA = Date.now()
 const timerBanc = setInterval(() => {
-  try { writeFileSync(FICHIER_BANC, JSON.stringify({ pid: process.pid, clients: connexionsDuBanc, scenario, date: new Date().toISOString() })) } catch { /* sans importance */ }
+  try {
+    writeFileSync(
+      FICHIER_BANC,
+      JSON.stringify({ pid: process.pid, clients: connexionsDuBanc, scenario, date: new Date().toISOString() })
+    )
+  } catch {
+    /* sans importance */
+  }
   try {
     if (existsSync(FICHIER_ARRET) && statSync(FICHIER_ARRET).mtimeMs > demarreA && statSync(FICHIER_ARRET).size > 0) {
       obs.stop(`arrêt demandé par la sonde : ${readFileSync(FICHIER_ARRET, 'utf8').trim()}`)
     }
-  } catch { /* fichier en cours d'écriture */ }
+  } catch {
+    /* fichier en cours d'écriture */
+  }
 }, 1000)
 process.on('SIGINT', () => {
   obs.stop('interruption (Ctrl-C ou sonde indépendante)')
   setTimeout(() => process.exit(2), 8000).unref() // un scénario qui ne regarde pas `obs.arret` ne doit pas bloquer
 })
-process.on('exit', () => { try { unlinkSync(FICHIER_BANC) } catch { /* déjà parti */ } })
+process.on('exit', () => {
+  try {
+    unlinkSync(FICHIER_BANC)
+  } catch {
+    /* déjà parti */
+  }
+})
 
 try {
   await ouvrirSession()

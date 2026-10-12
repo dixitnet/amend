@@ -133,7 +133,12 @@ export async function routesStyle(req, res, url, ctx) {
       return sendJson(res, 409, { error: `vous avez déjà ${PERSOS_MAX} modèles personnels` })
     }
     try {
-      const cree = storage.modeles.creer({ nom: body.nom, depuis: depuis.id, portee: instance ? 'instance' : 'perso', email })
+      const cree = storage.modeles.creer({
+        nom: body.nom,
+        depuis: depuis.id,
+        portee: instance ? 'instance' : 'perso',
+        email,
+      })
       return sendJson(res, 200, vueModele(cree, email, admin))
     } catch (err) {
       return sendJson(res, 400, { error: err.message })
@@ -146,12 +151,16 @@ export async function routesStyle(req, res, url, ctx) {
     const admin = isAdminEmail(email)
     const modele = storage.modeles.obtenir(modeleMatch[1])
     // Un modèle personnel d'un autre n'existe pas pour vous.
-    if (!modele || !storage.modeles.visiblePour(modele, email)) return sendJson(res, 404, { error: 'modèle introuvable' })
+    if (!modele || !storage.modeles.visiblePour(modele, email))
+      return sendJson(res, 404, { error: 'modèle introuvable' })
     if (req.method === 'GET') return sendJson(res, 200, vueModele(modele, email, admin))
     if (req.method === 'PUT' || req.method === 'DELETE') {
       if (!storage.modeles.peutModifier(modele, email, admin)) {
         return sendJson(res, 403, {
-          error: modele.portee === 'livre' ? 'un modèle livré ne se modifie pas : dupliquez-le' : 'ce modèle ne vous appartient pas',
+          error:
+            modele.portee === 'livre'
+              ? 'un modèle livré ne se modifie pas : dupliquez-le'
+              : 'ce modèle ne vous appartient pas',
         })
       }
       if (req.method === 'DELETE') {
@@ -161,7 +170,10 @@ export async function routesStyle(req, res, url, ctx) {
           return sendJson(res, 200, { ok: true })
         } catch (err) {
           if (err.utilisePar) {
-            return sendJson(res, 409, { error: `ce modèle est utilisé par ${err.utilisePar} document(s)`, utilisePar: err.utilisePar })
+            return sendJson(res, 409, {
+              error: `ce modèle est utilisé par ${err.utilisePar} document(s)`,
+              utilisePar: err.utilisePar,
+            })
           }
           return sendJson(res, 400, { error: err.message })
         }
@@ -173,7 +185,8 @@ export async function routesStyle(req, res, url, ctx) {
       try {
         if (body.nom !== undefined) storage.modeles.renommer(modele.id, body.nom)
         if (body.style !== undefined) {
-          if (!body.style || typeof body.style !== 'object') return sendJson(res, 400, { error: 'mise en page invalide' })
+          if (!body.style || typeof body.style !== 'object')
+            return sendJson(res, 400, { error: 'mise en page invalide' })
           storage.modeles.ecrireStyle(modele.id, body.style)
         }
       } catch (err) {

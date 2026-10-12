@@ -254,7 +254,8 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
         const rejectAgent = document.createElement('button')
         rejectAgent.textContent = `Tout rejeter — IA (${deClaude})`
         rejectAgent.className = 'btn-reject btn-reject-claude'
-        rejectAgent.title = 'Rejette toutes les modifications proposées par les IA (Margo, ou Claude invité), sans toucher à celles des personnes'
+        rejectAgent.title =
+          'Rejette toutes les modifications proposées par les IA (Margo, ou Claude invité), sans toucher à celles des personnes'
         rejectAgent.onclick = () => rejectAgentChanges(view)
         bulk.appendChild(rejectAgent)
       }
@@ -265,8 +266,7 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
     if (changes.length > PENDING_WARNING_THRESHOLD) {
       const warning = document.createElement('p')
       warning.className = 'changes-warning'
-      warning.textContent =
-        `${changes.length} modifications en attente — la liste devient difficile à suivre au-delà de ${PENDING_WARNING_THRESHOLD}, pensez à en accepter ou rejeter une partie.`
+      warning.textContent = `${changes.length} modifications en attente — la liste devient difficile à suivre au-delà de ${PENDING_WARNING_THRESHOLD}, pensez à en accepter ou rejeter une partie.`
       container.appendChild(warning)
     }
 
@@ -448,7 +448,13 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
       change.type === 'lot'
         ? change.membres.map((m) => [
             m,
-            m.type === 'remplacement' ? `${m.ancien} → ${m.nouveau}` : m.type === 'insertion' ? 'Ajout' : m.type === 'deletion' ? 'Suppression' : 'Saut',
+            m.type === 'remplacement'
+              ? `${m.ancien} → ${m.nouveau}`
+              : m.type === 'insertion'
+                ? 'Ajout'
+                : m.type === 'deletion'
+                  ? 'Suppression'
+                  : 'Saut',
           ])
         : [
             [change.deletion, 'Ancien'],
@@ -459,7 +465,8 @@ export function mountChangesPanel(container, { canReview = true } = {}) {
       ligne.className = 'change-detail-row'
       const texte = document.createElement('span')
       texte.className = `change-detail-text change-${sous.type}`
-      texte.textContent = sous.type === 'remplacement' ? tronque(libelle, 120) : `${libelle} : ${tronque(sous.text, 90)}`
+      texte.textContent =
+        sous.type === 'remplacement' ? tronque(libelle, 120) : `${libelle} : ${tronque(sous.text, 90)}`
       const actionsDetail = document.createElement('div')
       actionsDetail.className = 'change-detail-actions'
       if (canReview) {

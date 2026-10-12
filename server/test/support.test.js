@@ -155,11 +155,7 @@ test('le back-office voit les retours', async () => {
   const d = await res.json()
   assert.ok(d.flux.support.recus7j >= 1)
   assert.ok(d.flux.support.aTraiter.length >= 1)
-  assert.equal(
-    d.flux.support.aTraiter[0].ts >= d.flux.support.aTraiter.slice(-1)[0].ts,
-    true,
-    'le plus récent en tête'
-  )
+  assert.equal(d.flux.support.aTraiter[0].ts >= d.flux.support.aTraiter.slice(-1)[0].ts, true, 'le plus récent en tête')
   assert.ok(d.flux.support.aTraiter[0].cle, 'chaque retour porte la clé qui permet de le traiter')
 })
 
@@ -199,7 +195,10 @@ test('on peut rouvrir un retour classé trop vite', async () => {
   const cible = (await apercu()).flux.support.traites[0]
   assert.equal((await traiter(cible.cle, false)).status, 200)
   const apres = await apercu()
-  assert.ok(apres.flux.support.aTraiter.some((r) => r.cle === cible.cle), 'il revient à traiter')
+  assert.ok(
+    apres.flux.support.aTraiter.some((r) => r.cle === cible.cle),
+    'il revient à traiter'
+  )
   assert.ok(!apres.flux.support.traites.some((r) => r.cle === cible.cle))
 })
 
@@ -234,7 +233,12 @@ test('un retour reçu avant l’ajout des identifiants se traite par son horodat
   // doivent rester traitables, sans quoi la fonction n'arriverait que pour
   // les retours à venir.
   const f = join(process.env.DATA_DIR, 'events-support.jsonl')
-  const ancien = { ts: Date.now() - 2 * 24 * 3600 * 1000, email: 'ancien@example.com', intention: 'bug', message: 'reçu avant' }
+  const ancien = {
+    ts: Date.now() - 2 * 24 * 3600 * 1000,
+    email: 'ancien@example.com',
+    intention: 'bug',
+    message: 'reçu avant',
+  }
   appendFileSync(f, JSON.stringify(ancien) + '\n', 'utf8')
 
   const vue = await apercu()

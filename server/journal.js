@@ -305,8 +305,8 @@ export class Journal {
       // Deux seuils, et il suffit que l'un soit franchi : beaucoup de
       // petites frappes, ou peu d'opérations mais très grosses.
       needsCompaction: entries.length > this.compactionTrigger || octets > this.maxUncompactedBytes,
-      oldestTs: times.length ? times[0] : (meta ? meta.createdAt : null),
-      newestTs: times.length ? times[times.length - 1] : (meta ? meta.updatedAt : null),
+      oldestTs: times.length ? times[0] : meta ? meta.createdAt : null,
+      newestTs: times.length ? times[times.length - 1] : meta ? meta.updatedAt : null,
     }
   }
 
@@ -344,7 +344,10 @@ export class Journal {
     // La chaîne elle-même ne doit jamais rester rejetée, sinon plus aucun
     // flush ni compaction futurs pour ce document ne pourraient s'exécuter
     // — l'appelant, lui, reçoit bien l'erreur via `result`.
-    this._flushChain.set(id, result.catch(() => {}))
+    this._flushChain.set(
+      id,
+      result.catch(() => {})
+    )
     return result
   }
 

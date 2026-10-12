@@ -50,7 +50,10 @@ export function nettoyerSuggestion(brut) {
     t = t.replace(/^<passage>\s*\n?([\s\S]*?)\n?\s*<\/passage>$/u, '$1').trim()
     // Des guillemets qui enferment tout, et seulement tout : un passage qui
     // en contient d'autres à l'intérieur n'est pas déballé.
-    t = t.replace(/^"([^"]*)"$/u, '$1').replace(/^« ?([^«»]*) ?»$/u, '$1').trim()
+    t = t
+      .replace(/^"([^"]*)"$/u, '$1')
+      .replace(/^« ?([^«»]*) ?»$/u, '$1')
+      .trim()
     if (t === avant) break
   }
   return t
@@ -87,16 +90,16 @@ export function corpsDeRequete({ model, text, instruction, thinking = 'disabled'
     max_tokens: budgetDeSortie(text),
     thinking: { type: thinking },
     system:
-      "Tu es un assistant de réécriture intégré à un éditeur de texte collaboratif. " +
-      "On te donne un passage et une instruction. Réponds UNIQUEMENT par le texte réécrit, " +
+      'Tu es un assistant de réécriture intégré à un éditeur de texte collaboratif. ' +
+      'On te donne un passage et une instruction. Réponds UNIQUEMENT par le texte réécrit, ' +
       "dans la même langue que le passage d'origine, sans guillemets, sans préambule, " +
-      "sans explication, sans markdown. Si le passage contient plusieurs paragraphes " +
-      "séparés par des sauts de ligne, garde exactement le même nombre de paragraphes, " +
-      "dans le même ordre, séparés eux aussi par un seul saut de ligne chacun — sauf si " +
+      'sans explication, sans markdown. Si le passage contient plusieurs paragraphes ' +
+      'séparés par des sauts de ligne, garde exactement le même nombre de paragraphes, ' +
+      'dans le même ordre, séparés eux aussi par un seul saut de ligne chacun — sauf si ' +
       "l'instruction demande explicitement de les fusionner ou de les scinder. " +
-      "Le passage peut contenir des repères de la forme ⟦1⟧, ⟦2⟧… : ils tiennent la place " +
+      'Le passage peut contenir des repères de la forme ⟦1⟧, ⟦2⟧… : ils tiennent la place ' +
       "d'une note ou d'une image. Reproduis chacun tel quel, exactement au même endroit du " +
-      "texte, sans jamais en ajouter, en retirer ni en déplacer. Un saut de ligne à " +
+      'texte, sans jamais en ajouter, en retirer ni en déplacer. Un saut de ligne à ' +
       "l'intérieur d'un paragraphe est voulu : garde-le.",
     messages: [
       {
@@ -120,9 +123,7 @@ function refuseLeReglageDeReflexion(status, detail) {
 export async function suggestEdit(config, text, instruction) {
   const apiKey = config.apiKey || process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    throw new AIConfigError(
-      "Aucune clé API configurée. Définis ANTHROPIC_API_KEY dans le fichier .env du serveur."
-    )
+    throw new AIConfigError('Aucune clé API configurée. Définis ANTHROPIC_API_KEY dans le fichier .env du serveur.')
   }
   if (!text || !text.trim()) {
     throw new AIRequestError('Aucun texte sélectionné.', 400)
@@ -176,10 +177,7 @@ export async function suggestEdit(config, text, instruction) {
       }
     }
     if (!response.ok) {
-      throw new AIRequestError(
-        `L'API Claude a répondu ${response.status}${detail ? ` : ${detail}` : ''}`,
-        502
-      )
+      throw new AIRequestError(`L'API Claude a répondu ${response.status}${detail ? ` : ${detail}` : ''}`, 502)
     }
   }
 

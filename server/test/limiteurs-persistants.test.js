@@ -102,7 +102,11 @@ test('l’écriture est différée et groupée, puis a bien lieu sans arrêt pro
   const contenu = JSON.parse(readFileSync(chemin, 'utf8'))
   assert.equal(Object.keys(contenu.limiteurs.x).length, 20, 'les vingt enregistrements sont dans une seule écriture')
   assert.equal(statSync(chemin).mode & 0o077, 0, 'illisible pour les autres comptes du serveur')
-  assert.deepEqual(readdirSync(d).filter((f) => f.endsWith('.tmp')), [], 'aucun fichier temporaire ne traîne')
+  assert.deepEqual(
+    readdirSync(d).filter((f) => f.endsWith('.tmp')),
+    [],
+    'aucun fichier temporaire ne traîne'
+  )
 })
 
 test('arreter() écrit tout de suite et annule l’écriture différée', async () => {
@@ -117,19 +121,31 @@ test('arreter() écrit tout de suite et annule l’écriture différée', async 
 
 test('un fichier absent, abîmé, d’une autre version ou aux formes absurdes : on repart de zéro, sans rien refuser', () => {
   const ecrire = (d, contenu) => writeFileSync(join(d, 'limiteurs.json'), contenu)
-  for (const contenu of ['{ pas du json', '[]', 'null', JSON.stringify({ version: 99, limiteurs: { x: { a: [Date.now()] } } }), JSON.stringify({ version: 1, limiteurs: 'x' })]) {
+  for (const contenu of [
+    '{ pas du json',
+    '[]',
+    'null',
+    JSON.stringify({ version: 99, limiteurs: { x: { a: [Date.now()] } } }),
+    JSON.stringify({ version: 1, limiteurs: 'x' }),
+  ]) {
     const d = dossier()
     ecrire(d, contenu)
     const l = new RegistreLimiteurs(d).adopter('x', new Limiteur({ max: 1, fenetreMs: HEURE }))
     assert.equal(l.atteint('a'), false, contenu)
   }
-  assert.equal(new RegistreLimiteurs(dossier()).adopter('x', new Limiteur({ max: 1, fenetreMs: HEURE })).atteint('a'), false)
+  assert.equal(
+    new RegistreLimiteurs(dossier()).adopter('x', new Limiteur({ max: 1, fenetreMs: HEURE })).atteint('a'),
+    false
+  )
 })
 
 test('l’état sauvegardé trop ancien pour sa fenêtre est oublié au chargement et jamais réécrit', () => {
   const d = dossier()
   const vieux = Date.now() - 3 * HEURE
-  writeFileSync(join(d, 'limiteurs.json'), JSON.stringify({ version: 1, limiteurs: { x: { a: [vieux] }, disparu: { b: [Date.now()] } } }))
+  writeFileSync(
+    join(d, 'limiteurs.json'),
+    JSON.stringify({ version: 1, limiteurs: { x: { a: [vieux] }, disparu: { b: [Date.now()] } } })
+  )
   const r = new RegistreLimiteurs(d)
   const l = r.adopter('x', new Limiteur({ max: 1, fenetreMs: HEURE }))
   assert.equal(l.atteint('a'), false)
@@ -216,7 +232,12 @@ test('les demandes d’IA de l’heure survivent à un redémarrage, fonction pa
   const fabriquer = (registre) => {
     const reglages = new ReglagesIa(d)
     reglages.modifier({ corrections: { demandesParHeure: 2 } }, 'a')
-    return new QuotasIa({ reglages, usage: new UsageIa(d, { maintenant: () => horloge.t }), maintenant: () => horloge.t, registre })
+    return new QuotasIa({
+      reglages,
+      usage: new UsageIa(d, { maintenant: () => horloge.t }),
+      maintenant: () => horloge.t,
+      registre,
+    })
   }
   const tenter = (q, fonction) => {
     try {

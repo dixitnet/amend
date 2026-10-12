@@ -14,7 +14,11 @@
 
 import { nombre } from '../../shared/signes.js'
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  )
 
 const NIVEAUX = {
   admin: 'Administrateurs de l’instance seulement',
@@ -22,14 +26,30 @@ const NIVEAUX = {
   correcteur: 'Correcteurs, éditeurs et administrateurs',
 }
 
-const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+const MOIS = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+]
 export const libelleMois = (m) => {
   const [a, n] = String(m).split('-')
   return MOIS[Number(n) - 1] ? `${MOIS[Number(n) - 1]} ${a}` : String(m)
 }
 
 const usd = (v) => (v ? `${v < 0.01 ? v.toFixed(4) : v.toFixed(2)} $`.replace('.', ',') : '—')
-const jetons = (c) => (c.entree || c.sortie || c.cacheLu || c.cacheEcrit ? `${nombre(c.entree)} entrée · ${nombre(c.sortie)} sortie${c.cacheLu || c.cacheEcrit ? ` · ${nombre(c.cacheLu)} cache lu · ${nombre(c.cacheEcrit)} cache écrit` : ''}` : '—')
+const jetons = (c) =>
+  c.entree || c.sortie || c.cacheLu || c.cacheEcrit
+    ? `${nombre(c.entree)} entrée · ${nombre(c.sortie)} sortie${c.cacheLu || c.cacheEcrit ? ` · ${nombre(c.cacheLu)} cache lu · ${nombre(c.cacheEcrit)} cache écrit` : ''}`
+    : '—'
 
 function carte(id, nom, r, d) {
   const b = d.bornes
@@ -94,7 +114,8 @@ function tableModeles(d) {
   const noms = Object.fromEntries(d.modeles.map((m) => [m.id, m.nom]))
   const entrees = Object.entries(d.jetonsParModele)
   if (!entrees.length) return '<p class="bo-note">Aucun jeton facturé ce mois-là.</p>'
-  const ligne = (nom, c) => `<tr><th scope="row">${nom}</th><td>${nombre(c.appels)}</td><td>${nombre(c.entree)}</td><td>${nombre(c.sortie)}</td><td>${nombre(c.cacheLu)}</td><td>${nombre(c.cacheEcrit)}</td><td>${usd(c.usd)}</td></tr>`
+  const ligne = (nom, c) =>
+    `<tr><th scope="row">${nom}</th><td>${nombre(c.appels)}</td><td>${nombre(c.entree)}</td><td>${nombre(c.sortie)}</td><td>${nombre(c.cacheLu)}</td><td>${nombre(c.cacheEcrit)}</td><td>${usd(c.usd)}</td></tr>`
   const corps = entrees
     .map(([id, m]) => {
       const tarif = d.tarifsUsd && d.tarifsUsd[id]
@@ -125,7 +146,8 @@ export async function mountAdminIa(root, { fetcher = (...a) => fetch(...a), mois
     return
   }
   if (!res || !res.ok) {
-    root.innerHTML = '<div class="home"><p>Les réglages de l’IA ne répondent pas.</p><a href="#/admin">← Retour au back-office</a></div>'
+    root.innerHTML =
+      '<div class="home"><p>Les réglages de l’IA ne répondent pas.</p><a href="#/admin">← Retour au back-office</a></div>'
     return
   }
   const d = await res.json()
@@ -192,5 +214,7 @@ export async function mountAdminIa(root, { fetcher = (...a) => fetch(...a), mois
       message.textContent = 'Le serveur ne répond pas.'
     }
   })
-  root.querySelector('select[name="mois"]').addEventListener('change', (e) => mountAdminIa(root, { fetcher, mois: e.target.value }))
+  root
+    .querySelector('select[name="mois"]')
+    .addEventListener('change', (e) => mountAdminIa(root, { fetcher, mois: e.target.value }))
 }

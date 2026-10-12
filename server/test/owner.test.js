@@ -142,16 +142,19 @@ test('le propriétaire ne peut ni quitter son document ni en être retiré', asy
   const doc = await creerDoc(proprio)
   ajouter(doc.id, 'autre@example.com', 'editeur')
 
-  const partir = await fetch(`${BASE}/api/docs/${doc.id}/access/moi`, { method: 'DELETE', headers: { cookie: proprio } })
+  const partir = await fetch(`${BASE}/api/docs/${doc.id}/access/moi`, {
+    method: 'DELETE',
+    headers: { cookie: proprio },
+  })
   assert.equal(partir.status, 403)
   assert.equal(storage().roleFor(doc.id, 'proprio@example.com'), 'editeur')
 
   // Et un autre éditeur ne peut pas le révoquer : le document deviendrait
   // orphelin — plus de porteur, plus personne pour le supprimer.
-  const revoque = await fetch(
-    `${BASE}/api/docs/${doc.id}/access/${encodeURIComponent('proprio@example.com')}`,
-    { method: 'DELETE', headers: { cookie: cookie('autre@example.com') } }
-  )
+  const revoque = await fetch(`${BASE}/api/docs/${doc.id}/access/${encodeURIComponent('proprio@example.com')}`, {
+    method: 'DELETE',
+    headers: { cookie: cookie('autre@example.com') },
+  })
   assert.equal(revoque.status, 403)
   assert.equal(storage().ownerOf(doc.id), 'proprio@example.com')
 })
@@ -194,7 +197,10 @@ test('le transfert est exclusif, et la cible doit déjà avoir accès', async ()
 
   // L'ancien propriétaire garde son accès, et perd ses droits exclusifs.
   assert.equal(s.roleFor(doc.id, 'proprio@example.com'), 'editeur')
-  assert.equal((await fetch(`${BASE}/api/docs/${doc.id}`, { method: 'DELETE', headers: { cookie: proprio } })).status, 403)
+  assert.equal(
+    (await fetch(`${BASE}/api/docs/${doc.id}`, { method: 'DELETE', headers: { cookie: proprio } })).status,
+    403
+  )
   // Il peut maintenant partir — il ne porte plus rien.
   assert.equal(
     (await fetch(`${BASE}/api/docs/${doc.id}/access/moi`, { method: 'DELETE', headers: { cookie: proprio } })).status,
@@ -206,9 +212,7 @@ test('la liste des accès désigne le propriétaire', async () => {
   const proprio = cookie('proprio@example.com')
   const doc = await creerDoc(proprio)
   ajouter(doc.id, 'autre@example.com', 'correcteur')
-  const { access } = await (
-    await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: proprio } })
-  ).json()
+  const { access } = await (await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: proprio } })).json()
   const marques = access.filter((a) => a.proprietaire)
   assert.equal(marques.length, 1, 'un seul propriétaire par document')
   assert.equal(marques[0].email, 'proprio@example.com')

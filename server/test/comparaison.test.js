@@ -7,7 +7,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as Y from 'yjs'
-import { aligner, blocsDeInstantane, blocsPlats, comparer, planDeRestauration, restaurerEnAvant } from '../comparaison.js'
+import {
+  aligner,
+  blocsDeInstantane,
+  blocsPlats,
+  comparer,
+  planDeRestauration,
+  restaurerEnAvant,
+} from '../comparaison.js'
 import { blocsDuDocument } from '../agentTexte.js'
 
 const AUTEUR = { name: 'Sylvain', color: '#c0392b' }
@@ -24,7 +31,8 @@ function docDe(paragraphes) {
   }
   return y
 }
-const blocs = (paragraphes) => paragraphes.map((texte, k) => ({ n: k + 1, nom: 'paragraph', niveau: null, contexte: [], texte }))
+const blocs = (paragraphes) =>
+  paragraphes.map((texte, k) => ({ n: k + 1, nom: 'paragraph', niveau: null, contexte: [], texte }))
 
 /** Ce qu'on lit une fois tout accepté / tout refusé, bloc par bloc. */
 function lectures(ydoc) {
@@ -40,13 +48,18 @@ function lectures(ydoc) {
 }
 
 test('l’alignement reconnaît ce qui est identique, modifié, ajouté, supprimé', () => {
-  const a = blocs(['Introduction.', 'Le chômage augmente en 2020.', 'Un paragraphe qui disparaît entièrement.', 'Conclusion.'])
+  const a = blocs([
+    'Introduction.',
+    'Le chômage augmente en 2020.',
+    'Un paragraphe qui disparaît entièrement.',
+    'Conclusion.',
+  ])
   const b = blocs(['Introduction.', 'Le chômage augmente nettement en 2020.', 'Conclusion.', 'Annexe nouvelle.'])
   const { ops, approximatif } = aligner(a, b)
   assert.equal(approximatif, false)
   assert.deepEqual(
     ops.map((o) => o.type),
-    ['egal', 'modifie', 'supprime', 'egal', 'ajoute'],
+    ['egal', 'modifie', 'supprime', 'egal', 'ajoute']
   )
   assert.deepEqual(ops[1], { type: 'modifie', i: 1, j: 1 })
 })
@@ -61,8 +74,15 @@ test('deux documents identiques : rien à montrer', () => {
 test('la comparaison ne rend que les blocs qui diffèrent', () => {
   const c = comparer(blocs(['a', 'b', 'c', 'd']), blocs(['a', 'b', 'tout autre chose', 'd']))
   assert.equal(c.identiques, 3)
-  assert.deepEqual(c.changements.map((x) => x.type), ['supprime', 'ajoute'], 'deux blocs sans rapport : l’un disparaît, l’autre apparaît')
-  const grand = comparer(blocs(['x', 'Le texte change de manière assez limitée.']), blocs(['x', 'Le texte change de manière très limitée.']))
+  assert.deepEqual(
+    c.changements.map((x) => x.type),
+    ['supprime', 'ajoute'],
+    'deux blocs sans rapport : l’un disparaît, l’autre apparaît'
+  )
+  const grand = comparer(
+    blocs(['x', 'Le texte change de manière assez limitée.']),
+    blocs(['x', 'Le texte change de manière très limitée.'])
+  )
   assert.equal(grand.changements.length, 1)
   assert.equal(grand.changements[0].type, 'modifie')
   assert.equal(grand.changements[0].avant.n, 2)
@@ -77,7 +97,10 @@ test('un cœur trop gros pour l’alignement exact est signalé approximatif', (
 test('un document lu depuis un instantané donne ses blocs', () => {
   const y = docDe(['Premier.', 'Second.'])
   const lus = blocsDeInstantane(Y.encodeStateAsUpdate(y))
-  assert.deepEqual(lus.map((b) => b.texte), ['Premier.', 'Second.'])
+  assert.deepEqual(
+    lus.map((b) => b.texte),
+    ['Premier.', 'Second.']
+  )
 })
 
 test('restaurer propose les changements qui ramènent la version, sans toucher au reste', () => {
@@ -90,15 +113,15 @@ test('restaurer propose les changements qui ramènent la version, sans toucher a
 
   const lu = lectures(y)
   // Accepté en entier : exactement la version visée.
-  assert.deepEqual(lu.map((l) => l.accepte), [
-    'Introduction.',
-    'Le chômage augmente en 2020.',
-    'Un paragraphe supprimé depuis.',
-    'Conclusion.',
-    '',
-  ])
+  assert.deepEqual(
+    lu.map((l) => l.accepte),
+    ['Introduction.', 'Le chômage augmente en 2020.', 'Un paragraphe supprimé depuis.', 'Conclusion.', '']
+  )
   // Refusé en entier : le document d'avant, intact (le bloc ajouté en suivi disparaît).
-  assert.deepEqual(lu.map((l) => l.refuse).filter((t) => t !== ''), aujourdhui)
+  assert.deepEqual(
+    lu.map((l) => l.refuse).filter((t) => t !== ''),
+    aujourdhui
+  )
 })
 
 test('les propositions portent l’auteur de la restauration', () => {
@@ -140,5 +163,11 @@ test('un passage déjà en attente est refusé et rapporté, le reste passe', ()
 
 test('blocsPlats rend numéros, types et texte', () => {
   const lus = blocsPlats(docDe(['a', 'b']))
-  assert.deepEqual(lus.map((b) => [b.n, b.nom, b.texte]), [[1, 'paragraph', 'a'], [2, 'paragraph', 'b']])
+  assert.deepEqual(
+    lus.map((b) => [b.n, b.nom, b.texte]),
+    [
+      [1, 'paragraph', 'a'],
+      [2, 'paragraph', 'b'],
+    ]
+  )
 })

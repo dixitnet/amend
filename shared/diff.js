@@ -131,13 +131,7 @@ export function diffWords(oldText, newText) {
   for (let k = 0; k < runs.length; k++) {
     const run = runs[k]
     const next = runs[k + 1]
-    if (
-      run.type === 'delete' &&
-      run.items.length === 1 &&
-      next &&
-      next.type === 'insert' &&
-      next.items.length === 1
-    ) {
+    if (run.type === 'delete' && run.items.length === 1 && next && next.type === 'insert' && next.items.length === 1) {
       const oldWord = run.items[0]
       const newWord = next.items[0]
       const charRuns = diffChars(oldWord, newWord)

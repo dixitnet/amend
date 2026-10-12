@@ -163,9 +163,7 @@ export function ouvrirFilCommentaire(view, ydoc, commentsMap, user, id) {
       feuille.fermer()
       return
     }
-    feuille.corps.appendChild(
-      messageDOM(commentsMap, ydoc, user, courant, id, true, remplir)
-    )
+    feuille.corps.appendChild(messageDOM(commentsMap, ydoc, user, courant, id, true, remplir))
     for (const r of reponsesDe(commentsMap, id)) {
       feuille.corps.appendChild(messageDOM(commentsMap, ydoc, user, r, r.id, false, remplir))
     }
@@ -301,7 +299,13 @@ export function monterBarreRelecture(getView, { canReview = true } = {}) {
     accepter.disabled = rejeter.disabled = index < 0
   }
 
-  return { el, rendre, detruire() { el.remove() } }
+  return {
+    el,
+    rendre,
+    detruire() {
+      el.remove()
+    },
+  }
 }
 
 /**

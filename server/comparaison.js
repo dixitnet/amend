@@ -43,7 +43,13 @@ export function blocsDeInstantane(octets) {
 }
 
 export function blocsPlats(ydoc) {
-  return blocsDuDocument(ydoc).map((b) => ({ n: b.n, nom: b.nom, niveau: b.niveau, contexte: b.contexte, texte: b.texte }))
+  return blocsDuDocument(ydoc).map((b) => ({
+    n: b.n,
+    nom: b.nom,
+    niveau: b.niveau,
+    contexte: b.contexte,
+    texte: b.texte,
+  }))
 }
 
 /**
@@ -96,7 +102,8 @@ function alignerExact(a, b) {
   const dp = new Int32Array((n + 1) * largeur)
   for (let i = n - 1; i >= 0; i--) {
     for (let j = m - 1; j >= 0; j--) {
-      dp[i * largeur + j] = a[i] === b[j] ? dp[(i + 1) * largeur + j + 1] + 1 : Math.max(dp[(i + 1) * largeur + j], dp[i * largeur + j + 1])
+      dp[i * largeur + j] =
+        a[i] === b[j] ? dp[(i + 1) * largeur + j + 1] + 1 : Math.max(dp[(i + 1) * largeur + j], dp[i * largeur + j + 1])
     }
   }
   const out = []
@@ -123,7 +130,7 @@ function alignerParRang(n, m) {
   return out
 }
 
-const mots = (t) => new Set((t.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []))
+const mots = (t) => new Set(t.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])
 
 function parente(x, y) {
   const a = mots(x)
@@ -202,8 +209,14 @@ export function comparer(avant, apres) {
     }
     changements.push({
       type: o.type,
-      avant: o.i === null ? null : { n: avant[o.i].n, nom: avant[o.i].nom, niveau: avant[o.i].niveau, texte: avant[o.i].texte },
-      apres: o.j === null ? null : { n: apres[o.j].n, nom: apres[o.j].nom, niveau: apres[o.j].niveau, texte: apres[o.j].texte },
+      avant:
+        o.i === null
+          ? null
+          : { n: avant[o.i].n, nom: avant[o.i].nom, niveau: avant[o.i].niveau, texte: avant[o.i].texte },
+      apres:
+        o.j === null
+          ? null
+          : { n: apres[o.j].n, nom: apres[o.j].nom, niveau: apres[o.j].niveau, texte: apres[o.j].texte },
     })
   }
   return { changements, identiques, approximatif }
@@ -247,7 +260,10 @@ export function planDeRestauration(actuel, cible) {
       ancre = x.n
       if (!x.texte) continue
       if (x.texte.length > AVANT_MAX) {
-        ignores.push({ bloc: x.n, raison: 'bloc trop long pour être proposé à la suppression d’un coup : à reprendre à la main' })
+        ignores.push({
+          bloc: x.n,
+          raison: 'bloc trop long pour être proposé à la suppression d’un coup : à reprendre à la main',
+        })
         continue
       }
       remplacements.push({ bloc: x.n, avant: x.texte, apres: '' })

@@ -109,9 +109,7 @@ export function mountTkMarker(container, { onCycle } = {}) {
     container.textContent = count > 0 ? `${count} \u26a0\ufe0f,` : ''
     container.classList.toggle('cliquable', count > 0)
     container.title =
-      count > 0
-        ? `${count} marqueur${count > 1 ? 's' : ''} "!!" à reprendre — cliquer pour aller au suivant`
-        : ''
+      count > 0 ? `${count} marqueur${count > 1 ? 's' : ''} "!!" à reprendre — cliquer pour aller au suivant` : ''
   }
 
   const throttledRender = throttle(render, RENDER_INTERVAL_MS)

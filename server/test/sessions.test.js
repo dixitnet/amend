@@ -56,7 +56,10 @@ test('un fichier illisible n’ouvre pas de sessions révoquées : il lève', ()
   const dir = mkdtempSync(join(tmpdir(), 'sessions-illisible-'))
   writeFileSync(join(dir, 'sessions-revoquees.json'), '{"x@example.com": 12')
   assert.throws(() => new SessionsRevoquees(dir).validesDepuis('x@example.com'))
-  assert.ok(readdirSync(dir).some((f) => f.includes('illisible')), 'le fichier est mis de côté')
+  assert.ok(
+    readdirSync(dir).some((f) => f.includes('illisible')),
+    'le fichier est mis de côté'
+  )
   rmSync(dir, { recursive: true, force: true })
 })
 
@@ -79,7 +82,10 @@ test('se déconnecter partout : l’ancien cookie ne vaut plus, un nouveau vaut,
   await attendre(5)
   const neuf = cookieFor('s8-alice@example.com')
   assert.equal(lire(neuf), 's8-alice@example.com', 'une session ouverte ensuite vaut normalement')
-  assert.equal((await (await fetch(`${BASE}/api/auth/me`, { headers: { cookie: neuf } })).json()).email, 's8-alice@example.com')
+  assert.equal(
+    (await (await fetch(`${BASE}/api/auth/me`, { headers: { cookie: neuf } })).json()).email,
+    's8-alice@example.com'
+  )
 })
 
 test('se déconnecter partout demande une session', async () => {

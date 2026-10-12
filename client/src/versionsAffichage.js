@@ -5,7 +5,13 @@ import { diffWords } from './diff.js'
 
 export function dateLisible(ts) {
   if (!ts) return 'date inconnue'
-  return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Date(ts).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 const ORIGINES = {
@@ -51,7 +57,8 @@ export function phraseRestauration(r, { auFutur = true } = {}) {
   const morceaux = []
   if (modifies) morceaux.push(pluriel(modifies, 'paragraphe retouché', 'paragraphes retouchés'))
   if (ajoutes) morceaux.push(pluriel(ajoutes, 'paragraphe rétabli', 'paragraphes rétablis'))
-  if (supprimes) morceaux.push(pluriel(supprimes, 'paragraphe proposé à la suppression', 'paragraphes proposés à la suppression'))
+  if (supprimes)
+    morceaux.push(pluriel(supprimes, 'paragraphe proposé à la suppression', 'paragraphes proposés à la suppression'))
   if (!morceaux.length) return 'Le texte du document est déjà celui de cette version : rien à restaurer.'
   return `${auFutur ? 'Seront proposés' : 'Ont été proposés'} en suivi de modifications : ${morceaux.join(', ')}.`
 }

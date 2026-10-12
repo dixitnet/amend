@@ -41,7 +41,7 @@ function waitForServer() {
 
 const cookieFor = (email) => sessionCookieHeader(email, { secure: false }).split(';')[0]
 
-test("le back-office est réservé aux administrateurs", async () => {
+test('le back-office est réservé aux administrateurs', async () => {
   assert.equal((await fetch(`${BASE}/api/admin/overview`)).status, 403)
   assert.equal(
     (await fetch(`${BASE}/api/admin/overview`, { headers: { cookie: cookieFor('quidam@example.com') } })).status,
@@ -69,7 +69,12 @@ test('la vue agrège utilisateurs, documents et flux — et ne laisse fuir aucun
   const solo = storage.createDoc('Document solitaire', 'chef@example.com')
   const duo = storage.createDoc('Document à deux', 'chef@example.com')
   storage.grantAccess(duo.id, 'relecteur@example.com', 'correcteur')
-  const { token: jetonInvitation } = storage.inviteEmail(duo.id, 'jamais-venu@example.com', 'correcteur', 'chef@example.com')
+  const { token: jetonInvitation } = storage.inviteEmail(
+    duo.id,
+    'jamais-venu@example.com',
+    'correcteur',
+    'chef@example.com'
+  )
 
   const hier = Date.now() - 24 * 60 * 60 * 1000
   // Deux sessions qui se recouvrent sur le même document, par deux personnes
@@ -79,8 +84,26 @@ test('la vue agrège utilisateurs, documents et flux — et ne laisse fuir aucun
   // Une session isolée, qui ne doit pas compter comme collaboration.
   metrics.log('connexions', { email: 'chef@example.com', docId: solo.id, debut: hier, dureeMs: 120000 })
   metrics.log('ia', { email: 'chef@example.com', docId: duo.id, entree: 1200, sortie: 300 })
-  metrics.log('dialogue', { email: 'chef@example.com', docId: duo.id, modele: 'claude-sonnet-5-5', entree: 500, sortie: 200, cacheLu: 3000, cacheEcrit: 800, tours: 3 })
-  metrics.log('dialogue', { email: 'relecteur@example.com', docId: duo.id, modele: 'claude-sonnet-5-5', entree: 100, sortie: 50, cacheLu: 0, cacheEcrit: 0, tours: 1 })
+  metrics.log('dialogue', {
+    email: 'chef@example.com',
+    docId: duo.id,
+    modele: 'claude-sonnet-5-5',
+    entree: 500,
+    sortie: 200,
+    cacheLu: 3000,
+    cacheEcrit: 800,
+    tours: 3,
+  })
+  metrics.log('dialogue', {
+    email: 'relecteur@example.com',
+    docId: duo.id,
+    modele: 'claude-sonnet-5-5',
+    entree: 100,
+    sortie: 50,
+    cacheLu: 0,
+    cacheEcrit: 0,
+    tours: 1,
+  })
   metrics.log('mail', { type: 'invitation', ok: true })
   metrics.log('mail', { type: 'connexion', ok: false, erreur: 'Mailgun indisponible' })
 
@@ -107,8 +130,20 @@ test('la vue agrège utilisateurs, documents et flux — et ne laisse fuir aucun
   assert.equal(vue.flux.ia.parPersonne[0].email, 'chef@example.com')
 
   // Les jetons des deux usages de Margo, séparés.
-  assert.deepEqual(vue.flux.tokens.barreLaterale['30j'], { appels: 1, entree: 1200, sortie: 300, cacheLu: 0, cacheEcrit: 0 })
-  assert.deepEqual(vue.flux.tokens.fenetre['30j'], { appels: 2, entree: 600, sortie: 250, cacheLu: 3000, cacheEcrit: 800 })
+  assert.deepEqual(vue.flux.tokens.barreLaterale['30j'], {
+    appels: 1,
+    entree: 1200,
+    sortie: 300,
+    cacheLu: 0,
+    cacheEcrit: 0,
+  })
+  assert.deepEqual(vue.flux.tokens.fenetre['30j'], {
+    appels: 2,
+    entree: 600,
+    sortie: 250,
+    cacheLu: 3000,
+    cacheEcrit: 800,
+  })
   assert.equal(vue.flux.tokens.fenetre['24h'].appels, 2)
   assert.equal(vue.flux.tokens.fenetre.parModele[0].modele, 'claude-sonnet-5-5')
   assert.equal(vue.flux.tokens.fenetre.parPersonne[0].email, 'chef@example.com')
@@ -122,7 +157,7 @@ test('la vue agrège utilisateurs, documents et flux — et ne laisse fuir aucun
   assert.equal(JSON.stringify(vue).includes(jetonInvitation), false)
 })
 
-test("la vue dit quand la machine de sauvegarde a tiré une copie pour la dernière fois", async () => {
+test('la vue dit quand la machine de sauvegarde a tiré une copie pour la dernière fois', async () => {
   const chef = { headers: { cookie: cookieFor('chef@example.com') } }
   const avant = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
   assert.equal(avant.serveur.sauvegardeDistante, null, 'aucune copie distante tant que personne ne l’a signalée')
@@ -138,7 +173,7 @@ test("la vue dit quand la machine de sauvegarde a tiré une copie pour la derni�
   assert.equal(abime.serveur.sauvegardeDistante, null)
 })
 
-test("la vue dit quand le serveur a envoyé sa sauvegarde sur Proton pour la dernière fois", async () => {
+test('la vue dit quand le serveur a envoyé sa sauvegarde sur Proton pour la dernière fois', async () => {
   const chef = { headers: { cookie: cookieFor('chef@example.com') } }
   const avant = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
   assert.equal(avant.serveur.sauvegardeProton, null, 'rien tant que l’envoi n’a jamais réussi')

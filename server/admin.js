@@ -72,7 +72,18 @@ function enEuros(entree, sortie, tarifs) {
   return Math.round(Math.max(0, brut) * 10000) / 10000
 }
 
-export function apercu({ storage, rooms, repliques = null, metrics, uploads, users, tarifsIA, dataDir, waitlistPath, supportTraites }) {
+export function apercu({
+  storage,
+  rooms,
+  repliques = null,
+  metrics,
+  uploads,
+  users,
+  tarifsIA,
+  dataDir,
+  waitlistPath,
+  supportTraites,
+}) {
   const docs = storage.allDocs()
   // Les comptes (data/users.json) : pour l'instant juste le nom affiché et
   // la couleur. C'est ici qu'on vient lire un nom mal saisi tant qu'il n'y a
@@ -153,7 +164,13 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
     corbeille: (() => {
       const jetes = docs.filter((d) => d.corbeille)
       const octets = jetes.reduce((a, d) => a + ((journaux.find((j) => j.id === d.id) || {}).octets || 0), 0)
-      return { documents: jetes.length, octetsJournaux: octets, plusAncienJours: jetes.length ? Math.round((maintenant - Math.min(...jetes.map((d) => d.corbeille.le))) / JOUR) : null }
+      return {
+        documents: jetes.length,
+        octetsJournaux: octets,
+        plusAncienJours: jetes.length
+          ? Math.round((maintenant - Math.min(...jetes.map((d) => d.corbeille.le))) / JOUR)
+          : null,
+      }
     })(),
     journaux: {
       octetsTotal: octetsJournaux,
@@ -234,7 +251,10 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
       actifs30j: actifs(30),
       sessions7j: connexions30.filter((c) => (c.debut ?? c.ts) >= depuis(7)).length,
       dureeMedianeMin: (() => {
-        const d = connexions30.filter((c) => c.dureeMs).map((c) => c.dureeMs).sort((a, b) => a - b)
+        const d = connexions30
+          .filter((c) => c.dureeMs)
+          .map((c) => c.dureeMs)
+          .sort((a, b) => a - b)
         return d.length ? Math.round(d[d.length >> 1] / 60000) : null
       })(),
       collaboration30j: momentsCollaboratifs(connexions30),
@@ -264,7 +284,9 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
         parModele: Object.entries(parModeleDialogue).map(([modele, l]) => ({ modele, ...totauxJetons(l) })),
         parPersonne: Object.entries(parPersonneDialogue)
           .map(([email, l]) => ({ email, ...totauxJetons(l) }))
-          .sort((a, b) => b.entree + b.cacheLu + b.cacheEcrit + b.sortie - (a.entree + a.cacheLu + a.cacheEcrit + a.sortie)),
+          .sort(
+            (a, b) => b.entree + b.cacheLu + b.cacheEcrit + b.sortie - (a.entree + a.cacheLu + a.cacheEcrit + a.sortie)
+          ),
       },
     },
     images: {
@@ -303,8 +325,14 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
         // Les non traités d'abord, quelle que soit leur date : c'est la
         // seule liste qu'on ouvre le back-office pour lire. Les traités
         // suivent, toujours consultables.
-        aTraiter: trente.filter((r) => !r.traite).slice(-40).reverse(),
-        traites: trente.filter((r) => r.traite).slice(-40).reverse(),
+        aTraiter: trente
+          .filter((r) => !r.traite)
+          .slice(-40)
+          .reverse(),
+        traites: trente
+          .filter((r) => r.traite)
+          .slice(-40)
+          .reverse(),
       }
     })(),
   }

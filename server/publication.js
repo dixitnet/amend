@@ -77,7 +77,9 @@ export const NOM_PAGE = /^[a-z]{3,8}-[a-z]{3,8}-[a-z]{3,8}$/
 export const PORTEES = ['admins', 'proprietaires', 'editeurs']
 
 export function porteePublication() {
-  const v = String(process.env.PUBLICATION_WEB || 'admins').trim().toLowerCase()
+  const v = String(process.env.PUBLICATION_WEB || 'admins')
+    .trim()
+    .toLowerCase()
   return PORTEES.includes(v) ? v : 'admins'
 }
 
@@ -201,8 +203,7 @@ function bloc(n) {
     case 'taches':
       return `<ul class="taches">${(n.items || [])
         .map(
-          (i) =>
-            `<li class="${i.fait ? 'faite' : ''}">${i.fait ? '☑' : '☐'} ${(i.blocs || []).map(bloc).join('')}</li>`
+          (i) => `<li class="${i.fait ? 'faite' : ''}">${i.fait ? '☑' : '☐'} ${(i.blocs || []).map(bloc).join('')}</li>`
         )
         .join('')}</ul>`
     case 'tableau':
@@ -304,7 +305,10 @@ export function rendre({ titre, blocs, publieLe }) {
   PLAN = []
   let corps = (Array.isArray(blocs) ? blocs : []).map(bloc).join('\n')
   if (NOTES.length) {
-    const items = NOTES.map((t, i) => `<li id="note-${i + 1}">${t} <a href="#appel-${i + 1}" class="note-retour" aria-label="Retour au texte">↩</a></li>`)
+    const items = NOTES.map(
+      (t, i) =>
+        `<li id="note-${i + 1}">${t} <a href="#appel-${i + 1}" class="note-retour" aria-label="Retour au texte">↩</a></li>`
+    )
     corps += `\n<section class="notes"><h2>Notes</h2><ol>${items.join('')}</ol></section>`
   }
   NOTES = []

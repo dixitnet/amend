@@ -43,18 +43,9 @@ export function raccourcisClavier({ user, peutPoserLien, surRefusLien }) {
     // Les trois familles de liste partagent les mêmes gestes : la
     // première commande qui s'applique gagne, les autres passent la main
     // (et finalement baseKeymap, hors liste).
-    Enter: chainCommands(
-      splitListItem(schema.nodes.list_item),
-      splitListItem(schema.nodes.task_item)
-    ),
-    'Mod-]': chainCommands(
-      sinkListItem(schema.nodes.list_item),
-      sinkListItem(schema.nodes.task_item)
-    ),
-    'Mod-[': chainCommands(
-      liftListItem(schema.nodes.list_item),
-      liftListItem(schema.nodes.task_item)
-    ),
+    Enter: chainCommands(splitListItem(schema.nodes.list_item), splitListItem(schema.nodes.task_item)),
+    'Mod-]': chainCommands(sinkListItem(schema.nodes.list_item), sinkListItem(schema.nodes.task_item)),
+    'Mod-[': chainCommands(liftListItem(schema.nodes.list_item), liftListItem(schema.nodes.task_item)),
     // Tab circule de cellule en cellule, et ne fait rien ailleurs (le
     // retour `false` laisse le navigateur gérer la tabulation normale).
     Tab: goToNextCell(1),

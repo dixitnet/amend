@@ -34,7 +34,9 @@ export async function routesContact(req, res, url, ctx) {
     const INTENTIONS = { avis: 'Avis', question: 'Question', idee: 'Idée', bug: 'Bug' }
     const intention = INTENTIONS[String(body.intention || '')] ? String(body.intention) : null
     if (!intention) return sendJson(res, 400, { error: 'intention inconnue' })
-    const message = String(body.message || '').trim().slice(0, 4000)
+    const message = String(body.message || '')
+      .trim()
+      .slice(0, 4000)
     if (!message) return sendJson(res, 400, { error: 'message vide' })
 
     const c = body.contexte && typeof body.contexte === 'object' ? body.contexte : {}
@@ -97,7 +99,8 @@ export async function routesContact(req, res, url, ctx) {
     // Cinq inscriptions par heure et par origine, cent par heure en tout
     // (audit du 10/10/2026, S4) : le formulaire est public et chaque appel
     // réécrit le fichier.
-    if (!inscriptionAutorisee(origineDe(req))) return sendJson(res, 429, { error: 'trop de demandes, réessayez plus tard' })
+    if (!inscriptionAutorisee(origineDe(req)))
+      return sendJson(res, 429, { error: 'trop de demandes, réessayez plus tard' })
     storage.addToWaitlist(email)
     return sendJson(res, 200, { ok: true })
   }

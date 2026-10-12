@@ -10,7 +10,9 @@ import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
 /** Un extrait pour un objet de courriel : espaces ramenés à un seul (un
  * retour à la ligne n'a rien à faire dans un en-tête), coupé à `max`. */
 function abrege(texte, max) {
-  const t = String(texte || '').replace(/\s+/g, ' ').trim()
+  const t = String(texte || '')
+    .replace(/\s+/g, ' ')
+    .trim()
   return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t
 }
 

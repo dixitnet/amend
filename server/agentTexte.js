@@ -92,7 +92,17 @@ function decrireBloc(el, contexte, n) {
   const contenu = lireContenu(el)
   const enAttente = !!el.getAttribute('trackedBreak') || contenu.enAttente
   const niveau = el.nodeName === 'heading' ? Number(el.getAttribute('level')) || 1 : null
-  return { n, nom: el.nodeName, niveau, contexte, texte: contenu.texte, segments: contenu.segments, enAttente, notes: contenu.notes, el }
+  return {
+    n,
+    nom: el.nodeName,
+    niveau,
+    contexte,
+    texte: contenu.texte,
+    segments: contenu.segments,
+    enAttente,
+    notes: contenu.notes,
+    el,
+  }
 }
 
 /**
@@ -137,7 +147,16 @@ function lireContenu(el) {
         } else {
           // Objet intégré : ne devrait pas exister dans un XmlText de
           // y-prosemirror. Compté comme un atome, jamais modifié.
-          ajouter({ xt: enfant, debut: index, fin: index + 1, texte: '⟦?⟧', attrs: {}, atome: true, supprime: false, enAttente: false })
+          ajouter({
+            xt: enfant,
+            debut: index,
+            fin: index + 1,
+            texte: '⟦?⟧',
+            attrs: {},
+            atome: true,
+            supprime: false,
+            enAttente: false,
+          })
           index += 1
         }
       }
@@ -192,7 +211,13 @@ export function resume(bloc) {
     contexte: bloc.contexte,
     texte: bloc.texte,
     enAttente: bloc.enAttente,
-    notes: bloc.notes.map((x) => ({ k: x.k, numero: x.numero, texte: x.texte, enAttente: x.enAttente, supprimee: x.supprimee })),
+    notes: bloc.notes.map((x) => ({
+      k: x.k,
+      numero: x.numero,
+      texte: x.texte,
+      enAttente: x.enAttente,
+      supprimee: x.supprimee,
+    })),
   }
 }
 
@@ -221,7 +246,11 @@ export function situer(bloc, citation) {
   // au même moment chez tous les clients — les contenus divergeraient. Un
   // clavier ne produit jamais cela ; une citation recopiée par un modèle, si.
   if (trouve.ok && coupeUnePaire(bloc.texte, trouve.debut, trouve.fin)) {
-    return { ok: false, raison: 'ce passage commence ou finit au milieu d’un émoji ou d’un caractère codé sur deux positions : recopie-le en entier' }
+    return {
+      ok: false,
+      raison:
+        'ce passage commence ou finit au milieu d’un émoji ou d’un caractère codé sur deux positions : recopie-le en entier',
+    }
   }
   return trouve
 }
@@ -233,7 +262,10 @@ const estSubstitutBas = (c) => c >= 0xdc00 && c <= 0xdfff
  * du texte. */
 export function coupeUnePaire(texte, debut, fin) {
   const c = (i) => (i >= 0 && i < texte.length ? texte.charCodeAt(i) : -1)
-  return (estSubstitutBas(c(debut)) && estSubstitutHaut(c(debut - 1))) || (estSubstitutHaut(c(fin - 1)) && estSubstitutBas(c(fin)))
+  return (
+    (estSubstitutBas(c(debut)) && estSubstitutHaut(c(debut - 1))) ||
+    (estSubstitutHaut(c(fin - 1)) && estSubstitutBas(c(fin)))
+  )
 }
 
 function situerSansGarde(bloc, citation) {
@@ -241,10 +273,18 @@ function situerSansGarde(bloc, citation) {
   const exact = occurrences(bloc.texte, citation)
   if (exact.length === 1) return { ok: true, debut: exact[0], fin: exact[0] + citation.length, approche: false }
   const lieu = bloc.lieu || `le bloc ${bloc.n}`
-  if (exact.length > 1) return { ok: false, raison: `ce passage apparaît ${exact.length} fois dans ${lieu} : allonge-le pour qu'il soit unique` }
+  if (exact.length > 1)
+    return {
+      ok: false,
+      raison: `ce passage apparaît ${exact.length} fois dans ${lieu} : allonge-le pour qu'il soit unique`,
+    }
   const large = occurrences(normaliser(bloc.texte), normaliser(citation))
   if (large.length === 1) return { ok: true, debut: large[0], fin: large[0] + citation.length, approche: true }
-  if (large.length > 1) return { ok: false, raison: `ce passage apparaît ${large.length} fois dans ${lieu} : allonge-le pour qu'il soit unique` }
+  if (large.length > 1)
+    return {
+      ok: false,
+      raison: `ce passage apparaît ${large.length} fois dans ${lieu} : allonge-le pour qu'il soit unique`,
+    }
   // Dernier recours : sans tenir compte de la casse. Haiku 5.5 recopie parfois
   // « les bailleurs » pour « Les bailleurs » (11 citations sur 223 au banc
   // d'essai) ; on ne le renvoie pas recopier pour une majuscule.
@@ -257,9 +297,16 @@ function situerSansGarde(bloc, citation) {
   if (a && b) {
     const souple = occurrences(a, b)
     if (souple.length === 1) return { ok: true, debut: souple[0], fin: souple[0] + citation.length, approche: true }
-    if (souple.length > 1) return { ok: false, raison: `ce passage apparaît ${souple.length} fois dans ${lieu} : allonge-le pour qu'il soit unique` }
+    if (souple.length > 1)
+      return {
+        ok: false,
+        raison: `ce passage apparaît ${souple.length} fois dans ${lieu} : allonge-le pour qu'il soit unique`,
+      }
   }
-  return { ok: false, raison: `ce passage est introuvable dans ${lieu} — recopie-le exactement, tel que lire le montre (le texte a peut-être changé depuis)` }
+  return {
+    ok: false,
+    raison: `ce passage est introuvable dans ${lieu} — recopie-le exactement, tel que lire le montre (le texte a peut-être changé depuis)`,
+  }
 }
 
 function occurrences(texte, motif) {
@@ -291,7 +338,8 @@ function plageDansLeTexte(bloc, debut, fin, { permettreMarques = false } = {}) {
     }
   }
   const xt = couverts[0].xt
-  if (couverts.some((s) => s.xt !== xt)) return { ok: false, raison: 'le passage traverse un élément du document : découpe-le' }
+  if (couverts.some((s) => s.xt !== xt))
+    return { ok: false, raison: 'le passage traverse un élément du document : découpe-le' }
   // Les segments physiques entre le premier et le dernier doivent être
   // ceux-là seulement : une suppression en attente au milieu ne se voit
   // pas dans le texte, mais elle est bien dans le passage.
@@ -299,9 +347,13 @@ function plageDansLeTexte(bloc, debut, fin, { permettreMarques = false } = {}) {
   const i0 = physiques.indexOf(couverts[0])
   const i1 = physiques.indexOf(couverts[couverts.length - 1])
   const entre = physiques.slice(i0, i1 + 1)
-  if (entre.some((s) => !s.visible)) return { ok: false, raison: 'le passage contient une suppression déjà en attente : attends qu\'elle soit traitée' }
+  if (entre.some((s) => !s.visible))
+    return { ok: false, raison: "le passage contient une suppression déjà en attente : attends qu'elle soit traitée" }
   if (!permettreMarques && entre.some((s) => s.enAttente)) {
-    return { ok: false, raison: 'le passage contient déjà une modification en attente : attends qu\'un éditeur la traite' }
+    return {
+      ok: false,
+      raison: "le passage contient déjà une modification en attente : attends qu'un éditeur la traite",
+    }
   }
   const de = couverts[0].debut + (debut - couverts[0].decalage)
   const jusqua = couverts[couverts.length - 1].debut + (fin - couverts[couverts.length - 1].decalage)
@@ -325,10 +377,15 @@ function cibleDe(blocs, numero, note, { pourCorriger = true } = {}) {
   const bloc = blocs[numero - 1]
   if (!bloc) return { refus: `il n'y a pas de bloc ${numero}` }
   if (note === undefined || note === null) return bloc
-  if (!Number.isInteger(note) || note < 1) return { refus: '`note` doit être le repère ⟦k⟧ de la note dans le bloc (un entier à partir de 1)' }
+  if (!Number.isInteger(note) || note < 1)
+    return { refus: '`note` doit être le repère ⟦k⟧ de la note dans le bloc (un entier à partir de 1)' }
   const trouvee = bloc.notes.find((x) => x.k === note)
   if (!trouvee) {
-    return { refus: bloc.notes.length ? `il n'y a pas de note ⟦${note}⟧ dans le bloc ${numero} (notes de ce bloc : ${bloc.notes.map((x) => `⟦${x.k}⟧`).join(', ')})` : `le bloc ${numero} ne porte aucune note` }
+    return {
+      refus: bloc.notes.length
+        ? `il n'y a pas de note ⟦${note}⟧ dans le bloc ${numero} (notes de ce bloc : ${bloc.notes.map((x) => `⟦${x.k}⟧`).join(', ')})`
+        : `le bloc ${numero} ne porte aucune note`,
+    }
   }
   if (pourCorriger && trouvee.suivi) {
     return {
@@ -424,9 +481,16 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
   remplacements.forEach((r, index) => {
     const numero = r && Number.isInteger(r.bloc) ? r.bloc : null
     if (numero === null) return refuse(index, r && r.bloc, 'numéro de bloc manquant ou invalide')
-    if (typeof r.avant !== 'string' || typeof r.apres !== 'string') return refuse(index, numero, '`avant` et `apres` doivent être du texte')
-    if (r.avant.length > LONGUEUR_AVANT_MAX) return refuse(index, numero, `\`avant\` est trop long (${LONGUEUR_AVANT_MAX} signes au plus) : propose plusieurs remplacements courts`)
-    if (r.apres.length > LONGUEUR_APRES_MAX) return refuse(index, numero, `\`apres\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
+    if (typeof r.avant !== 'string' || typeof r.apres !== 'string')
+      return refuse(index, numero, '`avant` et `apres` doivent être du texte')
+    if (r.avant.length > LONGUEUR_AVANT_MAX)
+      return refuse(
+        index,
+        numero,
+        `\`avant\` est trop long (${LONGUEUR_AVANT_MAX} signes au plus) : propose plusieurs remplacements courts`
+      )
+    if (r.apres.length > LONGUEUR_APRES_MAX)
+      return refuse(index, numero, `\`apres\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
     const bloc = cibleDe(blocs, numero, r.note)
     if (bloc.refus) return refuse(index, numero, bloc.refus)
     const trouve = situer(bloc, r.avant)
@@ -443,7 +507,16 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
       if (m.fin > m.de) {
         const plage = plageDansLeTexte(bloc, debut, trouve.debut + m.fin)
         if (!plage.ok) return refuse(index, numero, plage.raison)
-        morceaux.push({ index, numero, xt: plage.xt, de: plage.de, jusqua: plage.jusqua, nouveau: m.nouveau, paire: m.paire, forme: miseEnFormeHeritee(plage.segments[0]) })
+        morceaux.push({
+          index,
+          numero,
+          xt: plage.xt,
+          de: plage.de,
+          jusqua: plage.jusqua,
+          nouveau: m.nouveau,
+          paire: m.paire,
+          forme: miseEnFormeHeritee(plage.segments[0]),
+        })
       } else {
         // Une insertion pure : elle se place contre un caractère du passage
         // retrouvé — jamais dans le vide.
@@ -457,8 +530,22 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
         const auMilieu = point > seg.debut && point < seg.fin
         // Au milieu d'un texte déjà en attente, non : on ne s'insère pas
         // dans la proposition de quelqu'un d'autre.
-        if (seg.enAttente && auMilieu) return refuse(index, numero, "l'endroit est dans une modification déjà en attente : attends qu'un éditeur la traite")
-        morceaux.push({ index, numero, xt: plage.xt, de: point, jusqua: point, nouveau: m.nouveau, paire: false, forme: miseEnFormeHeritee(seg, { sansLien: !auMilieu }) })
+        if (seg.enAttente && auMilieu)
+          return refuse(
+            index,
+            numero,
+            "l'endroit est dans une modification déjà en attente : attends qu'un éditeur la traite"
+          )
+        morceaux.push({
+          index,
+          numero,
+          xt: plage.xt,
+          de: point,
+          jusqua: point,
+          nouveau: m.nouveau,
+          paire: false,
+          forme: miseEnFormeHeritee(seg, { sansLien: !auMilieu }),
+        })
       }
     }
     // Deux remplacements ne se marchent pas dessus : le premier arrivé passe.
@@ -531,12 +618,18 @@ export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
 
   ajouts.forEach((a, index) => {
     const numero = a && Number.isInteger(a.apres_bloc) && a.apres_bloc >= 0 ? a.apres_bloc : null
-    if (numero === null) return refuse(index, a && a.apres_bloc, '`apres_bloc` doit être un numéro de bloc (0 pour tout au début)')
+    if (numero === null)
+      return refuse(index, a && a.apres_bloc, '`apres_bloc` doit être un numéro de bloc (0 pour tout au début)')
     if (typeof a.texte !== 'string') return refuse(index, numero, '`texte` doit être du texte')
-    if (a.texte.length > LONGUEUR_APRES_MAX) return refuse(index, numero, `\`texte\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
-    const lignes = a.texte.split(/\r\n|\r|\n/).map((l) => typographier(l.trim())).filter(Boolean)
+    if (a.texte.length > LONGUEUR_APRES_MAX)
+      return refuse(index, numero, `\`texte\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
+    const lignes = a.texte
+      .split(/\r\n|\r|\n/)
+      .map((l) => typographier(l.trim()))
+      .filter(Boolean)
     if (!lignes.length) return refuse(index, numero, 'le texte est vide')
-    if (lignes.length > LIGNES_PAR_AJOUT_MAX) return refuse(index, numero, `au plus ${LIGNES_PAR_AJOUT_MAX} paragraphes par ajout`)
+    if (lignes.length > LIGNES_PAR_AJOUT_MAX)
+      return refuse(index, numero, `au plus ${LIGNES_PAR_AJOUT_MAX} paragraphes par ajout`)
     let ancre = null
     if (numero > 0) {
       const bloc = blocs[numero - 1]
@@ -544,7 +637,11 @@ export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
       // Comme un correcteur dans l'éditeur : un saut de paragraphe se suit au
       // premier niveau du document, pas dans une liste ni une citation.
       if (bloc.contexte.length) {
-        return refuse(index, numero, `le bloc ${numero} est dans ${bloc.contexte.includes('blockquote') ? 'une citation' : 'une liste'} : un paragraphe ne s'ajoute pas à cet endroit — ajoute-le après le bloc qui la précède ou la suit, ou propose-le dans un commentaire`)
+        return refuse(
+          index,
+          numero,
+          `le bloc ${numero} est dans ${bloc.contexte.includes('blockquote') ? 'une citation' : 'une liste'} : un paragraphe ne s'ajoute pas à cet endroit — ajoute-le après le bloc qui la précède ou la suit, ou propose-le dans un commentaire`
+        )
       }
       ancre = bloc.el
     }
@@ -645,7 +742,8 @@ function remettreLesAncres(ydoc, deplacements, xt, nouveau) {
   for (const d of deplacements) {
     if (d.de === null && d.a === null) continue
     const suivante = { ...d.valeur }
-    if (d.de !== null) suivante.anchorFrom = Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(nouveau, d.de, 0))
+    if (d.de !== null)
+      suivante.anchorFrom = Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(nouveau, d.de, 0))
     if (d.a !== null) {
       // À cheval : le début reste avant l'appel, la fin le suivrait dans un
       // autre texte, et une ancre ne se compte que dans un seul. On la ramène
@@ -695,13 +793,19 @@ export function ajouterNotes(ydoc, demandes, auteur, ts = Date.now()) {
     // une espace.
     const texte = typographier(d.texte.replace(/\s*[\r\n]+\s*/g, ' ').trim())
     if (!texte) return refuse(index, numero, 'le texte de la note est vide')
-    if (texte.length > LONGUEUR_NOTE_MAX) return refuse(index, numero, `le texte de la note est trop long (${LONGUEUR_NOTE_MAX} signes au plus)`)
+    if (texte.length > LONGUEUR_NOTE_MAX)
+      return refuse(index, numero, `le texte de la note est trop long (${LONGUEUR_NOTE_MAX} signes au plus)`)
     const bloc = blocs[numero - 1]
     if (!bloc) return refuse(index, numero, `il n'y a pas de bloc ${numero}`)
     if (bloc.nom === 'heading') {
-      return refuse(index, numero, `le bloc ${numero} est un titre : un titre reprend dans la table des matières et l'en-tête de page, où un appel de note n'a rien à faire — pose la note dans le paragraphe qui suit`)
+      return refuse(
+        index,
+        numero,
+        `le bloc ${numero} est un titre : un titre reprend dans la table des matières et l'en-tête de page, où un appel de note n'a rien à faire — pose la note dans le paragraphe qui suit`
+      )
     }
-    if (d.apres !== undefined && d.apres !== null && typeof d.apres !== 'string') return refuse(index, numero, '`apres` doit être un passage du bloc (ou rester absent pour la fin du bloc)')
+    if (d.apres !== undefined && d.apres !== null && typeof d.apres !== 'string')
+      return refuse(index, numero, '`apres` doit être un passage du bloc (ou rester absent pour la fin du bloc)')
 
     if (!d.apres) {
       retenus.push({ index, numero, el: bloc.el, xt: null, point: null, texte })
@@ -714,7 +818,11 @@ export function ajouterNotes(ydoc, demandes, auteur, ts = Date.now()) {
     const seg = plage.segments[0]
     // Au milieu d'une proposition d'un autre, non : on ne s'y glisse pas.
     if (seg.enAttente && plage.jusqua > seg.debut && plage.jusqua < seg.fin) {
-      return refuse(index, numero, "l'endroit est dans une modification déjà en attente : attends qu'un éditeur la traite, ou place la note après elle")
+      return refuse(
+        index,
+        numero,
+        "l'endroit est dans une modification déjà en attente : attends qu'un éditeur la traite, ou place la note après elle"
+      )
     }
     retenus.push({ index, numero, el: bloc.el, xt: plage.xt, point: plage.jusqua, texte })
   })
@@ -746,7 +854,10 @@ export function ajouterNotes(ydoc, demandes, auteur, ts = Date.now()) {
   const poses = new Set()
   const poser = (parent, position, rs) => {
     const fabriques = rs.map((r) => fabriquer(r.texte))
-    parent.insert(position, fabriques.map((f) => f.note))
+    parent.insert(
+      position,
+      fabriques.map((f) => f.note)
+    )
     // Le texte d'une note s'écrit une fois la note intégrée au document.
     fabriques.forEach((f, i) => {
       const xt = new Y.XmlText()
@@ -815,7 +926,10 @@ function ancreDeNote(cible) {
   if (apres instanceof Y.XmlText && apres.length > 0) {
     return { ok: true, xt: apres, de: 0, jusqua: Math.min(apres.length, ANCRE_NOTE_MAX) }
   }
-  return { ok: false, raison: `aucun texte autour de l'appel de la note ⟦${cible.note.k}⟧ du bloc ${cible.n} : commente plutôt le bloc, avec une citation` }
+  return {
+    ok: false,
+    raison: `aucun texte autour de l'appel de la note ⟦${cible.note.k}⟧ du bloc ${cible.n} : commente plutôt le bloc, avec une citation`,
+  }
 }
 
 /**
@@ -846,7 +960,8 @@ export function commenter(ydoc, { bloc: numero, citation, texte, note }, auteur)
     plage = plageDansLeTexte(bloc, trouve.debut, trouve.fin, { permettreMarques: true })
     if (!plage.ok) return { ok: false, raison: plage.raison }
   }
-  if (propre.length > LONGUEUR_COMMENTAIRE_MAX) return { ok: false, raison: `le commentaire est trop long (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
+  if (propre.length > LONGUEUR_COMMENTAIRE_MAX)
+    return { ok: false, raison: `le commentaire est trop long (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
   const id = identifiant('c')
   ydoc.transact(() => {
     ydoc.getMap(NOM_COMMENTAIRES).set(id, {
@@ -936,13 +1051,22 @@ function blocDe(ydoc, blocs, c) {
 export function repondre(ydoc, { commentaire, texte }, auteur) {
   const propre = typographier(String(texte || '').trim())
   if (!propre) return { ok: false, raison: 'la réponse est vide' }
-  if (propre.length > LONGUEUR_COMMENTAIRE_MAX) return { ok: false, raison: `la réponse est trop longue (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
+  if (propre.length > LONGUEUR_COMMENTAIRE_MAX)
+    return { ok: false, raison: `la réponse est trop longue (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
   const carte = ydoc.getMap(NOM_COMMENTAIRES)
   const parent = carte.get(String(commentaire || ''))
-  if (!parent || parent.parent) return { ok: false, raison: 'commentaire introuvable (on ne répond qu\'à un commentaire ancré dans le texte)' }
+  if (!parent || parent.parent)
+    return { ok: false, raison: "commentaire introuvable (on ne répond qu'à un commentaire ancré dans le texte)" }
   const id = identifiant('r')
   ydoc.transact(() => {
-    carte.set(id, { id, parent: parent.id, author: auteur.name, color: auteur.color, text: propre, createdAt: Date.now() })
+    carte.set(id, {
+      id,
+      parent: parent.id,
+      author: auteur.name,
+      color: auteur.color,
+      text: propre,
+      createdAt: Date.now(),
+    })
   }, 'agent')
   return { ok: true, id }
 }

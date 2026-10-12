@@ -58,7 +58,14 @@ export function creerFabriqueMenus(ecouteursGlobaux) {
     }
     document.addEventListener('click', fermerAuClicAilleurs)
     ecouteursGlobaux.push(() => document.removeEventListener('click', fermerAuClicAilleurs))
-    const ref = { el: menu, liste, fermer: () => { liste.hidden = true }, surOuverture: null }
+    const ref = {
+      el: menu,
+      liste,
+      fermer: () => {
+        liste.hidden = true
+      },
+      surOuverture: null,
+    }
     menusDeroulants.push(ref)
     return ref
   }
@@ -169,7 +176,15 @@ export function monterMenusPartageExport({ menuDeroulant, docId, docMeta, getDoc
   menuExport.surOuverture = () => modeleDoc.charger()
   const sepModele = document.createElement('hr')
   sepModele.className = 'menu-flottant-separateur'
-  menuExport.liste.append(modeleDoc.el, sepModele, varianteSelect, varianteAide, exportMdItem, exportDocxItem, exportPdfItem)
+  menuExport.liste.append(
+    modeleDoc.el,
+    sepModele,
+    varianteSelect,
+    varianteAide,
+    exportMdItem,
+    exportDocxItem,
+    exportPdfItem
+  )
   // Mise en page, Exporter et Partager voisinent : ce sont les gestes qui
   // décident de la **forme sous laquelle le document sort** et de **qui le
   // reçoit**.
@@ -218,10 +233,7 @@ export function monterMenusPartageExport({ menuDeroulant, docId, docMeta, getDoc
     const libelle = exportPdfItem.textContent
     exportPdfItem.textContent = 'Composition…'
     try {
-      const [{ style }, { downloadTypstPdf }] = await Promise.all([
-        loadDocStyle(docId),
-        import('./typstExport.js'),
-      ])
+      const [{ style }, { downloadTypstPdf }] = await Promise.all([loadDocStyle(docId), import('./typstExport.js')])
       await downloadTypstPdf(docAExporter(), style, getTitre(), docId)
     } catch (err) {
       messageFugace(err.message || "le PDF n'a pas pu être composé", { erreur: true })

@@ -23,7 +23,9 @@ export async function routesImages(req, res, url, ctx) {
     if (!capabilities(storage.roleFor(id, email)).canManageDocument) {
       return sendJson(res, 403, { error: 'réservé aux éditeurs' })
     }
-    const mime = String(req.headers['content-type'] || '').split(';')[0].trim()
+    const mime = String(req.headers['content-type'] || '')
+      .split(';')[0]
+      .trim()
     if (!uploads.typeAccepte(mime)) {
       return sendJson(res, 415, { error: "format d'image non accepté (png ou jpeg)" })
     }
@@ -37,9 +39,13 @@ export async function routesImages(req, res, url, ctx) {
     // d'un seul (S14) : c'est son disque qui se remplit.
     const proprio = storage.ownerOf(id)
     if (proprio && !isAdminEmail(proprio)) {
-      const dejaLa = storage.documentsDe(proprio, { avecCorbeille: true }).reduce((somme, docId) => somme + uploads.octetsDocument(docId), 0)
+      const dejaLa = storage
+        .documentsDe(proprio, { avecCorbeille: true })
+        .reduce((somme, docId) => somme + uploads.octetsDocument(docId), 0)
       if (dejaLa + buffer.length > imagesMaxParCompte()) {
-        return sendJson(res, 413, { error: `le propriétaire de ce document a atteint sa limite d’images (${Math.round(imagesMaxParCompte() / 1048576)} Mo en tout)` })
+        return sendJson(res, 413, {
+          error: `le propriétaire de ce document a atteint sa limite d’images (${Math.round(imagesMaxParCompte() / 1048576)} Mo en tout)`,
+        })
       }
     }
     let enregistree

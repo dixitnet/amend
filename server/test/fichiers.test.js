@@ -46,7 +46,7 @@ test('lireJson : un fichier illisible lève une erreur et laisse une copie', () 
   }
 })
 
-test('un registre de documents tronqué n\'est jamais réécrit à vide', () => {
+test("un registre de documents tronqué n'est jamais réécrit à vide", () => {
   const d = dossier()
   try {
     const st = new Storage(d)
@@ -57,7 +57,7 @@ test('un registre de documents tronqué n\'est jamais réécrit à vide', () => 
     const abime = readFileSync(f, 'utf8')
     assert.throws(() => st.createDoc('Autre', 'chef@example.com'), { code: 'FICHIER_ILLISIBLE' })
     assert.throws(() => st.listDocs('chef@example.com'), { code: 'FICHIER_ILLISIBLE' })
-    assert.equal(readFileSync(f, 'utf8'), abime, 'rien n\'a été réécrit')
+    assert.equal(readFileSync(f, 'utf8'), abime, "rien n'a été réécrit")
     // Réparé à la main : tout revient.
     writeFileSync(f, bon, 'utf8')
     assert.equal(st.listDocs('chef@example.com').length, 1)
@@ -66,7 +66,7 @@ test('un registre de documents tronqué n\'est jamais réécrit à vide', () => 
   }
 })
 
-test('un fichier de comptes tronqué n\'est jamais réécrit à vide', () => {
+test("un fichier de comptes tronqué n'est jamais réécrit à vide", () => {
   const d = dossier()
   try {
     const u = new Users(d)
@@ -80,7 +80,7 @@ test('un fichier de comptes tronqué n\'est jamais réécrit à vide', () => {
   }
 })
 
-test('SESSION_SECRET posé après l\'import (comme le fait server.js avec le .env) est bien pris en compte (A2)', () => {
+test("SESSION_SECRET posé après l'import (comme le fait server.js avec le .env) est bien pris en compte (A2)", () => {
   const script = `
     const auth = await import(${JSON.stringify(join(RACINE, 'server/auth.js'))})
     process.env.SESSION_SECRET = 'secret-pose-apres-import'
@@ -100,7 +100,7 @@ test('SESSION_SECRET posé après l\'import (comme le fait server.js avec le .en
   const cookie = a.stdout.trim()
   const b = spawnSync(process.execPath, ['--input-type=module', '-e', lire, cookie], { env, encoding: 'utf8' })
   assert.equal(b.status, 0, b.stderr)
-  assert.equal(b.stdout.trim(), 'a@example.com', "le cookie signé dans un processus se relit dans le suivant")
+  assert.equal(b.stdout.trim(), 'a@example.com', 'le cookie signé dans un processus se relit dans le suivant')
 })
 
 // --- A8 : un seul geste pour « écrire sans jamais laisser un fichier à demi écrit »
@@ -117,7 +117,10 @@ test('ecrireAtomique : texte ou octets, remplace entièrement, ne laisse aucun t
     assert.deepEqual(readFileSync(join(d, 'b.bin')), octets)
     ecrireAtomique(join(d, 'vide'), '')
     assert.equal(readFileSync(join(d, 'vide'), 'utf8'), '')
-    assert.deepEqual(readdirSync(d).filter((n) => n.endsWith('.tmp')), [])
+    assert.deepEqual(
+      readdirSync(d).filter((n) => n.endsWith('.tmp')),
+      []
+    )
   } finally {
     rmSync(d, { recursive: true, force: true })
   }
@@ -150,7 +153,10 @@ test('ecrireAtomique : si le renommage échoue, rien ne traîne et l’erreur re
     // Le but est un dossier : renommer un fichier dessus échoue.
     mkdirSync(join(d, 'cible'))
     assert.throws(() => ecrireAtomique(join(d, 'cible'), 'x'))
-    assert.deepEqual(readdirSync(d).filter((n) => n.endsWith('.tmp')), [])
+    assert.deepEqual(
+      readdirSync(d).filter((n) => n.endsWith('.tmp')),
+      []
+    )
     // Dossier de destination absent : l'erreur remonte aussi.
     assert.throws(() => ecrireAtomique(join(d, 'absent', 'f.txt'), 'x'), { code: 'ENOENT' })
   } finally {

@@ -20,7 +20,9 @@ export async function routesAgents(req, res, url, ctx) {
   // accès ne demande pas plus de droits que de le voir. L'adresse du
   // connecteur n'est rendue qu'à la création et à la régénération, avec
   // `no-store` ; ni la liste ni les journaux ne la portent jamais.
-  const agentsMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/agents(?:\/(ag-[0-9a-f]{8})(?:\/(prolonger|regenerer))?)?$/)
+  const agentsMatch = pathname.match(
+    /^\/api\/docs\/([A-Za-z0-9_-]+)\/agents(?:\/(ag-[0-9a-f]{8})(?:\/(prolonger|regenerer))?)?$/
+  )
   if (agentsMatch) {
     const id = agentsMatch[1]
     const agentId = agentsMatch[2]
@@ -45,13 +47,20 @@ export async function routesAgents(req, res, url, ctx) {
     if (agentId && !vivante) return sendJson(res, 404, { error: 'invitation introuvable' })
 
     if (!agentId && req.method === 'GET') {
-      return sendJson(res, 200, { autorise, portee: porteeAgent(), roles: ROLES_AGENT, agents: agents.pourDocument(id) })
+      return sendJson(res, 200, {
+        autorise,
+        portee: porteeAgent(),
+        roles: ROLES_AGENT,
+        agents: agents.pourDocument(id),
+      })
     }
 
     if (!agentId && req.method === 'POST') {
       if (!autorise) return sendJson(res, 403, { error: "vous n'avez pas le droit d'inviter Claude sur ce document" })
       const body = await readJsonBody(req)
-      const prenom = String(users.nomDe(email) || email.split('@')[0]).trim().split(/\s+/)[0]
+      const prenom = String(users.nomDe(email) || email.split('@')[0])
+        .trim()
+        .split(/\s+/)[0]
       const r = agents.inviter({
         docId: id,
         role: String(body.role || ''),

@@ -77,8 +77,7 @@ export function typographiePlugin({ suiviActif = () => false } = {}) {
         if ($from.marks().some((m) => m.type.name === 'link')) return false
         const decalage = $from.parentOffset
         const contexte = $from.parent.textBetween(Math.max(0, decalage - 2), decalage, undefined, '￼')
-        const avantContexte =
-          decalage > 2 ? $from.parent.textBetween(decalage - 3, decalage - 2, undefined, '￼') : ''
+        const avantContexte = decalage > 2 ? $from.parent.textBetween(decalage - 3, decalage - 2, undefined, '￼') : ''
         const r = corrigerSaisie(contexte, texte, avantContexte)
         if (!r) return false
         const debut = from - r.retirer
@@ -92,9 +91,7 @@ export function typographiePlugin({ suiviActif = () => false } = {}) {
         }
         const brut = r.brut.slice(r.brut.length - r.retirer - 1)
         view.dispatch(
-          state.tr
-            .insertText(r.ecrire, debut, to)
-            .setMeta(typographieKey, { longueur: r.ecrire.length, brut })
+          state.tr.insertText(r.ecrire, debut, to).setMeta(typographieKey, { longueur: r.ecrire.length, brut })
         )
         return true
       },

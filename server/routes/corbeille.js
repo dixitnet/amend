@@ -41,7 +41,9 @@ export async function routesCorbeille(req, res, url, ctx) {
     // Un document restauré redevient un document du compte : le quota de
     // documents s'applique de nouveau.
     if (!isAdminEmail(email) && storage.documentsDe(email).length >= documentsMaxParCompte()) {
-      return sendJson(res, 403, { error: `limite de ${documentsMaxParCompte()} documents par compte atteinte — supprimez-en pour en restaurer d’autres` })
+      return sendJson(res, 403, {
+        error: `limite de ${documentsMaxParCompte()} documents par compte atteinte — supprimez-en pour en restaurer d’autres`,
+      })
     }
     const doc = storage.restaurerDeLaCorbeille(id)
     ctx.metrics.log('corbeille', { email, docId: id, geste: 'restaurer' })

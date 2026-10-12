@@ -12,7 +12,16 @@ import { join } from 'node:path'
 import * as Y from 'yjs'
 import { Agents, empreinte } from '../agents.js'
 import { Storage } from '../storage.js'
-import { ajouterNotes, blocsDuDocument, commenter, fils, modificationsDe, proposer, repondre, situer } from '../agentTexte.js'
+import {
+  ajouterNotes,
+  blocsDuDocument,
+  commenter,
+  fils,
+  modificationsDe,
+  proposer,
+  repondre,
+  situer,
+} from '../agentTexte.js'
 
 const dataDir = mkdtempSync(join(tmpdir(), 'collabtext-test-agents-'))
 process.on('exit', () => rmSync(dataDir, { recursive: true, force: true }))
@@ -193,7 +202,10 @@ test('les blocs sont numérotés dans l’ordre, listes et citations comprises',
   })
   const blocs = blocsDuDocument(y)
   assert.equal(blocs.length, 5)
-  assert.deepEqual(blocs.map((b) => b.n), [1, 2, 3, 4, 5])
+  assert.deepEqual(
+    blocs.map((b) => b.n),
+    [1, 2, 3, 4, 5]
+  )
   assert.equal(blocs[0].niveau, 2)
   assert.equal(blocs[1].texte, 'Un gras et un \nsaut.')
   assert.deepEqual(blocs[2].contexte, ['bullet_list', 'list_item'])
@@ -214,7 +226,12 @@ test('un remplacement est un suivi de modifications : l’ancien texte barré pu
   assert.equal(ins.texte, 'chien')
   assert.equal(del.texte, 'chat')
   assert.ok(segments.indexOf(del) < segments.indexOf(ins), 'l’ancien barré précède le nouveau')
-  assert.deepEqual(ins.attrs.insertion, { user: 'Claude', userColor: '#5f7a4a', ts: 1234, groupe: ins.attrs.insertion.groupe })
+  assert.deepEqual(ins.attrs.insertion, {
+    user: 'Claude',
+    userColor: '#5f7a4a',
+    ts: 1234,
+    groupe: ins.attrs.insertion.groupe,
+  })
   assert.match(ins.attrs.insertion.groupe, /^1234-[a-z0-9]+$/)
   assert.equal(del.attrs.deletion.groupe, ins.attrs.insertion.groupe)
   assert.deepEqual(ins.attrs.authorColor, { user: 'Claude', userColor: '#5f7a4a' })
@@ -231,8 +248,14 @@ test('plusieurs mots qui changent donnent une carte par mot, comme l’IA du pan
   assert.equal(refuse, 'Le chat noir dort au soleil.')
   const ins = segments.filter((s) => s.attrs.insertion)
   const del = segments.filter((s) => s.attrs.deletion)
-  assert.deepEqual(ins.map((s) => s.texte), ['chien', 'blanc'])
-  assert.deepEqual(del.map((s) => s.texte), ['chat', 'noir'])
+  assert.deepEqual(
+    ins.map((s) => s.texte),
+    ['chien', 'blanc']
+  )
+  assert.deepEqual(
+    del.map((s) => s.texte),
+    ['chat', 'noir']
+  )
   assert.notEqual(ins[0].attrs.insertion.groupe, ins[1].attrs.insertion.groupe)
   assert.equal(ins[0].attrs.insertion.groupe, del[0].attrs.deletion.groupe)
   assert.equal(ins[1].attrs.insertion.groupe, del[1].attrs.deletion.groupe)
@@ -281,7 +304,10 @@ test('insérer et supprimer sont des propositions sans groupe', () => {
   const deux = lectures(y, 2)
   assert.equal(deux.accepte, 'Un chômage massif.')
   assert.equal(deux.refuse, 'Un chomage massif.')
-  assert.deepEqual(deux.segments.filter((s) => s.attrs.insertion || s.attrs.deletion).map((s) => s.texte), ['o', 'ô'])
+  assert.deepEqual(
+    deux.segments.filter((s) => s.attrs.insertion || s.attrs.deletion).map((s) => s.texte),
+    ['o', 'ô']
+  )
 })
 
 test('plusieurs remplacements dans un même bloc s’appliquent tous, du dernier au premier', () => {
@@ -307,7 +333,14 @@ test('une demande = une seule opération Yjs, atomique', () => {
   })
   let operations = 0
   y.on('update', () => operations++)
-  proposer(y, [{ bloc: 1, avant: 'beta', apres: 'bêta' }, { bloc: 2, avant: 'Gamma', apres: 'Gama' }], AUTEUR)
+  proposer(
+    y,
+    [
+      { bloc: 1, avant: 'beta', apres: 'bêta' },
+      { bloc: 2, avant: 'Gamma', apres: 'Gama' },
+    ],
+    AUTEUR
+  )
   assert.equal(operations, 1)
   // Rien d'accepté : aucune opération.
   proposer(y, [{ bloc: 1, avant: 'introuvable', apres: 'x' }], AUTEUR)
@@ -389,7 +422,7 @@ test('deux remplacements qui se chevauchent : le premier passe, l’autre est re
 test('les espaces insécables et les apostrophes typographiques ne bloquent pas la recherche', () => {
   const y = docAvec((f) => bloc(f, 'paragraph', ['Quoi ? Elle n’a rien dit.']))
   const bloc1 = blocsDuDocument(y)[0]
-  assert.ok(situer(bloc1, 'Quoi ? Elle n\'a rien dit.').ok)
+  assert.ok(situer(bloc1, "Quoi ? Elle n'a rien dit.").ok)
   const v = proposer(y, [{ bloc: 1, avant: "Elle n'a rien dit.", apres: "Elle n'a rien dit du tout." }], AUTEUR)
   assert.equal(v.appliques.length, 1)
   assert.equal(lectures(y, 1).accepte, 'Quoi ? Elle n’a rien dit du tout.')
@@ -449,7 +482,10 @@ test('les commentaires s’ancrent sur le passage cité et se retrouvent', () =>
   assert.ok(rep.ok)
   assert.equal(repondre(y, { commentaire: rep.id, texte: 'Encore' }, AUTEUR).ok, false)
   assert.equal(repondre(y, { commentaire: 'c-inconnu', texte: 'x' }, AUTEUR).ok, false)
-  assert.deepEqual(fils(y)[0].reponses.map((x) => x.texte), ['Confirmé.'])
+  assert.deepEqual(
+    fils(y)[0].reponses.map((x) => x.texte),
+    ['Confirmé.']
+  )
 })
 
 test('un commentaire masqué par les éditeurs (passage supprimé) n’est plus proposé à l’agent', () => {
@@ -518,22 +554,52 @@ const SUIVI_DEL = { type: 'deletion', user: 'Marie', userColor: '#aa5555', ts: 1
 
 /** La forme d'un paragraphe : ses enfants, texte et notes. */
 function forme(el) {
-  const brut = (xt) => xt.toDelta().map((op) => op.insert).join('')
-  return el.toArray().map((c) => (c instanceof Y.XmlText ? brut(c) : `{${c.nodeName}${c.getAttribute('suivi') ? ':' + c.getAttribute('suivi').type : ''}|${c.toArray().map(brut).join('')}}`))
+  const brut = (xt) =>
+    xt
+      .toDelta()
+      .map((op) => op.insert)
+      .join('')
+  return el
+    .toArray()
+    .map((c) =>
+      c instanceof Y.XmlText
+        ? brut(c)
+        : `{${c.nodeName}${c.getAttribute('suivi') ? ':' + c.getAttribute('suivi').type : ''}|${c.toArray().map(brut).join('')}}`
+    )
 }
 
 test('les notes se lisent : repère, numéro dans le document, texte — et celles qu’on barre ne comptent plus', () => {
   const y = docAvec((f) => {
     blocAvecNotes(f, 'paragraph', ['Zan naquit', note('Source : mairie.'), ' un mardi.'])
-    blocAvecNotes(f, 'paragraph', ['Il mourut', note('Archives.', SUIVI_DEL), ' jeune', { atome: 'image' }, '.', note('Voir aussi.', SUIVI_INS)])
+    blocAvecNotes(f, 'paragraph', [
+      'Il mourut',
+      note('Archives.', SUIVI_DEL),
+      ' jeune',
+      { atome: 'image' },
+      '.',
+      note('Voir aussi.', SUIVI_INS),
+    ])
     blocAvecNotes(f, 'paragraph', ['Fin', note('Dernière.')])
   })
   const blocs = blocsDuDocument(y)
   assert.equal(blocs[0].texte, 'Zan naquit⟦1⟧ un mardi.', 'le texte du bloc ne change pas : un repère')
-  assert.deepEqual(blocs[0].notes.map((n) => [n.k, n.numero, n.texte, n.enAttente]), [[1, 1, 'Source : mairie.', false]])
+  assert.deepEqual(
+    blocs[0].notes.map((n) => [n.k, n.numero, n.texte, n.enAttente]),
+    [[1, 1, 'Source : mairie.', false]]
+  )
   // Le repère ⟦k⟧ compte les images aussi ; le numéro, lui, ne compte que les notes.
-  assert.deepEqual(blocs[1].notes.map((n) => [n.k, n.numero, n.supprimee, n.enAttente]), [[1, null, true, true], [3, 2, false, true]])
-  assert.equal(blocs[1].texte, 'Il mourut jeune⟦2⟧.⟦3⟧', 'une note proposée à la suppression n’est plus dans le texte à relire')
+  assert.deepEqual(
+    blocs[1].notes.map((n) => [n.k, n.numero, n.supprimee, n.enAttente]),
+    [
+      [1, null, true, true],
+      [3, 2, false, true],
+    ]
+  )
+  assert.equal(
+    blocs[1].texte,
+    'Il mourut jeune⟦2⟧.⟦3⟧',
+    'une note proposée à la suppression n’est plus dans le texte à relire'
+  )
   assert.equal(blocs[2].notes[0].numero, 3, 'les numéros se suivent d’un bloc à l’autre')
   assert.equal(blocs[1].enAttente, true, 'un bloc qui porte une note en attente est en attente')
   assert.equal(blocs[0].enAttente, false)
@@ -575,7 +641,13 @@ test('une note se pose aussi à la fin d’un texte, avant une image, ou à la f
   assert.equal(r.appliques.length, 4, JSON.stringify(r))
   const f = y.getXmlFragment('prosemirror-content')
   assert.deepEqual(forme(f.get(0)), ['Une phrase.', '{footnote:insertion|Fin de texte.}'])
-  assert.deepEqual(forme(f.get(1)), ['Avant l’image', '{footnote:insertion|Avant un atome.}', '{image|}', ' et après.', '{footnote:insertion|À la fin du bloc.}'])
+  assert.deepEqual(forme(f.get(1)), [
+    'Avant l’image',
+    '{footnote:insertion|Avant un atome.}',
+    '{image|}',
+    ' et après.',
+    '{footnote:insertion|À la fin du bloc.}',
+  ])
   assert.deepEqual(forme(f.get(2)), ['{footnote:insertion|Dans un bloc vide.}'])
 })
 
@@ -610,7 +682,17 @@ test('ce qui ne peut pas recevoir une note est refusé avec sa raison, le reste 
   const y = docAvec((f) => {
     bloc(f, 'heading', ['Un titre'], { level: 1 })
     bloc(f, 'paragraph', ['Le chat et le chat.'])
-    bloc(f, 'paragraph', ['Un ', ['ajout', { insertion: { user: 'Marie', userColor: '#a55', ts: 1, groupe: null }, authorColor: { user: 'Marie', userColor: '#a55' } }], ' en cours.'])
+    bloc(f, 'paragraph', [
+      'Un ',
+      [
+        'ajout',
+        {
+          insertion: { user: 'Marie', userColor: '#a55', ts: 1, groupe: null },
+          authorColor: { user: 'Marie', userColor: '#a55' },
+        },
+      ],
+      ' en cours.',
+    ])
     bloc(f, 'paragraph', ['Texte sain.'])
   })
   const r = ajouterNotes(
@@ -666,10 +748,20 @@ test('une demande de notes = une seule opération Yjs, et se rejoue ailleurs à 
   y.on('afterTransaction', (t) => {
     if (t.changed.size) transactions++
   })
-  ajouterNotes(y, [{ bloc: 1, apres: 'Un', texte: 'A' }, { bloc: 1, apres: 'deux', texte: 'B' }], AUTEUR)
+  ajouterNotes(
+    y,
+    [
+      { bloc: 1, apres: 'Un', texte: 'A' },
+      { bloc: 1, apres: 'deux', texte: 'B' },
+    ],
+    AUTEUR
+  )
   assert.equal(transactions, 1)
   Y.applyUpdate(autre, Y.encodeStateAsUpdate(y, Y.encodeStateVector(autre)))
-  assert.deepEqual(forme(autre.getXmlFragment('prosemirror-content').get(0)), forme(y.getXmlFragment('prosemirror-content').get(0)))
+  assert.deepEqual(
+    forme(autre.getXmlFragment('prosemirror-content').get(0)),
+    forme(y.getXmlFragment('prosemirror-content').get(0))
+  )
 })
 
 test('corriger une note : les mêmes marques qu’un paragraphe, dans le texte de la note', () => {
@@ -693,7 +785,14 @@ test('corriger une note : les mêmes marques qu’un paragraphe, dans le texte d
 
 test('corriger une note : ce qui est refusé l’est avec sa raison', () => {
   const y = docAvec((f) => {
-    blocAvecNotes(f, 'paragraph', ['A', note('Une note.'), ' B', note('Nouvelle.', SUIVI_INS), ' C', note('Barrée.', SUIVI_DEL)])
+    blocAvecNotes(f, 'paragraph', [
+      'A',
+      note('Une note.'),
+      ' B',
+      note('Nouvelle.', SUIVI_INS),
+      ' C',
+      note('Barrée.', SUIVI_DEL),
+    ])
     bloc(f, 'paragraph', ['Sans note.'])
   })
   const r = proposer(

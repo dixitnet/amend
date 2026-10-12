@@ -46,7 +46,11 @@ test('la règle : l’Origin doit être celui de l’application ou de l’hôte
   assert.equal(origineAutorisee(req({ origin: 'https://www.amend.ink' }), APP), true)
   assert.equal(origineAutorisee(req({ origin: 'https://evil.example' }), APP), false)
   assert.equal(origineAutorisee(req({ origin: 'https://www.amend.ink.evil.example' }), APP), false)
-  assert.equal(origineAutorisee(req({ origin: 'http://www.amend.ink' }), APP), true, 'le schéma n’est pas comparé : l’hôte suffit, Caddy force https')
+  assert.equal(
+    origineAutorisee(req({ origin: 'http://www.amend.ink' }), APP),
+    true,
+    'le schéma n’est pas comparé : l’hôte suffit, Caddy force https'
+  )
   assert.equal(origineAutorisee(req({ origin: 'null' }), APP), false)
   assert.equal(origineAutorisee(req({ origin: 'pas une adresse' }), APP), false)
   // L'hôte auquel la requête s'adresse (Vite en développement, second nom du site).
@@ -81,7 +85,10 @@ test('une requête POST venue d’une autre origine est refusée (403) avant tou
 
 test('un GET venu d’ailleurs n’est pas concerné ; l’invitation d’un attaquant non plus ne passe pas', async () => {
   assert.equal((await fetch(`${BASE}/api/auth/me`, { headers: { origin: 'https://evil.example' } })).status, 200)
-  const fixation = await fetch(`${BASE}/api/invitations/jeton-de-l-attaquant`, { method: 'POST', headers: { origin: 'https://evil.example' } })
+  const fixation = await fetch(`${BASE}/api/invitations/jeton-de-l-attaquant`, {
+    method: 'POST',
+    headers: { origin: 'https://evil.example' },
+  })
   assert.equal(fixation.status, 403, 'refusé avant même de chercher le jeton (404 sinon)')
 })
 

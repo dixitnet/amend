@@ -31,8 +31,7 @@ export function creerServiceStatique(CLIENT_DIST) {
   return function serveStatic(req, res, pathname) {
     if (!existsSync(CLIENT_DIST)) {
       sendJson(res, 503, {
-        error:
-          "Le client n'est pas encore compilé. Lance `npm run build:client` puis relance le serveur.",
+        error: "Le client n'est pas encore compilé. Lance `npm run build:client` puis relance le serveur.",
       })
       return
     }

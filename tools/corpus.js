@@ -62,12 +62,89 @@ function prng(graine) {
 
 // ------------------------------------------------------------------ texte
 
-const SUJETS = ['La ville', 'Le foncier', 'Cette friche', 'Le quartier', 'Une collectivité', 'L’aménageur', 'Le plan local', 'Chaque parcelle', 'Le renouvellement urbain', 'La densité', 'Un îlot', 'La sobriété foncière', 'Le projet', 'Cette transition', 'L’usage des sols']
-const VERBES = ['redéfinit', 'suppose', 'interroge', 'organise', 'transforme', 'contraint', 'accompagne', 'révèle', 'déplace', 'prolonge', 'met en tension', 'rend visible', 'engage', 'conditionne']
-const OBJETS = ['les équilibres entre emploi et habitat', 'une lecture fine des usages', 'la manière dont on mesure l’artificialisation', 'un travail de long terme sur les tissus existants', 'la question des mobilités quotidiennes', 'les arbitrages que personne ne veut assumer', 'la place du vivant dans la ville dense', 'des compromis rarement documentés', 'une économie du projet très différente', 'le rôle des acteurs publics et privés']
-const LIENS = ['Pourtant', 'En effet', 'Ainsi', 'Cela dit', 'À cet égard', 'D’un autre côté', 'Dans ce cadre', 'Par ailleurs', 'De ce fait', 'En pratique']
-const FIN = ['sur le temps long', 'à l’échelle du quartier', 'dans les faits', 'sans qu’on en discute vraiment', 'comme le montrent les cas étudiés', 'selon les territoires', 'et c’est là que tout se joue']
-const MOTS_TITRE = ['Introduction', 'Cadre théorique', 'Terrains', 'Méthode', 'Résultats', 'Discussion', 'Conclusion', 'Genèse', 'Controverses', 'Pratiques', 'Instruments', 'Acteurs', 'Échelles', 'Temporalités', 'Limites']
+const SUJETS = [
+  'La ville',
+  'Le foncier',
+  'Cette friche',
+  'Le quartier',
+  'Une collectivité',
+  'L’aménageur',
+  'Le plan local',
+  'Chaque parcelle',
+  'Le renouvellement urbain',
+  'La densité',
+  'Un îlot',
+  'La sobriété foncière',
+  'Le projet',
+  'Cette transition',
+  'L’usage des sols',
+]
+const VERBES = [
+  'redéfinit',
+  'suppose',
+  'interroge',
+  'organise',
+  'transforme',
+  'contraint',
+  'accompagne',
+  'révèle',
+  'déplace',
+  'prolonge',
+  'met en tension',
+  'rend visible',
+  'engage',
+  'conditionne',
+]
+const OBJETS = [
+  'les équilibres entre emploi et habitat',
+  'une lecture fine des usages',
+  'la manière dont on mesure l’artificialisation',
+  'un travail de long terme sur les tissus existants',
+  'la question des mobilités quotidiennes',
+  'les arbitrages que personne ne veut assumer',
+  'la place du vivant dans la ville dense',
+  'des compromis rarement documentés',
+  'une économie du projet très différente',
+  'le rôle des acteurs publics et privés',
+]
+const LIENS = [
+  'Pourtant',
+  'En effet',
+  'Ainsi',
+  'Cela dit',
+  'À cet égard',
+  'D’un autre côté',
+  'Dans ce cadre',
+  'Par ailleurs',
+  'De ce fait',
+  'En pratique',
+]
+const FIN = [
+  'sur le temps long',
+  'à l’échelle du quartier',
+  'dans les faits',
+  'sans qu’on en discute vraiment',
+  'comme le montrent les cas étudiés',
+  'selon les territoires',
+  'et c’est là que tout se joue',
+]
+const MOTS_TITRE = [
+  'Introduction',
+  'Cadre théorique',
+  'Terrains',
+  'Méthode',
+  'Résultats',
+  'Discussion',
+  'Conclusion',
+  'Genèse',
+  'Controverses',
+  'Pratiques',
+  'Instruments',
+  'Acteurs',
+  'Échelles',
+  'Temporalités',
+  'Limites',
+]
 
 function fabrique(hasard) {
   const pick = (t) => t[Math.floor(hasard() * t.length)]
@@ -80,7 +157,8 @@ function fabrique(hasard) {
     const n = minPhrases + Math.floor(hasard() * (maxPhrases - minPhrases + 1))
     return Array.from({ length: n }, phrase).join(' ')
   }
-  const titre = () => `${pick(MOTS_TITRE)} ${pick(['de la densité', 'du foncier', 'des usages', 'du projet', 'de la ville', 'des sols'])}`
+  const titre = () =>
+    `${pick(MOTS_TITRE)} ${pick(['de la densité', 'du foncier', 'des usages', 'du projet', 'de la ville', 'des sols'])}`
   return { pick, phrase, paragraphe, titre }
 }
 
@@ -92,7 +170,10 @@ const texte = (t, marques) => (t ? { type: 'text', text: t, ...(marques ? { mark
 const para = (...inline) => ({ type: 'paragraph', content: inline.flat().filter(Boolean) })
 const titreN = (niveau, t) => ({ type: 'heading', attrs: { level: niveau }, content: [texte(t)] })
 const note = (t) => ({ type: 'footnote', content: [texte(t)] })
-const liste = (type, items) => ({ type, content: items.map((c) => ({ type: 'list_item', content: Array.isArray(c) ? c : [c] })) })
+const liste = (type, items) => ({
+  type,
+  content: items.map((c) => ({ type: 'list_item', content: Array.isArray(c) ? c : [c] })),
+})
 
 const AUTEURS = [
   { user: 'Claire Test', userColor: '#c2410c' },
@@ -109,7 +190,11 @@ const marqueDel = (a, ts, groupe = null) => [{ type: 'deletion', attrs: { ...a, 
 
 function docThese(hasard, { mots = 80000, notes = 300 } = {}) {
   const f = fabrique(hasard)
-  const blocs = [titreN(1, 'Essai sur la ville qui se refait sur elle-même'), para(texte(f.paragraphe(2, 3))), { type: 'table_of_contents', attrs: { profondeur: 3 } }]
+  const blocs = [
+    titreN(1, 'Essai sur la ville qui se refait sur elle-même'),
+    para(texte(f.paragraphe(2, 3))),
+    { type: 'table_of_contents', attrs: { profondeur: 3 } },
+  ]
   let total = 0
   let nNotes = 0
   const parNote = Math.max(1, Math.floor(mots / 100 / Math.max(1, notes)))
@@ -130,10 +215,21 @@ function docThese(hasard, { mots = 80000, notes = 300 } = {}) {
         if (r < 0.06) {
           blocs.push({ type: 'blockquote', content: [para(texte(t))] })
         } else if (r < 0.12) {
-          blocs.push(liste('bullet_list', [0, 1, 2].map(() => para(texte(f.phrase())))))
+          blocs.push(
+            liste(
+              'bullet_list',
+              [0, 1, 2].map(() => para(texte(f.phrase())))
+            )
+          )
         } else if (nNotes < notes && paraN % parNote === 0) {
           const coupe = t.indexOf(' ', Math.floor(t.length / 2))
-          blocs.push(para(texte(t.slice(0, coupe)), note(`${f.phrase()} Voir ${f.pick(AUTEURS).user}, ${1990 + Math.floor(hasard() * 35)}.`), texte(t.slice(coupe))))
+          blocs.push(
+            para(
+              texte(t.slice(0, coupe)),
+              note(`${f.phrase()} Voir ${f.pick(AUTEURS).user}, ${1990 + Math.floor(hasard() * 35)}.`),
+              texte(t.slice(coupe))
+            )
+          )
           nNotes++
         } else blocs.push(para(texte(t)))
       }
@@ -185,20 +281,31 @@ function docSuiviDense(hasard) {
       morceaux.push(texte(reste.slice(0, coupe)))
       reste = reste.slice(coupe)
       if (hasard() < 0.5) {
-        morceaux.push(texte(` ${f.pick(['notamment', 'bien souvent', 'à titre d’exemple', 'contre toute attente'])}`, marqueIns(auteur, ts)))
+        morceaux.push(
+          texte(
+            ` ${f.pick(['notamment', 'bien souvent', 'à titre d’exemple', 'contre toute attente'])}`,
+            marqueIns(auteur, ts)
+          )
+        )
         ins++
       } else {
         const fin = Math.max(2, reste.indexOf(' ', 12))
         morceaux.push(texte(reste.slice(0, fin), marqueDel(auteur, ts)))
         reste = reste.slice(fin)
         del++
-        if (hasard() < 0.5) { morceaux.push(texte(' ' + f.pick(['plus précisément', 'en somme']), marqueIns(auteur, ts))); ins++ }
+        if (hasard() < 0.5) {
+          morceaux.push(texte(' ' + f.pick(['plus précisément', 'en somme']), marqueIns(auteur, ts)))
+          ins++
+        }
       }
     }
     morceaux.push(texte(reste))
     blocs.push(para(morceaux))
   }
-  return { doc: { type: 'doc', content: blocs }, resume: { mots: total, insertions: ins, suppressions: del, auteurs: AUTEURS.length } }
+  return {
+    doc: { type: 'doc', content: blocs },
+    resume: { mots: total, insertions: ins, suppressions: del, auteurs: AUTEURS.length },
+  }
 }
 
 function docCommentairesDenses(hasard) {
@@ -221,7 +328,13 @@ function docListesProfondes(hasard) {
     const n = profondeur === 0 ? 6 : 2 + Math.floor(hasard() * 2)
     for (let i = 0; i < n; i++) {
       const contenu = [para(texte(f.phrase()))]
-      if (profondeur < 7 && hasard() < 0.55) contenu.push(liste(hasard() < 0.5 ? 'bullet_list' : 'ordered_list', niveau(profondeur + 1).content.map((li) => li.content)))
+      if (profondeur < 7 && hasard() < 0.55)
+        contenu.push(
+          liste(
+            hasard() < 0.5 ? 'bullet_list' : 'ordered_list',
+            niveau(profondeur + 1).content.map((li) => li.content)
+          )
+        )
       items.push(contenu)
     }
     return liste('bullet_list', items)
@@ -229,7 +342,14 @@ function docListesProfondes(hasard) {
   const blocs = [titreN(1, 'Listes imbriquées')]
   for (let i = 0; i < 12; i++) blocs.push(niveau(0))
   for (let i = 0; i < 40; i++) {
-    blocs.push({ type: 'task_list', content: [0, 1, 2].map((k) => ({ type: 'task_item', attrs: { checked: hasard() < 0.4 }, content: [para(texte(f.phrase()))] })) })
+    blocs.push({
+      type: 'task_list',
+      content: [0, 1, 2].map((k) => ({
+        type: 'task_item',
+        attrs: { checked: hasard() < 0.4 },
+        content: [para(texte(f.phrase()))],
+      })),
+    })
   }
   return { doc: { type: 'doc', content: blocs }, resume: { profondeurMax: 8 } }
 }
@@ -251,10 +371,16 @@ function docHostile(hasard) {
   blocs.push(para(texte('é̂̃'.repeat(300) + ' 👩🏽‍🚀👨‍👩‍👧‍👦🏳️‍🌈'.repeat(100))))
   // 5. des espaces de toutes sortes, des tabulations, des sauts forcés
   blocs.push(para(texte('un insécable étroit fin​sans-largeur\ttab ' + 'x '.repeat(500))))
-  blocs.push({ type: 'paragraph', content: Array.from({ length: 200 }, (_, i) => [texte(`ligne ${i}`), { type: 'hard_break' }]).flat() })
+  blocs.push({
+    type: 'paragraph',
+    content: Array.from({ length: 200 }, (_, i) => [texte(`ligne ${i}`), { type: 'hard_break' }]).flat(),
+  })
   // 6. mille notes dans un seul paragraphe
   blocs.push(para(Array.from({ length: 1000 }, (_, i) => [texte(`mot${i} `), note(`note ${i}`)]).flat()))
-  return { doc: { type: 'doc', content: blocs }, resume: { grandParagraphe: gros.length, paragraphesCourts: 5000, notesDansUnParagraphe: 1000 } }
+  return {
+    doc: { type: 'doc', content: blocs },
+    resume: { grandParagraphe: gros.length, paragraphesCourts: 5000, notesDansUnParagraphe: 1000 },
+  }
 }
 
 // Un document « ancien » : des dizaines de milliers de petites transactions,
@@ -311,7 +437,8 @@ export const PROFILS = {
 function positionsDeTexte(pmDoc) {
   const out = []
   pmDoc.descendants((noeud, pos) => {
-    if (noeud.isText && noeud.text.length > 30 && !noeud.marks.length) out.push({ debut: pos, longueur: noeud.text.length })
+    if (noeud.isText && noeud.text.length > 30 && !noeud.marks.length)
+      out.push({ debut: pos, longueur: noeud.text.length })
   })
   return out
 }
@@ -333,16 +460,28 @@ function poserCommentaires(ydoc, pmDoc, hasard, { n, reponses }) {
       const auteur = f.pick(AUTEURS)
       const id = `c-${t0 + i * 1000}-${String(i).padStart(6, '0')}`
       cartes.set(id, {
-        id, author: auteur.user, authorId: `u-${auteur.user.split(' ')[0].toLowerCase()}`, color: auteur.userColor,
+        id,
+        author: auteur.user,
+        authorId: `u-${auteur.user.split(' ')[0].toLowerCase()}`,
+        color: auteur.userColor,
         anchorFrom: Y.relativePositionToJSON(YPM.absolutePositionToRelativePosition(a, frag, meta.mapping)),
         anchorTo: Y.relativePositionToJSON(YPM.absolutePositionToRelativePosition(b, frag, meta.mapping)),
-        text: f.phrase(), createdAt: t0 + i * 1000,
+        text: f.phrase(),
+        createdAt: t0 + i * 1000,
       })
       ancres++
       if (hasard() < reponses) {
         const r = f.pick(AUTEURS)
         const rid = `r-${t0 + i * 1000 + 500}-${String(i).padStart(6, '0')}`
-        cartes.set(rid, { id: rid, parent: id, author: r.user, authorId: `u-${r.user.split(' ')[0].toLowerCase()}`, color: r.userColor, text: f.phrase(), createdAt: t0 + i * 1000 + 500 })
+        cartes.set(rid, {
+          id: rid,
+          parent: id,
+          author: r.user,
+          authorId: `u-${r.user.split(' ')[0].toLowerCase()}`,
+          color: r.userColor,
+          text: f.phrase(),
+          createdAt: t0 + i * 1000 + 500,
+        })
         rep++
       }
     }
@@ -381,7 +520,10 @@ export function construire(profil, graine = 20261011) {
   const bin = Y.encodeStateAsUpdate(ydoc)
   resume.octets = bin.length
   resume.empreinte = createHash('sha256').update(bin).digest('hex').slice(0, 16)
-  if (pmDoc) { resume.signes = pmDoc.textContent.length; resume.blocs = pmDoc.childCount }
+  if (pmDoc) {
+    resume.signes = pmDoc.textContent.length
+    resume.blocs = pmDoc.childCount
+  }
   return { bin, resume }
 }
 
@@ -389,9 +531,14 @@ export function construire(profil, graine = 20261011) {
 
 async function envoyer(profil, { base, cookie }) {
   const { bin, resume } = construire(profil)
-  if (bin.length > 15 * 1024 * 1024) throw new Error(`${profil} : ${bin.length} octets, au-delà du plafond de trame du serveur (16 Mo)`)
+  if (bin.length > 15 * 1024 * 1024)
+    throw new Error(`${profil} : ${bin.length} octets, au-delà du plafond de trame du serveur (16 Mo)`)
   const entetes = { 'content-type': 'application/json', cookie }
-  const res = await fetch(`${base}/api/docs`, { method: 'POST', headers: entetes, body: JSON.stringify({ title: `CORPUS ${profil} — à supprimer` }) })
+  const res = await fetch(`${base}/api/docs`, {
+    method: 'POST',
+    headers: entetes,
+    body: JSON.stringify({ title: `CORPUS ${profil} — à supprimer` }),
+  })
   if (!res.ok) throw new Error(`création refusée : ${res.status} ${await res.text()}`)
   const { id } = await res.json()
   const { WebSocket } = createRequire(import.meta.url)('ws')
@@ -401,13 +548,23 @@ async function envoyer(profil, { base, cookie }) {
     ws.on('message', (data, binaire) => {
       if (binaire) return
       let m
-      try { m = JSON.parse(data.toString()) } catch { return }
+      try {
+        m = JSON.parse(data.toString())
+      } catch {
+        return
+      }
       if (m.type === 'synced' && !envoye) {
         envoye = true
         ws.send(bin, { binary: true }, (e) => {
           if (e) return reject(e)
           // le temps que le serveur absorbe : il ne répond pas à un envoi, on attend l'écho
-          setTimeout(() => { ws.close(); resolve() }, Math.min(30000, 500 + bin.length / 2000))
+          setTimeout(
+            () => {
+              ws.close()
+              resolve()
+            },
+            Math.min(30000, 500 + bin.length / 2000)
+          )
         })
       } else if (m.type === 'refuse') reject(new Error('refusé par le serveur : ' + data))
     })
@@ -420,7 +577,10 @@ async function envoyer(profil, { base, cookie }) {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2)
   const cmd = args[0]
-  const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i === -1 ? d : args[i + 1] }
+  const opt = (n, d) => {
+    const i = args.indexOf(`--${n}`)
+    return i === -1 ? d : args[i + 1]
+  }
   const cible = args[1]
   const noms = cible === 'tous' ? Object.keys(PROFILS) : [cible]
   if (cmd === 'liste' || !cmd) {
@@ -433,16 +593,23 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       const { bin, resume } = construire(nom, Number(opt('graine', 20261011)))
       writeFileSync(join(dossier, `${nom}.bin`), bin)
       writeFileSync(join(dossier, `${nom}.json`), JSON.stringify(resume, null, 2))
-      console.log(`${nom.padEnd(22)} ${(bin.length / 1024).toFixed(0).padStart(7)} Ko  ${Date.now() - t0} ms  ${JSON.stringify(resume)}`)
+      console.log(
+        `${nom.padEnd(22)} ${(bin.length / 1024).toFixed(0).padStart(7)} Ko  ${Date.now() - t0} ms  ${JSON.stringify(resume)}`
+      )
     }
   } else if (cmd === 'envoyer') {
     const base = opt('base', '').replace(/\/$/, '')
     const cookie = opt('cookie', process.env.AMEND_COOKIE || '')
-    if (!base || !cookie) { console.error('--base et --cookie (ou $AMEND_COOKIE) sont requis'); process.exit(2) }
+    if (!base || !cookie) {
+      console.error('--base et --cookie (ou $AMEND_COOKIE) sont requis')
+      process.exit(2)
+    }
     for (const nom of noms) console.log(JSON.stringify(await envoyer(nom, { base, cookie })))
     process.exit(0)
   } else {
-    console.error('usage : corpus.js liste | generer <profil|tous> [--sortie dossier] | envoyer <profil|tous> --base … --cookie …')
+    console.error(
+      'usage : corpus.js liste | generer <profil|tous> [--sortie dossier] | envoyer <profil|tous> --base … --cookie …'
+    )
     process.exit(2)
   }
 }

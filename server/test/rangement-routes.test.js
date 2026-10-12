@@ -18,10 +18,17 @@ test('démarrage : un document d’Alice, partagé à Bob', async () => {
   inst = await lancerInstance({ port: 19950, comptes: [ALICE, BOB], admin: BOB })
   const c = await api('/api/docs', ALICE, { methode: 'POST', corps: { title: 'Thèse' } })
   doc = c.json.id
-  assert.equal((await api(`/api/docs/${doc}/invitations`, ALICE, { methode: 'POST', corps: { email: BOB, role: 'lecteur' } })).status, 200)
+  assert.equal(
+    (await api(`/api/docs/${doc}/invitations`, ALICE, { methode: 'POST', corps: { email: BOB, role: 'lecteur' } }))
+      .status,
+    200
+  )
   const courriers = await (await fetch(`${inst.fauxMailgun}/courriers`)).json()
   const jeton = /#\/invite\/([A-Za-z0-9_-]+)/.exec([...courriers].reverse().find((x) => x.to === BOB).text)[1]
-  assert.equal((await inst.api(`/api/invitations/${jeton}`, { methode: 'POST', cookie: inst.cookies[BOB] })).status, 200)
+  assert.equal(
+    (await inst.api(`/api/invitations/${jeton}`, { methode: 'POST', cookie: inst.cookies[BOB] })).status,
+    200
+  )
 })
 
 test('un favori est personnel : Alice le voit, Bob non — et Bob, simple lecteur, a les siens', async () => {
@@ -45,7 +52,10 @@ test('créer des dossiers, y ranger un document, le retrouver dans la liste', as
   const a = await api('/api/rangement/dossiers', ALICE, { methode: 'POST', corps: { nom: 'Thèse' } })
   assert.equal(a.status, 201)
   dossier = a.json.dossier.id
-  const b = await api('/api/rangement/dossiers', ALICE, { methode: 'POST', corps: { nom: 'Chapitres', parent: dossier } })
+  const b = await api('/api/rangement/dossiers', ALICE, {
+    methode: 'POST',
+    corps: { nom: 'Chapitres', parent: dossier },
+  })
   assert.equal(b.json.dossier.parent, dossier)
   assert.equal((await api('/api/rangement/dossiers', ALICE, { methode: 'POST', corps: { nom: 'thèse' } })).status, 409)
 
@@ -58,11 +68,24 @@ test('créer des dossiers, y ranger un document, le retrouver dans la liste', as
 })
 
 test('on ne range que ce qu’on voit', async () => {
-  assert.equal((await api('/api/rangement/documents/inconnu', ALICE, { methode: 'PUT', corps: { dossier } })).status, 404)
+  assert.equal(
+    (await api('/api/rangement/documents/inconnu', ALICE, { methode: 'PUT', corps: { dossier } })).status,
+    404
+  )
   const autre = (await api('/api/docs', BOB, { methode: 'POST', corps: { title: 'À Bob' } })).json.id
-  assert.equal((await api(`/api/rangement/documents/${autre}`, ALICE, { methode: 'PUT', corps: { dossier } })).status, 404)
-  assert.equal((await api('/api/rangement/dossiers/d_inconnu', ALICE, { methode: 'PATCH', corps: { nom: 'x' } })).status, 404)
-  assert.equal((await api(`/api/rangement/dossiers/${dossier}`, BOB, { methode: 'PATCH', corps: { nom: 'x' } })).status, 404, 'le dossier d’Alice n’existe pas pour Bob')
+  assert.equal(
+    (await api(`/api/rangement/documents/${autre}`, ALICE, { methode: 'PUT', corps: { dossier } })).status,
+    404
+  )
+  assert.equal(
+    (await api('/api/rangement/dossiers/d_inconnu', ALICE, { methode: 'PATCH', corps: { nom: 'x' } })).status,
+    404
+  )
+  assert.equal(
+    (await api(`/api/rangement/dossiers/${dossier}`, BOB, { methode: 'PATCH', corps: { nom: 'x' } })).status,
+    404,
+    'le dossier d’Alice n’existe pas pour Bob'
+  )
 })
 
 test('renommer, déplacer, puis supprimer un dossier : le document remonte', async () => {
@@ -76,7 +99,8 @@ test('renommer, déplacer, puis supprimer un dossier : le document remonte', asy
 })
 
 test('un document jeté puis restauré retrouve son dossier', async () => {
-  const d = (await api('/api/rangement/dossiers', ALICE, { methode: 'POST', corps: { nom: 'Archives' } })).json.dossier.id
+  const d = (await api('/api/rangement/dossiers', ALICE, { methode: 'POST', corps: { nom: 'Archives' } })).json.dossier
+    .id
   await api(`/api/rangement/documents/${doc}`, ALICE, { methode: 'PUT', corps: { dossier: d } })
   await api(`/api/docs/${doc}`, ALICE, { methode: 'DELETE' })
   assert.deepEqual(await liste(ALICE), [])
@@ -88,7 +112,11 @@ test('un document jeté puis restauré retrouve son dossier', async () => {
 test('quitter un document efface son rangement chez soi, sans toucher aux autres', async () => {
   await api(`/api/rangement/documents/${doc}`, BOB, { methode: 'PUT', corps: { dossier: null } })
   assert.equal((await api(`/api/docs/${doc}/access/moi`, BOB, { methode: 'DELETE' })).status, 200)
-  assert.deepEqual((await api('/api/rangement', BOB)).json.favoris, [], 'son favori sur ce document a disparu de sa vue')
+  assert.deepEqual(
+    (await api('/api/rangement', BOB)).json.favoris,
+    [],
+    'son favori sur ce document a disparu de sa vue'
+  )
   assert.equal((await liste(ALICE))[0].dossier !== undefined, true)
 })
 

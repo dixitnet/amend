@@ -88,7 +88,9 @@ export class Limiteur {
     const maintenant = this.maintenant()
     for (const [cle, v] of Object.entries(etat)) {
       if (!Array.isArray(v)) continue
-      const recents = v.filter((t) => Number.isFinite(t) && t <= maintenant && maintenant - t < this.fenetreMs).sort((a, b) => a - b)
+      const recents = v
+        .filter((t) => Number.isFinite(t) && t <= maintenant && maintenant - t < this.fenetreMs)
+        .sort((a, b) => a - b)
       if (recents.length) this.parCle.set(cle, recents)
     }
   }

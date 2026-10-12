@@ -1,9 +1,15 @@
 import { TextSelection } from 'prosemirror-state'
-import { insertAISuggestion, insertAIParagraphSuggestions, getTextBlocksInRange, porteDesModifications } from './trackChanges.js'
+import {
+  insertAISuggestion,
+  insertAIParagraphSuggestions,
+  getTextBlocksInRange,
+  porteDesModifications,
+} from './trackChanges.js'
 import { AI_USER } from './user.js'
 import { rapport, signes } from '../../shared/signes.js'
 
-const PASSAGE_CHANGE = 'Le passage a été modifié pendant la demande : la suggestion n’a pas été appliquée. Relance la demande.'
+const PASSAGE_CHANGE =
+  'Le passage a été modifié pendant la demande : la suggestion n’a pas été appliquée. Relance la demande.'
 
 /** Appelle le service Corrections IA pour **une demande** : un ou plusieurs
  * passages (les paragraphes d'une sélection) partent ensemble, comptent pour
@@ -154,7 +160,11 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
     if (from === to) return null
     if ($from.sameParent($to)) {
       const [bloc] = getTextBlocksInRange(view.state.doc, from, to)
-      return { blocs: bloc ? [bloc] : null, textes: [bloc ? bloc.text : view.state.doc.textBetween(from, to, '\n')], unique: true }
+      return {
+        blocs: bloc ? [bloc] : null,
+        textes: [bloc ? bloc.text : view.state.doc.textBetween(from, to, '\n')],
+        unique: true,
+      }
     }
     // Un bloc sans texte (une note seule, une image) n'a rien à corriger : il ne part pas.
     const blocs = getTextBlocksInRange(view.state.doc, from, to)
@@ -229,14 +239,18 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, to)))
 
     runBtn.disabled = true
-    status.textContent = passages.unique ? 'Demande en cours…' : `Demande en cours… (${passages.blocs.length} paragraphes)`
+    status.textContent = passages.unique
+      ? 'Demande en cours…'
+      : `Demande en cours… (${passages.blocs.length} paragraphes)`
     try {
       // Une seule demande, même pour plusieurs paragraphes : elle compte pour
       // une dans l'heure et pour la somme de leurs signes dans le mois. Chaque
       // paragraphe est corrigé séparément côté serveur, pour qu'il se compare
       // à son propre équivalent — pas de risque que toute la sélection se
       // réduise à un seul gros remplacement.
-      const result = passages.textes.length ? await requestSuggestions(fetcher, docId, passages.textes, instruction) : { ok: true, suggestions: [] }
+      const result = passages.textes.length
+        ? await requestSuggestions(fetcher, docId, passages.textes, instruction)
+        : { ok: true, suggestions: [] }
       if (!result.ok) {
         status.textContent = result.error
         return
@@ -247,7 +261,9 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
         // la suggestion serait comparée à autre chose que ce que l'IA a lu
         // (elle « supprimait » le texte du collègue — test du 09/10/2026).
         const [blocMaintenant] = getTextBlocksInRange(view.state.doc, from, to)
-        if ((blocMaintenant ? blocMaintenant.text : view.state.doc.textBetween(from, to, '\n')) !== passages.textes[0]) {
+        if (
+          (blocMaintenant ? blocMaintenant.text : view.state.doc.textBetween(from, to, '\n')) !== passages.textes[0]
+        ) {
           status.textContent = PASSAGE_CHANGE
           return
         }

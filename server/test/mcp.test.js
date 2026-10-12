@@ -132,7 +132,12 @@ test('GET est refusé (pas de flux serveur), OPTIONS et DELETE aussi ; la page d
 })
 
 test('pas d’OAuth : les adresses de découverte répondent 404 en JSON, pas la page d’accueil', async () => {
-  for (const chemin of ['/.well-known/oauth-authorization-server', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp/abc', '/.well-known/openid-configuration']) {
+  for (const chemin of [
+    '/.well-known/oauth-authorization-server',
+    '/.well-known/oauth-protected-resource',
+    '/.well-known/oauth-protected-resource/mcp/abc',
+    '/.well-known/openid-configuration',
+  ]) {
     const res = await fetch(`${BASE}${chemin}`)
     assert.equal(res.status, 404, chemin)
     assert.match(res.headers.get('content-type'), /json/, chemin)
@@ -142,7 +147,11 @@ test('pas d’OAuth : les adresses de découverte répondent 404 en JSON, pas la
 test('initialize, notifications et lots suivent le protocole', async () => {
   const doc = await documentDeTest()
   const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
-  const init = await rpc(secret, 'initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'test', version: '1' } })
+  const init = await rpc(secret, 'initialize', {
+    protocolVersion: '2025-03-26',
+    capabilities: {},
+    clientInfo: { name: 'test', version: '1' },
+  })
   assert.equal(init.result.protocolVersion, '2025-03-26')
   assert.equal(init.result.serverInfo.name, 'amend.ink')
   assert.match(init.result.instructions, /Vie et mort de Zan/)
@@ -153,7 +162,7 @@ test('initialize, notifications et lots suivent le protocole', async () => {
 
   const notif = await poster(secret, { jsonrpc: '2.0', method: 'notifications/initialized' })
   assert.equal(notif.status, 202)
-  assert.equal((await notif.text()), '')
+  assert.equal(await notif.text(), '')
 
   const lot = await poster(secret, [
     { jsonrpc: '2.0', id: 'a', method: 'ping' },
@@ -174,13 +183,32 @@ test('les outils dépendent du rôle : le lecteur ne propose pas, le correcteur 
   const correcteur = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
   const lecteur = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
   const noms = async (s) => (await rpc(s, 'tools/list')).result.tools.map((t) => t.name).sort()
-  assert.deepEqual(await noms(correcteur.secret), ['ajouter', 'ajouter_note', 'chercher', 'commentaires', 'commenter', 'lire', 'plan', 'proposer', 'repondre'])
+  assert.deepEqual(await noms(correcteur.secret), [
+    'ajouter',
+    'ajouter_note',
+    'chercher',
+    'commentaires',
+    'commenter',
+    'lire',
+    'plan',
+    'proposer',
+    'repondre',
+  ])
   assert.deepEqual(await noms(lecteur.secret), ['chercher', 'commentaires', 'commenter', 'lire', 'plan', 'repondre'])
-  const refus = await rpc(lecteur.secret, 'tools/call', { name: 'proposer', arguments: { remplacements: [{ bloc: 2, avant: 'mardi', apres: 'lundi' }] } })
+  const refus = await rpc(lecteur.secret, 'tools/call', {
+    name: 'proposer',
+    arguments: { remplacements: [{ bloc: 2, avant: 'mardi', apres: 'lundi' }] },
+  })
   assert.equal(refus.error.code, -32602)
-  const refusAjout = await rpc(lecteur.secret, 'tools/call', { name: 'ajouter', arguments: { ajouts: [{ apres_bloc: 1, texte: 'x' }] } })
+  const refusAjout = await rpc(lecteur.secret, 'tools/call', {
+    name: 'ajouter',
+    arguments: { ajouts: [{ apres_bloc: 1, texte: 'x' }] },
+  })
   assert.equal(refusAjout.error.code, -32602)
-  const refusNote = await rpc(lecteur.secret, 'tools/call', { name: 'ajouter_note', arguments: { notes: [{ bloc: 2, texte: 'x' }] } })
+  const refusNote = await rpc(lecteur.secret, 'tools/call', {
+    name: 'ajouter_note',
+    arguments: { notes: [{ bloc: 2, texte: 'x' }] },
+  })
   assert.equal(refusNote.error.code, -32602, 'un lecteur ne propose pas de note')
   const outils = (await rpc(correcteur.secret, 'tools/list')).result.tools
   for (const o of outils) {
@@ -217,7 +245,11 @@ test('un agent ne lit jamais un autre document que le sien', async () => {
   assert.match(lu, /« Document A »/)
   assert.doesNotMatch(lu, /secret B/)
   // Une adresse de A ne fonctionne pas avec l'identifiant de B collé dedans.
-  const res = await poster(`${secret}${b.id}`, { jsonrpc: '2.0', id: 1, method: 'ping' }, { 'x-forwarded-for': '10.7.7.7' })
+  const res = await poster(
+    `${secret}${b.id}`,
+    { jsonrpc: '2.0', id: 1, method: 'ping' },
+    { 'x-forwarded-for': '10.7.7.7' }
+  )
   assert.equal(res.status, 404)
 })
 
@@ -227,7 +259,9 @@ test('proposer écrit en suivi de modifications : persisté, relayé aux connect
 
   // Alice regarde le document en direct.
   const y = new Y.Doc()
-  const ws = new WebSocket(`ws://localhost:${PORT}/ws/${doc.id}?user=Alice`, { headers: { cookie: cookie('alice@example.com') } })
+  const ws = new WebSocket(`ws://localhost:${PORT}/ws/${doc.id}?user=Alice`, {
+    headers: { cookie: cookie('alice@example.com') },
+  })
   // L'écouteur avant l'ouverture : le serveur envoie l'état dès qu'il a
   // chargé le document.
   ws.on('message', (data, binaire) => {
@@ -272,7 +306,7 @@ test('proposer écrit en suivi de modifications : persisté, relayé aux connect
     if (/insertion/.test(rejoue.getXmlFragment('prosemirror-content').toString())) break
     await new Promise((r) => setTimeout(r, 100))
   }
-  assert.match(rejoue.getXmlFragment("prosemirror-content").toString(), /insertion/)
+  assert.match(rejoue.getXmlFragment('prosemirror-content').toString(), /insertion/)
   ws.close()
 })
 
@@ -282,7 +316,12 @@ test('ajouter pose un paragraphe en suivi de modifications, relu par le serveur,
   const avant = texteDe(await appeler(secret, 'lire', { de: 1, nombre: 100 }))
   const nombreAvant = (avant.match(/^\[\d+\]/gm) || []).length
 
-  const r = await appeler(secret, 'ajouter', { ajouts: [{ apres_bloc: 1, texte: 'Un paragraphe de transition.\nEt un second.' }, { apres_bloc: 999, texte: 'x' }] })
+  const r = await appeler(secret, 'ajouter', {
+    ajouts: [
+      { apres_bloc: 1, texte: 'Un paragraphe de transition.\nEt un second.' },
+      { apres_bloc: 999, texte: 'x' },
+    ],
+  })
   assert.ok(!r.isError, texteDe(r))
   assert.match(texteDe(r), /2 paragraphe\(s\) ajouté\(s\) en suivi de modifications/)
   assert.match(texteDe(r), /ont changé : relis/)
@@ -348,7 +387,9 @@ test('les notes de bas de page : lues sous leur bloc, trouvées, corrigées, com
   assert.match(trouve, /\[1\] note ⟦1⟧ \(note 1\) : Archives de Lyon/)
 
   // Corriger le texte de la note.
-  const corr = await appeler(secret, 'proposer', { remplacements: [{ bloc: 1, note: 1, avant: 'cote 12', apres: 'cote 21' }] })
+  const corr = await appeler(secret, 'proposer', {
+    remplacements: [{ bloc: 1, note: 1, avant: 'cote 12', apres: 'cote 21' }],
+  })
   assert.ok(!corr.isError, texteDe(corr))
   assert.match(texteDe(await appeler(secret, 'lire')), /note 1 : Archives de Lyon, cote 21\. {2}⚑/)
 
@@ -368,10 +409,15 @@ test('les notes de bas de page : lues sous leur bloc, trouvées, corrigées, com
   assert.match(texteDe(aj), /1 note\(s\) ajoutée\(s\) en suivi de modifications/)
   assert.match(texteDe(aj), /Refusé — note 2 \(bloc 3\) : .*titre/)
   const apres = texteDe(await appeler(secret, 'lire'))
-  assert.match(apres, /\[2\] Il mourut jeune⟦1⟧, et sans bruit\. {2}⚑\n {6}⟦1⟧ note 2 : Selon le registre paroissial\. {2}⚑/)
+  assert.match(
+    apres,
+    /\[2\] Il mourut jeune⟦1⟧, et sans bruit\. {2}⚑\n {6}⟦1⟧ note 2 : Selon le registre paroissial\. {2}⚑/
+  )
 
   // La note ajoutée se corrige-t-elle ? Pas avant qu'on l'ait acceptée.
-  const trop = await appeler(secret, 'proposer', { remplacements: [{ bloc: 2, note: 1, avant: 'registre', apres: 'livre' }] })
+  const trop = await appeler(secret, 'proposer', {
+    remplacements: [{ bloc: 2, note: 1, avant: 'registre', apres: 'livre' }],
+  })
   assert.ok(trop.isError)
   assert.match(texteDe(trop), /vient d'être proposée/)
 
@@ -418,7 +464,10 @@ test('retirer ses droits à celui qui a invité coupe l’agent ; supprimer le d
   const autre = await documentDeTest('À supprimer')
   const s = agents.inviter({ docId: autre.id, role: 'lecteur', par: 'alice@example.com' })
   assert.ok(texteDe(await appeler(s.secret, 'plan')).includes('À supprimer'))
-  const suppr = await fetch(`${BASE}/api/docs/${autre.id}`, { method: 'DELETE', headers: { cookie: cookie('alice@example.com') } })
+  const suppr = await fetch(`${BASE}/api/docs/${autre.id}`, {
+    method: 'DELETE',
+    headers: { cookie: cookie('alice@example.com') },
+  })
   assert.equal(suppr.status, 200)
   const apres = await poster(s.secret, { jsonrpc: '2.0', id: 1, method: 'ping' }, { 'x-forwarded-for': '10.5.5.6' })
   assert.equal(apres.status, 404)
@@ -435,9 +484,15 @@ test('le secret n’est ni dans le journal des agents ni dans le registre ; le j
   const contenu = readFileSync(journal, 'utf8')
   assert.ok(!contenu.includes(secret), 'le secret dans le journal')
   assert.ok(!contenu.includes('mardi') && !contenu.includes('lundi'), 'du texte du document dans le journal')
-  const lignes = contenu.trim().split('\n').map((l) => JSON.parse(l))
+  const lignes = contenu
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l))
   const miennes = lignes.filter((l) => l.docId === doc.id)
-  assert.deepEqual(miennes.map((l) => l.outil), ['lire', 'proposer'])
+  assert.deepEqual(
+    miennes.map((l) => l.outil),
+    ['lire', 'proposer']
+  )
   assert.equal(miennes[1].appliques, 1)
   assert.ok(!readFileSync(join(DATA_DIR, 'agents.json'), 'utf8').includes(secret))
 })
@@ -447,7 +502,11 @@ test('trop d’adresses devinées en vain : 429, sans gêner les autres origines
   const { secret } = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
   let dernier = 0
   for (let i = 0; i < 40; i++) {
-    const res = await poster(`x${String(i).padStart(21, 'a')}`, { jsonrpc: '2.0', id: 1, method: 'ping' }, { 'x-forwarded-for': '203.0.113.9' })
+    const res = await poster(
+      `x${String(i).padStart(21, 'a')}`,
+      { jsonrpc: '2.0', id: 1, method: 'ping' },
+      { 'x-forwarded-for': '203.0.113.9' }
+    )
     dernier = res.status
   }
   assert.equal(dernier, 429)
@@ -458,7 +517,11 @@ test('trop d’adresses devinées en vain : 429, sans gêner les autres origines
 test('un corps trop gros est refusé sans faire tomber le serveur', async () => {
   const doc = await documentDeTest()
   const { secret } = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
-  const res = await poster(secret, { jsonrpc: '2.0', id: 1, method: 'ping', params: { bourrage: 'x'.repeat(300_000) } }, { 'x-forwarded-for': '10.6.6.6' })
+  const res = await poster(
+    secret,
+    { jsonrpc: '2.0', id: 1, method: 'ping', params: { bourrage: 'x'.repeat(300_000) } },
+    { 'x-forwarded-for': '10.6.6.6' }
+  )
   assert.equal(res.status, 413)
   const encore = await rpc(secret, 'ping')
   assert.deepEqual(encore.result, {})
@@ -466,13 +529,20 @@ test('un corps trop gros est refusé sans faire tomber le serveur', async () => 
 
 test('Claude se voit dans la salle : pastille et curseur sur le bloc qu’il lit, y compris pour qui arrive après', async () => {
   const doc = await documentDeTest()
-  const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com', nom: 'Claude (pour Alice)' })
+  const { secret } = agents.inviter({
+    docId: doc.id,
+    role: 'correcteur',
+    par: 'alice@example.com',
+    nom: 'Claude (pour Alice)',
+  })
 
   /** Un navigateur qui regarde : le document, et l'awareness des autres. */
   async function spectateur() {
     const y = new Y.Doc()
     const aw = new Awareness(new Y.Doc())
-    const ws = new WebSocket(`ws://localhost:${PORT}/ws/${doc.id}?user=Alice`, { headers: { cookie: cookie('alice@example.com') } })
+    const ws = new WebSocket(`ws://localhost:${PORT}/ws/${doc.id}?user=Alice`, {
+      headers: { cookie: cookie('alice@example.com') },
+    })
     ws.on('message', (data, binaire) => {
       if (binaire) return Y.applyUpdate(y, new Uint8Array(data))
       let msg
@@ -489,7 +559,8 @@ test('Claude se voit dans la salle : pastille et curseur sur le bloc qu’il lit
     })
     return { y, aw, ws }
   }
-  const agentsVus = (aw) => [...aw.getStates().entries()].filter(([id, e]) => id !== aw.clientID && e && e.agent).map(([, e]) => e)
+  const agentsVus = (aw) =>
+    [...aw.getStates().entries()].filter(([id, e]) => id !== aw.clientID && e && e.agent).map(([, e]) => e)
 
   const premier = await spectateur()
   await new Promise((r) => setTimeout(r, 250))

@@ -34,7 +34,9 @@ export function lireJson(chemin, siAbsent = {}) {
       const copie = `${chemin}.illisible-${Date.now()}`
       try {
         copyFileSync(chemin, copie)
-        console.error(`[amend] ${chemin} est illisible (${texte.length} octets) : copie gardée dans ${copie}. Rien n'est réécrit tant qu'il n'est pas réparé.`)
+        console.error(
+          `[amend] ${chemin} est illisible (${texte.length} octets) : copie gardée dans ${copie}. Rien n'est réécrit tant qu'il n'est pas réparé.`
+        )
       } catch (e) {
         console.error(`[amend] ${chemin} est illisible et n'a pas pu être copié :`, e.message)
       }

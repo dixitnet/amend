@@ -32,7 +32,11 @@ const vide = () => ({ version: 1, dossiers: [], placement: {}, favoris: [] })
 
 /** Le nom, tel qu'on le range : sans caractères de contrôle, espaces resserrés. */
 export function nomDeDossier(nom) {
-  return String(nom ?? '').replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, NOM_DOSSIER_MAX)
+  return String(nom ?? '')
+    .replace(/\p{Cc}/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, NOM_DOSSIER_MAX)
 }
 
 export class Rangements {
@@ -50,7 +54,9 @@ export class Rangements {
     const brut = lireJson(this._chemin(email), vide())
     return {
       version: 1,
-      dossiers: Array.isArray(brut.dossiers) ? brut.dossiers.filter((d) => d && typeof d.id === 'string' && typeof d.nom === 'string') : [],
+      dossiers: Array.isArray(brut.dossiers)
+        ? brut.dossiers.filter((d) => d && typeof d.id === 'string' && typeof d.nom === 'string')
+        : [],
       placement: brut.placement && typeof brut.placement === 'object' ? { ...brut.placement } : {},
       favoris: Array.isArray(brut.favoris) ? brut.favoris.filter((x) => typeof x === 'string') : [],
     }
@@ -118,7 +124,9 @@ export class Rangements {
 
   _verifierNom(r, nom, parent, sauf = null) {
     if (!nom) throw new ErreurHttp(400, 'le nom du dossier est vide')
-    const meme = r.dossiers.some((d) => d.id !== sauf && (d.parent || null) === (parent || null) && d.nom.toLowerCase() === nom.toLowerCase())
+    const meme = r.dossiers.some(
+      (d) => d.id !== sauf && (d.parent || null) === (parent || null) && d.nom.toLowerCase() === nom.toLowerCase()
+    )
     if (meme) throw new ErreurHttp(409, `il y a déjà un dossier « ${nom} » à cet endroit`)
   }
 
@@ -133,7 +141,8 @@ export class Rangements {
     const nom = nomDeDossier(nomBrut)
     if (parent) {
       this._dossier(r, parent)
-      if (this._profondeur(r, parent) >= PROFONDEUR_MAX) throw new ErreurHttp(400, `les dossiers vont jusqu’à ${PROFONDEUR_MAX} niveaux`)
+      if (this._profondeur(r, parent) >= PROFONDEUR_MAX)
+        throw new ErreurHttp(400, `les dossiers vont jusqu’à ${PROFONDEUR_MAX} niveaux`)
     }
     this._verifierNom(r, nom, parent)
     if (r.dossiers.length >= DOSSIERS_MAX) throw new ErreurHttp(403, `limite de ${DOSSIERS_MAX} dossiers atteinte`)
@@ -161,12 +170,17 @@ export class Rangements {
     const d = this._dossier(r, id)
     if (parent) {
       this._dossier(r, parent)
-      for (let cur = r.dossiers.find((x) => x.id === parent); cur; cur = cur.parent ? r.dossiers.find((x) => x.id === cur.parent) : null) {
+      for (
+        let cur = r.dossiers.find((x) => x.id === parent);
+        cur;
+        cur = cur.parent ? r.dossiers.find((x) => x.id === cur.parent) : null
+      ) {
         if (cur.id === id) throw new ErreurHttp(400, 'un dossier ne se range pas dans lui-même')
       }
     }
     const profondeurParent = parent ? this._profondeur(r, parent) : 0
-    if (profondeurParent + this._hauteur(r, id) > PROFONDEUR_MAX) throw new ErreurHttp(400, `les dossiers vont jusqu’à ${PROFONDEUR_MAX} niveaux`)
+    if (profondeurParent + this._hauteur(r, id) > PROFONDEUR_MAX)
+      throw new ErreurHttp(400, `les dossiers vont jusqu’à ${PROFONDEUR_MAX} niveaux`)
     this._verifierNom(r, d.nom, parent, id)
     d.parent = parent || null
     this._ecrire(email, r)
@@ -183,7 +197,17 @@ export class Rangements {
     // suffixe plutôt que de refuser de supprimer.
     for (const enfant of r.dossiers.filter((x) => x.parent === id)) {
       let nom = enfant.nom
-      for (let n = 2; r.dossiers.some((x) => x.id !== enfant.id && x.id !== id && (x.parent || null) === parent && x.nom.toLowerCase() === nom.toLowerCase()); n++) {
+      for (
+        let n = 2;
+        r.dossiers.some(
+          (x) =>
+            x.id !== enfant.id &&
+            x.id !== id &&
+            (x.parent || null) === parent &&
+            x.nom.toLowerCase() === nom.toLowerCase()
+        );
+        n++
+      ) {
         nom = `${enfant.nom} (${n})`.slice(0, NOM_DOSSIER_MAX + 6)
       }
       enfant.nom = nom

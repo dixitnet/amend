@@ -187,7 +187,8 @@ export class Typst {
 
       const args = [
         'compile',
-        '--root', racine,
+        '--root',
+        racine,
         ...(this.polices ? ['--font-path', this.polices, '--ignore-system-fonts'] : []),
         'main.typ',
         'sortie.pdf',

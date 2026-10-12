@@ -112,7 +112,11 @@ test('les capacités voyagent avec les métadonnées, et un lecteur ne fait que 
   const correcteur = await meta(cookieFor('corr-cap@example.com'))
   assert.equal(correcteur.myRole, 'correcteur')
   assert.deepEqual(
-    [correcteur.myCapabilities.canEditFreely, correcteur.myCapabilities.canProposeChanges, correcteur.myCapabilities.canComment],
+    [
+      correcteur.myCapabilities.canEditFreely,
+      correcteur.myCapabilities.canProposeChanges,
+      correcteur.myCapabilities.canComment,
+    ],
     [false, true, true]
   )
   const lecteur = await meta(cookieFor('lect-cap@example.com'))
@@ -128,7 +132,10 @@ test("un document sans liste d'accès n'est plus ouvert à tous", async () => {
   const storage = new Storage(process.env.DATA_DIR)
   const doc = storage.createDoc('Sans liste')
   assert.equal((await fetch(`${BASE}/api/docs/${doc.id}`)).status, 403)
-  assert.equal((await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie: cookieFor('x@example.com') } })).status, 403)
+  assert.equal(
+    (await fetch(`${BASE}/api/docs/${doc.id}`, { headers: { cookie: cookieFor('x@example.com') } })).status,
+    403
+  )
   const liste = await (await fetch(`${BASE}/api/docs`, { headers: { cookie: cookieFor('x@example.com') } })).json()
   assert.ok(!liste.docs.some((d) => d.id === doc.id))
 })
@@ -179,7 +186,10 @@ test('invitation nominative : entrée « en attente », puis accès à la premi�
   const apresEchec = await (
     await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })
   ).json()
-  assert.equal(apresEchec.access.some((a) => a.email === 'dan@example.com'), false)
+  assert.equal(
+    apresEchec.access.some((a) => a.email === 'dan@example.com'),
+    false
+  )
 
   // On court-circuite donc l'envoi de mail pour la suite : le stockage est
   // la source de vérité, c'est lui qu'on teste ici.
@@ -204,9 +214,7 @@ test('invitation nominative : entrée « en attente », puis accès à la premi�
   assert.equal(accepte.email, 'dan@example.com')
   assert.ok(acceptRes.headers.get('set-cookie'))
 
-  const apres = await (
-    await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })
-  ).json()
+  const apres = await (await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie: editorCookie } })).json()
   assert.equal(apres.access.find((a) => a.email === 'dan@example.com').status, 'actif')
 
   const meta = await (
@@ -330,9 +338,13 @@ test('renommer/étoiler/supprimer un document est réservé aux éditeurs', asyn
   // Depuis le 12/10/2026 l'étoile est un favori personnel : un correcteur en
   // a un, sans que le document ni les autres membres n'en sachent rien.
   assert.equal(starByCorrecteur.status, 200)
-  const vuParLeCorrecteur = (await (await fetch(`${BASE}/api/docs`, { headers: { cookie: correcteurCookie } })).json()).docs.find((d) => d.id === doc.id)
+  const vuParLeCorrecteur = (
+    await (await fetch(`${BASE}/api/docs`, { headers: { cookie: correcteurCookie } })).json()
+  ).docs.find((d) => d.id === doc.id)
   assert.equal(vuParLeCorrecteur.starred, true)
-  const vuParLEditeur = (await (await fetch(`${BASE}/api/docs`, { headers: { cookie: editorCookie } })).json()).docs.find((d) => d.id === doc.id)
+  const vuParLEditeur = (
+    await (await fetch(`${BASE}/api/docs`, { headers: { cookie: editorCookie } })).json()
+  ).docs.find((d) => d.id === doc.id)
   assert.equal(vuParLEditeur.starred, false, 'le favori d’un autre ne se voit pas')
 
   const deleteByCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}`, {
@@ -411,7 +423,7 @@ test('la feuille de style et le diagnostic sont réservés aux administrateurs',
     const statsRes = await fetch(`${BASE}/api/debug/stats`, { headers: { cookie: cookieFor('nobody@example.com') } })
     assert.equal(statsRes.status, 403)
   } finally {
-process.env.ADMIN_EMAILS = ''
+    process.env.ADMIN_EMAILS = ''
   }
 })
 
@@ -460,7 +472,7 @@ test('la suggestion IA : session exigée, et fermée au correcteur par défaut (
   // déjà connu que integration.test.js) pour vérifier précisément que ce
   // n'est ni un 401 ni un 403.
   const savedKey = process.env.ANTHROPIC_API_KEY
-process.env.ANTHROPIC_API_KEY = ''
+  process.env.ANTHROPIC_API_KEY = ''
   const editeurRes = await fetch(`${BASE}/api/ai/suggest`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', cookie: editorCookie },
@@ -491,7 +503,7 @@ test('isLoginAllowed : administrateur ou déjà invité quelque part, personne d
     storage.createDoc('Doc pour laura', 'laura@example.com')
     assert.equal(isLoginAllowed('laura@example.com', storage), true)
   } finally {
-process.env.ADMIN_EMAILS = ''
+    process.env.ADMIN_EMAILS = ''
   }
 })
 
@@ -542,7 +554,12 @@ test("aucune réponse de l'API ne contient de jeton d'invitation (S1)", async ()
   ).json()
   const storage = new Storage(process.env.DATA_DIR)
   const { token: jetonLecteur } = storage.inviteEmail(doc.id, 'lena@example.com', 'lecteur', 'carla@example.com')
-  const { token: jetonEnAttente } = storage.inviteEmail(doc.id, 'enattente@example.com', 'correcteur', 'carla@example.com')
+  const { token: jetonEnAttente } = storage.inviteEmail(
+    doc.id,
+    'enattente@example.com',
+    'correcteur',
+    'carla@example.com'
+  )
   await fetch(`${BASE}/api/invitations/${jetonLecteur}`, { method: 'POST' })
 
   for (const cookie of [editorCookie, cookieFor('lena@example.com')]) {
@@ -641,7 +658,10 @@ test('un lecteur ne peut faire relayer ni « refuse », ni « synced », ni un t
   lecteur.ws.send(JSON.stringify({ type: 'inconnu' }))
   lecteur.ws.send(JSON.stringify({ type: 'awareness', data: 'AAAA' }))
   await attendre(250)
-  assert.deepEqual(editeur.recus.map((m) => m.type), ['awareness'])
+  assert.deepEqual(
+    editeur.recus.map((m) => m.type),
+    ['awareness']
+  )
 
   // L'éditeur, lui, peut faire relayer un titre.
   lecteur.recus.length = 0
@@ -675,8 +695,11 @@ test('révoquer un accès coupe la connexion ouverte de la personne (S7)', async
   assert.equal(res.status, 200)
   const code = await Promise.race([coupe, attendre(1500).then(() => null)])
   assert.ok(code !== null, 'la socket de la personne retirée doit se fermer')
-  assert.ok(partant.recus.some((m) => m.type === 'refuse'), 'et le client est prévenu')
-  assert.equal(reste.ws.readyState, WebSocket.OPEN, "les autres participants ne sont pas touchés")
+  assert.ok(
+    partant.recus.some((m) => m.type === 'refuse'),
+    'et le client est prévenu'
+  )
+  assert.equal(reste.ws.readyState, WebSocket.OPEN, 'les autres participants ne sont pas touchés')
   reste.ws.close()
 })
 

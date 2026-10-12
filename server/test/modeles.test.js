@@ -38,10 +38,12 @@ function attendre() {
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + 5000
     ;(function essai() {
-      fetch(`${BASE}/api/docs`).then(() => resolve()).catch((err) => {
-        if (Date.now() > deadline) reject(err)
-        else setTimeout(essai, 50)
-      })
+      fetch(`${BASE}/api/docs`)
+        .then(() => resolve())
+        .catch((err) => {
+          if (Date.now() > deadline) reject(err)
+          else setTimeout(essai, 50)
+        })
     })()
   })
 }
@@ -73,7 +75,14 @@ const ids = (liste) => liste.map((m) => m.id)
 // pour l'instance : c'est aussi ce que fera un administrateur réel.
 const M = {}
 for (const [cle, nom, style] of [
-  ['livre', 'Livre', { page: { size: 'A5' }, blocs: { body: { font: 'libre-caslon-text', size: 10.5, align: 'justify' }, h1: { size: 24 } } }],
+  [
+    'livre',
+    'Livre',
+    {
+      page: { size: 'A5' },
+      blocs: { body: { font: 'libre-caslon-text', size: 10.5, align: 'justify' }, h1: { size: 24 } },
+    },
+  ],
   ['note', 'Note', { page: { size: 'A4' }, blocs: { body: { font: 'arial', size: 10.5 }, h1: { size: 20 } } }],
   ['manuscrit', 'Manuscrit', { page: { size: 'A4' }, blocs: { body: { font: 'times', size: 12 }, h1: { size: 16 } } }],
 ]) {
@@ -134,18 +143,23 @@ test('créer : toujours à partir d’un modèle, jamais d’une page blanche', 
   assert.equal((await appeler('POST', '/api/modeles', ALICE, { nom: 'Vide' })).status, 404)
   assert.equal((await appeler('POST', '/api/modeles', ALICE, { nom: 'X', depuis: 'inexistant' })).status, 404)
   assert.equal((await appeler('POST', '/api/modeles', ALICE, { nom: '   ', depuis: 'texte-brut' })).status, 400)
-  assert.equal((await appeler('POST', '/api/modeles', ALICE, { nom: 'a'.repeat(61), depuis: 'texte-brut' })).status, 400)
+  assert.equal(
+    (await appeler('POST', '/api/modeles', ALICE, { nom: 'a'.repeat(61), depuis: 'texte-brut' })).status,
+    400
+  )
   // Partir du modèle personnel d'un autre : impossible.
   const alice = (await appeler('POST', '/api/modeles', ALICE, { nom: 'Privé', depuis: 'texte-brut' })).json
   assert.equal((await appeler('POST', '/api/modeles', BOB, { nom: 'Copie', depuis: alice.id })).status, 404)
   // La copie reprend le style de la source, sans l'altérer.
-  const copie = (await appeler('POST', '/api/modeles', ALICE, { nom: 'Copie de Texte brut', depuis: 'texte-brut' })).json
+  const copie = (await appeler('POST', '/api/modeles', ALICE, { nom: 'Copie de Texte brut', depuis: 'texte-brut' }))
+    .json
   const source = (await appeler('GET', '/api/modeles/texte-brut', ALICE)).json
   assert.deepEqual(copie.style, source.style)
 })
 
 test('le nom est nettoyé : espaces compactés, caractères de contrôle retirés', async () => {
-  const m = (await appeler('POST', '/api/modeles', ALICE, { nom: '  Mon\u0000   thème\n  ', depuis: 'texte-brut' })).json
+  const m = (await appeler('POST', '/api/modeles', ALICE, { nom: '  Mon\u0000   thème\n  ', depuis: 'texte-brut' }))
+    .json
   assert.equal(m.nom, 'Mon thème')
 })
 
@@ -191,8 +205,15 @@ test('rien d’invalide n’entre : valeurs ramenées dans les listes et les bor
 })
 
 test('les modèles de l’instance sont aux administrateurs, visibles de tous', async () => {
-  assert.equal((await appeler('POST', '/api/modeles', ALICE, { nom: 'Maison', depuis: 'texte-brut', portee: 'instance' })).status, 403)
-  const maison = await appeler('POST', '/api/modeles', ADMIN, { nom: 'Maison', depuis: 'texte-brut', portee: 'instance' })
+  assert.equal(
+    (await appeler('POST', '/api/modeles', ALICE, { nom: 'Maison', depuis: 'texte-brut', portee: 'instance' })).status,
+    403
+  )
+  const maison = await appeler('POST', '/api/modeles', ADMIN, {
+    nom: 'Maison',
+    depuis: 'texte-brut',
+    portee: 'instance',
+  })
   assert.equal(maison.status, 200)
   assert.equal(maison.json.portee, 'instance')
   assert.equal(maison.json.modifiable, true)
@@ -261,7 +282,10 @@ test('le modèle est celui du document : un collaborateur éditeur le voit, un c
   assert.equal((await appeler('GET', `/api/docs/${doc.id}/style`, corr)).json.modele.id, M.manuscrit)
   assert.equal((await appeler('PUT', `/api/docs/${doc.id}/modele`, corr, { modeleId: M.note })).status, 403)
   // Sans accès : rien.
-  assert.equal((await appeler('PUT', `/api/docs/${doc.id}/modele`, cookie('inconnu@example.com'), { modeleId: M.note })).status, 403)
+  assert.equal(
+    (await appeler('PUT', `/api/docs/${doc.id}/modele`, cookie('inconnu@example.com'), { modeleId: M.note })).status,
+    403
+  )
   assert.equal((await appeler('PUT', `/api/docs/${doc.id}/modele`, undefined, { modeleId: M.note })).status, 403)
 })
 
@@ -311,7 +335,9 @@ test('changer de modèle abandonne les écarts propres, sauf demande contraire',
   // Avec garderEcarts, ils restent.
   const note = (await appeler('GET', `/api/modeles/${M.note}`, ALICE)).json.style
   await appeler('PUT', `/api/docs/${doc.id}/style`, ALICE, fusionner(note, { blocs: { body: { size: 14 } } }))
-  const garde = (await appeler('PUT', `/api/docs/${doc.id}/modele`, ALICE, { modeleId: M.manuscrit, garderEcarts: true })).json
+  const garde = (
+    await appeler('PUT', `/api/docs/${doc.id}/modele`, ALICE, { modeleId: M.manuscrit, garderEcarts: true })
+  ).json
   assert.equal(garde.propre, true)
   assert.equal(garde.style.blocs.body.size, 14)
   assert.equal(garde.style.blocs.body.font, 'times')
@@ -324,7 +350,9 @@ test('un document qui a un modèle suit ses changements pour tout ce qu’il n�
   await appeler('PUT', `/api/docs/${doc.id}/style`, ALICE, fusionner(m.style, { blocs: { h1: { size: 33 } } }))
 
   // On modifie le modèle (police du corps) : le document le suit, sauf pour son propre titre.
-  await appeler('PUT', `/api/modeles/${m.id}`, ALICE, { style: fusionner(m.style, { blocs: { body: { font: 'serif' }, h1: { size: 10 } } }) })
+  await appeler('PUT', `/api/modeles/${m.id}`, ALICE, {
+    style: fusionner(m.style, { blocs: { body: { font: 'serif' }, h1: { size: 10 } } }),
+  })
   const r = (await appeler('GET', `/api/docs/${doc.id}/style`, ALICE)).json
   assert.equal(r.style.blocs.body.font, 'serif', 'suit le modèle')
   assert.equal(r.style.blocs.h1.size, 33, 'garde son propre réglage')
@@ -335,7 +363,14 @@ test('revenir au modèle efface les écarts, et le décompte les dit', async () 
   const doc = await creerDoc(ALICE)
   await appeler('PUT', `/api/docs/${doc.id}/modele`, ALICE, { modeleId: M.note })
   const note = (await appeler('GET', `/api/modeles/${M.note}`, ALICE)).json.style
-  const e = (await appeler('PUT', `/api/docs/${doc.id}/style`, ALICE, fusionner(note, { blocs: { h1: { size: 30, align: 'center' } } }))).json
+  const e = (
+    await appeler(
+      'PUT',
+      `/api/docs/${doc.id}/style`,
+      ALICE,
+      fusionner(note, { blocs: { h1: { size: 30, align: 'center' } } })
+    )
+  ).json
   assert.equal(e.ecarts, 2)
   const r = (await appeler('DELETE', `/api/docs/${doc.id}/style`, ALICE)).json
   assert.equal(r.ecarts, 0)
@@ -375,7 +410,8 @@ test('un modèle utilisé ne se supprime pas ; libre, il se supprime', async () 
 })
 
 test('« Par défaut » compte les documents qui n’ont jamais choisi', async () => {
-  const n = async () => (await appeler('GET', '/api/modeles', ALICE)).json.modeles.find((m) => m.id === ID_DEFAUT).utilisePar
+  const n = async () =>
+    (await appeler('GET', '/api/modeles', ALICE)).json.modeles.find((m) => m.id === ID_DEFAUT).utilisePar
   const avant = await n()
   const doc = await creerDoc(ALICE)
   assert.equal(await n(), avant + 1)

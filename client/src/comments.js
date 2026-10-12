@@ -75,18 +75,8 @@ function resoudreAncres(state, ydoc, anchorFrom, anchorTo) {
   // presence.js — : on ne la prend pas pour un orphelin, on recalculera au
   // prochain passage.
   try {
-    const from = relativePositionToAbsolutePosition(
-      ydoc,
-      ystate.type,
-      decodeAnchor(anchorFrom),
-      ystate.binding.mapping
-    )
-    const to = relativePositionToAbsolutePosition(
-      ydoc,
-      ystate.type,
-      decodeAnchor(anchorTo),
-      ystate.binding.mapping
-    )
+    const from = relativePositionToAbsolutePosition(ydoc, ystate.type, decodeAnchor(anchorFrom), ystate.binding.mapping)
+    const to = relativePositionToAbsolutePosition(ydoc, ystate.type, decodeAnchor(anchorTo), ystate.binding.mapping)
     if (from == null || to == null) return null
     return { from: Math.min(from, to), to: Math.max(from, to) }
   } catch {
@@ -219,9 +209,7 @@ export function orphelins(commentsMap, resoudre) {
  * son commentaire n'est donc jamais vide, et survit jusqu'à l'acceptation. */
 export function rapprocher(ydoc, commentsMap, resoudre, maintenant = Date.now()) {
   const marques = ydoc.getMap(NOM_ORPHELINS)
-  const vides = new Set(
-    orphelins(commentsMap, resoudre).filter((id) => !estUneReponse(commentsMap.get(id)))
-  )
+  const vides = new Set(orphelins(commentsMap, resoudre).filter((id) => !estUneReponse(commentsMap.get(id))))
   const aMarquer = []
   const aLever = new Set()
   const aEffacer = []
@@ -374,12 +362,20 @@ export function suivreCoupeColle(tr, connus, commentsMap, coupes, maintenant = D
         const f = jusqu.map(r.from, 1)
         const t = jusqu.map(r.to, -1)
         if (t > f && f >= step.from && t <= step.to) {
-          morceaux.push({ id, debut: f - step.from, fin: t - step.from, texte: avant.textBetween(f, t, '\n', '\ufffc') })
+          morceaux.push({
+            id,
+            debut: f - step.from,
+            fin: t - step.from,
+            texte: avant.textBetween(f, t, '\n', '\ufffc'),
+          })
         }
       })
       if (morceaux.length) {
         const coupe = avant.slice(step.from, step.to)
-        restantes = [{ t: maintenant, texte: texteDe(coupe), ouvert: coupe.openStart, morceaux }, ...restantes].slice(0, COUPES_MAX)
+        restantes = [{ t: maintenant, texte: texteDe(coupe), ouvert: coupe.openStart, morceaux }, ...restantes].slice(
+          0,
+          COUPES_MAX
+        )
       }
       return
     }
@@ -509,7 +505,11 @@ export function commentsPlugin(ydoc, commentsMap, { peutEcrire = () => true } = 
       const a = Y.relativePositionToJSON(
         absolutePositionToRelativePosition(vivant.to, ystate.type, ystate.binding.mapping)
       )
-      if (JSON.stringify(de) === JSON.stringify(comment.anchorFrom) && JSON.stringify(a) === JSON.stringify(comment.anchorTo)) return
+      if (
+        JSON.stringify(de) === JSON.stringify(comment.anchorFrom) &&
+        JSON.stringify(a) === JSON.stringify(comment.anchorTo)
+      )
+        return
       ecritures.push([id, comment, de, a])
     })
     if (!ecritures.length) return
@@ -572,8 +572,7 @@ export function commentsPlugin(ydoc, commentsMap, { peutEcrire = () => true } = 
         suivis.forEach((r, id) => ranges.set(id, r))
         // Une transaction ajoutée par un autre greffon (suivi des
         // modifications) ne doit pas faire oublier un réancrage en attente.
-        const enAttente =
-          old.reancrer && !traites.has(old.reancrer) ? reporter(old.reancrer, tr, false) : null
+        const enAttente = old.reancrer && !traites.has(old.reancrer) ? reporter(old.reancrer, tr, false) : null
         return {
           ranges,
           decos: decorer(newState.doc, ranges, commentsMap),
@@ -645,9 +644,7 @@ export function addComment(view, ydoc, commentsMap, user, text) {
   const anchorFrom = Y.relativePositionToJSON(
     absolutePositionToRelativePosition(from, ystate.type, ystate.binding.mapping)
   )
-  const anchorTo = Y.relativePositionToJSON(
-    absolutePositionToRelativePosition(to, ystate.type, ystate.binding.mapping)
-  )
+  const anchorTo = Y.relativePositionToJSON(absolutePositionToRelativePosition(to, ystate.type, ystate.binding.mapping))
   const id = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   commentsMap.set(id, {
     id,
@@ -754,9 +751,7 @@ export function modifierTexte(commentsMap, id, texte) {
 export function supprimerFil(ydoc, commentsMap, id) {
   const commentaire = commentsMap.get(id)
   if (!commentaire) return 0
-  const aSupprimer = estUneReponse(commentaire)
-    ? [id]
-    : [id, ...reponsesDe(commentsMap, id).map((r) => r.id)]
+  const aSupprimer = estUneReponse(commentaire) ? [id] : [id, ...reponsesDe(commentsMap, id).map((r) => r.id)]
   ydoc.transact(() => {
     for (const cle of aSupprimer) commentsMap.delete(cle)
   })

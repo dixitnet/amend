@@ -36,7 +36,6 @@ import { couleurSure } from '../../shared/securite.js'
 const ECART_MINIMAL = 8 // px entre deux cartes empilées
 const DELAI_RECALCUL_MS = 100
 
-
 function tempsRelatif(ts) {
   const s = Math.round((Date.now() - ts) / 1000)
   if (s < 60) return "à l'instant"
@@ -346,9 +345,10 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
       remplirCarte(carte, commentaire, id)
       let y = 0
       try {
-        const depuis = ancrage && ancrage.id === id && ancrage.pos >= range.from && ancrage.pos <= range.to
-          ? ancrage.pos
-          : range.from
+        const depuis =
+          ancrage && ancrage.id === id && ancrage.pos >= range.from && ancrage.pos <= range.to
+            ? ancrage.pos
+            : range.from
         y = view.coordsAtPos(depuis).top - rectGouttiere.top
       } catch {
         return

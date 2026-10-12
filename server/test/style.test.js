@@ -42,10 +42,12 @@ function waitForServer() {
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + 5000
     ;(function attempt() {
-      fetch(`${BASE}/api/docs`).then(() => resolve()).catch((err) => {
-        if (Date.now() > deadline) reject(err)
-        else setTimeout(attempt, 50)
-      })
+      fetch(`${BASE}/api/docs`)
+        .then(() => resolve())
+        .catch((err) => {
+          if (Date.now() > deadline) reject(err)
+          else setTimeout(attempt, 50)
+        })
     })()
   })
 }
@@ -177,7 +179,9 @@ test('dès qu’un éditeur y touche, le document ne suit plus l’instance', as
   assert.equal(vue.style.blocs.h1.size, 40, "le style d'instance a reflué sur un document qui avait choisi")
 
   // DELETE le remet à l'héritage.
-  const remis = await (await fetch(`${BASE}/api/docs/${doc.id}/style`, { method: 'DELETE', headers: { cookie: admin } })).json()
+  const remis = await (
+    await fetch(`${BASE}/api/docs/${doc.id}/style`, { method: 'DELETE', headers: { cookie: admin } })
+  ).json()
   assert.equal(remis.propre, false)
   assert.equal(remis.style.blocs.h1.size, 90)
 })
@@ -198,7 +202,10 @@ test('la mise en page se lit avec l’accès, ne se change qu’en éditeur', as
     body: JSON.stringify(fusionner({ blocs: { h1: { size: 40 } } })),
   })
   assert.equal(refus.status, 403)
-  assert.equal((await fetch(`${BASE}/api/docs/${doc.id}/style`, { method: 'DELETE', headers: { cookie: correcteur } })).status, 403)
+  assert.equal(
+    (await fetch(`${BASE}/api/docs/${doc.id}/style`, { method: 'DELETE', headers: { cookie: correcteur } })).status,
+    403
+  )
 
   // Sans aucune session : pas d'accès du tout.
   assert.equal((await fetch(`${BASE}/api/docs/${doc.id}/style`)).status, 403)

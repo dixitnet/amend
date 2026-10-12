@@ -22,7 +22,11 @@ import { couleurSure } from '../../shared/securite.js'
 export function initials(name) {
   // « Claude (pour Sylvain) » se résume à Claude : ce qui suit la
   // parenthèse dit pour qui il travaille, pas qui il est.
-  const words = (name || '').replace(/\([^)]*\)/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const words = (name || '')
+    .replace(/\([^)]*\)/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
   if (words.length === 0) return '?'
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
   return (words[0][0] + words[1][0]).toUpperCase()

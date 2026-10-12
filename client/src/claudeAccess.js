@@ -216,7 +216,11 @@ export function monterSectionClaude(parent, docId, { maintenant = () => Date.now
           dire(r.data.error || 'la régénération a échoué', 'erreur')
         } else {
           dire('', 'ok')
-          montrerAdresse(r.data.id, r.data.adresse, 'Nouvelle adresse — l’ancienne ne marche plus. Copiez-la maintenant : elle ne sera plus affichée.')
+          montrerAdresse(
+            r.data.id,
+            r.data.adresse,
+            'Nouvelle adresse — l’ancienne ne marche plus. Copiez-la maintenant : elle ne sera plus affichée.'
+          )
         }
         await charger()
       })
@@ -276,7 +280,11 @@ export function monterSectionClaude(parent, docId, { maintenant = () => Date.now
       return
     }
     dire('', 'ok')
-    montrerAdresse(r.data.id, r.data.adresse, 'Invitation créée. Copiez l’adresse maintenant : elle ne sera plus affichée.')
+    montrerAdresse(
+      r.data.id,
+      r.data.adresse,
+      'Invitation créée. Copiez l’adresse maintenant : elle ne sera plus affichée.'
+    )
     await charger()
   })
 

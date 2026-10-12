@@ -38,7 +38,8 @@ function markTextToMarkdown(text, marks) {
     if (name === 'strong') out = wrapEmphasis(out, '**')
     else if (name === 'em') out = wrapEmphasis(out, '*')
     else if (name === 'strike') out = wrapEmphasis(out, '~~')
-    else if (name === 'underline') out = `<u>${out}</u>` // an HTML tag, not whitespace-sensitive
+    else if (name === 'underline')
+      out = `<u>${out}</u>` // an HTML tag, not whitespace-sensitive
     else if (name === 'link') {
       // Un lien (30/09/2026). L'adresse repasse par la liste blanche : ce
       // qui n'en est pas une n'est jamais écrit. Les parenthèses sont
@@ -208,9 +209,11 @@ export function docToMarkdown(doc) {
   } finally {
     NOTES = new Map() // même si la conversion échoue : pas de numéros qui survivent à l'appel
   }
-  return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`
+  return `${lines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()}\n`
 }
-
 
 /** A safe-ish filename from the document's title, e.g. "Mon Titre" ->
  * "Mon Titre.md". Falls back to "document.md" for an empty/blank title. */

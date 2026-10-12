@@ -32,7 +32,11 @@ function bouton(texte, classe = 'bo-action') {
 }
 
 const FAMILLES = [
-  { portee: 'livre', titre: 'Livrés avec amend.ink', aide: 'On ne les modifie pas : on les duplique pour partir de l’un d’eux.' },
+  {
+    portee: 'livre',
+    titre: 'Livrés avec amend.ink',
+    aide: 'On ne les modifie pas : on les duplique pour partir de l’un d’eux.',
+  },
   { portee: 'instance', titre: 'De l’instance', aide: 'Vus de tous. Seuls les administrateurs les modifient.' },
   { portee: 'perso', titre: 'Mes modèles', aide: 'Vous seul les voyez.' },
 ]
@@ -72,7 +76,8 @@ export async function mountModeles(root, info) {
     if (!liste.length && famille.portee !== 'perso') continue
     wrap.appendChild(el('h2', '', famille.titre))
     wrap.appendChild(el('p', 'bo-note', famille.aide))
-    if (!liste.length) wrap.appendChild(el('p', 'bo-note', 'Aucun pour l’instant. Dupliquez un modèle ci-dessus pour en créer un.'))
+    if (!liste.length)
+      wrap.appendChild(el('p', 'bo-note', 'Aucun pour l’instant. Dupliquez un modèle ci-dessus pour en créer un.'))
     for (const m of liste) wrap.appendChild(carte(m))
   }
 
@@ -86,7 +91,11 @@ export async function mountModeles(root, info) {
     c.appendChild(tete)
     if (m.description) c.appendChild(el('p', 'bo-note', m.description))
     c.appendChild(
-      el('p', 'bo-note modele-usage', m.utilisePar > 0 ? `Utilisé par ${pluriel(m.utilisePar, 'document')}.` : 'Aucun document ne l’utilise.')
+      el(
+        'p',
+        'bo-note modele-usage',
+        m.utilisePar > 0 ? `Utilisé par ${pluriel(m.utilisePar, 'document')}.` : 'Aucun document ne l’utilise.'
+      )
     )
 
     const actions = el('div', 'modele-actions')
@@ -113,7 +122,10 @@ export async function mountModeles(root, info) {
       let portee = null
       if (admin) {
         portee = el('select')
-        for (const [v, l] of [['perso', 'Personnel (vous seul)'], ['instance', 'De l’instance (tous)']]) {
+        for (const [v, l] of [
+          ['perso', 'Personnel (vous seul)'],
+          ['instance', 'De l’instance (tous)'],
+        ]) {
           const o = el('option', '', l)
           o.value = v
           portee.appendChild(o)

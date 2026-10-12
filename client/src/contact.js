@@ -44,7 +44,9 @@ export function resumeErreurConsole(args) {
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (e) => noter(`${e.message} (${e.filename}:${e.lineno})`))
   window.addEventListener('unhandledrejection', (e) =>
-    noter(`promesse rejetée : ${e.reason instanceof Error ? `${e.reason.name}: ${e.reason.message}`.slice(0, 200) : 'sans erreur technique'}`)
+    noter(
+      `promesse rejetée : ${e.reason instanceof Error ? `${e.reason.name}: ${e.reason.message}`.slice(0, 200) : 'sans erreur technique'}`
+    )
   )
   const erreurOrigine = console.error
   console.error = (...args) => {
@@ -87,7 +89,8 @@ export function monterPaletteContact() {
   titre.textContent = 'Aide / avis'
   const sous = document.createElement('p')
   sous.className = 'contact-sous'
-  sous.textContent = 'Sinon, écrivez-nous : une question, une idée, un bug. amend.ink est en test, tout retour est utile, même bref.'
+  sous.textContent =
+    'Sinon, écrivez-nous : une question, une idée, un bug. amend.ink est en test, tout retour est utile, même bref.'
 
   // L'aide d'abord : une question dont la réponse est écrite ne devrait pas
   // devenir un message. Elle s'ouvre dans un nouvel onglet, le document reste

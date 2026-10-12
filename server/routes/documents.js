@@ -21,7 +21,11 @@ export async function routesDocuments(req, res, url, ctx) {
     // l'ai rangé), jamais ceux d'un autre.
     const r = rangements.elaguer(rangements.lire(email), new Set(storage.listDocs(email).map((d) => d.id)))
     const favoris = new Set(r.favoris)
-    return sendJson(res, 200, { docs: storage.listDocs(email).map((d) => ({ ...d, starred: favoris.has(d.id), dossier: r.placement[d.id] || null })) })
+    return sendJson(res, 200, {
+      docs: storage
+        .listDocs(email)
+        .map((d) => ({ ...d, starred: favoris.has(d.id), dossier: r.placement[d.id] || null })),
+    })
   }
 
   if (pathname === '/api/docs' && req.method === 'POST') {
@@ -29,7 +33,9 @@ export async function routesDocuments(req, res, url, ctx) {
     if (!email) return sendJson(res, 401, { error: 'connexion requise' })
     const body = await readJsonBody(req)
     if (!isAdminEmail(email) && storage.documentsDe(email).length >= documentsMaxParCompte()) {
-      return sendJson(res, 403, { error: `limite de ${documentsMaxParCompte()} documents par compte atteinte — supprimez-en pour en créer d’autres` })
+      return sendJson(res, 403, {
+        error: `limite de ${documentsMaxParCompte()} documents par compte atteinte — supprimez-en pour en créer d’autres`,
+      })
     }
     const doc = storage.createDoc(typeof body.title === 'string' ? body.title.slice(0, 200) : '', email)
     return sendJson(res, 201, doc)
@@ -87,7 +93,8 @@ export async function routesDocuments(req, res, url, ctx) {
   if (starMatch && req.method === 'PATCH') {
     if (!storage.getDoc(starMatch[1])) return sendJson(res, 404, { error: 'document introuvable' })
     const email = readSession(req)
-    if (!storage.roleFor(starMatch[1], email)) return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
+    if (!storage.roleFor(starMatch[1], email))
+      return sendJson(res, 403, { error: "vous n'avez pas accès à ce document" })
     const body = await readJsonBody(req)
     rangements.favori(email, starMatch[1], !!body.starred)
     return sendJson(res, 200, { ...storage.getDoc(starMatch[1]), starred: !!body.starred })

@@ -16,7 +16,12 @@ const NOM_MAX = 80
  * mais large. */
 const NOMMEES_MAX = 200
 
-const nomPropre = (nom) => String(nom ?? '').replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, NOM_MAX)
+const nomPropre = (nom) =>
+  String(nom ?? '')
+    .replace(/\p{Cc}/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, NOM_MAX)
 
 export async function routesVersions(req, res, url, ctx) {
   const { pathname } = url
@@ -74,7 +79,9 @@ export async function routesVersions(req, res, url, ctx) {
       const nom = nomPropre(body.nom)
       if (!nom) return sendJson(res, 400, { error: 'donnez un nom à cette version' })
       if (versions.lister(id).filter((v) => v.nom).length >= NOMMEES_MAX) {
-        return sendJson(res, 403, { error: `limite de ${NOMMEES_MAX} versions nommées atteinte — supprimez-en pour en nommer d’autres` })
+        return sendJson(res, 403, {
+          error: `limite de ${NOMMEES_MAX} versions nommées atteinte — supprimez-en pour en nommer d’autres`,
+        })
       }
       const v = versions.enregistrer(id, await instantane(), { origine: 'nommee', par: email, nom })
       if (!v) return sendJson(res, 500, { error: 'version non enregistrée' })
@@ -90,7 +97,12 @@ export async function routesVersions(req, res, url, ctx) {
       const blocs = await blocsDe(ts)
       if (!blocs) return sendJson(res, 404, { error: 'version introuvable' })
       const f = ts === 'courante' ? null : versions.trouver(id, ts)
-      return sendJson(res, 200, { ts: f ? f.ts : null, courante: ts === 'courante', nom: f ? f.nom : null, blocs: blocs.map(({ n, nom, niveau, texte }) => ({ n, nom, niveau, texte })) })
+      return sendJson(res, 200, {
+        ts: f ? f.ts : null,
+        courante: ts === 'courante',
+        nom: f ? f.nom : null,
+        blocs: blocs.map(({ n, nom, niveau, texte }) => ({ n, nom, niveau, texte })),
+      })
     }
     if (ts === 'courante') return sendJson(res, 400, { error: 'la version actuelle n’est pas une version enregistrée' })
     if (req.method === 'PATCH') {

@@ -220,7 +220,9 @@ function charger(docId) {
   try {
     const brut = sessionStorage.getItem(cle(docId))
     const v = brut ? JSON.parse(brut) : null
-    return v && Array.isArray(v.messages) ? v.messages.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string') : []
+    return v && Array.isArray(v.messages)
+      ? v.messages.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+      : []
   } catch {
     return []
   }
@@ -299,7 +301,10 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   // sélectionné, « La sélection » ; sinon « Tout le texte » (voir
   // `suivreLaSelection`). La section reste comprise par le serveur, mais
   // l'interface ne la propose plus.
-  for (const [v, t] of [['document', 'Tout le texte'], ['selection', 'La sélection']]) {
+  for (const [v, t] of [
+    ['document', 'Tout le texte'],
+    ['selection', 'La sélection'],
+  ]) {
     const o = el('option', null, t)
     o.value = v
     choix.appendChild(o)
@@ -320,7 +325,11 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   arreter.hidden = true
   const statut = el('p', 'dialogue-statut')
   const quota = el('p', 'dialogue-quota')
-  const note = el('p', 'dialogue-note', 'Margo lit le document pour vous répondre. Ses propositions arrivent en suivi de modifications : vous acceptez ou rejetez.')
+  const note = el(
+    'p',
+    'dialogue-note',
+    'Margo lit le document pour vous répondre. Ses propositions arrivent en suivi de modifications : vous acceptez ou rejetez.'
+  )
 
   const pied = el('div', 'dialogue-pied')
   const barre = el('div', 'dialogue-barre')
@@ -388,7 +397,9 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     fil.textContent = ''
     if (!messages.length) {
       const vide = el('div', 'dialogue-vide')
-      vide.appendChild(el('p', null, 'Posez une question sur le texte : un avis, un résumé, une incohérence à chercher.'))
+      vide.appendChild(
+        el('p', null, 'Posez une question sur le texte : un avis, un résumé, une incohérence à chercher.')
+      )
       vide.appendChild(el('p', null, 'Demandez « corrige » ou « harmonise » pour qu’il propose des modifications.'))
       fil.appendChild(vide)
       return
@@ -453,7 +464,10 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   function resume(bulle, fin) {
     const ligne = el('div', 'dialogue-resume')
     const parts = []
-    if (fin.modifications) parts.push(`${fin.modifications} modification${fin.modifications > 1 ? 's' : ''} proposée${fin.modifications > 1 ? 's' : ''}`)
+    if (fin.modifications)
+      parts.push(
+        `${fin.modifications} modification${fin.modifications > 1 ? 's' : ''} proposée${fin.modifications > 1 ? 's' : ''}`
+      )
     if (fin.commentaires) parts.push(`${fin.commentaires} commentaire${fin.commentaires > 1 ? 's' : ''}`)
     if (fin.refus) parts.push(`${fin.refus} refus`)
     if (!parts.length) return
@@ -461,7 +475,8 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     if (fin.modifications) {
       const rejeter = el('button', 'dialogue-lien dialogue-rejeter', 'Tout rejeter — Margo')
       rejeter.type = 'button'
-      rejeter.title = 'Rejette toutes les modifications proposées par les IA (Margo, ou Claude invité), sans toucher à celles des personnes'
+      rejeter.title =
+        'Rejette toutes les modifications proposées par les IA (Margo, ou Claude invité), sans toucher à celles des personnes'
       let arme = false
       rejeter.addEventListener('click', () => {
         const view = getView()
@@ -656,4 +671,3 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     },
   }
 }
-

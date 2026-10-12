@@ -144,20 +144,28 @@ export function ouvrirFeuille(titre, { hauteur = 0.5, modale = false, surFermetu
   // Tirer la poignée vers le bas ferme, vers le haut agrandit. Geste
   // attendu — mais il ne remplace jamais la croix.
   let depart = null
-  poignee.addEventListener('touchstart', (e) => {
-    depart = e.touches[0].clientY
-  }, { passive: true })
-  poignee.addEventListener('touchmove', (e) => {
-    if (depart === null) return
-    const delta = e.touches[0].clientY - depart
-    if (delta > 60) {
-      depart = null
-      fermer()
-    } else if (delta < -60) {
-      depart = null
-      el.classList.add('feuille-pleine')
-    }
-  }, { passive: true })
+  poignee.addEventListener(
+    'touchstart',
+    (e) => {
+      depart = e.touches[0].clientY
+    },
+    { passive: true }
+  )
+  poignee.addEventListener(
+    'touchmove',
+    (e) => {
+      if (depart === null) return
+      const delta = e.touches[0].clientY - depart
+      if (delta > 60) {
+        depart = null
+        fermer()
+      } else if (delta < -60) {
+        depart = null
+        el.classList.add('feuille-pleine')
+      }
+    },
+    { passive: true }
+  )
 
   function fermer({ remplacee = false } = {}) {
     if (ouverte !== poste) return

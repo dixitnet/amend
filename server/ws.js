@@ -26,7 +26,9 @@ const OPCODE = {
 }
 
 export function computeAcceptKey(secWebSocketKey) {
-  return createHash('sha1').update(secWebSocketKey + GUID).digest('base64')
+  return createHash('sha1')
+    .update(secWebSocketKey + GUID)
+    .digest('base64')
 }
 
 /** True if this HTTP upgrade request is a WebSocket handshake. */

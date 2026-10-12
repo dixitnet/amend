@@ -53,7 +53,10 @@ function dernierTexte(corps) {
     if (m.role !== 'user') continue
     if (typeof m.content === 'string') return m.content
     if (Array.isArray(m.content)) {
-      const t = m.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n')
+      const t = m.content
+        .filter((b) => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n')
       if (t) return t
     }
   }
@@ -80,21 +83,37 @@ const serveur = createServer(async (req, res) => {
     corps = JSON.parse(brut)
   } catch {
     res.writeHead(400, { 'content-type': 'application/json' })
-    return res.end(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'JSON illisible' } }))
+    return res.end(
+      JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'JSON illisible' } })
+    )
   }
   compteurs.requetes++
   compteurs.enCours++
   compteurs.pic = Math.max(compteurs.pic, compteurs.enCours)
-  res.on('close', () => { compteurs.enCours-- })
+  res.on('close', () => {
+    compteurs.enCours--
+  })
 
-  if (tirage(P.silence)) { compteurs.silence++; return } // jamais de réponse
-  if (tirage(P.coupure)) { compteurs.coupure++; req.socket.destroy(); return }
+  if (tirage(P.silence)) {
+    compteurs.silence++
+    return
+  } // jamais de réponse
+  if (tirage(P.coupure)) {
+    compteurs.coupure++
+    req.socket.destroy()
+    return
+  }
   await dors(LAT_MIN + Math.random() * Math.max(0, LAT_MAX - LAT_MIN))
   for (const code of [429, 500, 529]) {
     if (tirage(P[code])) {
       compteurs[code]++
       res.writeHead(code, { 'content-type': 'application/json' })
-      return res.end(JSON.stringify({ type: 'error', error: { type: code === 429 ? 'rate_limit_error' : 'api_error', message: `faux ${code}` } }))
+      return res.end(
+        JSON.stringify({
+          type: 'error',
+          error: { type: code === 429 ? 'rate_limit_error' : 'api_error', message: `faux ${code}` },
+        })
+      )
     }
   }
 
@@ -104,25 +123,37 @@ const serveur = createServer(async (req, res) => {
   let reponse
   if (OUTILS && aOutils && !dejaUnResultatDOutil(corps) && corps.tool_choice?.type !== 'none') {
     reponse = {
-      id: 'msg_faux', type: 'message', role: 'assistant', model: corps.model || 'faux',
+      id: 'msg_faux',
+      type: 'message',
+      role: 'assistant',
+      model: corps.model || 'faux',
       content: [{ type: 'tool_use', id: `toolu_faux_${compteurs.requetes}`, name: 'plan', input: {} }],
-      stop_reason: 'tool_use', usage: { input_tokens: entree, output_tokens: 30 },
+      stop_reason: 'tool_use',
+      usage: { input_tokens: entree, output_tokens: 30 },
     }
   } else if (tirage(P.tronque)) {
     compteurs.tronque++
     reponse = {
-      id: 'msg_faux', type: 'message', role: 'assistant', model: corps.model || 'faux',
+      id: 'msg_faux',
+      type: 'message',
+      role: 'assistant',
+      model: corps.model || 'faux',
       content: [{ type: 'text', text: 'Une réponse coupée en' }],
-      stop_reason: 'max_tokens', usage: { input_tokens: entree, output_tokens: corps.max_tokens || 100 },
+      stop_reason: 'max_tokens',
+      usage: { input_tokens: entree, output_tokens: corps.max_tokens || 100 },
     }
   } else {
     // Le « modèle » rend le passage presque tel quel : de quoi produire une
     // suggestion à comparer, sans rien inventer.
     const rendu = texte ? texte.replace(/\s+/g, ' ').trim().slice(0, 400) : 'Réponse du faux modèle.'
     reponse = {
-      id: 'msg_faux', type: 'message', role: 'assistant', model: corps.model || 'faux',
+      id: 'msg_faux',
+      type: 'message',
+      role: 'assistant',
+      model: corps.model || 'faux',
       content: [{ type: 'text', text: rendu }],
-      stop_reason: 'end_turn', usage: { input_tokens: entree, output_tokens: Math.ceil(rendu.length / 3.2) },
+      stop_reason: 'end_turn',
+      usage: { input_tokens: entree, output_tokens: Math.ceil(rendu.length / 3.2) },
     }
   }
   compteurs.ok++
@@ -131,5 +162,7 @@ const serveur = createServer(async (req, res) => {
 })
 
 serveur.listen(PORT, '127.0.0.1', () => {
-  console.log(`faux Anthropic sur http://127.0.0.1:${PORT}  latence ${LAT_MIN}-${LAT_MAX} ms  erreurs ${JSON.stringify(P)}${OUTILS ? '  outils' : ''}`)
+  console.log(
+    `faux Anthropic sur http://127.0.0.1:${PORT}  latence ${LAT_MIN}-${LAT_MAX} ms  erreurs ${JSON.stringify(P)}${OUTILS ? '  outils' : ''}`
+  )
 })

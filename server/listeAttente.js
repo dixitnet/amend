@@ -104,7 +104,12 @@ export class ListeAttente {
       if (!ligne || typeof ligne.email !== 'string') continue
       const vue = premieres.get(ligne.email)
       if (!vue) {
-        premieres.set(ligne.email, { email: ligne.email, ts: ligne.ts || 0, inscriptions: 1, embarque: ligne.embarque || null })
+        premieres.set(ligne.email, {
+          email: ligne.email,
+          ts: ligne.ts || 0,
+          inscriptions: 1,
+          embarque: ligne.embarque || null,
+        })
       } else {
         vue.inscriptions++
         if (ligne.ts && ligne.ts < vue.ts) vue.ts = ligne.ts

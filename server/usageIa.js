@@ -52,10 +52,25 @@ export function coutUsd(modele, j) {
   const t = TARIFS_USD[modele]
   if (!t || !j) return 0
   const m = 1e6
-  return ((j.entree || 0) * t.entree + (j.sortie || 0) * t.sortie + (j.cacheLu || 0) * t.entree * 0.1 + (j.cacheEcrit || 0) * t.entree * 1.25) / m
+  return (
+    ((j.entree || 0) * t.entree +
+      (j.sortie || 0) * t.sortie +
+      (j.cacheLu || 0) * t.entree * 0.1 +
+      (j.cacheEcrit || 0) * t.entree * 1.25) /
+    m
+  )
 }
 
-const compteurVide = () => ({ demandes: 0, signes: 0, echecs: 0, entree: 0, sortie: 0, cacheLu: 0, cacheEcrit: 0, usd: 0 })
+const compteurVide = () => ({
+  demandes: 0,
+  signes: 0,
+  echecs: 0,
+  entree: 0,
+  sortie: 0,
+  cacheLu: 0,
+  cacheEcrit: 0,
+  usd: 0,
+})
 const jetonsVides = () => ({ appels: 0, entree: 0, sortie: 0, cacheLu: 0, cacheEcrit: 0, usd: 0 })
 const entier = (x) => (Number.isFinite(x) && x > 0 ? Math.floor(x) : 0)
 

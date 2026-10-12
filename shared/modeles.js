@@ -41,7 +41,8 @@ export const MODELES_LIVRES = [
   {
     id: 'texte-brut',
     nom: 'Texte brut',
-    description: 'Presque rien : une seule police, des titres à peine plus gras que le texte. Pour un export qui ne doit rien imposer.',
+    description:
+      'Presque rien : une seule police, des titres à peine plus gras que le texte. Pour un export qui ne doit rien imposer.',
     style: {
       page: IDENTIQUE('A4'),
       blocs: {
