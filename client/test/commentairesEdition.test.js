@@ -473,8 +473,6 @@ test('à deux : un arrivant qui charge le document retrouve les commentaires, sa
 // 2. Ce qui est cassé — écrit comme il devrait se comporter (`todo`)
 // =============================================================================
 
-const DEFAUT = (n, resume) => ({ todo: `défaut ${n} : ${resume}` })
-
 // (Les 15 autres défauts — Entrée, fusion, titre, citation, listes, annuler,
 // collaboration — sont réglés et ont perdu leur `todo` le 08/10/2026.)
 
@@ -794,7 +792,7 @@ test('Entrée, annuler, refaire, annuler : le commentaire accompagne le texte à
 })
 
 test('beaucoup de gestes de structure à la suite : le passage suit, les anciennes ancres restent bornées', () => {
-  const { e, f, id } = commente()
+  const { e, id } = commente()
   const p = () => e.pos('Le zonage')
   for (let i = 0; i < 4; i++) {
     e.sel(p() + 3).cmd(splitBlock) // scinde « Le » / « zonage… »

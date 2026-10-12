@@ -817,6 +817,8 @@ export function mountCommentsPanel(container, ydoc, commentsMap, getView, user) 
     const textarea = document.createElement('textarea')
     textarea.rows = 2
     textarea.placeholder = 'Ton commentaire...'
+    textarea.name = 'commentaire'
+    textarea.setAttribute('aria-label', 'Ton commentaire')
     container.appendChild(textarea)
 
     const addBtn = document.createElement('button')

@@ -80,6 +80,41 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
 
+/** Les deux usages de Margo côte à côte, en tokens (pas en euros : ils n'ont
+ * pas le même modèle). « Entrée » est hors cache ; le cache lu et écrit sont
+ * comptés à part, car ils ne se facturent pas au même prix. */
+function tableauTokens(t) {
+  if (!t) return '<p class="bo-note">Pas de données.</p>'
+  const ligne = (nom, p, avecCache) =>
+    `<tr><th scope="row">${nom}</th>${['24h', '7j', '30j']
+      .map((k) => {
+        const x = p[k]
+        return `<td>${nombre(x.appels)} message(s)<br>${nombre(x.entree)} entrée · ${nombre(x.sortie)} sortie${
+          avecCache ? `<br>${nombre(x.cacheLu)} cache lu · ${nombre(x.cacheEcrit)} cache écrit` : ''
+        }</td>`
+      })
+      .join('')}</tr>`
+  const modeles = t.fenetre.parModele.length
+    ? `<p class="bo-note">Fenêtre flottante par modèle (30 jours) : ${t.fenetre.parModele
+        .map((m) => `${esc(m.modele)} — ${nombre(m.appels)} message(s), ${nombre(m.entree + m.cacheLu + m.cacheEcrit)} tokens en entrée, ${nombre(m.sortie)} en sortie`)
+        .join(' ; ')}.</p>`
+    : ''
+  const personnes = t.fenetre.parPersonne.length
+    ? `<ul class="bo-liste">${t.fenetre.parPersonne
+        .map((p) => `<li>${esc(p.email)} — fenêtre flottante : ${nombre(p.appels)} message(s), ${nombre(p.entree + p.cacheLu + p.cacheEcrit)} tokens en entrée, ${nombre(p.sortie)} en sortie</li>`)
+        .join('')}</ul>`
+    : ''
+  return `<table class="bo-table">
+    <thead><tr><th></th><th>24 h</th><th>7 jours</th><th>30 jours</th></tr></thead>
+    <tbody>
+      ${ligne('Barre latérale « Demander à Margo »', t.barreLaterale, false)}
+      ${ligne('Fenêtre flottante « Margo »', t.fenetre, true)}
+    </tbody>
+  </table>
+  <p class="bo-note">Un « message » est une demande à Margo (une suggestion pour la barre latérale, un message du dialogue pour la fenêtre). L'entrée de la fenêtre flottante s'ajoute du cache lu et du cache écrit pour donner le total lu par le modèle.</p>
+  ${modeles}${personnes}`
+}
+
 function chiffre(valeur, libelle, precision) {
   return `<div class="bo-chiffre"><strong>${valeur}</strong><span>${libelle}</span>${
     precision ? `<em>${precision}</em>` : ''
@@ -289,6 +324,7 @@ export async function mountAdmin(root, info) {
         )}
         ${chiffre(nombre(f.connexions.collaboration30j.moments), 'moments à deux ou plus', `sur ${nombre(f.connexions.collaboration30j.documents)} documents, 30 j`)}
         ${chiffre(nombre(doc.actifs7j), 'modifiés sur 7 jours')}
+        ${chiffre(nombre(doc.corbeille ? doc.corbeille.documents : 0), 'à la corbeille', doc.corbeille && doc.corbeille.plusAncienJours !== null ? `le plus ancien : ${nombre(doc.corbeille.plusAncienJours)} j, ${octets(doc.corbeille.octetsJournaux)} de journaux` : 'pas de purge automatique')}
       </div>
       <p class="bo-note">Journaux : ${octets(doc.journaux.octetsTotal)} au total, le plus gros ${octets(
     doc.journaux.plusGrosOctets
@@ -343,7 +379,10 @@ export async function mountAdmin(root, info) {
           : '<p class="bo-note">Personne connecté en ce moment.</p>'
       }
 
-      <h3>Assistance IA (30 jours)</h3>
+      <h3>Consommation de Margo en tokens</h3>
+      ${tableauTokens(f.tokens)}
+
+      <h3>Barre latérale « Demander à Margo » (30 jours)</h3>
       <div class="bo-chiffres">
         ${chiffre(euros(f.ia.coutEuros30j), 'sur 30 jours', `${euros(f.ia.coutEuros7j)} sur 7 jours`)}
         ${chiffre(euros(f.ia.coutEuros24h), 'dans les 24 h')}

@@ -51,7 +51,6 @@ import { ouvrirPlan } from './planFeuille.js'
 export function monterInterfaceTelephone(pieces) {
   const {
     racine,
-    topBanner,
     titleInput,
     toolbar,
     outlineSidebar,
@@ -154,6 +153,9 @@ export function monterInterfaceTelephone(pieces) {
     const champ = document.createElement('input')
     champ.type = 'text'
     champ.className = 'feuille-filtre'
+    champ.name = 'titre'
+    champ.autocomplete = 'off'
+    champ.setAttribute('aria-label', 'Titre du document')
     champ.value = titleInput.value
     const valider = document.createElement('button')
     valider.type = 'button'

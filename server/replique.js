@@ -39,17 +39,22 @@ const MAX_REPLIQUES = 20
 const SEUIL_WORKER_OCTETS = 2 * 1024 * 1024
 /** Le compactage se déclenche un peu après la dernière frappe, pas dessus. */
 const DELAI_COMPACTAGE_MS = 5000
+/** Une version « de session » n'est pas enregistrée si la précédente date de
+ * moins que ça : quelqu'un qui ferme et rouvre l'onglet toutes les minutes
+ * ne doit pas remplir le disque. */
+const DELAI_VERSION_SESSION_MS = 10 * 60 * 1000
 
 
 export class Repliques {
-  constructor(storage, { versions = null, delaiLiberationMs = DELAI_LIBERATION_MS, max = MAX_REPLIQUES, seuilWorkerOctets = SEUIL_WORKER_OCTETS, delaiCompactageMs = DELAI_COMPACTAGE_MS } = {}) {
+  constructor(storage, { versions = null, delaiVersionSessionMs = DELAI_VERSION_SESSION_MS, delaiLiberationMs = DELAI_LIBERATION_MS, max = MAX_REPLIQUES, seuilWorkerOctets = SEUIL_WORKER_OCTETS, delaiCompactageMs = DELAI_COMPACTAGE_MS } = {}) {
     this.storage = storage
     this.versions = versions
+    this.delaiVersionSessionMs = delaiVersionSessionMs
     this.delaiLiberationMs = delaiLiberationMs
     this.max = max
     this.seuilWorkerOctets = seuilWorkerOctets
     this.delaiCompactageMs = delaiCompactageMs
-    /** @type {Map<string, {doc: Y.Doc, refs: number, liberation: any, ops: number, octets: number, compactage: any, enCompactage: Promise|null}>} */
+    /** @type {Map<string, {doc: Y.Doc, refs: number, liberation: any, ops: number, octets: number, modifie: boolean, compactage: any, enCompactage: Promise|null}>} */
     this.repliques = new Map()
     /** Chargements en cours : deux connexions simultanées n'en font qu'un. */
     this.chargements = new Map()
@@ -74,10 +79,10 @@ export class Repliques {
     const doc = new Y.Doc()
     if (octets > this.seuilWorkerOctets) {
       // Un gros journal : rejoué dans un worker, qui renvoie l'état fusionné.
-      const instantane = await rejouerDansUnWorker(this.storage._logPath(id))
+      const instantane = await rejouerDansUnWorker(this.storage.cheminDuJournal(id))
       Y.applyUpdate(doc, instantane, 'journal')
       // Ce qui est encore en tampon n'était pas dans le fichier.
-      for (const op of this.storage._pending.get(id) || []) appliquerSansPlanter(doc, op)
+      for (const op of this.storage.enAttente(id)) appliquerSansPlanter(doc, op)
     } else {
       for (const op of this.storage.readUpdates(id)) appliquerSansPlanter(doc, op)
     }
@@ -90,6 +95,9 @@ export class Repliques {
       // fichier à chaque frappe.
       ops: info.operations || 0,
       octets,
+      // Modifié depuis la dernière version enregistrée : c'est ce qui
+      // décide si la fin d'une session mérite une version.
+      modifie: false,
       compactage: null,
       enCompactage: null,
     }
@@ -119,6 +127,7 @@ export class Repliques {
       // La salle se vide : c'est le bon moment pour compacter ce qui doit
       // l'être, puis libérer un peu plus tard.
       if (this._aCompacter(r)) this._planifierCompactage(id, 0)
+      else this._versionDeSession(id, r)
       r.liberation = setTimeout(() => this._liberer(id), this.delaiLiberationMs)
       r.liberation.unref?.()
     }
@@ -179,6 +188,7 @@ export class Repliques {
     }
     r.ops++
     r.octets += update.length
+    r.modifie = true
     if (this._aCompacter(r)) this._planifierCompactage(id, this.delaiCompactageMs)
     return { ok: true }
   }
@@ -211,9 +221,26 @@ export class Repliques {
     if (update) {
       r.ops++
       r.octets += update.length
+      r.modifie = true
       if (this._aCompacter(r)) this._planifierCompactage(id, this.delaiCompactageMs)
     }
     return { update, resultat, erreur }
+  }
+
+  /** La dernière personne vient de partir d'un document modifié : on garde
+   * l'état dans lequel elle l'a laissé (sauf si une version toute récente
+   * existe déjà). Un compactage en route enregistre déjà la sienne. */
+  _versionDeSession(id, r) {
+    if (!this.versions || !r.modifie || r.enCompactage) return
+    try {
+      const derniere = this.versions.lister(id)[0]
+      if (derniere && Date.now() - derniere.ts < this.delaiVersionSessionMs) return
+      this.versions.enregistrer(id, Buffer.from(Y.encodeStateAsUpdate(r.doc)), { origine: 'session' })
+      r.modifie = false
+      this.versions.elaguer(id)
+    } catch (err) {
+      console.error(`[versions] version de session de ${id} :`, err.message)
+    }
   }
 
   _aCompacter(r) {
@@ -238,17 +265,19 @@ export class Repliques {
     if (!r) return null
     if (r.enCompactage) return r.enCompactage
     const travail = (async () => {
-      await this.storage._flush(id)
+      await this.storage.ecrireMaintenant(id)
       const instantane = Buffer.from(Y.encodeStateAsUpdate(r.doc))
       const ts = Date.now()
+      r.modifie = false
       if (this.versions) {
         try {
           this.versions.enregistrer(id, instantane, { ts, origine: 'compactage' })
+          this.versions.elaguer(id)
         } catch (err) {
           console.error(`[versions] échec d'enregistrement pour ${id} :`, err.message)
         }
       }
-      const resultat = await this.storage.compactDoc(id, { baseSnapshot: instantane, baseTs: ts, tout: true })
+      const resultat = await this.storage.compactDoc(id, { baseSnapshot: instantane, baseTs: ts })
       r.ops = 1
       r.octets = instantane.length
       return resultat

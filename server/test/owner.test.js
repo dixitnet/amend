@@ -127,9 +127,13 @@ test('seul le propriétaire supprime ; les autres quittent', async () => {
   assert.equal(storage().roleFor(doc.id, 'autre@example.com'), null)
   assert.ok(storage().getDoc(doc.id), 'quitter a supprimé le document')
 
-  // Le propriétaire, lui, supprime.
+  // Le propriétaire, lui, supprime : le document va à la corbeille, puis
+  // disparaît pour de bon (12/10/2026).
   const ok = await fetch(`${BASE}/api/docs/${doc.id}`, { method: 'DELETE', headers: { cookie: proprio } })
   assert.equal(ok.status, 200)
+  assert.equal(storage().roleFor(doc.id, 'proprio@example.com'), null, 'plus de rôle pour personne')
+  const definitif = await fetch(`${BASE}/api/corbeille/${doc.id}`, { method: 'DELETE', headers: { cookie: proprio } })
+  assert.equal(definitif.status, 200)
   assert.equal(storage().getDoc(doc.id), null)
 })
 

@@ -102,9 +102,12 @@ export class SimpleProvider extends EventTarget {
     }
     this.awareness.on('update', this._onAwarenessUpdate)
 
-    window.addEventListener('beforeunload', () => {
+    // Retiré à la destruction : sinon chaque document ouvert laissait derrière
+    // lui un écouteur (et son Yjs entier) sur la fenêtre.
+    this._onBeforeUnload = () => {
       removeAwarenessStates(this.awareness, [this.ydoc.clientID], 'window unload')
-    })
+    }
+    window.addEventListener('beforeunload', this._onBeforeUnload)
 
     this._connect()
   }
@@ -251,6 +254,7 @@ export class SimpleProvider extends EventTarget {
     this._closedByUser = true
     this.ydoc.off('update', this._onDocUpdate)
     this.awareness.off('update', this._onAwarenessUpdate)
+    window.removeEventListener('beforeunload', this._onBeforeUnload)
     removeAwarenessStates(this.awareness, [this.ydoc.clientID], 'provider destroyed')
     this._ws?.close()
   }

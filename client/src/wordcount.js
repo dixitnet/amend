@@ -72,10 +72,10 @@ export function mountWordCount(container) {
     const signature = `${selecting}:${chars}:${words}`
     if (signature === last) return
     last = signature
-    const wordLabel = words === 1 ? 'mot' : 'mots'
+    const wordLabel = words <= 1 ? 'mot' : 'mots' // en français, zéro est singulier
     // « signes » plutôt que « caractères » (19/09/2026) : c'est le mot du
     // métier, et il tient dans le bandeau.
-    const charLabel = chars === 1 ? 'signe' : 'signes'
+    const charLabel = chars <= 1 ? 'signe' : 'signes'
     container.textContent = selecting
       ? `Sélection : ${words} ${wordLabel}, ${chars} ${charLabel}`
       : `${words} ${wordLabel}, ${chars} ${charLabel}`

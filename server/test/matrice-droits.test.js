@@ -17,13 +17,19 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { lancerInstance } from '../../tools/instance-test.js'
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const SERVEUR_JS = readFileSync(join(RACINE, 'server', 'server.js'), 'utf8')
+// Les routes vivent dans server.js (pages publiées, MCP, WebSocket) et dans
+// server/routes/*.js (l'API, depuis le découpage du 11/10/2026).
+const DOSSIER_ROUTES = join(RACINE, 'server', 'routes')
+const SERVEUR_JS = [
+  readFileSync(join(RACINE, 'server', 'server.js'), 'utf8'),
+  ...readdirSync(DOSSIER_ROUTES).filter((f) => f.endsWith('.js')).sort().map((f) => readFileSync(join(DOSSIER_ROUTES, f), 'utf8')),
+].join('\n')
 
 const ADMIN = 'admin@test.local'
 const PROPRIO = 'proprio@test.local'
@@ -38,7 +44,6 @@ const QUI = ['anonyme', 'proprio', 'editeur', 'correcteur', 'lecteur', 'tiers', 
 const CONNECTES = ['proprio', 'editeur', 'correcteur', 'lecteur', 'tiers', 'admin']
 const MEMBRES = ['proprio', 'editeur', 'correcteur', 'lecteur']
 const EDITEURS = ['proprio', 'editeur']
-const PROPOSANTS = ['proprio', 'editeur', 'correcteur']
 
 /**
  * Une ligne = une route et une méthode. `oui` : qui passe l'autorisation.
@@ -53,14 +58,32 @@ const LIGNES = [
   // Un administrateur n'a pas accès aux documents des autres : il gère l'instance, il ne lit pas les textes.
   { couvre: '/api/docs/:x', m: 'GET', oui: MEMBRES },
   { couvre: '/api/docs/:x', m: 'PATCH', corps: { title: 'renommé' }, oui: EDITEURS },
-  { couvre: '/api/docs/:x/star', m: 'PATCH', corps: { starred: true }, oui: EDITEURS },
+  { couvre: '/api/docs/:x/star', m: 'PATCH', corps: { starred: true }, oui: MEMBRES /* favori personnel : tout membre, pour soi */ },
   { couvre: '/api/docs/:x', m: 'DELETE', jetable: true, oui: ['proprio'] },
   { couvre: '/api/docs/:x/pdf', m: 'POST', corps: { source: '= x' }, oui: EDITEURS },
   { couvre: '/api/docs/:x/images', m: 'POST', brut: { type: 'image/png', octets: 8 }, oui: EDITEURS },
   { couvre: '/api/docs/:x/images/:x', m: 'GET', chemin: (c) => `/api/docs/${c.doc}/images/absente.png`, oui: MEMBRES },
   { couvre: '/api/docs/:x/history', m: 'GET', oui: MEMBRES },
   { couvre: '/api/docs/:x/history/raw', m: 'GET', oui: MEMBRES },
-  { couvre: '/api/docs/:x/compact', m: 'POST', oui: EDITEURS },
+  // Les versions : lire = lire le document ; nommer, renommer, supprimer, restaurer = éditeurs.
+  { couvre: '/api/docs/:x/versions', m: 'GET', oui: MEMBRES },
+  { couvre: '/api/docs/:x/versions', m: 'POST', corps: { nom: 'Envoi au comité' }, oui: EDITEURS },
+  { couvre: '/api/docs/:x/versions', m: 'GET', chemin: (c) => `/api/docs/${c.doc}/versions/courante`, oui: MEMBRES },
+  { couvre: '/api/docs/:x/versions', m: 'PATCH', chemin: (c) => `/api/docs/${c.doc}/versions/1`, corps: { nom: 'x' }, oui: EDITEURS },
+  { couvre: '/api/docs/:x/versions', m: 'DELETE', chemin: (c) => `/api/docs/${c.doc}/versions/1`, oui: EDITEURS },
+  { couvre: '/api/docs/:x/versions', m: 'POST', chemin: (c) => `/api/docs/${c.doc}/versions/1/restauration`, corps: {}, oui: EDITEURS },
+  { couvre: '/api/docs/:x/comparaison', m: 'GET', chemin: (c) => `/api/docs/${c.doc}/comparaison?de=courante&vers=courante`, oui: MEMBRES },
+  // La corbeille (12/10/2026) : la personne connectée n'y voit que ses documents ; les gestes sur un document précis sont ceux du propriétaire (un document absent de sa corbeille répond 404 à tous).
+  { couvre: '/api/corbeille', m: 'GET', oui: CONNECTES },
+  { couvre: '/api/corbeille', m: 'DELETE', oui: CONNECTES /* vide la corbeille de la personne, jamais celle d'un autre */ },
+  { couvre: '/api/corbeille/:x', m: 'POST', chemin: (c) => `/api/corbeille/${c.doc}/restauration`, oui: ['proprio'] /* 404 pour les autres */ },
+  { couvre: '/api/corbeille/:x', m: 'DELETE', chemin: (c) => `/api/corbeille/${c.doc}`, oui: ['proprio'] },
+  // Le rangement est celui de la personne connectée : rien à usurper, rien à lire chez les autres.
+  { couvre: '/api/rangement', m: 'GET', oui: CONNECTES },
+  { couvre: '/api/rangement/dossiers', m: 'POST', corps: { nom: 'Dossier matrice' }, oui: CONNECTES },
+  { couvre: '/api/rangement/dossiers/:x', m: 'PATCH', chemin: () => '/api/rangement/dossiers/d_inconnu', corps: { nom: 'x' }, oui: CONNECTES },
+  { couvre: '/api/rangement/dossiers/:x', m: 'DELETE', chemin: () => '/api/rangement/dossiers/d_inconnu', oui: CONNECTES },
+  { couvre: '/api/rangement/documents/:x', m: 'PUT', chemin: (c) => `/api/rangement/documents/${c.doc}`, corps: {}, oui: MEMBRES /* un document qu'on ne voit pas se range pas : 404 */ },
   { couvre: '/api/style', m: 'GET', oui: QUI /* la feuille de style par défaut est lisible de tous */ },
   { couvre: '/api/style', m: 'PUT', corps: {}, oui: ['admin'] },
   { couvre: '/api/docs/:x/style', m: 'GET', oui: MEMBRES },

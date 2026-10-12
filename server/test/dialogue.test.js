@@ -42,7 +42,7 @@ globalThis.fetch = async (url, init) => {
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
 const { Storage } = await import('../storage.js')
-const { porteeDialogue, peutDialoguer } = await import('../dialogue.js')
+const { porteeDialogue, peutDialoguer, limiteEnv, messagesParHeure, modeleDialogue, MESSAGES_PAR_HEURE_DEFAUT } = await import('../dialogue.js')
 await attendre()
 
 function attendre() {
@@ -326,4 +326,34 @@ test('la portée « editeurs » ouvre le dialogue aux éditeurs, jamais aux lect
   assert.equal((await dialoguer(doc.id, 'lect@example.com', msg('bonjour'))).status, 403)
   assert.equal((await dialoguer(doc.id, 'corr@example.com', msg('bonjour'))).status, 403)
   process.env.CLAUDE_DIALOGUE = 'admins'
+})
+
+test('les plafonds se règlent dans le .env, un nom par surface : valeurs absurdes, défaut', () => {
+  const sauve = { ...process.env }
+  try {
+    process.env.TEST_PLAFOND = '50'
+    assert.equal(limiteEnv('TEST_PLAFOND', 7), 50)
+    for (const mauvais of ['', 'abc', '-3', '0', 'NaN', ' ']) {
+      process.env.TEST_PLAFOND = mauvais
+      assert.equal(limiteEnv('TEST_PLAFOND', 7), 7, `« ${mauvais} » retombe sur le défaut`)
+    }
+    process.env.TEST_PLAFOND = '12.7'
+    assert.equal(limiteEnv('TEST_PLAFOND', 7), 12)
+    delete process.env.TEST_PLAFOND
+    assert.equal(limiteEnv('TEST_PLAFOND', 7), 7)
+
+    // La fenêtre flottante a son plafond et son modèle, indépendants de la barre latérale.
+    delete process.env.DIALOGUE_MESSAGES_PAR_HEURE
+    assert.equal(messagesParHeure(), MESSAGES_PAR_HEURE_DEFAUT)
+    process.env.DIALOGUE_MESSAGES_PAR_HEURE = '45'
+    assert.equal(messagesParHeure(), 45)
+    process.env.AI_SUGGESTIONS_PAR_HEURE = '999'
+    assert.equal(messagesParHeure(), 45, 'le réglage de la barre latérale ne touche pas la fenêtre')
+    delete process.env.DIALOGUE_MODEL
+    process.env.AI_MODEL = 'claude-haiku-5-5'
+    assert.equal(modeleDialogue(), 'claude-sonnet-5-5', 'AI_MODEL ne change pas le modèle de la fenêtre')
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in sauve)) delete process.env[k]
+    Object.assign(process.env, sauve)
+  }
 })

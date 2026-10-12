@@ -21,6 +21,9 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'collabtext-test-access-'))
 // vrais courriers, et un test « sans clé Anthropic » appelait l'API. La
 // chaîne vide, elle, reste présente et vide. (Constaté le 17/09/2026.)
 process.env.ANTHROPIC_API_KEY = ''
+// Plafond de la barre latérale ramené à 30 par heure pour ce test (le défaut
+// de production est 1 000 depuis le 11/10/2026, réglable dans le .env).
+process.env.AI_SUGGESTIONS_PAR_HEURE = '30'
 process.env.MAILGUN_API_KEY = ''
 process.env.MAILGUN_DOMAIN = ''
 // Ceinture et bretelles : même si une clé passait, rien ne sort de la machine.
@@ -327,7 +330,13 @@ test('renommer/étoiler/supprimer un document est réservé aux éditeurs', asyn
     headers: { 'content-type': 'application/json', cookie: correcteurCookie },
     body: JSON.stringify({ starred: true }),
   })
-  assert.equal(starByCorrecteur.status, 403)
+  // Depuis le 12/10/2026 l'étoile est un favori personnel : un correcteur en
+  // a un, sans que le document ni les autres membres n'en sachent rien.
+  assert.equal(starByCorrecteur.status, 200)
+  const vuParLeCorrecteur = (await (await fetch(`${BASE}/api/docs`, { headers: { cookie: correcteurCookie } })).json()).docs.find((d) => d.id === doc.id)
+  assert.equal(vuParLeCorrecteur.starred, true)
+  const vuParLEditeur = (await (await fetch(`${BASE}/api/docs`, { headers: { cookie: editorCookie } })).json()).docs.find((d) => d.id === doc.id)
+  assert.equal(vuParLEditeur.starred, false, 'le favori d’un autre ne se voit pas')
 
   const deleteByCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}`, {
     method: 'DELETE',
@@ -349,7 +358,7 @@ test('renommer/étoiler/supprimer un document est réservé aux éditeurs', asyn
   assert.equal(deleteByEditor.status, 200)
 })
 
-test("l'historique et la compaction ne sont plus ouverts à qui a l'identifiant", async () => {
+test("l'historique n'est plus ouvert à qui a l'identifiant", async () => {
   const editorCookie = cookieFor('mona@example.com')
   const doc = await (
     await fetch(`${BASE}/api/docs`, {
@@ -359,18 +368,15 @@ test("l'historique et la compaction ne sont plus ouverts à qui a l'identifiant"
     })
   ).json()
 
-  // Jusqu'au 15/09/2026 ces trois routes ne vérifiaient rien : connaître
+  // Jusqu'au 15/09/2026 ces routes ne vérifiaient rien : connaître
   // l'identifiant suffisait à lire tout le journal (donc le contenu) et à
   // le réécrire. Sans session, tout doit être refusé.
   for (const url of [`/api/docs/${doc.id}/history`, `/api/docs/${doc.id}/history/raw`]) {
     const res = await fetch(`${BASE}${url}`)
     assert.equal(res.status, 403, url)
   }
-  const compactAnonyme = await fetch(`${BASE}/api/docs/${doc.id}/compact`, { method: 'POST' })
-  assert.equal(compactAnonyme.status, 403)
 
-  // Un correcteur lit l'historique (c'est lire le document) mais ne le
-  // compacte pas (c'est le réécrire).
+  // Un correcteur lit l'historique (c'est lire le document).
   const storage = new Storage(process.env.DATA_DIR)
   const { token } = storage.inviteEmail(doc.id, 'nora@example.com', 'correcteur', 'mona@example.com')
   await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })
@@ -380,24 +386,12 @@ test("l'historique et la compaction ne sont plus ouverts à qui a l'identifiant"
     (await fetch(`${BASE}/api/docs/${doc.id}/history`, { headers: { cookie: correcteurCookie } })).status,
     200
   )
-  const compactCorrecteur = await fetch(`${BASE}/api/docs/${doc.id}/compact`, {
-    method: 'POST',
-    headers: { cookie: correcteurCookie },
-  })
-  assert.equal(compactCorrecteur.status, 403)
 
-  // L'éditeur, lui, passe les contrôles. Depuis le 29/09/2026 la route ne
-  // reçoit plus d'instantané : elle demande au serveur de compacter depuis
-  // sa réplique, et répond ce que le compactage a fait.
+  // L'éditeur, lui, passe les contrôles.
   assert.equal(
     (await fetch(`${BASE}/api/docs/${doc.id}/history/raw`, { headers: { cookie: editorCookie } })).status,
     200
   )
-  const compactEditeur = await fetch(`${BASE}/api/docs/${doc.id}/compact`, {
-    method: 'POST',
-    headers: { cookie: editorCookie },
-  })
-  assert.equal(compactEditeur.status, 200)
 })
 
 test('la feuille de style et le diagnostic sont réservés aux administrateurs', async () => {
@@ -498,7 +492,7 @@ test('isLoginAllowed : administrateur ou déjà invité quelque part, personne d
     assert.equal(isLoginAllowed('boss@example.com', storage), true)
     assert.equal(isLoginAllowed('totally-unknown@example.com', storage), false)
 
-    const doc = storage.createDoc('Doc pour laura', 'laura@example.com')
+    storage.createDoc('Doc pour laura', 'laura@example.com')
     assert.equal(isLoginAllowed('laura@example.com', storage), true)
   } finally {
 process.env.ADMIN_EMAILS = ''

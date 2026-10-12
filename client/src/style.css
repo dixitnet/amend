@@ -3,10 +3,9 @@
    dépendance réseau à Google Fonts à l'affichage ni à l'export PDF : même
    raisonnement que le reste de la liste fermée de polices (garantir que le
    rendu PDF corresponde à ce qui a été réglé, peu importe la machine qui
-   génère le PDF). Une seule graisse manque : Libre Caslon Text n'a pas de
-   variante gras-italique publiée par sa fonderie ; le navigateur retombe
-   sur la variante la plus proche si jamais gras + italique sont combinés
-   avec cette police.
+   génère le PDF). (Libre Caslon Text, retirée du menu le 10/10/2026, n'est
+   plus embarquée : un document qui l'avait choisie est lu comme « serif »,
+   voir POLICES_RETIREES dans shared/style.js.)
 */
 @font-face {
   font-family: 'Roboto';
@@ -36,27 +35,6 @@
   font-style: italic;
   font-display: swap;
 }
-@font-face {
-  font-family: 'Libre Caslon Text';
-  src: url('./fonts/libre-caslon-text-latin-400-normal.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Libre Caslon Text';
-  src: url('./fonts/libre-caslon-text-latin-400-italic.woff2') format('woff2');
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Libre Caslon Text';
-  src: url('./fonts/libre-caslon-text-latin-700-normal.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
 
 :root {
   --bg: #fdfcfb;
@@ -74,6 +52,9 @@
   --accent: #5f7a4a;
   --panel-bg: #f6f3ee;
   --danger: #b3261e;
+  /* Fond d'un bandeau d'erreur (texte clair dessus) : reste le rouge profond
+     dans les deux thèmes, alors que --danger devient clair en mode sombre. */
+  --danger-fond: #b3261e;
   --ok: #2f6e46;
   /* Fond des marques de suivi dans le logo (voir logo.js) — la même
      teinte très pâle que le surlignage d'une modification dans le texte. */
@@ -188,14 +169,14 @@ a { color: var(--accent); }
    qu'on gère et ceux qu'on ne fait que relire. */
 .doc-list li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 5.5em;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
 .doc-list li > .doc-date { text-align: right; white-space: nowrap; }
-.doc-list li > .delete-doc-btn { justify-self: end; }
+.doc-list li > .doc-actions { justify-self: end; }
 /* Le titre se tronque plutôt que de pousser la date hors de la ligne. */
 .doc-list-title > a {
   overflow: hidden;
@@ -242,6 +223,64 @@ a { color: var(--accent); }
   color: white;
 }
 .delete-doc-btn:disabled { cursor: default; opacity: 0.6; }
+
+/* ---------- Mes documents : favoris, dossiers, corbeille (12/10/2026) ---------- */
+.liste-barre { display: flex; gap: 8px; margin: 0 0 12px; }
+.liste-recherche, .liste-tri, .dossier-nom, .deplacer-select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+}
+.liste-recherche { flex: 1; min-width: 0; }
+.liste-message { margin: 0 0 10px; padding: 8px 10px; border-radius: 6px; background: var(--hover, rgb(0 0 0 / 5%)); font-size: 13px; }
+.liste-message[hidden], .liste-barre[hidden] { display: none; }
+
+.favoris { margin-bottom: 18px; }
+.favoris-titre, .resultats-titre, .corbeille-titre { margin: 4px 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+.doc-emplacement { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-actions { display: inline-flex; gap: 4px; align-items: center; }
+
+.fil-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 4px 0 8px; }
+.fil { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 14px; min-width: 0; }
+.fil-courant { font-weight: 600; }
+.fil-sep { color: var(--muted); }
+.fil-lien, .dossier-geste, .deplacer-btn, .restaurer-btn, .corbeille-ouvrir {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.fil-lien { font-size: 14px; padding: 2px 4px; }
+.fil-lien:hover, .dossier-geste:hover, .deplacer-btn:hover, .restaurer-btn:hover, .corbeille-ouvrir:hover { border-color: var(--border); }
+.fil-gestes { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.dossier-geste.dossier-supprimer { color: var(--muted); }
+.dossier-geste.dossier-supprimer:hover { color: var(--danger); }
+.dossier-geste.confirming { background: var(--danger); border-color: var(--danger); color: white; }
+
+.dossier-form { display: flex; gap: 6px; margin: 0 0 10px; }
+.dossier-nom { flex: 1; min-width: 0; }
+.dossier-valider { padding: 8px 12px; border: none; border-radius: 6px; background: var(--accent); color: white; font-weight: 600; cursor: pointer; }
+.dossier-annuler { background: none; border: none; color: var(--muted); cursor: pointer; }
+
+.dossier-list { list-style: none; padding: 0; margin: 0; }
+.dossier-ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); }
+.dossier-ouvrir { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 12px 0; background: none; border: none; color: var(--fg); font-size: 15px; font-weight: 500; text-align: left; cursor: pointer; }
+.dossier-icone { color: var(--accent); }
+.dossier-titre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dossier-effectif { color: var(--muted); font-size: 13px; white-space: nowrap; }
+
+.deplacement { grid-column: 1 / -1; font-size: 13px; }
+.deplacer-select { max-width: 100%; }
+
+.corbeille-pied { margin-top: 18px; }
+.corbeille-aide { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.corbeille-doc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Editor layout ---------- */
 /* Full page: a full-width top banner, then the three-column layout below
@@ -348,10 +387,10 @@ a { color: var(--accent); }
    lisibles sans crier. Un plan de cinquante entrées où seule la ligne
    courante ressort ne dit pas *où* elle se trouve. */
 .outline-courante .outline-link {
-  background: color-mix(in srgb, var(--accent, #5f7a4a) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--fg);
   font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--accent, #5f7a4a);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 .outline-chemin .outline-link { color: var(--fg); }
 .outline-item:not(.outline-courante):not(.outline-chemin) .outline-link { color: var(--muted); }
@@ -435,9 +474,9 @@ a { color: var(--accent); }
 .btn-numeros { margin-left: auto; font-size: 13px; }
 .btn-numeros + .zoom-select { margin-left: 4px; }
 .btn-numeros[aria-pressed='true'] {
-  border-color: var(--accent, #5f7a4a);
-  color: var(--accent, #5f7a4a);
-  background: color-mix(in srgb, var(--accent, #5f7a4a) 12%, var(--bg));
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
 }
 .heading-select, .zoom-select {
   height: 30px;
@@ -1018,7 +1057,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   font-size: 14px;
   margin-bottom: 12px;
 }
-.name-modal .name-modal-erreur { margin: -4px 0 10px; color: #b3261e; font-size: 13px; }
+.name-modal .name-modal-erreur { margin: -4px 0 10px; color: var(--danger); font-size: 13px; }
 .name-modal .name-modal-actions { display: flex; gap: 8px; }
 .name-modal .name-modal-actions button { flex: 1; }
 .name-modal .name-modal-annuler {
@@ -1078,20 +1117,6 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   margin: 0;
 }
 .style-fieldset legend { padding: 0 6px; font-weight: 600; font-size: 13px; }
-
-/* ---------- Export PDF ("Exporter (.pdf)") ---------- */
-/* #print-root carries the print-only rendering built by pdfExport.js
-   (docToHtml + the feuille de style as CSS + @page for size/margins).
-   Hidden on screen; while window.print() is active (body.printing, set by
-   printDocument), everything else in the page is hidden and only
-   #print-root is shown — the standard "print just this" trick, avoiding a
-   popup window (can be blocked, inherits none of this page's CSS anyway)
-   or an iframe (cross-origin-style friction for no benefit here). */
-#print-root { display: none; }
-@media print {
-  body.printing > *:not(#print-root) { display: none !important; }
-  #print-root { display: block !important; }
-}
 
 /* ---------- Historique (historique léger, consultation seule) ---------- */
 .history-link {
@@ -1164,18 +1189,47 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   margin: 0;
 }
 
-/* ---------- Gestion des utilisateurs (rôles, invitation, connexion) ---------- */
+/* ---------- Versions : nommer, comparer, restaurer (11/10/2026) ---------- */
+.vr-nommer { display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }
+.vr-nommer input { flex: 1 1 260px; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font-size: 14px; }
+.vr-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font-size: 13px; cursor: pointer; }
+.vr-btn:hover { background: var(--bg-hover, rgba(127, 127, 127, 0.08)); }
+.vr-btn.actif { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.vr-btn.primaire { background: var(--accent); border-color: var(--accent); color: white; }
+.vr-btn.danger { border-color: var(--danger); color: var(--danger); }
+.vr-btn:disabled { opacity: 0.6; cursor: default; }
+.vr-ligne { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vr-titre { font-weight: 500; overflow-wrap: anywhere; }
+.vr-titre.nommee { font-weight: 700; }
+.vr-detail { font-size: 12px; color: var(--muted); margin: 0; }
+.versions-list-item.active .vr-detail { color: rgba(255, 255, 255, 0.85); }
+.vr-vide { padding: 12px; font-size: 13px; color: var(--muted); }
+.vr-tete { margin-bottom: 12px; }
+.vr-tete .versions-preview-label { margin-bottom: 2px; }
+.vr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.vr-choix { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font-size: 13px; max-width: 100%; }
+.vr-gestes { margin-bottom: 12px; }
+.vr-dialogue { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.vr-dialogue:not(:empty) { padding: 12px; margin-top: 4px; border: 1px solid var(--border); border-radius: 8px; }
+.vr-dialogue > p { margin: 0; font-size: 14px; }
+.vr-phrase { font-weight: 600; }
+.vr-notes { margin: 0; padding-left: 18px; font-size: 13px; }
+.vr-avertissement { color: var(--danger); font-size: 13px; margin: 0 0 8px; }
+.vr-resume, .vr-sens { margin: 0 0 8px; font-size: 14px; }
+.vr-sens { color: var(--muted); font-size: 13px; }
+.vr-bloc { margin: 0 0 10px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.vr-bloc.titre { font-weight: 700; }
+.vr-changement { border-left: 3px solid var(--border); padding: 4px 0 4px 10px; margin-bottom: 12px; }
+.vr-changement .vr-bloc { margin: 0; }
+.vr-changement.modifie { border-left-color: var(--accent); }
+.vr-changement.ajoute { border-left-color: #2e7d32; }
+.vr-changement.supprime { border-left-color: var(--danger); }
+.vr-etiquette { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); margin-bottom: 2px; }
+.vr-zone ins { background: color-mix(in srgb, #2e7d32 20%, transparent); text-decoration: none; }
+.vr-zone del { background: color-mix(in srgb, var(--danger) 18%, transparent); text-decoration: line-through; }
+.vr-lien { color: var(--accent); }
 
-.share-btn {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--fg);
-  padding: 4px 10px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.share-btn:hover { border-color: var(--accent); }
+/* ---------- Gestion des utilisateurs (rôles, invitation, connexion) ---------- */
 
 /* Le badge de rôle — même forme pour tous, la couleur seule distingue
    (17/09/2026). Une famille par rôle, assez proche des couleurs de
@@ -1235,8 +1289,8 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   cursor: pointer;
 }
 .invite-message { margin: 8px 0 0; font-size: 12px; }
-.invite-message.ok { color: var(--accent, #5f7a4a); }
-.invite-message.erreur { color: #b3261e; }
+.invite-message.ok { color: var(--accent); }
+.invite-message.erreur { color: var(--danger); }
 .access-pending {
   padding: 1px 6px;
   border: 1px solid var(--border);
@@ -1267,9 +1321,9 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .claude-adresse {
   margin: 8px 0 12px;
   padding: 10px;
-  border: 1px solid var(--accent, #5f7a4a);
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--accent, #5f7a4a) 8%, var(--bg));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
 }
 .claude-adresse-titre { margin: 0 0 6px; font-size: 12px; font-weight: 600; }
 .claude-adresse-champ { display: flex; gap: 6px; }
@@ -1471,7 +1525,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .backoffice h3 { margin: 20px 0 8px; font-size: 15px; }
 .bo-retour { margin-bottom: 12px; font-size: 13px; }
 .bo-note { font-size: 12px; opacity: 0.75; margin: 8px 0; line-height: 1.5; }
-.bo-alerte { opacity: 1; color: #b3261e; }
+.bo-alerte { opacity: 1; color: var(--danger); }
 .bo-chiffres { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
 .bo-chiffre {
   flex: 1 1 160px;
@@ -1509,14 +1563,14 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   position: relative;
   background: var(--bg);
 }
-.ProseMirror li.tache[data-checked='true'] > .tache-case { border-color: var(--accent, #5f7a4a); }
+.ProseMirror li.tache[data-checked='true'] > .tache-case { border-color: var(--accent); }
 .ProseMirror li.tache[data-checked='true'] > .tache-case::after {
   content: '✓';
   position: absolute;
   inset: -3px 0 0 1px;
   font-size: 13px;
   line-height: 1;
-  color: var(--accent, #5f7a4a);
+  color: var(--accent);
 }
 .ProseMirror li.tache > .tache-contenu { flex: 1 1 auto; min-width: 0; }
 .ProseMirror li.tache[data-checked='true'] > .tache-contenu { text-decoration: line-through; opacity: 0.55; }
@@ -1539,7 +1593,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   content: '';
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--accent, #5f7a4a) 18%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   pointer-events: none;
 }
 .table-group { display: inline-flex; gap: 4px; }
@@ -1566,7 +1620,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .change-item.courante {
   border-color: var(--user-color, var(--accent));
   border-left-width: 4px;
-  background: color-mix(in srgb, var(--user-color, var(--accent, #5f7a4a)) 7%, var(--bg));
+  background: color-mix(in srgb, var(--user-color, var(--accent)) 7%, var(--bg));
   box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
 }
 /* Les blocs éclairés quand on survole son entrée dans la liste. */
@@ -1575,7 +1629,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
      fond du bloc passe toujours derrière les marques d'insertion et de
      suppression, qui gardent leur couleur. Un lot de Claude éclairé en
      vert était illisible — c'est la couleur de ses propositions. */
-  background: color-mix(in srgb, var(--fg, #222) 9%, transparent);
+  background: color-mix(in srgb, var(--fg) 9%, transparent);
   border-radius: 3px;
 }
 
@@ -1628,7 +1682,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .carte-commentaire.active {
   border-color: var(--user-color, var(--accent));
   border-left-width: 4px;
-  background: color-mix(in srgb, var(--user-color, var(--accent, #5f7a4a)) 7%, var(--bg));
+  background: color-mix(in srgb, var(--user-color, var(--accent)) 7%, var(--bg));
   box-shadow: 0 2px 14px rgb(0 0 0 / 16%);
   z-index: 2;
 }
@@ -1764,7 +1818,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   padding: 10px 14px;
   border: 1px dashed var(--border);
   border-radius: 4px;
-  color: var(--muted, #6b6b6b);
+  color: var(--muted);
   font-size: 13px;
   text-align: center;
 }
@@ -1788,7 +1842,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   opacity: 1;
   transition: opacity 0.35s ease-out, transform 0.35s ease-out;
 }
-.message-fugace.erreur { background: #b3261e; }
+.message-fugace.erreur { background: var(--danger-fond); }
 .message-fugace.sortant { opacity: 0; transform: translateX(-50%) translateY(6px); }
 
 /* --- Panneau de mise en page (16/09/2026) ------------------------------- */
@@ -2763,6 +2817,9 @@ tr.bo-traite { opacity: 0.6; }
   .doc-list .delete-doc-btn {
     display: none;
   }
+  /* La corbeille se vide depuis un ordinateur ; ici on la consulte et l'on
+     restaure — le bouton « Supprimer pour de bon » est donc masqué comme les
+     autres suppressions. */
   .home > h1 { margin: 0 0 10px; }
   .auth-status {
     display: flex;
@@ -2802,6 +2859,16 @@ tr.bo-traite { opacity: 0.6; }
     font-size: 12px;
   }
   .star-btn { min-width: 40px; min-height: 40px; font-size: 20px; }
+  .doc-list li > .doc-actions { justify-self: start; padding-bottom: 8px; }
+  .doc-list li > .doc-actions .deplacer-btn,
+  .doc-list li > .doc-actions .restaurer-btn { padding: 8px 12px; font-size: 13px; }
+  .doc-emplacement { flex-basis: 100%; }
+  .doc-list-title { flex-wrap: wrap; }
+  .liste-recherche, .liste-tri { font-size: 16px; }
+  .liste-barre { flex-direction: column; }
+  .dossier-ouvrir { min-height: 52px; font-size: 16px; }
+  .fil-lien, .dossier-geste, .corbeille-ouvrir { padding: 8px 10px; font-size: 14px; }
+  .deplacer-select { font-size: 16px; width: 100%; }
   .doc-list-heading { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 
   /* Le bouton de création : même geste que le crayon de l'éditeur, même
@@ -2934,7 +3001,7 @@ tr.bo-traite { opacity: 0.6; }
    à la couleur de l'auteur ; supprimé, estompé et barré. */
 .ProseMirror .noeud-insere { outline: 2px dashed var(--user-color, var(--accent)); outline-offset: 3px; }
 .ProseMirror .noeud-supprime { opacity: 0.45; position: relative; }
-.ProseMirror .noeud-supprime::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 3px solid var(--user-color, var(--danger, #b3261e)); }
+.ProseMirror .noeud-supprime::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 3px solid var(--user-color, var(--danger)); }
 
 /* Un lot (S2, 29/09/2026) : les changements d'un même geste — une
    correction de l'IA — en une carte. Un liseré double le distingue. */
@@ -2950,7 +3017,7 @@ tr.bo-traite { opacity: 0.6; }
 }
 .ProseMirror a.lien:hover { text-decoration-thickness: 2px; }
 .ProseMirror[contenteditable="false"] a.lien { cursor: pointer; }
-.ProseMirror .lien-refuse { text-decoration: wavy underline; text-decoration-color: #b3261e; }
+.ProseMirror .lien-refuse { text-decoration: wavy underline; text-decoration-color: var(--danger); }
 
 .lien-bulle, .lien-fenetre {
   position: absolute;
@@ -2977,7 +3044,7 @@ tr.bo-traite { opacity: 0.6; }
   border: 1px solid var(--border); border-radius: 6px;
 }
 .lien-fenetre input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.lien-fenetre-erreur { margin: 0; font-size: 12px; color: #b3261e; }
+.lien-fenetre-erreur { margin: 0; font-size: 12px; color: var(--danger); }
 .lien-fenetre-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 700px) {
   /* Comme la fenêtre d'une note : une feuille en bas de l'écran. */
@@ -2989,7 +3056,7 @@ tr.bo-traite { opacity: 0.6; }
 .bo-embarquer-msg { margin-left: 8px; }
 .bo-embarquer-msg:empty { display: none; }
 .bo-ok { color: var(--fg); opacity: 1; border-left: 3px solid #5f7a4a; padding-left: 8px; }
-.bo-erreur { color: #b3261e; opacity: 1; }
+.bo-erreur { color: var(--danger); opacity: 1; }
 .bo-embarquer-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 14px; }
 .bo-embarquer-form label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
 .bo-embarquer-form input[type="email"] {

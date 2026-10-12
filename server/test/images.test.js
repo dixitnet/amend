@@ -196,7 +196,13 @@ test('supprimer un document emporte ses images', async () => {
   const uploads = new Uploads(process.env.DATA_DIR)
   assert.ok(uploads.octetsDocument(doc.id) > 0)
 
-  const suppr = await fetch(`${BASE}/api/docs/${doc.id}`, { method: 'DELETE', headers: { cookie: editeur } })
+  // « Supprimer » met à la corbeille (12/10/2026) : les images attendent
+  // la suppression définitive.
+  const jete = await fetch(`${BASE}/api/docs/${doc.id}`, { method: 'DELETE', headers: { cookie: editeur } })
+  assert.equal(jete.status, 200)
+  assert.ok(uploads.octetsDocument(doc.id) > 0, 'à la corbeille, les images sont encore là')
+  assert.equal((await fetch(`${BASE}${src}`, { headers: { cookie: editeur } })).status, 403, 'mais ne se lisent plus')
+  const suppr = await fetch(`${BASE}/api/corbeille/${doc.id}`, { method: 'DELETE', headers: { cookie: editeur } })
   assert.equal(suppr.status, 200)
   assert.equal(uploads.octetsDocument(doc.id), 0)
   assert.equal(existsSync(join(process.env.DATA_DIR, 'uploads', doc.id)), false)

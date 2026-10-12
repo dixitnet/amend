@@ -13,10 +13,14 @@
 // `data/versions/<id>/<horodatage>.bin`, un instantané Yjs complet, écrit
 // une fois et plus jamais touché.
 //
-// Premier usage, et le seul pour l'instant : **avant chaque compactage**.
-// C'est gratuit — le client a déjà calculé cet instantané pour compacter,
-// il suffit de ne plus le jeter. Le jour où les versions nommées arriveront,
-// elles écriront dans le même dossier, avec le même format.
+// Trois origines, un seul format :
+//   - 'compactage' : **avant chaque compactage** (gratuit — l'instantané est
+//     déjà calculé pour compacter, il suffit de ne plus le jeter) ;
+//   - 'session' : quand la dernière personne quitte un document modifié ;
+//   - 'nommee' : une personne a dit « garde celle-ci » (11/10/2026).
+// Les deux premières sont automatiques et s'amincissent avec le temps
+// (`aSupprimer`) ; une version qui porte un nom n'est jamais supprimée par le
+// serveur, quelle que soit son origine.
 //
 // Comme partout ailleurs ici, le serveur ne lit jamais le contenu : il
 // écrit des octets et il les rend.
@@ -63,6 +67,9 @@ export class Versions {
     if (!instantane || !instantane.length) return null
     const dossier = this._dossier(id)
     mkdirSync(dossier, { recursive: true })
+    // Deux versions dans la même milliseconde : la seconde ne doit pas
+    // écraser la première (le nom du fichier est l'horodatage).
+    while (existsSync(join(dossier, `${ts}.bin`))) ts++
     const base = join(dossier, String(ts))
     // Temporaire puis renommage : une coupure laisse le dossier sans
     // version à demi écrite plutôt qu'avec un instantané tronqué, qui
@@ -115,9 +122,74 @@ export class Versions {
     }
   }
 
+  /** Une version, ou null. */
+  trouver(id, ts) {
+    return this.lister(id).find((v) => v.ts === Number(ts)) || null
+  }
+
+  /** Donne (ou retire, avec `nom` null) un nom à une version. Une version
+   * nommée n'est plus jamais amincie. `null` si elle n'existe pas. */
+  renommer(id, ts, nom) {
+    const v = this.trouver(id, ts)
+    if (!v) return null
+    const fiche = { ts: v.ts, origine: v.origine === 'inconnue' ? 'compactage' : v.origine, par: v.par, nom: nom || null }
+    ecrireAtomique(join(this._dossier(id), `${v.ts}.json`), JSON.stringify(fiche))
+    return { ...v, nom: fiche.nom }
+  }
+
+  /** Supprime une version. `false` si elle n'existe pas. */
+  supprimer(id, ts) {
+    if (!this.trouver(id, ts)) return false
+    const base = join(this._dossier(id), String(Number(ts)))
+    rmSync(`${base}.bin`, { force: true })
+    rmSync(`${base}.json`, { force: true })
+    return true
+  }
+
+  /** Amincit les versions automatiques (voir `aSupprimer`) ; rend combien
+   * ont été supprimées. */
+  elaguer(id, maintenant = Date.now()) {
+    const aOter = aSupprimer(this.lister(id), maintenant)
+    for (const ts of aOter) this.supprimer(id, ts)
+    return aOter.length
+  }
+
   /** Le poids total des versions d'un document — pour le back-office, et
    * pour savoir quand une politique de rétention deviendra nécessaire. */
   octets(id) {
     return this.lister(id).reduce((somme, v) => somme + v.octets, 0)
   }
+}
+
+const JOUR = 24 * 3600 * 1000
+
+/**
+ * Quelles versions **automatiques** supprimer. Une version nommée est
+ * toujours gardée. Pour les autres, plus c'est vieux, moins c'est fin :
+ *   - moins de 3 jours : toutes ;
+ *   - jusqu'à 30 jours : la dernière de chaque jour ;
+ *   - jusqu'à 1 an : la dernière de chaque semaine ;
+ *   - au-delà : aucune.
+ * Les versions les plus récentes de chaque tranche survivent, parce que
+ * c'est celles-là qu'on cherche (« où en était-on vendredi soir ? »).
+ * `versions` : la sortie de `lister` (plus récente d'abord).
+ */
+export function aSupprimer(versions, maintenant = Date.now()) {
+  const gardees = new Set()
+  const out = []
+  for (const v of versions) {
+    if (v.nom) continue
+    const age = maintenant - v.ts
+    let cle
+    if (age < 3 * JOUR) continue
+    else if (age < 30 * JOUR) cle = `j${Math.floor(v.ts / JOUR)}`
+    else if (age < 365 * JOUR) cle = `s${Math.floor(v.ts / (7 * JOUR))}`
+    else {
+      out.push(v.ts)
+      continue
+    }
+    if (gardees.has(cle)) out.push(v.ts)
+    else gardees.add(cle)
+  }
+  return out
 }

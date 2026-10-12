@@ -11,6 +11,7 @@
 // et l'éditeur y accèdent tous les deux, et l'appel à `/api/auth/me` sert
 // aussi à savoir si la personne est administratrice.
 
+import { lierMenuAria } from './menuAria.js'
 import { getSessionEmail, logout, logoutEverywhere } from './auth.js'
 import { initials } from './presence.js'
 import { ouvrirChangementDeNom } from './nomCompte.js'
@@ -62,6 +63,7 @@ export function monterMenuCompte(container, { couleur, surNom } = {}) {
   liste.hidden = true
 
   menu.append(pastille, liste)
+  lierMenuAria(pastille, liste)
   container.appendChild(menu)
 
   pastille.onclick = (e) => {

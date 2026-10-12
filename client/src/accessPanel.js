@@ -6,6 +6,7 @@
 // claude/conception-gestion-utilisateurs.md (projet Amend).
 
 import { monterSectionClaude } from './claudeAccess.js'
+import { equiperModale } from './modale.js'
 
 // Les libellés des rôles, dans la langue de l'interface. Un rôle inconnu
 // s'affiche tel quel plutôt que de disparaître — c'est ce qui fera
@@ -24,7 +25,7 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
       <h2>Partager ce document</h2>
       <p>Invitez une personne par son adresse email : elle recevra un lien qui ouvre ce document directement, valable 14 jours.</p>
       <form class="invite-form">
-        <input type="email" required placeholder="personne@exemple.fr" />
+        <input type="email" name="email" autocomplete="off" required placeholder="personne@exemple.fr" aria-label="Adresse de la personne à inviter" />
         <select>
           <option value="editeur">Éditeur</option>
           <option value="correcteur">Correcteur</option>
@@ -40,10 +41,8 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
     </div>
   `
   document.body.appendChild(overlay)
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove()
-  })
-  overlay.querySelector('.close-btn').onclick = () => overlay.remove()
+  const fermer = equiperModale(overlay, { libelle: 'Partager le document' })
+  overlay.querySelector('.close-btn').onclick = fermer
 
   const accessList = overlay.querySelector('.access-list')
   const form = overlay.querySelector('.invite-form')

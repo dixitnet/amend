@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Versions } from '../versions.js'
+import { Versions, aSupprimer } from '../versions.js'
 
 const dataDir = mkdtempSync(join(tmpdir(), 'collabtext-test-versions-'))
 process.on('exit', () => rmSync(dataDir, { recursive: true, force: true }))
@@ -91,4 +91,68 @@ test('rien ne traîne en .tmp après une écriture', () => {
   assert.ok(existsSync(join(dataDir, 'versions', 'doc-g', '5.bin')))
   assert.ok(!existsSync(join(dataDir, 'versions', 'doc-g', '5.bin.tmp')))
   assert.equal(JSON.parse(readFileSync(join(dataDir, 'versions', 'doc-g', '5.json'), 'utf8')).ts, 5)
+})
+
+test('nommer une version existante, puis retirer son nom', () => {
+  const v = new Versions(dataDir)
+  v.enregistrer('doc-n', octets(8), { ts: 10, origine: 'session' })
+  assert.equal(v.renommer('doc-n', 10, 'Dépôt').nom, 'Dépôt')
+  assert.equal(v.lister('doc-n')[0].nom, 'Dépôt')
+  assert.equal(v.lister('doc-n')[0].origine, 'session', 'l’origine ne change pas')
+  assert.equal(v.renommer('doc-n', 10, null).nom, null)
+  assert.equal(v.renommer('doc-n', 11, 'x'), null, 'une version inconnue ne se nomme pas')
+})
+
+test('supprimer une version retire l’instantané et sa fiche', () => {
+  const v = new Versions(dataDir)
+  v.enregistrer('doc-s', octets(8), { ts: 5 })
+  assert.equal(v.supprimer('doc-s', 5), true)
+  assert.equal(v.lire('doc-s', 5), null)
+  assert.deepEqual(v.lister('doc-s'), [])
+  assert.equal(v.supprimer('doc-s', 5), false)
+})
+
+test('deux versions dans la même milliseconde ne s’écrasent pas', () => {
+  const v = new Versions(dataDir)
+  const a = v.enregistrer('doc-m', octets(8, 1), { ts: 77 })
+  const b = v.enregistrer('doc-m', octets(8, 2), { ts: 77 })
+  assert.notEqual(a.ts, b.ts)
+  assert.equal(v.lister('doc-m').length, 2)
+  assert.deepEqual(v.lire('doc-m', 77), octets(8, 1))
+})
+
+const JOUR = 24 * 3600 * 1000
+const MAINTENANT = Date.UTC(2026, 9, 11, 12)
+const il_y_a = (jours, heures = 0) => MAINTENANT - jours * JOUR - heures * 3600 * 1000
+const fiche = (ts, extra = {}) => ({ ts, nom: null, origine: 'session', ...extra })
+
+test('l’amincissement garde tout pendant trois jours', () => {
+  const vs = [fiche(il_y_a(0, 1)), fiche(il_y_a(0, 2)), fiche(il_y_a(1)), fiche(il_y_a(2, 5))]
+  assert.deepEqual(aSupprimer(vs, MAINTENANT), [])
+})
+
+test('puis une par jour jusqu’à trente jours, une par semaine jusqu’à un an, rien au-delà', () => {
+  // Deux versions le même jour (il y a 10 jours) : la plus récente reste.
+  const jour = [fiche(il_y_a(10, 1)), fiche(il_y_a(10, 5))]
+  assert.deepEqual(aSupprimer(jour, MAINTENANT), [il_y_a(10, 5)])
+  // Deux versions la même semaine (il y a ~100 jours).
+  const base = Math.floor(il_y_a(100) / (7 * JOUR)) * (7 * JOUR) + JOUR
+  const semaine = [fiche(base + 2 * JOUR), fiche(base)]
+  assert.deepEqual(aSupprimer(semaine, MAINTENANT), [base])
+  assert.deepEqual(aSupprimer([fiche(il_y_a(400))], MAINTENANT), [il_y_a(400)])
+})
+
+test('une version nommée n’est jamais amincie, même très vieille', () => {
+  const vs = [fiche(il_y_a(500), { nom: 'Soutenance' }), fiche(il_y_a(10, 1)), fiche(il_y_a(10, 5), { nom: 'Relu' })]
+  assert.deepEqual(aSupprimer(vs, MAINTENANT), [])
+})
+
+test('élaguer supprime sur le disque ce que la règle désigne', () => {
+  const v = new Versions(dataDir)
+  v.enregistrer('doc-e', octets(8), { ts: il_y_a(10, 1) })
+  v.enregistrer('doc-e', octets(8), { ts: il_y_a(10, 5) })
+  v.enregistrer('doc-e', octets(8), { ts: il_y_a(400), nom: 'Première version' })
+  v.enregistrer('doc-e', octets(8), { ts: il_y_a(1) })
+  assert.equal(v.elaguer('doc-e', MAINTENANT), 1)
+  assert.equal(v.lister('doc-e').length, 3)
 })

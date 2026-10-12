@@ -24,7 +24,6 @@ import {
   resolveCommentRange,
   addComment,
   commentaireAuPoint,
-  commentsPluginKey,
   ajouterReponse,
   estUneReponse,
   modifierTexte,
@@ -98,6 +97,8 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
   function editer(bloc, commentaire, id, apres) {
     const zone = document.createElement('textarea')
     zone.className = 'carte-edition'
+    zone.name = 'commentaire'
+    zone.setAttribute('aria-label', 'Modifier le commentaire')
     zone.value = commentaire.text
     zone.rows = Math.min(8, Math.max(2, Math.ceil(commentaire.text.length / 34)))
     const actions = document.createElement('div')
@@ -209,6 +210,8 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
     const zone = document.createElement('textarea')
     zone.rows = 1
     zone.placeholder = 'Répondre…'
+    zone.name = 'reponse'
+    zone.setAttribute('aria-label', 'Répondre')
     const envoyer = document.createElement('button')
     envoyer.type = 'submit'
     envoyer.textContent = 'Répondre'

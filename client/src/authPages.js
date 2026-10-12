@@ -17,7 +17,7 @@ export function mountLogin(root) {
     <h2>Se connecter</h2>
     <p>Indiquez votre adresse email, un lien de connexion valable 20 minutes vous sera envoyé.</p>
     <form>
-      <input type="email" required placeholder="vous@exemple.fr" autofocus />
+      <input type="email" name="email" autocomplete="email" required placeholder="vous@exemple.fr" aria-label="Votre adresse e-mail" autofocus />
       <button type="submit">Recevoir le lien</button>
     </form>
     <p class="login-sent" hidden>Si cette adresse est connue, un email vient de partir — pensez aussi aux spams.</p>

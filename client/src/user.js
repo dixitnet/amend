@@ -1,3 +1,5 @@
+import { equiperModale } from './modale.js'
+
 // La même palette que le serveur (server/users.js), tenue à jour à la
 // main. **Aucun vert** : il est réservé à l'IA (AI_USER plus bas), qui est
 // aussi l'accent de l'application — une personne qui en hériterait verrait
@@ -36,20 +38,22 @@ export function promptForUser() {
       <form class="name-modal">
         <h2>Ton nom</h2>
         <p>Affiché aux autres personnes qui éditent ce texte.</p>
-        <input type="text" maxlength="40" placeholder="ex. Sylvain" autofocus />
+        <input type="text" name="nom" autocomplete="name" maxlength="40" placeholder="ex. Sylvain" aria-label="Votre nom" autofocus />
         <button type="submit">Continuer</button>
       </form>
     `
     document.body.appendChild(overlay)
     const form = overlay.querySelector('form')
     const input = overlay.querySelector('input')
+    // Saisie obligatoire : ni Échap ni clic sur le fond ne ferment la fenêtre.
+    const fermer = equiperModale(overlay, { echap: false, clic: false })
     input.focus()
     form.addEventListener('submit', (e) => {
       e.preventDefault()
       const name = (input.value || 'Anonyme').trim().slice(0, 40) || 'Anonyme'
       // La couleur proposée ici n'est qu'un repli : celle qui fait foi est
       // tirée par le serveur et revient avec l'enregistrement du nom.
-      overlay.remove()
+      fermer()
       resolve({ name, color: randomColor() })
     })
   })

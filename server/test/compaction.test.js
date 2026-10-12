@@ -46,28 +46,22 @@ test('hystérésis : après compaction, le document a de la marge avant la suiva
   assert.equal(meta.count, 16)
   assert.equal(meta.needsCompaction, true, 'au-delà du seuil, la compaction est demandée')
 
-  // Compaction telle que la fait le client (historySnapshot.js) : garder les
-  // maxUncompactedOps - 1 dernières, l'instantané occupant la place manquante.
-  const keepFromIndex = meta.count - (meta.maxUncompactedOps - 1)
-  await storage.compactDoc(doc.id, {
-    baseSnapshot: Buffer.from([9, 9, 9, 9]),
-    baseTs: Date.now(),
-    keepFromIndex,
-    expectedTotalBeforeCompaction: meta.count,
-  })
+  // Compaction telle que la fait la réplique (replique.js) : tout le journal
+  // est remplacé par un instantané.
+  await storage.compactDoc(doc.id, { baseSnapshot: Buffer.from([9, 9, 9, 9]), baseTs: Date.now() })
 
   meta = storage.getHistoryMeta(doc.id)
-  assert.equal(meta.count, 10, 'le journal retombe exactement au nombre conservé')
+  assert.equal(meta.count, 1, 'le journal retombe à l’instantané seul')
   assert.equal(meta.needsCompaction, false)
 
   // Le point de la correction : quelques frappes de plus ne redéclenchent
   // pas tout le travail (avant le 15/09, une seule suffisait).
-  await ecrire(storage, doc.id, 4) // 14
+  await ecrire(storage, doc.id, 14) // 15
   meta = storage.getHistoryMeta(doc.id)
-  assert.equal(meta.count, 14)
+  assert.equal(meta.count, 15)
   assert.equal(meta.needsCompaction, false, 'la marge doit absorber les opérations qui suivent une compaction')
 
-  await ecrire(storage, doc.id, 2) // 16
+  await ecrire(storage, doc.id, 1) // 16
   assert.equal(storage.getHistoryMeta(doc.id).needsCompaction, true, 'et redemander une compaction une fois la marge consommée')
 })
 

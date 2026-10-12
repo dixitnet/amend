@@ -1,132 +1,402 @@
-// Page "Historique" — consultation seule des dernières versions stockées
-// d'un document (voir README.md : historique léger, conception confirmée
-// avec l'utilisateur avant implémentation). Pas de restauration dans cette
-// première version, juste la liste des instants connus et un aperçu du
-// contenu tel qu'il était à cet instant-là. Comme le reste de l'app, pas de
-// contrôle d'accès : ouvert à qui a l'URL.
+// Page « Versions » d'un document (11/10/2026, claude/conception-compactage-versions.md).
+//
+// Ce qu'on y fait : voir les états que le serveur a gardés (ceux qu'on a
+// nommés, et ceux qu'il garde seul), nommer l'état actuel, **comparer** deux
+// états paragraphe par paragraphe et mot à mot, et **restaurer** une version.
+//
+// Restaurer ne revient pas en arrière : le serveur propose, en suivi de
+// modifications, les changements qui ramènent le texte à cette version. Les
+// personnes qui travaillent dans le document les voient arriver, un éditeur
+// les accepte ou les refuse une à une. Avant de rien écrire, la page montre
+// ce qui sera proposé ; l'état d'avant est gardé dans la foulée.
 
-import { reconstructMarkdown, groupIntoVersions } from './historySnapshot.js'
+import { dateLisible, libelleVersion, phraseRestauration, resumeComparaison, segmentsDeDiff } from './versionsAffichage.js'
 
-function formatTs(ts) {
-  if (!ts) return 'date inconnue'
-  return new Date(ts).toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+function el(tag, classe, texte) {
+  const e = document.createElement(tag)
+  if (classe) e.className = classe
+  if (texte != null) e.textContent = texte
+  return e
+}
+
+function bouton(texte, classe, surClic) {
+  const b = el('button', `vr-btn ${classe || ''}`.trim(), texte)
+  b.type = 'button'
+  b.addEventListener('click', surClic)
+  return b
+}
+
+async function appel(chemin, { methode = 'GET', corps } = {}) {
+  const res = await fetch(chemin, {
+    method: methode,
+    headers: corps ? { 'content-type': 'application/json' } : undefined,
+    body: corps ? JSON.stringify(corps) : undefined,
   })
+  let json = null
+  try {
+    json = await res.json()
+  } catch {
+    json = null
+  }
+  if (!res.ok) throw new Error((json && json.error) || `erreur ${res.status}`)
+  return json
 }
 
 export async function mountVersions(root, docId) {
   root.innerHTML = ''
-  const wrap = document.createElement('div')
-  wrap.className = 'home versions-page'
-
-  const backLink = document.createElement('a')
-  backLink.href = `#/doc/${docId}`
-  backLink.className = 'back-link'
-  backLink.textContent = '← Document'
-  wrap.appendChild(backLink)
-
-  const h1 = document.createElement('h1')
-  h1.textContent = 'Historique'
-  const subtitle = document.createElement('p')
-  subtitle.className = 'subtitle'
-  subtitle.textContent =
-    'Les dernières versions enregistrées de ce document, classées de la plus récente à la plus ancienne. Consultation seule — pas de restauration pour l’instant.'
-  wrap.append(h1, subtitle)
-
-  const status = document.createElement('p')
-  status.className = 'style-status'
-  wrap.appendChild(status)
-
-  const layout = document.createElement('div')
-  layout.className = 'versions-layout'
-  wrap.appendChild(layout)
-
-  const list = document.createElement('ul')
-  list.className = 'versions-list'
-  layout.appendChild(list)
-
-  const preview = document.createElement('div')
-  preview.className = 'versions-preview'
-  const previewPlaceholder = document.createElement('p')
-  previewPlaceholder.className = 'versions-preview-placeholder'
-  previewPlaceholder.textContent = 'Choisis une version dans la liste pour l’afficher ici.'
-  preview.appendChild(previewPlaceholder)
-  layout.appendChild(preview)
-
+  const wrap = el('div', 'home versions-page')
+  const retour = el('a', 'back-link', '← Document')
+  retour.href = `#/doc/${docId}`
+  const h1 = el('h1', null, 'Versions')
+  const sousTitre = el(
+    'p',
+    'subtitle',
+    'Les états de ce document que le serveur a gardés. Comparez-les, nommez ceux qui comptent, et restaurez-en un : la restauration est proposée en suivi de modifications, rien n’est effacé.',
+  )
+  const statut = el('p', 'style-status')
+  statut.setAttribute('role', 'status')
+  const nommer = el('form', 'vr-nommer')
+  const layout = el('div', 'versions-layout')
+  const liste = el('ul', 'versions-list')
+  const panneau = el('div', 'versions-preview')
+  layout.append(liste, panneau)
+  wrap.append(retour, h1, sousTitre, statut, nommer, layout)
   root.appendChild(wrap)
 
-  const [docRes, rawRes] = await Promise.all([
-    fetch(`/api/docs/${docId}`),
-    fetch(`/api/docs/${docId}/history/raw`),
-  ])
-  if (!docRes.ok) {
-    status.textContent = 'Document introuvable.'
+  const base = `/api/docs/${docId}`
+  let meta
+  try {
+    meta = await appel(base)
+  } catch (err) {
+    statut.textContent = err.message === 'erreur 404' ? 'Document introuvable.' : err.message
     return
   }
-  const docMeta = await docRes.json()
-  h1.textContent = `Historique — ${docMeta.title || 'Sans titre'}`
+  h1.textContent = `Versions — ${meta.title || 'Sans titre'}`
 
-  if (!rawRes.ok) {
-    status.textContent = "Impossible de charger l'historique pour l'instant."
-    return
+  let versions = []
+  let peutEcrire = false
+  let selection = null // ts (nombre) d'une version, ou 'courante'
+  let vers = 'courante' // l'autre côté de la comparaison
+  let mode = 'comparer' // 'comparer' | 'texte'
+
+  async function charger() {
+    const r = await appel(`${base}/versions`)
+    versions = r.versions
+    peutEcrire = r.peutEcrire
   }
-  const { entries } = await rawRes.json()
 
-  if (entries.length === 0) {
-    status.textContent = 'Aucune opération enregistrée pour ce document.'
-    return
+  // --- Nommer l'état actuel ---------------------------------------------------
+  function dessinerNommer() {
+    nommer.innerHTML = ''
+    if (!peutEcrire) return
+    const champ = el('input')
+    champ.type = 'text'
+    champ.name = 'nom-de-version'
+    champ.maxLength = 80
+    champ.placeholder = 'Nommer l’état actuel : « Envoi au comité », « Avant relecture »…'
+    champ.setAttribute('aria-label', 'Nom de la version')
+    champ.autocomplete = 'off'
+    const envoyer = el('button', 'vr-btn primaire', 'Nommer cette version')
+    envoyer.type = 'submit'
+    nommer.append(champ, envoyer)
+    nommer.onsubmit = async (e) => {
+      e.preventDefault()
+      const nom = champ.value.trim()
+      if (!nom) return champ.focus()
+      envoyer.disabled = true
+      try {
+        const v = await appel(`${base}/versions`, { methode: 'POST', corps: { nom } })
+        await charger()
+        selection = v.ts
+        vers = 'courante'
+        champ.value = ''
+        statut.textContent = `Version « ${v.nom} » enregistrée.`
+        dessiner()
+      } catch (err) {
+        statut.textContent = err.message
+      } finally {
+        envoyer.disabled = false
+      }
+    }
   }
 
-  const versions = groupIntoVersions(entries)
-  status.textContent = `${versions.length} version${versions.length > 1 ? 's' : ''} — ${entries.length} opération${entries.length > 1 ? 's' : ''} au total.`
+  // --- La liste -----------------------------------------------------------------
+  function dessinerListe() {
+    liste.innerHTML = ''
+    const ajouterLigne = (ts, titre, detail, nommee) => {
+      const li = el('li', `versions-list-item${selection === ts ? ' active' : ''}`)
+      const b = el('button', 'versions-list-link')
+      b.type = 'button'
+      const texte = el('span', 'vr-ligne')
+      texte.append(el('span', `vr-titre${nommee ? ' nommee' : ''}`, titre), el('span', 'vr-detail', detail))
+      b.appendChild(texte)
+      if (selection === ts) b.setAttribute('aria-current', 'true')
+      b.addEventListener('click', () => {
+        selection = ts
+        if (vers === ts) vers = 'courante'
+        mode = ts === 'courante' ? 'texte' : 'comparer'
+        dessiner()
+      })
+      li.appendChild(b)
+      liste.appendChild(li)
+    }
+    ajouterLigne('courante', 'Version actuelle', 'Le document tel qu’il est maintenant', false)
+    for (const v of versions) {
+      const l = libelleVersion(v)
+      ajouterLigne(v.ts, l.titre, l.detail, l.nommee)
+    }
+    if (!versions.length) {
+      const vide = el('li', 'vr-vide', 'Aucune version enregistrée pour l’instant. Le serveur en garde une quand la dernière personne quitte le document après l’avoir modifié.')
+      liste.appendChild(vide)
+    }
+  }
 
-  let activeItem = null
-  function selectVersion(item, version, isLatest) {
-    if (activeItem) activeItem.classList.remove('active')
-    item.classList.add('active')
-    activeItem = item
-    preview.innerHTML = ''
-    const label = document.createElement('p')
-    label.className = 'versions-preview-label'
-    label.textContent = isLatest
-      ? `Version actuelle — ${formatTs(version.ts)}`
-      : `Version du ${formatTs(version.ts)}`
-    preview.appendChild(label)
-    const pre = document.createElement('pre')
-    pre.className = 'versions-preview-content'
+  // --- Le panneau ------------------------------------------------------------------
+  const intitule = (ts) => {
+    if (ts === 'courante') return 'la version actuelle'
+    const v = versions.find((x) => x.ts === ts)
+    return v ? `« ${libelleVersion(v).titre} » (${dateLisible(v.ts)})` : 'une version'
+  }
+
+  function dessinerBlocs(conteneur, blocs) {
+    if (!blocs.length) conteneur.appendChild(el('p', 'vr-vide', 'Ce document est vide.'))
+    for (const b of blocs) {
+      const p = el('p', `vr-bloc${b.nom === 'heading' ? ' titre' : ''}`)
+      p.textContent = b.texte || ' '
+      conteneur.appendChild(p)
+    }
+  }
+
+  function dessinerComparaison(conteneur, c) {
+    conteneur.appendChild(el('p', 'vr-resume', resumeComparaison(c)))
+    if (c.approximatif) {
+      conteneur.appendChild(el('p', 'vr-avertissement', 'Le document est très différent : la comparaison est approximative, paragraphe par paragraphe dans l’ordre.'))
+    }
+    for (const x of c.changements) {
+      const carte = el('div', `vr-changement ${x.type}`)
+      const n = (x.apres || x.avant).n
+      carte.appendChild(el('span', 'vr-etiquette', { modifie: 'Modifié', ajoute: 'Ajouté', supprime: 'Supprimé' }[x.type] + ` — bloc ${n}`))
+      const texte = el('p', 'vr-bloc')
+      if (x.type === 'modifie') {
+        for (const s of segmentsDeDiff(x.avant.texte, x.apres.texte)) {
+          if (s.type === 'equal') texte.appendChild(document.createTextNode(s.text))
+          else texte.appendChild(el(s.type === 'insert' ? 'ins' : 'del', null, s.text))
+        }
+      } else if (x.type === 'ajoute') {
+        texte.appendChild(el('ins', null, x.apres.texte || ' '))
+      } else {
+        texte.appendChild(el('del', null, x.avant.texte || ' '))
+      }
+      carte.appendChild(texte)
+      conteneur.appendChild(carte)
+    }
+  }
+
+  async function dessinerPanneau() {
+    panneau.innerHTML = ''
+    if (selection === null) {
+      panneau.appendChild(el('p', 'versions-preview-placeholder', 'Choisissez une version dans la liste pour la comparer à l’état actuel, la lire ou la restaurer.'))
+      return
+    }
+    const courante = selection === 'courante'
+    const v = courante ? null : versions.find((x) => x.ts === selection)
+    if (!courante && !v) {
+      selection = null
+      return dessinerPanneau()
+    }
+
+    const tete = el('div', 'vr-tete')
+    if (courante) {
+      tete.appendChild(el('p', 'versions-preview-label', 'Version actuelle'))
+    } else {
+      const l = libelleVersion(v)
+      tete.append(el('p', 'versions-preview-label', l.titre), el('p', 'vr-detail', l.detail))
+    }
+    panneau.appendChild(tete)
+
+    const actions = el('div', 'vr-actions')
+    if (!courante) {
+      actions.append(
+        bouton('Comparer', mode === 'comparer' ? 'actif' : '', () => {
+          mode = 'comparer'
+          dessinerPanneau()
+        }),
+        bouton('Lire le texte', mode === 'texte' ? 'actif' : '', () => {
+          mode = 'texte'
+          dessinerPanneau()
+        }),
+      )
+      if (mode === 'comparer') {
+        const choix = el('select', 'vr-choix')
+        choix.name = 'comparer-avec'
+        choix.setAttribute('aria-label', 'Comparer avec')
+        const options = [['courante', 'avec la version actuelle'], ...versions.filter((x) => x.ts !== selection).map((x) => [x.ts, `avec ${libelleVersion(x).titre} (${dateLisible(x.ts)})`])]
+        for (const [valeur, libelle] of options) {
+          const o = el('option', null, libelle)
+          o.value = String(valeur)
+          if (String(vers) === String(valeur)) o.selected = true
+          choix.appendChild(o)
+        }
+        choix.addEventListener('change', () => {
+          vers = choix.value === 'courante' ? 'courante' : Number(choix.value)
+          dessinerPanneau()
+        })
+        actions.appendChild(choix)
+      }
+    }
+    panneau.appendChild(actions)
+
+    if (!courante && peutEcrire) panneau.appendChild(dessinerGestes(v))
+
+    const zone = el('div', 'vr-zone')
+    zone.setAttribute('aria-busy', 'true')
+    zone.appendChild(el('p', 'versions-preview-placeholder', 'Chargement…'))
+    panneau.appendChild(zone)
+    const jeton = selection
     try {
-      pre.textContent = reconstructMarkdown(entries, version.count)
+      if (courante || mode === 'texte') {
+        const r = await appel(`${base}/versions/${selection}`)
+        if (jeton !== selection) return
+        zone.innerHTML = ''
+        dessinerBlocs(zone, r.blocs)
+      } else {
+        const r = await appel(`${base}/comparaison?de=${selection}&vers=${vers}`)
+        if (jeton !== selection) return
+        zone.innerHTML = ''
+        zone.appendChild(el('p', 'vr-sens', `Ce qui change de ${intitule(selection)} à ${intitule(vers)}.`))
+        dessinerComparaison(zone, r)
+      }
     } catch (err) {
-      pre.textContent = `Impossible de reconstruire cette version (${err.message}).`
+      zone.innerHTML = ''
+      zone.appendChild(el('p', 'vr-avertissement', err.message))
     }
-    preview.appendChild(pre)
+    zone.removeAttribute('aria-busy')
   }
 
-  versions.forEach((version, i) => {
-    const item = document.createElement('li')
-    item.className = 'versions-list-item'
-    const isLatest = i === 0
-    const link = document.createElement('button')
-    link.type = 'button'
-    link.className = 'versions-list-link'
-    const time = document.createElement('span')
-    time.className = 'versions-list-time'
-    time.textContent = formatTs(version.ts)
-    link.appendChild(time)
-    if (isLatest) {
-      const badge = document.createElement('span')
-      badge.className = 'versions-list-badge'
-      badge.textContent = 'actuelle'
-      link.appendChild(badge)
-    }
-    link.addEventListener('click', () => selectVersion(item, version, isLatest))
-    item.appendChild(link)
-    list.appendChild(item)
-    if (isLatest) selectVersion(item, version, true)
-  })
+  // --- Renommer, supprimer, restaurer ------------------------------------------------
+  function dessinerGestes(v) {
+    const boite = el('div', 'vr-gestes')
+    const ligne = el('div', 'vr-actions')
+    const zoneDialogue = el('div', 'vr-dialogue')
+
+    const renommer = bouton(v.nom ? 'Renommer' : 'Donner un nom', '', () => {
+      zoneDialogue.innerHTML = ''
+      const f = el('form', 'vr-nommer')
+      const champ = el('input')
+      champ.type = 'text'
+      champ.name = 'nouveau-nom'
+      champ.maxLength = 80
+      champ.value = v.nom || ''
+      champ.autocomplete = 'off'
+      champ.setAttribute('aria-label', 'Nom de la version')
+      const ok = el('button', 'vr-btn primaire', 'Enregistrer')
+      ok.type = 'submit'
+      f.append(champ, ok)
+      f.onsubmit = async (e) => {
+        e.preventDefault()
+        try {
+          await appel(`${base}/versions/${v.ts}`, { methode: 'PATCH', corps: { nom: champ.value } })
+          await charger()
+          dessiner()
+        } catch (err) {
+          statut.textContent = err.message
+        }
+      }
+      zoneDialogue.appendChild(f)
+      champ.focus()
+    })
+
+    const supprimer = bouton('Supprimer', 'danger', () => {
+      zoneDialogue.innerHTML = ''
+      zoneDialogue.appendChild(el('p', null, 'Cette version sera définitivement supprimée. Le document n’en est pas modifié.'))
+      zoneDialogue.append(
+        bouton('Confirmer la suppression', 'danger', async () => {
+          try {
+            await appel(`${base}/versions/${v.ts}`, { methode: 'DELETE' })
+            selection = null
+            await charger()
+            statut.textContent = 'Version supprimée.'
+            dessiner()
+          } catch (err) {
+            statut.textContent = err.message
+          }
+        }),
+        bouton('Annuler', '', () => (zoneDialogue.innerHTML = '')),
+      )
+    })
+
+    const restaurer = bouton('Restaurer cette version…', 'primaire', async () => {
+      zoneDialogue.innerHTML = ''
+      zoneDialogue.appendChild(el('p', 'vr-detail', 'Calcul de ce qui serait proposé…'))
+      try {
+        const r = await appel(`${base}/versions/${v.ts}/restauration`, { methode: 'POST', corps: { simuler: true } })
+        zoneDialogue.innerHTML = ''
+        zoneDialogue.appendChild(el('p', 'vr-phrase', phraseRestauration(r)))
+        if (r.rien) {
+          zoneDialogue.appendChild(bouton('Fermer', '', () => (zoneDialogue.innerHTML = '')))
+          return
+        }
+        zoneDialogue.appendChild(
+          el(
+            'p',
+            'vr-detail',
+            'Rien n’est effacé : les changements arrivent dans le document comme des propositions, que vous acceptez ou refusez une à une. L’état actuel est gardé avant. Mises en forme, images, tableaux et notes de bas de page ne sont pas restaurés — seul le texte l’est.',
+          ),
+        )
+        notes(zoneDialogue, r)
+        zoneDialogue.append(
+          bouton('Proposer ces changements', 'primaire', async () => {
+            try {
+              const fait = await appel(`${base}/versions/${v.ts}/restauration`, { methode: 'POST', corps: {} })
+              await charger()
+              dessiner()
+              statut.textContent = `${phraseRestauration(fait, { auFutur: false })} Ouvrez le document pour les relire.`
+              const lien = el('a', 'vr-lien', 'Ouvrir le document')
+              lien.href = `#/doc/${docId}`
+              statut.append(' ', lien)
+            } catch (err) {
+              statut.textContent = err.message
+            }
+          }),
+          bouton('Annuler', '', () => (zoneDialogue.innerHTML = '')),
+        )
+      } catch (err) {
+        zoneDialogue.innerHTML = ''
+        zoneDialogue.appendChild(el('p', 'vr-avertissement', err.message))
+      }
+    })
+
+    ligne.append(restaurer, renommer, supprimer)
+    boite.append(ligne, zoneDialogue)
+    return boite
+  }
+
+  /** Ce que le moteur n'a pas pu proposer, et pourquoi. */
+  function notes(conteneur, r) {
+    const lignes = [...r.refuses.map((x) => `bloc ${x.bloc} : ${x.raison}`), ...r.ignores.map((x) => `bloc ${x.bloc} : ${x.raison}`)]
+    if (r.approximatif) lignes.push('les deux états sont très différents : l’appariement des paragraphes est approximatif')
+    if (!lignes.length) return
+    const p = el('p', 'vr-avertissement', 'À reprendre à la main :')
+    const ul = el('ul', 'vr-notes')
+    for (const l of lignes.slice(0, 12)) ul.appendChild(el('li', null, l))
+    if (lignes.length > 12) ul.appendChild(el('li', null, `… et ${lignes.length - 12} autres.`))
+    conteneur.append(p, ul)
+  }
+
+  function dessiner() {
+    dessinerNommer()
+    dessinerListe()
+    dessinerPanneau()
+  }
+
+  try {
+    await charger()
+  } catch (err) {
+    statut.textContent = err.message
+    return
+  }
+  statut.textContent = versions.length ? `${versions.length} version${versions.length > 1 ? 's' : ''} enregistrée${versions.length > 1 ? 's' : ''}.` : ''
+  selection = versions.length ? versions[0].ts : 'courante'
+  mode = versions.length ? 'comparer' : 'texte'
+  dessiner()
 }

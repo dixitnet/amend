@@ -26,7 +26,15 @@ ENV PORT=8787
 ENV DATA_DIR=/app/data
 # Dans un conteneur, 127.0.0.1 est inaccessible depuis l'extérieur.
 ENV HOST=0.0.0.0
+# Pas en root (11/10/2026) : l'utilisateur `node` de l'image possède le volume.
+RUN mkdir -p /app/data && chown -R node:node /app/data
+USER node
 VOLUME ["/app/data"]
 EXPOSE 8787
+
+# Limite connue : cette image n'embarque pas Typst. L'export PDF y répond 501
+# (« Typst est introuvable ») ; la production tourne sous systemd, pas sous
+# Docker (voir deploy/README.md), et cette image n'a pas été essayée depuis
+# que le serveur importe `shared/`.
 
 CMD ["node", "server/server.js"]

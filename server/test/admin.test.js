@@ -79,6 +79,8 @@ test('la vue agrège utilisateurs, documents et flux — et ne laisse fuir aucun
   // Une session isolée, qui ne doit pas compter comme collaboration.
   metrics.log('connexions', { email: 'chef@example.com', docId: solo.id, debut: hier, dureeMs: 120000 })
   metrics.log('ia', { email: 'chef@example.com', docId: duo.id, entree: 1200, sortie: 300 })
+  metrics.log('dialogue', { email: 'chef@example.com', docId: duo.id, modele: 'claude-sonnet-5-5', entree: 500, sortie: 200, cacheLu: 3000, cacheEcrit: 800, tours: 3 })
+  metrics.log('dialogue', { email: 'relecteur@example.com', docId: duo.id, modele: 'claude-sonnet-5-5', entree: 100, sortie: 50, cacheLu: 0, cacheEcrit: 0, tours: 1 })
   metrics.log('mail', { type: 'invitation', ok: true })
   metrics.log('mail', { type: 'connexion', ok: false, erreur: 'Mailgun indisponible' })
 
@@ -103,6 +105,13 @@ test('la vue agrège utilisateurs, documents et flux — et ne laisse fuir aucun
   assert.equal(vue.flux.ia.appels30j, 1)
   assert.equal(vue.flux.ia.tokensEntree30j, 1200)
   assert.equal(vue.flux.ia.parPersonne[0].email, 'chef@example.com')
+
+  // Les jetons des deux usages de Margo, séparés.
+  assert.deepEqual(vue.flux.tokens.barreLaterale['30j'], { appels: 1, entree: 1200, sortie: 300, cacheLu: 0, cacheEcrit: 0 })
+  assert.deepEqual(vue.flux.tokens.fenetre['30j'], { appels: 2, entree: 600, sortie: 250, cacheLu: 3000, cacheEcrit: 800 })
+  assert.equal(vue.flux.tokens.fenetre['24h'].appels, 2)
+  assert.equal(vue.flux.tokens.fenetre.parModele[0].modele, 'claude-sonnet-5-5')
+  assert.equal(vue.flux.tokens.fenetre.parPersonne[0].email, 'chef@example.com')
 
   assert.equal(vue.flux.mail.envois30j, 2)
   assert.equal(vue.flux.mail.echecs30j, 1)

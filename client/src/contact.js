@@ -98,6 +98,7 @@ export function monterPaletteContact() {
   champ.maxLength = 4000
   champ.placeholder = 'Votre question, votre idée, ce qui ne marche pas…'
   champ.setAttribute('aria-label', 'Votre message')
+  champ.name = 'message'
 
   const note = document.createElement('p')
   note.className = 'contact-note'

@@ -1,0 +1,34 @@
+{
+  "auteurs": 40,
+  "processus": 5,
+  "minutes": 10,
+  "resultatsLus": "5/5",
+  "codesSortie": [
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "connectes": 50,
+  "actions": 9786,
+  "messagesRecus": 494391,
+  "erreurs": 0,
+  "coupures": 0,
+  "propagation_ms": {
+    "p50_max": 22,
+    "p95_max": 236,
+    "p99_max": 479,
+    "max": 947,
+    "sansReponse": 0
+  },
+  "ouverture_ms_max": 513,
+  "convergence_par_process": [
+    "IDENTIQUE (908318 signes)",
+    "IDENTIQUE (908580 signes)",
+    "IDENTIQUE (908627 signes)",
+    "IDENTIQUE (908639 signes)",
+    "IDENTIQUE (908642 signes)"
+  ],
+  "convergence_reference": "IDENTIQUE (908685 signes)"
+}

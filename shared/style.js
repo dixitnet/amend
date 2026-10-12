@@ -160,12 +160,6 @@ export const PROPRIETES = [
   { id: 'indent', label: 'Retrait à gauche', type: 'nombre', unite: 'mm', min: 0, max: 100, pas: 0.5 },
 ]
 
-const PAR_ID = Object.fromEntries(PROPRIETES.map((p) => [p.id, p]))
-
-export function propriete(id) {
-  return PAR_ID[id]
-}
-
 // --- Blocs ----------------------------------------------------------------
 
 /** Les blocs de texte réglables. Chaque niveau de titre a désormais **ses

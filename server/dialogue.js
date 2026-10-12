@@ -19,6 +19,7 @@
 // texte d'un message ni celui d'un document.
 
 import { createHash } from 'node:crypto'
+import { ErreurHttp } from './erreurs.js'
 import { Limiteur } from './limiteur.js'
 import { urlAnthropic } from './ai.js'
 import { Mcp, COULEUR_AGENT, LIRE_MAX } from './mcp.js'
@@ -90,12 +91,7 @@ export function peutDialoguer({ admin, proprietaire, role }) {
   return !!admin
 }
 
-export class DialogueErreur extends Error {
-  constructor(status, message) {
-    super(message)
-    this.status = status
-  }
-}
+export class DialogueErreur extends ErreurHttp {}
 
 const LIBELLES = {
   plan: () => 'consulte le plan',

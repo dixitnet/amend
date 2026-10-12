@@ -43,9 +43,6 @@ function normaliser(s) {
   return s.replace(/[    ]/g, ' ').replace(/[’‘ʼ]/g, "'")
 }
 
-const CARACTERE_DE_MOT = /[\p{L}\p{N}_]/u
-const estMot = (c) => !!c && CARACTERE_DE_MOT.test(c)
-
 // --- Lecture --------------------------------------------------------------
 
 /**
@@ -218,6 +215,28 @@ export function statistiques(blocs) {
  * entre apostrophes (droite, typographique).
  */
 export function situer(bloc, citation) {
+  const trouve = situerSansGarde(bloc, citation)
+  // Une plage qui coupe une paire de substitution (un émoji, un idéogramme
+  // rare) en deux : Yjs remplace chaque moitié orpheline par U+FFFD, et pas
+  // au même moment chez tous les clients — les contenus divergeraient. Un
+  // clavier ne produit jamais cela ; une citation recopiée par un modèle, si.
+  if (trouve.ok && coupeUnePaire(bloc.texte, trouve.debut, trouve.fin)) {
+    return { ok: false, raison: 'ce passage commence ou finit au milieu d’un émoji ou d’un caractère codé sur deux positions : recopie-le en entier' }
+  }
+  return trouve
+}
+
+const estSubstitutHaut = (c) => c >= 0xd800 && c <= 0xdbff
+const estSubstitutBas = (c) => c >= 0xdc00 && c <= 0xdfff
+
+/** Vrai si `[debut, fin)` sépare les deux moitiés d'une paire de substitution
+ * du texte. */
+export function coupeUnePaire(texte, debut, fin) {
+  const c = (i) => (i >= 0 && i < texte.length ? texte.charCodeAt(i) : -1)
+  return (estSubstitutBas(c(debut)) && estSubstitutHaut(c(debut - 1))) || (estSubstitutHaut(c(fin - 1)) && estSubstitutBas(c(fin)))
+}
+
+function situerSansGarde(bloc, citation) {
   if (!citation) return { ok: false, raison: 'le texte à retrouver est vide' }
   const exact = occurrences(bloc.texte, citation)
   if (exact.length === 1) return { ok: true, debut: exact[0], fin: exact[0] + citation.length, approche: false }

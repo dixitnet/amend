@@ -33,7 +33,7 @@ export {
   assainir,
 } from '../../shared/style.js'
 
-import { BLOCS, POLICES, dimensionsPage, police, styleParDefaut } from '../../shared/style.js'
+import { BLOCS, dimensionsPage, police, styleParDefaut } from '../../shared/style.js'
 
 /** Pile CSS de la police d'un bloc. */
 export function fontFamily(fontId) {
@@ -47,29 +47,6 @@ export function docxFontName(fontId) {
 }
 
 // --- Chargement et enregistrement -----------------------------------------
-
-/** Le style **par défaut de l'instance** — celui que règle la page
- * `#/style`. Depuis le 16/09/2026 ce n'est plus la loi de tous les
- * documents, seulement le point de départ de ceux qui n'ont pas le leur. */
-export async function loadStyle() {
-  try {
-    const res = await fetch('/api/style')
-    if (!res.ok) return styleParDefaut()
-    return await res.json()
-  } catch {
-    return styleParDefaut()
-  }
-}
-
-export async function saveStyle(style) {
-  const res = await fetch('/api/style', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(style),
-  })
-  if (!res.ok) throw new Error(`échec de l'enregistrement (${res.status})`)
-  return res.json()
-}
 
 /** La mise en page effective d'un document : valeurs par défaut du code,
  * puis le calque de son **modèle**, puis ses propres écarts. Renvoie

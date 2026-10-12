@@ -18,6 +18,7 @@
 // verbeux, mais ça supprime l'ambiguïté — un paragraphe qui commence par
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
+import { nomDeFichier, telecharger } from './exportCommun.js'
 import { BLOCS, NIVEAUX_TITRE, police, dimensionsPage, styleParDefaut, langue } from '../../shared/style.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { imageAutorisee } from '../../shared/securite.js'
@@ -481,12 +482,5 @@ export async function downloadTypstPdf(doc, style, titre, docId) {
     throw new Error(detail.error || `le rendu a échoué (${res.status})`)
   }
   const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${(titre || 'document').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 150)}.pdf`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+  telecharger(blob, `${nomDeFichier(titre)}.pdf`)
 }

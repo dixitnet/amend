@@ -3,6 +3,7 @@
 //
 // Deliberately dependency-free: uses Node's built-in fetch.
 
+import { ErreurHttp } from './erreurs.js'
 import { typographier } from '../shared/typographie.js'
 
 /** L'adresse des messages de l'API. `ANTHROPIC_API_URL` ne sert qu'aux essais
@@ -21,10 +22,9 @@ const DEFAULT_MODEL = 'claude-haiku-5-5'
 const MAX_INPUT_CHARS = 8000
 
 export class AIConfigError extends Error {}
-export class AIRequestError extends Error {
+export class AIRequestError extends ErreurHttp {
   constructor(message, status) {
-    super(message)
-    this.status = status
+    super(status, message)
   }
 }
 

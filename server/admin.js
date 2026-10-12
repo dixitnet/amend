@@ -147,6 +147,14 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
     aPlusieursParticipants: aPlusieurs.length,
     partCollaborative: docs.length ? Math.round((aPlusieurs.length / docs.length) * 100) : null,
     sansControleDacces: docs.filter((d) => !d.access).length,
+    // La corbeille (12/10/2026) : pas de purge automatique pour l'instant, donc
+    // elle ne se vide que si on la vide — c'est ici qu'on voit grossir ce qui
+    // occupe le disque sans plus servir à personne.
+    corbeille: (() => {
+      const jetes = docs.filter((d) => d.corbeille)
+      const octets = jetes.reduce((a, d) => a + ((journaux.find((j) => j.id === d.id) || {}).octets || 0), 0)
+      return { documents: jetes.length, octetsJournaux: octets, plusAncienJours: jetes.length ? Math.round((maintenant - Math.min(...jetes.map((d) => d.corbeille.le))) / JOUR) : null }
+    })(),
     journaux: {
       octetsTotal: octetsJournaux,
       plusGrosOctets: journaux.reduce((a, j) => Math.max(a, j.octets || 0), 0),
@@ -196,6 +204,30 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
   const iaJour = ia30.filter((a) => a.ts >= depuis(1))
   const somme = (appels, champ) => appels.reduce((a, x) => a + (x[champ] || 0), 0)
 
+  // Consommation en jetons des deux usages de Margo (11/10/2026) : la barre
+  // latérale « Demander à Margo » (flux `ia`) et la fenêtre flottante (flux
+  // `dialogue`). Des jetons, pas des euros : les deux n'ont pas le même modèle,
+  // donc pas le même tarif. `entree` est hors cache ; le texte déjà lu dans le
+  // cache (`cacheLu`) et celui qu'on y écrit (`cacheEcrit`) se comptent à part.
+  const dialogue30 = metrics.read('dialogue', depuis(30))
+  const dialogue7 = dialogue30.filter((a) => a.ts >= depuis(7))
+  const dialogueJour = dialogue30.filter((a) => a.ts >= depuis(1))
+  const totauxJetons = (appels) => ({
+    appels: appels.length,
+    entree: somme(appels, 'entree'),
+    sortie: somme(appels, 'sortie'),
+    cacheLu: somme(appels, 'cacheLu'),
+    cacheEcrit: somme(appels, 'cacheEcrit'),
+  })
+  const parModeleDialogue = {}
+  const parPersonneDialogue = {}
+  for (const a of dialogue30) {
+    const m = (parModeleDialogue[a.modele || 'inconnu'] = parModeleDialogue[a.modele || 'inconnu'] || [])
+    m.push(a)
+    const e = (parPersonneDialogue[a.email] = parPersonneDialogue[a.email] || [])
+    e.push(a)
+  }
+
   const flux = {
     connexions: {
       actifs7j: actifs(7),
@@ -222,6 +254,18 @@ export function apercu({ storage, rooms, repliques = null, metrics, uploads, use
       parPersonne: Object.entries(iaParEmail)
         .map(([email, v]) => ({ email, ...v, coutEuros: enEuros(v.entree, v.sortie, tarifsIA) }))
         .sort((a, b) => (b.coutEuros || 0) - (a.coutEuros || 0)),
+    },
+    tokens: {
+      barreLaterale: { '24h': totauxJetons(iaJour), '7j': totauxJetons(ia7), '30j': totauxJetons(ia30) },
+      fenetre: {
+        '24h': totauxJetons(dialogueJour),
+        '7j': totauxJetons(dialogue7),
+        '30j': totauxJetons(dialogue30),
+        parModele: Object.entries(parModeleDialogue).map(([modele, l]) => ({ modele, ...totauxJetons(l) })),
+        parPersonne: Object.entries(parPersonneDialogue)
+          .map(([email, l]) => ({ email, ...totauxJetons(l) }))
+          .sort((a, b) => b.entree + b.cacheLu + b.cacheEcrit + b.sortie - (a.entree + a.cacheLu + a.cacheEcrit + a.sortie)),
+      },
     },
     images: {
       depots7j: images30.filter((i) => i.ts >= depuis(7)).length,

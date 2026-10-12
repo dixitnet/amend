@@ -407,7 +407,7 @@ test('tout accepter puis tout rejeter ne laisse aucune trace', () => {
 // ================================================ le plan du document
 
 test('le plan sait sous quel titre se trouve le curseur', async () => {
-  const { indexSectionCourante, cheminVers } = await import('../src/outline.js')
+  const { indexSectionCourante } = await import('../src/outline.js')
   const titres = [
     { pos: 0, level: 1, text: 'Un' },
     { pos: 10, level: 2, text: 'Un.a' },

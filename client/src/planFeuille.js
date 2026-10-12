@@ -47,6 +47,8 @@ export function ouvrirPlan(colonne) {
   filtre.className = 'feuille-filtre'
   filtre.placeholder = 'Filtrer les titres…'
   filtre.setAttribute('aria-label', 'Filtrer les titres')
+  filtre.name = 'filtre'
+  filtre.autocomplete = 'off'
 
   let motif = ''
   function appliquer() {

@@ -24,7 +24,6 @@ import {
   langue,
   idPolice,
   styleParDefaut,
-  fusionner,
 } from './styleConfig.js'
 
 function champ(libelle, controle, suffixe) {

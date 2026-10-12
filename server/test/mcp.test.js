@@ -312,7 +312,6 @@ async function documentAvecUneNote() {
   f.push([p1])
   const t1 = new Y.XmlText()
   const note = new Y.XmlElement('footnote')
-  const t2 = new Y.XmlText()
   const t3 = new Y.XmlText()
   p1.push([t1, note, t3])
   t1.insert(0, 'Zan naquit en 1887')

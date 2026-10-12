@@ -17,7 +17,7 @@
 // d'œil. Rattachés au compte, ils la suivent partout.
 
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { lireJson, ecrireJsonAtomique } from './fichiers.js'
 
@@ -77,6 +77,7 @@ export const NOM_MAX = 40
  * resserrés, coupé à NOM_MAX. */
 export function nomPropre(nom) {
   return String(nom || '')
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()

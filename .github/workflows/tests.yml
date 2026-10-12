@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       - run: npm ci
         working-directory: client
+      - name: Lint (code mort, variables non définies)
+        run: npm run lint
       - name: Tests du serveur
         run: npm run test:server
       - name: Tests du client

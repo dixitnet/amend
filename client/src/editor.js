@@ -1,4 +1,7 @@
+import { monterMasqueChargement } from './masqueChargement.js'
+import { monterReglagesAffichage } from './reglagesAffichage.js'
 import * as Y from 'yjs'
+import { lierMenuAria } from './menuAria.js'
 import { ySyncPlugin, yCursorPlugin, yUndoPlugin, undo, redo } from 'y-prosemirror'
 import { EditorState, TextSelection, Plugin} from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
@@ -70,7 +73,7 @@ import {
   monterBarreRelecture,
   monterBoutonCommenter,
 } from './relectureTactile.js'
-import { fermerFeuille, media, ouvrirFeuille, petitEcran, REQUETE_PETIT_ECRAN } from './feuille.js'
+import { media, ouvrirFeuille, petitEcran, REQUETE_PETIT_ECRAN } from './feuille.js'
 import { couleurSure } from '../../shared/securite.js'
 import { NOM_TEXTE, NOM_COMMENTAIRES } from '../../shared/protocole.js'
 
@@ -190,6 +193,7 @@ export function mountEditor(root, docId, user, docMeta) {
     liste.className = 'menu-flottant-liste menu-flottant-droite'
     liste.hidden = true
     menu.append(bouton, liste)
+    lierMenuAria(bouton, liste)
     // Le clic sur le bouton ne remonte pas au document (sinon le menu se
     // fermerait aussitôt) : c'est donc à lui de fermer les **autres** menus
     // — avec Partager et Exporter côte à côte, deux listes ouvertes à la fois
@@ -307,6 +311,9 @@ export function mountEditor(root, docId, user, docMeta) {
   titleInput.className = 'doc-title'
   titleInput.value = docMeta.title
   titleInput.title = 'Titre du document — modifiable directement'
+  titleInput.setAttribute('aria-label', 'Titre du document')
+  titleInput.name = 'titre'
+  titleInput.autocomplete = 'off'
   let titleSaveTimer = null
   titleInput.addEventListener('input', () => {
     // Broadcast on every keystroke (cheap — just a relay, see provider.js)
@@ -391,7 +398,7 @@ export function mountEditor(root, docId, user, docMeta) {
   const historyLink = document.createElement('a')
   historyLink.href = `#/doc/${docId}/versions`
   historyLink.className = 'btn-preset history-link'
-  historyLink.textContent = 'Historique'
+  historyLink.textContent = 'Versions'
   // L'aide n'est plus dans le bandeau (10/10/2026) : elle est en tête du
   // bouton flottant « Aide / avis » (contact.js), et dans le menu ⋯ sur
   // téléphone (iphone.js).
@@ -536,6 +543,8 @@ export function mountEditor(root, docId, user, docMeta) {
     const zone = document.createElement('textarea')
     zone.rows = 3
     zone.placeholder = 'Votre commentaire…'
+    zone.setAttribute('aria-label', 'Votre commentaire')
+    zone.name = 'commentaire'
     const envoyer = document.createElement('button')
     envoyer.type = 'submit'
     envoyer.className = 'btn-accept'
@@ -751,73 +760,7 @@ export function mountEditor(root, docId, user, docMeta) {
   // ligne en cours de frappe sous le clavier. Une échelle de corps suffit
   // à tout agrandir : la colonne se mesure en `ch` et les images en
   // pourcentage de la colonne, elles suivent donc le corps.
-  const zoomSelect = document.createElement('select')
-  zoomSelect.className = 'zoom-select'
-  zoomSelect.title = "Facteur d'agrandissement du texte"
-  // Cinq crans (23/09/2026). 75 et 125 ajoutés parce que c'est ce réglage
-  // qui remplace, sur téléphone, le suivi de la taille système : entre 100
-  // et 150 il manquait le petit pas, celui qu'on fait le plus souvent.
-  for (const pct of ['50', '75', '100', '125', '150']) {
-    const opt = document.createElement('option')
-    opt.value = pct
-    opt.textContent = `${pct}%`
-    zoomSelect.appendChild(opt)
-  }
-  let storedZoom = '100'
-  try {
-    storedZoom = localStorage.getItem('collabtext:zoom') || '100'
-  } catch {
-    // localStorage indisponible (navigation privée...) — reste sur 100%.
-  }
-  const poserLEchelle = (pct) => {
-    editorContainer.style.setProperty('--echelle', String(Number(pct) / 100))
-  }
-  zoomSelect.value = storedZoom
-  poserLEchelle(storedZoom)
-  zoomSelect.addEventListener('change', () => {
-    poserLEchelle(zoomSelect.value)
-    try {
-      localStorage.setItem('collabtext:zoom', zoomSelect.value)
-    } catch {
-      // tant pis, le réglage ne sera pas mémorisé la prochaine fois.
-    }
-  })
-  // Le zoom appartient à la colonne du texte, pas au bandeau (17/09/2026) :
-  // c'est un réglage de confort de lecture, propre à cet écran et à cette
-  // personne — il ne touche ni au document ni à ce qui en sortira.
-  // Les numéros de bloc (02/10/2026). Le numéro que Claude donne à un bloc
-  // quand il relit le document (`plan`, `lire`) — pour dire « relis le
-  // bloc 42 » ou comprendre « bloc 17 » dans un de ses commentaires. Un
-  // confort d'affichage, comme le zoom : propre à cette personne et à ce
-  // navigateur (localStorage), éteint par défaut, absent du document comme
-  // de tout export. Le comptage lui-même est fait par la feuille de style
-  // (compteur CSS, voir `.numeros-blocs` dans style.css) : rien à recalculer
-  // à la frappe.
-  const numerosBtn = mkButton('#', '')
-  numerosBtn.classList.add('btn-numeros')
-  let numerosActifs = false
-  try {
-    numerosActifs = localStorage.getItem('collabtext:numeros-blocs') === '1'
-  } catch {
-    // localStorage indisponible : éteint, comme au départ.
-  }
-  const poserLesNumeros = (actif) => {
-    numerosActifs = actif
-    editorContainer.classList.toggle('numeros-blocs', actif)
-    numerosBtn.setAttribute('aria-pressed', String(actif))
-    numerosBtn.title = actif
-      ? 'Masquer les numéros de bloc'
-      : 'Afficher les numéros de bloc (ceux que Claude voit en relisant le document)'
-  }
-  poserLesNumeros(numerosActifs)
-  numerosBtn.addEventListener('click', () => {
-    poserLesNumeros(!numerosActifs)
-    try {
-      localStorage.setItem('collabtext:numeros-blocs', numerosActifs ? '1' : '0')
-    } catch {
-      // tant pis, le réglage ne sera pas mémorisé la prochaine fois.
-    }
-  })
+  const { zoomSelect, numerosBtn } = monterReglagesAffichage(editorContainer, mkButton)
   groupeTexte2.append(numerosBtn, zoomSelect)
 
   const sidebar = document.createElement('div')
@@ -1067,40 +1010,8 @@ export function mountEditor(root, docId, user, docMeta) {
   const listeNotes = monterListeDesNotes(main, () => view)
   listeNotes.rafraichir(view)
 
-  // --- Le masque de chargement (23/09/2026).
-  //
-  // Le serveur rejoue le journal opération par opération à chaque
-  // connexion : sans masque, on voit le document **se recomposer** sous ses
-  // yeux en ouvrant la page — paragraphe après paragraphe sur un texte
-  // long, et d'autant plus longtemps que le journal est gros. C'était le
-  // défaut d'ergonomie le plus voyant de l'application.
-  //
-  // Le masque se lève sur le message `synced` que le serveur envoie après
-  // le rejeu (rooms.js). Deux issues de secours, parce qu'un masque qui ne
-  // se lève pas serait bien pire que le défaut qu'il corrige : un serveur
-  // plus ancien qui n'enverrait pas ce message, et un rejeu qui n'arrive
-  // jamais. Dans les deux cas on découvre le document au bout de huit
-  // secondes plutôt que de rester devant un écran bloqué.
-  const masque = document.createElement('div')
-  masque.className = 'masque-chargement'
-  const masqueTexte = document.createElement('p')
-  masqueTexte.textContent = 'Chargement du document…'
-  masque.appendChild(masqueTexte)
-  editorContainer.appendChild(masque)
-
-  let masqueLeve = false
-  function leverLeMasque() {
-    if (masqueLeve) return
-    masqueLeve = true
-    clearTimeout(secours)
-    masque.classList.add('masque-parti')
-    // On retire après la transition : un élément en `opacity: 0` continue
-    // de couvrir la zone d'édition et avalerait les clics.
-    setTimeout(() => masque.remove(), 220)
-  }
-  const secours = setTimeout(leverLeMasque, 8000)
-  provider.addEventListener('synced', leverLeMasque)
-  if (provider.synced) leverLeMasque()
+  // Le masque de chargement (23/09/2026) : voir masqueChargement.js.
+  monterMasqueChargement(editorContainer, provider)
 
   // Le bouton « Commenter » qui suit la sélection, sur petit écran
   // seulement : il remplace le « + » de la marge, qui n'a plus de marge où

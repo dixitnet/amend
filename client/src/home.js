@@ -2,6 +2,7 @@ import { getSessionEmail, logout, requestReconnectLink } from './auth.js'
 import { logoAmend } from './logo.js'
 import { lienAide } from './aide.js'
 import { ouvrirChangementDeNom } from './nomCompte.js'
+import { monterListeDocuments } from './listeDocuments.js'
 
 export async function mountHome(root) {
   root.innerHTML = ''
@@ -116,6 +117,8 @@ function formulaireEmail({ libelleBouton, autocomplete, onEnvoi, messageSucces }
   champ.type = 'email'
   champ.required = true
   champ.placeholder = 'vous@exemple.fr'
+  champ.name = 'email'
+  champ.setAttribute('aria-label', 'Votre adresse e-mail')
   // Pour que le clavier du téléphone arrive dans le bon mode et que
   // l'adresse enregistrée soit proposée.
   champ.setAttribute('inputmode', 'email')
@@ -212,68 +215,8 @@ function carteConnexion() {
   return carte
 }
 
-/** Ce qu'on est sur ce document, pour le badge à côté du titre.
- *
- * Toujours quelque chose : « propriétaire », puis le rôle. La propriété
- * l'emporte parce qu'elle est plus forte que le rôle — un propriétaire est
- * éditeur de toute façon, et c'est la propriété qui explique le bouton
- * « Supprimer » plutôt que « Quitter ».
- *
- * Le repli sur la valeur brute du rôle est délibéré : le jour où
- * « lecteur » entrera dans `server/roles.js`, le badge l'affichera sans
- * qu'on touche à ce fichier. Un rôle inconnu vaut mieux affiché tel quel
- * que disparu.
- */
-const LIBELLES_ROLE = {
-  editeur: 'éditeur',
-  correcteur: 'correcteur',
-  lecteur: 'lecteur',
-}
-
-function libelleRole(doc) {
-  if (doc.jeSuisProprietaire) return { cle: 'proprietaire', libelle: 'propriétaire' }
-  if (!doc.myRole) return null
-  return { cle: doc.myRole, libelle: LIBELLES_ROLE[doc.myRole] || doc.myRole }
-}
-
-/** Un bouton qui demande confirmation par un second clic, plutôt qu'une
- * boîte de dialogue du navigateur. Deux usages — supprimer et quitter —
- * qui n'ont pas les mêmes conséquences mais le même besoin : ne pas partir
- * sur un clic malheureux. */
-function boutonADeuxClics({ libelle, titre, classe, action, surSucces }) {
-  const bouton = document.createElement('button')
-  bouton.type = 'button'
-  bouton.className = classe
-  bouton.textContent = libelle
-  bouton.title = titre
-  let minuteur = null
-  function remettre() {
-    clearTimeout(minuteur)
-    minuteur = null
-    bouton.textContent = libelle
-    bouton.classList.remove('confirming')
-  }
-  bouton.addEventListener('click', async () => {
-    if (!minuteur) {
-      bouton.textContent = 'Confirmer ?'
-      bouton.classList.add('confirming')
-      minuteur = setTimeout(remettre, 3000)
-      return
-    }
-    remettre()
-    bouton.disabled = true
-    const res = await action()
-    if (res && res.ok) surSucces()
-    else bouton.disabled = false
-  })
-  return bouton
-}
-
-/** Visiteurs connectés : l'appli telle qu'avant (créer/lister les
- * documents) — inchangée à part la prise en compte du rôle par document
- * pour masquer étoile/suppression aux correcteurs (déjà refusées côté
- * serveur, voir server.js : canManageDocument — masquées ici seulement
- * pour éviter un clic qui échoue sans explication). */
+/** Visiteurs connectés : l'en-tête, la création d'un document, puis la
+ * liste (listeDocuments.js) — favoris, dossiers, recherche, corbeille. */
 function mountAppHome(root, email) {
   const wrap = document.createElement('div')
   wrap.className = 'home'
@@ -353,6 +296,9 @@ function mountAppHome(root, email) {
   form.className = 'new-doc-form'
   const input = document.createElement('input')
   input.placeholder = 'Titre du nouveau document'
+  input.name = 'titre'
+  input.autocomplete = 'off'
+  input.setAttribute('aria-label', 'Titre du nouveau document')
   input.required = true
   const submit = document.createElement('button')
   submit.textContent = 'Créer'
@@ -407,119 +353,11 @@ function mountAppHome(root, email) {
   }
   wrap.appendChild(creerFab)
 
-  const titreListe = document.createElement('h2')
-  // Pas `doc-list-title` : cette classe désigne déjà le titre de chaque
-  // document dans la liste (voir plus bas). La réutiliser appliquait à
-  // chaque ligne la taille et la marge de ce titre de section.
-  titreListe.className = 'doc-list-heading'
-  titreListe.textContent = 'Mes documents'
-  wrap.appendChild(titreListe)
-
-  const list = document.createElement('ul')
-  list.className = 'doc-list'
-  wrap.appendChild(list)
+  // Favoris, dossiers, recherche et corbeille : voir listeDocuments.js.
+  const liste = document.createElement('div')
+  liste.className = 'liste-documents'
+  wrap.appendChild(liste)
   root.appendChild(wrap)
-
-  // Tri par étoile fait côté serveur (voir Storage.listDocs) — ce module ne
-  // fait qu'afficher dans l'ordre reçu, et redemande la liste triée après
-  // chaque bascule plutôt que de trier une seconde fois ici.
-  function renderList(docs) {
-    list.innerHTML = ''
-    if (docs.length === 0) {
-      const empty = document.createElement('li')
-      empty.className = 'doc-list-empty'
-      empty.textContent = 'Aucun document pour le moment.'
-      list.appendChild(empty)
-      return
-    }
-    for (const doc of docs) {
-      const item = document.createElement('li')
-      const canManage = !!(doc.myCapabilities && doc.myCapabilities.canManageDocument)
-
-      const starBtn = document.createElement('button')
-      starBtn.type = 'button'
-      starBtn.className = 'star-btn'
-      starBtn.textContent = doc.starred ? '★' : '☆'
-      starBtn.classList.toggle('starred', !!doc.starred)
-      starBtn.title = doc.starred ? 'Retirer des favoris' : 'Mettre en favori'
-      if (!canManage) starBtn.disabled = true
-      starBtn.addEventListener('click', async () => {
-        starBtn.disabled = true
-        try {
-          const res = await fetch(`/api/docs/${doc.id}/star`, {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ starred: !doc.starred }),
-          })
-          if (!res.ok) return
-          const refreshed = await fetch('/api/docs')
-          const { docs: freshDocs } = await refreshed.json()
-          renderList(freshDocs)
-        } finally {
-          starBtn.disabled = false
-        }
-      })
-
-      const link = document.createElement('a')
-      link.href = `#/doc/${doc.id}`
-      link.textContent = doc.title || 'Sans titre'
-      const date = document.createElement('span')
-      date.className = 'doc-date'
-      date.textContent = new Date(doc.updatedAt).toLocaleString('fr-FR')
-
-      const titleWrap = document.createElement('span')
-      titleWrap.className = 'doc-list-title'
-      titleWrap.append(starBtn, link)
-      // Ce qu'on est sur ce document — voir libelleRole.
-      const badge = libelleRole(doc)
-      if (badge) {
-        const el = document.createElement('span')
-        // Même forme pour tous, la couleur seule distingue — voir
-        // .role-badge dans style.css.
-        el.className = `role-badge role-${badge.cle}`
-        el.textContent = badge.libelle
-        titleWrap.appendChild(el)
-      }
-
-      item.append(titleWrap, date)
-
-      // Supprimer ou quitter (17/09/2026) — jamais les deux, et jamais
-      // l'un déguisé en l'autre. Le propriétaire supprime le document,
-      // définitivement, pour tout le monde. Les autres le quittent : ils
-      // retirent leur propre accès et ne touchent à rien chez personne.
-      // Le propriétaire, lui, ne peut pas quitter le sien — le document
-      // deviendrait orphelin ; il transfère d'abord (panneau Partager).
-      //
-      // Deux clics plutôt qu'un window.confirm() : le bouton devient
-      // « Confirmer ? » pendant 3 secondes, un second clic dans ce délai
-      // agit — sinon il revient tout seul à son état normal.
-      if (doc.jeSuisProprietaire || !doc.owner) {
-        item.appendChild(
-          boutonADeuxClics({
-            libelle: 'Supprimer',
-            titre: 'Supprimer définitivement ce document, pour tout le monde',
-            classe: 'delete-doc-btn',
-            action: () => fetch(`/api/docs/${doc.id}`, { method: 'DELETE' }),
-            surSucces: () => item.remove(),
-          })
-        )
-      } else {
-        item.appendChild(
-          boutonADeuxClics({
-            libelle: 'Quitter',
-            titre: 'Retirer mon accès à ce document — il n’est pas supprimé',
-            classe: 'delete-doc-btn',
-            action: () => fetch(`/api/docs/${doc.id}/access/moi`, { method: 'DELETE' }),
-            surSucces: () => item.remove(),
-          })
-        )
-      }
-
-      list.appendChild(item)
-    }
-  }
-
-  fetch('/api/docs')
-    .then((res) => res.json())
-    .then(({ docs }) => renderList(docs))
+  monterListeDocuments(liste)
 }
+

@@ -9,6 +9,7 @@
 // document. C'est dit ici, parce que c'est la première chose qui surprend.
 
 import { etatPublication, publier, depublier } from './publicationExport.js'
+import { equiperModale } from './modale.js'
 
 function bouton(libelle, classe) {
   const b = document.createElement('button')
@@ -26,17 +27,7 @@ export async function ouvrirPanneauPublication(docId, getDoc, getTitre) {
   overlay.appendChild(modal)
   document.body.appendChild(overlay)
 
-  function fermer() {
-    overlay.remove()
-    document.removeEventListener('keydown', surEchap)
-  }
-  function surEchap(e) {
-    if (e.key === 'Escape') fermer()
-  }
-  document.addEventListener('keydown', surEchap)
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) fermer()
-  })
+  const fermer = equiperModale(overlay, { libelle: 'Publier sur le web' })
 
   const titre = document.createElement('h2')
   titre.textContent = 'Publier sur le web'
@@ -76,6 +67,8 @@ export async function ouvrirPanneauPublication(docId, getDoc, getTitre) {
       champ.type = 'text'
       champ.readOnly = true
       champ.className = 'publication-url'
+      champ.name = 'adresse-publique'
+      champ.setAttribute('aria-label', 'Adresse publique de la page')
       champ.value = etat.url
       champ.onclick = () => champ.select()
       corps.appendChild(champ)

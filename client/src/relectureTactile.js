@@ -94,6 +94,8 @@ function messageDOM(commentsMap, ydoc, user, commentaire, id, racine, rafraichir
     modifier.onclick = () => {
       const zone = document.createElement('textarea')
       zone.className = 'feuille-edition'
+      zone.name = 'commentaire'
+      zone.setAttribute('aria-label', 'Modifier le commentaire')
       zone.value = commentaire.text
       zone.rows = 3
       const valider = document.createElement('button')
@@ -173,6 +175,8 @@ export function ouvrirFilCommentaire(view, ydoc, commentsMap, user, id) {
     const zone = document.createElement('textarea')
     zone.rows = 2
     zone.placeholder = 'Répondre…'
+    zone.name = 'reponse'
+    zone.setAttribute('aria-label', 'Répondre')
     const envoyer = document.createElement('button')
     envoyer.type = 'submit'
     envoyer.className = 'btn-accept'

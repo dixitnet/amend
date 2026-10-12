@@ -319,7 +319,7 @@ test('un gros journal se rejoue dans un worker, avec le même résultat', async 
   const source = new Y.Doc()
   for (let i = 0; i < 30; i++) storage.appendUpdate(id, ajouterTexte(source, `Ligne ${i}, assez longue pour peser.`))
   await storage.flushAll()
-  assert.ok(statSync(storage._logPath(id)).size > 100)
+  assert.ok(statSync(storage.cheminDuJournal(id)).size > 100)
 
   const r = await repliques.obtenir(id)
   assert.equal(r.doc.getXmlFragment('prosemirror-content').length, 30)
@@ -344,4 +344,42 @@ test('la borne sur le nombre de répliques libère les salles vides', async () =
   assert.equal(repliques.repliques.has('p1'), false, 'la salle vide est partie au profit de la nouvelle')
   assert.equal(repliques.repliques.size, 3)
   repliques.fermer()
+})
+
+test('la dernière personne qui part d’un document modifié laisse une version de session', async () => {
+  const storage = new Storage(dataDir)
+  const versions = new Versions(dataDir)
+  const repliques = new Repliques(storage, { versions, delaiLiberationMs: 60000, delaiVersionSessionMs: 50 })
+  const id = 'doc-session'
+  await repliques.obtenir(id)
+  repliques.retenir(id)
+  // Ouvert puis refermé sans rien changer : pas de version.
+  repliques.relacher(id)
+  assert.equal(versions.lister(id).length, 0)
+
+  repliques.retenir(id)
+  const source = new Y.Doc()
+  assert.deepEqual(repliques.appliquer(id, ajouterTexte(source, 'Une phrase.')), { ok: true })
+  repliques.relacher(id)
+  const [v] = versions.lister(id)
+  assert.equal(versions.lister(id).length, 1)
+  assert.equal(v.origine, 'session')
+  const relu = new Y.Doc()
+  Y.applyUpdate(relu, versions.lire(id, v.ts))
+  assert.equal(relu.getXmlFragment('prosemirror-content').length, 1)
+
+  // Rouvert, rien de changé, refermé : pas de seconde version.
+  repliques.retenir(id)
+  repliques.relacher(id)
+  assert.equal(versions.lister(id).length, 1)
+
+  // Changé de nouveau, mais trop tôt après la précédente : rien non plus.
+  const ancien = new Repliques(storage, { versions, delaiLiberationMs: 60000, delaiVersionSessionMs: 3600_000 })
+  await ancien.obtenir(id)
+  ancien.retenir(id)
+  ancien.appliquer(id, ajouterTexte(source, 'Une autre.'))
+  ancien.relacher(id)
+  assert.equal(versions.lister(id).length, 1, 'une version toute récente existe déjà')
+  repliques.fermer()
+  ancien.fermer()
 })

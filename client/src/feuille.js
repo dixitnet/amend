@@ -205,8 +205,3 @@ export const REQUETE_SANS_COLONNE_PLAN = '(max-width: 1100px)'
 export function petitEcran() {
   return media(REQUETE_PETIT_ECRAN).matches
 }
-
-/** Vrai dès que le plan n'a plus sa colonne (téléphone et tablette). */
-export function sansColonnePlan() {
-  return media(REQUETE_SANS_COLONNE_PLAN).matches
-}

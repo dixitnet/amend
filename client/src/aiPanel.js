@@ -69,6 +69,8 @@ export function mountAIPanel(container, getView, { docId, canUseAI = true } = {}
   const textarea = document.createElement('textarea')
   textarea.placeholder = 'Sélectionnez un passage, puis dites quoi en faire…'
   textarea.rows = 2
+  textarea.name = 'consigne'
+  textarea.setAttribute('aria-label', 'Que faire du passage sélectionné ?')
 
   for (const preset of PRESETS) {
     const btn = document.createElement('button')

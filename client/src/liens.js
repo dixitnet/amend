@@ -257,6 +257,7 @@ export function ouvrirFenetreLien(view, { peutPoser }) {
     champTexte = document.createElement('input')
     champTexte.type = 'text'
     champTexte.autocomplete = 'off'
+    champTexte.name = 'texte-du-lien'
     champTexte.placeholder = 'facultatif — sinon l’adresse'
     etiquette.append(champTexte)
     fenetre.append(etiquette)
@@ -267,6 +268,8 @@ export function ouvrirFenetreLien(view, { peutPoser }) {
   const champ = document.createElement('input')
   champ.type = 'text'
   champ.autocomplete = 'off'
+  champ.name = 'adresse-du-lien'
+  champ.setAttribute('aria-label', 'Adresse du lien')
   champ.spellcheck = false
   champ.inputMode = 'url'
   champ.placeholder = 'exemple.org/page  ou  nom@exemple.org'

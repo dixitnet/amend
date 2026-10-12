@@ -1,10 +1,6 @@
 import { mountHome } from './home.js'
 import { mountEditor } from './editor.js'
-import { mountModeles } from './modeles.js'
-import { mountAdmin } from './admin.js'
-import { mountInscrits } from './inscrits.js'
 import { monterPaletteContact } from './contact.js'
-import { mountVersions } from './versions.js'
 import { getUser } from './user.js'
 import { mountLogin, mountVerify, mountInviteAccept } from './authPages.js'
 import { getSessionEmail } from './auth.js'
@@ -42,6 +38,9 @@ async function route() {
   }
 
   if (versionsMatch) {
+    // Les pages d'administration, des modèles et des versions sont chargées à la
+    // demande (point 9) : elles ne pèsent pas dans l'ouverture d'un document.
+    const { mountVersions } = await import('./versions.js')
     mountVersions(app, versionsMatch[1])
     return
   }
@@ -68,6 +67,7 @@ async function route() {
   }
 
   if (hash === '#/modeles') {
+    const { mountModeles } = await import('./modeles.js')
     mountModeles(app)
     return
   }
@@ -81,6 +81,7 @@ async function route() {
   }
 
   if (hash === '#/admin') {
+    const { mountAdmin } = await import('./admin.js')
     mountAdmin(app)
     return
   }
@@ -88,6 +89,7 @@ async function route() {
   // La liste d'attente en détail — le serveur vérifie ADMIN_EMAILS, cette
   // route n'est qu'une porte.
   if (hash === '#/inscrits') {
+    const { mountInscrits } = await import('./inscrits.js')
     mountInscrits(app)
     return
   }

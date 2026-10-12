@@ -6,10 +6,10 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { NodeSelection, TextSelection } from 'prosemirror-state'
+import { NodeSelection } from 'prosemirror-state'
 import { setBlockType } from 'prosemirror-commands'
 import { editeur, doc, schema, UTILISATEUR } from './harness.js'
-import { acceptAllChanges, rejectAllChanges, listChanges, acceptChange, rejectChange } from '../src/trackChanges.js'
+import { acceptAllChanges, rejectAllChanges, listChanges } from '../src/trackChanges.js'
 import { documentPourExport, FINAL, EN_COURS } from '../src/exportVariante.js'
 import { notesDuDocument, numerosDesNotes } from '../src/notes.js'
 import { insererNote, selectionContientUneNote } from '../src/footnotes.js'

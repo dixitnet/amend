@@ -25,7 +25,10 @@ import { appendFileSync, readFileSync, existsSync } from 'node:fs'
 import { ecrireAtomique } from './fichiers.js'
 import { join } from 'node:path'
 
-export const FLUX = ['connexions', 'ia', 'mail', 'images', 'agents', 'dialogue']
+// `publication`, `sauvegarde` et `embarquements` sont purgés comme les autres
+// (11/10/2026) : ils étaient écrits sans jamais être ni lus ni purgés.
+// `support` (les retours reçus) n'est volontairement pas purgé ici.
+export const FLUX = ['connexions', 'ia', 'mail', 'images', 'agents', 'dialogue', 'publication', 'sauvegarde', 'embarquements', 'versions', 'corbeille']
 const RETENTION_JOURS = 90
 
 export class Metrics {

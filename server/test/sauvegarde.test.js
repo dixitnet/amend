@@ -25,7 +25,7 @@ const BASE = `http://localhost:${PORT}`
 
 await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
-const { fluxTar, listerFichiers } = await import('../archive.js')
+const { listerFichiers } = await import('../archive.js')
 await waitForServer()
 
 function waitForServer() {

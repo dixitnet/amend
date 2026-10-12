@@ -199,7 +199,7 @@ export class Rooms {
    * elle s'est ouverte, il faut donc la refermer (audit S7, A10). Le client
    * est prévenu (`refuse`) pour qu'il recharge et voie son nouvel état.
    * Sans `email`, toute la salle : le document n'existe plus. */
-  expulser(docId, email = null) {
+  expulser(docId, email = null, raison = 'accès modifié') {
     const members = this.rooms.get(docId)
     if (!members) return 0
     let n = 0
@@ -207,7 +207,7 @@ export class Rooms {
       if (email && !(member.acces && member.acces.email === email)) continue
       n++
       try {
-        member.conn.send(JSON.stringify({ type: 'refuse', raison: 'accès modifié' }))
+        member.conn.send(JSON.stringify({ type: 'refuse', raison }))
         member.conn.close(1008)
       } catch {
         // déjà partie

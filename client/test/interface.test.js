@@ -511,10 +511,14 @@ test('la liste des documents se monte pour une personne connectée', async () =>
 
   assert.deepEqual(guetteur.fin(), [], 'une erreur au montage de la liste')
   const racine = dom.window.document.getElementById('app')
-  const badges = [...racine.querySelectorAll('.role-badge')].map((b) => b.textContent)
+  // Un document en favori figure aussi en tête de page : on lit la liste
+  // principale, celle qui n'est pas la bande des favoris.
+  const principale = racine.querySelector('.liste-zone > ul.doc-list:not(.favoris-list)')
+  const badges = [...principale.querySelectorAll('.role-badge')].map((b) => b.textContent)
   assert.deepEqual(badges, ['propriétaire', 'correcteur'])
-  const boutons = [...racine.querySelectorAll('.delete-doc-btn')].map((b) => b.textContent)
-  assert.deepEqual(boutons, ['Supprimer', 'Quitter'], 'le propriétaire supprime, les autres quittent')
+  assert.equal(racine.querySelectorAll('.favoris-list li').length, 1, 'le favori est aussi en haut de page')
+  const boutons = [...principale.querySelectorAll('.delete-doc-btn')].map((b) => b.textContent)
+  assert.deepEqual(boutons, ['Corbeille', 'Quitter'], 'le propriétaire met à la corbeille, les autres quittent')
 })
 
 test('la page d’accueil publique se monte pour un visiteur', async () => {

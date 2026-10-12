@@ -12,6 +12,7 @@
 // insertion/suppression qui parviendraient tout de même jusqu'ici sont donc
 // sans effet, à dessein.
 
+import { nomDeFichier, telecharger } from './exportCommun.js'
 import { entrees } from './tableOfContents.js'
 import { numerosDesNotes } from './notes.js'
 import { adresseAutorisee } from '../../shared/liens.js'
@@ -200,37 +201,24 @@ function blockToLines(node, doc) {
 export function docToMarkdown(doc) {
   NOTES = numerosDesNotes(doc)
   const lines = []
-  doc.forEach((node) => lines.push(...blockToLines(node, doc)))
-  // Les notes, en fin de fichier (28/09/2026) : une définition par note.
-  for (const [node, n] of NOTES) lines.push(`[^${n}]: ${noteEnMarkdown(node)}`)
-  NOTES = new Map()
+  try {
+    doc.forEach((node) => lines.push(...blockToLines(node, doc)))
+    // Les notes, en fin de fichier (28/09/2026) : une définition par note.
+    for (const [node, n] of NOTES) lines.push(`[^${n}]: ${noteEnMarkdown(node)}`)
+  } finally {
+    NOTES = new Map() // même si la conversion échoue : pas de numéros qui survivent à l'appel
+  }
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`
 }
 
-/** A safe-ish filename base from the document's title, e.g. "Mon Titre" ->
- * "Mon Titre" (no extension) — shared with docxExport.js, so every export
- * format sanitizes the title the same way. Falls back to "document" for
- * an empty/blank title. */
-export function safeFilenameBase(title) {
-  const base = (title || '').trim() || 'document'
-  return base.replace(/[\\/:*?"<>|]+/g, '-').slice(0, 150)
-}
 
 /** A safe-ish filename from the document's title, e.g. "Mon Titre" ->
  * "Mon Titre.md". Falls back to "document.md" for an empty/blank title. */
 export function markdownFilename(title) {
-  return `${safeFilenameBase(title)}.md`
+  return `${nomDeFichier(title)}.md`
 }
 
 /** Triggers a browser download of `text` as a file named `filename`. */
 export function downloadText(text, filename) {
-  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+  telecharger(new Blob([text], { type: 'text/markdown;charset=utf-8' }), filename)
 }

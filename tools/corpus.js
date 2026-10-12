@@ -31,7 +31,7 @@
 
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 

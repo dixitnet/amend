@@ -64,7 +64,7 @@ function reglages(style, blocId) {
   // une douzaine de signatures.
   return { ...bloc, _langue: langue(style.page && style.page.langue).docx }
 }
-import { safeFilenameBase } from './mdExport.js'
+import { nomDeFichier, telecharger } from './exportCommun.js'
 import { imageAutorisee } from '../../shared/securite.js'
 
 const ALIGN_MAP = {
@@ -383,6 +383,10 @@ function blockToParagraphs(node, style, images) {
         : []
     }
     case 'image': {
+      // `corps` n'existait que dans le `case 'table'` voisin : tout export Word
+      // d'un document contenant une image levait une ReferenceError (trouvé par
+      // le lint, 11/10/2026).
+      const corps = reglages(style, 'body')
       const octets = images && images.octetsPar.get(node.attrs.src)
       if (!octets) {
         return [
@@ -445,17 +449,20 @@ export async function buildDocxBlob(doc, style, titre = '') {
   const images = { octetsPar: await chargerImages(doc), largeurUtile: largeurUtilePx(style) }
   NOTES = numerosDesNotes(doc)
   const children = []
-  doc.forEach((node) => {
-    children.push(...blockToParagraphs(node, style, images))
-  })
-  // Les notes de fin : le texte de chacune, au style du corps, une taille
-  // en dessous — Word les place en fin de document et les numérote.
-  const corpsNotes = reglages(style, 'body')
   const endnotes = {}
-  for (const [node, n] of NOTES) {
-    endnotes[n] = { children: [new Paragraph({ children: inlineToRuns(node, corpsNotes, Math.max(6, corpsNotes.size - 1)) })] }
+  try {
+    doc.forEach((node) => {
+      children.push(...blockToParagraphs(node, style, images))
+    })
+    // Les notes de fin : le texte de chacune, au style du corps, une taille
+    // en dessous — Word les place en fin de document et les numérote.
+    const corpsNotes = reglages(style, 'body')
+    for (const [node, n] of NOTES) {
+      endnotes[n] = { children: [new Paragraph({ children: inlineToRuns(node, corpsNotes, Math.max(6, corpsNotes.size - 1)) })] }
+    }
+  } finally {
+    NOTES = new Map()
   }
-  NOTES = new Map()
 
   const page = style.page || DEFAULT_STYLE.page
   const [widthMm, heightMm] = dimensionsPage(page)
@@ -585,12 +592,5 @@ export async function buildDocxBlob(doc, style, titre = '') {
  * différente. */
 export async function downloadDocx(doc, style, title) {
   const blob = await buildDocxBlob(doc, style, title)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${safeFilenameBase(title)}.docx`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+  telecharger(blob, `${nomDeFichier(title)}.docx`)
 }

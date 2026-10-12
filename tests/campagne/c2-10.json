@@ -1,0 +1,28 @@
+{
+  "auteurs": 10,
+  "processus": 2,
+  "minutes": 10,
+  "resultatsLus": "2/2",
+  "codesSortie": [
+    0,
+    0
+  ],
+  "connectes": 14,
+  "actions": 3175,
+  "messagesRecus": 40541,
+  "erreurs": 0,
+  "coupures": 0,
+  "propagation_ms": {
+    "p50_max": 19,
+    "p95_max": 39,
+    "p99_max": 71,
+    "max": 411,
+    "sansReponse": 0
+  },
+  "ouverture_ms_max": 240,
+  "convergence_par_process": [
+    "IDENTIQUE (631957 signes)",
+    "IDENTIQUE (631957 signes)"
+  ],
+  "convergence_reference": "IDENTIQUE (632000 signes)"
+}

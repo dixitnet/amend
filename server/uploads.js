@@ -17,6 +17,7 @@
 // `docx` sait embarquer à l'export Word — elle ne connaît pas le WebP.
 
 import { existsSync, mkdirSync, readdirSync, statSync, rmSync, unlinkSync } from 'node:fs'
+import { ErreurHttp } from './erreurs.js'
 import { ecrireAtomique } from './fichiers.js'
 import { join } from 'node:path'
 import { randomId } from './ws.js'
@@ -55,7 +56,7 @@ const NOM_VALIDE = /^[A-Za-z0-9_-]{8,40}\.(png|jpg)$/
 /** Erreur « la demande est mauvaise », pas « le serveur est cassé » : le
  * code HTTP voyage avec, et server.js le renvoie tel quel. */
 function refus(status, message) {
-  return Object.assign(new Error(message), { status })
+  return new ErreurHttp(status, message)
 }
 
 const SIGNATURE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])

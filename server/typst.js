@@ -20,16 +20,16 @@
 //
 // Voir claude/proto-export-pdf-typst-pagedjs.md pour les mesures.
 
+import { ErreurHttp } from './erreurs.js'
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, copyFileSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { famillesTypst } from '../shared/style.js'
 
-export class TypstError extends Error {
+export class TypstError extends ErreurHttp {
   constructor(message, status = 500) {
-    super(message)
-    this.status = status
+    super(status, message)
   }
 }
 
