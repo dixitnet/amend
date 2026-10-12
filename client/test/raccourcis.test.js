@@ -13,22 +13,44 @@ import { schema } from '../src/schema.js'
 import { trackChangesPlugin } from '../src/trackChanges.js'
 import { raccourcisClavier } from '../src/raccourcis.js'
 
+// « Mod » de prosemirror-keymap = Cmd sur Mac, Ctrl ailleurs : lu une fois,
+// sur le `navigator` natif de Node, avant que les tests installent celui de jsdom.
+const MOD = /Mac|iP(hone|[oa]d)/.test(globalThis.navigator?.platform ?? '') ? { metaKey: true } : { ctrlKey: true }
+
 const ALICE = { name: 'Alice', color: '#3d5a80' }
 
 function monter(doc, { debut, fin = debut, suivi = false, peutPoser = true } = {}) {
-  const dom = new JSDOM('<!DOCTYPE html><body><div id="e"></div></body>', { url: 'http://localhost/', pretendToBeVisual: true })
+  const dom = new JSDOM('<!DOCTYPE html><body><div id="e"></div></body>', {
+    url: 'http://localhost/',
+    pretendToBeVisual: true,
+  })
   const w = dom.window
   globalThis.window = w
   globalThis.document = w.document
   Object.defineProperty(globalThis, 'navigator', { value: w.navigator, configurable: true, writable: true })
-  for (const k of ['HTMLElement', 'Node', 'Element', 'getComputedStyle', 'DocumentFragment', 'Range', 'MutationObserver', 'Event', 'KeyboardEvent']) globalThis[k] = w[k]
+  for (const k of [
+    'HTMLElement',
+    'Node',
+    'Element',
+    'getComputedStyle',
+    'DocumentFragment',
+    'Range',
+    'MutationObserver',
+    'Event',
+    'KeyboardEvent',
+  ])
+    globalThis[k] = w[k]
   w.Range.prototype.getClientRects = () => []
   w.Range.prototype.getBoundingClientRect = () => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 })
   const refus = []
   let state = EditorState.create({
     doc,
     schema,
-    plugins: [trackChangesPlugin({ enabled: suivi }), raccourcisClavier({ user: ALICE, peutPoserLien: () => peutPoser, surRefusLien: () => refus.push(1) }), keymap(baseKeymap)],
+    plugins: [
+      trackChangesPlugin({ enabled: suivi }),
+      raccourcisClavier({ user: ALICE, peutPoserLien: () => peutPoser, surRefusLien: () => refus.push(1) }),
+      keymap(baseKeymap),
+    ],
   })
   state = state.apply(state.tr.setSelection(TextSelection.create(doc, debut, fin)))
   const view = new EditorView(document.getElementById('e'), { state })
@@ -47,15 +69,19 @@ const doc = (...b) => schema.node('doc', null, b)
 
 test('Ctrl-B, Ctrl-I et Ctrl-U posent gras, italique et souligné sur la sélection', () => {
   const e = monter(doc(para('Bonjour')), { debut: 1, fin: 8 })
-  for (const [key, marque] of [['b', 'strong'], ['i', 'em'], ['u', 'underline']]) {
-    assert.equal(e.touche(key, { ctrlKey: true }), true, key)
+  for (const [key, marque] of [
+    ['b', 'strong'],
+    ['i', 'em'],
+    ['u', 'underline'],
+  ]) {
+    assert.equal(e.touche(key, { ...MOD }), true, key)
     assert.ok(e.view.state.doc.rangeHasMark(1, 8, schema.marks[marque]), marque)
   }
 })
 
 test('Ctrl-Alt-F pose une note dans un paragraphe', () => {
   const e = monter(doc(para('Bonjour')), { debut: 4 })
-  assert.equal(e.touche('f', { ctrlKey: true, altKey: true }), true)
+  assert.equal(e.touche('f', { ...MOD, altKey: true }), true)
   let notes = 0
   e.view.state.doc.descendants((n) => {
     if (n.type.name === 'footnote') notes++
@@ -65,7 +91,7 @@ test('Ctrl-Alt-F pose une note dans un paragraphe', () => {
 
 test('Ctrl-K sans le droit de poser un lien : le refus est signalé, rien ne change', () => {
   const e = monter(doc(para('Bonjour')), { debut: 1, fin: 8, peutPoser: false })
-  e.touche('k', { ctrlKey: true })
+  e.touche('k', { ...MOD })
   assert.equal(e.refus.length, 1)
   assert.ok(!e.view.state.doc.rangeHasMark(1, 8, schema.marks.link))
 })
