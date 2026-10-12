@@ -49,7 +49,7 @@ import {
 import { numerosDesNotes } from './notes.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
-import { BLOCS, NIVEAUX_TITRE, langue, dimensionsPage } from '../../shared/style.js'
+import { BLOCS, langue, dimensionsPage } from '../../shared/style.js'
 
 /** Les réglages d'un bloc du modèle (voir shared/style.js) : « body »,
  * « quote », « h1 »… Un document enregistré avant le 16/09/2026 est déjà
@@ -64,7 +64,7 @@ function reglages(style, blocId) {
   // une douzaine de signatures.
   return { ...bloc, _langue: langue(style.page && style.page.langue).docx }
 }
-import { nomDeFichier, telecharger } from './exportCommun.js'
+import { nomDeFichier, telecharger, niveauTitre } from './exportCommun.js'
 import { imageAutorisee } from '../../shared/securite.js'
 
 const ALIGN_MAP = {
@@ -304,7 +304,7 @@ function largeurUtilePx(style) {
 function blockToParagraphs(node, style, images) {
   switch (node.type.name) {
     case 'heading': {
-      const level = Math.min(NIVEAUX_TITRE, Math.max(1, node.attrs.level))
+      const level = niveauTitre(node.attrs.level)
       // Chaque niveau a ses propres réglages complets depuis le 16/09/2026
       // — police, casse, alignement, espacement, et pas seulement sa taille.
       const bloc = reglages(style, `h${level}`)
@@ -421,7 +421,7 @@ function blockToParagraphs(node, style, images) {
       // Word calcule la table à l'ouverture du fichier (`updateFields`
       // ci-dessous le lui demande) : `headingStyleRange` dit seulement
       // quels niveaux de titre reprendre.
-      const n = Math.min(NIVEAUX_TITRE, Math.max(1, Number(node.attrs.profondeur) || 2))
+      const n = niveauTitre(node.attrs.profondeur, 2)
       return [new TableOfContents('Table des matières', { hyperlink: true, headingStyleRange: `1-${n}` })]
     }
     case 'horizontal_rule':

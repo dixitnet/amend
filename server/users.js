@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { lireJson, ecrireJsonAtomique } from './fichiers.js'
+import { COULEURS } from '../shared/identite.js'
 
 /** La couleur de l'IA, réservée (17/09/2026).
  *
@@ -31,15 +32,9 @@ import { lireJson, ecrireJsonAtomique } from './fichiers.js'
  * donc s'en approcher. */
 export const COULEUR_IA = '#5f7a4a'
 
-/** Palette des couleurs d'auteur — la même que celle du client
- * (client/src/user.js), tenue à jour à la main : deux paquets npm séparés
- * pour huit chaînes de caractères stables ne se justifierait pas.
- *
- * **Aucun vert ici, délibérément** : les deux verts d'origine (`#81b29a`
- * sauge et `#588157` sapin) sont remplacés par un brun et une framboise.
- * Ce n'est pas une question de nuance exacte mais de coup d'œil — dans la
- * marge, à côté d'une suggestion de l'IA, un vert reste un vert. */
-export const COULEURS = ['#e07a5f', '#3d5a80', '#8d6e63', '#f2cc8f', '#9b5de5', '#00b4d8', '#e56b6f', '#c9184a']
+/** La palette des couleurs de personnes : `shared/identite.js`, commune au
+ * serveur et au client. */
+export { COULEURS }
 
 /** Les couleurs retirées, et par quoi les remplacer. Un compte créé avant
  * le 17/09/2026 a pu recevoir un vert : on ne le laisse pas, mais on ne

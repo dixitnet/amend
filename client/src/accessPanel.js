@@ -7,15 +7,7 @@
 
 import { monterSectionClaude } from './claudeAccess.js'
 import { equiperModale } from './modale.js'
-
-// Les libellés des rôles, dans la langue de l'interface. Un rôle inconnu
-// s'affiche tel quel plutôt que de disparaître — c'est ce qui fera
-// apparaître « lecteur » sans toucher à ce fichier.
-const LIBELLES_ROLE = {
-  editeur: 'éditeur',
-  correcteur: 'correcteur',
-  lecteur: 'lecteur',
-}
+import { libelleDuRole } from '../../shared/identite.js'
 
 export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
   const overlay = document.createElement('div')
@@ -77,7 +69,7 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
       const cle = entry.proprietaire ? 'proprietaire' : entry.role
       const roleBadge = document.createElement('span')
       roleBadge.className = `role-badge role-${cle}`
-      roleBadge.textContent = entry.proprietaire ? 'propriétaire' : LIBELLES_ROLE[entry.role] || entry.role
+      roleBadge.textContent = entry.proprietaire ? 'propriétaire' : libelleDuRole(entry.role)
       li.appendChild(roleBadge)
 
       // « En attente » = invitée, jamais venue. L'accès existe déjà côté

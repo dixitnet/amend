@@ -76,6 +76,7 @@ import {
 import { media, ouvrirFeuille, petitEcran, REQUETE_PETIT_ECRAN } from './feuille.js'
 import { couleurSure } from '../../shared/securite.js'
 import { NOM_TEXTE, NOM_COMMENTAIRES } from '../../shared/protocole.js'
+import { poserRoleDeLaPage, oublierRoleDeLaPage } from './contextePage.js'
 
 function buildCursor(user) {
   const cursor = document.createElement('span')
@@ -1038,7 +1039,7 @@ export function mountEditor(root, docId, user, docMeta) {
   // (contact.js) — une même page ne se comporte pas pareil selon le rôle,
   // et c'est la première chose qu'on demanderait sinon.
   const roleCourant = docMeta.myRole || null
-  window.__amendRole = roleCourant
+  poserRoleDeLaPage(roleCourant)
   // « Correcteur » ici veut dire : ne modifie qu'en suivi, ou pas du tout.
   const isCorrecteur = !cap.canEditFreely
   // Mise en page et exports réservés aux éditeurs (16/09/2026). Pour la
@@ -1368,7 +1369,7 @@ export function mountEditor(root, docId, user, docMeta) {
       menuCompte.destroy()
       // Le rôle de la page qu'on quitte ne doit pas partir avec le
       // signalement fait depuis la suivante (contact.js).
-      if (window.__amendRole === roleCourant) window.__amendRole = null
+      oublierRoleDeLaPage(roleCourant)
       if (dialogue) dialogue.destroy()
       if (telephone) telephone.demonter()
       view.destroy()

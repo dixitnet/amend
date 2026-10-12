@@ -18,6 +18,7 @@
 // console. **Jamais de contenu de document** — ni le texte, ni le titre.
 
 import { lienAide } from './aide.js'
+import { roleDeLaPage } from './contextePage.js'
 
 const VERSION = '0.1.0'
 
@@ -58,7 +59,7 @@ function contexte() {
   const doc = (location.hash.match(/^#\/doc\/([A-Za-z0-9_-]+)/) || [])[1] || null
   return {
     docId: doc,
-    role: window.__amendRole || null,
+    role: roleDeLaPage(),
     navigateur: navigator.userAgent,
     ecran: `${window.innerWidth}×${window.innerHeight}`,
     version: VERSION,

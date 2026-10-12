@@ -14,7 +14,8 @@
 // route lui dit (`autorise`). Retirer une invitation reste ouvert à tous
 // ceux qui gèrent les accès.
 
-const LIBELLES_ROLE = { correcteur: 'correcteur', lecteur: 'lecteur' }
+import { libelleDuRole } from '../../shared/identite.js'
+
 const DUREES = [
   [1, '24 heures'],
   [7, '7 jours'],
@@ -180,7 +181,7 @@ export function monterSectionClaude(parent, docId, { maintenant = () => Date.now
     nom.textContent = agent.nom
     const badge = document.createElement('span')
     badge.className = `role-badge role-${agent.role}`
-    badge.textContent = LIBELLES_ROLE[agent.role] || agent.role
+    badge.textContent = libelleDuRole(agent.role)
     nom.appendChild(badge)
     if (agent.etat === 'expirée') {
       const expiree = document.createElement('span')

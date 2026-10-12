@@ -18,8 +18,8 @@
 // verbeux, mais ça supprime l'ambiguïté — un paragraphe qui commence par
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
-import { nomDeFichier, telecharger } from './exportCommun.js'
-import { BLOCS, NIVEAUX_TITRE, police, dimensionsPage, styleParDefaut, langue } from '../../shared/style.js'
+import { nomDeFichier, telecharger, niveauTitre } from './exportCommun.js'
+import { BLOCS, police, dimensionsPage, styleParDefaut, langue } from '../../shared/style.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { imageAutorisee } from '../../shared/securite.js'
 
@@ -195,7 +195,7 @@ function tableauTypst(node) {
 function blocTypst(node) {
   switch (node.type.name) {
     case 'heading': {
-      const niveau = Math.min(NIVEAUX_TITRE, Math.max(1, node.attrs.level))
+      const niveau = niveauTitre(node.attrs.level)
       return `#heading(level: ${niveau})[${inline(node)}]\n\n`
     }
     case 'paragraph':
@@ -240,7 +240,7 @@ function blocTypst(node) {
       // veut « Sommaire » au-dessus, il l'écrit, comme n'importe quel
       // titre, et il choisit son niveau. Le style vient du texte courant,
       // d'où l'enveloppe `amend-corps`.
-      const n = Math.min(NIVEAUX_TITRE, Math.max(1, Number(node.attrs.profondeur) || 2))
+      const n = niveauTitre(node.attrs.profondeur, 2)
       return `#amend-corps[#outline(title: none, depth: ${n}, indent: auto)]\n\n`
     }
     default:

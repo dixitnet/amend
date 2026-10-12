@@ -93,6 +93,6 @@ test('la page d’accueil publique porte les liens légaux et le contact', () =>
 })
 
 test('le serveur sert les .txt en texte, pas en flux binaire', () => {
-  const serveur = readFileSync(join(racine, '..', 'server', 'server.js'), 'utf8')
+  const serveur = readFileSync(join(racine, '..', 'server', 'statique.js'), 'utf8')
   assert.match(serveur, /'\.txt':\s*'text\/plain; charset=utf-8'/)
 })

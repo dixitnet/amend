@@ -34,6 +34,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import { ROLES } from '../../server/roles.js'
+import { roleDeLaPage } from '../src/contextePage.js'
 
 /** Un DOM de navigateur, posé dans les globales que le code attend. Les
  * quelques absences de jsdom qui feraient échouer un montage pour de
@@ -243,12 +244,12 @@ test('démonter l’éditeur retire ses écouteurs globaux et le rôle de la pag
     { title: 'Essai', myRole: 'editeur', myCapabilities: ROLES.editeur, myName: 'Moi', myColor: '#e07a5f' }
   )
   await respirer()
-  assert.equal(dom.window.__amendRole, 'editeur')
+  assert.equal(roleDeLaPage(), 'editeur')
   assert.ok(posés.size > 0, 'l’éditeur écoute bien le document (sinon ce test ne prouve rien)')
 
   editeur.destroy()
   assert.equal(posés.size, 0, 'aucun écouteur de `document` ne survit au démontage')
-  assert.equal(dom.window.__amendRole, null, 'le rôle de la page quittée ne reste pas')
+  assert.equal(roleDeLaPage(), null, 'le rôle de la page quittée ne reste pas')
 })
 
 test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvient', async () => {

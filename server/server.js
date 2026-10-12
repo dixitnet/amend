@@ -1,6 +1,5 @@
 import { createServer } from 'node:http'
-import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs'
-import { extname, join, normalize, sep } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 
@@ -22,7 +21,7 @@ import { routesCorbeille } from './routes/corbeille.js'
 import { routesRangement } from './routes/rangement.js'
 import { Rangements } from './rangement.js'
 import { routesContact } from './routes/contact.js'
-import { sendJson, PAS_TRAITE, readJsonBody, origineDe } from './http.js'
+import { sendJson, PAS_TRAITE } from './http.js'
 import { creerLimites } from './limites.js'
 import { Storage } from './storage.js'
 import { Rooms } from './rooms.js'
@@ -38,7 +37,11 @@ import { PresenceAgents } from './presenceAgents.js'
 import { Mcp } from './mcp.js'
 import { Dialogue } from './dialogue.js'
 import { modeCsp, politiqueApplication, poserEnTetes } from './enTetes.js'
-import { Publications, NOM_PAGE } from './publication.js'
+import { Publications } from './publication.js'
+import { chargerDotEnv } from './env.js'
+import { creerServiceStatique } from './statique.js'
+import { creerServicePages } from './pagesPubliees.js'
+import { traiterMcp } from './connecteur.js'
 import { readSession, definirRevocation } from './auth.js'
 import { SessionsRevoquees } from './sessions.js'
 import { origineAutorisee, methodeModifie } from './origine.js'
@@ -47,29 +50,7 @@ import { capabilities } from './roles.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 
-// Tiny built-in .env loader (no dependency): sets process.env vars found in
-// a .env file at the project root, without overriding ones already set in
-// the real environment.
-function loadDotEnv(path) {
-  if (!existsSync(path)) return
-  const text = readFileSync(path, 'utf8')
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith('#')) continue
-    const eq = line.indexOf('=')
-    if (eq === -1) continue
-    const key = line.slice(0, eq).trim()
-    let value = line.slice(eq + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1)
-    }
-    if (!(key in process.env)) process.env[key] = value
-  }
-}
-loadDotEnv(join(ROOT, '.env'))
+chargerDotEnv(join(ROOT, '.env'))
 const CLIENT_DIST = join(ROOT, 'client', 'dist')
 const DATA_DIR = process.env.DATA_DIR || join(ROOT, 'data')
 const PORT = Number(process.env.PORT) || 8787
@@ -77,7 +58,6 @@ const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`
 
 // Les plafonds (server/limites.js), créés ici parce que leurs seuils viennent du .env.
 const limites = creerLimites()
-const { essaiPublicationAutorise } = limites
 
 const storage = new Storage(DATA_DIR)
 // Un seul serveur par dossier de données (audit A24), et des données dont on
@@ -184,55 +164,6 @@ const dialogue = new Dialogue({ storage, rooms, metrics, presence: presenceAgent
 // serveur. Qui entre est désormais décidé par les accès au document
 // (invitation), plus par un compteur.
 
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-  // Sans ce type, le manifeste part en application/octet-stream et les
-  // navigateurs l'ignorent en silence — l'icône d'écran d'accueil ne
-  // s'installe jamais, sans le moindre message.
-  '.webmanifest': 'application/manifest+json',
-  '.woff2': 'font/woff2',
-  // Sans ces deux types, robots.txt et security.txt partaient en
-  // application/octet-stream (03/10/2026) : un robot d'indexation peut
-  // alors les ignorer.
-  '.txt': 'text/plain; charset=utf-8',
-  '.xml': 'application/xml; charset=utf-8',
-}
-
-function serveStatic(req, res, pathname) {
-  if (!existsSync(CLIENT_DIST)) {
-    sendJson(res, 503, {
-      error:
-        "Le client n'est pas encore compilé. Lance `npm run build:client` puis relance le serveur.",
-    })
-    return
-  }
-  let rel = pathname === '/' ? '/index.html' : pathname
-  // Prevent path traversal outside CLIENT_DIST.
-  rel = normalize(rel).replace(/^(\.\.(\/|\\|$))+/, '')
-  let filePath = join(CLIENT_DIST, rel)
-  if (!filePath.startsWith(CLIENT_DIST + sep) && filePath !== CLIENT_DIST) {
-    filePath = join(CLIENT_DIST, 'index.html')
-  }
-  if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
-    // SPA fallback for client-side routes.
-    filePath = join(CLIENT_DIST, 'index.html')
-    if (!existsSync(filePath)) {
-      sendJson(res, 404, { error: 'not found' })
-      return
-    }
-  }
-  const type = MIME[extname(filePath)] || 'application/octet-stream'
-  res.writeHead(200, { 'content-type': type })
-  createReadStream(filePath).pipe(res)
-}
-
 /** Tout ce dont les routes ont besoin, en un seul objet : elles ne voient ni
  * les variables de ce fichier ni ses imports (server/routes/*.js). */
 const ctx = {
@@ -253,102 +184,8 @@ async function handleApi(req, res, url) {
   sendJson(res, 404, { error: 'not found' })
 }
 
-/** Les pages publiées — **la seule partie d'Amend lisible sans session**.
- *
- * Servie avant tout le reste et volontairement à part : ce chemin ne lit
- * aucun cookie, ne touche ni au registre des documents ni aux accès, et ne
- * rend qu'un fichier écrit d'avance. Moins il partage de code avec
- * l'application, moins il peut lui arriver quelque chose par ici.
- * `noindex` est dans la page elle-même : publier, ce n'est pas demander à
- * être référencé. */
-function servirPublication(req, res, pathname) {
-  const pageMatch = pathname.match(/^\/p\/([a-z-]{11,26})$/)
-  if (pageMatch && NOM_PAGE.test(pageMatch[1])) {
-    const html = publications.page(pageMatch[1])
-    if (!html) {
-      if (!essaiPublicationAutorise(req)) {
-        res.writeHead(429, { 'content-type': 'text/plain; charset=utf-8' })
-        res.end('trop de tentatives')
-        return true
-      }
-      res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' })
-      res.end(
-        '<!DOCTYPE html><meta charset="utf-8"><title>Page introuvable</title><p>Cette page n’existe pas, ou n’est plus publiée.</p>'
-      )
-      return true
-    }
-    res.writeHead(200, {
-      'content-type': 'text/html; charset=utf-8',
-      'content-length': Buffer.byteLength(html),
-      // Une page publique peut être mise en cache, mais brièvement : on
-      // republie pour corriger une coquille et on veut la voir.
-      'cache-control': 'public, max-age=300',
-      // Rien d'extérieur n'entre dans une page publiée, et rien n'en sort.
-      'content-security-policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",
-      'x-content-type-options': 'nosniff',
-      'referrer-policy': 'no-referrer',
-    })
-    res.end(html)
-    return true
-  }
-
-  const imgMatch = pathname.match(/^\/p\/([a-z-]{11,26})\/images\/([A-Za-z0-9_.-]+)$/)
-  if (imgMatch && NOM_PAGE.test(imgMatch[1])) {
-    const docId = publications.documentDe(imgMatch[1])
-    const chemin = docId && uploads.chemin(docId, imgMatch[2])
-    if (!chemin) {
-      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
-      res.end('image introuvable')
-      return true
-    }
-    res.writeHead(200, {
-      'content-type': uploads.typeDe(imgMatch[2]),
-      'content-length': statSync(chemin).size,
-      'cache-control': 'public, max-age=86400, immutable',
-    })
-    createReadStream(chemin).pipe(res)
-    return true
-  }
-
-  return false
-}
-
-const TAILLE_MAX_MCP = 256 * 1024
-
-/**
- * `/mcp/<secret>` — le connecteur d'un document (voir server/mcp.js). Toutes
- * les raisons de refuser l'adresse (inconnue, expirée, révoquée, document
- * supprimé, invitant sans droits) donnent **la même réponse**, 404 : rien
- * ne dit à quelqu'un qui devine si une adresse a existé.
- */
-async function traiterMcp(req, res, url) {
-  const enTetes = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
-  const repondre = (status, corps) => {
-    const charge = corps === undefined ? '' : JSON.stringify(corps)
-    res.writeHead(status, { ...enTetes, 'content-length': Buffer.byteLength(charge) })
-    res.end(charge)
-  }
-  const origine = origineDe(req)
-  if (agents.bloque(origine)) return repondre(429, { error: 'trop d’essais' })
-  const m = url.pathname.match(/^\/mcp\/([A-Za-z0-9_-]{1,64})$/)
-  const acces = m ? agents.acces(m[1], storage) : null
-  if (!acces) {
-    agents.noterEchec(origine)
-    return repondre(404, { error: 'not found' })
-  }
-  if (req.method !== 'POST') {
-    // Pas de flux serveur : le protocole permet de le dire par un 405.
-    res.writeHead(405, { ...enTetes, allow: 'POST' })
-    return res.end(JSON.stringify({ error: 'method not allowed' }))
-  }
-  const corps = await readJsonBody(req, TAILLE_MAX_MCP)
-  const { status, body } = await mcp.traiter(corps, acces)
-  if (body === undefined) {
-    res.writeHead(status, { 'cache-control': 'no-store', 'content-length': 0 })
-    return res.end()
-  }
-  repondre(status, body)
-}
+const servirPublication = creerServicePages(ctx)
+const serveStatic = creerServiceStatique(CLIENT_DIST)
 
 const MODE_CSP = modeCsp(process.env.CSP_MODE)
 const POLITIQUE_CSP = politiqueApplication(APP_BASE_URL)
@@ -364,7 +201,7 @@ const server = createServer((req, res) => {
     return res.end('{"error":"not found"}')
   }
   if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
-    traiterMcp(req, res, url).catch((err) => {
+    traiterMcp(req, res, url, ctx).catch((err) => {
       if (res.headersSent) return res.end()
       res.writeHead(err.status || 500, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
       res.end(JSON.stringify({ error: err.status ? err.message : 'erreur interne' }))

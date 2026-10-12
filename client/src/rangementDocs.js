@@ -5,6 +5,8 @@
 // composer ce qu'on montre : les favoris en haut, le contenu du dossier
 // ouvert, ou les résultats d'une recherche qui traverse tous les dossiers.
 
+import { libelleDuRole } from '../../shared/identite.js'
+
 /** Les dossiers vont jusqu'à trois niveaux (la racine ne compte pas). Le
  * serveur est seul juge ; cette valeur sert à ne pas proposer ce qu'il
  * refuserait. */
@@ -15,12 +17,6 @@ export const TRIS = [
   { cle: 'titre', libelle: 'Titre (A → Z)' },
   { cle: 'creation', libelle: 'Créés récemment' },
 ]
-
-const LIBELLES_ROLE = {
-  editeur: 'éditeur',
-  correcteur: 'correcteur',
-  lecteur: 'lecteur',
-}
 
 /** Ce qu'on est sur ce document, pour le badge à côté du titre.
  *
@@ -36,7 +32,7 @@ const LIBELLES_ROLE = {
 export function libelleRole(doc) {
   if (doc.jeSuisProprietaire) return { cle: 'proprietaire', libelle: 'propriétaire' }
   if (!doc.myRole) return null
-  return { cle: doc.myRole, libelle: LIBELLES_ROLE[doc.myRole] || doc.myRole }
+  return { cle: doc.myRole, libelle: libelleDuRole(doc.myRole) }
 }
 
 /** Pour comparer des titres : sans accents ni majuscules. « Été » se trouve

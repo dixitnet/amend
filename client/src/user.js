@@ -1,10 +1,8 @@
 import { equiperModale } from './modale.js'
+import { COULEURS } from '../../shared/identite.js'
 
-// La même palette que le serveur (server/users.js), tenue à jour à la
-// main. **Aucun vert** : il est réservé à l'IA (AI_USER plus bas), qui est
-// aussi l'accent de l'application — une personne qui en hériterait verrait
-// ses modifications se confondre avec les siennes dans la marge.
-const COLORS = ['#e07a5f', '#3d5a80', '#8d6e63', '#f2cc8f', '#9b5de5', '#00b4d8', '#e56b6f', '#c9184a']
+// La palette est commune au serveur (shared/identite.js) : aucun vert, réservé à l'IA.
+const COLORS = COULEURS
 
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)]
