@@ -5,10 +5,11 @@
 
 import { keymap } from 'prosemirror-keymap'
 import { toggleMark, chainCommands } from 'prosemirror-commands'
-import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list'
+import { splitListItem } from 'prosemirror-schema-list'
 import { undo, redo } from 'y-prosemirror'
 import { goToNextCell } from 'prosemirror-tables'
 import { schema } from './schema.js'
+import { augmenterRetrait, reduireRetrait } from './commandesBarre.js'
 import { effacementSuivi } from './trackChanges.js'
 import { insererNote } from './footnotes.js'
 import { commandeLien } from './liens.js'
@@ -44,11 +45,13 @@ export function raccourcisClavier({ user, peutPoserLien, surRefusLien }) {
     // première commande qui s'applique gagne, les autres passent la main
     // (et finalement baseKeymap, hors liste).
     Enter: chainCommands(splitListItem(schema.nodes.list_item), splitListItem(schema.nodes.task_item)),
-    'Mod-]': chainCommands(sinkListItem(schema.nodes.list_item), sinkListItem(schema.nodes.task_item)),
-    'Mod-[': chainCommands(liftListItem(schema.nodes.list_item), liftListItem(schema.nodes.task_item)),
-    // Tab circule de cellule en cellule, et ne fait rien ailleurs (le
-    // retour `false` laisse le navigateur gérer la tabulation normale).
-    Tab: goToNextCell(1),
-    'Shift-Tab': goToNextCell(-1),
+    'Mod-]': augmenterRetrait,
+    'Mod-[': reduireRetrait,
+    // Tab circule de cellule en cellule ; dans une liste, il descend d'un
+    // niveau (Maj+Tab remonte) ; ailleurs il ne fait rien (le retour `false`
+    // laisse le navigateur gérer la tabulation normale). La cellule passe
+    // avant : un tableau posé dans un élément de liste garde ses Tab.
+    Tab: chainCommands(goToNextCell(1), augmenterRetrait),
+    'Shift-Tab': chainCommands(goToNextCell(-1), reduireRetrait),
   })
 }

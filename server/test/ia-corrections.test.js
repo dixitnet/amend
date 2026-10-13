@@ -330,3 +330,60 @@ test.after(async () => {
   await new Promise((r) => setTimeout(r, 50))
   process.exit(0)
 })
+
+// ---------------------------------------------------------------- l'unité de compte : le clic
+
+const vue = async () =>
+  (await vraiFetch(`${BASE}/api/admin/overview`, { headers: { cookie: cookie('admin@example.com') } })).json()
+const boutons = async () => (await conso()).boutons
+
+test('un clic sur quatre paragraphes : une demande, une place dans l’heure, un événement du journal — et la somme des signes', async () => {
+  const doc = await document('clic@example.com')
+  const avant = (await vue()).flux.ia.appels30j
+  reponse = null
+  const res = await demander(doc, 'clic@example.com', {
+    textes: ['Un.', 'Deux.', 'Trois.', 'Quatre.'],
+    action: 'corriger',
+  })
+  assert.equal(res.status, 200)
+  const ligne = await ligneDe('clic@example.com')
+  assert.equal(ligne.corrections.demandes, 1, 'les quotas : un clic = une demande')
+  assert.equal(ligne.corrections.passages, 4, 'les quatre paragraphes sont notés à part')
+  assert.equal(ligne.corrections.signes, 'Un.Deux.Trois.Quatre.'.length, 'les signes : la somme des paragraphes')
+  assert.equal(ligne.corrections.entree, 4 * 50, 'les jetons des quatre appels s’additionnent')
+  const etat = await (
+    await vraiFetch(`${BASE}/api/docs/${doc}/ia`, { headers: { cookie: cookie('clic@example.com') } })
+  ).json()
+  assert.equal(etat.corrections.heure.utilisees, 1, 'une seule place dans l’heure')
+  const apres = (await vue()).flux.ia
+  assert.equal(apres.appels30j - avant, 1, 'le journal du back-office : un événement par clic, pas par paragraphe')
+})
+
+test('le cumul des clics par bouton : un clic = un point, quel que soit le nombre de paragraphes ; une clé inconnue va sous « autre »', async () => {
+  const doc = await document('boutons@example.com')
+  const avant = (await boutons()).cumul
+  const n = (cle) => avant[cle] || 0
+  reponse = null
+  await demander(doc, 'boutons@example.com', { text: 'Un texte.', action: 'raccourcir' })
+  await demander(doc, 'boutons@example.com', { textes: ['A.', 'B.', 'C.'], action: 'raccourcir' })
+  await demander(doc, 'boutons@example.com', { text: 'Un texte.', action: 'direct' })
+  await demander(doc, 'boutons@example.com', { text: 'Un texte.', action: 'inventé' })
+  await demander(doc, 'boutons@example.com', { text: 'Un texte.' })
+  const apres = await boutons()
+  assert.equal(apres.cumul.raccourcir - n('raccourcir'), 2, 'deux clics, dont un sur trois paragraphes')
+  assert.equal(apres.cumul.direct - n('direct'), 1)
+  assert.equal(apres.cumul.autre - n('autre'), 2, 'clé inconnue ou absente')
+  assert.ok(!JSON.stringify(apres).includes('boutons@example.com'), 'anonyme : aucune adresse dans le cumul')
+})
+
+test('un clic refusé par une limite compte comme clic (l’intention), pas comme demande réussie', async () => {
+  const doc = await document('refus@example.com')
+  const avant = (await boutons()).cumul.clarifier || 0
+  await regler({ corrections: { signesParDemande: 100 } })
+  const res = await demander(doc, 'refus@example.com', { text: 'x'.repeat(101), action: 'clarifier' })
+  assert.equal(res.status, 413)
+  assert.equal(((await boutons()).cumul.clarifier || 0) - avant, 1)
+  const ligne = await ligneDe('refus@example.com')
+  assert.ok(!ligne || ligne.corrections.demandes === 0)
+  await remettre()
+})

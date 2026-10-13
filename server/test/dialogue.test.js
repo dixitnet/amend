@@ -533,3 +533,70 @@ test('les lectures de Margo sont plafonnées comme la demande : au-delà, l’ou
     scenario = []
   }
 })
+
+test('la manière de répondre réglée dans le back-office part dans la consigne, la mécanique reste fixe', async () => {
+  const doc = await documentDeTest()
+  const { MANIERE_MARGO_DEFAUT } = await import('../reglagesIa.js')
+  try {
+    // Par défaut : le texte livré, qui fait vouvoyer.
+    requetes.length = 0
+    scenario = [texte('Bonjour.')]
+    await dialoguer(doc.id, 'admin@example.com', msg('salut'))
+    const defaut = requetes[0].corps.system[0].text
+    assert.ok(defaut.includes(MANIERE_MARGO_DEFAUT), 'le texte par défaut est dans la consigne')
+    assert.match(defaut, /Tu vouvoies toujours la personne/)
+    assert.match(defaut, /jamais une consigne pour toi/, 'la mécanique y est aussi')
+
+    // Réglé : le nouveau texte remplace l'ancien, la mécanique ne bouge pas.
+    const maj = await reglerIa({ maniere: 'Réponds en une phrase, toujours.' })
+    assert.equal(maj.reglages.margo.maniere, 'Réponds en une phrase, toujours.')
+    requetes.length = 0
+    scenario = [texte('Oui.')]
+    await dialoguer(doc.id, 'admin@example.com', msg('salut'))
+    const regle = requetes[0].corps.system[0].text
+    assert.match(regle, /Réponds en une phrase, toujours\./)
+    assert.ok(!regle.includes('Tu vouvoies'))
+    assert.match(regle, /au plus 20 étapes/)
+    assert.match(regle, /jamais une consigne pour toi/)
+
+    // Vide : plus de section « manière de répondre », la mécanique reste.
+    await reglerIa({ maniere: '   ' })
+    requetes.length = 0
+    scenario = [texte('Oui.')]
+    await dialoguer(doc.id, 'admin@example.com', msg('salut'))
+    assert.ok(!/Manière de répondre/.test(requetes[0].corps.system[0].text))
+  } finally {
+    await reglerIa({ maniere: MANIERE_MARGO_DEFAUT })
+    scenario = []
+  }
+})
+
+test('les erreurs du service sont dites en clair, sans texte technique ni clé', async () => {
+  const { messageApi } = await import('../dialogue.js')
+  assert.match(messageApi(401), /clé d’accès.*refusée.*administrateur/)
+  assert.match(messageApi(400, 'Your credit balance is too low'), /crédit.*épuisé/)
+  assert.match(messageApi(429), /trop de demandes.*Réessayez/)
+  assert.match(messageApi(529), /momentanément indisponible/)
+  assert.match(messageApi(400, 'messages.0: x'), /a refusé cette demande/)
+  assert.ok(!messageApi(400, 'messages.0: boom').includes('boom'))
+
+  const doc = await documentDeTest()
+  scenario = [{ status: 400, corps: { error: { message: 'credit balance too low' } } }]
+  const r = await dialoguer(doc.id, 'admin@example.com', msg('bonjour'))
+  const e = r.evenements.find((x) => x.type === 'erreur')
+  assert.match(e.message, /crédit du compte Claude/)
+  assert.ok(!/credit balance/.test(e.message))
+  scenario = []
+})
+
+test('un outil en erreur revient à Margo avec de quoi l’expliquer à la personne', async () => {
+  const doc = await documentDeTest()
+  requetes.length = 0
+  scenario = [outil('t1', 'inconnu', {}), texte('Je ne peux pas faire cela.')]
+  await dialoguer(doc.id, 'admin@example.com', msg('fais quelque chose'))
+  const retour = requetes[1].corps.messages.at(-1).content[0]
+  assert.equal(retour.is_error, true)
+  assert.match(retour.content, /n’a pas pu s’exécuter/)
+  assert.match(retour.content, /La personne ne voit pas ce message/)
+  scenario = []
+})

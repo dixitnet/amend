@@ -466,6 +466,9 @@ a { color: var(--accent); }
   color: var(--fg);
   cursor: pointer;
 }
+/* Un bouton de style qui s'applique à l'endroit du curseur (la citation) reste
+   enfoncé tant qu'il s'y applique. */
+.btn-tool.actif { background: color-mix(in srgb, var(--accent) 14%, var(--bg)); border-color: var(--accent); color: var(--accent); }
 /* Le zoom est en bout de barre de mise en forme (17/09/2026), poussé à
    droite : c'est un réglage de lecture, pas un outil de rédaction. */
 .zoom-select { margin-left: auto; }
@@ -782,6 +785,19 @@ a { color: var(--accent); }
 .ProseMirror li p { margin: 0; }
 .ProseMirror li + li { margin-top: 0.2em; }
 
+/* Listes à plusieurs niveaux (13/10/2026). Une sous-liste se range sous le
+   texte de son élément, sans marge en bas (c'est le dernier mot du parent qui
+   la sépare du suivant). Le signe reste **le tiret à tous les niveaux** (voulu
+   par Sylvain) : seul le retrait dit la hiérarchie. Les listes numérotées
+   passent de 1. à a. puis i. */
+.ProseMirror li > ul,
+.ProseMirror li > ol { margin: 0.2em 0 0; }
+.ProseMirror ol ol { list-style-type: lower-alpha; }
+.ProseMirror ol ol ol { list-style-type: lower-roman; }
+.ProseMirror ol ol ol ol { list-style-type: decimal; }
+.ProseMirror ol ol ol ol ol { list-style-type: lower-alpha; }
+.ProseMirror ol ol ol ol ol ol { list-style-type: lower-roman; }
+
 ins.tracked-insertion {
   text-decoration: underline;
   text-decoration-color: var(--user-color, var(--accent));
@@ -996,25 +1012,8 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
    champ. La phrase d'explication permanente a disparu — elle vit dans le
    repère du champ — et les espacements sont divisés par deux. */
 .ai-hint { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
-.ai-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-.ai-section textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--fg);
-  padding: 7px 8px;
-  font-family: inherit;
-  font-size: 13px;
-  resize: vertical;
-  display: block;
-  /* `display: block` : sans lui, une textarea est en ligne et traîne
-     derrière elle l'espace d'une ligne de texte — l'espace inexpliqué sous
-     le bouton venait de là, pas d'une marge. */
-  margin-bottom: 6px;
-}
-.ai-section .btn-primary { margin-top: 0; padding: 7px; }
+.ai-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn-preset:disabled { opacity: 0.5; cursor: default; }
 /* Ne réserve de la place que quand il y a quelque chose à dire. */
 .ai-status { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
 .ai-status:empty { display: none; }
@@ -1579,6 +1578,18 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 .bo-chiffre strong { font-size: 22px; font-weight: 600; line-height: 1.1; }
 .bo-chiffre span { font-size: 12px; opacity: 0.8; }
 .bo-chiffre em { font-size: 11px; opacity: 0.6; font-style: normal; }
+a.bo-chiffre { color: inherit; text-decoration: none; }
+a.bo-chiffre:hover, a.bo-chiffre:focus-visible { border-color: var(--accent); }
+.bo-chiffre.bo-alerte { border-color: var(--danger); }
+/* Les rubriques du back-office (14/10/2026) : de vrais liens, une rangée qui
+   défile sur un petit écran plutôt que de passer à la ligne. */
+.bo-onglets { display: flex; gap: 2px; margin: 14px 0 6px; border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap; }
+.bo-onglet { padding: 8px 14px; font-size: 14px; color: inherit; opacity: 0.7; text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.bo-onglet:hover, .bo-onglet:focus-visible { opacity: 1; }
+.bo-onglet.actif { opacity: 1; font-weight: 600; border-bottom-color: var(--accent); }
+.bo-onglet-badge { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--accent); color: var(--bg, #fff); font-size: 11px; font-weight: 600; text-align: center; line-height: 18px; }
+.bo-ia-maniere textarea { font: inherit; font-size: 13px; line-height: 1.5; padding: 8px 10px; width: 100%; box-sizing: border-box; resize: vertical; }
+.bo-ia-maniere-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; }
 .bo-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0 4px; }
 .bo-table th, .bo-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
 .bo-table th { font-weight: 600; font-size: 12px; opacity: 0.7; }
@@ -3465,6 +3476,35 @@ tr.bo-traite { opacity: 0.6; }
   .menu-insertion > .menu-flottant-bouton { display: none; }
   .menu-insertion .menu-flottant-liste,
   .menu-insertion .menu-flottant-liste[hidden] { display: contents; }
+}
+
+/* Page périmée après un déploiement (versionClient.js) : un bandeau qui ne se
+   manque pas, au-dessus de tout, le temps du compte à rebours. */
+.bandeau-version {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  text-align: center;
+}
+.bandeau-version button {
+  border: 1px solid white;
+  border-radius: 6px;
+  background: transparent;
+  color: white;
+  padding: 4px 12px;
+  font: inherit;
+  cursor: pointer;
 }
 
 /* --- Numéros de bloc (02/10/2026) -------------------------------------------

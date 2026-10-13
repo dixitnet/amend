@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { DEFAUTS, ReglagesIa } from '../reglagesIa.js'
+import { DEFAUTS, MANIERE_MARGO_DEFAUT, MANIERE_MAX, ReglagesIa } from '../reglagesIa.js'
 import { UsageIa, coutUsd, moisDe, moisSuivant } from '../usageIa.js'
 import { QuotasIa, accesIa, signes } from '../quotasIa.js'
 
@@ -145,4 +145,28 @@ test('la vérification commune dit la règle en signes et l’heure où une plac
   assert.equal(mois.status, 429)
   assert.match(mois.message, /100 signes/)
   assert.equal(signes(1), '1 signe')
+})
+
+test('la manière de répondre de Margo : un texte libre, par instance, borné ; Corrections IA n’en a pas', () => {
+  const d = dossier()
+  const r = new ReglagesIa(d)
+  assert.equal(r.de('margo').maniere, MANIERE_MARGO_DEFAUT)
+  assert.match(MANIERE_MARGO_DEFAUT, /vouvoies/)
+  assert.ok(MANIERE_MARGO_DEFAUT.length < MANIERE_MAX, 'le texte livré tient dans la limite')
+  assert.equal('maniere' in r.de('corrections'), false)
+
+  r.modifier({ margo: { maniere: '  Sois bref.\r\nVouvoie.  ' } }, 'a@x.fr')
+  assert.equal(r.de('margo').maniere, 'Sois bref.\nVouvoie.', 'espaces de bord ôtés, fins de ligne unifiées')
+  assert.equal(new ReglagesIa(d).de('margo').maniere, 'Sois bref.\nVouvoie.', 'relu du disque')
+  r.modifier({ margo: { maniere: '' } }, 'a@x.fr')
+  assert.equal(r.de('margo').maniere, '', 'vide est permis : plus de consigne de style')
+
+  assert.throws(() => r.modifier({ margo: { maniere: 'x'.repeat(MANIERE_MAX + 1) } }, 'a'), /trop longue/)
+  assert.throws(() => r.modifier({ margo: { maniere: 42 } }, 'a'), /doit être un texte/)
+  assert.throws(() => r.modifier({ corrections: { maniere: 'x' } }, 'a'), /réglage inconnu/)
+  assert.equal(r.de('margo').maniere, '', 'un refus n’applique rien')
+
+  // Un fichier aux valeurs absurdes retombe sur le défaut, champ par champ.
+  writeFileSync(join(d, 'reglages-ia.json'), JSON.stringify({ margo: { maniere: 'x'.repeat(MANIERE_MAX + 5) } }))
+  assert.equal(new ReglagesIa(d).de('margo').maniere, MANIERE_MARGO_DEFAUT)
 })

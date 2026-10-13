@@ -4,6 +4,7 @@ import { monterPaletteContact } from './contact.js'
 import { getUser } from './user.js'
 import { mountLogin, mountVerify, mountInviteAccept } from './authPages.js'
 import { getSessionEmail } from './auth.js'
+import { surveillerLaVersion } from './versionClient.js'
 
 const app = document.getElementById('app')
 let currentEditor = null
@@ -87,9 +88,12 @@ async function route() {
     return
   }
 
-  if (hash === '#/admin') {
+  // Les rubriques du back-office (adminCommun.js) : chacune a son adresse,
+  // `#/admin` étant la synthèse ; une rubrique inconnue y ramène.
+  if (hash === '#/admin' || hash.startsWith('#/admin/')) {
+    const { ongletDeLAdresse } = await import('./adminCommun.js')
     const { mountAdmin } = await import('./admin.js')
-    mountAdmin(app)
+    mountAdmin(app, { onglet: ongletDeLAdresse(hash) || 'synthese' })
     return
   }
 
@@ -106,6 +110,7 @@ async function route() {
 
 window.addEventListener('hashchange', route)
 route()
+surveillerLaVersion()
 
 // La palette de contact (phase de test) : montée hors du routage, pour
 // qu'elle survive aux changements de page — et seulement pour les personnes

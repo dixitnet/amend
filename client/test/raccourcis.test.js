@@ -96,12 +96,120 @@ test('Ctrl-K sans le droit de poser un lien : le refus est signalé, rien ne cha
   assert.ok(!e.view.state.doc.rangeHasMark(1, 8, schema.marks.link))
 })
 
-test('Entrée dans un élément de liste le coupe ; Tab hors tableau n’est pas pris (la tabulation du navigateur reste)', () => {
+test('Entrée dans un élément de liste le coupe ; Tab hors liste et hors tableau n’est pas pris (la tabulation du navigateur reste)', () => {
   const liste = schema.node('bullet_list', null, [schema.node('list_item', null, [para('Un deux')])])
   const e = monter(doc(liste), { debut: 5 })
   assert.equal(e.touche('Enter'), true)
   assert.equal(e.view.state.doc.child(0).childCount, 2, 'deux éléments')
-  assert.equal(e.touche('Tab'), false)
+  const hors = monter(doc(para('Texte')), { debut: 2 })
+  assert.equal(hors.touche('Tab'), false)
+  assert.equal(hors.touche('Tab', { shiftKey: true }), false)
+})
+
+// ===================================================== listes à plusieurs niveaux
+
+const item = (...blocs) => schema.node('list_item', null, blocs)
+const puces = (...items) => schema.node('bullet_list', null, items)
+const tache = (...blocs) => schema.node('task_item', { checked: false }, blocs)
+const taches = (...items) => schema.node('task_list', null, items)
+
+/** Position juste après le début du texte donné (premier paragraphe qui le contient). */
+function posDe(d, texte) {
+  let pos = null
+  d.descendants((n, p) => {
+    if (pos === null && n.isText && n.text.includes(texte)) pos = p + 1
+  })
+  assert.notEqual(pos, null, texte)
+  return pos
+}
+
+test('Tab dans une liste descend l’élément d’un niveau (sous-liste), Maj+Tab le remonte', () => {
+  const d = doc(puces(item(para('Un')), item(para('Deux'))))
+  const e = monter(d, { debut: posDe(d, 'Deux') })
+  assert.equal(e.touche('Tab'), true)
+  assert.equal(e.view.state.doc.child(0).childCount, 1, 'un seul élément au premier niveau')
+  assert.equal(e.view.state.doc.child(0).child(0).lastChild.type.name, 'bullet_list', 'une sous-liste')
+  assert.equal(e.touche('Tab', { shiftKey: true }), true)
+  assert.equal(e.view.state.doc.child(0).childCount, 2, 'de nouveau deux éléments')
+})
+
+test('Tab sur le premier élément (rien au-dessus où se ranger) est pris mais ne change rien', () => {
+  const d = doc(puces(item(para('Un')), item(para('Deux'))))
+  const e = monter(d, { debut: posDe(d, 'Un') })
+  assert.equal(e.touche('Tab'), true, 'le focus ne doit pas quitter le texte')
+  assert.ok(e.view.state.doc.eq(d))
+})
+
+test('Tab porte aussi sur les listes à cocher, et la sous-liste reste une liste à cocher', () => {
+  const d = doc(taches(tache(para('Un')), tache(para('Deux'))))
+  const e = monter(d, { debut: posDe(d, 'Deux') })
+  assert.equal(e.touche('Tab'), true)
+  assert.equal(e.view.state.doc.child(0).childCount, 1)
+  assert.equal(e.view.state.doc.child(0).child(0).lastChild.type.name, 'task_list')
+})
+
+test('Tab déplace tous les éléments touchés par la sélection', () => {
+  const d = doc(puces(item(para('Un')), item(para('Deux')), item(para('Trois'))))
+  const e = monter(d, { debut: posDe(d, 'Deux'), fin: posDe(d, 'Trois') + 2 })
+  assert.equal(e.touche('Tab'), true)
+  const sous = e.view.state.doc.child(0).child(0).lastChild
+  assert.equal(sous.type.name, 'bullet_list')
+  assert.equal(sous.childCount, 2)
+})
+
+test('le plafond de six niveaux : au-delà, Tab est pris mais ne descend plus', () => {
+  // niveaux 1..n emboîtés, chacun avec un premier élément « Nk » puis, au
+  // dernier niveau seulement, un frère « Frère » que Tab voudrait descendre.
+  const emboite = (k, n) =>
+    k === n ? puces(item(para(`N${k}`)), item(para('Frère'))) : puces(item(para(`N${k}`), emboite(k + 1, n)))
+  const sous6 = doc(emboite(1, 5)) // « Frère » est au niveau 5 : peut encore descendre
+  const e5 = monter(sous6, { debut: posDe(sous6, 'Frère') })
+  assert.equal(e5.touche('Tab'), true)
+  assert.ok(!e5.view.state.doc.eq(sous6), 'descendu au sixième niveau')
+  const plein = doc(emboite(1, 6)) // « Frère » est au niveau 6 : plafond
+  const e6 = monter(plein, { debut: posDe(plein, 'Frère') })
+  assert.equal(e6.touche('Tab'), true)
+  assert.ok(e6.view.state.doc.eq(plein), 'rien ne change au plafond')
+})
+
+test('Maj+Tab au premier niveau fait sortir l’élément de la liste', () => {
+  const d = doc(puces(item(para('Un')), item(para('Deux'))))
+  const e = monter(d, { debut: posDe(d, 'Deux') })
+  assert.equal(e.touche('Tab', { shiftKey: true }), true)
+  assert.deepEqual(
+    e.view.state.doc.children.map((n) => n.type.name),
+    ['bullet_list', 'paragraph']
+  )
+})
+
+test('Ctrl/Cmd-] et Ctrl/Cmd-[ font la même chose que Tab et Maj+Tab', () => {
+  const d = doc(puces(item(para('Un')), item(para('Deux'))))
+  const e = monter(d, { debut: posDe(d, 'Deux') })
+  assert.equal(e.touche(']', MOD), true)
+  assert.equal(e.view.state.doc.child(0).childCount, 1)
+  assert.equal(e.touche('[', MOD), true)
+  assert.equal(e.view.state.doc.child(0).childCount, 2)
+})
+
+test('Tab dans une cellule de tableau reste le passage à la cellule suivante', () => {
+  const cellule = (t) => schema.node('table_cell', null, [para(t)])
+  const tableau = schema.node('table', null, [schema.node('table_row', null, [cellule('A'), cellule('B')])])
+  const d = doc(tableau)
+  const e = monter(d, { debut: posDe(d, 'A') })
+  assert.equal(e.touche('Tab'), true)
+  assert.equal(e.view.state.selection.$from.parent.textContent, 'B')
+})
+
+test('Entrée sur un élément vide d’une sous-liste le remonte d’un niveau', () => {
+  const d = doc(puces(item(para('Un'), puces(item(para('Sous')), item(schema.node('paragraph'))))))
+  // position dans le paragraphe vide : juste avant la fin du document - 4
+  let vide = null
+  d.descendants((n, p) => {
+    if (n.type.name === 'paragraph' && n.childCount === 0) vide = p + 1
+  })
+  const e = monter(d, { debut: vide })
+  assert.equal(e.touche('Enter'), true)
+  assert.equal(e.view.state.doc.child(0).childCount, 2, 'un nouvel élément au premier niveau')
 })
 
 test('Retour arrière en suivi : le texte effacé reste à l’écran, barré, au nom de la personne', () => {

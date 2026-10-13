@@ -214,6 +214,9 @@ const LISTES = ['bullet_list', 'ordered_list', 'task_list']
  * `docx` exige qu'une liste numérotée pointe vers une configuration, là où
  * les puces ont un raccourci intégré. */
 const NUMEROTATION = 'liste-numerotee'
+/** Les listes à tirets : un tiret à chaque niveau, comme à l'écran (la puce
+ * intégrée de `docx` alterne •, ◦, ▪). */
+const TIRETS = 'liste-tirets'
 
 function listItemToParagraphs(item, style, level, type, coche) {
   const out = []
@@ -249,7 +252,7 @@ function listItemToParagraphs(item, style, level, type, coche) {
                 hanging: convertMillimetersToTwip(5),
               },
             }
-          : { bullet: { level } }
+          : { numbering: { reference: TIRETS, level } }
     out.push(
       new Paragraph({
         ...paragraphProps(corps),
@@ -566,15 +569,33 @@ export async function buildDocxBlob(doc, style, titre = '') {
     ...(headers ? { evenAndOddHeaderAndFooters: true } : {}),
     // Les listes numérotées exigent une configuration de numérotation
     // déclarée au niveau du document (contrairement aux puces, qui ont un
-    // raccourci intégré) — trois niveaux suffisent à ce que le schéma
-    // permet d'imbriquer.
+    // raccourci intégré) — six niveaux, le plafond de l'éditeur
+    // (NIVEAUX_DE_LISTE_MAX dans commandesBarre.js).
     numbering: {
       config: [
         {
-          reference: NUMEROTATION,
-          levels: [0, 1, 2].map((level) => ({
+          reference: TIRETS,
+          levels: [0, 1, 2, 3, 4, 5].map((level) => ({
             level,
-            format: NumberFormat.DECIMAL,
+            format: NumberFormat.BULLET,
+            text: '–',
+            alignment: AlignmentType.START,
+            style: {
+              paragraph: {
+                indent: {
+                  left: convertMillimetersToTwip(6 + level * 6),
+                  hanging: convertMillimetersToTwip(5),
+                },
+              },
+            },
+          })),
+        },
+        {
+          reference: NUMEROTATION,
+          levels: [0, 1, 2, 3, 4, 5].map((level) => ({
+            level,
+            // 1. → a. → i., comme à l'écran, puis on recommence.
+            format: [NumberFormat.DECIMAL, NumberFormat.LOWER_LETTER, NumberFormat.LOWER_ROMAN][level % 3],
             text: `%${level + 1}.`,
             alignment: AlignmentType.START,
             style: {

@@ -63,6 +63,7 @@ export function coutUsd(modele, j) {
 
 const compteurVide = () => ({
   demandes: 0,
+  passages: 0,
   signes: 0,
   echecs: 0,
   entree: 0,
@@ -112,7 +113,7 @@ export class UsageIa {
    * complet et utilisable — seule condition pour que les signes comptent.
    * `jetons` : ce que l'API a facturé (compté même en cas d'échec).
    */
-  enregistrer({ email, fonction, modele, succes, signes = 0, jetons = null }) {
+  enregistrer({ email, fonction, modele, succes, signes = 0, passages = 0, jetons = null }) {
     if (!FONCTIONS.includes(fonction)) throw new Error(`fonction IA inconnue : ${fonction}`)
     const cle = moisDe(this.maintenant())
     const mois = (this.mois[cle] = this.mois[cle] || { utilisateurs: {}, modeles: {} })
@@ -122,6 +123,7 @@ export class UsageIa {
     if (succes) {
       c.demandes += 1
       c.signes += entier(signes)
+      c.passages += entier(passages)
     } else {
       c.echecs += 1
     }
@@ -148,6 +150,33 @@ export class UsageIa {
       }
     }
     this._enregistrerSurDisque()
+  }
+
+  /**
+   * Un clic sur un bouton de Corrections IA (13/10/2026) : un simple cumul, par
+   * mois, de combien de fois chaque bouton a été cliqué — pour savoir dans un
+   * mois lesquels servent. Compté à l'arrivée de la demande (avant les
+   * contrôles de limite) : on mesure l'intention, pas la réussite ; ce qui est
+   * refusé sur place (rien de sélectionné, sélection trop grosse) n'arrive pas
+   * jusqu'ici. Anonyme : aucune adresse n'y figure.
+   */
+  compterBouton(cle) {
+    const mois = (this.mois[moisDe(this.maintenant())] ||= { utilisateurs: {}, modeles: {} })
+    mois.boutons = mois.boutons || {}
+    mois.boutons[cle] = (mois.boutons[cle] || 0) + 1
+    this._enregistrerSurDisque()
+  }
+
+  /** Les clics par bouton : `{ parMois: { '2026-10': { corriger: 12, … } }, cumul: { corriger: 40, … }, depuis: '2026-10' }`. */
+  boutons() {
+    const parMois = {}
+    const cumul = {}
+    for (const [m, v] of Object.entries(this.mois)) {
+      if (!v.boutons) continue
+      parMois[m] = { ...v.boutons }
+      for (const [cle, n] of Object.entries(v.boutons)) cumul[cle] = (cumul[cle] || 0) + n
+    }
+    return { parMois, cumul, depuis: Object.keys(parMois).sort()[0] || null }
   }
 
   /** Efface la ligne de cette personne dans tous les mois (suppression de

@@ -11,6 +11,7 @@ import { JSDOM } from 'jsdom'
 import { schema } from '../src/schema.js'
 import {
   hasAncestorOfType,
+  niveauDeListe,
   basculerMarque,
   basculerListeAPuces,
   basculerListeNumerotee,
@@ -203,4 +204,36 @@ test('un saut de page posé en toute fin de document est suivi d’un paragraphe
   const { $from } = v.state.selection
   assert.equal($from.parent.type.name, 'paragraph')
   assert.equal($from.parent.childCount, 0, 'le curseur est dans le paragraphe vide')
+})
+
+// ===================================================== le bouton de liste, dans une liste
+
+test('le bouton « liste » dans une liste descend l’élément d’un niveau ; au premier élément, il sort de la liste', () => {
+  const item = (t) => schema.node('list_item', null, [para(t)])
+  const doc = docDe(schema.node('bullet_list', null, [item('Un'), item('Deux')]))
+  // « Un » commence en 3, « Deux » en 9.
+  const v = vue(doc, { debut: 10 })
+  basculerListeAPuces(v)
+  assert.equal(v.state.doc.child(0).childCount, 1, 'un seul élément au premier niveau')
+  assert.equal(v.state.doc.child(0).child(0).lastChild.type.name, 'bullet_list', 'Deux est dans une sous-liste')
+  // Au premier élément : rien au-dessus où se ranger — on sort.
+  const w = vue(doc, { debut: 4 })
+  basculerListeAPuces(w)
+  assert.equal(w.state.doc.child(0).type.name, 'paragraph')
+})
+
+test('au sixième niveau le bouton sort de la liste au lieu de descendre encore', () => {
+  const item = (...b) => schema.node('list_item', null, b)
+  const liste = (...i) => schema.node('bullet_list', null, i)
+  let courant = liste(item(para('n6')), item(para('frère')))
+  for (let k = 5; k >= 1; k--) courant = liste(item(para(`n${k}`), courant))
+  const doc = docDe(courant)
+  let pos = null
+  doc.descendants((n, p) => {
+    if (pos === null && n.isText && n.text === 'frère') pos = p + 1
+  })
+  const v = vue(doc, { debut: pos })
+  basculerListeAPuces(v)
+  assert.ok(!v.state.doc.eq(doc), 'quelque chose a changé')
+  assert.equal(niveauDeListe(v.state), 5, 'sorti d’un niveau, pas descendu à sept')
 })

@@ -95,11 +95,11 @@ async function monterAdmin(options) {
   const dom = installer()
   const etat = fauxServeur({ file: FILE, ...options })
   const racine = document.getElementById('racine')
-  await mountAdmin(racine)
+  await mountAdmin(racine, { onglet: 'utilisateurs' })
   return { dom, etat, racine }
 }
 
-test('le bloc du haut compte ceux qui attendent et ne liste qu’eux, avant les retours', async () => {
+test('le bloc du haut de la rubrique Utilisateurs compte ceux qui attendent et ne liste qu’eux', async () => {
   const { racine } = await monterAdmin()
   const h2 = [...racine.querySelectorAll('h2')].map((h) => h.textContent)
   assert.equal(h2[0], "Liste d'attente (2)")
@@ -113,7 +113,7 @@ test('personne n’attend : le bloc le dit, sans tableau', async () => {
   installer()
   fauxServeur({ file: FILE.filter((l) => l.statut !== 'attente') })
   const racine = document.getElementById('racine')
-  await mountAdmin(racine)
+  await mountAdmin(racine, { onglet: 'utilisateurs' })
   assert.ok(racine.textContent.includes("Liste d'attente (0)"))
   assert.ok(racine.textContent.includes("Personne n'attend."))
   assert.equal(racine.querySelectorAll('[data-embarquer]').length, 0)
@@ -123,7 +123,7 @@ test('la liste d’attente en panne n’emporte pas le back-office', async () =>
   installer()
   fauxServeur({ file: FILE, sansAttente: true })
   const racine = document.getElementById('racine')
-  await mountAdmin(racine)
+  await mountAdmin(racine, { onglet: 'utilisateurs' })
   assert.ok(racine.textContent.includes('Back-office'))
   assert.ok(!racine.textContent.includes("Liste d'attente ("))
   assert.ok(racine.querySelector('form[data-embarquer-form]'), 'le champ libre reste là')
@@ -298,7 +298,7 @@ test('la page des inscrits : deux clics embarquent, et la page se redessine', as
 
 test('passer du back-office à la page des inscrits : la page montée en dernier se redessine', async () => {
   const { etat, racine } = await monterInscrits()
-  await mountAdmin(racine) // même racine, l'autre page par-dessus
+  await mountAdmin(racine, { onglet: 'utilisateurs' }) // même racine, l'autre page par-dessus
   await mountInscrits(racine)
   const bouton = racine.querySelector('[data-embarquer="ancienne@example.com"]')
   bouton.click()

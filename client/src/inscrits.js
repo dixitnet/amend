@@ -38,7 +38,7 @@ export async function mountInscrits(root, info) {
   wrap.className = 'home backoffice'
 
   const retour = document.createElement('a')
-  retour.href = '#/admin'
+  retour.href = '#/admin/utilisateurs'
   retour.className = 'back-link'
   retour.textContent = '← Back-office'
   wrap.appendChild(retour)

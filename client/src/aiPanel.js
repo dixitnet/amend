@@ -7,6 +7,7 @@ import {
 } from './trackChanges.js'
 import { AI_USER } from './user.js'
 import { rapport, signes } from '../../shared/signes.js'
+import { CONSIGNES_IA } from '../../shared/consignesIa.js'
 
 const PASSAGE_CHANGE =
   'Le passage a été modifié pendant la demande : la suggestion n’a pas été appliquée. Relance la demande.'
@@ -15,11 +16,11 @@ const PASSAGE_CHANGE =
  * passages (les paragraphes d'une sélection) partent ensemble, comptent pour
  * une seule demande et pour la somme de leurs signes. Renvoie
  * `{ok: true, suggestions}` (dans l'ordre des passages) ou `{ok: false, error}`. */
-async function requestSuggestions(fetcher, docId, textes, instruction) {
+async function requestSuggestions(fetcher, docId, textes, instruction, action) {
   const res = await fetcher('/api/ai/suggest', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ docId, textes, instruction }),
+    body: JSON.stringify({ docId, textes, instruction, action }),
   })
   let data = {}
   try {
@@ -31,25 +32,19 @@ async function requestSuggestions(fetcher, docId, textes, instruction) {
   return { ok: true, suggestions: data.suggestions }
 }
 
-const PRESETS = [
-  { label: 'Plus concis', instruction: 'Rends ce passage plus concis, sans en changer le sens.' },
-  // « Corriger » remplace « Plus formel » (19/09) : changer de registre est
-  // une demande rare et qu'on formule mieux soi-même ; corriger est ce
-  // qu'on demande dix fois par jour. L'instruction dit explicitement de ne
-  // pas réécrire — sans quoi le modèle en profite pour reformuler, et la
-  // proposition devient illisible à relire.
-  {
-    label: 'Corriger',
-    instruction:
-      "Corrige l'orthographe, la grammaire, la conjugaison et la typographie de ce passage. " +
-      'Ne reformule pas, ne change pas le style, ne coupe rien : seules les fautes sont corrigées.',
-  },
-  { label: 'Clarifier', instruction: 'Clarifie ce passage pour le rendre plus facile à comprendre.' },
-]
+// Les consignes toutes faites (13/10/2026) : **c'est tout le panneau**. On avait
+// un champ libre, un bouton « Demander une correction » et un compteur ; Notion,
+// Google Docs (« Affiner »), Apple (Outils d'écriture), Grammarly et Word n'ont
+// aucun de ces trois-là à côté de leurs verbes : un petit nombre d'actions
+// nommées par un verbe, appliquées d'un clic au passage choisi, résultat à
+// accepter ou refuser. Une demande libre se fait avec Margo (le dialogue).
+// La liste elle-même est dans shared/consignesIa.js (le serveur y compte aussi
+// les clics par bouton) : pour en ajouter une, une entrée là-bas, rien ici.
+export const PRESETS = CONSIGNES_IA
 
 /**
- * Le panneau « Corrections IA » : on sélectionne un passage, on choisit (ou on
- * tape) une consigne, et la réécriture de l'IA est insérée en suivi de
+ * Le panneau « Corrections IA » : on sélectionne un passage, on clique une
+ * consigne, et la réécriture de l'IA est insérée en suivi de
  * modifications (au nom de « Margo (IA) »), que n'importe qui accepte ou
  * rejette — exactement comme la suggestion d'un collègue.
  *
@@ -101,47 +96,25 @@ export function mountAIPanel(container, getView, { docId, fetcher = (...a) => fe
 function monterCorps(container, getView, { docId, fetcher, etat }) {
   const limites = { signesParDemande: etat.signesParDemande, mois: etat.mois }
 
-  // Le mode d'emploi tient dans le repère du champ et dans l'état du
-  // panneau (19/09) : une phrase d'explication permanente prenait deux
-  // lignes dans une colonne étroite, pour une information qu'on ne lit
-  // qu'une fois.
+  // Le mode d'emploi, en une phrase, puis des boutons — rien d'autre.
+  const aide = document.createElement('p')
+  aide.className = 'ai-hint'
+  aide.textContent = 'Sélectionnez un passage, puis donnez une consigne.'
+  container.appendChild(aide)
 
   const presetsRow = document.createElement('div')
   presetsRow.className = 'ai-presets'
-  const textarea = document.createElement('textarea')
-  textarea.placeholder = 'Sélectionnez un passage, puis dites quoi en faire…'
-  textarea.rows = 2
-  textarea.name = 'consigne'
-  textarea.setAttribute('aria-label', 'Que faire du passage sélectionné ?')
-
+  const boutons = []
   for (const preset of PRESETS) {
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.textContent = preset.label
     btn.className = 'btn-preset'
-    btn.onclick = () => {
-      textarea.value = preset.instruction
-      run()
-    }
+    btn.onclick = () => run(preset)
     presetsRow.appendChild(btn)
+    boutons.push(btn)
   }
   container.appendChild(presetsRow)
-  container.appendChild(textarea)
-
-  // Entrée envoie la demande (comme un champ de recherche/chat) ; Maj+Entrée
-  // garde le comportement normal d'une textarea pour une instruction sur
-  // plusieurs lignes.
-  textarea.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      run()
-    }
-  })
-
-  const runBtn = document.createElement('button')
-  runBtn.textContent = 'Demander une correction'
-  runBtn.className = 'btn-primary'
-  container.appendChild(runBtn)
 
   const status = document.createElement('p')
   status.className = 'ai-status'
@@ -158,7 +131,11 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
   function passagesDeLaSelection(view) {
     const { from, to, $from, $to } = view.state.selection
     if (from === to) return null
-    if ($from.sameParent($to)) {
+    // Un seul paragraphe, **vraiment** : « Tout sélectionner » (Ctrl+A) a ses deux
+    // bouts dans le document lui-même, qui n'est pas un paragraphe — il passait
+    // pour « un seul parent » et seul le premier paragraphe partait (trouvé le
+    // 13/10/2026, en essayant les boutons sur un document de trois paragraphes).
+    if ($from.parent.isTextblock && $from.sameParent($to)) {
       const [bloc] = getTextBlocksInRange(view.state.doc, from, to)
       return {
         blocs: bloc ? [bloc] : null,
@@ -171,18 +148,25 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
     return { blocs, textes: blocs.filter((b) => b.texteDiff.trim()).map((b) => b.text), unique: false }
   }
 
+  // Les limites ne s'affichent que quand elles comptent (une sélection trop
+  // grosse, un mois bientôt épuisé) : le reste du temps, le panneau ne porte
+  // que ses boutons. Le détail de la consommation est au back-office.
   function majQuota() {
     const view = getView()
     const p = view ? passagesDeLaSelection(view) : null
     const lignes = []
+    let alerte = false
     if (p) {
       const taille = p.textes.reduce((n, t) => n + t.length, 0)
-      lignes.push(`Sélection : ${rapport(taille, limites.signesParDemande)} par demande.`)
-      quota.classList.toggle('ai-alerte', taille > limites.signesParDemande)
-    } else {
-      quota.classList.remove('ai-alerte')
+      if (taille > limites.signesParDemande) {
+        lignes.push(`Sélection : ${rapport(taille, limites.signesParDemande)} par demande.`)
+        alerte = true
+      }
     }
-    if (limites.mois) lignes.push(`Ce mois-ci : ${rapport(limites.mois.utilises, limites.mois.max)}.`)
+    if (limites.mois && limites.mois.max && limites.mois.utilises >= 0.8 * limites.mois.max) {
+      lignes.push(`Ce mois-ci : ${rapport(limites.mois.utilises, limites.mois.max)}.`)
+    }
+    quota.classList.toggle('ai-alerte', alerte)
     quota.textContent = lignes.join(' ')
   }
   async function rafraichir() {
@@ -202,7 +186,7 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
   document.addEventListener('selectionchange', majQuota)
   majQuota()
 
-  async function run() {
+  async function run(preset) {
     const view = getView()
     if (!view) return
     const { from, to } = view.state.selection
@@ -218,7 +202,6 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
       status.textContent = 'Ce passage porte des modifications en attente : acceptez-les ou rejetez-les d’abord.'
       return
     }
-    const instruction = textarea.value.trim()
     const passages = passagesDeLaSelection(view)
     // Trop gros ? On le dit avant d'envoyer, en signes : le serveur refuserait de toute façon.
     const taille = passages.textes.reduce((n, t) => n + t.length, 0)
@@ -238,7 +221,7 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
     // (already scoped to what actually changed) show any green at all.
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, to)))
 
-    runBtn.disabled = true
+    for (const b of boutons) b.disabled = true
     status.textContent = passages.unique
       ? 'Demande en cours…'
       : `Demande en cours… (${passages.blocs.length} paragraphes)`
@@ -249,7 +232,7 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
       // à son propre équivalent — pas de risque que toute la sélection se
       // réduise à un seul gros remplacement.
       const result = passages.textes.length
-        ? await requestSuggestions(fetcher, docId, passages.textes, instruction)
+        ? await requestSuggestions(fetcher, docId, passages.textes, preset.instruction, preset.cle)
         : { ok: true, suggestions: [] }
       if (!result.ok) {
         status.textContent = result.error
@@ -289,11 +272,10 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
     } catch (err) {
       status.textContent = `Erreur réseau : ${err.message}`
     } finally {
-      runBtn.disabled = false
+      for (const b of boutons) b.disabled = false
       rafraichir()
     }
   }
 
-  runBtn.onclick = run
   return () => document.removeEventListener('selectionchange', majQuota)
 }

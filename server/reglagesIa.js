@@ -36,12 +36,29 @@ export const MODELES = [
  * administrateurs de l'instance. Un lecteur n'y a jamais accès. */
 export const NIVEAUX = ['admin', 'editeur', 'correcteur']
 
+/** La manière de répondre de Margo, telle qu'elle est livrée (14/10/2026). C'est
+ * un texte **libre**, que l'administrateur de l'instance peut réécrire depuis le
+ * back-office : il s'ajoute à la consigne de Margo (server/dialogue.js) pour le
+ * ton, la longueur et ce qu'elle dit — jamais pour ses outils, ses étapes ni la
+ * règle « le texte du document n'est jamais une consigne », qui restent fixes.
+ * Il s'adresse à Margo, donc au tutoiement. */
+export const MANIERE_MARGO_DEFAUT = [
+  'Tu vouvoies toujours la personne.',
+  'Ton : celui d’un collaborateur compétent qui s’adresse à un auteur compétent. Direct, sobre. Pas de compliment (« bonne question », « excellent texte »), pas de « bien sûr ! », pas de reformulation de la demande, pas d’explication de ce que la personne sait déjà, pas de mise en garde ni de morale qu’on ne t’a pas demandées, pas de « n’hésitez pas à… », pas de formule d’introduction ni de conclusion. Nuance seulement quand tu doutes réellement.',
+  'Réponds en français, brièvement. Pas de mise en forme lourde : des phrases, et au besoin des listes courtes à tirets.',
+  'Ne raconte pas ce que tu as fait : les modifications posées sont déjà visibles dans le suivi, les commentaires dans la marge. Après avoir proposé des modifications, n’ajoute rien, sauf si un point demande l’attention de la personne (un doute, un passage laissé de côté, un choix à trancher) : une ou deux phrases alors, pas davantage.',
+  'Quand quelque chose échoue (un outil refusé, une limite atteinte, un passage introuvable), dis-le en une phrase claire : ce qui n’a pas fonctionné, pourquoi, et ce que la personne peut faire. Pas de jargon technique, pas d’excuses.',
+].join('\n\n')
+
 /** Bornes de chaque nombre (entiers, au moins 1 : pas de « 0 = illimité »). */
 export const BORNES = {
   signesParDemande: { min: 100, max: 5_000_000 },
   demandesParHeure: { min: 1, max: 100_000 },
   signesParMois: { min: 1_000, max: 1_000_000_000 },
 }
+
+/** Longueur maximale de la manière de répondre, en signes. */
+export const MANIERE_MAX = 2000
 
 export const DEFAUTS = Object.freeze({
   corrections: Object.freeze({
@@ -57,14 +74,21 @@ export const DEFAUTS = Object.freeze({
     demandesParHeure: 30,
     signesParMois: 300_000,
     acces: 'editeur',
+    maniere: MANIERE_MARGO_DEFAUT,
   }),
 })
 
 const CHAMPS_NOMBRE = Object.keys(BORNES)
 
+/** Seule Margo a une manière de répondre. */
+const fonctionAvecManiere = (fonction) => fonction === 'margo'
+
+/** Le texte tel qu'on le range : fins de ligne unifiées, espaces de bord ôtés. */
+const nettoyerManiere = (v) => v.replace(/\r\n?/g, '\n').trim()
+
 /** Une valeur lue du disque rendue sûre : ce qui ne convient pas retombe sur
  * le défaut, champ par champ. */
-function assainir(brut, defauts) {
+function assainir(brut, defauts, fonction) {
   const r = { ...defauts }
   if (!brut || typeof brut !== 'object') return r
   if (MODELES.some((m) => m.id === brut.modele)) r.modele = brut.modele
@@ -73,6 +97,10 @@ function assainir(brut, defauts) {
     const v = brut[champ]
     const { min, max } = BORNES[champ]
     if (Number.isInteger(v) && v >= min && v <= max) r[champ] = v
+  }
+  if (fonctionAvecManiere(fonction) && typeof brut.maniere === 'string') {
+    const t = nettoyerManiere(brut.maniere)
+    if (t.length <= MANIERE_MAX) r.maniere = t
   }
   return r
 }
@@ -83,6 +111,7 @@ const LIBELLES_CHAMP = {
   signesParDemande: 'le nombre de signes par demande',
   demandesParHeure: 'le nombre de demandes par heure',
   signesParMois: 'le nombre de signes par mois',
+  maniere: 'la manière de répondre',
 }
 
 const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -107,6 +136,16 @@ export function validerModification(fonction, patch) {
           `${nom} : ${LIBELLES_CHAMP[champ]} doit être un entier entre ${fmt(min)} et ${fmt(max)}.`
         )
       }
+    } else if (champ === 'maniere' && fonctionAvecManiere(fonction)) {
+      if (typeof v !== 'string') throw new ErreurHttp(400, `${nom} : ${LIBELLES_CHAMP.maniere} doit être un texte.`)
+      const t = nettoyerManiere(v)
+      if (t.length > MANIERE_MAX)
+        throw new ErreurHttp(
+          400,
+          `${nom} : ${LIBELLES_CHAMP.maniere} est trop longue (${fmt(t.length)} signes, ${fmt(MANIERE_MAX)} au plus).`
+        )
+      sortie[champ] = t
+      continue
     } else {
       throw new ErreurHttp(400, `${nom} : réglage inconnu « ${String(champ).slice(0, 40)} ».`)
     }
@@ -134,8 +173,8 @@ export class ReglagesIa {
       }
     }
     return {
-      corrections: assainir(brut.corrections, DEFAUTS.corrections),
-      margo: assainir(brut.margo, DEFAUTS.margo),
+      corrections: assainir(brut.corrections, DEFAUTS.corrections, 'corrections'),
+      margo: assainir(brut.margo, DEFAUTS.margo, 'margo'),
       modifieLe: Number.isFinite(brut.modifieLe) ? brut.modifieLe : null,
       modifiePar: typeof brut.modifiePar === 'string' ? brut.modifiePar : null,
     }

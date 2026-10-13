@@ -86,6 +86,11 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
   underlineBtn.style.textDecoration = 'underline'
   const strikeBtn = mkButton('S', 'barré')
   strikeBtn.style.textDecoration = 'line-through'
+  // La citation est un **style de paragraphe**, pas un objet qu'on insère
+  // (13/10/2026, demande de Sylvain) : elle se range avec le gras, l'italique,
+  // le souligné et le barré, et s'allume quand le curseur est dans une citation.
+  const quoteBtn = mkButton('❝', 'Citation : met le paragraphe en citation, ou l’en sort')
+  quoteBtn.setAttribute('aria-pressed', 'false')
   const listBtn = mkButton('–', 'liste à tirets')
   const orderedListBtn = mkButton('1.', 'liste numérotée')
   const taskListBtn = mkButton('☑', 'liste à cocher')
@@ -99,6 +104,7 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
     italicBtn,
     underlineBtn,
     strikeBtn,
+    quoteBtn,
     filet(),
     listBtn,
     orderedListBtn,
@@ -113,24 +119,22 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
   lienBtn.classList.add('btn-texte')
   if (!cap.canEditFreely) lienBtn.hidden = true
   const noteBtn = mkButton('Note de bas de page', 'Insérer une note ici (Ctrl/⌘+Alt+F)')
-  const quoteBtn = mkButton('Citation', 'Mettre le paragraphe en citation')
   const ligneBtn = mkButton('Ligne de séparation', 'Insérer un trait horizontal')
   const sautBtn = mkButton('Saut de page', 'Insérer un saut de page (PDF et Word)')
   // La table des matières se pose dans le texte, là où le curseur est :
   // c'est ce qui la distingue d'une option de mise en page (20/09/2026).
   const tocBtn = mkButton('Table des matières', 'Insérer une table des matières ici')
   const tableBtn = mkButton('Tableau 3 × 3', 'insérer un tableau de 3 lignes sur 3 colonnes')
-  for (const b of [noteBtn, quoteBtn, ligneBtn, sautBtn, tocBtn, tableBtn])
-    b.classList.add('btn-texte', 'btn-insertion')
+  for (const b of [noteBtn, ligneBtn, sautBtn, tocBtn, tableBtn]) b.classList.add('btn-texte', 'btn-insertion')
   const menuInsertion = menuDeroulant('Insérer ▾', {
     classe: 'menu-insertion',
-    titre: 'Insérer une note, une citation, un tableau…',
+    titre: 'Insérer une note, un tableau, une ligne…',
   })
   // Une liste qui s'ouvre vers la droite : le menu est dans la barre, pas
   // au bord du bandeau.
   menuInsertion.liste.classList.remove('menu-flottant-droite')
   menuInsertion.liste.classList.add('menu-insertion-liste')
-  menuInsertion.liste.append(noteBtn, quoteBtn, ligneBtn, sautBtn, tocBtn, tableBtn)
+  menuInsertion.liste.append(noteBtn, ligneBtn, sautBtn, tocBtn, tableBtn)
   // Choisir une entrée referme le menu.
   menuInsertion.liste.addEventListener('click', (e) => {
     if (e.target.closest('button')) menuInsertion.fermer()

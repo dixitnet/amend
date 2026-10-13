@@ -9,6 +9,7 @@ import { isAdminEmail, readSession } from '../auth.js'
 import { DialogueErreur } from '../dialogue.js'
 import { ErreurHttp } from '../erreurs.js'
 import { sendJson, readJsonBody, PAS_TRAITE } from '../http.js'
+import { cleDeConsigne } from '../../shared/consignesIa.js'
 
 const TEXTES_MAX = 200
 const INSTRUCTION_MAX = 2000
@@ -21,7 +22,7 @@ function etatPour(quotas, fonction, { email, admin, role }) {
 
 export async function routesIa(req, res, url, ctx) {
   const { pathname } = url
-  const { dialogue, metrics, quotas, storage, users } = ctx
+  const { dialogue, metrics, quotas, storage, users, usageIa } = ctx
 
   // Où en est la personne, pour les deux fonctions, sur ce document : le client
   // ne montre que ce qui lui est ouvert, et affiche « N / M signes ».
@@ -120,25 +121,29 @@ export async function routesIa(req, res, url, ctx) {
         error: 'Aucune clé API configurée. Définis ANTHROPIC_API_KEY dans le fichier .env du serveur.',
       })
     }
+    // Le clic est compté ici, une fois, quel que soit le nombre de paragraphes :
+    // c'est l'unité de tout le reste (place dans l'heure, demande du mois,
+    // événement du journal). Le bouton cliqué est un simple cumul pour l'analyse.
+    usageIa.compterBouton(cleDeConsigne(body.action))
     const taille = textes.reduce((n, t) => n + t.length, 0)
     const reglages = quotas.verifier({ fonction: 'corrections', email, taille })
     const modele = reglages.modele
 
-    // Le flux `ia` porte la raison d'arrêt et les jetons de réflexion (30/09/2026).
+    // **Un seul événement du journal `ia` par clic** (13/10/2026) : il y en avait
+    // un par paragraphe, si bien que « appels » et « suggestions » du back-office
+    // comptaient les paragraphes, pas les demandes. Les jetons de tous les
+    // paragraphes (réussis ou coupés : l'API les a facturés) s'y additionnent.
     const somme = { entree: 0, sortie: 0, cacheLu: 0, cacheEcrit: 0 }
+    let reflexion = 0
+    let arret = null
+    let vuUsage = false
     const tracer = (usage) => {
       if (!usage) return
+      vuUsage = true
       somme.entree += usage.entree || 0
       somme.sortie += usage.sortie || 0
-      metrics.log('ia', {
-        email,
-        docId,
-        modele,
-        entree: usage.entree,
-        sortie: usage.sortie,
-        reflexion: usage.reflexion,
-        arret: usage.arret,
-      })
+      reflexion += usage.reflexion || 0
+      if (usage.arret && (!arret || arret === 'end_turn')) arret = usage.arret
     }
     const resultats = await Promise.allSettled(textes.map((t) => suggestEdit({ model: modele }, t, instruction)))
     let echec = null
@@ -152,8 +157,31 @@ export async function routesIa(req, res, url, ctx) {
         echec = echec || r.reason
       }
     }
+    if (vuUsage) {
+      metrics.log('ia', {
+        email,
+        docId,
+        modele,
+        entree: somme.entree,
+        sortie: somme.sortie,
+        reflexion,
+        arret,
+        passages: textes.length,
+        signes: taille,
+        action: cleDeConsigne(body.action),
+        succes: !echec,
+      })
+    }
     // Les signes ne comptent que pour une demande **réussie** en entier.
-    quotas.enregistrer({ email, fonction: 'corrections', modele, succes: !echec, signes: taille, jetons: somme })
+    quotas.enregistrer({
+      email,
+      fonction: 'corrections',
+      modele,
+      succes: !echec,
+      signes: taille,
+      passages: textes.length,
+      jetons: somme,
+    })
     if (echec) {
       if (echec instanceof AIConfigError) return sendJson(res, 501, { error: echec.message })
       if (echec instanceof AIRequestError || echec instanceof ErreurHttp)

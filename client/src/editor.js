@@ -73,6 +73,7 @@ import {
   basculerListeNumerotee,
   basculerListeACocher,
   basculerCitation,
+  hasAncestorOfType,
   styleDeBlocCommun,
   appliquerStyleDeBloc,
   insererTableau,
@@ -601,7 +602,15 @@ export function mountEditor(root, docId, user, docMeta) {
     tableGroup.hidden = !isInTable(view.state)
   }
 
+  // La citation est un style : le bouton reste enfoncé tant que le curseur est dedans.
+  const syncCitation = () => {
+    const dedans = hasAncestorOfType(view.state, schema.nodes.blockquote)
+    quoteBtn.classList.toggle('actif', dedans)
+    quoteBtn.setAttribute('aria-pressed', String(dedans))
+  }
+
   syncToolbar = () => {
+    syncCitation()
     syncToggle()
     syncHeadingSelect()
     syncTableButtons()

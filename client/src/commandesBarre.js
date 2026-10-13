@@ -8,8 +8,8 @@
 // monter tout l'éditeur.
 
 import { TextSelection } from 'prosemirror-state'
-import { toggleMark, setBlockType, wrapIn, lift } from 'prosemirror-commands'
-import { wrapInList, liftListItem } from 'prosemirror-schema-list'
+import { toggleMark, setBlockType, wrapIn, lift, chainCommands } from 'prosemirror-commands'
+import { wrapInList, liftListItem, sinkListItem } from 'prosemirror-schema-list'
 import { schema } from './schema.js'
 import { selectionContientUneNote } from './footnotes.js'
 
@@ -32,11 +32,67 @@ export function toggleWrap(type) {
   }
 }
 
+/** Le bouton d'une liste, **dans** une liste de ce type : on descend d'un
+ * niveau (13/10/2026 : « si on remet une liste dans une liste, on descend d'un
+ * niveau »). S'il n'y a nulle part où descendre (premier élément, plafond de
+ * six niveaux), on fait comme avant et on sort de la liste : c'est le seul
+ * geste de souris pour la quitter. Hors liste, le bouton en crée une. */
 export function toggleList(listType, itemType) {
   return (state, dispatch) => {
-    if (hasAncestorOfType(state, listType)) return liftListItem(itemType)(state, dispatch)
+    if (hasAncestorOfType(state, listType)) {
+      if (peutAugmenterRetrait(state)) return imbriquer()(state, dispatch)
+      return liftListItem(itemType)(state, dispatch)
+    }
     return wrapInList(listType)(state, dispatch)
   }
+}
+
+// --- Listes à plusieurs niveaux (13/10/2026) ---------------------------------
+// Le schéma autorisait déjà d'imbriquer (un élément de liste contient des
+// blocs, dont une autre liste) ; il manquait les gestes : Tab / Maj+Tab au
+// clavier, et deux boutons pour le doigt et la souris. Six niveaux, pas plus :
+// au-delà, le texte n'a plus de place sur une page ni sur un téléphone, et
+// Word (neuf niveaux) comme Typst s'en sortiraient, mais pas le lecteur.
+
+/** Nombre maximal de niveaux de liste emboîtés. */
+export const NIVEAUX_DE_LISTE_MAX = 6
+
+const ELEMENTS_DE_LISTE = () => [schema.nodes.list_item, schema.nodes.task_item]
+
+/** Combien d'éléments de liste enveloppent le début de la sélection :
+ * 0 hors liste, 1 au premier niveau, 2 dans une sous-liste… */
+export function niveauDeListe(state) {
+  const { $from } = state.selection
+  const types = ELEMENTS_DE_LISTE()
+  let n = 0
+  for (let d = $from.depth; d > 0; d--) if (types.includes($from.node(d).type)) n++
+  return n
+}
+
+const imbriquer = () => chainCommands(...ELEMENTS_DE_LISTE().map((t) => sinkListItem(t)))
+const remonter = () => chainCommands(...ELEMENTS_DE_LISTE().map((t) => liftListItem(t)))
+
+/** Peut-on descendre d'un niveau ? Il faut un élément **avant** celui-ci (on
+ * s'y range), et ne pas avoir atteint le plafond. */
+export function peutAugmenterRetrait(state) {
+  return niveauDeListe(state) > 0 && niveauDeListe(state) < NIVEAUX_DE_LISTE_MAX && imbriquer()(state)
+}
+
+/** Tab dans une liste. Dans une liste, la commande **prend toujours la
+ * main** (retour vrai), même quand elle ne peut rien faire (premier élément,
+ * plafond) : sinon la touche faisait sauter le focus hors du texte. Hors
+ * liste, elle passe la main. */
+export const augmenterRetrait = (state, dispatch) => {
+  if (!niveauDeListe(state)) return false
+  if (peutAugmenterRetrait(state)) imbriquer()(state, dispatch)
+  return true
+}
+
+/** Maj+Tab dans une liste, même principe. */
+export const reduireRetrait = (state, dispatch) => {
+  if (!niveauDeListe(state)) return false
+  remonter()(state, dispatch)
+  return true
 }
 
 /** Gras, italique, souligné ou barré, selon le nom de la marque du schéma. */

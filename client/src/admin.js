@@ -1,6 +1,10 @@
-// Back-office (page #/admin), réservé aux administrateurs. Voir
-// claude/conception-backoffice.md : trois blocs (utilisateurs, documents,
-// serveur). Aucun contenu de document n'est affiché, titres exceptés.
+// Back-office (#/admin et ses rubriques), réservé aux administrateurs. Voir
+// claude/conception-backoffice.md. Aucun contenu de document n'est affiché,
+// titres exceptés.
+//
+// Depuis le 14/10/2026 il est découpé en rubriques thématiques (onglets, voir
+// adminCommun.js) : Synthèse, Utilisateurs, Retours, Documents, IA, Système.
+// La rubrique IA vit dans adminIa.js. Chaque rubrique est une adresse.
 //
 // Deux actions. Marquer un retour comme traité (22/09/2026) : le parti pris
 // « aucune action » tenait tant que la page ne servait qu'à regarder ; dès
@@ -12,43 +16,9 @@
 // confirmation en deux clics.
 
 import { brancherEmbarquement } from './embarquement.js'
+import { NBSP, esc, nombre, octets, euros, date, duree, chiffre, entete, chargerVue } from './adminCommun.js'
 
 const ecouteurTraite = new WeakSet()
-
-const NBSP = ' '
-
-function nombre(n) {
-  if (n === null || n === undefined) return '—'
-  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP)
-}
-
-function octets(o) {
-  if (o === null || o === undefined) return '—'
-  if (o < 1024) return `${o}${NBSP}o`
-  if (o < 1048576) return `${Math.round(o / 1024)}${NBSP}ko`
-  return `${(o / 1048576).toFixed(1)}${NBSP}Mo`
-}
-
-/** Une somme en euros. Sous le centime, « <0,01 € » plutôt qu'un « 0,00 € »
- * qui laisserait croire que rien n'a été consommé. */
-function euros(v) {
-  if (v === null || v === undefined) return '—'
-  if (v > 0 && v < 0.01) return `<0,01${NBSP}€`
-  return `${v.toFixed(2).replace('.', ',')}${NBSP}€`
-}
-
-function date(ts) {
-  if (!ts) return '—'
-  return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
-}
-
-function duree(sec) {
-  if (!sec) return '—'
-  const j = Math.floor(sec / 86400)
-  const h = Math.floor((sec % 86400) / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  return j ? `${j}${NBSP}j${NBSP}${h}${NBSP}h` : h ? `${h}${NBSP}h${NBSP}${m}${NBSP}min` : `${m}${NBSP}min`
-}
 
 /** Où en est la copie régulière tirée par la machine de sauvegarde, quand il
  * y en a une. Au-delà de 36 h sans nouvelle, c'est une alerte : une sauvegarde qui s'arrête en
@@ -74,60 +44,6 @@ export function copieProton(etat, maintenant) {
   const vieille = sec > 36 * 3600
   return `<p class="bo-note${vieille ? ' bo-alerte' : ''}">Dernier envoi sur Proton Drive :
     ${sec < 60 ? 'à l’instant' : `il y a ${duree(sec)}`}${vieille ? ' — plus de 36 h, l’envoi vers Proton s’est arrêté' : ''}.</p>`
-}
-
-function esc(s) {
-  return String(s ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
-  )
-}
-
-/** Les deux usages de l'IA (Corrections IA et Margo) côte à côte, en tokens (pas en euros : ils n'ont
- * pas le même modèle). « Entrée » est hors cache ; le cache lu et écrit sont
- * comptés à part, car ils ne se facturent pas au même prix. */
-function tableauTokens(t) {
-  if (!t) return '<p class="bo-note">Pas de données.</p>'
-  const ligne = (nom, p, avecCache) =>
-    `<tr><th scope="row">${nom}</th>${['24h', '7j', '30j']
-      .map((k) => {
-        const x = p[k]
-        return `<td>${nombre(x.appels)} message(s)<br>${nombre(x.entree)} entrée · ${nombre(x.sortie)} sortie${
-          avecCache ? `<br>${nombre(x.cacheLu)} cache lu · ${nombre(x.cacheEcrit)} cache écrit` : ''
-        }</td>`
-      })
-      .join('')}</tr>`
-  const modeles = t.fenetre.parModele.length
-    ? `<p class="bo-note">Fenêtre flottante par modèle (30 jours) : ${t.fenetre.parModele
-        .map(
-          (m) =>
-            `${esc(m.modele)} — ${nombre(m.appels)} message(s), ${nombre(m.entree + m.cacheLu + m.cacheEcrit)} tokens en entrée, ${nombre(m.sortie)} en sortie`
-        )
-        .join(' ; ')}.</p>`
-    : ''
-  const personnes = t.fenetre.parPersonne.length
-    ? `<ul class="bo-liste">${t.fenetre.parPersonne
-        .map(
-          (p) =>
-            `<li>${esc(p.email)} — fenêtre flottante : ${nombre(p.appels)} message(s), ${nombre(p.entree + p.cacheLu + p.cacheEcrit)} tokens en entrée, ${nombre(p.sortie)} en sortie</li>`
-        )
-        .join('')}</ul>`
-    : ''
-  return `<table class="bo-table">
-    <thead><tr><th></th><th>24 h</th><th>7 jours</th><th>30 jours</th></tr></thead>
-    <tbody>
-      ${ligne('Corrections IA (barre latérale)', t.barreLaterale, false)}
-      ${ligne('Margo (fenêtre flottante)', t.fenetre, true)}
-    </tbody>
-  </table>
-  <p class="bo-note">Un « message » est une demande à l'IA (une correction pour Corrections IA, un message du dialogue pour Margo). L'entrée de la fenêtre flottante s'ajoute du cache lu et du cache écrit pour donner le total lu par le modèle.</p>
-  ${modeles}${personnes}`
-}
-
-function chiffre(valeur, libelle, precision) {
-  return `<div class="bo-chiffre"><strong>${valeur}</strong><span>${libelle}</span>${
-    precision ? `<em>${precision}</em>` : ''
-  }</div>`
 }
 
 /** Une ligne de retour. `traite` bascule le libellé du bouton : la même
@@ -167,7 +83,9 @@ function sectionRetours(support) {
   if (!support) return ''
   const aTraiter = support.aTraiter || []
   const traites = support.traites || []
-  if (!aTraiter.length && !traites.length) return ''
+  if (!aTraiter.length && !traites.length)
+    return `<h2>Retours reçus</h2>
+    <p class="bo-note">Aucun retour reçu pour le moment. Ils arrivent par la palette de contact, et restent ici même si le courrier n'est pas parti.</p>`
   return `<h2>Retours reçus</h2>
     <p class="bo-note">${nombre(support.recus7j)} sur 7 jours, ${nombre(
       support.recus30j
@@ -229,38 +147,68 @@ function formulaireEmbarquer() {
   </form>`
 }
 
-export async function mountAdmin(root, info) {
-  root.innerHTML = '<div class="home"><p>Chargement…</p></div>'
-  // La file d'attente est lue en même temps que la vue d'ensemble, mais
-  // sa panne ne doit pas emporter le back-office : on la perd seule.
-  const [res, resAttente] = await Promise.all([
-    fetch('/api/admin/overview'),
-    fetch('/api/admin/waitlist').catch(() => null),
-  ])
-  if (res.status === 403) {
-    root.innerHTML = '<div class="home"><p>Réservé aux administrateurs.</p><a href="#/">← Retour</a></div>'
-    return
-  }
-  if (!res.ok) {
-    root.innerHTML = '<div class="home"><p>Le back-office n\'a pas répondu.</p><a href="#/">← Retour</a></div>'
-    return
-  }
-  const d = await res.json()
-  const att = resAttente && resAttente.ok ? await resAttente.json().catch(() => null) : null
+/** La rubrique « Synthèse » : les indicateurs clés, et ce qui attend. Rien
+ * qu'on ne trouve déjà dans une autre rubrique — elle les rassemble, chaque
+ * vignette cliquable menant à l'endroit où l'on traite la chose. */
+function rubriqueSynthese({ d, att }) {
   const u = d.utilisateurs
   const doc = d.documents
   const f = d.flux
   const s = d.serveur
+  const aTraiter = f.support ? (f.support.aTraiter || []).length : 0
+  const attente = att && Number.isInteger(att.enAttente) ? att.enAttente : null
+  const mailEchecs = f.mail ? f.mail.echecs30j : 0
+  const t = f.tokens
+  const sauvegardes = `${copieDistante(s.sauvegardeDistante, d.genereLe)}${copieProton(s.sauvegardeProton, d.genereLe)}`
+  return `
+      <h2>À traiter</h2>
+      <div class="bo-chiffres">
+        ${attente === null ? '' : chiffre(nombre(attente), "en liste d'attente", 'à embarquer', { lien: '#/admin/utilisateurs', alerte: false })}
+        ${f.support ? chiffre(nombre(aTraiter), 'retours à traiter', `${nombre(f.support.recus7j)} reçus sur 7 jours`, { lien: '#/admin/retours' }) : ''}
+        ${f.mail ? chiffre(nombre(mailEchecs), "échecs d'e-mail", `sur ${nombre(f.mail.envois30j)} envois en 30 jours`, { lien: '#/admin/systeme', alerte: mailEchecs > 0 }) : ''}
+      </div>
 
-  root.innerHTML = `
-    <div class="home backoffice">
-      <p class="bo-retour"><a href="#/">← Retour aux documents</a></p>
-      <h1>Back-office</h1>
-      <p class="bo-note">Vue au ${new Date(d.genereLe).toLocaleString('fr-FR')}. On n'y lit aucun contenu de document.</p>
+      <h2>Personnes</h2>
+      <div class="bo-chiffres">
+        ${chiffre(nombre(u.total), 'personnes connues', '', { lien: '#/admin/utilisateurs' })}
+        ${chiffre(nombre(f.connexions.actifs7j), 'actives sur 7 jours', `${nombre(f.connexions.actifs30j)} sur 30 jours`, { lien: '#/admin/utilisateurs' })}
+        ${chiffre(nombre(u.actifs), 'déjà venues')}
+        ${chiffre(nombre(u.enAttente), 'invitées, jamais venues')}
+      </div>
 
+      <h2>Documents</h2>
+      <div class="bo-chiffres">
+        ${chiffre(nombre(doc.total), 'documents', `${nombre(doc.crees30j)} créés sur 30 jours`, { lien: '#/admin/documents' })}
+        ${chiffre(nombre(doc.actifs7j), 'modifiés sur 7 jours', '', { lien: '#/admin/documents' })}
+        ${chiffre(
+          doc.partCollaborative === null ? '—' : `${doc.partCollaborative}${NBSP}%`,
+          'à plusieurs participants',
+          `${nombre(doc.aPlusieursParticipants)} documents`
+        )}
+      </div>
+
+      <h2>IA (30 jours)</h2>
+      <div class="bo-chiffres">
+        ${f.ia ? chiffre(euros(f.ia.coutEuros30j), 'Corrections IA', `${euros(f.ia.coutEuros7j)} sur 7 jours`, { lien: '#/admin/ia' }) : ''}
+        ${t ? chiffre(nombre(t.barreLaterale['30j'].appels), 'demandes de Corrections IA', `${nombre(t.barreLaterale['7j'].appels)} sur 7 jours`, { lien: '#/admin/ia' }) : ''}
+        ${t ? chiffre(nombre(t.fenetre['30j'].appels), 'messages à Margo', `${nombre(t.fenetre['7j'].appels)} sur 7 jours`, { lien: '#/admin/ia' }) : ''}
+      </div>
+
+      <h2>Serveur</h2>
+      <div class="bo-chiffres">
+        ${chiffre(`${nombre(s.rssMo)}${NBSP}Mo`, 'mémoire du process', 'plafond 700 Mo', { lien: '#/admin/systeme' })}
+        ${chiffre(duree(s.uptimeSec), 'sans redémarrage', `pid ${s.pid}`, { lien: '#/admin/systeme' })}
+        ${chiffre(octets(s.dataDirOctets), 'données sur disque', '', { lien: '#/admin/systeme' })}
+      </div>
+      ${sauvegardes}`
+}
+
+/** « Utilisateurs » : la file d'attente et l'embarquement, puis les comptes. */
+function rubriqueUtilisateurs({ d, att, info }) {
+  const u = d.utilisateurs
+  const f = d.flux
+  return `
       ${sectionAttente(att, info)}
-
-      ${sectionRetours(f.support)}
 
       <h2>Utilisateurs</h2>
       ${formulaireEmbarquer()}
@@ -313,8 +261,14 @@ export async function mountAdmin(root, info) {
               .map(([e, n]) => `${esc(e)} (${n})`)
               .join(', ')} — si une seule adresse figure ici, l'outil ne circule pas encore tout seul.</p>`
           : ''
-      }
+      }`
+}
 
+/** « Documents » : le parc, sa collaboration, ses journaux. */
+function rubriqueDocuments({ d }) {
+  const doc = d.documents
+  const f = d.flux
+  return `
       <h2>Documents</h2>
       <div class="bo-chiffres">
         ${chiffre(nombre(doc.total), 'documents', `${nombre(doc.crees30j)} créés sur 30 jours`)}
@@ -349,8 +303,14 @@ export async function mountAdmin(root, info) {
             </tr>`
           )
           .join('')}</tbody>
-      </table>
+      </table>`
+}
 
+/** « Système » : le serveur, la sauvegarde, qui est connecté, le courrier. */
+function rubriqueSysteme({ d }) {
+  const f = d.flux
+  const s = d.serveur
+  return `
       <h2>Serveur</h2>
       <div class="bo-chiffres">
         ${chiffre(`${nombre(s.rssMo)}${NBSP}Mo`, 'mémoire du process', 'plafond 700 Mo')}
@@ -382,42 +342,7 @@ export async function mountAdmin(root, info) {
           : '<p class="bo-note">Personne connecté en ce moment.</p>'
       }
 
-      <h3>Consommation de l'IA en tokens</h3>
-      <p class="bo-note"><a href="#/admin/ia">Réglages de l'IA et consommation par personne →</a> (modèle, limites en signes, accès, jetons par modèle).</p>
-      ${tableauTokens(f.tokens)}
-
-      <h3>Corrections IA — barre latérale (30 jours)</h3>
-      <div class="bo-chiffres">
-        ${chiffre(euros(f.ia.coutEuros30j), 'sur 30 jours', `${euros(f.ia.coutEuros7j)} sur 7 jours`)}
-        ${chiffre(euros(f.ia.coutEuros24h), 'dans les 24 h')}
-        ${chiffre(nombre(f.ia.appels30j), 'suggestions', `${nombre(f.ia.appels7j)} sur 7 jours`)}
-        ${chiffre(`${nombre(f.ia.tokensEntree30j)} / ${nombre(f.ia.tokensSortie30j)}`, 'tokens entrée / sortie')}
-      </div>
-      ${
-        f.ia.parPersonne.length
-          ? `<ul class="bo-liste">${f.ia.parPersonne
-              .map(
-                (p) =>
-                  `<li>${esc(p.email)} — <strong>${euros(p.coutEuros)}</strong>, ${nombre(
-                    p.appels
-                  )} appels, ${nombre(p.entree)} / ${nombre(p.sortie)} tokens</li>`
-              )
-              .join('')}</ul>
-             <p class="bo-note">C'est la distribution, pas la moyenne, qui doit fixer le quota de l'offre gratuite.</p>`
-          : '<p class="bo-note">Aucun appel enregistré — le journal démarre à la mise en service du back-office.</p>'
-      }
-      ${
-        f.ia.tarif
-          ? `<p class="bo-note">Addition faite au tarif de <strong>${esc(f.ia.tarif.modele)}</strong> :
-             ${String(f.ia.tarif.entreeEurParMTok).replace('.', ',')}${NBSP}€ en entrée et
-             ${String(f.ia.tarif.sortieEurParMTok).replace('.', ',')}${NBSP}€ en sortie par million de tokens
-             (AI_PRICE_INPUT_EUR / AI_PRICE_OUTPUT_EUR dans le .env — à ajuster en même temps que le modèle,
-             sinon le coût affiché devient faux sans prévenir). Le plafond de dépense réel se règle côté
-             Anthropic, pas ici.</p>`
-          : ''
-      }
-
-      <h3>Emails (30 jours)</h3>
+      <h2>Emails (30 jours)</h2>
       <p class="bo-note ${f.mail.echecs30j ? 'bo-alerte' : ''}">
         ${nombre(f.mail.envois30j)} envois, <strong>${nombre(f.mail.echecs30j)} échecs</strong>${
           Object.keys(f.mail.parType).length
@@ -439,13 +364,51 @@ export async function mountAdmin(root, info) {
 
       <p class="bo-note">Liste d'attente : ${nombre(s.listeAttente.total)} adresse(s)${
         s.listeAttente.dernier ? `, dernière le ${date(s.listeAttente.dernier)}` : ''
-      }.</p>
+      }.</p>`
+}
+
+const RUBRIQUES = {
+  synthese: rubriqueSynthese,
+  utilisateurs: rubriqueUtilisateurs,
+  retours: ({ d }) => sectionRetours(d.flux.support),
+  documents: rubriqueDocuments,
+  systeme: rubriqueSysteme,
+}
+
+// La rubrique affichée dans chaque racine : l'écouteur « Traiter » (un seul
+// par racine) redessine celle-là, pas la synthèse.
+const rubriqueCourante = new WeakMap()
+
+/** Dessine une rubrique du back-office (`synthese` par défaut). La rubrique
+ * IA est dessinée par `mountAdminIa` (adminIa.js). */
+export async function mountAdmin(root, { onglet = 'synthese', info = '' } = {}) {
+  if (!RUBRIQUES[onglet]) onglet = 'synthese'
+  rubriqueCourante.set(root, onglet)
+  root.innerHTML = '<div class="home"><p>Chargement…</p></div>'
+  const vue = await chargerVue()
+  if (vue.statut === 403) {
+    root.innerHTML = '<div class="home"><p>Réservé aux administrateurs.</p><a href="#/">← Retour</a></div>'
+    return
+  }
+  if (!vue.d) {
+    root.innerHTML = '<div class="home"><p>Le back-office n\'a pas répondu.</p><a href="#/">← Retour</a></div>'
+    return
+  }
+  const { d } = vue
+
+  root.innerHTML = `
+    <div class="home backoffice">
+      ${entete(onglet, vue)}
+      <p class="bo-note">Vue au ${new Date(d.genereLe).toLocaleString('fr-FR')}. On n'y lit aucun contenu de document.</p>
+      ${RUBRIQUES[onglet]({ ...vue, info })}
     </div>
   `
 
   // Après un embarquement on redessine tout : la file, les compteurs et la
   // table des utilisateurs ont changé en même temps.
-  brancherEmbarquement(root, ({ email }) => mountAdmin(root, `Document créé, invitation envoyée à ${email}.`))
+  brancherEmbarquement(root, ({ email }) =>
+    mountAdmin(root, { onglet, info: `Document créé, invitation envoyée à ${email}.` })
+  )
 
   // Un seul écouteur sur la racine plutôt qu'un par bouton : la page est
   // rendue d'un bloc par `innerHTML`, et des écouteurs posés sur les
@@ -471,7 +434,7 @@ export async function mountAdmin(root, info) {
       // On relit la page entière : le retour change de table, et les
       // compteurs avec lui. Redessiner à la main ce que le serveur sait
       // calculer serait deux vérités à tenir d'accord.
-      await mountAdmin(root)
+      await mountAdmin(root, { onglet: rubriqueCourante.get(root) })
     } catch {
       bouton.disabled = false
       bouton.textContent = 'Échec — réessayer'

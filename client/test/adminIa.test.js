@@ -24,10 +24,12 @@ function donnees(surcharge = {}) {
   return {
     reglages: {
       corrections: { modele: 'claude-haiku-5-5', signesParDemande: 30000, demandesParHeure: 100, signesParMois: 500000, acces: 'editeur' },
-      margo: { modele: 'claude-sonnet-5-5', signesParDemande: 60000, demandesParHeure: 30, signesParMois: 300000, acces: 'editeur' },
+      margo: { modele: 'claude-sonnet-5-5', signesParDemande: 60000, demandesParHeure: 30, signesParMois: 300000, acces: 'editeur', maniere: 'Tu vouvoies la personne.\nSois brève.' },
       modifieLe: null,
       modifiePar: null,
     },
+    defauts: { margo: { maniere: 'TEXTE PAR DÉFAUT — tu vouvoies.' } },
+    maniereMax: 2000,
     bornes: { signesParDemande: { min: 100, max: 5000000 }, demandesParHeure: { min: 1, max: 100000 }, signesParMois: { min: 1000, max: 1000000000 } },
     modeles: [{ id: 'claude-haiku-5-5', nom: 'Haiku 5.5' }, { id: 'claude-sonnet-5-5', nom: 'Sonnet 5.5' }],
     niveaux: ['admin', 'editeur', 'correcteur'],
@@ -46,10 +48,12 @@ function donnees(surcharge = {}) {
   }
 }
 
-test('la page montre les réglages de chaque fonction et jamais le mot « page »', async () => {
+test('la rubrique IA montre les réglages de chaque fonction et jamais le mot « page »', async () => {
   const racine = installer()
   await mountAdminIa(racine, { fetcher: async () => json(donnees()) })
-  assert.equal(racine.querySelector('h1').textContent, 'Réglages de l’IA')
+  assert.equal(racine.querySelector('h1').textContent, 'Back-office')
+  assert.equal(racine.querySelector('.bo-onglet.actif').textContent.trim(), 'IA')
+  assert.equal(racine.querySelector('h2').textContent, 'Réglages')
   const cartes = [...racine.querySelectorAll('.bo-ia-carte')]
   assert.deepEqual(cartes.map((c) => c.querySelector('legend').textContent), ['Corrections IA', 'Margo'])
   const val = (nom) => racine.querySelector(`[name="${nom}"]`).value
@@ -138,4 +142,67 @@ test('changer de mois relit la consommation de ce mois ; un non-administrateur e
   const interdit = installer()
   await mountAdminIa(interdit, { fetcher: async () => json({ error: 'réservé aux administrateurs' }, 403) })
   assert.match(interdit.textContent, /Réservé aux administrateurs/)
+})
+
+test('la manière de répondre : un texte libre sur la carte de Margo seulement, avec compteur et retour au texte par défaut', async () => {
+  const racine = installer()
+  await mountAdminIa(racine, { fetcher: async () => json(donnees()) })
+  assert.ok(!racine.querySelector('[name="corrections.maniere"]'), 'Corrections IA n’en a pas')
+  const champ = racine.querySelector('textarea[name="margo.maniere"]')
+  assert.equal(champ.value, 'Tu vouvoies la personne.\nSois brève.')
+  assert.equal(champ.maxLength, 2000)
+  assert.equal(racine.querySelector('[data-maniere-compteur]').textContent, String('Tu vouvoies la personne.\nSois brève.'.length))
+  champ.value = 'abc'
+  champ.dispatchEvent(new window.Event('input', { bubbles: true }))
+  assert.equal(racine.querySelector('[data-maniere-compteur]').textContent, '3')
+  racine.querySelector('[data-maniere-defaut]').click()
+  assert.equal(champ.value, 'TEXTE PAR DÉFAUT — tu vouvoies.')
+  assert.match(racine.querySelector('.bo-ia-message').textContent, /enregistrez/)
+  assert.match(racine.textContent, /ses outils.*ne se règlent pas ici/i)
+})
+
+test('enregistrer envoie la manière de répondre de Margo, et elle seule', async () => {
+  const racine = installer()
+  const appels = []
+  const fetcher = async (url, options = {}) => {
+    appels.push({ methode: options.method || 'GET', corps: options.body ? JSON.parse(options.body) : null })
+    return json(donnees())
+  }
+  await mountAdminIa(racine, { fetcher })
+  racine.querySelector('[name="margo.maniere"]').value = 'Réponds par oui ou par non.'
+  racine.querySelector('.bo-ia-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }))
+  await attendre(40)
+  const put = appels.find((a) => a.methode === 'PUT')
+  assert.equal(put.corps.margo.maniere, 'Réponds par oui ou par non.')
+  assert.ok(!('maniere' in put.corps.corrections))
+})
+
+test('la rubrique IA réunit aussi l’activité récente de la vue d’ensemble, et fonctionne sans elle', async () => {
+  const racine = installer()
+  const periode = (n) => ({ appels: n, entree: n * 10, sortie: n, cacheLu: 0, cacheEcrit: 0 })
+  const fenetre = { '24h': periode(1), '7j': periode(2), '30j': periode(3), parModele: [], parPersonne: [] }
+  const apercu = {
+    genereLe: Date.UTC(2026, 9, 14, 8),
+    flux: {
+      tokens: { barreLaterale: { '24h': periode(4), '7j': periode(5), '30j': periode(6) }, fenetre },
+      ia: { coutEuros30j: 1.5, coutEuros7j: 0.5, coutEuros24h: 0.1, appels30j: 6, appels7j: 5, tokensEntree30j: 60, tokensSortie30j: 6, parPersonne: [], tarif: null },
+      support: { aTraiter: [{ cle: 'a' }, { cle: 'b' }], traites: [] },
+    },
+  }
+  const fetcher = async (url) => (String(url) === '/api/admin/overview' ? json(apercu) : String(url) === '/api/admin/waitlist' ? json({ enAttente: 3, file: [] }) : json(donnees()))
+  await mountAdminIa(racine, { fetcher })
+  const h2 = [...racine.querySelectorAll('h2')].map((h) => h.textContent)
+  assert.deepEqual(h2, ['Réglages', 'Consommation de octobre 2026', 'Boutons de Corrections IA', 'Jetons par modèle', 'Activité récente'])
+  assert.match(racine.textContent, /Consommation de l'IA en tokens/)
+  assert.match(racine.textContent, /Corrections IA — barre latérale \(30 jours\)/)
+  assert.match(racine.textContent.replace(/\s/g, ' '), /1,50 €/)
+  // Les pastilles des onglets viennent de la même vue.
+  assert.equal(racine.querySelector('a[href="#/admin/utilisateurs"] .bo-onglet-badge').textContent, '3')
+  assert.equal(racine.querySelector('a[href="#/admin/retours"] .bo-onglet-badge').textContent, '2')
+
+  // La vue en panne : les réglages restent là, sans l’activité récente.
+  const seule = installer()
+  await mountAdminIa(seule, { fetcher: async (url) => (String(url).startsWith('/api/admin/ia') ? json(donnees()) : json({}, 500)) })
+  assert.ok(seule.querySelector('.bo-ia-form'))
+  assert.ok(!/Activité récente/.test(seule.textContent))
 })

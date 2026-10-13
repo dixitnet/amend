@@ -10,7 +10,7 @@ import { courrierAvecBouton, sendMail } from '../mailgun.js'
 import { TITRE_BIENVENUE, ecrireModele } from '../modeleBienvenue.js'
 import { cleDuRetour } from '../supportTraites.js'
 import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
-import { BORNES, DEFAUTS, FONCTIONS, MODELES, NIVEAUX, NOMS_FONCTION } from '../reglagesIa.js'
+import { BORNES, DEFAUTS, FONCTIONS, MANIERE_MAX, MODELES, NIVEAUX, NOMS_FONCTION } from '../reglagesIa.js'
 import { TARIFS_USD, moisDe } from '../usageIa.js'
 
 /** Le mode d'emploi glissé dans l'archive. Une sauvegarde qu'on retrouve
@@ -125,6 +125,7 @@ export async function routesAdmin(req, res, url, ctx) {
       reglages: reglagesIa.tous(),
       defauts: DEFAUTS,
       bornes: BORNES,
+      maniereMax: MANIERE_MAX,
       modeles: MODELES,
       niveaux: NIVEAUX,
       fonctions: FONCTIONS.map((id) => ({ id, nom: NOMS_FONCTION[id] })),
@@ -133,6 +134,7 @@ export async function routesAdmin(req, res, url, ctx) {
       utilisateurs,
       jetonsParModele: detail.modeles,
       tarifsUsd: TARIFS_USD,
+      boutons: usageIa.boutons(),
     })
   }
 

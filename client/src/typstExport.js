@@ -167,7 +167,10 @@ function listeTypst(node, fonction) {
     }
     items.push(`[${corps}]`)
   })
-  return `#${fonction}(${items.join(', ')})\n\n`
+  // Le tiret à tous les niveaux, comme à l'écran (Typst prend sinon •, ‣, –
+  // selon le niveau).
+  const marque = fonction === 'list' ? 'marker: [–], ' : ''
+  return `#${fonction}(${marque}${items.join(', ')})\n\n`
 }
 
 function tableauTypst(node) {

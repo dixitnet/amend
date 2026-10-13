@@ -238,9 +238,13 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
     )
   }
   assert.ok(
-    !titres('texte').some((x) => /note|tableau|citation|sommaire|table des matières/i.test(x)),
+    !titres('texte').some((x) => /note|tableau|sommaire|table des matières/i.test(x)),
     'rien d’insertion dans la mise en forme'
   )
+  // La citation est un style : un bouton juste après gras, italique, souligné, barré — plus dans « Insérer ▾ ».
+  const boutonsTexte = [...zone('texte').querySelectorAll('button')]
+  const iBarre = boutonsTexte.findIndex((b) => b.textContent === 'S')
+  assert.ok(/^Citation/.test(boutonsTexte[iBarre + 1].title), 'la citation suit le barré')
   // Insertion : le lien à part, le reste dans « Insérer ▾ ».
   assert.ok(zone('inserer').querySelector('button[title^="Ajouter ou modifier un lien"]'), 'le lien')
   const menuIns = zone('inserer').querySelector('.menu-insertion')
@@ -248,7 +252,7 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   assert.equal(menuIns.querySelector('.menu-flottant-bouton').textContent, 'Insérer ▾')
   assert.deepEqual(
     [...menuIns.querySelectorAll('.menu-flottant-liste button')].map((b) => b.textContent),
-    ['Note de bas de page', 'Citation', 'Ligne de séparation', 'Saut de page', 'Table des matières', 'Tableau 3 × 3']
+    ['Note de bas de page', 'Ligne de séparation', 'Saut de page', 'Table des matières', 'Tableau 3 × 3']
   )
   // Les commandes de structure d'un tableau : une rangée à part, cachée hors tableau.
   const rangeeTableau = racine.querySelector('.table-group')
