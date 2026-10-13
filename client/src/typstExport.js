@@ -233,8 +233,10 @@ function blocTypst(node) {
 `
     }
     case 'horizontal_rule':
-      // Dans amend.ink la ligne horizontale EST un saut de page (voir schema.js).
+      // Le nœud `horizontal_rule` EST le saut de page (voir schema.js).
       return '#pagebreak(weak: true)\n\n'
+    case 'ligne_separation':
+      return '#v(0.6em)\n#line(length: 100%, stroke: 0.5pt + luma(150))\n#v(0.6em)\n\n'
     case 'table_of_contents': {
       // `title: none` : le bloc ne s'intitule pas lui-même — si l'auteur
       // veut « Sommaire » au-dessus, il l'écrit, comme n'importe quel

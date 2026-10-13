@@ -131,16 +131,25 @@ export function commandeTableau(getView, commande) {
   }
 }
 
-/** Pose une ligne horizontale (un saut de page à l'export PDF). */
-export function insererLigneHorizontale(view) {
+/** Pose un saut de page (le nœud `horizontal_rule` : voir schema.js). */
+export function insererSautDePage(view) {
+  insererBlocAtomique(view, 'horizontal_rule')
+}
+
+/** Pose une ligne de séparation (un simple trait, jamais un saut de page). */
+export function insererLigne(view) {
+  insererBlocAtomique(view, 'ligne_separation')
+}
+
+function insererBlocAtomique(view, nom) {
   // replaceSelectionWith se charge de trouver un point d'insertion valide
   // (ex. couper le paragraphe en deux si le curseur est au milieu d'un
   // texte) — même mécanisme que le menu "Horizontal rule" standard de
   // prosemirror-example-setup.
-  const tr = view.state.tr.replaceSelectionWith(schema.nodes.horizontal_rule.create())
+  const tr = view.state.tr.replaceSelectionWith(schema.nodes[nom].create())
   const after = tr.selection.to
   if (!tr.doc.resolve(after).nodeAfter) {
-    // La ligne se retrouve en toute fin de document : sans paragraphe
+    // Le bloc se retrouve en toute fin de document : sans paragraphe
     // après elle, la prochaine frappe devrait d'abord créer ce
     // paragraphe elle-même — une édition structurelle, donc non suivie
     // par trackChanges.js (voir la note dans schema.js), ce qui ferait

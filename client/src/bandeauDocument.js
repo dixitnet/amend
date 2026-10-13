@@ -152,7 +152,13 @@ export function creerInterrupteurSuivi() {
   const trackToggle = document.createElement('input')
   trackToggle.type = 'checkbox'
   trackToggle.checked = true
-  trackToggleLabel.append(trackToggle, document.createTextNode(' Suivi des modifications'))
+  // « Suivi » reste, « des modifications » s'efface quand la barre manque de
+  // place (style.css, requête de conteneur) : la pastille ne doit pas faire
+  // passer le reste de la barre à la ligne quand des changements apparaissent.
+  const reste = document.createElement('span')
+  reste.className = 'suivi-reste'
+  reste.textContent = ' des modifications'
+  trackToggleLabel.append(trackToggle, document.createTextNode(' Suivi'), reste)
   return { trackToggleLabel, trackToggle }
 }
 

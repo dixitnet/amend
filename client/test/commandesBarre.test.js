@@ -6,6 +6,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EditorState, TextSelection } from 'prosemirror-state'
 import { deleteTable, deleteRow, addRowAfter } from 'prosemirror-tables'
+import { DOMParser } from 'prosemirror-model'
+import { JSDOM } from 'jsdom'
 import { schema } from '../src/schema.js'
 import {
   hasAncestorOfType,
@@ -18,11 +20,16 @@ import {
   appliquerStyleDeBloc,
   insererTableau,
   commandeTableau,
-  insererLigneHorizontale,
+  insererLigne,
+  insererSautDePage,
 } from '../src/commandesBarre.js'
 
 const para = (...contenu) =>
-  schema.node('paragraph', null, contenu.filter((c) => c !== '').map((c) => (typeof c === 'string' ? schema.text(c) : c)))
+  schema.node(
+    'paragraph',
+    null,
+    contenu.filter((c) => c !== '').map((c) => (typeof c === 'string' ? schema.text(c) : c))
+  )
 const titre = (niveau, texte) => schema.node('heading', { level: niveau }, [schema.text(texte)])
 const docDe = (...blocs) => schema.node('doc', null, blocs)
 
@@ -123,7 +130,11 @@ test('insererTableau pose un tableau 3 × 3, hors suivi, et rend le focus', () =
   assert.ok(tableau, 'un tableau dans le document')
   assert.equal(tableau.childCount, 3, 'trois lignes')
   assert.equal(tableau.child(0).childCount, 3, 'trois colonnes')
-  assert.equal(v.transactions.at(-1).getMeta('trackChangesInternal'), true, 'une structure : jamais réécrite par le suivi')
+  assert.equal(
+    v.transactions.at(-1).getMeta('trackChangesInternal'),
+    true,
+    'une structure : jamais réécrite par le suivi'
+  )
   assert.equal(v.focus.appels, 1)
 })
 
@@ -153,19 +164,41 @@ test('commandeTableau : les opérations de structure passent hors suivi, la vue 
   assert.equal(table(), undefined, 'tableau supprimé')
 })
 
-// ===================================================== ligne horizontale
+// ================================================ saut de page et ligne
 
-test('une ligne posée au milieu du texte ne crée pas de paragraphe en plus', () => {
+test('un saut de page posé au milieu du texte ne crée pas de paragraphe en plus', () => {
   const v = vue(docDe(para('Bonjour'), para('monde')), { debut: 4 })
-  insererLigneHorizontale(v)
+  insererSautDePage(v)
   assert.ok(v.state.doc.content.content.some((n) => n.type.name === 'horizontal_rule'))
+  assert.ok(!v.state.doc.content.content.some((n) => n.type.name === 'ligne_separation'))
   assert.equal(v.focus.appels, 1)
   assert.notEqual(v.state.doc.lastChild.type.name, 'horizontal_rule')
 })
 
-test('une ligne posée en toute fin de document est suivie d’un paragraphe vide, curseur dedans', () => {
+test('une ligne de séparation est un autre bloc que le saut de page', () => {
+  const v = vue(docDe(para('Bonjour'), para('monde')), { debut: 4 })
+  insererLigne(v)
+  assert.ok(v.state.doc.content.content.some((n) => n.type.name === 'ligne_separation'))
+  assert.ok(!v.state.doc.content.content.some((n) => n.type.name === 'horizontal_rule'))
+})
+
+test('un <hr> du presse-papiers devient une ligne ; seul le nôtre est un saut de page', () => {
+  const analyser = (html) => {
+    const dom = new JSDOM(html).window.document.body
+    return DOMParser.fromSchema(schema).parse(dom)
+  }
+  const noms = (doc) => doc.content.content.map((n) => n.type.name)
+  assert.deepEqual(noms(analyser('<p>a</p><hr><p>b</p>')), ['paragraph', 'ligne_separation', 'paragraph'])
+  assert.deepEqual(noms(analyser('<p>a</p><hr data-saut-de-page><p>b</p>')), [
+    'paragraph',
+    'horizontal_rule',
+    'paragraph',
+  ])
+})
+
+test('un saut de page posé en toute fin de document est suivi d’un paragraphe vide, curseur dedans', () => {
   const v = vue(docDe(para('Bonjour')), { debut: 8 })
-  insererLigneHorizontale(v)
+  insererSautDePage(v)
   assert.equal(forme(v.state.doc).endsWith('horizontal_rule paragraph'), true, forme(v.state.doc))
   const { $from } = v.state.selection
   assert.equal($from.parent.type.name, 'paragraph')

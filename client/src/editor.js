@@ -1,7 +1,7 @@
 import { monterMasqueChargement } from './masqueChargement.js'
 import { monterReglagesAffichage } from './reglagesAffichage.js'
 import * as Y from 'yjs'
-import { ySyncPlugin, yCursorPlugin, yUndoPlugin } from 'y-prosemirror'
+import { ySyncPlugin, yCursorPlugin, yUndoPlugin, undo, redo } from 'y-prosemirror'
 import { EditorState, Plugin } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { keymap } from 'prosemirror-keymap'
@@ -77,7 +77,8 @@ import {
   appliquerStyleDeBloc,
   insererTableau,
   commandeTableau,
-  insererLigneHorizontale,
+  insererLigne,
+  insererSautDePage,
 } from './commandesBarre.js'
 
 function buildCursor(user) {
@@ -176,7 +177,7 @@ export function mountEditor(root, docId, user, docMeta) {
   // --- Zone droite : ce que je fais au document ----------------------------
 
   // 1. Travailler le texte : les compteurs. L'interrupteur du suivi, lui, prend
-  // la tête de la colonne de droite (voir `suiviEntete`).
+  // la tête de la zone « Révision » de la barre d'outils (`placerLeSuivi`).
   const { trackToggleLabel, trackToggle } = creerInterrupteurSuivi()
   const { groupeTexte, tkCount, modifsCount, commentsCount, wordCount } = monterCompteursBandeau({
     avecModifications: !!(peutProposer || cap.canReviewChanges),
@@ -246,6 +247,8 @@ export function mountEditor(root, docId, user, docMeta) {
     onglets,
     tableGroup,
     boutons: {
+      undoBtn,
+      redoBtn,
       boldBtn,
       italicBtn,
       underlineBtn,
@@ -254,7 +257,8 @@ export function mountEditor(root, docId, user, docMeta) {
       orderedListBtn,
       taskListBtn,
       quoteBtn,
-      hrBtn,
+      ligneBtn,
+      sautBtn,
       tocBtn,
       noteBtn,
       lienBtn,
@@ -265,7 +269,7 @@ export function mountEditor(root, docId, user, docMeta) {
       colDelBtn,
       tableDelBtn,
     },
-  } = creerBarreOutils({ cap })
+  } = creerBarreOutils({ cap, menuDeroulant })
 
   // La relecture au doigt : un parcours, pas une liste (20/09/2026). La
   // liste des modifications reste dans la colonne de droite, qui n'existe
@@ -326,7 +330,14 @@ export function mountEditor(root, docId, user, docMeta) {
   // à tout agrandir : la colonne se mesure en `ch` et les images en
   // pourcentage de la colonne, elles suivent donc le corps.
   const { zoomSelect, numerosBtn } = monterReglagesAffichage(editorContainer, mkButton)
-  groupeTexte2.append(numerosBtn, zoomSelect)
+  // L'affichage (13/10/2026) : une zone à part, tout à droite de la barre.
+  // Elle vit dans le groupe « Relire » : sur téléphone le zoom part dans le
+  // menu ⋯ (iphone.js) et les numéros de bloc — le repère pour dire « relis
+  // le bloc 42 » — restent dans l'onglet de la relecture.
+  const zoneAffichage = document.createElement('span')
+  zoneAffichage.className = 'zone-affichage'
+  zoneAffichage.append(numerosBtn, zoomSelect)
+  groupeRelire.appendChild(zoneAffichage)
 
   const { sidebar, suiviEntete, aiSection, changesSection, commentsSection } = creerColonneDroite(trackToggleLabel)
 
@@ -342,7 +353,12 @@ export function mountEditor(root, docId, user, docMeta) {
     // Sur téléphone, l'interrupteur vit dans le menu ⋯ (iphone.js) et c'est
     // ce menu qui va le chercher : on ne le place ici que pour l'ordinateur
     // et la tablette, où il tient la tête de la colonne de droite.
-    if (!petitEcranMedia.matches) suiviEntete.appendChild(trackToggleLabel)
+    // Depuis le 13/10/2026 il tient la tête de la zone « Révision » de la
+    // barre d'outils : la colonne de droite perd son en-tête.
+    if (!petitEcranMedia.matches) {
+      groupeRelire.prepend(trackToggleLabel)
+      suiviEntete.hidden = true
+    }
   }
   placerLeSuivi()
 
@@ -562,6 +578,7 @@ export function mountEditor(root, docId, user, docMeta) {
     const actif = isCorrecteur ? true : isTrackChangesEnabled(view.state)
     trackToggle.checked = actif
     suiviEntete.classList.toggle('actif', actif)
+    trackToggleLabel.classList.toggle('actif', actif)
   }
 
   // Le menu de style reflète ce qui est sous le curseur (15/09/2026) — il
@@ -591,6 +608,16 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   syncToolbar()
 
+  // Annuler / rétablir : l'historique propre à cette personne (y-prosemirror
+  // ne défait que ses gestes), le même que Ctrl-Z / Ctrl-Y.
+  undoBtn.onclick = () => {
+    undo(view.state)
+    view.focus()
+  }
+  redoBtn.onclick = () => {
+    redo(view.state)
+    view.focus()
+  }
   boldBtn.onclick = () => basculerMarque(view, 'strong')
   italicBtn.onclick = () => basculerMarque(view, 'em')
   underlineBtn.onclick = () => basculerMarque(view, 'underline')
@@ -609,7 +636,8 @@ export function mountEditor(root, docId, user, docMeta) {
     insererTable(view.state, view.dispatch)
     view.focus()
   }
-  hrBtn.onclick = () => insererLigneHorizontale(view)
+  ligneBtn.onclick = () => insererLigne(view)
+  sautBtn.onclick = () => insererSautDePage(view)
   headingSelect.onchange = () => {
     if (appliquerStyleDeBloc(view, headingSelect.value) === 'note') {
       // Un titre ne porte pas de note (schema.js) : on le dit plutôt que

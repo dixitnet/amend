@@ -45,6 +45,7 @@ import {
   ExternalHyperlink,
   convertMillimetersToTwip,
   PageOrientation,
+  BorderStyle,
 } from 'docx'
 import { numerosDesNotes } from './notes.js'
 import { adresseAutorisee } from '../../shared/liens.js'
@@ -435,6 +436,16 @@ function blockToParagraphs(node, style, images) {
       // Saut de page — même rôle qu'à l'export PDF (voir typstExport.js) :
       // ce nœud ne dessine jamais de trait, juste un saut de page.
       return [new Paragraph({ pageBreakBefore: true, children: [] })]
+    case 'ligne_separation':
+      // Un trait : la bordure basse d'un paragraphe vide (Word n'a pas de
+      // « règle horizontale » à proprement parler).
+      return [
+        new Paragraph({
+          children: [],
+          spacing: { before: 120, after: 120 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 6, space: 1, color: '999999' } },
+        }),
+      ]
     default:
       return []
   }

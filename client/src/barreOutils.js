@@ -1,6 +1,16 @@
 // La barre de mise en forme : ses boutons, ses trois groupes et ses onglets
 // (point 23 de la feuille de route, 13/10/2026 : sortie de `mountEditor`).
 //
+// Réorganisée le 13/10/2026 sur le modèle de Google Docs et de Word, en trois
+// zones que des filets séparent : **la mise en forme** (annuler, style,
+// B I U S, listes), **l'insertion** (le lien, et un menu « Insérer ▾ » qui
+// porte tout le reste), **la révision** (le suivi, le commentaire, le
+// parcours des modifications) avec, tout à droite, **l'affichage** (numéros
+// de bloc, zoom). Les boutons d'un tableau ne vivent plus en permanence dans
+// la barre : ils forment une rangée qui n'apparaît que dans un tableau.
+// Sur téléphone, rien de cela n'existe : les mêmes boutons sont aplatis dans
+// les trois onglets (Format, Insérer, Relire), voir style.css.
+//
 // Ce module **construit** la barre, il ne la câble pas : les gestes sont dans
 // commandesBarre.js, et `editor.js` assigne les `onclick` une fois la vue
 // construite. La relecture au doigt et le bouton « Commentaire » (qui ont
@@ -19,8 +29,9 @@ export function mkButton(label, title) {
 /**
  * @param {object} options
  * @param {object} options.cap  les capacités de la personne sur ce document
+ * @param {Function} options.menuDeroulant  la fabrique de menus du bandeau (`creerFabriqueMenus`)
  */
-export function creerBarreOutils({ cap }) {
+export function creerBarreOutils({ cap, menuDeroulant }) {
   // Formatting palette only — stays in the middle (text) column, above the
   // scrolling editor-container (so it never scrolls away), rather than
   // spanning the full page width like the banner above.
@@ -55,8 +66,20 @@ export function creerBarreOutils({ cap }) {
   groupeRelire.className = 'barre-groupe'
   groupeRelire.dataset.groupe = 'relire'
 
-  groupeTexte2.appendChild(headingSelect)
+  // Un filet entre deux ensembles de boutons d'une même zone. Absent du
+  // téléphone, où chaque groupe est un onglet à lui seul.
+  const filet = () => {
+    const f = document.createElement('span')
+    f.className = 'barre-filet'
+    f.setAttribute('aria-hidden', 'true')
+    return f
+  }
 
+  // --- Mise en forme -------------------------------------------------------
+  // Annuler et rétablir (13/10/2026) : les raccourcis existaient, pas les
+  // boutons — c'est le premier geste qu'on cherche dans Docs ou Word.
+  const undoBtn = mkButton('↶', 'Annuler (Ctrl/⌘+Z)')
+  const redoBtn = mkButton('↷', 'Rétablir (Ctrl/⌘+Y)')
   const boldBtn = mkButton('B', 'gras (Ctrl-B)')
   const italicBtn = mkButton('I', 'italique (Ctrl-I)')
   const underlineBtn = mkButton('U', 'souligné (Ctrl-U)')
@@ -66,30 +89,60 @@ export function creerBarreOutils({ cap }) {
   const listBtn = mkButton('–', 'liste à tirets')
   const orderedListBtn = mkButton('1.', 'liste numérotée')
   const taskListBtn = mkButton('☑', 'liste à cocher')
-  const quoteBtn = mkButton('”', 'citation')
-  const hrBtn = mkButton('—', 'Insérer une ligne (devient un saut de page à l’export PDF)')
-  // La table des matières se pose dans le texte, là où le curseur est :
-  // c'est ce qui la distingue d'une option de mise en page (20/09/2026).
-  const tocBtn = mkButton('Sommaire', 'Insérer une table des matières ici')
-  tocBtn.classList.add('btn-texte')
-  // Une note (28/09/2026) : ouverte à qui peut écrire, correcteur compris —
-  // en suivi, elle naît proposée.
-  const noteBtn = mkButton('Note', 'Insérer une note ici (Ctrl/⌘+Alt+F)')
-  noteBtn.classList.add('btn-texte')
-  groupeTexte2.append(boldBtn, italicBtn, underlineBtn, strikeBtn, listBtn, orderedListBtn, taskListBtn)
-  // Un lien (30/09/2026) : réservé à qui écrit librement, voir liens.js.
+  groupeTexte2.append(
+    undoBtn,
+    redoBtn,
+    filet(),
+    headingSelect,
+    filet(),
+    boldBtn,
+    italicBtn,
+    underlineBtn,
+    strikeBtn,
+    filet(),
+    listBtn,
+    orderedListBtn,
+    taskListBtn
+  )
+
+  // --- Insertion -----------------------------------------------------------
+  // Le lien reste un bouton à part (30/09/2026, réservé à qui écrit
+  // librement, voir liens.js) : c'est le plus fréquent. Tout le reste est dans
+  // « Insérer ▾ », où chaque entrée dit ce qu'elle fait en toutes lettres.
   const lienBtn = mkButton('Lien', 'Ajouter ou modifier un lien (Ctrl/⌘+K)')
   lienBtn.classList.add('btn-texte')
   if (!cap.canEditFreely) lienBtn.hidden = true
-  groupeInserer.append(quoteBtn, hrBtn, lienBtn, noteBtn, tocBtn)
+  const noteBtn = mkButton('Note de bas de page', 'Insérer une note ici (Ctrl/⌘+Alt+F)')
+  const quoteBtn = mkButton('Citation', 'Mettre le paragraphe en citation')
+  const ligneBtn = mkButton('Ligne de séparation', 'Insérer un trait horizontal')
+  const sautBtn = mkButton('Saut de page', 'Insérer un saut de page (PDF et Word)')
+  // La table des matières se pose dans le texte, là où le curseur est :
+  // c'est ce qui la distingue d'une option de mise en page (20/09/2026).
+  const tocBtn = mkButton('Table des matières', 'Insérer une table des matières ici')
+  const tableBtn = mkButton('Tableau 3 × 3', 'insérer un tableau de 3 lignes sur 3 colonnes')
+  for (const b of [noteBtn, quoteBtn, ligneBtn, sautBtn, tocBtn, tableBtn])
+    b.classList.add('btn-texte', 'btn-insertion')
+  const menuInsertion = menuDeroulant('Insérer ▾', {
+    classe: 'menu-insertion',
+    titre: 'Insérer une note, une citation, un tableau…',
+  })
+  // Une liste qui s'ouvre vers la droite : le menu est dans la barre, pas
+  // au bord du bandeau.
+  menuInsertion.liste.classList.remove('menu-flottant-droite')
+  menuInsertion.liste.classList.add('menu-insertion-liste')
+  menuInsertion.liste.append(noteBtn, quoteBtn, ligneBtn, sautBtn, tocBtn, tableBtn)
+  // Choisir une entrée referme le menu.
+  menuInsertion.liste.addEventListener('click', (e) => {
+    if (e.target.closest('button')) menuInsertion.fermer()
+  })
+  groupeInserer.append(lienBtn, menuInsertion.el)
 
-  // Groupe tableau : le bouton d'insertion est toujours là, les commandes de
-  // structure n'apparaissent que lorsque le curseur est dans un tableau
-  // (voir syncTableButtons plus bas). Tout ce groupe est réservé aux
-  // éditeurs — voir claude/etude-tableaux-images.md : supprimer une ligne
-  // fait disparaître son contenu sans laisser de trace dans le suivi des
-  // modifications, ce qu'on ne confie pas à un correcteur.
-  const tableBtn = mkButton('Tableau', 'insérer un tableau de 3 lignes sur 3 colonnes')
+  // --- Tableau (rangée contextuelle) ---------------------------------------
+  // Les commandes de structure n'apparaissent que lorsque le curseur est dans
+  // un tableau (voir syncTableButtons dans editor.js). Tout ce groupe est
+  // réservé aux éditeurs — voir claude/etude-tableaux-images.md : supprimer
+  // une ligne fait disparaître son contenu sans laisser de trace dans le
+  // suivi des modifications, ce qu'on ne confie pas à un correcteur.
   const rowAddBtn = mkButton('Ligne +', 'ajouter une ligne sous celle du curseur')
   const rowDelBtn = mkButton('Ligne −', 'supprimer la ligne du curseur')
   const colAddBtn = mkButton('Col. +', 'ajouter une colonne à droite de celle du curseur')
@@ -97,20 +150,23 @@ export function creerBarreOutils({ cap }) {
   const tableDelBtn = mkButton('Suppr. tableau', 'supprimer tout le tableau')
   // `.btn-tool` est un carré de 30 px, pensé pour B/I/U : les boutons de
   // tableau portent des mots, ils ont donc besoin de la variante texte.
-  for (const b of [tableBtn, rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn]) {
+  for (const b of [rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn]) {
     b.classList.add('btn-texte')
   }
   const tableGroup = document.createElement('span')
   tableGroup.className = 'table-group'
-  tableGroup.append(rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn)
-  groupeInserer.append(tableBtn, tableGroup)
+  const tableEtiquette = document.createElement('span')
+  tableEtiquette.className = 'table-group-etiquette'
+  tableEtiquette.textContent = 'Tableau'
+  tableGroup.append(tableEtiquette, rowAddBtn, rowDelBtn, colAddBtn, colDelBtn, tableDelBtn)
+  groupeInserer.append(tableGroup)
 
   // Les onglets : une rangée d'étiquettes qui n'apparaît qu'en bas d'écran.
   const onglets = document.createElement('div')
   onglets.className = 'barre-onglets'
   const boutonsOnglet = {}
   for (const [cle, libelle] of [
-    ['texte', 'Texte'],
+    ['texte', 'Format'],
     ['inserer', 'Insérer'],
     ['relire', 'Relire'],
   ]) {
@@ -135,7 +191,10 @@ export function creerBarreOutils({ cap }) {
     groupeInserer,
     groupeRelire,
     onglets,
+    menuInsertion,
     boutons: {
+      undoBtn,
+      redoBtn,
       boldBtn,
       italicBtn,
       underlineBtn,
@@ -144,7 +203,8 @@ export function creerBarreOutils({ cap }) {
       orderedListBtn,
       taskListBtn,
       quoteBtn,
-      hrBtn,
+      ligneBtn,
+      sautBtn,
       tocBtn,
       noteBtn,
       lienBtn,

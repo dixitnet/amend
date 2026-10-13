@@ -190,8 +190,11 @@ function blockToLines(node, doc) {
       return tableDesMatieresMarkdown(node, doc)
     case 'horizontal_rule':
       // Le Markdown n'a pas de notion de saut de page (voir typstExport.js
-      // pour ce que devient ce même nœud à l'export PDF) — la ligne
-      // horizontale standard reste la meilleure équivalence ici.
+      // pour ce que devient ce même nœud à l'export PDF) : un commentaire
+      // HTML garde la trace de l'endroit sans dessiner de trait, que
+      // `ligne_separation` (ci-dessous) est seule à porter.
+      return ['<!-- saut de page -->', '']
+    case 'ligne_separation':
       return ['---', '']
     default:
       return ['']

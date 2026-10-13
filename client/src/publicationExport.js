@@ -109,9 +109,10 @@ function bloc(node) {
       const img = imageDe(node)
       return img ? { type: 'image', nom: img.nom, alt: img.alt } : null
     }
+    // Dans l'éditeur, `horizontal_rule` est un saut de page (schema.js). Sur
+    // une page web, il n'y a pas de page : c'est une séparation, comme la ligne.
     case 'horizontal_rule':
-      // Dans l'éditeur, la ligne horizontale est un saut de page (schema.js).
-      // Sur une page web, il n'y a pas de page : c'est une séparation.
+    case 'ligne_separation':
       return { type: 'separation' }
     default:
       return null

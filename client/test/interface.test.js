@@ -171,7 +171,15 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
     racine,
     'abcdefgh1234',
     { name: 'Moi', color: '#e07a5f' },
-    { title: 'Essai', myRole: 'editeur', myCapabilities: ROLES.editeur, myName: 'Moi', myColor: '#e07a5f', jeSuisProprietaire: true, owner: 'moi@example.com' }
+    {
+      title: 'Essai',
+      myRole: 'editeur',
+      myCapabilities: ROLES.editeur,
+      myName: 'Moi',
+      myColor: '#e07a5f',
+      jeSuisProprietaire: true,
+      owner: 'moi@example.com',
+    }
   )
   await respirer()
 
@@ -186,11 +194,18 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   // L'aide n'est plus dans le bandeau : elle est dans le bouton « Aide / avis ».
   assert.ok(!racine.querySelector('.banniere-droite a.aide-link'), 'pas de bouton Aide dans le bandeau')
   assert.ok(![...racine.querySelectorAll('.banniere-droite a')].some((a) => a.textContent === 'Aide'))
-  // L'interrupteur du suivi est en tête de la colonne de droite, hors du
-  // corps qui défile (19/09) : c'est ce qui le rend toujours visible.
-  const suivi = racine.querySelector('.sidebar > .suivi-entete > .track-toggle')
-  assert.ok(suivi, 'l’interrupteur du suivi, en tête de colonne et hors défilement')
+  // L'interrupteur du suivi tient la tête de la zone « Révision » de la barre
+  // d'outils (13/10/2026) ; la colonne de droite n'a plus d'en-tête.
+  const suivi = racine.querySelector('.format-toolbar .barre-groupe[data-groupe="relire"] > .track-toggle')
+  assert.ok(suivi, 'l’interrupteur du suivi, en tête de la zone Révision')
+  assert.equal(
+    suivi,
+    racine.querySelector('.barre-groupe[data-groupe="relire"]').firstElementChild,
+    'le premier de la zone'
+  )
   assert.match(suivi.textContent, /Suivi des modifications/)
+  assert.ok(racine.querySelector('.sidebar > .suivi-entete').hidden, 'la colonne de droite perd son en-tête')
+  assert.equal(racine.querySelectorAll('.track-toggle').length, 1, 'un seul interrupteur')
   assert.ok(racine.querySelector('.sidebar > .sidebar-corps > .ai-section'), 'le corps qui défile')
   assert.ok(racine.querySelector('.ProseMirror'), 'la zone d’édition')
 
@@ -199,12 +214,56 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   // des onglets. Les trois doivent exister, et le bouton Plan avec eux —
   // c'est la seule porte vers le plan quand sa colonne disparaît.
   for (const groupe of ['texte', 'inserer', 'relire']) {
-    assert.ok(
-      racine.querySelector(`.format-toolbar .barre-groupe[data-groupe="${groupe}"]`),
-      `le groupe ${groupe}`
-    )
+    assert.ok(racine.querySelector(`.format-toolbar .barre-groupe[data-groupe="${groupe}"]`), `le groupe ${groupe}`)
   }
   assert.equal(racine.querySelectorAll('.barre-onglet').length, 3, 'trois onglets')
+  assert.deepEqual(
+    [...racine.querySelectorAll('.barre-onglet')].map((b) => b.textContent),
+    ['Format', 'Insérer', 'Relire']
+  )
+
+  // Les trois zones de la barre (13/10/2026), dans l'ordre de Docs et de Word.
+  const zone = (g) => racine.querySelector(`.format-toolbar .barre-groupe[data-groupe="${g}"]`)
+  const titres = (g) => [...zone(g).querySelectorAll('button')].map((b) => b.title)
+  // Mise en forme : annuler et rétablir d'abord, puis le style, B I U S, les listes.
+  const forme = [...zone('texte').children]
+  assert.match(forme[0].title, /^Annuler/)
+  assert.match(forme[1].title, /^Rétablir/)
+  assert.ok(zone('texte').querySelector('select.heading-select'), 'le style de paragraphe')
+  assert.ok(zone('texte').querySelectorAll('.barre-filet').length >= 3, 'des filets entre les ensembles')
+  for (const t of ['gras', 'italique', 'souligné', 'barré', 'liste à tirets', 'liste numérotée', 'liste à cocher']) {
+    assert.ok(
+      titres('texte').some((x) => x.startsWith(t)),
+      `${t} est dans la mise en forme`
+    )
+  }
+  assert.ok(
+    !titres('texte').some((x) => /note|tableau|citation|sommaire|table des matières/i.test(x)),
+    'rien d’insertion dans la mise en forme'
+  )
+  // Insertion : le lien à part, le reste dans « Insérer ▾ ».
+  assert.ok(zone('inserer').querySelector('button[title^="Ajouter ou modifier un lien"]'), 'le lien')
+  const menuIns = zone('inserer').querySelector('.menu-insertion')
+  assert.ok(menuIns, 'le menu Insérer')
+  assert.equal(menuIns.querySelector('.menu-flottant-bouton').textContent, 'Insérer ▾')
+  assert.deepEqual(
+    [...menuIns.querySelectorAll('.menu-flottant-liste button')].map((b) => b.textContent),
+    ['Note de bas de page', 'Citation', 'Ligne de séparation', 'Saut de page', 'Table des matières', 'Tableau 3 × 3']
+  )
+  // Les commandes de structure d'un tableau : une rangée à part, cachée hors tableau.
+  const rangeeTableau = racine.querySelector('.table-group')
+  assert.ok(rangeeTableau.hidden, 'cachée hors d’un tableau')
+  assert.deepEqual(
+    [...rangeeTableau.querySelectorAll('button')].map((b) => b.textContent),
+    ['Ligne +', 'Ligne −', 'Col. +', 'Col. −', 'Suppr. tableau']
+  )
+  // Révision, puis affichage tout à droite.
+  assert.ok(zone('relire').querySelector('button[title^="Commenter"]'), 'le commentaire')
+  assert.deepEqual(
+    [...zone('relire').querySelector('.zone-affichage').children].map((e) => e.className.split(' ')[0]),
+    ['btn-tool', 'zoom-select'],
+    'les numéros de bloc et le zoom, à droite'
+  )
   assert.ok(racine.querySelector('.banniere-gauche .btn-plan'), 'le bouton Plan')
   assert.equal(racine.querySelector('.ProseMirror').getAttribute('contenteditable'), 'true', 'un éditeur écrit')
 
@@ -223,7 +282,9 @@ test('démonter l’éditeur retire ses écouteurs globaux et le rôle de la pag
     '/style': { style: null, propre: false },
   })
   globalThis.WebSocket = class {
-    constructor() { this.readyState = 0 }
+    constructor() {
+      this.readyState = 0
+    }
     addEventListener() {}
     removeEventListener() {}
     send() {}
@@ -233,8 +294,14 @@ test('démonter l’éditeur retire ses écouteurs globaux et le rôle de la pag
   const posés = new Map()
   const ajouter = doc.addEventListener.bind(doc)
   const retirer = doc.removeEventListener.bind(doc)
-  doc.addEventListener = (type, f, o) => { posés.set(f, type); ajouter(type, f, o) }
-  doc.removeEventListener = (type, f, o) => { posés.delete(f); retirer(type, f, o) }
+  doc.addEventListener = (type, f, o) => {
+    posés.set(f, type)
+    ajouter(type, f, o)
+  }
+  doc.removeEventListener = (type, f, o) => {
+    posés.delete(f)
+    retirer(type, f, o)
+  }
 
   const { mountEditor } = await import('../src/editor.js')
   const editeur = mountEditor(
@@ -260,7 +327,11 @@ test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvie
     const dom = installerDom()
     await oublierLaSession()
     // Le code lit `localStorage` comme une globale, pas `window.localStorage`.
-    Object.defineProperty(globalThis, 'localStorage', { value: dom.window.localStorage, configurable: true, writable: true })
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: dom.window.localStorage,
+      configurable: true,
+      writable: true,
+    })
     if (avant) avant(dom.window)
     installerFetch({
       '/api/auth/me': { email: 'moi@example.com', admin: false },
@@ -268,7 +339,9 @@ test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvie
       '/style': { style: null, propre: false },
     })
     globalThis.WebSocket = class {
-      constructor() { this.readyState = 0 }
+      constructor() {
+        this.readyState = 0
+      }
       addEventListener() {}
       removeEventListener() {}
       send() {}
@@ -287,8 +360,10 @@ test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvie
   }
 
   const { dom, racine, editeur } = await monter()
-  const bouton = racine.querySelector('.format-toolbar .barre-groupe[data-groupe="texte"] .btn-numeros')
-  assert.ok(bouton, 'le bouton est dans la barre, avec le zoom')
+  const bouton = racine.querySelector(
+    '.format-toolbar .barre-groupe[data-groupe="relire"] .zone-affichage .btn-numeros'
+  )
+  assert.ok(bouton, 'le bouton est dans la zone Affichage de la barre, avec le zoom')
   assert.equal(bouton.nextElementSibling, racine.querySelector('.zoom-select'), 'juste avant le zoom')
   const colonne = racine.querySelector('.editor-container')
   assert.equal(colonne.classList.contains('numeros-blocs'), false, 'éteint par défaut')
@@ -313,6 +388,143 @@ test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvie
   assert.ok(suite.racine.querySelector('.editor-container').classList.contains('numeros-blocs'))
   assert.equal(suite.racine.querySelector('.btn-numeros').getAttribute('aria-pressed'), 'true')
   if (suite.editeur && suite.editeur.destroy) suite.editeur.destroy()
+})
+
+async function monterBarre(role) {
+  const dom = installerDom()
+  dom.window.Element.prototype.scrollIntoView = () => {}
+  await oublierLaSession()
+  installerFetch({
+    '/api/auth/me': { email: 'moi@example.com', admin: false },
+    '/publication': { publiee: false, autorise: false, portee: 'admins' },
+    '/style': { style: null, propre: false },
+  })
+  globalThis.WebSocket = class {
+    constructor() {
+      this.readyState = 0
+    }
+    addEventListener() {}
+    removeEventListener() {}
+    send() {}
+    close() {}
+  }
+  const { mountEditor } = await import('../src/editor.js')
+  const racine = dom.window.document.getElementById('app')
+  const editeur = mountEditor(
+    racine,
+    'abcdefgh1234',
+    { name: 'Moi', color: '#e07a5f' },
+    { title: 'Essai', myRole: role, myCapabilities: ROLES[role], myName: 'Moi', myColor: '#e07a5f' }
+  )
+  await respirer()
+  const clic = (el) => el.dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  const bouton = (texte) => [...racine.querySelectorAll('.format-toolbar button')].find((b) => b.textContent === texte)
+  return { dom, racine, editeur, clic, bouton }
+}
+
+test('la barre : « Insérer ▾ » s’ouvre, insère un tableau et se referme ; la rangée du tableau apparaît dans le tableau', async () => {
+  const { racine, editeur, clic, bouton } = await monterBarre('editeur')
+  const liste = racine.querySelector('.menu-insertion .menu-flottant-liste')
+  assert.ok(liste.hidden, 'fermé au départ')
+  clic(racine.querySelector('.menu-insertion .menu-flottant-bouton'))
+  assert.equal(liste.hidden, false, 'ouvert au clic')
+
+  const tables = () => {
+    let n = 0
+    editeur.view.state.doc.descendants((nd) => {
+      if (nd.type.name === 'table') n++
+    })
+    return n
+  }
+  const lignes = () => {
+    let n = 0
+    editeur.view.state.doc.descendants((nd) => {
+      if (nd.type.name === 'table_row') n++
+    })
+    return n
+  }
+  assert.equal(tables(), 0)
+  clic(bouton('Tableau 3 × 3'))
+  assert.equal(tables(), 1, 'le tableau est inséré')
+  assert.ok(liste.hidden, 'choisir une entrée referme le menu')
+  assert.equal(
+    racine.querySelector('.table-group').hidden,
+    false,
+    'le curseur est dans le tableau : la rangée apparaît'
+  )
+  const avant = lignes()
+  clic(bouton('Ligne +'))
+  assert.equal(lignes(), avant + 1, 'les commandes de la rangée agissent')
+  // Un clic ailleurs referme le menu.
+  clic(racine.querySelector('.menu-insertion .menu-flottant-bouton'))
+  assert.equal(liste.hidden, false)
+  clic(racine.querySelector('.doc-title'))
+  assert.ok(liste.hidden, 'un clic ailleurs le referme')
+  await respirer()
+  if (editeur.destroy) editeur.destroy()
+})
+
+test('la barre : annuler et rétablir défont et refont la frappe', async () => {
+  const { racine, editeur, clic } = await monterBarre('editeur')
+  const { view } = editeur
+  const { yUndoPluginKey } = await import('y-prosemirror')
+  // Un document déjà commencé : le premier geste d'un fragment vide crée le
+  // paragraphe, et annuler ce geste-là défait aussi le paragraphe.
+  view.dispatch(view.state.tr.insertText('Début. '))
+  await respirer()
+  yUndoPluginKey.getState(view.state).undoManager.stopCapturing()
+  view.dispatch(view.state.tr.insertText('bonjour'))
+  await respirer()
+  assert.match(view.state.doc.textContent, /bonjour/)
+  clic(racine.querySelector('.format-toolbar button[title^="Annuler"]'))
+  await respirer()
+  assert.doesNotMatch(view.state.doc.textContent, /bonjour/, 'annulé')
+  assert.match(view.state.doc.textContent, /Début/, 'le reste est intact')
+  clic(racine.querySelector('.format-toolbar button[title^="Rétablir"]'))
+  await respirer()
+  assert.match(view.state.doc.textContent, /bonjour/, 'rétabli')
+  await respirer()
+  if (editeur.destroy) editeur.destroy()
+})
+
+test('la barre : la pastille du suivi change de couleur avec l’état, et un correcteur la voit verrouillée', async () => {
+  const { racine, editeur } = await monterBarre('editeur')
+  const pastille = racine.querySelector('.format-toolbar .track-toggle')
+  const case_ = pastille.querySelector('input')
+  assert.equal(pastille.classList.contains('actif'), case_.checked, 'la pastille dit l’état')
+  const etat = case_.checked
+  case_.click()
+  await respirer()
+  assert.equal(case_.checked, !etat)
+  assert.equal(pastille.classList.contains('actif'), !etat, 'et le suit')
+  await respirer()
+  if (editeur.destroy) editeur.destroy()
+
+  const c = await monterBarre('correcteur')
+  const p = c.racine.querySelector('.format-toolbar .track-toggle')
+  assert.ok(p.querySelector('input').disabled, 'verrouillé')
+  assert.ok(p.classList.contains('actif'), 'et toujours actif')
+  const visibles = [...c.racine.querySelectorAll('.format-toolbar button')]
+    .filter((b) => !b.hidden)
+    .map((b) => b.textContent)
+  assert.ok(!visibles.includes('Lien'), 'pas de lien pour un correcteur')
+  assert.ok(!visibles.includes('Table des matières') || c.racine.querySelector('.btn-insertion[hidden]'), 'ni sommaire')
+  assert.equal(
+    [...c.racine.querySelectorAll('.btn-insertion')].find((b) => b.textContent === 'Tableau 3 × 3').hidden,
+    true,
+    'ni tableau'
+  )
+  assert.equal(
+    [...c.racine.querySelectorAll('.btn-insertion')].find((b) => b.textContent === 'Table des matières').hidden,
+    true
+  )
+  assert.equal(
+    [...c.racine.querySelectorAll('.btn-insertion')].find((b) => b.textContent === 'Note de bas de page').hidden,
+    false,
+    'mais la note, oui'
+  )
+  await respirer()
+  if (c.editeur.destroy) c.editeur.destroy()
 })
 
 test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', async () => {
@@ -350,10 +562,14 @@ test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', asy
 
   assert.equal(racine.querySelector('.ProseMirror').getAttribute('contenteditable'), 'false', 'le texte ne s’édite pas')
   assert.ok(racine.querySelector('.format-toolbar').hidden, 'pas de barre de mise en forme')
-  assert.ok(racine.querySelector('.suivi-entete .track-toggle').hidden, 'pas d’interrupteur de suivi : rien à suivre')
+  assert.ok(racine.querySelector('.track-toggle').hidden, 'pas d’interrupteur de suivi : rien à suivre')
   assert.ok(racine.querySelector('.marge-commentaires'), 'la marge des commentaires est là')
   assert.match(racine.querySelector('.ai-section').textContent, /Corrections IA/, 'le panneau porte son nom')
-  assert.match(racine.querySelector('.ai-section').textContent, /n’est pas ouverte à votre rôle/, 'l’IA lui est refusée, et on le dit')
+  assert.match(
+    racine.querySelector('.ai-section').textContent,
+    /n’est pas ouverte à votre rôle/,
+    'l’IA lui est refusée, et on le dit'
+  )
 
   if (editeur && editeur.destroy) editeur.destroy()
 })
@@ -372,7 +588,9 @@ test('sur iPhone : un en-tête sobre, un crayon, et rien d’autre', async () =>
     removeEventListener() {},
   })
   globalThis.WebSocket = class {
-    constructor() { this.readyState = 0 }
+    constructor() {
+      this.readyState = 0
+    }
     addEventListener() {}
     removeEventListener() {}
     send() {}
@@ -411,7 +629,10 @@ test('sur iPhone : un en-tête sobre, un crayon, et rien d’autre', async () =>
   // dispute plus sa rangée aux deux que Safari s'y réserve déjà.
   const outils = racine.querySelector('.tel-outils')
   assert.ok(outils.children.length >= 3, 'gras, italique et les commentaires')
-  assert.ok([...outils.children].some((b) => b.textContent === 'B'), 'le vrai bouton gras, déménagé')
+  assert.ok(
+    [...outils.children].some((b) => b.textContent === 'B'),
+    'le vrai bouton gras, déménagé'
+  )
   assert.equal(racine.querySelectorAll('.format-toolbar [title^="gras"]').length, 0, 'et non recopié')
   // Le passage en écriture rend la main au navigateur avant de reprendre le
   // focus (voir iphone.js) : sans ce tour de boucle, Safari continue de
@@ -454,7 +675,6 @@ test('sur iPhone : un en-tête sobre, un crayon, et rien d’autre', async () =>
   await new Promise((r) => setTimeout(r, 250))
   if (editeur && editeur.destroy) editeur.destroy()
 })
-
 
 test('sur iPhone, la liste des documents offre un bouton rond pour créer', async () => {
   // Le pendant du crayon de l'éditeur : on ouvre d'abord, on nomme ensuite.
@@ -502,8 +722,24 @@ test('la liste des documents se monte pour une personne connectée', async () =>
     '/api/auth/me': { email: 'moi@example.com', admin: false },
     '/api/docs': {
       docs: [
-        { id: 'abcdefgh1234', title: 'Un document', updatedAt: Date.now(), starred: false, myRole: 'editeur', owner: 'moi@example.com', jeSuisProprietaire: true },
-        { id: 'ijklmnop5678', title: 'Chez quelqu’un', updatedAt: Date.now(), starred: true, myRole: 'correcteur', owner: 'autre@example.com', jeSuisProprietaire: false },
+        {
+          id: 'abcdefgh1234',
+          title: 'Un document',
+          updatedAt: Date.now(),
+          starred: false,
+          myRole: 'editeur',
+          owner: 'moi@example.com',
+          jeSuisProprietaire: true,
+        },
+        {
+          id: 'ijklmnop5678',
+          title: 'Chez quelqu’un',
+          updatedAt: Date.now(),
+          starred: true,
+          myRole: 'correcteur',
+          owner: 'autre@example.com',
+          jeSuisProprietaire: false,
+        },
       ],
     },
   })

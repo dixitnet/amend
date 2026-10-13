@@ -184,11 +184,25 @@ export const schema = new Schema({
         return ['div', { 'data-table-of-contents': '', 'data-profondeur': String(node.attrs.profondeur) }]
       },
     },
+    // Le SAUT DE PAGE (13/10/2026). Le nom `horizontal_rule` date du temps où
+    // la seule ligne de l'éditeur était un saut de page ; il reste, parce que
+    // les documents déjà écrits le portent. La ligne qui sépare vraiment est
+    // `ligne_separation`, juste dessous.
     horizontal_rule: {
+      group: 'block',
+      parseDOM: [{ tag: 'hr[data-saut-de-page]' }],
+      toDOM() {
+        return ['hr', { class: 'saut-de-page', 'data-saut-de-page': '', title: "Saut de page à l'export PDF et Word" }]
+      },
+    },
+    // La LIGNE DE SÉPARATION : un trait, dans l'éditeur comme dans tous les
+    // exports. Un `<hr>` venu d'ailleurs (collage) est une ligne, pas un saut
+    // de page : seul le nôtre porte `data-saut-de-page`.
+    ligne_separation: {
       group: 'block',
       parseDOM: [{ tag: 'hr' }],
       toDOM() {
-        return ['hr', { title: "Saut de page à l'export PDF" }]
+        return ['hr', { class: 'ligne-separation' }]
       },
     },
     // Tableaux simples (15/09/2026). `cellContent: 'paragraph'` est une
