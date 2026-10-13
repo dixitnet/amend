@@ -27,13 +27,6 @@ export const CONSIGNES_IA = [
   },
   { cle: 'clarifier', label: 'Clarifier', instruction: 'Clarifie ce passage pour le rendre plus facile à comprendre.' },
   {
-    cle: 'reformuler',
-    label: 'Reformuler',
-    instruction:
-      'Reformule ce passage avec d’autres mots et une autre tournure, en gardant exactement le même sens, ' +
-      'le même ton et à peu près la même longueur.',
-  },
-  {
     cle: 'developper',
     label: 'Développer',
     instruction:
@@ -55,6 +48,11 @@ export const CONSIGNES_IA = [
       'supprime les précautions et les détours, sans changer le sens.',
   },
 ]
+
+/** Boutons retirés (« Reformuler », 14/10/2026) : leurs clics déjà comptés restent
+ * lisibles au back-office, sous ce nom ; un nouveau clic avec cette clé est
+ * rangé sous « autre ». */
+export const CONSIGNES_RETIREES = { reformuler: 'Reformuler (bouton retiré)' }
 
 /** La clé sous laquelle compter un clic : celle d'un bouton connu, sinon « autre ». */
 export function cleDeConsigne(cle) {

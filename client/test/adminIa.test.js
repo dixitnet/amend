@@ -88,6 +88,29 @@ test('la consommation du mois : par personne, en signes, avec jetons, coût esti
   assert.equal(libelleMois('2026-10'), 'octobre 2026')
 })
 
+test('les clics du bouton « Reformuler », retiré, restent comptés au cumul — sous leur nom', async () => {
+  const racine = installer()
+  const boutons = {
+    depuis: '2026-10',
+    parMois: { '2026-10': { corriger: 3, reformuler: 2 } },
+    cumul: { corriger: 3, reformuler: 2 },
+  }
+  await mountAdminIa(racine, { fetcher: async () => json(donnees({ boutons })) })
+  const ligne = (nom) =>
+    [...racine.querySelectorAll('.bo-table tbody tr')]
+      .find((tr) => tr.querySelector('th').textContent === nom)
+      ?.querySelectorAll('td')
+  const cellules = (nom) => [...(ligne(nom) || [])].map((td) => td.textContent)
+  assert.deepEqual(cellules('Reformuler (bouton retiré)'), ['2', '2', '40 %'])
+  assert.deepEqual(cellules('Corriger'), ['3', '3', '60 %'])
+  // Sans clic ancien, la ligne n'apparaît pas.
+  const racine2 = installer()
+  await mountAdminIa(racine2, {
+    fetcher: async () => json(donnees({ boutons: { depuis: '2026-10', parMois: { '2026-10': { corriger: 1 } }, cumul: { corriger: 1 } } })),
+  })
+  assert.ok(!/bouton retiré/.test(racine2.textContent))
+})
+
 test('enregistrer envoie les deux fonctions, en nombres, et redessine avec le message de confirmation', async () => {
   const racine = installer()
   const appels = []

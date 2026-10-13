@@ -107,7 +107,7 @@ test('le panneau se réduit à un titre, une phrase et des boutons — ni champ,
   assert.equal(zone.querySelector('.ai-hint').textContent, 'Sélectionnez un passage, puis donnez une consigne.')
   assert.deepEqual(
     [...zone.querySelectorAll('button')].map((b) => b.textContent),
-    ['Raccourcir', 'Corriger', 'Clarifier', 'Reformuler', 'Développer', 'Plus soutenu', 'Plus direct']
+    ['Raccourcir', 'Corriger', 'Clarifier', 'Développer', 'Plus soutenu', 'Plus direct']
   )
   assert.equal(zone.querySelector('textarea'), null, 'plus de champ libre')
   assert.equal(zone.querySelector('.btn-primary'), null, 'plus de « Demander une correction »')

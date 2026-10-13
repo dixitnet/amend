@@ -20,7 +20,7 @@
 // chiffres qui permettront de fixer les quotas des offres FREE et PRO.
 
 import { nombre } from '../../shared/signes.js'
-import { CONSIGNES_IA } from '../../shared/consignesIa.js'
+import { CONSIGNES_IA, CONSIGNES_RETIREES } from '../../shared/consignesIa.js'
 import { esc, entete, chargerVue, tableauTokens, blocCorrections30j } from './adminCommun.js'
 
 const NIVEAUX = {
@@ -140,12 +140,13 @@ function tableBoutons(b) {
   const courant = mois[0]
   const lignes = [
     ...CONSIGNES_IA.map((c) => ({ cle: c.cle, nom: c.label })),
+    ...Object.entries(CONSIGNES_RETIREES).map(([cle, nom]) => ({ cle, nom, retiree: true })),
     { cle: 'autre', nom: 'Autre (consigne inconnue)' },
   ]
   const total = Object.values(b.cumul).reduce((a, n) => a + n, 0)
   const part = (n) => (total ? `${Math.round((n / total) * 100)} %` : '—')
   const corps = lignes
-    .filter((l) => l.cle !== 'autre' || b.cumul.autre)
+    .filter((l) => (l.cle !== 'autre' && !l.retiree) || b.cumul[l.cle])
     .map(
       (l) =>
         `<tr><th scope="row">${esc(l.nom)}</th><td>${nombre((b.parMois[courant] || {})[l.cle] || 0)}</td><td><strong>${nombre(b.cumul[l.cle] || 0)}</strong></td><td>${part(b.cumul[l.cle] || 0)}</td></tr>`

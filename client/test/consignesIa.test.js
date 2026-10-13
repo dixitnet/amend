@@ -3,7 +3,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { CONSIGNES_IA, cleDeConsigne } from '../../shared/consignesIa.js'
+import { CONSIGNES_IA, CONSIGNES_RETIREES, cleDeConsigne } from '../../shared/consignesIa.js'
 
 test('chaque consigne a une clé unique, un libellé et une instruction', () => {
   const cles = CONSIGNES_IA.map((c) => c.cle)
@@ -19,8 +19,14 @@ test('chaque consigne a une clé unique, un libellé et une instruction', () => 
 test('l’ordre des boutons : les trois d’origine d’abord, puis les ajouts', () => {
   assert.deepEqual(
     CONSIGNES_IA.map((c) => c.label),
-    ['Raccourcir', 'Corriger', 'Clarifier', 'Reformuler', 'Développer', 'Plus soutenu', 'Plus direct']
+    ['Raccourcir', 'Corriger', 'Clarifier', 'Développer', 'Plus soutenu', 'Plus direct']
   )
+})
+
+test('« Reformuler » est retiré : plus de bouton, ses anciens clics restent lisibles, un nouveau est « autre »', () => {
+  assert.ok(!CONSIGNES_IA.some((c) => c.cle === 'reformuler'))
+  assert.equal(CONSIGNES_RETIREES.reformuler, 'Reformuler (bouton retiré)')
+  assert.equal(cleDeConsigne('reformuler'), 'autre')
 })
 
 test('cleDeConsigne : une clé connue reste, le reste devient « autre »', () => {
