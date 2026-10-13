@@ -158,7 +158,11 @@ export function creerInterrupteurSuivi() {
   const reste = document.createElement('span')
   reste.className = 'suivi-reste'
   reste.textContent = ' des modifications'
-  trackToggleLabel.append(trackToggle, document.createTextNode(' Suivi'), reste)
+  // Un seul bloc de texte : l'étiquette est une boîte flex dont l'espace
+  // (`gap`) ne doit tomber qu'entre la case et ses mots.
+  const mots = document.createElement('span')
+  mots.append(document.createTextNode('Suivi'), reste)
+  trackToggleLabel.append(trackToggle, mots)
   return { trackToggleLabel, trackToggle }
 }
 

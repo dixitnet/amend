@@ -12,7 +12,7 @@ import { EditorState, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { ySyncPlugin, prosemirrorToYXmlFragment } from 'y-prosemirror'
 import { schema } from '../src/schema.js'
-import { trackChangesPlugin, makeDispatchTransaction, listChanges } from '../src/trackChanges.js'
+import { trackChangesPlugin, makeDispatchTransaction, listChanges, activerRegroupementEnLots } from '../src/trackChanges.js'
 import { addComment, ajouterReponse, reponsesDe } from '../src/comments.js'
 import { ouvrirFilCommentaire, monterBarreRelecture, monterBoutonCommenter } from '../src/relectureTactile.js'
 import { fermerFeuille } from '../src/feuille.js'
@@ -213,7 +213,27 @@ test('accepter fait descendre à la suivante, et le compte diminue', () => {
   assert.match(barre.el.querySelector('.barre-relecture-position').textContent, /\/ 2$/)
 })
 
-test('un lot est une seule modification pour la barre, comme pour la carte : Accepter les décide toutes', () => {
+function testLots(nom, fn) {
+  test(nom, () => {
+    activerRegroupementEnLots(true)
+    try {
+      fn()
+    } finally {
+      activerRegroupementEnLots(false)
+    }
+  })
+}
+
+test('regroupement suspendu (par défaut) : trois modifications du même geste font trois pas dans le parcours', () => {
+  const view = editeurEnLot()
+  const barre = monterBarreRelecture(() => view)
+  document.body.appendChild(barre.el)
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)))
+  barre.rendre()
+  assert.match(barre.el.querySelector('.barre-relecture-position').textContent, /^1 \/ 3$/)
+})
+
+testLots('un lot est une seule modification pour la barre, comme pour la carte : Accepter les décide toutes', () => {
   const view = editeurEnLot()
   assert.equal(listChanges(view.state.doc).length, 3, 'trois modifications dans le texte')
   const barre = monterBarreRelecture(() => view)
@@ -227,7 +247,7 @@ test('un lot est une seule modification pour la barre, comme pour la carte : Acc
   assert.equal(barre.el.hidden, true)
 })
 
-test('rejeter un lot les rejette toutes', () => {
+testLots('rejeter un lot les rejette toutes', () => {
   const view = editeurEnLot()
   const barre = monterBarreRelecture(() => view)
   document.body.appendChild(barre.el)

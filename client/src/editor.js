@@ -278,6 +278,9 @@ export function mountEditor(root, docId, user, docMeta) {
   const relecture = monterBarreRelecture(() => view, {
     canReview: !!cap.canReviewChanges,
   })
+  // Sur ordinateur la barre de relecture vit dans la colonne de droite,
+  // sous le suivi (`placerLeSuivi`) ; sur téléphone elle est ici, dans
+  // l'onglet « Relire ».
   groupeRelire.appendChild(relecture.el)
 
   // Et la porte vers les commentaires : le fil du passage où est le
@@ -286,11 +289,11 @@ export function mountEditor(root, docId, user, docMeta) {
   const filBtn = document.createElement('button')
   filBtn.type = 'button'
   filBtn.className = 'btn-tool btn-texte'
-  filBtn.textContent = 'Commentaire'
+  filBtn.textContent = 'Commenter'
   filBtn.title = 'Commenter le passage sélectionné — ou ouvrir le fil du passage où se trouve le curseur'
   filBtn.onclick = () => {
     // Un passage sélectionné : on le commente, comme avec le « ＋ » de la
-    // marge (le bouton s'appelle « Commentaire », il doit en créer un).
+    // marge (le bouton s'appelle « Commenter », il doit en créer un).
     // Sinon, le curseur dans un passage déjà commenté : on ouvre son fil.
     if (!view.state.selection.empty && cap.canComment !== false) {
       if (petitEcran()) ouvrirComposeur()
@@ -340,7 +343,8 @@ export function mountEditor(root, docId, user, docMeta) {
   zoneAffichage.append(numerosBtn, zoomSelect)
   groupeRelire.appendChild(zoneAffichage)
 
-  const { sidebar, suiviEntete, aiSection, changesSection, commentsSection } = creerColonneDroite(trackToggleLabel)
+  const { sidebar, suiviEntete, zoneRelecture, aiSection, changesSection, commentsSection } =
+    creerColonneDroite(trackToggleLabel)
 
   // L'interrupteur du suivi change de place avec la largeur (20/09/2026),
   // et **une seule fois pour toutes** : il est déménagé, jamais dupliqué.
@@ -352,13 +356,16 @@ export function mountEditor(root, docId, user, docMeta) {
   const petitEcranMedia = media(REQUETE_PETIT_ECRAN)
   function placerLeSuivi() {
     // Sur téléphone, l'interrupteur vit dans le menu ⋯ (iphone.js) et c'est
-    // ce menu qui va le chercher : on ne le place ici que pour l'ordinateur
-    // et la tablette, où il tient la tête de la colonne de droite.
-    // Depuis le 13/10/2026 il tient la tête de la zone « Révision » de la
-    // barre d'outils : la colonne de droite perd son en-tête.
-    if (!petitEcranMedia.matches) {
-      groupeRelire.prepend(trackToggleLabel)
-      suiviEntete.hidden = true
+    // ce menu qui va le chercher ; la barre de relecture, elle, rejoint
+    // l'onglet « Relire ». Sur ordinateur et tablette, ils sont tous deux
+    // **fixes** dans la colonne de droite, sous « Corrections IA » : le
+    // suivi, puis le parcours des modifications (14/10/2026 ; du 13 au 14/10
+    // ils étaient dans la barre d'outils).
+    if (petitEcranMedia.matches) {
+      groupeRelire.insertBefore(relecture.el, filBtn)
+    } else {
+      suiviEntete.appendChild(trackToggleLabel)
+      zoneRelecture.appendChild(relecture.el)
     }
   }
   placerLeSuivi()
@@ -561,6 +568,7 @@ export function mountEditor(root, docId, user, docMeta) {
   if (!peutProposer) {
     // Lecteur : ni suivi (rien à suivre), ni barre de mise en forme.
     trackToggleLabel.hidden = true
+    suiviEntete.hidden = true
     toolbar.hidden = true
   }
 
@@ -717,10 +725,9 @@ export function mountEditor(root, docId, user, docMeta) {
       telephone.demonter()
       telephone = null
     }
-    // L'interrupteur du suivi vit dans le menu ⋯ sur téléphone, et en tête
-    // de la colonne de droite ailleurs : `placerLeSuivi` n'a plus à s'en
-    // occuper ici, le menu le prend au moment où il s'ouvre.
-    if (!petit) placerLeSuivi()
+    // L'interrupteur du suivi vit dans le menu ⋯ sur téléphone (le menu le
+    // prend au moment où il s'ouvre), et dans la colonne de droite ailleurs.
+    placerLeSuivi()
   }
   ajusterTelephone()
   if (petitEcranMedia.addEventListener) {

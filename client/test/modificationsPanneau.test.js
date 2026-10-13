@@ -11,8 +11,22 @@ import { JSDOM } from 'jsdom'
 import { EditorState, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { schema } from '../src/schema.js'
-import { trackChangesPlugin, makeDispatchTransaction, listChanges, insertAISuggestion, regrouperEnLots } from '../src/trackChanges.js'
+import { trackChangesPlugin, makeDispatchTransaction, listChanges, insertAISuggestion, regrouperEnLots, activerRegroupementEnLots } from '../src/trackChanges.js'
 import { mountChangesPanel } from '../src/changesPanel.js'
+
+/** Le regroupement en lots est suspendu par défaut (14/10/2026) : ces tests
+ * le rétablissent le temps de leur déroulement, pour que le code gardé
+ * continue d'être éprouvé. */
+function testLots(nom, fn) {
+  test(nom, async () => {
+    activerRegroupementEnLots(true)
+    try {
+      await fn()
+    } finally {
+      activerRegroupementEnLots(false)
+    }
+  })
+}
 
 const ALICE = { name: 'Alice', color: '#3d5a80' }
 
@@ -395,7 +409,7 @@ function monterAvecUneCorrectionIA() {
   return { view, panneau }
 }
 
-test('une correction de l’IA fait une seule carte, avec le compte de ses changements', async () => {
+testLots('une correction de l’IA fait une seule carte, avec le compte de ses changements', async () => {
   const { view, panneau } = monterAvecUneCorrectionIA()
   await new Promise((r) => setTimeout(r, 30))
   assert.equal(listChanges(view.state.doc).length, 4, 'quatre modifications en dessous')
@@ -412,7 +426,7 @@ test('une correction de l’IA fait une seule carte, avec le compte de ses chang
   assert.match(lignes[0].textContent, /chat → chien/)
 })
 
-test('accepter le lot accepte tout ; le rejeter rend le texte d’origine', async () => {
+testLots('accepter le lot accepte tout ; le rejeter rend le texte d’origine', async () => {
   const a = monterAvecUneCorrectionIA()
   await new Promise((r) => setTimeout(r, 30))
   a.view.dispatch(a.view.state.tr.setSelection(TextSelection.create(a.view.state.doc, 5)))
@@ -430,10 +444,30 @@ test('accepter le lot accepte tout ; le rejeter rend le texte d’origine', asyn
   assert.equal(r.view.state.doc.textContent, 'Le chat dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe sur le toit de la vieille maison du village.')
 })
 
-test('regrouperEnLots : même auteur et même instant, deux entrées au moins', () => {
+testLots('regrouperEnLots : même auteur et même instant, deux entrées au moins', () => {
   const e = (type, from, to, user, ts) => ({ type, from, to, user, userColor: '#000', ts, text: 'x' })
   const lots = regrouperEnLots([e('insertion', 1, 2, 'IA', 5), e('deletion', 2, 3, 'IA', 5), e('insertion', 9, 10, 'Alice', 5), e('insertion', 12, 13, 'IA', 7)])
   assert.deepEqual(lots.map((c) => c.type), ['lot', 'insertion', 'insertion'])
   assert.equal(lots[0].membres.length, 2)
   assert.equal(lots[0].to, 3)
+})
+
+test('regroupement suspendu (par défaut) : une correction de l’IA fait une carte par modification, sans « N changements »', async () => {
+  const { view, panneau } = monterAvecUneCorrectionIA()
+  await new Promise((r) => setTimeout(r, 30))
+  const liste = entrees(panneau)
+  assert.ok(liste.length > 1, 'plusieurs cartes, plus un lot')
+  assert.ok(liste.every((c) => !c.className.includes('change-lot')))
+  assert.ok(!/changements/.test(panneau.textContent))
+  // Chaque carte se décide seule : accepter la première laisse les autres.
+  const avant = listChanges(view.state.doc).length
+  ;[...liste[0].querySelectorAll('button')].find((b) => b.textContent === 'Accepter').click()
+  assert.ok(listChanges(view.state.doc).length < avant)
+  assert.ok(listChanges(view.state.doc).length > 0, 'le reste attend sa décision')
+  const e = (type, from, to, user, ts) => ({ type, from, to, user, userColor: '#000', ts, text: 'x' })
+  assert.deepEqual(
+    regrouperEnLots([e('insertion', 1, 2, 'IA', 5), e('deletion', 2, 3, 'IA', 5)]).map((c) => c.type),
+    ['insertion', 'deletion'],
+    'la fonction rend les modifications telles quelles'
+  )
 })

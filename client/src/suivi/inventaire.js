@@ -161,6 +161,18 @@ export function pairReplacements(changes) {
   return out
 }
 
+/** **Regroupement en lots suspendu (14/10/2026, demande de Sylvain)** : une
+ * passe de Margo n'est plus présentée comme une seule carte « N changements »
+ * mais, comme celles d'une personne, une carte par modification ; « on verra à
+ * l'usage ». Le code des lots (carte, détail, décision membre par membre)
+ * est **gardé tel quel** : `activerRegroupementEnLots(true)` suffit à le
+ * rétablir, et les tests le font. */
+let regroupementActif = false
+export function activerRegroupementEnLots(actif) {
+  regroupementActif = !!actif
+}
+export const regroupementEnLotsActif = () => regroupementActif
+
 /** Regroupe en **lots** les modifications d'un même geste (S2 du rapport
  * du 28/09/2026) : une correction de l'IA sur un paragraphe, un collage de
  * plusieurs lignes, produisent des marques qui partagent un auteur et un
@@ -171,6 +183,7 @@ export function pairReplacements(changes) {
  * `ts` par caractère fusionné par mergeAdjacentChanges : elle n'est pas
  * concernée. */
 export function regrouperEnLots(changes) {
+  if (!regroupementActif) return changes.slice()
   const out = []
   for (let i = 0; i < changes.length; i++) {
     const a = changes[i]

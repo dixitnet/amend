@@ -194,19 +194,30 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   // L'aide n'est plus dans le bandeau : elle est dans le bouton « Aide / avis ».
   assert.ok(!racine.querySelector('.banniere-droite a.aide-link'), 'pas de bouton Aide dans le bandeau')
   assert.ok(![...racine.querySelectorAll('.banniere-droite a')].some((a) => a.textContent === 'Aide'))
-  // L'interrupteur du suivi tient la tête de la zone « Révision » de la barre
-  // d'outils (13/10/2026) ; la colonne de droite n'a plus d'en-tête.
-  const suivi = racine.querySelector('.format-toolbar .barre-groupe[data-groupe="relire"] > .track-toggle')
-  assert.ok(suivi, 'l’interrupteur du suivi, en tête de la zone Révision')
-  assert.equal(
-    suivi,
-    racine.querySelector('.barre-groupe[data-groupe="relire"]').firstElementChild,
-    'le premier de la zone'
+  // L'interrupteur du suivi (14/10/2026) : dans la colonne de droite, **sous
+  // « Corrections IA » et fixe**, avec le parcours des modifications juste
+  // dessous ; ni l'un ni l'autre dans la barre d'outils. Le corps qui défile
+  // ne garde que la liste des modifications et les commentaires.
+  const fixe = racine.querySelector('.sidebar > .sidebar-fixe')
+  assert.ok(fixe, 'la partie fixe de la colonne')
+  assert.deepEqual(
+    [...fixe.children].map((e) => ['ai-section', 'suivi-entete', 'zone-relecture'].find((c) => e.classList.contains(c))),
+    ['ai-section', 'suivi-entete', 'zone-relecture'],
+    'Corrections IA, puis le suivi, puis le parcours'
   )
+  const suivi = fixe.querySelector('.suivi-entete > .track-toggle')
+  assert.ok(suivi, 'l’interrupteur du suivi, sous Corrections IA')
   assert.match(suivi.textContent, /Suivi des modifications/)
-  assert.ok(racine.querySelector('.sidebar > .suivi-entete').hidden, 'la colonne de droite perd son en-tête')
+  assert.ok(!racine.querySelector('.format-toolbar .track-toggle'), 'plus de pastille dans la barre d’outils')
   assert.equal(racine.querySelectorAll('.track-toggle').length, 1, 'un seul interrupteur')
-  assert.ok(racine.querySelector('.sidebar > .sidebar-corps > .ai-section'), 'le corps qui défile')
+  assert.ok(fixe.querySelector('.zone-relecture > .barre-relecture'), 'le parcours des modifications, sous le suivi')
+  assert.ok(!racine.querySelector('.format-toolbar .barre-relecture'), 'et plus dans la barre d’outils')
+  assert.ok(racine.querySelector('.sidebar > .sidebar-corps > .changes-section'), 'le corps qui défile : les modifications')
+  assert.ok(racine.querySelector('.sidebar > .sidebar-corps > .comments-section'), 'et les commentaires')
+  assert.ok(!racine.querySelector('.sidebar-corps .ai-section'), 'Corrections IA ne défile plus')
+  const relire = racine.querySelector('.format-toolbar .barre-groupe[data-groupe="relire"]')
+  assert.ok([...relire.querySelectorAll('button')].some((b) => b.textContent === 'Commenter'), 'le bouton s’appelle « Commenter »')
+  assert.ok(![...relire.querySelectorAll('button')].some((b) => b.textContent === 'Commentaire'))
   assert.ok(racine.querySelector('.ProseMirror'), 'la zone d’édition')
 
   // La barre d'outils est découpée en trois groupes depuis le 20/09 : sur
@@ -493,7 +504,7 @@ test('la barre : annuler et rétablir défont et refont la frappe', async () => 
 
 test('la barre : la pastille du suivi change de couleur avec l’état, et un correcteur la voit verrouillée', async () => {
   const { racine, editeur } = await monterBarre('editeur')
-  const pastille = racine.querySelector('.format-toolbar .track-toggle')
+  const pastille = racine.querySelector('.sidebar-fixe .track-toggle')
   const case_ = pastille.querySelector('input')
   assert.equal(pastille.classList.contains('actif'), case_.checked, 'la pastille dit l’état')
   const etat = case_.checked
@@ -505,7 +516,7 @@ test('la barre : la pastille du suivi change de couleur avec l’état, et un co
   if (editeur.destroy) editeur.destroy()
 
   const c = await monterBarre('correcteur')
-  const p = c.racine.querySelector('.format-toolbar .track-toggle')
+  const p = c.racine.querySelector('.sidebar-fixe .track-toggle')
   assert.ok(p.querySelector('input').disabled, 'verrouillé')
   assert.ok(p.classList.contains('actif'), 'et toujours actif')
   const visibles = [...c.racine.querySelectorAll('.format-toolbar button')]

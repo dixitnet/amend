@@ -320,11 +320,22 @@ a { color: var(--accent); }
   overflow: hidden;
 }
 .sidebar-corps { flex: 1; overflow-y: auto; }
+/* La partie fixe de la colonne (14/10/2026) : « Corrections IA », le suivi,
+   puis le parcours des modifications. Elle ne défile jamais ; seul le corps,
+   dessous, défile. */
+.sidebar-fixe { flex-shrink: 0; }
+.sidebar-fixe .sidebar-section.ai-section { border-bottom: none; }
+.zone-relecture:empty { display: none; }
+.zone-relecture .barre-relecture {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-wrap: wrap;
+}
 
-/* L'interrupteur du suivi des modifications, en tête de colonne.
-   Aligné sur la barre de mise en forme du texte (mêmes hauteur et retrait)
-   pour que les deux colonnes commencent à la même ligne, et **franchement
-   coloré** : c'est l'état qui décide si ce qu'on tape sera une proposition
+/* L'interrupteur du suivi des modifications, sous « Corrections IA » et fixe
+   avec elle (14/10/2026 ; en tête de colonne avant, puis dans la barre
+   d'outils du 13 au 14/10), **franchement coloré** : c'est l'état qui décide si ce qu'on tape sera une proposition
    ou une modification directe, et une case à cocher perdue entre deux
    compteurs ne le disait pas. */
 .suivi-entete {
@@ -3400,24 +3411,6 @@ tr.bo-traite { opacity: 0.6; }
     margin: 0 4px;
     background: var(--border);
   }
-  /* Le suivi : une pastille qui change franchement de couleur — c'est l'état
-     qui décide si ce qu'on tape est une proposition ou une modification
-     directe, et il se lit d'un coup d'œil. */
-  .format-toolbar .track-toggle {
-    height: 30px;
-    padding: 0 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg);
-    color: var(--muted);
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s ease-out, color 0.15s ease-out;
-  }
-  .format-toolbar .track-toggle input { accent-color: currentColor; width: 15px; height: 15px; cursor: pointer; }
-  .format-toolbar .track-toggle.actif { background: var(--accent); border-color: var(--accent); color: white; }
-  .format-toolbar .track-toggle.actif input { accent-color: white; }
-  .format-toolbar .track-toggle:has(input:disabled) { cursor: default; }
   /* L'affichage : à l'extrémité droite de la barre. */
   .zone-affichage { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
   .zone-affichage .btn-numeros,
@@ -3454,9 +3447,6 @@ tr.bo-traite { opacity: 0.6; }
   }
   .table-group[hidden] { display: none; }
   .table-group-etiquette { display: inline; font-size: 12px; color: var(--muted); margin-right: 6px; }
-}
-@container barre (max-width: 699px) {
-  .format-toolbar .track-toggle .suivi-reste { display: none; }
 }
 @container barre (min-width: 640px) {
   .barre-groupe[data-groupe='inserer']::before { content: ''; }
