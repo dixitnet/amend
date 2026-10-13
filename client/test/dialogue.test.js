@@ -270,6 +270,24 @@ test('une erreur du serveur s’affiche, ne casse pas l’alternance, et la sais
   d.destroy()
 })
 
+test('une demande interrompue le dit dans le résumé : on ne laisse pas croire que tout est fait', async () => {
+  const view = monterEditeur()
+  const serveur = fauxServeur({
+    reponses: [
+      ndjson(
+        { type: 'erreur', message: 'La réponse a été coupée avant la fin parce qu’elle était trop longue.' },
+        { type: 'fin', modifications: 28, commentaires: 0, refus: 1, incomplet: true, usage: {} }
+      ),
+    ],
+  })
+  const d = await monterDialogue({ docId: 'doc4', getView: () => view, fetcher: serveur.fetcher })
+  await envoyer('Corrige tout et commente')
+  const resume = document.querySelector('.dialogue-resume').textContent
+  assert.match(resume, /28 modifications proposées · 1 refus/)
+  assert.match(resume, /demande interrompue avant la fin/)
+  d.destroy()
+})
+
 test('« Tout rejeter — Claude » demande deux clics et ne touche pas aux modifications des personnes', async () => {
   const view = monterEditeur()
   // Une correction de Claude (au bloc 6) et une d'Alice (au bloc 2).

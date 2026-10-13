@@ -471,7 +471,12 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
     if (fin.commentaires) parts.push(`${fin.commentaires} commentaire${fin.commentaires > 1 ? 's' : ''}`)
     if (fin.refus) parts.push(`${fin.refus} refus`)
     if (!parts.length) return
-    ligne.appendChild(el('span', null, `${parts.join(' · ')} — à relire dans le panneau des modifications.`))
+    // « incomplet » : la demande s'est arrêtée avant la fin (le serveur l'a
+    // dit plus haut) ; ne pas laisser croire que tout est fait.
+    const suite = fin.incomplet
+      ? 'demande interrompue avant la fin ; ce qui est posé est à relire dans le panneau des modifications.'
+      : 'à relire dans le panneau des modifications.'
+    ligne.appendChild(el('span', null, `${parts.join(' · ')} — ${suite}`))
     if (fin.modifications) {
       const rejeter = el('button', 'dialogue-lien dialogue-rejeter', 'Tout rejeter — Margo')
       rejeter.type = 'button'

@@ -336,6 +336,57 @@ test('une boucle d’outils sans fin : vingt étapes, puis un bilan sans outil a
   scenario = []
 })
 
+const coupee = () => ({
+  corps: {
+    stop_reason: 'max_tokens',
+    content: [
+      { type: 'text', text: 'Je pose la seconde série.' },
+      { type: 'tool_use', id: 'tronque', name: 'proposer', input: {} },
+    ],
+    usage: { input_tokens: 300, output_tokens: 16384, cache_read_input_tokens: 500, cache_creation_input_tokens: 0 },
+  },
+})
+
+test('une réponse coupée par le budget est jetée, Margo recommence en plus petit — la demande ne s’abandonne pas', async () => {
+  const { COUPURES_MAX } = await import('../dialogue.js')
+  assert.equal(COUPURES_MAX, 2)
+  const doc = await documentDeTest()
+  requetes.length = 0
+  scenario = [
+    coupee(),
+    outil('p1', 'proposer', { remplacements: [{ bloc: 3, avant: 'mange', apres: 'mangent' }] }),
+    texte('Le reste est laissé tel quel.'),
+  ]
+  const r = await dialoguer(doc.id, 'admin@example.com', msg('corrige et commente'))
+  assert.equal(r.status, 200)
+  assert.equal(requetes.length, 3)
+  assert.equal(requetes[0].corps.max_tokens, 16384)
+  // L'appel de reprise ne contient ni la réponse tronquée ni son texte, mais la consigne de reprise.
+  const reprise = requetes[1].corps.messages
+  assert.equal(reprise.length, 1)
+  assert.ok(!JSON.stringify(reprise).includes('tronque'))
+  assert.match(JSON.stringify(reprise), /a été coupée parce qu’elle était trop longue/)
+  assert.ok(!r.evenements.some((e) => e.type === 'erreur'))
+  assert.ok(!r.evenements.some((e) => e.type === 'texte' && /seconde série/.test(e.texte)))
+  assert.equal(r.fin.modifications, 1)
+  assert.ok(!r.fin.incomplet)
+  scenario = []
+})
+
+test('si la réponse est coupée encore et encore : deux reprises, puis l’erreur claire et un résumé « incomplet »', async () => {
+  const { COUPURES_MAX } = await import('../dialogue.js')
+  const doc = await documentDeTest()
+  requetes.length = 0
+  scenario = Array.from({ length: COUPURES_MAX + 1 }, () => coupee())
+  const r = await dialoguer(doc.id, 'admin@example.com', msg('tout'))
+  assert.equal(requetes.length, COUPURES_MAX + 1)
+  const erreur = r.evenements.find((e) => e.type === 'erreur')
+  assert.ok(erreur)
+  assert.match(erreur.message, /coupée avant la fin/)
+  assert.equal(r.fin.incomplet, true)
+  scenario = []
+})
+
 test('si le bilan final est vide, l’erreur d’avant reste, avec la mention des modifications déjà posées', async () => {
   const { TOURS_MAX } = await import('../dialogue.js')
   const doc = await documentDeTest()
@@ -357,7 +408,8 @@ test('la consigne dit combien d’étapes il y a, et de lire large, de grouper e
   const c = consigne({ prenom: 'Sylvain', titre: 'Test', portee: { type: 'document' } })
   assert.match(c, new RegExp(`au plus ${TOURS_MAX} étapes`))
   assert.match(c, /en accepte jusqu’à 200/)
-  assert.match(c, /jusqu’à 30 remplacements/)
+  assert.match(c, /une quinzaine de remplacements \(jamais plus de 30/)
+  assert.match(c, /corrections d’abord, puis les commentaires/)
   assert.match(c, /dans la même étape/)
 })
 

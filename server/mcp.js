@@ -437,10 +437,12 @@ export class Mcp {
       case 'proposer': {
         const liste = Array.isArray(args.remplacements) ? args.remplacements : null
         if (!liste || !liste.length) return { texte: 'Il faut au moins un remplacement.', erreur: true }
-        if (liste.length > REMPLACEMENTS_MAX)
-          return { texte: `Au plus ${REMPLACEMENTS_MAX} remplacements par appel.`, erreur: true }
+        // Au-delà du plafond, on traite les premiers et on refuse le surplus en
+        // le disant : tout refuser obligerait à régénérer tout l'appel.
+        const surplus = Math.max(0, liste.length - REMPLACEMENTS_MAX)
+        const retenus = surplus ? liste.slice(0, REMPLACEMENTS_MAX) : liste
         const verdict = await this.rooms.ecrireDocument(docId, (ydoc) =>
-          proposer(ydoc, liste, auteur, this.maintenant())
+          proposer(ydoc, retenus, auteur, this.maintenant())
         )
         const lignes = []
         if (verdict.appliques.length) {
@@ -450,10 +452,14 @@ export class Mcp {
         }
         for (const r of verdict.refuses)
           lignes.push(`Refusé — remplacement ${r.index + 1}${r.bloc ? ` (bloc ${r.bloc})` : ''} : ${r.raison}`)
+        if (surplus)
+          lignes.push(
+            `Refusé — ${surplus > 1 ? `remplacements ${REMPLACEMENTS_MAX + 1} à ${liste.length} (${surplus})` : `remplacement ${liste.length}`} : au plus ${REMPLACEMENTS_MAX} par appel, ils n’ont pas été traités. Renvoie ceux-là seulement, dans un nouvel appel ; les ${REMPLACEMENTS_MAX} premiers sont traités ci-dessus.`
+          )
         return {
           texte: lignes.join('\n'),
           erreur: !verdict.appliques.length,
-          comptes: { appliques: verdict.appliques.length, refuses: verdict.refuses.length },
+          comptes: { appliques: verdict.appliques.length, refuses: verdict.refuses.length + surplus },
           bloc: verdict.appliques.length ? verdict.appliques[verdict.appliques.length - 1].bloc : null,
         }
       }
