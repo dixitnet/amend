@@ -16,6 +16,7 @@
 
 import { adresseAutorisee } from '../../shared/liens.js'
 import { imageAutorisee } from '../../shared/securite.js'
+import { styleParagrapheValide } from '../../shared/style.js'
 
 const MARQUES_GARDEES = new Set(['strong', 'em', 'underline', 'strike'])
 
@@ -72,8 +73,12 @@ function items(node) {
 
 function bloc(node) {
   switch (node.type.name) {
-    case 'paragraph':
-      return { type: 'paragraphe', contenu: inline(node) }
+    case 'paragraph': {
+      // « Titre » / « Sous-titre » (14/10/2026) : le style voyage, le serveur
+      // ne garde que ces deux valeurs.
+      const style = styleParagrapheValide(node.attrs.style)
+      return { type: 'paragraphe', contenu: inline(node), ...(style ? { style } : {}) }
+    }
     case 'heading':
       return { type: 'titre', niveau: Math.min(5, Math.max(1, node.attrs.level)), contenu: inline(node) }
     case 'blockquote': {

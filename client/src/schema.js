@@ -1,6 +1,6 @@
 import { Schema } from 'prosemirror-model'
 import { tableNodes } from 'prosemirror-tables'
-import { NIVEAUX_TITRE } from '../../shared/style.js'
+import { BLOCS, NIVEAUX_TITRE, blocDuParagraphe, styleParagrapheValide } from '../../shared/style.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { couleurSure, imageAutorisee } from '../../shared/securite.js'
 
@@ -29,12 +29,29 @@ export const schema = new Schema({
       // decoration (style.css: .pending-break). Cleared on accept
       // (acceptChange), undone by rejoining the two paragraphs on reject
       // (rejectChange) — never touched by hand elsewhere.
-      attrs: { trackedBreak: { default: null } },
+      //
+      // `style` : null (texte courant), 'titre' ou 'sous-titre' (14/10/2026,
+      // STYLES_PARAGRAPHE dans shared/style.js). C'est un style de
+      // **paragraphe**, pas un niveau de titre : il n'entre pas dans le plan
+      // ni dans la table des matières, et il se règle dans la feuille de
+      // style comme les autres blocs. Une valeur inconnue (un document écrit
+      // par une version plus récente) est lue comme du texte courant.
+      attrs: { trackedBreak: { default: null }, style: { default: null } },
       content: 'inline*',
       group: 'block',
-      parseDOM: [{ tag: 'p' }],
-      toDOM() {
-        return ['p', 0]
+      parseDOM: [
+        {
+          tag: 'p',
+          getAttrs(dom) {
+            return { style: styleParagrapheValide(dom.getAttribute('data-style')) }
+          },
+        },
+      ],
+      toDOM(node) {
+        const valeur = styleParagrapheValide(node.attrs.style)
+        if (!valeur) return ['p', 0]
+        const bloc = BLOCS.find((b) => b.id === blocDuParagraphe(valeur))
+        return ['p', { class: bloc.classe, 'data-style': valeur }, 0]
       },
     },
     heading: {

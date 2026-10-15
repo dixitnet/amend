@@ -5,14 +5,36 @@
 // (server/quotasIa.js), et les signes se comptent par personne (server/usageIa.js).
 
 import { AIConfigError, AIRequestError, suggestEdit } from '../ai.js'
+import { cleDe, variableDe } from '../fournisseurs.js'
 import { isAdminEmail, readSession } from '../auth.js'
 import { DialogueErreur } from '../dialogue.js'
+import { corpsMaxOctets, garde } from '../garde-fous.js'
 import { ErreurHttp } from '../erreurs.js'
 import { sendJson, readJsonBody, PAS_TRAITE } from '../http.js'
 import { cleDeConsigne } from '../../shared/consignesIa.js'
 
-const TEXTES_MAX = 200
-const INSTRUCTION_MAX = 2000
+// Aucun seuil dans ce fichier : le nombre de paragraphes envoyés en même temps,
+// la taille des corps de requête et les autres garde-fous sont dans
+// server/garde-fous.js. La seule limite d'une demande est son nombre de signes
+// (réglage d'instance, server/quotasIa.js).
+
+/** `Promise.allSettled` avec au plus `max` appels en cours ; l'ordre est gardé. */
+async function enParallele(elements, max, fn) {
+  const sorties = new Array(elements.length)
+  let suivant = 0
+  const ouvrier = async () => {
+    while (suivant < elements.length) {
+      const i = suivant++
+      try {
+        sorties[i] = { status: 'fulfilled', value: await fn(elements[i]) }
+      } catch (reason) {
+        sorties[i] = { status: 'rejected', reason }
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(max, elements.length) }, ouvrier))
+  return sorties
+}
 
 /** Ce que le client a besoin de savoir d'une fonction pour une personne et un document. */
 function etatPour(quotas, fonction, { email, admin, role }) {
@@ -56,7 +78,7 @@ export async function routesIa(req, res, url, ctx) {
     if (!autorise) return sendJson(res, 403, { error: "Margo n'est pas ouverte à votre rôle sur ce document." })
     let corps
     try {
-      corps = await readJsonBody(req, 300_000)
+      corps = await readJsonBody(req, corpsMaxOctets(garde('margoHistorique')))
     } catch (err) {
       return sendJson(res, err.status || 400, {
         error: err.status === 413 ? 'message trop volumineux' : 'requête illisible',
@@ -101,7 +123,11 @@ export async function routesIa(req, res, url, ctx) {
     // pour une, et sa taille est celle de la sélection entière.
     const email = readSession(req)
     if (!email) return sendJson(res, 401, { error: 'connexion requise' })
-    const body = await readJsonBody(req)
+    // Le corps peut porter jusqu'à la limite de signes par demande (réglage d'instance) :
+    // 4 octets par signe au plus, plus l'enveloppe. Au-delà, la limite en signes
+    // répond avec son message ; la limite d'octets ne fait que protéger la mémoire.
+    const limiteCorps = corpsMaxOctets(quotas.reglages.de('corrections').signesParDemande)
+    const body = await readJsonBody(req, limiteCorps)
     const docId = String(body.docId || '')
     if (!docId || !storage.getDoc(docId)) return sendJson(res, 400, { error: 'document inconnu' })
     if (!quotas.acces('corrections', { admin: isAdminEmail(email), role: storage.roleFor(docId, email) })) {
@@ -109,16 +135,19 @@ export async function routesIa(req, res, url, ctx) {
     }
     const lot = Array.isArray(body.textes)
     const textes = lot ? body.textes : [body.text]
-    if (!textes.length || textes.length > TEXTES_MAX || textes.some((t) => typeof t !== 'string' || !t.trim())) {
+    if (!textes.length || textes.some((t) => typeof t !== 'string' || !t.trim())) {
       return sendJson(res, 400, { error: 'Aucun texte sélectionné.' })
     }
     const instruction = body.instruction == null ? '' : String(body.instruction)
-    if (instruction.length > INSTRUCTION_MAX) {
-      return sendJson(res, 413, { error: `La consigne est trop longue (${INSTRUCTION_MAX} signes au plus).` })
+    // Les consignes viennent toutes de boutons (shared/consignesIa.js) : une consigne
+    // longue ne peut venir que d'un client emballé.
+    if (instruction.length > garde('consigneSignes')) {
+      return sendJson(res, 413, { error: `La consigne est trop longue (${garde('consigneSignes')} signes au plus).` })
     }
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const modeleRegle = quotas.reglages.de('corrections').modele
+    if (!cleDe(modeleRegle)) {
       return sendJson(res, 501, {
-        error: 'Aucune clé API configurée. Définis ANTHROPIC_API_KEY dans le fichier .env du serveur.',
+        error: `Aucune clé API configurée. Définis ${variableDe(modeleRegle)} dans le fichier .env du serveur.`,
       })
     }
     // Le clic est compté ici, une fois, quel que soit le nombre de paragraphes :
@@ -145,7 +174,9 @@ export async function routesIa(req, res, url, ctx) {
       reflexion += usage.reflexion || 0
       if (usage.arret && (!arret || arret === 'end_turn')) arret = usage.arret
     }
-    const resultats = await Promise.allSettled(textes.map((t) => suggestEdit({ model: modele }, t, instruction)))
+    const resultats = await enParallele(textes, garde('correctionsEnParallele'), (t) =>
+      suggestEdit({ model: modele }, t, instruction)
+    )
     let echec = null
     const suggestions = []
     for (const r of resultats) {

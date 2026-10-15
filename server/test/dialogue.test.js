@@ -26,6 +26,8 @@ const BASE = `http://localhost:${PORT}`
 const vraiFetch = globalThis.fetch
 const requetes = []
 let scenario = []
+const requetesMistral = []
+let scenarioMistral = []
 globalThis.fetch = async (url, init) => {
   if (String(url).startsWith('https://api.anthropic.com/')) {
     const corps = JSON.parse(init.body)
@@ -36,6 +38,16 @@ globalThis.fetch = async (url, init) => {
     const rep = typeof suivant === 'function' ? await suivant(corps) : suivant
     return new Response(JSON.stringify(rep.corps), {
       status: rep.status || 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+  if (String(url).startsWith('https://api.eu.mistral.ai/')) {
+    const corps = JSON.parse(init.body)
+    requetesMistral.push({ url: String(url), headers: init.headers, corps })
+    const suivant = scenarioMistral.shift()
+    if (!suivant) return new Response(JSON.stringify({ message: 'appel non prévu par le scénario' }), { status: 500 })
+    return new Response(JSON.stringify(suivant.corps), {
+      status: suivant.status || 200,
       headers: { 'content-type': 'application/json' },
     })
   }
@@ -295,7 +307,6 @@ test('les entrées invalides sont refusées avant tout appel payant', async () =
       },
       400,
     ],
-    [{ messages: [{ role: 'user', content: 'x'.repeat(8001) }] }, 413],
     [{}, 400],
   ]
   for (const [corps, status] of cas)
@@ -307,32 +318,131 @@ test('les entrées invalides sont refusées avant tout appel payant', async () =
   assert.equal(requetes.length, 0)
 })
 
-test('une boucle d’outils sans fin : vingt étapes, puis un bilan sans outil au lieu d’une coupure sèche', async () => {
-  const { TOURS_MAX } = await import('../dialogue.js')
-  assert.equal(TOURS_MAX, 20)
+test('plus de limite de forme : un long message passe, seuls restent les verrous contre l’emballement', async () => {
+  const { garde } = await import('../garde-fous.js')
+  const CONVERSATION_MAX = garde('margoMessages')
+  const CONVERSATION_CARACTERES_MAX = garde('margoHistorique')
+  const SIMULTANES_MAX = garde('margoSimultanes')
+  const doc = await documentDeTest()
+  try {
+    await reglerIa({ signesParDemande: 200_000 })
+    scenario = [() => texte('lu')]
+    const long = await dialoguer(doc.id, 'admin@example.com', msg('x'.repeat(30_000)))
+    assert.equal(long.status, 200, 'un message de 30 000 signes (ancienne butée : 8 000) est accepté')
+    // L'historique au-delà du plafond technique est refusé.
+    const histoire = []
+    for (let i = 0; i < 3; i++) {
+      histoire.push({ role: 'user', content: 'u'.repeat(CONVERSATION_CARACTERES_MAX / 3) })
+      histoire.push({ role: 'assistant', content: 'a' })
+    }
+    histoire.push({ role: 'user', content: 'fin' })
+    assert.equal((await dialoguer(doc.id, 'admin@example.com', { messages: histoire })).status, 413)
+    assert.ok(CONVERSATION_MAX >= 100 && SIMULTANES_MAX >= 10)
+  } finally {
+    await reglerIa({ signesParDemande: 60_000 })
+  }
+})
+
+test('les verrous de la conversation suivent le réglage : messages, historique, réponses simultanées', async () => {
+  const { appliquerGardeFous } = await import('../garde-fous.js')
+  const doc = await documentDeTest()
+  const conversation = (n, taille = 5) => ({
+    messages: Array.from({ length: n }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      content: 'x'.repeat(taille),
+    })),
+  })
+  try {
+    appliquerGardeFous({ margoMessages: 3 })
+    const refus = await dialoguer(doc.id, 'admin@example.com', conversation(5))
+    assert.equal(refus.status, 413)
+    scenario = [() => texte('ok')]
+    assert.equal((await dialoguer(doc.id, 'admin@example.com', conversation(3))).status, 200)
+    appliquerGardeFous({ margoHistorique: 1_000 })
+    assert.equal((await dialoguer(doc.id, 'admin@example.com', conversation(1, 1_001))).status, 413)
+    assert.equal((await dialoguer(doc.id, 'admin@example.com', conversation(1, 1_000))).status, 200)
+  } finally {
+    appliquerGardeFous({})
+  }
+})
+
+test('une boucle d’outils sans fin : le filet de sécurité (100 étapes), puis un bilan sans outil au lieu d’une coupure sèche', async () => {
+  const { garde } = await import('../garde-fous.js')
+  const TOURS_SECURITE = garde('margoEtapes')
+  assert.equal(TOURS_SECURITE, 100)
   const doc = await documentDeTest()
   requetes.length = 0
   scenario = [
-    ...Array.from({ length: TOURS_MAX }, (_, i) => outil(`t${i}`, 'plan', {})),
+    ...Array.from({ length: TOURS_SECURITE }, (_, i) => outil(`t${i}`, 'plan', {})),
     texte('J’ai relu la moitié ; il reste la fin du chapitre. Relancez sur un passage plus court.'),
   ]
   const r = await dialoguer(doc.id, 'admin@example.com', msg('boucle'))
   assert.equal(r.status, 200)
-  assert.equal(requetes.length, TOURS_MAX + 1)
-  // Les vingt premiers appels ont des outils à disposition ; le dernier n'en a plus le droit.
-  assert.ok(requetes.slice(0, TOURS_MAX).every((q) => !q.corps.tool_choice))
-  const dernier = requetes[TOURS_MAX].corps
+  assert.equal(requetes.length, TOURS_SECURITE + 1)
+  // Les appels de travail ont des outils à disposition ; le dernier n'en a plus le droit.
+  assert.ok(requetes.slice(0, TOURS_SECURITE).every((q) => !q.corps.tool_choice))
+  const dernier = requetes[TOURS_SECURITE].corps
   assert.deepEqual(dernier.tool_choice, { type: 'none' })
   assert.ok(
     Array.isArray(dernier.tools) && dernier.tools.length > 0,
     'les outils restent déclarés : l’historique en contient'
   )
   const derniereEntree = dernier.messages[dernier.messages.length - 1].content
-  assert.match(JSON.stringify(derniereEntree), /nombre maximal d’étapes/)
+  assert.match(JSON.stringify(derniereEntree), /limite technique d’étapes/)
   // La personne reçoit le bilan de Margo, pas une erreur.
   assert.ok(r.evenements.some((e) => e.type === 'texte' && /il reste la fin du chapitre/.test(e.texte)))
   assert.ok(!r.evenements.some((e) => e.type === 'erreur'))
-  assert.equal(r.fin.usage.tours, TOURS_MAX + 1)
+  assert.equal(r.fin.usage.tours, TOURS_SECURITE + 1)
+  scenario = []
+})
+
+const outilAvecUsage = (id, usage) => {
+  const o = outil(id, 'plan', {})
+  o.corps.usage = {
+    input_tokens: 0,
+    output_tokens: 40,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+    ...usage,
+  }
+  return o
+}
+
+test('un long document relu à chaque étape va au bout de ses étapes : le cache relu ne coupe pas la demande', async () => {
+  const doc = await documentDeTest()
+  requetes.length = 0
+  // 12 étapes de 60 000 jetons relus dans le cache : 720 000 en brut (l'ancien plafond coupait à la 7ᵉ),
+  // 72 000 au prix facturé.
+  scenario = [
+    ...Array.from({ length: 12 }, (_, i) =>
+      outilAvecUsage(`g${i}`, { input_tokens: 300, cache_read_input_tokens: 60_000 })
+    ),
+    texte('Tout est posé.'),
+  ]
+  const r = await dialoguer(doc.id, 'admin@example.com', msg('relis tout'))
+  assert.equal(r.status, 200)
+  assert.equal(requetes.length, 13)
+  assert.ok(!r.evenements.some((e) => e.type === 'erreur'))
+  assert.ok(r.evenements.some((e) => e.type === 'texte' && /Tout est posé/.test(e.texte)))
+  scenario = []
+})
+
+test('plus de plafond de jetons : seule la limite de signes borne une demande, des étapes très chargées vont au bout', async () => {
+  const { entreePonderee, ENTREE_MAX } = await import('../dialogue.js').then((m) => ({ ...m }))
+  assert.equal(entreePonderee, undefined)
+  assert.equal(ENTREE_MAX, undefined)
+  const doc = await documentDeTest()
+  requetes.length = 0
+  // Cinq étapes de 150 000 jetons frais : 750 000 jetons d'entrée, que l'ancien plafond (400 000) coupait.
+  scenario = [
+    ...Array.from({ length: 5 }, (_, i) => outilAvecUsage(`c${i}`, { input_tokens: 150_000 })),
+    texte('Tout est fait.'),
+  ]
+  const r = await dialoguer(doc.id, 'admin@example.com', msg('énorme'))
+  assert.equal(r.status, 200)
+  assert.equal(requetes.length, 6)
+  assert.ok(!r.evenements.some((e) => e.type === 'erreur'))
+  assert.ok(!r.fin.incomplet)
   scenario = []
 })
 
@@ -348,7 +458,8 @@ const coupee = () => ({
 })
 
 test('une réponse coupée par le budget est jetée, Margo recommence en plus petit — la demande ne s’abandonne pas', async () => {
-  const { COUPURES_MAX } = await import('../dialogue.js')
+  const { garde } = await import('../garde-fous.js')
+  const COUPURES_MAX = garde('margoCoupures')
   assert.equal(COUPURES_MAX, 2)
   const doc = await documentDeTest()
   requetes.length = 0
@@ -374,7 +485,8 @@ test('une réponse coupée par le budget est jetée, Margo recommence en plus pe
 })
 
 test('si la réponse est coupée encore et encore : deux reprises, puis l’erreur claire et un résumé « incomplet »', async () => {
-  const { COUPURES_MAX } = await import('../dialogue.js')
+  const { garde } = await import('../garde-fous.js')
+  const COUPURES_MAX = garde('margoCoupures')
   const doc = await documentDeTest()
   requetes.length = 0
   scenario = Array.from({ length: COUPURES_MAX + 1 }, () => coupee())
@@ -388,29 +500,38 @@ test('si la réponse est coupée encore et encore : deux reprises, puis l’erre
 })
 
 test('si le bilan final est vide, l’erreur d’avant reste, avec la mention des modifications déjà posées', async () => {
-  const { TOURS_MAX } = await import('../dialogue.js')
+  const { garde } = await import('../garde-fous.js')
+  const TOURS_SECURITE = garde('margoEtapes')
   const doc = await documentDeTest()
   requetes.length = 0
   scenario = [
-    ...Array.from({ length: TOURS_MAX }, (_, i) => outil(`v${i}`, 'plan', {})),
+    ...Array.from({ length: TOURS_SECURITE }, (_, i) => outil(`v${i}`, 'plan', {})),
     { corps: { stop_reason: 'end_turn', content: [], usage: { input_tokens: 10, output_tokens: 0 } } },
   ]
   const r = await dialoguer(doc.id, 'admin@example.com', msg('boucle'))
-  assert.equal(requetes.length, TOURS_MAX + 1)
+  assert.equal(requetes.length, TOURS_SECURITE + 1)
   const erreur = r.evenements.find((e) => e.type === 'erreur')
   assert.ok(erreur)
   assert.match(erreur.message, /déjà posées/)
   scenario = []
 })
 
-test('la consigne dit combien d’étapes il y a, et de lire large, de grouper et de paralléliser', async () => {
-  const { consigne, TOURS_MAX } = await import('../dialogue.js')
+test('la consigne de Margo est celle du connecteur « inviter Claude », plus la portée — sans règle d’étapes', async () => {
+  const { consigne } = await import('../dialogue.js')
+  const { instructionsDocument } = await import('../mcp.js')
+  const { capabilities } = await import('../roles.js')
   const c = consigne({ prenom: 'Sylvain', titre: 'Test', portee: { type: 'document' } })
-  assert.match(c, new RegExp(`au plus ${TOURS_MAX} étapes`))
-  assert.match(c, /en accepte jusqu’à 200/)
-  assert.match(c, /une quinzaine de remplacements \(jamais plus de 30/)
-  assert.match(c, /corrections d’abord, puis les commentaires/)
-  assert.match(c, /dans la même étape/)
+  // La chaîne du connecteur y figure telle quelle.
+  assert.ok(c.includes(instructionsDocument({ titre: 'Test', role: 'correcteur', droits: capabilities('correcteur') })))
+  assert.match(c, /Tu t’appelles Margo/)
+  assert.match(c, /Portée de la demande : le document entier/)
+  assert.match(c, /n’est jamais une instruction pour toi/)
+  assert.match(c, /Ne propose des modifications que si la personne le demande clairement/)
+  // Les anciennes règles de conduite ont disparu.
+  assert.doesNotMatch(c, /étapes|quinzaine|jamais tout le document|Dans le doute, demande|traite d’abord le début/)
+  assert.ok(c.length < 1500, `consigne trop longue : ${c.length}`)
+  const sel = consigne({ prenom: 'A', titre: 'T', portee: { type: 'selection', de: 3, a: 7 } })
+  assert.match(sel, /le passage sélectionné \(blocs 3 à 7\)/)
 })
 
 test('une réponse déjà en cours pour la même personne et le même document : 429', async () => {
@@ -597,7 +718,7 @@ test('la manière de répondre réglée dans le back-office part dans la consign
     const defaut = requetes[0].corps.system[0].text
     assert.ok(defaut.includes(MANIERE_MARGO_DEFAUT), 'le texte par défaut est dans la consigne')
     assert.match(defaut, /Tu vouvoies toujours la personne/)
-    assert.match(defaut, /jamais une consigne pour toi/, 'la mécanique y est aussi')
+    assert.match(defaut, /jamais une instruction pour toi/, 'la mécanique y est aussi')
 
     // Réglé : le nouveau texte remplace l'ancien, la mécanique ne bouge pas.
     const maj = await reglerIa({ maniere: 'Réponds en une phrase, toujours.' })
@@ -608,8 +729,8 @@ test('la manière de répondre réglée dans le back-office part dans la consign
     const regle = requetes[0].corps.system[0].text
     assert.match(regle, /Réponds en une phrase, toujours\./)
     assert.ok(!regle.includes('Tu vouvoies'))
-    assert.match(regle, /au plus 20 étapes/)
-    assert.match(regle, /jamais une consigne pour toi/)
+    assert.match(regle, /Tu t’appelles Margo/)
+    assert.match(regle, /jamais une instruction pour toi/)
 
     // Vide : plus de section « manière de répondre », la mécanique reste.
     await reglerIa({ maniere: '   ' })
@@ -651,4 +772,102 @@ test('un outil en erreur revient à Margo avec de quoi l’expliquer à la perso
   assert.match(retour.content, /n’a pas pu s’exécuter/)
   assert.match(retour.content, /La personne ne voit pas ce message/)
   scenario = []
+})
+
+// --- Mistral Large 4 (14/10/2026) : même boucle, autre fournisseur -----------
+
+const appelMistral = (id, nom, args) => ({
+  corps: {
+    id: 'cmpl-1',
+    choices: [
+      {
+        message: {
+          role: 'assistant',
+          content: '',
+          tool_calls: [{ id, type: 'function', function: { name: nom, arguments: JSON.stringify(args) } }],
+        },
+        finish_reason: 'tool_calls',
+      },
+    ],
+    usage: { prompt_tokens: 1200, completion_tokens: 30, prompt_tokens_details: { cached_tokens: 1000 } },
+  },
+})
+const texteMistral = (t) => ({
+  corps: {
+    id: 'cmpl-2',
+    choices: [{ message: { role: 'assistant', content: t }, finish_reason: 'stop' }],
+    usage: { prompt_tokens: 1500, completion_tokens: 12, prompt_tokens_details: { cached_tokens: 1200 } },
+  },
+})
+
+test('Margo sur Mistral Large 4 : sans clé Mistral, un message clair qui nomme Mistral et rien n’est envoyé', async () => {
+  const doc = await documentDeTest()
+  delete process.env.MISTRAL_API_KEY
+  await reglerIa({ modele: 'mistral-large-4-0' })
+  try {
+    requetes.length = 0
+    requetesMistral.length = 0
+    const r = await dialoguer(doc.id, 'admin@example.com', msg('bonjour'))
+    assert.equal(r.status, 501)
+    assert.match(r.erreur, /clé d’accès à Mistral n’est pas configurée/)
+    assert.equal(requetes.length + requetesMistral.length, 0)
+  } finally {
+    await reglerIa(MARGO_DEFAUT)
+  }
+})
+
+test('Margo sur Mistral Large 4 : la boucle d’outils passe par le point d’accès européen, réflexion coupée', async () => {
+  const doc = await documentDeTest()
+  process.env.MISTRAL_API_KEY = 'cle-mistral-factice'
+  await reglerIa({ modele: 'mistral-large-4-0' })
+  try {
+    requetes.length = 0
+    requetesMistral.length = 0
+    scenarioMistral = [appelMistral('AbCdEf123', 'plan', {}), texteMistral('Le chapitre compte trois blocs.')]
+    const r = await dialoguer(doc.id, 'admin@example.com', msg('combien de blocs ?'))
+    assert.equal(r.status, 200)
+    assert.equal(requetes.length, 0, 'rien n’est parti chez Anthropic')
+    assert.equal(requetesMistral.length, 2)
+    const [premiere, seconde] = requetesMistral
+    assert.equal(premiere.url, 'https://api.eu.mistral.ai/v1/chat/completions')
+    assert.equal(premiere.headers.authorization, 'Bearer cle-mistral-factice')
+    assert.equal(premiere.corps.model, 'mistral-large-4-0')
+    assert.equal(premiere.corps.reasoning_effort, 'none')
+    assert.equal(premiere.corps.thinking, undefined)
+    assert.equal(premiere.corps.messages[0].role, 'system')
+    assert.match(premiere.corps.messages[0].content, /Tu t’appelles Margo/)
+    assert.ok(premiere.corps.tools.some((t) => t.type === 'function' && t.function.name === 'plan'))
+    // Le résultat de l'outil revient comme un message `tool`, sous l'identifiant de l'appel.
+    const outilRendu = seconde.corps.messages.find((m) => m.role === 'tool')
+    assert.ok(outilRendu && outilRendu.tool_call_id === 'AbCdEf123' && outilRendu.name === 'plan')
+    assert.ok(r.evenements.some((e) => e.type === 'texte' && /trois blocs/.test(e.texte)))
+    assert.ok(!r.evenements.some((e) => e.type === 'erreur'))
+    // Les jetons sont ceux de Mistral : le cache relu est séparé de l'entrée fraîche.
+    assert.equal(r.fin.usage.cacheLu, 2200)
+    assert.equal(r.fin.usage.entree, 200 + 300)
+    assert.equal(r.fin.usage.tours, 2)
+  } finally {
+    scenarioMistral = []
+    delete process.env.MISTRAL_API_KEY
+    await reglerIa(MARGO_DEFAUT)
+  }
+})
+
+test('Margo sur Mistral : une clé refusée est dite en clair, sans le texte du fournisseur', async () => {
+  const doc = await documentDeTest()
+  process.env.MISTRAL_API_KEY = 'cle-mistral-factice'
+  await reglerIa({ modele: 'mistral-large-4-0' })
+  try {
+    scenarioMistral = [{ status: 401, corps: { message: 'Unauthorized' } }]
+    const r = await dialoguer(doc.id, 'admin@example.com', msg('bonjour'))
+    assert.equal(r.status, 200)
+    const erreur = r.evenements.find((e) => e.type === 'erreur')
+    assert.ok(erreur)
+    assert.match(erreur.message, /clé d’accès à Mistral/)
+    assert.doesNotMatch(erreur.message, /Unauthorized/)
+  } finally {
+    scenarioMistral = []
+    delete process.env.MISTRAL_API_KEY
+    await reglerIa(MARGO_DEFAUT)
+  }
 })

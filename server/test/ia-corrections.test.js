@@ -21,6 +21,7 @@ const BASE = `http://localhost:${PORT}`
 
 const vraiFetch = globalThis.fetch
 const requetes = []
+const requetesMistral = []
 let reponse = null // une fonction (corps de requête) → { status?, corps }
 globalThis.fetch = async (url, init) => {
   if (String(url).startsWith('https://api.anthropic.com/')) {
@@ -31,6 +32,16 @@ globalThis.fetch = async (url, init) => {
       status: rep.status || 200,
       headers: { 'content-type': 'application/json' },
     })
+  }
+  if (String(url).startsWith('https://api.eu.mistral.ai/')) {
+    requetesMistral.push({ url: String(url), headers: init.headers, corps: JSON.parse(init.body) })
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: 'Texte corrigé par Mistral.' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 80, completion_tokens: 6 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )
   }
   return vraiFetch(url, init)
 }
@@ -96,8 +107,8 @@ test('les réglages : réservés aux administrateurs, bornés, avec des messages
   const etat = await conso()
   assert.deepEqual(
     etat.modeles.map((m) => m.id),
-    ['claude-haiku-5-5', 'claude-sonnet-5-5'],
-    'Haiku et Sonnet seulement'
+    ['claude-haiku-5-5', 'claude-sonnet-5-5', 'mistral-large-4-0'],
+    'Haiku, Sonnet et Mistral Large 4 seulement'
   )
   assert.deepEqual(etat.niveaux, ['admin', 'editeur', 'correcteur'])
   assert.equal(etat.reglages.corrections.modele, 'claude-haiku-5-5')
@@ -386,4 +397,136 @@ test('un clic refusé par une limite compte comme clic (l’intention), pas comm
   const ligne = await ligneDe('refus@example.com')
   assert.ok(!ligne || ligne.corrections.demandes === 0)
   await remettre()
+})
+
+test('Corrections IA sur Mistral Large 4 : sans clé, 501 qui nomme MISTRAL_API_KEY ; avec clé, point d’accès européen, jetons et coût comptés', async () => {
+  const doc = await document('mistral@example.com')
+  delete process.env.MISTRAL_API_KEY
+  await regler({ corrections: { modele: 'mistral-large-4-0' } })
+  try {
+    requetes.length = 0
+    requetesMistral.length = 0
+    const sansCle = await demander(doc, 'mistral@example.com', { text: 'Ils mange des pomme.' })
+    assert.equal(sansCle.status, 501)
+    assert.match((await sansCle.json()).error, /MISTRAL_API_KEY/)
+    assert.equal(requetes.length + requetesMistral.length, 0)
+
+    process.env.MISTRAL_API_KEY = 'cle-mistral-factice'
+    const res = await demander(doc, 'mistral@example.com', { text: 'Ils mange des pomme.' })
+    assert.equal(res.status, 200)
+    assert.equal((await res.json()).suggestion, 'Texte corrigé par Mistral.')
+    assert.equal(requetes.length, 0, 'rien chez Anthropic')
+    assert.equal(requetesMistral.length, 1)
+    assert.equal(requetesMistral[0].url, 'https://api.eu.mistral.ai/v1/chat/completions')
+    assert.equal(requetesMistral[0].corps.model, 'mistral-large-4-0')
+    assert.equal(requetesMistral[0].corps.reasoning_effort, 'none')
+
+    const ligne = await ligneDe('mistral@example.com')
+    assert.equal(ligne.corrections.demandes, 1)
+    assert.equal(ligne.corrections.signes, 20)
+    assert.equal(ligne.corrections.entree, 80)
+    assert.equal(ligne.corrections.sortie, 6)
+    assert.ok(ligne.corrections.usd > 0)
+    assert.ok((await conso()).jetonsParModele['mistral-large-4-0'].entree >= 80)
+  } finally {
+    delete process.env.MISTRAL_API_KEY
+    await remettre()
+  }
+})
+
+test('plus de butée cachée : 250 paragraphes, un corps de plus de 20 Ko, un paragraphe de 9 000 signes — seule la limite en signes compte', async () => {
+  const doc = await document('gros@example.com')
+  await regler({ corrections: { signesParDemande: 100_000 } })
+  try {
+    // 250 paragraphes de 100 signes : 25 000 signes, un corps JSON de plus de 25 Ko (l'ancienne butée : 20 Ko, 200 paragraphes).
+    const textes = Array.from({ length: 250 }, (_, i) => `Paragraphe ${i} ${'mot '.repeat(23)}`.slice(0, 100))
+    let actifs = 0
+    let maxActifs = 0
+    requetes.length = 0
+    reponse = async (corps) => {
+      actifs++
+      maxActifs = Math.max(maxActifs, actifs)
+      await new Promise((r) => setTimeout(r, 3))
+      actifs--
+      const m = /<passage>\n([\s\S]*)\n<\/passage>/.exec(corps.messages[0].content)
+      return succes(`${m[1]} (relu)`)
+    }
+    const res = await demander(doc, 'gros@example.com', { textes })
+    assert.equal(res.status, 200)
+    const { suggestions } = await res.json()
+    assert.equal(suggestions.length, 250)
+    assert.equal(requetes.length, 250)
+    assert.deepEqual(
+      suggestions.slice(0, 2),
+      textes.slice(0, 2).map((t) => `${t} (relu)`),
+      'l’ordre est gardé'
+    )
+    assert.ok(maxActifs <= 8, `au plus 8 appels en même temps (vu : ${maxActifs})`)
+    const ligne = await ligneDe('gros@example.com')
+    assert.equal(ligne.corrections.demandes, 1)
+    assert.equal(ligne.corrections.passages, 250)
+    assert.equal(ligne.corrections.signes, 25_000)
+
+    // Un seul paragraphe de 9 000 signes passe aussi.
+    reponse = null
+    const long = await demander(doc, 'gros@example.com', { text: 'a'.repeat(9000) })
+    assert.equal(long.status, 200)
+
+    // Et la limite en signes répond toujours, avec son message.
+    const trop = await demander(doc, 'gros@example.com', { text: 'a'.repeat(100_001) })
+    assert.equal(trop.status, 413)
+    assert.match((await trop.json()).error, /limite est de 100\s000\s+signes par demande/)
+  } finally {
+    reponse = null
+    await remettre()
+  }
+})
+
+test('garde-fous du back-office : listés avec leur documentation, réglables par un administrateur seulement, appliqués à la demande suivante', async () => {
+  const doc = await document('gf@example.com')
+  await regler({ corrections: { signesParDemande: 100_000 } })
+  try {
+    const etat = await conso()
+    assert.ok(etat.gardeFous.definitions.length >= 25)
+    assert.ok(etat.gardeFous.definitions.every((g) => g.quoi && g.unite && g.nom))
+    assert.equal(etat.gardeFous.valeurs.correctionsEnParallele, 8)
+    assert.equal(etat.maniereMax, etat.gardeFous.valeurs.maniereSignes)
+
+    assert.equal((await regler({ gardeFous: { correctionsEnParallele: 2 } }, 'simple@example.com')).status, 403)
+    const refus = await regler({ gardeFous: { correctionsEnParallele: 0 } })
+    assert.equal(refus.status, 400)
+    assert.match((await refus.json()).error, /Paragraphes envoyés en même temps/)
+    assert.equal((await conso()).gardeFous.valeurs.correctionsEnParallele, 8, 'un refus ne change rien')
+
+    assert.equal((await regler({ gardeFous: { correctionsEnParallele: 2 } })).status, 200)
+    assert.equal((await conso()).gardeFous.valeurs.correctionsEnParallele, 2)
+    let actifs = 0
+    let maxActifs = 0
+    reponse = async (corps) => {
+      actifs++
+      maxActifs = Math.max(maxActifs, actifs)
+      await new Promise((r) => setTimeout(r, 5))
+      actifs--
+      return succes(/<passage>\n([\s\S]*)\n<\/passage>/.exec(corps.messages[0].content)[1])
+    }
+    const textes = Array.from({ length: 12 }, (_, i) => `Paragraphe numéro ${i}`)
+    assert.equal((await demander(doc, 'gf@example.com', { textes })).status, 200)
+    assert.ok(maxActifs <= 2, `au plus 2 appels en même temps (vu : ${maxActifs})`)
+  } finally {
+    reponse = null
+    await regler({ gardeFous: { correctionsEnParallele: null } })
+    await remettre()
+  }
+})
+
+test('la manière de répondre peut atteindre son garde-fou : le corps de la requête du back-office n’est pas plus petit', async () => {
+  try {
+    assert.equal((await regler({ gardeFous: { maniereSignes: 30_000 } })).status, 200)
+    const longue = 'Sois brève. '.repeat(2_000) // 24 000 signes
+    assert.equal((await regler({ margo: { maniere: longue } })).status, 200)
+    assert.equal((await conso()).reglages.margo.maniere.length, longue.trim().length)
+  } finally {
+    await regler({ margo: { maniere: 'Tu vouvoies toujours la personne.' } })
+    await regler({ gardeFous: { maniereSignes: null } })
+  }
 })

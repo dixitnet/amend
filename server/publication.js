@@ -187,7 +187,11 @@ function bloc(n) {
   switch (n.type) {
     case 'paragraphe': {
       const contenu = inline(n.contenu)
-      return contenu ? `<p>${contenu}</p>` : '<p>&nbsp;</p>'
+      // « Titre » et « Sous-titre » : deux classes, jamais une valeur du client
+      // recopiée telle quelle.
+      const classe =
+        n.style === 'titre' ? ' class="style-titre"' : n.style === 'sous-titre' ? ' class="style-sous-titre"' : ''
+      return contenu ? `<p${classe}>${contenu}</p>` : `<p${classe}>&nbsp;</p>`
     }
     case 'titre': {
       const niveau = Math.min(5, Math.max(1, Number(n.niveau) || 2))
@@ -244,6 +248,8 @@ h1, h2, h3, h4, h5 { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
 h1 { font-size: 1.9em; margin-top: 0; }
 h2 { font-size: 1.45em; } h3 { font-size: 1.2em; } h4, h5 { font-size: 1.05em; }
 p { margin: 0 0 1em; }
+p.style-titre { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 1.9em; font-weight: 700; line-height: 1.2; margin: 0 0 0.3em; }
+p.style-sous-titre { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 1.25em; line-height: 1.3; margin: 0 0 1em; color: var(--muted); }
 blockquote { margin: 1.4em 0; padding: 0 0 0 1em; border-left: 3px solid var(--bord); color: var(--muted); }
 ul, ol { padding-left: 1.4em; }
 ul.taches { list-style: none; padding-left: 0; }

@@ -266,7 +266,76 @@ export const BLOCS = [
       indent: 0,
     },
   })),
+  // **« Titre » et « Sous-titre »** (14/10/2026), les deux styles de
+  // paragraphe de la page de titre d'un livre ou d'un rapport. Ce ne sont
+  // pas des titres de section : ils n'entrent ni dans le plan, ni dans la
+  // table des matières, ni dans l'en-tête courant (comme dans Word). Ils
+  // viennent **après** les trois niveaux, et c'est aussi leur place dans la
+  // liste déroulante de l'éditeur. `classe` dit comment un paragraphe porte
+  // ce style (voir STYLES_PARAGRAPHE) : la balise reste `p`.
+  {
+    id: 'title',
+    label: 'Titre',
+    balise: 'p',
+    classe: 'style-titre',
+    docxHeading: null,
+    defauts: {
+      font: 'system',
+      size: 30,
+      bold: true,
+      italic: false,
+      uppercase: false,
+      align: 'left',
+      lineHeight: 1.15,
+      spaceBefore: 0,
+      spaceAfter: 6,
+      firstLineIndent: 0,
+      indent: 0,
+    },
+  },
+  {
+    id: 'subtitle',
+    label: 'Sous-titre',
+    balise: 'p',
+    classe: 'style-sous-titre',
+    docxHeading: null,
+    defauts: {
+      font: 'system',
+      size: 16,
+      bold: false,
+      italic: false,
+      uppercase: false,
+      align: 'left',
+      lineHeight: 1.15,
+      spaceBefore: 0,
+      spaceAfter: 14,
+      firstLineIndent: 0,
+      indent: 0,
+    },
+  },
 ]
+
+/** Les styles que porte un **paragraphe** (attribut `style` du nœud) : la
+ * valeur stockée dans le document, et le bloc de la feuille de style qui en
+ * règle l'aspect. Un paragraphe sans valeur est du « Texte courant ». */
+export const STYLES_PARAGRAPHE = [
+  { valeur: 'titre', bloc: 'title', libelle: 'Titre' },
+  { valeur: 'sous-titre', bloc: 'subtitle', libelle: 'Sous-titre' },
+]
+
+/** Le bloc de la feuille de style d'un paragraphe : `title`, `subtitle`, ou
+ * `body` si sa valeur est absente ou inconnue (un document écrit par une
+ * version plus récente ne casse rien : il retombe en texte courant). */
+export function blocDuParagraphe(valeur) {
+  const s = STYLES_PARAGRAPHE.find((x) => x.valeur === valeur)
+  return s ? s.bloc : 'body'
+}
+
+/** La valeur de style à garder pour un paragraphe : l'une de celles de
+ * STYLES_PARAGRAPHE, sinon `null`. */
+export function styleParagrapheValide(valeur) {
+  return STYLES_PARAGRAPHE.some((x) => x.valeur === valeur) ? valeur : null
+}
 
 /** Le nombre de niveaux de titre. Déduit de BLOCS, jamais écrit deux
  * fois : les sérialiseurs et le schéma s'y réfèrent pour borner ce qu'ils

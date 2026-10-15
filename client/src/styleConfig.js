@@ -23,6 +23,9 @@ export {
   langue,
   PROPRIETES,
   BLOCS,
+  STYLES_PARAGRAPHE,
+  blocDuParagraphe,
+  styleParagrapheValide,
   VERSION_STYLE,
   styleParDefaut,
   fusionner,
@@ -157,7 +160,9 @@ function blocCss(valeurs) {
  * pour l'export PDF). Une règle par bloc, dans l'ordre du modèle. */
 export function buildStyleCss(style, { scope }) {
   const complet = style && style.blocs ? style : styleParDefaut()
-  return BLOCS.map((b) => `${scope} ${b.balise} { ${blocCss(complet.blocs[b.id] || b.defauts)} }`).join('\n')
+  return BLOCS.map(
+    (b) => `${scope} ${b.balise}${b.classe ? `.${b.classe}` : ''} { ${blocCss(complet.blocs[b.id] || b.defauts)} }`
+  ).join('\n')
 }
 
 /** La règle `@page` — taille, marges, numérotation. Sans équivalent dans

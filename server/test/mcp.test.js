@@ -27,6 +27,7 @@ await import('../server.js')
 const { sessionCookieHeader } = await import('../auth.js')
 const { Storage } = await import('../storage.js')
 const { Agents } = await import('../agents.js')
+const { appliquerGardeFous } = await import('../garde-fous.js')
 await attendre()
 
 function attendre() {
@@ -542,7 +543,7 @@ test('un corps trop gros est refusé sans faire tomber le serveur', async () => 
   const { secret } = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
   const res = await poster(
     secret,
-    { jsonrpc: '2.0', id: 1, method: 'ping', params: { bourrage: 'x'.repeat(300_000) } },
+    { jsonrpc: '2.0', id: 1, method: 'ping', params: { bourrage: 'x'.repeat(5_000_000) } },
     { 'x-forwarded-for': '10.6.6.6' }
   )
   assert.equal(res.status, 413)
@@ -616,4 +617,27 @@ test.after(async () => {
   // délai pour laisser partir le rapport de test (comme access.test.js).
   await new Promise((r) => setTimeout(r, 100))
   process.exit(0)
+})
+
+test('garde-fous du connecteur : un lot trop grand est refusé en entier (et non tronqué en silence) ; les écritures par heure suivent le réglage', async () => {
+  const doc = await documentDeTest()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
+  try {
+    appliquerGardeFous({ lotMcp: 3, ecrituresParHeure: 2 })
+    const lot = (n) => Array.from({ length: n }, (_, i) => ({ jsonrpc: '2.0', id: i + 1, method: 'ping' }))
+    const ok = await (await poster(secret, lot(3))).json()
+    assert.equal(ok.length, 3)
+    const trop = await poster(secret, lot(4))
+    assert.equal(trop.status, 400)
+    assert.match((await trop.json()).error.message, /lot trop grand \(3 messages au plus\)/)
+
+    // Chaque appel d'un outil d'écriture compte, même refusé : on s'en sert sans rien écrire.
+    const ecrire = () => rpc(secret, 'tools/call', { name: 'commenter', arguments: { commentaires: [] } })
+    const textes = []
+    for (let n = 1; n <= 3; n++) textes.push((await ecrire()).result.content[0].text)
+    assert.ok(!/Trop d’écritures/.test(textes[0] + textes[1]))
+    assert.match(textes[2], /Trop d’écritures pour cette heure/)
+  } finally {
+    appliquerGardeFous({})
+  }
 })

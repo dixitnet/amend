@@ -45,6 +45,11 @@ export function moisSuivant(mois) {
 export const TARIFS_USD = {
   'claude-haiku-5-5': { entree: 0.1, sortie: 0.5 },
   'claude-sonnet-5-5': { entree: 2, sortie: 10 },
+  // Mistral Large 4 (aperçu, prix promotionnel de la grille du 14/10/2026 :
+  // 0,68 / 2,09 $) majoré de 10 % pour le point d'accès européen. Mistral ne
+  // facture pas le cache à part dans cette estimation : les jetons relus sont
+  // comptés plein tarif (estimation haute). À revérifier à la fin de l'aperçu.
+  'mistral-large-4-0': { entree: 0.748, sortie: 2.299, poidsCacheLu: 1 },
 }
 
 /** Le coût estimé, en dollars, d'une consommation de jetons. */
@@ -55,7 +60,7 @@ export function coutUsd(modele, j) {
   return (
     ((j.entree || 0) * t.entree +
       (j.sortie || 0) * t.sortie +
-      (j.cacheLu || 0) * t.entree * 0.1 +
+      (j.cacheLu || 0) * t.entree * (t.poidsCacheLu ?? 0.1) +
       (j.cacheEcrit || 0) * t.entree * 1.25) /
     m
   )

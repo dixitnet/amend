@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import * as Y from 'yjs'
 import { Agents, empreinte } from '../agents.js'
 import { Storage } from '../storage.js'
+import { garde } from '../garde-fous.js'
 import {
   ajouterNotes,
   blocsDuDocument,
@@ -715,7 +716,7 @@ test('ce qui ne peut pas recevoir une note est refusé avec sa raison, le reste 
       { bloc: 3, apres: 'aj', texte: 'Dans la proposition d’un autre.' },
       { bloc: 4, apres: 'Texte', texte: '   ' },
       { bloc: 99, apres: 'x', texte: 'Hors document.' },
-      { bloc: 4, apres: 'sain', texte: 'x'.repeat(2001) },
+      { bloc: 4, apres: 'sain', texte: 'x'.repeat(garde('longueurNote') + 1) },
       { bloc: 4, apres: 'sain', texte: 'Une note\nsur deux lignes.' },
     ],
     AUTEUR

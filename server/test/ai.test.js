@@ -80,7 +80,8 @@ test('la réflexion du modèle est désactivée et le budget de sortie suit le p
   // Un long passage : le budget monte avec lui, jusqu'au plafond.
   assert.equal(budgetDeSortie('x'.repeat(2700)), 4096)
   assert.equal(budgetDeSortie('x'.repeat(7000)), 4667)
-  assert.equal(budgetDeSortie('x'.repeat(20000)), 8192)
+  assert.equal(budgetDeSortie('x'.repeat(20000)), 13334)
+  assert.equal(budgetDeSortie('x'.repeat(60000)), 16384, 'plafond du modèle, pas une limite de paragraphe')
   assert.equal(corpsDeRequete({ model: 'm', text: 'x'.repeat(7000), instruction: 'i' }).max_tokens, 4667)
 })
 
@@ -133,4 +134,12 @@ test('les repères de notes sont expliqués au modèle', () => {
   const corps = corpsDeRequete({ model: 'm', text: 'Un texte⟦1⟧ suivi.', instruction: 'Corrige.' })
   assert.match(corps.system, /⟦1⟧/)
   assert.match(corps.messages[0].content, /Un texte⟦1⟧ suivi\./)
+})
+
+test('un paragraphe de plus de 8 000 signes n’est plus refusé : la seule limite est celle de la demande en signes', async () => {
+  const api = fausseApi(reponseTexte('Long paragraphe corrigé.'))
+  const r = await suggestEdit({ apiKey: CLE_FACTICE, fetch: api.fetcher }, 'mot '.repeat(3000), 'Corrige.')
+  assert.equal(r.suggestion, 'Long paragraphe corrigé.')
+  assert.equal(api.requetes.length, 1)
+  assert.equal(api.requetes[0].max_tokens, 8000)
 })

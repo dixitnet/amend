@@ -316,9 +316,9 @@ test('« Tout rejeter — Claude » demande deux clics et ne touche pas aux modi
   d.destroy()
 })
 
-test('pourEnvoi : alternance stricte, messages vides écartés, longueur bornée', () => {
+test('pourEnvoi : alternance stricte, messages vides écartés, aucune troncature', () => {
   assert.deepEqual(pourEnvoi([{ role: 'user', content: 'a' }, { role: 'assistant', content: '' }, { role: 'user', content: 'b' }]), [{ role: 'user', content: 'a\n\nb' }])
-  assert.equal(pourEnvoi([{ role: 'assistant', content: 'x'.repeat(9000) }])[0].content.length, 8000)
+  assert.equal(pourEnvoi([{ role: 'assistant', content: 'x'.repeat(9000) }])[0].content.length, 9000)
 })
 
 test('lireFlux : lignes coupées en deux morceaux, lignes illisibles ignorées', async () => {

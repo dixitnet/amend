@@ -17,8 +17,6 @@ import { rapport, signes } from '../../shared/signes.js'
 import { changesKey } from './changesPanel.js'
 import { rejectAgentChanges, estModificationDAgent, listChanges } from './trackChanges.js'
 
-const MESSAGE_MAX = 8000
-
 // ---------------------------------------------------------------------------
 // Les blocs, comme le serveur les compte (server/agentTexte.js, blocsDuDocument)
 // ---------------------------------------------------------------------------
@@ -210,7 +208,7 @@ export function pourEnvoi(messages) {
     if (dernier && dernier.role === m.role) dernier.content += `\n\n${contenu}`
     else sortie.push({ role: m.role, content: contenu })
   }
-  return sortie.map((m) => ({ role: m.role, content: m.content.slice(0, MESSAGE_MAX) }))
+  return sortie.map((m) => ({ role: m.role, content: m.content }))
 }
 
 function cle(docId) {
@@ -315,7 +313,6 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
 
   const saisie = el('textarea', 'dialogue-saisie')
   saisie.rows = 2
-  saisie.maxLength = MESSAGE_MAX
   saisie.placeholder = 'Une question, une demande…'
   saisie.setAttribute('aria-label', 'Votre message à Margo')
   const envoyer = el('button', 'btn-primary dialogue-envoyer', 'Envoyer')

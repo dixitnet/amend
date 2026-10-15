@@ -15,6 +15,10 @@
 // réglé pour toute l'instance, qui s'ajoute à sa consigne (ton, longueur, ce
 // qu'elle dit). Ses outils et ses règles de fond ne s'y règlent pas.
 //
+// Puis les **garde-fous** (15/10/2026, server/garde-fous.js) : tous les autres
+// seuils de l'IA — limites du modèle et verrous contre l'emballement —, réglés
+// ici, chacun documenté. La seule limite d'usage reste la taille de la demande.
+//
 // En dessous : la consommation du mois de chaque personne (signes des demandes
 // réussies, jetons facturés, coût estimé) et les jetons par modèle. Ce sont ces
 // chiffres qui permettront de fixer les quotas des offres FREE et PRO.
@@ -83,7 +87,7 @@ function carte(id, nom, r, d) {
       <legend>${esc(nom)}</legend>
       <label class="bo-ia-champ">
         <span>Modèle</span>
-        <select name="${id}.modele">${d.modeles.map((m) => `<option value="${esc(m.id)}"${m.id === r.modele ? ' selected' : ''}>${esc(m.nom)}</option>`).join('')}</select>
+        <select name="${id}.modele">${d.modeles.map((m) => `<option value="${esc(m.id)}"${m.id === r.modele ? ' selected' : ''}>${esc(m.nom)}${m.cle === false ? ' — clé non configurée' : ''}</option>`).join('')}</select>
       </label>
       <label class="bo-ia-champ">
         <span>Accès minimal</span>
@@ -94,6 +98,38 @@ function carte(id, nom, r, d) {
       ${champ('signesParMois', 'Par mois et par personne, au plus', 'signes envoyés (espaces compris)')}
       ${typeof r.maniere === 'string' ? champManiere(id, r.maniere, d) : ''}
     </fieldset>`
+}
+
+/** Les garde-fous (server/garde-fous.js) : tous les seuils de l'IA autres que la
+ * taille de la demande, regroupés, chacun avec ce qu'il fait et sa valeur par
+ * défaut. Un champ laissé au défaut n'est pas enregistré comme réglé. */
+function blocGardeFous(g) {
+  if (!g || !Array.isArray(g.definitions)) return ''
+  const nature = { modele: 'limite du modèle', emballement: 'verrou contre l’emballement' }
+  const groupe = (gr) => {
+    const defs = g.definitions.filter((x) => x.groupe === gr.id)
+    if (!defs.length) return ''
+    const champs = defs
+      .map((x) => {
+        const v = g.valeurs[x.id]
+        return `
+      <div class="bo-ia-champ bo-gf-champ${v !== x.defaut ? ' bo-gf-regle' : ''}">
+        <label for="gf-${x.id}"><span>${esc(x.nom)}</span></label>
+        <input type="number" id="gf-${x.id}" name="gf.${x.id}" value="${v}" min="${x.min}" max="${x.max}" step="1" inputmode="numeric" required>
+        <small>${esc(x.unite)} · ${esc(nature[x.nature] || x.nature)} · par défaut ${nombre(x.defaut)} <button type="button" class="bo-action" data-gf-defaut="${x.id}" data-valeur="${x.defaut}">Rétablir</button></small>
+        <small class="bo-gf-quoi">${esc(x.quoi)}</small>
+      </div>`
+      })
+      .join('')
+    return `<fieldset class="bo-ia-carte bo-gf-groupe"><legend>${esc(gr.nom)}</legend><p class="bo-note">${esc(gr.resume)}</p>${champs}</fieldset>`
+  }
+  return `
+      <h2>Garde-fous</h2>
+      <p class="bo-note">La seule limite d'usage est la <strong>taille de la demande, en signes</strong> (plus haut). Tout le reste est un <strong>garde-fou</strong> : soit une limite du modèle (ce qu'il peut produire ou recevoir en une fois), soit un verrou contre une boucle ou un client emballé, placé bien au-dessus de l'usage normal. Ils s'appliquent à Corrections IA, à Margo et au connecteur « inviter Claude », dès la demande suivante. Les valeurs par défaut conviennent ; la liste complète est aussi dans <code>server/garde-fous.js</code>.</p>
+      <form class="bo-ia-form bo-gf-form" novalidate>
+        <div class="bo-ia-cartes">${g.groupes.map(groupe).join('')}</div>
+        <p class="bo-ia-actions"><button type="submit" class="btn-primary">Enregistrer les garde-fous</button> <span class="bo-gf-message bo-ia-message" role="status"></span></p>
+      </form>`
 }
 
 function tableConso(d) {
@@ -174,7 +210,7 @@ function tableModeles(d) {
     })
     .join('')
   return `<table class="bo-table"><thead><tr><th>Modèle</th><th>Demandes</th><th>Entrée</th><th>Sortie</th><th>Cache lu</th><th>Cache écrit</th><th>Coût estimé</th></tr></thead><tbody>${corps}</tbody></table>
-  <p class="bo-note">L'entrée est hors cache ; le cache lu et le cache écrit se facturent à part (un dixième du prix d'entrée, et 1,25 fois). Les jetons sont comptés même quand la demande échoue : l'API les a facturés. Le coût est une estimation aux tarifs ci-dessus, en dollars.</p>`
+  <p class="bo-note">L'entrée est hors cache ; pour Claude, le cache lu et le cache écrit se facturent à part (un dixième du prix d'entrée, et 1,25 fois) ; pour Mistral, le cache lu est compté plein tarif (estimation haute). Les jetons sont comptés même quand la demande échoue : l'API les a facturés. Le coût est une estimation aux tarifs ci-dessus, en dollars.</p>`
 }
 
 /** Ce que la vue d'ensemble sait de l'IA : l'activité sur 24 h, 7 et 30 jours,
@@ -223,6 +259,8 @@ export async function mountAdminIa(root, { fetcher = (...a) => fetch(...a), mois
         <p class="bo-ia-actions"><button type="submit" class="btn-primary">Enregistrer les réglages</button> <span class="bo-ia-message" role="status"></span></p>
         <p class="bo-note">${r.modifieLe ? `Dernière modification le ${new Date(r.modifieLe).toLocaleString('fr-FR')} par ${esc(r.modifiePar || '—')}.` : 'Réglages par défaut : rien n’a encore été modifié.'} Le niveau d'accès est un minimum : « éditeurs » ouvre aux éditeurs du document et aux administrateurs, « correcteurs » y ajoute les correcteurs ; un lecteur n'y a jamais accès. Les propositions de l'IA arrivent toujours en suivi de modifications.</p>
       </form>
+
+      ${blocGardeFous(d.gardeFous)}
 
       <h2>Consommation de ${esc(libelleMois(d.mois))}</h2>
       <p class="bo-ia-mois"><label>Mois <select name="mois">${d.moisDisponibles.map((m) => `<option value="${esc(m)}"${m === d.mois ? ' selected' : ''}>${esc(libelleMois(m))}</option>`).join('')}</select></label></p>
@@ -276,6 +314,45 @@ export async function mountAdminIa(root, { fetcher = (...a) => fetch(...a), mois
       message.textContent = 'Le serveur ne répond pas.'
     }
   })
+  const formGf = root.querySelector('.bo-gf-form')
+  if (formGf) {
+    const messageGf = formGf.querySelector('.bo-gf-message')
+    formGf.querySelectorAll('[data-gf-defaut]').forEach((b) =>
+      b.addEventListener('click', () => {
+        formGf.elements[`gf.${b.dataset.gfDefaut}`].value = b.dataset.valeur
+        messageGf.className = 'bo-gf-message bo-ia-message'
+        messageGf.textContent = 'Valeur par défaut remise : enregistrez pour l’appliquer.'
+      })
+    )
+    formGf.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const gardeFous = {}
+      for (const x of d.gardeFous.definitions) gardeFous[x.id] = Number(formGf.elements[`gf.${x.id}`].value)
+      messageGf.className = 'bo-gf-message bo-ia-message'
+      messageGf.textContent = 'Enregistrement…'
+      try {
+        const rep = await fetcher('/api/admin/ia', {
+          method: 'PUT',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ gardeFous }),
+        })
+        if (!rep.ok) {
+          const err = await rep.json().catch(() => ({}))
+          messageGf.className = 'bo-gf-message bo-ia-message bo-erreur'
+          messageGf.textContent = err.error || 'Enregistrement refusé.'
+          return
+        }
+        await mountAdminIa(root, { fetcher, mois: d.mois })
+        const apres = root.querySelector('.bo-gf-message')
+        apres.className = 'bo-gf-message bo-ia-message bo-ok'
+        apres.textContent = 'Garde-fous enregistrés. Ils s’appliquent à la prochaine demande.'
+      } catch {
+        messageGf.className = 'bo-gf-message bo-ia-message bo-erreur'
+        messageGf.textContent = 'Le serveur ne répond pas.'
+      }
+    })
+  }
   const maniere = form.elements['margo.maniere']
   if (maniere) {
     const compteur = form.querySelector('[data-maniere-compteur]')

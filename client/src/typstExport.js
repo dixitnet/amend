@@ -19,7 +19,7 @@
 // « = » ou « - » ne peut pas devenir par accident un titre ou une liste.
 
 import { nomDeFichier, telecharger, niveauTitre } from './exportCommun.js'
-import { BLOCS, police, dimensionsPage, styleParDefaut, langue } from '../../shared/style.js'
+import { BLOCS, police, dimensionsPage, styleParDefaut, langue, blocDuParagraphe } from '../../shared/style.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { imageAutorisee } from '../../shared/securite.js'
 
@@ -201,8 +201,12 @@ function blocTypst(node) {
       const niveau = niveauTitre(node.attrs.level)
       return `#heading(level: ${niveau})[${inline(node)}]\n\n`
     }
-    case 'paragraph':
-      return `#amend-corps[${inline(node)}]\n\n`
+    case 'paragraph': {
+      // « Titre » et « Sous-titre » : `amend-title` et `amend-subtitle`, comme
+      // tout bloc du modèle (`amend-<id>`).
+      const id = blocDuParagraphe(node.attrs.style)
+      return `#${id === 'body' ? 'amend-corps' : `amend-${id}`}[${inline(node)}]\n\n`
+    }
     case 'blockquote': {
       let inner = ''
       node.forEach((child) => {
@@ -399,6 +403,8 @@ function gabarit(style, titre) {
   const fonctions = [
     fonctionBloc('amend-corps', complet.blocs.body),
     fonctionBloc('amend-citation', complet.blocs.quote),
+    fonctionBloc('amend-title', complet.blocs.title || BLOCS.find((b) => b.id === 'title').defauts),
+    fonctionBloc('amend-subtitle', complet.blocs.subtitle || BLOCS.find((b) => b.id === 'subtitle').defauts),
   ]
   // Un `show heading` par niveau : c'est ce qui donne à chaque H ses
   // réglages propres, demandés le 16/09/2026.

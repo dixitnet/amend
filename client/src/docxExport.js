@@ -50,7 +50,7 @@ import {
 import { numerosDesNotes } from './notes.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
-import { BLOCS, langue, dimensionsPage } from '../../shared/style.js'
+import { BLOCS, langue, dimensionsPage, blocDuParagraphe } from '../../shared/style.js'
 
 /** Les réglages d'un bloc du modèle (voir shared/style.js) : « body »,
  * « quote », « h1 »… Un document enregistré avant le 16/09/2026 est déjà
@@ -332,9 +332,18 @@ function blockToParagraphs(node, style, images) {
       ]
     }
     case 'paragraph': {
-      const corps = reglages(style, 'body')
+      // « Titre » et « Sous-titre » (14/10/2026) : le bloc de la feuille de
+      // style change, et Word reçoit ses styles du même nom — « Title »,
+      // « Subtitle » — pour que le document reste lisible dans son panneau
+      // de styles. Ni l'un ni l'autre n'est un titre de section : ils
+      // n'entrent pas dans la table des matières.
+      const idBloc = blocDuParagraphe(node.attrs.style)
+      const corps = reglages(style, idBloc)
+      const styleWord =
+        idBloc === 'title' ? { heading: HeadingLevel.TITLE } : idBloc === 'subtitle' ? { style: 'Subtitle' } : {}
       return [
         new Paragraph({
+          ...styleWord,
           ...paragraphProps(corps),
           children: inlineToRuns(node, corps, corps.size),
         }),
@@ -567,6 +576,13 @@ export async function buildDocxBlob(doc, style, titre = '') {
     ...(Object.keys(endnotes).length ? { endnotes } : {}),
     // Sans ce drapeau, Word ignore l'en-tête des pages paires.
     ...(headers ? { evenAndOddHeaderAndFooters: true } : {}),
+    // Le style « Sous-titre » n'existe pas dans les styles par défaut de
+    // `docx` (« Title » y est) : on le déclare, vide, pour que Word le
+    // reconnaisse. Son aspect vient de la mise en forme posée sur chaque
+    // paragraphe, comme pour tous les blocs.
+    styles: {
+      paragraphStyles: [{ id: 'Subtitle', name: 'Subtitle', basedOn: 'Normal', next: 'Normal', quickFormat: true }],
+    },
     // Les listes numérotées exigent une configuration de numérotation
     // déclarée au niveau du document (contrairement aux puces, qui ont un
     // raccourci intégré) — six niveaux, le plafond de l'éditeur

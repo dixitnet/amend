@@ -10,7 +10,9 @@ import { courrierAvecBouton, sendMail } from '../mailgun.js'
 import { TITRE_BIENVENUE, ecrireModele } from '../modeleBienvenue.js'
 import { cleDuRetour } from '../supportTraites.js'
 import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
-import { BORNES, DEFAUTS, FONCTIONS, MANIERE_MAX, MODELES, NIVEAUX, NOMS_FONCTION } from '../reglagesIa.js'
+import { cleDe } from '../fournisseurs.js'
+import { BORNES, DEFAUTS, FONCTIONS, MODELES, NIVEAUX, NOMS_FONCTION } from '../reglagesIa.js'
+import { GARDE_FOUS, GROUPES, corpsMaxOctets, garde, gardeFousEnVigueur } from '../garde-fous.js'
 import { TARIFS_USD, moisDe } from '../usageIa.js'
 
 /** Le mode d'emploi glissé dans l'archive. Une sauvegarde qu'on retrouve
@@ -109,7 +111,9 @@ export async function routesAdmin(req, res, url, ctx) {
     const admin = readSession(req)
     if (!isAdminEmail(admin)) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
     if (req.method === 'PUT') {
-      const body = await readJsonBody(req)
+      // La manière de répondre de Margo peut atteindre son garde-fou de longueur :
+      // le corps accepté en tient compte (le défaut de 20 Ko la refuserait avant).
+      const body = await readJsonBody(req, corpsMaxOctets(garde('maniereSignes')))
       reglagesIa.modifier(body, admin)
     }
     const demande = url.searchParams.get('mois')
@@ -125,8 +129,11 @@ export async function routesAdmin(req, res, url, ctx) {
       reglages: reglagesIa.tous(),
       defauts: DEFAUTS,
       bornes: BORNES,
-      maniereMax: MANIERE_MAX,
-      modeles: MODELES,
+      maniereMax: garde('maniereSignes'),
+      // Les garde-fous (server/garde-fous.js) : leur liste documentée, et la valeur en vigueur de chacun.
+      gardeFous: { groupes: GROUPES, definitions: GARDE_FOUS, valeurs: gardeFousEnVigueur() },
+      // `cle` : la clé du fournisseur est-elle dans le .env ? (jamais sa valeur)
+      modeles: MODELES.map((m) => ({ ...m, cle: Boolean(cleDe(m.id)) })),
       niveaux: NIVEAUX,
       fonctions: FONCTIONS.map((id) => ({ id, nom: NOMS_FONCTION[id] })),
       mois: detail.mois,

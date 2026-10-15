@@ -5,7 +5,8 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { DEFAUTS, MANIERE_MARGO_DEFAUT, MANIERE_MAX, ReglagesIa } from '../reglagesIa.js'
+import { DEFAUTS, MANIERE_MARGO_DEFAUT, ReglagesIa } from '../reglagesIa.js'
+import { garde } from '../garde-fous.js'
 import { UsageIa, coutUsd, moisDe, moisSuivant } from '../usageIa.js'
 import { QuotasIa, accesIa, signes } from '../quotasIa.js'
 
@@ -152,7 +153,7 @@ test('la manière de répondre de Margo : un texte libre, par instance, borné ;
   const r = new ReglagesIa(d)
   assert.equal(r.de('margo').maniere, MANIERE_MARGO_DEFAUT)
   assert.match(MANIERE_MARGO_DEFAUT, /vouvoies/)
-  assert.ok(MANIERE_MARGO_DEFAUT.length < MANIERE_MAX, 'le texte livré tient dans la limite')
+  assert.ok(MANIERE_MARGO_DEFAUT.length < garde('maniereSignes'), 'le texte livré tient dans la limite')
   assert.equal('maniere' in r.de('corrections'), false)
 
   r.modifier({ margo: { maniere: '  Sois bref.\r\nVouvoie.  ' } }, 'a@x.fr')
@@ -161,12 +162,15 @@ test('la manière de répondre de Margo : un texte libre, par instance, borné ;
   r.modifier({ margo: { maniere: '' } }, 'a@x.fr')
   assert.equal(r.de('margo').maniere, '', 'vide est permis : plus de consigne de style')
 
-  assert.throws(() => r.modifier({ margo: { maniere: 'x'.repeat(MANIERE_MAX + 1) } }, 'a'), /trop longue/)
+  assert.throws(() => r.modifier({ margo: { maniere: 'x'.repeat(garde('maniereSignes') + 1) } }, 'a'), /trop longue/)
   assert.throws(() => r.modifier({ margo: { maniere: 42 } }, 'a'), /doit être un texte/)
   assert.throws(() => r.modifier({ corrections: { maniere: 'x' } }, 'a'), /réglage inconnu/)
   assert.equal(r.de('margo').maniere, '', 'un refus n’applique rien')
 
   // Un fichier aux valeurs absurdes retombe sur le défaut, champ par champ.
-  writeFileSync(join(d, 'reglages-ia.json'), JSON.stringify({ margo: { maniere: 'x'.repeat(MANIERE_MAX + 5) } }))
+  writeFileSync(
+    join(d, 'reglages-ia.json'),
+    JSON.stringify({ margo: { maniere: 'x'.repeat(garde('maniereSignes') + 5) } })
+  )
   assert.equal(new ReglagesIa(d).de('margo').maniere, MANIERE_MARGO_DEFAUT)
 })

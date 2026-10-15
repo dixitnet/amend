@@ -25,13 +25,13 @@
 import * as Y from 'yjs'
 import { diffWords } from '../shared/diff.js'
 import { typographier } from '../shared/typographie.js'
+import { styleParagrapheValide } from '../shared/style.js'
 import { AUTEUR_AGENT, NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS } from '../shared/protocole.js'
+import { garde } from './garde-fous.js'
 export { NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS }
 
-const LONGUEUR_AVANT_MAX = 2000
-const LONGUEUR_APRES_MAX = 4000
-const LONGUEUR_COMMENTAIRE_MAX = 4000
-export const REMPLACEMENTS_MAX = 30
+// Aucun seuil dans ce fichier : longueurs et nombres d'éléments par appel sont
+// des garde-fous réglables (server/garde-fous.js).
 
 const MARQUES_DE_SUIVI = new Set(['insertion', 'deletion', 'authorColor'])
 
@@ -92,10 +92,16 @@ function decrireBloc(el, contexte, n) {
   const contenu = lireContenu(el)
   const enAttente = !!el.getAttribute('trackedBreak') || contenu.enAttente
   const niveau = el.nodeName === 'heading' ? Number(el.getAttribute('level')) || 1 : null
+  // « Titre » ou « Sous-titre » (14/10/2026) : un paragraphe qui porte un
+  // style, que `lire` signale pour que l'agent ne le prenne pas pour du texte
+  // courant. Une valeur inconnue (version plus récente) est ignorée.
+  const styleBrut = el.nodeName === 'paragraph' ? el.getAttribute('style') : null
+  const style = styleParagrapheValide(styleBrut)
   return {
     n,
     nom: el.nodeName,
     niveau,
+    style,
     contexte,
     texte: contenu.texte,
     segments: contenu.segments,
@@ -483,14 +489,14 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
     if (numero === null) return refuse(index, r && r.bloc, 'numéro de bloc manquant ou invalide')
     if (typeof r.avant !== 'string' || typeof r.apres !== 'string')
       return refuse(index, numero, '`avant` et `apres` doivent être du texte')
-    if (r.avant.length > LONGUEUR_AVANT_MAX)
+    if (r.avant.length > garde('longueurAvant'))
       return refuse(
         index,
         numero,
-        `\`avant\` est trop long (${LONGUEUR_AVANT_MAX} signes au plus) : propose plusieurs remplacements courts`
+        `\`avant\` est trop long (${garde('longueurAvant')} signes au plus) : propose plusieurs remplacements courts`
       )
-    if (r.apres.length > LONGUEUR_APRES_MAX)
-      return refuse(index, numero, `\`apres\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
+    if (r.apres.length > garde('longueurApres'))
+      return refuse(index, numero, `\`apres\` est trop long (${garde('longueurApres')} signes au plus)`)
     const bloc = cibleDe(blocs, numero, r.note)
     if (bloc.refus) return refuse(index, numero, bloc.refus)
     const trouve = situer(bloc, r.avant)
@@ -587,9 +593,6 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
 
 // --- Paragraphes ajoutés -----------------------------------------------------
 
-export const AJOUTS_MAX = 20
-const LIGNES_PAR_AJOUT_MAX = 10
-
 /**
  * Ajoute des paragraphes entiers, en suivi de modifications, **juste après**
  * un bloc : `[{ apres_bloc, texte }]` (`apres_bloc: 0` : tout au début du
@@ -621,15 +624,15 @@ export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
     if (numero === null)
       return refuse(index, a && a.apres_bloc, '`apres_bloc` doit être un numéro de bloc (0 pour tout au début)')
     if (typeof a.texte !== 'string') return refuse(index, numero, '`texte` doit être du texte')
-    if (a.texte.length > LONGUEUR_APRES_MAX)
-      return refuse(index, numero, `\`texte\` est trop long (${LONGUEUR_APRES_MAX} signes au plus)`)
+    if (a.texte.length > garde('longueurApres'))
+      return refuse(index, numero, `\`texte\` est trop long (${garde('longueurApres')} signes au plus)`)
     const lignes = a.texte
       .split(/\r\n|\r|\n/)
       .map((l) => typographier(l.trim()))
       .filter(Boolean)
     if (!lignes.length) return refuse(index, numero, 'le texte est vide')
-    if (lignes.length > LIGNES_PAR_AJOUT_MAX)
-      return refuse(index, numero, `au plus ${LIGNES_PAR_AJOUT_MAX} paragraphes par ajout`)
+    if (lignes.length > garde('lignesParAjout'))
+      return refuse(index, numero, `au plus ${garde('lignesParAjout')} paragraphes par ajout`)
     let ancre = null
     if (numero > 0) {
       const bloc = blocs[numero - 1]
@@ -680,9 +683,6 @@ export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
 }
 
 // --- Notes ajoutées -----------------------------------------------------------
-
-export const NOTES_MAX = 20
-const LONGUEUR_NOTE_MAX = 2000
 
 /** Le tronçon d'un delta Yjs à partir de `point` (en signes), avec ses
  * attributs : ce qu'il faut recopier dans le nouveau texte quand un appel de
@@ -793,8 +793,8 @@ export function ajouterNotes(ydoc, demandes, auteur, ts = Date.now()) {
     // une espace.
     const texte = typographier(d.texte.replace(/\s*[\r\n]+\s*/g, ' ').trim())
     if (!texte) return refuse(index, numero, 'le texte de la note est vide')
-    if (texte.length > LONGUEUR_NOTE_MAX)
-      return refuse(index, numero, `le texte de la note est trop long (${LONGUEUR_NOTE_MAX} signes au plus)`)
+    if (texte.length > garde('longueurNote'))
+      return refuse(index, numero, `le texte de la note est trop long (${garde('longueurNote')} signes au plus)`)
     const bloc = blocs[numero - 1]
     if (!bloc) return refuse(index, numero, `il n'y a pas de bloc ${numero}`)
     if (bloc.nom === 'heading') {
@@ -960,8 +960,8 @@ export function commenter(ydoc, { bloc: numero, citation, texte, note }, auteur)
     plage = plageDansLeTexte(bloc, trouve.debut, trouve.fin, { permettreMarques: true })
     if (!plage.ok) return { ok: false, raison: plage.raison }
   }
-  if (propre.length > LONGUEUR_COMMENTAIRE_MAX)
-    return { ok: false, raison: `le commentaire est trop long (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
+  if (propre.length > garde('longueurCommentaire'))
+    return { ok: false, raison: `le commentaire est trop long (${garde('longueurCommentaire')} signes au plus)` }
   const id = identifiant('c')
   ydoc.transact(() => {
     ydoc.getMap(NOM_COMMENTAIRES).set(id, {
@@ -1052,8 +1052,8 @@ function blocDe(ydoc, blocs, c) {
 export function repondre(ydoc, { commentaire, texte }, auteur) {
   const propre = typographier(String(texte || '').trim())
   if (!propre) return { ok: false, raison: 'la réponse est vide' }
-  if (propre.length > LONGUEUR_COMMENTAIRE_MAX)
-    return { ok: false, raison: `la réponse est trop longue (${LONGUEUR_COMMENTAIRE_MAX} signes au plus)` }
+  if (propre.length > garde('longueurCommentaire'))
+    return { ok: false, raison: `la réponse est trop longue (${garde('longueurCommentaire')} signes au plus)` }
   const carte = ydoc.getMap(NOM_COMMENTAIRES)
   const parent = carte.get(String(commentaire || ''))
   if (!parent || parent.parent)

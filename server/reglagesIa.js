@@ -20,14 +20,21 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ErreurHttp } from './erreurs.js'
 import { ecrireAtomique, lireJson } from './fichiers.js'
+import { appliquerGardeFous, garde, gardeFousRegles, validerGardeFous } from './garde-fous.js'
 
 export const FONCTIONS = ['corrections', 'margo']
 export const NOMS_FONCTION = { corrections: 'Corrections IA', margo: 'Margo' }
 
-/** Les seuls modèles proposés (décision du 13/10/2026). */
+/** Les seuls modèles proposés (décision du 13/10/2026 ; Mistral Large 4 ajouté
+ * le 14/10/2026, après le banc Anthropic / Mistral : le seul modèle Mistral qui
+ * passe la qualité de Corrections IA et le meilleur texte de Margo, réflexion
+ * coupée — `rapport-banc-volet1.md`, `rapport-banc-volet2.md`). Il demande
+ * `MISTRAL_API_KEY` dans le `.env` (server/fournisseurs.js) ; les requêtes
+ * partent au point d'accès européen de Mistral. */
 export const MODELES = [
-  { id: 'claude-haiku-5-5', nom: 'Haiku 5.5' },
-  { id: 'claude-sonnet-5-5', nom: 'Sonnet 5.5' },
+  { id: 'claude-haiku-5-5', nom: 'Haiku 5.5', fournisseur: 'Anthropic' },
+  { id: 'claude-sonnet-5-5', nom: 'Sonnet 5.5', fournisseur: 'Anthropic' },
+  { id: 'mistral-large-4-0', nom: 'Mistral Large 4', fournisseur: 'Mistral (UE)' },
 ]
 
 /** Niveaux d'accès, du plus fermé au plus ouvert. Le niveau est un **minimum** :
@@ -56,9 +63,6 @@ export const BORNES = {
   demandesParHeure: { min: 1, max: 100_000 },
   signesParMois: { min: 1_000, max: 1_000_000_000 },
 }
-
-/** Longueur maximale de la manière de répondre, en signes. */
-export const MANIERE_MAX = 2000
 
 export const DEFAUTS = Object.freeze({
   corrections: Object.freeze({
@@ -100,7 +104,7 @@ function assainir(brut, defauts, fonction) {
   }
   if (fonctionAvecManiere(fonction) && typeof brut.maniere === 'string') {
     const t = nettoyerManiere(brut.maniere)
-    if (t.length <= MANIERE_MAX) r.maniere = t
+    if (t.length <= garde('maniereSignes')) r.maniere = t
   }
   return r
 }
@@ -139,10 +143,10 @@ export function validerModification(fonction, patch) {
     } else if (champ === 'maniere' && fonctionAvecManiere(fonction)) {
       if (typeof v !== 'string') throw new ErreurHttp(400, `${nom} : ${LIBELLES_CHAMP.maniere} doit être un texte.`)
       const t = nettoyerManiere(v)
-      if (t.length > MANIERE_MAX)
+      if (t.length > garde('maniereSignes'))
         throw new ErreurHttp(
           400,
-          `${nom} : ${LIBELLES_CHAMP.maniere} est trop longue (${fmt(t.length)} signes, ${fmt(MANIERE_MAX)} au plus).`
+          `${nom} : ${LIBELLES_CHAMP.maniere} est trop longue (${fmt(t.length)} signes, ${fmt(garde('maniereSignes'))} au plus).`
         )
       sortie[champ] = t
       continue
@@ -172,9 +176,12 @@ export class ReglagesIa {
         brut = {}
       }
     }
+    // Les garde-fous d'abord : la longueur permise de la manière de répondre en dépend.
+    appliquerGardeFous(brut.gardeFous)
     return {
       corrections: assainir(brut.corrections, DEFAUTS.corrections, 'corrections'),
       margo: assainir(brut.margo, DEFAUTS.margo, 'margo'),
+      gardeFous: gardeFousRegles(),
       modifieLe: Number.isFinite(brut.modifieLe) ? brut.modifieLe : null,
       modifiePar: typeof brut.modifiePar === 'string' ? brut.modifiePar : null,
     }
@@ -191,24 +198,35 @@ export class ReglagesIa {
     return {
       corrections: { ...this.etat.corrections },
       margo: { ...this.etat.margo },
+      gardeFous: { ...this.etat.gardeFous },
       modifieLe: this.etat.modifieLe,
       modifiePar: this.etat.modifiePar,
     }
   }
 
   /** Applique une modification partielle `{ corrections: {...}, margo: {...} }`.
-   * Tout ou rien : une valeur refusée n'en laisse aucune appliquée. */
+   * `gardeFous: { id: nombre | null }` règle les garde-fous (server/garde-fous.js),
+   * `null` rétablissant le défaut. Tout ou rien : une valeur refusée n'en laisse
+   * aucune appliquée. */
   modifier(patch, par) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new ErreurHttp(400, 'réglages illisibles')
     const suivant = { corrections: { ...this.etat.corrections }, margo: { ...this.etat.margo } }
+    let gardeFous = this.etat.gardeFous
     for (const [fonction, champs] of Object.entries(patch)) {
+      if (fonction === 'gardeFous') {
+        gardeFous = validerGardeFous(champs, this.etat.gardeFous)
+        continue
+      }
       if (!FONCTIONS.includes(fonction))
         throw new ErreurHttp(400, `fonction inconnue : « ${String(fonction).slice(0, 40)} ».`)
       Object.assign(suivant[fonction], validerModification(fonction, champs))
     }
-    const etat = { ...suivant, modifieLe: this.maintenant(), modifiePar: String(par || '') }
+    const etat = { ...suivant, gardeFous, modifieLe: this.maintenant(), modifiePar: String(par || '') }
+    // La longueur de la manière de répondre se juge avec les garde-fous *demandés* ;
+    // ils ne s'appliquent qu'une fois l'ensemble accepté et écrit.
     ecrireAtomique(this.chemin, JSON.stringify(etat, null, 2))
     this.etat = etat
+    appliquerGardeFous(gardeFous)
     return this.tous()
   }
 }

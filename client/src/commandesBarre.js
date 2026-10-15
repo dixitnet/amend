@@ -12,6 +12,7 @@ import { toggleMark, setBlockType, wrapIn, lift, chainCommands } from 'prosemirr
 import { wrapInList, liftListItem, sinkListItem } from 'prosemirror-schema-list'
 import { schema } from './schema.js'
 import { selectionContientUneNote } from './footnotes.js'
+import { styleParagrapheValide } from '../../shared/style.js'
 
 /** Vrai si un ancêtre du début de la sélection (ou le nœud où elle se trouve)
  * est du type donné — c'est ce qui fait des boutons de liste et de citation
@@ -122,7 +123,8 @@ export function basculerCitation(view) {
 }
 
 /** Style de bloc commun à toute la sélection : '' pour un paragraphe, le
- * niveau pour un titre, `null` si la sélection en mélange plusieurs (on
+ * niveau pour un titre, 'titre' ou 'sous-titre' pour ces deux styles de
+ * paragraphe (14/10/2026), `null` si la sélection en mélange plusieurs (on
  * n'affiche alors aucune option plutôt que d'en désigner une à tort). Les
  * paragraphes d'une liste ou d'une citation comptent comme « Normal » :
  * c'est bien ce que le menu changerait s'il était utilisé. */
@@ -132,7 +134,11 @@ export function styleDeBlocCommun(state) {
   state.doc.nodesBetween(from, to, (node) => {
     if (!node.isTextblock) return true
     const valeur =
-      node.type === schema.nodes.heading ? String(node.attrs.level) : node.type === schema.nodes.paragraph ? '' : null
+      node.type === schema.nodes.heading
+        ? String(node.attrs.level)
+        : node.type === schema.nodes.paragraph
+          ? styleParagrapheValide(node.attrs.style) || ''
+          : null
     if (commun === undefined) commun = valeur
     else if (commun !== valeur) commun = null
     return false
@@ -140,13 +146,17 @@ export function styleDeBlocCommun(state) {
   return commun === undefined ? '' : commun
 }
 
-/** Applique le style choisi dans le menu : '' = paragraphe, '1' à '3' = titre.
- * Rend `'note'` — sans rien changer — si la sélection contient une note : un
- * titre n'en porte pas (schema.js), et l'appelant le dit plutôt que de
- * laisser ProseMirror refuser en silence. Rend `true` sinon. */
+/** Applique le style choisi dans le menu : '' = paragraphe, '1' à '3' = titre
+ * de section, 'titre' ou 'sous-titre' = paragraphe de ce style (ils portent
+ * une note sans difficulté : ce ne sont pas des titres de section). Rend
+ * `'note'` — sans rien changer — si la sélection contient une note : un
+ * titre de section n'en porte pas (schema.js), et l'appelant le dit plutôt
+ * que de laisser ProseMirror refuser en silence. Rend `true` sinon. */
 export function appliquerStyleDeBloc(view, valeur) {
   if (valeur === '') {
     setBlockType(schema.nodes.paragraph)(view.state, view.dispatch)
+  } else if (styleParagrapheValide(valeur)) {
+    setBlockType(schema.nodes.paragraph, { style: valeur })(view.state, view.dispatch)
   } else if (selectionContientUneNote(view.state)) {
     return 'note'
   } else {

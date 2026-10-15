@@ -68,7 +68,8 @@ async function creerDoc(c) {
 test('chaque niveau de titre a ses propres réglages, et le corps un retrait', () => {
   const d = styleParDefaut()
   // Trois niveaux depuis le 18/09/2026 — voir NIVEAUX_TITRE.
-  assert.deepEqual(Object.keys(d.blocs), ['body', 'quote', 'h1', 'h2', 'h3'])
+  // « Titre » et « Sous-titre » viennent après les trois niveaux (14/10/2026).
+  assert.deepEqual(Object.keys(d.blocs), ['body', 'quote', 'h1', 'h2', 'h3', 'title', 'subtitle'])
   assert.equal(NIVEAUX_TITRE, 3)
   // Chaque bloc porte toutes les propriétés déclarées — c'est ce qui permet
   // au formulaire et aux exports de ne connaître aucun nom en dur.

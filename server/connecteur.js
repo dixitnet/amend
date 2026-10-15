@@ -1,6 +1,5 @@
 import { readJsonBody, origineDe } from './http.js'
-
-const TAILLE_MAX_MCP = 256 * 1024
+import { garde } from './garde-fous.js'
 
 /**
  * `/mcp/<secret>` — le connecteur d'un document (voir server/mcp.js). Toutes
@@ -28,7 +27,7 @@ export async function traiterMcp(req, res, url, { agents, storage, mcp }) {
     res.writeHead(405, { ...enTetes, allow: 'POST' })
     return res.end(JSON.stringify({ error: 'method not allowed' }))
   }
-  const corps = await readJsonBody(req, TAILLE_MAX_MCP)
+  const corps = await readJsonBody(req, garde('corpsMcpOctets'))
   const { status, body } = await mcp.traiter(corps, acces)
   if (body === undefined) {
     res.writeHead(status, { 'cache-control': 'no-store', 'content-length': 0 })

@@ -46,6 +46,10 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
     ['Titre 1', '1'],
     ['Titre 2', '2'],
     ['Titre 3', '3'],
+    // Après les trois niveaux (14/10/2026) : deux styles de paragraphe, hors
+    // plan et table des matières. Mêmes noms que dans la feuille de style.
+    ['Titre', 'titre'],
+    ['Sous-titre', 'sous-titre'],
   ]) {
     const opt = document.createElement('option')
     opt.value = value

@@ -5,13 +5,10 @@
 
 import { ErreurHttp } from './erreurs.js'
 import { typographier } from '../shared/typographie.js'
+import { cleDe, envoyer, serviceDe, urlAnthropic, variableDe } from './fournisseurs.js'
+import { garde } from './garde-fous.js'
 
-/** L'adresse des messages de l'API. `ANTHROPIC_API_URL` ne sert qu'aux essais
- * (un faux serveur local : `tools/faux-anthropic.js`, protocole de test
- * global) ; en production la variable est absente. */
-export function urlAnthropic() {
-  return `${(process.env.ANTHROPIC_API_URL || 'https://api.anthropic.com').replace(/\/$/, '')}/v1/messages`
-}
+export { urlAnthropic }
 
 // Haiku 5.5 par défaut (10/10/2026) : le modèle le moins cher (0,10 $ / 0,50 $
 // par million de jetons), et le banc d'essai (claude/rapport-banc-modeles.md)
@@ -19,7 +16,6 @@ export function urlAnthropic() {
 // modèle se règle dans le back-office (Corrections IA, server/reglagesIa.js) et
 // arrive ici par `config.model` ; AI_MODEL n'est plus lue.
 const DEFAULT_MODEL = 'claude-haiku-5-5'
-const MAX_INPUT_CHARS = 8000
 
 export class AIConfigError extends Error {}
 export class AIRequestError extends ErreurHttp {
@@ -64,12 +60,10 @@ export function nettoyerSuggestion(brut) {
  * et jamais en dessous d'un plancher large. Avant le 30/09/2026 c'était
  * 2 048 fixes, et Sonnet 5 en dépensait près de la moitié à **réfléchir**
  * (voir plus bas) : les paragraphes longs revenaient coupés. */
-const MAX_TOKENS_PLANCHER = 4096
-const MAX_TOKENS_PLAFOND = 8192
 export function budgetDeSortie(text) {
   // ~3 caractères par jeton en français, ×2 de marge.
   const estimation = Math.ceil((String(text || '').length / 3) * 2)
-  return Math.min(MAX_TOKENS_PLAFOND, Math.max(MAX_TOKENS_PLANCHER, estimation))
+  return Math.min(garde('sortieMaxJetons'), Math.max(garde('sortieMinJetonsCorrection'), estimation))
 }
 
 /**
@@ -121,21 +115,14 @@ function refuseLeReglageDeReflexion(status, detail) {
 }
 
 export async function suggestEdit(config, text, instruction) {
-  const apiKey = config.apiKey || process.env.ANTHROPIC_API_KEY
+  const model = config.model || DEFAULT_MODEL
+  const apiKey = config.apiKey || cleDe(model)
   if (!apiKey) {
-    throw new AIConfigError('Aucune clé API configurée. Définis ANTHROPIC_API_KEY dans le fichier .env du serveur.')
+    throw new AIConfigError(`Aucune clé API configurée. Définis ${variableDe(model)} dans le fichier .env du serveur.`)
   }
   if (!text || !text.trim()) {
     throw new AIRequestError('Aucun texte sélectionné.', 400)
   }
-  if (text.length > MAX_INPUT_CHARS) {
-    throw new AIRequestError(
-      `Un paragraphe est trop long pour une correction (${MAX_INPUT_CHARS} signes au plus, espaces compris).`,
-      413
-    )
-  }
-
-  const model = config.model || DEFAULT_MODEL
   const userInstruction = (instruction && instruction.trim()) || 'Améliore ce passage.'
   // `config.fetch` : pour les tests, qui ne parlent jamais à la vraie API.
   const fetcher = config.fetch || fetch
@@ -143,17 +130,13 @@ export async function suggestEdit(config, text, instruction) {
   const appeler = async (thinking) => {
     let response
     try {
-      response = await fetcher(urlAnthropic(), {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(corpsDeRequete({ model, text, instruction: userInstruction, thinking })),
+      response = await envoyer({
+        corps: corpsDeRequete({ model, text, instruction: userInstruction, thinking }),
+        fetcher,
+        apiKey,
       })
     } catch (err) {
-      throw new AIRequestError(`Impossible de joindre l'API Claude : ${err.message}`, 502)
+      throw new AIRequestError(`Impossible de joindre l'API ${serviceDe(model)} : ${err.message}`, 502)
     }
     return response
   }
@@ -177,7 +160,10 @@ export async function suggestEdit(config, text, instruction) {
       }
     }
     if (!response.ok) {
-      throw new AIRequestError(`L'API Claude a répondu ${response.status}${detail ? ` : ${detail}` : ''}`, 502)
+      throw new AIRequestError(
+        `L'API ${serviceDe(model)} a répondu ${response.status}${detail ? ` : ${detail}` : ''}`,
+        502
+      )
     }
   }
 
@@ -214,7 +200,7 @@ export async function suggestEdit(config, text, instruction) {
   )
 
   if (!suggestion) {
-    throw new AIRequestError("Réponse vide de l'API Claude.", 502)
+    throw new AIRequestError(`Réponse vide de l'API ${serviceDe(model)}.`, 502)
   }
   // La consommation est renvoyée avec la suggestion : c'est elle qui permet
   // de connaître le coût réel par personne (voir server/metrics.js et

@@ -740,6 +740,23 @@ a { color: var(--accent); }
 .ProseMirror p { margin: 0 0 1em; }
 .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { line-height: 1.25; }
 
+/* Les styles « Titre » et « Sous-titre » (schema.js, attribut `style` du
+   paragraphe ; 14/10/2026). En `em`, comme le reste : ils suivent l'échelle
+   de corps du zoom. Leurs réglages exacts (police, taille) ne s'appliquent
+   qu'aux exports, comme pour les autres blocs. */
+.ProseMirror p.style-titre {
+  font-size: 1.7em;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 0.35em;
+}
+.ProseMirror p.style-sous-titre {
+  font-size: 1.25em;
+  line-height: 1.3;
+  margin: 0 0 0.8em;
+  color: var(--muted);
+}
+
 /* Le retrait en `em` et non en pixels (23/09/2026) : depuis que le zoom
    passe par une échelle de corps et non par la propriété `zoom`, ce qui est
    exprimé en pixels ne suit plus l'agrandissement. À 150 %, un texte de
@@ -1612,6 +1629,10 @@ a.bo-chiffre:hover, a.bo-chiffre:focus-visible { border-color: var(--accent); }
 .bo-ia-champ > span { font-weight: 600; }
 .bo-ia-champ small { color: var(--muted); font-size: 11px; }
 .bo-ia-champ input, .bo-ia-champ select { font: inherit; padding: 5px 8px; max-width: 100%; }
+.bo-gf-champ label span { font-weight: 600; }
+.bo-gf-champ { border-bottom: 1px solid var(--line, rgba(128,128,128,.2)); padding-bottom: 10px; }
+.bo-gf-champ.bo-gf-regle label span::after { content: " — réglé"; font-weight: 400; color: var(--muted); }
+.bo-gf-quoi { line-height: 1.45; }
 .bo-ia-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .bo-ia-message:empty { display: none; }
 .bo-ia-mail { font-size: 12px; color: var(--muted); font-weight: 400; word-break: break-all; }
@@ -3384,10 +3405,9 @@ tr.bo-traite { opacity: 0.6; }
     gap: 6px 4px;
     flex-wrap: wrap;
   }
-  /* Deux lignes bien définies, pas un retour à la ligne au hasard : la mise
-     en forme et l'insertion d'abord, puis la révision (le suivi, ses
-     changements, l'affichage à droite) sur sa propre ligne. Sur une barre
-     très large (requête de conteneur plus bas), tout tient sur une ligne. Les
+  /* La mise en forme et l'insertion d'abord, puis la révision (Commenter,
+     l'affichage à droite) : sur la même ligne tant qu'elle y tient, sinon sur
+     une seconde ligne entière — jamais coupée au milieu d'un groupe. Les
      filets ne se dessinent que là où ils séparent vraiment deux zones d'une
      même ligne. */
   /* L'Insertion se dissout dans la barre (display: contents) pour que la
@@ -3403,7 +3423,7 @@ tr.bo-traite { opacity: 0.6; }
   }
   .barre-groupe[data-groupe='inserer'] > .btn-tool,
   .barre-groupe[data-groupe='inserer'] > .menu-insertion { margin-left: -6px; }
-  .barre-groupe[data-groupe='relire'] { flex: 1 0 100%; flex-wrap: wrap; gap: 6px 4px; }
+  .barre-groupe[data-groupe='relire'] { flex: 1 1 auto; flex-wrap: wrap; gap: 6px 4px; }
   .barre-filet {
     display: inline-block;
     width: 1px;
@@ -3451,9 +3471,14 @@ tr.bo-traite { opacity: 0.6; }
 @container barre (min-width: 640px) {
   .barre-groupe[data-groupe='inserer']::before { content: ''; }
 }
-@container barre (min-width: 1300px) {
+/* La Révision (Commenter, et l'affichage à droite) ne porte plus le suivi ni le
+   parcours des modifications depuis le 14/10 (colonne de droite, point 69) : elle
+   est courte. Elle reste sur la ligne de la mise en forme tant qu'elle y tient
+   (le groupe passe à la ligne d'un bloc quand il n'y a plus la place) ; le filet
+   qui la sépare ne se dessine que sur une barre assez large pour que ce soit
+   le cas. */
+@container barre (min-width: 820px) {
   .barre-groupe[data-groupe='relire'] {
-    flex: 1 1 auto;
     padding-left: 10px;
     border-left: 1px solid var(--border);
   }
