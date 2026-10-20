@@ -3096,6 +3096,8 @@ tr.bo-traite { opacity: 0.6; }
 /* Un nœud de bloc suivi entier (une image, 29/09/2026) : proposé, un liseré
    à la couleur de l'auteur ; supprimé, estompé et barré. */
 .ProseMirror .noeud-insere { outline: 2px dashed var(--user-color, var(--accent)); outline-offset: 3px; }
+.ProseMirror .saut-ligne-suivi { color: var(--user-color, var(--accent)); font-size: 0.85em; user-select: none; pointer-events: auto; }
+.ProseMirror .saut-ligne-suivi.saut-supprime { text-decoration: line-through; opacity: 0.6; }
 .ProseMirror .noeud-supprime { opacity: 0.45; position: relative; }
 .ProseMirror .noeud-supprime::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 3px solid var(--user-color, var(--danger)); }
 

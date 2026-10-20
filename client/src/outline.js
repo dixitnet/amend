@@ -4,6 +4,16 @@ import { updateItemList } from './incrementalScan.js'
 import { throttle } from './throttle.js'
 import { niveauDuPlan, intituleDuPlan } from '../../shared/plan.js'
 
+/** Le texte d'un titre tel que le plan l'affiche : un retour à la ligne
+ * (Maj+Entrée) y devient une espace, sans quoi « Premier » et « second »
+ * se recolleraient en « Premiersecond ». */
+export function texteDuTitre(node) {
+  return node
+    .textBetween(0, node.content.size, undefined, (n) => (n.type.name === 'hard_break' ? ' ' : ''))
+    .replace(/[ \t\r\n]+/g, ' ')
+    .trim()
+}
+
 /** Every heading within [from, to), as { pos, level, text }. `pos` is the
  * position right before the heading node (its own doc position) —
  * navigating there resolves to just inside it. */
@@ -11,7 +21,7 @@ function scanHeadingsInRange(doc, from, to) {
   const items = []
   doc.nodesBetween(from, to, (node, pos) => {
     if (node.type.name === 'heading') {
-      if (pos >= from && pos < to) items.push({ pos, level: node.attrs.level, text: node.textContent.trim() })
+      if (pos >= from && pos < to) items.push({ pos, level: node.attrs.level, text: texteDuTitre(node) })
       return false
     }
   })

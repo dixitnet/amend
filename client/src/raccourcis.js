@@ -13,6 +13,7 @@ import { augmenterRetrait, reduireRetrait } from './commandesBarre.js'
 import { effacementSuivi } from './trackChanges.js'
 import { insererNote } from './footnotes.js'
 import { commandeLien } from './liens.js'
+import { insererSautDeLigne } from './sautDeLigne.js'
 
 /**
  * @param {object} options
@@ -44,6 +45,11 @@ export function raccourcisClavier({ user, peutPoserLien, surRefusLien }) {
     // Les trois familles de liste partagent les mêmes gestes : la
     // première commande qui s'applique gagne, les autres passent la main
     // (et finalement baseKeymap, hors liste).
+    // Maj+Entrée : retour à la ligne dans le bloc (paragraphe ou titre), avec
+    // une espace avant pour que le plan, l'en-tête et le sommaire ne collent
+    // pas les mots. Sans commande à nous, le navigateur s'en chargeait — ou
+    // pas : Chrome ne faisait rien dans un champ géré par ProseMirror.
+    'Shift-Enter': insererSautDeLigne(() => user),
     Enter: chainCommands(splitListItem(schema.nodes.list_item), splitListItem(schema.nodes.task_item)),
     'Mod-]': augmenterRetrait,
     'Mod-[': reduireRetrait,

@@ -318,10 +318,15 @@ export const schema = new Schema({
         return ['span', { 'data-note': '', class: 'note' }, ['span', { class: 'note-contenu' }, 0]]
       },
     },
+    // Retour à la ligne (Maj+Entrée). `suivi` (20/10/2026) : le suivi des
+    // modifications du nœud entier, même forme que sur la note — un saut
+    // inséré en suivi est une proposition qu'on accepte ou refuse comme du
+    // texte. null hors suivi.
     hard_break: {
       inline: true,
       group: 'inline',
       selectable: false,
+      attrs: { suivi: { default: null } },
       parseDOM: [{ tag: 'br' }],
       toDOM() {
         return ['br']

@@ -73,7 +73,7 @@ test('la table s’insère après le bloc du curseur, jamais au milieu d’une p
 
 test('export PDF : une table Typst, à la profondeur du bloc, au style du texte courant', () => {
   const src = docToTypst(document(2), fusionner({}), 'Essai')
-  assert.match(src, /#amend-corps\[#outline\(title: none, depth: 2, indent: auto\)\]/)
+  assert.match(src, /#amend-corps\[#\{ show linebreak: \[ \]; outline\(title: none, depth: 2, indent: auto\) \}\]/)
   // `title: none` : le bloc ne s'intitule pas lui-même, l'auteur écrit son
   // « Sommaire » s'il en veut un.
   assert.doesNotMatch(src, /outline\(title: "/)

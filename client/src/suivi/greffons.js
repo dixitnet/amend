@@ -121,6 +121,28 @@ export function pendingBreakPlugin() {
               })
             )
           }
+          // Un retour à la ligne suivi (Maj+Entrée) : un `br` ne peut rien
+          // porter de visible, d'où un repère ↵ posé juste avant, à la couleur
+          // de l'auteur (barré quand le saut est proposé à la suppression).
+          if (node.type.name === 'hard_break' && suiviDuNoeud(node)) {
+            const suivi = suiviDuNoeud(node)
+            const supprime = suivi.type === 'deletion'
+            decos.push(
+              Decoration.widget(
+                pos,
+                () => {
+                  const repere = document.createElement('span')
+                  repere.className = `saut-ligne-suivi ${supprime ? 'saut-supprime' : 'saut-insere'}`
+                  repere.style.setProperty('--user-color', couleurSure(suivi.userColor))
+                  repere.contentEditable = 'false'
+                  repere.textContent = '↵'
+                  repere.title = `Saut de ligne ${supprime ? 'supprimé' : 'ajouté'} par ${suivi.user}`
+                  return repere
+                },
+                { side: -1, key: `saut-${pos}-${suivi.type}-${suivi.ts}` }
+              )
+            )
+          }
           // Un nœud de bloc suivi entier (une image) : même langage visuel.
           // La note, inline, se décore elle-même (footnotes.js).
           const suivi = node.isBlock ? suiviDuNoeud(node) : null

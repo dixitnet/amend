@@ -124,7 +124,7 @@ function caractereAEffacer(state, from, to, versLArriere) {
  * ou celles posées en attente (Ctrl+B sur une sélection vide). Jamais les
  * marques du suivi ni la couleur d'auteur, qui sont posées à part. */
 export const MARQUES_MISE_EN_FORME = new Set(['strong', 'em', 'underline', 'strike'])
-function marquesDeMiseEnForme(state) {
+export function marquesDeMiseEnForme(state) {
   const marques = state.storedMarks || state.selection.$from.marks()
   return marques.filter((m) => MARQUES_MISE_EN_FORME.has(m.type.name))
 }

@@ -108,6 +108,7 @@ export function suiviDuNoeud(node) {
 /** Ce que le panneau affiche pour un nœud suivi entier. */
 export function libelleDuNoeud(node) {
   if (node.type.name === 'footnote') return `Note : ${node.textContent}`
+  if (node.type.name === 'hard_break') return 'Saut de ligne'
   if (node.type.name === 'image') return node.attrs.alt ? `Image : ${node.attrs.alt}` : 'Image'
   return node.type.name
 }

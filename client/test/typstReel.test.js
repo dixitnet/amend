@@ -265,3 +265,29 @@ for (const graine of GRAINES) {
     await compiler(docToTypst(d, graine % 2 ? STYLE_SIMPLE : STYLE_CHARGE, `Hasard ${graine}`))
   })
 }
+
+// Maj+Entrée dans un titre (20/10/2026) : le titre se coupe en deux lignes
+// dans le corps, mais le sommaire et l'en-tête courant le lisent sur une
+// ligne, mots séparés (sans quoi « Premier » et « second » se recollaient).
+test('un titre à retour à la ligne : deux lignes dans le corps, une seule dans le sommaire et l’en-tête', { skip: SANS_TYPST || !pdftotext }, async () => {
+  const hb = () => schema.node('hard_break')
+  const d = schema.node('doc', null, [
+    schema.node('table_of_contents', { profondeur: 2 }),
+    schema.node('heading', { level: 1 }, [schema.text('Premier'), hb(), schema.text('second')]),
+    par(texte('Corps un.')),
+    schema.node('horizontal_rule'),
+    // Un saut en fin de titre n'ouvre pas de ligne vide sous lui.
+    schema.node('heading', { level: 1 }, [schema.text('Autre titre'), hb()]),
+    par(texte('Corps deux.')),
+  ])
+  const style = fusionner({ page: { entete: { gauche: { type: 'titre' }, droite: { type: 'titre' }, sautOuverture: false } } })
+  const source = docToTypst(d, style, 'Doc')
+  assert.ok(!/Autre titre\s*#linebreak\(\)\]/.test(source), 'le saut final du titre est retiré')
+  const sortie = texteDuPdf(await compiler(source))
+  const lignes = sortie.split('\n').map((l) => l.trim())
+  assert.ok(lignes.some((l) => /^Premier second\b/.test(l)), `le sommaire lit « Premier second » sur une ligne : ${JSON.stringify(lignes.slice(0, 12))}`)
+  assert.ok(lignes.includes('Premier') && lignes.includes('second'), 'dans le corps, le titre est sur deux lignes')
+  assert.ok(!lignes.some((l) => /Premiersecond/.test(l)), 'les mots ne sont pas recollés')
+  // L'en-tête courant : « Premier second » aussi sur la page du titre suivi de son corps.
+  assert.ok(lignes.filter((l) => l === 'Premier second').length >= 1, 'en-tête sur une ligne')
+})

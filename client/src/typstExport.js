@@ -199,7 +199,10 @@ function blocTypst(node) {
   switch (node.type.name) {
     case 'heading': {
       const niveau = niveauTitre(node.attrs.level)
-      return `#heading(level: ${niveau})[${inline(node)}]\n\n`
+      // Un retour à la ligne qui termine le titre ouvrirait une ligne vide
+      // sous lui (constaté dans Typst 0.15) : on le retire.
+      const corps = inline(node).replace(/(?:#linebreak\(\))+$/, '')
+      return `#heading(level: ${niveau})[${corps}]\n\n`
     }
     case 'paragraph': {
       // « Titre » et « Sous-titre » : `amend-title` et `amend-subtitle`, comme
@@ -250,7 +253,10 @@ function blocTypst(node) {
       // titre, et il choisit son niveau. Le style vient du texte courant,
       // d'où l'enveloppe `amend-corps`.
       const n = niveauTitre(node.attrs.profondeur, 2)
-      return `#amend-corps[#outline(title: none, depth: ${n}, indent: auto)]\n\n`
+      // `show linebreak: [ ]` : un titre peut porter un retour à la ligne
+      // (Maj+Entrée) ; dans le sommaire il redevient une espace, et le titre
+      // reste d'un seul tenant (vérifié en compilant avec Typst 0.15).
+      return `#amend-corps[#{ show linebreak: [ ]; outline(title: none, depth: ${n}, indent: auto) }]\n\n`
     }
     default:
       return ''
@@ -386,7 +392,8 @@ function enteteTypst(p, titre) {
       let avant = titres.filter(t => t.location().page() <= ici)
       let courant = if avant.len() > 0 { avant.last().body } else { none }
       let contenu = if calc.even(ici) { ${gauche || 'none'} } else { ${droite || 'none'} }
-      if contenu != none { align(center, contenu) }
+      // Un titre à retour à la ligne se lit sur une ligne en en-tête.
+      if contenu != none { show linebreak: [ ]; align(center, contenu) }
     }
   },`
 }

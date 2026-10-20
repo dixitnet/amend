@@ -10,7 +10,14 @@ import { EditorView } from 'prosemirror-view'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap } from 'prosemirror-commands'
 import { schema } from '../src/schema.js'
-import { trackChangesPlugin } from '../src/trackChanges.js'
+import {
+  trackChangesPlugin,
+  makeDispatchTransaction,
+  listChanges,
+  acceptAllChanges,
+  rejectAllChanges,
+} from '../src/trackChanges.js'
+import { getOutline } from '../src/outline.js'
 import { raccourcisClavier } from '../src/raccourcis.js'
 
 // « Mod » de prosemirror-keymap = Cmd sur Mac, Ctrl ailleurs : lu une fois,
@@ -236,4 +243,171 @@ test('Retour arrière en début de bloc, hors suivi : la fusion avec le bloc pr�
   assert.equal(e.touche('Backspace'), true)
   assert.equal(e.view.state.doc.childCount, 1)
   assert.equal(e.view.state.doc.textContent, 'UnDeux')
+})
+
+
+// ======================================================= Maj+Entrée (20/10/2026)
+
+const titre = (niveau, t) => schema.node('heading', { level: niveau }, [schema.text(t)])
+const MAJ = { shiftKey: true }
+/** Le texte d'un bloc avec « ⏎ » pour chaque retour à la ligne. */
+const lu = (bloc) => bloc.textBetween(0, bloc.content.size, undefined, (n) => (n.type.name === 'hard_break' ? '⏎' : ''))
+const monterSuivi = (doc, pos) => {
+  const e = monter(doc, { debut: pos.debut, fin: pos.fin ?? pos.debut, suivi: true })
+  e.view.setProps({ dispatchTransaction: makeDispatchTransaction(e.view, () => ALICE) })
+  return e
+}
+
+test('Maj+Entrée dans un paragraphe pose un retour à la ligne, une espace avant, et le curseur après', () => {
+  const e = monter(doc(para('Bonjour')), { debut: 8 })
+  assert.equal(e.touche('Enter', MAJ), true)
+  const bloc = e.view.state.doc.child(0)
+  assert.equal(e.view.state.doc.childCount, 1, 'toujours un seul paragraphe')
+  assert.equal(lu(bloc), 'Bonjour ⏎')
+  assert.equal(e.view.state.selection.from, 10, 'le curseur est après le saut')
+  e.view.dispatch(e.view.state.tr.insertText('suite'))
+  assert.equal(lu(e.view.state.doc.child(0)), 'Bonjour ⏎suite')
+})
+
+test('Maj+Entrée : pas d’espace en trop au début du bloc, après une espace, avant une espace, ni après un autre saut', () => {
+  const debut = monter(doc(para('Bonjour')), { debut: 1 })
+  debut.touche('Enter', MAJ)
+  assert.equal(lu(debut.view.state.doc.child(0)), '⏎Bonjour')
+  const apres = monter(doc(para('Bonjour monde')), { debut: 9 })
+  apres.touche('Enter', MAJ)
+  assert.equal(lu(apres.view.state.doc.child(0)), 'Bonjour ⏎monde')
+  const avant = monter(doc(para('Bonjour monde')), { debut: 8 })
+  avant.touche('Enter', MAJ)
+  assert.equal(lu(avant.view.state.doc.child(0)), 'Bonjour⏎ monde', 'l’espace d’après sépare déjà')
+  const deux = monter(doc(para('Un')), { debut: 3 })
+  deux.touche('Enter', MAJ)
+  deux.touche('Enter', MAJ)
+  assert.equal(lu(deux.view.state.doc.child(0)), 'Un ⏎⏎')
+})
+
+test('Maj+Entrée dans un titre et dans les styles Titre / Sous-titre : le bloc reste un seul bloc', () => {
+  const h = monter(doc(titre(1, 'Premier second')), { debut: 8 })
+  h.touche('Enter', MAJ)
+  assert.equal(h.view.state.doc.childCount, 1)
+  assert.equal(h.view.state.doc.child(0).type.name, 'heading')
+  assert.equal(lu(h.view.state.doc.child(0)), 'Premier⏎ second', 'l’espace d’après est gardée telle quelle')
+  for (const style of ['titre', 'sous-titre']) {
+    const p = schema.node('paragraph', { style }, [schema.text('Mon titre')])
+    const e = monter(doc(p), { debut: 4 })
+    e.touche('Enter', MAJ)
+    assert.equal(e.view.state.doc.childCount, 1, style)
+    assert.equal(e.view.state.doc.child(0).attrs.style, style, style)
+    assert.equal(lu(e.view.state.doc.child(0)), 'Mon⏎ titre', style)
+  }
+})
+
+test('Maj+Entrée dans un élément de liste, une citation et une cellule de tableau : pas de nouvel élément', () => {
+  const liste = schema.node('bullet_list', null, [schema.node('list_item', null, [para('Un deux')])])
+  const l = monter(doc(liste), { debut: 5 })
+  assert.equal(l.touche('Enter', MAJ), true)
+  assert.equal(l.view.state.doc.child(0).childCount, 1, 'toujours un seul élément')
+  const cit = schema.node('blockquote', null, [para('Citation')])
+  const c = monter(doc(cit), { debut: 5 })
+  c.touche('Enter', MAJ)
+  assert.equal(c.view.state.doc.child(0).childCount, 1)
+  const table = schema.node('table', null, [
+    schema.node('table_row', null, [schema.node('table_cell', null, [para('Cellule')])]),
+  ])
+  const t = monter(doc(table), { debut: 5 })
+  assert.equal(t.touche('Enter', MAJ), true)
+  let sauts = 0
+  t.view.state.doc.descendants((n) => {
+    if (n.type.name === 'hard_break') sauts++
+  })
+  assert.equal(sauts, 1)
+})
+
+test('Maj+Entrée sur une sélection hors suivi : elle est remplacée par le saut', () => {
+  const e = monter(doc(para('Avant XXX après')), { debut: 7, fin: 10 })
+  e.touche('Enter', MAJ)
+  assert.equal(lu(e.view.state.doc.child(0)), 'Avant ⏎ après')
+})
+
+test('Maj+Entrée sur une sélection qui traverse deux blocs : rien ne bouge, le navigateur n’improvise pas', () => {
+  const e = monter(doc(para('Un'), para('Deux')), { debut: 2, fin: 6 })
+  const avant = e.view.state.doc
+  assert.equal(e.touche('Enter', MAJ), true)
+  assert.ok(e.view.state.doc.eq(avant))
+})
+
+test('Maj+Entrée en suivi : le saut et l’espace sont des propositions au nom de l’auteur ; accepter les garde, refuser les retire', () => {
+  const e = monterSuivi(doc(para('Bonjour')), { debut: 8 })
+  e.touche('Enter', MAJ)
+  const bloc = e.view.state.doc.child(0)
+  assert.equal(lu(bloc), 'Bonjour ⏎')
+  const saut = bloc.child(bloc.childCount - 1)
+  assert.equal(saut.type.name, 'hard_break')
+  assert.equal(saut.attrs.suivi.type, 'insertion')
+  assert.equal(saut.attrs.suivi.user, 'Alice')
+  const changes = listChanges(e.view.state.doc)
+  assert.ok(changes.some((c) => c.noeud === 'hard_break' && c.text === 'Saut de ligne'), 'le panneau le liste')
+  assert.ok(changes.some((c) => c.type === 'insertion' && c.text === ' '), 'et l’espace insérée')
+  rejectAllChanges(e.view)
+  assert.equal(lu(e.view.state.doc.child(0)), 'Bonjour', 'refusé : comme avant')
+  assert.equal(listChanges(e.view.state.doc).length, 0)
+
+  const f = monterSuivi(doc(para('Bonjour')), { debut: 8 })
+  f.touche('Enter', MAJ)
+  acceptAllChanges(f.view)
+  const accepte = f.view.state.doc.child(0)
+  assert.equal(lu(accepte), 'Bonjour ⏎')
+  assert.equal(accepte.child(accepte.childCount - 1).attrs.suivi, null, 'plus en attente')
+  assert.equal(listChanges(f.view.state.doc).length, 0)
+})
+
+test('Maj+Entrée en suivi dans un titre : un seul titre, et ce qui suit se tape en proposition', () => {
+  const e = monterSuivi(doc(titre(2, 'Titre')), { debut: 6 })
+  e.touche('Enter', MAJ)
+  e.view.dispatch(e.view.state.tr.insertText('suite'))
+  assert.equal(e.view.state.doc.childCount, 1)
+  assert.equal(e.view.state.doc.child(0).type.name, 'heading')
+  assert.equal(lu(e.view.state.doc.child(0)), 'Titre ⏎suite')
+  rejectAllChanges(e.view)
+  assert.equal(lu(e.view.state.doc.child(0)), 'Titre')
+})
+
+test('Retour arrière après son propre saut en suivi : il disparaît pour de bon ; sur le saut d’un autre, il est barré', () => {
+  const e = monterSuivi(doc(para('Bonjour')), { debut: 8 })
+  e.touche('Enter', MAJ)
+  e.touche('Backspace')
+  assert.ok(!lu(e.view.state.doc.child(0)).includes('⏎'), 'son propre saut est retiré')
+  // Le saut d’un autre auteur, déjà accepté : le retirer le propose à la suppression.
+  const saut = schema.node('hard_break')
+  const f = monterSuivi(doc(schema.node('paragraph', null, [schema.text('Un '), saut, schema.text('deux')])), { debut: 5 })
+  f.touche('Backspace')
+  const bloc = f.view.state.doc.child(0)
+  let barre = null
+  bloc.forEach((n) => {
+    if (n.type.name === 'hard_break') barre = n
+  })
+  assert.ok(barre, 'le saut est toujours là')
+  assert.equal(barre.attrs.suivi.type, 'deletion')
+  assert.equal(barre.attrs.suivi.user, 'Alice')
+  rejectAllChanges(f.view)
+  assert.equal(lu(f.view.state.doc.child(0)), 'Un ⏎deux', 'refuser la suppression le rend')
+  acceptAllChanges(f.view)
+})
+
+test('Maj+Entrée en suivi sur une sélection : l’ancien passage reste barré, le saut vient après', () => {
+  const e = monterSuivi(doc(para('Avant XXX après')), { debut: 7, fin: 10 })
+  e.touche('Enter', MAJ)
+  const types = listChanges(e.view.state.doc).map((c) => c.noeud || c.type)
+  assert.ok(types.includes('deletion') && types.includes('hard_break'), JSON.stringify(types))
+  rejectAllChanges(e.view)
+  assert.equal(lu(e.view.state.doc.child(0)), 'Avant XXX après')
+})
+
+test('le plan lit un retour à la ligne comme une espace', () => {
+  const titreDouble = schema.node('heading', { level: 1 }, [schema.text('Premier'), schema.node('hard_break'), schema.text('second')])
+  const collé = schema.node('heading', { level: 2 }, [schema.text('Fin '), schema.node('hard_break'), schema.text(' suite')])
+  const d = doc(titreDouble, para('Texte'), collé)
+  assert.deepEqual(
+    getOutline(d).map((i) => i.text),
+    ['Premier second', 'Fin suite']
+  )
 })
