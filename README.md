@@ -79,8 +79,18 @@ npm test               # serveur puis client (un processus par fichier, délai p
 npm run test:server
 npm run test:client
 npm run lint           # ESLint : variables non définies ou inutilisées, code mort
-npm run format:check   # Prettier (configuré, non appliqué au code existant)
+npm run format:check   # Prettier (appliqué au code, vérifié par la CI)
 ```
+
+La CI (`.github/workflows/tests.yml`) rejoue lint, format, tests et compilation à chaque
+envoi, vérifie que le serveur démarre avec les seules dépendances de production et que les
+scripts shell de `deploy/` sont sains ; chaque lundi elle audite les dépendances.
+Un test (`server/test/env-documentee.test.js`) échoue si une variable d'environnement du code
+n'est pas décrite dans `.env.example`, ou l'inverse.
+
+Une revue du code par un autre modèle (Mistral Large 4) se lance à la main :
+`MISTRAL_API_KEY=… node tools/revue-mistral.mjs --tout` la première fois, puis sans option
+(ce qui a changé depuis la dernière revue) ; elle écrit `revue-AAAA-MM-JJ.md`, ignoré par git.
 
 `tools/lancer-tests.mjs` remplace `node --test dossier/*` : il compte les tests
 par événements, tue un fichier qui ne se termine pas et échoue si un fichier
@@ -101,9 +111,11 @@ cd /opt/amend/app && ./deploy/deploy.sh      # --restart pour forcer un redémar
 Détails, sauvegardes (NAS et Proton Drive), polices Typst et invitation de
 Claude : `deploy/README.md` et `deploy/SAUVEGARDE.md`.
 
-`Dockerfile` et `docker-compose.yml` existent mais **ne sont pas la voie de
-production** : l'image n'embarque pas Typst (export PDF en 501) et n'a pas été
-essayée récemment.
+Pas de Docker (décision du 15/10/2026) : la production est sous systemd, et une
+image aurait été un troisième environnement (Node, Typst, polices) à tenir
+identique aux deux autres. Pour essayer l'application sans compte Mailgun ni
+clé d'IA : `node tools/instance-test.js` lance une instance jetable avec de
+faux services.
 
 ## Documentation de conception
 

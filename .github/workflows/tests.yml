@@ -1,4 +1,6 @@
-# Les tests à chaque envoi sur main et à chaque demande de fusion.
+# Les tests à chaque envoi sur main et à chaque demande de fusion, plus un
+# passage chaque lundi (et à la demande) qui ajoute l'audit des dépendances :
+# une faille publiée entre deux envois se voit sans qu'on ait rien touché.
 # Node 22 : la version du serveur de production (package.json, "engines").
 name: tests
 
@@ -6,6 +8,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,10 +33,70 @@ jobs:
         working-directory: client
       - name: Lint (code mort, variables non définies)
         run: npm run lint
+      - name: Format (Prettier)
+        run: npm run format:check
       - name: Tests du serveur
         run: npm run test:server
       - name: Tests du client
         run: npm run test:client
       - name: Le client se compile
         run: npm run build
+        working-directory: client
+
+  # Ce que les tests ne voient pas : ils tournent avec les dépendances de
+  # développement. Ici, une installation propre avec les seules dépendances de
+  # production (comme deploy.sh sur le VPS), et le serveur doit répondre.
+  demarrage-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+      - run: npm ci --omit=dev
+      - run: npm ci
+        working-directory: client
+      - name: Le client se compile
+        run: npm run build
+        working-directory: client
+      - name: Le serveur démarre et répond
+        run: |
+          DATA_DIR="$RUNNER_TEMP/data" PORT=18912 SESSION_SECRET=essai node server/server.js &
+          pid=$!
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:18912/ >/dev/null && ok=1 && break
+            sleep 0.5
+          done
+          kill $pid
+          test "$ok" = 1
+
+  # Les scripts qui tournent sur le VPS et sur le NAS : une faute de guillemets
+  # n'y apparaît qu'au moment où l'on en a besoin.
+  scripts-shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck (avertissements et erreurs)
+        run: shellcheck -S warning deploy/*.sh tools/*.sh
+
+  # Dépendances livrées en production (serveur et client), failles « high » ou
+  # pires. Pas à chaque envoi : une faille publiée ailleurs ne doit pas bloquer
+  # un changement sans rapport. Le résultat du lundi arrive par courriel.
+  audit-dependances:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm audit --omit=dev --audit-level=high
         working-directory: client

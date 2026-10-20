@@ -16,3 +16,5 @@ tests/campagne/*.log
 tests/campagne/*.pdf
 .DS_Store
 _a_supprimer/
+revue-*.md
+.revue-derniere

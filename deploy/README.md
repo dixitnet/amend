@@ -1,14 +1,15 @@
 # Fichiers de déploiement — serveur de production
 
-Gabarits pour le tiny de production (Debian 13, 4 Go de RAM, réseau local).
-Le guide complet, étape par étape, est dans le projet Claude ("Collab") sous
-`claude/serveur-production-collabtext.md` — ces fichiers en sont l'exécution
-directe, pour éviter de retaper les heredocs à la main sur le tiny.
+Gabarits pour la production : VPS Gandi, Debian 13, 1 vCPU, 1 Go de RAM,
+`www.amend.ink` (Caddy, systemd). Le guide complet, étape par étape, est dans
+le projet Claude ("Amend") sous `claude/serveur-production-collabtext.md` —
+ces fichiers en sont l'exécution directe, pour éviter de retaper les heredocs
+à la main.
 
 - `amend.service` → `/etc/systemd/system/amend.service` (l'ancien `collabtext.service`, aux chemins `/opt/collabtext`, est retiré : une seule famille de chemins, `/opt/amend`)
-- `Caddyfile.local` → `/etc/caddy/Caddyfile` (phase réseau local, sans domaine)
+- `Caddyfile.exemple` → `/etc/caddy/Caddyfile` : la copie versionnée de la production (domaine, HTTPS). `Caddyfile.local` ne sert qu'à un essai en réseau local, sans domaine.
 - **Sauvegarde** : voir `SAUVEGARDE.md` (`sauvegarde-serveur.sh` sur la production, `tirer-sauvegarde.sh` et `amend-sauvegarde.{service,timer}` sur le NAS). Un envoi quotidien vers Proton Drive part en plus du VPS lui-même (`sauvegarde-vers-proton.sh`, `amend-proton.{service,timer}` : `SAUVEGARDE.md` §8). Les anciens `backup.sh` et `collabtext-backup.*` (la production *poussait* vers le NAS) sont remplacés : une production prise pouvait effacer ses propres sauvegardes.
-- `deploy.sh` → `/opt/amend/deploy.sh` (`chmod +x`) — mises à jour manuelles : `git pull --ff-only`, `npm ci --omit=dev`, build du client, redémarrage décidé par `git diff` (`server/`, `shared/`, `package*.json`) ; `--restart` pour forcer (changement du `.env`)
+- `deploy.sh` reste dans le dépôt, donc sur la production : `bash /opt/amend/app/deploy/deploy.sh` (ne pas le copier ailleurs) — mises à jour manuelles : `git pull --ff-only`, `npm ci --omit=dev`, build du client, redémarrage décidé par `git diff` (`server/`, `shared/`, `package*.json`) ; `--restart` pour forcer (changement du `.env`)
 
 Port et chemin data déjà confirmés dans le code (`server/server.js`) :
 `PORT=8787` par défaut, `DATA_DIR=./data` par défaut — cohérent avec le
