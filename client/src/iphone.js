@@ -26,7 +26,7 @@
 // que chaque bouton gardé coûte au texte : la mise en page, les tableaux,
 // les images, le sommaire, le saut de page, la publication, les accès, les
 // exports, l'historique, l'assistance IA, le zoom, les favoris, les
-// compteurs de mots, de signes et de marqueurs, les pastilles de présence.
+// compteurs de mots et de signes, les pastilles de présence.
 // Rien n'est retiré du code ni du serveur : ces fonctions restent entières
 // sur un écran d'ordinateur, elles ne sont simplement pas proposées ici.
 //

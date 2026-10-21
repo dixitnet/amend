@@ -248,10 +248,22 @@ function el(nom, classe, texte) {
  * Monte la palette si — et seulement si — le serveur dit que la personne y
  * a droit. Renvoie `null` sinon (rien n'est ajouté à la page).
  *
- * `getView()` donne la vue de l'éditeur ; `fetcher` et `hote` ne servent
- * qu'aux tests.
+ * `getView()` donne la vue de l'éditeur ; `fetcher` ne sert qu'aux tests.
+ *
+ * `hote` : où poser le dialogue. Par défaut la page (palette flottante, avec
+ * son bouton « Margo (IA) ») ; avec `enVolet`, l'onglet Margo du volet de
+ * droite (lot L1, 21/10/2026) : la palette y est toujours dépliée, sans
+ * bouton, et la fermer (× ou Échap) appelle `surReplier` — c'est le volet
+ * qui se replie.
  */
-export async function monterDialogue({ docId, getView, hote = document.body, fetcher = (...a) => fetch(...a) }) {
+export async function monterDialogue({
+  docId,
+  getView,
+  hote = document.body,
+  enVolet = false,
+  surReplier = null,
+  fetcher = (...a) => fetch(...a),
+}) {
   let droit
   try {
     const r = await fetcher(`/api/docs/${encodeURIComponent(docId)}/dialogue`, { credentials: 'same-origin' })
@@ -266,15 +278,16 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   let enCours = null // AbortController de la réponse en train d'arriver
   let flashTimer = null
 
-  const racine = el('div', 'dialogue-hote')
+  const racine = el('div', enVolet ? 'dialogue-hote dialogue-en-volet' : 'dialogue-hote')
   const bouton = el('button', 'dialogue-bouton', 'Margo (IA)')
   bouton.type = 'button'
   bouton.title = 'Dialoguer avec Margo (IA) à propos de ce texte'
   bouton.setAttribute('aria-expanded', 'false')
 
   const palette = el('div', 'dialogue-palette')
-  palette.hidden = true
-  palette.setAttribute('role', 'dialog')
+  palette.hidden = !enVolet
+  if (enVolet) bouton.hidden = true
+  palette.setAttribute('role', enVolet ? 'region' : 'dialog')
   palette.setAttribute('aria-label', 'Dialogue avec Margo (IA)')
 
   const entete = el('div', 'dialogue-entete')
@@ -606,13 +619,17 @@ export async function monterDialogue({ docId, getView, hote = document.body, fet
   function ouvrir() {
     palette.hidden = false
     bouton.setAttribute('aria-expanded', 'true')
-    bouton.hidden = false
+    bouton.hidden = enVolet
     porteeSelonSelection()
     majIndication()
     saisie.focus()
     descendre()
   }
   function replier() {
+    if (enVolet) {
+      if (surReplier) surReplier()
+      return
+    }
     palette.hidden = true
     bouton.setAttribute('aria-expanded', 'false')
   }

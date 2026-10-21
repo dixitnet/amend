@@ -1,6 +1,7 @@
-// Les compteurs de relecture du bandeau (03/10/2026) : « n ✏️, » pour les
-// modifications en attente, « n 💬, » pour les passages commentés. Comme le
-// compteur des « !! », un clic mène au suivant, en boucle.
+// Les compteurs de relecture du bandeau (03/10/2026) : le nombre de
+// modifications en attente et de passages commentés, derrière une icône
+// (crayon, bulle — 21/10/2026). Un clic
+// mène au suivant, en boucle.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -71,7 +72,8 @@ test('modifications : le compteur suit le panneau, et le clic fait tourner', asy
     view.dispatch(view.state.tr.delete(from, to))
   }
   await attendre(600)
-  assert.equal(modifs.textContent, '3 ✏️,')
+  assert.equal(modifs.textContent, '3')
+  assert.ok(modifs.querySelector('svg.icone-crayon'), 'l’icône du crayon, pas un émoji')
   assert.ok(modifs.classList.contains('cliquable'))
   assert.match(modifs.title, /3 modifications en attente/)
 
@@ -111,7 +113,8 @@ test('commentaires : le compteur compte les fils, pas les réponses, et le clic 
   commentsMap.set('reponse-1', { id: 'reponse-1', parent: premier, text: 'Oui.', user: 'Bruno', color: '#e07a5f', createdAt: Date.now() })
   await attendre(600)
 
-  assert.equal(comms.textContent, '2 💬,', 'deux fils, la réponse ne compte pas')
+  assert.equal(comms.textContent, '2', 'deux fils, la réponse ne compte pas')
+  assert.ok(comms.querySelector('svg.icone-bulle'), 'l’icône de la bulle')
   assert.match(comms.title, /2 passages commentés/)
 
   const departs = []

@@ -1,8 +1,9 @@
-// Les compteurs de relecture du bandeau (03/10/2026) : « 12 ✏️, » pour les
-// modifications en attente, « 5 💬, » pour les passages commentés.
+// Les compteurs de relecture du bandeau (03/10/2026) : le nombre de
+// modifications en attente et le nombre de passages commentés, chacun derrière
+// son icône — un crayon, une bulle (21/10/2026 : des icônes SVG à la place des
+// émojis ✏️ et 💬, qui ne se dessinaient pas pareil d'un système à l'autre).
 //
-// Même geste que le compteur des « !! » (tkMarker.js) : un clic mène au
-// suivant, dans l'ordre du document, en boucle, et sélectionne le passage
+// Un clic mène au suivant, dans l'ordre du document, en boucle, et sélectionne le passage
 // en le centrant à l'écran. On mémorise la **position** du dernier passage
 // visité plutôt qu'un rang — le document bouge entre deux clics, et une
 // position retrouve « le suivant » même si des éléments ont été ajoutés ou
@@ -17,6 +18,7 @@ import { changesKey, modificationsAffichees } from './changesPanel.js'
 import { commentairesAncres, resolveCommentRange } from './comments.js'
 import { defilerVers } from './defilement.js'
 import { throttle } from './throttle.js'
+import { icone } from './interface/icones.js'
 
 const RENDER_INTERVAL_MS = 500
 
@@ -82,10 +84,13 @@ export function mountCompteursRelecture({ modifications, commentaires }, { ydoc,
     )
   }
 
-  function peindre(el, n, picto, un, plusieurs, action) {
-    el.textContent = n > 0 ? `${n} ${picto},` : ''
+  function peindre(el, n, nomIcone, un, plusieurs, action) {
+    el.replaceChildren()
+    if (n > 0) el.append(icone(nomIcone, 14), document.createTextNode(String(n)))
     el.classList.toggle('cliquable', n > 0)
     el.title = n > 0 ? `${n} ${n > 1 ? plusieurs : un} — cliquer pour aller ${action}` : ''
+    if (n > 0) el.setAttribute('aria-label', el.title)
+    else el.removeAttribute('aria-label')
   }
 
   function render() {
@@ -94,14 +99,14 @@ export function mountCompteursRelecture({ modifications, commentaires }, { ydoc,
       const n = modificationsDuDocument(view.state).length
       if (n !== dernieresModifs) {
         dernieresModifs = n
-        peindre(modifications, n, '✏️', 'modification en attente', 'modifications en attente', 'à la suivante')
+        peindre(modifications, n, 'crayon', 'modification en attente', 'modifications en attente', 'à la suivante')
       }
     }
     if (commentaires) {
       const n = commentairesDuDocument(view.state, ydoc, commentsMap).length
       if (n !== derniersComms) {
         derniersComms = n
-        peindre(commentaires, n, '💬', 'passage commenté', 'passages commentés', 'au suivant')
+        peindre(commentaires, n, 'bulle', 'passage commenté', 'passages commentés', 'au suivant')
       }
     }
   }

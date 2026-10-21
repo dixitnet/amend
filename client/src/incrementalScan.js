@@ -1,7 +1,7 @@
 /**
  * Shared incremental-recompute helpers for plugins that would otherwise
  * rescan the whole document on every transaction (wordcount.js,
- * outline.js, tkMarker.js, and — via trackChanges.js's updateChangeList —
+ * outline.js, and — via trackChanges.js's updateChangeList —
  * changesPanel.js). See rapport-test-charge-1.md, constat 2.2: several
  * plugins recomputing over the entire document on every keystroke is the
  * identified cause of client-side dispatch latency growing with document

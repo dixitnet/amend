@@ -17,12 +17,25 @@
 // besoin de la vue et des commentaires) viennent s'ajouter dans le groupe
 // « Relire » de l'appelant.
 
+import { svgIcone } from './interface/icones.js'
+
 export function mkButton(label, title) {
   const btn = document.createElement('button')
   btn.textContent = label
   btn.title = title
   btn.className = 'btn-tool'
   btn.type = 'button'
+  return btn
+}
+
+/** Un bouton dessiné par une icône (21/10/2026, esthétique de la vue V1) :
+ * le titre reste l'infobulle et devient le nom du bouton pour les lecteurs
+ * d'écran. */
+export function boutonIcone(nom, title) {
+  const btn = mkButton('', title)
+  btn.innerHTML = svgIcone(nom, 18)
+  btn.setAttribute('aria-label', title)
+  btn.classList.add('btn-icone')
   return btn
 }
 
@@ -41,8 +54,9 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
   const headingSelect = document.createElement('select')
   headingSelect.className = 'heading-select'
   headingSelect.title = 'Style de paragraphe'
+  headingSelect.setAttribute('aria-label', 'Style de paragraphe')
   for (const [label, value] of [
-    ['Normal', ''],
+    ['Paragraphe', ''],
     ['Titre 1', '1'],
     ['Titre 2', '2'],
     ['Titre 3', '3'],
@@ -82,22 +96,28 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
   // --- Mise en forme -------------------------------------------------------
   // Annuler et rétablir (13/10/2026) : les raccourcis existaient, pas les
   // boutons — c'est le premier geste qu'on cherche dans Docs ou Word.
-  const undoBtn = mkButton('↶', 'Annuler (Ctrl/⌘+Z)')
-  const redoBtn = mkButton('↷', 'Rétablir (Ctrl/⌘+Y)')
-  const boldBtn = mkButton('B', 'gras (Ctrl-B)')
+  // Les lettres françaises (21/10/2026) : G gras, I italique, S souligné ; le
+  // barré est dessiné « abc », comme dans Docs en français.
+  const undoBtn = boutonIcone('annuler', 'Annuler (Ctrl/⌘+Z)')
+  const redoBtn = boutonIcone('retablir', 'Rétablir (Ctrl/⌘+Y)')
+  const boldBtn = mkButton('G', 'gras (Ctrl-B)')
+  boldBtn.classList.add('btn-gras')
   const italicBtn = mkButton('I', 'italique (Ctrl-I)')
-  const underlineBtn = mkButton('U', 'souligné (Ctrl-U)')
+  italicBtn.classList.add('btn-italique')
+  const underlineBtn = mkButton('S', 'souligné (Ctrl-U)')
   underlineBtn.style.textDecoration = 'underline'
-  const strikeBtn = mkButton('S', 'barré')
+  const strikeBtn = mkButton('abc', 'barré')
   strikeBtn.style.textDecoration = 'line-through'
+  strikeBtn.classList.add('btn-barre')
   // La citation est un **style de paragraphe**, pas un objet qu'on insère
   // (13/10/2026, demande de Sylvain) : elle se range avec le gras, l'italique,
   // le souligné et le barré, et s'allume quand le curseur est dans une citation.
-  const quoteBtn = mkButton('❝', 'Citation : met le paragraphe en citation, ou l’en sort')
+  const quoteBtn = mkButton('“', 'Citation : met le paragraphe en citation, ou l’en sort')
+  quoteBtn.classList.add('btn-citation')
   quoteBtn.setAttribute('aria-pressed', 'false')
-  const listBtn = mkButton('–', 'liste à tirets')
-  const orderedListBtn = mkButton('1.', 'liste numérotée')
-  const taskListBtn = mkButton('☑', 'liste à cocher')
+  const listBtn = boutonIcone('liste', 'liste à tirets')
+  const orderedListBtn = boutonIcone('listeNumerotee', 'liste numérotée')
+  const taskListBtn = boutonIcone('listeCoches', 'liste à cocher')
   groupeTexte2.append(
     undoBtn,
     redoBtn,
@@ -119,8 +139,7 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
   // Le lien reste un bouton à part (30/09/2026, réservé à qui écrit
   // librement, voir liens.js) : c'est le plus fréquent. Tout le reste est dans
   // « Insérer ▾ », où chaque entrée dit ce qu'elle fait en toutes lettres.
-  const lienBtn = mkButton('Lien', 'Ajouter ou modifier un lien (Ctrl/⌘+K)')
-  lienBtn.classList.add('btn-texte')
+  const lienBtn = boutonIcone('lien', 'Ajouter ou modifier un lien (Ctrl/⌘+K)')
   if (!cap.canEditFreely) lienBtn.hidden = true
   const noteBtn = mkButton('Note de bas de page', 'Insérer une note ici (Ctrl/⌘+Alt+F)')
   const ligneBtn = mkButton('Ligne de séparation', 'Insérer un trait horizontal')

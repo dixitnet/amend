@@ -3,7 +3,7 @@
  * `wait` ms. A call made before the window elapses isn't just dropped —
  * it's remembered and fires once, right at the end of the window (a
  * classic "leading + trailing" throttle). Used to cap how often a
- * plugin repaints its panel (wordcount.js, outline.js, tkMarker.js): the
+ * plugin repaints its panel (wordcount.js, outline.js): the
  * underlying data is kept correct on every transaction (see
  * incrementalScan.js), but the DOM write itself only needs to happen a
  * few times a second at most for a human to perceive it as live — see

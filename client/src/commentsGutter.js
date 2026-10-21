@@ -34,6 +34,7 @@ import {
 import { couleurSure } from '../../shared/securite.js'
 
 const ECART_MINIMAL = 8 // px entre deux cartes empilées
+const ID_MODIFICATION = '__modification-courante'
 const DELAI_RECALCUL_MS = 100
 
 function tempsRelatif(ts) {
@@ -46,7 +47,13 @@ function tempsRelatif(ts) {
   return `il y a ${Math.round(h / 24)} j`
 }
 
-export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
+/**
+ * `carteCourante` (lot L2, 21/10/2026) : la carte de la modification courante
+ * (carteModification.js), à poser dans la même pile que les commentaires.
+ * `ancre()` la remplit et rend la position de son passage, ou null quand elle
+ * n'a pas à paraître (rien à relire, ou gouttière absente).
+ */
+export function mountCommentsGutter(gutter, ydoc, commentsMap, user, { carteCourante = null } = {}) {
   let view = null
   let actif = null // id du commentaire déployé
   let timer = null
@@ -356,6 +363,24 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
       items.push({ id, carte, naturel: y, hauteur: carte.offsetHeight })
     })
 
+    // La modification courante : une carte de plus dans la pile, qui garde sa
+    // hauteur à moins qu'un commentaire ne soit actif (on vient de le choisir).
+    if (carteCourante) {
+      const pos = carteCourante.ancre()
+      const carteModif = carteCourante.el
+      if (pos == null) carteModif.hidden = true
+      else {
+        if (carteModif.parentNode !== gutter) gutter.appendChild(carteModif)
+        carteModif.hidden = false
+        try {
+          const y = view.coordsAtPos(Math.min(pos, view.state.doc.content.size)).top - rectGouttiere.top
+          items.push({ id: ID_MODIFICATION, carte: carteModif, naturel: y, hauteur: carteModif.offsetHeight })
+        } catch {
+          carteModif.hidden = true
+        }
+      }
+    }
+
     for (const [id, carte] of cartes) {
       if (vivants.has(id)) continue
       carte.remove()
@@ -367,7 +392,8 @@ export function mountCommentsGutter(gutter, ydoc, commentsMap, user) {
     // les autres (comme Google Docs) ; sans carte active, simple cascade
     // vers le bas.
     items.sort((a, b) => a.naturel - b.naturel)
-    const indexActif = items.findIndex((i) => i.id === actif)
+    let indexActif = items.findIndex((i) => i.id === actif)
+    if (indexActif === -1) indexActif = items.findIndex((i) => i.id === ID_MODIFICATION)
     const positions = items.map((i) => i.naturel)
     if (indexActif > -1) {
       for (let i = indexActif - 1; i >= 0; i--) {

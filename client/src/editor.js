@@ -23,11 +23,15 @@ import {
 import { mountChangesPanel } from './changesPanel.js'
 import { mountAIPanel } from './aiPanel.js'
 import { monterDialogue } from './dialogue.js'
+import { monterVolet } from './interface/volets.js'
+import { monterCarteModification } from './carteModification.js'
+import { mountBulleSelection } from './bulleSelection.js'
+import { svgIcone } from './interface/icones.js'
+import { calculerDisposition, decalageBarre } from './interface/disposition.js'
 import { commentsPlugin, mountCommentsPanel, commentaireAuPoint, commentairesAncres } from './comments.js'
 import { mountCommentsGutter, mountGutterComposer } from './commentsGutter.js'
 import { mountOutlinePanel } from './outline.js'
 import { mountWordCount } from './wordcount.js'
-import { mountTkMarker } from './tkMarker.js'
 import { mountCompteursRelecture } from './compteursRelecture.js'
 import { markdownShortcutsPlugin } from './markdownShortcuts.js'
 import { typographiePlugin } from './typographie.js'
@@ -160,7 +164,7 @@ export function mountEditor(root, docId, user, docMeta) {
 
   // --- Zone gauche : où je suis --------------------------------------------
 
-  const { titleInput } = monterZoneGauche(zoneGauche, {
+  const { titleInput, nouveauBtn, starBtn } = monterZoneGauche(zoneGauche, {
     docId,
     docMeta,
     envoyerTitre: (titre) => provider.sendTitle(titre),
@@ -169,18 +173,18 @@ export function mountEditor(root, docId, user, docMeta) {
 
   // --- Zone centre : qui est là --------------------------------------------
 
-  // Rempli une fois que `provider` existe, plus bas. Seule chose du bandeau
-  // qui change toute seule, et ce qui distingue Amend d'un éditeur de texte
-  // ordinaire : elle a le centre, et de l'air autour.
+  // Rempli une fois que `provider` existe, plus bas. Depuis le 21/10/2026
+  // (esthétique de la vue V1), les pastilles de présence sont à droite, avant
+  // Partager : on voit qui est là au moment de partager.
   const presenceContainer = document.createElement('div')
-  zoneCentre.appendChild(presenceContainer)
+  presenceContainer.className = 'banniere-groupe banniere-presence'
 
   // --- Zone droite : ce que je fais au document ----------------------------
 
   // 1. Travailler le texte : les compteurs. L'interrupteur du suivi, lui, prend
   // la tête de la zone « Révision » de la barre d'outils (`placerLeSuivi`).
   const { trackToggleLabel, trackToggle } = creerInterrupteurSuivi()
-  const { groupeTexte, tkCount, modifsCount, commentsCount, wordCount } = monterCompteursBandeau({
+  const { groupeTexte, modifsCount, commentsCount, wordCount } = monterCompteursBandeau({
     avecModifications: !!(peutProposer || cap.canReviewChanges),
   })
 
@@ -193,10 +197,22 @@ export function mountEditor(root, docId, user, docMeta) {
     getTitre: () => titleInput.value,
   })
 
-  // L'historique ferme la rangée.
-  const groupeHistorique = monterGroupeHistorique(docId)
+  // Le menu ⋯ (21/10/2026, esthétique de la vue V1) : ce qu'on fait rarement
+  // depuis un document — en créer un autre, le mettre en favori, ouvrir ses
+  // versions — quitte la rangée du bandeau.
+  const lienVersions = monterGroupeHistorique(docId).querySelector('a')
+  lienVersions.className = 'menu-item history-link'
+  const menuPlus = menuDeroulant('', { classe: 'menu-plus', titre: 'Plus d’actions' })
+  const boutonPlus = menuPlus.el.querySelector('.menu-flottant-bouton')
+  boutonPlus.innerHTML = svgIcone('plus', 20)
+  boutonPlus.setAttribute('aria-label', 'Plus d’actions')
+  boutonPlus.classList.add('btn-icone')
+  menuPlus.liste.append(nouveauBtn, starBtn, lienVersions)
+  menuPlus.liste.addEventListener('click', (e) => {
+    if (e.target.closest('button, a')) menuPlus.fermer()
+  })
 
-  zoneDroite.append(groupeTexte, groupeForme, groupeHistorique)
+  zoneDroite.append(groupeTexte, presenceContainer, groupeForme, menuPlus.el)
 
   // 4. Moi. À l'extrême droite, séparée des pastilles de présence par toute
   // la largeur du bandeau : les deux sont des ronds colorés, et les
@@ -205,7 +221,8 @@ export function mountEditor(root, docId, user, docMeta) {
   // (18/09) : l'état de l'enregistrement se range avec ce qui parle de la
   // session, pas avec le nom du document.
   const voyant = creerVoyantConnexion()
-  zoneDroite.appendChild(voyant.el)
+  // L'état de l'enregistrement, en un mot à côté du titre (vue V1).
+  zoneGauche.appendChild(voyant.el)
 
   const menuCompte = monterMenuCompte(zoneDroite, {
     couleur: () => user.color,
@@ -235,6 +252,9 @@ export function mountEditor(root, docId, user, docMeta) {
 
   const main = document.createElement('div')
   main.className = 'editor-main'
+  // Le repère « contenu principal » des lecteurs d'écran (passage axe, lot L4).
+  main.setAttribute('role', 'main')
+  main.setAttribute('aria-label', 'Document')
 
   // Formatting palette only — stays in the middle (text) column, above the
   // scrolling editor-container (so it never scrolls away), rather than
@@ -278,6 +298,9 @@ export function mountEditor(root, docId, user, docMeta) {
   const relecture = monterBarreRelecture(() => view, {
     canReview: !!cap.canReviewChanges,
   })
+  // La carte de la modification courante, dans la gouttière (lot L2) : elle
+  // reçoit la barre de relecture quand la gouttière est là (format L).
+  const carteModif = monterCarteModification({ getView: () => view, relecture })
   // Sur ordinateur la barre de relecture vit dans la colonne de droite,
   // sous le suivi (`placerLeSuivi`) ; sur téléphone elle est ici, dans
   // l'onglet « Relire ».
@@ -288,8 +311,8 @@ export function mountEditor(root, docId, user, docMeta) {
   let composeurMarge = null // le plugin de la marge, posé avec les greffons
   const filBtn = document.createElement('button')
   filBtn.type = 'button'
-  filBtn.className = 'btn-tool btn-texte'
-  filBtn.textContent = 'Commenter'
+  filBtn.className = 'btn-tool btn-texte btn-commenter'
+  filBtn.innerHTML = `${svgIcone('bulle', 16)}<span>Commenter</span>`
   filBtn.title = 'Commenter le passage sélectionné — ou ouvrir le fil du passage où se trouve le curseur'
   filBtn.onclick = () => {
     // Un passage sélectionné : on le commente, comme avec le « ＋ » de la
@@ -343,8 +366,16 @@ export function mountEditor(root, docId, user, docMeta) {
   zoneAffichage.append(numerosBtn, zoomSelect)
   groupeRelire.appendChild(zoneAffichage)
 
-  const { sidebar, suiviEntete, zoneRelecture, aiSection, changesSection, commentsSection } =
-    creerColonneDroite(trackToggleLabel)
+  const {
+    sidebar,
+    suiviEntete,
+    zoneRelecture,
+    aiSection,
+    changesSection,
+    commentsSection,
+    panneauModifications,
+    panneauMargo,
+  } = creerColonneDroite(trackToggleLabel)
 
   // L'interrupteur du suivi change de place avec la largeur (20/09/2026),
   // et **une seule fois pour toutes** : il est déménagé, jamais dupliqué.
@@ -354,26 +385,162 @@ export function mountEditor(root, docId, user, docMeta) {
   // précisément ce qu'on ne peut pas se permettre de perdre : c'est lui qui
   // dit si ce qu'on tape est une proposition ou une modification directe.
   const petitEcranMedia = media(REQUETE_PETIT_ECRAN)
+  // La gouttière n'existe qu'à partir de 1 280 px (style.css) : en dessous, le
+  // parcours des modifications reste en tête du volet Modifications.
+  const gouttiereMedia = media('(min-width: 1280px)')
+  // Elle peut aussi se replier plus haut, quand les volets ouverts ne laissent
+  // plus assez de place au texte (`disposer`, lot L4) : le repli est écrit dans
+  // `layout.dataset.gouttiere`.
+  const gouttiereActive = () => gouttiereMedia.matches && layout.dataset.gouttiere !== 'non'
   function placerLeSuivi() {
     // Sur téléphone, l'interrupteur vit dans le menu ⋯ (iphone.js) et c'est
     // ce menu qui va le chercher ; la barre de relecture, elle, rejoint
-    // l'onglet « Relire ». Sur ordinateur et tablette, ils sont tous deux
-    // **fixes** dans la colonne de droite, sous « Corrections IA » : le
-    // suivi, puis le parcours des modifications (14/10/2026 ; du 13 au 14/10
-    // ils étaient dans la barre d'outils).
+    // l'onglet « Relire ». Sur ordinateur et tablette, l'interrupteur est au
+    // **bout de la barre d'édition** (décision D1 du 21/10/2026 ; il était
+    // fixe dans la colonne de droite depuis le 14/10), et le parcours des
+    // modifications reste fixe en tête de l'onglet Modifications.
     if (petitEcranMedia.matches) {
       groupeRelire.insertBefore(relecture.el, filBtn)
     } else {
+      toolbar.appendChild(suiviEntete)
       suiviEntete.appendChild(trackToggleLabel)
-      zoneRelecture.appendChild(relecture.el)
+      // Format L : le parcours vit dans la carte de la modification courante,
+      // contre le texte (lot L2) ; sinon en tête du volet Modifications.
+      if (gouttiereActive()) carteModif.pied.appendChild(relecture.el)
+      else zoneRelecture.appendChild(relecture.el)
     }
   }
   placerLeSuivi()
 
   const { outlineSidebar, outlineSection } = creerColonnePlan()
 
+  // La rangée fixe sous le bandeau (lot L1, 21/10/2026, revu le jour même) :
+  // au bord gauche le bouton du plan, un trait, la barre d'édition — alignée
+  // sur le bord gauche du texte —, un trait, et au bord droit les boutons
+  // Modifications et Margo. Ouvrir ou fermer un volet n'y change rien.
+  // Sur téléphone, la barre reste au bas de la colonne (voir placerLaBarre).
+  const rangee = document.createElement('div')
+  rangee.className = 'rangee-edition'
+  // Les repères de la page pour les lecteurs d'écran (passage axe, lot L4).
+  rangee.setAttribute('role', 'region')
+  rangee.setAttribute('aria-label', 'Plan, édition et panneaux')
+  topBanner.setAttribute('role', 'banner')
+  const boutonsGauche = document.createElement('div')
+  boutonsGauche.className = 'rangee-boutons rangee-gauche'
+  const boutonsDroite = document.createElement('div')
+  boutonsDroite.className = 'rangee-boutons rangee-droite'
+  rangee.append(boutonsGauche, boutonsDroite)
+
+  /** La barre d'édition change de place avec la largeur, comme l'interrupteur
+   * du suivi : déménagée, jamais dupliquée. Dans la rangée fixe sur ordinateur
+   * et tablette ; en tête de la colonne du texte sur téléphone, où iphone.js
+   * la prend en charge. */
+  function placerLaBarre() {
+    if (petitEcranMedia.matches) {
+      if (toolbar.parentNode === rangee) main.prepend(toolbar)
+      toolbar.style.paddingLeft = ''
+      // Sur téléphone, l'affichage (numéros de bloc, zoom) reste dans l'onglet Relire.
+      if (zoneAffichage.parentNode !== groupeRelire) groupeRelire.appendChild(zoneAffichage)
+    } else {
+      if (toolbar.parentNode !== rangee) rangee.insertBefore(toolbar, boutonsDroite)
+      // Ailleurs, il rejoint le menu ⋯ du bandeau : la barre d'édition ne garde
+      // que ce qui sert à écrire (vue V1).
+      if (zoneAffichage.parentNode !== menuPlus.liste) menuPlus.liste.appendChild(zoneAffichage)
+    }
+  }
+  placerLaBarre()
+
+  let disposer = () => {} // défini plus bas, une fois la vue construite
+  const voletGauche = monterVolet({
+    colonne: outlineSidebar,
+    hoteBoutons: boutonsGauche,
+    panneaux: [{ id: 'plan', libelle: 'Plan du document', court: 'Plan', icone: 'plan', panneau: outlineSection }],
+    cleMemoire: 'amend.volet.gauche',
+    defaut: 'plan',
+    surChangement: () => disposer(),
+  })
+  const voletPlan = { ouvert: () => !outlineSidebar.classList.contains('volet-ferme') }
+  let dialogue = null
+  // Ce que la personne peut demander à l'IA (connu quand le serveur a répondu,
+  // plus bas) : la bulle de sélection n'offre que ce qui marchera.
+  let iaOuverte = false
+  let margoOuvert = false
+  // Le nombre de modifications en attente, à côté du mot « Modifications »
+  // quand le volet est ouvert : le même que celui du bandeau, recopié.
+  const compteOnglet = document.createElement('span')
+  compteOnglet.className = 'volet-compte'
+  const recopierCompte = () => {
+    compteOnglet.textContent = (modifsCount.textContent.match(/\d+/) || [''])[0]
+  }
+  if (typeof MutationObserver !== 'undefined') {
+    const veille = new MutationObserver(recopierCompte)
+    veille.observe(modifsCount, { childList: true, characterData: true, subtree: true })
+    ecouteursGlobaux.push(() => veille.disconnect())
+  }
+  const voletDroit = monterVolet({
+    colonne: sidebar,
+    hoteBoutons: boutonsDroite,
+    panneaux: [
+      {
+        id: 'modifications',
+        libelle: 'Modifications',
+        icone: 'coche',
+        panneau: panneauModifications,
+        compte: compteOnglet,
+      },
+      { id: 'margo', libelle: 'Margo (IA)', court: 'Margo', icone: 'etincelle', panneau: panneauMargo },
+    ],
+    cleMemoire: 'amend.volet.droit',
+    defaut: 'modifications',
+    // Ouvrir Margo, c'est vouloir lui écrire : le curseur va dans la saisie.
+    // (Au chargement, `dialogue` n'existe pas encore : rien ne prend le focus
+    // à l'éditeur.)
+    surChangement: (etat) => {
+      if (etat === 'margo' && dialogue) dialogue.ouvrir()
+      disposer()
+    },
+  })
+
+  // Volets ouverts (vue V1) : au-dessus de chaque volet, ses onglets, puis le
+  // bouton qui le replie ; « Fichiers » est annoncé, pas encore actif. Ces
+  // éléments n'existent que volet ouvert (style.css, `.ouvert`).
+  const extra = (el) => {
+    el.classList.add('volet-extra')
+    return el
+  }
+  const espace = () => {
+    const e = extra(document.createElement('span'))
+    e.classList.add('volet-espace')
+    return e
+  }
+  const boutonReplier = (nomIcone, titre, action) => {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'volet-replier'
+    b.title = titre
+    b.setAttribute('aria-label', titre)
+    b.innerHTML = svgIcone(nomIcone, 16)
+    b.addEventListener('click', action)
+    return extra(b)
+  }
+  const fichiers = document.createElement('button')
+  fichiers.type = 'button'
+  fichiers.className = 'volet-bouton'
+  fichiers.disabled = true
+  fichiers.title = 'Fichiers — bientôt'
+  fichiers.innerHTML = `${svgIcone('dossier', 18)}<span class="volet-libelle">Fichiers</span>`
+  boutonsGauche.append(
+    extra(fichiers),
+    espace(),
+    boutonReplier('gauche', 'Replier le plan', () => voletGauche.fermer())
+  )
+  boutonsDroite.append(
+    espace(),
+    boutonReplier('droite', 'Replier le volet', () => voletDroit.fermer())
+  )
+
   layout.append(outlineSidebar, main, sidebar)
-  shell.append(topBanner, layout)
+  shell.append(topBanner, rangee, layout)
   root.appendChild(shell)
 
   // La feuille de style ("Mise en page", voir stylePanel.js/styleConfig.js)
@@ -405,7 +572,10 @@ export function mountEditor(root, docId, user, docMeta) {
   // Live title sync between rédacteurs (correctif 4.1.1) — never overwrite
   // what the local person is actively typing themselves.
   provider.addEventListener('title', (e) => {
-    if (document.activeElement !== titleInput) titleInput.value = e.detail.title
+    if (document.activeElement !== titleInput) {
+      titleInput.value = e.detail.title
+      titleInput.dispatchEvent(new Event('change'))
+    }
   })
 
   const presence = mountPresenceBar(presenceContainer, provider, {
@@ -461,12 +631,56 @@ export function mountEditor(root, docId, user, docMeta) {
         },
       }),
       footnotesPlugin(() => user, { surChangement: (v) => listeNotes && listeNotes.rafraichir(v) }),
-      mountCommentsGutter(commentsGutter, ydoc, commentsMap, user),
+      // La bulle de sélection (lot L3) : Corriger, Réduire, Clarifier,
+      // Demander à Margo, Commenter. Hors téléphone, qui a son propre bouton.
+      mountBulleSelection(editorContainer, {
+        active: () => !petitEcranMedia.matches,
+        auDoigt: () => media('(pointer: coarse)').matches,
+        actions: [
+          ...[
+            ['corriger', 'Corriger', 'corriger'],
+            ['raccourcir', 'Réduire', 'reduire'],
+            ['clarifier', 'Clarifier', 'clarifier'],
+          ].map(([cle, libelle, id]) => ({
+            cle: id,
+            libelle,
+            ia: true,
+            visible: () => iaOuverte,
+            executer: async () => {
+              const message = await correctionsIA.lancer(cle)
+              if (message) messageFugace(message, { erreur: !/^Suggestion ajoutée/.test(message) })
+            },
+          })),
+          {
+            cle: 'margo',
+            libelle: 'Demander à Margo',
+            icone: 'etincelle',
+            ia: true,
+            visible: () => margoOuvert,
+            executer: () => voletDroit.ouvrir('margo'),
+          },
+          {
+            cle: 'commenter',
+            libelle: 'Commenter',
+            icone: 'bulle',
+            visible: () => cap.canComment !== false,
+            executer: () => {
+              if (!petitEcran() && composeurMarge && composeurMarge.ouvrirSurLaSelection()) return
+              ouvrirComposeur()
+            },
+          },
+        ],
+      }),
+      mountCommentsGutter(commentsGutter, ydoc, commentsMap, user, {
+        carteCourante: {
+          el: carteModif.carte,
+          ancre: () => (gouttiereActive() && !petitEcranMedia.matches ? carteModif.remplir() : null),
+        },
+      }),
       (composeurMarge = mountGutterComposer(commentsGutter, ydoc, commentsMap, user)),
       mountChangesPanel(changesSection, { canReview: !!cap.canReviewChanges }),
       mountOutlinePanel(outlineSection),
       mountWordCount(wordCount),
-      mountTkMarker(tkCount),
       mountCompteursRelecture(
         {
           modifications: peutProposer || cap.canReviewChanges ? modifsCount : null,
@@ -509,6 +723,107 @@ export function mountEditor(root, docId, user, docMeta) {
     editable: () => peutProposer,
   })
   editorContainer.appendChild(commentsGutter)
+
+  // La disposition des volets (interface/disposition.js) : un volet ouvert se
+  // pose dans la marge, sans bouger le texte, quand il y tient ; sinon il
+  // pousse le texte plutôt que de le cacher. Puis la barre d'édition s'aligne
+  // sur le bord gauche du texte. Rejoué quand la fenêtre, la colonne ou la
+  // gouttière changent de taille (zoom, commentaires qui apparaissent).
+  const LARGEUR_PLAN = 220
+  const LARGEUR_DROITE = 320
+  // La gouttière peuplée : 260 px de cartes + 20 de marge ; vide, elle ne garde
+  // que la place du ＋ (36 + 8). Les mêmes valeurs que style.css.
+  const GOUTTIERE_PEUPLEE = 280
+  const GOUTTIERE_VIDE = 44
+  const sansColonnePlan = media('(max-width: 1100px)')
+  const aligner = () => {
+    if (petitEcranMedia.matches || toolbar.parentNode !== rangee) return
+    const bord = view.dom.getBoundingClientRect().left + (parseFloat(getComputedStyle(view.dom).paddingLeft) || 0)
+    toolbar.style.paddingLeft = `${decalageBarre({ gaucheBarre: toolbar.getBoundingClientRect().left, bordTexte: bord })}px`
+  }
+  disposer = () => {
+    if (petitEcranMedia.matches) {
+      delete outlineSidebar.dataset.mode
+      delete sidebar.dataset.mode
+      delete layout.dataset.gouttiere
+      outlineSidebar.style.width = ''
+      sidebar.style.width = ''
+      sidebar.style.right = ''
+      boutonsGauche.style.width = ''
+      boutonsDroite.style.width = ''
+      boutonsDroite.style.marginRight = ''
+      editorContainer.style.paddingLeft = ''
+      editorContainer.style.paddingRight = ''
+      return
+    }
+    // La place, déduction faite d'une barre de défilement classique : les
+    // volets de droite se posent à sa gauche, jamais par-dessus.
+    const barre = editorContainer.offsetWidth - editorContainer.clientWidth
+    const largeur = layout.clientWidth - barre
+    if (largeur <= 0) return
+    const st = getComputedStyle(view.dom)
+    // La colonne à sa largeur naturelle (78 ch), marges intérieures comprises.
+    const pleine = parseFloat(st.maxWidth)
+    const interieur =
+      st.boxSizing === 'border-box' ? 0 : (parseFloat(st.paddingLeft) || 0) + (parseFloat(st.paddingRight) || 0)
+    const texte = Number.isFinite(pleine) ? pleine + interieur : view.dom.offsetWidth
+    const affichee = getComputedStyle(commentsGutter).display !== 'none'
+    const peuplee = commentsGutter.classList.contains('peuplee')
+    const modes = calculerDisposition({
+      largeur,
+      texte,
+      gouttiere: affichee
+        ? commentsGutter.offsetWidth + (parseFloat(getComputedStyle(commentsGutter).marginLeft) || 0)
+        : peuplee
+          ? GOUTTIERE_PEUPLEE
+          : GOUTTIERE_VIDE,
+      gouttiereMax: gouttiereMedia.matches ? GOUTTIERE_PEUPLEE : 0,
+      gauche: { ouvert: voletPlan.ouvert() && !sansColonnePlan.matches, largeur: LARGEUR_PLAN, minimum: 200 },
+      droite: { ouvert: voletDroit.ouvert(), largeur: LARGEUR_DROITE, minimum: 280 },
+    })
+    // La gouttière se replie quand la colonne de texte n'aurait plus la
+    // place : ses commentaires passent dans le volet Modifications, et le
+    // parcours des modifications dans sa tête (placerLeSuivi).
+    const gouttiereAvant = layout.dataset.gouttiere
+    layout.dataset.gouttiere = modes.gouttiere ? 'oui' : 'non'
+    if (gouttiereAvant !== layout.dataset.gouttiere) {
+      placerLeSuivi()
+      // La gouttière qui reparaît a perdu ses mesures : elle se remet en page
+      // sur l'événement qu'elle écoute déjà (celui d'un changement de taille).
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+    }
+    outlineSidebar.dataset.mode = modes.gauche
+    sidebar.dataset.mode = modes.droite
+    outlineSidebar.style.width = modes.gauche === 'superpose' ? `${modes.largeurGauche}px` : ''
+    sidebar.style.width = modes.droite === 'superpose' ? `${modes.largeurDroite}px` : ''
+    sidebar.style.right = barre ? `${barre}px` : ''
+    editorContainer.style.paddingLeft = modes.margeGauche ? `${modes.margeGauche}px` : ''
+    editorContainer.style.paddingRight = modes.margeDroite ? `${modes.margeDroite}px` : ''
+    // Volet ouvert : le segment de la rangée prend exactement sa largeur, pour
+    // que le trait de la rangée prolonge celui du volet (vue V1).
+    const gOuvert = modes.gauche !== 'ferme'
+    const dOuvert = modes.droite !== 'ferme'
+    boutonsGauche.classList.toggle('ouvert', gOuvert)
+    boutonsDroite.classList.toggle('ouvert', dOuvert)
+    boutonsGauche.style.width = gOuvert ? `${outlineSidebar.offsetWidth}px` : ''
+    boutonsDroite.style.width = dOuvert ? `${sidebar.offsetWidth}px` : ''
+    boutonsDroite.style.marginRight = dOuvert && barre ? `${barre}px` : ''
+    aligner()
+  }
+  let dispositionPrevue = 0
+  const prevoirDisposition = () => {
+    if (dispositionPrevue) return
+    dispositionPrevue = requestAnimationFrame(() => {
+      dispositionPrevue = 0
+      disposer()
+    })
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    const observateur = new ResizeObserver(prevoirDisposition)
+    for (const el of [layout, view.dom, commentsGutter]) observateur.observe(el)
+    ecouteursGlobaux.push(() => observateur.disconnect())
+  }
+  disposer()
   // La liste des notes (28/09/2026) : une barre repliée au pied de la
   // colonne de texte, rafraîchie par footnotesPlugin.
   const listeNotes = monterListeDesNotes(main, () => view)
@@ -676,12 +991,31 @@ export function mountEditor(root, docId, user, docMeta) {
   // le serveur dit à chacune si la personne y a droit (niveau d'accès réglé
   // dans le back-office) et quelles sont ses limites, en signes.
   const correctionsIA = mountAIPanel(aiSection, () => view, { docId })
-  let dialogue = null
   let demonte = false
-  monterDialogue({ docId, getView: () => view }).then((d) => {
-    if (!d) return
-    if (demonte) d.destroy()
-    else dialogue = d
+  // Margo vit dans l'onglet du volet de droite (lot L1, 21/10/2026). Pas de
+  // droit au dialogue : pas d'onglet.
+  const dialoguePret = monterDialogue({
+    docId,
+    getView: () => view,
+    hote: panneauMargo,
+    enVolet: true,
+    surReplier: () => {
+      voletDroit.fermer()
+      // Le focus ne doit pas tomber dans le vide avec le volet : il retourne au texte.
+      if (view && !view.isDestroyed) view.focus()
+    },
+  }).then((d) => {
+    if (d && demonte) d.destroy()
+    else if (d) dialogue = d
+    return !!d
+  })
+  // Le volet Margo ne porte que le dialogue : pas de droit au dialogue, pas de
+  // bouton. Corrections IA n'a plus de panneau (21/10/2026) : la bulle de
+  // sélection lance ses consignes.
+  Promise.all([correctionsIA.prete, dialoguePret]).then(([ia, margo]) => {
+    iaOuverte = !!ia
+    margoOuvert = !!margo
+    if (!demonte && !margo) voletDroit.afficherPanneau('margo', false)
   })
   const comments = mountCommentsPanel(commentsSection, ydoc, commentsMap, () => view, user)
 
@@ -694,6 +1028,7 @@ export function mountEditor(root, docId, user, docMeta) {
   function ajusterTelephone() {
     const petit = petitEcranMedia.matches
     if (petit && !telephone) {
+      placerLaBarre()
       telephone = monterInterfaceTelephone({
         racine: shell,
         topBanner,
@@ -725,6 +1060,8 @@ export function mountEditor(root, docId, user, docMeta) {
       telephone.demonter()
       telephone = null
     }
+    if (!petit) placerLaBarre()
+    disposer()
     // L'interrupteur du suivi vit dans le menu ⋯ sur téléphone (le menu le
     // prend au moment où il s'ouvre), et dans la colonne de droite ailleurs.
     placerLeSuivi()
@@ -733,6 +1070,10 @@ export function mountEditor(root, docId, user, docMeta) {
   if (petitEcranMedia.addEventListener) {
     petitEcranMedia.addEventListener('change', ajusterTelephone)
     ecouteursGlobaux.push(() => petitEcranMedia.removeEventListener('change', ajusterTelephone))
+  }
+  if (gouttiereMedia.addEventListener) {
+    gouttiereMedia.addEventListener('change', placerLeSuivi)
+    ecouteursGlobaux.push(() => gouttiereMedia.removeEventListener('change', placerLeSuivi))
   }
 
   return {

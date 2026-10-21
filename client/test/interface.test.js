@@ -187,33 +187,52 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
 
   // Les pièces du bandeau réorganisé le 18/09, dans leur zone.
   assert.ok(racine.querySelector('.banniere-gauche .doc-title'), 'le titre')
-  assert.ok(racine.querySelector('.banniere-gauche .star-btn'), 'l’étoile, avant le titre')
-  assert.ok(racine.querySelector('.banniere-centre .presence-bar'), 'les pastilles de présence')
-  assert.ok(racine.querySelector('.banniere-droite .connection-status'), 'le voyant, à droite')
+  // Vue V1 (21/10/2026) : le favori, « Nouveau document » et les versions dans le menu ⋯ ;
+  // l'état de l'enregistrement en un mot, à côté du titre ; la présence à droite.
+  assert.ok(racine.querySelector('.banniere-droite .menu-plus .star-btn'), 'le favori, dans le menu ⋯')
+  assert.ok(racine.querySelector('.banniere-droite .menu-plus .btn-nouveau'), 'Nouveau document, dans le menu ⋯')
+  assert.ok(racine.querySelector('.banniere-droite .menu-plus .history-link'), 'les versions, dans le menu ⋯')
+  assert.ok(racine.querySelector('.banniere-droite .presence-bar'), 'les pastilles de présence')
+  assert.ok(racine.querySelector('.banniere-gauche .doc-title + .connection-status'), 'l’état, juste après le titre')
   assert.ok(racine.querySelector('.banniere-droite .compte-pastille'), 'la pastille du compte')
   // L'aide n'est plus dans le bandeau : elle est dans le bouton « Aide / avis ».
   assert.ok(!racine.querySelector('.banniere-droite a.aide-link'), 'pas de bouton Aide dans le bandeau')
   assert.ok(![...racine.querySelectorAll('.banniere-droite a')].some((a) => a.textContent === 'Aide'))
-  // L'interrupteur du suivi (14/10/2026) : dans la colonne de droite, **sous
-  // « Corrections IA » et fixe**, avec le parcours des modifications juste
-  // dessous ; ni l'un ni l'autre dans la barre d'outils. Le corps qui défile
-  // ne garde que la liste des modifications et les commentaires.
-  const fixe = racine.querySelector('.sidebar > .sidebar-fixe')
-  assert.ok(fixe, 'la partie fixe de la colonne')
-  assert.deepEqual(
-    [...fixe.children].map((e) => ['ai-section', 'suivi-entete', 'zone-relecture'].find((c) => e.classList.contains(c))),
-    ['ai-section', 'suivi-entete', 'zone-relecture'],
-    'Corrections IA, puis le suivi, puis le parcours'
-  )
-  const suivi = fixe.querySelector('.suivi-entete > .track-toggle')
-  assert.ok(suivi, 'l’interrupteur du suivi, sous Corrections IA')
+  // L'interrupteur du suivi (D1, 21/10/2026) : au bout de la barre
+  // d'édition. La colonne de droite est un volet à onglets (lot L1) :
+  // l'onglet Modifications garde, fixe, « Corrections IA » puis le parcours
+  // des modifications ; dessous, ce qui défile : la liste, puis les
+  // commentaires. Margo a son propre onglet.
+  const suivi = racine.querySelector('.format-toolbar > .suivi-entete > .track-toggle')
+  assert.ok(suivi, 'l’interrupteur du suivi, au bout de la barre d’édition')
   assert.match(suivi.textContent, /Suivi des modifications/)
-  assert.ok(!racine.querySelector('.format-toolbar .track-toggle'), 'plus de pastille dans la barre d’outils')
   assert.equal(racine.querySelectorAll('.track-toggle').length, 1, 'un seul interrupteur')
-  assert.ok(fixe.querySelector('.zone-relecture > .barre-relecture'), 'le parcours des modifications, sous le suivi')
-  assert.ok(!racine.querySelector('.format-toolbar .barre-relecture'), 'et plus dans la barre d’outils')
-  assert.ok(racine.querySelector('.sidebar > .sidebar-corps > .changes-section'), 'le corps qui défile : les modifications')
-  assert.ok(racine.querySelector('.sidebar > .sidebar-corps > .comments-section'), 'et les commentaires')
+  // La rangée fixe sous le bandeau (lot L1 revu, 21/10/2026) : le bouton du
+  // plan, la barre d'édition, les boutons Modifications et Margo.
+  const rangee = racine.querySelector('.app-shell > .rangee-edition')
+  assert.ok(rangee, 'la rangée fixe')
+  assert.deepEqual(
+    [...rangee.children].map((e) => e.className.split(' ').find((c) => ['rangee-gauche', 'format-toolbar', 'rangee-droite'].includes(c))),
+    ['rangee-gauche', 'format-toolbar', 'rangee-droite'],
+    'plan | barre d’édition | volets de droite'
+  )
+  const boutons = (cote) => [...rangee.querySelectorAll(`.${cote} .volet-bouton[data-panneau]`)].map((b) => b.dataset.panneau)
+  assert.deepEqual(boutons('rangee-gauche'), ['plan'])
+  assert.deepEqual(boutons('rangee-droite'), ['modifications', 'margo'])
+  assert.equal(racine.querySelectorAll('.sidebar .volet-bouton, .outline-sidebar .volet-bouton').length, 0, 'pas de bouton dans les colonnes')
+  const fixe = racine.querySelector('.sidebar .panneau-modifications > .sidebar-fixe')
+  assert.ok(fixe, 'la partie fixe de l’onglet Modifications')
+  assert.deepEqual(
+    [...fixe.children].map((e) => ['ai-section', 'zone-relecture'].find((c) => e.classList.contains(c))),
+    ['zone-relecture'],
+    'le parcours, seul en tête'
+  )
+  assert.ok(!racine.querySelector('.ai-section'), 'plus de panneau Corrections IA : ses consignes sont dans la bulle de sélection')
+  assert.ok(fixe.querySelector('.zone-relecture > .barre-relecture'), 'le parcours des modifications')
+  assert.ok(!racine.querySelector('.format-toolbar .barre-relecture'), 'pas dans la barre d’outils')
+  assert.ok(racine.querySelector('.panneau-modifications > .sidebar-corps > .changes-section'), 'le corps qui défile : les modifications')
+  assert.ok(racine.querySelector('.panneau-modifications > .sidebar-corps > .comments-section'), 'et les commentaires')
+  assert.ok(racine.querySelector('.sidebar .panneau-margo'), 'l’onglet Margo')
   assert.ok(!racine.querySelector('.sidebar-corps .ai-section'), 'Corrections IA ne défile plus')
   const relire = racine.querySelector('.format-toolbar .barre-groupe[data-groupe="relire"]')
   assert.ok([...relire.querySelectorAll('button')].some((b) => b.textContent === 'Commenter'), 'le bouton s’appelle « Commenter »')
@@ -254,7 +273,7 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   )
   // La citation est un style : un bouton juste après gras, italique, souligné, barré — plus dans « Insérer ▾ ».
   const boutonsTexte = [...zone('texte').querySelectorAll('button')]
-  const iBarre = boutonsTexte.findIndex((b) => b.textContent === 'S')
+  const iBarre = boutonsTexte.findIndex((b) => b.title === 'barré')
   assert.ok(/^Citation/.test(boutonsTexte[iBarre + 1].title), 'la citation suit le barré')
   // Insertion : le lien à part, le reste dans « Insérer ▾ ».
   assert.ok(zone('inserer').querySelector('button[title^="Ajouter ou modifier un lien"]'), 'le lien')
@@ -274,10 +293,11 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   )
   // Révision, puis affichage tout à droite.
   assert.ok(zone('relire').querySelector('button[title^="Commenter"]'), 'le commentaire')
+  // L'affichage (numéros de bloc, zoom) : dans le menu ⋯ du bandeau (vue V1, 21/10/2026).
   assert.deepEqual(
-    [...zone('relire').querySelector('.zone-affichage').children].map((e) => e.className.split(' ')[0]),
+    [...racine.querySelector('.menu-plus .zone-affichage').children].map((e) => e.className.split(' ')[0]),
     ['btn-tool', 'zoom-select'],
-    'les numéros de bloc et le zoom, à droite'
+    'les numéros de bloc et le zoom, dans le menu ⋯'
   )
   assert.ok(racine.querySelector('.banniere-gauche .btn-plan'), 'le bouton Plan')
   assert.equal(racine.querySelector('.ProseMirror').getAttribute('contenteditable'), 'true', 'un éditeur écrit')
@@ -376,7 +396,7 @@ test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvie
 
   const { dom, racine, editeur } = await monter()
   const bouton = racine.querySelector(
-    '.format-toolbar .barre-groupe[data-groupe="relire"] .zone-affichage .btn-numeros'
+    '.menu-plus .zone-affichage .btn-numeros'
   )
   assert.ok(bouton, 'le bouton est dans la zone Affichage de la barre, avec le zoom')
   assert.equal(bouton.nextElementSibling, racine.querySelector('.zoom-select'), 'juste avant le zoom')
@@ -504,7 +524,7 @@ test('la barre : annuler et rétablir défont et refont la frappe', async () => 
 
 test('la barre : la pastille du suivi change de couleur avec l’état, et un correcteur la voit verrouillée', async () => {
   const { racine, editeur } = await monterBarre('editeur')
-  const pastille = racine.querySelector('.sidebar-fixe .track-toggle')
+  const pastille = racine.querySelector('.format-toolbar .track-toggle')
   const case_ = pastille.querySelector('input')
   assert.equal(pastille.classList.contains('actif'), case_.checked, 'la pastille dit l’état')
   const etat = case_.checked
@@ -516,7 +536,7 @@ test('la barre : la pastille du suivi change de couleur avec l’état, et un co
   if (editeur.destroy) editeur.destroy()
 
   const c = await monterBarre('correcteur')
-  const p = c.racine.querySelector('.sidebar-fixe .track-toggle')
+  const p = c.racine.querySelector('.format-toolbar .track-toggle')
   assert.ok(p.querySelector('input').disabled, 'verrouillé')
   assert.ok(p.classList.contains('actif'), 'et toujours actif')
   const visibles = [...c.racine.querySelectorAll('.format-toolbar button')]
@@ -579,11 +599,11 @@ test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', asy
   assert.ok(racine.querySelector('.format-toolbar').hidden, 'pas de barre de mise en forme')
   assert.ok(racine.querySelector('.track-toggle').hidden, 'pas d’interrupteur de suivi : rien à suivre')
   assert.ok(racine.querySelector('.marge-commentaires'), 'la marge des commentaires est là')
-  assert.match(racine.querySelector('.ai-section').textContent, /Corrections IA/, 'le panneau porte son nom')
-  assert.match(
-    racine.querySelector('.ai-section').textContent,
-    /n’est pas ouverte à votre rôle/,
-    'l’IA lui est refusée, et on le dit'
+  // Plus de panneau Corrections IA (21/10/2026) : rien d'IA à l'écran pour un lecteur.
+  assert.ok(!racine.querySelector('.ai-section'), 'pas de panneau Corrections IA')
+  assert.ok(
+    racine.querySelector('.volet-bouton[data-panneau="margo"]').hidden,
+    'pas de Margo pour un lecteur'
   )
 
   if (editeur && editeur.destroy) editeur.destroy()
@@ -645,7 +665,7 @@ test('sur iPhone : un en-tête sobre, un crayon, et rien d’autre', async () =>
   const outils = racine.querySelector('.tel-outils')
   assert.ok(outils.children.length >= 3, 'gras, italique et les commentaires')
   assert.ok(
-    [...outils.children].some((b) => b.textContent === 'B'),
+    [...outils.children].some((b) => b.textContent === 'G'),
     'le vrai bouton gras, déménagé'
   )
   assert.equal(racine.querySelectorAll('.format-toolbar [title^="gras"]').length, 0, 'et non recopié')

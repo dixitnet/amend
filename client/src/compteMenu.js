@@ -17,6 +17,7 @@ import { initials } from './presence.js'
 import { ouvrirChangementDeNom } from './nomCompte.js'
 import { ouvrirChoixDeCouleur } from './couleurCompte.js'
 import { ouvrirSuppressionDeCompte } from './suppressionCompte.js'
+import { texteSurCouleur } from '../../shared/identite.js'
 
 /** Les initiales de la pastille : celles du **nom** quand on en a un — les
  * mêmes que dans la liste des présents —, sinon le début de l'adresse. */
@@ -61,6 +62,7 @@ export function monterMenuCompte(container, { couleur, surNom, surCouleur } = {}
   const teindre = (teinte) => {
     if (!teinte) return
     pastille.style.setProperty('--user-color', teinte)
+    pastille.style.color = texteSurCouleur(teinte)
     pastille.classList.add('compte-pastille-coloree')
   }
   let couleurCourante = couleur ? couleur() : null

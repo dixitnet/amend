@@ -70,14 +70,6 @@ test('version en cours : ajout souligné, suppression barrée', () => {
   assert.deepEqual(marques(cours, 'insertion'), [], 'les marques de travail ne sortent pas telles quelles')
 })
 
-test('les marqueurs « !! » ne sortent que de la version en cours', () => {
-  const d = schema.node('doc', null, [
-    schema.node('paragraph', null, [schema.text('Chiffre à vérifier !! avant envoi.')]),
-  ])
-  assert.equal(texte(documentPourExport(d, FINAL)), 'Chiffre à vérifier  avant envoi.')
-  assert.ok(texte(documentPourExport(d, EN_COURS)).includes('!!'))
-})
-
 test('un bloc entièrement supprimé disparaît du document final, un blanc voulu reste', () => {
   const d = schema.node('doc', null, [
     schema.node('paragraph', null, [schema.text('Gardé.')]),

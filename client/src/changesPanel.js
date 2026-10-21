@@ -75,7 +75,7 @@ function relativeTime(ts) {
  * keystroke (see rapport-test-charge-1.md, constat 2.2) — and merged into
  * display-ready entries on every render, which stays cheap since merging
  * is proportional to the number of changes, not the document's size.
- * Deliberately NOT throttled like wordcount.js/outline.js/tkMarker.js:
+ * Deliberately NOT throttled like wordcount.js/outline.js:
  * this is the panel people actually act on (accept/reject), so it stays
  * exactly as responsive as before.
  */

@@ -23,6 +23,13 @@
 }
 @font-face {
   font-family: 'Roboto';
+  src: url('./fonts/roboto-latin-500-normal.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Roboto';
   src: url('./fonts/roboto-latin-700-normal.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
@@ -503,14 +510,13 @@ a { color: var(--accent); }
 }
 .track-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
 .word-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
-.tk-count { font-size: 12px; color: var(--danger); white-space: nowrap; }
-/* L'indicateur mène au marqueur suivant (tkMarker.js) — il doit donc se
-   présenter comme un bouton, pas comme un simple compteur. */
-.tk-count.cliquable { cursor: pointer; user-select: none; }
-.tk-count.cliquable:hover { text-decoration: underline; }
-/* Les compteurs de modifications et de commentaires (03/10/2026) : même
-   geste que les « !! », mais la couleur d'alerte est réservée à ceux-ci. */
-.compteur-relecture { color: var(--muted); }
+/* Les compteurs de modifications et de commentaires (03/10/2026) : un clic
+   mène au suivant — ils se présentent donc comme des boutons, pas comme de
+   simples nombres. (Le marqueur « !! », qui partageait ces règles, a été
+   retiré le 21/10/2026.) */
+.compteur-relecture { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.compteur-relecture.cliquable { cursor: pointer; user-select: none; }
+.compteur-relecture.cliquable:hover { text-decoration: underline; }
 /* Voyant d'état (17/09/2026). Avant, une phrase de 290 px de large
    réservée en permanence dans le bandeau — la largeur du plus long des
    messages, pour un état qui est « à jour » presque tout le temps. Le
@@ -826,17 +832,23 @@ a { color: var(--accent); }
 .ProseMirror ol ol ol ol ol { list-style-type: lower-alpha; }
 .ProseMirror ol ol ol ol ol ol { list-style-type: lower-roman; }
 
+/* Les marques du suivi, comme dans la vue V1 (21/10/2026) : l'ajout dans la
+   couleur de son auteur, sur un fond pâle de cette couleur ; la suppression
+   barrée en rouge, sur un fond rouge pâle — quel que soit l'auteur : « ceci
+   va disparaître » se lit avant « qui l'a proposé ». */
 ins.tracked-insertion {
-  text-decoration: underline;
-  text-decoration-color: var(--user-color, var(--accent));
-  background: color-mix(in srgb, var(--user-color, var(--accent)) 16%, transparent);
-  color: inherit;
+  text-decoration: none;
+  background: color-mix(in srgb, var(--user-color, var(--accent)) 14%, transparent);
+  color: color-mix(in srgb, var(--user-color, var(--accent)) 80%, var(--fg));
+  border-radius: 3px;
 }
 del.tracked-deletion {
   text-decoration: line-through;
-  text-decoration-color: var(--user-color, var(--danger));
-  background: color-mix(in srgb, var(--user-color, var(--danger)) 12%, transparent);
-  opacity: 0.75;
+  text-decoration-color: var(--danger);
+  text-decoration-thickness: 1.5px;
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  color: var(--danger);
+  border-radius: 3px;
 }
 
 /* Who wrote this passage — stays after a change is accepted (unlike
@@ -866,43 +878,6 @@ span.author-color {
      aussi un fond teinté de la couleur de son auteur. La couleur de la
      personne reste sur la carte du commentaire et sa pastille. */
   background: color-mix(in srgb, #f5c518 32%, transparent);
-}
-
-/* "!!" marker (see tkMarker.js): the real "!!" characters stay in the
-   document (font-size: 0 just makes them invisible) — the emoji is a CSS
-   ::after, not stored text — so the cursor, selection, copy/paste and the
-   .md export all still see the literal marker, only the display changes. */
-/* Le marqueur « !! » (voir tkMarker.js). Il reste du **vrai texte** dans le
-   document et dans les exports — c'est tout l'intérêt : on peut le taper,
-   le chercher, le copier. Seul son dessin change.
-
-   Le texte garde donc sa largeur, simplement transparent, et l'émoji est
-   peint par-dessus en position absolue. C'est ce qui fait que le curseur se
-   pose au bon endroit (19/09/2026).
-
-   Le montage précédent — texte en `font-size: 0`, émoji en `::after` —
-   donnait au texte une largeur **nulle** : le curseur placé avant et le
-   curseur placé après tombaient au même point, à gauche de l'émoji. La
-   position dans le document était juste, c'est l'affichage qui mentait.
-   Le retrait à droite réserve la place du pictogramme, pour qu'il ne
-   déborde pas sur la lettre suivante. */
-.tk-marker {
-  position: relative;
-  color: transparent;
-  padding-right: 0.75em;
-}
-.tk-marker::after {
-  content: '⚠️';
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: initial;
-  font-size: 1rem;
-  line-height: inherit;
-  /* Le pictogramme n'est qu'un dessin : cliquer dessus doit placer le
-     curseur dans le texte qu'il recouvre, pas le sélectionner lui. */
-  pointer-events: none;
-  user-select: none;
 }
 
 .remote-cursor {
@@ -1860,11 +1835,14 @@ a.bo-chiffre:hover, a.bo-chiffre:focus-visible { border-color: var(--accent); }
    1600 px. C'est le bon compromis : mieux vaut une colonne un peu plus
    étroite que des annotations en face de rien. */
 @media (min-width: 1280px) {
-  .sidebar-section.comments-section { display: none; }
+  .editor-layout:not([data-gouttiere='non']) .sidebar-section.comments-section { display: none; }
 }
 @media (max-width: 1279px) {
   .marge-commentaires { display: none; }
 }
+/* Lot L4 : la gouttière se replie aussi quand les volets ouverts ne laissent
+   plus assez de place au texte (editor.js, `disposer`). */
+.editor-layout[data-gouttiere='non'] .marge-commentaires { display: none; }
 
 /* Les boutons de tableau portent des mots, pas des pictogrammes : ils
    n'apparaissent que dans un tableau, autant qu'ils se lisent. */
@@ -3486,6 +3464,9 @@ tr.bo-traite { opacity: 0.6; }
   }
 }
 .suivi-entete[hidden] { display: none; }
+/* Le lecteur n'a pas de barre d'édition : l'attribut `hidden` doit l'emporter sur
+   le `display: flex` de la barre (constaté au banc du lot L4). */
+.format-toolbar[hidden] { display: none !important; }
 /* Téléphone : le menu « Insérer ▾ » n'est qu'une rangée de boutons de l'onglet
    Insérer — son bouton disparaît, sa liste est aplatie. */
 @media (max-width: 700px) {
@@ -3522,6 +3503,477 @@ tr.bo-traite { opacity: 0.6; }
   padding: 4px 12px;
   font: inherit;
   cursor: pointer;
+}
+
+/* ==========================================================================
+   La rangée fixe et les volets (lot L1, 21/10/2026, revu le jour même —
+   claude/vues-reference-formats.md, interface/volets.js, interface/disposition.js).
+   Sous le bandeau, une rangée qui ne bouge jamais : au bord gauche le bouton
+   du plan, un trait, la barre d'édition (alignée sur le bord gauche du
+   texte), un trait, et au bord droit les boutons Modifications et Margo.
+   Ouvrir ou fermer un volet ne change rien à cette rangée.
+   ========================================================================== */
+.rangee-edition { display: none; }
+@media (min-width: 701px) {
+  .rangee-edition {
+    display: flex;
+    align-items: stretch;
+    min-height: 47px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .rangee-edition > .format-toolbar { flex: 1; min-width: 0; border-bottom: none; }
+  .rangee-boutons { flex: none; display: flex; align-items: center; gap: 2px; padding: 0 8px; }
+  .rangee-gauche { border-right: 1px solid var(--border); }
+  .rangee-droite { border-left: 1px solid var(--border); }
+}
+/* Sous 1 100 px, le plan vit dans une feuille ouverte depuis le bandeau. */
+@media (max-width: 1100px) {
+  .rangee-gauche { display: none; }
+}
+.volet-bouton {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.volet-bouton:hover { background: var(--panel-bg); color: var(--fg); }
+.volet-bouton.actif { background: color-mix(in srgb, var(--accent) 14%, transparent); color: color-mix(in srgb, var(--accent) 80%, black); }
+.volet-bouton.actif .volet-compte { color: inherit; }
+.volet-bouton[hidden] { display: none; }
+/* Volet ouvert (vue V1) : le segment au-dessus du volet a sa largeur exacte
+   (editor.js, `disposer`), son trait prolonge celui du volet, et ses boutons
+   portent un mot ; volet fermé, il ne reste que l'icône contre le bord. */
+.rangee-boutons { box-sizing: border-box; }
+.volet-bouton .volet-libelle,
+.volet-bouton .volet-compte,
+.rangee-boutons .volet-extra { display: none; }
+.rangee-boutons.ouvert { justify-content: flex-start; padding: 0 6px 0 8px; }
+.rangee-boutons.ouvert { overflow: hidden; container: segment / inline-size; }
+/* Segment du plan à sa largeur minimale : « Fichiers » (grisé) ne garde que son icône. */
+@container segment (max-width: 229px) {
+  .volet-bouton.volet-extra:disabled .volet-libelle { display: none; }
+}
+.rangee-boutons.ouvert .volet-bouton {
+  width: auto;
+  /* Les boutons peuvent se serrer, mots tronqués, plutôt que de déborder du
+     segment (et de la fenêtre) quand le volet est à sa largeur minimale ;
+     le bouton « Replier » ne rétrécit jamais (banc WebKit, lot L4). */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 9px;
+  gap: 6px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.rangee-boutons.ouvert .volet-bouton.actif { color: color-mix(in srgb, var(--accent) 80%, black); font-weight: 500; }
+.rangee-boutons.ouvert .volet-libelle { display: inline; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rangee-boutons.ouvert .volet-compte { display: inline; font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.rangee-boutons.ouvert .volet-bouton.actif .volet-compte { color: inherit; }
+.rangee-boutons.ouvert .volet-extra { display: inline-flex; }
+.rangee-boutons .volet-espace { flex: 1; }
+.volet-bouton:disabled { color: var(--muted); opacity: 0.55; cursor: default; }
+.volet-bouton:disabled:hover { background: transparent; }
+.volet-replier {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.volet-replier:hover { background: var(--panel-bg); color: var(--fg); }
+/* « Commenter » quitte la barre d'édition hors téléphone (vue V1) : on commente
+   depuis la marge (＋ en face de la sélection), bientôt depuis la bulle. */
+@media (min-width: 701px) {
+  .format-toolbar .btn-tool.btn-commenter { display: none; }
+}
+/* L'affichage (numéros de bloc, zoom) dans le menu ⋯. */
+.menu-plus .zone-affichage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 12px 4px;
+  border-top: 1px solid #efeae1;
+}
+.menu-plus .zone-affichage::before { content: 'Affichage'; font-size: 13px; color: var(--muted); margin-right: auto; }
+.menu-plus .zone-affichage .btn-tool,
+.menu-plus .zone-affichage select {
+  height: 30px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font: inherit; font-size: 13px;
+}
+@media (pointer: coarse) {
+  .volet-bouton { width: 44px; height: 44px; }
+}
+/* La colonne du plan devient une colonne flexible (panneau qui défile)
+   seulement là où elle est affichée : sous 1 100 px elle quitte le flux pour
+   la feuille du plan, et la règle `display: none` doit l'emporter. La colonne
+   de droite est déjà une colonne flexible (.sidebar). */
+@media (min-width: 1101px) {
+  .outline-sidebar.volet { display: flex; flex-direction: column; overflow: hidden; }
+}
+.volet-panneau { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.volet-panneau[hidden] { display: none; }
+.volet-panneau.panneau-modifications { overflow: hidden; }
+/* Fermé, le volet disparaît : seul son bouton reste, dans la rangée. */
+.volet.volet-ferme { display: none; }
+/* Posé dans la marge (il y tient) : par-dessus le fond, sans pousser le texte. */
+@media (min-width: 701px) {
+  .editor-layout { position: relative; }
+  .volet[data-mode='superpose'] { position: absolute; top: 0; bottom: 0; z-index: 6; }
+  .outline-sidebar.volet[data-mode='superpose'] { left: 0; }
+  .sidebar.volet[data-mode='superpose'] { right: 0; }
+}
+/* Le plan transplanté dans une feuille (planFeuille.js, sous 1 100 px) :
+   affiché même si le volet est fermé sur ordinateur — la feuille a sa croix. */
+.outline-dans-feuille.volet-ferme { display: block; }
+.outline-dans-feuille .volet-panneau[hidden] { display: flex; }
+.outline-dans-feuille[data-mode] { position: static; }
+
+/* Margo dans son onglet : la palette ne flotte plus, elle remplit le volet. */
+.panneau-margo { background: var(--bg); padding-bottom: 56px; /* le bouton « Aide / avis » flotte en bas à droite */ }
+.dialogue-en-volet .dialogue-sous-titre { display: none; } /* l'onglet dit déjà « Margo » */
+.dialogue-hote.dialogue-en-volet {
+  position: static;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  max-width: none;
+  z-index: auto;
+}
+.dialogue-en-volet .dialogue-bouton { display: none; }
+.dialogue-en-volet .dialogue-palette {
+  width: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* L'interrupteur du suivi au bout de la barre d'édition (D1, 21/10/2026). */
+.format-toolbar > .suivi-entete {
+  margin-left: auto;
+  min-height: 0;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+.format-toolbar > .suivi-entete.actif { background: var(--accent); color: white; }
+/* Dans la barre, le mot suffit : « Suivi ». Le libellé complet reste dans
+   l'infobulle et pour les lecteurs d'écran (aria-label de la case). */
+.format-toolbar > .suivi-entete .suivi-reste { display: none; }
+/* Le groupe « Relire » ne s'étire plus jusqu'au bout de la barre : c'est
+   l'interrupteur qui en tient le bout (hors téléphone, où la barre est en onglets). */
+@media (min-width: 701px) {
+  .format-toolbar > .barre-groupe[data-groupe='relire'] { flex: 0 1 auto; }
+  .format-toolbar { column-gap: 6px; padding-left: 12px; padding-right: 8px; min-height: 47px; box-sizing: border-box; }
+}
+.suivi-entete:empty { display: none; }
+
+/* Les compteurs du bandeau : une icône, un nombre. */
+.compteur-relecture { display: inline-flex; align-items: center; gap: 3px; }
+.compteur-relecture:empty { display: none; }
+
+
+/* ==========================================================================
+   L'esthétique de la vue V1 (21/10/2026, claude/vues-reference-formats.md) :
+   Roboto partout, des boutons sans cadre dessinés par des icônes, des volets
+   sur le fond de la page, des listes à plat plutôt que des cartes, un
+   interrupteur pour le suivi. Le téléphone garde son dessin propre (iphone.js)
+   sauf la police, la même partout.
+   ========================================================================== */
+body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+@media (min-width: 701px) {
+  /* --- Bandeau --- */
+  .top-banner { min-height: 56px; box-sizing: border-box; padding: 0 12px 0 8px; gap: 12px; flex-wrap: nowrap; }
+  .banniere-gauche { gap: 6px; }
+  .banniere-droite { gap: 10px; }
+  .back-link {
+    width: 34px; height: 34px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px; color: #6b645b;
+  }
+  .back-link:hover { background: var(--panel-bg); color: var(--fg); }
+  .doc-title { flex: 0 1 auto; font-size: 16px; font-weight: 500; padding: 4px 6px; field-sizing: content; min-width: 4ch; max-width: 40vw; }
+  .connection-status {
+    width: auto; height: auto; border-radius: 0; background: none;
+    font-size: 13px; color: var(--muted); white-space: nowrap;
+  }
+  .connection-status.etat-ok, .connection-status.etat-attente { background: none; color: var(--muted); }
+  .connection-status.etat-alerte { background: none; color: var(--danger); font-weight: 500; }
+  .banniere-groupe { gap: 8px; }
+  .compteur-relecture { font-size: 13.5px; font-weight: 500; gap: 4px; padding: 4px 6px; border-radius: 14px; }
+  .compteur-modifs { color: #1f4e79; }
+  .compteur-commentaires { color: #876800; }
+  .compteur-relecture.cliquable:hover { background: var(--panel-bg); text-decoration: none; }
+  .word-count { font-size: 13px; }
+  .presence-bar { gap: 0; }
+  .presence-avatar { width: 28px; height: 28px; font-size: 11px; font-weight: 500; border: 2px solid var(--bg); }
+  .presence-avatar + .presence-avatar { margin-left: -8px; }
+  .menu-flottant-bouton.btn-preset {
+    height: 34px; padding: 0 14px; font-size: 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+  }
+  .menu-flottant-bouton.btn-preset:hover { background: var(--panel-bg); }
+  .menu-plus .menu-flottant-bouton.btn-preset, .menu-flottant-bouton.btn-icone {
+    width: 34px; padding: 0; border: 0; background: transparent; color: #6b645b;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .menu-plus .menu-flottant-bouton:hover { background: var(--panel-bg); color: var(--fg); }
+  .menu-flottant-liste .menu-item {
+    display: block; width: 100%; box-sizing: border-box; text-align: left;
+    padding: 8px 12px; border: 0; border-radius: 6px; background: transparent;
+    font: inherit; font-size: 14px; color: var(--fg); text-decoration: none; cursor: pointer;
+  }
+  .menu-flottant-liste .menu-item:hover { background: var(--panel-bg); }
+
+  /* --- Barre d'édition --- */
+  .format-toolbar { gap: 2px; }
+  .format-toolbar .btn-tool {
+    min-width: 30px; height: 30px; padding: 0 6px; border: 0; border-radius: 6px;
+    background: transparent; color: var(--fg); font-size: 15px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .format-toolbar .btn-tool:hover:not(:disabled) { background: var(--panel-bg); }
+  .format-toolbar .btn-tool.active,
+  .format-toolbar .btn-tool[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
+  }
+  .format-toolbar .btn-icone { color: #4a443c; }
+  .format-toolbar .btn-gras { font-weight: 700; }
+  .format-toolbar .btn-italique { font-style: italic; }
+  .format-toolbar .btn-barre { font-size: 13px; }
+  .format-toolbar .btn-citation { font-size: 20px; line-height: 1; padding-top: 6px; }
+  .format-toolbar .btn-texte { font-size: 14px; width: auto; padding: 0 10px; }
+  .format-toolbar .heading-select,
+  .format-toolbar .zoom-select {
+    height: 30px; border: 0; border-radius: 6px; background: transparent;
+    font: inherit; font-size: 14px; color: var(--fg); padding: 0 4px 0 8px; cursor: pointer;
+  }
+  .format-toolbar .heading-select:hover, .format-toolbar .zoom-select:hover { background: var(--panel-bg); }
+  /* Le même menu déroulant dans tous les navigateurs : sans l'apparence native
+     (Safari dessine sinon un cadre et sa propre flèche), avec un chevron. */
+  .format-toolbar .heading-select,
+  .menu-plus .zone-affichage select {
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 24px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231f1b16' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    background-size: 12px 12px;
+  }
+  .format-toolbar .barre-filet { width: 1px; height: 18px; background: var(--border); margin: 0 6px; }
+  .format-toolbar .menu-insertion .menu-flottant-bouton {
+    height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent;
+    font-size: 14px; color: var(--fg);
+  }
+  .format-toolbar .menu-insertion .menu-flottant-bouton:hover { background: var(--panel-bg); }
+  .format-toolbar .menu-insertion-liste .btn-tool { justify-content: flex-start; width: 100%; height: 34px; padding: 0 12px; }
+
+  /* L'interrupteur : « Suivi », puis un vrai interrupteur, vert quand il est actif. */
+  .format-toolbar > .suivi-entete,
+  .format-toolbar > .suivi-entete.actif { background: transparent; color: var(--fg); padding: 0 6px; }
+  .format-toolbar .track-toggle {
+    flex-direction: row-reverse; gap: 10px; font-size: 14px; font-weight: 400; cursor: pointer;
+  }
+  .format-toolbar .track-toggle input {
+    -webkit-appearance: none; appearance: none; margin: 0; flex: none;
+    width: 34px; height: 20px; border-radius: 10px; background: #cfc8bd; position: relative;
+    cursor: pointer; transition: background 0.15s ease-out;
+  }
+  .format-toolbar .track-toggle input::before {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.15s ease-out;
+  }
+  .format-toolbar .track-toggle input:checked { background: var(--accent); }
+  .format-toolbar .track-toggle input:checked::before { transform: translateX(14px); }
+  .format-toolbar .track-toggle input:disabled { cursor: default; opacity: 0.85; }
+  .format-toolbar .track-toggle input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* --- Volets : sur le fond de la page --- */
+  .outline-sidebar, .sidebar, .volet-panneau, .sidebar-fixe, .sidebar-corps { background: var(--bg); }
+  .volet .outline-section > h3 { display: none; }
+  .outline-section { padding: 10px 8px; border-bottom: none; }
+  .outline-list { margin: 0; gap: 1px; }
+  .outline-link { padding: 7px 12px; border-radius: 6px; font-size: 13.5px; color: var(--fg); }
+  .outline-level-1 .outline-link { font-size: 14px; font-weight: 500; }
+  .outline-level-2 .outline-link { padding-left: 26px; }
+  .outline-level-3 .outline-link { padding-left: 40px; }
+  .outline-link:hover { background: var(--panel-bg); }
+  .outline-courante .outline-link { background: #eef1e6; box-shadow: none; font-weight: 500; }
+  .outline-item:not(.outline-courante):not(.outline-chemin) .outline-link { color: var(--fg); }
+
+  .sidebar .sidebar-section { padding: 14px 16px; border-bottom: 1px solid #efeae1; }
+  .sidebar .sidebar-section h3 {
+    text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 500; color: var(--fg); margin: 0 0 8px;
+  }
+
+  /* La liste des modifications : à plat, une ligne par modification. */
+  .changes-list { gap: 0; margin-top: 8px; }
+  .change-item {
+    position: relative; border: 0; border-top: 1px solid #efeae1; border-radius: 0;
+    padding: 9px 4px 9px 18px; background: transparent; font-size: 13.5px;
+  }
+  .change-item::before {
+    content: ''; position: absolute; left: 4px; top: 16px; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--user-color, var(--accent));
+  }
+  .change-item:hover { background: var(--panel-bg); }
+  .change-item.courante { background: #f4f8fc; box-shadow: inset 3px 0 0 var(--user-color, #1f4e79); }
+  .change-meta { font-size: 13.5px; color: var(--muted); margin-bottom: 2px; }
+  .change-meta strong { font-weight: 500; color: var(--fg); }
+  .change-text { font-size: 13.5px; }
+  .change-deletion .change-text, .change-ancien { color: var(--danger); opacity: 1; }
+  /* La couleur de la personne, assombrie : les teintes claires de la palette (ambre, sable, cyan)
+     ne passaient pas 4,5 : 1 sur le fond (passage axe, lot L4). */
+  .change-insertion .change-text, .change-nouveau { color: color-mix(in srgb, var(--user-color, #1f4e79) 42%, var(--fg)); text-decoration: none; }
+
+  /* Les boutons de décision, comme dans la vue V1. */
+  button.btn-accept {
+    height: 28px; padding: 0 12px; border: 0; border-radius: 6px;
+    background: #e3efe7; color: var(--ok); font-size: 13px; font-weight: 500;
+  }
+  button.btn-accept:hover { background: #d4e7da; }
+  button.btn-reject { height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--danger); font-size: 13px; }
+  button.btn-reject:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); }
+
+  /* La gouttière : des cartes posées contre le texte. */
+  /* Les cartes ont la largeur de la gouttière **ouverte**, même quand on les
+     mesure gouttière encore repliée (premier rendu) : sinon une carte posée
+     dans 36 px se mesure haute comme l'écran et repousse tout le reste. */
+  .marge-commentaires { --largeur-gouttiere: 260px; }
+  .marge-commentaires.peuplee { width: var(--largeur-gouttiere); margin-left: 20px; }
+  .marge-commentaires .carte-commentaire { width: var(--largeur-gouttiere); }
+  .carte-commentaire {
+    border: 1px solid var(--border); border-left: 4px solid #e0b400; border-radius: 12px;
+    background: var(--bg); padding: 11px 13px; font-size: 13.5px; box-shadow: none;
+  }
+  .carte-commentaire.active { box-shadow: 0 2px 10px rgb(31 27 22 / 10%); }
+  .carte-commentaire,
+  .carte-commentaire.active,
+  .carte-commentaire.composeur { border-color: var(--border); border-left-color: #e0b400; background: var(--bg); }
+  .carte-meta { font-size: 12px; }
+  .carte-meta strong, .carte-meta b { color: var(--user-color, var(--fg)); font-weight: 500; }
+  .carte-actions button { border: 0; background: transparent; border-radius: 6px; font-size: 13px; padding: 4px 8px; }
+  .carte-actions button:hover { background: var(--panel-bg); }
+  .carte-commentaire textarea { border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 13px; }
+  /* Sa propre pastille de présence : la pastille du compte, au bout du bandeau, la remplace. */
+  .banniere-presence .presence-moi { display: none; }
+  /* Le parcours ‹ n / N › est en tête de l'onglet : la liste n'a pas besoin de ses propres flèches. */
+  .sidebar .changes-nav { display: none; }
+  .zone-relecture .barre-relecture { padding: 12px 16px; border-bottom: 1px solid #efeae1; background: var(--bg); gap: 6px; }
+  .zone-relecture .barre-relecture button:not(.btn-accept):not(.btn-reject) {
+    border: 0; background: transparent; border-radius: 6px; min-width: 28px; height: 28px;
+  }
+  .zone-relecture .barre-relecture button:not(.btn-accept):not(.btn-reject):hover { background: var(--panel-bg); }
+  .sidebar .ai-section .btn-preset { border-radius: 8px; height: 30px; padding: 0 10px; font-size: 13px; }
+}
+/* Format M : la barre tient sur une ligne en ne gardant que l'icône de « Commenter ». */
+@media (min-width: 701px) and (max-width: 1279px) {
+  .format-toolbar .btn-texte > span { display: none; }
+  .format-toolbar .btn-texte { padding: 0 6px; }
+}
+
+/* La carte de la modification courante, dans la gouttière (lot L2,
+   21/10/2026) : même gabarit qu'une carte de commentaire, liseré de la
+   couleur de l'auteur, fond pâle de cette couleur ; en pied, le parcours
+   ‹ n / N › Accepter Rejeter (la barre de relecture, déménagée). */
+.carte-modification {
+  position: absolute;
+  left: 0;
+  width: var(--largeur-gouttiere, 240px);
+  box-sizing: border-box;
+  border: 1px solid var(--user-color, var(--accent));
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--user-color, var(--accent)) 6%, var(--bg));
+  padding: 10px 12px 8px 13px;
+  font-size: 13.5px;
+  z-index: 3;
+}
+.carte-modification[hidden] { display: none; }
+.carte-modif-entete { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; min-width: 0; }
+.carte-modif-pastille {
+  width: 20px; height: 20px; flex: none; border-radius: 50%;
+  background: var(--user-color, var(--accent)); color: #fff;
+  font-size: 9px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center;
+}
+.carte-modif-auteur { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.carte-modif-verbe { font-size: 12px; color: color-mix(in srgb, var(--muted) 82%, black); white-space: nowrap; }
+.carte-modif-texte { line-height: 1.45; display: flex; flex-direction: column; gap: 1px; word-break: break-word; }
+.carte-modif-ancien { color: var(--danger); text-decoration: line-through; }
+.carte-modif-nouveau { color: color-mix(in srgb, var(--user-color, var(--accent)) 42%, var(--fg)); }
+.carte-modif-pied .barre-relecture {
+  display: flex; align-items: center; gap: 2px; margin-top: 8px; padding: 0; border: 0; background: none; flex-wrap: nowrap;
+}
+.carte-modif-pied .barre-relecture[hidden] { display: none; }
+.carte-modif-pied .barre-relecture .btn-tool {
+  min-width: 26px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; font-size: 16px;
+}
+.carte-modif-pied .barre-relecture .btn-tool:hover { background: color-mix(in srgb, var(--user-color, var(--accent)) 12%, transparent); }
+.carte-modif-pied .barre-relecture-position { font-size: 12.5px; color: #4a443c; min-width: 40px; text-align: center; }
+.carte-modif-pied .btn-accept { margin-left: auto; }
+
+/* La bulle de sélection (lot L3, 21/10/2026, vue V1). */
+.bulle-selection {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 42px;
+  box-sizing: border-box;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgb(31 27 22 / 16%);
+  white-space: nowrap;
+}
+.bulle-selection[hidden] { display: none; }
+.bulle-action {
+  height: 34px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.bulle-action[hidden] { display: none; }
+.bulle-action:hover, .bulle-action:focus-visible { background: var(--panel-bg); }
+.bulle-action.bulle-ia { color: var(--accent); }
+/* Un filet entre deux actions visibles. */
+.bulle-action:not([hidden]) ~ .bulle-action:not([hidden]) { box-shadow: -1px 0 0 0 var(--border); border-radius: 0 8px 8px 0; }
+@media (pointer: coarse) {
+  .bulle-selection { height: 50px; }
+  .bulle-action { height: 44px; }
 }
 
 /* --- Numéros de bloc (02/10/2026) -------------------------------------------
@@ -3599,3 +4051,4 @@ tr.bo-traite { opacity: 0.6; }
   margin-right: calc(var(--n-corps) * 0.5);
   width: calc(var(--n-gouttiere) - var(--n-corps) * 0.5);
 }
+

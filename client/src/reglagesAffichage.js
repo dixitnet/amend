@@ -11,6 +11,7 @@ export function monterReglagesAffichage(editorContainer, mkButton) {
   const zoomSelect = document.createElement('select')
   zoomSelect.className = 'zoom-select'
   zoomSelect.title = "Facteur d'agrandissement du texte"
+  zoomSelect.setAttribute('aria-label', "Facteur d'agrandissement du texte")
   // Cinq crans (23/09/2026). 75 et 125 ajoutés parce que c'est ce réglage
   // qui remplace, sur téléphone, le suivi de la taille système : entre 100
   // et 150 il manquait le petit pas, celui qu'on fait le plus souvent.

@@ -63,3 +63,32 @@ export const LIBELLES_ROLE = {
 export function libelleDuRole(role) {
   return LIBELLES_ROLE[role] || role
 }
+
+// Le texte d'une pastille (initiales) sur la couleur de la personne : blanc ou
+// presque noir, celui des deux qui se lit le mieux. Le blanc fixe de départ
+// donnait 2,5 : 1 sur le cyan et 1,9 : 1 sur l'ambre (passage axe du
+// 21/10/2026) — la palette compte beaucoup de teintes claires.
+const TEXTE_CLAIR = '#ffffff'
+const TEXTE_SOMBRE = '#1f1d19'
+
+function luminance(hex) {
+  let h = String(hex).replace('#', '')
+  if (h.length === 3 || h.length === 4) h = [...h].map((c) => c + c).join('')
+  if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(h)) return null
+  const lin = (i) => {
+    const c = parseInt(h.slice(i, i + 2), 16) / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4)
+}
+
+/** `#ffffff` ou `#1f1d19`, selon ce qui contraste le mieux avec `couleur`
+ * (blanc si elle est illisible, par prudence : c'était le comportement
+ * d'avant). */
+export function texteSurCouleur(couleur) {
+  const l = luminance(couleur)
+  if (l === null) return TEXTE_CLAIR
+  const contrasteClair = 1.05 / (l + 0.05)
+  const contrasteSombre = (l + 0.05) / (luminance(TEXTE_SOMBRE) + 0.05)
+  return contrasteSombre > contrasteClair ? TEXTE_SOMBRE : TEXTE_CLAIR
+}

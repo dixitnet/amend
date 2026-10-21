@@ -302,6 +302,12 @@ export function monterBarreRelecture(getView, { canReview = true } = {}) {
   return {
     el,
     rendre,
+    /** La modification courante (celle du curseur, ou la suivante), ou null.
+     * Sert à la carte de la gouttière (lot L2, carteModification.js). */
+    courante() {
+      const { liste, index } = etat()
+      return index >= 0 ? liste[index] : null
+    },
     detruire() {
       el.remove()
     },

@@ -14,11 +14,10 @@
 // Deux sorties, donc, et le choix se fait au moment d'exporter :
 //
 //   FINAL     — toutes les propositions acceptées. Les insertions
-//               deviennent du texte, les passages barrés disparaissent,
-//               les marqueurs « !! » aussi : c'est un document à envoyer,
-//               il ne doit rien porter qui s'adresse à son auteur.
+//               deviennent du texte, les passages barrés disparaissent :
+//               c'est un document à envoyer.
 //   EN_COURS  — le travail en cours, visible : les insertions soulignées,
-//               les suppressions barrées, les marqueurs conservés.
+//               les suppressions barrées.
 //
 // Le parti pris qui garde ce fichier petit : on ne touche pas aux
 // sérialiseurs. On leur donne un **autre document**, où les marques du
@@ -31,7 +30,6 @@
 // plusieurs, et un PDF où trois relecteurs ont chacun leur teinte se lit
 // moins bien qu'un PDF où l'on voit ce qui est proposé.
 
-import { TK_MARKER } from './tkMarker.js'
 import { estNoeudSuivi, suiviDuNoeud } from './trackChanges.js'
 
 export const FINAL = 'final'
@@ -80,12 +78,7 @@ function inlineResolu(schema, node, mode) {
       return
     }
     if (mode === FINAL && aLaMarque(child, 'deletion')) return
-    let texte = child.text
-    // Les marqueurs « !! » sont des notes à soi-même : ils n'ont rien à
-    // faire dans un document qu'on envoie.
-    if (mode === FINAL) texte = texte.split(TK_MARKER).join('')
-    if (texte === '') return
-    out.push(schema.text(texte, marquesResolues(schema, child, mode)))
+    out.push(schema.text(child.text, marquesResolues(schema, child, mode)))
   })
   return out
 }

@@ -64,6 +64,7 @@ export function mountAIPanel(container, getView, { docId, fetcher = (...a) => fe
   const corps = document.createElement('div')
   container.appendChild(corps)
   let retirer = () => {}
+  let lancerConsigne = null
   const prete = (async () => {
     let etat = null
     try {
@@ -77,7 +78,7 @@ export function mountAIPanel(container, getView, { docId, fetcher = (...a) => fe
       hint.className = 'ai-hint'
       hint.textContent = 'Corrections IA n’est pas joignable pour le moment.'
       corps.appendChild(hint)
-      return
+      return false
     }
     // Un rôle sans accès (selon le niveau réglé dans le back-office) : on le dit
     // plutôt que de laisser un panneau qui répondrait 403 au premier clic.
@@ -86,11 +87,21 @@ export function mountAIPanel(container, getView, { docId, fetcher = (...a) => fe
       refus.className = 'ai-hint'
       refus.textContent = 'Corrections IA n’est pas ouverte à votre rôle sur ce document.'
       corps.appendChild(refus)
-      return
+      return false
     }
-    retirer = monterCorps(corps, getView, { docId, fetcher, etat })
+    const monte = monterCorps(corps, getView, { docId, fetcher, etat })
+    retirer = monte.retirer
+    lancerConsigne = monte.lancer
+    return true
   })()
-  return { prete, destroy: () => retirer() }
+  return {
+    prete,
+    destroy: () => retirer(),
+    /** Lancer une consigne (par sa clé) sur la sélection, comme son bouton —
+     * depuis la bulle de sélection (lot L3). Rend le message d'état, ou null
+     * si Corrections IA n'est pas ouverte à la personne. */
+    lancer: async (cle) => (lancerConsigne ? lancerConsigne(cle) : null),
+  }
 }
 
 function monterCorps(container, getView, { docId, fetcher, etat }) {
@@ -277,5 +288,14 @@ function monterCorps(container, getView, { docId, fetcher, etat }) {
     }
   }
 
-  return () => document.removeEventListener('selectionchange', majQuota)
+  return {
+    retirer: () => document.removeEventListener('selectionchange', majQuota),
+    /** Même geste que le bouton de la consigne ; rend le message affiché. */
+    async lancer(cle) {
+      const preset = PRESETS.find((p) => p.cle === cle)
+      if (!preset) return null
+      await run(preset)
+      return status.textContent
+    },
+  }
 }

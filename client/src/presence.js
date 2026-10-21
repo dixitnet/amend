@@ -18,6 +18,7 @@
 import { relativePositionToAbsolutePosition, ySyncPluginKey } from 'y-prosemirror'
 import { createRelativePositionFromJSON } from 'yjs'
 import { couleurSure } from '../../shared/securite.js'
+import { texteSurCouleur } from '../../shared/identite.js'
 
 export function initials(name) {
   // « Claude (pour Sylvain) » se résume à Claude : ce qui suit la
@@ -117,6 +118,7 @@ export function mountPresenceBar(container, provider, contexte = {}) {
       chip.type = 'button'
       chip.className = 'presence-avatar'
       chip.style.setProperty('--user-color', couleurSure(user.color))
+      chip.style.color = texteSurCouleur(couleurSure(user.color))
       chip.textContent = initials(user.name)
       chip.title = soi ? `${user.name} (vous)` : `Aller au curseur de ${user.name}`
       if (soi) chip.classList.add('presence-moi')

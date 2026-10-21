@@ -11,9 +11,12 @@
 
 import { messageFugace } from './images.js'
 import { ouvrirPlan } from './planFeuille.js'
+import { svgIcone } from './interface/icones.js'
 
 /**
- * La zone gauche : retour, plan, nouveau document, favori, titre.
+ * La zone gauche : retour, plan, titre (esthétique de la vue V1, 21/10/2026 :
+ * « Nouveau document » et le favori passent dans le menu ⋯ du bandeau — ils
+ * sont construits ici et rendus à l'appelant, qui les y range).
  *
  * @param {HTMLElement} zoneGauche
  * @param {object} options
@@ -21,13 +24,16 @@ import { ouvrirPlan } from './planFeuille.js'
  * @param {object} options.docMeta                    titre et favori de départ
  * @param {(titre: string) => void} options.envoyerTitre   relais du titre aux autres onglets
  * @param {() => HTMLElement} options.cibleDuPlan     la colonne du plan, ouverte par le bouton Plan
- * @returns {{ titleInput: HTMLInputElement }}
+ * @returns {{ titleInput: HTMLInputElement, nouveauBtn: HTMLButtonElement, starBtn: HTMLButtonElement }}
  */
 export function monterZoneGauche(zoneGauche, { docId, docMeta, envoyerTitre, cibleDuPlan }) {
   const backLink = document.createElement('a')
   backLink.href = '#/'
   backLink.className = 'back-link'
-  backLink.textContent = '← Mes documents'
+  // Un chevron, comme dans la vue V1 ; le nom reste pour les lecteurs d'écran.
+  backLink.innerHTML = svgIcone('gauche', 20)
+  backLink.title = 'Mes documents'
+  backLink.setAttribute('aria-label', 'Mes documents')
   zoneGauche.appendChild(backLink)
 
   // Le plan n'a plus de colonne sous 1100 px (20/09/2026) : ce bouton est
@@ -49,8 +55,8 @@ export function monterZoneGauche(zoneGauche, { docId, docMeta, envoyerTitre, cib
   // et un correcteur pouvait croire qu'il n'en avait pas le droit.
   const nouveauBtn = document.createElement('button')
   nouveauBtn.type = 'button'
-  nouveauBtn.className = 'btn-nouveau'
-  nouveauBtn.textContent = '+ Nouveau'
+  nouveauBtn.className = 'btn-nouveau menu-item'
+  nouveauBtn.textContent = 'Nouveau document'
   nouveauBtn.title = 'Créer un document'
   nouveauBtn.onclick = async () => {
     nouveauBtn.disabled = true
@@ -73,17 +79,16 @@ export function monterZoneGauche(zoneGauche, { docId, docMeta, envoyerTitre, cib
       nouveauBtn.disabled = false
     }
   }
-  zoneGauche.appendChild(nouveauBtn)
 
   // L'étoile précède le titre (18/09) : elle qualifie le document, elle
   // n'agit pas dessus — sa place est du côté du nom, pas du côté des
   // outils.
   const starBtn = document.createElement('button')
   starBtn.type = 'button'
-  starBtn.className = 'star-btn'
+  starBtn.className = 'star-btn menu-item'
   let starred = !!docMeta.starred
   function renderStar() {
-    starBtn.textContent = starred ? '★' : '☆'
+    starBtn.textContent = starred ? '★ Retirer des favoris' : '☆ Mettre en favori'
     starBtn.classList.toggle('starred', starred)
     starBtn.title = starred ? 'Retirer des favoris' : 'Mettre en favori'
   }
@@ -105,7 +110,6 @@ export function monterZoneGauche(zoneGauche, { docId, docMeta, envoyerTitre, cib
       starBtn.disabled = false
     }
   }
-  zoneGauche.appendChild(starBtn)
 
   // Le titre reste éditable en place (confirmé le 17/09) : c'est le nom du
   // lieu où l'on est, pas une fonction — d'où sa place dans la zone de
@@ -117,6 +121,15 @@ export function monterZoneGauche(zoneGauche, { docId, docMeta, envoyerTitre, cib
   titleInput.setAttribute('aria-label', 'Titre du document')
   titleInput.name = 'titre'
   titleInput.autocomplete = 'off'
+  // Le titre prend la largeur de son texte (vue V1, 21/10/2026) : l'état de
+  // l'enregistrement le suit juste après. `field-sizing` là où il existe
+  // (style.css), `size` partout ailleurs.
+  const ajusterLargeurTitre = () => {
+    titleInput.size = Math.max(8, Math.min(60, titleInput.value.length + 1))
+  }
+  ajusterLargeurTitre()
+  titleInput.addEventListener('input', ajusterLargeurTitre)
+  titleInput.addEventListener('change', ajusterLargeurTitre)
   let titleSaveTimer = null
   titleInput.addEventListener('input', () => {
     // Broadcast on every keystroke (cheap — just a relay, see provider.js)
@@ -134,7 +147,7 @@ export function monterZoneGauche(zoneGauche, { docId, docMeta, envoyerTitre, cib
   })
   zoneGauche.appendChild(titleInput)
 
-  return { titleInput }
+  return { titleInput, nouveauBtn, starBtn }
 }
 
 /**
@@ -167,9 +180,10 @@ export function creerInterrupteurSuivi() {
 }
 
 /**
- * Le premier groupe de la zone droite — travailler le texte : le marqueur
- * des « !! », les compteurs de relecture (03/10/2026 : « 12 ✏️, » et
- * « 5 💬, », un clic mène au suivant) et le compteur de mots. Pas de compteur
+ * Le premier groupe de la zone droite — travailler le texte : les compteurs
+ * de relecture (03/10/2026 ; icônes crayon et bulle depuis le 21/10/2026 ;
+ * un clic mène au suivant) et le compteur de mots. Le marqueur « !! » et son compteur ont été
+ * retirés le 21/10/2026. Pas de compteur
  * de modifications pour qui ne peut ni les relire ni en proposer.
  *
  * @param {object} options
@@ -179,23 +193,19 @@ export function monterCompteursBandeau({ avecModifications }) {
   const groupeTexte = document.createElement('div')
   groupeTexte.className = 'banniere-groupe'
 
-  const tkCount = document.createElement('span')
-  tkCount.className = 'tk-count'
-  groupeTexte.appendChild(tkCount)
-
   const modifsCount = document.createElement('span')
-  modifsCount.className = 'tk-count compteur-relecture compteur-modifs'
+  modifsCount.className = 'compteur-relecture compteur-modifs'
   if (avecModifications) groupeTexte.appendChild(modifsCount)
 
   const commentsCount = document.createElement('span')
-  commentsCount.className = 'tk-count compteur-relecture compteur-commentaires'
+  commentsCount.className = 'compteur-relecture compteur-commentaires'
   groupeTexte.appendChild(commentsCount)
 
   const wordCount = document.createElement('span')
   wordCount.className = 'word-count'
   groupeTexte.appendChild(wordCount)
 
-  return { groupeTexte, tkCount, modifsCount, commentsCount, wordCount }
+  return { groupeTexte, modifsCount, commentsCount, wordCount }
 }
 
 /** L'historique ferme la rangée, seul dans son groupe (19/09/2026) : il ne
@@ -215,6 +225,8 @@ export function monterGroupeHistorique(docId) {
 }
 
 /**
+ * L'état de l'enregistrement (17/09/2026 ; un mot à côté du titre depuis le
+ * 21/10/2026, comme dans la vue V1 : « Enregistré », « Enregistrement… »).
  * Le voyant d'état de la connexion (17/09/2026) : un voyant, plus une phrase.
  * Le texte complet occupait 290 px fixes dans le bandeau — la largeur du plus
  * long des messages, réservée en permanence pour un état qui est « à jour »
@@ -236,21 +248,27 @@ export function creerVoyantConnexion() {
     function renderConnectionStatus() {
       let etat = 'ok'
       let texte = 'À jour'
+      let court = 'Enregistré'
       if (!provider.connected) {
         if (provider.hasPendingLocalChanges) {
           etat = 'alerte'
           texte = 'Hors connexion — modifications non envoyées'
+          court = 'Non enregistré'
         } else if (provider.likelyRejected) {
           etat = 'alerte'
           texte = 'Connexion refusée (accès retiré ?)'
+          court = 'Connexion refusée'
         } else {
           etat = 'attente'
           texte = 'Reconnexion…'
+          court = 'Reconnexion…'
         }
       } else if (provider.saving) {
         etat = 'attente'
         texte = 'Enregistrement…'
+        court = 'Enregistrement…'
       }
+      status.textContent = court
       status.classList.toggle('etat-ok', etat === 'ok')
       status.classList.toggle('etat-attente', etat === 'attente')
       status.classList.toggle('etat-alerte', etat === 'alerte')
