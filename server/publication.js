@@ -233,9 +233,9 @@ function bloc(n) {
  * la plaquer sur une page lue au téléphone donnerait le pire des deux.
  * Cette feuille-ci ne cherche qu'une chose : se lire. */
 const FEUILLE = `
-:root { color-scheme: light dark; --fg:#1f1b16; --bg:#fdfcfb; --muted:#766f66; --bord:#e4ddd3; --accent:#5f7a4a; }
+:root { color-scheme: light dark; --fg:#1f1b16; --bg:#fdfcfb; --muted:#766f66; --bord:#e4ddd3; --accent:#017d5e; }
 @media (prefers-color-scheme: dark) {
-  :root { --fg:#ece7df; --bg:#1a1815; --muted:#a89f92; --bord:#38332c; --accent:#a9c68a; }
+  :root { --fg:#ece7df; --bg:#1a1815; --muted:#a89f92; --bord:#38332c; --accent:#71d4b0; }
 }
 * { box-sizing: border-box; }
 body {

@@ -4,6 +4,7 @@
 
 import { canJoin } from 'prosemirror-transform'
 import { listChanges, membresDuLot } from './inventaire.js'
+import { COULEUR_IA, estCouleurIA } from '../../../shared/identite.js'
 
 export function acceptChange(view, change) {
   if (change.type === 'lot') {
@@ -137,7 +138,7 @@ export function acceptAllChanges(view) {
 
 /** Le vert de l'IA, que le serveur donne aux agents invités (Claude) et
  * que les couleurs de participants n'utilisent jamais (server/users.js). */
-export const COULEUR_AGENT = '#5f7a4a'
+export const COULEUR_AGENT = COULEUR_IA
 
 /**
  * Cette modification est-elle celle d'une IA (Margo, ou Claude invité) ? Le
@@ -148,7 +149,7 @@ export const COULEUR_AGENT = '#5f7a4a'
  * « IA », n'en font pas partie.
  */
 export function estModificationDAgent(change) {
-  return change.userColor === COULEUR_AGENT && /^(Claude|Margo)(\s|$)/.test(change.user || '')
+  return estCouleurIA(change.userColor) && /^(Claude|Margo)(\s|$)/.test(change.user || '')
 }
 
 /** Rejette d'un coup toutes les modifications d'un agent invité, sans

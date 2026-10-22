@@ -13,6 +13,7 @@
 // dans le navigateur, par confort.
 
 import { boutonADeuxClics } from './deuxClics.js'
+import { icone } from './interface/icones.js'
 import { TRIS, construireVue, dateCorbeille, libelleRole, optionsDeplacement, peutCreerDans } from './rangementDocs.js'
 
 const CLE_TRI = 'amend.liste.tri'
@@ -57,6 +58,15 @@ async function appeler(chemin, methode = 'GET', corps) {
   }
 }
 
+/** « 21 oct. 21:59 », avec l'année quand ce n'est pas l'année en cours. */
+function dateCourte(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const options = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+  if (d.getFullYear() !== new Date().getFullYear()) options.year = 'numeric'
+  return d.toLocaleString('fr-FR', options)
+}
+
 function el(nom, classe, texte) {
   const e = document.createElement(nom)
   if (classe) e.className = classe
@@ -87,11 +97,10 @@ export function monterListeDocuments(conteneur) {
     message: '',
   }
 
-  const titre = el('h2', 'doc-list-heading', 'Mes documents')
-
   // La barre reste en place d'un affichage à l'autre : la refaire ferait
   // perdre le focus au champ de recherche à chaque lettre.
   const barre = el('div', 'liste-barre')
+  const champRecherche = el('label', 'liste-recherche-champ')
   const recherche = el('input', 'liste-recherche')
   recherche.type = 'search'
   recherche.placeholder = 'Rechercher un titre'
@@ -114,13 +123,21 @@ export function monterListeDocuments(conteneur) {
     memoriserTri(etat.tri)
     dessiner()
   })
-  barre.append(recherche, choixTri)
+  champRecherche.append(icone('recherche', 16), recherche)
+  // Le geste de création d'un dossier est dans la barre : toujours au même
+  // endroit, qu'on soit à la racine ou dans un dossier (voir `dessiner`).
+  const nouveauDossier = bouton('btn-contour liste-nouveau-dossier', '', 'Créer un dossier ici', () => {
+    etat.saisie = 'creer'
+    dessiner()
+  })
+  nouveauDossier.append(icone('dossierPlus', 16), el('span', '', 'Nouveau dossier'))
+  barre.append(champRecherche, choixTri, nouveauDossier)
 
   const message = el('p', 'liste-message')
   message.setAttribute('role', 'status')
   message.hidden = true
   const zone = el('div', 'liste-zone')
-  conteneur.append(titre, barre, message, zone)
+  conteneur.append(barre, message, zone)
 
   function dire(texte) {
     etat.message = texte || ''
@@ -162,8 +179,9 @@ export function monterListeDocuments(conteneur) {
   // ------------------------------------------------------------------ lignes
 
   function etoile(doc) {
-    const b = el('button', 'star-btn', doc.starred ? '★' : '☆')
+    const b = el('button', 'star-btn')
     b.type = 'button'
+    b.append(icone('etoile', 18))
     b.classList.toggle('starred', !!doc.starred)
     b.title = doc.starred ? 'Retirer de mes favoris' : 'Ajouter à mes favoris'
     b.setAttribute('aria-pressed', doc.starred ? 'true' : 'false')
@@ -186,7 +204,8 @@ export function monterListeDocuments(conteneur) {
 
     const lien = el('a', '', doc.title || 'Sans titre')
     lien.href = `#/doc/${doc.id}`
-    const date = el('span', 'doc-date', new Date(doc.updatedAt).toLocaleString('fr-FR'))
+    const date = el('span', 'doc-date', dateCourte(doc.updatedAt))
+    date.title = new Date(doc.updatedAt).toLocaleString('fr-FR')
     const titreEtBadge = el('span', 'doc-list-title')
     titreEtBadge.append(etoile(doc), lien)
     const badge = libelleRole(doc)
@@ -323,17 +342,9 @@ export function monterListeDocuments(conteneur) {
         i === vue.fil.length - 1 ? el('span', 'fil-courant', d.nom) : bouton('fil-lien', d.nom, '', () => aller(d.id))
       )
     })
-    entete.appendChild(fil)
+    if (ouvert) entete.appendChild(fil)
 
     const gestes = el('span', 'fil-gestes')
-    if (peutCreerDans(etat.dossiers, ouvert)) {
-      gestes.appendChild(
-        bouton('dossier-geste', 'Nouveau dossier', 'Créer un dossier ici', () => {
-          etat.saisie = 'creer'
-          dessiner()
-        })
-      )
-    }
     if (ici) {
       gestes.appendChild(
         bouton('dossier-geste', 'Renommer', 'Renommer ce dossier', () => {
@@ -359,7 +370,7 @@ export function monterListeDocuments(conteneur) {
       )
     }
     entete.appendChild(gestes)
-    frag.appendChild(entete)
+    if (ouvert) frag.appendChild(entete)
 
     if (etat.saisie === 'creer') {
       frag.appendChild(
@@ -383,7 +394,9 @@ export function monterListeDocuments(conteneur) {
       for (const { dossier, effectif } of vue.sousDossiers) {
         const li = el('li', 'dossier-ligne')
         const ouvrir = bouton('dossier-ouvrir', '', `Ouvrir le dossier ${dossier.nom}`, () => aller(dossier.id))
-        ouvrir.append(el('span', 'dossier-icone', '▸'), el('span', 'dossier-titre', dossier.nom))
+        const pic = el('span', 'dossier-icone')
+        pic.append(icone('dossier', 20))
+        ouvrir.append(pic, el('span', 'dossier-titre', dossier.nom))
         const n = el(
           'span',
           'dossier-effectif',
@@ -479,6 +492,11 @@ export function monterListeDocuments(conteneur) {
   function dessiner() {
     zone.innerHTML = ''
     barre.hidden = etat.enCorbeille
+    // Le bouton quitte la barre (au lieu d'être masqué) quand on ne peut pas
+    // créer de dossier ici : au troisième niveau, ou pendant une recherche.
+    const peutCreer = peutCreerDans(etat.dossiers, etat.courant) && !etat.recherche.trim()
+    if (peutCreer && !nouveauDossier.isConnected) barre.append(nouveauDossier)
+    else if (!peutCreer && nouveauDossier.isConnected) nouveauDossier.remove()
     if (etat.enCorbeille) {
       zone.appendChild(dessinerCorbeille())
       return
@@ -515,20 +533,15 @@ export function monterListeDocuments(conteneur) {
     // La corbeille n'est un lieu que si elle contient quelque chose.
     if (etat.corbeille.length && !vue.recherche) {
       const pied = el('div', 'corbeille-pied')
-      pied.appendChild(
-        bouton(
-          'corbeille-ouvrir',
-          `Corbeille (${etat.corbeille.length})`,
-          'Voir les documents mis à la corbeille',
-          () => {
-            etat.enCorbeille = true
-            etat.saisie = null
-            etat.deplacement = null
-            dire('')
-            dessiner()
-          }
-        )
-      )
+      const ouvrirCorbeille = bouton('corbeille-ouvrir', '', 'Voir les documents mis à la corbeille', () => {
+        etat.enCorbeille = true
+        etat.saisie = null
+        etat.deplacement = null
+        dire('')
+        dessiner()
+      })
+      ouvrirCorbeille.append(icone('corbeille', 16), el('span', '', `Corbeille (${etat.corbeille.length})`))
+      pied.appendChild(ouvrirCorbeille)
       zone.appendChild(pied)
     }
   }

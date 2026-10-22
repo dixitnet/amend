@@ -164,7 +164,7 @@ export function mountEditor(root, docId, user, docMeta) {
 
   // --- Zone gauche : où je suis --------------------------------------------
 
-  const { titleInput, nouveauBtn, starBtn } = monterZoneGauche(zoneGauche, {
+  const { titleInput, nouveauBtn } = monterZoneGauche(zoneGauche, {
     docId,
     docMeta,
     envoyerTitre: (titre) => provider.sendTitle(titre),
@@ -198,7 +198,7 @@ export function mountEditor(root, docId, user, docMeta) {
   })
 
   // Le menu ⋯ (21/10/2026, esthétique de la vue V1) : ce qu'on fait rarement
-  // depuis un document — en créer un autre, le mettre en favori, ouvrir ses
+  // depuis un document — en créer un autre, ouvrir ses
   // versions — quitte la rangée du bandeau.
   const lienVersions = monterGroupeHistorique(docId).querySelector('a')
   lienVersions.className = 'menu-item history-link'
@@ -207,7 +207,7 @@ export function mountEditor(root, docId, user, docMeta) {
   boutonPlus.innerHTML = svgIcone('plus', 20)
   boutonPlus.setAttribute('aria-label', 'Plus d’actions')
   boutonPlus.classList.add('btn-icone')
-  menuPlus.liste.append(nouveauBtn, starBtn, lienVersions)
+  menuPlus.liste.append(nouveauBtn, lienVersions)
   menuPlus.liste.addEventListener('click', (e) => {
     if (e.target.closest('button, a')) menuPlus.fermer()
   })
@@ -335,6 +335,8 @@ export function mountEditor(root, docId, user, docMeta) {
 
   const editorContainer = document.createElement('div')
   editorContainer.className = 'editor-container'
+  // Zone de défilement : atteignable au clavier (flèches, Page ↓), y compris en lecture seule.
+  editorContainer.tabIndex = 0
   main.appendChild(editorContainer)
 
   // Gouttière des commentaires : créée ici pour que les greffons la
@@ -451,13 +453,23 @@ export function mountEditor(root, docId, user, docMeta) {
   placerLaBarre()
 
   let disposer = () => {} // défini plus bas, une fois la vue construite
+  // Format M, sous 1 100 px (lot M2) : les volets sont des tiroirs, par-dessus
+  // le texte, un seul à la fois ; ils démarrent fermés et ne sont pas retenus
+  // d'une visite à l'autre (une habitude d'écran large ne s'applique pas ici).
+  const tiroirMedia = media('(min-width: 701px) and (max-width: 1100px)')
+  let fermerLeDroit = () => {}
   const voletGauche = monterVolet({
     colonne: outlineSidebar,
     hoteBoutons: boutonsGauche,
     panneaux: [{ id: 'plan', libelle: 'Plan du document', court: 'Plan', icone: 'plan', panneau: outlineSection }],
     cleMemoire: 'amend.volet.gauche',
     defaut: 'plan',
-    surChangement: () => disposer(),
+    fermerAuDepart: () => tiroirMedia.matches,
+    memoriser: () => !tiroirMedia.matches,
+    surChangement: (etat) => {
+      if (etat !== 'ferme' && tiroirMedia.matches) fermerLeDroit()
+      disposer()
+    },
   })
   const voletPlan = { ouvert: () => !outlineSidebar.classList.contains('volet-ferme') }
   let dialogue = null
@@ -492,14 +504,18 @@ export function mountEditor(root, docId, user, docMeta) {
     ],
     cleMemoire: 'amend.volet.droit',
     defaut: 'modifications',
+    fermerAuDepart: () => tiroirMedia.matches,
+    memoriser: () => !tiroirMedia.matches,
     // Ouvrir Margo, c'est vouloir lui écrire : le curseur va dans la saisie.
     // (Au chargement, `dialogue` n'existe pas encore : rien ne prend le focus
     // à l'éditeur.)
     surChangement: (etat) => {
+      if (etat !== 'ferme' && tiroirMedia.matches) voletGauche.fermer()
       if (etat === 'margo' && dialogue) dialogue.ouvrir()
       disposer()
     },
   })
+  fermerLeDroit = () => voletDroit.fermer()
 
   // Volets ouverts (vue V1) : au-dessus de chaque volet, ses onglets, puis le
   // bouton qui le replie ; « Fichiers » est annoncé, pas encore actif. Ces
@@ -731,11 +747,12 @@ export function mountEditor(root, docId, user, docMeta) {
   // gouttière changent de taille (zoom, commentaires qui apparaissent).
   const LARGEUR_PLAN = 220
   const LARGEUR_DROITE = 320
+  const BANDE_BARRE_FLOTTANTE = 14
   // La gouttière peuplée : 260 px de cartes + 20 de marge ; vide, elle ne garde
   // que la place du ＋ (36 + 8). Les mêmes valeurs que style.css.
   const GOUTTIERE_PEUPLEE = 280
   const GOUTTIERE_VIDE = 44
-  const sansColonnePlan = media('(max-width: 1100px)')
+  const LARGEUR_TIROIR_PLAN = 260
   const aligner = () => {
     if (petitEcranMedia.matches || toolbar.parentNode !== rangee) return
     const bord = view.dom.getBoundingClientRect().left + (parseFloat(getComputedStyle(view.dom).paddingLeft) || 0)
@@ -745,6 +762,8 @@ export function mountEditor(root, docId, user, docMeta) {
     if (petitEcranMedia.matches) {
       delete outlineSidebar.dataset.mode
       delete sidebar.dataset.mode
+      delete outlineSidebar.dataset.tiroir
+      delete sidebar.dataset.tiroir
       delete layout.dataset.gouttiere
       outlineSidebar.style.width = ''
       sidebar.style.width = ''
@@ -760,6 +779,11 @@ export function mountEditor(root, docId, user, docMeta) {
     // volets de droite se posent à sa gauche, jamais par-dessus.
     const barre = editorContainer.offsetWidth - editorContainer.clientWidth
     const largeur = layout.clientWidth - barre
+    // Barre de défilement « flottante » (macOS par défaut, tablettes) : elle ne
+    // prend pas de place, donc le volet de droite la recouvrait. On lui garde
+    // une bande à droite du volet, pour qu'elle reste visible et saisissable.
+    const bande = barre === 0 && voletDroit.ouvert() ? BANDE_BARRE_FLOTTANTE : 0
+    const tiroir = tiroirMedia.matches
     if (largeur <= 0) return
     const st = getComputedStyle(view.dom)
     // La colonne à sa largeur naturelle (78 ch), marges intérieures comprises.
@@ -778,8 +802,9 @@ export function mountEditor(root, docId, user, docMeta) {
           ? GOUTTIERE_PEUPLEE
           : GOUTTIERE_VIDE,
       gouttiereMax: gouttiereMedia.matches ? GOUTTIERE_PEUPLEE : 0,
-      gauche: { ouvert: voletPlan.ouvert() && !sansColonnePlan.matches, largeur: LARGEUR_PLAN, minimum: 200 },
-      droite: { ouvert: voletDroit.ouvert(), largeur: LARGEUR_DROITE, minimum: 280 },
+      gauche: { ouvert: voletPlan.ouvert(), largeur: tiroir ? LARGEUR_TIROIR_PLAN : LARGEUR_PLAN, minimum: 200 },
+      droite: { ouvert: voletDroit.ouvert(), largeur: LARGEUR_DROITE + bande, minimum: 280 + bande },
+      tiroirs: tiroir,
     })
     // La gouttière se replie quand la colonne de texte n'aurait plus la
     // place : ses commentaires passent dans le volet Modifications, et le
@@ -794,20 +819,23 @@ export function mountEditor(root, docId, user, docMeta) {
     }
     outlineSidebar.dataset.mode = modes.gauche
     sidebar.dataset.mode = modes.droite
+    // Un tiroir a son ombre (style.css) et ne change pas la rangée du dessus.
+    outlineSidebar.dataset.tiroir = tiroir ? 'oui' : 'non'
+    sidebar.dataset.tiroir = tiroir ? 'oui' : 'non'
     outlineSidebar.style.width = modes.gauche === 'superpose' ? `${modes.largeurGauche}px` : ''
-    sidebar.style.width = modes.droite === 'superpose' ? `${modes.largeurDroite}px` : ''
-    sidebar.style.right = barre ? `${barre}px` : ''
+    sidebar.style.width = modes.droite === 'superpose' ? `${modes.largeurDroite - bande}px` : ''
+    sidebar.style.right = barre || bande ? `${barre || bande}px` : ''
     editorContainer.style.paddingLeft = modes.margeGauche ? `${modes.margeGauche}px` : ''
     editorContainer.style.paddingRight = modes.margeDroite ? `${modes.margeDroite}px` : ''
     // Volet ouvert : le segment de la rangée prend exactement sa largeur, pour
     // que le trait de la rangée prolonge celui du volet (vue V1).
-    const gOuvert = modes.gauche !== 'ferme'
-    const dOuvert = modes.droite !== 'ferme'
+    const gOuvert = !tiroir && modes.gauche !== 'ferme'
+    const dOuvert = !tiroir && modes.droite !== 'ferme'
     boutonsGauche.classList.toggle('ouvert', gOuvert)
     boutonsDroite.classList.toggle('ouvert', dOuvert)
     boutonsGauche.style.width = gOuvert ? `${outlineSidebar.offsetWidth}px` : ''
     boutonsDroite.style.width = dOuvert ? `${sidebar.offsetWidth}px` : ''
-    boutonsDroite.style.marginRight = dOuvert && barre ? `${barre}px` : ''
+    boutonsDroite.style.marginRight = dOuvert && (barre || bande) ? `${barre || bande}px` : ''
     aligner()
   }
   let dispositionPrevue = 0
@@ -820,10 +848,66 @@ export function mountEditor(root, docId, user, docMeta) {
   }
   if (typeof ResizeObserver !== 'undefined') {
     const observateur = new ResizeObserver(prevoirDisposition)
-    for (const el of [layout, view.dom, commentsGutter]) observateur.observe(el)
+    for (const el of [layout, view.dom, commentsGutter, boutonsGauche, editorContainer]) observateur.observe(el)
     ecouteursGlobaux.push(() => observateur.disconnect())
   }
   disposer()
+
+  // Les tiroirs du format M (lot M2) : on les ferme en touchant le texte, avec
+  // Échap, ou en choisissant un titre du plan ; jamais deux à la fois.
+  // Lecteur : le texte n'est pas éditable, le focus revient alors à la zone de défilement.
+  const rendreLeFocusAuTexte = () => {
+    if (!view || view.isDestroyed) return
+    if (view.dom.isContentEditable) view.focus()
+    else editorContainer.focus()
+  }
+  const fermerLesTiroirs = () => {
+    if (!tiroirMedia.matches) return false
+    const avait = voletGauche.ouvert() || voletDroit.ouvert()
+    voletGauche.fermer()
+    voletDroit.fermer()
+    return avait
+  }
+  editorContainer.addEventListener('pointerdown', fermerLesTiroirs)
+  ecouteursGlobaux.push(() => editorContainer.removeEventListener('pointerdown', fermerLesTiroirs))
+  const echapTiroir = (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return
+    if (fermerLesTiroirs()) {
+      e.preventDefault()
+      rendreLeFocusAuTexte()
+    }
+  }
+  document.addEventListener('keydown', echapTiroir)
+  ecouteursGlobaux.push(() => document.removeEventListener('keydown', echapTiroir))
+  const titreChoisi = (e) => {
+    if (e.target.closest('.outline-link') && tiroirMedia.matches) voletGauche.fermer()
+  }
+  outlineSidebar.addEventListener('click', titreChoisi)
+  ecouteursGlobaux.push(() => outlineSidebar.removeEventListener('click', titreChoisi))
+  // Le format M n'a pas de gouttière (lot M3, D4) : toucher un passage commenté
+  // en ouvre le fil dans une feuille, sans quitter le passage des yeux.
+  const toucherCommentaire = (e) => {
+    if (petitEcranMedia.matches || gouttiereActive()) return
+    if (!(e.target instanceof Element) || !e.target.closest('.comment-highlight')) return
+    // Le clic arrive avant que la sélection ne soit relue : on interroge le point touché.
+    if (!window.getSelection().isCollapsed) return
+    const point = view.posAtCoords({ left: e.clientX, top: e.clientY })
+    if (!point) return
+    const id = commentaireAuPoint(view.state, ydoc, commentsMap, point.pos)
+    if (id) ouvrirFilCommentaire(view, ydoc, commentsMap, user, id)
+  }
+  view.dom.addEventListener('click', toucherCommentaire)
+  ecouteursGlobaux.push(() => view.dom.removeEventListener('click', toucherCommentaire))
+  // Un écran qui devient assez étroit pour des tiroirs : s'il y en a deux
+  // ouverts, le plan s'efface devant le panneau de droite.
+  const surTiroir = () => {
+    if (tiroirMedia.matches && voletGauche.ouvert() && voletDroit.ouvert()) voletGauche.fermer()
+    disposer()
+  }
+  if (tiroirMedia.addEventListener) {
+    tiroirMedia.addEventListener('change', surTiroir)
+    ecouteursGlobaux.push(() => tiroirMedia.removeEventListener('change', surTiroir))
+  }
   // La liste des notes (28/09/2026) : une barre repliée au pied de la
   // colonne de texte, rafraîchie par footnotesPlugin.
   const listeNotes = monterListeDesNotes(main, () => view)
@@ -1002,7 +1086,7 @@ export function mountEditor(root, docId, user, docMeta) {
     surReplier: () => {
       voletDroit.fermer()
       // Le focus ne doit pas tomber dans le vide avec le volet : il retourne au texte.
-      if (view && !view.isDestroyed) view.focus()
+      rendreLeFocusAuTexte()
     },
   }).then((d) => {
     if (d && demonte) d.destroy()

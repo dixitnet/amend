@@ -1,57 +1,86 @@
-import { getSessionEmail, logout, requestReconnectLink } from './auth.js'
+import { getSessionEmail, requestReconnectLink } from './auth.js'
 import { logoAmend } from './logo.js'
 import { lienAide } from './aide.js'
-import { ouvrirChangementDeNom } from './nomCompte.js'
+import { monterMenuCompte } from './compteMenu.js'
 import { monterListeDocuments } from './listeDocuments.js'
+import { icone } from './interface/icones.js'
 
 export async function mountHome(root) {
   root.innerHTML = ''
   const email = await getSessionEmail()
   if (email) {
-    mountAppHome(root, email)
+    mountAppHome(root)
   } else {
     mountPublicLanding(root)
   }
 }
 
-/** Visiteurs non connectés — la page d'accueil publique (17/09/2026).
+/** Visiteurs non connectés — la page d'accueil publique (17/09/2026, reprise
+ * le 21/10/2026 dans le langage graphique de l'éditeur).
  *
- * Trois choses, dans cet ordre, parce que le visiteur se pose trois
- * questions dans cet ordre : *qu'est-ce que c'est* (l'en-tête pleine
- * largeur : le logo, une phrase, l'avis de phase de lancement), puis
- * *est-ce que je peux entrer* (deux cartes : la liste d'attente pour qui
- * n'a pas d'accès, la connexion pour qui en a un).
+ * Le visiteur se pose trois questions, dans cet ordre : *qu'est-ce que
+ * c'est* (le titre, une phrase, un exemple de modification proposée),
+ * *puis-je entrer* (la mention « sur invitation »), *comment* (deux cartes :
+ * la liste d'attente pour qui n'a pas d'accès, la connexion pour qui en a un).
  *
  * Deux décisions qui tiennent la page :
  *
  * 1. **Dire franchement que l'accès est sur invitation.** Sans ça, le
  *    formulaire d'attente ressemble à un formulaire mort, et la personne
  *    qui essaie de se connecter sans accès ne comprend pas son échec.
- * 2. **La connexion est ici, pas ailleurs.** Elle était reléguée derrière
- *    un lien vers `#/login` : deux publics, deux gestes, aucun des deux ne
- *    doit chercher le sien.
+ * 2. **La connexion est ici, pas ailleurs.** Deux publics, deux gestes,
+ *    aucun des deux ne doit chercher le sien : le bouton du bandeau mène
+ *    directement au champ de connexion.
  *
- * Ergonomie petit écran (demandée le 17/09) : une seule colonne par
- * défaut, la liste d'attente en premier — le visiteur sans compte est le
- * cas majoritaire — et la deuxième colonne n'apparaît qu'à partir de
- * 760 px. Voir `.landing-*` dans style.css.
+ * Le dessin est celui de l'éditeur : un bandeau de 56 px (le logo, l'aide),
+ * Roboto, des boutons de 8 px de rayon, le vert pour l'action. Petit écran
+ * d'abord : une colonne, la liste d'attente en premier (le visiteur sans
+ * compte est le cas majoritaire) ; deux colonnes à partir de 760 px.
  */
 function mountPublicLanding(root) {
   const wrap = document.createElement('div')
-  wrap.className = 'home landing'
+  wrap.className = 'accueil accueil-public'
 
-  // --- En-tête, pleine largeur -------------------------------------------
-  const entete = document.createElement('header')
-  entete.className = 'landing-entete'
+  // --- Bandeau -------------------------------------------------------------
+  const bandeau = document.createElement('header')
+  bandeau.className = 'accueil-bandeau'
+  const logoLien = document.createElement('a')
+  logoLien.href = '#/'
+  logoLien.className = 'accueil-logo'
+  logoLien.appendChild(logoAmend({ taille: '26px' }))
+  const droite = document.createElement('nav')
+  droite.className = 'accueil-bandeau-droite'
+  droite.setAttribute('aria-label', 'Accès rapide')
+  // L'aide est lisible sans compte (10/10/2026) : c'est ici qu'un visiteur
+  // se demande ce qu'est l'application.
+  droite.appendChild(lienAide({ classe: 'accueil-lien', libelle: 'Aide' }))
+  const entrer = document.createElement('button')
+  entrer.type = 'button'
+  entrer.className = 'btn-contour'
+  entrer.textContent = 'Se connecter'
+  droite.appendChild(entrer)
+  bandeau.append(logoLien, droite)
+  wrap.appendChild(bandeau)
 
-  const logo = logoAmend()
-  logo.classList.add('landing-logo')
-  entete.appendChild(logo)
+  const main = document.createElement('main')
+  main.className = 'accueil-contenu landing'
 
-  const baseline = document.createElement('p')
-  baseline.className = 'landing-baseline'
-  baseline.textContent = 'Écrire et relire à plusieurs, avec un vrai suivi des modifications.'
-  entete.appendChild(baseline)
+  // --- Présentation ----------------------------------------------------------
+  const hero = document.createElement('section')
+  hero.className = 'landing-entete'
+
+  const avis = document.createElement('p')
+  avis.className = 'landing-avis'
+  avis.append(icone('etincelle', 16))
+  avis.append(
+    "L'application fonctionne, mais elle est en phase de lancement : " + "l'accès se fait uniquement sur invitation."
+  )
+  hero.appendChild(avis)
+
+  const titre = document.createElement('h1')
+  titre.className = 'landing-titre'
+  titre.textContent = 'Écrire et relire à plusieurs, avec un vrai suivi des modifications.'
+  hero.appendChild(titre)
 
   const pitch = document.createElement('p')
   pitch.className = 'landing-pitch'
@@ -59,33 +88,28 @@ function mountPublicLanding(root) {
     'amend.ink est un éditeur de texte collaboratif, léger et auto-hébergé. ' +
     'Chacun voit qui écrit quoi, propose ses corrections plutôt que de les ' +
     'imposer, et garde la main sur la mise en page et les exports.'
-  entete.appendChild(pitch)
-
-  const avis = document.createElement('p')
-  avis.className = 'landing-avis'
-  avis.textContent =
-    "L'application fonctionne, mais elle est en phase de lancement : " + "l'accès se fait uniquement sur invitation."
-  entete.appendChild(avis)
-
-  // L'aide est lisible sans compte (10/10/2026) : c'est ici qu'un visiteur
-  // se demande ce qu'est l'application.
-  const aide = document.createElement('p')
-  aide.className = 'landing-avis'
-  aide.appendChild(lienAide({ libelle: 'Lire l’aide d’amend.ink →' }))
-  entete.appendChild(aide)
-
-  wrap.appendChild(entete)
+  hero.appendChild(pitch)
+  hero.appendChild(exempleDeModification())
+  main.appendChild(hero)
 
   // --- Deux cartes --------------------------------------------------------
   const colonnes = document.createElement('div')
   colonnes.className = 'landing-colonnes'
-  colonnes.append(carteListeAttente(), carteConnexion())
-  wrap.appendChild(colonnes)
+  const carteAttente = carteListeAttente()
+  const carteAcces = carteConnexion()
+  colonnes.append(carteAttente, carteAcces)
+  main.appendChild(colonnes)
+  entrer.addEventListener('click', () => {
+    carteAcces.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const champ = carteAcces.querySelector('input')
+    if (champ) champ.focus({ preventScroll: true })
+  })
+  wrap.appendChild(main)
 
   // Le pied de page porte les pages légales et le contact (03/10/2026) :
   // ce sont les liens qu'un filtre web cherche pour classer un site, et
   // ceux qu'un visiteur attend d'un service qui lui demande son adresse.
-  const pied = document.createElement('p')
+  const pied = document.createElement('footer')
   pied.className = 'landing-pied'
   const liens = [
     ['Mentions légales', '/mentions-legales.html'],
@@ -103,6 +127,40 @@ function mountPublicLanding(root) {
   wrap.appendChild(pied)
 
   root.appendChild(wrap)
+}
+
+/** Une modification proposée, dessinée comme dans l'éditeur : ce que fait
+ * l'application, montré plutôt qu'expliqué. Purement décoratif (rien ne se
+ * clique, rien n'est lu par un lecteur d'écran : le texte au-dessus dit déjà
+ * tout). */
+function exempleDeModification() {
+  const fig = document.createElement('figure')
+  fig.className = 'landing-exemple'
+  fig.setAttribute('aria-hidden', 'true')
+  const texte = document.createElement('p')
+  texte.className = 'landing-exemple-texte'
+  const ancien = document.createElement('del')
+  ancien.textContent = 'bien souvent'
+  const nouveau = document.createElement('ins')
+  nouveau.textContent = 'le plus souvent'
+  texte.append('Le quartier ', ancien, ' ', nouveau, ' transforme un travail de long terme sur les tissus existants.')
+  const carte = document.createElement('div')
+  carte.className = 'landing-exemple-carte'
+  const pastille = document.createElement('span')
+  pastille.className = 'landing-exemple-pastille'
+  pastille.textContent = 'CL'
+  const qui = document.createElement('span')
+  qui.className = 'landing-exemple-qui'
+  qui.innerHTML = '<b>Claire</b> propose · il y a 2 min'
+  const accepter = document.createElement('span')
+  accepter.className = 'landing-exemple-accepter'
+  accepter.textContent = 'Accepter'
+  const rejeter = document.createElement('span')
+  rejeter.className = 'landing-exemple-rejeter'
+  rejeter.textContent = 'Rejeter'
+  carte.append(pastille, qui, accepter, rejeter)
+  fig.append(texte, carte)
+  return fig
 }
 
 /** Un formulaire à un champ : libellé, saisie, bouton, et un message qui
@@ -213,85 +271,62 @@ function carteConnexion() {
   return carte
 }
 
-/** Visiteurs connectés : l'en-tête, la création d'un document, puis la
- * liste (listeDocuments.js) — favoris, dossiers, recherche, corbeille. */
-function mountAppHome(root, email) {
+/** Visiteurs connectés : le bandeau (logo, aide, modèles, compte), le titre
+ * avec la création d'un document, puis la liste (listeDocuments.js) —
+ * favoris, dossiers, recherche, corbeille. Même dessin que l'éditeur
+ * (reprise du 21/10/2026) : le nom, le changement de nom, la déconnexion et le
+ * back-office sont dans le menu de la pastille du compte, comme dans un
+ * document. */
+function mountAppHome(root) {
   const wrap = document.createElement('div')
-  wrap.className = 'home'
+  wrap.className = 'accueil accueil-docs'
 
+  // --- Bandeau -------------------------------------------------------------
+  const bandeau = document.createElement('header')
+  bandeau.className = 'accueil-bandeau'
+  const logoLien = document.createElement('a')
+  logoLien.href = '#/'
+  logoLien.className = 'accueil-logo'
   // Le même logo que sur la page publique, en petit : une seule signature
   // pour toute l'application (asset partagé, voir logo.js).
+  logoLien.appendChild(logoAmend({ taille: '26px', curseur: false }))
+  const droite = document.createElement('nav')
+  droite.className = 'accueil-bandeau-droite'
+  droite.setAttribute('aria-label', 'Outils')
+  const modeles = document.createElement('a')
+  modeles.href = '#/modeles'
+  modeles.className = 'accueil-lien'
+  modeles.append(icone('modeles', 16), 'Modèles')
+  modeles.title = 'Gérer mes modèles de mise en page'
+  droite.append(modeles, lienAide({ classe: 'accueil-lien', libelle: 'Aide' }))
+  const compte = document.createElement('span')
+  compte.className = 'accueil-compte'
+  droite.appendChild(compte)
+  bandeau.append(logoLien, droite)
+  wrap.appendChild(bandeau)
+  monterMenuCompte(compte)
+
+  const main = document.createElement('main')
+  main.className = 'accueil-contenu'
+
+  // --- Titre et création -----------------------------------------------------
+  const tete = document.createElement('div')
+  tete.className = 'accueil-tete'
   const h1 = document.createElement('h1')
-  h1.appendChild(logoAmend({ taille: '30px', curseur: false }))
-  const subtitle = document.createElement('p')
-  subtitle.className = 'subtitle'
-  subtitle.textContent = 'Édition collaborative avec suivi des modifications, et Margo, l’IA qui propose sans décider.'
-  wrap.append(h1, subtitle)
+  h1.textContent = 'Mes documents'
+  const creer = document.createElement('div')
+  creer.className = 'accueil-creer'
+  tete.append(h1, creer)
+  main.appendChild(tete)
 
-  const authStatus = document.createElement('p')
-  authStatus.className = 'auth-status'
-  authStatus.textContent = `Connecté comme ${email} `
-  // Entrée du back-office, visible seulement pour les administrateurs — la
-  // route serveur refuse de toute façon les autres (403).
-  fetch('/api/auth/me')
-    .then((r) => r.json())
-    .then((moi) => {
-      if (!moi.admin) return
-      const lien = document.createElement('a')
-      lien.href = '#/admin'
-      lien.textContent = 'Back-office'
-      authStatus.appendChild(lien)
-    })
-    .catch(() => {})
-  // L'aide et le nom (10/10/2026) : ce sont les deux choses qu'on vient
-  // chercher ici sans le dire. L'aide ouvre un nouvel onglet.
-  const aideLink = lienAide({ libelle: 'Aide' })
-  const nomLink = document.createElement('a')
-  nomLink.href = '#'
-  nomLink.textContent = 'Changer mon nom'
-  let nomAffiche = ''
-  const dire = document.createTextNode(`Connecté comme ${email} `)
-  authStatus.textContent = ''
-  authStatus.appendChild(dire)
-  fetch('/api/auth/me')
-    .then((r) => r.json())
-    .then((moi) => {
-      if (moi.nom) {
-        nomAffiche = moi.nom
-        dire.textContent = `Connecté comme ${moi.nom} (${email}) `
-      }
-    })
-    .catch(() => {})
-  nomLink.addEventListener('click', (e) => {
-    e.preventDefault()
-    ouvrirChangementDeNom({
-      nomActuel: nomAffiche,
-      surChangement: (nom) => {
-        nomAffiche = nom
-        dire.textContent = `Connecté comme ${nom} (${email}) `
-      },
-    })
-  })
-  authStatus.append(aideLink, nomLink)
-  const logoutLink = document.createElement('a')
-  logoutLink.href = '#'
-  logoutLink.textContent = 'Se déconnecter'
-  logoutLink.addEventListener('click', async (e) => {
-    e.preventDefault()
-    await logout()
-    location.reload()
-  })
-  authStatus.appendChild(logoutLink)
-  wrap.appendChild(authStatus)
-
-  const styleLink = document.createElement('a')
-  styleLink.href = '#/modeles'
-  styleLink.className = 'style-admin-link'
-  styleLink.textContent = 'Gérer mes modèles →'
-  wrap.appendChild(styleLink)
+  const nouveau = document.createElement('button')
+  nouveau.type = 'button'
+  nouveau.className = 'btn-principal'
+  nouveau.append(icone('ajouter', 16), 'Nouveau document')
 
   const form = document.createElement('form')
   form.className = 'new-doc-form'
+  form.hidden = true
   const input = document.createElement('input')
   input.placeholder = 'Titre du nouveau document'
   input.name = 'titre'
@@ -301,7 +336,26 @@ function mountAppHome(root, email) {
   const submit = document.createElement('button')
   submit.textContent = 'Créer'
   submit.type = 'submit'
-  form.append(input, submit)
+  submit.className = 'btn-principal'
+  const annuler = document.createElement('button')
+  annuler.textContent = 'Annuler'
+  annuler.type = 'button'
+  annuler.className = 'btn-contour'
+  form.append(input, submit, annuler)
+  const ouvrirFormulaire = (ouvert) => {
+    form.hidden = !ouvert
+    nouveau.hidden = ouvert
+    if (ouvert) input.focus()
+    else {
+      input.value = ''
+      nouveau.focus()
+    }
+  }
+  nouveau.addEventListener('click', () => ouvrirFormulaire(true))
+  annuler.addEventListener('click', () => ouvrirFormulaire(false))
+  form.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') ouvrirFormulaire(false)
+  })
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
     const res = await fetch('/api/docs', {
@@ -316,15 +370,14 @@ function mountAppHome(root, email) {
     const doc = await res.json()
     location.hash = `#/doc/${doc.id}`
   })
-  wrap.appendChild(form)
+  creer.append(nouveau, form)
 
   // Créer depuis un téléphone (23/09/2026) : un bouton rond en bas à
   // droite, et le document s'ouvre tout de suite, sans titre. Saisir un
   // titre dans un champ avant même d'avoir écrit une ligne est une friction
   // d'ordinateur ; sur téléphone on ouvre, on écrit, et l'on nomme en
   // touchant le titre — c'est ce que fait l'éditeur depuis l'interface
-  // iPhone. Le formulaire complet reste sur grand écran (masqué en CSS
-  // ici), où il ne coûte rien.
+  // iPhone. Le bouton du titre reste sur grand écran (masqué en CSS ici).
   const creerFab = document.createElement('button')
   creerFab.type = 'button'
   creerFab.className = 'doc-fab'
@@ -354,7 +407,8 @@ function mountAppHome(root, email) {
   // Favoris, dossiers, recherche et corbeille : voir listeDocuments.js.
   const liste = document.createElement('div')
   liste.className = 'liste-documents'
-  wrap.appendChild(liste)
+  main.appendChild(liste)
+  wrap.appendChild(main)
   root.appendChild(wrap)
   monterListeDocuments(liste)
 }

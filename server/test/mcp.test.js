@@ -595,7 +595,7 @@ test('Claude se voit dans la salle : pastille et curseur sur le bloc qu’il lit
   const vus = agentsVus(premier.aw)
   assert.equal(vus.length, 1)
   assert.equal(vus[0].user.name, 'Claude (pour Alice)')
-  assert.equal(vus[0].user.color, '#5f7a4a')
+  assert.equal(vus[0].user.color, '#017d5e')
 
   // Son curseur est sur le bloc 3 (« Ils mange des pomme… »).
   const rel = Y.createRelativePositionFromJSON(vus[0].cursor.head)

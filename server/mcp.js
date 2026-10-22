@@ -25,8 +25,9 @@ import {
   statistiques,
 } from './agentTexte.js'
 import { garde } from './garde-fous.js'
+import { COULEUR_IA } from '../shared/identite.js'
 
-export const COULEUR_AGENT = '#5f7a4a' // le vert de l'IA, réservé (client/src/user.js)
+export const COULEUR_AGENT = COULEUR_IA // le vert de l'IA, réservé (shared/identite.js)
 const VERSIONS_CONNUES = ['2025-06-18', '2025-03-26', '2024-11-05']
 const VERSION_PAR_DEFAUT = '2025-06-18'
 // Valeurs par défaut de pagination : elles ne limitent rien (le modèle peut

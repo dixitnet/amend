@@ -48,8 +48,19 @@ export const FERME = 'ferme'
  * @param {string} o.cleMemoire        clé du stockage local
  * @param {string} o.defaut            panneau ouvert par défaut, ou 'ferme'
  * @param {(etat:string)=>void} [o.surChangement]  après chaque changement (panneau ou 'ferme')
+ * @param {() => boolean} [o.fermerAuDepart]  vrai : le volet démarre fermé, quoi qu'on ait retenu (tiroirs du format M)
+ * @param {() => boolean} [o.memoriser]       faux : l'état du moment n'est pas retenu (un tiroir n'est pas une habitude)
  */
-export function monterVolet({ colonne, hoteBoutons, panneaux, cleMemoire, defaut, surChangement }) {
+export function monterVolet({
+  colonne,
+  hoteBoutons,
+  panneaux,
+  cleMemoire,
+  defaut,
+  surChangement,
+  fermerAuDepart = () => false,
+  memoriser = () => true,
+}) {
   colonne.classList.add('volet')
   const boutons = new Map()
   for (const p of panneaux) {
@@ -88,7 +99,7 @@ export function monterVolet({ colonne, hoteBoutons, panneaux, cleMemoire, defaut
       b.setAttribute('aria-pressed', String(actif))
     }
     for (const p of panneaux) p.panneau.hidden = ferme || p.id !== etat
-    ecrire(cleMemoire, etat)
+    if (memoriser()) ecrire(cleMemoire, etat)
     if (surChangement) surChangement(etat)
   }
 
@@ -97,7 +108,7 @@ export function monterVolet({ colonne, hoteBoutons, panneaux, cleMemoire, defaut
     appliquer(etat === id ? FERME : id)
   }
 
-  appliquer(lire(cleMemoire) || defaut)
+  appliquer(fermerAuDepart() ? FERME : lire(cleMemoire) || defaut)
 
   return {
     etat: () => etat,

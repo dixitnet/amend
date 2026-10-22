@@ -42,10 +42,10 @@ export function courrierAvecBouton({ titre, intro, libelleBouton, lien, apres })
     <p style="margin:0 0 18px;font-size:19px;font-weight:600;">${echapper(titre)}</p>
     <p style="margin:0 0 24px;font-size:15px;line-height:1.5;">${echapper(intro)}</p>
     <p style="margin:0 0 24px;">
-      <a href="${echapper(lien)}" style="display:inline-block;background:#5f7a4a;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-size:15px;font-weight:600;">${echapper(libelleBouton)}</a>
+      <a href="${echapper(lien)}" style="display:inline-block;background:#017d5e;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-size:15px;font-weight:600;">${echapper(libelleBouton)}</a>
     </p>
     <p style="margin:0 0 6px;font-size:13px;color:#6b6b6b;">Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :</p>
-    <p style="margin:0 0 24px;font-size:13px;word-break:break-all;"><a href="${echapper(lien)}" style="color:#5f7a4a;">${echapper(lien)}</a></p>
+    <p style="margin:0 0 24px;font-size:13px;word-break:break-all;"><a href="${echapper(lien)}" style="color:#017d5e;">${echapper(lien)}</a></p>
     <p style="margin:0;font-size:13px;color:#6b6b6b;line-height:1.5;">${echapper(apres)}</p>
   </div>
   <p style="max-width:520px;margin:14px auto 0;font-size:12px;color:#9a9a9a;text-align:center;">amend.ink</p>

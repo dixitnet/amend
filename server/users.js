@@ -20,17 +20,16 @@ import { createHash } from 'node:crypto'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { lireJson, ecrireJsonAtomique } from './fichiers.js'
-import { COULEURS, COULEURS_CHOIX } from '../shared/identite.js'
+import { COULEURS, COULEURS_CHOIX, COULEUR_IA, COULEURS_IA_ANCIENNES } from '../shared/identite.js'
 
-/** La couleur de l'IA, réservée (17/09/2026).
+/** La couleur de l'IA, réservée (17/09/2026) : `shared/identite.js`.
  *
  * C'est aussi l'accent de l'application : le vert des acceptations, des
- * boutons principaux, du « .ink » du logo. Une personne qui en hériterait
- * verrait ses propres modifications se confondre avec celles de l'IA dans
- * la marge et dans le texte — exactement la distinction que le suivi des
- * modifications existe pour rendre lisible. Aucune couleur d'auteur ne doit
- * donc s'en approcher. */
-export const COULEUR_IA = '#5f7a4a'
+ * boutons principaux. Une personne qui en hériterait verrait ses propres
+ * modifications se confondre avec celles de l'IA dans la marge et dans le
+ * texte — exactement la distinction que le suivi des modifications existe
+ * pour rendre lisible. Aucune couleur d'auteur ne doit donc s'en approcher. */
+export { COULEUR_IA }
 
 /** La palette des couleurs de personnes : `shared/identite.js`, commune au
  * serveur et au client. */
@@ -45,6 +44,7 @@ const REMPLACEMENTS = {
   '#81b29a': '#8d6e63',
   '#588157': '#c9184a',
   [COULEUR_IA]: '#e07a5f',
+  ...Object.fromEntries(COULEURS_IA_ANCIENNES.map((c) => [c, '#e07a5f'])),
 }
 
 /** La couleur d'un compte, corrigée si elle est retirée ou réservée. */

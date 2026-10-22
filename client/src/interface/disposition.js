@@ -64,6 +64,7 @@ function placer({ largeur, groupe, gauche, droite, marge }) {
  * @param {number} [o.texteMinimal] largeur au-dessous de laquelle la colonne ne doit pas descendre
  * @param {{ouvert:boolean, largeur:number, minimum?:number}} o.gauche
  * @param {{ouvert:boolean, largeur:number, minimum?:number}} o.droite
+ * @param {boolean} [o.tiroirs]   format M : volets par-dessus le texte, qui ne bouge pas
  * @returns {{gauche:string, droite:string, largeurGauche:number, largeurDroite:number,
  *            margeGauche:number, margeDroite:number, gouttiere:boolean}}
  */
@@ -76,7 +77,25 @@ export function calculerDisposition({
   gauche,
   droite,
   marge = MARGE_MINIMALE,
+  tiroirs = false,
 }) {
+  // Format M, sous 1 100 px (lot M2) : les volets sont des **tiroirs**. Ils se
+  // posent par-dessus le texte, à leur largeur pleine, sans jamais le
+  // déplacer ni le rétrécir ; la gouttière n'existe pas à cette largeur. Le
+  // texte reste éditable à côté (un tiroir n'est pas modal) ; une seule
+  // chose ne change pas : un tiroir ne couvre jamais plus de 80 % de l'écran.
+  if (tiroirs) {
+    const plafond = Math.floor(largeur * 0.8)
+    return {
+      gauche: gauche.ouvert ? SUPERPOSE : FERME,
+      droite: droite.ouvert ? SUPERPOSE : FERME,
+      largeurGauche: gauche.ouvert ? Math.min(gauche.largeur, plafond) : 0,
+      largeurDroite: droite.ouvert ? Math.min(droite.largeur, plafond) : 0,
+      margeGauche: 0,
+      margeDroite: 0,
+      gouttiere: false,
+    }
+  }
   // La gouttière ne se replie pas parce qu'elle est peuplée un instant : on
   // juge au pire (peuplée), pour que l'écran ne saute pas à chaque commentaire.
   let avec = gouttiereMax > 0

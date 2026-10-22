@@ -216,6 +216,9 @@ test('un compte qui portait un vert est corrigé, toujours de la même façon', 
   assert.ok(!COULEURS.includes('#588157'))
   assert.ok(COULEURS.includes(couleurAutorisee('#588157')))
   assert.ok(COULEURS.includes(couleurAutorisee(COULEUR_IA)))
+  // L'ancien vert amande de l'IA (avant la menthe du 22/10/2026) est corrigé de la même façon.
+  assert.equal(couleurAutorisee('#5f7a4a'), couleurAutorisee(COULEUR_IA))
+  assert.ok(COULEURS.includes(couleurAutorisee('#5f7a4a')))
   // Une couleur déjà valable n'est pas touchée.
   assert.equal(couleurAutorisee('#3d5a80'), '#3d5a80')
 })

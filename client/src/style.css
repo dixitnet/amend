@@ -56,7 +56,7 @@
      propositions de l'IA soient surlignées avec cette couleur. Distincte de
      --ok (vert de statut "en ligne"/"accepté") par construction : plus
      sourde et plus jaune, pour ne pas se confondre avec ce vert-là. */
-  --accent: #5f7a4a;
+  --accent: #017d5e;
   --panel-bg: #f6f3ee;
   --danger: #b3261e;
   /* Fond d'un bandeau d'erreur (texte clair dessus) : reste le rouge profond
@@ -65,7 +65,7 @@
   --ok: #2f6e46;
   /* Fond des marques de suivi dans le logo (voir logo.js) — la même
      teinte très pâle que le surlignage d'une modification dans le texte. */
-  --surlignage: #eef1e6;
+  --surlignage: #e4efeb;
   /* Les liens (30/09/2026) : un bleu, à part du vert d'accent — qui est
      aussi celui de l'IA, et un lien ne doit pas ressembler à une proposition. */
   --lien: #1a4d8f;
@@ -77,11 +77,11 @@
     --fg: #ece7df;
     --muted: #a89f92;
     --border: #38332c;
-    --accent: #a9c68a;
+    --accent: #71d4b0;
     --panel-bg: #221f1a;
     --danger: #ff8a80;
     --ok: #7fd99a;
-    --surlignage: #2c3324;
+    --surlignage: #28362e;
     --lien: #8ab4e8;
   }
 }
@@ -142,29 +142,7 @@ a { color: var(--accent); }
 .subtitle { color: var(--muted); margin-top: 0; }
 .style-admin-link { display: inline-block; margin-bottom: 16px; font-size: 13px; }
 
-.new-doc-form {
-  display: flex;
-  gap: 8px;
-  margin: 24px 0;
-}
-.new-doc-form input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 15px;
-}
-.new-doc-form button {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 6px;
-  background: var(--accent);
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-}
+/* Le formulaire de création et l'en-tête des pages d'accueil : voir « Pages d'accueil » en fin de fichier. */
 
 .doc-list { list-style: none; padding: 0; margin: 0; }
 /* Une grille plutôt que `space-between` (16/09/2026) : avec trois enfants de
@@ -207,6 +185,28 @@ a { color: var(--accent); }
 }
 .star-btn.starred { color: var(--accent); }
 .star-btn:disabled { cursor: default; opacity: 0.6; }
+
+/* L'étoile des favoris, devant le titre du document (bandeau). */
+.etoile-doc {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.etoile-doc:hover { background: var(--panel-bg); color: var(--fg); }
+.etoile-doc.starred { color: color-mix(in srgb, var(--accent) 80%, black); }
+.etoile-doc:disabled { cursor: default; opacity: 0.6; }
+.etoile-doc:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Suppression d'un document (voir home.js) : discret par défaut (texte
    atténué, pas de fond) pour ne pas dominer visuellement une liste faite
@@ -412,7 +412,7 @@ a { color: var(--accent); }
 }
 .outline-chemin .outline-link { color: var(--fg); }
 .outline-item:not(.outline-courante):not(.outline-chemin) .outline-link { color: var(--muted); }
-.outline-level-1 .outline-link { font-weight: 600; }
+.outline-level-1 .outline-link { font-weight: 700; }
 .outline-level-2 .outline-link { padding-left: 16px; }
 .outline-level-3 .outline-link { padding-left: 28px; }
 
@@ -1132,7 +1132,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 
    Le principe est inverse : le texte occupe seul la colonne, le plan et les
    panneaux sortent du flux et se convoquent. */
-@media (max-width: 1100px) {
+@media (max-width: 700px) {
   /* Le plan quitte le flux : il vivra dans une feuille (voir feuille.js). */
   .outline-sidebar { display: none; }
 }
@@ -1287,12 +1287,12 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
   vertical-align: middle;
   white-space: nowrap;
 }
-.role-badge.role-proprietaire { background: #e3ebda; color: #3f5531; }
+.role-badge.role-proprietaire { background: #d7e9e3; color: #02553f; }
 .role-badge.role-editeur { background: #dde5ee; color: #34506f; }
 .role-badge.role-correcteur { background: #f6e6dd; color: #8a4a30; }
 .role-badge.role-lecteur { background: #e7e4ee; color: #55467a; }
 @media (prefers-color-scheme: dark) {
-  .role-badge.role-proprietaire { background: #2c3324; color: #a9c68a; }
+  .role-badge.role-proprietaire { background: #2b3e34; color: #71d4b0; }
   .role-badge.role-editeur { background: #23303d; color: #8fb4d8; }
   .role-badge.role-correcteur { background: #3a2a23; color: #e0a58f; }
   .role-badge.role-lecteur { background: #2e2940; color: #c0a9e0; }
@@ -1456,94 +1456,7 @@ button.btn-primary { background: var(--accent); color: white; width: 100%; paddi
 
 /* ---------- Page d'accueil publique ---------- */
 
-/* Pensée petit écran d'abord (17/09/2026) : une seule colonne par défaut,
-   deux seulement quand il y a vraiment la place. Tout est atteignable au
-   pouce — champs et boutons à 44 px, jamais deux actions sur la même
-   ligne sous 760 px. */
-.home.landing {
-  max-width: 900px;
-  padding: 40px 16px 64px;
-  text-align: left;
-}
-.landing-entete { text-align: center; margin-bottom: 36px; }
-.landing-logo { font-size: 44px; }
-@media (min-width: 600px) {
-  .landing-logo { font-size: 64px; }
-}
-.landing-baseline {
-  margin: 20px 0 0;
-  font-size: 17px;
-  line-height: 1.5;
-  color: var(--fg);
-}
-.landing-pitch {
-  margin: 12px auto 0;
-  max-width: 34em;
-  color: var(--muted);
-  line-height: 1.55;
-}
-/* L'avis de phase de lancement : dit franchement, il donne son sens au
-   formulaire d'attente — qui, sans lui, ressemble à un formulaire mort. */
-.landing-avis {
-  margin: 24px auto 0;
-  max-width: 34em;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 8px;
-  background: var(--surlignage);
-  color: var(--fg);
-  font-size: 14px;
-  line-height: 1.5;
-}
-.landing-colonnes {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-}
-@media (min-width: 760px) {
-  .landing-colonnes { grid-template-columns: 1fr 1fr; gap: 28px; }
-}
-.landing-carte {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px 18px;
-  display: flex;
-  flex-direction: column;
-}
-.landing-carte h2 { margin: 0 0 6px; font-size: 17px; }
-.landing-carte p { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.5; }
-/* Empilé, jamais côte à côte : sur un téléphone, un champ et un bouton sur
-   la même ligne donnent un champ trop court et un bouton trop étroit. */
-.landing-form { display: flex; flex-direction: column; gap: 10px; margin: 0; }
-.landing-form input {
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--fg);
-  /* 16px minimum : en dessous, Safari sur iPhone zoome à la mise au point
-     et la page part de travers. */
-  font-size: 16px;
-}
-.landing-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.landing-form button {
-  min-height: 44px;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--bg);
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-}
-.landing-form button:disabled { opacity: 0.6; cursor: default; }
-.landing-message { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.landing-pied { margin-top: 36px; text-align: center; font-size: 13px; color: var(--muted); }
-.landing-pied a { color: inherit; }
+/* La page d'accueil publique : voir « Pages d'accueil » en fin de fichier. */
 
 /* ---------- Liste des inscrits (#/inscrits, administrateurs) ---------- */
 .inscrits-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
@@ -2428,7 +2341,9 @@ a.bo-chiffre:hover, a.bo-chiffre:focus-visible { border-color: var(--accent); }
    réglages ; la règle qui le masque est donc portée sur la barre. */
 
 .btn-plan { display: none; }
-@media (max-width: 1100px) {
+/* Le bouton du bandeau n'existe que sur téléphone : de 701 px à 1 100 px, le
+   plan est un tiroir, ouvert par le bouton de la rangée (lot M2). */
+@media (max-width: 700px) {
   .btn-plan { display: inline-flex; align-items: center; }
 }
 
@@ -2880,29 +2795,12 @@ tr.bo-traite { opacity: 0.6; }
    création titré restent sur grand écran, où ils ne gênent personne.
    ====================================================================== */
 @media (max-width: 700px) {
-  .home {
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px
-      calc(96px + env(safe-area-inset-bottom, 0px));
-  }
-  /* Ce qui n'a pas sa place ici. */
-  .home > .subtitle,
-  .home > .style-admin-link,
-  .home > .new-doc-form,
+  /* Ce qui n'a pas sa place ici. La corbeille se vide depuis un ordinateur ;
+     ici on la consulte et l'on restaure — le bouton « Supprimer pour de
+     bon » est donc masqué comme les autres suppressions. */
   .doc-list .delete-doc-btn {
     display: none;
   }
-  /* La corbeille se vide depuis un ordinateur ; ici on la consulte et l'on
-     restaure — le bouton « Supprimer pour de bon » est donc masqué comme les
-     autres suppressions. */
-  .home > h1 { margin: 0 0 10px; }
-  .auth-status {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 18px;
-  }
-  .auth-status a { margin-left: 0; }
 
   /* Une ligne = deux niveaux, et toute la ligne est touchable. La grille de
      trois colonnes du bureau poussait la date hors de l'écran dès qu'un
@@ -3131,7 +3029,7 @@ tr.bo-traite { opacity: 0.6; }
 /* --- Back-office : embarquer un bêta-testeur (01/10/2026) ---------------- */
 .bo-embarquer-msg { margin-left: 8px; }
 .bo-embarquer-msg:empty { display: none; }
-.bo-ok { color: var(--fg); opacity: 1; border-left: 3px solid #5f7a4a; padding-left: 8px; }
+.bo-ok { color: var(--fg); opacity: 1; border-left: 3px solid var(--accent); padding-left: 8px; }
 .bo-erreur { color: var(--danger); opacity: 1; }
 .bo-embarquer-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 14px; }
 .bo-embarquer-form label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
@@ -3528,7 +3426,7 @@ tr.bo-traite { opacity: 0.6; }
   .rangee-droite { border-left: 1px solid var(--border); }
 }
 /* Sous 1 100 px, le plan vit dans une feuille ouverte depuis le bandeau. */
-@media (max-width: 1100px) {
+@media (max-width: 700px) {
   .rangee-gauche { display: none; }
 }
 .volet-bouton {
@@ -3623,7 +3521,7 @@ tr.bo-traite { opacity: 0.6; }
    seulement là où elle est affichée : sous 1 100 px elle quitte le flux pour
    la feuille du plan, et la règle `display: none` doit l'emporter. La colonne
    de droite est déjà une colonne flexible (.sidebar). */
-@media (min-width: 1101px) {
+@media (min-width: 701px) {
   .outline-sidebar.volet { display: flex; flex-direction: column; overflow: hidden; }
 }
 .volet-panneau { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
@@ -3799,15 +3697,15 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
   }
   .format-toolbar .track-toggle input {
     -webkit-appearance: none; appearance: none; margin: 0; flex: none;
-    width: 34px; height: 20px; border-radius: 10px; background: #cfc8bd; position: relative;
+    width: 40px; height: 24px; border-radius: 12px; background: #cfc8bd; position: relative;
     cursor: pointer; transition: background 0.15s ease-out;
   }
   .format-toolbar .track-toggle input::before {
-    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%;
     background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.15s ease-out;
   }
   .format-toolbar .track-toggle input:checked { background: var(--accent); }
-  .format-toolbar .track-toggle input:checked::before { transform: translateX(14px); }
+  .format-toolbar .track-toggle input:checked::before { transform: translateX(16px); }
   .format-toolbar .track-toggle input:disabled { cursor: default; opacity: 0.85; }
   .format-toolbar .track-toggle input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -3817,11 +3715,12 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
   .outline-section { padding: 10px 8px; border-bottom: none; }
   .outline-list { margin: 0; gap: 1px; }
   .outline-link { padding: 7px 12px; border-radius: 6px; font-size: 13.5px; color: var(--fg); }
-  .outline-level-1 .outline-link { font-size: 14px; font-weight: 500; }
+  .outline-level-1 .outline-link { font-size: 14px; font-weight: 700; }
   .outline-level-2 .outline-link { padding-left: 26px; }
   .outline-level-3 .outline-link { padding-left: 40px; }
   .outline-link:hover { background: var(--panel-bg); }
-  .outline-courante .outline-link { background: #eef1e6; box-shadow: none; font-weight: 500; }
+  .outline-courante .outline-link { background: var(--surlignage); box-shadow: none; font-weight: 500; }
+  .outline-level-1.outline-courante .outline-link { font-weight: 700; }
   .outline-item:not(.outline-courante):not(.outline-chemin) .outline-link { color: var(--fg); }
 
   .sidebar .sidebar-section { padding: 14px 16px; border-bottom: 1px solid #efeae1; }
@@ -3852,9 +3751,10 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
   /* Les boutons de décision, comme dans la vue V1. */
   button.btn-accept {
     height: 28px; padding: 0 12px; border: 0; border-radius: 6px;
-    background: #e3efe7; color: var(--ok); font-size: 13px; font-weight: 500;
+    background: color-mix(in srgb, var(--accent) 14%, transparent); color: color-mix(in srgb, var(--accent) 85%, var(--fg));
+    font-size: 13px; font-weight: 500;
   }
-  button.btn-accept:hover { background: #d4e7da; }
+  button.btn-accept:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
   button.btn-reject { height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--danger); font-size: 13px; }
   button.btn-reject:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); }
 
@@ -4052,3 +3952,289 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
   width: calc(var(--n-gouttiere) - var(--n-corps) * 0.5);
 }
 
+/* ==========================================================================
+   Format M (701 à 1 279 px) — lots M1 et M2, 21/10/2026
+   ========================================================================== */
+
+/* Le bandeau : sous 1 100 px, une règle ancienne donnait à chaque zone 100 %
+   de la largeur alors que la rangée ne passe plus à la ligne : les zones se
+   recouvraient. La zone de gauche prend ce qui reste (son titre se raccourcit,
+   avec des points de suspension) ; celle de droite garde sa taille. */
+@media (min-width: 701px) {
+  .banniere-gauche { flex: 1 1 0; min-width: 0; }
+  .banniere-droite { flex: 0 0 auto; }
+  .banniere-centre { order: 0; }
+  .doc-title { text-overflow: ellipsis; }
+  .connection-status { flex: 0 0 auto; }
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .word-count { display: none; }
+}
+
+/* La barre d'édition reste sur une seule ligne : si elle manque de place, elle
+   se fait glisser du doigt ; l'interrupteur du suivi reste toujours visible. */
+@media (min-width: 701px) and (max-width: 1279px) {
+  .format-toolbar { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .format-toolbar::-webkit-scrollbar { display: none; }
+  .format-toolbar .barre-groupe,
+  .format-toolbar > .barre-groupe[data-groupe='relire'] { flex: none; flex-wrap: nowrap; }
+  .format-toolbar .btn-tool,
+  .format-toolbar .heading-select,
+  .format-toolbar .barre-filet,
+  .format-toolbar .menu-flottant { flex: none; }
+  .format-toolbar > .suivi-entete {
+    flex: none;
+    position: sticky;
+    right: 0;
+    z-index: 20;
+    background: var(--bg) !important; /* opaque : il passe par-dessus les derniers outils quand la barre défile */
+    box-shadow: -18px 0 12px -2px var(--bg);
+  }
+}
+
+/* Les tiroirs (lot M2) : par-dessus le texte, avec leur ombre ; le texte
+   reste en place et éditable à côté. */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .volet[data-tiroir='oui'][data-mode='superpose'] { box-shadow: 0 0 28px rgb(31 27 22 / 22%); z-index: 8; }
+}
+
+/* La zone de défilement du texte est atteignable au clavier : anneau discret, à l'intérieur. */
+.editor-container:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -2px; }
+
+/* ==========================================================================
+   Pages d'accueil (21/10/2026) : l'accueil public et « Mes documents » dans
+   le langage graphique de l'éditeur — Roboto, bandeau de 56 px, boutons de
+   8 px de rayon sans cadre ou à contour fin, le vert pour l'action, des
+   listes à plat. Les mêmes jetons que l'éditeur (--bg, --panel-bg,
+   --border, --accent) : le thème sombre suit sans une ligne de plus.
+   ========================================================================== */
+.accueil { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+
+/* --- Bandeau --- */
+.accueil-bandeau {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 56px; box-sizing: border-box; padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.accueil-logo {
+  display: inline-flex; align-items: center; padding: 4px 6px; margin-left: -6px;
+  border-radius: 8px; color: var(--fg); text-decoration: none;
+}
+.accueil-logo:focus-visible, .accueil-lien:focus-visible, .btn-contour:focus-visible, .btn-principal:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.accueil-bandeau-droite { display: flex; align-items: center; gap: 6px; }
+.accueil-lien {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px;
+  border-radius: 8px; color: var(--muted); font-size: 14px; text-decoration: none;
+}
+.accueil-lien:hover { background: var(--panel-bg); color: var(--fg); }
+.accueil-compte { display: inline-flex; margin-left: 6px; }
+.accueil-compte .menu-compte { margin-left: 0; }
+
+/* --- Boutons --- */
+.btn-contour, .btn-principal {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  box-sizing: border-box; height: 34px; padding: 0 14px; border-radius: 8px;
+  font: inherit; font-size: 14px; cursor: pointer; white-space: nowrap;
+}
+.btn-contour { border: 1px solid var(--border); background: var(--bg); color: var(--fg); }
+.btn-contour:hover { background: var(--panel-bg); }
+.btn-principal { height: 36px; padding: 0 16px; border: 0; background: var(--accent); color: var(--bg); font-weight: 500; }
+.btn-principal:hover { background: color-mix(in srgb, var(--accent) 86%, black); }
+.btn-principal:disabled { opacity: 0.6; cursor: default; }
+.btn-contour[hidden], .btn-principal[hidden] { display: none; }
+
+/* --- Accueil public --- */
+.accueil-public .accueil-contenu { flex: 1; width: 100%; max-width: 920px; margin: 0 auto; box-sizing: border-box; padding: 48px 20px 24px; }
+.landing-entete { display: flex; flex-direction: column; align-items: center; margin-bottom: 40px; text-align: center; }
+/* L'avis de phase de lancement : dit franchement, il donne son sens au
+   formulaire d'attente — qui, sans lui, ressemble à un formulaire mort. */
+.landing-avis {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 34em; margin: 0 0 22px; padding: 7px 14px;
+  border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  color: color-mix(in srgb, var(--accent) 70%, var(--fg)); font-size: 13.5px; line-height: 1.4; text-align: left;
+}
+.landing-avis .icone { flex: none; }
+.landing-titre { margin: 0; max-width: 18em; font-size: clamp(28px, 5.2vw, 44px); font-weight: 500; line-height: 1.15; letter-spacing: -0.02em; }
+.landing-pitch { margin: 18px auto 0; max-width: 36em; color: var(--muted); font-size: 17px; line-height: 1.6; }
+.landing-exemple {
+  margin: 32px auto 0; width: 100%; max-width: 560px; box-sizing: border-box; padding: 18px 20px; text-align: left;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg);
+  box-shadow: 0 1px 2px rgb(31 27 22 / 5%), 0 8px 24px rgb(31 27 22 / 6%);
+}
+.landing-exemple-texte { margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
+.landing-exemple del { padding: 0 2px; border-radius: 3px; background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); text-decoration: line-through; }
+.landing-exemple ins { padding: 0 2px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: color-mix(in srgb, var(--accent) 75%, var(--fg)); text-decoration: none; }
+.landing-exemple-carte {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; font-size: 13px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px;
+}
+.landing-exemple-pastille { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #b5502f; color: #fff; font-size: 10px; font-weight: 500; }
+.landing-exemple-qui { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.landing-exemple-qui b { color: var(--fg); font-weight: 500; }
+.landing-exemple-accepter, .landing-exemple-rejeter { padding: 4px 10px; border-radius: 6px; font-weight: 500; }
+.landing-exemple-accepter { background: color-mix(in srgb, var(--accent) 16%, transparent); color: color-mix(in srgb, var(--accent) 75%, var(--fg)); }
+.landing-exemple-rejeter { color: var(--danger); }
+
+/* Deux cartes ; sur téléphone, une colonne, la liste d'attente d'abord (le
+   visiteur sans compte est le cas majoritaire). Champs et boutons à 44 px :
+   tout est atteignable au pouce. */
+.landing-colonnes { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 760px) { .landing-colonnes { grid-template-columns: 1fr 1fr; gap: 20px; } }
+.landing-carte { display: flex; flex-direction: column; padding: 22px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+.landing-carte h2 { margin: 0 0 6px; font-size: 17px; font-weight: 500; }
+.landing-carte p { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.landing-form { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.landing-form[hidden] { display: none; }
+.landing-form input {
+  width: 100%; box-sizing: border-box; min-height: 44px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg);
+  /* 16 px minimum : en dessous, Safari sur iPhone zoome à la mise au point. */
+  font: inherit; font-size: 16px;
+}
+.landing-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.landing-form button { min-height: 44px; padding: 10px 16px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
+.landing-form button:hover { background: color-mix(in srgb, var(--accent) 86%, black); }
+.landing-form button:disabled { opacity: 0.6; cursor: default; }
+.landing-message { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.landing-pied { margin: 28px 0 0; padding: 0 20px 28px; text-align: center; font-size: 13px; color: var(--muted); }
+.landing-pied a { color: inherit; }
+
+/* --- Mes documents --- */
+.accueil-docs .accueil-contenu { width: 100%; max-width: 880px; margin: 0 auto; box-sizing: border-box; padding: 28px 20px 96px; }
+.accueil-tete { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; margin: 0 0 18px; }
+.accueil-tete h1 { margin: 0; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; }
+.accueil-creer { display: flex; align-items: center; min-width: 0; }
+.new-doc-form { display: flex; align-items: center; gap: 8px; margin: 0; }
+.new-doc-form[hidden] { display: none; }
+.new-doc-form input, .dossier-nom {
+  box-sizing: border-box; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--fg); font: inherit; font-size: 14px;
+}
+.new-doc-form input { width: min(340px, 38vw); }
+.new-doc-form input:focus, .dossier-nom:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* La barre : recherche (champ plein, sans cadre), tri, nouveau dossier. */
+.accueil-docs .liste-barre { align-items: center; gap: 8px; margin: 0 0 14px; }
+.liste-recherche-champ { position: relative; display: block; flex: 1; min-width: 0; color: var(--muted); }
+.liste-recherche-champ .icone { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.accueil-docs .liste-recherche {
+  width: 100%; box-sizing: border-box; height: 38px; padding: 0 12px 0 36px;
+  border: 1px solid transparent; border-radius: 8px; background: var(--panel-bg); color: var(--fg); font: inherit; font-size: 14px;
+}
+.accueil-docs .liste-recherche:focus { outline: none; border-color: var(--accent); background: var(--bg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.accueil-docs .liste-tri {
+  -webkit-appearance: none; appearance: none; height: 38px; padding: 0 28px 0 10px; border: 0; border-radius: 8px;
+  background-color: transparent; color: var(--fg); font: inherit; font-size: 14px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a8378' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center; background-size: 12px 12px;
+}
+.accueil-docs .liste-tri:hover { background-color: var(--panel-bg); }
+.accueil-docs .liste-tri:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.liste-nouveau-dossier { height: 38px; flex: none; }
+.liste-nouveau-dossier[hidden] { display: none; }
+.accueil-docs .liste-message { border-radius: 8px; background: var(--panel-bg); }
+
+/* Les lignes, à plat : la ligne entière ouvre le document (le lien étend sa
+   zone), l'étoile et les gestes restent au-dessus. Les gestes n'apparaissent
+   qu'au survol ou au focus sur un appareil à souris ; au doigt, ils restent. */
+.accueil-docs .doc-list li {
+  position: relative; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px;
+  padding: 0 8px 0 4px; border-bottom: 0; border-radius: 10px;
+}
+.accueil-docs .doc-list li:hover, .accueil-docs .doc-list li:focus-within { background: var(--panel-bg); }
+.accueil-docs .doc-list-title { gap: 4px; min-height: 52px; }
+.accueil-docs .doc-list-title > a { color: var(--fg); font-size: 15px; font-weight: 500; text-decoration: none; }
+.accueil-docs .doc-list-title > a::after { content: ''; position: absolute; inset: 0; border-radius: 10px; }
+.accueil-docs .doc-list-title > a:focus-visible { outline: none; }
+.accueil-docs .doc-list-title > a:focus-visible::after { outline: 2px solid var(--accent); outline-offset: -2px; }
+.accueil-docs .corbeille-doc { color: var(--fg); font-size: 15px; font-weight: 500; }
+.accueil-docs .doc-date { font-size: 13px; font-variant-numeric: tabular-nums; }
+.accueil-docs .doc-emplacement { margin-left: 8px; }
+.accueil-docs .role-badge { flex: none; margin-left: 6px; padding: 2px 8px; border-radius: 10px; font-size: 11.5px; }
+.accueil-docs .star-btn {
+  position: relative; z-index: 1; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 8px; color: var(--muted);
+}
+.accueil-docs .star-btn:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg); }
+.accueil-docs .star-btn.starred { color: color-mix(in srgb, var(--accent) 80%, black); }
+.accueil-docs .star-btn.starred .icone path { fill: currentColor; }
+.accueil-docs .star-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.accueil-docs .doc-actions { position: relative; z-index: 1; gap: 2px; }
+.accueil-docs .doc-actions button, .accueil-docs .dossier-geste, .accueil-docs .corbeille-ouvrir, .accueil-docs .fil-lien {
+  height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--muted);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.accueil-docs .doc-actions button:hover, .accueil-docs .dossier-geste:hover, .accueil-docs .corbeille-ouvrir:hover, .accueil-docs .fil-lien:hover {
+  background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg); border: 0;
+}
+.accueil-docs .doc-actions .delete-doc-btn:hover, .accueil-docs .dossier-supprimer:hover { color: var(--danger); }
+.accueil-docs .doc-actions .confirming, .accueil-docs .dossier-geste.confirming { background: var(--danger-fond); color: #fff; }
+.accueil-docs .doc-actions button:focus-visible, .accueil-docs .dossier-geste:focus-visible, .accueil-docs .corbeille-ouvrir:focus-visible, .accueil-docs .fil-lien:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .accueil-docs .doc-list li > .doc-actions { opacity: 0; }
+  .accueil-docs .doc-list li:hover > .doc-actions,
+  .accueil-docs .doc-list li:focus-within > .doc-actions { opacity: 1; }
+}
+.accueil-docs .deplacement { position: relative; z-index: 1; padding: 0 0 12px 38px; }
+.accueil-docs .deplacer-select { height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; }
+
+/* Dossiers. */
+.accueil-docs .dossier-list { margin: 0 0 6px; }
+.accueil-docs .dossier-ligne { gap: 12px; padding: 0 12px 0 4px; border-bottom: 0; border-radius: 10px; }
+.accueil-docs .dossier-ligne:hover { background: var(--panel-bg); }
+.accueil-docs .dossier-ouvrir { gap: 4px; min-height: 52px; padding: 0; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 500; }
+.accueil-docs .dossier-ouvrir:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.accueil-docs .dossier-icone { display: inline-flex; width: 34px; justify-content: center; color: color-mix(in srgb, var(--accent) 85%, var(--fg)); }
+
+/* Sections et fil d'Ariane. */
+.accueil-docs .favoris { margin-bottom: 14px; }
+.accueil-docs .favoris-titre, .accueil-docs .resultats-titre, .accueil-docs .corbeille-titre {
+  margin: 14px 12px 4px; font-size: 12.5px; font-weight: 500; letter-spacing: 0; color: var(--muted);
+}
+.accueil-docs .corbeille-titre { margin-top: 6px; font-size: 18px; color: var(--fg); }
+.accueil-docs .corbeille-aide { margin: 0 12px 10px; }
+.accueil-docs .fil-barre { margin: 0 0 10px; }
+.accueil-docs .fil { font-size: 18px; gap: 2px; }
+.accueil-docs .fil .fil-lien { height: auto; padding: 4px 8px; font-size: 18px; }
+.accueil-docs .fil-courant { padding: 4px 8px; font-weight: 500; }
+.accueil-docs .fil-sep { color: var(--muted); }
+.accueil-docs .dossier-form { gap: 8px; margin: 0 0 12px; }
+.accueil-docs .dossier-valider { height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.accueil-docs .dossier-annuler { height: 36px; padding: 0 10px; border-radius: 8px; font: inherit; font-size: 14px; }
+.accueil-docs .dossier-annuler:hover { background: var(--panel-bg); }
+.accueil-docs .doc-list-empty { margin: 0; padding: 56px 0; text-align: center; }
+.accueil-docs .corbeille-pied { margin-top: 20px; padding: 0 4px; }
+.accueil-docs .corbeille-ouvrir { display: inline-flex; align-items: center; gap: 8px; }
+
+/* --- Téléphone : même dessin, au pouce --- */
+@media (max-width: 700px) {
+  .accueil-bandeau { min-height: 52px; padding-top: env(safe-area-inset-top, 0px); }
+  .accueil-lien { height: 40px; }
+  .accueil-logo .amend-logo { font-size: 22px !important; }
+  .accueil-public .btn-contour { height: 38px; padding: 0 10px; font-size: 13px; }
+  .accueil-docs .accueil-bandeau-droite .accueil-lien:first-child { display: none; } /* Modèles : sur ordinateur */
+  .accueil-public .accueil-contenu { padding-top: 28px; }
+  .landing-pitch { font-size: 16px; }
+  .accueil-docs .accueil-contenu { padding: 18px 16px calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .accueil-creer { display: none; }
+  .accueil-tete h1 { font-size: 22px; }
+  .accueil-docs .liste-barre { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .accueil-docs .liste-recherche-champ { flex-basis: 100%; }
+  .accueil-docs .liste-recherche { height: 44px; font-size: 16px; }
+  .accueil-docs .liste-tri { height: 40px; font-size: 15px; padding-left: 6px; }
+  .liste-nouveau-dossier { height: 40px; margin-left: auto; }
+  .accueil-docs .doc-list li { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0 4px; }
+  .accueil-docs .doc-list-title { flex-wrap: wrap; min-height: 48px; padding-top: 4px; }
+  .accueil-docs .doc-list-title > a { flex: 1; padding: 10px 0; font-size: 16px; }
+  .accueil-docs .doc-list li > .doc-date { padding: 0 0 10px 38px; text-align: left; }
+  .accueil-docs .doc-list li > .doc-actions { justify-self: start; padding: 0 0 8px 30px; }
+  .accueil-docs .doc-actions button { height: 36px; }
+  .accueil-docs .star-btn { width: 40px; height: 40px; }
+  .accueil-docs .deplacement { padding-left: 38px; }
+  .accueil-docs .favoris-titre, .accueil-docs .resultats-titre { margin-left: 8px; }
+}

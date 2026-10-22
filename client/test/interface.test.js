@@ -187,9 +187,11 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
 
   // Les pièces du bandeau réorganisé le 18/09, dans leur zone.
   assert.ok(racine.querySelector('.banniere-gauche .doc-title'), 'le titre')
-  // Vue V1 (21/10/2026) : le favori, « Nouveau document » et les versions dans le menu ⋯ ;
-  // l'état de l'enregistrement en un mot, à côté du titre ; la présence à droite.
-  assert.ok(racine.querySelector('.banniere-droite .menu-plus .star-btn'), 'le favori, dans le menu ⋯')
+  // Vue V1 (21/10/2026) : « Nouveau document » et les versions dans le menu ⋯ ;
+  // le favori (étoile) devant le titre, pas dans un menu ; l'état de
+  // l'enregistrement en un mot, à côté du titre ; la présence à droite.
+  assert.ok(racine.querySelector('.banniere-gauche .etoile-doc + .doc-title'), 'l’étoile des favoris, devant le titre')
+  assert.ok(!racine.querySelector('.menu-plus .etoile-doc'), 'pas de favori dans le menu ⋯')
   assert.ok(racine.querySelector('.banniere-droite .menu-plus .btn-nouveau'), 'Nouveau document, dans le menu ⋯')
   assert.ok(racine.querySelector('.banniere-droite .menu-plus .history-link'), 'les versions, dans le menu ⋯')
   assert.ok(racine.querySelector('.banniere-droite .presence-bar'), 'les pastilles de présence')
@@ -212,14 +214,21 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   const rangee = racine.querySelector('.app-shell > .rangee-edition')
   assert.ok(rangee, 'la rangée fixe')
   assert.deepEqual(
-    [...rangee.children].map((e) => e.className.split(' ').find((c) => ['rangee-gauche', 'format-toolbar', 'rangee-droite'].includes(c))),
+    [...rangee.children].map((e) =>
+      e.className.split(' ').find((c) => ['rangee-gauche', 'format-toolbar', 'rangee-droite'].includes(c))
+    ),
     ['rangee-gauche', 'format-toolbar', 'rangee-droite'],
     'plan | barre d’édition | volets de droite'
   )
-  const boutons = (cote) => [...rangee.querySelectorAll(`.${cote} .volet-bouton[data-panneau]`)].map((b) => b.dataset.panneau)
+  const boutons = (cote) =>
+    [...rangee.querySelectorAll(`.${cote} .volet-bouton[data-panneau]`)].map((b) => b.dataset.panneau)
   assert.deepEqual(boutons('rangee-gauche'), ['plan'])
   assert.deepEqual(boutons('rangee-droite'), ['modifications', 'margo'])
-  assert.equal(racine.querySelectorAll('.sidebar .volet-bouton, .outline-sidebar .volet-bouton').length, 0, 'pas de bouton dans les colonnes')
+  assert.equal(
+    racine.querySelectorAll('.sidebar .volet-bouton, .outline-sidebar .volet-bouton').length,
+    0,
+    'pas de bouton dans les colonnes'
+  )
   const fixe = racine.querySelector('.sidebar .panneau-modifications > .sidebar-fixe')
   assert.ok(fixe, 'la partie fixe de l’onglet Modifications')
   assert.deepEqual(
@@ -227,15 +236,24 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
     ['zone-relecture'],
     'le parcours, seul en tête'
   )
-  assert.ok(!racine.querySelector('.ai-section'), 'plus de panneau Corrections IA : ses consignes sont dans la bulle de sélection')
+  assert.ok(
+    !racine.querySelector('.ai-section'),
+    'plus de panneau Corrections IA : ses consignes sont dans la bulle de sélection'
+  )
   assert.ok(fixe.querySelector('.zone-relecture > .barre-relecture'), 'le parcours des modifications')
   assert.ok(!racine.querySelector('.format-toolbar .barre-relecture'), 'pas dans la barre d’outils')
-  assert.ok(racine.querySelector('.panneau-modifications > .sidebar-corps > .changes-section'), 'le corps qui défile : les modifications')
+  assert.ok(
+    racine.querySelector('.panneau-modifications > .sidebar-corps > .changes-section'),
+    'le corps qui défile : les modifications'
+  )
   assert.ok(racine.querySelector('.panneau-modifications > .sidebar-corps > .comments-section'), 'et les commentaires')
   assert.ok(racine.querySelector('.sidebar .panneau-margo'), 'l’onglet Margo')
   assert.ok(!racine.querySelector('.sidebar-corps .ai-section'), 'Corrections IA ne défile plus')
   const relire = racine.querySelector('.format-toolbar .barre-groupe[data-groupe="relire"]')
-  assert.ok([...relire.querySelectorAll('button')].some((b) => b.textContent === 'Commenter'), 'le bouton s’appelle « Commenter »')
+  assert.ok(
+    [...relire.querySelectorAll('button')].some((b) => b.textContent === 'Commenter'),
+    'le bouton s’appelle « Commenter »'
+  )
   assert.ok(![...relire.querySelectorAll('button')].some((b) => b.textContent === 'Commentaire'))
   assert.ok(racine.querySelector('.ProseMirror'), 'la zone d’édition')
 
@@ -395,9 +413,7 @@ test('le bouton « # » allume et éteint les numéros de bloc, et s’en souvie
   }
 
   const { dom, racine, editeur } = await monter()
-  const bouton = racine.querySelector(
-    '.menu-plus .zone-affichage .btn-numeros'
-  )
+  const bouton = racine.querySelector('.menu-plus .zone-affichage .btn-numeros')
   assert.ok(bouton, 'le bouton est dans la zone Affichage de la barre, avec le zoom')
   assert.equal(bouton.nextElementSibling, racine.querySelector('.zoom-select'), 'juste avant le zoom')
   const colonne = racine.querySelector('.editor-container')
@@ -601,10 +617,7 @@ test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', asy
   assert.ok(racine.querySelector('.marge-commentaires'), 'la marge des commentaires est là')
   // Plus de panneau Corrections IA (21/10/2026) : rien d'IA à l'écran pour un lecteur.
   assert.ok(!racine.querySelector('.ai-section'), 'pas de panneau Corrections IA')
-  assert.ok(
-    racine.querySelector('.volet-bouton[data-panneau="margo"]').hidden,
-    'pas de Margo pour un lecteur'
-  )
+  assert.ok(racine.querySelector('.volet-bouton[data-panneau="margo"]').hidden, 'pas de Margo pour un lecteur')
 
   if (editeur && editeur.destroy) editeur.destroy()
 })

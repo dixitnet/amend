@@ -3,6 +3,21 @@
 // (audit du 10/10/2026, C14) — avant, ces listes étaient recopiées dans
 // `server/users.js`, `client/src/user.js` et trois écrans.
 
+/** La couleur de l'IA (Margo, Claude invité) et de l'accent de l'interface
+ * (22/10/2026 : « menthe profonde », contraste 5,1 : 1 avec le blanc). C'est la
+ * couleur **écrite** dans les nouvelles modifications. Les modifications déjà
+ * dans les documents portent l'ancien vert amande : on le reconnaît encore
+ * (`estCouleurIA`), sans quoi « Rejeter les modifications de l'IA » ne les
+ * trouverait plus. */
+export const COULEUR_IA = '#017d5e'
+export const COULEURS_IA_ANCIENNES = ['#5f7a4a']
+
+/** Cette couleur est-elle celle de l'IA, d'hier ou d'aujourd'hui ? */
+export function estCouleurIA(couleur) {
+  const c = String(couleur || '').toLowerCase()
+  return c === COULEUR_IA || COULEURS_IA_ANCIENNES.includes(c)
+}
+
 /** La palette dont on tire la couleur d'une personne.
  *
  * **Aucun vert, délibérément** : le vert est réservé à l'IA, qui est aussi

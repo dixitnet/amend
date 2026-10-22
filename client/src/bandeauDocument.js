@@ -15,8 +15,9 @@ import { svgIcone } from './interface/icones.js'
 
 /**
  * La zone gauche : retour, plan, titre (esthétique de la vue V1, 21/10/2026 :
- * « Nouveau document » et le favori passent dans le menu ⋯ du bandeau — ils
- * sont construits ici et rendus à l'appelant, qui les y range).
+ * « Nouveau document » passe dans le menu ⋯ du bandeau — il est construit ici
+ * et rendu à l'appelant, qui l'y range ; l'étoile des favoris reste devant le
+ * titre).
  *
  * @param {HTMLElement} zoneGauche
  * @param {object} options
@@ -85,12 +86,14 @@ export function monterZoneGauche(zoneGauche, { docId, docMeta, envoyerTitre, cib
   // outils.
   const starBtn = document.createElement('button')
   starBtn.type = 'button'
-  starBtn.className = 'star-btn menu-item'
+  starBtn.className = 'etoile-doc'
   let starred = !!docMeta.starred
   function renderStar() {
-    starBtn.textContent = starred ? '★ Retirer des favoris' : '☆ Mettre en favori'
+    starBtn.textContent = starred ? '★' : '☆'
     starBtn.classList.toggle('starred', starred)
     starBtn.title = starred ? 'Retirer des favoris' : 'Mettre en favori'
+    starBtn.setAttribute('aria-label', starBtn.title)
+    starBtn.setAttribute('aria-pressed', String(starred))
   }
   renderStar()
   starBtn.onclick = async () => {
@@ -145,7 +148,8 @@ export function monterZoneGauche(zoneGauche, { docId, docMeta, envoyerTitre, cib
       }).catch(() => {})
     }, 500)
   })
-  zoneGauche.appendChild(titleInput)
+  // L'étoile est devant le titre, pas dans un menu (consigne du 21/10/2026).
+  zoneGauche.append(starBtn, titleInput)
 
   return { titleInput, nouveauBtn, starBtn }
 }

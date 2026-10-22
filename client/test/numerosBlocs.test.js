@@ -100,7 +100,10 @@ test('le compteur CSS numérote exactement les blocs que le serveur numérote', 
   )
   // Et le document est bien celui qu'on croit : vides et cellules comprises.
   assert.ok(serveur.length >= 17, `un document complet (${serveur.length} blocs)`)
-  assert.ok(serveur.some((b) => b.texte === ''), 'les blocs vides sont comptés')
+  assert.ok(
+    serveur.some((b) => b.texte === ''),
+    'les blocs vides sont comptés'
+  )
 })
 
 test('la liste des balises couvre tous les blocs de texte du schéma', () => {
@@ -119,15 +122,25 @@ test('la liste des balises couvre tous les blocs de texte du schéma', () => {
     }
   }
   assert.ok(vus.has('p') && vus.has('h1'), 'le test a bien parcouru paragraphes et titres')
-  assert.ok(![...Object.keys(n)].some((k) => NOEUDS_ECARTES.test(k) && n[k].isTextblock), 'image, table des matières et ligne ne sont pas des blocs de texte')
+  assert.ok(
+    ![...Object.keys(n)].some((k) => NOEUDS_ECARTES.test(k) && n[k].isTextblock),
+    'image, table des matières et ligne ne sont pas des blocs de texte'
+  )
 })
 
 test('la feuille de style limite les numéros à l’éditeur principal, hors téléphone', () => {
-  const bloc = CSS.slice(CSS.indexOf('/* --- Numéros de bloc'))
+  const debut = CSS.indexOf('/* --- Numéros de bloc')
+  // Le bloc s'arrête à la section suivante (bandeau « ==== »), ajoutée après lui.
+  const fin = CSS.indexOf('/* ====', debut)
+  const bloc = CSS.slice(debut, fin === -1 ? undefined : fin)
   const regles = [...bloc.matchAll(/^([^\n{}/*][^{}]*)\{/gm)].map((m) => m[1])
   assert.ok(regles.length >= 4)
   for (const r of regles) {
-    assert.match(r, /\.editor-container\.numeros-blocs > \.ProseMirror/, `limité à l’éditeur principal : ${r.slice(0, 60)}`)
+    assert.match(
+      r,
+      /\.editor-container\.numeros-blocs > \.ProseMirror/,
+      `limité à l’éditeur principal : ${r.slice(0, 60)}`
+    )
     assert.match(r, /:not\(\.tel-lecture\):not\(\.tel-edition\)/, `jamais sur téléphone : ${r.slice(0, 60)}`)
   }
   // Rien à la sélection : le numéro n'est ni copié ni cliquable.
