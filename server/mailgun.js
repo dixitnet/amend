@@ -30,6 +30,12 @@ function echapper(s) {
  * sélectionner à la main. Pour l'unique porte d'entrée de l'application,
  * c'est une friction qu'on ne peut pas se permettre.
  *
+ * Un seul lien cliquable (22/10/2026) : le bouton. L'adresse écrite dessous
+ * n'est plus un lien — c'est un texte à copier si le bouton ne marche pas. Une
+ * passerelle de sécurité d'entreprise compte les liens d'un courrier, et un
+ * courrier court, d'un domaine récent, avec deux liens vers le même jeton
+ * ressemble à de l'hameçonnage ; la version texte seule garde l'adresse.
+ *
  * Écrit sans image, sans police distante et sans feuille de style séparée :
  * les clients de messagerie en suppriment la plupart, et un courrier qui
  * dépend de ce qu'ils acceptent est un courrier qui casse.
@@ -45,7 +51,7 @@ export function courrierAvecBouton({ titre, intro, libelleBouton, lien, apres })
       <a href="${echapper(lien)}" style="display:inline-block;background:#017d5e;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-size:15px;font-weight:600;">${echapper(libelleBouton)}</a>
     </p>
     <p style="margin:0 0 6px;font-size:13px;color:#6b6b6b;">Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :</p>
-    <p style="margin:0 0 24px;font-size:13px;word-break:break-all;"><a href="${echapper(lien)}" style="color:#017d5e;">${echapper(lien)}</a></p>
+    <p style="margin:0 0 24px;font-size:13px;word-break:break-all;color:#017d5e;">${echapper(lien)}</p>
     <p style="margin:0;font-size:13px;color:#6b6b6b;line-height:1.5;">${echapper(apres)}</p>
   </div>
   <p style="max-width:520px;margin:14px auto 0;font-size:12px;color:#9a9a9a;text-align:center;">amend.ink</p>
@@ -123,4 +129,100 @@ export function sendMail({ to, subject, text, html, replyTo }) {
     req.write(body)
     req.end()
   })
+}
+
+// --- Ce qu'un courrier est devenu (22/10/2026) --------------------------------
+//
+// Mailgun répond « mis en file » à l'envoi ; ce qui se passe ensuite (remis au
+// serveur de la personne, refusé avec une raison) n'est connu que par ses
+// journaux, qu'il garde quelques jours. Le panneau de partage les lit pour dire
+// à un éditeur où en est chaque invitation : sans cela, « en attente » veut
+// dire aussi bien « pas encore lue » que « jamais arrivée ».
+
+let lectureDeRemplacement = null
+/** Une lecture de remplacement, **pour les tests seulement** (comme
+ * `remplacerEnvoi`) : reçoit `{ to, depuis }`, renvoie un état. */
+export function remplacerLecture(fn) {
+  lectureDeRemplacement = typeof fn === 'function' ? fn : null
+}
+
+const DELAI_LECTURE_MS = 5_000
+
+function lireMailgun(chemin) {
+  const apiKey = process.env.MAILGUN_API_KEY
+  const apiHost = process.env.MAILGUN_API_HOST || 'api.eu.mailgun.net'
+  const faux = process.env.MAILGUN_API_URL ? new URL(process.env.MAILGUN_API_URL) : null
+  const request = faux && faux.protocol === 'http:' ? requestHttp : requestHttps
+  const auth = Buffer.from(`api:${apiKey}`).toString('base64')
+  return new Promise((resolve, reject) => {
+    const req = request(
+      {
+        method: 'GET',
+        hostname: faux ? faux.hostname : apiHost,
+        ...(faux && faux.port ? { port: Number(faux.port) } : {}),
+        path: chemin,
+        headers: { authorization: `Basic ${auth}` },
+      },
+      (res) => {
+        let data = ''
+        res.on('data', (chunk) => (data += chunk))
+        res.on('end', () => {
+          if (res.statusCode < 200 || res.statusCode >= 300)
+            return reject(new MailSendError(`Mailgun ${res.statusCode}`))
+          try {
+            resolve(JSON.parse(data))
+          } catch {
+            reject(new MailSendError('réponse illisible'))
+          }
+        })
+      }
+    )
+    req.setTimeout(DELAI_LECTURE_MS, () => req.destroy(new Error('délai dépassé')))
+    req.on('error', (err) => reject(new MailSendError(err.message)))
+    req.end()
+  })
+}
+
+const raisonDe = (e) =>
+  String(e['delivery-status']?.message || e['delivery-status']?.description || e.reject?.reason || e.reason || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200)
+
+/**
+ * Où en est le courrier d'invitation envoyé à `to` depuis `depuis` (ms) ?
+ * Renvoie toujours `{ etat, detail? }`, sans jamais lever :
+ *   - `remis`    : le serveur de la personne l'a accepté (ce n'est pas dire
+ *                  qu'il est dans sa boîte : un filtre peut l'écarter ensuite) ;
+ *   - `refuse`   : refusé pour de bon, `detail` donne la raison du serveur ;
+ *   - `en_cours` : mis en file ou différé, Mailgun réessaie ;
+ *   - `inconnu`  : rien dans les journaux (trop ancien, Mailgun non configuré,
+ *                  lecture refusée ou en panne).
+ * Seuls les courriers dont l'objet commence par « Invitation » comptent.
+ */
+export async function etatDuCourrier({ to, depuis }) {
+  try {
+    if (lectureDeRemplacement) return await lectureDeRemplacement({ to, depuis })
+    const domain = process.env.MAILGUN_DOMAIN
+    if (!process.env.MAILGUN_API_KEY || !domain) return { etat: 'inconnu' }
+    const debut = Math.floor(depuis / 1000) - 60
+    const maintenant = Math.floor(Date.now() / 1000) + 60
+    // Ordre décroissant : `begin` est la date la plus récente, `end` la plus ancienne.
+    const r = await lireMailgun(
+      `/v3/${encodeURIComponent(domain)}/events?recipient=${encodeURIComponent(to)}` +
+        `&begin=${maintenant}&end=${debut}&ascending=no&limit=50`
+    )
+    const evts = (r.items || []).filter(
+      (e) => /^Invitation/i.test(e.message?.headers?.subject || '') && e.timestamp >= debut
+    )
+    if (evts.some((e) => e.event === 'delivered')) return { etat: 'remis' }
+    const refus = evts.find((e) => e.event === 'rejected' || (e.event === 'failed' && e.severity !== 'temporary'))
+    if (refus) return { etat: 'refuse', detail: raisonDe(refus) }
+    const differe = evts.find((e) => e.event === 'failed')
+    if (differe) return { etat: 'en_cours', detail: raisonDe(differe) }
+    if (evts.some((e) => e.event === 'accepted')) return { etat: 'en_cours' }
+    return { etat: 'inconnu' }
+  } catch {
+    return { etat: 'inconnu' }
+  }
 }

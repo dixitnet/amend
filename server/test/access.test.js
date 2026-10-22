@@ -845,3 +845,171 @@ test.after(async () => {
   await new Promise((r) => setTimeout(r, 50))
   process.exit(0)
 })
+
+// --- Le courrier d'invitation : qui invite, un seul lien, où il en est, un lien à copier (22/10/2026) ---
+
+async function documentDe(cookie, title) {
+  return await (
+    await fetch(`${BASE}/api/docs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title }),
+    })
+  ).json()
+}
+const inviterPar = (cookie, docId, email, role = 'lecteur') =>
+  fetch(`${BASE}/api/docs/${docId}/invitations`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie },
+    body: JSON.stringify({ email, role }),
+  })
+
+test('invitations : le courrier nomme la personne qui invite, et ne porte qu’un lien cliquable', async () => {
+  const { remplacerEnvoi } = await import('../mailgun.js')
+  const cookie = cookieFor('anne-invite@example.com')
+  await fetch(`${BASE}/api/auth/name`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie },
+    body: JSON.stringify({ nom: 'Anne Durand' }),
+  })
+  const doc = await documentDe(cookie, 'Doc nommé')
+  const envoyes = []
+  remplacerEnvoi((m) => envoyes.push(m))
+  try {
+    assert.equal((await inviterPar(cookie, doc.id, 'nomme-dest@example.com')).status, 200)
+  } finally {
+    remplacerEnvoi(null)
+  }
+  assert.equal(envoyes.length, 1)
+  assert.match(envoyes[0].text, /Anne Durand \(anne-invite@example\.com\) vous invite/)
+  const liens = envoyes[0].html.match(/<a\s[^>]*href=/g) || []
+  assert.equal(liens.length, 1, 'un seul lien cliquable dans la partie HTML')
+  assert.match(envoyes[0].html, /#\/invite\/[A-Za-z0-9_-]+/)
+  assert.match(envoyes[0].text, /#\/invite\/[A-Za-z0-9_-]+/, 'la version texte garde l’adresse')
+})
+
+test('invitations : la liste des accès dit où en est le courrier de chaque invitation en attente', async () => {
+  const { remplacerEnvoi, remplacerLecture } = await import('../mailgun.js')
+  const cookie = cookieFor('etat-courrier@example.com')
+  const doc = await documentDe(cookie, 'Doc état du courrier')
+  remplacerEnvoi(() => {})
+  try {
+    for (const dest of ['remis@example.com', 'refuse@example.com', 'muet@example.com'])
+      assert.equal((await inviterPar(cookie, doc.id, dest)).status, 200)
+  } finally {
+    remplacerEnvoi(null)
+  }
+  const appels = []
+  remplacerLecture(async ({ to, depuis }) => {
+    appels.push({ to, depuis })
+    if (to === 'remis@example.com') return { etat: 'remis' }
+    if (to === 'refuse@example.com') return { etat: 'refuse', detail: '550 5.1.1 user unknown' }
+    return { etat: 'inconnu' }
+  })
+  try {
+    const { access } = await (await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie } })).json()
+    const de = (email) => access.find((a) => a.email === email)
+    assert.deepEqual(de('remis@example.com').courrier, { etat: 'remis' })
+    assert.deepEqual(de('refuse@example.com').courrier, { etat: 'refuse', detail: '550 5.1.1 user unknown' })
+    assert.deepEqual(de('muet@example.com').courrier, { etat: 'inconnu' })
+    // Le propriétaire (actif) n'est pas interrogé, et la date de l'invitation est transmise.
+    assert.equal(de('etat-courrier@example.com').courrier, undefined)
+    assert.equal(appels.length, 3)
+    assert.ok(appels.every((a) => typeof a.depuis === 'number' && a.depuis > 0))
+    // Un état définitif est gardé : rouvrir le panneau ne réinterroge pas le fournisseur.
+    await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie } })
+    assert.equal(appels.filter((a) => a.to === 'remis@example.com').length, 1)
+  } finally {
+    remplacerLecture(null)
+  }
+})
+
+test('invitations : une lecture du fournisseur qui échoue ne fait pas échouer la liste des accès', async () => {
+  const { remplacerEnvoi, remplacerLecture } = await import('../mailgun.js')
+  const cookie = cookieFor('panne-lecture@example.com')
+  const doc = await documentDe(cookie, 'Doc panne de lecture')
+  remplacerEnvoi(() => {})
+  try {
+    await inviterPar(cookie, doc.id, 'panne-dest@example.com')
+  } finally {
+    remplacerEnvoi(null)
+  }
+  remplacerLecture(async () => {
+    throw new Error('Mailgun en panne')
+  })
+  try {
+    const res = await fetch(`${BASE}/api/docs/${doc.id}/access`, { headers: { cookie } })
+    assert.equal(res.status, 200)
+    const { access } = await res.json()
+    assert.equal(access.find((a) => a.email === 'panne-dest@example.com').status, 'invite')
+  } finally {
+    remplacerLecture(null)
+  }
+})
+
+test('invitations : « copier le lien » donne un nouveau lien sans courrier, et l’ancien ne marche plus', async () => {
+  const { remplacerEnvoi } = await import('../mailgun.js')
+  const cookie = cookieFor('lien-editeur@example.com')
+  const doc = await documentDe(cookie, 'Doc lien à copier')
+  const envoyes = []
+  remplacerEnvoi((m) => envoyes.push(m))
+  let lienDuCourrier
+  try {
+    assert.equal((await inviterPar(cookie, doc.id, 'lien-dest@example.com', 'correcteur')).status, 200)
+    lienDuCourrier = envoyes[0].text.match(/#\/invite\/([A-Za-z0-9_-]+)/)[1]
+    const avant = new Storage(process.env.DATA_DIR).getAccess(doc.id).find((a) => a.email === 'lien-dest@example.com')
+
+    const res = await fetch(`${BASE}/api/docs/${doc.id}/invitations/lien`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ email: 'lien-dest@example.com' }),
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.headers.get('cache-control'), 'no-store')
+    const { lien } = await res.json()
+    const nouveau = lien.match(/#\/invite\/([A-Za-z0-9_-]+)$/)[1]
+    assert.notEqual(nouveau, lienDuCourrier)
+    assert.equal(envoyes.length, 1, 'aucun courrier supplémentaire')
+
+    // La date de l'invitation (qui sert à retrouver le courrier) ne bouge pas.
+    const apres = new Storage(process.env.DATA_DIR).getAccess(doc.id).find((a) => a.email === 'lien-dest@example.com')
+    assert.equal(apres.invitedAt, avant.invitedAt)
+    // Le registre ne garde que l'empreinte.
+    assert.equal(readFileSync(join(process.env.DATA_DIR, 'docs.json'), 'utf8').includes(nouveau), false)
+
+    assert.equal((await fetch(`${BASE}/api/invitations/${lienDuCourrier}`, { method: 'POST' })).status, 404)
+    const accepte = await fetch(`${BASE}/api/invitations/${nouveau}`, { method: 'POST' })
+    assert.equal(accepte.status, 200)
+    assert.equal((await accepte.json()).role, 'correcteur')
+  } finally {
+    remplacerEnvoi(null)
+  }
+})
+
+test('invitations : « copier le lien » est réservé aux éditeurs et à une invitation en attente', async () => {
+  const { remplacerEnvoi } = await import('../mailgun.js')
+  const cookie = cookieFor('lien-proprio@example.com')
+  const doc = await documentDe(cookie, 'Doc lien refusé')
+  remplacerEnvoi(() => {})
+  try {
+    await inviterPar(cookie, doc.id, 'lien-lecteur@example.com', 'lecteur')
+  } finally {
+    remplacerEnvoi(null)
+  }
+  const lien = (c, email) =>
+    fetch(`${BASE}/api/docs/${doc.id}/invitations/lien`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(c ? { cookie: c } : {}) },
+      body: JSON.stringify({ email }),
+    })
+  // Sans session, ou en simple lecteur du document : refusé.
+  assert.equal((await lien(null, 'lien-lecteur@example.com')).status, 403)
+  const lecteur = cookieFor('lien-lecteur@example.com')
+  const acces = new Storage(process.env.DATA_DIR)
+  assert.equal(acces.acceptInvitation(doc.id, 'lien-lecteur@example.com').role, 'lecteur')
+  assert.equal((await lien(lecteur, 'lien-lecteur@example.com')).status, 403)
+  // Une personne déjà entrée n'a plus d'invitation en attente ; une inconnue non plus.
+  assert.equal((await lien(cookie, 'lien-lecteur@example.com')).status, 404)
+  assert.equal((await lien(cookie, 'inconnue@example.com')).status, 404)
+  assert.equal((await lien(cookie, 'pas une adresse')).status, 404)
+})

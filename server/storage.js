@@ -660,6 +660,27 @@ export class Storage {
     return { token, nouvelleEntree }
   }
 
+  /** Un nouveau lien pour une invitation en attente, **sans** renvoyer de
+   * courrier (22/10/2026) : de quoi le transmettre par un autre canal quand le
+   * courrier n'arrive pas. Le jeton n'est gardé que sous forme d'empreinte : on
+   * ne peut pas relire l'ancien, on en fabrique un autre, et le précédent cesse
+   * de marcher. La date de l'invitation ne bouge pas (elle sert à retrouver le
+   * courrier dans les journaux). Renvoie `null` s'il n'y a pas d'invitation
+   * en attente pour cette adresse. */
+  renouvelerLien(id, email) {
+    const registry = this._readRegistry()
+    const doc = registry[id]
+    if (!doc || !Array.isArray(doc.access)) return null
+    const entry = doc.access.find((a) => a.email === email && a.status === 'invite')
+    if (!entry) return null
+    const token = randomId(24)
+    delete entry.token
+    entry.tokenHash = empreinteJeton(token)
+    entry.tokenExpiresAt = Date.now() + INVITATION_TTL_MS
+    this._writeRegistry(registry)
+    return { token }
+  }
+
   /** Retrouve l'invitation correspondant à un jeton. Renvoie aussi les
    * invitations expirées (avec `expired: true`) pour pouvoir le dire à la
    * personne au lieu d'un « lien inconnu » trompeur. Parcourt le registre

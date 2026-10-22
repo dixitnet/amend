@@ -185,6 +185,12 @@ const LIGNES = [
     corps: { email: 'invite-matrice@test.local', role: 'lecteur' },
     oui: EDITEURS,
   },
+  {
+    couvre: '/api/docs/:x/invitations/lien',
+    m: 'POST',
+    corps: { email: 'sans-invitation-matrice@test.local' },
+    oui: EDITEURS,
+  },
   { couvre: '/api/docs/:x/access/moi', m: 'DELETE', jetable: true, oui: ['editeur', 'correcteur', 'lecteur'] },
   { couvre: '/api/docs/:x/owner', m: 'POST', jetable: true, corps: { email: 'editeur@test.local' }, oui: ['proprio'] },
   {

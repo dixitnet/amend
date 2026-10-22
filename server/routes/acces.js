@@ -3,7 +3,7 @@
 // routes et leur comportement sont inchangés.
 
 import { isSecureRequest, normalizeEmail, readSession, sessionCookieHeader } from '../auth.js'
-import { courrierAvecBouton, sendMail } from '../mailgun.js'
+import { courrierAvecBouton, etatDuCourrier, sendMail } from '../mailgun.js'
 import { capabilities, isValidRole } from '../roles.js'
 import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
 
@@ -16,9 +16,32 @@ function abrege(texte, max) {
   return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t
 }
 
+// Ce que Mailgun a dit d'un courrier d'invitation, gardé un moment : le panneau
+// de partage se rouvre souvent, et un état définitif (remis, refusé) ne change
+// plus. Un état provisoire est relu au bout d'une demi-minute.
+const CACHE_COURRIER = new Map()
+const DUREE_DEFINITIF_MS = 10 * 60_000
+const DUREE_PROVISOIRE_MS = 30_000
+const CACHE_COURRIER_MAX = 500
+const DELAI_ETAT_MS = 6_000
+
+async function etatCourrierEnMemoire(email, invitedAt) {
+  const cle = `${email}|${invitedAt}`
+  const vu = CACHE_COURRIER.get(cle)
+  if (vu && vu.jusqua > Date.now()) return vu.etat
+  const etat = await Promise.race([
+    etatDuCourrier({ to: email, depuis: invitedAt }),
+    new Promise((resolve) => setTimeout(() => resolve({ etat: 'inconnu' }), DELAI_ETAT_MS).unref()),
+  ])
+  if (CACHE_COURRIER.size >= CACHE_COURRIER_MAX) CACHE_COURRIER.clear()
+  const definitif = etat.etat === 'remis' || etat.etat === 'refuse'
+  CACHE_COURRIER.set(cle, { etat, jusqua: Date.now() + (definitif ? DUREE_DEFINITIF_MS : DUREE_PROVISOIRE_MS) })
+  return etat
+}
+
 export async function routesAcces(req, res, url, ctx) {
   const { pathname } = url
-  const { metrics, rooms, storage, APP_BASE_URL, invitationAutorisee } = ctx
+  const { metrics, rooms, storage, users, APP_BASE_URL, invitationAutorisee } = ctx
 
   const acceptMatch = pathname.match(/^\/api\/invitations\/([A-Za-z0-9_-]+)$/)
   if (acceptMatch && req.method === 'POST') {
@@ -39,7 +62,38 @@ export async function routesAcces(req, res, url, ctx) {
     if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
     const role = storage.roleFor(id, readSession(req))
     if (!capabilities(role).canManageAccess) return sendJson(res, 403, { error: 'réservé aux éditeurs' })
-    return sendJson(res, 200, { access: storage.getAccess(id) })
+    // Pour chaque invitation en attente : où en est son courrier (voir
+    // etatDuCourrier). Au plus vingt, en parallèle, sans jamais faire échouer
+    // la liste.
+    const access = storage.getAccess(id)
+    await Promise.all(
+      access
+        .filter((a) => a.status === 'invite' && a.invitedAt)
+        .slice(0, 20)
+        .map(async (a) => {
+          a.courrier = await etatCourrierEnMemoire(a.email, a.invitedAt)
+        })
+    )
+    return sendJson(res, 200, { access })
+  }
+
+  // Un nouveau lien pour une invitation en attente, sans courrier
+  // (éditeurs seulement). Seule réponse de l'API qui porte un jeton : l'éditeur
+  // le transmet lui-même quand le courrier n'arrive pas. Le lien reçu
+  // auparavant par courrier cesse de marcher.
+  const lienMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)\/invitations\/lien$/)
+  if (lienMatch && req.method === 'POST') {
+    const id = lienMatch[1]
+    if (!storage.getDoc(id)) return sendJson(res, 404, { error: 'document introuvable' })
+    if (!capabilities(storage.roleFor(id, readSession(req))).canManageAccess) {
+      return sendJson(res, 403, { error: 'réservé aux éditeurs' })
+    }
+    const body = await readJsonBody(req)
+    const email = normalizeEmail(body.email)
+    const nouveau = email && storage.renouvelerLien(id, email)
+    if (!nouveau) return sendJson(res, 404, { error: 'aucune invitation en attente pour cette adresse' })
+    res.setHeader('cache-control', 'no-store')
+    return sendJson(res, 200, { lien: `${APP_BASE_URL}/#/invite/${nouveau.token}` })
   }
 
   // Inviter une adresse précise (éditeurs seulement) : crée l'accès « en
@@ -69,6 +123,11 @@ export async function routesAcces(req, res, url, ctx) {
     }
     const { token, nouvelleEntree } = storage.inviteEmail(id, email, role, inviter)
     const lien = `${APP_BASE_URL}/#/invite/${token}`
+    // « Nom (adresse) » quand la personne a donné son nom : un courrier qui dit
+    // qui invite, et par un nom que le destinataire reconnaît, se fait moins
+    // écarter par un filtre et plus volontiers ouvrir.
+    const nomInviteur = users && users.nomDe(inviter)
+    const quiInvite = nomInviteur ? `${nomInviteur} (${inviter})` : inviter
     try {
       await sendMail({
         to: email,
@@ -78,7 +137,7 @@ export async function routesAcces(req, res, url, ctx) {
         ...courrierAvecBouton({
           titre: `Invitation à collaborer sur « ${doc.title} »`,
           intro:
-            `${inviter} vous invite à collaborer sur « ${doc.title} » dans amend.ink, ` +
+            `${quiInvite} vous invite à collaborer sur « ${doc.title} » dans amend.ink, ` +
             `comme ${capabilities(role).label.toLowerCase()}. Ce lien ouvre le document directement, ` +
             `sans mot de passe ni inscription. Il reste valable 14 jours.`,
           libelleBouton: 'Ouvrir le document',

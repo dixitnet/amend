@@ -81,6 +81,12 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
         badge.textContent = 'en attente'
         li.appendChild(badge)
 
+        // Où en est le courrier (lu chez le fournisseur d'envoi par le
+        // serveur) : « en attente » seul ne distingue pas « pas encore lue »
+        // de « jamais arrivée ». Rien n'est affiché quand on ne sait pas.
+        const courrier = courrierDe(entry.courrier)
+        if (courrier) li.appendChild(courrier)
+
         const resend = document.createElement('button')
         resend.type = 'button'
         resend.textContent = 'Renvoyer'
@@ -91,6 +97,22 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
           if (ok) dire(`Invitation renvoyée à ${entry.email}.`, 'ok')
         }
         li.appendChild(resend)
+
+        // Le lien à transmettre soi-même (Signal, SMS, autre courrier) quand
+        // le courrier n'arrive pas. Il n'est gardé nulle part en clair : on en
+        // fabrique un nouveau, et celui du courrier cesse de marcher.
+        const copier = document.createElement('button')
+        copier.type = 'button'
+        copier.className = 'copier-lien'
+        copier.textContent = 'Copier le lien'
+        copier.title =
+          'Fabrique un nouveau lien à transmettre vous-même. Le lien du courrier déjà envoyé cessera de fonctionner.'
+        copier.onclick = async () => {
+          copier.disabled = true
+          await copierLien(entry.email)
+          copier.disabled = false
+        }
+        li.appendChild(copier)
       }
 
       // Le propriétaire n'est ni retirable ni rétrogradable : le document
@@ -152,6 +174,92 @@ export function openAccessPanel(docId, { jeSuisProprietaire = false } = {}) {
       }
       accessList.appendChild(li)
     }
+  }
+
+  const LIBELLES_COURRIER = { remis: 'courrier remis', refuse: 'courrier refusé', en_cours: 'envoi en cours' }
+  const AIDES_COURRIER = {
+    remis:
+      'Le serveur de messagerie de la personne a accepté le courrier. S’il n’arrive pas, il est sans doute dans ses indésirables ou en quarantaine : copiez le lien pour le lui transmettre autrement.',
+    refuse: 'Le serveur de la personne a refusé le courrier. Copiez le lien pour le lui transmettre autrement.',
+    en_cours: 'Le courrier est parti ; le serveur de la personne ne l’a pas encore accepté.',
+  }
+
+  /** Le badge « courrier remis / refusé / en cours », ou rien. */
+  function courrierDe(c) {
+    if (!c || !LIBELLES_COURRIER[c.etat]) return null
+    const badge = document.createElement('span')
+    badge.className = `access-courrier courrier-${c.etat}`
+    badge.textContent = LIBELLES_COURRIER[c.etat]
+    badge.title = AIDES_COURRIER[c.etat]
+    if (!c.detail) return badge
+    const bloc = document.createDocumentFragment()
+    const detail = document.createElement('span')
+    detail.className = 'access-courrier-detail'
+    detail.textContent = c.detail
+    bloc.append(badge, detail)
+    return bloc
+  }
+
+  /** Obtient un nouveau lien pour l'invitation en attente de `email` et le met
+   * dans le presse-papiers. Le presse-papiers n'accepte une écriture qu'en
+   * réponse à un geste : on lui passe donc une promesse (Chrome, Safari) plutôt
+   * que d'attendre la réponse du serveur. S'il refuse, le lien est montré dans
+   * un champ à copier à la main. */
+  async function copierLien(email) {
+    const obtenir = async () => {
+      const res = await fetch(`/api/docs/${docId}/invitations/lien`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.lien) throw new Error(data.error || 'le lien n’a pas pu être créé')
+      return data.lien
+    }
+    const promesse = obtenir()
+    promesse.catch(() => {})
+    const presse = navigator.clipboard
+    try {
+      if (presse && typeof ClipboardItem !== 'undefined' && presse.write) {
+        await presse.write([
+          new ClipboardItem({ 'text/plain': promesse.then((l) => new Blob([l], { type: 'text/plain' })) }),
+        ])
+      } else {
+        await presse.writeText(await promesse)
+      }
+      await promesse
+      retirerLienAffiche()
+      dire(`Lien copié pour ${email}. Celui du courrier déjà envoyé ne fonctionne plus.`, 'ok')
+    } catch {
+      let lien
+      try {
+        lien = await promesse
+      } catch (err) {
+        dire(err.message, 'erreur')
+        return
+      }
+      afficherLien(email, lien)
+    }
+  }
+
+  function retirerLienAffiche() {
+    overlay.querySelector('.lien-copie')?.remove()
+  }
+
+  /** Repli quand le presse-papiers est inaccessible : le lien dans un champ,
+   * déjà sélectionné. */
+  function afficherLien(email, lien) {
+    retirerLienAffiche()
+    dire(`Copiez ce lien pour ${email} (celui du courrier déjà envoyé ne fonctionne plus) :`, 'ok')
+    const champ = document.createElement('input')
+    champ.type = 'text'
+    champ.readOnly = true
+    champ.className = 'lien-copie'
+    champ.value = lien
+    champ.setAttribute('aria-label', `Lien d’invitation pour ${email}`)
+    message.after(champ)
+    champ.focus()
+    champ.select()
   }
 
   async function inviter(email, role) {
