@@ -165,7 +165,15 @@ async function sectionDomaine() {
       vu = `(rien : ${err.code || err.message})`
     }
     const attendu = String(e.value).replace(/\.$/, '')
-    const ok = vu && attendu && vu.replace(/\.$/, '').includes(attendu.slice(0, 40))
+    // Un SPF peut légitimement en contenir d'autres (la messagerie du domaine) :
+    // il suffit que chaque `include:` attendu y soit.
+    const vuNet = vu.replace(/\.$/, '')
+    const ok =
+      vu &&
+      attendu &&
+      (attendu.startsWith('v=spf1')
+        ? (attendu.match(/include:\S+/g) || []).every((i) => vuNet.includes(i))
+        : vuNet.includes(attendu.slice(0, 40)))
     console.log(`  ${e.record_type.padEnd(5)} ${e.name}`)
     console.log(`        Mailgun : ${e.valid}${e.valid === 'valid' ? '' : '   ← PROBLÈME'}`)
     console.log(
@@ -231,10 +239,13 @@ function sectionApplication() {
 
 // --- 3 et 4. Journaux Mailgun ------------------------------------------------
 async function sectionJournaux() {
-  const debut = Math.floor(Date.now() / 1000) - JOURS * 86_400
+  // Ordre décroissant : `begin` est la date la plus récente, `end` la plus
+  // ancienne (l'inverse renvoie une liste vide, sans erreur).
+  const maintenant = Math.floor(Date.now() / 1000)
+  const debut = maintenant - JOURS * 86_400
   const lire = (evenement) =>
     toutesLesPages(
-      `/v3/${dom}/events?event=${evenement}&begin=${debut}&ascending=no&limit=300${ADRESSE ? `&recipient=${encodeURIComponent(ADRESSE)}` : ''}`
+      `/v3/${dom}/events?event=${evenement}&begin=${maintenant}&end=${debut}&ascending=no&limit=300${ADRESSE ? `&recipient=${encodeURIComponent(ADRESSE)}` : ''}`
     )
   const [acceptes, remis, echecs, rejetes, plaintes] = await Promise.all(
     ['accepted', 'delivered', 'failed', 'rejected', 'complained'].map(lire)
