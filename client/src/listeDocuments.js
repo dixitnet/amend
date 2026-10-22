@@ -511,9 +511,14 @@ export function monterListeDocuments(conteneur) {
 
     if (vue.favoris.length) {
       const section = el('section', 'favoris')
-      section.appendChild(el('h3', 'favoris-titre', 'Favoris'))
+      const titreFavoris = el('h3', 'favoris-titre')
+      titreFavoris.append(icone('etoile', 15), 'Favoris')
+      section.appendChild(titreFavoris)
       section.appendChild(listeDeDocuments(vue.favoris, true, 'favoris-list'))
       zone.appendChild(section)
+      // Une fois les favoris posés à part, l'arborescence a son propre titre :
+      // sans lui, la liste qui suit se lirait comme la suite des favoris.
+      if (!vue.recherche && !etat.courant) zone.appendChild(el('h3', 'arbo-titre', 'Dossiers et documents'))
     }
 
     if (vue.recherche) {

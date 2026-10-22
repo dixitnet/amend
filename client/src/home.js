@@ -319,71 +319,25 @@ function mountAppHome(root) {
   tete.append(h1, creer)
   main.appendChild(tete)
 
+  // Créer un document (22/10/2026) : un geste, le document s'ouvre tout de
+  // suite, sans titre. Saisir un titre dans un champ avant même d'avoir écrit
+  // une ligne est une friction ; on ouvre, on écrit, et l'on nomme en touchant
+  // le titre — c'est ce que faisait déjà le bouton rond du téléphone (23/09),
+  // et ce que fait l'éditeur. Un seul chemin pour le bouton du bandeau et
+  // pour le bouton rond.
   const nouveau = document.createElement('button')
   nouveau.type = 'button'
   nouveau.className = 'btn-principal'
   nouveau.append(icone('ajouter', 16), 'Nouveau document')
 
-  const form = document.createElement('form')
-  form.className = 'new-doc-form'
-  form.hidden = true
-  const input = document.createElement('input')
-  input.placeholder = 'Titre du nouveau document'
-  input.name = 'titre'
-  input.autocomplete = 'off'
-  input.setAttribute('aria-label', 'Titre du nouveau document')
-  input.required = true
-  const submit = document.createElement('button')
-  submit.textContent = 'Créer'
-  submit.type = 'submit'
-  submit.className = 'btn-principal'
-  const annuler = document.createElement('button')
-  annuler.textContent = 'Annuler'
-  annuler.type = 'button'
-  annuler.className = 'btn-contour'
-  form.append(input, submit, annuler)
-  const ouvrirFormulaire = (ouvert) => {
-    form.hidden = !ouvert
-    nouveau.hidden = ouvert
-    if (ouvert) input.focus()
-    else {
-      input.value = ''
-      nouveau.focus()
-    }
-  }
-  nouveau.addEventListener('click', () => ouvrirFormulaire(true))
-  annuler.addEventListener('click', () => ouvrirFormulaire(false))
-  form.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') ouvrirFormulaire(false)
-  })
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault()
-    const res = await fetch('/api/docs', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ title: input.value }),
-    })
-    if (res.status === 401) {
-      location.hash = '#/login'
-      return
-    }
-    const doc = await res.json()
-    location.hash = `#/doc/${doc.id}`
-  })
-  creer.append(nouveau, form)
-
-  // Créer depuis un téléphone (23/09/2026) : un bouton rond en bas à
-  // droite, et le document s'ouvre tout de suite, sans titre. Saisir un
-  // titre dans un champ avant même d'avoir écrit une ligne est une friction
-  // d'ordinateur ; sur téléphone on ouvre, on écrit, et l'on nomme en
-  // touchant le titre — c'est ce que fait l'éditeur depuis l'interface
-  // iPhone. Le bouton du titre reste sur grand écran (masqué en CSS ici).
   const creerFab = document.createElement('button')
   creerFab.type = 'button'
   creerFab.className = 'doc-fab'
   creerFab.textContent = '+'
   creerFab.setAttribute('aria-label', 'Nouveau document')
-  creerFab.onclick = async () => {
+
+  const creerDocument = async () => {
+    nouveau.disabled = true
     creerFab.disabled = true
     try {
       const res = await fetch('/api/docs', {
@@ -399,9 +353,13 @@ function mountAppHome(root) {
       const doc = await res.json()
       location.hash = `#/doc/${doc.id}`
     } finally {
+      nouveau.disabled = false
       creerFab.disabled = false
     }
   }
+  nouveau.addEventListener('click', creerDocument)
+  creerFab.addEventListener('click', creerDocument)
+  creer.appendChild(nouveau)
   wrap.appendChild(creerFab)
 
   // Favoris, dossiers, recherche et corbeille : voir listeDocuments.js.

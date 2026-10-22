@@ -18,52 +18,86 @@ export function estCouleurIA(couleur) {
   return c === COULEUR_IA || COULEURS_IA_ANCIENNES.includes(c)
 }
 
-/** La palette dont on tire la couleur d'une personne.
+/** La palette des couleurs de personnes : douze teintes (22/10/2026), la même
+ * pour le tirage au sort à la création du compte et pour le choix de la
+ * personne (`COULEURS_CHOIX`, alias). Construites en OKLCH — même clarté et
+ * même saturation perçues — et rangées par teinte, du rouge au rose, comme
+ * on les montre dans « Ma couleur » ; on alterne des teintes profondes (texte
+ * blanc sur la pastille) et des teintes claires (texte sombre), pour que deux
+ * personnes proches dans la marge se distinguent par la clarté autant que par
+ * la teinte.
  *
  * **Aucun vert, délibérément** : le vert est réservé à l'IA, qui est aussi
  * l'accent de l'application — une personne qui en hériterait verrait ses
- * modifications se confondre avec les siennes dans la marge. Les deux verts
- * d'origine (`#81b29a` sauge et `#588157` sapin) ont été remplacés par un brun
- * et une framboise : ce n'est pas une question de nuance exacte mais de coup
- * d'œil. */
-export const COULEURS = ['#e07a5f', '#3d5a80', '#8d6e63', '#f2cc8f', '#9b5de5', '#00b4d8', '#e56b6f', '#c9184a']
-
-/** Les couleurs que la personne peut choisir (13/10/2026) : les huit du tirage
- * au sort, plus huit autres. Une palette et non une roue libre : une couleur
- * choisie à la main finit blanche ou verte, et l'on ne lirait plus la marge. Le
- * tirage au sort initial ne puise que dans `COULEURS`. Aucun vert, ici non
- * plus. */
-export const COULEURS_CHOIX = [
-  ...COULEURS,
-  '#f48c06',
-  '#ffb703',
-  '#7209b7',
-  '#0077b6',
-  '#b5838d',
-  '#6d597a',
-  '#a44a3f',
-  '#ff006e',
+ * modifications se confondre avec les siennes dans la marge. Ce n'est pas une
+ * question de nuance exacte mais de coup d'œil. Le turquoise de la première
+ * planche a été écarté pour la même raison (trop près de la menthe), remplacé
+ * par un orange. */
+export const COULEURS = [
+  '#f58ca6', // framboise
+  '#b6322b', // corail
+  '#e57255', // terracotta
+  '#ffbc64', // orange
+  '#8b6001', // moutarde
+  '#027493', // cyan
+  '#6ab7fe', // bleu ciel
+  '#3760c9', // bleu
+  '#a9a5ff', // indigo
+  '#8048b6', // violet
+  '#dd92db', // magenta
+  '#ab3276', // rose
 ]
+
+/** Les couleurs que la personne peut choisir : les mêmes douze. Une palette et
+ * non une roue libre : une couleur choisie à la main finit blanche ou verte, et
+ * l'on ne lirait plus la marge. (Avant le 22/10/2026 : seize couleurs, dont
+ * huit pour le seul choix.) */
+export const COULEURS_CHOIX = COULEURS
 
 /** Le nom d'une couleur de la palette, pour qui ne la voit pas (lecteur
  * d'écran) et pour l'info-bulle. */
 export const NOMS_COULEURS = {
-  '#e07a5f': 'terracotta',
-  '#3d5a80': 'bleu nuit',
-  '#8d6e63': 'brun',
-  '#f2cc8f': 'sable',
-  '#9b5de5': 'violet',
-  '#00b4d8': 'cyan',
-  '#e56b6f': 'rose corail',
-  '#c9184a': 'framboise',
-  '#f48c06': 'orange',
-  '#ffb703': 'ambre',
-  '#7209b7': 'pourpre',
-  '#0077b6': 'bleu franc',
-  '#b5838d': 'vieux rose',
-  '#6d597a': 'prune',
-  '#a44a3f': 'rouille',
-  '#ff006e': 'magenta',
+  '#f58ca6': 'framboise',
+  '#b6322b': 'corail',
+  '#e57255': 'terracotta',
+  '#ffbc64': 'orange',
+  '#8b6001': 'moutarde',
+  '#027493': 'cyan',
+  '#6ab7fe': 'bleu ciel',
+  '#3760c9': 'bleu',
+  '#a9a5ff': 'indigo',
+  '#8048b6': 'violet',
+  '#dd92db': 'magenta',
+  '#ab3276': 'rose',
+}
+
+/** Les couleurs retirées, et la couleur de la palette qui les remplace. Un
+ * compte créé avant le 22/10/2026 porte l'une des seize couleurs d'alors (ou
+ * l'un des deux verts d'avant le 17/09/2026) : on ne le laisse pas, mais on ne
+ * réattribue pas non plus au hasard — la couleur d'une personne est ce qu'on
+ * lit d'un coup d'œil dans la marge, et la voir changer sans raison est
+ * déroutant. La correspondance est donc fixe, choisie pour rester proche de
+ * la teinte d'origine. Les modifications déjà écrites dans les documents
+ * gardent la couleur qu'elles portaient. */
+export const COULEURS_REMPLACEES = {
+  '#e07a5f': '#e57255', // terracotta
+  '#3d5a80': '#3760c9', // bleu nuit
+  '#8d6e63': '#8b6001', // brun
+  '#f2cc8f': '#ffbc64', // sable
+  '#9b5de5': '#8048b6', // violet
+  '#00b4d8': '#6ab7fe', // cyan clair
+  '#e56b6f': '#f58ca6', // rose corail
+  '#c9184a': '#b6322b', // framboise foncé
+  '#f48c06': '#ffbc64', // orange
+  '#ffb703': '#ffbc64', // ambre
+  '#7209b7': '#8048b6', // pourpre
+  '#0077b6': '#3760c9', // bleu franc
+  '#b5838d': '#f58ca6', // vieux rose
+  '#6d597a': '#a9a5ff', // prune
+  '#a44a3f': '#b6322b', // rouille
+  '#ff006e': '#ab3276', // magenta vif
+  '#81b29a': '#8b6001', // sauge (vert, retiré le 17/09/2026)
+  '#588157': '#ab3276', // sapin (vert, retiré le 17/09/2026)
 }
 
 /** Les rôles, dans la langue de l'interface. Un rôle inconnu s'affiche tel

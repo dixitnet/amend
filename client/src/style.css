@@ -53,16 +53,15 @@
      boutons principaux, curseurs distants, panneau des modifications,
      surlignage de sélection IA — voir les usages de var(--accent) plus
      bas) ; AI_USER.color dans user.js reprend la même teinte pour que les
-     propositions de l'IA soient surlignées avec cette couleur. Distincte de
-     --ok (vert de statut "en ligne"/"accepté") par construction : plus
-     sourde et plus jaune, pour ne pas se confondre avec ce vert-là. */
+     propositions de l'IA soient surlignées avec cette couleur. Les statuts
+     « en ligne », « accepté », « publié » la reprennent aussi : le vert de
+     statut séparé (--ok) a été supprimé le 22/10/2026. */
   --accent: #017d5e;
   --panel-bg: #f6f3ee;
   --danger: #b3261e;
   /* Fond d'un bandeau d'erreur (texte clair dessus) : reste le rouge profond
      dans les deux thèmes, alors que --danger devient clair en mode sombre. */
   --danger-fond: #b3261e;
-  --ok: #2f6e46;
   /* Fond des marques de suivi dans le logo (voir logo.js) — la même
      teinte très pâle que le surlignage d'une modification dans le texte. */
   --surlignage: #e4efeb;
@@ -80,7 +79,6 @@
     --accent: #71d4b0;
     --panel-bg: #221f1a;
     --danger: #ff8a80;
-    --ok: #7fd99a;
     --surlignage: #28362e;
     --lien: #8ab4e8;
   }
@@ -529,7 +527,7 @@ a { color: var(--accent); }
   background: var(--muted);
   cursor: default;
 }
-.connection-status.etat-ok { background: var(--ok); }
+.connection-status.etat-ok { background: var(--accent); }
 .connection-status.etat-attente { background: var(--muted); }
 .connection-status.etat-alerte { background: var(--danger); }
 
@@ -1004,7 +1002,7 @@ button.btn-accept, button.btn-reject, button.btn-primary, .btn-preset {
   font-size: 12px;
   cursor: pointer;
 }
-button.btn-accept { background: var(--ok); color: white; }
+button.btn-accept { background: color-mix(in srgb, var(--accent) 14%, transparent); color: color-mix(in srgb, var(--accent) 85%, var(--fg)); }
 button.btn-reject { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
 button.btn-primary { background: var(--accent); color: white; width: 100%; padding: 8px; margin-top: 8px; font-size: 13px; }
 .btn-preset { background: var(--bg); border: 1px solid var(--border); color: var(--fg); }
@@ -2040,7 +2038,7 @@ a.bo-chiffre:hover, a.bo-chiffre:focus-visible { border-color: var(--accent); }
 .contact-note { margin: 8px 0 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
 .contact-envoyer { min-height: 40px; }
 .contact-statut { margin: 8px 0 0; font-size: 13px; }
-.contact-statut.ok { color: var(--ok); }
+.contact-statut.ok { color: var(--accent); }
 .contact-statut.erreur { color: var(--danger); }
 
 /* Sur un téléphone, la palette prend la largeur : une colonne de 320 px
@@ -2060,7 +2058,7 @@ a.bo-chiffre:hover, a.bo-chiffre:focus-visible { border-color: var(--accent); }
 /* ---------- Publier sur le web (17/09/2026) ---------- */
 .publication-modal { max-width: 460px; }
 .publication-statut { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--muted); }
-.publication-statut.publiee { color: var(--ok); }
+.publication-statut.publiee { color: var(--accent); }
 .publication-url {
   width: 100%;
   box-sizing: border-box;
@@ -3196,7 +3194,7 @@ tr.bo-traite { opacity: 0.6; }
 .dialogue-bloc:hover { border-color: var(--accent); }
 .dialogue-activite { display: flex; flex-direction: column; gap: 4px; }
 .dialogue-outil, .dialogue-attente { font-size: 12px; color: var(--muted); }
-.dialogue-outil.fait { color: var(--ok); }
+.dialogue-outil.fait { color: var(--accent); }
 .dialogue-outil.echec { color: var(--danger); }
 .dialogue-erreur { color: var(--danger); font-size: 13px; margin-top: 4px; }
 .dialogue-resume {
@@ -4107,14 +4105,11 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
 .accueil-tete { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; margin: 0 0 18px; }
 .accueil-tete h1 { margin: 0; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; }
 .accueil-creer { display: flex; align-items: center; min-width: 0; }
-.new-doc-form { display: flex; align-items: center; gap: 8px; margin: 0; }
-.new-doc-form[hidden] { display: none; }
-.new-doc-form input, .dossier-nom {
+.dossier-nom {
   box-sizing: border-box; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--fg); font: inherit; font-size: 14px;
 }
-.new-doc-form input { width: min(340px, 38vw); }
-.new-doc-form input:focus, .dossier-nom:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dossier-nom:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* La barre : recherche (champ plein, sans cadre), tri, nouveau dossier. */
 .accueil-docs .liste-barre { align-items: center; gap: 8px; margin: 0 0 14px; }
@@ -4237,4 +4232,25 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
   .accueil-docs .star-btn { width: 40px; height: 40px; }
   .accueil-docs .deplacement { padding-left: 38px; }
   .accueil-docs .favoris-titre, .accueil-docs .resultats-titre { margin-left: 8px; }
+}
+
+/* Les favoris, à part (22/10/2026) : un encadré sur fond de panneau, avec son
+   titre, puis un titre d'arborescence avec sa ligne. Les deux listes ne se
+   lisent plus comme une seule. */
+.accueil-docs .favoris { margin: 0 0 28px; padding: 6px 6px 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel-bg); }
+.accueil-docs .favoris .favoris-titre {
+  display: flex; align-items: center; gap: 8px; margin: 8px 8px 4px;
+  font-size: 13px; font-weight: 500; color: var(--fg);
+}
+.accueil-docs .favoris .favoris-titre .icone { color: color-mix(in srgb, var(--accent) 80%, black); }
+.accueil-docs .favoris .favoris-titre .icone path { fill: currentColor; }
+.accueil-docs .favoris .doc-list li:hover,
+.accueil-docs .favoris .doc-list li:focus-within { background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.accueil-docs .arbo-titre {
+  display: flex; align-items: center; gap: 12px; margin: 0 8px 6px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+}
+.accueil-docs .arbo-titre::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+@media (max-width: 700px) {
+  .accueil-docs .favoris .favoris-titre { margin-left: 8px; }
 }

@@ -176,7 +176,7 @@ test('la suppression : documents, accès, noms, données personnelles, sessions'
   )
 
   // Des données personnelles un peu partout.
-  await api('/api/auth/couleur', { c: C.alice, methode: 'POST', corps: { couleur: '#3d5a80' } })
+  await api('/api/auth/couleur', { c: C.alice, methode: 'POST', corps: { couleur: '#3760c9' } })
   await api(`/api/docs/${seul}/favori`, { c: C.alice, methode: 'POST', corps: { favori: true } })
 
   const r = await api('/api/auth/compte/supprimer', {

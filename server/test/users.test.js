@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { COULEURS_REMPLACEES } from '../../shared/identite.js'
 
 const PORT = 18791
 process.env.PORT = String(PORT)
@@ -220,7 +221,25 @@ test('un compte qui portait un vert est corrigé, toujours de la même façon', 
   assert.equal(couleurAutorisee('#5f7a4a'), couleurAutorisee(COULEUR_IA))
   assert.ok(COULEURS.includes(couleurAutorisee('#5f7a4a')))
   // Une couleur déjà valable n'est pas touchée.
-  assert.equal(couleurAutorisee('#3d5a80'), '#3d5a80')
+  assert.equal(couleurAutorisee('#3760c9'), '#3760c9')
+})
+
+test('la palette compte douze couleurs, et chaque ancienne couleur a un remplaçant qui en fait partie (22/10/2026)', () => {
+  assert.equal(COULEURS.length, 12)
+  assert.equal(new Set(COULEURS).size, 12)
+  assert.deepEqual(COULEURS_CHOIX, COULEURS)
+  for (const [ancienne, nouvelle] of Object.entries(COULEURS_REMPLACEES)) {
+    assert.ok(!COULEURS.includes(ancienne), `${ancienne} est encore dans la palette`)
+    assert.ok(COULEURS.includes(nouvelle), `${ancienne} → ${nouvelle} n'est pas dans la palette`)
+    assert.equal(couleurAutorisee(ancienne), nouvelle)
+  }
+  // Les seize d'avant : aucune ne reste hors palette.
+  for (const c of ['#e07a5f', '#3d5a80', '#8d6e63', '#f2cc8f', '#9b5de5', '#00b4d8', '#e56b6f', '#c9184a']) {
+    assert.ok(COULEURS.includes(couleurAutorisee(c)), c)
+  }
+  for (const c of ['#f48c06', '#ffb703', '#7209b7', '#0077b6', '#b5838d', '#6d597a', '#a44a3f', '#ff006e']) {
+    assert.ok(COULEURS.includes(couleurAutorisee(c)), c)
+  }
 })
 
 test.after(async () => {
@@ -290,9 +309,9 @@ test('on ne colore que son propre compte, et seulement un compte qui a un nom', 
   assert.equal(new Users(process.env.DATA_DIR).get('lou@example.com').couleur, voulue)
 })
 
-test('la palette à choisir : seize couleurs distinctes, sans vert, qui contient celle du tirage au sort', () => {
-  assert.equal(COULEURS_CHOIX.length, 16)
-  assert.equal(new Set(COULEURS_CHOIX).size, 16)
+test('la palette à choisir : douze couleurs distinctes, sans vert, la même que celle du tirage au sort', () => {
+  assert.equal(COULEURS_CHOIX.length, 12)
+  assert.equal(new Set(COULEURS_CHOIX).size, 12)
   for (const c of COULEURS) assert.ok(COULEURS_CHOIX.includes(c))
   assert.ok(!COULEURS_CHOIX.includes(COULEUR_IA))
   const teinte = (hex) => {
@@ -310,6 +329,7 @@ test('la palette à choisir : seize couleurs distinctes, sans vert, qui contient
     // Le vert de l'IA est vers 100° : rien entre 70° et 170°.
     assert.ok(h === null || h < 70 || h > 170, `${c} (${h}°) est trop près du vert`)
   }
-  assert.equal(couleurChoisie(' #3D5A80'), null, 'les espaces ne passent pas')
-  assert.equal(couleurChoisie('#3D5A80'), '#3d5a80')
+  assert.equal(couleurChoisie(' #3760C9'), null, 'les espaces ne passent pas')
+  assert.equal(couleurChoisie('#3760C9'), '#3760c9')
+  assert.equal(couleurChoisie('#3d5a80'), null, 'une couleur d’avant le 22/10/2026 n’est plus proposée')
 })

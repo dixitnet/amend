@@ -18,7 +18,7 @@ function installerDom() {
   return dom
 }
 
-function fauxServeur({ refus = null, panne = false, couleur = '#3d5a80' } = {}) {
+function fauxServeur({ refus = null, panne = false, couleur = '#3760c9' } = {}) {
   const appels = []
   globalThis.fetch = async (url, opts = {}) => {
     appels.push({ url, opts })
@@ -45,12 +45,12 @@ const soumettre = () =>
 const attendre = () => new Promise((r) => setTimeout(r, 5))
 const pastille = (hex) => document.querySelector(`.couleur-choix[data-couleur="${hex}"]`)
 
-test('la fenêtre montre les seize couleurs, marque l’actuelle, et chaque pastille a un nom', () => {
+test('la fenêtre montre les douze couleurs, marque l’actuelle, et chaque pastille a un nom', () => {
   installerDom()
   fauxServeur()
-  ouvrirChoixDeCouleur({ couleurActuelle: '#3D5A80' })
+  ouvrirChoixDeCouleur({ couleurActuelle: '#3760C9' })
   const toutes = [...document.querySelectorAll('.couleur-choix')]
-  assert.equal(toutes.length, 16)
+  assert.equal(toutes.length, 12)
   assert.deepEqual(
     toutes.map((b) => b.dataset.couleur),
     COULEURS_CHOIX
@@ -63,7 +63,7 @@ test('la fenêtre montre les seize couleurs, marque l’actuelle, et chaque past
   const actives = toutes.filter((b) => b.getAttribute('aria-checked') === 'true')
   assert.deepEqual(
     actives.map((b) => b.dataset.couleur),
-    ['#3d5a80']
+    ['#3760c9']
   )
   assert.equal(document.querySelector('.couleur-grille').getAttribute('role'), 'radiogroup')
 })
@@ -72,28 +72,28 @@ test('on choisit une pastille, on enregistre : la couleur part au serveur, l’a
   installerDom()
   const appels = fauxServeur()
   let recu = null
-  const promesse = ouvrirChoixDeCouleur({ couleurActuelle: '#3d5a80', surChangement: (c, nom) => (recu = { c, nom }) })
-  pastille('#f48c06').click()
-  assert.equal(pastille('#f48c06').getAttribute('aria-checked'), 'true')
-  assert.equal(pastille('#3d5a80').getAttribute('aria-checked'), 'false')
+  const promesse = ouvrirChoixDeCouleur({ couleurActuelle: '#3760c9', surChangement: (c, nom) => (recu = { c, nom }) })
+  pastille('#ffbc64').click()
+  assert.equal(pastille('#ffbc64').getAttribute('aria-checked'), 'true')
+  assert.equal(pastille('#3760c9').getAttribute('aria-checked'), 'false')
   soumettre()
-  assert.equal(await promesse, '#f48c06')
-  assert.deepEqual(recu, { c: '#f48c06', nom: 'Sylvain' })
+  assert.equal(await promesse, '#ffbc64')
+  assert.deepEqual(recu, { c: '#ffbc64', nom: 'Sylvain' })
   assert.equal(appels[0].url, '/api/auth/couleur')
-  assert.deepEqual(JSON.parse(appels[0].opts.body), { couleur: '#f48c06' })
+  assert.deepEqual(JSON.parse(appels[0].opts.body), { couleur: '#ffbc64' })
   assert.equal(document.querySelector('.couleur-modal'), null)
 })
 
 test('la même couleur ne part pas ; Annuler et Échap non plus', async () => {
   installerDom()
   const appels = fauxServeur()
-  const p1 = ouvrirChoixDeCouleur({ couleurActuelle: '#3d5a80' })
+  const p1 = ouvrirChoixDeCouleur({ couleurActuelle: '#3760c9' })
   soumettre()
   assert.equal(await p1, null)
-  const p2 = ouvrirChoixDeCouleur({ couleurActuelle: '#3d5a80' })
+  const p2 = ouvrirChoixDeCouleur({ couleurActuelle: '#3760c9' })
   document.querySelector('.name-modal-annuler').click()
   assert.equal(await p2, null)
-  const p3 = ouvrirChoixDeCouleur({ couleurActuelle: '#3d5a80' })
+  const p3 = ouvrirChoixDeCouleur({ couleurActuelle: '#3760c9' })
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   assert.equal(await p3, null)
   assert.equal(document.querySelector('.couleur-modal'), null)
@@ -105,7 +105,7 @@ test('une couleur refusée par le serveur, ou une panne, laisse la fenêtre ouve
   fauxServeur({ refus: 'couleur hors de la palette' })
   let fini = false
   ouvrirChoixDeCouleur({ couleurActuelle: '' }).then(() => (fini = true))
-  pastille('#ff006e').click()
+  pastille('#ab3276').click()
   soumettre()
   await attendre()
   assert.equal(fini, false)
@@ -118,7 +118,7 @@ test('une couleur refusée par le serveur, ou une panne, laisse la fenêtre ouve
   installerDom()
   fauxServeur({ panne: true })
   ouvrirChoixDeCouleur({ couleurActuelle: '' })
-  pastille('#ff006e').click()
+  pastille('#ab3276').click()
   soumettre()
   await attendre()
   assert.match(document.querySelector('.name-modal-erreur').textContent, /connexion/)
@@ -145,27 +145,27 @@ test('les flèches passent d’une pastille à l’autre, en bouclant', () => {
   assert.equal(pastille(COULEURS_CHOIX[1]).getAttribute('aria-checked'), 'true')
   document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
   document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
-  assert.equal(document.activeElement.dataset.couleur, COULEURS_CHOIX[15], 'on reboucle sur la dernière')
+  assert.equal(document.activeElement.dataset.couleur, COULEURS_CHOIX[11], 'on reboucle sur la dernière')
 })
 
 test('le menu du compte : « Changer ma couleur… » ouvre la fenêtre, teint la pastille et prévient l’éditeur', async () => {
   installerDom()
-  fauxServeur({ couleur: '#3d5a80' })
+  fauxServeur({ couleur: '#3760c9' })
   const { monterMenuCompte } = await import('../src/compteMenu.js')
   const { forgetSessionCache } = await import('../src/auth.js')
   forgetSessionCache()
   let recue = null
-  monterMenuCompte(document.getElementById('zone'), { couleur: () => '#3d5a80', surCouleur: (c) => (recue = c) })
+  monterMenuCompte(document.getElementById('zone'), { couleur: () => '#3760c9', surCouleur: (c) => (recue = c) })
   await attendre()
   await attendre()
   const entrees = [...document.querySelectorAll('.menu-flottant-liste button')].map((b) => b.textContent)
   assert.ok(entrees.includes('Changer ma couleur…'))
   const pastilleCompte = document.querySelector('.compte-pastille')
-  assert.equal(pastilleCompte.style.getPropertyValue('--user-color'), '#3d5a80')
+  assert.equal(pastilleCompte.style.getPropertyValue('--user-color'), '#3760c9')
   document.querySelector('.compte-ma-couleur').click()
-  pastille('#7209b7').click()
+  pastille('#8048b6').click()
   soumettre()
   await attendre()
-  assert.equal(recue, '#7209b7')
-  assert.equal(pastilleCompte.style.getPropertyValue('--user-color'), '#7209b7')
+  assert.equal(recue, '#8048b6')
+  assert.equal(pastilleCompte.style.getPropertyValue('--user-color'), '#8048b6')
 })

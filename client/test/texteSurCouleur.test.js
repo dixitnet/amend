@@ -28,10 +28,10 @@ test('chaque teinte de la palette a le meilleur texte possible (≥ 4 : 1 ; viol
 })
 
 test('les teintes claires prennent le texte sombre, les foncées le blanc', () => {
-  assert.equal(texteSurCouleur('#00b4d8'), '#1f1d19', 'cyan')
-  assert.equal(texteSurCouleur('#ffb703'), '#1f1d19', 'ambre')
-  assert.equal(texteSurCouleur('#3d5a80'), '#ffffff', 'bleu nuit')
-  assert.equal(texteSurCouleur('#7209b7'), '#ffffff', 'pourpre')
+  assert.equal(texteSurCouleur('#6ab7fe'), '#1f1d19', 'bleu ciel')
+  assert.equal(texteSurCouleur('#ffbc64'), '#1f1d19', 'orange')
+  assert.equal(texteSurCouleur('#3760c9'), '#ffffff', 'bleu')
+  assert.equal(texteSurCouleur('#8048b6'), '#ffffff', 'violet')
 })
 
 test('une valeur illisible redonne le blanc d’avant, sans lever d’erreur', () => {

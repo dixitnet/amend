@@ -173,7 +173,7 @@ const LIGNES = [
   { couvre: '/api/admin/embarquer', m: 'POST', corps: { email: '' }, oui: ['admin'] },
   { couvre: '/api/auth/me', m: 'GET', oui: QUI },
   { couvre: '/api/auth/name', m: 'POST', corps: { name: 'Nom Test' }, oui: CONNECTES },
-  { couvre: '/api/auth/couleur', m: 'POST', corps: { couleur: '#3d5a80' }, oui: CONNECTES },
+  { couvre: '/api/auth/couleur', m: 'POST', corps: { couleur: '#3760c9' }, oui: CONNECTES },
   { couvre: '/api/auth/request-link', m: 'POST', corps: { email: 'inconnu-jamais@test.local' }, oui: QUI },
   { couvre: '/api/auth/verify', m: 'POST', corps: { token: 'x' }, oui: QUI },
   { couvre: '/api/auth/logout', m: 'POST', oui: QUI },

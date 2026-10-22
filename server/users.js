@@ -20,7 +20,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { lireJson, ecrireJsonAtomique } from './fichiers.js'
-import { COULEURS, COULEURS_CHOIX, COULEUR_IA, COULEURS_IA_ANCIENNES } from '../shared/identite.js'
+import { COULEURS, COULEURS_CHOIX, COULEURS_REMPLACEES, COULEUR_IA, COULEURS_IA_ANCIENNES } from '../shared/identite.js'
 
 /** La couleur de l'IA, réservée (17/09/2026) : `shared/identite.js`.
  *
@@ -35,16 +35,13 @@ export { COULEUR_IA }
  * serveur et au client. */
 export { COULEURS, COULEURS_CHOIX }
 
-/** Les couleurs retirées, et par quoi les remplacer. Un compte créé avant
- * le 17/09/2026 a pu recevoir un vert : on ne le laisse pas, mais on ne
- * réattribue pas non plus au hasard — la couleur d'une personne est ce
- * qu'on lit d'un coup d'œil dans la marge, et la voir changer sans raison
- * est déroutant. La correspondance est donc fixe. */
+/** Les couleurs retirées, et par quoi les remplacer : la table fixe de
+ * `shared/identite.js` (`COULEURS_REMPLACEES`), plus la couleur de l'IA, qui
+ * n'est jamais une couleur de personne. */
 const REMPLACEMENTS = {
-  '#81b29a': '#8d6e63',
-  '#588157': '#c9184a',
-  [COULEUR_IA]: '#e07a5f',
-  ...Object.fromEntries(COULEURS_IA_ANCIENNES.map((c) => [c, '#e07a5f'])),
+  ...COULEURS_REMPLACEES,
+  [COULEUR_IA]: '#e57255',
+  ...Object.fromEntries(COULEURS_IA_ANCIENNES.map((c) => [c, '#e57255'])),
 }
 
 /** La couleur d'un compte, corrigée si elle est retirée ou réservée. */
