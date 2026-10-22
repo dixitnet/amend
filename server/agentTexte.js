@@ -27,11 +27,11 @@ import { diffWords } from '../shared/diff.js'
 import { typographier } from '../shared/typographie.js'
 import { styleParagrapheValide } from '../shared/style.js'
 import { AUTEUR_AGENT, NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS } from '../shared/protocole.js'
-import { garde } from './garde-fous.js'
 export { NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS }
 
-// Aucun seuil dans ce fichier : longueurs et nombres d'éléments par appel sont
-// des garde-fous réglables (server/garde-fous.js).
+// Aucun seuil dans ce fichier : longueurs et nombres d'éléments par appel
+// n'ont plus de plafond propre (supprimés le 22/10/2026) ; la sortie maximale
+// d'un appel borne ce que le modèle peut écrire (server/garde-fous.js).
 
 const MARQUES_DE_SUIVI = new Set(['insertion', 'deletion', 'authorColor'])
 
@@ -489,14 +489,6 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
     if (numero === null) return refuse(index, r && r.bloc, 'numéro de bloc manquant ou invalide')
     if (typeof r.avant !== 'string' || typeof r.apres !== 'string')
       return refuse(index, numero, '`avant` et `apres` doivent être du texte')
-    if (r.avant.length > garde('longueurAvant'))
-      return refuse(
-        index,
-        numero,
-        `\`avant\` est trop long (${garde('longueurAvant')} signes au plus) : propose plusieurs remplacements courts`
-      )
-    if (r.apres.length > garde('longueurApres'))
-      return refuse(index, numero, `\`apres\` est trop long (${garde('longueurApres')} signes au plus)`)
     const bloc = cibleDe(blocs, numero, r.note)
     if (bloc.refus) return refuse(index, numero, bloc.refus)
     const trouve = situer(bloc, r.avant)
@@ -624,15 +616,11 @@ export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
     if (numero === null)
       return refuse(index, a && a.apres_bloc, '`apres_bloc` doit être un numéro de bloc (0 pour tout au début)')
     if (typeof a.texte !== 'string') return refuse(index, numero, '`texte` doit être du texte')
-    if (a.texte.length > garde('longueurApres'))
-      return refuse(index, numero, `\`texte\` est trop long (${garde('longueurApres')} signes au plus)`)
     const lignes = a.texte
       .split(/\r\n|\r|\n/)
       .map((l) => typographier(l.trim()))
       .filter(Boolean)
     if (!lignes.length) return refuse(index, numero, 'le texte est vide')
-    if (lignes.length > garde('lignesParAjout'))
-      return refuse(index, numero, `au plus ${garde('lignesParAjout')} paragraphes par ajout`)
     let ancre = null
     if (numero > 0) {
       const bloc = blocs[numero - 1]
@@ -793,8 +781,6 @@ export function ajouterNotes(ydoc, demandes, auteur, ts = Date.now()) {
     // une espace.
     const texte = typographier(d.texte.replace(/\s*[\r\n]+\s*/g, ' ').trim())
     if (!texte) return refuse(index, numero, 'le texte de la note est vide')
-    if (texte.length > garde('longueurNote'))
-      return refuse(index, numero, `le texte de la note est trop long (${garde('longueurNote')} signes au plus)`)
     const bloc = blocs[numero - 1]
     if (!bloc) return refuse(index, numero, `il n'y a pas de bloc ${numero}`)
     if (bloc.nom === 'heading') {
@@ -960,8 +946,6 @@ export function commenter(ydoc, { bloc: numero, citation, texte, note }, auteur)
     plage = plageDansLeTexte(bloc, trouve.debut, trouve.fin, { permettreMarques: true })
     if (!plage.ok) return { ok: false, raison: plage.raison }
   }
-  if (propre.length > garde('longueurCommentaire'))
-    return { ok: false, raison: `le commentaire est trop long (${garde('longueurCommentaire')} signes au plus)` }
   const id = identifiant('c')
   ydoc.transact(() => {
     ydoc.getMap(NOM_COMMENTAIRES).set(id, {
@@ -1052,8 +1036,6 @@ function blocDe(ydoc, blocs, c) {
 export function repondre(ydoc, { commentaire, texte }, auteur) {
   const propre = typographier(String(texte || '').trim())
   if (!propre) return { ok: false, raison: 'la réponse est vide' }
-  if (propre.length > garde('longueurCommentaire'))
-    return { ok: false, raison: `la réponse est trop longue (${garde('longueurCommentaire')} signes au plus)` }
   const carte = ydoc.getMap(NOM_COMMENTAIRES)
   const parent = carte.get(String(commentaire || ''))
   if (!parent || parent.parent)

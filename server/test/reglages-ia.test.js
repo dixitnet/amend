@@ -6,7 +6,6 @@ import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DEFAUTS, MANIERE_MARGO_DEFAUT, ReglagesIa } from '../reglagesIa.js'
-import { garde } from '../garde-fous.js'
 import { UsageIa, coutUsd, moisDe, moisSuivant } from '../usageIa.js'
 import { QuotasIa, accesIa, signes } from '../quotasIa.js'
 
@@ -148,12 +147,11 @@ test('la vérification commune dit la règle en signes et l’heure où une plac
   assert.equal(signes(1), '1 signe')
 })
 
-test('la manière de répondre de Margo : un texte libre, par instance, borné ; Corrections IA n’en a pas', () => {
+test('la manière de répondre de Margo : un texte libre, par instance, sans longueur réglée ; Corrections IA n’en a pas', () => {
   const d = dossier()
   const r = new ReglagesIa(d)
   assert.equal(r.de('margo').maniere, MANIERE_MARGO_DEFAUT)
   assert.match(MANIERE_MARGO_DEFAUT, /vouvoies/)
-  assert.ok(MANIERE_MARGO_DEFAUT.length < garde('maniereSignes'), 'le texte livré tient dans la limite')
   assert.equal('maniere' in r.de('corrections'), false)
 
   r.modifier({ margo: { maniere: '  Sois bref.\r\nVouvoie.  ' } }, 'a@x.fr')
@@ -162,15 +160,16 @@ test('la manière de répondre de Margo : un texte libre, par instance, borné ;
   r.modifier({ margo: { maniere: '' } }, 'a@x.fr')
   assert.equal(r.de('margo').maniere, '', 'vide est permis : plus de consigne de style')
 
-  assert.throws(() => r.modifier({ margo: { maniere: 'x'.repeat(garde('maniereSignes') + 1) } }, 'a'), /trop longue/)
+  r.modifier({ margo: { maniere: 'x'.repeat(50_000) } }, 'a')
+  assert.equal(r.de('margo').maniere.length, 50_000, 'plus de longueur réglée (22/10/2026)')
+  r.modifier({ margo: { maniere: '' } }, 'a')
   assert.throws(() => r.modifier({ margo: { maniere: 42 } }, 'a'), /doit être un texte/)
   assert.throws(() => r.modifier({ corrections: { maniere: 'x' } }, 'a'), /réglage inconnu/)
   assert.equal(r.de('margo').maniere, '', 'un refus n’applique rien')
 
   // Un fichier aux valeurs absurdes retombe sur le défaut, champ par champ.
-  writeFileSync(
-    join(d, 'reglages-ia.json'),
-    JSON.stringify({ margo: { maniere: 'x'.repeat(garde('maniereSignes') + 5) } })
-  )
-  assert.equal(new ReglagesIa(d).de('margo').maniere, MANIERE_MARGO_DEFAUT)
+  writeFileSync(join(d, 'reglages-ia.json'), JSON.stringify({ margo: { maniere: 42, signesParDemande: 'beaucoup' } }))
+  const relu = new ReglagesIa(d).de('margo')
+  assert.equal(relu.maniere, MANIERE_MARGO_DEFAUT)
+  assert.equal(relu.signesParDemande, DEFAUTS.margo.signesParDemande)
 })

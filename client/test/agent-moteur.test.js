@@ -24,14 +24,23 @@ import {
   relativePositionToAbsolutePosition,
 } from 'y-prosemirror'
 import { schema } from '../src/schema.js'
-import { acceptAllChanges, rejectAllChanges, insertAISuggestion, rejectAgentChanges, estModificationDAgent, listChanges } from '../src/trackChanges.js'
+import {
+  acceptAllChanges,
+  rejectAllChanges,
+  insertAISuggestion,
+  rejectAgentChanges,
+  estModificationDAgent,
+  listChanges,
+} from '../src/trackChanges.js'
 import { doc as fabriqueDoc, editeur, IA } from './harness.js'
 
 // Le yjs du serveur, chargé depuis le même fichier que celui du moteur
 // (sinon les `instanceof` du moteur ne reconnaîtraient rien).
 const racine = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const YS = await import(pathToFileURL(join(racine, 'node_modules', 'yjs', 'dist', 'yjs.mjs')).href)
-const { proposer, ajouter, ajouterNotes, commenter, repondre, fils } = await import(pathToFileURL(join(racine, 'server', 'agentTexte.js')).href)
+const { proposer, ajouter, ajouterNotes, commenter, repondre, fils } = await import(
+  pathToFileURL(join(racine, 'server', 'agentTexte.js')).href
+)
 
 /** Un document ProseMirror → un Y.Doc côté serveur ET côté client. */
 function mondes(pmDoc) {
@@ -72,7 +81,8 @@ function forme(pmDoc) {
     const marques = noeud.marks
       .map((m) => {
         const { user, userColor, groupe } = m.attrs
-        if (m.type.name === 'insertion' || m.type.name === 'deletion') return `${m.type.name}:${user}:${userColor}:g${rang(groupe)}`
+        if (m.type.name === 'insertion' || m.type.name === 'deletion')
+          return `${m.type.name}:${user}:${userColor}:g${rang(groupe)}`
         if (m.type.name === 'authorColor') return `authorColor:${user}:${userColor}`
         return m.type.name
       })
@@ -96,7 +106,9 @@ test('un remplacement d’un mot par un autre se lit comme celui de l’IA du pa
   // paragraphe » (BIG_REWRITE_RATIO) : une correction ordinaire.
   const texte = 'Dans la cuisine de la vieille maison, le chat noir dort tranquillement au soleil de midi.'
   const avant = fabriqueDoc(texte)
-  const { client } = ecrire(avant, (s) => proposer(s, [{ bloc: 1, avant: 'le chat noir dort', apres: 'le chien blanc dort' }], AGENT))
+  const { client } = ecrire(avant, (s) =>
+    proposer(s, [{ bloc: 1, avant: 'le chat noir dort', apres: 'le chien blanc dort' }], AGENT)
+  )
   const cible = commeLeClient(avant, texte.replace('chat noir', 'chien blanc'))
   assert.deepEqual(forme(relu(client)), forme(cible))
 })
@@ -104,7 +116,11 @@ test('un remplacement d’un mot par un autre se lit comme celui de l’IA du pa
 test('une lettre qui change, un ajout, une suppression : mêmes marques que le client', () => {
   const cas = [
     ['Un chomage massif.', { avant: 'chomage', apres: 'chômage' }, 'Un chômage massif.'],
-    ['Le chat dort dans le panier.', { avant: 'Le chat dort', apres: 'Le chat noir dort' }, 'Le chat noir dort dans le panier.'],
+    [
+      'Le chat dort dans le panier.',
+      { avant: 'Le chat dort', apres: 'Le chat noir dort' },
+      'Le chat noir dort dans le panier.',
+    ],
     ['Un très petit panier.', { avant: 'Un très petit', apres: 'Un petit' }, 'Un petit panier.'],
   ]
   for (const [texte, remplacement, suggestion] of cas) {
@@ -115,7 +131,11 @@ test('une lettre qui change, un ajout, une suppression : mêmes marques que le c
 })
 
 test('accepter tout donne le texte corrigé, refuser tout rend l’original', () => {
-  const avant = fabriqueDoc({ h: 1, texte: 'Chapitre' }, 'Ils mange des pomme au marché.', 'Un autre paragraphe, intact.')
+  const avant = fabriqueDoc(
+    { h: 1, texte: 'Chapitre' },
+    'Ils mange des pomme au marché.',
+    'Un autre paragraphe, intact.'
+  )
   const { client } = ecrire(avant, (s) =>
     proposer(
       s,
@@ -156,7 +176,12 @@ test('la mise en forme du passage remplacé passe au nouveau texte', () => {
 test('une note et un saut de ligne dans le paragraphe restent intacts', () => {
   const note = schema.node('footnote', null, [schema.text('ma note')])
   const avant = schema.node('doc', null, [
-    schema.node('paragraph', null, [schema.text('Avant la note'), note, schema.node('hard_break'), schema.text(' et le chat noir après.')]),
+    schema.node('paragraph', null, [
+      schema.text('Avant la note'),
+      note,
+      schema.node('hard_break'),
+      schema.text(' et le chat noir après.'),
+    ]),
   ])
   const { client } = ecrire(avant, (s) => proposer(s, [{ bloc: 1, avant: 'le chat noir', apres: 'le chien' }], AGENT))
   const propose = relu(client)
@@ -174,13 +199,24 @@ test('une note et un saut de ligne dans le paragraphe restent intacts', () => {
 })
 
 test('un commentaire de l’agent s’ancre sur le bon passage pour le client', () => {
-  const avant = fabriqueDoc('Premier paragraphe.', { h: 2, texte: 'Un titre' }, 'Zan naquit un mardi, sous un ciel de plomb.')
-  const { client, resultat } = ecrire(avant, (s) => commenter(s, { bloc: 3, citation: 'un mardi', texte: 'Précisez la date.' }, AGENT))
+  const avant = fabriqueDoc(
+    'Premier paragraphe.',
+    { h: 2, texte: 'Un titre' },
+    'Zan naquit un mardi, sous un ciel de plomb.'
+  )
+  const { client, resultat } = ecrire(avant, (s) =>
+    commenter(s, { bloc: 3, citation: 'un mardi', texte: 'Précisez la date.' }, AGENT)
+  )
   assert.ok(resultat.ok)
   const { doc: pm, mapping } = initProseMirrorDoc(client.getXmlFragment('prosemirror-content'), schema)
   const c = client.getMap('comments').get(resultat.id)
   const fragment = client.getXmlFragment('prosemirror-content')
-  const de = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorFrom), mapping)
+  const de = relativePositionToAbsolutePosition(
+    client,
+    fragment,
+    Y.createRelativePositionFromJSON(c.anchorFrom),
+    mapping
+  )
   const a = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorTo), mapping)
   assert.equal(pm.textBetween(de, a), 'un mardi')
   assert.equal(c.author, 'IA')
@@ -190,14 +226,26 @@ test('un commentaire de l’agent s’ancre sur le bon passage pour le client', 
 test('un commentaire posé après une note et un saut de ligne s’ancre encore juste', () => {
   const note = schema.node('footnote', null, [schema.text('ma note')])
   const avant = schema.node('doc', null, [
-    schema.node('paragraph', null, [schema.text('Avant'), note, schema.node('hard_break'), schema.text('et voici le passage visé, plus loin.')]),
+    schema.node('paragraph', null, [
+      schema.text('Avant'),
+      note,
+      schema.node('hard_break'),
+      schema.text('et voici le passage visé, plus loin.'),
+    ]),
   ])
-  const { client, resultat } = ecrire(avant, (s) => commenter(s, { bloc: 1, citation: 'le passage visé', texte: 'Flou.' }, AGENT))
+  const { client, resultat } = ecrire(avant, (s) =>
+    commenter(s, { bloc: 1, citation: 'le passage visé', texte: 'Flou.' }, AGENT)
+  )
   assert.ok(resultat.ok)
   const { doc: pm, mapping } = initProseMirrorDoc(client.getXmlFragment('prosemirror-content'), schema)
   const c = client.getMap('comments').get(resultat.id)
   const fragment = client.getXmlFragment('prosemirror-content')
-  const de = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorFrom), mapping)
+  const de = relativePositionToAbsolutePosition(
+    client,
+    fragment,
+    Y.createRelativePositionFromJSON(c.anchorFrom),
+    mapping
+  )
   const a = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorTo), mapping)
   assert.equal(pm.textBetween(de, a), 'le passage visé')
 })
@@ -219,7 +267,14 @@ test('« Tout rejeter — Claude » reconnaît ce que l’agent écrit, et lui s
   const avant = fabriqueDoc('Ils mange des pomme au marché.')
   const CLAUDE = { name: 'Claude (pour Sylvain)', color: '#5f7a4a' }
   const { client } = ecrire(avant, (s) =>
-    proposer(s, [{ bloc: 1, avant: 'Ils mange', apres: 'Ils mangent' }, { bloc: 1, avant: 'des pomme au', apres: 'des pommes au' }], CLAUDE)
+    proposer(
+      s,
+      [
+        { bloc: 1, avant: 'Ils mange', apres: 'Ils mangent' },
+        { bloc: 1, avant: 'des pomme au', apres: 'des pommes au' },
+      ],
+      CLAUDE
+    )
   )
   const propose = relu(client)
   assert.ok(listChanges(propose).length >= 2)
@@ -237,7 +292,9 @@ test('« Tout rejeter — Claude » reconnaît ce que l’agent écrit, et lui s
 test('un paragraphe ajouté : marques d’insertion de l’agent, accepter le garde, rejeter le retire en entier', () => {
   const avant = fabriqueDoc('Premier paragraphe.', 'Deuxième paragraphe.', 'Troisième paragraphe.')
   const CLAUDE = { name: 'Claude (pour Sylvain)', color: '#5f7a4a' }
-  const { client, resultat } = ecrire(avant, (s) => ajouter(s, [{ apres_bloc: 2, texte: 'Une transition ajoutée.' }], CLAUDE))
+  const { client, resultat } = ecrire(avant, (s) =>
+    ajouter(s, [{ apres_bloc: 2, texte: 'Une transition ajoutée.' }], CLAUDE)
+  )
   assert.deepEqual(resultat.appliques, [{ index: 0, bloc: 3, paragraphes: 1 }])
   assert.deepEqual(resultat.refuses, [])
   const propose = relu(client)
@@ -247,7 +304,12 @@ test('un paragraphe ajouté : marques d’insertion de l’agent, accepter le ga
   assert.equal(bloc.attrs.trackedBreak, null, 'le saut n’est pas une modification de plus')
   assert.deepEqual(
     forme(bloc).map(([t, m]) => [t, m.map((x) => x.replace(/:g\d+$/, ':g'))]),
-    [['Une transition ajoutée.', ['authorColor:Claude (pour Sylvain):#5f7a4a', 'insertion:Claude (pour Sylvain):#5f7a4a:gnull']]]
+    [
+      [
+        'Une transition ajoutée.',
+        ['authorColor:Claude (pour Sylvain):#5f7a4a', 'insertion:Claude (pour Sylvain):#5f7a4a:gnull'],
+      ],
+    ]
   )
   const changes = listChanges(propose)
   assert.equal(changes.length, 1)
@@ -255,7 +317,10 @@ test('un paragraphe ajouté : marques d’insertion de l’agent, accepter le ga
 
   const accepter = editeur(propose, { suivi: false })
   acceptAllChanges(accepter.view)
-  assert.equal(accepter.texte(), 'Premier paragraphe.\nDeuxième paragraphe.\nUne transition ajoutée.\nTroisième paragraphe.')
+  assert.equal(
+    accepter.texte(),
+    'Premier paragraphe.\nDeuxième paragraphe.\nUne transition ajoutée.\nTroisième paragraphe.'
+  )
   assert.equal(listChanges(accepter.doc).length, 0)
 
   for (const defaire of [rejectAllChanges, rejectAgentChanges]) {
@@ -281,7 +346,10 @@ test('plusieurs lignes, plusieurs ajouts au même endroit, et au tout début : d
     )
   )
   assert.deepEqual(resultat.refuses, [])
-  assert.deepEqual(resultat.appliques.map((a) => a.paragraphes), [2, 1, 1, 1])
+  assert.deepEqual(
+    resultat.appliques.map((a) => a.paragraphes),
+    [2, 1, 1, 1]
+  )
   const e = editeur(relu(client), { suivi: false })
   assert.equal(e.texte(), 'Début.\nUn.\nA1.\nA2.\nB.\nDeux.\nFin.')
   acceptAllChanges(e.view)
@@ -289,7 +357,7 @@ test('plusieurs lignes, plusieurs ajouts au même endroit, et au tout début : d
   assert.equal(listChanges(e.doc).length, 0)
 })
 
-test('un ajout refusé dit pourquoi : bloc inconnu, texte vide, liste, citation, trop de lignes', () => {
+test('un ajout refusé dit pourquoi : bloc inconnu, texte vide, liste, citation, numéro négatif', () => {
   const citation = schema.node('blockquote', null, [schema.node('paragraph', null, [schema.text('Une citation.')])])
   const liste = schema.node('bullet_list', null, [
     schema.node('list_item', null, [schema.node('paragraph', null, [schema.text('Un item.')])]),
@@ -303,7 +371,6 @@ test('un ajout refusé dit pourquoi : bloc inconnu, texte vide, liste, citation,
         { apres_bloc: 1, texte: '  \n ' },
         { apres_bloc: 2, texte: 'dans la citation' },
         { apres_bloc: 3, texte: 'dans la liste' },
-        { apres_bloc: 1, texte: Array.from({ length: 11 }, (_, i) => `L${i}`).join('\n') },
         { apres_bloc: -1, texte: 'x' },
         { apres_bloc: 1, texte: 'Celui-ci passe.' },
       ],
@@ -311,8 +378,11 @@ test('un ajout refusé dit pourquoi : bloc inconnu, texte vide, liste, citation,
     )
   )
   assert.equal(resultat.appliques.length, 1)
-  assert.equal(resultat.appliques[0].index, 6)
-  assert.deepEqual(resultat.refuses.map((r) => r.index), [0, 1, 2, 3, 4, 5])
+  assert.equal(resultat.appliques[0].index, 5)
+  assert.deepEqual(
+    resultat.refuses.map((r) => r.index),
+    [0, 1, 2, 3, 4]
+  )
   assert.match(resultat.refuses[0].raison, /pas de bloc 9/)
   assert.match(resultat.refuses[1].raison, /vide/)
   assert.match(resultat.refuses[2].raison, /citation/)
@@ -347,12 +417,17 @@ function notesDe(pmDoc) {
 
 test('une note ajoutée en suivi se lit comme une note proposée par une personne : accepter la garde, rejeter la retire', () => {
   const avant = fabriqueDoc('Un premier paragraphe.', 'Le chat noir dort tranquillement.')
-  const { client, resultat } = ecrire(avant, (s) => ajouterNotes(s, [{ bloc: 2, apres: 'chat noir', texte: 'Un chat de gouttière.' }], CLAUDE_NOTES))
+  const { client, resultat } = ecrire(avant, (s) =>
+    ajouterNotes(s, [{ bloc: 2, apres: 'chat noir', texte: 'Un chat de gouttière.' }], CLAUDE_NOTES)
+  )
   assert.deepEqual(resultat.appliques, [{ index: 0, bloc: 2 }])
   const propose = relu(client)
   // Le paragraphe garde son texte, coupé en deux autour de l'appel.
   const p = propose.child(1)
-  assert.deepEqual([...Array(p.childCount).keys()].map((i) => p.child(i).type.name), ['text', 'footnote', 'text'])
+  assert.deepEqual(
+    [...Array(p.childCount).keys()].map((i) => p.child(i).type.name),
+    ['text', 'footnote', 'text']
+  )
   assert.equal(p.child(0).text, 'Le chat noir')
   assert.equal(p.child(2).text, ' dort tranquillement.')
   const [n] = notesDe(propose)
@@ -384,10 +459,21 @@ test('une note ajoutée en suivi se lit comme une note proposée par une personn
 test('plusieurs notes dans un même paragraphe : mêmes positions pour le client que pour le serveur', () => {
   const avant = fabriqueDoc('Un deux trois quatre cinq.')
   const { client } = ecrire(avant, (s) =>
-    ajouterNotes(s, [{ bloc: 1, apres: 'deux', texte: 'N2' }, { bloc: 1, apres: 'quatre', texte: 'N4' }, { bloc: 1, texte: 'Fin' }], CLAUDE_NOTES)
+    ajouterNotes(
+      s,
+      [
+        { bloc: 1, apres: 'deux', texte: 'N2' },
+        { bloc: 1, apres: 'quatre', texte: 'N4' },
+        { bloc: 1, texte: 'Fin' },
+      ],
+      CLAUDE_NOTES
+    )
   )
   const propose = relu(client)
-  assert.deepEqual(notesDe(propose).map((n) => n.texte), ['N2', 'N4', 'Fin'])
+  assert.deepEqual(
+    notesDe(propose).map((n) => n.texte),
+    ['N2', 'N4', 'Fin']
+  )
   const e = editeur(propose, { suivi: false })
   acceptAllChanges(e.view)
   assert.equal(e.doc.child(0).textContent, 'Un deuxN2 trois quatreN4 cinq.Fin')
@@ -402,15 +488,24 @@ test('un commentaire posé après l’endroit d’une note ajoutée désigne tou
   const { doc: pm, mapping } = initProseMirrorDoc(client.getXmlFragment('prosemirror-content'), schema)
   const [c] = [...client.getMap('comments').values()]
   const fragment = client.getXmlFragment('prosemirror-content')
-  const de = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorFrom), mapping)
+  const de = relativePositionToAbsolutePosition(
+    client,
+    fragment,
+    Y.createRelativePositionFromJSON(c.anchorFrom),
+    mapping
+  )
   const a = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorTo), mapping)
   assert.equal(pm.textBetween(de, a), 'un jeudi')
 })
 
 test('la correction d’une note se relit dans la note : accepter donne le texte corrigé, refuser rend l’original', () => {
   const note = schema.node('footnote', { suivi: null }, [schema.text('Source : la mairie de Lyon, 1887.')])
-  const avant = schema.node('doc', null, [schema.node('paragraph', null, [schema.text('Zan naquit'), note, schema.text(' un mardi.')])])
-  const { client, resultat } = ecrire(avant, (s) => proposer(s, [{ bloc: 1, note: 1, avant: 'mairie de Lyon', apres: 'mairie de Paris' }], CLAUDE_NOTES))
+  const avant = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Zan naquit'), note, schema.text(' un mardi.')]),
+  ])
+  const { client, resultat } = ecrire(avant, (s) =>
+    proposer(s, [{ bloc: 1, note: 1, avant: 'mairie de Lyon', apres: 'mairie de Paris' }], CLAUDE_NOTES)
+  )
   assert.equal(resultat.refuses.length, 0)
   const propose = relu(client)
   const changes = listChanges(propose)
@@ -433,13 +528,20 @@ test('la correction d’une note se relit dans la note : accepter donne le texte
 
 test('un commentaire sur une note s’ancre sur le texte qui précède son appel', () => {
   const note = schema.node('footnote', { suivi: null }, [schema.text('Source douteuse.')])
-  const avant = schema.node('doc', null, [schema.node('paragraph', null, [schema.text('Zan naquit un mardi'), note, schema.text(', dit-on.')])])
+  const avant = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Zan naquit un mardi'), note, schema.text(', dit-on.')]),
+  ])
   const { client, resultat } = ecrire(avant, (s) => commenter(s, { bloc: 1, note: 1, texte: 'À sourcer.' }, AGENT))
   assert.ok(resultat.ok)
   const { doc: pm, mapping } = initProseMirrorDoc(client.getXmlFragment('prosemirror-content'), schema)
   const c = client.getMap('comments').get(resultat.id)
   const fragment = client.getXmlFragment('prosemirror-content')
-  const de = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorFrom), mapping)
+  const de = relativePositionToAbsolutePosition(
+    client,
+    fragment,
+    Y.createRelativePositionFromJSON(c.anchorFrom),
+    mapping
+  )
   const a = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorTo), mapping)
   assert.equal(pm.textBetween(de, a), 'Zan naquit un mardi')
   assert.equal(c.text, 'À propos de la note 1 : À sourcer.')

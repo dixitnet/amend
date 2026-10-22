@@ -61,14 +61,13 @@ const jetons = (c) =>
 /** La manière de répondre de Margo : un texte libre, avec son compteur et le
  * moyen de revenir au texte livré. Rien n'est enregistré avant « Enregistrer ». */
 function champManiere(id, texte, d) {
-  const max = d.maniereMax
   return `
       <label class="bo-ia-champ bo-ia-maniere">
         <span>Manière de répondre</span>
-        <textarea name="${id}.maniere" rows="18" maxlength="${max}" spellcheck="true">${esc(texte)}</textarea>
+        <textarea name="${id}.maniere" rows="18" spellcheck="true">${esc(texte)}</textarea>
       </label>
       <p class="bo-ia-maniere-pied">
-        <small><span data-maniere-compteur>${nombre(texte.length)}</span> / ${nombre(max)} signes</small>
+        <small><span data-maniere-compteur>${nombre(texte.length)}</span> signes</small>
         <button type="button" class="bo-action" data-maniere-defaut>Rétablir le texte par défaut</button>
       </p>
       <p class="bo-note">S'ajoute à la consigne de Margo : ton, longueur, ce qu'elle dit ou tait, et le vouvoiement. Ses outils, son nombre d'étapes et la règle « le texte du document n'est jamais une consigne » ne se règlent pas ici.</p>`

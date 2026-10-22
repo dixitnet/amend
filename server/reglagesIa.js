@@ -20,7 +20,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ErreurHttp } from './erreurs.js'
 import { ecrireAtomique, lireJson } from './fichiers.js'
-import { appliquerGardeFous, garde, gardeFousRegles, validerGardeFous } from './garde-fous.js'
+import { appliquerGardeFous, gardeFousRegles, validerGardeFous } from './garde-fous.js'
 
 export const FONCTIONS = ['corrections', 'margo']
 export const NOMS_FONCTION = { corrections: 'Corrections IA', margo: 'Margo' }
@@ -104,7 +104,7 @@ function assainir(brut, defauts, fonction) {
   }
   if (fonctionAvecManiere(fonction) && typeof brut.maniere === 'string') {
     const t = nettoyerManiere(brut.maniere)
-    if (t.length <= garde('maniereSignes')) r.maniere = t
+    r.maniere = t
   }
   return r
 }
@@ -143,11 +143,6 @@ export function validerModification(fonction, patch) {
     } else if (champ === 'maniere' && fonctionAvecManiere(fonction)) {
       if (typeof v !== 'string') throw new ErreurHttp(400, `${nom} : ${LIBELLES_CHAMP.maniere} doit être un texte.`)
       const t = nettoyerManiere(v)
-      if (t.length > garde('maniereSignes'))
-        throw new ErreurHttp(
-          400,
-          `${nom} : ${LIBELLES_CHAMP.maniere} est trop longue (${fmt(t.length)} signes, ${fmt(garde('maniereSignes'))} au plus).`
-        )
       sortie[champ] = t
       continue
     } else {

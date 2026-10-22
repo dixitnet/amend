@@ -27,7 +27,7 @@ sortie.push(
 )
 sortie.push('')
 sortie.push(
-  'Les garde-fous valent pour Corrections IA, pour Margo et pour le connecteur « inviter Claude ». Ils se règlent dans le back-office (`#/admin/ia`, section « Garde-fous »), pour toute l’instance, un par un, et se rétablissent un par un ; le changement s’applique à la demande suivante, sans redémarrage. Aucun autre fichier de l’IA ne définit de seuil : un test (`server/test/garde-fous.test.js`) échoue si une constante de seuil réapparaît.'
+  'Il en reste **neuf**, tous visibles et réglables : les vingt autres ont été supprimés le 22/10/2026 (voir la fin de ce document). Ils valent pour Corrections IA, pour Margo et pour le connecteur « inviter Claude ». Ils se règlent dans le back-office (`#/admin/ia`, section « Garde-fous »), pour toute l’instance, un par un, et se rétablissent un par un ; le changement s’applique à la demande suivante, sans redémarrage. Aucun autre fichier de l’IA ne définit de seuil : un test (`server/test/garde-fous.test.js`) échoue si une constante de seuil réapparaît.'
 )
 sortie.push('')
 for (const gr of GROUPES) {
@@ -46,6 +46,12 @@ for (const gr of GROUPES) {
   }
   sortie.push('')
 }
+sortie.push('## Ce qui a été supprimé le 22/10/2026')
+sortie.push('')
+sortie.push(
+  'Avec peu d’usages et des abonnements aux limites dures, vingt seuils ont été retirés : presque tous doublaient un plafond que le modèle respecte de lui-même (la sortie maximale d’un appel) ou que le fournisseur impose avec une erreur claire. Supprimés : les nombres d’éléments par appel (remplacements, ajouts, notes, commentaires, paragraphes par ajout) ; les longueurs de passage, de texte, de commentaire, de note, de consigne et de manière de répondre ; les plafonds de lecture (blocs et signes par appel), de recherche, de plan et de liste de commentaires ; le plancher de sortie d’un paragraphe corrigé ; les messages et l’historique d’une conversation de Margo, et les réponses simultanées sur l’instance. Ce qui reste fixe dans le code, sans être un réglage : la taille d’un corps de requête de l’interface (2 Mo, `CORPS_JSON_OCTETS_MAX`) et le verrou « une réponse de Margo à la fois par personne et par document ».'
+)
+sortie.push('')
 sortie.push('## Les réglages d’usage (hors garde-fous)')
 sortie.push('')
 sortie.push(

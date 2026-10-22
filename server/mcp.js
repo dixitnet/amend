@@ -65,8 +65,7 @@ function definirOutils() {
           nombre: {
             type: 'integer',
             minimum: 1,
-            maximum: garde('lireBlocsMax'),
-            description: `Combien de blocs (${LIRE_PAR_DEFAUT} par défaut, ${garde('lireBlocsMax')} au plus).`,
+            description: `Combien de blocs (${LIRE_PAR_DEFAUT} par défaut).`,
           },
         },
         additionalProperties: false,
@@ -86,7 +85,6 @@ function definirOutils() {
           limite: {
             type: 'integer',
             minimum: 1,
-            maximum: garde('chercherResultatsMax'),
             description: `${CHERCHER_PAR_DEFAUT} résultats par défaut.`,
           },
         },
@@ -99,14 +97,13 @@ function definirOutils() {
     {
       name: 'proposer',
       title: 'Proposer des corrections',
-      description: `Propose des remplacements de texte **en suivi de modifications** : rien n’est changé pour de bon, un éditeur accepte ou refuse chaque proposition. Pour chaque remplacement, donne le numéro du bloc, le passage exact à remplacer (\`avant\`, unique dans le bloc, recopié tel que \`lire\` le montre) et le texte de remplacement (\`apres\`). Garde \`avant\` court — quelques mots autour de ce qui change suffisent — et ne réécris pas ce qui est juste. Pour insérer, reprends un passage voisin dans \`avant\` et ajoute le texte dans \`apres\` ; pour supprimer, retire-le de \`apres\`. Jusqu’à ${garde('remplacementsParAppel')} remplacements par appel ; chacun est jugé séparément, les refus sont expliqués. Un passage déjà touché par une modification en attente ne peut pas être modifié. Pour corriger le texte d’une note de bas de page, ajoute \`note\` : le repère ⟦k⟧ de la note dans ce bloc (tel que \`lire\` le donne) ; \`avant\` et \`apres\` portent alors sur le texte de la note.`,
+      description: `Propose des remplacements de texte **en suivi de modifications** : rien n’est changé pour de bon, un éditeur accepte ou refuse chaque proposition. Pour chaque remplacement, donne le numéro du bloc, le passage exact à remplacer (\`avant\`, unique dans le bloc, recopié tel que \`lire\` le montre) et le texte de remplacement (\`apres\`). Garde \`avant\` court — quelques mots autour de ce qui change suffisent — et ne réécris pas ce qui est juste. Pour insérer, reprends un passage voisin dans \`avant\` et ajoute le texte dans \`apres\` ; pour supprimer, retire-le de \`apres\`. Chaque remplacement est jugé séparément, les refus sont expliqués. Un passage déjà touché par une modification en attente ne peut pas être modifié. Pour corriger le texte d’une note de bas de page, ajoute \`note\` : le repère ⟦k⟧ de la note dans ce bloc (tel que \`lire\` le donne) ; \`avant\` et \`apres\` portent alors sur le texte de la note.`,
       inputSchema: {
         type: 'object',
         properties: {
           remplacements: {
             type: 'array',
             minItems: 1,
-            maxItems: garde('remplacementsParAppel'),
             items: {
               type: 'object',
               properties: {
@@ -138,14 +135,13 @@ function definirOutils() {
     {
       name: 'ajouter',
       title: 'Ajouter des paragraphes',
-      description: `Propose d’ajouter des paragraphes entiers **en suivi de modifications**, juste après un bloc (\`apres_bloc\` ; 0 pour tout au début du document). Une ligne du \`texte\`, un paragraphe ordinaire. Un éditeur accepte ou refuse : refuser retire le paragraphe en entier. Jusqu’à ${garde('ajoutsParAppel')} ajouts par appel ; les numéros de bloc sont ceux de \`lire\` avant l’appel, et ceux qui suivent un ajout changent : relis avant de continuer. Cela ne coupe pas un paragraphe en deux, ne change pas de style, et ne s’applique pas dans une liste ni une citation (le refus est expliqué). Pour étoffer un paragraphe existant, utilise plutôt \`proposer\`.`,
+      description: `Propose d’ajouter des paragraphes entiers **en suivi de modifications**, juste après un bloc (\`apres_bloc\` ; 0 pour tout au début du document). Une ligne du \`texte\`, un paragraphe ordinaire. Un éditeur accepte ou refuse : refuser retire le paragraphe en entier. Les numéros de bloc sont ceux de \`lire\` avant l’appel, et ceux qui suivent un ajout changent : relis avant de continuer. Cela ne coupe pas un paragraphe en deux, ne change pas de style, et ne s’applique pas dans une liste ni une citation (le refus est expliqué). Pour étoffer un paragraphe existant, utilise plutôt \`proposer\`.`,
       inputSchema: {
         type: 'object',
         properties: {
           ajouts: {
             type: 'array',
             minItems: 1,
-            maxItems: garde('ajoutsParAppel'),
             items: {
               type: 'object',
               properties: {
@@ -170,14 +166,13 @@ function definirOutils() {
     {
       name: 'ajouter_note',
       title: 'Ajouter des notes de bas de page',
-      description: `Propose d’ajouter des notes de bas de page **en suivi de modifications**. Pour chaque note : le numéro du bloc, le passage exact après lequel poser l’appel (\`apres\`, unique dans le bloc, recopié tel que \`lire\` le montre — sans lui, l’appel est posé à la fin du bloc) et le texte de la note (une seule ligne, sans mise en forme). L’appel se place juste après ce passage ; le numéro de la note se calcule tout seul. Un éditeur accepte ou refuse : refuser retire la note en entier. Jusqu’à ${garde('notesParAppel')} notes par appel ; chacune est jugée séparément. Pas de note dans un titre. Pour corriger une note qui existe déjà, utilise \`proposer\` avec \`note\`.`,
+      description: `Propose d’ajouter des notes de bas de page **en suivi de modifications**. Pour chaque note : le numéro du bloc, le passage exact après lequel poser l’appel (\`apres\`, unique dans le bloc, recopié tel que \`lire\` le montre — sans lui, l’appel est posé à la fin du bloc) et le texte de la note (une seule ligne, sans mise en forme). L’appel se place juste après ce passage ; le numéro de la note se calcule tout seul. Un éditeur accepte ou refuse : refuser retire la note en entier. Chaque note est jugée séparément. Pas de note dans un titre. Pour corriger une note qui existe déjà, utilise \`proposer\` avec \`note\`.`,
       inputSchema: {
         type: 'object',
         properties: {
           notes: {
             type: 'array',
             minItems: 1,
-            maxItems: garde('notesParAppel'),
             items: {
               type: 'object',
               properties: {
@@ -215,7 +210,6 @@ function definirOutils() {
           commentaires: {
             type: 'array',
             minItems: 1,
-            maxItems: garde('commentairesParAppel'),
             items: {
               type: 'object',
               properties: {
@@ -445,7 +439,7 @@ export class Mcp {
 
       case 'lire': {
         const de = entier(args.de, 1, 1, 1_000_000)
-        const nombre = entier(args.nombre, LIRE_PAR_DEFAUT, 1, garde('lireBlocsMax'))
+        const nombre = entier(args.nombre, LIRE_PAR_DEFAUT, 1, 1_000_000)
         return this.rooms.lireDocument(docId, (ydoc) => ({
           texte: lireDe(titre(), blocsDuDocument(ydoc), de, nombre),
           bloc: de,
@@ -455,7 +449,7 @@ export class Mcp {
       case 'chercher': {
         const motif = String(args.texte || '').trim()
         if (!motif) return { texte: 'Il faut un texte à chercher.', erreur: true }
-        const limite = entier(args.limite, CHERCHER_PAR_DEFAUT, 1, garde('chercherResultatsMax'))
+        const limite = entier(args.limite, CHERCHER_PAR_DEFAUT, 1, 1_000_000)
         return this.rooms.lireDocument(docId, (ydoc) => ({ texte: chercherDans(blocsDuDocument(ydoc), motif, limite) }))
       }
 
@@ -465,13 +459,8 @@ export class Mcp {
       case 'proposer': {
         const liste = Array.isArray(args.remplacements) ? args.remplacements : null
         if (!liste || !liste.length) return { texte: 'Il faut au moins un remplacement.', erreur: true }
-        // Au-delà du plafond, on traite les premiers et on refuse le surplus en
-        // le disant : tout refuser obligerait à régénérer tout l'appel.
-        const plafond = garde('remplacementsParAppel')
-        const surplus = Math.max(0, liste.length - plafond)
-        const retenus = surplus ? liste.slice(0, plafond) : liste
         const verdict = await this.rooms.ecrireDocument(docId, (ydoc) =>
-          proposer(ydoc, retenus, auteur, this.maintenant())
+          proposer(ydoc, liste, auteur, this.maintenant())
         )
         const lignes = []
         if (verdict.appliques.length) {
@@ -481,14 +470,10 @@ export class Mcp {
         }
         for (const r of verdict.refuses)
           lignes.push(`Refusé — remplacement ${r.index + 1}${r.bloc ? ` (bloc ${r.bloc})` : ''} : ${r.raison}`)
-        if (surplus)
-          lignes.push(
-            `Refusé — ${surplus > 1 ? `remplacements ${plafond + 1} à ${liste.length} (${surplus})` : `remplacement ${liste.length}`} : au plus ${plafond} par appel, ils n’ont pas été traités. Renvoie ceux-là seulement, dans un nouvel appel ; les ${plafond} premiers sont traités ci-dessus.`
-          )
         return {
           texte: lignes.join('\n'),
           erreur: !verdict.appliques.length,
-          comptes: { appliques: verdict.appliques.length, refuses: verdict.refuses.length + surplus },
+          comptes: { appliques: verdict.appliques.length, refuses: verdict.refuses.length },
           bloc: verdict.appliques.length ? verdict.appliques[verdict.appliques.length - 1].bloc : null,
         }
       }
@@ -496,8 +481,6 @@ export class Mcp {
       case 'ajouter': {
         const liste = Array.isArray(args.ajouts) ? args.ajouts : null
         if (!liste || !liste.length) return { texte: 'Il faut au moins un ajout.', erreur: true }
-        if (liste.length > garde('ajoutsParAppel'))
-          return { texte: `Au plus ${garde('ajoutsParAppel')} ajouts par appel.`, erreur: true }
         const verdict = await this.rooms.ecrireDocument(docId, (ydoc) =>
           ajouter(ydoc, liste, auteur, this.maintenant())
         )
@@ -523,8 +506,6 @@ export class Mcp {
       case 'ajouter_note': {
         const liste = Array.isArray(args.notes) ? args.notes : null
         if (!liste || !liste.length) return { texte: 'Il faut au moins une note.', erreur: true }
-        if (liste.length > garde('notesParAppel'))
-          return { texte: `Au plus ${garde('notesParAppel')} notes par appel.`, erreur: true }
         const verdict = await this.rooms.ecrireDocument(docId, (ydoc) =>
           ajouterNotes(ydoc, liste, auteur, this.maintenant())
         )
@@ -549,8 +530,6 @@ export class Mcp {
       case 'commenter': {
         const liste = Array.isArray(args.commentaires) ? args.commentaires : null
         if (!liste || !liste.length) return { texte: 'Il faut au moins un commentaire.', erreur: true }
-        if (liste.length > garde('commentairesParAppel'))
-          return { texte: `Au plus ${garde('commentairesParAppel')} commentaires par appel.`, erreur: true }
         const verdicts = await this.rooms.ecrireDocument(docId, (ydoc) =>
           liste.map((c) => commenter(ydoc, c || {}, auteur))
         )
@@ -650,16 +629,13 @@ function planDe(titre, role, blocs) {
     return lignes.join('\n')
   }
   lignes.push('Titres :')
-  const montres = garde('planTitresMax')
-  titres.slice(0, montres).forEach((b, i) => {
+  titres.forEach((b, i) => {
     const suivant = titres[i + 1]
     const jusqua = suivant ? suivant.n - 1 : blocs.length
     let motsSection = 0
     for (let k = b.n; k <= jusqua; k++) motsSection += (blocs[k - 1].texte.match(/\S+/g) || []).length
     lignes.push(`[${b.n}] ${etiquette(b)}${b.texte.trim()} — blocs ${b.n}–${jusqua}, ≈ ${motsSection} mots`)
   })
-  if (titres.length > montres)
-    lignes.push(`… et ${titres.length - montres} titres de plus (lis le document par blocs avec \`lire\`).`)
   return lignes.join('\n')
 }
 
@@ -677,7 +653,6 @@ function lireDe(titre, blocs, de, nombre) {
   if (de > blocs.length) return `Il n'y a que ${blocs.length} blocs.`
   const jusqua = Math.min(blocs.length, de + nombre - 1)
   const lignes = []
-  let taille = 0
   let dernier = de - 1
   for (let k = de; k <= jusqua; k++) {
     const b = blocs[k - 1]
@@ -688,9 +663,7 @@ function lireDe(titre, blocs, de, nombre) {
     const ligne = [`[${b.n}] ${etiquette(b)}${b.texte}${b.enAttente ? '  ⚑' : ''}`, ...b.notes.map(ligneDeNote)].join(
       '\n'
     )
-    if (taille + ligne.length > garde('lireSignesParReponse') && lignes.length) break
     lignes.push(ligne)
-    taille += ligne.length
     dernier = k
   }
   const entete =
@@ -738,13 +711,11 @@ function chercherDans(blocs, motif, limite) {
 function commentairesDe(liste) {
   if (!liste.length) return 'Aucun commentaire dans ce document.'
   const lignes = []
-  const montres = garde('commentairesAffichesMax')
-  for (const f of liste.slice(0, montres)) {
+  for (const f of liste) {
     lignes.push(
       `Fil ${f.id}${f.bloc ? ` (bloc ${f.bloc})` : ''} — ${f.auteur}${f.passage ? ` sur « ${f.passage} »` : ''} : ${f.texte}`
     )
     for (const r of f.reponses) lignes.push(`   ↳ ${r.auteur} : ${r.texte}`)
   }
-  if (liste.length > montres) lignes.push(`… et ${liste.length - montres} fils de plus.`)
   return lignes.join('\n')
 }

@@ -323,14 +323,7 @@ test('l’accès est un niveau minimal par fonction : admin, éditeur, correcteu
 test('entrées invalides : refusées avant tout appel payant', async () => {
   const doc = await document('invalide@example.com')
   requetes.length = 0
-  for (const corps of [
-    {},
-    { text: '   ' },
-    { textes: [] },
-    { textes: ['ok', ''] },
-    { textes: ['ok', 3] },
-    { text: 'ok', instruction: 'x'.repeat(2001) },
-  ]) {
+  for (const corps of [{}, { text: '   ' }, { textes: [] }, { textes: ['ok', ''] }, { textes: ['ok', 3] }]) {
     const res = await demander(doc, 'invalide@example.com', corps)
     assert.ok([400, 413].includes(res.status), JSON.stringify(corps).slice(0, 50))
   }
@@ -487,10 +480,10 @@ test('garde-fous du back-office : listés avec leur documentation, réglables pa
   await regler({ corrections: { signesParDemande: 100_000 } })
   try {
     const etat = await conso()
-    assert.ok(etat.gardeFous.definitions.length >= 25)
+    assert.equal(etat.gardeFous.definitions.length, 9, 'neuf garde-fous, tous visibles (22/10/2026)')
     assert.ok(etat.gardeFous.definitions.every((g) => g.quoi && g.unite && g.nom))
     assert.equal(etat.gardeFous.valeurs.correctionsEnParallele, 8)
-    assert.equal(etat.maniereMax, etat.gardeFous.valeurs.maniereSignes)
+    assert.equal(etat.maniereMax, undefined, 'la manière de répondre n’a plus de longueur réglée')
 
     assert.equal((await regler({ gardeFous: { correctionsEnParallele: 2 } }, 'simple@example.com')).status, 403)
     const refus = await regler({ gardeFous: { correctionsEnParallele: 0 } })
@@ -519,14 +512,12 @@ test('garde-fous du back-office : listés avec leur documentation, réglables pa
   }
 })
 
-test('la manière de répondre peut atteindre son garde-fou : le corps de la requête du back-office n’est pas plus petit', async () => {
+test('la manière de répondre n’a plus de longueur réglée : un long texte est accepté, relu tel quel', async () => {
   try {
-    assert.equal((await regler({ gardeFous: { maniereSignes: 30_000 } })).status, 200)
     const longue = 'Sois brève. '.repeat(2_000) // 24 000 signes
     assert.equal((await regler({ margo: { maniere: longue } })).status, 200)
     assert.equal((await conso()).reglages.margo.maniere.length, longue.trim().length)
   } finally {
     await regler({ margo: { maniere: 'Tu vouvoies toujours la personne.' } })
-    await regler({ gardeFous: { maniereSignes: null } })
   }
 })

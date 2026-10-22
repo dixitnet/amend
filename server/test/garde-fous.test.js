@@ -25,6 +25,28 @@ const dossier = () => mkdtempSync(join(tmpdir(), 'collabtext-test-garde-fous-'))
 
 afterEach(() => appliquerGardeFous({}))
 
+test('neuf garde-fous, pas un de plus : les vingt autres ont été supprimés le 22/10/2026', () => {
+  assert.deepEqual(GARDE_FOUS.map((g) => g.id).sort(), [
+    'corpsMcpOctets',
+    'correctionsEnParallele',
+    'ecrituresParHeure',
+    'lotMcp',
+    'margoCoupures',
+    'margoEtapes',
+    'margoMargeLecture',
+    'margoRelances',
+    'sortieMaxJetons',
+  ])
+  for (const supprime of [
+    'margoHistorique',
+    'margoMessages',
+    'margoSimultanes',
+    'lireSignesParReponse',
+    'longueurNote',
+  ])
+    assert.throws(() => garde(supprime), /garde-fou inconnu/)
+})
+
 test('chaque garde-fou : un identifiant unique, une description, un groupe connu, un défaut dans ses bornes', () => {
   const ids = new Set()
   const groupes = new Set(GROUPES.map((g) => g.id))
@@ -50,10 +72,10 @@ test('un identifiant inconnu lève une erreur : un seuil introuvable ne devient 
 
 test('les valeurs livrées sont celles de la documentation ; réglées, elles changent et se rétablissent une à une', () => {
   assert.equal(garde('margoEtapes'), 100)
-  assert.equal(garde('margoHistorique'), 400_000)
-  appliquerGardeFous({ margoEtapes: 50, margoMessages: 'beaucoup', inconnu: 3, margoCoupures: 2.5 })
+  assert.equal(garde('ecrituresParHeure'), 120)
+  appliquerGardeFous({ margoEtapes: 50, ecrituresParHeure: 'beaucoup', inconnu: 3, margoCoupures: 2.5 })
   assert.equal(garde('margoEtapes'), 50)
-  assert.equal(garde('margoMessages'), 200, 'une valeur invalide est ignorée')
+  assert.equal(garde('ecrituresParHeure'), 120, 'une valeur invalide est ignorée')
   assert.equal(garde('margoCoupures'), 2)
   assert.equal(gardeFousEnVigueur().margoEtapes, 50)
   assert.equal(Object.keys(gardeFousEnVigueur()).length, GARDE_FOUS.length)
@@ -83,8 +105,8 @@ test('réglés depuis le back-office : écrits sur le disque, relus au redémarr
 
   // Un refus n'en applique aucun, ni des garde-fous ni du reste.
   assert.throws(
-    () => r.modifier({ margo: { signesParMois: 2_000 }, gardeFous: { margoEtapes: 7, margoMessages: 1 } }, 'a'),
-    /Messages d’une conversation/
+    () => r.modifier({ margo: { signesParMois: 2_000 }, gardeFous: { margoEtapes: 7, margoCoupures: 99 } }, 'a'),
+    /Reprises après une réponse coupée/
   )
   assert.equal(garde('margoEtapes'), 40)
   assert.equal(r.de('margo').signesParMois, 300_000)
@@ -108,22 +130,15 @@ test('un nouveau ReglagesIa sans garde-fous réglés remet les défauts (aucune 
   assert.equal(garde('margoEtapes'), 100)
 })
 
-test('les outils annoncent au modèle les nombres en vigueur, sans redémarrage', () => {
+test('les outils n’annoncent plus de plafond au modèle : ni nombre d’éléments par appel, ni borne de lecture', () => {
   const mcp = new Mcp({ agents: {}, storage: {}, rooms: {} })
   const droits = { capabilities: { canProposeChanges: true, canComment: true } }
-  const lire = () => Object.fromEntries(mcp._outilsPour(droits).map((o) => [o.name, o]))
-  const avant = lire()
-  assert.equal(avant.proposer.inputSchema.properties.remplacements.maxItems, 30)
-  assert.equal(avant.commenter.inputSchema.properties.commentaires.maxItems, 20)
-  assert.equal(avant.lire.inputSchema.properties.nombre.maximum, 200)
-  assert.equal(avant.chercher.inputSchema.properties.limite.maximum, 100)
-  appliquerGardeFous({ remplacementsParAppel: 80, commentairesParAppel: 5, lireBlocsMax: 500, chercherResultatsMax: 7 })
-  const apres = lire()
-  assert.equal(apres.proposer.inputSchema.properties.remplacements.maxItems, 80)
-  assert.match(apres.proposer.description, /Jusqu’à 80 remplacements/)
-  assert.equal(apres.commenter.inputSchema.properties.commentaires.maxItems, 5)
-  assert.equal(apres.lire.inputSchema.properties.nombre.maximum, 500)
-  assert.equal(apres.chercher.inputSchema.properties.limite.maximum, 7)
+  const outils = Object.fromEntries(mcp._outilsPour(droits).map((o) => [o.name, o]))
+  assert.equal(outils.proposer.inputSchema.properties.remplacements.maxItems, undefined)
+  assert.equal(outils.commenter.inputSchema.properties.commentaires.maxItems, undefined)
+  assert.equal(outils.lire.inputSchema.properties.nombre.maximum, undefined)
+  assert.equal(outils.chercher.inputSchema.properties.limite.maximum, undefined)
+  assert.doesNotMatch(outils.proposer.description, /Jusqu’à \d+ remplacements/)
 })
 
 test('un corps de requête peut porter toute la limite en signes, quel que soit le nombre d’octets par signe', () => {
@@ -157,13 +172,18 @@ const PAS_UN_SEUIL = [
   {
     fichier: 'mcp.js',
     motif: /^const CHERCHER_PAR_DEFAUT = 20$/,
-    pourquoi: 'défaut de pagination : le modèle peut demander jusqu’au garde-fou',
+    pourquoi: 'défaut de pagination',
   },
   { fichier: 'mcp.js', motif: /^export const LIRE_PAR_DEFAUT = 40$/, pourquoi: 'défaut de pagination' },
   {
     fichier: 'mcp.js',
     motif: /^const ECRITURES_FENETRE_MS = 60 \* 60_000$/,
     pourquoi: 'la fenêtre (une heure) du garde-fou « par heure »',
+  },
+  {
+    fichier: 'ai.js',
+    motif: /^const PLANCHER_SORTIE_JETONS = 4096$/,
+    pourquoi: 'plancher du budget de sortie d’un paragraphe : un plafond, il ne coûte que ce que le modèle écrit',
   },
   {
     fichier: 'agentTexte.js',

@@ -4235,9 +4235,9 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
 }
 
 /* Les favoris, à part (22/10/2026) : un encadré sur fond de panneau, avec son
-   titre, puis un titre d'arborescence avec sa ligne. Les deux listes ne se
+   titre, au-dessus de la barre de recherche et de l’arborescence. Les deux listes ne se
    lisent plus comme une seule. */
-.accueil-docs .favoris { margin: 0 0 28px; padding: 6px 6px 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel-bg); }
+.accueil-docs .favoris { margin: 0 0 18px; padding: 6px 6px 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel-bg); }
 .accueil-docs .favoris .favoris-titre {
   display: flex; align-items: center; gap: 8px; margin: 8px 8px 4px;
   font-size: 13px; font-weight: 500; color: var(--fg);
@@ -4246,11 +4246,6 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
 .accueil-docs .favoris .favoris-titre .icone path { fill: currentColor; }
 .accueil-docs .favoris .doc-list li:hover,
 .accueil-docs .favoris .doc-list li:focus-within { background: color-mix(in srgb, var(--fg) 6%, transparent); }
-.accueil-docs .arbo-titre {
-  display: flex; align-items: center; gap: 12px; margin: 0 8px 6px;
-  font-size: 13px; font-weight: 500; color: var(--muted);
-}
-.accueil-docs .arbo-titre::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 @media (max-width: 700px) {
   .accueil-docs .favoris .favoris-titre { margin-left: 8px; }
 }

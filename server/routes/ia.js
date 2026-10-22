@@ -8,7 +8,7 @@ import { AIConfigError, AIRequestError, suggestEdit } from '../ai.js'
 import { cleDe, variableDe } from '../fournisseurs.js'
 import { isAdminEmail, readSession } from '../auth.js'
 import { DialogueErreur } from '../dialogue.js'
-import { corpsMaxOctets, garde } from '../garde-fous.js'
+import { CORPS_JSON_OCTETS_MAX, corpsMaxOctets, garde } from '../garde-fous.js'
 import { ErreurHttp } from '../erreurs.js'
 import { sendJson, readJsonBody, PAS_TRAITE } from '../http.js'
 import { cleDeConsigne } from '../../shared/consignesIa.js'
@@ -78,7 +78,7 @@ export async function routesIa(req, res, url, ctx) {
     if (!autorise) return sendJson(res, 403, { error: "Margo n'est pas ouverte à votre rôle sur ce document." })
     let corps
     try {
-      corps = await readJsonBody(req, corpsMaxOctets(garde('margoHistorique')))
+      corps = await readJsonBody(req, CORPS_JSON_OCTETS_MAX)
     } catch (err) {
       return sendJson(res, err.status || 400, {
         error: err.status === 413 ? 'message trop volumineux' : 'requête illisible',
@@ -139,11 +139,6 @@ export async function routesIa(req, res, url, ctx) {
       return sendJson(res, 400, { error: 'Aucun texte sélectionné.' })
     }
     const instruction = body.instruction == null ? '' : String(body.instruction)
-    // Les consignes viennent toutes de boutons (shared/consignesIa.js) : une consigne
-    // longue ne peut venir que d'un client emballé.
-    if (instruction.length > garde('consigneSignes')) {
-      return sendJson(res, 413, { error: `La consigne est trop longue (${garde('consigneSignes')} signes au plus).` })
-    }
     const modeleRegle = quotas.reglages.de('corrections').modele
     if (!cleDe(modeleRegle)) {
       return sendJson(res, 501, {

@@ -137,7 +137,10 @@ export function monterListeDocuments(conteneur) {
   message.setAttribute('role', 'status')
   message.hidden = true
   const zone = el('div', 'liste-zone')
-  conteneur.append(barre, message, zone)
+  // Les favoris, au-dessus de la barre (22/10/2026) : d'abord ce qu'on rouvre
+  // sans chercher, puis l'outil pour chercher ou ranger, puis l'arborescence.
+  const zoneFavoris = el('div', 'liste-favoris')
+  conteneur.append(zoneFavoris, barre, message, zone)
 
   function dire(texte) {
     etat.message = texte || ''
@@ -491,6 +494,7 @@ export function monterListeDocuments(conteneur) {
 
   function dessiner() {
     zone.innerHTML = ''
+    zoneFavoris.innerHTML = ''
     barre.hidden = etat.enCorbeille
     // Le bouton quitte la barre (au lieu d'être masqué) quand on ne peut pas
     // créer de dossier ici : au troisième niveau, ou pendant une recherche.
@@ -515,10 +519,7 @@ export function monterListeDocuments(conteneur) {
       titreFavoris.append(icone('etoile', 15), 'Favoris')
       section.appendChild(titreFavoris)
       section.appendChild(listeDeDocuments(vue.favoris, true, 'favoris-list'))
-      zone.appendChild(section)
-      // Une fois les favoris posés à part, l'arborescence a son propre titre :
-      // sans lui, la liste qui suit se lirait comme la suite des favoris.
-      if (!vue.recherche && !etat.courant) zone.appendChild(el('h3', 'arbo-titre', 'Dossiers et documents'))
+      zoneFavoris.appendChild(section)
     }
 
     if (vue.recherche) {

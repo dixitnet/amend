@@ -433,27 +433,19 @@ test('les notes de bas de page : lues sous leur bloc, trouvées, corrigées, com
   assert.match(rejoue.getXmlFragment('prosemirror-content').toString(), /registre paroissial/)
 })
 
-test('proposer au-delà du plafond : les premiers sont traités, le surplus refusé en le disant', async () => {
+test('proposer : plus de plafond par appel — chaque remplacement est jugé séparément, les refus sont expliqués', async () => {
   const doc = await documentDeTest()
   const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
   const remplacements = [
     { bloc: 3, avant: 'Ils mange', apres: 'Ils mangent' },
-    ...Array.from({ length: 32 }, () => ({ bloc: 2, avant: 'introuvable', apres: 'x' })),
+    ...Array.from({ length: 40 }, () => ({ bloc: 2, avant: 'introuvable', apres: 'x' })),
   ]
-  assert.equal(remplacements.length, 33)
   const r = await appeler(secret, 'proposer', { remplacements })
   assert.ok(!r.isError, texteDe(r))
   const t = texteDe(r)
   assert.match(t, /1 proposition\(s\) enregistrée\(s\)/)
-  assert.match(t, /Refusé — remplacements 31 à 33 \(3\) : au plus 30 par appel, ils n’ont pas été traités/)
-  assert.match(t, /Renvoie ceux-là seulement/)
-
-  // Tout au-delà du plafond : rien d'enregistré, mais la raison est dite.
-  const tous = await appeler(secret, 'proposer', {
-    remplacements: Array.from({ length: 31 }, () => ({ bloc: 2, avant: 'introuvable', apres: 'x' })),
-  })
-  assert.ok(tous.isError)
-  assert.match(texteDe(tous), /Refusé — remplacement 31 : au plus 30/)
+  assert.match(t, /Refusé — remplacement 41/, 'les quarante et un sont tous traités')
+  assert.doesNotMatch(t, /par appel/)
 })
 
 test('commenter, commentaires, repondre : la marge d’un lecteur aussi', async () => {

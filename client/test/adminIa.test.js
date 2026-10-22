@@ -291,7 +291,7 @@ test('la manière de répondre : un texte libre sur la carte de Margo seulement,
   assert.ok(!racine.querySelector('[name="corrections.maniere"]'), 'Corrections IA n’en a pas')
   const champ = racine.querySelector('textarea[name="margo.maniere"]')
   assert.equal(champ.value, 'Tu vouvoies la personne.\nSois brève.')
-  assert.equal(champ.maxLength, 2000)
+  assert.ok(!champ.hasAttribute('maxlength'), 'plus de plafond de signes sur la manière')
   assert.equal(
     racine.querySelector('[data-maniere-compteur]').textContent,
     String('Tu vouvoies la personne.\nSois brève.'.length)

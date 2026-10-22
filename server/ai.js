@@ -55,15 +55,19 @@ export function nettoyerSuggestion(brut) {
   return t
 }
 
+const PLANCHER_SORTIE_JETONS = 4096
+
 /** Le budget de sortie : proportionné au passage — une correction rend à
  * peu près la longueur qu'elle reçoit, une reformulation peut l'allonger —
  * et jamais en dessous d'un plancher large. Avant le 30/09/2026 c'était
  * 2 048 fixes, et Sonnet 5 en dépensait près de la moitié à **réfléchir**
  * (voir plus bas) : les paragraphes longs revenaient coupés. */
 export function budgetDeSortie(text) {
-  // ~3 caractères par jeton en français, ×2 de marge.
+  // ~3 caractères par jeton en français, ×2 de marge. Le plancher n'est plus un
+  // réglage (supprimé le 22/10/2026) : un budget n'est qu'un plafond, il ne
+  // coûte que ce que le modèle écrit.
   const estimation = Math.ceil((String(text || '').length / 3) * 2)
-  return Math.min(garde('sortieMaxJetons'), Math.max(garde('sortieMinJetonsCorrection'), estimation))
+  return Math.min(garde('sortieMaxJetons'), Math.max(PLANCHER_SORTIE_JETONS, estimation))
 }
 
 /**

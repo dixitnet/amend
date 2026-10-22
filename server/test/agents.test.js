@@ -12,7 +12,6 @@ import { join } from 'node:path'
 import * as Y from 'yjs'
 import { Agents, empreinte } from '../agents.js'
 import { Storage } from '../storage.js'
-import { garde } from '../garde-fous.js'
 import {
   ajouterNotes,
   blocsDuDocument,
@@ -716,12 +715,11 @@ test('ce qui ne peut pas recevoir une note est refusé avec sa raison, le reste 
       { bloc: 3, apres: 'aj', texte: 'Dans la proposition d’un autre.' },
       { bloc: 4, apres: 'Texte', texte: '   ' },
       { bloc: 99, apres: 'x', texte: 'Hors document.' },
-      { bloc: 4, apres: 'sain', texte: 'x'.repeat(garde('longueurNote') + 1) },
       { bloc: 4, apres: 'sain', texte: 'Une note\nsur deux lignes.' },
     ],
     AUTEUR
   )
-  assert.deepEqual(r.appliques, [{ index: 7, bloc: 4 }])
+  assert.deepEqual(r.appliques, [{ index: 6, bloc: 4 }])
   const raisons = Object.fromEntries(r.refuses.map((x) => [x.index, x.raison]))
   assert.match(raisons[0], /titre/)
   assert.match(raisons[1], /2 fois/)
@@ -729,7 +727,6 @@ test('ce qui ne peut pas recevoir une note est refusé avec sa raison, le reste 
   assert.match(raisons[3], /modification déjà en attente/)
   assert.match(raisons[4], /vide/)
   assert.match(raisons[5], /pas de bloc 99/)
-  assert.match(raisons[6], /trop long/)
   assert.equal(blocsDuDocument(y)[3].notes[0].texte, 'Une note sur deux lignes.', 'un saut de ligne devient une espace')
   // Rien n'a été écrit pour les refusés.
   assert.equal(blocsDuDocument(y)[0].notes.length, 0)

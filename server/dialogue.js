@@ -202,22 +202,16 @@ export class Dialogue {
       )
     const messages = Array.isArray(corps && corps.messages) ? corps.messages : null
     if (!messages || !messages.length) throw new DialogueErreur(400, 'aucun message')
-    if (messages.length > garde('margoMessages'))
-      throw new DialogueErreur(413, 'La conversation est trop longue : commencez-en une nouvelle.')
-    let total = 0
     const propres = messages.map((m, i) => {
       const role = m && m.role
       const contenu = m && typeof m.content === 'string' ? m.content.trim() : ''
       if ((role !== 'user' && role !== 'assistant') || !contenu)
         throw new DialogueErreur(400, `message ${i + 1} invalide`)
-      total += contenu.length
       return { role, content: contenu }
     })
     if (propres[propres.length - 1].role !== 'user')
       throw new DialogueErreur(400, 'le dernier message doit venir de la personne')
     if (propres[0].role !== 'user') throw new DialogueErreur(400, 'la conversation doit commencer par la personne')
-    if (total > garde('margoHistorique'))
-      throw new DialogueErreur(413, 'La conversation est trop longue : commencez-en une nouvelle.')
     for (let i = 1; i < propres.length; i++) {
       if (propres[i].role === propres[i - 1].role) throw new DialogueErreur(400, 'les messages doivent alterner')
     }
@@ -225,8 +219,6 @@ export class Dialogue {
     const portee = this._portee(corps.portee)
     const id = `dialogue-${createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 10)}-${docId}`
     if (this.enCours.has(id)) throw new DialogueErreur(429, 'Une réponse est déjà en cours pour ce document.')
-    if (this.enCours.size >= garde('margoSimultanes'))
-      throw new DialogueErreur(429, 'Margo a beaucoup de demandes en ce moment : réessayez dans un instant.')
     // La taille de la demande, en signes (espaces compris) : le message de la
     // personne et le texte de la portée, connus **avant** tout envoi. C'est ce
     // chiffre que le client affiche, que le serveur contrôle et que le compteur

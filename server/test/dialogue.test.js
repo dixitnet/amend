@@ -318,51 +318,21 @@ test('les entrées invalides sont refusées avant tout appel payant', async () =
   assert.equal(requetes.length, 0)
 })
 
-test('plus de limite de forme : un long message passe, seuls restent les verrous contre l’emballement', async () => {
-  const { garde } = await import('../garde-fous.js')
-  const CONVERSATION_MAX = garde('margoMessages')
-  const CONVERSATION_CARACTERES_MAX = garde('margoHistorique')
-  const SIMULTANES_MAX = garde('margoSimultanes')
+test('plus de limite de forme : un long message, une longue conversation, des réponses en nombre — seuls restent la taille de la demande et le corps de requête', async () => {
   const doc = await documentDeTest()
   try {
     await reglerIa({ signesParDemande: 200_000 })
-    scenario = [() => texte('lu')]
+    scenario = [() => texte('lu'), () => texte('lu'), () => texte('lu')]
     const long = await dialoguer(doc.id, 'admin@example.com', msg('x'.repeat(30_000)))
     assert.equal(long.status, 200, 'un message de 30 000 signes (ancienne butée : 8 000) est accepté')
-    // L'historique au-delà du plafond technique est refusé.
-    const histoire = []
-    for (let i = 0; i < 3; i++) {
-      histoire.push({ role: 'user', content: 'u'.repeat(CONVERSATION_CARACTERES_MAX / 3) })
-      histoire.push({ role: 'assistant', content: 'a' })
-    }
-    histoire.push({ role: 'user', content: 'fin' })
-    assert.equal((await dialoguer(doc.id, 'admin@example.com', { messages: histoire })).status, 413)
-    assert.ok(CONVERSATION_MAX >= 100 && SIMULTANES_MAX >= 10)
+    // Plus de limite de messages (200) ni d'historique (400 000 signes) : 250 messages passent.
+    const conversation = Array.from({ length: 251 }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      content: 'x'.repeat(5),
+    }))
+    assert.equal((await dialoguer(doc.id, 'admin@example.com', { messages: conversation })).status, 200)
   } finally {
     await reglerIa({ signesParDemande: 60_000 })
-  }
-})
-
-test('les verrous de la conversation suivent le réglage : messages, historique, réponses simultanées', async () => {
-  const { appliquerGardeFous } = await import('../garde-fous.js')
-  const doc = await documentDeTest()
-  const conversation = (n, taille = 5) => ({
-    messages: Array.from({ length: n }, (_, i) => ({
-      role: i % 2 ? 'assistant' : 'user',
-      content: 'x'.repeat(taille),
-    })),
-  })
-  try {
-    appliquerGardeFous({ margoMessages: 3 })
-    const refus = await dialoguer(doc.id, 'admin@example.com', conversation(5))
-    assert.equal(refus.status, 413)
-    scenario = [() => texte('ok')]
-    assert.equal((await dialoguer(doc.id, 'admin@example.com', conversation(3))).status, 200)
-    appliquerGardeFous({ margoHistorique: 1_000 })
-    assert.equal((await dialoguer(doc.id, 'admin@example.com', conversation(1, 1_001))).status, 413)
-    assert.equal((await dialoguer(doc.id, 'admin@example.com', conversation(1, 1_000))).status, 200)
-  } finally {
-    appliquerGardeFous({})
   }
 })
 

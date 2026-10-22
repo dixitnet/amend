@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, readFileSync, readdirSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Rangements, PROFONDEUR_MAX, DOSSIERS_MAX, nomDeDossier } from '../rangement.js'
+import { Rangements, PROFONDEUR_MAX, DOSSIERS_MAX, FAVORIS_MAX, nomDeDossier } from '../rangement.js'
 import { Storage } from '../storage.js'
 import { migrerDonnees } from '../donnees.js'
 
@@ -22,6 +22,30 @@ function neuf() {
 }
 const refus = (fn, statut, motif) =>
   assert.throws(fn, (e) => e.status === statut && (!motif || motif.test(e.message)), `attendu ${statut} ${motif || ''}`)
+
+test('dix favoris au plus : le onzième est refusé en le disant, retirer en rend un, et qui en avait plus les garde', () => {
+  assert.equal(FAVORIS_MAX, 10)
+  const { r } = neuf()
+  for (let i = 0; i < FAVORIS_MAX; i++) r.favori(ALICE, `d${i}`, true)
+  assert.equal(r.lire(ALICE).favoris.length, FAVORIS_MAX)
+  refus(() => r.favori(ALICE, 'de-trop', true), 409, /10 favoris/)
+  // Remettre en favori un document qui l'est déjà n'est pas un ajout.
+  r.favori(ALICE, 'd3', true)
+  assert.equal(r.lire(ALICE).favoris.length, FAVORIS_MAX)
+  // Chacun a ses dix.
+  r.favori(BOB, 'd0', true)
+  // Retirer en libère un.
+  r.favori(ALICE, 'd0', false)
+  r.favori(ALICE, 'de-trop', true)
+  assert.equal(r.lire(ALICE).favoris.length, FAVORIS_MAX)
+  // Un compte qui en avait plus (avant la limite) les garde, mais n'en ajoute plus.
+  const { r: r2 } = neuf()
+  r2._ecrire(ALICE, { ...r2.lire(ALICE), favoris: Array.from({ length: 14 }, (_, i) => `x${i}`) })
+  assert.equal(r2.lire(ALICE).favoris.length, 14)
+  refus(() => r2.favori(ALICE, 'nouveau', true), 409)
+  r2.favori(ALICE, 'x0', false)
+  refus(() => r2.favori(ALICE, 'nouveau', true), 409)
+})
 
 test('un rangement neuf est vide, et chacun a le sien', () => {
   const { r } = neuf()

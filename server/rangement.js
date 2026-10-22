@@ -26,7 +26,11 @@ import { idCompte } from './users.js'
 export const PROFONDEUR_MAX = 3
 export const DOSSIERS_MAX = 100
 export const NOM_DOSSIER_MAX = 60
-const FAVORIS_MAX = 500
+// Dix favoris (22/10/2026, décision de Sylvain) : un favori est un raccourci,
+// et l'encadré des favoris, en tête de « Mes documents », doit laisser voir
+// l'arborescence sans défiler. Qui en avait davantage les garde tous : seul
+// l'ajout est refusé, tant qu'on n'est pas redescendu sous la limite.
+export const FAVORIS_MAX = 10
 
 const vide = () => ({ version: 1, dossiers: [], placement: {}, favoris: [] })
 
@@ -102,7 +106,8 @@ export class Rangements {
     const r = this._pour(email, visibles)
     const sans = r.favoris.filter((d) => d !== docId)
     if (favori) {
-      if (sans.length >= FAVORIS_MAX) throw new ErreurHttp(403, `limite de ${FAVORIS_MAX} favoris atteinte`)
+      if (sans.length >= FAVORIS_MAX)
+        throw new ErreurHttp(409, `Vous avez déjà ${FAVORIS_MAX} favoris : retirez-en un pour en ajouter.`)
       sans.push(docId)
     }
     r.favoris = sans

@@ -1,28 +1,36 @@
 // Les garde-fous de l'IA — **le seul endroit** où se trouvent les seuils qui
-// bornent un usage de l'IA (15/10/2026, point 79 de la feuille de route).
+// bornent un usage de l'IA (15/10/2026, point 79 de la feuille de route ;
+// réduits à l'essentiel le 22/10/2026).
 //
 // Principe posé par Sylvain : la seule limite d'un usage est la **taille de la
 // demande, en signes** (« signes par demande », réglage d'instance, back-office
-// → server/reglagesIa.js). Tout le reste ne doit être qu'une de ces deux choses :
+// → server/reglagesIa.js), avec les demandes par heure et les signes par mois.
+// Il restait vingt-neuf autres seuils, presque tous des plafonds que le modèle
+// respecte de lui-même ou que le fournisseur impose avec une erreur claire :
+// avec peu d'usages et des abonnements aux limites dures, vingt ont été
+// supprimés (tailles de passage, de commentaire et de note, nombres d'éléments
+// par appel, plafonds de lecture, de recherche et de plan, taille de
+// l'historique de Margo, réponses simultanées…). Ne restent que ce qui évite
+// une boucle coûteuse ou un blocage par le fournisseur :
 //
-//   - `modele`      : une limite que le modèle impose (ce qu'il peut produire ou
-//                     recevoir en une fois) ;
+//   - `modele`      : une limite que le modèle impose (ce qu'il peut produire en
+//                     une fois) ;
 //   - `emballement` : un verrou contre une boucle ou un client emballé, placé
 //                     bien au-dessus de tout usage normal, qui ne se déclenche
 //                     que si quelque chose tourne mal.
 //
-// Aucun autre fichier de l'IA ne définit de seuil : serveur (ai, dialogue, mcp,
-// agentTexte, connecteur, routes) lit `garde('identifiant')`. Un test
-// (`garde-fous.test.js`) échoue si une constante de seuil réapparaît ailleurs.
-//
-// Les valeurs se règlent dans le back-office (#/admin/ia, « Garde-fous »),
-// pour toute l'instance, et se rétablissent une à une. La documentation
-// complète est produite depuis cette liste : `node tools/garde-fous-doc.mjs`.
+// Serveur (ai, dialogue, mcp, agentTexte, connecteur, routes) lit
+// `garde('identifiant')`. Les valeurs se règlent dans le back-office
+// (#/admin/ia, « Garde-fous »), pour toute l'instance, et se rétablissent une à
+// une. La documentation est produite depuis cette liste :
+// `node tools/garde-fous-doc.mjs`.
 //
 // Ce que ce fichier ne contient pas, volontairement : les limites de sécurité
 // (essais de secret d'une invitation, inscriptions, contact…), qui ne sont pas
-// des usages de l'IA, et les valeurs par défaut de pagination (40 blocs lus
-// par défaut, 20 résultats de recherche par défaut), qui ne limitent rien.
+// des usages de l'IA, la taille d'un corps de requête de l'interface
+// (`CORPS_JSON_OCTETS_MAX`, garde de transport), et les valeurs par défaut de
+// pagination (40 blocs lus par défaut, 20 résultats de recherche par défaut),
+// qui ne limitent rien.
 
 import { ErreurHttp } from './erreurs.js'
 
@@ -44,18 +52,13 @@ export const GROUPES = Object.freeze([
   },
   {
     id: 'outils',
-    nom: 'Outils sur le document (Margo et « inviter Claude »)',
-    resume: 'Ce que chaque appel d’outil peut lire ou écrire ; le même moteur sert Margo et le connecteur.',
+    nom: 'Écritures sur le document (Margo et « inviter Claude »)',
+    resume: 'Le même moteur d’outils sert Margo et le connecteur.',
   },
   {
     id: 'connecteur',
     nom: 'Connecteur « inviter Claude »',
     resume: 'Les requêtes qui arrivent par l’adresse secrète d’une invitation.',
-  },
-  {
-    id: 'reglages',
-    nom: 'Back-office',
-    resume: 'Les réglages eux-mêmes.',
   },
 ])
 
@@ -73,17 +76,6 @@ const DEFINITIONS = [
     nature: 'modele',
     quoi: 'Le budget de sortie demandé au modèle pour un appel, réflexion comprise. C’est ce que le modèle peut écrire en une fois (≈ 24 000 signes de français). Une réponse qui le dépasse est coupée : Corrections IA la refuse (« sélectionnez un passage plus court »), Margo la jette et reprend en plus petit.',
   },
-  {
-    id: 'sortieMinJetonsCorrection',
-    groupe: 'appels',
-    nom: 'Sortie d’un paragraphe corrigé, au moins',
-    unite: 'jetons',
-    defaut: 4_096,
-    min: 256,
-    max: 128_000,
-    nature: 'modele',
-    quoi: 'Plancher du budget de sortie d’un paragraphe de Corrections IA, dont le budget suit sinon la longueur du paragraphe (deux fois sa longueur estimée en jetons). Évite qu’un paragraphe court soit coupé parce que le modèle a un peu réfléchi.',
-  },
 
   // --- Corrections IA ------------------------------------------------------
   {
@@ -96,18 +88,6 @@ const DEFINITIONS = [
     max: 64,
     nature: 'emballement',
     quoi: 'Combien de paragraphes d’une même demande sont envoyés au modèle à la fois. Ce n’est pas une limite de taille : tous les paragraphes sont traités, dans l’ordre. Mais mille appels simultanés se heurteraient aux limites de débit du fournisseur.',
-  },
-
-  {
-    id: 'consigneSignes',
-    groupe: 'corrections',
-    nom: 'Consigne d’un bouton, au plus',
-    unite: 'signes',
-    defaut: 2_000,
-    min: 100,
-    max: 100_000,
-    nature: 'emballement',
-    quoi: 'Les consignes de Corrections IA viennent toutes de boutons (quelques dizaines de signes) : une consigne plus longue ne peut venir que d’un client emballé. Elle n’entre pas dans les signes de la demande.',
   },
 
   // --- Margo ---------------------------------------------------------------
@@ -155,39 +135,6 @@ const DEFINITIONS = [
     nature: 'emballement',
     quoi: 'Margo peut relire le document autant que nécessaire, mais le texte lu pendant une demande est plafonné à la limite « signes par demande » majorée de ce pourcentage (le texte rendu porte les numéros de bloc, qui ne sont pas du texte de la personne). Au-delà, Margo reçoit un message qui le dit et en informe la personne.',
   },
-  {
-    id: 'margoMessages',
-    groupe: 'margo',
-    nom: 'Messages d’une conversation, au plus',
-    unite: 'messages',
-    defaut: 200,
-    min: 2,
-    max: 100_000,
-    nature: 'emballement',
-    quoi: 'Le nombre de messages (de la personne et de Margo) renvoyés à chaque tour. Une conversation normale en compte moins de trente.',
-  },
-  {
-    id: 'margoHistorique',
-    groupe: 'margo',
-    nom: 'Historique d’une conversation, au plus',
-    unite: 'signes',
-    defaut: 400_000,
-    min: 1_000,
-    max: 5_000_000,
-    nature: 'modele',
-    quoi: 'La taille de l’historique renvoyé au modèle à chaque tour. 400 000 signes font environ 100 000 jetons, ce que Claude (200 000) et Mistral Large 4 (256 000) acceptent en entrée, avec de la place pour le texte lu et la réponse. À régler selon la fenêtre du modèle choisi.',
-  },
-  {
-    id: 'margoSimultanes',
-    groupe: 'margo',
-    nom: 'Réponses menées en même temps sur l’instance',
-    unite: 'conversations simultanées',
-    defaut: 20,
-    min: 1,
-    max: 10_000,
-    nature: 'emballement',
-    quoi: 'Pour toute l’instance, tous documents et personnes confondus. Ménage les limites de débit du fournisseur. En plus : une seule réponse à la fois par personne et par document (verrou fixe, qui évite le double clic).',
-  },
 
   // --- Outils sur le document ---------------------------------------------
   {
@@ -200,160 +147,6 @@ const DEFINITIONS = [
     max: 1_000_000,
     nature: 'emballement',
     quoi: 'Appels aux outils qui écrivent (proposer, ajouter, ajouter_note, commenter, répondre), comptés par invitation (connecteur) ou par conversation (Margo, par personne et par document) sur une heure glissante. Un appel peut porter plusieurs propositions : ce n’est pas le nombre de corrections.',
-  },
-  {
-    id: 'remplacementsParAppel',
-    groupe: 'outils',
-    nom: 'Remplacements par appel de « proposer »',
-    unite: 'remplacements',
-    defaut: 30,
-    min: 1,
-    max: 1_000,
-    nature: 'modele',
-    quoi: 'Combien de remplacements tiennent dans un appel (ce que le modèle écrit en une fois). Le surplus est refusé en le disant, et le modèle renvoie les suivants dans un nouvel appel.',
-  },
-  {
-    id: 'ajoutsParAppel',
-    groupe: 'outils',
-    nom: 'Ajouts par appel de « ajouter »',
-    unite: 'ajouts',
-    defaut: 20,
-    min: 1,
-    max: 1_000,
-    nature: 'modele',
-    quoi: 'Combien d’ajouts de paragraphes tiennent dans un appel.',
-  },
-  {
-    id: 'lignesParAjout',
-    groupe: 'outils',
-    nom: 'Paragraphes par ajout',
-    unite: 'paragraphes',
-    defaut: 10,
-    min: 1,
-    max: 1_000,
-    nature: 'modele',
-    quoi: 'Un ajout est un texte dont chaque ligne devient un paragraphe. Au-delà, l’ajout est refusé et le modèle le scinde.',
-  },
-  {
-    id: 'notesParAppel',
-    groupe: 'outils',
-    nom: 'Notes par appel de « ajouter_note »',
-    unite: 'notes',
-    defaut: 20,
-    min: 1,
-    max: 1_000,
-    nature: 'modele',
-    quoi: 'Combien de notes de bas de page tiennent dans un appel.',
-  },
-  {
-    id: 'commentairesParAppel',
-    groupe: 'outils',
-    nom: 'Commentaires par appel de « commenter »',
-    unite: 'commentaires',
-    defaut: 20,
-    min: 1,
-    max: 1_000,
-    nature: 'modele',
-    quoi: 'Combien de commentaires tiennent dans un appel.',
-  },
-  {
-    id: 'longueurAvant',
-    groupe: 'outils',
-    nom: 'Passage à remplacer (« avant »), au plus',
-    unite: 'signes',
-    defaut: 20_000,
-    min: 100,
-    max: 1_000_000,
-    nature: 'emballement',
-    quoi: 'Longueur du passage qu’un remplacement désigne. Les consignes du modèle lui demandent de le garder court ; ce verrou n’existe que contre un modèle qui désignerait des pages entières.',
-  },
-  {
-    id: 'longueurApres',
-    groupe: 'outils',
-    nom: 'Texte de remplacement ou d’ajout, au plus',
-    unite: 'signes',
-    defaut: 20_000,
-    min: 100,
-    max: 1_000_000,
-    nature: 'emballement',
-    quoi: 'Longueur du texte qui remplace un passage (« apres ») ou du texte d’un ajout. Réécrire un très long paragraphe en une proposition reste possible.',
-  },
-  {
-    id: 'longueurCommentaire',
-    groupe: 'outils',
-    nom: 'Commentaire ou réponse, au plus',
-    unite: 'signes',
-    defaut: 10_000,
-    min: 100,
-    max: 1_000_000,
-    nature: 'emballement',
-    quoi: 'Longueur d’un commentaire posé dans la marge ou d’une réponse dans un fil.',
-  },
-  {
-    id: 'longueurNote',
-    groupe: 'outils',
-    nom: 'Note de bas de page, au plus',
-    unite: 'signes',
-    defaut: 10_000,
-    min: 100,
-    max: 1_000_000,
-    nature: 'emballement',
-    quoi: 'Longueur du texte d’une note de bas de page ajoutée.',
-  },
-  {
-    id: 'lireBlocsMax',
-    groupe: 'outils',
-    nom: 'Blocs lus par appel de « lire », au plus',
-    unite: 'blocs',
-    defaut: 200,
-    min: 1,
-    max: 100_000,
-    nature: 'modele',
-    quoi: 'Un bloc est un paragraphe, un titre, un élément de liste. Le modèle lit par tranches et enchaîne avec `de` : ce n’est pas une limite sur la quantité lue au total.',
-  },
-  {
-    id: 'lireSignesParReponse',
-    groupe: 'outils',
-    nom: 'Texte rendu par un appel de « lire », au plus',
-    unite: 'signes',
-    defaut: 60_000,
-    min: 1_000,
-    max: 5_000_000,
-    nature: 'modele',
-    quoi: 'La réponse d’un appel de lecture s’arrête au dernier bloc entier qui tient dans ce volume (≈ 20 000 jetons) et indique où reprendre. Ce n’est pas une limite sur la quantité lue au total.',
-  },
-  {
-    id: 'chercherResultatsMax',
-    groupe: 'outils',
-    nom: 'Résultats de « chercher », au plus',
-    unite: 'résultats',
-    defaut: 100,
-    min: 1,
-    max: 100_000,
-    nature: 'modele',
-    quoi: 'Nombre de passages renvoyés pour une recherche (20 par défaut, le modèle peut en demander jusqu’à ce plafond).',
-  },
-  {
-    id: 'planTitresMax',
-    groupe: 'outils',
-    nom: 'Titres montrés par « plan », au plus',
-    unite: 'titres',
-    defaut: 300,
-    min: 10,
-    max: 100_000,
-    nature: 'modele',
-    quoi: 'Le plan liste les titres du document avec leur taille ; au-delà, il dit combien d’autres titres existent (le modèle les trouve avec `lire`).',
-  },
-  {
-    id: 'commentairesAffichesMax',
-    groupe: 'outils',
-    nom: 'Fils montrés par « commentaires », au plus',
-    unite: 'fils de commentaires',
-    defaut: 100,
-    min: 10,
-    max: 100_000,
-    nature: 'modele',
-    quoi: 'Au-delà, la liste dit combien de fils de plus existent.',
   },
 
   // --- Connecteur ----------------------------------------------------------
@@ -377,20 +170,7 @@ const DEFINITIONS = [
     min: 16_384,
     max: 64 * 1024 * 1024,
     nature: 'emballement',
-    quoi: 'La taille du corps d’une requête reçue par l’adresse d’une invitation. Protège la mémoire du serveur ; doit rester au-dessus de ce qu’un appel d’écriture complet peut porter (30 remplacements de 20 000 signes ≈ 2,4 Mo en UTF-8).',
-  },
-
-  // --- Back-office ---------------------------------------------------------
-  {
-    id: 'maniereSignes',
-    groupe: 'reglages',
-    nom: 'Manière de répondre de Margo, au plus',
-    unite: 'signes',
-    defaut: 5_000,
-    min: 200,
-    max: 100_000,
-    nature: 'emballement',
-    quoi: 'Le texte libre que l’administrateur ajoute à la consigne de Margo. Il est envoyé à chaque étape : plus il est long, plus chaque demande coûte.',
+    quoi: 'La taille du corps d’une requête reçue par l’adresse d’une invitation. Protège la mémoire du serveur ; doit rester au-dessus de ce qu’un appel d’écriture complet peut porter (la sortie maximale d’un appel, soit environ 64 000 octets, plus l’enveloppe).',
   },
 ]
 
@@ -400,6 +180,12 @@ const PAR_ID = new Map(GARDE_FOUS.map((g) => [g.id, g]))
 /** L'enveloppe d'un corps de requête JSON (clés, identifiants, marques) en plus
  * du texte : structure, pas un réglage. */
 export const ENVELOPPE_CORPS_OCTETS = 50_000
+/** La taille d'un corps de requête JSON de l'interface (conversation de Margo,
+ * réglages du back-office) : un garde de transport, pas un réglage d'usage. Il
+ * protège la mémoire du serveur ; une conversation qui le dépasse est refusée
+ * en le disant, et celle qui dépasse la fenêtre du modèle revient du
+ * fournisseur en erreur, que Margo traduit. */
+export const CORPS_JSON_OCTETS_MAX = 2 * 1024 * 1024
 /** Un signe pèse au plus 4 octets en UTF-8. */
 export const OCTETS_PAR_SIGNE = 4
 
