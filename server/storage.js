@@ -219,6 +219,10 @@ export class Storage {
     return this.listeAttente.marquerEmbarque(email, docId, par)
   }
 
+  annulerEmbarquement(email) {
+    return this.listeAttente.annulerEmbarquement(email)
+  }
+
   fileAttente() {
     return this.listeAttente.file()
   }
@@ -697,7 +701,10 @@ export class Storage {
       const entry = doc.access.find((a) => a.tokenHash === h || (a.token && a.token === token))
       if (!entry) continue
       const expired = !entry.tokenExpiresAt || Date.now() > entry.tokenExpiresAt
-      return { id, email: entry.email, role: entry.role, expired }
+      // `utilisee` : la personne est déjà entrée par ce lien (ou l'a été par
+      // un autre) ; une invitation encore « en attente » ne l'est pas.
+      const utilisee = entry.status === 'actif'
+      return { id, email: entry.email, role: entry.role, expired, utilisee }
     }
     return null
   }

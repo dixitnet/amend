@@ -6,8 +6,10 @@ import { createGzip } from 'node:zlib'
 import { apercu } from '../admin.js'
 import { fluxTar } from '../archive.js'
 import { isAdminEmail, normalizeEmail, readSession } from '../auth.js'
-import { courrierAvecBouton, sendMail } from '../mailgun.js'
-import { TITRE_BIENVENUE, ecrireModele } from '../modeleBienvenue.js'
+import { etatDuCourrierEnMemoire, sendMail } from '../mailgun.js'
+import { courrierBienvenue, courrierInvitation, quiInvite } from '../courriersInvitation.js'
+import { supprimerDefinitivement } from '../corbeille.js'
+import { TITRE_BIENVENUE, ecrireModele, estDocBienvenue } from '../modeleBienvenue.js'
 import { cleDuRetour } from '../supportTraites.js'
 import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
 import { cleDe } from '../fournisseurs.js'
@@ -72,6 +74,7 @@ export async function routesAdmin(req, res, url, ctx) {
     users,
     APP_BASE_URL,
     DATA_DIR,
+    invitationAutorisee,
   } = ctx
 
   // Point de diagnostic temporaire pour le test de charge du 13/09/2026
@@ -303,20 +306,7 @@ export async function routesAdmin(req, res, url, ctx) {
     const lien = `${APP_BASE_URL}/#/invite/${token}`
     const de = users.nomDe(admin) || admin
     try {
-      await sendMail({
-        to: email,
-        subject: 'Bienvenue sur amend.ink',
-        ...courrierAvecBouton({
-          titre: 'Bienvenue sur amend.ink',
-          intro:
-            `${de} vous ouvre un premier document sur amend.ink, pour essayer l'application : ` +
-            `un petit mode d'emploi à tester directement dans le texte. Ce document est le vôtre. ` +
-            `Ce lien l'ouvre sans mot de passe ni inscription ; il reste valable 14 jours.`,
-          libelleBouton: 'Ouvrir mon document',
-          lien,
-          apres: "Si vous n'attendiez pas ce message, ignorez-le.",
-        }),
-      })
+      await sendMail({ to: email, ...courrierBienvenue({ de, lien }) })
       metrics.log('mail', { type: 'embarquement', ok: true })
     } catch (err) {
       console.error("Échec d'envoi du courrier d'embarquement :", err.message)
@@ -327,6 +317,124 @@ export async function routesAdmin(req, res, url, ctx) {
     const surListe = storage.marquerEmbarque(email, doc.id, admin) > 0
     metrics.log('embarquements', { docId: doc.id, surListe })
     return sendJson(res, 200, { email, docId: doc.id, titre: doc.title, surListe })
+  }
+
+  // --- Les invitations en attente, au back-office (23/10/2026) ---
+  //
+  // Les mêmes gestes que dans le panneau de partage d'un document (où en est le
+  // courrier, copier le lien, renvoyer), plus « supprimer » : l'administrateur
+  // voit toutes les invitations sans réponse, y compris celles qu'il n'a pas
+  // envoyées et sur des documents où il n'a aucun accès. Le contenu des
+  // documents, lui, reste hors de sa vue.
+  //
+  // Une invitation d'embarquement n'est pas une ligne d'accès comme les
+  // autres : la personne est propriétaire d'un document de bienvenue que
+  // l'administrateur a créé pour elle. La supprimer, c'est supprimer ce
+  // document (que personne n'a ouvert) et remettre l'adresse dans la liste
+  // d'attente.
+
+  /** L'invitation en attente de `email` sur `docId`, ou null. */
+  const invitationEnAttente = (docId, email) => {
+    const doc = typeof docId === 'string' && storage.getDoc(docId)
+    if (!doc) return null
+    const entree = storage.getAccess(docId).find((a) => a.email === email && a.status === 'invite')
+    return entree ? { doc, entree, bienvenue: estDocBienvenue(doc, email, storage.ownerOf(docId)) } : null
+  }
+
+  if (pathname === '/api/admin/invitations/courrier' && req.method === 'GET') {
+    if (!isAdminEmail(readSession(req))) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    const lignes = []
+    for (const d of storage.allDocs()) {
+      for (const a of d.access || []) {
+        if (a.status === 'invite' && a.invitedAt) {
+          lignes.push({
+            docId: d.id,
+            email: a.email,
+            invitedAt: a.invitedAt,
+            bienvenue: estDocBienvenue(d, a.email, storage.ownerOf(d.id)),
+          })
+        }
+      }
+    }
+    // Les plus récentes d'abord : ce sont celles que le fournisseur a encore.
+    lignes.sort((a, b) => b.invitedAt - a.invitedAt)
+    const etats = {}
+    await Promise.all(
+      lignes.slice(0, 40).map(async (l) => {
+        etats[`${l.docId}|${l.email}`] = await etatDuCourrierEnMemoire(
+          l.email,
+          l.invitedAt,
+          l.bienvenue ? /^Bienvenue/i : undefined
+        )
+      })
+    )
+    return sendJson(res, 200, { etats })
+  }
+
+  const invGesteMatch = pathname.match(/^\/api\/admin\/invitations\/(lien|renvoyer)$/)
+  if (invGesteMatch && req.method === 'POST') {
+    const admin = readSession(req)
+    if (!isAdminEmail(admin)) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    const body = await readJsonBody(req)
+    const email = normalizeEmail(body.email)
+    const inv = email && invitationEnAttente(body.docId, email)
+    if (!inv) return sendJson(res, 404, { error: 'aucune invitation en attente pour cette adresse' })
+    res.setHeader('cache-control', 'no-store')
+
+    if (invGesteMatch[1] === 'lien') {
+      const nouveau = storage.renouvelerLien(body.docId, email)
+      if (!nouveau) return sendJson(res, 404, { error: 'aucune invitation en attente pour cette adresse' })
+      return sendJson(res, 200, { lien: `${APP_BASE_URL}/#/invite/${nouveau.token}` })
+    }
+
+    if (!invitationAutorisee(admin, email)) {
+      return sendJson(res, 429, { error: 'trop d’invitations envoyées pour le moment : réessayez plus tard' })
+    }
+    // Un nouveau lien (l'ancien cesse de marcher) et un nouveau courrier. La
+    // personne qui avait invité reste celle que le courrier nomme ; pour un
+    // embarquement, c'est l'administrateur qui renvoie.
+    const { token } = storage.inviteEmail(body.docId, email, inv.entree.role, inv.entree.invitedBy)
+    const lien = `${APP_BASE_URL}/#/invite/${token}`
+    const type = inv.bienvenue ? 'embarquement' : 'invitation'
+    try {
+      const courrier = inv.bienvenue
+        ? courrierBienvenue({ de: users.nomDe(admin) || admin, lien })
+        : courrierInvitation({
+            qui: quiInvite(inv.entree.invitedBy || admin, users.nomDe(inv.entree.invitedBy || admin)),
+            titre: inv.doc.title,
+            role: inv.entree.role,
+            lien,
+          })
+      await sendMail({ to: email, ...courrier })
+      metrics.log('mail', { type, ok: true, renvoi: true })
+    } catch (err) {
+      console.error("Échec du renvoi de l'invitation :", err.message)
+      metrics.log('mail', { type, ok: false, erreur: err.message, renvoi: true })
+      return sendJson(res, 502, { error: "le courrier n'a pas pu être envoyé : le nouveau lien reste valable" })
+    }
+    return sendJson(res, 200, { email, renvoyee: true })
+  }
+
+  if (pathname === '/api/admin/invitations' && req.method === 'DELETE') {
+    const admin = readSession(req)
+    if (!isAdminEmail(admin)) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    const body = await readJsonBody(req)
+    const email = normalizeEmail(body.email)
+    const inv = email && invitationEnAttente(body.docId, email)
+    if (!inv) return sendJson(res, 404, { error: 'aucune invitation en attente pour cette adresse' })
+    if (inv.bienvenue) {
+      supprimerDefinitivement(ctx, body.docId, admin)
+      const remiseEnAttente = storage.annulerEmbarquement(email) > 0
+      metrics.log('invitation_supprimee', { docId: body.docId, bienvenue: true, remiseEnAttente })
+      return sendJson(res, 200, { ok: true, documentSupprime: true, remiseEnAttente })
+    }
+    if (!storage.revokeAccess(body.docId, email)) {
+      return sendJson(res, 409, {
+        error: 'cette invitation ne peut pas être supprimée : la personne porte le document',
+      })
+    }
+    metrics.log('invitation_supprimee', { docId: body.docId, bienvenue: false })
+    return sendJson(res, 200, { ok: true })
   }
 
   return PAS_TRAITE

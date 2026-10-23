@@ -2,7 +2,7 @@
 // lien reçu (#/login/verify/:token), et acceptation d'une invitation
 // nominative (#/invite/:token). Même style de superposition que la modale
 // "Ton nom" (voir user.js / .name-modal dans style.css).
-import { requestReconnectLink, verifyReconnectToken, acceptInvitation } from './auth.js'
+import { requestReconnectLink, verifyReconnectToken, acceptInvitation, getSessionEmail } from './auth.js'
 
 function modal(innerHtml) {
   const overlay = document.createElement('div')
@@ -67,6 +67,13 @@ export function mountInviteAccept(root, token) {
   const box = overlay.querySelector('.name-modal')
 
   acceptInvitation(token).then((res) => {
+    // Un lien déjà utilisé sert de signet : le document si la personne est
+    // connectée et y a accès, sinon « Mes documents » (qui la mène à la
+    // connexion si elle n'a plus de session).
+    if (res.dejaUtilisee) {
+      versLeDocumentOuMesDocuments(res.docId)
+      return
+    }
     if (res.docId) {
       location.hash = `#/doc/${res.docId}`
       return
@@ -77,6 +84,21 @@ export function mountInviteAccept(root, token) {
       <a href="#/" class="back-link">← Retour</a>
     `
   })
+}
+
+async function versLeDocumentOuMesDocuments(docId) {
+  try {
+    if (docId && (await getSessionEmail())) {
+      const res = await fetch(`/api/docs/${docId}`)
+      if (res.ok) {
+        location.hash = `#/doc/${docId}`
+        return
+      }
+    }
+  } catch {
+    /* pas de réponse : l'accueil est le repli */
+  }
+  location.hash = '#/'
 }
 
 function escapeHtml(str) {

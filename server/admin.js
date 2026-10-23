@@ -6,6 +6,7 @@
 import { statSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleDuRetour } from './supportTraites.js'
+import { estDocBienvenue } from './modeleBienvenue.js'
 
 const JOUR = 24 * 60 * 60 * 1000
 
@@ -122,6 +123,7 @@ export function apercu({
           titre: doc.title,
           role: acces.role,
           invitePar: acces.invitedBy || null,
+          bienvenue: estDocBienvenue(doc, acces.email, storage.ownerOf(doc.id)),
           depuisJours: acces.invitedAt ? Math.round((maintenant - acces.invitedAt) / JOUR) : null,
         })
       }

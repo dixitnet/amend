@@ -3,41 +3,10 @@
 // routes et leur comportement sont inchangés.
 
 import { isSecureRequest, normalizeEmail, readSession, sessionCookieHeader } from '../auth.js'
-import { courrierAvecBouton, etatDuCourrier, sendMail } from '../mailgun.js'
+import { etatDuCourrierEnMemoire, sendMail } from '../mailgun.js'
+import { courrierInvitation, quiInvite } from '../courriersInvitation.js'
 import { capabilities, isValidRole } from '../roles.js'
 import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
-
-/** Un extrait pour un objet de courriel : espaces ramenés à un seul (un
- * retour à la ligne n'a rien à faire dans un en-tête), coupé à `max`. */
-function abrege(texte, max) {
-  const t = String(texte || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t
-}
-
-// Ce que Mailgun a dit d'un courrier d'invitation, gardé un moment : le panneau
-// de partage se rouvre souvent, et un état définitif (remis, refusé) ne change
-// plus. Un état provisoire est relu au bout d'une demi-minute.
-const CACHE_COURRIER = new Map()
-const DUREE_DEFINITIF_MS = 10 * 60_000
-const DUREE_PROVISOIRE_MS = 30_000
-const CACHE_COURRIER_MAX = 500
-const DELAI_ETAT_MS = 6_000
-
-async function etatCourrierEnMemoire(email, invitedAt) {
-  const cle = `${email}|${invitedAt}`
-  const vu = CACHE_COURRIER.get(cle)
-  if (vu && vu.jusqua > Date.now()) return vu.etat
-  const etat = await Promise.race([
-    etatDuCourrier({ to: email, depuis: invitedAt }),
-    new Promise((resolve) => setTimeout(() => resolve({ etat: 'inconnu' }), DELAI_ETAT_MS).unref()),
-  ])
-  if (CACHE_COURRIER.size >= CACHE_COURRIER_MAX) CACHE_COURRIER.clear()
-  const definitif = etat.etat === 'remis' || etat.etat === 'refuse'
-  CACHE_COURRIER.set(cle, { etat, jusqua: Date.now() + (definitif ? DUREE_DEFINITIF_MS : DUREE_PROVISOIRE_MS) })
-  return etat
-}
 
 export async function routesAcces(req, res, url, ctx) {
   const { pathname } = url
@@ -47,6 +16,15 @@ export async function routesAcces(req, res, url, ctx) {
   if (acceptMatch && req.method === 'POST') {
     const found = storage.findInvitation(acceptMatch[1])
     if (!found) return sendJson(res, 404, { error: 'invitation inconnue' })
+    // Un lien déjà utilisé reste un signet (23/10/2026) : la personne garde le
+    // courrier pour revenir au document. Pendant l'heure qui suit la première
+    // ouverture, il se comporte comme la première fois, session comprise
+    // (téléphone puis ordinateur, ou un filtre de messagerie qui a ouvert le
+    // lien avant la personne : S5). Ensuite il ne redonne **aucune session** :
+    // il ne fait que montrer le document (son identifiant seul, inutilisable
+    // sans accès), et la page décide — le document si la personne est connectée
+    // et y a accès, « Mes documents » sinon.
+    if (found.utilisee && found.expired) return sendJson(res, 200, { dejaUtilisee: true, docId: found.id })
     if (found.expired) return sendJson(res, 410, { error: 'invitation expirée' })
     const accepted = storage.acceptInvitation(found.id, found.email)
     if (!accepted) return sendJson(res, 404, { error: 'invitation inconnue' })
@@ -71,7 +49,7 @@ export async function routesAcces(req, res, url, ctx) {
         .filter((a) => a.status === 'invite' && a.invitedAt)
         .slice(0, 20)
         .map(async (a) => {
-          a.courrier = await etatCourrierEnMemoire(a.email, a.invitedAt)
+          a.courrier = await etatDuCourrierEnMemoire(a.email, a.invitedAt)
         })
     )
     return sendJson(res, 200, { access })
@@ -123,26 +101,14 @@ export async function routesAcces(req, res, url, ctx) {
     }
     const { token, nouvelleEntree } = storage.inviteEmail(id, email, role, inviter)
     const lien = `${APP_BASE_URL}/#/invite/${token}`
-    // « Nom (adresse) » quand la personne a donné son nom : un courrier qui dit
-    // qui invite, et par un nom que le destinataire reconnaît, se fait moins
-    // écarter par un filtre et plus volontiers ouvrir.
-    const nomInviteur = users && users.nomDe(inviter)
-    const quiInvite = nomInviteur ? `${nomInviteur} (${inviter})` : inviter
     try {
       await sendMail({
         to: email,
-        // Le titre est de la personne qui invite, jusqu'à 200 caractères : un
-        // objet de courriel n'en porte qu'un extrait (S10).
-        subject: `Invitation à collaborer sur « ${abrege(doc.title, 60)} »`,
-        ...courrierAvecBouton({
-          titre: `Invitation à collaborer sur « ${doc.title} »`,
-          intro:
-            `${quiInvite} vous invite à collaborer sur « ${doc.title} » dans amend.ink, ` +
-            `comme ${capabilities(role).label.toLowerCase()}. Ce lien ouvre le document directement, ` +
-            `sans mot de passe ni inscription. Il reste valable 14 jours.`,
-          libelleBouton: 'Ouvrir le document',
+        ...courrierInvitation({
+          qui: quiInvite(inviter, users && users.nomDe(inviter)),
+          titre: doc.title,
+          role,
           lien,
-          apres: "Si vous n'attendiez pas cette invitation, ignorez ce message.",
         }),
       })
       metrics.log('mail', { type: 'invitation', ok: true })

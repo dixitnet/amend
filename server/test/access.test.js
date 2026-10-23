@@ -593,10 +593,14 @@ test("un lien d'invitation ne vaut plus qu'une heure après sa première accepta
   const entree = registre[doc.id].access.find((a) => a.email === 'bref@example.com')
   assert.ok(entree.tokenExpiresAt <= Date.now() + 60 * 60 * 1000 + 1000)
   assert.ok(entree.tokenExpiresAt > Date.now())
-  // Une heure plus tard : expiré.
+  // Une heure plus tard : le lien ne redonne plus de session. Il ne dit pas
+  // « expiré » à quelqu'un qui est déjà entré : il reste un signet vers le document.
   entree.tokenExpiresAt = Date.now() - 1000
   writeFileSync(join(process.env.DATA_DIR, 'docs.json'), JSON.stringify(registre), 'utf8')
-  assert.equal((await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })).status, 410)
+  const tardive = await fetch(`${BASE}/api/invitations/${token}`, { method: 'POST' })
+  assert.equal(tardive.status, 200)
+  assert.deepEqual(await tardive.json(), { dejaUtilisee: true, docId: doc.id })
+  assert.equal(tardive.headers.get('set-cookie'), null)
 })
 
 test('les jetons en clair du registre sont retirés au démarrage (S1)', () => {

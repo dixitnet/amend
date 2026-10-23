@@ -86,6 +86,29 @@ export class ListeAttente {
     return n
   }
 
+  /** Défait `marquerEmbarque` (23/10/2026) : l'invitation d'embarquement a été
+   * supprimée au back-office, l'adresse redevient une adresse qui attend. Sans
+   * effet si elle n'est pas dans la liste. Renvoie le nombre de lignes
+   * touchées. */
+  annulerEmbarquement(email) {
+    let list
+    try {
+      list = JSON.parse(readFileSync(this.chemin, 'utf8'))
+    } catch {
+      return 0
+    }
+    if (!Array.isArray(list)) return 0
+    let n = 0
+    for (const ligne of list) {
+      if (ligne && ligne.email === email && ligne.embarque) {
+        delete ligne.embarque
+        n++
+      }
+    }
+    if (n) ecrireAtomique(this.chemin, JSON.stringify(list, null, 2))
+    return n
+  }
+
   /** Retire toutes les inscriptions de cette adresse (suppression de compte :
    * la personne qui s'en va ne veut pas non plus rester dans la file).
    * Renvoie le nombre de lignes retirées. */

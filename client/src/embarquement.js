@@ -45,7 +45,7 @@ export async function embarquer(email) {
 
 const armes = new WeakMap() // bouton → { minuteur, libelle }
 
-function armer(bouton, libelleConfirmation) {
+export function armer(bouton, libelleConfirmation) {
   desarmer(bouton)
   const libelle = bouton.textContent
   const minuteur = setTimeout(() => desarmer(bouton), DELAI_ARMEMENT)
@@ -54,7 +54,7 @@ function armer(bouton, libelleConfirmation) {
   bouton.dataset.arme = 'oui'
 }
 
-function desarmer(bouton) {
+export function desarmer(bouton) {
   const etat = armes.get(bouton)
   if (!etat) return
   clearTimeout(etat.minuteur)

@@ -19,6 +19,21 @@ const T = (texte) => [texte, {}]
 
 export const TITRE_BIENVENUE = 'Bienvenue sur amend.ink'
 
+/** Ce document est-il celui qu'un embarquement a créé pour `email` ? Le titre,
+ * la propriété et une liste d'accès réduite à cette seule personne le disent :
+ * tant qu'elle n'est pas venue, personne d'autre n'y est entré, et rien n'y a
+ * été écrit que le modèle. `proprio` : le propriétaire du document. */
+export function estDocBienvenue(doc, email, proprio) {
+  return (
+    Boolean(doc) &&
+    doc.title === TITRE_BIENVENUE &&
+    proprio === email &&
+    Array.isArray(doc.access) &&
+    doc.access.length === 1 &&
+    doc.access[0].email === email
+  )
+}
+
 /** Le contenu, en données : un bloc est `{ type, ... }` et un texte est une
  * liste de morceaux `[texte, marques]`. */
 export const BLOCS_BIENVENUE = [

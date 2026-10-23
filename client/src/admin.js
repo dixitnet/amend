@@ -16,6 +16,7 @@
 // confirmation en deux clics.
 
 import { brancherEmbarquement } from './embarquement.js'
+import { brancherInvitations, chargerEtatsCourrier, tableInvitations } from './adminInvitations.js'
 import { NBSP, esc, nombre, octets, euros, date, duree, chiffre, entete, chargerVue } from './adminCommun.js'
 
 const ecouteurTraite = new WeakSet()
@@ -242,19 +243,7 @@ function rubriqueUtilisateurs({ d, att, info }) {
       <p class="bo-note">Le nom affiché est celui que la personne se donne à sa première ouverture d'un
       document ; un tiret signifie qu'elle n'en a pas encore ouvert. Il n'y a pas encore d'écran pour
       le corriger soi-même — en attendant, il se modifie dans <code>data/users.json</code>.</p>
-      ${
-        u.invitationsEnAttente.length
-          ? `<h3>Invitations sans réponse</h3>
-             <ul class="bo-liste">${u.invitationsEnAttente
-               .map(
-                 (i) =>
-                   `<li>${esc(i.email)} — ${esc(i.role)} sur « ${esc(i.titre)} »${
-                     i.depuisJours !== null ? `, depuis ${i.depuisJours}${NBSP}j` : ''
-                   }${i.invitePar ? ` (invité·e par ${esc(i.invitePar)})` : ''}</li>`
-               )
-               .join('')}</ul>`
-          : ''
-      }
+      ${tableInvitations(u.invitationsEnAttente, { nbsp: NBSP })}
       ${
         Object.keys(u.invitationsPar).length
           ? `<p class="bo-note">Invitations envoyées : ${Object.entries(u.invitationsPar)
@@ -409,6 +398,11 @@ export async function mountAdmin(root, { onglet = 'synthese', info = '' } = {}) 
   brancherEmbarquement(root, ({ email }) =>
     mountAdmin(root, { onglet, info: `Document créé, invitation envoyée à ${email}.` })
   )
+
+  // Les invitations sans réponse : renvoyer, supprimer, copier le lien ; le
+  // badge du courrier se remplit une fois la page affichée.
+  brancherInvitations(root, (info) => mountAdmin(root, { onglet, info }))
+  chargerEtatsCourrier(root)
 
   // Un seul écouteur sur la racine plutôt qu'un par bouton : la page est
   // rendue d'un bloc par `innerHTML`, et des écouteurs posés sur les

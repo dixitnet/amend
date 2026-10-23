@@ -91,5 +91,5 @@ export async function acceptInvitation(token) {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) return { error: data.error || 'invitation invalide' }
   forgetSessionCache()
-  return { docId: data.docId, email: data.email, role: data.role }
+  return { docId: data.docId, email: data.email, role: data.role, dejaUtilisee: Boolean(data.dejaUtilisee) }
 }

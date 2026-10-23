@@ -141,7 +141,7 @@ export function sendMail({ to, subject, text, html, replyTo }) {
 
 let lectureDeRemplacement = null
 /** Une lecture de remplacement, **pour les tests seulement** (comme
- * `remplacerEnvoi`) : reçoit `{ to, depuis }`, renvoie un état. */
+ * `remplacerEnvoi`) : reçoit `{ to, depuis, objet }`, renvoie un état. */
 export function remplacerLecture(fn) {
   lectureDeRemplacement = typeof fn === 'function' ? fn : null
 }
@@ -198,11 +198,13 @@ const raisonDe = (e) =>
  *   - `en_cours` : mis en file ou différé, Mailgun réessaie ;
  *   - `inconnu`  : rien dans les journaux (trop ancien, Mailgun non configuré,
  *                  lecture refusée ou en panne).
- * Seuls les courriers dont l'objet commence par « Invitation » comptent.
+ * Seuls les courriers dont l'objet répond à `objet` comptent (par défaut, ceux
+ * qui commencent par « Invitation » ; le courrier d'embarquement s'appelle
+ * « Bienvenue… »).
  */
-export async function etatDuCourrier({ to, depuis }) {
+export async function etatDuCourrier({ to, depuis, objet = /^Invitation/i }) {
   try {
-    if (lectureDeRemplacement) return await lectureDeRemplacement({ to, depuis })
+    if (lectureDeRemplacement) return await lectureDeRemplacement({ to, depuis, objet })
     const domain = process.env.MAILGUN_DOMAIN
     if (!process.env.MAILGUN_API_KEY || !domain) return { etat: 'inconnu' }
     const debut = Math.floor(depuis / 1000) - 60
@@ -212,9 +214,7 @@ export async function etatDuCourrier({ to, depuis }) {
       `/v3/${encodeURIComponent(domain)}/events?recipient=${encodeURIComponent(to)}` +
         `&begin=${maintenant}&end=${debut}&ascending=no&limit=50`
     )
-    const evts = (r.items || []).filter(
-      (e) => /^Invitation/i.test(e.message?.headers?.subject || '') && e.timestamp >= debut
-    )
+    const evts = (r.items || []).filter((e) => objet.test(e.message?.headers?.subject || '') && e.timestamp >= debut)
     if (evts.some((e) => e.event === 'delivered')) return { etat: 'remis' }
     const refus = evts.find((e) => e.event === 'rejected' || (e.event === 'failed' && e.severity !== 'temporary'))
     if (refus) return { etat: 'refuse', detail: raisonDe(refus) }
@@ -225,4 +225,30 @@ export async function etatDuCourrier({ to, depuis }) {
   } catch {
     return { etat: 'inconnu' }
   }
+}
+
+// Ce que le fournisseur a dit d'un courrier, gardé un moment : les écrans qui
+// l'affichent se rouvrent souvent, et un état définitif (remis, refusé) ne
+// change plus. Un état provisoire est relu au bout d'une demi-minute.
+const CACHE_ETAT = new Map()
+const DUREE_DEFINITIF_MS = 10 * 60_000
+const DUREE_PROVISOIRE_MS = 30_000
+const CACHE_ETAT_MAX = 500
+const DELAI_ETAT_MS = 6_000
+/** Au-delà, le fournisseur n'a plus rien : inutile de le demander. */
+export const CONSERVATION_JOURNAUX_MS = 6 * 86_400_000
+
+export async function etatDuCourrierEnMemoire(to, depuis, objet = /^Invitation/i) {
+  if (Date.now() - depuis > CONSERVATION_JOURNAUX_MS) return { etat: 'inconnu' }
+  const cle = `${to}|${depuis}|${objet.source}`
+  const vu = CACHE_ETAT.get(cle)
+  if (vu && vu.jusqua > Date.now()) return vu.etat
+  const etat = await Promise.race([
+    etatDuCourrier({ to, depuis, objet }),
+    new Promise((resolve) => setTimeout(() => resolve({ etat: 'inconnu' }), DELAI_ETAT_MS).unref()),
+  ])
+  if (CACHE_ETAT.size >= CACHE_ETAT_MAX) CACHE_ETAT.clear()
+  const definitif = etat.etat === 'remis' || etat.etat === 'refuse'
+  CACHE_ETAT.set(cle, { etat, jusqua: Date.now() + (definitif ? DUREE_DEFINITIF_MS : DUREE_PROVISOIRE_MS) })
+  return etat
 }
