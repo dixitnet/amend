@@ -37,10 +37,12 @@ export function tableInvitations(liste, { nbsp = ' ' } = {}) {
           i.invitePar ? ` (invité·e par ${esc(i.invitePar)})` : ''
         }</td>
         <td data-inv-courrier></td>
-        <td class="bo-inv-actions">
-          <button type="button" class="bo-action" data-inv="copier">Copier le lien</button>
-          <button type="button" class="bo-action" data-inv="renvoyer">Renvoyer</button>
-          <button type="button" class="bo-action" data-inv="supprimer">Supprimer</button>
+        <td class="bo-inv-cellule">
+          <div class="bo-inv-actions">
+            <button type="button" class="bo-action" data-inv="copier">Copier le lien</button>
+            <button type="button" class="bo-action" data-inv="renvoyer">Renvoyer</button>
+            <button type="button" class="bo-action" data-inv="supprimer">Supprimer</button>
+          </div>
           <span class="bo-inv-msg bo-note" role="status"></span>
         </td>
       </tr>`
