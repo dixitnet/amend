@@ -16,6 +16,7 @@
 // confirmation en deux clics.
 
 import { brancherEmbarquement } from './embarquement.js'
+import { blocImagesOrphelines, brancherImagesOrphelines } from './adminImages.js'
 import { brancherInvitations, chargerEtatsCourrier, tableInvitations } from './adminInvitations.js'
 import { NBSP, esc, nombre, octets, euros, date, duree, chiffre, entete, chargerVue } from './adminCommun.js'
 
@@ -331,6 +332,8 @@ function rubriqueSysteme({ d }) {
           : '<p class="bo-note">Personne connecté en ce moment.</p>'
       }
 
+      ${blocImagesOrphelines()}
+
       <h2>Emails (30 jours)</h2>
       <p class="bo-note ${f.mail.echecs30j ? 'bo-alerte' : ''}">
         ${nombre(f.mail.envois30j)} envois, <strong>${nombre(f.mail.echecs30j)} échecs</strong>${
@@ -403,6 +406,7 @@ export async function mountAdmin(root, { onglet = 'synthese', info = '' } = {}) 
   // badge du courrier se remplit une fois la page affichée.
   brancherInvitations(root, (info) => mountAdmin(root, { onglet, info }))
   chargerEtatsCourrier(root)
+  brancherImagesOrphelines(root)
 
   // Un seul écouteur sur la racine plutôt qu'un par bouton : la page est
   // rendue d'un bloc par `innerHTML`, et des écouteurs posés sur les

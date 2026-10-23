@@ -37,10 +37,13 @@ async function xmlWord(fetchFactice) {
   }
 }
 
-test("Word : une image récupérée entre dans le fichier (dessin + média)", async () => {
+test('Word : une image récupérée entre dans le fichier (dessin + média)', async () => {
   const { xml, zip } = await xmlWord(async () => new Response(PNG, { status: 200 }))
   assert.ok(xml.includes('<w:drawing'), "le dessin de l'image est dans le document")
-  assert.ok(Object.keys(zip.files).some((f) => f.startsWith('word/media/')), "l'image est dans le dossier des médias")
+  assert.ok(
+    Object.keys(zip.files).some((f) => f.startsWith('word/media/')),
+    "l'image est dans le dossier des médias"
+  )
   assert.ok(xml.includes('Avant.') && xml.includes('Après.'), 'le texte autour reste')
 })
 
@@ -51,9 +54,82 @@ test("Word : une image qu'on ne peut pas relire laisse une mention, sans interro
   assert.ok(xml.includes('Avant.') && xml.includes('Après.'))
 })
 
-test("Word : une image dont le téléchargement échoue (réseau) laisse aussi la mention", async () => {
+test('Word : une image dont le téléchargement échoue (réseau) laisse aussi la mention', async () => {
   const { xml } = await xmlWord(async () => {
     throw new Error('réseau coupé')
   })
   assert.ok(xml.includes('[image non récupérée]'))
+})
+
+// ===================================================== images pleine page (23/10/2026)
+
+/** Les dimensions (px à 96 ppp) de chaque image du document Word. */
+async function dimensionsImages(doc_, style) {
+  const vrai = globalThis.fetch
+  globalThis.fetch = async () => new Response(PNG, { status: 200 })
+  try {
+    const blob = await buildDocxBlob(doc_, style, 'Doc')
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const xml = await zip.file('word/document.xml').async('string')
+    return [...xml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"/g)].map((m) => [Number(m[1]) / 9525, Number(m[2]) / 9525])
+  } finally {
+    globalThis.fetch = vrai
+  }
+}
+
+const image = (largeur, hauteur) => schema.node('image', { src: SRC, alt: '', largeur, hauteur })
+const docImages = (...images) => schema.node('doc', null, images)
+
+// A4 portrait, marges 20 / 25 mm : 170 mm × 247 mm utiles, soit 643 × 934 px (932 une fois les 2 px de garde retirés).
+test('Word, par défaut : une image plus large que la page est réduite, une petite reste petite', async () => {
+  const [grande, petite] = await dimensionsImages(docImages(image(800, 600), image(100, 50)), assainir({}))
+  assert.deepEqual(grande.map(Math.round), [643, 482])
+  assert.deepEqual(petite, [100, 50], 'jamais agrandie')
+})
+
+test('Word, images pleine page : la plus grande taille entre les marges, proportions gardées', async () => {
+  const style = assainir({ page: { imagesPleinePage: true } })
+  const [large, petite, haute] = await dimensionsImages(
+    docImages(image(800, 600), image(100, 50), image(400, 1200)),
+    style
+  )
+  assert.deepEqual(large.map(Math.round), [643, 482], 'limitée par la largeur')
+  assert.deepEqual(petite.map(Math.round), [643, 322], 'une petite image est agrandie jusqu’aux marges')
+  assert.equal(Math.round(haute[1]), 932, 'une image haute est limitée par la hauteur utile')
+  assert.equal(Math.round(haute[0]), 311, 'et garde ses proportions')
+})
+
+test('Word, images pleine page : tient compte des marges du modèle', async () => {
+  const style = assainir({ page: { imagesPleinePage: true, marginLeft: 40, marginRight: 40 } })
+  const [img] = await dimensionsImages(docImages(image(800, 600)), style)
+  // 210 − 80 = 130 mm = 491 px.
+  assert.equal(Math.round(img[0]), 491)
+})
+
+test('Word, images pleine page : une image dans une citation garde sa taille ordinaire', async () => {
+  const citation = schema.node('blockquote', null, [schema.node('paragraph', null, [schema.text('a')]), image(100, 50)])
+  const style = assainir({ page: { imagesPleinePage: true } })
+  const dims = await dimensionsImages(docImages(citation), style)
+  assert.deepEqual(dims[0], [100, 50], 'la largeur utile d’une citation est plus étroite que la page')
+})
+
+test('Word, images pleine page : le paragraphe de l’image ne porte ni retrait ni interligne du texte', async () => {
+  const vrai = globalThis.fetch
+  globalThis.fetch = async () => new Response(PNG, { status: 200 })
+  try {
+    const style = assainir({
+      page: { imagesPleinePage: true },
+      blocs: { body: { firstLineIndent: 10, lineHeight: 1.5 } },
+    })
+    const zip = await JSZip.loadAsync(
+      await (await buildDocxBlob(docImages(image(800, 600)), style, 'Doc')).arrayBuffer()
+    )
+    const xml = await zip.file('word/document.xml').async('string')
+    const paragraphe = xml.match(/<w:p>(?:(?!<\/w:p>).)*<w:drawing/s)[0]
+    assert.doesNotMatch(paragraphe, /w:firstLine|w:ind /)
+    assert.match(paragraphe, /w:line="240"/)
+    assert.match(paragraphe, /w:jc w:val="center"/)
+  } finally {
+    globalThis.fetch = vrai
+  }
 })

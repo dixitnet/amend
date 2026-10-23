@@ -169,6 +169,8 @@ const LIGNES = [
     oui: ['admin'],
   },
   { couvre: '/api/admin/sauvegarde', m: 'GET', oui: ['admin'] },
+  { couvre: '/api/admin/images-orphelines', m: 'GET', oui: ['admin'] },
+  { couvre: '/api/admin/images-orphelines', m: 'POST', corps: {}, oui: ['admin'] },
   { couvre: '/api/admin/waitlist', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/embarquer', m: 'POST', corps: { email: '' }, oui: ['admin'] },
   { couvre: '/api/admin/invitations/courrier', m: 'GET', oui: ['admin'] },

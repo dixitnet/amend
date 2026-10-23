@@ -30,7 +30,7 @@ export function ouvrirPlan(colonne) {
   const voisin = colonne.nextSibling
 
   const feuille = ouvrirFeuille('Plan du document', {
-    hauteur: 0.6,
+    hauteur: 0.75,
     surFermeture() {
       observateur.disconnect()
       // Remis exactement là où il était, et non à la fin : l'ordre des
@@ -61,6 +61,10 @@ export function ouvrirPlan(colonne) {
       if (garde) visibles++
     }
     videMessage.hidden = visibles > 0 || cherche === ''
+    // Un seul arrêt de tabulation dans la liste (outline.js) : s'il vient
+    // d'être filtré, le premier titre resté visible le reprend.
+    const visiblesBoutons = [...colonne.querySelectorAll('.outline-list > li:not([hidden]) .outline-link')]
+    if (visiblesBoutons.length && !visiblesBoutons.some((b) => b.tabIndex === 0)) visiblesBoutons[0].tabIndex = 0
   }
   filtre.addEventListener('input', () => {
     motif = filtre.value

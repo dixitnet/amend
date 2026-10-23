@@ -263,6 +263,14 @@ function groupePage(page) {
     'Chaque titre de niveau 1 ouvre une page de droite, comme dans un livre — une page blanche est insérée si besoin. Export PDF seulement.'
   grille.appendChild(champBellePage)
 
+  const pleinePage = document.createElement('input')
+  pleinePage.type = 'checkbox'
+  pleinePage.checked = !!page.imagesPleinePage
+  const champPleinePage = champ('Images pleine page', pleinePage)
+  champPleinePage.title =
+    'Chaque image est centrée et prend la plus grande taille qui tient entre les marges (largeur et hauteur), proportions gardées — y compris une petite image, qui est alors agrandie. Export PDF et Word seulement.'
+  grille.appendChild(champPleinePage)
+
   fieldset.appendChild(grille)
   return {
     el: fieldset,
@@ -281,6 +289,7 @@ function groupePage(page) {
       },
       titresSolidaires: solidaires.checked,
       titre1PageImpaire: bellePage.checked,
+      imagesPleinePage: pleinePage.checked,
     }),
   }
 }

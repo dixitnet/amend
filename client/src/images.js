@@ -8,7 +8,7 @@
 //
 // Trois choses se passent au collage, dans cet ordre :
 //
-//  1. réduction côté navigateur (1600 px de large au maximum, ré-encodage
+//  1. réduction côté navigateur (2000 px de large au maximum, ré-encodage
 //     en PNG ou en JPEG selon ce qui pèse le moins) — c'est ce qui divise
 //     le poids du stockage sans que personne ne le remarque ;
 //  2. dépôt sur le serveur, qui répond l'URL de l'image ;
@@ -22,10 +22,16 @@ import { Plugin, PluginKey } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import { isTrackChangesEnabled } from './trackChanges.js'
 
-/** Largeur maximale conservée à l'envoi. Au-delà, personne ne voit la
- * différence à l'écran ni à l'impression, et le poids est divisé par
+/** Largeur maximale conservée à l'envoi. Portée de 1600 à 2000 px le
+ * 23/10/2026 (demande de Sylvain) : une image « pleine page » d'un A4 à
+ * 150 ppp fait 1240 px, à 200 ppp 1650 px — 2000 px laisse de la marge pour
+ * un format plus grand ou un écran à fort pixel. Au-delà, personne ne voit
+ * la différence à l'écran ni à l'impression, et le poids est divisé par
  * plusieurs. */
-export const LARGEUR_MAX = 1600
+export const LARGEUR_MAX = 2000
+
+/** Le nombre de fichiers pris d'un seul geste (glisser-déposer, sélecteur). */
+export const FICHIERS_MAX = 10
 
 /** Au-delà de ce poids, on essaie le JPEG : en dessous, le PNG d'une
  * capture d'écran est à la fois plus léger et plus net, et il n'y a rien à
@@ -138,21 +144,91 @@ export function imagesPlugin({ docId, peutInserer, getUser }) {
           messageFugace('Seul un éditeur peut ajouter une image à ce document.', { erreur: true })
           return true
         }
-        deposer(view, docId, fichier, getUser)
+        deposer(view, docId, fichier, getUser, positionDuBloc(view, view.state.selection.$from.pos))
+        return true
+      },
+      // Le glisser-déposer d'un fichier (23/10/2026). Un glisser interne
+      // (du texte, d'un bloc) ne porte aucun fichier : il reste à
+      // ProseMirror. L'image se pose après le bloc qui est sous le curseur
+      // de la souris, comme au collage — jamais au milieu d'une phrase.
+      handleDrop(view, event) {
+        const transfert = event.dataTransfer
+        if (!transfert || !transfert.files || !transfert.files.length) return false
+        const fichiers = imagesDuTransfert(transfert.files)
+        // Un fichier qui n'est pas une image : on ne l'avale pas, mais on ne
+        // laisse pas non plus le navigateur quitter la page pour l'ouvrir.
+        event.preventDefault()
+        if (!fichiers.length) {
+          messageFugace('Seules les images (png, jpeg…) peuvent être déposées dans le texte.', { erreur: true })
+          return true
+        }
+        if (!peutInserer) {
+          messageFugace('Seul un éditeur peut ajouter une image à ce document.', { erreur: true })
+          return true
+        }
+        const point = view.posAtCoords({ left: event.clientX, top: event.clientY })
+        deposerImages(view, docId, fichiers, getUser, point ? point.pos : view.state.selection.$from.pos)
         return true
       },
     },
   })
 }
 
+/** Les fichiers image d'un transfert (glisser-déposer, sélecteur de
+ * fichiers), dans l'ordre, au plus FICHIERS_MAX. */
+export function imagesDuTransfert(fichiers) {
+  return Array.from(fichiers || [])
+    .filter((f) => f.type && f.type.startsWith('image/'))
+    .slice(0, FICHIERS_MAX)
+}
+
+/** Une image est un bloc : elle se pose après le bloc de premier niveau où
+ * se trouve `pos`, jamais au milieu d'une phrase. */
+function positionDuBloc(view, pos) {
+  const doc = view.state.doc
+  const $p = doc.resolve(Math.max(0, Math.min(pos, doc.content.size)))
+  return $p.depth >= 1 ? $p.after(1) : $p.pos
+}
+
+/** Plusieurs fichiers d'un coup : l'un après l'autre, dans l'ordre où ils ont
+ * été donnés, chacun à la suite du précédent. Séquentiel à dessein : le
+ * dépôt est rapide, et c'est ce qui garantit l'ordre des images dans le
+ * texte (en parallèle, la plus légère arriverait la première). */
+export async function deposerImages(view, docId, fichiers, getUser, pos) {
+  let suite = positionDuBloc(view, pos)
+  for (const fichier of fichiers) {
+    suite = await deposer(view, docId, fichier, getUser, suite)
+  }
+}
+
+/** Ouvre le sélecteur de fichiers du système (la photothèque, sur
+ * téléphone) et rend les images choisies à `rappel`. L'entrée est créée à
+ * la demande et retirée aussitôt : rien ne reste dans la page. */
+export function ouvrirSelecteurImages(rappel) {
+  const entree = document.createElement('input')
+  entree.type = 'file'
+  entree.accept = 'image/*'
+  entree.multiple = true
+  entree.hidden = true
+  entree.addEventListener('change', () => {
+    const choisies = imagesDuTransfert(entree.files)
+    const total = entree.files ? entree.files.length : 0
+    entree.remove()
+    if (total > FICHIERS_MAX) {
+      messageFugace(`${FICHIERS_MAX} images à la fois au plus : les ${FICHIERS_MAX} premières sont prises.`)
+    }
+    if (choisies.length) rappel(choisies)
+  })
+  entree.addEventListener('cancel', () => entree.remove())
+  document.body.appendChild(entree)
+  entree.click()
+}
+
 /** Dépose l'image puis insère le nœud à la place du repère. Tout est local
  * jusqu'à la dernière transaction : un échec de dépôt ne laisse rien
- * derrière lui. */
-async function deposer(view, docId, fichier, getUser) {
-  // Une image est un bloc : elle se pose après le bloc où se trouve le
-  // curseur, jamais au milieu d'une phrase.
-  const $from = view.state.selection.$from
-  const pos = $from.depth >= 1 ? $from.after(1) : $from.pos
+ * derrière lui. Rend la position qui suit l'image insérée (ou `pos` si
+ * rien n'a été inséré), pour que l'image suivante d'un lot s'y pose. */
+async function deposer(view, docId, fichier, getUser, pos) {
   const id = {}
   view.dispatch(view.state.tr.setMeta(cle, { ajouter: { id, pos } }))
 
@@ -181,7 +257,7 @@ async function deposer(view, docId, fichier, getUser) {
     if (!trouve.length) {
       retirerRepere()
       messageFugace("L'image a été déposée mais son emplacement a disparu.", { erreur: true })
-      return
+      return pos
     }
     // En suivi, l'image naît proposée (attribut `suivi`, schema.js) : la
     // réécriture du suivi n'a rien à faire, la proposition est sur le nœud.
@@ -195,8 +271,11 @@ async function deposer(view, docId, fichier, getUser) {
       .insert(trouve[0].from, view.state.schema.nodes.image.create({ src, largeur, hauteur, suivi }))
     tr.setMeta('trackChangesInternal', true)
     view.dispatch(tr)
+    // Un nœud atome occupe une position : la suivante est juste derrière.
+    return trouve[0].from + 1
   } catch (err) {
     retirerRepere()
     messageFugace(err.message || "l'image n'a pas pu être ajoutée", { erreur: true })
+    return pos
   }
 }

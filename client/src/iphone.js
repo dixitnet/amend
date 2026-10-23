@@ -39,6 +39,7 @@ import { ouvrirFeuille } from './feuille.js'
 import { URL_AIDE } from './aide.js'
 import { suivreLeClavier } from './clavier.js'
 import { ouvrirPlan } from './planFeuille.js'
+import { icone } from './interface/icones.js'
 
 /**
  * Installe l'interface téléphone. Ne fait rien si l'on n'est pas sur un
@@ -64,9 +65,13 @@ export function monterInterfaceTelephone(pieces) {
     ouvrirCommentaire,
     outilsEssentiels = [],
     zoomSelect = null,
+    // Le parcours des modifications (relectureTactile.js) : son nœud est
+    // déménagé dans le bandeau de relecture, sous la rangée d'outils.
+    relecture = null,
   } = pieces
 
   let mode = 'lecture'
+  let masquerAuDefilement = true
 
   // --- L'en-tête : trois éléments, jamais plus.
   const entete = document.createElement('div')
@@ -82,7 +87,7 @@ export function monterInterfaceTelephone(pieces) {
   const plus = document.createElement('button')
   plus.type = 'button'
   plus.className = 'tel-plus'
-  plus.textContent = '⋯'
+  plus.append(icone('plus', 22))
   plus.setAttribute('aria-label', 'Plus')
 
   // --- Les outils essentiels, dans l'en-tête (23/09/2026).
@@ -104,14 +109,14 @@ export function monterInterfaceTelephone(pieces) {
   const filBouton = document.createElement('button')
   filBouton.type = 'button'
   filBouton.className = 'tel-outil'
-  filBouton.textContent = '💬'
+  filBouton.append(icone('bulle', 20))
   filBouton.title = 'Commentaires'
   filBouton.setAttribute('aria-label', 'Commentaires')
   filBouton.onclick = () => ouvrirCommentaire()
 
   function prendreLesOutils() {
     for (const b of outilsEssentiels) if (b) outils.appendChild(b)
-    outils.appendChild(filBouton)
+    outils.append(filBouton, boutonFormat)
   }
   function rendreLesOutils() {
     // Rendus exactement à leur place : ce sont les boutons de l'éditeur,
@@ -126,16 +131,125 @@ export function monterInterfaceTelephone(pieces) {
       place.parent.insertBefore(b, voisin)
     }
     filBouton.remove()
+    boutonFormat.remove()
   }
 
-  entete.append(gauche, titre, outils, plus)
+  entete.append(gauche, titre, plus)
+
+  // --- La rangée d'édition, sous l'en-tête (21/10/2026, vue V4) : le
+  // bouton Plan en tête, puis — en écriture — les outils essentiels, et
+  // « Relire » quand il y a des modifications à décider. Même place
+  // relative que dans les formats M et L : le bouton Plan est le premier de
+  // la rangée. Les outils ont quitté l'en-tête, qui ne porte plus que le
+  // retour, le titre et le menu.
+  const rangee = document.createElement('div')
+  rangee.className = 'tel-rangee'
+  const boutonPlan = document.createElement('button')
+  boutonPlan.type = 'button'
+  boutonPlan.className = 'tel-plan'
+  boutonPlan.title = 'Plan du document'
+  boutonPlan.setAttribute('aria-label', 'Plan du document')
+  boutonPlan.append(icone('plan', 22))
+  // `ouvrirPlan` ferme la feuille ouverte en s'ouvrant : jamais deux feuilles.
+  boutonPlan.onclick = () => ouvrirPlan(outlineSidebar)
+
+  // « Mise en forme » : le reste de la barre d'édition, dans sa feuille.
+  const boutonFormat = document.createElement('button')
+  boutonFormat.type = 'button'
+  boutonFormat.className = 'tel-outil tel-format'
+  boutonFormat.title = 'Mise en forme'
+  boutonFormat.setAttribute('aria-label', 'Mise en forme')
+  boutonFormat.textContent = 'Aa'
+  boutonFormat.onclick = () => ouvrirBarreOutils()
+
+  const boutonRelire = document.createElement('button')
+  boutonRelire.type = 'button'
+  boutonRelire.className = 'tel-relire'
+  boutonRelire.hidden = true
+  boutonRelire.append(icone('crayon', 18), document.createTextNode('Relire'))
+  boutonRelire.setAttribute('aria-label', 'Relire les modifications')
+
+  rangee.append(boutonPlan, outils, boutonRelire)
+
+  // --- Le bandeau de relecture (vue V4) : n'existe que pendant une
+  // relecture. On y entre par « Relire » ou en touchant un passage marqué ;
+  // on en sort par la croix, ou d'elle-même quand il ne reste plus rien à
+  // décider. C'est le nœud de `relectureTactile.js`, déménagé : jamais copié.
+  const bandeau = document.createElement('div')
+  bandeau.className = 'tel-relecture'
+  bandeau.setAttribute('role', 'region')
+  bandeau.setAttribute('aria-label', 'Relecture des modifications')
+  bandeau.hidden = true
+  const auteur = document.createElement('span')
+  auteur.className = 'tel-relecture-auteur'
+  const fermerRelecture = document.createElement('button')
+  fermerRelecture.type = 'button'
+  fermerRelecture.className = 'tel-relecture-fermer'
+  fermerRelecture.title = 'Terminer la relecture'
+  fermerRelecture.setAttribute('aria-label', 'Terminer la relecture')
+  fermerRelecture.append(icone('fermer', 20))
+  let relectureOuverte = false
+  let observateurRelecture = null
+
+  function majRelecture() {
+    if (!relecture) return
+    const rien = relecture.el.hidden
+    if (rien) relectureOuverte = false
+    bandeau.hidden = !relectureOuverte
+    boutonRelire.hidden = relectureOuverte || rien
+    const c = relecture.courante && relecture.courante()
+    // Seulement si ça change : l'auteur est dans le nœud que l'on observe, et
+    // réécrire le même texte relancerait l'observateur sans fin.
+    const nom = c ? c.user || 'Quelqu’un' : ''
+    if (auteur.textContent !== nom) auteur.textContent = nom
+    if (c && c.userColor) auteur.style.setProperty('--user-color', c.userColor)
+    haut.classList.remove('tel-haut-masque')
+  }
+  function entrerEnRelecture() {
+    if (!relecture) return
+    relectureOuverte = true
+    if (relecture.aller) relecture.aller()
+    majRelecture()
+  }
+  boutonRelire.onclick = entrerEnRelecture
+  fermerRelecture.onclick = () => {
+    relectureOuverte = false
+    majRelecture()
+  }
+  if (relecture) {
+    const accepter = relecture.el.querySelector('.btn-accept')
+    relecture.el.insertBefore(auteur, accepter)
+    bandeau.append(relecture.el, fermerRelecture)
+    if (typeof MutationObserver === 'function') {
+      observateurRelecture = new MutationObserver(majRelecture)
+      observateurRelecture.observe(relecture.el, {
+        attributes: true,
+        attributeFilter: ['hidden'],
+        childList: true,
+        subtree: true,
+        characterData: true,
+      })
+    }
+  }
+
+  // Toucher un passage marqué (ajout ou suppression en attente) ouvre la
+  // relecture sur lui : la sélection que le toucher vient de poser en fait la
+  // modification courante.
+  racine.addEventListener('click', (e) => {
+    if (!relecture || !e.target.closest || !e.target.closest('ins.tracked-insertion, del.tracked-deletion')) return
+    setTimeout(entrerEnRelecture, 0)
+  })
+
+  const haut = document.createElement('div')
+  haut.className = 'tel-haut'
+  haut.append(entete, rangee, bandeau)
 
   // --- Le crayon : en lecture seulement, en bas à droite, là où le pouce
   // arrive. C'est le geste d'entrée dans l'écriture.
   const crayon = document.createElement('button')
   crayon.type = 'button'
   crayon.className = 'tel-crayon'
-  crayon.textContent = '✏️'
+  crayon.append(icone('crayon', 26))
   crayon.setAttribute('aria-label', 'Modifier le document')
   crayon.hidden = !peutEcrire()
 
@@ -231,6 +345,20 @@ export function monterInterfaceTelephone(pieces) {
       window.open(URL_AIDE, '_blank', 'noopener')
     })
 
+    // Barres masquées au défilement (décision D14, 21/10/2026, à essayer sur
+    // appareil) : un réglage, pour pouvoir le retirer sans attendre une
+    // version si le comportement ne plaît pas sur l'iPhone réel.
+    const reglageBarres = entree(
+      'Masquer les barres en défilant',
+      () => {
+        masquerAuDefilement = !masquerAuDefilement
+        ecrireReglage(masquerAuDefilement ? 'oui' : 'non')
+        if (!masquerAuDefilement) haut.classList.remove('tel-haut-masque')
+        reglageBarres.querySelector('em').textContent = masquerAuDefilement ? 'oui' : 'non'
+      },
+      masquerAuDefilement ? 'oui' : 'non'
+    )
+
     // La taille du texte. Sur téléphone, c'est ici qu'elle se règle : le
     // suivi de la taille système a été abandonné au profit de ce zoom, qui
     // a l'avantage d'être le même partout et de ne pas faire doublon avec
@@ -277,7 +405,7 @@ export function monterInterfaceTelephone(pieces) {
     const view = getView()
     racine.classList.toggle('tel-lecture', mode === 'lecture')
     racine.classList.toggle('tel-edition', mode === 'edition')
-    gauche.textContent = mode === 'edition' ? '✓' : '‹'
+    gauche.replaceChildren(icone(mode === 'edition' ? 'coche' : 'gauche', 22))
     gauche.setAttribute('aria-label', mode === 'edition' ? 'Terminer' : 'Mes documents')
     if (view) view.setProps({ editable: () => mode === 'edition' })
     if (mode === 'edition') prendreLesOutils()
@@ -318,7 +446,7 @@ export function monterInterfaceTelephone(pieces) {
 
   // Un correcteur entre en écriture comme un éditeur : ses modifications
   // sont des propositions, c'est le suivi qui s'en charge, pas le mode.
-  racine.prepend(entete)
+  racine.prepend(haut)
   racine.appendChild(crayon)
   // Ce qui, en bas, recouvre réellement le texte. En écriture, plus rien : la
   // barre a quitté le bas de l'écran pour l'en-tête. Reste le crayon, en
@@ -461,6 +589,45 @@ export function monterInterfaceTelephone(pieces) {
   )
 
   const arreterLeSuivi = suivreLeClavier(racine, auClavier)
+
+  // --- Les barres s'effacent quand on lit (décision D14, comme le réglage
+  // « Show / Hide » d'iA Writer) : en défilant vers le bas, l'en-tête et la
+  // rangée remontent hors de l'écran ; ils reviennent en remontant d'un
+  // geste, ou en haut de page. Jamais pendant une relecture, clavier ouvert
+  // ni feuille ouverte. L'en-tête reste dans le flux (sticky) : le texte ne
+  // se recompose pas, il ne fait que gagner la place visible.
+  const CLE_BARRES = 'amend.tel.masquer-barres'
+  const lireReglage = () => {
+    try {
+      return localStorage.getItem(CLE_BARRES)
+    } catch {
+      return null
+    }
+  }
+  const ecrireReglage = (valeur) => {
+    try {
+      localStorage.setItem(CLE_BARRES, valeur)
+    } catch {
+      /* stockage refusé : le réglage ne dure que cette visite */
+    }
+  }
+  masquerAuDefilement = lireReglage() !== 'non'
+  let dernierY = window.scrollY || 0
+  function auDefilement() {
+    if (!masquerAuDefilement) return
+    const y = window.scrollY || 0
+    const dy = y - dernierY
+    if (Math.abs(dy) < 8 && y > 0) return
+    dernierY = y
+    if (y <= 0 || dy < 0) {
+      haut.classList.remove('tel-haut-masque')
+      return
+    }
+    // Pas de clavier en lecture : ne pas se fier à une mesure restée en l'état.
+    if ((mode === 'edition' && clavierOuvert) || relectureOuverte || document.querySelector('.feuille')) return
+    if (y > haut.offsetHeight) haut.classList.add('tel-haut-masque')
+  }
+  window.addEventListener('scroll', auDefilement, { passive: true })
   // L'interrupteur du suivi quitte la colonne de droite, qui n'existe plus
   // ici : il est retiré de la page et n'apparaît que dans le menu ⋯. Le
   // laisser dans une colonne masquée reviendrait à le rendre introuvable
@@ -473,8 +640,12 @@ export function monterInterfaceTelephone(pieces) {
     estEnEdition: () => mode === 'edition',
     demonter() {
       arreterLeSuivi()
+      window.removeEventListener('scroll', auDefilement)
       rendreLesOutils()
-      entete.remove()
+      if (observateurRelecture) observateurRelecture.disconnect()
+      // Le parcours est rendu à l'éditeur, qui le replace (`placerLeSuivi`).
+      if (relecture) relecture.el.remove()
+      haut.remove()
       crayon.remove()
       // L'interrupteur est rendu à l'éditeur, qui le remettra en tête de
       // la colonne de droite (voir `placerLeSuivi`).

@@ -148,16 +148,23 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
   // c'est ce qui la distingue d'une option de mise en page (20/09/2026).
   const tocBtn = mkButton('Table des matières', 'Insérer une table des matières ici')
   const tableBtn = mkButton('Tableau 3 × 3', 'insérer un tableau de 3 lignes sur 3 colonnes')
-  for (const b of [noteBtn, ligneBtn, sautBtn, tocBtn, tableBtn]) b.classList.add('btn-texte', 'btn-insertion')
+  // Réservée aux éditeurs, comme le collage (images.js) : le serveur refuse le
+  // dépôt aux autres. Masquée par editor.js.
+  const imageBtn = mkButton(
+    'Image…',
+    'Insérer une image depuis un fichier (vous pouvez aussi en coller ou en glisser une dans le texte)'
+  )
+  for (const b of [noteBtn, ligneBtn, sautBtn, tocBtn, tableBtn, imageBtn])
+    b.classList.add('btn-texte', 'btn-insertion')
   const menuInsertion = menuDeroulant('Insérer ▾', {
     classe: 'menu-insertion',
-    titre: 'Insérer une note, un tableau, une ligne…',
+    titre: 'Insérer une note, une image, un tableau, une ligne…',
   })
   // Une liste qui s'ouvre vers la droite : le menu est dans la barre, pas
   // au bord du bandeau.
   menuInsertion.liste.classList.remove('menu-flottant-droite')
   menuInsertion.liste.classList.add('menu-insertion-liste')
-  menuInsertion.liste.append(noteBtn, ligneBtn, sautBtn, tocBtn, tableBtn)
+  menuInsertion.liste.append(noteBtn, ligneBtn, sautBtn, tocBtn, tableBtn, imageBtn)
   // Choisir une entrée referme le menu.
   menuInsertion.liste.addEventListener('click', (e) => {
     if (e.target.closest('button')) menuInsertion.fermer()
@@ -236,6 +243,7 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
       noteBtn,
       lienBtn,
       tableBtn,
+      imageBtn,
       rowAddBtn,
       rowDelBtn,
       colAddBtn,

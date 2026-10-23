@@ -84,6 +84,48 @@ export function cheminVers(items, index) {
   return chemin
 }
 
+/** Une seule entrée du plan est dans l'ordre de tabulation (21/10/2026).
+ *
+ * Avec un titre par bouton, Tab traversait jusqu'à une cinquantaine d'arrêts
+ * avant d'atteindre le texte (campagne L4). Comme une liste d'options du
+ * clavier : Tab entre sur **un** élément (celui qu'on a mis en évidence, ou le
+ * premier), les flèches haut et bas, Début et Fin parcourent la liste, et Tab
+ * en sort. Le lien d'évitement « Aller au texte » (editor.js) garde de toute
+ * façon un raccourci vers l'éditeur. */
+export function tabulationItinerante(liste, courant = 0) {
+  const boutons = () => [...liste.querySelectorAll('.outline-link')].filter((b) => !b.closest('li')?.hidden)
+  const regler = (cible) => {
+    for (const b of liste.querySelectorAll('.outline-link')) b.tabIndex = b === cible ? 0 : -1
+  }
+  const tous = boutons()
+  regler(tous[Math.max(0, Math.min(courant, tous.length - 1))])
+  liste.addEventListener('keydown', (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return
+    const b = boutons()
+    const i = b.indexOf(e.target)
+    if (i < 0) return
+    const touches = {
+      ArrowDown: Math.min(i + 1, b.length - 1),
+      ArrowUp: Math.max(i - 1, 0),
+      Home: 0,
+      End: b.length - 1,
+    }
+    if (!(e.key in touches)) return
+    e.preventDefault()
+    regler(b[touches[e.key]])
+    b[touches[e.key]].focus()
+  })
+  return {
+    /** Déplace l'arrêt de tabulation sur le titre `index`, sauf si le focus
+     * est dans la liste (on ne lui retire pas l'élément sous les doigts). */
+    suivre(index) {
+      if (liste.contains(document.activeElement)) return
+      const b = boutons()
+      if (b.length) regler(b[Math.max(0, Math.min(index, b.length - 1))])
+    },
+  }
+}
+
 export function mountOutlinePanel(container) {
   let view = null
   let lastSignature = null
@@ -91,6 +133,7 @@ export function mountOutlinePanel(container) {
   // rejoue à chaque frappe, elle ne doit pas relire le DOM.
   let liens = []
   let indexCourant = null
+  let tabulation = null
 
   function goTo(pos) {
     if (!view) return
@@ -163,6 +206,7 @@ export function mountOutlinePanel(container) {
       liens.push(li)
     }
     container.appendChild(list)
+    tabulation = tabulationItinerante(list, 0)
     // La liste vient d'être refaite : la mise en évidence aussi, sinon elle
     // disparaîtrait à chaque titre ajouté.
     indexCourant = null
@@ -189,6 +233,7 @@ export function mountOutlinePanel(container) {
     const index = indexSectionCourante(items, view.state.selection.head)
     if (index === indexCourant) return
     indexCourant = index
+    if (tabulation) tabulation.suivre(index)
 
     const chemin = cheminVers(items, index)
     liens.forEach((li, i) => {

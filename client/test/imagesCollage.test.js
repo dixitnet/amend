@@ -18,7 +18,15 @@ import { EditorState, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { schema } from '../src/schema.js'
 import { trackChangesPlugin } from '../src/trackChanges.js'
-import { imagesPlugin, LARGEUR_MAX, messageFugace } from '../src/images.js'
+import {
+  imagesPlugin,
+  LARGEUR_MAX,
+  FICHIERS_MAX,
+  messageFugace,
+  imagesDuTransfert,
+  deposerImages,
+  ouvrirSelecteurImages,
+} from '../src/images.js'
 
 const ALICE = { name: 'Alice', color: '#3d5a80' }
 
@@ -32,12 +40,24 @@ globalThis.setTimeout = (fn, ms, ...args) => {
 }
 
 function installerDom() {
-  const dom = new JSDOM('<!DOCTYPE html><body><div id="editeur"></div></body>', { url: 'http://localhost/', pretendToBeVisual: true })
+  const dom = new JSDOM('<!DOCTYPE html><body><div id="editeur"></div></body>', {
+    url: 'http://localhost/',
+    pretendToBeVisual: true,
+  })
   const w = dom.window
   globalThis.window = w
   globalThis.document = w.document
   Object.defineProperty(globalThis, 'navigator', { value: w.navigator, configurable: true, writable: true })
-  for (const k of ['HTMLElement', 'Node', 'Element', 'getComputedStyle', 'DocumentFragment', 'Range', 'MutationObserver', 'Event']) {
+  for (const k of [
+    'HTMLElement',
+    'Node',
+    'Element',
+    'getComputedStyle',
+    'DocumentFragment',
+    'Range',
+    'MutationObserver',
+    'Event',
+  ]) {
     globalThis[k] = w[k]
   }
   globalThis.requestAnimationFrame = (fn) => setTimeoutOrigine(() => fn(Date.now()), 0)
@@ -112,7 +132,9 @@ function monter({
   })
   const view = new EditorView(document.getElementById('editeur'), { state })
   view.coordsAtPos = () => ({ left: 10, right: 10, top: 10, bottom: 20 })
-  const plugin = view.state.plugins.find((p) => p.props.handlePaste && p.spec.key && String(p.spec.key.key).includes('images'))
+  const plugin = view.state.plugins.find(
+    (p) => p.props.handlePaste && p.spec.key && String(p.spec.key.key).includes('images')
+  )
 
   const coller = (fichiers, texte = '') => {
     let empeche = 0
@@ -121,6 +143,17 @@ function monter({
       clipboardData: { getData: (t) => (t === 'text/plain' ? texte : ''), files: fichiers },
     }
     const pris = plugin.props.handlePaste(view, evt)
+    return { pris, empeche }
+  }
+  const deposer = (fichiers, { x = 10, y = 10, avecFichiers = true } = {}) => {
+    let empeche = 0
+    const evt = {
+      preventDefault: () => (empeche += 1),
+      clientX: x,
+      clientY: y,
+      dataTransfer: { files: avecFichiers ? fichiers : [] },
+    }
+    const pris = plugin.props.handleDrop(view, evt)
     return { pris, empeche }
   }
   const curseurDans = (pos) => view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
@@ -144,7 +177,7 @@ function monter({
     }
     assert.fail(`jamais atteint : ${quoi}`)
   }
-  return { view, trace, coller, curseurDans, images, reperes, messages, types, attendre }
+  return { view, trace, coller, deposer, curseurDans, images, reperes, messages, types, attendre }
 }
 
 const fichier = (octets = 30_000, type = 'image/png') => new File([new Uint8Array(octets)], 'capture', { type })
@@ -154,14 +187,20 @@ const fichier = (octets = 30_000, type = 'image/png') => new File([new Uint8Arra
 test('un collage sans image, ou avec du texte, reste au chemin normal', () => {
   const e = monter()
   assert.equal(e.coller([]).pris, false, 'rien de collé')
-  assert.equal(e.coller([new File(['x'], 'a.txt', { type: 'text/plain' })]).pris, false, 'un fichier qui n’est pas une image')
+  assert.equal(
+    e.coller([new File(['x'], 'a.txt', { type: 'text/plain' })]).pris,
+    false,
+    'un fichier qui n’est pas une image'
+  )
   const mixte = e.coller([fichier()], 'du texte copié avec l’image')
   assert.equal(mixte.pris, false, 'une image + du texte = un collage de texte')
   assert.equal(mixte.empeche, 0)
   assert.equal(e.trace.envois.length, 0)
 
   const evt = { preventDefault() {}, clipboardData: null }
-  const plugin = e.view.state.plugins.find((p) => p.props.handlePaste && p.spec.key && String(p.spec.key.key).includes('images'))
+  const plugin = e.view.state.plugins.find(
+    (p) => p.props.handlePaste && p.spec.key && String(p.spec.key.key).includes('images')
+  )
   assert.equal(plugin.props.handlePaste(e.view, evt), false, 'pas de presse-papiers')
 })
 
@@ -180,19 +219,19 @@ test('sans le droit d’insérer : le collage est pris, refusé, et rien ne part
 
 // ===================================================== réduction et choix du format
 
-test('une grande image est ramenée à 1600 px de large, proportions gardées', async () => {
+test('une grande image est ramenée à 2000 px de large, proportions gardées', async () => {
   const e = monter({ bitmap: { width: 3200, height: 1800 } })
   e.curseurDans(3)
   e.coller([fichier(900_000)])
   await e.attendre(() => e.images().length === 1, 'l’image insérée')
   const [c] = e.trace.canevas
-  assert.equal(LARGEUR_MAX, 1600)
-  assert.equal(c.width, 1600)
-  assert.equal(c.height, 900)
-  assert.deepEqual(c.dessins[0].slice(1), [0, 0, 1600, 900])
+  assert.equal(LARGEUR_MAX, 2000)
+  assert.equal(c.width, 2000)
+  assert.equal(c.height, 1125)
+  assert.deepEqual(c.dessins[0].slice(1), [0, 0, 2000, 1125])
   const { attrs } = e.images()[0]
-  assert.equal(attrs.largeur, 1600)
-  assert.equal(attrs.hauteur, 900)
+  assert.equal(attrs.largeur, 2000)
+  assert.equal(attrs.hauteur, 1125)
   assert.equal(e.trace.fermetures, 1, 'le bitmap est libéré')
 })
 
@@ -208,7 +247,10 @@ test('PNG léger : pas d’essai JPEG ; PNG lourd : le JPEG gagne s’il pèse m
   const leger = monter({ poids: { png: 100_000, jpeg: 10 } })
   leger.coller([fichier(50_000)])
   await leger.attendre(() => leger.images().length === 1)
-  assert.deepEqual(leger.trace.canevas[0].encodages.map((x) => x[0]), ['image/png'])
+  assert.deepEqual(
+    leger.trace.canevas[0].encodages.map((x) => x[0]),
+    ['image/png']
+  )
 
   const photo = monter({ bitmap: { width: 3000, height: 2000 }, poids: { png: 2_000_000, jpeg: 300_000 } })
   photo.coller([fichier(3_000_000, 'image/png')])
@@ -216,7 +258,10 @@ test('PNG léger : pas d’essai JPEG ; PNG lourd : le JPEG gagne s’il pèse m
   const envoi = photo.trace.envois[0]
   assert.equal(envoi.init.headers['content-type'], 'image/jpeg')
   assert.equal(envoi.init.body.size, 300_000)
-  assert.deepEqual(photo.trace.canevas[0].encodages, [['image/png', undefined], ['image/jpeg', 0.85]])
+  assert.deepEqual(photo.trace.canevas[0].encodages, [
+    ['image/png', undefined],
+    ['image/jpeg', 0.85],
+  ])
 
   // Une capture d'écran aux aplats : le JPEG ressortirait plus lourd.
   const capture = monter({ bitmap: { width: 3000, height: 2000 }, poids: { png: 700_000, jpeg: 900_000 } })
@@ -280,7 +325,11 @@ test('le repère « Dépôt de l’image… » tient la place pendant l’envoi,
   await e.attendre(() => e.images().length === 1, 'l’insertion')
 
   assert.equal(e.reperes().length, 0, 'le repère disparaît')
-  assert.deepEqual(e.types(), ['paragraph', 'image', 'paragraph'], 'après le bloc où était le curseur, pas au milieu d’une phrase')
+  assert.deepEqual(
+    e.types(),
+    ['paragraph', 'image', 'paragraph'],
+    'après le bloc où était le curseur, pas au milieu d’une phrase'
+  )
   const { attrs } = e.images()[0]
   assert.equal(attrs.src, '/api/docs/abc/images/xyz.png')
   assert.deepEqual([attrs.largeur, attrs.hauteur], [800, 400])
@@ -305,7 +354,11 @@ test('si quelqu’un écrit plus haut pendant l’envoi, l’image tombe à la p
   e.view.dispatch(e.view.state.tr.insert(0, para('Ajouté en tête')))
   rendre()
   await e.attendre(() => e.images().length === 1)
-  assert.deepEqual(e.types(), ['paragraph', 'paragraph', 'paragraph', 'image'], 'toujours après « Second », qui est maintenant le troisième')
+  assert.deepEqual(
+    e.types(),
+    ['paragraph', 'paragraph', 'paragraph', 'image'],
+    'toujours après « Second », qui est maintenant le troisième'
+  )
 })
 
 test('en suivi de modifications, l’image naît proposée, au nom de la personne', async () => {
@@ -385,4 +438,116 @@ test('le message fugace se pose dans la page, s’efface, et distingue l’erreu
   assert.equal(a.textContent, 'Fait.')
   assert.equal(a.classList.contains('erreur'), false)
   assert.equal(b.classList.contains('erreur'), true)
+})
+
+// ===================================================== glisser-déposer et sélecteur (23/10/2026)
+
+test('glisser-déposer : un fichier image se pose après le bloc sous la souris', async () => {
+  const e = monter()
+  // Le faux navigateur n'a pas de géométrie : on dit où tombe la souris.
+  e.view.posAtCoords = () => ({ pos: 3, inside: 1 }) // dans « Premier »
+  const { pris, empeche } = e.deposer([fichier()])
+  assert.equal(pris, true)
+  assert.equal(empeche, 1, 'le navigateur n’ouvre pas le fichier')
+  await e.attendre(() => e.images().length === 1)
+  assert.deepEqual(e.types(), ['paragraph', 'image', 'paragraph'])
+  assert.equal(e.trace.envois[0].url, '/api/docs/abc/images')
+})
+
+test('glisser-déposer : un glisser interne (sans fichier) reste à ProseMirror', () => {
+  const e = monter()
+  const { pris, empeche } = e.deposer([], { avecFichiers: false })
+  assert.equal(pris, false)
+  assert.equal(empeche, 0)
+  assert.equal(e.trace.envois.length, 0)
+})
+
+test('glisser-déposer : un fichier qui n’est pas une image est refusé sans quitter la page', () => {
+  const e = monter()
+  const { pris, empeche } = e.deposer([new File(['x'], 'a.pdf', { type: 'application/pdf' })])
+  assert.equal(pris, true)
+  assert.equal(empeche, 1, 'sinon le navigateur ouvrirait le PDF à la place de l’éditeur')
+  assert.equal(e.trace.envois.length, 0)
+  assert.match(e.messages()[0].textContent, /Seules les images/)
+})
+
+test('glisser-déposer : sans le droit d’insérer, rien ne part', () => {
+  const e = monter({ peutInserer: false })
+  const { pris } = e.deposer([fichier()])
+  assert.equal(pris, true)
+  assert.equal(e.trace.envois.length, 0)
+  assert.match(e.messages()[0].textContent, /Seul un éditeur/)
+})
+
+test('plusieurs fichiers : déposés dans l’ordre donné, l’un derrière l’autre', async () => {
+  let n = 0
+  const e = monter({
+    // Un nom différent par réponse, pour reconnaître l'ordre.
+    serveur: async () => ({ ok: true, json: { src: `/api/docs/abc/images/img${++n}.png` } }),
+  })
+  e.view.posAtCoords = () => ({ pos: 3, inside: 1 })
+  e.deposer([fichier(), fichier(), fichier()])
+  await e.attendre(() => e.images().length === 3)
+  assert.deepEqual(
+    e.images().map((i) => i.attrs.src),
+    ['/api/docs/abc/images/img1.png', '/api/docs/abc/images/img2.png', '/api/docs/abc/images/img3.png']
+  )
+  assert.deepEqual(e.types(), ['paragraph', 'image', 'image', 'image', 'paragraph'])
+})
+
+test('imagesDuTransfert : garde les images, dans l’ordre, au plus FICHIERS_MAX', () => {
+  const mixtes = [fichier(), new File(['x'], 'a.txt', { type: 'text/plain' }), fichier(5, 'image/jpeg')]
+  assert.deepEqual(
+    imagesDuTransfert(mixtes).map((f) => f.type),
+    ['image/png', 'image/jpeg']
+  )
+  const beaucoup = Array.from({ length: FICHIERS_MAX + 5 }, () => fichier())
+  assert.equal(imagesDuTransfert(beaucoup).length, FICHIERS_MAX)
+  assert.deepEqual(imagesDuTransfert(null), [])
+})
+
+test('le sélecteur de fichiers : « Image… » ouvre le sélecteur, puis dépose les images choisies', async () => {
+  const e = monter()
+  e.curseurDans(3)
+  let ouvert = null
+  const creer = document.createElement.bind(document)
+  document.createElement = (nom) => {
+    const el = creer(nom)
+    if (nom === 'input') {
+      ouvert = el
+      el.click = () => {}
+    }
+    return el
+  }
+  let recu = null
+  ouvrirSelecteurImages((fichiers) => (recu = fichiers))
+  assert.equal(ouvert.type, 'file')
+  assert.equal(ouvert.accept, 'image/*')
+  assert.equal(ouvert.multiple, true)
+  assert.ok(document.body.contains(ouvert), 'dans la page le temps du choix')
+  Object.defineProperty(ouvert, 'files', { value: [fichier(), new File(['x'], 'a.txt', { type: 'text/plain' })] })
+  ouvert.dispatchEvent(new window.Event('change'))
+  assert.equal(recu.length, 1, 'seules les images sont rendues')
+  assert.ok(!document.body.contains(ouvert), 'retiré aussitôt')
+  await deposerImages(e.view, 'abc', recu, () => ALICE, e.view.state.selection.$from.pos)
+  assert.equal(e.images().length, 1)
+})
+
+test('le sélecteur annulé ne laisse rien dans la page', () => {
+  monter()
+  let ouvert = null
+  const creer = document.createElement.bind(document)
+  document.createElement = (nom) => {
+    const el = creer(nom)
+    if (nom === 'input') {
+      ouvert = el
+      el.click = () => {}
+    }
+    return el
+  }
+  let appele = false
+  ouvrirSelecteurImages(() => (appele = true))
+  ouvert.dispatchEvent(new window.Event('cancel'))
+  assert.equal(appele, false)
+  assert.ok(!document.body.contains(ouvert))
 })

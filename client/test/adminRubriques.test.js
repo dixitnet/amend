@@ -123,7 +123,7 @@ test('chaque rubrique montre ce qui lui revient, et seulement cela', async () =>
   assert.ok(racine.querySelector('a[href="#/doc/d1"]'))
 
   await mountAdmin(racine, { onglet: 'systeme' })
-  assert.deepEqual(titres(racine), ['Serveur', 'Sauvegarde', 'Emails (30 jours)'])
+  assert.deepEqual(titres(racine), ['Serveur', 'Sauvegarde', 'Images orphelines', 'Emails (30 jours)'])
   assert.ok(racine.querySelector('a[href="/api/admin/sauvegarde"]'))
 
   // Une rubrique inconnue ramène à la synthèse.

@@ -371,6 +371,16 @@ export const PAGE_DEFAUT = {
   // À l'inverse du précédent, c'est une convention d'ouvrage : désactivé
   // par défaut.
   titre1PageImpaire: false,
+  // Images pleine page (23/10/2026), export PDF et Word seulement : chaque
+  // image d'un paragraphe de premier niveau est centrée et prend la plus
+  // grande taille qui tient **entre les marges** — en largeur comme en
+  // hauteur, proportions gardées, et sans plafond à la taille du fichier
+  // (une petite image est agrandie). Désactivé par défaut : une capture
+  // d'écran étirée sur toute la largeur est rarement ce qu'on veut dans un
+  // rapport ; c'est le réglage d'un album, d'un catalogue, d'un livre
+  // photo. L'éditeur et la page publiée n'ont pas de marges : ils ne
+  // changent pas.
+  imagesPleinePage: false,
   // En-têtes de page (20/09/2026). Deux côtés indépendants — pages de
   // gauche (paires) et de droite (impaires) — parce que c'est la seule
   // distinction qui compte dans un document relié ; toujours centrés,
@@ -645,6 +655,7 @@ export function assainir(style) {
     langue: dans(LANGUES, p.langue, base.page.langue),
     titresSolidaires: booleen(p.titresSolidaires, base.page.titresSolidaires),
     titre1PageImpaire: booleen(p.titre1PageImpaire, base.page.titre1PageImpaire),
+    imagesPleinePage: booleen(p.imagesPleinePage, base.page.imagesPleinePage),
   }
   for (const cle of ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']) {
     page[cle] = nombre(p[cle], base.page[cle], 0, 100)

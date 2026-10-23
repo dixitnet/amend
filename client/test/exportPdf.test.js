@@ -141,10 +141,7 @@ test('le retrait à gauche enveloppe le bloc, et seulement s’il existe', () =>
 
 test('les titres ne restent pas seuls en bas de page, sauf si on le demande', () => {
   assert.match(source({}), /#show heading: set block\(sticky: true\)/)
-  assert.doesNotMatch(
-    source({ page: { titresSolidaires: false } }),
-    /sticky: true/
-  )
+  assert.doesNotMatch(source({ page: { titresSolidaires: false } }), /sticky: true/)
 })
 
 test('les titres 1 peuvent ouvrir une page impaire', () => {
@@ -286,7 +283,10 @@ test('« Titre du document » écrit le titre du fichier, le même sur chaque pa
     titre
   )
   assert.match(src, /header: context/)
-  assert.match(src, /if calc\.even\(ici\) \{ "Vie et mort de \\"Zan\\" \\\\ suite" \} else \{ "Vie et mort de \\"Zan\\" \\\\ suite" \}/)
+  assert.match(
+    src,
+    /if calc\.even\(ici\) \{ "Vie et mort de \\"Zan\\" \\\\ suite" \} else \{ "Vie et mort de \\"Zan\\" \\\\ suite" \}/
+  )
   // Contrairement au « titre 1 courant », la ligne de contenu n'utilise pas `courant`.
   assert.doesNotMatch(src, /let contenu = .*courant/)
   assert.doesNotMatch(src, /[^\\]"Zan"/)
@@ -350,7 +350,7 @@ test('une image passe par #context pour calculer sa largeur disponible', () => {
   assert.doesNotMatch(src, /calc\.min\(100%/)
 })
 
-test("une image sans largeur enregistrée prend toute la largeur disponible", () => {
+test('une image sans largeur enregistrée prend toute la largeur disponible', () => {
   const document = schema.node('doc', null, [
     schema.node('image', { src: '/api/docs/abc/images/sans-taille.png', alt: '', largeur: null, hauteur: null }),
   ])
@@ -400,7 +400,8 @@ test('ce que Typst lirait comme du code reste du texte (trouvé par le test qui 
   // `;` après une marque était avalé ; `= `, `- `, `/ `, `1. ` en tête de
   // paragraphe devenaient titre, liste, définition, énumération.
   const strong = schema.marks.strong.create()
-  const src = (...enfants) => docToTypst(schema.node('doc', null, [schema.node('paragraph', null, enfants)]), styleParDefaut, 'D')
+  const src = (...enfants) =>
+    docToTypst(schema.node('doc', null, [schema.node('paragraph', null, enfants)]), styleParDefaut, 'D')
   assert.ok(src(schema.text('http://a.b/c a--b c---d e-?f')).includes('http:\\//a.b/c a\\--b c\\-\\--d e\\-?f'))
   assert.ok(src(schema.text('x', [strong]), schema.text('; suite')).includes('#strong[x]\\; suite'))
   for (const debut of ['= Titre', '- puce', '+ puce', '/ terme', '12. item']) {
@@ -432,7 +433,12 @@ test('les notes : de vraies notes de bas de page Typst', () => {
   // page ; le texte passe par inline(), donc échappé.
   const note = (t) => schema.node('footnote', null, [schema.text(t)])
   const document = schema.node('doc', null, [
-    schema.node('paragraph', null, [schema.text('Un'), note('Première (piégée) #x'), schema.text(' deux'), note('Seconde')]),
+    schema.node('paragraph', null, [
+      schema.text('Un'),
+      note('Première (piégée) #x'),
+      schema.text(' deux'),
+      note('Seconde'),
+    ]),
   ])
   const src = docToTypst(document, styleParDefaut, 'Document')
   assert.ok(src.includes('#amend-corps[Un#footnote[Première (piégée) \\#x] deux#footnote[Seconde]]'), src.slice(-300))
@@ -476,4 +482,58 @@ test('les notes : corps − 2 pt, et le style du bloc d’appel ne déteint pas 
   assert.match(regle({ blocs: { body: { align: 'justify' } } }), /justify: true/)
   assert.match(regle({ blocs: { body: { align: 'left' } } }), /justify: false/)
   assert.match(regle({ blocs: { body: { lineHeight: 1.5 } } }), /leading: 1\.50em/)
+})
+
+// ===================================================== images pleine page (23/10/2026)
+
+test('images pleine page : la largeur est bornée par la largeur ET la hauteur utiles', () => {
+  const document = schema.node('doc', null, [
+    schema.node('image', { src: '/api/docs/abc/images/photo.png', alt: 'Une photo', largeur: 800, hauteur: 600 }),
+  ])
+  const src = source({ page: { imagesPleinePage: true } }, document)
+  assert.match(src, /let disponible = page\.width - page\.margin\.left - page\.margin\.right/)
+  assert.match(src, /let hauteur-utile = page\.height - page\.margin\.top - page\.margin\.bottom - 2pt/)
+  // 800 / 600 = 1,3333…
+  assert.match(src, /width: calc\.min\(disponible, hauteur-utile \* 1\.3333\)/)
+  assert.match(src, /align\(center, figure\(image\("images\/photo\.png"/)
+  assert.match(src, /alt: "Une photo"/)
+  // Pas de plafond à la taille du fichier : une petite image est agrandie.
+  assert.doesNotMatch(src, /\* 0\.75/)
+})
+
+test('images pleine page : sans dimensions enregistrées, toute la largeur utile', () => {
+  const document = schema.node('doc', null, [
+    schema.node('image', { src: '/api/docs/abc/images/sans-taille.png', alt: '', largeur: null, hauteur: null }),
+  ])
+  const src = source({ page: { imagesPleinePage: true } }, document)
+  assert.match(src, /image\("images\/sans-taille\.png", width: disponible\)/)
+})
+
+test('images pleine page : désactivé par défaut, une image garde son plafond et son #context ordinaires', () => {
+  const document = schema.node('doc', null, [
+    schema.node('image', { src: '/api/docs/abc/images/photo.png', alt: '', largeur: 800, hauteur: 600 }),
+  ])
+  const src = source({}, document)
+  assert.match(src, /width: calc\.min\(disponible, 800pt \* 0\.75\)/)
+  assert.doesNotMatch(src, /hauteur-utile/)
+})
+
+test('images pleine page : une image dans une liste n’est pas concernée', () => {
+  const liste = schema.node('bullet_list', null, [
+    schema.node('list_item', null, [
+      schema.node('paragraph', null, [schema.text('a')]),
+      schema.node('image', { src: '/api/docs/abc/images/photo.png', alt: '', largeur: 800, hauteur: 600 }),
+    ]),
+  ])
+  const src = source({ page: { imagesPleinePage: true } }, schema.node('doc', null, [liste]))
+  assert.doesNotMatch(src, /hauteur-utile/)
+})
+
+test('images pleine page : une adresse refusée ne produit rien, même en pleine page', () => {
+  const document = schema.node('doc', null, [
+    schema.node('image', { src: 'https://exemple.test/x.png', alt: '', largeur: 800, hauteur: 600 }),
+  ])
+  const src = source({ page: { imagesPleinePage: true } }, document)
+  assert.doesNotMatch(src, /exemple\.test/)
+  assert.doesNotMatch(src, /hauteur-utile/)
 })

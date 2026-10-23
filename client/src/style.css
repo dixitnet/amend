@@ -2482,11 +2482,17 @@ a.bo-chiffre:hover, a.bo-chiffre:focus-visible { border-color: var(--accent); }
     min-height: 0;
     margin: 0 auto;
   }
-  /* L'en-tête reste là : il porte le retour, les outils et le menu. */
-  .tel-entete {
+  /* L'en-tête, la rangée d'outils et le bandeau de relecture restent là,
+     d'un seul tenant (`.tel-haut`), et s'effacent ensemble au défilement. */
+  .tel-haut {
     position: sticky;
     top: 0;
     z-index: 30;
+    transition: transform 160ms ease-out;
+  }
+  .tel-haut.tel-haut-masque { transform: translateY(-100%); }
+  @media (prefers-reduced-motion: reduce) {
+    .tel-haut { transition: none; }
   }
   /* Le masque de chargement ne peut plus se caler sur le conteneur, qui
      fait maintenant la hauteur du document entier. */
@@ -2636,20 +2642,22 @@ tr.bo-traite { opacity: 0.6; }
   .tel-outils { display: none; }
   .tel-edition .tel-outils {
     display: flex;
+    align-items: center;
     gap: 4px;
-    /* Le titre s'efface en écriture : ce sont les outils qui tiennent le
-       centre, sans quoi tout l'en-tête se tasse à gauche. */
     flex: 1;
     min-width: 0;
-    justify-content: center;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  .tel-edition .tel-outils::-webkit-scrollbar { display: none; }
   .tel-edition .tel-outils .btn-tool,
   .tel-outil {
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 44px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     border: none;
     border-radius: 8px;
     background: none;
@@ -2657,10 +2665,10 @@ tr.bo-traite { opacity: 0.6; }
     font: inherit;
     font-size: 17px;
     cursor: pointer;
+    touch-action: manipulation;
   }
+  .tel-format { font-size: 15px; font-weight: 600; }
   .tel-edition .tel-outils .btn-tool.actif { background: var(--bg); color: var(--accent); }
-  /* Le titre cède la place : il reste lisible en lecture, et dans le menu. */
-  .tel-edition .tel-titre { display: none; }
   /* La barre d'outils ne s'affiche plus qu'une fois déménagée dans sa
      feuille — jamais au bas de l'écran. */
   .tel-edition .format-toolbar { display: none; }
@@ -2690,13 +2698,131 @@ tr.bo-traite { opacity: 0.6; }
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: calc(4px + env(safe-area-inset-top, 0px)) 6px 4px;
+    min-height: 52px;
+    padding: env(safe-area-inset-top, 0px) 6px 0;
     border-bottom: 1px solid var(--border);
     background: var(--bg);
     flex-shrink: 0;
   }
+  /* La rangée d'édition : Plan en tête, outils, Relire. 48 px, comme V4. */
+  .tel-rangee {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 48px;
+    padding: 0 6px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .tel-plan {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 10px;
+    background: none;
+    color: var(--fg);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .tel-lecture .tel-rangee::after { content: ''; flex: 1; order: 1; }
+  .tel-relire {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--panel-bg);
+    color: var(--accent);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .tel-relire[hidden] { display: none; }
+  /* Le bandeau de relecture : n'existe que pendant une relecture. */
+  .tel-relecture {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 48px;
+    padding: 0 6px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-bg);
+  }
+  .tel-relecture[hidden] { display: none; }
+  .tel-relecture .barre-relecture {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .tel-relecture .barre-relecture .btn-tool {
+    width: 36px;
+    min-width: 36px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--fg);
+    font-size: 22px;
+    line-height: 1;
+  }
+  .tel-relecture .barre-relecture-position { min-width: 44px; text-align: center; font-size: 13px; }
+  .tel-relecture .btn-accept,
+  .tel-relecture .btn-reject {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 13px;
+    width: auto;
+    flex-shrink: 0;
+  }
+  .tel-relecture-auteur {
+    flex: 1 1 auto;
+    min-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .tel-relecture-auteur::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: var(--user-color, var(--accent));
+  }
+  .tel-relecture-auteur:empty::before { display: none; }
+  .tel-relecture-fermer {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 10px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
   .tel-gauche,
   .tel-plus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 44px;
     height: 44px;
     flex-shrink: 0;
@@ -2727,6 +2853,9 @@ tr.bo-traite { opacity: 0.6; }
     right: 18px;
     bottom: calc(22px + env(safe-area-inset-bottom, 0px) + var(--clavier, 0px));
     z-index: 45;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 56px;
     height: 56px;
     border: none;
@@ -2737,7 +2866,8 @@ tr.bo-traite { opacity: 0.6; }
     box-shadow: 0 4px 16px rgb(0 0 0 / 26%);
     cursor: pointer;
   }
-  .tel-edition .tel-crayon { display: none; }
+  .tel-edition .tel-crayon,
+  .tel-crayon[hidden] { display: none !important; }
 
   /* --- En lecture : rien que le texte. Le curseur ne clignote pas, la
      sélection reste possible (on peut vouloir copier un passage). */
@@ -4264,4 +4394,36 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
 .accueil-docs .favoris .doc-list li:focus-within { background: color-mix(in srgb, var(--fg) 6%, transparent); }
 @media (max-width: 700px) {
   .accueil-docs .favoris .favoris-titre { margin-left: 8px; }
+}
+
+/* Zones sûres (21/10/2026) : la balise viewport porte `viewport-fit=cover`,
+   donc le contenu peut passer sous l'encoche d'un téléphone tenu en
+   paysage. Les bords gauche et droit sont réservés pour toute la page ;
+   les zones haute et basse sont gérées par l'en-tête et le crayon. */
+body {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Le lien d'évitement (21/10/2026) : hors de l'écran tant qu'il n'a pas le
+   focus clavier, puis posé en haut à gauche, au-dessus de tout. */
+.lien-evitement {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 10px 16px;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transform: translateY(-200%);
+}
+.lien-evitement:focus,
+.lien-evitement:focus-visible {
+  transform: none;
 }

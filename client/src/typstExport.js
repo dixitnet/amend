@@ -150,6 +150,36 @@ function imageTypst(node) {
   return `#figure(image(${chaine('images/' + nom)}${taille}${alt}), caption: none)`
 }
 
+/** Une image « pleine page » (23/10/2026, réglage `imagesPleinePage`) : la plus
+ * grande taille qui tient entre les marges, en largeur **et** en hauteur,
+ * proportions gardées, centrée — et sans le plafond à la taille du fichier de
+ * `imageTypst` : une petite image est agrandie, c'est ce que le réglage dit.
+ *
+ * La largeur retenue est le plus petit de deux nombres : la largeur utile, et
+ * la hauteur utile multipliée par le rapport largeur/hauteur de l'image (les
+ * dimensions sont celles enregistrées au dépôt). Sans ces dimensions on ne sait
+ * que remplir la largeur. Deux points de marge sont laissés en hauteur : un
+ * bloc exactement aussi haut que la page se retrouve sinon rejeté à la page
+ * suivante par l'arrondi, et n'y tient pas davantage. */
+function imagePleinePageTypst(node) {
+  const src = String(node.attrs.src || '')
+  const nom = src.split('/').pop()
+  if (!imageAutorisee(src) || !/^[A-Za-z0-9_-]+\.(png|jpg)$/.test(nom)) return ''
+  const alt = node.attrs.alt ? `, alt: ${chaine(node.attrs.alt)}` : ''
+  const { largeur, hauteur } = node.attrs
+  const rapport = largeur && hauteur ? Math.round((largeur / hauteur) * 10000) / 10000 : 0
+  const taille = rapport ? `calc.min(disponible, hauteur-utile * ${rapport})` : 'disponible'
+  // Le bloc est un #context, comme pour une image ordinaire (voir imageTypst) :
+  // la page n'est lisible qu'au moment de la mise en page.
+  return `#context {
+  let disponible = page.width - page.margin.left - page.margin.right
+  let hauteur-utile = page.height - page.margin.top - page.margin.bottom - 2pt
+  align(center, figure(image(${chaine('images/' + nom)}, width: ${taille}${alt}), caption: none))
+}
+
+`
+}
+
 function listeTypst(node, fonction) {
   const items = []
   node.forEach((item) => {
@@ -476,8 +506,12 @@ ${solidaires}${depart}`
 /** La source Typst complète d'un document. */
 export function docToTypst(doc, style, titre) {
   let corps = ''
+  // Les images « pleine page » ne valent que pour celles posées au premier
+  // niveau du document : dans une liste ou une citation, la largeur utile est
+  // plus étroite que celle de la page, et l'image déborderait.
+  const pleinePage = !!(style && style.blocs && style.page && style.page.imagesPleinePage)
   doc.forEach((node) => {
-    corps += blocTypst(node)
+    corps += pleinePage && node.type.name === 'image' ? imagePleinePageTypst(node) : blocTypst(node)
   })
   return gabarit(style, titre) + '\n' + corps
 }

@@ -185,6 +185,13 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
 
   assert.deepEqual(guetteur.fin(), [], 'une erreur au montage de l’éditeur')
 
+  // Le lien d'évitement (21/10/2026) : premier élément de la page, il mène au texte.
+  const evitement = racine.querySelector('.app-shell').firstElementChild
+  assert.ok(evitement.classList.contains('lien-evitement'), 'le lien d’évitement est le premier arrêt')
+  assert.equal(evitement.textContent, 'Aller au texte')
+  // Le format de la fenêtre est publié sur la racine (jsdom : ni S ni L, donc M).
+  assert.ok(['S', 'M', 'L'].includes(racine.querySelector('.app-shell').dataset.format), 'data-format')
+
   // Les pièces du bandeau réorganisé le 18/09, dans leur zone.
   assert.ok(racine.querySelector('.banniere-gauche .doc-title'), 'le titre')
   // Vue V1 (21/10/2026) : « Nouveau document » et les versions dans le menu ⋯ ;
@@ -300,7 +307,7 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   assert.equal(menuIns.querySelector('.menu-flottant-bouton').textContent, 'Insérer ▾')
   assert.deepEqual(
     [...menuIns.querySelectorAll('.menu-flottant-liste button')].map((b) => b.textContent),
-    ['Note de bas de page', 'Ligne de séparation', 'Saut de page', 'Table des matières', 'Tableau 3 × 3']
+    ['Note de bas de page', 'Ligne de séparation', 'Saut de page', 'Table des matières', 'Tableau 3 × 3', 'Image…']
   )
   // Les commandes de structure d'un tableau : une rangée à part, cachée hors tableau.
   const rangeeTableau = racine.querySelector('.table-group')
@@ -574,6 +581,11 @@ test('la barre : la pastille du suivi change de couleur avec l’état, et un co
     false,
     'mais la note, oui'
   )
+  assert.equal(
+    [...c.racine.querySelectorAll('.btn-insertion')].find((b) => b.textContent === 'Image…').hidden,
+    true,
+    'pas d’image : le serveur refuse le dépôt à un correcteur'
+  )
   await respirer()
   if (c.editeur.destroy) c.editeur.destroy()
 })
@@ -619,6 +631,14 @@ test('un lecteur voit le texte sans pouvoir l’éditer, et peut commenter', asy
   assert.ok(!racine.querySelector('.ai-section'), 'pas de panneau Corrections IA')
   assert.ok(racine.querySelector('.volet-bouton[data-panneau="margo"]').hidden, 'pas de Margo pour un lecteur')
 
+  // Le lien d'évitement mène à la zone du texte, qui se lit au clavier (flèches, Page ↓).
+  racine.querySelector('.lien-evitement').dispatchEvent(new dom.window.Event('click', { bubbles: true }))
+  assert.equal(
+    dom.window.document.activeElement,
+    racine.querySelector('.editor-container'),
+    'le focus est dans le texte'
+  )
+
   if (editeur && editeur.destroy) editeur.destroy()
 })
 
@@ -659,8 +679,11 @@ test('sur iPhone : un en-tête sobre, un crayon, et rien d’autre', async () =>
 
   const entete = racine.querySelector('.tel-entete')
   assert.ok(entete, 'l’en-tête du téléphone')
-  // Retour, titre, les outils de frappe, le menu — et jamais plus.
-  assert.equal(entete.children.length, 4, 'quatre éléments, jamais plus')
+  // Retour, titre, menu — et jamais plus (les outils sont dans la rangée, dessous).
+  assert.equal(entete.children.length, 3, 'trois éléments, jamais plus')
+  const rangee = racine.querySelector('.tel-rangee')
+  assert.ok(rangee, 'la rangée d’édition sous l’en-tête')
+  assert.ok(rangee.firstElementChild.classList.contains('tel-plan'), 'le bouton Plan est le premier de la rangée')
   assert.equal(racine.querySelector('.tel-outils').children.length, 0, 'aucun outil tant qu’on lit')
   assert.equal(racine.querySelector('.tel-titre').textContent, 'Essai')
   assert.ok(racine.querySelector('.tel-crayon'), 'le crayon, porte d’entrée de l’écriture')

@@ -299,6 +299,17 @@ async function chargerImages(doc) {
   return octetsPar
 }
 
+/** Hauteur utile d'une page (entre les marges haute et basse), en pixels à
+ * 96 ppp — pour les images « pleine page ». Deux pixels de moins que le calcul
+ * exact : une image aussi haute que la zone de texte déborde sinon d'un
+ * arrondi et passe seule à la page suivante. */
+function hauteurUtilePx(style) {
+  const page = style.page || DEFAULT_STYLE.page
+  const [, hauteurMm] = dimensionsPage(page)
+  const utileMm = hauteurMm - (page.marginTop || 0) - (page.marginBottom || 0)
+  return Math.max(50, Math.round((utileMm / 25.4) * 96) - 2)
+}
+
 /** Largeur utile d'une page, en pixels à 96 ppp — l'unité qu'attend
  * `transformation` de `docx`. Une image plus large que ça déborderait des
  * marges de la feuille de style. */
@@ -310,7 +321,7 @@ function largeurUtilePx(style) {
 }
 
 /** Un nœud de bloc ProseMirror -> une ou plusieurs `Paragraph` docx. */
-function blockToParagraphs(node, style, images) {
+function blockToParagraphs(node, style, images, racine = false) {
   switch (node.type.name) {
     case 'heading': {
       const level = niveauTitre(node.attrs.level)
@@ -416,6 +427,35 @@ function blockToParagraphs(node, style, images) {
       }
       const largeurSource = node.attrs.largeur || images.largeurUtile
       const hauteurSource = node.attrs.hauteur || Math.round(largeurSource * 0.75)
+      // « Images pleine page » (23/10/2026), pour les images posées au premier
+      // niveau : la plus grande taille qui tient entre les marges, dans les
+      // deux sens, proportions gardées — agrandie au besoin. Le paragraphe
+      // est dessiné à part, sans les retraits ni l'interligne du texte
+      // courant : un interligne de 1,15 sur une image aussi haute que la
+      // page la ferait déborder, et un retrait de première ligne la
+      // décentrerait.
+      if (images.pleinePage && racine) {
+        const k = Math.min(images.largeurUtile / largeurSource, images.hauteurUtile / hauteurSource)
+        return [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 0, line: 240, lineRule: LineRuleType.AUTO },
+            children: [
+              new ImageRun({
+                type: octets.type,
+                data: octets.data,
+                transformation: {
+                  width: Math.max(1, Math.round(largeurSource * k)),
+                  height: Math.max(1, Math.round(hauteurSource * k)),
+                },
+                altText: node.attrs.alt
+                  ? { description: node.attrs.alt, name: node.attrs.alt, title: node.attrs.alt }
+                  : undefined,
+              }),
+            ],
+          }),
+        ]
+      }
       const facteur = Math.min(1, images.largeurUtile / largeurSource)
       return [
         new Paragraph({
@@ -476,13 +516,18 @@ function contientTable(doc) {
  * télécharger — même feuille de style (`style`, voir styleConfig.js) que
  * l'export PDF. */
 export async function buildDocxBlob(doc, style, titre = '') {
-  const images = { octetsPar: await chargerImages(doc), largeurUtile: largeurUtilePx(style) }
+  const images = {
+    octetsPar: await chargerImages(doc),
+    largeurUtile: largeurUtilePx(style),
+    hauteurUtile: hauteurUtilePx(style),
+    pleinePage: !!(style.page && style.page.imagesPleinePage),
+  }
   NOTES = numerosDesNotes(doc)
   const children = []
   const endnotes = {}
   try {
     doc.forEach((node) => {
-      children.push(...blockToParagraphs(node, style, images))
+      children.push(...blockToParagraphs(node, style, images, true))
     })
     // Les notes de fin : le texte de chacune, au style du corps, une taille
     // en dessous — Word les place en fin de document et les numérote.

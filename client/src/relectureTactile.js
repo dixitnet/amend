@@ -149,7 +149,7 @@ export function ouvrirFilCommentaire(view, ydoc, commentsMap, user, id) {
   if (range) centrer(view, range.from, 0.25)
 
   const feuille = ouvrirFeuille('Commentaire', {
-    hauteur: 0.45,
+    hauteur: 0.4,
     surFermeture() {
       commentsMap.unobserve(surChangement)
     },
@@ -307,6 +307,12 @@ export function monterBarreRelecture(getView, { canReview = true } = {}) {
     courante() {
       const { liste, index } = etat()
       return index >= 0 ? liste[index] : null
+    },
+    /** Va à la modification courante (celle du curseur, ou la suivante) :
+     * l'entrée dans la relecture sur téléphone (iphone.js). */
+    aller() {
+      const { liste, index } = etat()
+      if (index >= 0) allerA(index, liste)
     },
     detruire() {
       el.remove()

@@ -5,6 +5,7 @@
 import { createGzip } from 'node:zlib'
 import { apercu } from '../admin.js'
 import { fluxTar } from '../archive.js'
+import { analyserImages, purgerImages } from '../imagesOrphelines.js'
 import { isAdminEmail, normalizeEmail, readSession } from '../auth.js'
 import { etatDuCourrierEnMemoire, sendMail } from '../mailgun.js'
 import { courrierBienvenue, courrierInvitation, quiInvite } from '../courriersInvitation.js'
@@ -213,6 +214,36 @@ export async function routesAdmin(req, res, url, ctx) {
   // adresses, ni même leur nombre (décision du 17/09 : le compteur ne sera
   // pas public). L'écriture reste ouverte, c'est tout l'intérêt du
   // formulaire ; la lecture, non.
+  // --- Images orphelines (23/10/2026) : celles que plus rien ne référence. ---
+  //
+  // GET analyse sans rien toucher ; POST supprime, après avoir refait
+  // l'analyse (ce qui s'affiche à l'écran peut avoir changé depuis). Les
+  // écritures en attente partent d'abord sur le disque : le journal d'un
+  // document actif retient jusqu'à 200 ms de frappe. Voir imagesOrphelines.js
+  // pour ce qu'est une image « encore utilisée » et pourquoi on ne supprime
+  // rien de plus récent que le délai de grâce.
+  if (pathname === '/api/admin/images-orphelines' && (req.method === 'GET' || req.method === 'POST')) {
+    const admin = readSession(req)
+    if (!isAdminEmail(admin)) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    await storage.flushAll()
+    if (req.method === 'POST') {
+      const resultat = purgerImages(DATA_DIR)
+      if (!resultat.ok) {
+        return sendJson(res, 409, {
+          error: `Une source n'a pas pu être lue (${resultat.illisibles.length}) : rien n'a été supprimé.`,
+        })
+      }
+      metrics.log('images', { type: 'purge', email: admin, supprimees: resultat.supprimees, octets: resultat.octets })
+      return sendJson(res, 200, resultat)
+    }
+    const analyse = analyserImages(DATA_DIR)
+    return sendJson(res, 200, {
+      ...analyse,
+      // Le titre n'est qu'une aide à la lecture ; un document disparu n'en a plus.
+      documents: analyse.documents.map((d) => ({ ...d, titre: (storage.getDoc(d.docId) || {}).title || null })),
+    })
+  }
+
   // --- Sauvegarde : télécharger tout `data/` (18/09/2026) ---
   //
   // C'est **la route la plus sensible de l'application** : une requête, et

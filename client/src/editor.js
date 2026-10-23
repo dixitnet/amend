@@ -46,16 +46,16 @@ import {
   deleteColumn,
   deleteTable,
 } from 'prosemirror-tables'
-import { imagesPlugin } from './images.js'
 import { mountPresenceBar } from './presence.js'
 import { monterMenuCompte } from './compteMenu.js'
-import { messageFugace } from './images.js'
+import { imagesPlugin, deposerImages, ouvrirSelecteurImages, messageFugace } from './images.js'
 import { tableOfContentsPlugin, insererTable } from './tableOfContents.js'
 import { footnotesPlugin, insererNote, monterListeDesNotes } from './footnotes.js'
 import { liensPlugin, commandeLien } from './liens.js'
 import { monterInterfaceTelephone } from './iphone.js'
 import { ouvrirFilCommentaire, monterBarreRelecture, monterBoutonCommenter } from './relectureTactile.js'
 import { media, petitEcran, REQUETE_PETIT_ECRAN } from './feuille.js'
+import { suivreLeFormat } from './interface/format.js'
 import { couleurSure } from '../../shared/securite.js'
 import { NOM_TEXTE, NOM_COMMENTAIRES } from '../../shared/protocole.js'
 import { poserRoleDeLaPage, oublierRoleDeLaPage } from './contextePage.js'
@@ -161,6 +161,8 @@ export function mountEditor(root, docId, user, docMeta) {
   // Les écouteurs posés hors de l'éditeur (document, matchMedia) : `destroy` les retire.
   const ecouteursGlobaux = []
   const menuDeroulant = creerFabriqueMenus(ecouteursGlobaux)
+  // Le format de la fenêtre (S, M ou L) sur la racine : `data-format`.
+  ecouteursGlobaux.push(suivreLeFormat(shell))
 
   // --- Zone gauche : où je suis --------------------------------------------
 
@@ -284,6 +286,7 @@ export function mountEditor(root, docId, user, docMeta) {
       noteBtn,
       lienBtn,
       tableBtn,
+      imageBtn,
       rowAddBtn,
       rowDelBtn,
       colAddBtn,
@@ -402,7 +405,8 @@ export function mountEditor(root, docId, user, docMeta) {
     // fixe dans la colonne de droite depuis le 14/10), et le parcours des
     // modifications reste fixe en tête de l'onglet Modifications.
     if (petitEcranMedia.matches) {
-      groupeRelire.insertBefore(relecture.el, filBtn)
+      // Le parcours rejoint le bandeau de relecture, sous la rangée d'outils
+      // (iphone.js, vue V4) : le téléphone prend le nœud au montage.
     } else {
       toolbar.appendChild(suiviEntete)
       suiviEntete.appendChild(trackToggleLabel)
@@ -557,6 +561,18 @@ export function mountEditor(root, docId, user, docMeta) {
 
   layout.append(outlineSidebar, main, sidebar)
   shell.append(topBanner, rangee, layout)
+  // Le lien d'évitement (21/10/2026) : premier arrêt de tabulation, invisible
+  // tant qu'il n'a pas le focus. Avec les volets ouverts, le plan seul compte
+  // des dizaines d'arrêts avant le texte ; celui-ci y mène en une touche.
+  const evitement = document.createElement('button')
+  evitement.type = 'button'
+  evitement.className = 'lien-evitement'
+  evitement.textContent = 'Aller au texte'
+  evitement.onclick = () => {
+    if (view && view.editable) view.focus()
+    else editorContainer.focus()
+  }
+  shell.prepend(evitement)
   root.appendChild(shell)
 
   // La feuille de style ("Mise en page", voir stylePanel.js/styleConfig.js)
@@ -1039,6 +1055,14 @@ export function mountEditor(root, docId, user, docMeta) {
   underlineBtn.onclick = () => basculerMarque(view, 'underline')
   strikeBtn.onclick = () => basculerMarque(view, 'strike')
   tableBtn.onclick = () => insererTableau(view)
+  // « Image… » : le sélecteur de fichiers, puis le même dépôt que le collage.
+  // Le curseur est là où il était : la sélection de l'éditeur survit à la
+  // perte du focus.
+  imageBtn.hidden = !cap.canManageDocument
+  imageBtn.onclick = () =>
+    ouvrirSelecteurImages((fichiers) =>
+      deposerImages(view, docId, fichiers, () => user, view.state.selection.$from.pos)
+    )
   rowAddBtn.onclick = commandeTableau(() => view, addRowAfter)
   rowDelBtn.onclick = commandeTableau(() => view, deleteRow)
   colAddBtn.onclick = commandeTableau(() => view, addColumnAfter)
@@ -1128,6 +1152,7 @@ export function mountEditor(root, docId, user, docMeta) {
         // téléphone. Ce sont les boutons eux-mêmes : ils y gardent leur
         // état actif et reviennent dans la barre en quittant l'écriture.
         outilsEssentiels: [boldBtn, italicBtn],
+        relecture,
         // Le zoom quitte la barre d'outils pour le menu ⋯ : sur téléphone
         // c'est lui qui règle la taille du texte, ce n'est plus un
         // agrandissement passager (voir style.css).
