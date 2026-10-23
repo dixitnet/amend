@@ -165,3 +165,10 @@ test('Word, images pleine page : le texte qui suit repart en haut de la page dâ€
   // Sans le rÃ©glage : aucun saut.
   assert.equal(sauts(await xmlDe(docImages(para('a'), image(800, 600), para('b')), assainir({}))), 0)
 })
+
+test('Word : un paragraphe vide reste un paragraphe (ligne vide), comme dans le PDF', async () => {
+  const para = (t) => schema.node('paragraph', null, t ? [schema.text(t)] : [])
+  const xml = await xmlDe(schema.node('doc', null, [para('Un'), para(''), para(''), para('Deux')]), assainir({}))
+  const corps = xml.slice(xml.indexOf('<w:body>'))
+  assert.equal((corps.match(/<w:p>/g) || []).length >= 4, true)
+})

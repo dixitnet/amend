@@ -247,12 +247,21 @@ function blocTypst(node) {
       // « Titre » et « Sous-titre » : `amend-title` et `amend-subtitle`, comme
       // tout bloc du modèle (`amend-<id>`).
       const id = blocDuParagraphe(node.attrs.style)
-      return `#${id === 'body' ? 'amend-corps' : `amend-${id}`}[${inline(node)}]\n\n`
+      // Un paragraphe vide (Entrée deux fois de suite) est une **ligne vide** à
+      // l'écran, et doit l'être dans le PDF : Typst ne compose rien pour un
+      // paragraphe sans contenu, et la ligne disparaissait. Une espace de
+      // largeur nulle (U+200B) suffit à lui donner la hauteur d'une ligne du
+      // bloc, interligne et espacement compris. (24/10/2026)
+      const contenu = inline(node)
+      return `#${id === 'body' ? 'amend-corps' : `amend-${id}`}[${contenu.trim() === '' ? '\\u{200B}' : contenu}]\n\n`
     }
     case 'blockquote': {
       let inner = ''
       node.forEach((child) => {
-        inner += child.type.name === 'paragraph' ? `#amend-citation[${inline(child)}]\n\n` : blocTypst(child)
+        inner +=
+          child.type.name === 'paragraph'
+            ? `#amend-citation[${inline(child).trim() === '' ? '\\u{200B}' : inline(child)}]\n\n`
+            : blocTypst(child)
       })
       return inner
     }

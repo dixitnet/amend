@@ -37,6 +37,7 @@ export {
 } from '../../shared/style.js'
 
 import { BLOCS, dimensionsPage, police, styleParDefaut } from '../../shared/style.js'
+import { assurerPolices } from './polices.js'
 
 /** Pile CSS de la police d'un bloc. */
 export function fontFamily(fontId) {
@@ -57,6 +58,8 @@ export function docxFontName(fontId) {
  * fichier d'écarts, `ecarts` combien de réglages s'écartent réellement de
  * son modèle, `modele` `{ id, nom, portee }`. */
 export async function loadDocStyle(docId) {
+  // Le catalogue de polices d'abord : le style renvoyé peut en nommer une.
+  await assurerPolices()
   try {
     const res = await fetch(`/api/docs/${docId}/style`)
     if (!res.ok) return { style: styleParDefaut(), propre: false, ecarts: 0, modele: null }
@@ -104,7 +107,10 @@ async function appelModeles(url, methode, corps) {
 /** Les modèles que cette personne voit : `{ modeles, admin }`. Chaque
  * modèle porte son style **complet**, ce qu'il permet de modifier
  * (`modifiable`, `supprimable`) et combien de documents l'utilisent. */
-export const chargerModeles = () => appelModeles('/api/modeles', 'GET')
+export const chargerModeles = async () => {
+  await assurerPolices()
+  return appelModeles('/api/modeles', 'GET')
+}
 
 /** Choisit le modèle d'un document (réservé aux éditeurs). Par défaut les
  * écarts propres du document sont abandonnés. */

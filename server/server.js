@@ -8,6 +8,7 @@ import { verrouillerDonnees, migrerDonnees, DonneesIncompatibles } from './donne
 import { routesDocuments } from './routes/documents.js'
 import { routesExport } from './routes/export.js'
 import { routesImages } from './routes/images.js'
+import { routesPolices } from './routes/polices.js'
 import { routesStyle } from './routes/style.js'
 import { routesAdmin } from './routes/admin.js'
 import { routesAuth } from './routes/auth.js'
@@ -30,6 +31,8 @@ import { Metrics } from './metrics.js'
 import { Uploads } from './uploads.js'
 import { Users, idCompte } from './users.js'
 import { Typst } from './typst.js'
+import { Polices } from './polices.js'
+import { appliquerCatalogue } from '../shared/style.js'
 import { SupportTraites } from './supportTraites.js'
 import { Versions } from './versions.js'
 import { Agents } from './agents.js'
@@ -123,7 +126,12 @@ definirRevocation((email) => sessionsRevoquees.validesDepuis(email))
 sessionsRevoquees.purger(SESSION_MAX_AGE_MS + 24 * 3600_000)
 // Rendu PDF (16/09/2026) — binaire appelé en sous-processus, sous plafond
 // mémoire, sous délai, et un rendu à la fois (voir server/typst.js).
-const typst = new Typst()
+// Les polices déposées par les administrateurs (24/10/2026, server/polices.js) :
+// le catalogue est appliqué au module partagé dès le démarrage, pour que la
+// validation des mises en page (assainir) connaisse leurs identifiants.
+const polices = new Polices(DATA_DIR)
+appliquerCatalogue(polices.catalogue())
+const typst = new Typst({ cataloguePolices: polices })
 const uploads = new Uploads(DATA_DIR, {
   maxImageMo: process.env.MAX_IMAGE_MB,
   maxDocumentMo: process.env.MAX_DOC_IMAGES_MB,
@@ -221,6 +229,7 @@ const ctx = {
   dialogue,
   mcp,
   metrics,
+  polices,
   presenceAgents,
   quotas,
   reglagesIa,
@@ -250,6 +259,7 @@ const ROUTES = [
   routesDocuments,
   routesExport,
   routesImages,
+  routesPolices,
   routesStyle,
   routesAdmin,
   routesAuth,

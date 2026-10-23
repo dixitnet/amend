@@ -17,6 +17,7 @@
 
 import { brancherEmbarquement } from './embarquement.js'
 import { blocImagesOrphelines, brancherImagesOrphelines } from './adminImages.js'
+import { blocPolices, brancherPolices } from './adminPolices.js'
 import { brancherInvitations, chargerEtatsCourrier, tableInvitations } from './adminInvitations.js'
 import { NBSP, esc, nombre, octets, euros, date, duree, chiffre, entete, chargerVue } from './adminCommun.js'
 
@@ -332,6 +333,8 @@ function rubriqueSysteme({ d }) {
           : '<p class="bo-note">Personne connecté en ce moment.</p>'
       }
 
+      ${blocPolices()}
+
       ${blocImagesOrphelines()}
 
       <h2>Emails (30 jours)</h2>
@@ -407,6 +410,7 @@ export async function mountAdmin(root, { onglet = 'synthese', info = '' } = {}) 
   brancherInvitations(root, (info) => mountAdmin(root, { onglet, info }))
   chargerEtatsCourrier(root)
   brancherImagesOrphelines(root)
+  brancherPolices(root)
 
   // Un seul écouteur sur la racine plutôt qu'un par bouton : la page est
   // rendue d'un bloc par `innerHTML`, et des écouteurs posés sur les

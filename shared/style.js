@@ -44,7 +44,7 @@ export const VERSION_STYLE = 2
  *
  * Ajouter une police ici suppose de l'installer sur le serveur ; au
  * démarrage, `famillesTypst()` permet de dire laquelle manque. */
-export const POLICES = [
+export const POLICES_BASE = [
   {
     id: 'system',
     label: 'Système (DejaVu Sans)',
@@ -82,6 +82,45 @@ export const POLICES = [
   },
   { id: 'roboto', label: 'Roboto', css: '"Roboto", -apple-system, sans-serif', docx: 'Roboto', typst: ['Roboto'] },
 ]
+
+/** Les polices proposées **maintenant** : celles de base, puis le catalogue de
+ * l'instance (24/10/2026, voir `appliquerCatalogue`). Le tableau est un seul
+ * objet, modifié sur place : `PROPRIETES` y pointe pour le menu de polices, et
+ * tout ce qui lit `POLICES` voit le catalogue dès qu'il est appliqué. */
+export const POLICES = [...POLICES_BASE]
+
+const ID_INSTANCE = /^i-[a-z0-9]+(?:-[a-z0-9]+)*$/
+const FAMILLE_SURE = /^[\p{L}\p{N}][\p{L}\p{N} ._'’()+-]*$/u
+export const GENERIQUES = ['serif', 'sans-serif', 'monospace']
+
+/** Remplace les polices de l'instance par `catalogue` : une liste
+ * `{ id, label?, famille, generique }`, telle que la renvoie `GET /api/polices`.
+ * Toute entrée douteuse est écartée (identifiant qui n'est pas `i-…`, nom de
+ * famille portant un guillemet, une barre oblique inverse, un chevron…) : la
+ * famille est recopiée telle quelle dans le CSS, dans la source Typst et dans
+ * le nom demandé à Word. Une police de base ne peut pas être masquée. */
+export function appliquerCatalogue(catalogue) {
+  const vus = new Set(POLICES_BASE.map((p) => p.id))
+  const instance = []
+  for (const c of Array.isArray(catalogue) ? catalogue : []) {
+    if (!c || typeof c !== 'object') continue
+    const famille = typeof c.famille === 'string' ? c.famille.trim() : ''
+    if (!ID_INSTANCE.test(String(c.id)) || vus.has(c.id)) continue
+    if (famille.length > 80 || !FAMILLE_SURE.test(famille)) continue
+    vus.add(c.id)
+    const generique = GENERIQUES.includes(c.generique) ? c.generique : 'sans-serif'
+    instance.push({
+      id: c.id,
+      label: typeof c.label === 'string' && c.label.trim() ? c.label.trim().slice(0, 80) : famille,
+      css: `"${famille}", ${generique}`,
+      docx: famille,
+      typst: [famille],
+      instance: true,
+    })
+  }
+  POLICES.splice(0, POLICES.length, ...POLICES_BASE, ...instance)
+  return instance.length
+}
 
 /** Identifiants retirés de la liste, avec la police qui les remplaçait
  * **déjà dans le PDF** : un document qui les avait choisis sort donc

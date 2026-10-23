@@ -549,3 +549,19 @@ test('images pleine page : une adresse refusée ne produit rien, même en pleine
   assert.doesNotMatch(src, /exemple\.test/)
   assert.doesNotMatch(src, /hauteur-utile/)
 })
+
+// ===================================================== lignes vides (24/10/2026)
+
+test('PDF : un paragraphe vide donne une ligne vide (il ne disparaît pas)', () => {
+  const para = (t) => schema.node('paragraph', null, t ? [schema.text(t)] : [])
+  const src = source({}, schema.node('doc', null, [para('Un'), para(''), para(''), para('Deux')]))
+  assert.match(src, /#amend-corps\[Un\]\n\n#amend-corps\[\\u\{200B\}\]\n\n#amend-corps\[\\u\{200B\}\]\n\n#amend-corps\[Deux\]/)
+  // Un paragraphe qui ne contient que des espaces est lui aussi une ligne vide.
+  assert.match(source({}, schema.node('doc', null, [para('   ')])), /#amend-corps\[\\u\{200B\}\]/)
+})
+
+test('PDF : une citation vide garde aussi sa ligne', () => {
+  const vide = schema.node('paragraph', null, [])
+  const citation = schema.node('blockquote', null, [vide])
+  assert.match(source({}, schema.node('doc', null, [citation])), /#amend-citation\[\\u\{200B\}\]/)
+})

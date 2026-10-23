@@ -79,7 +79,7 @@ const DEFAUTS = {
 }
 
 export class Typst {
-  constructor({ binaire, memoireMo, delaiMs, polices } = {}) {
+  constructor({ binaire, memoireMo, delaiMs, polices, cataloguePolices } = {}) {
     this.binaire = binaire || process.env.TYPST_BIN || DEFAUTS.binaire
     this.memoireMo = Number(memoireMo || process.env.TYPST_MEMORY_MB) || DEFAUTS.memoireMo
     this.delaiMs = Number(delaiMs || process.env.TYPST_TIMEOUT_MS) || DEFAUTS.delaiMs
@@ -88,11 +88,42 @@ export class Typst {
     // dossier fourni priverait Typst de tout, y compris de ses polices
     // embarquées — on ne l'ajoute donc que si on a de quoi le remplacer.
     this.polices = polices || process.env.TYPST_FONT_PATH || null
+    // Les polices déposées par les administrateurs (server/polices.js) : un
+    // objet `{ dossier, nonVide() }`. Le dossier ne s'ajoute à Typst que s'il
+    // contient quelque chose, et sans `--ignore-system-fonts` : il complète les
+    // polices de la machine, il ne les remplace pas.
+    this.cataloguePolices = cataloguePolices || null
     this.sourceMaxOctets = DEFAUTS.sourceMaxOctets
     // File d'attente : un rendu à la fois. Le VPS a un seul vCPU, et trois
     // exports simultanés se le disputeraient avec l'application elle-même.
     this._enCours = Promise.resolve()
     this._attente = 0
+  }
+
+  /** Les options de dossiers de polices passées à `typst compile` et `typst fonts`. */
+  _optionsPolices() {
+    const options = this.polices ? ['--font-path', this.polices, '--ignore-system-fonts'] : []
+    const c = this.cataloguePolices
+    if (c && c.nonVide()) options.push('--font-path', c.dossier)
+    return options
+  }
+
+  /** Les familles que Typst voit **avec** le catalogue — pour vérifier, après un dépôt, que la
+   * famille lue dans le fichier est bien celle qu'il saura nommer. `null` si on ne peut pas le dire
+   * (pas de binaire, sortie illisible). */
+  async famillesVues() {
+    try {
+      const r = await this._executer([this.binaire, 'fonts', ...this._optionsPolices()], { delaiMs: 10_000 })
+      if (r.code !== 0) return null
+      return new Set(
+        r.sortie
+          .split('\n')
+          .map((l) => l.trim().toLowerCase())
+          .filter(Boolean)
+      )
+    } catch {
+      return null
+    }
   }
 
   /** Nombre de rendus en attente — exposé pour le back-office. */
@@ -126,19 +157,8 @@ export class Typst {
    * mais c'est ce qu'il faut savoir avant de chercher ailleurs.
    */
   async policesManquantes() {
-    let installees
-    try {
-      const r = await this._executer([this.binaire, 'fonts'], { delaiMs: 10_000 })
-      if (r.code !== 0) return null
-      installees = new Set(
-        r.sortie
-          .split('\n')
-          .map((l) => l.trim().toLowerCase())
-          .filter(Boolean)
-      )
-    } catch {
-      return null
-    }
+    const installees = await this.famillesVues()
+    if (!installees) return null
     return famillesTypst().filter((f) => !installees.has(f.toLowerCase()))
   }
 
@@ -185,14 +205,7 @@ export class Typst {
         }
       }
 
-      const args = [
-        'compile',
-        '--root',
-        racine,
-        ...(this.polices ? ['--font-path', this.polices, '--ignore-system-fonts'] : []),
-        'main.typ',
-        'sortie.pdf',
-      ]
+      const args = ['compile', '--root', racine, ...this._optionsPolices(), 'main.typ', 'sortie.pdf']
       const r = await this._executer([this.binaire, ...args], { cwd: racine })
 
       if (r.tue === 'delai') throw new TypstError('la composition a dépassé le temps imparti', 504)
