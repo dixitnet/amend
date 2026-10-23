@@ -133,3 +133,35 @@ test('Word, images pleine page : le paragraphe de l’image ne porte ni retrait 
     globalThis.fetch = vrai
   }
 })
+
+/** Le XML du document Word. */
+async function xmlDe(doc_, style) {
+  const vrai = globalThis.fetch
+  globalThis.fetch = async () => new Response(PNG, { status: 200 })
+  try {
+    const zip = await JSZip.loadAsync(await (await buildDocxBlob(doc_, style, 'Doc')).arrayBuffer())
+    return await zip.file('word/document.xml').async('string')
+  } finally {
+    globalThis.fetch = vrai
+  }
+}
+
+test('Word, images pleine page : une page à elle, centrée en hauteur par l’espacement avant', async () => {
+  const xml = await xmlDe(docImages(image(800, 600)), assainir({ page: { imagesPleinePage: true } }))
+  const paragraphe = xml.match(/<w:p>(?:(?!<\/w:p>).)*<w:drawing/s)[0]
+  assert.match(paragraphe, /<w:pageBreakBefore\/>/)
+  // Zone utile 932 px, image 482 px de haut : (932 − 482) / 2 = 225 px = 3 375 twips.
+  assert.match(paragraphe, /w:before="3375"/)
+})
+
+test('Word, images pleine page : le texte qui suit repart en haut de la page d’après, sans page blanche', async () => {
+  const para = (t) => schema.node('paragraph', null, [schema.text(t)])
+  const style = assainir({ page: { imagesPleinePage: true } })
+  const sauts = (xml) => (xml.match(/<w:pageBreakBefore\/>/g) || []).length
+  // Texte, image, texte : un saut avant l'image, un après.
+  assert.equal(sauts(await xmlDe(docImages(para('a'), image(800, 600), para('b')), style)), 2)
+  // Deux images de suite : chacune pose son saut avant, pas de repère entre elles ; rien après la dernière.
+  assert.equal(sauts(await xmlDe(docImages(image(800, 600), image(100, 50)), style)), 2)
+  // Sans le réglage : aucun saut.
+  assert.equal(sauts(await xmlDe(docImages(para('a'), image(800, 600), para('b')), assainir({}))), 0)
+})

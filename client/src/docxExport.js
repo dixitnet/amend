@@ -434,20 +434,30 @@ function blockToParagraphs(node, style, images, racine = false) {
       // courant : un interligne de 1,15 sur une image aussi haute que la
       // page la ferait déborder, et un retrait de première ligne la
       // décentrerait.
+      //
+      // Elle a sa **propre page** et y est centrée aussi **en hauteur** :
+      // saut de page avant, et un espacement avant égal à la moitié de ce qui
+      // reste de la zone utile. (Word n'a pas de « centrage vertical » pour
+      // un paragraphe, hors d'une section entière.) Le saut qui renvoie le
+      // texte suivant à la page d'après est posé par `buildDocxBlob`, d'après
+      // le drapeau `images.sautApres`.
       if (images.pleinePage && racine) {
         const k = Math.min(images.largeurUtile / largeurSource, images.hauteurUtile / hauteurSource)
+        const largeurFinale = Math.max(1, Math.round(largeurSource * k))
+        const hauteurFinale = Math.max(1, Math.round(hauteurSource * k))
+        // 1 px à 96 ppp = 15 twips.
+        const avantTwips = Math.max(0, Math.floor(((images.hauteurUtile - hauteurFinale) / 2) * 15))
+        images.sautApres = true
         return [
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 0, after: 0, line: 240, lineRule: LineRuleType.AUTO },
+            pageBreakBefore: true,
+            spacing: { before: avantTwips, after: 0, line: 240, lineRule: LineRuleType.AUTO },
             children: [
               new ImageRun({
                 type: octets.type,
                 data: octets.data,
-                transformation: {
-                  width: Math.max(1, Math.round(largeurSource * k)),
-                  height: Math.max(1, Math.round(hauteurSource * k)),
-                },
+                transformation: { width: largeurFinale, height: hauteurFinale },
                 altText: node.attrs.alt
                   ? { description: node.attrs.alt, name: node.attrs.alt, title: node.attrs.alt }
                   : undefined,
@@ -526,8 +536,21 @@ export async function buildDocxBlob(doc, style, titre = '') {
   const children = []
   const endnotes = {}
   try {
-    doc.forEach((node) => {
+    doc.forEach((node, _decalage, index) => {
+      images.sautApres = false
       children.push(...blockToParagraphs(node, style, images, true))
+      // Après une image pleine page, le texte qui suit repart en haut de la
+      // page suivante. Une image qui suit pose son propre saut avant : le
+      // paragraphe-repère ne servirait qu'à laisser une page blanche.
+      const suivant = index + 1 < doc.childCount ? doc.child(index + 1) : null
+      if (images.sautApres && suivant && suivant.type.name !== 'image') {
+        children.push(
+          new Paragraph({
+            pageBreakBefore: true,
+            spacing: { before: 0, after: 0, line: 1, lineRule: LineRuleType.EXACT },
+          })
+        )
+      }
     })
     // Les notes de fin : le texte de chacune, au style du corps, une taille
     // en dessous — Word les place en fin de document et les numérote.

@@ -495,10 +495,22 @@ test('images pleine page : la largeur est bornée par la largeur ET la hauteur u
   assert.match(src, /let hauteur-utile = page\.height - page\.margin\.top - page\.margin\.bottom - 2pt/)
   // 800 / 600 = 1,3333…
   assert.match(src, /width: calc\.min\(disponible, hauteur-utile \* 1\.3333\)/)
-  assert.match(src, /align\(center, figure\(image\("images\/photo\.png"/)
+  assert.match(src, /align\(center \+ horizon, image\("images\/photo\.png"/)
   assert.match(src, /alt: "Une photo"/)
   // Pas de plafond à la taille du fichier : une petite image est agrandie.
   assert.doesNotMatch(src, /\* 0\.75/)
+})
+
+test('images pleine page : sa propre page, centrée en largeur ET en hauteur dans la zone utile', () => {
+  const para = (t) => schema.node('paragraph', null, [schema.text(t)])
+  const image = schema.node('image', { src: '/api/docs/abc/images/photo.png', alt: '', largeur: 800, hauteur: 600 })
+  const src = source({ page: { imagesPleinePage: true } }, schema.node('doc', null, [para('Avant'), image, para('Après')]))
+  // Un bloc de la hauteur utile dont l'horizon est le milieu, entouré de sauts de page « faibles » (sans effet en
+  // début de page ni en double).
+  assert.match(src, /#pagebreak\(weak: true\)\n#context \{[\s\S]*block\(width: 100%, height: hauteur-utile, align\(center \+ horizon, image\(/)
+  assert.match(src, /\}\n#pagebreak\(weak: true\)\n/)
+  // Dans l'ordre : le texte avant, l'image, le texte après.
+  assert.ok(src.indexOf('Avant') < src.indexOf('horizon') && src.indexOf('horizon') < src.indexOf('Après'))
 })
 
 test('images pleine page : sans dimensions enregistrées, toute la largeur utile', () => {

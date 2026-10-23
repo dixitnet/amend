@@ -152,7 +152,7 @@ function imageTypst(node) {
 
 /** Une image « pleine page » (23/10/2026, réglage `imagesPleinePage`) : la plus
  * grande taille qui tient entre les marges, en largeur **et** en hauteur,
- * proportions gardées, centrée — et sans le plafond à la taille du fichier de
+ * proportions gardées, centrée **sur sa propre page, aussi en hauteur** — et sans le plafond à la taille du fichier de
  * `imageTypst` : une petite image est agrandie, c'est ce que le réglage dit.
  *
  * La largeur retenue est le plus petit de deux nombres : la largeur utile, et
@@ -171,11 +171,20 @@ function imagePleinePageTypst(node) {
   const taille = rapport ? `calc.min(disponible, hauteur-utile * ${rapport})` : 'disponible'
   // Le bloc est un #context, comme pour une image ordinaire (voir imageTypst) :
   // la page n'est lisible qu'au moment de la mise en page.
-  return `#context {
+  //
+  // L'image a sa **propre page** (saut avant et après, « faibles » : ils ne
+  // font rien au début d'une page ni l'un après l'autre) et elle est centrée
+  // dans la zone entre les marges **dans les deux sens** : un bloc de la
+  // hauteur utile, dont `horizon` fait le milieu. Une image seulement
+  // centrée en largeur, posée en haut d'une page à moitié vide, n'est pas ce
+  // qu'on attend d'une image « pleine page ».
+  return `#pagebreak(weak: true)
+#context {
   let disponible = page.width - page.margin.left - page.margin.right
   let hauteur-utile = page.height - page.margin.top - page.margin.bottom - 2pt
-  align(center, figure(image(${chaine('images/' + nom)}, width: ${taille}${alt}), caption: none))
+  block(width: 100%, height: hauteur-utile, align(center + horizon, image(${chaine('images/' + nom)}, width: ${taille}${alt})))
 }
+#pagebreak(weak: true)
 
 `
 }
