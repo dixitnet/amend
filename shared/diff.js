@@ -18,7 +18,7 @@
 
 // Generic LCS-based diff over an array of atomic items (tokens or chars).
 // Returns a list of runs: {type: 'equal'|'delete'|'insert', items: string[]}.
-function lcsDiff(a, b) {
+function lcsDiff(a, b, egal = (x, y) => x === y) {
   const n = a.length
   const m = b.length
   const dp = new Array(n + 1)
@@ -27,7 +27,7 @@ function lcsDiff(a, b) {
     const dpi = dp[i]
     const dpi1 = dp[i + 1]
     for (let j = m - 1; j >= 0; j--) {
-      dpi[j] = a[i] === b[j] ? dpi1[j + 1] + 1 : Math.max(dpi1[j], dpi[j + 1])
+      dpi[j] = egal(a[i], b[j]) ? dpi1[j + 1] + 1 : Math.max(dpi1[j], dpi[j + 1])
     }
   }
 
@@ -35,7 +35,8 @@ function lcsDiff(a, b) {
   let i = 0
   let j = 0
   while (i < n && j < m) {
-    if (a[i] === b[j]) {
+    if (egal(a[i], b[j])) {
+      // Le texte d'origine est conservé : un jeton « égal » n'est pas retouché.
       raw.push({ type: 'equal', item: a[i] })
       i++
       j++
@@ -69,6 +70,31 @@ function lcsDiff(a, b) {
 // expensive to run on every keystroke-free "suggest" click — fall back to a
 // coarse whole-text replace instead of hanging the tab.
 const MAX_CELLS = 4_000_000
+
+/**
+ * Deux jetons que le lecteur ne distingue pas ne sont pas une modification
+ * (24/10/2026, constat sur « Chroniques d'un mandat local » : près de 800
+ * « remplacements à l'identique » après une correction IA).
+ *
+ *  - Un accent écrit en deux signes (« e » + accent combinant, ce que
+ *    produisent certains copier-coller) et le même écrit en un seul (« é »,
+ *    ce que renvoie le modèle) : même texte, autre codage.
+ *  - Une espace insécable (U+00A0, U+202F, U+2009) que le modèle rend en
+ *    espace ordinaire : on garde celle du texte. L'inverse — une espace
+ *    ordinaire devenue insécable avant « : » ou « ? » — reste une vraie
+ *    correction et reste proposée.
+ */
+const ESPACES_SPECIALES = /[\u00a0\u202f\u2009\u2007]/
+function memeJeton(ancien, nouveau) {
+  if (ancien === nouveau) return true
+  if (ancien.normalize('NFC') === nouveau.normalize('NFC')) return true
+  return (
+    ancien.length === nouveau.length &&
+    ESPACES_SPECIALES.test(ancien) &&
+    /^[ \u00a0\u202f\u2009\u2007]+$/.test(ancien) &&
+    /^ +$/.test(nouveau)
+  )
+}
 
 function tokenizeWords(text) {
   return text.match(/\s+|[^\s]+/g) || []
@@ -125,7 +151,7 @@ export function diffWords(oldText, newText) {
     if (newText) ops.push({ type: 'insert', text: newText })
     return ops
   }
-  const runs = lcsDiff(a, b)
+  const runs = lcsDiff(a, b, memeJeton)
 
   const out = []
   for (let k = 0; k < runs.length; k++) {
@@ -134,8 +160,11 @@ export function diffWords(oldText, newText) {
     if (run.type === 'delete' && run.items.length === 1 && next && next.type === 'insert' && next.items.length === 1) {
       const oldWord = run.items[0]
       const newWord = next.items[0]
-      const charRuns = diffChars(oldWord, newWord)
-      if (changedCharCount(charRuns) <= WORD_REWRITE_MAX_CHANGED_CHARS) {
+      // Un mot dont les accents sont codés en deux signes ne se réduit pas à
+      // la lettre : comparé à sa forme à un signe, l'accent paraîtrait
+      // changé partout. Mot entier, alors.
+      const charRuns = oldWord === oldWord.normalize('NFC') ? diffChars(oldWord, newWord) : null
+      if (charRuns && changedCharCount(charRuns) <= WORD_REWRITE_MAX_CHANGED_CHARS) {
         out.push(...charRuns)
       } else {
         out.push({ type: 'delete', text: oldWord })

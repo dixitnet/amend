@@ -22,6 +22,7 @@ import { nomDeFichier, telecharger, niveauTitre } from './exportCommun.js'
 import { BLOCS, police, dimensionsPage, styleParDefaut, langue, blocDuParagraphe } from '../../shared/style.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { imageAutorisee } from '../../shared/securite.js'
+import { nfc } from '../../shared/propre.js'
 
 // Caractères que Typst interprète en mode contenu. Le backslash d'abord,
 // sinon on échapperait ceux qu'on vient d'ajouter.
@@ -523,6 +524,7 @@ ${solidaires}${depart}`
 
 /** La source Typst complète d'un document. */
 export function docToTypst(doc, style, titre) {
+  titre = nfc(titre)
   let corps = ''
   // Les images « pleine page » ne valent que pour celles posées au premier
   // niveau du document : dans une liste ou une citation, la largeur utile est

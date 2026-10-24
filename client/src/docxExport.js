@@ -67,6 +67,7 @@ function reglages(style, blocId) {
 }
 import { nomDeFichier, telecharger, niveauTitre } from './exportCommun.js'
 import { imageAutorisee } from '../../shared/securite.js'
+import { nfc } from '../../shared/propre.js'
 
 const ALIGN_MAP = {
   left: AlignmentType.LEFT,
@@ -526,6 +527,7 @@ function contientTable(doc) {
  * télécharger — même feuille de style (`style`, voir styleConfig.js) que
  * l'export PDF. */
 export async function buildDocxBlob(doc, style, titre = '') {
+  titre = nfc(titre)
   const images = {
     octetsPar: await chargerImages(doc),
     largeurUtile: largeurUtilePx(style),

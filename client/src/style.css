@@ -3460,6 +3460,9 @@ tr.bo-traite { opacity: 0.6; }
   /* « Insérer ▾ » : une liste d'entrées lisibles, pas des pictogrammes. */
   .menu-insertion { display: inline-flex; }
   .menu-insertion-liste { left: 0; right: auto; min-width: 230px; }
+  /* Dans la couche supérieure (voir barreOutils.js) : fixe, hors de la barre ; le haut et
+     la gauche sont posés à l'ouverture, sous le bouton. */
+  .menu-insertion-liste:popover-open { position: fixed; inset: auto; margin: 0; z-index: 60; color: var(--fg); }
   .menu-insertion-liste .btn-insertion {
     display: flex;
     width: 100%;

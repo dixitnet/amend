@@ -26,6 +26,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync, copyFileSync, existsSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { famillesTypst } from '../shared/style.js'
+import { nfc } from '../shared/propre.js'
 
 export class TypstError extends ErreurHttp {
   constructor(message, status = 500) {
@@ -195,7 +196,9 @@ export class Typst {
   async _rendreMaintenant(source, images) {
     const racine = mkdtempSync(join(tmpdir(), 'amend-typst-'))
     try {
-      writeFileSync(join(racine, 'main.typ'), source, 'utf8')
+      // Filet de sécurité : la source arrive du navigateur, et un accent en deux
+      // signes y viendrait d'un client ancien ou d'un autre outil (shared/propre.js).
+      writeFileSync(join(racine, 'main.typ'), nfc(source), 'utf8')
       if (images.length) {
         const dossier = join(racine, 'images')
         mkdirSync(dossier)

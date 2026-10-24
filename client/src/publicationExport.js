@@ -17,6 +17,7 @@
 import { adresseAutorisee } from '../../shared/liens.js'
 import { imageAutorisee } from '../../shared/securite.js'
 import { styleParagrapheValide } from '../../shared/style.js'
+import { nfc } from '../../shared/propre.js'
 
 const MARQUES_GARDEES = new Set(['strong', 'em', 'underline', 'strike'])
 
@@ -40,7 +41,7 @@ function inline(node) {
     }
     if (!child.isText) return
     const marques = child.marks.map((m) => m.type.name).filter((n) => MARQUES_GARDEES.has(n))
-    const morceau = { type: 'texte', texte: child.text, marques }
+    const morceau = { type: 'texte', texte: nfc(child.text), marques }
     // Un lien (30/09/2026) : l'adresse seule, déjà passée par la liste
     // blanche — et le serveur la revérifie, il ne fait confiance à personne.
     const lien = child.marks.find((m) => m.type.name === 'link')
@@ -144,7 +145,7 @@ export async function publier(docId, doc, titre) {
   const res = await fetch(`/api/docs/${docId}/publication`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ titre, blocs: docPourPublication(doc) }),
+    body: JSON.stringify({ titre: nfc(titre), blocs: docPourPublication(doc) }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || `la publication a échoué (${res.status})`)

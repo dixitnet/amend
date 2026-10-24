@@ -31,6 +31,7 @@
 // moins bien qu'un PDF où l'on voit ce qui est proposé.
 
 import { estNoeudSuivi, suiviDuNoeud } from './trackChanges.js'
+import { nfc } from '../../shared/propre.js'
 
 export const FINAL = 'final'
 export const EN_COURS = 'encours'
@@ -78,7 +79,9 @@ function inlineResolu(schema, node, mode) {
       return
     }
     if (mode === FINAL && aLaMarque(child, 'deletion')) return
-    out.push(schema.text(child.text, marquesResolues(schema, child, mode)))
+    // Texte en forme composée (NFC) : un export doit être propre, quel que soit
+    // le codage des accents du texte d'origine (shared/propre.js).
+    out.push(schema.text(nfc(child.text), marquesResolues(schema, child, mode)))
   })
   return out
 }
@@ -109,7 +112,9 @@ function blocResolu(schema, node, mode) {
   // Un conteneur (citation, liste, cellule) dont tout le contenu a été
   // supprimé s'en va avec lui.
   if (mode === FINAL && enfants.length === 0 && node.childCount > 0) return null
-  return node.type.create(node.attrs, enfants, node.marks)
+  // Le texte alternatif d'une image sort lui aussi dans les fichiers.
+  const attrs = typeof node.attrs.alt === 'string' ? { ...node.attrs, alt: nfc(node.attrs.alt) } : node.attrs
+  return node.type.create(attrs, enfants, node.marks)
 }
 
 /**

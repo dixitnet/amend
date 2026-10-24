@@ -169,6 +169,32 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
   menuInsertion.liste.addEventListener('click', (e) => {
     if (e.target.closest('button')) menuInsertion.fermer()
   })
+  // Entre 701 et 1279 px (tablette en portrait), la barre d'édition défile en
+  // travers (`overflow-x: auto`) et forme un conteneur (`container-type`) :
+  // une liste posée dans la barre y est rognée, même en `position: fixed` — le
+  // menu « passait sous l'éditeur » (signalé le 24/10/2026, format M vertical).
+  // La liste passe donc dans la **couche supérieure** du navigateur (popover),
+  // que ni le défilement ni le confinement d'un ancêtre ne rognent, tout en
+  // restant à sa place dans le document (ordre du clavier, lecteurs d'écran).
+  // Sans cette API, la liste reste celle d'avant.
+  const { liste } = menuInsertion
+  const bouton = menuInsertion.el.querySelector('.menu-flottant-bouton')
+  if (typeof liste.showPopover === 'function') {
+    liste.setAttribute('popover', 'manual')
+    menuInsertion.surOuverture = () => {
+      const r = bouton.getBoundingClientRect()
+      liste.style.top = `${Math.round(r.bottom + 4)}px`
+      liste.style.left = `${Math.round(r.left)}px`
+      if (!liste.matches(':popover-open')) liste.showPopover()
+    }
+    // Refermée (par le menu, un clic ailleurs, une entrée choisie) : la couche
+    // supérieure se libère.
+    new MutationObserver(() => {
+      if (liste.hidden && liste.matches(':popover-open')) liste.hidePopover()
+    }).observe(liste, { attributes: true, attributeFilter: ['hidden'] })
+    // La barre qui défile déplace le bouton : la liste, elle, ne le suivrait pas.
+    toolbar.addEventListener('scroll', () => menuInsertion.fermer(), { passive: true })
+  }
   groupeInserer.append(lienBtn, menuInsertion.el)
 
   // --- Tableau (rangée contextuelle) ---------------------------------------

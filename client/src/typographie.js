@@ -19,6 +19,7 @@
 import { Plugin, PluginKey } from 'prosemirror-state'
 import { Fragment, Slice } from 'prosemirror-model'
 import { corrigerSaisie, typographier } from '../../shared/typographie.js'
+import { nfc } from '../../shared/propre.js'
 
 export const typographieKey = new PluginKey('typographie')
 
@@ -32,7 +33,10 @@ export function typographierFragment(fragment) {
     if (noeud.isText) {
       // Une adresse (texte d'un lien) n'est pas du texte à corriger.
       const lien = noeud.marks.some((m) => m.type.name === 'link')
-      const texte = lien ? noeud.text : typographier(noeud.text, { avant: precedent })
+      // Le texte collé entre en forme composée (NFC) : un copier-coller depuis
+      // un Mac ou un PDF apporte des accents en deux signes (shared/propre.js).
+      const brut = nfc(noeud.text)
+      const texte = lien ? brut : typographier(brut, { avant: precedent })
       noeuds.push(texte === noeud.text ? noeud : noeud.withText(texte))
       precedent = texte[texte.length - 1] || precedent
     } else if (noeud.isLeaf) {

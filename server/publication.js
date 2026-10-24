@@ -31,6 +31,7 @@ import { capabilities } from './roles.js'
 import { join } from 'node:path'
 import { randomInt } from 'node:crypto'
 import { MOTS_PUBLICATION } from './motsPublication.js'
+import { nfc } from '../shared/propre.js'
 
 /** Le nom public d'une page : **trois mots**, séparés par des tirets.
  *
@@ -98,7 +99,7 @@ export function peutPublier({ admin, proprietaire, role }) {
 }
 
 const ECHAPPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ECHAPPES[c])
+const esc = (s) => nfc(s).replace(/[&<>"']/g, (c) => ECHAPPES[c])
 
 // Les marques de l'éditeur qui ont un sens dans une page lue par quelqu'un
 // d'autre. Les marques de suivi (insertion, deletion, authorColor) n'en

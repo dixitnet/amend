@@ -3,12 +3,15 @@
 // Markdown, Word et PDF en avaient chacun leur copie.
 
 import { NIVEAUX_TITRE } from '../../shared/style.js'
+import { nfc } from '../../shared/propre.js'
 
 /** Un nom de fichier sûr à partir du titre du document, sans extension :
  * « Mon Titre » → « Mon Titre ». Les caractères interdits par les systèmes
  * de fichiers deviennent des tirets ; « document » pour un titre vide. */
 export function nomDeFichier(titre) {
-  const base = (titre || '').trim() || 'document'
+  // En forme composée : un nom de fichier à accents décomposés s'affiche et se
+  // retrouve mal (Windows, Linux, Word, mail).
+  const base = nfc(titre).trim() || 'document'
   return base.replace(/[\\/:*?"<>|]+/g, '-').slice(0, 150)
 }
 
