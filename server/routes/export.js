@@ -10,9 +10,34 @@ import { sendJson, readJsonBody, PAS_TRAITE } from '../http.js'
 // La source Typst d'un livre entier : 531 ko mesurés sur 524 000 signes.
 const MAX_TYPST_BODY = 4_000_000
 
+// Les images d'un autre document que la source désigne (`images/<document>/<nom>`) :
+// un passage copié d'un document à l'autre garde l'adresse de l'image d'origine
+// (24/10/2026). Elles ne sont déposées que si la personne peut lire ce document-là —
+// la même règle que pour l'afficher à l'écran. Au plus 300 : une source n'en
+// désigne pas davantage sans raison.
+const IMAGE_ETRANGERE = /images\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+\.(?:png|jpg))/g
+const MAX_IMAGES_ETRANGERES = 300
+
+export function imagesDuRendu(source, id, req, ctx) {
+  const { storage, uploads } = ctx
+  const images = uploads.lister(id)
+  const session = readSession(req)
+  const vues = new Set()
+  for (const [, autre, nom] of source.matchAll(IMAGE_ETRANGERE)) {
+    const cle = `${autre}/${nom}`
+    if (autre === id || vues.has(cle)) continue
+    vues.add(cle)
+    if (vues.size > MAX_IMAGES_ETRANGERES) break
+    if (!storage.getDoc(autre) || !storage.roleFor(autre, session)) continue
+    const chemin = uploads.chemin(autre, nom)
+    if (chemin) images.push({ nom: cle, chemin })
+  }
+  return images
+}
+
 export async function routesExport(req, res, url, ctx) {
   const { pathname } = url
-  const { storage, typst, uploads } = ctx
+  const { storage, typst } = ctx
 
   // --- Rendu PDF (16/09/2026, voir claude/proto-export-pdf-typst-pagedjs.md).
   // Le client fabrique la source Typst à partir du document ProseMirror
@@ -33,7 +58,8 @@ export async function routesExport(req, res, url, ctx) {
     }
     const body = await readJsonBody(req, MAX_TYPST_BODY)
     try {
-      const pdf = await typst.rendre(String(body.source || ''), { images: uploads.lister(id) })
+      const source = String(body.source || '')
+      const pdf = await typst.rendre(source, { images: imagesDuRendu(source, id, req, ctx) })
       res.writeHead(200, {
         'content-type': 'application/pdf',
         'content-length': pdf.length,

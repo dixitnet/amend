@@ -127,6 +127,21 @@ function inline(node) {
   return out
 }
 
+/** Le document dont la source est en cours de fabrication (le même mécanisme
+ * que les numéros de notes : réinitialisé en sortie de `docToTypst`). */
+let DOC_COURANT = ''
+
+/** Où le compilateur trouvera l'image. Une image du document lui-même : le nom
+ * seul, dans `images/`. Une image **d'un autre document** (un passage copié
+ * d'un document à l'autre garde l'adresse de l'image d'origine, 24/10/2026) :
+ * `images/<document>/<nom>` — le serveur l'y dépose si la personne a accès à
+ * ce document. Sans cela, le PDF échouait avec « file not found ». */
+function cheminImage(src, nom) {
+  const m = /^\/api\/docs\/([A-Za-z0-9_-]+)\/images\//.exec(src)
+  if (DOC_COURANT && m && m[1] !== DOC_COURANT) return `images/${m[1]}/${nom}`
+  return `images/${nom}`
+}
+
 /** Une image. Le nom de fichier seul : le serveur dépose les images du
  * document dans `images/` à côté de la source, et `--root` interdit d'aller
  * voir ailleurs.
@@ -148,7 +163,7 @@ function imageTypst(node) {
   // Plafonné à la largeur réelle du fichier : une petite capture ne doit
   // pas être étirée jusqu'au flou.
   const taille = largeur ? `, width: calc.min(disponible, ${largeur}pt * 0.75)` : ', width: disponible'
-  return `#figure(image(${chaine('images/' + nom)}${taille}${alt}), caption: none)`
+  return `#figure(image(${chaine(cheminImage(src, nom))}${taille}${alt}), caption: none)`
 }
 
 /** Une image « pleine page » (23/10/2026, réglage `imagesPleinePage`) : la plus
@@ -183,7 +198,7 @@ function imagePleinePageTypst(node) {
 #context {
   let disponible = page.width - page.margin.left - page.margin.right
   let hauteur-utile = page.height - page.margin.top - page.margin.bottom - 2pt
-  block(width: 100%, height: hauteur-utile, align(center + horizon, image(${chaine('images/' + nom)}, width: ${taille}${alt})))
+  block(width: 100%, height: hauteur-utile, align(center + horizon, image(${chaine(cheminImage(src, nom))}, width: ${taille}${alt})))
 }
 #pagebreak(weak: true)
 
@@ -523,16 +538,21 @@ ${solidaires}${depart}`
 }
 
 /** La source Typst complète d'un document. */
-export function docToTypst(doc, style, titre) {
+export function docToTypst(doc, style, titre, docId = '') {
   titre = nfc(titre)
+  DOC_COURANT = docId
   let corps = ''
   // Les images « pleine page » ne valent que pour celles posées au premier
   // niveau du document : dans une liste ou une citation, la largeur utile est
   // plus étroite que celle de la page, et l'image déborderait.
   const pleinePage = !!(style && style.blocs && style.page && style.page.imagesPleinePage)
-  doc.forEach((node) => {
-    corps += pleinePage && node.type.name === 'image' ? imagePleinePageTypst(node) : blocTypst(node)
-  })
+  try {
+    doc.forEach((node) => {
+      corps += pleinePage && node.type.name === 'image' ? imagePleinePageTypst(node) : blocTypst(node)
+    })
+  } finally {
+    DOC_COURANT = ''
+  }
   return gabarit(style, titre) + '\n' + corps
 }
 
@@ -541,7 +561,7 @@ export function docToTypst(doc, style, titre) {
  * refusé (trop lourd, trop long, file d'attente pleine), et c'est une
  * information utile, pas un incident. */
 export async function downloadTypstPdf(doc, style, titre, docId) {
-  const source = docToTypst(doc, style, titre)
+  const source = docToTypst(doc, style, titre, docId)
   const res = await fetch(`/api/docs/${docId}/pdf`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

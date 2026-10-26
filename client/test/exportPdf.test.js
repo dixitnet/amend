@@ -504,10 +504,16 @@ test('images pleine page : la largeur est bornée par la largeur ET la hauteur u
 test('images pleine page : sa propre page, centrée en largeur ET en hauteur dans la zone utile', () => {
   const para = (t) => schema.node('paragraph', null, [schema.text(t)])
   const image = schema.node('image', { src: '/api/docs/abc/images/photo.png', alt: '', largeur: 800, hauteur: 600 })
-  const src = source({ page: { imagesPleinePage: true } }, schema.node('doc', null, [para('Avant'), image, para('Après')]))
+  const src = source(
+    { page: { imagesPleinePage: true } },
+    schema.node('doc', null, [para('Avant'), image, para('Après')])
+  )
   // Un bloc de la hauteur utile dont l'horizon est le milieu, entouré de sauts de page « faibles » (sans effet en
   // début de page ni en double).
-  assert.match(src, /#pagebreak\(weak: true\)\n#context \{[\s\S]*block\(width: 100%, height: hauteur-utile, align\(center \+ horizon, image\(/)
+  assert.match(
+    src,
+    /#pagebreak\(weak: true\)\n#context \{[\s\S]*block\(width: 100%, height: hauteur-utile, align\(center \+ horizon, image\(/
+  )
   assert.match(src, /\}\n#pagebreak\(weak: true\)\n/)
   // Dans l'ordre : le texte avant, l'image, le texte après.
   assert.ok(src.indexOf('Avant') < src.indexOf('horizon') && src.indexOf('horizon') < src.indexOf('Après'))
@@ -555,7 +561,10 @@ test('images pleine page : une adresse refusée ne produit rien, même en pleine
 test('PDF : un paragraphe vide donne une ligne vide (il ne disparaît pas)', () => {
   const para = (t) => schema.node('paragraph', null, t ? [schema.text(t)] : [])
   const src = source({}, schema.node('doc', null, [para('Un'), para(''), para(''), para('Deux')]))
-  assert.match(src, /#amend-corps\[Un\]\n\n#amend-corps\[\\u\{200B\}\]\n\n#amend-corps\[\\u\{200B\}\]\n\n#amend-corps\[Deux\]/)
+  assert.match(
+    src,
+    /#amend-corps\[Un\]\n\n#amend-corps\[\\u\{200B\}\]\n\n#amend-corps\[\\u\{200B\}\]\n\n#amend-corps\[Deux\]/
+  )
   // Un paragraphe qui ne contient que des espaces est lui aussi une ligne vide.
   assert.match(source({}, schema.node('doc', null, [para('   ')])), /#amend-corps\[\\u\{200B\}\]/)
 })
@@ -564,4 +573,22 @@ test('PDF : une citation vide garde aussi sa ligne', () => {
   const vide = schema.node('paragraph', null, [])
   const citation = schema.node('blockquote', null, [vide])
   assert.match(source({}, schema.node('doc', null, [citation])), /#amend-citation\[\\u\{200B\}\]/)
+})
+
+// Une image copiée d'un autre document (24/10/2026) : l'adresse d'origine est
+// gardée, le PDF échouait avec « file not found » parce que la source ne
+// désignait que le nom de fichier, cherché dans le dossier du document exporté.
+test('une image d’un autre document : son chemin dit de quel document', () => {
+  const doc = schema.node('doc', null, [
+    schema.node('image', { src: '/api/docs/abc/images/ici.png', alt: '', largeur: 800, hauteur: 600 }),
+    schema.node('image', { src: '/api/docs/autre/images/la-bas.png', alt: '', largeur: 800, hauteur: 600 }),
+  ])
+  const src = docToTypst(doc, null, 'T', 'abc')
+  assert.ok(src.includes('"images/ici.png"'))
+  assert.ok(src.includes('"images/autre/la-bas.png"'))
+  // Sans l'identifiant du document, comme avant : le nom seul.
+  const sans = docToTypst(doc, null, 'T')
+  assert.ok(sans.includes('"images/la-bas.png"'))
+  // L'état d'une source ne déborde pas sur la suivante.
+  assert.ok(docToTypst(doc, null, 'T').includes('"images/la-bas.png"'))
 })

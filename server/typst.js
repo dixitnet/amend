@@ -24,7 +24,7 @@ import { ErreurHttp } from './erreurs.js'
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, copyFileSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { famillesTypst } from '../shared/style.js'
 import { nfc } from '../shared/propre.js'
 
@@ -203,8 +203,11 @@ export class Typst {
         const dossier = join(racine, 'images')
         mkdirSync(dossier)
         for (const img of images) {
-          if (!/^[A-Za-z0-9_-]+\.(png|jpg)$/.test(img.nom)) continue
-          if (existsSync(img.chemin)) copyFileSync(img.chemin, join(dossier, img.nom))
+          // `nom` ou `<document>/<nom>` (une image copiée d'un autre document).
+          if (!/^([A-Za-z0-9_-]+\/)?[A-Za-z0-9_-]+\.(png|jpg)$/.test(img.nom)) continue
+          if (!existsSync(img.chemin)) continue
+          mkdirSync(dirname(join(dossier, img.nom)), { recursive: true })
+          copyFileSync(img.chemin, join(dossier, img.nom))
         }
       }
 
