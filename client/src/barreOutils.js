@@ -64,6 +64,9 @@ export function creerBarreOutils({ cap, menuDeroulant }) {
     // plan et table des matières. Mêmes noms que dans la feuille de style.
     ['Titre', 'titre'],
     ['Sous-titre', 'sous-titre'],
+    // Après eux (28/10/2026) : la légende d'une image, un style de paragraphe
+    // comme les deux autres.
+    ['Légende', 'legende'],
   ]) {
     const opt = document.createElement('option')
     opt.value = value

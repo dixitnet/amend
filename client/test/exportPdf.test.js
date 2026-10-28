@@ -147,7 +147,7 @@ test('les titres ne restent pas seuls en bas de page, sauf si on le demande', ()
 test('les titres 1 peuvent ouvrir une page impaire', () => {
   const normal = source({})
   assert.doesNotMatch(normal, /pagebreak\(to: "odd"/)
-  const livre = source({ page: { titre1PageImpaire: true } })
+  const livre = source({ page: { debutChapitre: 'droite' } })
   assert.match(livre, /pagebreak\(to: "odd", weak: true\)/)
   // Seulement le niveau 1 : un titre 2 en belle page n'aurait pas de sens.
   assert.equal((livre.match(/pagebreak\(to: "odd"/g) || []).length, 1)
@@ -344,7 +344,7 @@ test('une image passe par #context pour calculer sa largeur disponible', () => {
   const src = docToTypst(document, styleParDefaut, 'Document')
 
   assert.ok(src.includes('images/photo.png'), "le chemin de l'image atteint la source")
-  assert.match(src, /#context \{\s*let disponible = page\.width - page\.margin\.left - page\.margin\.right/)
+  assert.match(src, /#context \{\s*let disponible = page\.width - largeur-marges\(page\.margin\)/)
   assert.match(src, /width: calc\.min\(disponible, 800pt \* 0\.75\)/)
   // Le bug trouvé en compilant réellement : jamais 100% comparé à une longueur.
   assert.doesNotMatch(src, /calc\.min\(100%/)
@@ -491,7 +491,7 @@ test('images pleine page : la largeur est bornée par la largeur ET la hauteur u
     schema.node('image', { src: '/api/docs/abc/images/photo.png', alt: 'Une photo', largeur: 800, hauteur: 600 }),
   ])
   const src = source({ page: { imagesPleinePage: true } }, document)
-  assert.match(src, /let disponible = page\.width - page\.margin\.left - page\.margin\.right/)
+  assert.match(src, /let disponible = page\.width - largeur-marges\(page\.margin\)/)
   assert.match(src, /let hauteur-utile = page\.height - page\.margin\.top - page\.margin\.bottom - 2pt/)
   // 800 / 600 = 1,3333…
   assert.match(src, /width: calc\.min\(disponible, hauteur-utile \* 1\.3333\)/)

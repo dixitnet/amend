@@ -131,6 +131,35 @@ function inline(node) {
  * que les numéros de notes : réinitialisé en sortie de `docToTypst`). */
 let DOC_COURANT = ''
 
+/** Les colonnes du document en cours (réglages `colonnes` et `gouttiere`),
+ * posées par `docToTypst` : une image ne doit pas dépasser sa colonne. */
+let COLONNES_COURANTES = { n: 1, gouttiere: 0 }
+
+/** La largeur disponible pour une image, en Typst : celle de la page entre
+ * les marges, ou d'une colonne quand le texte en compte plusieurs. À écrire
+ * dans un `#context` (la page n'est lisible qu'à la mise en page). */
+function disponibleTypst() {
+  const { n, gouttiere } = COLONNES_COURANTES
+  const entre = 'page.width - largeur-marges(page.margin)'
+  return n > 1 ? `(${entre} - ${gouttiere * (n - 1)}mm) / ${n}` : entre
+}
+
+/** Le séparateur de scène du document en cours (réglage `separateur`),
+ * posé par `docToTypst` comme `DOC_COURANT`. */
+let SEPARATEUR_COURANT = 'trait'
+
+/** Le séparateur de scène (nœud `ligne_separation`), selon le réglage de
+ * page : un trait, trois astérisques, un astérisme (⁂) ou un simple blanc.
+ * Centré ; la police et la taille sont celles du texte courant (réglées au
+ * niveau du document). */
+function separateurTypst(choix) {
+  const marque = (texte) => `#v(0.6em)\n#align(center)[${texte}]\n#v(0.6em)\n\n`
+  if (choix === 'asterisques') return marque('\\*  \\*  \\*')
+  if (choix === 'asterisme') return marque('⁂')
+  if (choix === 'blanc') return '#v(1.4em)\n\n'
+  return '#v(0.6em)\n#line(length: 100%, stroke: 0.5pt + luma(150))\n#v(0.6em)\n\n'
+}
+
 /** Où le compilateur trouvera l'image. Une image du document lui-même : le nom
  * seul, dans `images/`. Une image **d'un autre document** (un passage copié
  * d'un document à l'autre garde l'adresse de l'image d'origine, 24/10/2026) :
@@ -196,7 +225,7 @@ function imagePleinePageTypst(node) {
   // qu'on attend d'une image « pleine page ».
   return `#pagebreak(weak: true)
 #context {
-  let disponible = page.width - page.margin.left - page.margin.right
+  let disponible = ${disponibleTypst()}
   let hauteur-utile = page.height - page.margin.top - page.margin.bottom - 2pt
   block(width: 100%, height: hauteur-utile, align(center + horizon, image(${chaine(cheminImage(src, nom))}, width: ${taille}${alt})))
 }
@@ -250,7 +279,7 @@ function tableauTypst(node) {
 /** Un nœud de bloc. Chaque type de bloc du modèle de style a sa fonction
  * Typst correspondante, définie par le gabarit (`amend-*` plus bas) — le
  * sérialiseur ne connaît aucune taille ni aucune police. */
-function blocTypst(node) {
+function blocTypst(node, { sansRetrait = false } = {}) {
   switch (node.type.name) {
     case 'heading': {
       const niveau = niveauTitre(node.attrs.level)
@@ -269,7 +298,8 @@ function blocTypst(node) {
       // largeur nulle (U+200B) suffit à lui donner la hauteur d'une ligne du
       // bloc, interligne et espacement compris. (24/10/2026)
       const contenu = inline(node)
-      return `#${id === 'body' ? 'amend-corps' : `amend-${id}`}[${contenu.trim() === '' ? '\\u{200B}' : contenu}]\n\n`
+      const fonction = id === 'body' ? (sansRetrait ? 'amend-corps-sr' : 'amend-corps') : `amend-${id}`
+      return `#${fonction}[${contenu.trim() === '' ? '\\u{200B}' : contenu}]\n\n`
     }
     case 'blockquote': {
       let inner = ''
@@ -300,7 +330,7 @@ function blocTypst(node) {
       // rebasculent en mode contenu le temps de cette expression, sans
       // rien changer à ce que renvoie imageTypst.
       return `#context {
-  let disponible = page.width - page.margin.left - page.margin.right
+  let disponible = ${disponibleTypst()}
   [${fig}]
 }
 
@@ -310,7 +340,7 @@ function blocTypst(node) {
       // Le nœud `horizontal_rule` EST le saut de page (voir schema.js).
       return '#pagebreak(weak: true)\n\n'
     case 'ligne_separation':
-      return '#v(0.6em)\n#line(length: 100%, stroke: 0.5pt + luma(150))\n#v(0.6em)\n\n'
+      return separateurTypst(SEPARATEUR_COURANT)
     case 'table_of_contents': {
       // `title: none` : le bloc ne s'intitule pas lui-même — si l'auteur
       // veut « Sommaire » au-dessus, il l'écrit, comme n'importe quel
@@ -399,11 +429,15 @@ function fonctionBloc(nom, v) {
  * qu'on supprime : la note part du bord gauche, numéro compris. Le numéro,
  * lui, est recomposé pour y glisser une demi-espace (0,15 em) avant le texte :
  * Typst n'en met aucune, et le chiffre colle à la première lettre. Taille : corps − 2 pt
- * (corps 11 → notes 9), l'usage des éditeurs français, plancher 7 pt. */
-export function regleNotes(corps) {
-  const r = reglagesTypst(corps)
+ * (corps 11 → notes 9) par défaut, l'usage des éditeurs français, plancher 7 pt. */
+export function regleNotes(corps, page = {}) {
+  // Réduction (réglage `notesReduction`, 2 pt par défaut) et interligne
+  // (`notesInterligne`, 0 = celui du texte) : 28/10/2026.
+  const reduction = Number.isFinite(Number(page.notesReduction)) ? Number(page.notesReduction) : 2
+  const interligne = Number(page.notesInterligne) || 0
+  const r = reglagesTypst(interligne ? { ...corps, lineHeight: interligne } : corps)
   const f = police(corps.font)
-  const taille = Math.max(7, corps.size - 2)
+  const taille = Math.max(7, corps.size - reduction)
   const texte = `font: (${f.typst.map(chaine).join(', ')}), size: ${taille}pt, weight: "regular", style: "normal"`
   const par = r.par.replace(/first-line-indent: \(.*\)$/, 'first-line-indent: 0pt')
   return `#set footnote.entry(indent: 0pt)
@@ -434,23 +468,41 @@ function coteEntete(cote, titre) {
   return null
 }
 
-/** L'en-tête complet, prêt à être glissé dans le `#set page(...)`. Renvoie
- * une chaîne vide quand les deux côtés sont vides : inutile d'installer un
- * bandeau qui ne dira jamais rien. */
+/** « Cette page porte-t-elle un titre 1 ? » — en code Typst, à l'intérieur
+ * d'un `context`. Sert aux pages d'ouverture de chapitre. */
+const OUVERTURE = `let ici = here().page()
+    let titres = query(heading.where(level: 1))
+    let ouverture = titres.filter(t => t.location().page() == ici).len() > 0`
+
+/** L'en-tête et le pied de page, prêts à être glissés dans le
+ * `#set page(...)` (en-tête 20/09/2026 ; numéro de page 28/10/2026).
+ *
+ * Deux côtés d'en-tête, toujours centrés, et rien du tout sur une page qui
+ * porte un titre 1 (`entete.sautOuverture`). Le numéro de page se place en
+ * bas ou en haut, au centre ou du côté extérieur (page paire à gauche,
+ * impaire à droite) ; `pageNumbers.sautOuverture` le retire des pages
+ * d'ouverture. Le cas historique — numéro centré en bas, partout — reste
+ * confié à `numbering`, sans `context`. Renvoie une chaîne vide quand il n'y
+ * a rien à poser. */
 function enteteTypst(p, titre) {
   const e = (p && p.entete) || {}
   const gauche = coteEntete(e.gauche, titre)
   const droite = coteEntete(e.droite, titre)
-  if (!gauche && !droite) return ''
-  // `sautOuverture` : on regarde s'il existe un titre de niveau 1 **sur**
-  // cette page, et pas seulement à son sommet.
-  const saut = e.sautOuverture === false ? 'false' : 'true'
-  return `
-  header: context {
-    let ici = here().page()
-    let titres = query(heading.where(level: 1))
-    let ouverture = titres.filter(t => t.location().page() == ici).len() > 0
-    if ${saut} and ouverture {
+  const pn = (p && p.pageNumbers) || {}
+  const position = pn.enabled ? pn.position || 'bas-centre' : null
+  const numeroEnHaut = position === 'haut-exterieur'
+  const numeroEnBas = position === 'bas-exterieur' || (position === 'bas-centre' && pn.sautOuverture)
+  const sautNumero = pn.sautOuverture ? 'true' : 'false'
+  // Le côté du numéro : au centre, ou à l'extérieur (page paire à gauche).
+  const coteNumero = position === 'bas-centre' ? 'center' : 'if calc.even(ici) { left } else { right }'
+  const numero = `counter(page).display("1")`
+
+  let out = ''
+  if (gauche || droite || numeroEnHaut) {
+    const saut = e.sautOuverture === false ? 'false' : 'true'
+    const texte =
+      gauche || droite
+        ? `if ${saut} and ouverture {
       none
     } else {
       let avant = titres.filter(t => t.location().page() <= ici)
@@ -458,8 +510,28 @@ function enteteTypst(p, titre) {
       let contenu = if calc.even(ici) { ${gauche || 'none'} } else { ${droite || 'none'} }
       // Un titre à retour à la ligne se lit sur une ligne en en-tête.
       if contenu != none { show linebreak: [ ]; align(center, contenu) }
+    }`
+        : 'none'
+    out += `
+  header: context {
+    ${OUVERTURE}
+    let texte = ${texte}
+    ${
+      numeroEnHaut
+        ? `let numero = if ${sautNumero} and ouverture { none } else { place(${coteNumero}, ${numero}) }
+    [#numero#texte]`
+        : 'texte'
     }
   },`
+  }
+  if (numeroEnBas) {
+    out += `
+  footer: context {
+    ${OUVERTURE}
+    if ${sautNumero} and ouverture { none } else { align(${coteNumero}, ${numero}) }
+  },`
+  }
+  return out
 }
 
 /** Le gabarit complet : page, langue, blocs, titres. */
@@ -476,15 +548,29 @@ function gabarit(style, titre) {
     fonctionBloc('amend-citation', complet.blocs.quote),
     fonctionBloc('amend-title', complet.blocs.title || BLOCS.find((b) => b.id === 'title').defauts),
     fonctionBloc('amend-subtitle', complet.blocs.subtitle || BLOCS.find((b) => b.id === 'subtitle').defauts),
+    fonctionBloc('amend-caption', complet.blocs.caption || BLOCS.find((b) => b.id === 'caption').defauts),
   ]
+  // Premier paragraphe sans retrait (28/10/2026) : le même bloc, sans
+  // retrait de première ligne, pour le texte qui suit un titre ou un
+  // séparateur de scène.
+  if (p.premierSansRetrait)
+    fonctions.push(fonctionBloc('amend-corps-sr', { ...complet.blocs.body, firstLineIndent: 0 }))
   // Un `show heading` par niveau : c'est ce qui donne à chaque H ses
   // réglages propres, demandés le 16/09/2026.
   const titres = BLOCS.filter((b) => b.docxHeading !== null).map((b) => {
     const niveau = Number(b.id.slice(1))
-    // Belle page pour les titres de niveau 1 : `to: "odd"` insère au
-    // besoin une page blanche ; `weak` évite d'en insérer une au tout
-    // début du document, quand on y est déjà.
-    const saut = niveau === 1 && p.titre1PageImpaire ? 'pagebreak(to: "odd", weak: true)\n  ' : ''
+    // Début de chapitre (réglage `debutChapitre`, 28/10/2026), pour les
+    // titres de niveau 1. `weak` évite un saut au tout début du document,
+    // ou une page blanche quand on est déjà en haut d'une page. « À droite » :
+    // `to: "odd"` insère au besoin une page blanche. La descente n'a de sens
+    // qu'en haut de page : elle est posée après un saut, et remplace l'espace
+    // avant du titre (un espacement faible disparaît en haut de page).
+    let saut = ''
+    if (niveau === 1) {
+      if (p.debutChapitre === 'droite') saut = 'pagebreak(to: "odd", weak: true)\n  '
+      else if (p.debutChapitre === 'page') saut = 'pagebreak(weak: true)\n  '
+      if (saut && p.descente > 0) saut += `v(${p.descente}mm)\n  `
+    }
     if (saut) {
       return `#show heading.where(level: ${niveau}): it => {\n  ${saut}amend-${b.id}(it.body)\n}`
     }
@@ -500,7 +586,24 @@ function gabarit(style, titre) {
   // dépend de la page composée : on interroge les titres réellement placés,
   // seul moyen d'avoir un titre courant juste.
   const entete = enteteTypst(p, titre)
-  const numerotation = p.pageNumbers && p.pageNumbers.enabled ? `numbering: "1", number-align: center,` : ''
+  // Le numéro centré en bas, partout, passe par `numbering` ; les autres
+  // cas (côté extérieur, en haut, pas sur les pages d'ouverture) par un
+  // `header` / `footer` — voir enteteTypst.
+  const pn = p.pageNumbers || {}
+  const numerotation =
+    pn.enabled && (pn.position || 'bas-centre') === 'bas-centre' && !pn.sautOuverture
+      ? `numbering: "1", number-align: center,`
+      : ''
+  // Colonnes (28/10/2026) : `columns` sur la page ; la gouttière est un
+  // réglage de `columns`.
+  const nColonnes = Number(p.colonnes) || 1
+  const colonnesPage = nColonnes > 1 ? `columns: ${nColonnes},` : ''
+  const gouttiere = nColonnes > 1 ? `\n#set columns(gutter: ${Number(p.gouttiere) || 0}mm)` : ''
+  // Marges miroir : « gauche » est l'intérieur (côté reliure), « droite »
+  // l'extérieur ; Typst s'occupe de la parité des pages.
+  const margeCotes = p.margesMiroir
+    ? `inside: ${p.marginLeft}mm, outside: ${p.marginRight}mm`
+    : `left: ${p.marginLeft}mm, right: ${p.marginRight}mm`
   // Un titre ne reste pas seul en bas d'une page : `sticky` le fait
   // descendre avec le texte qu'il annonce.
   const solidaires = p.titresSolidaires === false ? '' : '#show heading: set block(sticky: true)\n'
@@ -514,16 +617,21 @@ function gabarit(style, titre) {
 #set page(
   width: ${largeurPage}mm,
   height: ${hauteurPage}mm,
-  margin: (top: ${p.marginTop}mm, bottom: ${p.marginBottom}mm, left: ${p.marginLeft}mm, right: ${p.marginRight}mm),
-  ${numerotation}${entete}
-)
+  margin: (top: ${p.marginTop}mm, bottom: ${p.marginBottom}mm, ${margeCotes}),
+  ${numerotation}${colonnesPage}${entete}
+)${gouttiere}
 // La langue décide des motifs de césure et de la forme des guillemets.
 // \`hyphenate\` vaut \`auto\` : les mots ne sont coupés que dans du texte
 // justifié — même règle que celle posée dans l'export navigateur.
-#set text(lang: ${chaine(langue(p.langue).id)}, font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt)
+#set text(lang: ${chaine(langue(p.langue).id)}, font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt${p.cesure === false ? ', hyphenate: false' : ''}${p.veuvesOrphelines === false ? ', costs: (widow: 0%, orphan: 0%)' : ''})
 #set par(justify: ${corps.align === 'justify'})
 // Les notes de bas de page (29/09/2026, reprises le 03/10) : voir regleNotes.
-${regleNotes(corps)}
+${regleNotes(corps, p)}
+// La largeur des marges, que les marges soient miroir (inside et outside)
+// ou non (left et right) : Typst ne rend que les clés qu'on a posées, et lire
+// directement la marge gauche échoue avec des marges miroir (trouvé en
+// compilant, 28/10/2026).
+#let largeur-marges(m) = if "left" in m { m.left + m.right } else { m.inside + m.outside }
 // Les liens (30/09/2026) : soulignés, sans couleur — un PDF s'imprime, et
 // une couleur qui porte le sens disparaît en noir et blanc.
 #show link: underline
@@ -541,17 +649,29 @@ ${solidaires}${depart}`
 export function docToTypst(doc, style, titre, docId = '') {
   titre = nfc(titre)
   DOC_COURANT = docId
+  SEPARATEUR_COURANT = (style && style.page && style.page.separateur) || 'trait'
+  const colonnes = (style && style.page && Number(style.page.colonnes)) || 1
+  COLONNES_COURANTES = { n: colonnes, gouttiere: (style && style.page && Number(style.page.gouttiere)) || 0 }
   let corps = ''
   // Les images « pleine page » ne valent que pour celles posées au premier
   // niveau du document : dans une liste ou une citation, la largeur utile est
   // plus étroite que celle de la page, et l'image déborderait.
   const pleinePage = !!(style && style.blocs && style.page && style.page.imagesPleinePage)
   try {
+    // Le premier paragraphe qui suit un titre ou un séparateur de scène
+    // peut être sans retrait (réglage `premierSansRetrait`).
+    const sansRetrait = !!(style && style.page && style.page.premierSansRetrait)
+    let precedent = ''
     doc.forEach((node) => {
-      corps += pleinePage && node.type.name === 'image' ? imagePleinePageTypst(node) : blocTypst(node)
+      const suite = sansRetrait && ['heading', 'ligne_separation', 'horizontal_rule'].includes(precedent)
+      corps +=
+        pleinePage && node.type.name === 'image' ? imagePleinePageTypst(node) : blocTypst(node, { sansRetrait: suite })
+      precedent = node.type.name
     })
   } finally {
     DOC_COURANT = ''
+    SEPARATEUR_COURANT = 'trait'
+    COLONNES_COURANTES = { n: 1, gouttiere: 0 }
   }
   return gabarit(style, titre) + '\n' + corps
 }

@@ -36,12 +36,34 @@ const STYLES = {
         droite: { type: 'titre', texte: '' },
         sautOuverture: false,
       },
-      titre1PageImpaire: true,
+      debutChapitre: 'droite',
       titresSolidaires: false,
       imagesPleinePage: true,
     },
   },
   'en-tête titre du document': { page: { entete: { gauche: { type: 'titreDocument', texte: '' } } } },
+  'mise en page de livre': {
+    page: {
+      size: 'personnalise',
+      largeur: 140,
+      hauteur: 210,
+      marginLeft: 25,
+      marginRight: 15,
+      margesMiroir: true,
+      cesure: false,
+      veuvesOrphelines: false,
+      premierSansRetrait: true,
+      debutChapitre: 'page',
+      descente: 32.5,
+      notesReduction: 3.5,
+      notesInterligne: 1.15,
+      separateur: 'asterisme',
+      pageNumbers: { enabled: true, startAt: 1, position: 'haut-exterieur', sautOuverture: true },
+    },
+    blocs: { caption: { size: 8, italic: false, align: 'left' } },
+  },
+  'deux colonnes': { page: { colonnes: 2, gouttiere: 9 } },
+  'chapitre en nouvelle page à droite': { page: { debutChapitre: 'droite', separateur: 'blanc' } },
   'blocs réglés': {
     blocs: {
       body: { font: 'serif', size: 10.5, align: 'justify', firstLineIndent: 5, spaceAfter: 0, lineHeight: 1.5 },
@@ -168,7 +190,7 @@ test('le profil est fermé : url(), @import, @font-face, sélecteurs et proprié
   assert.match(avertissements.join('\n'), /@font-face/)
   // Ce qu'on réécrit vient des valeurs reconnues, pas du texte reçu.
   const css = ecrireProfil(style)
-  for (const interdit of ['url(', '@import', '@font-face', 'javascript', 'behavior', 'script', 'red']) {
+  for (const interdit of ['url(', '@import', '@font-face', 'javascript', 'behavior', 'script', 'color: red']) {
     assert.ok(!css.includes(interdit), `« ${interdit} » ne doit pas ressortir`)
   }
 })
@@ -182,10 +204,20 @@ test('un en-tête texte ne peut pas sortir de sa chaîne', () => {
   assert.equal(relu.style.blocs.body.size, 11)
 })
 
-test('les colonnes sont réservées : lues sans avertissement, sans effet', () => {
+test('les colonnes : 1, 2 ou 3 et une gouttière, lues et réécrites', () => {
   const r = lireProfil(':root { --amend-colonnes: 2; --amend-gouttiere: 8mm }')
   assert.deepEqual(r.avertissements, [])
-  assert.deepEqual(r.style, { version: 2 })
+  assert.deepEqual(r.style, { version: 2, page: { colonnes: 2, gouttiere: 8 } })
+  const css = ecrireProfil({ page: { colonnes: 3, gouttiere: 5.5 } })
+  assert.match(css, /--amend-colonnes: 3;/)
+  assert.match(css, /--amend-gouttiere: 5\.5mm;/)
+  assert.match(ecrireProfil({}), /--amend-colonnes: 1;/)
+  const mauvais = lireProfil(':root { --amend-colonnes: 4; --amend-gouttiere: large }')
+  assert.equal(mauvais.avertissements.length, 2)
+  assert.equal(mauvais.style.page, undefined)
+  // Au-delà des listes fermées, l'assainissement ramène aux valeurs par défaut.
+  const sain = assainir({ page: { colonnes: 7, gouttiere: 500 } }).page
+  assert.deepEqual([sain.colonnes, sain.gouttiere], [1, 30])
 })
 
 test('valeurs invalides : signalées, ignorées', () => {
@@ -228,4 +260,37 @@ test('fusionner accepte le calque lu tel quel', () => {
   assert.equal(complet.blocs.body.size, 13)
   assert.equal(complet.blocs.h1.align, 'center')
   assert.equal(complet.blocs.h2.align, 'left')
+})
+
+test('les réglages de livre : variables --amend-*, et chaque valeur inconnue est signalée', () => {
+  const css = ecrireProfil({
+    page: { margesMiroir: true, descente: 30, separateur: 'asterisques', debutChapitre: 'droite' },
+  })
+  assert.match(css, /--amend-marges-miroir: oui;/)
+  assert.match(css, /--amend-descente: 30mm;/)
+  assert.match(css, /--amend-separateur: asterisques;/)
+  assert.match(css, /--amend-numero-position: bas-centre;/)
+  assert.match(css, /h1 \{[^}]*break-before: recto;/)
+  assert.match(ecrireProfil({ page: { debutChapitre: 'page' } }), /h1 \{[^}]*break-before: page;/)
+  assert.match(ecrireProfil({}), /h1 \{[^}]*break-before: auto;/)
+  const { style, avertissements } = lireProfil(`:root {
+    --amend-separateur: confettis; --amend-numero-position: au-milieu; --amend-descente: beaucoup;
+    --amend-notes-interligne: 7; --amend-cesure: peut-être; --amend-notes-reduction: 3pt
+  }`)
+  assert.equal(avertissements.length, 5, avertissements.join('\n'))
+  assert.deepEqual(style.page, { notesReduction: 3 })
+  // Même une valeur qui passerait la lecture ne sort pas du schéma à l'assainissement.
+  const sain = assainir({ page: { descente: 9999, notesReduction: -4, separateur: 'x', debutChapitre: 'ailleurs' } })
+  assert.equal(sain.page.descente, 120)
+  assert.equal(sain.page.notesReduction, 0)
+  assert.equal(sain.page.separateur, 'trait')
+  assert.equal(sain.page.debutChapitre, 'continuer')
+})
+
+test('« break-before » : page, recto et auto se lisent', () => {
+  const lire = (v) => lireProfil(`h1 { break-before: ${v} }`).style.page.debutChapitre
+  assert.equal(lire('recto'), 'droite')
+  assert.equal(lire('right'), 'droite')
+  assert.equal(lire('page'), 'page')
+  assert.equal(lire('auto'), 'continuer')
 })

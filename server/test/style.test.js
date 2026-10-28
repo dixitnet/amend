@@ -68,8 +68,9 @@ async function creerDoc(c) {
 test('chaque niveau de titre a ses propres réglages, et le corps un retrait', () => {
   const d = styleParDefaut()
   // Trois niveaux depuis le 18/09/2026 — voir NIVEAUX_TITRE.
-  // « Titre » et « Sous-titre » viennent après les trois niveaux (14/10/2026).
-  assert.deepEqual(Object.keys(d.blocs), ['body', 'quote', 'h1', 'h2', 'h3', 'title', 'subtitle'])
+  // « Titre » et « Sous-titre » viennent après les trois niveaux (14/10/2026),
+  // « Légende » après eux (28/10/2026).
+  assert.deepEqual(Object.keys(d.blocs), ['body', 'quote', 'h1', 'h2', 'h3', 'title', 'subtitle', 'caption'])
   assert.equal(NIVEAUX_TITRE, 3)
   // Chaque bloc porte toutes les propriétés déclarées — c'est ce qui permet
   // au formulaire et aux exports de ne connaître aucun nom en dur.
@@ -261,4 +262,69 @@ test.after(async () => {
   rmSync(process.env.DATA_DIR, { recursive: true, force: true })
   await new Promise((r) => setTimeout(r, 50))
   process.exit(0)
+})
+
+// ---------------------------------------------------------------- mise en page de livre (28/10/2026)
+
+test('l’ancienne case « titres 1 en page impaire » devient « début de chapitre »', async () => {
+  const { fusionner, assainir, styleParDefaut, normaliserPage } = await import('../../shared/style.js')
+  assert.equal(styleParDefaut().page.debutChapitre, 'continuer')
+  assert.ok(!('titre1PageImpaire' in styleParDefaut().page))
+  assert.equal(fusionner({ page: { titre1PageImpaire: true } }).page.debutChapitre, 'droite')
+  assert.equal(fusionner({ page: { titre1PageImpaire: false } }).page.debutChapitre, 'continuer')
+  // Une couche qui dit les deux : le nouveau réglage l'emporte, la clé ancienne disparaît.
+  const mixte = fusionner({ page: { titre1PageImpaire: true, debutChapitre: 'page' } }).page
+  assert.equal(mixte.debutChapitre, 'page')
+  assert.ok(!('titre1PageImpaire' in mixte))
+  assert.ok(!('titre1PageImpaire' in assainir({ page: { titre1PageImpaire: true } }).page))
+  assert.equal(assainir({ page: { titre1PageImpaire: true } }).page.debutChapitre, 'droite')
+  assert.equal(normaliserPage(undefined), undefined)
+  // Couches empilées : le document (ancien format) change ce que dit le modèle.
+  assert.equal(
+    fusionner({ page: { debutChapitre: 'droite' } }, { page: { titre1PageImpaire: false } }).page.debutChapitre,
+    'continuer'
+  )
+})
+
+test('les nouveaux réglages de page : valeurs par défaut, bornes et listes fermées', async () => {
+  const { assainir, styleParDefaut } = await import('../../shared/style.js')
+  const d = styleParDefaut().page
+  assert.deepEqual(
+    [
+      d.margesMiroir,
+      d.cesure,
+      d.veuvesOrphelines,
+      d.premierSansRetrait,
+      d.descente,
+      d.notesReduction,
+      d.notesInterligne,
+      d.separateur,
+    ],
+    [false, true, true, false, 0, 2, 0, 'trait']
+  )
+  assert.deepEqual(d.pageNumbers, { enabled: false, startAt: 1, position: 'bas-centre', sautOuverture: false })
+  const fou = assainir({
+    page: {
+      margesMiroir: 'oui',
+      cesure: 1,
+      descente: -5,
+      notesReduction: 50,
+      notesInterligne: 9,
+      separateur: '<script>',
+      pageNumbers: { enabled: true, position: 'ailleurs', sautOuverture: 'peut-être' },
+    },
+  }).page
+  assert.equal(fou.margesMiroir, false)
+  assert.equal(fou.cesure, true)
+  assert.equal(fou.descente, 0)
+  assert.equal(fou.notesReduction, 6)
+  assert.equal(fou.notesInterligne, 0)
+  assert.equal(fou.separateur, 'trait')
+  assert.deepEqual(fou.pageNumbers, { enabled: true, startAt: 1, position: 'bas-centre', sautOuverture: false })
+  const bon = assainir({
+    page: { notesInterligne: 1.5, pageNumbers: { enabled: true, position: 'haut-exterieur', sautOuverture: true } },
+  }).page
+  assert.equal(bon.notesInterligne, 1.5)
+  assert.equal(bon.pageNumbers.position, 'haut-exterieur')
+  assert.equal(bon.pageNumbers.sautOuverture, true)
 })

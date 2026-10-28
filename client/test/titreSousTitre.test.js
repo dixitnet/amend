@@ -44,7 +44,7 @@ function vue(d, debut) {
 test('la feuille de style : « Titre » et « Sous-titre » viennent après Titre 1 à 3', () => {
   assert.deepEqual(
     BLOCS.map((b) => b.id),
-    ['body', 'quote', 'h1', 'h2', 'h3', 'title', 'subtitle']
+    ['body', 'quote', 'h1', 'h2', 'h3', 'title', 'subtitle', 'caption']
   )
   const titre = BLOCS.find((b) => b.id === 'title')
   const sous = BLOCS.find((b) => b.id === 'subtitle')
@@ -55,7 +55,7 @@ test('la feuille de style : « Titre » et « Sous-titre » viennent après Titr
   assert.equal(sous.docxHeading, null)
   assert.deepEqual(
     STYLES_PARAGRAPHE.map((s) => s.valeur),
-    ['titre', 'sous-titre']
+    ['titre', 'sous-titre', 'legende']
   )
 })
 
@@ -104,6 +104,25 @@ test('le paragraphe porte son style dans le DOM, et le relit', () => {
 })
 
 // ===================================================== la liste déroulante
+
+test('« Légende » (28/10/2026) : un troisième style de paragraphe, dans le DOM, le menu et le CSS', () => {
+  const serial = DOMSerializer.fromSchema(schema)
+  const rendu = serial.serializeNode(para('Une légende', 'legende'), { document: documentDom })
+  assert.equal(rendu.className, 'style-legende')
+  assert.equal(rendu.getAttribute('data-style'), 'legende')
+  const conteneur = documentDom.createElement('div')
+  conteneur.appendChild(rendu)
+  assert.equal(PMDOMParser.fromSchema(schema).parse(conteneur).child(0).attrs.style, 'legende')
+  assert.equal(blocDuParagraphe('legende'), 'caption')
+
+  const v = vue(docDe(para('Texte')), 2)
+  assert.equal(appliquerStyleDeBloc(v, 'legende'), true)
+  assert.equal(v.state.doc.child(0).type.name, 'paragraph')
+  assert.equal(styleDeBlocCommun(v.state), 'legende')
+
+  const css = buildStyleCss(styleParDefaut(), { scope: '.print-doc' })
+  assert.match(css, /\.print-doc p\.style-legende \{[^}]*font-style: italic/)
+})
 
 test('le menu de style reconnaît « Titre » et « Sous-titre », et les applique', () => {
   const d = docDe(para('Un'), para('Deux', 'titre'), para('Trois', 'sous-titre'))

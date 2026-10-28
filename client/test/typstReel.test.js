@@ -119,6 +119,10 @@ function documentComplet(temoins) {
     n('image', { src: '/api/docs/x/images/pixel.png', alt: '', largeur: null, hauteur: null }),
     n('table_of_contents', { profondeur: 3 }),
     n('horizontal_rule'),
+    // Une légende et un séparateur de scène (28/10/2026).
+    n('paragraph', { style: 'legende' }, texte('Une légende')),
+    n('ligne_separation'),
+    par(texte('Texte après le séparateur.')),
     n('heading', { level: 3 }, texte('Titre 3')),
     // Deux notes (28/09/2026), dont une piégée et une avec marques et
     // retour à la ligne : elles ressortent en fin de document.
@@ -138,7 +142,7 @@ const STYLE_CHARGE = fusionner({
     size: 'A5',
     langue: 'en',
     pageNumbers: { enabled: true, startAt: 3 },
-    titre1PageImpaire: true,
+    debutChapitre: 'droite',
     titresSolidaires: false,
     entete: {
       gauche: { type: 'texte', texte: 'En-tête "piégé" #[x] (y)' },
@@ -153,6 +157,44 @@ const STYLE_CHARGE = fusionner({
     h2: { spaceBefore: 0, spaceAfter: 0 },
   },
 })
+/** La mise en page d'un livre (28/10/2026) : chaque réglage qui change la
+ * source Typst — marges miroir, césure, veuves et orphelines, premier
+ * paragraphe sans retrait, début de chapitre et descente, numéro côté
+ * extérieur sans pages d'ouverture, notes réduites, séparateur. */
+const STYLES_LIVRE = [
+  fusionner({
+    page: {
+      size: 'personnalise',
+      largeur: 140,
+      hauteur: 210,
+      marginLeft: 25,
+      marginRight: 15,
+      margesMiroir: true,
+      cesure: false,
+      veuvesOrphelines: false,
+      premierSansRetrait: true,
+      debutChapitre: 'droite',
+      descente: 30,
+      notesReduction: 3,
+      notesInterligne: 1,
+      separateur: 'asterisme',
+      pageNumbers: { enabled: true, startAt: 1, position: 'bas-exterieur', sautOuverture: true },
+      entete: { gauche: { type: 'titreDocument' }, droite: { type: 'titre' }, sautOuverture: true },
+    },
+  }),
+  fusionner({
+    page: {
+      debutChapitre: 'page',
+      descente: 15,
+      separateur: 'asterisques',
+      pageNumbers: { enabled: true, position: 'haut-exterieur', sautOuverture: false },
+      entete: { droite: { type: 'titre' } },
+    },
+  }),
+  fusionner({ page: { separateur: 'blanc', pageNumbers: { enabled: true, sautOuverture: true } } }),
+  fusionner({ page: { colonnes: 2, gouttiere: 8, debutChapitre: 'page', entete: { droite: { type: 'titre' } }, pageNumbers: { enabled: true } } }),
+  fusionner({ page: { colonnes: 3, gouttiere: 4, margesMiroir: true, marginLeft: 30, notesReduction: 2 } }),
+]
 // Aligné à gauche : du texte justifié se couperait en fin de ligne, et les
 // césures fausseraient la comparaison du texte.
 const STYLE_SIMPLE = fusionner({ blocs: { body: { align: 'left' } } })
@@ -187,6 +229,11 @@ test('le document complet compile, sous le style par défaut et sous un style ch
   const d = documentComplet(paragraphesTemoins())
   await compiler(docToTypst(d, STYLE_SIMPLE, 'Titre "avec" #guillemets'))
   await compiler(docToTypst(d, STYLE_CHARGE, 'Document'))
+})
+
+test('la mise en page d’un livre compile', { skip: SANS_TYPST }, async () => {
+  const d = documentComplet(paragraphesTemoins())
+  for (const style of STYLES_LIVRE) await compiler(docToTypst(d, style, 'Livre'))
 })
 
 test('chaque texte piège ressort tel quel dans le PDF', { skip: SANS_TYPST || (!pdftotext && 'pdftotext absent — fidélité non vérifiée') }, async () => {

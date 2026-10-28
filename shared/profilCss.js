@@ -23,8 +23,10 @@
 //
 // Ce que le profil comprend :
 //  - `:root` : variables `--amend-*` pour ce que le CSS n'a pas (langue,
-//    début de la numérotation, images pleine page, en-tête sur les pages
-//    d'ouverture) ;
+//    début de la numérotation et sa position, marges miroir, césure, veuves
+//    et orphelines, premier paragraphe sans retrait, descente des débuts de
+//    chapitre, notes de bas de page, séparateur de scène, images pleine page,
+//    en-tête et numéro sur les pages d'ouverture) ;
 //  - `@page` : `size` (A4, A5, letter, orientation, ou deux longueurs) et
 //    `margin` ; `@page :left` / `:right` avec `@top-center { content }`
 //    pour les en-têtes ; `@bottom-center { content: counter(page) }` pour
@@ -34,10 +36,11 @@
 //    `font-size`, `font-weight`, `font-style`, `text-transform`,
 //    `text-align`, `line-height`, `margin-top`, `margin-bottom`,
 //    `text-indent`, `margin-left` ;
-//  - `h1 { break-before: recto }` et `h1, h2, h3 { break-after: avoid }`.
+//  - `h1 { break-before: auto | page | recto }` et `h1, h2, h3 { break-after: avoid }`.
 //
-// Les colonnes sont **réservées** (`--amend-colonnes`, `--amend-gouttiere`) :
-// lues sans avertissement, sans effet pour l'instant.
+// Les colonnes (`--amend-colonnes` : 1, 2 ou 3 ; `--amend-gouttiere` : espace
+// entre elles) valent pour tout le texte ; en-têtes et numéros restent sur la
+// largeur de la page.
 
 import {
   BLOCS,
@@ -47,6 +50,10 @@ import {
   FORMATS_ANCIENS,
   ALIGNEMENTS,
   INTERLIGNES,
+  INTERLIGNES_NOTES,
+  COLONNES,
+  POSITIONS_NUMERO,
+  SEPARATEURS,
   LANGUES,
   VERSION_STYLE,
   assainir,
@@ -350,16 +357,70 @@ export function lireProfil(css) {
           break
         }
         case '--amend-images-pleine-page':
-        case '--amend-entete-saut-ouverture': {
+        case '--amend-entete-saut-ouverture':
+        case '--amend-numero-saut-ouverture':
+        case '--amend-marges-miroir':
+        case '--amend-cesure':
+        case '--amend-veuves-orphelines':
+        case '--amend-premier-sans-retrait': {
           const b = booleenCss(valeur)
           if (b === null) avertir(`Valeur de ${prop} non comprise : « ${valeur} ».`)
           else if (prop === '--amend-images-pleine-page') page.imagesPleinePage = b
-          else page.entete = { ...(page.entete || {}), sautOuverture: b }
+          else if (prop === '--amend-marges-miroir') page.margesMiroir = b
+          else if (prop === '--amend-cesure') page.cesure = b
+          else if (prop === '--amend-veuves-orphelines') page.veuvesOrphelines = b
+          else if (prop === '--amend-premier-sans-retrait') page.premierSansRetrait = b
+          else if (prop === '--amend-numero-saut-ouverture') {
+            page.pageNumbers = { ...(page.pageNumbers || {}), sautOuverture: b }
+          } else page.entete = { ...(page.entete || {}), sautOuverture: b }
           break
         }
-        case '--amend-colonnes':
-        case '--amend-gouttiere':
-          break // réservé
+        case '--amend-numero-position': {
+          const v = valeur.trim().toLowerCase()
+          if (POSITIONS_NUMERO.some((x) => x.id === v)) {
+            page.pageNumbers = { ...(page.pageNumbers || {}), position: v }
+          } else avertir(`Position « ${v} » non prise en charge (${POSITIONS_NUMERO.map((x) => x.id).join(', ')}).`)
+          break
+        }
+        case '--amend-separateur': {
+          const v = valeur.trim().toLowerCase()
+          if (SEPARATEURS.some((x) => x.id === v)) page.separateur = v
+          else avertir(`Séparateur « ${v} » non pris en charge (${SEPARATEURS.map((x) => x.id).join(', ')}).`)
+          break
+        }
+        case '--amend-descente': {
+          const mm = enMm(valeur)
+          if (mm === null || mm < 0) avertir(`Descente « ${valeur} » non comprise.`)
+          else page.descente = arrondi(mm, 1)
+          break
+        }
+        case '--amend-notes-reduction': {
+          const pt = enPt(valeur)
+          if (pt === null || pt < 0) avertir(`Réduction des notes « ${valeur} » non comprise.`)
+          else page.notesReduction = arrondi(pt, 1)
+          break
+        }
+        case '--amend-notes-interligne': {
+          const n = Number(valeur)
+          if (INTERLIGNES_NOTES.some((x) => x.id === n)) page.notesInterligne = n
+          else
+            avertir(
+              `Interligne des notes « ${valeur} » non pris en charge (0 = comme le texte, ${INTERLIGNES.map((x) => x.id).join(', ')}).`
+            )
+          break
+        }
+        case '--amend-colonnes': {
+          const n = Number(valeur)
+          if (COLONNES.some((x) => x.id === n)) page.colonnes = n
+          else avertir(`Colonnes « ${valeur} » non prises en charge (${COLONNES.map((x) => x.id).join(', ')}).`)
+          break
+        }
+        case '--amend-gouttiere': {
+          const mm = enMm(valeur)
+          if (mm === null || mm < 0) avertir(`Gouttière « ${valeur} » non comprise.`)
+          else page.gouttiere = arrondi(mm, 1)
+          break
+        }
         default:
           avertir(`Variable « ${prop} » inconnue.`)
       }
@@ -522,8 +583,9 @@ export function lireProfil(css) {
         }
         case 'break-before':
           if (idBloc !== 'h1') avertir(`break-before n’est lu que sur h1 (pas sur ${selecteur}).`)
-          else if (mots === 'recto' || mots === 'right') page.titre1PageImpaire = true
-          else if (mots === 'auto' || mots === 'page' || mots === 'avoid') page.titre1PageImpaire = false
+          else if (mots === 'recto' || mots === 'right') page.debutChapitre = 'droite'
+          else if (mots === 'page') page.debutChapitre = 'page'
+          else if (mots === 'auto' || mots === 'avoid') page.debutChapitre = 'continuer'
           else avertir(`break-before « ${v} » non compris.`)
           break
         case 'break-after':
@@ -596,6 +658,18 @@ export function ecrireProfil(style) {
   ligne(`  --amend-numero-debut: ${p.pageNumbers.startAt};`)
   ligne(`  --amend-images-pleine-page: ${ouiNon(p.imagesPleinePage)};`)
   ligne(`  --amend-entete-saut-ouverture: ${ouiNon(p.entete.sautOuverture)};`)
+  ligne(`  --amend-numero-position: ${p.pageNumbers.position};`)
+  ligne(`  --amend-numero-saut-ouverture: ${ouiNon(p.pageNumbers.sautOuverture)};`)
+  ligne(`  --amend-marges-miroir: ${ouiNon(p.margesMiroir)};`)
+  ligne(`  --amend-cesure: ${ouiNon(p.cesure)};`)
+  ligne(`  --amend-veuves-orphelines: ${ouiNon(p.veuvesOrphelines)};`)
+  ligne(`  --amend-premier-sans-retrait: ${ouiNon(p.premierSansRetrait)};`)
+  ligne(`  --amend-descente: ${nombre(p.descente)}mm;`)
+  ligne(`  --amend-notes-reduction: ${nombre(p.notesReduction)}pt;`)
+  ligne(`  --amend-notes-interligne: ${p.notesInterligne};`)
+  ligne(`  --amend-separateur: ${p.separateur};`)
+  ligne(`  --amend-colonnes: ${p.colonnes};`)
+  ligne(`  --amend-gouttiere: ${nombre(p.gouttiere)}mm;`)
   ligne('}')
   ligne()
 
@@ -604,6 +678,7 @@ export function ecrireProfil(style) {
   else taille = `${nomCssDuFormat(p.size)}${p.orientation === 'paysage' ? ' landscape' : ''}`
   ligne('@page {')
   ligne(`  size: ${taille};`)
+  if (p.margesMiroir) ligne('  /* Marges miroir : « gauche » est la marge intérieure, « droite » l’extérieure. */')
   ligne(
     `  margin: ${[p.marginTop, p.marginRight, p.marginBottom, p.marginLeft].map((m) => `${nombre(m)}mm`).join(' ')};`
   )
@@ -638,7 +713,8 @@ export function ecrireProfil(style) {
     ligne(`  margin-bottom: ${nombre(v.spaceAfter)}pt;`)
     ligne(`  text-indent: ${nombre(v.firstLineIndent)}mm;`)
     ligne(`  margin-left: ${nombre(v.indent)}mm;`)
-    if (b.id === 'h1') ligne(`  break-before: ${p.titre1PageImpaire ? 'recto' : 'auto'};`)
+    if (b.id === 'h1')
+      ligne(`  break-before: ${{ droite: 'recto', page: 'page', continuer: 'auto' }[p.debutChapitre]};`)
     ligne('}')
   }
   ligne()

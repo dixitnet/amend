@@ -149,6 +149,45 @@ export const INTERLIGNES = [
   { id: 2, label: 'Double' },
 ]
 
+/** L'interligne des notes de bas de page : `0` veut dire « comme le texte »
+ * (28/10/2026). */
+export const INTERLIGNES_NOTES = [{ id: 0, label: 'Comme le texte' }, ...INTERLIGNES]
+
+/** Comment commence un titre de niveau 1 (28/10/2026) : sur la page en cours,
+ * sur une nouvelle page, ou sur une nouvelle page **de droite** (le moteur
+ * ajoute au besoin une page blanche). Remplace la case « Titres 1 en page
+ * impaire » (`titre1PageImpaire`, encore lue : voir `normaliserPage`). */
+export const DEBUTS_CHAPITRE = [
+  { id: 'continuer', label: 'Continuer sur la page' },
+  { id: 'page', label: 'Nouvelle page' },
+  { id: 'droite', label: 'Nouvelle page à droite' },
+]
+
+/** Où se place le numéro de page. « Extérieur » : du côté opposé à la
+ * reliure, donc à droite sur les pages impaires et à gauche sur les paires. */
+export const POSITIONS_NUMERO = [
+  { id: 'bas-centre', label: 'Bas de page, centré' },
+  { id: 'bas-exterieur', label: 'Bas de page, côté extérieur' },
+  { id: 'haut-exterieur', label: 'Haut de page, côté extérieur' },
+]
+
+/** Ce que dessine la séparation de scène (la « ligne de séparation » du
+ * document). Quelques ornements dessinés dans le code, pas d'image. */
+export const SEPARATEURS = [
+  { id: 'trait', label: 'Un trait' },
+  { id: 'asterisques', label: 'Trois astérisques' },
+  { id: 'asterisme', label: 'Un astérisme (⁂)' },
+  { id: 'blanc', label: 'Un blanc' },
+]
+
+/** Le nombre de colonnes du texte (28/10/2026) : une, deux ou trois, pour tout
+ * le document. */
+export const COLONNES = [
+  { id: 1, label: '1 colonne' },
+  { id: 2, label: '2 colonnes' },
+  { id: 3, label: '3 colonnes' },
+]
+
 /** La langue du document. Elle ne change rien à l'interface : elle décide
  * des **motifs de césure** et de la forme des guillemets à la composition.
  * Un texte anglais composé en français se coupe aux mauvais endroits — et
@@ -352,6 +391,30 @@ export const BLOCS = [
       indent: 0,
     },
   },
+  // **« Légende »** (28/10/2026) : le style d'un paragraphe posé sous une
+  // image ou un tableau. Comme « Titre » et « Sous-titre », c'est un style de
+  // paragraphe (voir STYLES_PARAGRAPHE), pas un nœud de plus dans le
+  // document : on l'applique depuis la liste des styles.
+  {
+    id: 'caption',
+    label: 'Légende',
+    balise: 'p',
+    classe: 'style-legende',
+    docxHeading: null,
+    defauts: {
+      font: 'system',
+      size: 9,
+      bold: false,
+      italic: true,
+      uppercase: false,
+      align: 'center',
+      lineHeight: 1.15,
+      spaceBefore: 2,
+      spaceAfter: 12,
+      firstLineIndent: 0,
+      indent: 0,
+    },
+  },
 ]
 
 /** Les styles que porte un **paragraphe** (attribut `style` du nœud) : la
@@ -360,6 +423,7 @@ export const BLOCS = [
 export const STYLES_PARAGRAPHE = [
   { valeur: 'titre', bloc: 'title', libelle: 'Titre' },
   { valeur: 'sous-titre', bloc: 'subtitle', libelle: 'Sous-titre' },
+  { valeur: 'legende', bloc: 'caption', libelle: 'Légende' },
 ]
 
 /** Le bloc de la feuille de style d'un paragraphe : `title`, `subtitle`, ou
@@ -394,9 +458,40 @@ export const PAGE_DEFAUT = {
   marginRight: 20,
   marginBottom: 25,
   marginLeft: 20,
+  // Marges **miroir** (28/10/2026), pour un livre relié : `marginLeft` devient
+  // la marge **intérieure** (côté reliure) et `marginRight` l'**extérieure**,
+  // sur toutes les pages. Désactivé : gauche et droite, comme avant.
+  margesMiroir: false,
   // Numérotation : export PDF seulement — aucun sens dans un éditeur en
-  // défilement continu.
-  pageNumbers: { enabled: false, startAt: 1 },
+  // défilement continu. `position` : voir POSITIONS_NUMERO ; `sautOuverture`
+  // retire le numéro des pages qui portent un titre 1 (28/10/2026).
+  pageNumbers: { enabled: false, startAt: 1, position: 'bas-centre', sautOuverture: false },
+  // Composition du texte courant (28/10/2026). `cesure` : couper les mots en
+  // fin de ligne (dans du texte justifié, comme avant). `veuvesOrphelines` :
+  // éviter qu'une ligne reste seule en haut ou en bas de page (le réglage
+  // de Typst par défaut ; décoché, il l'autorise). `premierSansRetrait` : le
+  // premier paragraphe après un titre, une séparation ou un saut de page
+  // n'a pas de retrait de première ligne.
+  cesure: true,
+  veuvesOrphelines: true,
+  premierSansRetrait: false,
+  // Début de chapitre (28/10/2026) : voir DEBUTS_CHAPITRE. `descente` : espace
+  // laissé en haut de la page où commence un chapitre, en mm (sans effet
+  // quand il continue sur la page).
+  debutChapitre: 'continuer',
+  descente: 0,
+  // Notes de bas de page (28/10/2026) : corps réduit de `notesReduction` points
+  // par rapport au texte courant (2, l'usage des éditeurs français), interligne
+  // propre (`0` : celui du texte).
+  notesReduction: 2,
+  notesInterligne: 0,
+  // La séparation de scène : voir SEPARATEURS.
+  separateur: 'trait',
+  // Colonnes (28/10/2026) : 1, 2 ou 3 pour tout le texte, et l'espace entre
+  // elles en millimètres. Les en-têtes et le numéro restent sur toute la
+  // largeur de la page.
+  colonnes: 1,
+  gouttiere: 6,
   // Mise en page des titres (19/09/2026), export seulement — l'éditeur est
   // un défilement continu, il n'a pas de bas de page.
   //
@@ -405,11 +500,6 @@ export const PAGE_DEFAUT = {
   // Activé par défaut, parce que l'inverse est un défaut de composition,
   // jamais un choix.
   titresSolidaires: true,
-  // `titre1PageImpaire` ouvre chaque titre de niveau 1 sur une belle page
-  // (page de droite dans un livre), en insérant au besoin une page blanche.
-  // À l'inverse du précédent, c'est une convention d'ouvrage : désactivé
-  // par défaut.
-  titre1PageImpaire: false,
   // Images pleine page (23/10/2026), export PDF et Word seulement : chaque
   // image d'un paragraphe de premier niveau est centrée et prend la plus
   // grande taille qui tient **entre les marges** — en largeur comme en
@@ -433,7 +523,7 @@ export const PAGE_DEFAUT = {
   // seulement celles qui commencent par lui : quand un titre 1 tombe au
   // milieu d'une page, l'en-tête nommerait le chapitre précédent alors que
   // le suivant a commencé. Le supprimer est plus sûr, et la distinction
-  // disparaît dès que `titre1PageImpaire` est actif.
+  // disparaît dès que `debutChapitre` vaut `droite`.
   entete: {
     gauche: { type: 'rien', texte: '' },
     droite: { type: 'rien', texte: '' },
@@ -484,6 +574,19 @@ export function styleParDefaut() {
   return { version: VERSION_STYLE, page: copiePage(PAGE_DEFAUT), blocs }
 }
 
+/** Lit les réglages de page d'une couche enregistrée avant le 28/10/2026 :
+ * l'ancien case à cocher « Titre 1 sur page impaire » (`titre1PageImpaire`)
+ * devient `debutChapitre` (`droite` si coché, `continuer` sinon). Un
+ * `debutChapitre` explicite l'emporte. La clé ancienne disparaît. */
+export function normaliserPage(page) {
+  if (!page || typeof page !== 'object' || !('titre1PageImpaire' in page)) return page
+  const { titre1PageImpaire, ...reste } = page
+  if (reste.debutChapitre === undefined && typeof titre1PageImpaire === 'boolean') {
+    reste.debutChapitre = titre1PageImpaire ? 'droite' : 'continuer'
+  }
+  return reste
+}
+
 /** Empile des couches partielles par-dessus les valeurs par défaut, de la
  * plus générale à la plus précise : code, puis instance, puis document.
  * Une couche ne porte que ce qu'elle change — et une propriété apparue
@@ -499,7 +602,7 @@ export function fusionner(...couches) {
     // du format actuel peut très bien n'en porter aucun non plus.
     const c = estAncienFormat(couche) ? migrer(couche) : couche
     if (c.page) {
-      for (const [k, v] of Object.entries(c.page)) {
+      for (const [k, v] of Object.entries(normaliserPage(c.page))) {
         if (estGroupe(out.page[k])) {
           // Un groupe se complète, il ne se remplace pas : une couche qui
           // ne porte qu'un seul de ses réglages ne doit pas effacer les
@@ -676,6 +779,16 @@ export function dimensionsPage(page) {
  * échouer l'export de chacun de ceux qui l'utilisent, avec un message
  * d'erreur de Typst à la clé. Aucun texte libre n'entre dans la feuille de
  * style à part le texte d'un en-tête, borné ici. */
+/** La largeur d'une colonne de texte, en millimètres : la largeur entre les
+ * marges, moins les gouttières, divisée par le nombre de colonnes. Sert aux
+ * images, qui ne doivent pas dépasser leur colonne. */
+export function largeurColonne(page) {
+  const [largeur] = dimensionsPage(page)
+  const n = Number(page.colonnes) || 1
+  const utile = largeur - (page.marginLeft || 0) - (page.marginRight || 0)
+  return Math.max(10, (utile - (Number(page.gouttiere) || 0) * (n - 1)) / n)
+}
+
 export function assainir(style) {
   const base = styleParDefaut()
   const complet = fusionner(style)
@@ -693,7 +806,17 @@ export function assainir(style) {
     hauteur: nombre(p.hauteur, base.page.hauteur, BORNES_FORMAT.min, BORNES_FORMAT.max),
     langue: dans(LANGUES, p.langue, base.page.langue),
     titresSolidaires: booleen(p.titresSolidaires, base.page.titresSolidaires),
-    titre1PageImpaire: booleen(p.titre1PageImpaire, base.page.titre1PageImpaire),
+    margesMiroir: booleen(p.margesMiroir, base.page.margesMiroir),
+    cesure: booleen(p.cesure, base.page.cesure),
+    veuvesOrphelines: booleen(p.veuvesOrphelines, base.page.veuvesOrphelines),
+    premierSansRetrait: booleen(p.premierSansRetrait, base.page.premierSansRetrait),
+    debutChapitre: dans(DEBUTS_CHAPITRE, p.debutChapitre, base.page.debutChapitre),
+    descente: nombre(p.descente, base.page.descente, 0, 120),
+    notesReduction: nombre(p.notesReduction, base.page.notesReduction, 0, 6),
+    notesInterligne: Number(dans(INTERLIGNES_NOTES, p.notesInterligne, base.page.notesInterligne)),
+    separateur: dans(SEPARATEURS, p.separateur, base.page.separateur),
+    colonnes: Number(dans(COLONNES, p.colonnes, base.page.colonnes)),
+    gouttiere: nombre(p.gouttiere, base.page.gouttiere, 2, 30),
     imagesPleinePage: booleen(p.imagesPleinePage, base.page.imagesPleinePage),
   }
   for (const cle of ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']) {
@@ -718,6 +841,8 @@ export function assainir(style) {
   page.pageNumbers = {
     enabled: booleen(pn.enabled, false),
     startAt: Math.round(nombre(pn.startAt, 1, 1, 9999)),
+    position: dans(POSITIONS_NUMERO, pn.position, base.page.pageNumbers.position),
+    sautOuverture: booleen(pn.sautOuverture, false),
   }
   const en = p.entete || base.page.entete
   const cote = (c) => ({

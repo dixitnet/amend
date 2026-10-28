@@ -760,6 +760,15 @@ a { color: var(--accent); }
   margin: 0 0 0.8em;
   color: var(--muted);
 }
+/* « Légende » (28/10/2026) : sous une image, centrée, plus petite, en italique. */
+.ProseMirror p.style-legende {
+  font-size: 0.85em;
+  font-style: italic;
+  text-align: center;
+  line-height: 1.3;
+  margin: 0 0 1em;
+  color: var(--muted);
+}
 
 /* Le retrait en `em` et non en pixels (23/09/2026) : depuis que le zoom
    passe par une échelle de corps et non par la propriété `zoom`, ce qui est
@@ -3239,6 +3248,9 @@ tr.bo-traite { opacity: 0.6; }
 .specimen-page h1, .specimen-page h2 { font-family: inherit; }
 .specimen-numero { position: absolute; left: 0; right: 0; text-align: center; font-size: 9pt; color: #444; }
 .specimen-numero[hidden] { display: none; }
+.specimen-separateur { text-align: center; margin: 4pt 0; line-height: 1.2; }
+.specimen-separateur-trait { border-top: 0.5pt solid #999; height: 0; margin: 6pt 0; }
+.specimen-separateur-blanc { height: 10pt; }
 
 .modele-editeur { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: start; }
 .modele-apercu { position: sticky; top: 12px; }
@@ -3249,11 +3261,16 @@ tr.bo-traite { opacity: 0.6; }
   .modeles-liste { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Les volets du formulaire de mise en page. */
-.style-volet { border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; }
-.style-volet > summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 9px 0; user-select: none; }
-.style-volet[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 6px; }
-.style-volet[open] { padding-bottom: 8px; }
+/* Les onglets du formulaire de mise en page (28/10/2026). */
+.style-onglets-barre { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+.style-onglet {
+  border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; background: transparent;
+  color: var(--muted); font-size: 13px; font-weight: 600; padding: 7px 12px; cursor: pointer; margin-bottom: -1px;
+}
+.style-onglet:hover { color: var(--fg); }
+.style-onglet[aria-selected='true'] { color: var(--fg); background: var(--bg); border-color: var(--border); }
+.style-onglet:focus-visible { outline: 2px solid var(--accent, #3b6fd4); outline-offset: -2px; }
+.style-panneau[hidden] { display: none; }
 .style-css {
   margin: 4px 0 8px; padding: 10px 12px; max-height: 420px; overflow: auto;
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;

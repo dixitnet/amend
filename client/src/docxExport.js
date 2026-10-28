@@ -46,11 +46,15 @@ import {
   convertMillimetersToTwip,
   PageOrientation,
   BorderStyle,
+  Tab,
+  TabStopType,
+  SectionType,
 } from 'docx'
+import JSZip from 'jszip'
 import { numerosDesNotes } from './notes.js'
 import { adresseAutorisee } from '../../shared/liens.js'
 import { DEFAULT_STYLE, docxFontName } from './styleConfig.js'
-import { BLOCS, langue, dimensionsPage, blocDuParagraphe } from '../../shared/style.js'
+import { BLOCS, langue, dimensionsPage, blocDuParagraphe, largeurColonne } from '../../shared/style.js'
 
 /** Les réglages d'un bloc du modèle (voir shared/style.js) : « body »,
  * « quote », « h1 »… Un document enregistré avant le 16/09/2026 est déjà
@@ -84,6 +88,10 @@ const HEADING_LEVELS = [
   HeadingLevel.HEADING_5,
 ]
 
+/** Les réglages de page du document en cours d'export — posés par
+ * buildDocxBlob, lus par paragraphProps (veuves et orphelines). */
+let PAGE_COURANTE = {}
+
 function ptToHalfPt(pt) {
   return Math.round((pt || 0) * 2)
 }
@@ -113,6 +121,9 @@ function paragraphProps(block, { lineHeight } = {}) {
   const props = {
     alignment: ALIGN_MAP[block.align] || AlignmentType.LEFT,
     spacing,
+    // Veuves et orphelines (28/10/2026) : Word les contrôle paragraphe par
+    // paragraphe.
+    widowControl: PAGE_COURANTE.veuvesOrphelines !== false,
   }
   // Retrait de première ligne (16/09/2026) — en millimètres dans le modèle,
   // en twips pour `docx`.
@@ -316,8 +327,8 @@ function hauteurUtilePx(style) {
  * marges de la feuille de style. */
 function largeurUtilePx(style) {
   const page = style.page || DEFAULT_STYLE.page
-  const [largeurMm] = dimensionsPage(page)
-  const utileMm = largeurMm - (page.marginLeft || 0) - (page.marginRight || 0)
+  // Une image ne dépasse pas sa colonne (28/10/2026).
+  const utileMm = largeurColonne(page)
   return Math.max(50, Math.round((utileMm / 25.4) * 96))
 }
 
@@ -329,15 +340,27 @@ function blockToParagraphs(node, style, images, racine = false) {
       // Chaque niveau a ses propres réglages complets depuis le 16/09/2026
       // — police, casse, alignement, espacement, et pas seulement sa taille.
       const bloc = reglages(style, `h${level}`)
+      const props = paragraphProps(bloc)
+      // Descente (28/10/2026) : un titre 1 qui ouvre une page est descendu de
+      // la valeur du réglage, qui remplace l'espace avant. Les sauts de page,
+      // eux, sont des sections (voir buildDocxBlob).
+      const reglagesPage = (style && style.page) || {}
+      if (
+        level === 1 &&
+        reglagesPage.debutChapitre &&
+        reglagesPage.debutChapitre !== 'continuer' &&
+        reglagesPage.descente > 0
+      ) {
+        props.spacing = { ...props.spacing, before: convertMillimetersToTwip(reglagesPage.descente) }
+      }
       return [
         new Paragraph({
           heading: HEADING_LEVELS[level - 1],
-          ...paragraphProps(bloc),
+          ...props,
           // « Paragraphes solidaires » de Word : le titre suit le texte
           // qu'il annonce plutôt que de rester seul en bas d'une page
-          // (19/09/2026). Le passage des titres 1 en belle page, lui, n'a
-          // pas d'équivalent simple en .docx — il demanderait une section
-          // par titre — et reste propre à l'export PDF.
+          // (19/09/2026). Le début de chapitre (nouvelle page, page de
+          // droite) passe, lui, par une section par titre 1 : voir buildDocxBlob.
           keepNext: (style && style.page ? style.page.titresSolidaires : true) !== false,
           children: inlineToRuns(node, bloc, bloc.size),
         }),
@@ -352,7 +375,13 @@ function blockToParagraphs(node, style, images, racine = false) {
       const idBloc = blocDuParagraphe(node.attrs.style)
       const corps = reglages(style, idBloc)
       const styleWord =
-        idBloc === 'title' ? { heading: HeadingLevel.TITLE } : idBloc === 'subtitle' ? { style: 'Subtitle' } : {}
+        idBloc === 'title'
+          ? { heading: HeadingLevel.TITLE }
+          : idBloc === 'subtitle'
+            ? { style: 'Subtitle' }
+            : idBloc === 'caption'
+              ? { style: 'Caption' }
+              : {}
       return [
         new Paragraph({
           ...styleWord,
@@ -499,9 +528,24 @@ function blockToParagraphs(node, style, images, racine = false) {
       // Saut de page — même rôle qu'à l'export PDF (voir typstExport.js) :
       // ce nœud ne dessine jamais de trait, juste un saut de page.
       return [new Paragraph({ pageBreakBefore: true, children: [] })]
-    case 'ligne_separation':
-      // Un trait : la bordure basse d'un paragraphe vide (Word n'a pas de
-      // « règle horizontale » à proprement parler).
+    case 'ligne_separation': {
+      // Le séparateur de scène (réglage `separateur`, 28/10/2026) : trois
+      // astérisques, un astérisme ou un blanc ; par défaut un trait, la
+      // bordure basse d'un paragraphe vide (Word n'a pas de « règle
+      // horizontale » à proprement parler).
+      const choix = (style && style.page && style.page.separateur) || 'trait'
+      const marque = { asterisques: '*   *   *', asterisme: '⁂' }[choix]
+      if (marque) {
+        const corps = reglages(style, 'body')
+        return [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 120, after: 120 },
+            children: [new TextRun({ ...baseRunProps(corps, corps.size), bold: false, italics: false, text: marque })],
+          }),
+        ]
+      }
+      if (choix === 'blanc') return [new Paragraph({ children: [], spacing: { before: 280, after: 280 } })]
       return [
         new Paragraph({
           children: [],
@@ -509,6 +553,7 @@ function blockToParagraphs(node, style, images, racine = false) {
           border: { bottom: { style: BorderStyle.SINGLE, size: 6, space: 1, color: '999999' } },
         }),
       ]
+    }
     default:
       return []
   }
@@ -523,6 +568,35 @@ function contientTable(doc) {
   return trouve
 }
 
+/** Active les marges miroir de Word (`<w:mirrorMargins/>` dans
+ * `word/settings.xml`) : la bibliothèque `docx` n'a pas de réglage pour cela.
+ * « Gauche » devient la marge intérieure, « droite » l'extérieure. Si le
+ * fichier ne se laisse pas rouvrir, on rend le .docx tel quel — des marges
+ * non miroir valent mieux qu'un export qui échoue. */
+async function activerMargesMiroir(blob) {
+  try {
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const fichier = zip.file('word/settings.xml')
+    if (!fichier) return blob
+    let xml = await fichier.async('string')
+    if (xml.includes('<w:mirrorMargins')) return blob
+    // L'ordre des éléments compte pour Word : `mirrorMargins` vient après
+    // `displayBackgroundShape` et avant `evenAndOddHeaders`.
+    const apres = '<w:displayBackgroundShape/>'
+    xml = xml.includes(apres)
+      ? xml.replace(apres, `${apres}<w:mirrorMargins/>`)
+      : xml.replace(/(<w:settings[^>]*>)/, '$1<w:mirrorMargins/>')
+    zip.file('word/settings.xml', xml)
+    return await zip.generateAsync({
+      type: 'blob',
+      mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      compression: 'DEFLATE',
+    })
+  } catch {
+    return blob
+  }
+}
+
 /** Construit le fichier .docx entier sous forme de Blob, prêt à
  * télécharger — même feuille de style (`style`, voir styleConfig.js) que
  * l'export PDF. */
@@ -535,18 +609,45 @@ export async function buildDocxBlob(doc, style, titre = '') {
     pleinePage: !!(style.page && style.page.imagesPleinePage),
   }
   NOTES = numerosDesNotes(doc)
-  const children = []
+  const page = style.page || DEFAULT_STYLE.page
+  PAGE_COURANTE = page
+  // Début de chapitre « nouvelle page » ou « nouvelle page à droite » : une
+  // section Word par titre 1 (saut de section « page suivante » ou « page
+  // impaire », qui ajoute au besoin une page blanche).
+  const coupe = page.debutChapitre === 'page' || page.debutChapitre === 'droite'
+  let groupe = { enfants: [], ouverture: false }
+  const groupes = [groupe]
   const endnotes = {}
   try {
+    // Premier paragraphe sans retrait (28/10/2026) : le texte qui suit un
+    // titre ou un séparateur de scène.
+    const sansRetrait = !!page.premierSansRetrait
+    const styleSansRetrait = {
+      ...style,
+      blocs: { ...style.blocs, body: { ...reglages(style, 'body'), firstLineIndent: 0 } },
+    }
+    let precedent = ''
     doc.forEach((node, _decalage, index) => {
       images.sautApres = false
-      children.push(...blockToParagraphs(node, style, images, true))
+      if (coupe && node.type.name === 'heading' && niveauTitre(node.attrs.level) === 1) {
+        if (groupe.enfants.length) {
+          groupe = { enfants: [], ouverture: true }
+          groupes.push(groupe)
+        } else groupe.ouverture = true
+      }
+      const suite =
+        sansRetrait &&
+        node.type.name === 'paragraph' &&
+        blocDuParagraphe(node.attrs.style) === 'body' &&
+        ['heading', 'ligne_separation', 'horizontal_rule'].includes(precedent)
+      groupe.enfants.push(...blockToParagraphs(node, suite ? styleSansRetrait : style, images, true))
+      precedent = node.type.name
       // Après une image pleine page, le texte qui suit repart en haut de la
       // page suivante. Une image qui suit pose son propre saut avant : le
       // paragraphe-repère ne servirait qu'à laisser une page blanche.
       const suivant = index + 1 < doc.childCount ? doc.child(index + 1) : null
       if (images.sautApres && suivant && suivant.type.name !== 'image') {
-        children.push(
+        groupe.enfants.push(
           new Paragraph({
             pageBreakBefore: true,
             spacing: { before: 0, after: 0, line: 1, lineRule: LineRuleType.EXACT },
@@ -554,19 +655,35 @@ export async function buildDocxBlob(doc, style, titre = '') {
         )
       }
     })
-    // Les notes de fin : le texte de chacune, au style du corps, une taille
-    // en dessous — Word les place en fin de document et les numérote.
+    // Les notes de fin : le texte de chacune, au style du corps, réduit
+    // (réglage `notesReduction`, 2 pt par défaut) et à l'interligne choisi
+    // (`notesInterligne`, 0 = celui du texte) — Word les place en fin de
+    // document et les numérote.
     const corpsNotes = reglages(style, 'body')
+    const reduction = Number.isFinite(Number(page.notesReduction)) ? Number(page.notesReduction) : 2
+    const interligneNotes = Number(page.notesInterligne) || corpsNotes.lineHeight
+    const tailleNotes = Math.max(7, corpsNotes.size - reduction)
     for (const [node, n] of NOTES) {
       endnotes[n] = {
-        children: [new Paragraph({ children: inlineToRuns(node, corpsNotes, Math.max(6, corpsNotes.size - 1)) })],
+        children: [
+          new Paragraph({
+            ...paragraphProps({
+              ...corpsNotes,
+              firstLineIndent: 0,
+              indent: 0,
+              spaceBefore: 0,
+              lineHeight: interligneNotes,
+            }),
+            children: inlineToRuns(node, corpsNotes, tailleNotes),
+          }),
+        ],
       }
     }
   } finally {
     NOTES = new Map()
+    PAGE_COURANTE = {}
   }
 
-  const page = style.page || DEFAULT_STYLE.page
   const [widthMm, heightMm] = dimensionsPage(page)
   const pageNumbers = page.pageNumbers || DEFAULT_STYLE.page.pageNumbers
 
@@ -577,7 +694,10 @@ export async function buildDocxBlob(doc, style, titre = '') {
   // drapeau ouvrirait une page paysage que Word traite comme portrait
   // (mise en page et impression à l'envers).
   const paysage = widthMm > heightMm
-  const pageProperties = {
+  // Les propriétés de page d'une section. Le numéro de départ ne se pose que
+  // sur la première : les suivantes continuent la numérotation. Marges
+  // miroir : « gauche » est la marge intérieure — voir `activerMargesMiroir`.
+  const proprietesPage = (premiere) => ({
     size: {
       width: convertMillimetersToTwip(paysage ? heightMm : widthMm),
       height: convertMillimetersToTwip(paysage ? widthMm : heightMm),
@@ -589,15 +709,20 @@ export async function buildDocxBlob(doc, style, titre = '') {
       bottom: convertMillimetersToTwip(page.marginBottom),
       left: convertMillimetersToTwip(page.marginLeft),
     },
-  }
+    ...(pageNumbers.enabled && premiere
+      ? { pageNumbers: { start: Math.max(1, Number(pageNumbers.startAt) || 1), formatType: NumberFormat.DECIMAL } }
+      : {}),
+  })
 
-  // En-têtes (20/09/2026). Word sait distinguer pages paires et impaires,
-  // c'est donc la même idée que dans le PDF. Deux limites assumées, dites
-  // aussi dans l'infobulle du panneau : le « titre 1 courant » n'a pas
-  // d'équivalent fiable ici (il passerait par un champ STYLEREF que la
-  // bibliothèque ne sait pas écrire) et devient le titre du document ; et
-  // « pas d'en-tête sur les pages de titre 1 » n'a pas d'équivalent du tout
-  // — Word ne sait distinguer que la première page.
+  // En-têtes (20/09/2026) et numéro de page. Word sait distinguer pages
+  // paires et impaires, c'est donc la même idée que dans le PDF. Limites
+  // assumées, dites aussi dans l'infobulle du panneau : le « titre 1
+  // courant » n'a pas d'équivalent fiable ici (il passerait par un champ
+  // STYLEREF que la bibliothèque ne sait pas écrire) et devient le titre du
+  // document ; et « rien sur les pages d'ouverture » ne marche que lorsque
+  // les chapitres commencent sur une nouvelle page (une section par titre 1,
+  // avec sa « première page » à part) — sinon Word ne sait distinguer que la
+  // première page.
   const entete = page.entete || DEFAULT_STYLE.page.entete || {}
   const texteEntete = (cote) => {
     if (!cote || cote.type === 'rien') return ''
@@ -608,8 +733,33 @@ export async function buildDocxBlob(doc, style, titre = '') {
   }
   const enteteDroite = texteEntete(entete.droite)
   const enteteGauche = texteEntete(entete.gauche)
-  const bandeau = (texte) =>
-    new Header({
+  const position = pageNumbers.enabled ? pageNumbers.position || 'bas-centre' : null
+  const numeroEnHaut = position === 'haut-exterieur'
+  const numeroExterieur = position === 'bas-exterieur' || numeroEnHaut
+  const largeurTexteTwips = convertMillimetersToTwip(
+    Math.max(10, widthMm - (page.marginLeft || 0) - (page.marginRight || 0))
+  )
+  // `droite` : page impaire (reliure à gauche, numéro à droite).
+  const bandeau = (texte, droite, avecNumero) => {
+    if (avecNumero && numeroEnHaut) {
+      // Numéro côté extérieur, titre centré, sur une seule ligne : un taquet
+      // central et un taquet à droite.
+      const tabs = [
+        { type: TabStopType.CENTER, position: Math.round(largeurTexteTwips / 2) },
+        { type: TabStopType.RIGHT, position: largeurTexteTwips },
+      ]
+      return new Header({
+        children: [
+          new Paragraph({
+            tabStops: tabs,
+            children: droite
+              ? [new TextRun({ children: [new Tab(), texte, new Tab(), PageNumber.CURRENT] })]
+              : [new TextRun({ children: [PageNumber.CURRENT, new Tab(), texte] })],
+          }),
+        ],
+      })
+    }
+    return new Header({
       children: [
         new Paragraph({
           alignment: AlignmentType.CENTER,
@@ -617,27 +767,66 @@ export async function buildDocxBlob(doc, style, titre = '') {
         }),
       ],
     })
-  const headers = enteteDroite || enteteGauche ? { default: bandeau(enteteDroite), even: bandeau(enteteGauche) } : null
-
-  let footers
-  if (pageNumbers.enabled) {
-    // Bas de page centré, comme `@bottom-center` en CSS d'impression (voir
-    // buildPageCss, styleConfig.js) — même position dans les deux formats.
-    pageProperties.pageNumbers = {
-      start: Math.max(1, Number(pageNumbers.startAt) || 1),
-      formatType: NumberFormat.DECIMAL,
-    }
-    footers = {
-      default: new Footer({
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [new TextRun({ children: [PageNumber.CURRENT] })],
-          }),
-        ],
-      }),
-    }
   }
+  const pied = (droite, avecNumero) =>
+    new Footer({
+      children: [
+        new Paragraph({
+          alignment:
+            position === 'bas-exterieur' ? (droite ? AlignmentType.RIGHT : AlignmentType.LEFT) : AlignmentType.CENTER,
+          children: avecNumero && position && !numeroEnHaut ? [new TextRun({ children: [PageNumber.CURRENT] })] : [],
+        }),
+      ],
+    })
+  const sautEntete = entete.sautOuverture !== false && coupe
+  const sautNumero = !!pageNumbers.sautOuverture && coupe && !!position
+  const premierePage = sautEntete || sautNumero
+  const avecEntetes = !!(enteteDroite || enteteGauche || numeroEnHaut)
+  const avecPieds = !!position && !numeroEnHaut
+  // Un objet par section : un en-tête n'est pas partageable entre sections.
+  const construireEntetes = () => {
+    const out = {}
+    if (avecEntetes) {
+      out.headers = {
+        default: bandeau(enteteDroite, true, true),
+        even: bandeau(enteteGauche, false, true),
+        ...(premierePage ? { first: bandeau(sautEntete ? '' : enteteDroite, true, !sautNumero) } : {}),
+      }
+    }
+    if (avecPieds) {
+      out.footers = {
+        default: pied(true, true),
+        even: pied(false, true),
+        ...(premierePage ? { first: pied(true, !sautNumero) } : {}),
+      }
+    }
+    return out
+  }
+  const pairEtImpair = avecEntetes || numeroExterieur
+
+  const nColonnes = Number(page.colonnes) || 1
+  const typeSection = page.debutChapitre === 'droite' ? SectionType.ODD_PAGE : SectionType.NEXT_PAGE
+  const sections = groupes.map((g, i) => ({
+    properties: {
+      page: proprietesPage(i === 0),
+      // Colonnes (28/10/2026) : le même réglage dans chaque section.
+      ...(nColonnes > 1
+        ? {
+            column: {
+              count: nColonnes,
+              space: convertMillimetersToTwip(Number(page.gouttiere) || 0),
+              equalWidth: true,
+            },
+          }
+        : {}),
+      ...(i > 0 ? { type: typeSection } : {}),
+      ...(g.ouverture && premierePage ? { titlePage: true } : {}),
+    },
+    ...construireEntetes(),
+    // Un document vide a quand même besoin d'un paragraphe — sinon
+    // certaines versions de Word refusent d'ouvrir le fichier.
+    children: g.enfants.length ? g.enfants : [new Paragraph({})],
+  }))
 
   const docxDocument = new Document({
     // Sans ça, Word ouvre le fichier avec une table des matières vide et
@@ -645,13 +834,19 @@ export async function buildDocxBlob(doc, style, titre = '') {
     ...(contientTable(doc) ? { features: { updateFields: true } } : {}),
     ...(Object.keys(endnotes).length ? { endnotes } : {}),
     // Sans ce drapeau, Word ignore l'en-tête des pages paires.
-    ...(headers ? { evenAndOddHeaderAndFooters: true } : {}),
+    ...(pairEtImpair ? { evenAndOddHeaderAndFooters: true } : {}),
+    // Césure (28/10/2026) : Word ne coupe les mots que si on le lui demande.
+    hyphenation: { autoHyphenation: page.cesure !== false },
     // Le style « Sous-titre » n'existe pas dans les styles par défaut de
     // `docx` (« Title » y est) : on le déclare, vide, pour que Word le
     // reconnaisse. Son aspect vient de la mise en forme posée sur chaque
     // paragraphe, comme pour tous les blocs.
     styles: {
-      paragraphStyles: [{ id: 'Subtitle', name: 'Subtitle', basedOn: 'Normal', next: 'Normal', quickFormat: true }],
+      paragraphStyles: [
+        { id: 'Subtitle', name: 'Subtitle', basedOn: 'Normal', next: 'Normal', quickFormat: true },
+        // « Légende » (28/10/2026) : le style intégré de Word porte ce nom.
+        { id: 'Caption', name: 'caption', basedOn: 'Normal', next: 'Normal', quickFormat: true },
+      ],
     },
     // Les listes numérotées exigent une configuration de numérotation
     // déclarée au niveau du document (contrairement aux puces, qui ont un
@@ -696,19 +891,11 @@ export async function buildDocxBlob(doc, style, titre = '') {
         },
       ],
     },
-    sections: [
-      {
-        properties: { page: pageProperties },
-        ...(headers ? { headers } : {}),
-        ...(footers ? { footers } : {}),
-        // Un document vide a quand même besoin d'un paragraphe — sinon
-        // certaines versions de Word refusent d'ouvrir le fichier.
-        children: children.length ? children : [new Paragraph({})],
-      },
-    ],
+    sections,
   })
 
-  return Packer.toBlob(docxDocument)
+  const blob = await Packer.toBlob(docxDocument)
+  return page.margesMiroir ? activerMargesMiroir(blob) : blob
 }
 
 /** Construit le .docx et déclenche son téléchargement — même titre/nom de

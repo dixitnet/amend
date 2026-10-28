@@ -60,3 +60,19 @@ test('lecture d’un agent : un paragraphe « Titre » ou « Sous-titre » est s
     ['titre', 'sous-titre', null, null]
   )
 })
+
+test('page publiée : une légende porte sa classe, et « constructor » ou « __proto__ » ne passent pas', () => {
+  const html = rendre({
+    titre: 'Doc',
+    publieLe: Date.now(),
+    blocs: [
+      { type: 'paragraphe', contenu: texte('Une légende'), style: 'legende' },
+      { type: 'paragraphe', contenu: texte('a'), style: 'constructor' },
+      { type: 'paragraphe', contenu: texte('b'), style: '__proto__' },
+      { type: 'paragraphe', contenu: texte('c'), style: 'toString' },
+    ],
+  })
+  assert.match(html, /<p class="style-legende">Une légende<\/p>/)
+  assert.match(html, /p\.style-legende \{/)
+  for (const t of ['a', 'b', 'c']) assert.match(html, new RegExp(`<p>${t}</p>`))
+})

@@ -183,15 +183,22 @@ function image(n) {
   return `<img src="images/${esc(nom)}"${alt}>`
 }
 
+/** Les classes des styles de paragraphe : une liste fermée, lue par
+ * `Object.hasOwn` pour que « constructor » ou « __proto__ » ne passent pas. */
+const CLASSES_PARAGRAPHE = {
+  titre: ' class="style-titre"',
+  'sous-titre': ' class="style-sous-titre"',
+  legende: ' class="style-legende"',
+}
+
 function bloc(n) {
   if (!n || typeof n !== 'object') return ''
   switch (n.type) {
     case 'paragraphe': {
       const contenu = inline(n.contenu)
-      // « Titre » et « Sous-titre » : deux classes, jamais une valeur du client
-      // recopiée telle quelle.
-      const classe =
-        n.style === 'titre' ? ' class="style-titre"' : n.style === 'sous-titre' ? ' class="style-sous-titre"' : ''
+      // « Titre », « Sous-titre » et « Légende » : trois classes, jamais une
+      // valeur du client recopiée telle quelle.
+      const classe = Object.hasOwn(CLASSES_PARAGRAPHE, n.style) ? CLASSES_PARAGRAPHE[n.style] : ''
       return contenu ? `<p${classe}>${contenu}</p>` : `<p${classe}>&nbsp;</p>`
     }
     case 'titre': {
@@ -250,6 +257,7 @@ h1 { font-size: 1.9em; margin-top: 0; }
 h2 { font-size: 1.45em; } h3 { font-size: 1.2em; } h4, h5 { font-size: 1.05em; }
 p { margin: 0 0 1em; }
 p.style-titre { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 1.9em; font-weight: 700; line-height: 1.2; margin: 0 0 0.3em; }
+p.style-legende { font-size: 0.85em; font-style: italic; text-align: center; line-height: 1.3; margin: 0 0 1em; color: var(--muted); }
 p.style-sous-titre { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 1.25em; line-height: 1.3; margin: 0 0 1em; color: var(--muted); }
 blockquote { margin: 1.4em 0; padding: 0 0 0 1em; border-left: 3px solid var(--bord); color: var(--muted); }
 ul, ol { padding-left: 1.4em; }

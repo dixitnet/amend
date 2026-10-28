@@ -44,8 +44,9 @@ const IDENTIQUE = (taille, extra = {}) => ({ size: taille, ...extra })
 
 /** Un livre imprimé, composé en Libertinus Serif : le corps en points, les
  * titres en proportion. Les marges sont celles de la page (haut, droite, bas,
- * gauche) — gauche et droite égales tant que les marges miroir n'existent
- * pas : on prend la plus grande des deux (la marge intérieure). */
+ * gauche). Les marges miroir sont actives : « gauche » est la marge
+ * intérieure (côté reliure), « droite » l'extérieure ; elles sont ici égales
+ * (la plus grande des deux), à régler sur épreuve. */
 function livreImprime({ largeur, hauteur, corps, marges: [haut, droite, bas, gauche] }) {
   const police = { font: 'serif' }
   return {
@@ -57,8 +58,9 @@ function livreImprime({ largeur, hauteur, corps, marges: [haut, droite, bas, gau
       marginRight: droite,
       marginBottom: bas,
       marginLeft: gauche,
+      margesMiroir: true,
       pageNumbers: { enabled: true, startAt: 1 },
-      titre1PageImpaire: true,
+      debutChapitre: 'droite',
     },
     blocs: {
       body: { ...police, size: corps, align: 'justify', spaceAfter: 0, firstLineIndent: 5 },
@@ -73,7 +75,7 @@ function livreImprime({ largeur, hauteur, corps, marges: [haut, droite, bas, gau
 }
 
 const NOTE_MIROIR =
-  'Marges gauche et droite égales (la marge intérieure) en attendant les marges miroir. Valeurs de départ à juger sur un vrai PDF.'
+  'Marges miroir, intérieure et extérieure égales au départ (à régler). Valeurs de départ à juger sur un vrai PDF.'
 
 export const MODELES_LIVRES = [
   {

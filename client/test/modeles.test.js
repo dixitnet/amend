@@ -379,34 +379,82 @@ test('chaque carte montre un spécimen de page au format du modèle, et son rés
   assert.equal(defaut.style.height, `${Math.round((297 / 210) * 104)}px`)
 })
 
-test('l’éditeur de modèle : des volets, un spécimen qui suit les réglages, le CSS en lecture seule', async () => {
+test('l’éditeur de modèle : des onglets, un spécimen qui suit les réglages, le CSS en lecture seule', async () => {
   const { racine } = await monter()
   clic(carte(racine, 'm-00000001'), 'Modifier')
-  const volets = [...racine.querySelectorAll('.style-volet > summary')].map((s) => s.textContent)
-  assert.deepEqual(volets, ['Format et reliure', 'Texte', 'Titres et chapitres', 'Pages', 'Éléments', 'Avancé (CSS)'])
-  const ouverts = [...racine.querySelectorAll('.style-volet')].filter((d) => d.open)
-  assert.equal(ouverts.length, 1, 'un seul volet ouvert au départ')
-  // Tous les réglages d'avant sont là : sept blocs, les quatre marges, le format…
-  assert.equal(racine.querySelectorAll('.style-bloc').length, 7)
-  assert.ok(racine.querySelectorAll('.style-volet input[type=number]').length >= 40, 'les réglages numériques sont là')
+  const onglets = [...racine.querySelectorAll('.style-onglet')].map((b) => b.textContent)
+  assert.deepEqual(onglets, ['Format', 'Texte courant', 'Titres', 'Pages', 'Autres styles', 'Images', 'CSS'])
+  const visibles = [...racine.querySelectorAll('.style-panneau')].filter((d) => !d.hidden)
+  assert.equal(visibles.length, 1, 'un seul onglet visible au départ')
+  assert.equal(racine.querySelector('.style-onglet[aria-selected=true]').textContent, 'Format')
+  // Tous les réglages d'avant sont là : huit blocs (la légende s'y ajoute), les quatre marges, le format…
+  assert.equal(racine.querySelectorAll('.style-bloc').length, 8)
+  assert.ok(
+    racine.querySelectorAll('.style-panneau input[type=number]').length >= 40,
+    'les réglages numériques sont là'
+  )
 
   const apercu = racine.querySelector('.modele-apercu .specimen')
   assert.equal(apercu.style.width, '260px')
   const avant = apercu.style.height // A4
-  const taille = racine.querySelector('.style-volet select') // « Format »
+  const taille = racine.querySelector('.style-panneau select') // « Format »
   taille.value = 'A5'
   taille.dispatchEvent(new globalThis.Event('change', { bubbles: true }))
   assert.notEqual(racine.querySelector('.modele-apercu .specimen').style.height, avant, 'le spécimen suit le format')
 
-  // Le CSS : lecture seule, rempli à l'ouverture, avec le format choisi.
-  const voletCss = [...racine.querySelectorAll('.style-volet')].pop()
-  const pre = voletCss.querySelector('pre.style-css')
+  // Le CSS : lecture seule, rempli à l'ouverture de l'onglet, avec le format choisi.
+  const boutons = [...racine.querySelectorAll('.style-onglet')]
+  boutons.at(-1).click()
+  const panneauCss = [...racine.querySelectorAll('.style-panneau')].at(-1)
+  assert.equal(panneauCss.hidden, false)
+  const pre = panneauCss.querySelector('pre.style-css')
   assert.ok(pre)
-  voletCss.open = true
-  voletCss.dispatchEvent(new globalThis.Event('toggle'))
   assert.match(pre.textContent, /@page \{\n {2}size: A5;/)
   assert.match(pre.textContent, /--amend-profil: 1;/)
-  assert.equal(voletCss.querySelector('textarea, input'), null, 'rien à y saisir')
+  assert.equal(panneauCss.querySelector('textarea, input'), null, 'rien à y saisir')
+})
+
+test('les onglets : chaque nouveau réglage est dans son onglet, et le formulaire le relit', async () => {
+  const { racine } = await monter()
+  clic(carte(racine, 'm-00000001'), 'Modifier')
+  const panneaux = [...racine.querySelectorAll('.style-panneau')]
+  const libelles = (i) => [...panneaux[i].querySelectorAll('.style-field > span')].map((x) => x.textContent)
+  assert.ok(libelles(0).includes('Marges miroir'))
+  for (const l of ['Césure (coupure des mots)', 'Veuves et orphelines', 'Premier paragraphe sans retrait']) {
+    assert.ok(libelles(1).includes(l), l)
+  }
+  for (const l of ['Début de chapitre', 'Descente en haut de page']) assert.ok(libelles(2).includes(l), l)
+  for (const l of ['Position du numéro', 'Pas de numéro sur les pages d’ouverture'])
+    assert.ok(libelles(3).includes(l), l)
+  for (const l of ['Notes : taille en moins', 'Notes : interligne', 'Séparateur de scène']) {
+    assert.ok(libelles(4).includes(l), l)
+  }
+  assert.ok(libelles(5).includes('Images pleine page'))
+  assert.ok(panneaux[5].querySelector('.style-bloc > summary').textContent.includes('Légende'))
+
+  // La descente n'a de sens que si un chapitre ouvre une page.
+  const champ = (i, libelle) =>
+    [...panneaux[i].querySelectorAll('.style-field')].find((f) => f.firstChild.textContent === libelle)
+  assert.equal(champ(2, 'Descente en haut de page').hidden, true)
+  const debut = champ(2, 'Début de chapitre').querySelector('select')
+  debut.value = 'droite'
+  debut.dispatchEvent(new globalThis.Event('change', { bubbles: true }))
+  assert.equal(champ(2, 'Descente en haut de page').hidden, false)
+  // Les marges miroir renomment les marges gauche et droite.
+  const miroir = champ(0, 'Marges miroir').querySelector('input')
+  miroir.checked = true
+  miroir.dispatchEvent(new globalThis.Event('change', { bubbles: true }))
+  const marges = libelles(0)
+  assert.ok(marges.includes('Marge intérieure') && marges.includes('Marge extérieure'))
+
+  // Les colonnes : la gouttière n'apparaît qu'à partir de deux colonnes.
+  assert.ok(libelles(0).includes('Colonnes'))
+  assert.equal(champ(0, 'Gouttière').hidden, true)
+  const colonnes = champ(0, 'Colonnes').querySelector('select')
+  assert.deepEqual([...colonnes.options].map((o) => o.value), ['1', '2', '3'])
+  colonnes.value = '2'
+  colonnes.dispatchEvent(new globalThis.Event('change', { bubbles: true }))
+  assert.equal(champ(0, 'Gouttière').hidden, false)
 })
 
 test('un livré copié parmi ceux de l’instance : son origine, et le rétablir en deux clics', async () => {

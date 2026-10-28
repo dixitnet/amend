@@ -20,6 +20,11 @@ import {
   BORNES_FORMAT,
   UTILE_MIN,
   CONTENUS_ENTETE,
+  INTERLIGNES_NOTES,
+  COLONNES,
+  DEBUTS_CHAPITRE,
+  POSITIONS_NUMERO,
+  SEPARATEURS,
   LANGUES,
   langue,
   idPolice,
@@ -74,8 +79,9 @@ function controlePour(prop, valeur) {
   return { el: n, lire: () => Number(n.value) }
 }
 
-/** Le groupe de réglages d'un bloc. Replié par défaut sauf le corps de
- * texte : sept blocs × dix réglages déroulés d'un coup, c'est un mur. */
+/** Le groupe de réglages d'un bloc. Replié par défaut sauf le premier de son
+ * onglet (corps, titre 1, citation, légende) : plusieurs blocs × dix réglages
+ * déroulés d'un coup, c'est un mur. */
 function groupeBloc(bloc, valeurs, { ouvert = false } = {}) {
   const details = document.createElement('details')
   details.className = 'style-bloc'
@@ -100,10 +106,24 @@ function groupeBloc(bloc, valeurs, { ouvert = false } = {}) {
   }
 }
 
-/** Les réglages de la page, répartis dans les volets du formulaire (28/10/2026) :
- * `format` (format, orientation, langue, marges), `pages` (numéros, en-têtes),
- * `titres` (comportement des titres), `elements` (images). Rien n'est ajouté
- * ni retiré : ce sont les mêmes réglages qu'avant, rangés par sujet. */
+/** Un contrôle `<select>` à partir d'une liste `{ id, label }`. */
+function selecteur(liste, valeur) {
+  const sel = document.createElement('select')
+  for (const o of liste) {
+    const opt = document.createElement('option')
+    opt.value = String(o.id)
+    opt.textContent = o.label
+    sel.appendChild(opt)
+  }
+  sel.value = String(valeur)
+  return sel
+}
+
+/** Les réglages de la page, répartis dans les onglets du formulaire
+ * (28/10/2026) : `format` (format, langue, marges, marges miroir), `texte`
+ * (césure, veuves et orphelines, premier paragraphe), `titres` (début de
+ * chapitre, descente, titres solidaires), `pages` (numéros, en-têtes),
+ * `autres` (notes de bas de page, séparateur de scène), `images`. */
 function groupePage(page) {
   const nouvelleGrille = () => {
     const g = document.createElement('div')
@@ -112,9 +132,11 @@ function groupePage(page) {
   }
   const grilles = {
     format: nouvelleGrille(),
-    pages: nouvelleGrille(),
+    texte: nouvelleGrille(),
     titres: nouvelleGrille(),
-    elements: nouvelleGrille(),
+    pages: nouvelleGrille(),
+    autres: nouvelleGrille(),
+    images: nouvelleGrille(),
   }
   let grille = grilles.format
 
@@ -188,6 +210,7 @@ function groupePage(page) {
   grille.appendChild(champLangue)
 
   const marges = {}
+  const libellesMarges = {}
   for (const [cle, libelle] of [
     ['marginTop', 'Marge haute'],
     ['marginBottom', 'Marge basse'],
@@ -202,8 +225,76 @@ function groupePage(page) {
     marges[cle] = n
     const c = champ(libelle, n, 'mm')
     c.title = `Si les marges ne laissent pas ${UTILE_MIN} mm de texte, elles sont réduites à l'enregistrement.`
+    libellesMarges[cle] = c.firstChild
     grille.appendChild(c)
   }
+
+  // Marges miroir (28/10/2026), pour un livre relié : « gauche » devient la
+  // marge intérieure (côté reliure) et « droite » l'extérieure, sur toutes
+  // les pages.
+  const miroir = document.createElement('input')
+  miroir.type = 'checkbox'
+  miroir.checked = !!page.margesMiroir
+  const champMiroir = champ('Marges miroir', miroir)
+  champMiroir.title =
+    'Pour un livre imprimé : la marge gauche devient la marge intérieure (côté reliure) et la marge droite la marge extérieure, page paire comme page impaire. Export PDF et Word.'
+  grille.appendChild(champMiroir)
+  const majMiroir = () => {
+    libellesMarges.marginLeft.textContent = miroir.checked ? 'Marge intérieure' : 'Marge gauche'
+    libellesMarges.marginRight.textContent = miroir.checked ? 'Marge extérieure' : 'Marge droite'
+  }
+  majMiroir()
+  miroir.addEventListener('change', majMiroir)
+
+  // Colonnes (28/10/2026) : une, deux ou trois pour tout le texte ; la
+  // gouttière n'a de sens qu'à partir de deux.
+  const colonnes = selecteur(COLONNES, page.colonnes || 1)
+  const champColonnes = champ('Colonnes', colonnes)
+  champColonnes.title =
+    'Le texte est composé sur une, deux ou trois colonnes. Les en-têtes et le numéro de page restent sur toute la largeur. Export PDF et Word.'
+  grille.appendChild(champColonnes)
+  const gouttiere = document.createElement('input')
+  gouttiere.type = 'number'
+  gouttiere.min = 2
+  gouttiere.max = 30
+  gouttiere.step = 0.5
+  gouttiere.value = page.gouttiere ?? 6
+  const champGouttiere = champ('Gouttière', gouttiere, 'mm')
+  champGouttiere.title = 'L’espace entre deux colonnes.'
+  grille.appendChild(champGouttiere)
+  const majColonnes = () => {
+    champGouttiere.hidden = Number(colonnes.value) < 2
+  }
+  majColonnes()
+  colonnes.addEventListener('change', majColonnes)
+
+  grille = grilles.texte
+  const coche = (libelle, valeur, titre) => {
+    const c = document.createElement('input')
+    c.type = 'checkbox'
+    c.checked = !!valeur
+    const f = champ(libelle, c)
+    if (titre) f.title = titre
+    grille.appendChild(f)
+    return c
+  }
+  const cesure = coche(
+    'Césure (coupure des mots)',
+    page.cesure !== false,
+    'Les mots se coupent en fin de ligne, selon la langue du document. Dans le PDF, seulement dans le texte justifié ; Word coupe aussi les textes non justifiés.'
+  )
+  const veuves = coche(
+    'Veuves et orphelines',
+    page.veuvesOrphelines !== false,
+    'Évite une seule ligne d’un paragraphe isolée en haut ou en bas d’une page.'
+  )
+  const premierSansRetrait = coche(
+    'Premier paragraphe sans retrait',
+    page.premierSansRetrait,
+    'Le paragraphe qui suit un titre ou un séparateur de scène n’a pas de retrait de première ligne, comme dans un livre.'
+  )
+
+  grille = grilles.pages
 
   grille = grilles.pages
   const numeros = document.createElement('input')
@@ -216,6 +307,20 @@ function groupePage(page) {
   depart.min = 1
   depart.value = (page.pageNumbers && page.pageNumbers.startAt) || 1
   grille.appendChild(champ('Première page', depart))
+
+  const position = selecteur(POSITIONS_NUMERO, (page.pageNumbers && page.pageNumbers.position) || 'bas-centre')
+  const champPosition = champ('Position du numéro', position)
+  champPosition.title =
+    '« Côté extérieur » : à gauche sur les pages paires, à droite sur les pages impaires. En Word, la première page d’un chapitre prend toujours le côté droit.'
+  grille.appendChild(champPosition)
+
+  const sautNumero = document.createElement('input')
+  sautNumero.type = 'checkbox'
+  sautNumero.checked = !!(page.pageNumbers && page.pageNumbers.sautOuverture)
+  const champSautNumero = champ('Pas de numéro sur les pages d’ouverture', sautNumero)
+  champSautNumero.title =
+    'Une page qui porte un titre de niveau 1 n’a pas de numéro. Dans Word, seulement quand les chapitres commencent sur une nouvelle page.'
+  grille.appendChild(champSautNumero)
 
   // En-têtes (20/09/2026) : un côté gauche et un côté droit, toujours
   // centrés. Le champ de texte libre n'apparaît que quand il sert.
@@ -267,15 +372,47 @@ function groupePage(page) {
   champSolidaires.title = "Un titre seul en bas d'une page part à la page suivante avec le texte qu'il annonce."
   grille.appendChild(champSolidaires)
 
-  const bellePage = document.createElement('input')
-  bellePage.type = 'checkbox'
-  bellePage.checked = !!page.titre1PageImpaire
-  const champBellePage = champ('Titres 1 en page impaire', bellePage)
-  champBellePage.title =
-    'Chaque titre de niveau 1 ouvre une page de droite, comme dans un livre — une page blanche est insérée si besoin. Export PDF seulement.'
-  grille.appendChild(champBellePage)
+  const debut = selecteur(DEBUTS_CHAPITRE, page.debutChapitre || 'continuer')
+  const champDebut = champ('Début de chapitre', debut)
+  champDebut.title =
+    'Où commence un titre de niveau 1. « Nouvelle page à droite » : une page blanche est insérée au besoin, comme dans un livre. Dans Word, ce sont des sauts de section.'
+  grille.appendChild(champDebut)
 
-  grille = grilles.elements
+  const descente = document.createElement('input')
+  descente.type = 'number'
+  descente.min = 0
+  descente.max = 120
+  descente.step = 1
+  descente.value = page.descente || 0
+  const champDescente = champ('Descente en haut de page', descente, 'mm')
+  champDescente.title =
+    'Espace laissé au-dessus d’un titre de niveau 1 qui ouvre une page. Sans effet quand le chapitre continue sur la page en cours.'
+  grille.appendChild(champDescente)
+  const majDescente = () => {
+    champDescente.hidden = debut.value === 'continuer'
+  }
+  majDescente()
+  debut.addEventListener('change', majDescente)
+
+  grille = grilles.autres
+  const reductionNotes = document.createElement('input')
+  reductionNotes.type = 'number'
+  reductionNotes.min = 0
+  reductionNotes.max = 6
+  reductionNotes.step = 0.5
+  reductionNotes.value = page.notesReduction ?? 2
+  const champReduction = champ('Notes : taille en moins', reductionNotes, 'pt')
+  champReduction.title =
+    'Les notes de bas de page sont composées plus petit que le texte (plancher 7 pt). Dans Word, ce sont des notes de fin.'
+  grille.appendChild(champReduction)
+  const interligneNotes = selecteur(INTERLIGNES_NOTES, page.notesInterligne || 0)
+  grille.appendChild(champ('Notes : interligne', interligneNotes))
+  const separateur = selecteur(SEPARATEURS, page.separateur || 'trait')
+  const champSeparateur = champ('Séparateur de scène', separateur)
+  champSeparateur.title = 'Ce que montre la ligne de séparation insérée dans le texte, dans les exports.'
+  grille.appendChild(champSeparateur)
+
+  grille = grilles.images
   const pleinePage = document.createElement('input')
   pleinePage.type = 'checkbox'
   pleinePage.checked = !!page.imagesPleinePage
@@ -292,7 +429,23 @@ function groupePage(page) {
       largeur: Number(largeur.value),
       hauteur: Number(hauteur.value),
       ...Object.fromEntries(Object.entries(marges).map(([k, el]) => [k, Number(el.value)])),
-      pageNumbers: { enabled: numeros.checked, startAt: Number(depart.value) || 1 },
+      margesMiroir: miroir.checked,
+      colonnes: Number(colonnes.value),
+      gouttiere: Number(gouttiere.value),
+      cesure: cesure.checked,
+      veuvesOrphelines: veuves.checked,
+      premierSansRetrait: premierSansRetrait.checked,
+      debutChapitre: debut.value,
+      descente: Number(descente.value) || 0,
+      notesReduction: Number(reductionNotes.value),
+      notesInterligne: Number(interligneNotes.value),
+      separateur: separateur.value,
+      pageNumbers: {
+        enabled: numeros.checked,
+        startAt: Number(depart.value) || 1,
+        position: position.value,
+        sautOuverture: sautNumero.checked,
+      },
       langue: lang.value,
       entete: {
         gauche: { type: cotes.gauche.choix.value, texte: cotes.gauche.texte.value },
@@ -300,32 +453,59 @@ function groupePage(page) {
         sautOuverture: sautOuverture.checked,
       },
       titresSolidaires: solidaires.checked,
-      titre1PageImpaire: bellePage.checked,
       imagesPleinePage: pleinePage.checked,
     }),
   }
 }
 
-let formulaires = 0
-
-/** Un volet du formulaire : un `<details>` dont le titre ouvre ses réglages.
- * Les volets d'un même formulaire partagent un `name`, donc un seul est
- * ouvert à la fois (comportement natif des navigateurs récents). */
-function volet(titre, groupe, contenus, { ouvert = false } = {}) {
-  const details = document.createElement('details')
-  details.className = 'style-volet'
-  details.setAttribute('name', groupe)
-  details.open = ouvert
-  const resume = document.createElement('summary')
-  resume.textContent = titre
-  details.appendChild(resume)
-  for (const c of contenus) details.appendChild(c)
-  return details
+/** Les onglets du formulaire : une rangée de boutons (`role="tablist"`) et un
+ * panneau par onglet, un seul visible à la fois. Flèches gauche et droite
+ * pour passer de l'un à l'autre. `onglets` : `[{ titre, contenus }]`. */
+function onglets(liste, { actif = 0, surOuverture } = {}) {
+  const racine = document.createElement('div')
+  racine.className = 'style-onglets'
+  const barre = document.createElement('div')
+  barre.className = 'style-onglets-barre'
+  barre.setAttribute('role', 'tablist')
+  racine.appendChild(barre)
+  const entrees = liste.map((o, i) => {
+    const bouton = document.createElement('button')
+    bouton.type = 'button'
+    bouton.className = 'style-onglet'
+    bouton.setAttribute('role', 'tab')
+    bouton.textContent = o.titre
+    const panneau = document.createElement('div')
+    panneau.className = 'style-panneau'
+    panneau.setAttribute('role', 'tabpanel')
+    for (const c of o.contenus) panneau.appendChild(c)
+    barre.appendChild(bouton)
+    racine.appendChild(panneau)
+    bouton.onclick = () => choisir(i)
+    return { bouton, panneau, o }
+  })
+  function choisir(n, { focus = false } = {}) {
+    entrees.forEach((e, i) => {
+      const on = i === n
+      e.bouton.setAttribute('aria-selected', String(on))
+      e.bouton.tabIndex = on ? 0 : -1
+      e.panneau.hidden = !on
+      if (on && focus) e.bouton.focus()
+    })
+    if (surOuverture) surOuverture(entrees[n].o.titre, entrees[n].panneau)
+  }
+  barre.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+    const courant = entrees.findIndex((x) => x.bouton.getAttribute('aria-selected') === 'true')
+    const suivant = (courant + (e.key === 'ArrowRight' ? 1 : -1) + entrees.length) % entrees.length
+    choisir(suivant, { focus: true })
+    e.preventDefault()
+  })
+  choisir(actif)
+  return racine
 }
 
-/** Construit le formulaire complet, rangé en volets (28/10/2026) : « Format
- * et reliure », « Texte », « Titres et chapitres », « Pages », « Éléments »
- * et « Avancé (CSS) ». Renvoie `{ el, lire() }` — `lire()` rend une feuille de
+/** Construit le formulaire complet, rangé en onglets (28/10/2026) : Format,
+ * Texte courant, Titres, Pages, Autres styles, Images et CSS. Renvoie `{ el, lire() }` — `lire()` rend une feuille de
  * style entière, que l'appelant réduit à ses écarts au moment d'enregistrer
  * (c'est le serveur qui s'en charge).
  *
@@ -339,12 +519,13 @@ export function formulaireStyle(style, { surChangement } = {}) {
   const complet = style && style.blocs ? style : styleParDefaut()
   const form = document.createElement('div')
   form.className = 'style-form'
-  const groupe = `style-volets-${++formulaires}`
 
   const page = groupePage(complet.page)
   const blocs = {}
   for (const b of BLOCS) {
-    blocs[b.id] = groupeBloc(b, complet.blocs[b.id] || b.defauts, { ouvert: b.id === 'body' })
+    blocs[b.id] = groupeBloc(b, complet.blocs[b.id] || b.defauts, {
+      ouvert: ['body', 'h1', 'quote', 'caption'].includes(b.id),
+    })
   }
 
   const lire = () => ({
@@ -363,32 +544,39 @@ export function formulaireStyle(style, { surChangement } = {}) {
       css.textContent = ''
     }
   }
-  const voletCss = volet('Avancé (CSS)', groupe, [
+  const contenuCss = [
     Object.assign(document.createElement('p'), {
       className: 'bo-note',
       textContent:
-        'Le fichier CSS de ce modèle, tel qu’il serait enregistré. En lecture seule : on règle le modèle dans les volets.',
+        'Le fichier CSS de ce modèle, tel qu’il serait enregistré. En lecture seule : on règle le modèle dans les onglets.',
     }),
     css,
-  ])
-  voletCss.addEventListener('toggle', () => {
-    if (voletCss.open) afficherCss()
-  })
+  ]
 
-  form.append(
-    volet('Format et reliure', groupe, [page.grilles.format], { ouvert: true }),
-    volet('Texte', groupe, [blocs.body.el]),
-    volet('Titres et chapitres', groupe, [
-      page.grilles.titres,
-      ...['h1', 'h2', 'h3', 'title', 'subtitle'].map((id) => blocs[id].el),
-    ]),
-    volet('Pages', groupe, [page.grilles.pages]),
-    volet('Éléments', groupe, [page.grilles.elements, blocs.quote.el]),
-    voletCss
+  const choix = onglets(
+    [
+      { titre: 'Format', contenus: [page.grilles.format] },
+      { titre: 'Texte courant', contenus: [blocs.body.el, page.grilles.texte] },
+      {
+        titre: 'Titres',
+        contenus: [page.grilles.titres, ...['h1', 'h2', 'h3', 'title', 'subtitle'].map((id) => blocs[id].el)],
+      },
+      { titre: 'Pages', contenus: [page.grilles.pages] },
+      { titre: 'Autres styles', contenus: [blocs.quote.el, page.grilles.autres] },
+      { titre: 'Images', contenus: [page.grilles.images, blocs.caption.el] },
+      { titre: 'CSS', contenus: contenuCss },
+    ],
+    {
+      // Le CSS se calcule à l'ouverture de l'onglet, pas à chaque réglage.
+      surOuverture: (titre) => {
+        if (titre === 'CSS') afficherCss()
+      },
+    }
   )
+  form.appendChild(choix)
 
   const prevenir = () => {
-    if (voletCss.open) afficherCss()
+    if (!css.closest('[hidden]')) afficherCss()
     if (surChangement) surChangement(lire())
   }
   form.addEventListener('input', prevenir)
