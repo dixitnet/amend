@@ -30,6 +30,13 @@ export class StylesDocuments {
       ecrireInstance: (style) => this.setStyle(style),
       enUsage: (id) => this.compterUsagesModele(id),
     })
+    // Les modèles livrés sont copiés dans ceux de l'instance (29/10/2026) :
+    // les administrateurs peuvent alors les régler. Une fois chacun.
+    try {
+      this.modeles.semer()
+    } catch (err) {
+      console.error('[modeles] copie des modèles livrés interrompue :', err.message)
+    }
   }
 
   /** Feuille de style par défaut de l'instance — celle que la page

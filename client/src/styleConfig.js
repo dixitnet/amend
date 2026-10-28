@@ -56,7 +56,7 @@ export function docxFontName(fontId) {
  * puis le calque de son **modèle**, puis ses propres écarts. Renvoie
  * `{ style, propre, ecarts, modele }` : `propre` dit si le document a un
  * fichier d'écarts, `ecarts` combien de réglages s'écartent réellement de
- * son modèle, `modele` `{ id, nom, portee }`. */
+ * son modèle, `modele` `{ id, nom, categorie, portee }`. */
 export async function loadDocStyle(docId) {
   // Le catalogue de polices d'abord : le style renvoyé peut en nommer une.
   await assurerPolices()
@@ -117,12 +117,17 @@ export const chargerModeles = async () => {
 export const choisirModele = (docId, modeleId, { garderEcarts = false } = {}) =>
   appelModeles(`/api/docs/${docId}/modele`, 'PUT', { modeleId, garderEcarts })
 
-/** Duplique un modèle en un nouveau. `portee: 'instance'` : administrateurs. */
-export const creerModele = ({ nom, depuis, portee }) => appelModeles('/api/modeles', 'POST', { nom, depuis, portee })
+/** Duplique un modèle en un nouveau. `portee: 'instance'` : administrateurs.
+ * `categorie` absente : celle du modèle de départ. */
+export const creerModele = ({ nom, categorie, depuis, portee }) =>
+  appelModeles('/api/modeles', 'POST', { nom, categorie, depuis, portee })
 
 export const modifierModele = (id, changements) => appelModeles(`/api/modeles/${id}`, 'PUT', changements)
 
 export const supprimerModele = (id) => appelModeles(`/api/modeles/${id}`, 'DELETE')
+
+/** Remet un modèle copié d'un livré tel que le code le livre (administrateurs). */
+export const retablirModele = (id) => appelModeles(`/api/modeles/${id}/retablir`, 'POST')
 
 // --- Traduction en CSS ----------------------------------------------------
 

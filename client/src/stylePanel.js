@@ -25,6 +25,8 @@ import {
   idPolice,
   styleParDefaut,
 } from './styleConfig.js'
+import { libelleModele } from '../../shared/modeles.js'
+import { ecrireProfil } from '../../shared/profilCss.js'
 
 function champ(libelle, controle, suffixe) {
   const label = document.createElement('label')
@@ -98,15 +100,23 @@ function groupeBloc(bloc, valeurs, { ouvert = false } = {}) {
   }
 }
 
+/** Les réglages de la page, répartis dans les volets du formulaire (28/10/2026) :
+ * `format` (format, orientation, langue, marges), `pages` (numéros, en-têtes),
+ * `titres` (comportement des titres), `elements` (images). Rien n'est ajouté
+ * ni retiré : ce sont les mêmes réglages qu'avant, rangés par sujet. */
 function groupePage(page) {
-  const fieldset = document.createElement('fieldset')
-  fieldset.className = 'style-fieldset'
-  const legend = document.createElement('legend')
-  legend.textContent = 'Page'
-  fieldset.appendChild(legend)
-
-  const grille = document.createElement('div')
-  grille.className = 'style-grille'
+  const nouvelleGrille = () => {
+    const g = document.createElement('div')
+    g.className = 'style-grille'
+    return g
+  }
+  const grilles = {
+    format: nouvelleGrille(),
+    pages: nouvelleGrille(),
+    titres: nouvelleGrille(),
+    elements: nouvelleGrille(),
+  }
+  let grille = grilles.format
 
   // Format de page (01/10/2026) : A4, A5 ou libre. L'orientation ne se
   // demande que pour un format nommé ; un format libre porte directement
@@ -195,6 +205,7 @@ function groupePage(page) {
     grille.appendChild(c)
   }
 
+  grille = grilles.pages
   const numeros = document.createElement('input')
   numeros.type = 'checkbox'
   numeros.checked = !!(page.pageNumbers && page.pageNumbers.enabled)
@@ -246,6 +257,7 @@ function groupePage(page) {
   champSaut.title = 'Une page qui porte un titre de niveau 1 reste nue : c’est une ouverture.'
   grille.appendChild(champSaut)
 
+  grille = grilles.titres
   // Deux réglages qui ne concernent que la sortie paginée (19/09/2026) :
   // l'éditeur défile, il n'a pas de bas de page.
   const solidaires = document.createElement('input')
@@ -263,6 +275,7 @@ function groupePage(page) {
     'Chaque titre de niveau 1 ouvre une page de droite, comme dans un livre — une page blanche est insérée si besoin. Export PDF seulement.'
   grille.appendChild(champBellePage)
 
+  grille = grilles.elements
   const pleinePage = document.createElement('input')
   pleinePage.type = 'checkbox'
   pleinePage.checked = !!page.imagesPleinePage
@@ -271,9 +284,8 @@ function groupePage(page) {
     'Chaque image est centrée et prend la plus grande taille qui tient entre les marges (largeur et hauteur), proportions gardées — y compris une petite image, qui est alors agrandie. Export PDF et Word seulement.'
   grille.appendChild(champPleinePage)
 
-  fieldset.appendChild(grille)
   return {
-    el: fieldset,
+    grilles,
     lire: () => ({
       size: taille.value,
       orientation: orientation.value,
@@ -294,32 +306,95 @@ function groupePage(page) {
   }
 }
 
-/** Construit le formulaire complet. Renvoie `{ el, lire() }` —
- * `lire()` rend une feuille de style entière, que l'appelant réduit à ses
- * écarts au moment d'enregistrer (c'est le serveur qui s'en charge). */
-export function formulaireStyle(style) {
+let formulaires = 0
+
+/** Un volet du formulaire : un `<details>` dont le titre ouvre ses réglages.
+ * Les volets d'un même formulaire partagent un `name`, donc un seul est
+ * ouvert à la fois (comportement natif des navigateurs récents). */
+function volet(titre, groupe, contenus, { ouvert = false } = {}) {
+  const details = document.createElement('details')
+  details.className = 'style-volet'
+  details.setAttribute('name', groupe)
+  details.open = ouvert
+  const resume = document.createElement('summary')
+  resume.textContent = titre
+  details.appendChild(resume)
+  for (const c of contenus) details.appendChild(c)
+  return details
+}
+
+/** Construit le formulaire complet, rangé en volets (28/10/2026) : « Format
+ * et reliure », « Texte », « Titres et chapitres », « Pages », « Éléments »
+ * et « Avancé (CSS) ». Renvoie `{ el, lire() }` — `lire()` rend une feuille de
+ * style entière, que l'appelant réduit à ses écarts au moment d'enregistrer
+ * (c'est le serveur qui s'en charge).
+ *
+ * Le dernier volet montre le **profil CSS** tel qu'il serait enregistré, en
+ * lecture seule (décision du 28/10/2026) : on peut le copier ou le comparer,
+ * pas le modifier.
+ *
+ * `surChangement(style)` est appelé à chaque réglage touché : la page Modèles
+ * s'en sert pour tenir le spécimen à jour. */
+export function formulaireStyle(style, { surChangement } = {}) {
   const complet = style && style.blocs ? style : styleParDefaut()
   const form = document.createElement('div')
   form.className = 'style-form'
+  const groupe = `style-volets-${++formulaires}`
 
   const page = groupePage(complet.page)
-  form.appendChild(page.el)
-
   const blocs = {}
   for (const b of BLOCS) {
-    const g = groupeBloc(b, complet.blocs[b.id] || b.defauts, { ouvert: b.id === 'body' })
-    blocs[b.id] = g
-    form.appendChild(g.el)
+    blocs[b.id] = groupeBloc(b, complet.blocs[b.id] || b.defauts, { ouvert: b.id === 'body' })
   }
 
-  return {
-    el: form,
-    lire: () => ({
-      version: complet.version,
-      page: page.lire(),
-      blocs: Object.fromEntries(BLOCS.map((b) => [b.id, blocs[b.id].lire()])),
-    }),
+  const lire = () => ({
+    version: complet.version,
+    page: page.lire(),
+    blocs: Object.fromEntries(BLOCS.map((b) => [b.id, blocs[b.id].lire()])),
+  })
+
+  const css = document.createElement('pre')
+  css.className = 'style-css'
+  css.tabIndex = 0
+  const afficherCss = () => {
+    try {
+      css.textContent = ecrireProfil(lire())
+    } catch {
+      css.textContent = ''
+    }
   }
+  const voletCss = volet('Avancé (CSS)', groupe, [
+    Object.assign(document.createElement('p'), {
+      className: 'bo-note',
+      textContent:
+        'Le fichier CSS de ce modèle, tel qu’il serait enregistré. En lecture seule : on règle le modèle dans les volets.',
+    }),
+    css,
+  ])
+  voletCss.addEventListener('toggle', () => {
+    if (voletCss.open) afficherCss()
+  })
+
+  form.append(
+    volet('Format et reliure', groupe, [page.grilles.format], { ouvert: true }),
+    volet('Texte', groupe, [blocs.body.el]),
+    volet('Titres et chapitres', groupe, [
+      page.grilles.titres,
+      ...['h1', 'h2', 'h3', 'title', 'subtitle'].map((id) => blocs[id].el),
+    ]),
+    volet('Pages', groupe, [page.grilles.pages]),
+    volet('Éléments', groupe, [page.grilles.elements, blocs.quote.el]),
+    voletCss
+  )
+
+  const prevenir = () => {
+    if (voletCss.open) afficherCss()
+    if (surChangement) surChangement(lire())
+  }
+  form.addEventListener('input', prevenir)
+  form.addEventListener('change', prevenir)
+
+  return { el: form, lire }
 }
 
 /** Le panneau de mise en page d'un document, en surimpression. Réservé aux
@@ -350,7 +425,7 @@ export function ouvrirPanneauStyle(docId, { onEnregistre } = {}) {
     // Toujours dire ce qu'on touche : ici le document seulement, jamais son
     // modèle (le piège de Word : « changer mon document » ou « changer le
     // modèle » ?).
-    const nomModele = modele ? `« ${modele.nom} »` : 'son modèle'
+    const nomModele = modele ? `« ${libelleModele(modele)} »` : 'son modèle'
     note.textContent =
       (ecarts > 0
         ? `Ce document est basé sur ${nomModele}, avec ${ecarts} réglage${ecarts > 1 ? 's' : ''} propre${ecarts > 1 ? 's' : ''}. `

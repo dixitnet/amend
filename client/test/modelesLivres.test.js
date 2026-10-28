@@ -14,9 +14,21 @@ import { MODELES_LIVRES, modeleLivre, libelleFormat, compterEcarts } from '../..
 
 const D = doc({ h: 1, texte: 'Titre' }, 'Un paragraphe.', { h: 2, texte: 'Sous-titre' }, { citation: 'Une citation.' })
 
-test('un seul modèle livré : « Texte brut » (les modèles de goût ont été retirés le 02/10/2026)', () => {
-  assert.deepEqual(MODELES_LIVRES.map((m) => m.id), ['texte-brut'])
-  assert.equal(MODELES_LIVRES[0].nom, 'Texte brut')
+test('les modèles livrés : « Texte brut » (amend.ink), KDP, BOD, Aube et dixit — pas de modèle de goût', () => {
+  assert.deepEqual(
+    MODELES_LIVRES.map((m) => [m.categorie, m.nom]),
+    [
+      ['amend.ink', 'Texte brut'],
+      ['KDP', '15,6 × 23,39 cm'],
+      ['KDP', '13,97 × 21,59 cm'],
+      ['BOD', '12 × 19 cm'],
+      ['BOD', '13,5 × 21,5 cm'],
+      ['Aube', 'TàT grand'],
+      ['Aube', 'TàT moyen'],
+      ['Aube', 'TàT poche'],
+      ['dixit', 'P’tit papier'],
+    ]
+  )
   for (const m of MODELES_LIVRES) assert.ok(m.description.length > 20, m.id)
   for (const retire of ['manuscrit', 'livre', 'note']) assert.equal(modeleLivre(retire), null, retire)
 })
@@ -64,5 +76,11 @@ test('« Texte brut » n’impose rien : A4, une seule police, pas de numéros d
 test('compterEcarts compte les valeurs, pas les groupes', () => {
   assert.equal(compterEcarts(null), 0)
   assert.equal(compterEcarts({ version: 2 }), 0)
-  assert.equal(compterEcarts({ page: { entete: { gauche: { type: 'texte', texte: 'x' } } }, blocs: { h1: { size: 3, bold: false } } }), 4)
+  assert.equal(
+    compterEcarts({
+      page: { entete: { gauche: { type: 'texte', texte: 'x' } } },
+      blocs: { h1: { size: 3, bold: false } },
+    }),
+    4
+  )
 })

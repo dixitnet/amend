@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(npm run test:server:*)",
+      "Bash(npm run test:client:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run format:check:*)",
+      "Bash(npm run build:client:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "deny": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(git stash:*)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(rsync:*)",
+      "Bash(./deploy/livrer.sh:*)",
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  }
+}

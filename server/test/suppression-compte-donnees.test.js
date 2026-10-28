@@ -144,9 +144,9 @@ test('Modeles.supprimerPersonnels : les siens seulement, jamais ceux de l’inst
   const d = dossier()
   const st = new Storage(d)
   const m = st.styles.modeles
-  const a = m.creer({ nom: 'Perso Alice', depuis: 'defaut', portee: 'perso', email: ALICE })
-  const b = m.creer({ nom: 'Perso Bob', depuis: 'defaut', portee: 'perso', email: BOB })
-  const i = m.creer({ nom: 'Instance', depuis: 'defaut', portee: 'instance', email: ALICE })
+  const a = m.creer({ nom: 'Perso Alice', categorie: 'Test', depuis: 'defaut', portee: 'perso', email: ALICE })
+  const b = m.creer({ nom: 'Perso Bob', categorie: 'Test', depuis: 'defaut', portee: 'perso', email: BOB })
+  const i = m.creer({ nom: 'Instance', categorie: 'Test', depuis: 'defaut', portee: 'instance', email: ALICE })
   assert.deepEqual(m.supprimerPersonnels(ALICE), [a.id])
   assert.equal(m.existe(a.id), false)
   assert.ok(m.existe(b.id) && m.existe(i.id))

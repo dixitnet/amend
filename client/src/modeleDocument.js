@@ -17,7 +17,7 @@
 // teste sans lui.
 
 import { chargerModeles, choisirModele, loadDocStyle, resetDocStyle } from './styleConfig.js'
-import { libelleFormat } from '../../shared/modeles.js'
+import { libelleFormat, libelleModele } from '../../shared/modeles.js'
 
 const reglages = (n) => `${n} réglage${n > 1 ? 's' : ''} propre${n > 1 ? 's' : ''}`
 
@@ -83,7 +83,7 @@ export function monterModeleDocument({ docId, ouvrirPersonnaliser, surChangement
     for (const m of modeles || []) {
       const o = document.createElement('option')
       o.value = m.id
-      o.textContent = `${m.nom} — ${libelleFormat(m.style && m.style.page)}`
+      o.textContent = `${libelleModele(m)} — ${libelleFormat(m.style && m.style.page)}`
       if (m.description) o.title = m.description
       select.appendChild(o)
       vus.add(m.id)
@@ -94,7 +94,7 @@ export function monterModeleDocument({ docId, ouvrirPersonnaliser, surChangement
     if (courant.modele && !vus.has(id)) {
       const o = document.createElement('option')
       o.value = id
-      o.textContent = `${courant.modele.nom} (modèle d'un collaborateur)`
+      o.textContent = `${libelleModele(courant.modele)} (modèle d'un collaborateur)`
       select.appendChild(o)
     }
     select.value = id

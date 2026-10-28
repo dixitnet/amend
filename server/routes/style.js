@@ -16,7 +16,7 @@ export async function routesStyle(req, res, url, ctx) {
   // feuille effective, s'il a des écarts propres (et combien), et son modèle.
   const resumeModele = (modeleId) => {
     const m = storage.modeles.obtenir(modeleId)
-    return m ? { id: m.id, nom: m.nom, portee: m.portee } : null
+    return m ? { id: m.id, nom: m.nom, categorie: m.categorie || '', portee: m.portee } : null
   }
   const etatStyleDoc = (docId) => ({
     style: storage.getDocStyle(docId),
@@ -100,11 +100,20 @@ export async function routesStyle(req, res, url, ctx) {
   const vueModele = (m, email, admin, usages) => ({
     id: m.id,
     nom: m.nom,
+    categorie: m.categorie || '',
     portee: m.portee,
     description: m.description || null,
     defaut: m.id === ID_DEFAUT,
     style: fusionner(m.style),
+    // Ce que la lecture du CSS du modèle n'a pas compris (une police absente
+    // de l'instance, une règle ignorée).
+    avertissements: m.avertissements || [],
     modifiable: storage.modeles.peutModifier(m, email, admin),
+    // Un modèle copié d'un livré : d'où il vient, s'il s'en est écarté, et si
+    // cette personne peut le remettre tel que le code le livre.
+    origine: m.origine || null,
+    ecartLivre: !!m.ecartLivre,
+    retablissable: !!m.ecartLivre && storage.modeles.peutModifier(m, email, admin),
     // « Par défaut » ne se supprime pas ; les autres, tant qu'ils ne servent pas.
     supprimable: m.id !== ID_DEFAUT && storage.modeles.peutModifier(m, email, admin),
     utilisePar: usages ? usages.get(m.id) || 0 : 0,
@@ -135,6 +144,7 @@ export async function routesStyle(req, res, url, ctx) {
     try {
       const cree = storage.modeles.creer({
         nom: body.nom,
+        categorie: body.categorie,
         depuis: depuis.id,
         portee: instance ? 'instance' : 'perso',
         email,
@@ -143,6 +153,25 @@ export async function routesStyle(req, res, url, ctx) {
     } catch (err) {
       return sendJson(res, 400, { error: err.message })
     }
+  }
+  // Remettre un modèle copié d'un livré tel que le code le livre (29/10/2026).
+  const retablirMatch = pathname.match(/^\/api\/modeles\/([A-Za-z0-9_-]+)\/retablir$/)
+  if (retablirMatch && req.method === 'POST') {
+    const email = readSession(req)
+    if (!email) return sendJson(res, 401, { error: 'connexion requise' })
+    const admin = isAdminEmail(email)
+    const modele = storage.modeles.obtenir(retablirMatch[1])
+    if (!modele || !storage.modeles.visiblePour(modele, email))
+      return sendJson(res, 404, { error: 'modèle introuvable' })
+    if (!storage.modeles.peutModifier(modele, email, admin)) {
+      return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    }
+    try {
+      storage.modeles.retablir(modele.id)
+    } catch (err) {
+      return sendJson(res, 400, { error: err.message })
+    }
+    return sendJson(res, 200, vueModele(storage.modeles.obtenir(modele.id), email, admin))
   }
   const modeleMatch = pathname.match(/^\/api\/modeles\/([A-Za-z0-9_-]+)$/)
   if (modeleMatch) {
@@ -159,7 +188,7 @@ export async function routesStyle(req, res, url, ctx) {
         return sendJson(res, 403, {
           error:
             modele.portee === 'livre'
-              ? 'un modèle livré ne se modifie pas : dupliquez-le'
+              ? '« Texte brut » ne se modifie pas : dupliquez-le'
               : 'ce modèle ne vous appartient pas',
         })
       }
@@ -182,8 +211,12 @@ export async function routesStyle(req, res, url, ctx) {
       if (body.nom !== undefined && modele.id === ID_DEFAUT) {
         return sendJson(res, 400, { error: 'le nom de « Par défaut » ne se change pas' })
       }
+      if (body.categorie !== undefined && modele.id === ID_DEFAUT) {
+        return sendJson(res, 400, { error: 'la catégorie de « Par défaut » ne se change pas' })
+      }
       try {
         if (body.nom !== undefined) storage.modeles.renommer(modele.id, body.nom)
+        if (body.categorie !== undefined) storage.modeles.classer(modele.id, body.categorie)
         if (body.style !== undefined) {
           if (!body.style || typeof body.style !== 'object')
             return sendJson(res, 400, { error: 'mise en page invalide' })

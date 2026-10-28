@@ -3221,6 +3221,46 @@ tr.bo-traite { opacity: 0.6; }
 }
 .modele-formulaire select { min-height: 32px; font: inherit; font-size: 13px; }
 
+/* La page Modèles en cartes avec spécimen, et l'éditeur en volets (28/10/2026). */
+.modeles-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 0 14px; align-items: start; }
+.modeles-liste > h2, .modeles-liste > .bo-note { grid-column: 1 / -1; }
+.modeles-filtre { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 13px; color: var(--muted); }
+.modeles-filtre select { min-height: 32px; font: inherit; font-size: 13px; }
+.modele-carte { display: flex; gap: 14px; align-items: flex-start; }
+.modele-vignette { flex: none; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; background: #fff; line-height: 0; }
+.modele-corps { flex: 1; min-width: 0; }
+.modele-resume { margin: 2px 0 !important; }
+.modele-avertissements { font-size: 12px; }
+
+/* Le spécimen : la page est construite à sa taille réelle puis réduite d'un bloc. */
+.specimen { position: relative; overflow: hidden; background: #fff; }
+.specimen-page { position: absolute; top: 0; left: 0; box-sizing: border-box; overflow: hidden; background: #fff; color: #111; transform-origin: 0 0; line-height: normal; }
+.specimen-page > * { max-width: 100%; }
+.specimen-page h1, .specimen-page h2 { font-family: inherit; }
+.specimen-numero { position: absolute; left: 0; right: 0; text-align: center; font-size: 9pt; color: #444; }
+.specimen-numero[hidden] { display: none; }
+
+.modele-editeur { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: start; }
+.modele-apercu { position: sticky; top: 12px; }
+.modele-apercu .specimen { border: 1px solid var(--border); border-radius: 3px; box-shadow: 0 1px 6px rgba(0,0,0,.12); }
+@media (max-width: 900px) {
+  .modele-editeur { grid-template-columns: minmax(0, 1fr); }
+  .modele-apercu { position: static; order: -1; }
+  .modeles-liste { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Les volets du formulaire de mise en page. */
+.style-volet { border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; }
+.style-volet > summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 9px 0; user-select: none; }
+.style-volet[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.style-volet[open] { padding-bottom: 8px; }
+.style-css {
+  margin: 4px 0 8px; padding: 10px 12px; max-height: 420px; overflow: auto;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--bg-soft, rgba(127,127,127,.08)); border: 1px solid var(--border); border-radius: 4px;
+  white-space: pre; user-select: all;
+}
+
 /* ---------- Dialogue avec Claude (07/10/2026) ---------- */
 
 /* Une palette posée au-dessus du bouton « Aide / avis » (même coin, même

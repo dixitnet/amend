@@ -157,6 +157,7 @@ const LIGNES = [
   { couvre: '/api/modeles/:x', m: 'GET', chemin: () => '/api/modeles/inconnu', oui: CONNECTES },
   { couvre: '/api/modeles/:x', m: 'PUT', chemin: () => '/api/modeles/inconnu', corps: {}, oui: CONNECTES },
   { couvre: '/api/modeles/:x', m: 'DELETE', chemin: () => '/api/modeles/inconnu', oui: CONNECTES },
+  { couvre: '/api/modeles/:x/retablir', m: 'POST', chemin: () => '/api/modeles/inconnu/retablir', oui: CONNECTES },
   { couvre: '/api/debug/stats', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/overview', m: 'GET', oui: ['admin'] },
   { couvre: '/api/admin/ia', m: 'GET', oui: ['admin'] },
