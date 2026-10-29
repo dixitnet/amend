@@ -176,6 +176,16 @@ const PAS_UN_SEUIL = [
   },
   { fichier: 'mcp.js', motif: /^export const LIRE_PAR_DEFAUT = 40$/, pourquoi: 'défaut de pagination' },
   {
+    fichier: 'dialogue.js',
+    motif: /^const ATTENTE_QUOTA_MS = 20_000$/,
+    pourquoi: 'durée d’attente après un 429 faute de délai annoncé : un délai, pas une limite d’usage',
+  },
+  {
+    fichier: 'dialogue.js',
+    motif: /^const ATTENTE_QUOTA_MAX_MS = 60_000$/,
+    pourquoi: 'durée d’attente après un 429 : jusqu’où suivre le délai annoncé, un délai, pas une limite d’usage',
+  },
+  {
     fichier: 'mcp.js',
     motif: /^const ECRITURES_FENETRE_MS = 60 \* 60_000$/,
     pourquoi: 'la fenêtre (une heure) du garde-fou « par heure »',

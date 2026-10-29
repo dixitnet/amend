@@ -267,5 +267,6 @@ export async function envoyer({ corps, fetcher = globalThis.fetch, apiKey }) {
     sortie = { type: 'error', error: { type: 'api_error', message: String(detail).slice(0, 500) } }
   }
   const bonne = rep.ok && !!data
-  return { ok: bonne, status: rep.ok && !data ? 502 : rep.status, json: async () => sortie }
+  // Les en-têtes suivent (le délai d'attente d'un 429, `retry-after`, en vient).
+  return { ok: bonne, status: rep.ok && !data ? 502 : rep.status, headers: rep.headers, json: async () => sortie }
 }

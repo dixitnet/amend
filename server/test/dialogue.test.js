@@ -60,7 +60,7 @@ globalThis.fetch = async (url, init) => {
     if (!suivant) return new Response(JSON.stringify({ message: 'appel non prévu par le scénario' }), { status: 500 })
     return new Response(JSON.stringify(suivant.corps), {
       status: suivant.status || 200,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...(suivant.headers || {}) },
     })
   }
   return vraiFetch(url, init)
@@ -925,6 +925,69 @@ test('Margo sur Qwen (Scaleway) : réflexion coupée (none), et une clé refusé
     assert.ok(erreur)
     assert.match(erreur.message, /clé d’accès à Scaleway/)
     assert.doesNotMatch(erreur.message, /Unauthorized/)
+  } finally {
+    scenarioScaleway = []
+    delete process.env.SCALEWAY_API_KEY
+    await reglerIa(MARGO_DEFAUT)
+  }
+})
+
+test('Margo sur Scaleway : un 429 (quota de l’organisation) est attendu puis retenté, au lieu d’échouer', async () => {
+  const { delaiRelance } = await import('../dialogue.js')
+  // Sans en-tête : 20 s ; avec un délai annoncé : ce délai, 60 s au plus.
+  assert.equal(delaiRelance({ quota: true, essai: 0, retryAfter: null }), 20_000)
+  assert.equal(delaiRelance({ quota: true, essai: 1, retryAfter: '5' }), 5_000)
+  assert.equal(delaiRelance({ quota: true, essai: 0, retryAfter: '600' }), 60_000)
+  assert.equal(delaiRelance({ quota: false, essai: 2, retryAfter: null }), 9_000, 'erreur serveur : 1 s, 4 s, 9 s')
+
+  const doc = await documentDeTest()
+  process.env.SCALEWAY_API_KEY = 'cle-scaleway-factice'
+  await reglerIa({ modele: 'gpt-oss-120b' })
+  try {
+    requetesScaleway.length = 0
+    const quota = {
+      status: 429,
+      headers: { 'retry-after': '1' },
+      corps: { message: 'You exceeded your current organization quota.' },
+    }
+    scenarioScaleway = [quota, quota, texteMistral('Le chapitre compte trois blocs.')]
+    const debut = Date.now()
+    const r = await dialoguer(doc.id, 'admin@example.com', msg('bonjour'))
+    assert.equal(r.status, 200)
+    assert.equal(requetesScaleway.length, 3, 'deux 429, puis la réponse')
+    assert.ok(Date.now() - debut >= 1800, 'il a vraiment attendu')
+    assert.ok(r.evenements.some((e) => e.type === 'texte' && /trois blocs/.test(e.texte)))
+    assert.ok(!r.evenements.some((e) => e.type === 'erreur'))
+  } finally {
+    scenarioScaleway = []
+    delete process.env.SCALEWAY_API_KEY
+    await reglerIa(MARGO_DEFAUT)
+  }
+})
+
+test('Margo : les refus sont rangés par motif dans le bilan et dans le journal, sans aucun texte du document', async () => {
+  const doc = await documentDeTest()
+  process.env.SCALEWAY_API_KEY = 'cle-scaleway-factice'
+  await reglerIa({ modele: 'gpt-oss-120b' })
+  try {
+    requetesScaleway.length = 0
+    scenarioScaleway = [
+      appelMistral('AbCdEf123', 'proposer', {
+        remplacements: [
+          { bloc: 1, avant: 'texte absent du document', apres: 'x' },
+          { bloc: 1, avant: 'autre texte absent', apres: 'y' },
+        ],
+      }),
+      texteMistral('Rien à corriger.'),
+    ]
+    const r = await dialoguer(doc.id, 'admin@example.com', msg('corrige'))
+    assert.equal(r.status, 200)
+    assert.equal(r.fin.refus, 2)
+    assert.deepEqual(r.fin.motifs, { introuvable: 2 })
+    const journal = readFileSync(join(process.env.DATA_DIR, 'events-dialogue.jsonl'), 'utf8').trim().split('\n')
+    const derniere = JSON.parse(journal[journal.length - 1])
+    assert.deepEqual(derniere.motifsRefus, { introuvable: 2 })
+    assert.ok(!JSON.stringify(derniere).includes('texte absent'), 'aucun texte du document dans le journal')
   } finally {
     scenarioScaleway = []
     delete process.env.SCALEWAY_API_KEY

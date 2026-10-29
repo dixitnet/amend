@@ -19,6 +19,7 @@ import {
   ancreDeBloc,
   blocsDuDocument,
   commenter,
+  compterMotifs,
   fils,
   proposer,
   repondre,
@@ -473,7 +474,11 @@ export class Mcp {
         return {
           texte: lignes.join('\n'),
           erreur: !verdict.appliques.length,
-          comptes: { appliques: verdict.appliques.length, refuses: verdict.refuses.length },
+          comptes: {
+            appliques: verdict.appliques.length,
+            refuses: verdict.refuses.length,
+            motifs: compterMotifs(verdict.refuses),
+          },
           bloc: verdict.appliques.length ? verdict.appliques[verdict.appliques.length - 1].bloc : null,
         }
       }
@@ -498,7 +503,11 @@ export class Mcp {
         return {
           texte: lignes.join('\n'),
           erreur: !verdict.appliques.length,
-          comptes: { appliques: verdict.appliques.length, refuses: verdict.refuses.length },
+          comptes: {
+            appliques: verdict.appliques.length,
+            refuses: verdict.refuses.length,
+            motifs: compterMotifs(verdict.refuses),
+          },
           bloc: verdict.appliques.length ? verdict.appliques[verdict.appliques.length - 1].bloc : null,
         }
       }
@@ -522,7 +531,11 @@ export class Mcp {
         return {
           texte: lignes.join('\n'),
           erreur: !verdict.appliques.length,
-          comptes: { appliques: verdict.appliques.length, refuses: verdict.refuses.length },
+          comptes: {
+            appliques: verdict.appliques.length,
+            refuses: verdict.refuses.length,
+            motifs: compterMotifs(verdict.refuses),
+          },
           bloc: verdict.appliques.length ? verdict.appliques[verdict.appliques.length - 1].bloc : null,
         }
       }
@@ -551,7 +564,11 @@ export class Mcp {
         return {
           texte: lignes.join('\n'),
           erreur: !ok,
-          comptes: { appliques: ok, refuses: verdicts.length - ok },
+          comptes: {
+            appliques: ok,
+            refuses: verdicts.length - ok,
+            motifs: compterMotifs(verdicts.filter((v) => !v.ok)),
+          },
           bloc: dernier,
         }
       }

@@ -464,6 +464,7 @@ export class Dialogue {
           modifs: bilan.modifications,
           commentaires: bilan.commentaires,
           refus: bilan.refus,
+          ...(bilan.motifs ? { motifsRefus: bilan.motifs } : {}),
           ms: this.maintenant() - debut,
         })
       }
@@ -474,12 +475,14 @@ export class Dialogue {
     let modifications = 0
     let commentaires = 0
     let refus = 0
+    const motifs = {}
     for (const l of lignes) {
+      for (const [m, n] of Object.entries(l.motifs || {})) motifs[m] = (motifs[m] || 0) + n
       if (COMPTE_MODIFS.has(l.outil)) modifications += l.appliques || 0
       if (COMPTE_COMMENTAIRES.has(l.outil)) commentaires += l.appliques || 0
       refus += l.refuses || 0
     }
-    return { modifications, commentaires, refus }
+    return { modifications, commentaires, refus, ...(refus ? { motifs } : {}) }
   }
 
   /** Un appel à l’API, avec le repli de réglage de la réflexion (Sonnet 5
@@ -516,8 +519,9 @@ export class Dialogue {
             `joindre : ${err.message}`
           )
         }
-        if ((reponse.status === 429 || reponse.status >= 500) && essai < garde('margoRelances')) {
-          await this.pause(1000 * (essai + 1) * (essai + 1))
+        const quota = reponse.status === 429
+        if ((quota || reponse.status >= 500) && essai < garde('margoRelances')) {
+          await this.pause(delaiRelance({ quota, essai, retryAfter: reponse.headers?.get?.('retry-after') }))
           continue
         }
         let data = null
@@ -541,6 +545,23 @@ export class Dialogue {
     }
     throw new DialogueErreur(502, messageApi(400, derniereErreur, service), `réflexion refusée : ${derniereErreur}`)
   }
+}
+
+/** Attente par défaut après un « trop de demandes » (429), faute de délai annoncé. */
+const ATTENTE_QUOTA_MS = 20_000
+/** Le délai annoncé par le fournisseur n'est suivi que jusqu'à cette durée. */
+const ATTENTE_QUOTA_MAX_MS = 60_000
+
+/** L'attente avant de retenter, en millisecondes. Erreur serveur : 1 s, 4 s, 9 s…
+ * « Trop de demandes » (429) : la limite du fournisseur se compte par minute,
+ * donc on attend longtemps — le délai que le fournisseur annonce (`retry-after`,
+ * en secondes) s'il en donne un, sinon 20 s. Le nombre de tentatives est le
+ * garde-fou `margoRelances`. */
+export function delaiRelance({ quota, essai, retryAfter }) {
+  if (!quota) return 1000 * (essai + 1) * (essai + 1)
+  const annonce = Number(retryAfter)
+  if (Number.isFinite(annonce) && annonce > 0) return Math.min(Math.max(annonce * 1000, 1000), ATTENTE_QUOTA_MAX_MS)
+  return ATTENTE_QUOTA_MS
 }
 
 export { COULEUR_AGENT }

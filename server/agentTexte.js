@@ -237,6 +237,33 @@ export function statistiques(blocs) {
   return { blocs: blocs.length, mots, notes }
 }
 
+// --- Pourquoi une proposition est refusée -----------------------------------
+
+/** Range la raison d'un refus dans une catégorie courte et stable, pour le
+ * journal (`events-dialogue.jsonl`, `events-agents.jsonl`) : on y voit *pourquoi*
+ * un modèle se fait refuser, sans jamais écrire un mot du document. */
+export function motifDeRefus(raison) {
+  const r = String(raison || '')
+  if (/introuvable/.test(r)) return 'introuvable'
+  if (/apparaît \d+ fois/.test(r)) return 'ambigu'
+  if (/rien ne change/.test(r)) return 'identique'
+  if (/en attente/.test(r)) return 'en-attente'
+  if (/chevauche/.test(r)) return 'chevauche'
+  if (/recouvre|traverse un élément|hors du bloc|émoji/.test(r)) return 'structure'
+  if (/numéro de bloc|pas de bloc|doivent être du texte|est vide/.test(r)) return 'mal-forme'
+  return 'autre'
+}
+
+/** `{ introuvable: 3, identique: 2 }` pour une liste de refus `{ raison }`. */
+export function compterMotifs(refuses) {
+  const motifs = {}
+  for (const r of refuses || []) {
+    const m = motifDeRefus(r && r.raison)
+    motifs[m] = (motifs[m] || 0) + 1
+  }
+  return motifs
+}
+
 // --- Retrouver un passage --------------------------------------------------
 
 /**

@@ -122,7 +122,7 @@ const DEFINITIONS = [
     min: 0,
     max: 10,
     nature: 'emballement',
-    quoi: 'Si le fournisseur répond « trop de demandes » (429) ou une erreur serveur (5xx), l’appel est retenté après 1 s, puis 4 s. Au-delà, l’erreur est montrée à la personne.',
+    quoi: 'Si le fournisseur répond une erreur serveur (5xx), l’appel est retenté après 1 s, puis 4 s, puis 9 s… Si le fournisseur répond « trop de demandes » (429, quota de jetons ou de demandes par minute de l’organisation), Margo attend plus longtemps avant de retenter : le délai annoncé par le fournisseur (en-tête retry-after, 60 s au plus), sinon 20 s. Au-delà de ce nombre de tentatives, l’erreur est montrée à la personne. Pour un très long document sur un fournisseur à quota serré (Scaleway avant vérification d’identité), relever ce nombre.',
   },
   {
     id: 'margoMargeLecture',

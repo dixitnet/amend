@@ -16,8 +16,10 @@ import {
   ajouterNotes,
   blocsDuDocument,
   commenter,
+  compterMotifs,
   fils,
   modificationsDe,
+  motifDeRefus,
   proposer,
   repondre,
   situer,
@@ -388,6 +390,8 @@ test('ce qui ne peut pas être proposé est refusé avec sa raison, le reste pas
   assert.match(raisons[5], /rien ne change/)
   assert.match(raisons[6], /numéro/)
   assert.match(raisons[7], /texte/)
+  // Le journal range chaque refus dans une catégorie, sans jamais citer le texte.
+  assert.deepEqual(compterMotifs(v.refuses), { introuvable: 1, ambigu: 1, structure: 1, 'mal-forme': 3, identique: 1 })
   assert.equal(lectures(y, 3).accepte, 'Ce texte est correct.')
 })
 
@@ -849,4 +853,20 @@ test('commenter une note : ancré contre son appel, et le commentaire dit de que
   const second = par['À propos de la note 2 : Trop vague.']
   assert.equal(second.passage, 'Texte après.', 'sans texte avant, celui qui suit')
   assert.equal(second.bloc, 2)
+})
+
+test('motifDeRefus : chaque raison connue tombe dans sa catégorie, le reste dans « autre »', () => {
+  assert.equal(motifDeRefus('ce passage est introuvable dans le bloc 3 — recopie-le'), 'introuvable')
+  assert.equal(motifDeRefus('ce passage apparaît 2 fois dans le bloc 3 : allonge-le'), 'ambigu')
+  assert.equal(motifDeRefus('rien ne change entre `avant` et `apres`'), 'identique')
+  assert.equal(
+    motifDeRefus("le passage contient déjà une modification en attente : attends qu'un éditeur la traite"),
+    'en-attente'
+  )
+  assert.equal(motifDeRefus("l'endroit est dans une modification déjà en attente : attends"), 'en-attente')
+  assert.equal(motifDeRefus('ce remplacement chevauche un autre remplacement de la même demande'), 'chevauche')
+  assert.equal(motifDeRefus('le passage traverse un élément du document : découpe-le'), 'structure')
+  assert.equal(motifDeRefus('numéro de bloc manquant ou invalide'), 'mal-forme')
+  assert.equal(motifDeRefus('autre chose'), 'autre')
+  assert.deepEqual(compterMotifs([]), {})
 })
