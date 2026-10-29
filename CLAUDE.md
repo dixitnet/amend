@@ -22,7 +22,7 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 - Dépôt : `~/Documents/collabtext-test/collabtext` (Mac, dev) ; remote `git@github.com:dixitnet/amend.git` (privé).
 - Dev : serveur tenu par le LaunchAgent `net.dixit.collabtext` (relance : `launchctl kickstart -k gui/$(id -u)/net.dixit.collabtext`). Le serveur sert `client/dist` depuis le disque : un rebuild du client prend effet sans redémarrage ; un changement dans `server/` ou `.env` demande un redémarrage.
 - Prod : VPS Gandi V-R1 (1 vCPU, 1 Go RAM + 2 Go swap), Debian 13, Node 24, Caddy, service systemd `amend` (MemoryMax 700M), code dans `/opt/amend/app`, données dans `/opt/amend/data`. Site public : https://www.amend.ink.
-- `.env` (jamais commité) : `PORT`, `DATA_DIR`, `SESSION_SECRET`, `ADMIN_EMAILS`, `APP_BASE_URL`, `MAILGUN_API_KEY`, `MAILGUN_DOMAIN` (zone EU), `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` (optionnel), `CORRECTEUR_ETANCHE`. Ne jamais afficher ni copier ces valeurs.
+- `.env` (jamais commité) : `PORT`, `DATA_DIR`, `SESSION_SECRET`, `ADMIN_EMAILS`, `APP_BASE_URL`, `MAILGUN_API_KEY`, `MAILGUN_DOMAIN` (zone EU), `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` (optionnel), `SCALEWAY_API_KEY` (optionnel), `CORRECTEUR_ETANCHE`. Ne jamais afficher ni copier ces valeurs.
 - Sauvegardes : le NAS tire `data/` du VPS chaque nuit, puis envoi vers Proton Drive.
 
 ## Livrer
@@ -41,7 +41,7 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 - `server/` : Node, HTTP + WebSocket maison. `storage.js` (documents, accès, `roleFor`), `roles.js` (rôles éditeur / correcteur / lecteur → **capacités** ; toute évolution des droits se fait là), `replique.js` (réplique Yjs par document ouvert, compactage côté serveur), `auth.js` + `mailgun.js` (lien magique, invitations nominatives), `typst.js` + `routes/export.js` (PDF), `publication.js` (page publiée), `admin.js` + `metrics.js` (back-office `#/admin`, journaux `data/events-*.jsonl`), `garde-fous.js` (limites IA).
 - `shared/` : code commun client/serveur — `diff.js` (corrections de l'IA), `propre.js` (`nfc`).
 - `tools/` : scripts (banc de charge, `nettoyer-images.mjs`…). `deploy/` : livraison.
-- IA : « Margo (IA) » dans l'application ; le connecteur « Inviter Claude » s'affiche « Claude (pour <prénom>) ». Fournisseurs Anthropic (et Mistral en option). Voir `docs/journal-decisions.md` pour les modèles.
+- IA : « Margo (IA) » dans l'application ; le connecteur « Inviter Claude » s'affiche « Claude (pour <prénom>) ». Fournisseurs Anthropic (et Mistral, Scaleway en option). Voir `docs/journal-decisions.md` pour les modèles.
 
 ## Pièges techniques déjà rencontrés
 

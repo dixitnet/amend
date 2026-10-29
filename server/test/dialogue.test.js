@@ -28,6 +28,8 @@ const requetes = []
 let scenario = []
 const requetesMistral = []
 let scenarioMistral = []
+const requetesScaleway = []
+let scenarioScaleway = []
 globalThis.fetch = async (url, init) => {
   if (String(url).startsWith('https://api.anthropic.com/')) {
     const corps = JSON.parse(init.body)
@@ -45,6 +47,16 @@ globalThis.fetch = async (url, init) => {
     const corps = JSON.parse(init.body)
     requetesMistral.push({ url: String(url), headers: init.headers, corps })
     const suivant = scenarioMistral.shift()
+    if (!suivant) return new Response(JSON.stringify({ message: 'appel non prévu par le scénario' }), { status: 500 })
+    return new Response(JSON.stringify(suivant.corps), {
+      status: suivant.status || 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+  if (String(url).startsWith('https://api.scaleway.ai/')) {
+    const corps = JSON.parse(init.body)
+    requetesScaleway.push({ url: String(url), headers: init.headers, corps })
+    const suivant = scenarioScaleway.shift()
     if (!suivant) return new Response(JSON.stringify({ message: 'appel non prévu par le scénario' }), { status: 500 })
     return new Response(JSON.stringify(suivant.corps), {
       status: suivant.status || 200,
@@ -838,6 +850,84 @@ test('Margo sur Mistral : une clé refusée est dite en clair, sans le texte du 
   } finally {
     scenarioMistral = []
     delete process.env.MISTRAL_API_KEY
+    await reglerIa(MARGO_DEFAUT)
+  }
+})
+
+// --- Scaleway (29/10/2026) : gpt-oss-120b et Qwen, même boucle ---------------
+
+test('Margo sur gpt-oss-120b : sans clé Scaleway, un message clair qui nomme Scaleway et rien n’est envoyé', async () => {
+  const doc = await documentDeTest()
+  delete process.env.SCALEWAY_API_KEY
+  await reglerIa({ modele: 'gpt-oss-120b' })
+  try {
+    requetes.length = 0
+    requetesScaleway.length = 0
+    const r = await dialoguer(doc.id, 'admin@example.com', msg('bonjour'))
+    assert.equal(r.status, 501)
+    assert.match(r.erreur, /clé d’accès à Scaleway n’est pas configurée/)
+    assert.equal(requetes.length + requetesScaleway.length, 0)
+  } finally {
+    await reglerIa(MARGO_DEFAUT)
+  }
+})
+
+test('Margo sur gpt-oss-120b : la boucle d’outils passe par Scaleway, réflexion au plus bas, réflexion renvoyée ignorée', async () => {
+  const doc = await documentDeTest()
+  process.env.SCALEWAY_API_KEY = 'cle-scaleway-factice'
+  await reglerIa({ modele: 'gpt-oss-120b' })
+  try {
+    requetes.length = 0
+    requetesScaleway.length = 0
+    const avecReflexion = (rep) => {
+      rep.corps.choices[0].message.reasoning = 'Je dois d’abord lire le plan.'
+      return rep
+    }
+    scenarioScaleway = [
+      avecReflexion(appelMistral('AbCdEf123', 'plan', {})),
+      avecReflexion(texteMistral('Le chapitre compte trois blocs.')),
+    ]
+    const r = await dialoguer(doc.id, 'admin@example.com', msg('combien de blocs ?'))
+    assert.equal(r.status, 200)
+    assert.equal(requetes.length, 0, 'rien n’est parti chez Anthropic')
+    assert.equal(requetesScaleway.length, 2)
+    const [premiere, seconde] = requetesScaleway
+    assert.equal(premiere.url, 'https://api.scaleway.ai/v1/chat/completions')
+    assert.equal(premiere.headers.authorization, 'Bearer cle-scaleway-factice')
+    assert.equal(premiere.corps.model, 'gpt-oss-120b')
+    assert.equal(premiere.corps.reasoning_effort, 'low')
+    assert.equal(premiere.corps.thinking, undefined)
+    assert.ok(premiere.corps.tools.some((t) => t.type === 'function' && t.function.name === 'plan'))
+    const outilRendu = seconde.corps.messages.find((m) => m.role === 'tool')
+    assert.ok(outilRendu && outilRendu.tool_call_id === 'AbCdEf123' && outilRendu.name === 'plan')
+    assert.ok(r.evenements.some((e) => e.type === 'texte' && /trois blocs/.test(e.texte)))
+    assert.ok(!JSON.stringify(r.evenements).includes('Je dois d’abord'), 'la réflexion n’est jamais montrée')
+    assert.ok(!r.evenements.some((e) => e.type === 'erreur'))
+    assert.equal(r.fin.usage.tours, 2)
+  } finally {
+    scenarioScaleway = []
+    delete process.env.SCALEWAY_API_KEY
+    await reglerIa(MARGO_DEFAUT)
+  }
+})
+
+test('Margo sur Qwen (Scaleway) : réflexion coupée (none), et une clé refusée est dite en clair', async () => {
+  const doc = await documentDeTest()
+  process.env.SCALEWAY_API_KEY = 'cle-scaleway-factice'
+  await reglerIa({ modele: 'qwen3-235b-a22b-instruct-2507' })
+  try {
+    requetesScaleway.length = 0
+    scenarioScaleway = [{ status: 401, corps: { message: 'Unauthorized' } }]
+    const r = await dialoguer(doc.id, 'admin@example.com', msg('bonjour'))
+    assert.equal(requetesScaleway[0].corps.reasoning_effort, 'none')
+    assert.equal(r.status, 200)
+    const erreur = r.evenements.find((e) => e.type === 'erreur')
+    assert.ok(erreur)
+    assert.match(erreur.message, /clé d’accès à Scaleway/)
+    assert.doesNotMatch(erreur.message, /Unauthorized/)
+  } finally {
+    scenarioScaleway = []
+    delete process.env.SCALEWAY_API_KEY
     await reglerIa(MARGO_DEFAUT)
   }
 })

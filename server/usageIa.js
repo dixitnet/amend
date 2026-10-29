@@ -52,9 +52,21 @@ export const TARIFS_USD = {
   'mistral-large-4-0': { entree: 0.748, sortie: 2.299, poidsCacheLu: 1 },
 }
 
-/** Le coût estimé, en dollars, d'une consommation de jetons. */
-export function coutUsd(modele, j) {
-  const t = TARIFS_USD[modele]
+/** Euros par million de jetons (entrée, sortie) : les modèles de Scaleway, qui
+ * facture en euros (29/10/2026) — ni convertis ni mêlés aux dollars : le
+ * back-office montre chaque monnaie à part. Grille publique de Scaleway :
+ * gpt-oss-120b 0,15 / 0,60 € ; Qwen 3 235B Instruct 0,75 / 2,25 €. Qwen 3.5
+ * 397B : **prix non trouvé** chez Scaleway — valeur provisoire (0,6 / 3,6 €,
+ * celle qu'affichent IONOS et OVHcloud), à corriger d'après la console
+ * Scaleway. Le cache automatique de Scaleway n'a pas de tarif connu : les
+ * jetons relus sont comptés plein tarif (estimation haute). */
+export const TARIFS_EUR = {
+  'gpt-oss-120b': { entree: 0.15, sortie: 0.6, poidsCacheLu: 1 },
+  'qwen3.5-397b-a17b': { entree: 0.6, sortie: 3.6, poidsCacheLu: 1, provisoire: true },
+  'qwen3-235b-a22b-instruct-2507': { entree: 0.75, sortie: 2.25, poidsCacheLu: 1 },
+}
+
+function coutSelon(t, j) {
   if (!t || !j) return 0
   const m = 1e6
   return (
@@ -64,6 +76,16 @@ export function coutUsd(modele, j) {
       (j.cacheEcrit || 0) * t.entree * 1.25) /
     m
   )
+}
+
+/** Le coût estimé, en dollars, d'une consommation de jetons (0 pour un modèle facturé en euros). */
+export function coutUsd(modele, j) {
+  return coutSelon(TARIFS_USD[modele], j)
+}
+
+/** Le coût estimé, en euros (0 pour un modèle facturé en dollars). */
+export function coutEur(modele, j) {
+  return coutSelon(TARIFS_EUR[modele], j)
 }
 
 const compteurVide = () => ({
@@ -76,8 +98,9 @@ const compteurVide = () => ({
   cacheLu: 0,
   cacheEcrit: 0,
   usd: 0,
+  eur: 0,
 })
-const jetonsVides = () => ({ appels: 0, entree: 0, sortie: 0, cacheLu: 0, cacheEcrit: 0, usd: 0 })
+const jetonsVides = () => ({ appels: 0, entree: 0, sortie: 0, cacheLu: 0, cacheEcrit: 0, usd: 0, eur: 0 })
 const entier = (x) => (Number.isFinite(x) && x > 0 ? Math.floor(x) : 0)
 
 export class UsageIa {
@@ -140,7 +163,8 @@ export class UsageIa {
       c.sortie += entier(jetons.sortie)
       c.cacheLu += entier(jetons.cacheLu)
       c.cacheEcrit += entier(jetons.cacheEcrit)
-      c.usd = Math.round((c.usd + coutUsd(modele, jetons)) * 1e6) / 1e6
+      c.usd = Math.round(((c.usd || 0) + coutUsd(modele, jetons)) * 1e6) / 1e6
+      c.eur = Math.round(((c.eur || 0) + coutEur(modele, jetons)) * 1e6) / 1e6
     }
     if (jetons && modele) {
       const m = (mois.modeles[modele] = mois.modeles[modele] || { ...jetonsVides(), parFonction: {} })
@@ -151,7 +175,8 @@ export class UsageIa {
         cible.sortie += entier(jetons.sortie)
         cible.cacheLu += entier(jetons.cacheLu)
         cible.cacheEcrit += entier(jetons.cacheEcrit)
-        cible.usd = Math.round((cible.usd + coutUsd(modele, jetons)) * 1e6) / 1e6
+        cible.usd = Math.round(((cible.usd || 0) + coutUsd(modele, jetons)) * 1e6) / 1e6
+        cible.eur = Math.round(((cible.eur || 0) + coutEur(modele, jetons)) * 1e6) / 1e6
       }
     }
     this._enregistrerSurDisque()

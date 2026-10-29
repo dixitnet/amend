@@ -35,6 +35,12 @@ export const MODELES = [
   { id: 'claude-haiku-5-5', nom: 'Haiku 5.5', fournisseur: 'Anthropic' },
   { id: 'claude-sonnet-5-5', nom: 'Sonnet 5.5', fournisseur: 'Anthropic' },
   { id: 'mistral-large-4-0', nom: 'Mistral Large 4', fournisseur: 'Mistral (UE)' },
+  // Scaleway (Paris), ajoutés le 29/10/2026 pour des essais réels : zéro
+  // rétention par défaut, droit européen. Ils demandent `SCALEWAY_API_KEY`.
+  // Jamais passés au banc : à juger sur de vrais textes (events-ia.jsonl).
+  { id: 'gpt-oss-120b', nom: 'gpt-oss 120B', fournisseur: 'Scaleway (Paris)' },
+  { id: 'qwen3.5-397b-a17b', nom: 'Qwen 3.5 397B', fournisseur: 'Scaleway (Paris)' },
+  { id: 'qwen3-235b-a22b-instruct-2507', nom: 'Qwen 3 235B Instruct', fournisseur: 'Scaleway (Paris)' },
 ]
 
 /** Niveaux d'accès, du plus fermé au plus ouvert. Le niveau est un **minimum** :

@@ -6,12 +6,15 @@
 //   - `mistral-*` : à Mistral (point d'accès européen), après traduction vers
 //     /v1/chat/completions (outils → `function`, tool_use ↔ tool_calls, arrêt
 //     par longueur → max_tokens, jetons), puis la réponse est retraduite au
-//     format Messages. Le reste du code ne voit aucune différence.
+//     format Messages. Le reste du code ne voit aucune différence ;
+//   - `gpt-oss-*` et `qwen*` : à Scaleway (Generative APIs, Paris), par la même
+//     traduction — l'API de Scaleway est elle aussi compatible OpenAI (ajouté le
+//     29/10/2026 ; claude/etude-scaleway-generative-apis.md).
 // La traduction est celle de la passerelle du banc d'essai
 // (banc-modeles/passerelle-mistral.js), qui a servi à mesurer Mistral Large 4
 // sur Corrections IA et sur Margo (rapports du volet 1 et du volet 2).
 // Les clés viennent de l'environnement du serveur (ANTHROPIC_API_KEY,
-// MISTRAL_API_KEY) : jamais lues ailleurs, jamais journalisées.
+// MISTRAL_API_KEY, SCALEWAY_API_KEY) : jamais lues ailleurs, jamais journalisées.
 
 import { createHash } from 'node:crypto'
 
@@ -28,16 +31,28 @@ export function urlMistral() {
   return `${(process.env.MISTRAL_API_URL || 'https://api.eu.mistral.ai').replace(/\/$/, '')}/v1/chat/completions`
 }
 
-const MODELE_MISTRAL = /^(open-)?(mistral|ministral|magistral|codestral|devstral|pixtral)/i
+/** L'adresse des complétions de Scaleway (Generative APIs, Paris). La clé est
+ * celle d'un projet : l'adresse n'a pas besoin de l'identifiant du projet.
+ * `SCALEWAY_API_URL` ne sert qu'aux essais. */
+export function urlScaleway() {
+  return `${(process.env.SCALEWAY_API_URL || 'https://api.scaleway.ai').replace(/\/$/, '')}/v1/chat/completions`
+}
 
-/** 'anthropic' ou 'mistral', d'après l'identifiant du modèle. */
+const MODELE_MISTRAL = /^(open-)?(mistral|ministral|magistral|codestral|devstral|pixtral)/i
+const MODELE_SCALEWAY = /^(gpt-oss|qwen)/i
+
+/** 'anthropic', 'mistral' ou 'scaleway', d'après l'identifiant du modèle. */
 export function fournisseurDe(modele) {
-  return MODELE_MISTRAL.test(String(modele || '')) ? 'mistral' : 'anthropic'
+  const m = String(modele || '')
+  if (MODELE_MISTRAL.test(m)) return 'mistral'
+  if (MODELE_SCALEWAY.test(m)) return 'scaleway'
+  return 'anthropic'
 }
 
 const SERVICES = {
   anthropic: { nom: 'Claude', variable: 'ANTHROPIC_API_KEY' },
   mistral: { nom: 'Mistral', variable: 'MISTRAL_API_KEY' },
+  scaleway: { nom: 'Scaleway', variable: 'SCALEWAY_API_KEY' },
 }
 
 /** La clé du fournisseur de ce modèle (chaîne vide si absente). */
@@ -77,15 +92,23 @@ function texteDe(contenu) {
 
 // ------------------------------------------------------------ requête → Mistral
 /** Traduit un corps de requête Messages (Anthropic) en corps chat/completions
- * (Mistral). Ce qui n'a pas d'équivalent est supprimé : `cache_control` et les
+ * (Mistral ou Scaleway, selon `service`). Ce qui n'a pas d'équivalent est supprimé : `cache_control` et les
  * blocs de réflexion. `thinking: disabled` devient `reasoning_effort: none` :
  * Large 4 réfléchit par défaut, et ces jetons se paient au tarif de sortie et
  * rongent `max_tokens` — pour la correction comme pour Margo, le banc l'a
  * mesuré réflexion coupée. Le texte qui suit des résultats d'outil dans un même
  * message utilisateur (consigne de reprise) est ajouté au dernier résultat
  * d'outil : un message `user` juste après un message `tool` est refusé par
- * certaines versions de l'API. */
-export function traduireRequete(a) {
+ * certaines versions de l'API.
+ *
+ * Chez Scaleway, `gpt-oss-120b` ne se laisse pas couper la réflexion (« none »
+ * est refusé) : `disabled` devient `low`, le plus bas ; les modèles Qwen
+ * acceptent `none`. Le contenu de réflexion renvoyé n'est jamais lu (voir
+ * `traduireReponse`), mais ses jetons se paient : ils figurent dans la
+ * consommation. Pour le choix d'outil, Scaleway ne documente que `auto` et une
+ * fonction nommée ; `none` et `required` sont transmis tels quels, comme sur
+ * les serveurs OpenAI-compatibles usuels, et à vérifier à l'essai. */
+export function traduireRequete(a, service = 'mistral') {
   const messages = []
   const systeme = texteDe(a.system)
   if (systeme) messages.push({ role: 'system', content: systeme })
@@ -134,7 +157,9 @@ export function traduireRequete(a) {
   }
   const corps = { model: a.model, messages, stream: false }
   if (a.max_tokens != null) corps.max_tokens = a.max_tokens
-  if (a.thinking && a.thinking.type === 'disabled') corps.reasoning_effort = 'none'
+  if (a.thinking && a.thinking.type === 'disabled') {
+    corps.reasoning_effort = service === 'scaleway' && /^gpt-oss/i.test(a.model) ? 'low' : 'none'
+  }
   if (a.temperature != null) corps.temperature = a.temperature
   if (a.top_p != null) corps.top_p = a.top_p
   if (a.tools && a.tools.length) {
@@ -148,6 +173,9 @@ export function traduireRequete(a) {
     }))
     const tc = a.tool_choice && a.tool_choice.type
     if (tc === 'none') corps.tool_choice = 'none'
+    else if (service === 'scaleway' && tc === 'tool' && a.tool_choice.name)
+      corps.tool_choice = { type: 'function', function: { name: a.tool_choice.name } }
+    else if (service === 'scaleway' && (tc === 'any' || tc === 'tool')) corps.tool_choice = 'required'
     else if (tc === 'any' || tc === 'tool') corps.tool_choice = 'any'
     else if (tc === 'auto') corps.tool_choice = 'auto'
   }
@@ -157,7 +185,9 @@ export function traduireRequete(a) {
 // --------------------------------------------------------- réponse → Anthropic
 const ARRETS = { stop: 'end_turn', length: 'max_tokens', model_length: 'max_tokens', tool_calls: 'tool_use' }
 
-/** Traduit une réponse chat/completions en réponse Messages. */
+/** Traduit une réponse chat/completions en réponse Messages. Seul le contenu
+ * final est repris : la réflexion (`reasoning`, `reasoning_content`) est
+ * ignorée. */
 export function traduireReponse(r, modele) {
   const choix = (r.choices && r.choices[0]) || {}
   const msg = choix.message || {}
@@ -211,17 +241,18 @@ export function traduireReponse(r, modele) {
 export async function envoyer({ corps, fetcher = globalThis.fetch, apiKey }) {
   const modele = corps.model
   const cle = apiKey || cleDe(modele)
-  if (fournisseurDe(modele) !== 'mistral') {
+  const service = fournisseurDe(modele)
+  if (service === 'anthropic') {
     return fetcher(urlAnthropic(), {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': cle, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify(corps),
     })
   }
-  const rep = await fetcher(urlMistral(), {
+  const rep = await fetcher(service === 'scaleway' ? urlScaleway() : urlMistral(), {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json', authorization: `Bearer ${cle}` },
-    body: JSON.stringify(traduireRequete(corps)),
+    body: JSON.stringify(traduireRequete(corps, service)),
   })
   let data = null
   try {

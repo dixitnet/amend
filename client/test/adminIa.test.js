@@ -186,6 +186,52 @@ test('Mistral Large 4 est proposé, et signalé « clé non configurée » tant 
   )
 })
 
+test('les modèles de Scaleway sont proposés, et leur coût s’affiche en euros, à côté des dollars', async () => {
+  const racine = installer()
+  const d = donnees()
+  d.modeles = [
+    { id: 'claude-haiku-5-5', nom: 'Haiku 5.5', cle: true },
+    { id: 'gpt-oss-120b', nom: 'gpt-oss 120B', cle: false },
+    { id: 'qwen3.5-397b-a17b', nom: 'Qwen 3.5 397B', cle: true },
+  ]
+  d.jetonsParModele['gpt-oss-120b'] = {
+    appels: 2,
+    entree: 4000,
+    sortie: 1000,
+    cacheLu: 0,
+    cacheEcrit: 0,
+    usd: 0,
+    eur: 0.0012,
+    parFonction: {},
+  }
+  d.jetonsParModele['qwen3.5-397b-a17b'] = {
+    appels: 1,
+    entree: 1000,
+    sortie: 100,
+    cacheLu: 0,
+    cacheEcrit: 0,
+    usd: 0,
+    eur: 0.05,
+    parFonction: {},
+  }
+  d.tarifsEur = {
+    'gpt-oss-120b': { entree: 0.15, sortie: 0.6 },
+    'qwen3.5-397b-a17b': { entree: 0.6, sortie: 3.6, provisoire: true },
+  }
+  d.utilisateurs[0].corrections = compteur({ demandes: 1, signes: 100, entree: 10, sortie: 5, usd: 0.5, eur: 0.25 })
+  await mountAdminIa(racine, { fetcher: async () => json(d) })
+  const options = [...racine.querySelector('[name="corrections.modele"]').options]
+  assert.deepEqual(
+    options.map((o) => o.textContent),
+    ['Haiku 5.5', 'gpt-oss 120B — clé non configurée', 'Qwen 3.5 397B']
+  )
+  const texte = racine.textContent.replace(/\u00a0/g, ' ')
+  assert.match(texte, /0,15 \/ 0,6 € par million de jetons/)
+  assert.match(texte, /0,0012 €/)
+  assert.match(texte, /tarif provisoire/)
+  assert.match(texte, /0,50 \$ \+ 0,25 €/) // les deux monnaies côte à côte, sans conversion
+})
+
 test('les clics du bouton « Reformuler », retiré, restent comptés au cumul — sous leur nom', async () => {
   const racine = installer()
   const boutons = {

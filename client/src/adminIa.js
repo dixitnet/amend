@@ -52,7 +52,12 @@ export const libelleMois = (m) => {
   return MOIS[Number(n) - 1] ? `${MOIS[Number(n) - 1]} ${a}` : String(m)
 }
 
-const usd = (v) => (v ? `${v < 0.01 ? v.toFixed(4) : v.toFixed(2)} $`.replace('.', ',') : '—')
+const somme = (v, signe) => `${v < 0.01 ? v.toFixed(4) : v.toFixed(2)} ${signe}`.replace('.', ',')
+/** Le coût d'un compteur : dollars (Claude, Mistral) et euros (Scaleway) restent séparés. */
+const cout = (c) => {
+  const p = [c.usd ? somme(c.usd, '$') : '', c.eur ? somme(c.eur, '€') : ''].filter(Boolean)
+  return p.length ? p.join(' + ') : '—'
+}
 const jetons = (c) =>
   c.entree || c.sortie || c.cacheLu || c.cacheEcrit
     ? `${nombre(c.entree)} entrée · ${nombre(c.sortie)} sortie${c.cacheLu || c.cacheEcrit ? ` · ${nombre(c.cacheLu)} cache lu · ${nombre(c.cacheEcrit)} cache écrit` : ''}`
@@ -138,7 +143,7 @@ function tableConso(d) {
       const c = u[f.id]
       const max = d.reglages[f.id].signesParMois
       const part = max ? Math.round((c.signes / max) * 100) : 0
-      return `<td>${nombre(c.demandes)} demande(s)${c.passages > c.demandes ? ` (${nombre(c.passages)} paragraphes)` : ''}${c.echecs ? ` · ${nombre(c.echecs)} échec(s)` : ''}<br><strong>${nombre(c.signes)}</strong> / ${nombre(max)} signes (${part} %)<br><span class="bo-ia-jetons">${jetons(c)}</span><br>${usd(c.usd)}</td>`
+      return `<td>${nombre(c.demandes)} demande(s)${c.passages > c.demandes ? ` (${nombre(c.passages)} paragraphes)` : ''}${c.echecs ? ` · ${nombre(c.echecs)} échec(s)` : ''}<br><strong>${nombre(c.signes)}</strong> / ${nombre(max)} signes (${part} %)<br><span class="bo-ia-jetons">${jetons(c)}</span><br>${cout(c)}</td>`
     }
     return `<tr><th scope="row">${u.nom ? `${esc(u.nom)}<br>` : ''}<span class="bo-ia-mail">${esc(u.email)}</span></th>${d.fonctions.map(cellule).join('')}</tr>`
   }
@@ -150,13 +155,14 @@ function tableConso(d) {
         a.signes += c.signes
         a.jetons += c.entree + c.sortie + c.cacheLu + c.cacheEcrit
         a.usd += c.usd
+        a.eur += c.eur || 0
         return a
       },
-      { demandes: 0, signes: 0, jetons: 0, usd: 0 }
+      { demandes: 0, signes: 0, jetons: 0, usd: 0, eur: 0 }
     )
     // Le rapport jetons / signes : la donnée qui traduit un budget en euros en un quota en signes.
     const rapport = t.signes ? `${(t.jetons / t.signes).toFixed(2).replace('.', ',')} jeton(s) par signe` : '—'
-    return `<td>${nombre(t.demandes)} demande(s)<br><strong>${nombre(t.signes)}</strong> signes<br>${rapport}<br>${usd(t.usd)}</td>`
+    return `<td>${nombre(t.demandes)} demande(s)<br><strong>${nombre(t.signes)}</strong> signes<br>${rapport}<br>${cout(t)}</td>`
   }
   return `<table class="bo-table bo-ia-table">
     <thead><tr><th></th>${d.fonctions.map((f) => `<th>${esc(f.nom)}</th>`).join('')}</tr></thead>
@@ -196,11 +202,14 @@ function tableModeles(d) {
   const entrees = Object.entries(d.jetonsParModele)
   if (!entrees.length) return '<p class="bo-note">Aucun jeton facturé ce mois-là.</p>'
   const ligne = (nom, c) =>
-    `<tr><th scope="row">${nom}</th><td>${nombre(c.appels)}</td><td>${nombre(c.entree)}</td><td>${nombre(c.sortie)}</td><td>${nombre(c.cacheLu)}</td><td>${nombre(c.cacheEcrit)}</td><td>${usd(c.usd)}</td></tr>`
+    `<tr><th scope="row">${nom}</th><td>${nombre(c.appels)}</td><td>${nombre(c.entree)}</td><td>${nombre(c.sortie)}</td><td>${nombre(c.cacheLu)}</td><td>${nombre(c.cacheEcrit)}</td><td>${cout(c)}</td></tr>`
   const corps = entrees
     .map(([id, m]) => {
-      const tarif = d.tarifsUsd && d.tarifsUsd[id]
-      const entete = `${esc(noms[id] || id)}${tarif ? `<br><small>${String(tarif.entree).replace('.', ',')} / ${String(tarif.sortie).replace('.', ',')} $ par million de jetons (entrée / sortie)</small>` : ''}`
+      const tarifUsd = d.tarifsUsd && d.tarifsUsd[id]
+      const tarifEur = d.tarifsEur && d.tarifsEur[id]
+      const tarif = tarifUsd || tarifEur
+      const signe = tarifUsd ? '$' : '€'
+      const entete = `${esc(noms[id] || id)}${tarif ? `<br><small>${String(tarif.entree).replace('.', ',')} / ${String(tarif.sortie).replace('.', ',')} ${signe} par million de jetons (entrée / sortie)${tarif.provisoire ? ' — tarif provisoire, à vérifier dans la console du fournisseur' : ''}</small>` : ''}`
       const parFonction = d.fonctions
         .filter((f) => m.parFonction && m.parFonction[f.id])
         .map((f) => ligne(`&nbsp;&nbsp;↳ ${esc(f.nom)}`, m.parFonction[f.id]))
@@ -209,7 +218,7 @@ function tableModeles(d) {
     })
     .join('')
   return `<table class="bo-table"><thead><tr><th>Modèle</th><th>Demandes</th><th>Entrée</th><th>Sortie</th><th>Cache lu</th><th>Cache écrit</th><th>Coût estimé</th></tr></thead><tbody>${corps}</tbody></table>
-  <p class="bo-note">L'entrée est hors cache ; pour Claude, le cache lu et le cache écrit se facturent à part (un dixième du prix d'entrée, et 1,25 fois) ; pour Mistral, le cache lu est compté plein tarif (estimation haute). Les jetons sont comptés même quand la demande échoue : l'API les a facturés. Le coût est une estimation aux tarifs ci-dessus, en dollars.</p>`
+  <p class="bo-note">L'entrée est hors cache ; pour Claude, le cache lu et le cache écrit se facturent à part (un dixième du prix d'entrée, et 1,25 fois) ; pour Mistral et Scaleway, le cache lu est compté plein tarif (estimation haute). Les jetons sont comptés même quand la demande échoue : l'API les a facturés. Le coût est une estimation aux tarifs ci-dessus, dans la monnaie du fournisseur : dollars pour Claude et Mistral, euros pour Scaleway (sans conversion).</p>`
 }
 
 /** Ce que la vue d'ensemble sait de l'IA : l'activité sur 24 h, 7 et 30 jours,

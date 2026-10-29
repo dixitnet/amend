@@ -489,9 +489,9 @@ export class Dialogue {
     const fetcher = this.fetcher || globalThis.fetch
     const service = serviceDe(modele)
     const connu = this.reflexion.get(modele)
-    // Mistral : la réflexion est coupée d'emblée (`disabled` devient
-    // `reasoning_effort: none`, server/fournisseurs.js) ; pas de repli à tenter.
-    const chaine = fournisseurDe(modele) === 'mistral' ? ['disabled'] : ['between_tools', 'disabled', null]
+    // Mistral et Scaleway : la réflexion est coupée d'emblée (`disabled` devient
+    // `reasoning_effort`, server/fournisseurs.js) ; pas de repli à tenter.
+    const chaine = fournisseurDe(modele) !== 'anthropic' ? ['disabled'] : ['between_tools', 'disabled', null]
     // Le réglage qui a marché d'abord ; les autres seulement s'il est refusé un jour.
     const reglages = connu !== undefined ? [connu, ...chaine.filter((r) => r !== connu)] : chaine
     let derniereErreur = ''

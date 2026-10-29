@@ -22,6 +22,7 @@ const BASE = `http://localhost:${PORT}`
 const vraiFetch = globalThis.fetch
 const requetes = []
 const requetesMistral = []
+const requetesScaleway = []
 let reponse = null // une fonction (corps de requête) → { status?, corps }
 globalThis.fetch = async (url, init) => {
   if (String(url).startsWith('https://api.anthropic.com/')) {
@@ -38,6 +39,16 @@ globalThis.fetch = async (url, init) => {
     return new Response(
       JSON.stringify({
         choices: [{ message: { role: 'assistant', content: 'Texte corrigé par Mistral.' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 80, completion_tokens: 6 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )
+  }
+  if (String(url).startsWith('https://api.scaleway.ai/')) {
+    requetesScaleway.push({ url: String(url), headers: init.headers, corps: JSON.parse(init.body) })
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: 'Texte corrigé par Scaleway.' }, finish_reason: 'stop' }],
         usage: { prompt_tokens: 80, completion_tokens: 6 },
       }),
       { status: 200, headers: { 'content-type': 'application/json' } }
@@ -107,8 +118,15 @@ test('les réglages : réservés aux administrateurs, bornés, avec des messages
   const etat = await conso()
   assert.deepEqual(
     etat.modeles.map((m) => m.id),
-    ['claude-haiku-5-5', 'claude-sonnet-5-5', 'mistral-large-4-0'],
-    'Haiku, Sonnet et Mistral Large 4 seulement'
+    [
+      'claude-haiku-5-5',
+      'claude-sonnet-5-5',
+      'mistral-large-4-0',
+      'gpt-oss-120b',
+      'qwen3.5-397b-a17b',
+      'qwen3-235b-a22b-instruct-2507',
+    ],
+    'Haiku, Sonnet, Mistral Large 4 et les trois modèles de Scaleway seulement'
   )
   assert.deepEqual(etat.niveaux, ['admin', 'editeur', 'correcteur'])
   assert.equal(etat.reglages.corrections.modele, 'claude-haiku-5-5')
@@ -423,6 +441,44 @@ test('Corrections IA sur Mistral Large 4 : sans clé, 501 qui nomme MISTRAL_API_
     assert.ok((await conso()).jetonsParModele['mistral-large-4-0'].entree >= 80)
   } finally {
     delete process.env.MISTRAL_API_KEY
+    await remettre()
+  }
+})
+
+test('Corrections IA sur gpt-oss-120b (Scaleway) : sans clé, 501 qui nomme SCALEWAY_API_KEY ; avec clé, jetons comptés et coût en euros', async () => {
+  const doc = await document('scaleway@example.com')
+  delete process.env.SCALEWAY_API_KEY
+  await regler({ corrections: { modele: 'gpt-oss-120b' } })
+  try {
+    requetes.length = 0
+    requetesScaleway.length = 0
+    const sansCle = await demander(doc, 'scaleway@example.com', { text: 'Ils mange des pomme.' })
+    assert.equal(sansCle.status, 501)
+    assert.match((await sansCle.json()).error, /SCALEWAY_API_KEY/)
+    assert.equal(requetes.length + requetesScaleway.length, 0)
+
+    process.env.SCALEWAY_API_KEY = 'cle-scaleway-factice'
+    const res = await demander(doc, 'scaleway@example.com', { text: 'Ils mange des pomme.' })
+    assert.equal(res.status, 200)
+    assert.equal((await res.json()).suggestion, 'Texte corrigé par Scaleway.')
+    assert.equal(requetes.length, 0, 'rien chez Anthropic')
+    assert.equal(requetesScaleway.length, 1)
+    assert.equal(requetesScaleway[0].url, 'https://api.scaleway.ai/v1/chat/completions')
+    assert.equal(requetesScaleway[0].headers.authorization, 'Bearer cle-scaleway-factice')
+    assert.equal(requetesScaleway[0].corps.model, 'gpt-oss-120b')
+    assert.equal(requetesScaleway[0].corps.reasoning_effort, 'low')
+
+    const ligne = await ligneDe('scaleway@example.com')
+    assert.equal(ligne.corrections.demandes, 1)
+    assert.equal(ligne.corrections.entree, 80)
+    assert.equal(ligne.corrections.sortie, 6)
+    assert.ok(ligne.corrections.eur > 0, 'coût en euros')
+    assert.equal(ligne.corrections.usd, 0, 'rien en dollars')
+    const modeles = (await conso()).jetonsParModele['gpt-oss-120b']
+    assert.ok(modeles.entree >= 80 && modeles.eur > 0)
+    assert.equal((await conso()).tarifsEur['gpt-oss-120b'].entree, 0.15)
+  } finally {
+    delete process.env.SCALEWAY_API_KEY
     await remettre()
   }
 })

@@ -16,7 +16,7 @@ import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
 import { cleDe } from '../fournisseurs.js'
 import { BORNES, DEFAUTS, FONCTIONS, MODELES, NIVEAUX, NOMS_FONCTION } from '../reglagesIa.js'
 import { CORPS_JSON_OCTETS_MAX, GARDE_FOUS, GROUPES, gardeFousEnVigueur } from '../garde-fous.js'
-import { TARIFS_USD, moisDe } from '../usageIa.js'
+import { TARIFS_EUR, TARIFS_USD, moisDe } from '../usageIa.js'
 
 /** Le mode d'emploi glissé dans l'archive. Une sauvegarde qu'on retrouve
  * dans deux ans sans savoir quoi en faire ne sert à personne — et le jour
@@ -144,6 +144,7 @@ export async function routesAdmin(req, res, url, ctx) {
       utilisateurs,
       jetonsParModele: detail.modeles,
       tarifsUsd: TARIFS_USD,
+      tarifsEur: TARIFS_EUR,
       boutons: usageIa.boutons(),
     })
   }
