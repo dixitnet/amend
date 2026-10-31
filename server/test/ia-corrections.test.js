@@ -125,8 +125,9 @@ test('les réglages : réservés aux administrateurs, bornés, avec des messages
       'gpt-oss-120b',
       'qwen3.5-397b-a17b',
       'qwen3-235b-a22b-instruct-2507',
+      'qwen3.8-27b',
     ],
-    'Haiku, Sonnet, Mistral Large 4 et les trois modèles de Scaleway seulement'
+    'Haiku, Sonnet, Mistral Large 4 et les quatre modèles de Scaleway seulement'
   )
   assert.deepEqual(etat.niveaux, ['admin', 'editeur', 'correcteur'])
   assert.equal(etat.reglages.corrections.modele, 'claude-haiku-5-5')

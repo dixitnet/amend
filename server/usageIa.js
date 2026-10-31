@@ -64,6 +64,9 @@ export const TARIFS_EUR = {
   'gpt-oss-120b': { entree: 0.15, sortie: 0.6, poidsCacheLu: 1 },
   'qwen3.5-397b-a17b': { entree: 0.6, sortie: 3.6, poidsCacheLu: 1, provisoire: true },
   'qwen3-235b-a22b-instruct-2507': { entree: 0.75, sortie: 2.25, poidsCacheLu: 1 },
+  // Grille Scaleway du 31/10/2026 : 0,60 / 3,30 € (entrée en cache 0,12 €, non
+  // distinguée ici : jetons relus comptés plein tarif, estimation haute).
+  'qwen3.8-27b': { entree: 0.6, sortie: 3.3, poidsCacheLu: 1 },
 }
 
 function coutSelon(t, j) {

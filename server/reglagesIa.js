@@ -41,6 +41,9 @@ export const MODELES = [
   { id: 'gpt-oss-120b', nom: 'gpt-oss 120B', fournisseur: 'Scaleway (Paris)' },
   { id: 'qwen3.5-397b-a17b', nom: 'Qwen 3.5 397B', fournisseur: 'Scaleway (Paris)' },
   { id: 'qwen3-235b-a22b-instruct-2507', nom: 'Qwen 3 235B Instruct', fournisseur: 'Scaleway (Paris)' },
+  // Ajouté le 31/10/2026 : 27 milliards de paramètres, contexte 256 K, sortie
+  // jusqu'à 32 K, réflexion réglable (none/low/medium/xhigh). Jamais passé au banc.
+  { id: 'qwen3.8-27b', nom: 'Qwen 3.8 27B', fournisseur: 'Scaleway (Paris)' },
 ]
 
 /** Niveaux d'accès, du plus fermé au plus ouvert. Le niveau est un **minimum** :
