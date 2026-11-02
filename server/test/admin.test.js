@@ -157,6 +157,13 @@ test('la vue agrège utilisateurs, documents et flux — et ne laisse fuir aucun
   assert.equal(JSON.stringify(vue).includes(jetonInvitation), false)
 })
 
+test('la vue donne la version déployée (commit du dépôt de l’application)', async () => {
+  const chef = { headers: { cookie: cookieFor('chef@example.com') } }
+  const vue = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()
+  assert.match(vue.serveur.version.commit, /^[0-9a-f]{7}$/)
+  assert.equal(typeof vue.serveur.version.depuis, 'number')
+})
+
 test('la vue dit quand la machine de sauvegarde a tiré une copie pour la dernière fois', async () => {
   const chef = { headers: { cookie: cookieFor('chef@example.com') } }
   const avant = await (await fetch(`${BASE}/api/admin/overview`, chef)).json()

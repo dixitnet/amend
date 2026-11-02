@@ -4,9 +4,13 @@
 // n'y entre — titres et métadonnées seulement.
 
 import { statSync, existsSync, readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { cleDuRetour } from './supportTraites.js'
 import { estDocBienvenue } from './modeleBienvenue.js'
+import { versionDeployee } from './versionDeployee.js'
+
+const RACINE_APP = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const JOUR = 24 * 60 * 60 * 1000
 
@@ -347,6 +351,8 @@ export function apercu({
     rssMo: Math.round(memoire.rss / 1048576),
     heapUtiliseMo: Math.round(memoire.heapUsed / 1048576),
     node: process.version,
+    // Le commit déployé (server/versionDeployee.js), ou null hors d'un dépôt git.
+    version: versionDeployee(RACINE_APP),
     connexionsEnCours: rooms.snapshot(),
     // Les documents que le serveur tient en mémoire (server/replique.js,
     // 29/09/2026) : ceux des salles occupées, plus ceux libérés depuis

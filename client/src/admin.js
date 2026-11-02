@@ -306,6 +306,15 @@ function rubriqueSysteme({ d }) {
       <div class="bo-chiffres">
         ${chiffre(`${nombre(s.rssMo)}${NBSP}Mo`, 'mémoire du process', 'plafond 700 Mo')}
         ${chiffre(duree(s.uptimeSec), 'sans redémarrage', `pid ${s.pid}`)}
+        ${
+          s.version
+            ? chiffre(
+                esc(s.version.commit),
+                'version déployée',
+                `${s.version.branche ? `${esc(s.version.branche)}, ` : ''}depuis le ${date(s.version.depuis)} à ${new Date(s.version.depuis).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+              )
+            : ''
+        }
         ${chiffre(nombre(s.connexionsEnCours.reduce((a, r) => a + r.connectes, 0)), 'connexions en cours')}
         ${chiffre(nombre((s.repliques || []).length), 'documents en mémoire', 'plafond 20')}
         ${chiffre(octets(s.dataDirOctets), 'données sur disque')}
