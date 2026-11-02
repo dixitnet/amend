@@ -676,6 +676,17 @@ try {
       if (!ok) console.log(`  ✗ ${v} — ${detail}`)
     }
     try {
+      // Une page qui a quitté le document au scénario précédent (Retour
+      // arrière hors d'un champ modifiable = page précédente, dans le WebKit
+      // de macOS) : c'est un écart, noté, puis la page est rouverte — sans
+      // quoi tous les scénarios suivants échoueraient en cascade.
+      for (const p of tous) {
+        if (await p.page.locator('.ProseMirror').count()) continue
+        verifier(`${p.compte.nom} est resté sur le document`, false, `page : ${p.page.url()}`)
+        await p.page.goto(`${inst.base}/#/doc/${id}`)
+        await p.page.waitForSelector('.ProseMirror', { timeout: 30000 })
+        await attendre(500)
+      }
       // Départ : texte connu, aucun commentaire, aucun mode imposé.
       await gens.alice.remettre(DEPART)
       await gens.alice.resoudreTout()
