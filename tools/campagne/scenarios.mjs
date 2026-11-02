@@ -78,7 +78,10 @@ scenario('Le lecteur ne peut rien modifier', async ({ louis, tous, verifier }) =
   verifier('éditeur non modifiable', editable === 'false', `contenteditable=${editable}`)
   await louis.page.locator('.ProseMirror').click()
   await louis.taper('xyz')
-  await louis.touche('Backspace')
+  // Pas de Retour arrière : hors d'un champ modifiable, le WebKit de macOS en
+  // fait « page précédente » et le lecteur quitterait le document. Suppr.
+  // vérifie la même chose (rien ne s'efface) sans ce détour.
+  await louis.touche('Delete')
   const vu = await convergence(tous)
   verifier('texte inchangé', vu === BASE, L(vu))
 })
