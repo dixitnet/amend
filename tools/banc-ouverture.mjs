@@ -10,10 +10,23 @@
 //                                                        (cd client && npx vite build --minify false)
 //   node tools/banc-ouverture.mjs --profils=vide --requetes   cascade des requêtes HTTP de l'ouverture
 //
-// Lance une instance de TEST jetable (tools/instance-test.js), y dépose des
-// documents du corpus (tools/corpus.js), puis ouvre chacun dans Chromium
-// (Playwright), deux fois : cache vide, puis cache du navigateur rempli
-// (seconde visite). Le client doit être compilé (`npm run build:client`).
+// Par défaut : lance une instance de TEST jetable (tools/instance-test.js), y
+// dépose des documents du corpus (tools/corpus.js), puis ouvre chacun dans
+// Chromium (Playwright), deux fois : cache vide, puis cache du navigateur
+// rempli (seconde visite). Le client doit être compilé (`npm run build:client`).
+//
+// Mode production, en LECTURE SEULE (02/11/2026) :
+//
+//   node tools/banc-ouverture.mjs --base=https://www.amend.ink [--docs=id1,id2] [--essais=3]
+//
+//   - cookie de session du compte de test dans la variable d'environnement
+//     AMEND_PROD_COOKIE (jamais en argument ni dans le dépôt) ; il vaut 30 jours ;
+//   - documents dans --docs ou dans AMEND_PROD_DOCS (séparés par des virgules) ;
+//   - derrière un proxy (session Claude dans le cloud), lancer avec
+//     NODE_USE_ENV_PROXY=1 : sinon `fetch` de Node ignore le proxy ;
+//   - le banc refuse de tourner si le compte n'est pas **lecteur** de chaque
+//     document, ou s'il n'a pas de nom (la fenêtre « Votre nom » écrirait) :
+//     il n'envoie aucune requête qui modifie quoi que ce soit.
 //
 // Mesures (médiane des essais) :
 //   - octets   : transférés sur le réseau (HTTP), WebSocket non comprise
@@ -22,6 +35,7 @@
 //   - synced   : le serveur a envoyé l'état du document (masque levé)
 //   - calme    : plus aucune tâche longue (> 50 ms) depuis 500 ms
 //   - longues  : cumul des tâches longues du fil principal jusqu'au calme
+//   - ws       : octets reçus sur la WebSocket jusqu'à la levée du masque
 
 /* global window, document, MutationObserver -- fonctions exécutées dans la page (Playwright) */
 import { spawn } from 'node:child_process'
@@ -39,6 +53,7 @@ const RESEAU = option('reseau', 'local')
 const PORT = Number(option('port', 18950))
 const CPU = args.includes('--cpu')
 const REQUETES = args.includes('--requetes')
+const BASE_PROD = option('base', '').replace(/\/$/, '')
 
 // Débits en octets/s, latence en ms (valeurs de type « 4G correcte » et « ADSL »).
 const RESEAUX = {
@@ -84,7 +99,7 @@ const SONDE = () => {
   }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] })
 }
 
-async function ouvrir(contexte, inst, id, { cpu = false } = {}) {
+async function ouvrir(contexte, base, id, { cpu = false } = {}) {
   const page = await contexte.newPage()
   const cdp = await contexte.newCDPSession(page)
   await cdp.send('Network.enable')
@@ -96,9 +111,17 @@ async function ouvrir(contexte, inst, id, { cpu = false } = {}) {
   if (RESEAUX[RESEAU]) await cdp.send('Network.emulateNetworkConditions', { offline: false, ...RESEAUX[RESEAU] })
   let octets = 0
   cdp.on('Network.loadingFinished', (e) => (octets += e.encodedDataLength))
+  // Trames WebSocket reçues avant la levée du masque (binaires : en base64).
+  let octetsWs = 0
+  let masqueLeve = false
+  cdp.on('Network.webSocketFrameReceived', ({ response: r }) => {
+    if (masqueLeve) return
+    octetsWs += r.opcode === 2 ? Math.floor((r.payloadData.length * 3) / 4) : r.payloadData.length
+  })
   await page.addInitScript(SONDE)
-  await page.goto(`${inst.base}/#/doc/${id}`)
+  await page.goto(`${base}/#/doc/${id}`)
   await page.waitForFunction(() => window.__banc.masque !== null, null, { timeout: 120000 })
+  masqueLeve = true
   // Le calme : 500 ms sans tâche longue.
   await page.waitForFunction(
     () => {
@@ -127,7 +150,7 @@ async function ouvrir(contexte, inst, id, { cpu = false } = {}) {
   })
   const profil = cpu ? (await cdp.send('Profiler.stop')).profile : null
   await page.close()
-  return { octets, ...m, profil }
+  return { octets, octetsWs, ...m, profil }
 }
 
 const mediane = (xs) => {
@@ -154,28 +177,72 @@ function tempsPropres(profil, top = 30) {
     .slice(0, top)
 }
 
-const inst = await lancerInstance({ port: PORT, comptes: ['banc@test.local'] })
-const cookie = inst.cookies['banc@test.local']
-try {
+/** Les documents de l'instance de test : le corpus, déposé par un compte banc. */
+async function preparerInstance() {
+  const inst = await lancerInstance({ port: PORT, comptes: ['banc@test.local'] })
+  const cookie = inst.cookies['banc@test.local']
   // Un compte sans nom ouvre la modale « Votre nom » avant l'éditeur.
   await inst.api('/api/auth/name', { cookie, methode: 'POST', corps: { nom: 'Banc' } })
   const docs = []
   for (const profil of PROFILS) {
     if (profil === 'vide') {
       const r = await inst.api('/api/docs', { cookie, methode: 'POST', corps: { title: 'BANC vide' } })
-      docs.push({ profil, id: r.json.id, octetsYjs: 0, signes: 0 })
+      docs.push({ profil, id: r.json.id, octetsYjs: 0 })
     } else {
       const d = await deposer(profil, inst, cookie)
-      docs.push({ profil, id: d.id, octetsYjs: d.octets, signes: d.signes ?? null })
+      docs.push({ profil, id: d.id, octetsYjs: d.octets })
     }
   }
+  return { base: inst.base, cookie, docs, arreter: () => inst.arreter() }
+}
+
+/** Les documents de production : vérifiés en lecture seule, sans rien écrire. */
+async function preparerProduction() {
+  const brut = (process.env.AMEND_PROD_COOKIE || '').trim()
+  if (!brut)
+    throw new Error('AMEND_PROD_COOKIE absent : le cookie de session du compte de test (secret de l’environnement)')
+  const cookie = brut.includes('=') ? brut.split(';')[0] : `collabtext_session=${brut}`
+  const ids = (option('docs', '') || process.env.AMEND_PROD_DOCS || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  if (!ids.length) throw new Error('aucun document : --docs=id1,id2 ou AMEND_PROD_DOCS')
+  const docs = []
+  for (const id of ids) {
+    let r
+    try {
+      r = await fetch(`${BASE_PROD}/api/docs/${id}`, { headers: { cookie } })
+    } catch (err) {
+      throw new Error(
+        `${BASE_PROD} injoignable (${err.cause?.code || err.message}). Derrière un proxy (session Claude dans le cloud) : NODE_USE_ENV_PROXY=1`
+      )
+    }
+    if (r.status === 401 || r.status === 403)
+      throw new Error(`${id} : accès refusé (${r.status}) — cookie expiré (30 jours) ou compte sans accès`)
+    if (!r.ok) throw new Error(`${id} : réponse ${r.status}`)
+    const meta = await r.json()
+    if (meta.myRole !== 'lecteur')
+      throw new Error(
+        `${id} : le compte de test est « ${meta.myRole} » ; le banc ne tourne qu’en lecteur (lecture seule)`
+      )
+    if (!meta.myName)
+      throw new Error(
+        'le compte de test n’a pas de nom : ouvrez une fois un document avec ce compte pour le lui donner'
+      )
+    docs.push({ profil: (meta.title || id).slice(0, 20), id, octetsYjs: null })
+  }
+  return { base: BASE_PROD, cookie, docs, arreter: async () => {} }
+}
+
+const { base, cookie, docs, arreter } = BASE_PROD ? await preparerProduction() : await preparerInstance()
+try {
   const navigateur = await chromium.launch()
   const [nom, valeur] = cookie.split(';')[0].split(/=(.*)/s)
   if (REQUETES) {
     for (const d of docs) {
       const contexte = await navigateur.newContext()
-      await contexte.addCookies([{ name: nom, value: valeur, url: inst.base }])
-      const r = await ouvrir(contexte, inst, d.id)
+      await contexte.addCookies([{ name: nom, value: valeur, url: base }])
+      const r = await ouvrir(contexte, base, d.id)
       console.log(`\n${d.profil} — requêtes (début → fin, ms depuis la navigation) ; synced ${Math.round(r.synced)} ms`)
       for (const [chemin, debut, fin] of r.requetes.sort((a, b) => a[1] - b[1]))
         console.log(`${String(Math.round(debut)).padStart(6)} → ${String(Math.round(fin)).padStart(6)}  ${chemin}`)
@@ -185,9 +252,9 @@ try {
   } else if (CPU) {
     for (const d of docs) {
       const contexte = await navigateur.newContext()
-      await contexte.addCookies([{ name: nom, value: valeur, url: inst.base }])
-      await ouvrir(contexte, inst, d.id) // premier passage : cache et compilation chauds
-      const { profil, synced, calme } = await ouvrir(contexte, inst, d.id, { cpu: true })
+      await contexte.addCookies([{ name: nom, value: valeur, url: base }])
+      await ouvrir(contexte, base, d.id) // premier passage : cache et compilation chauds
+      const { profil, synced, calme } = await ouvrir(contexte, base, d.id, { cpu: true })
       console.log(`\n${d.profil} — synced ${Math.round(synced)} ms, calme ${Math.round(calme)} ms ; temps propre :`)
       for (const [cle, t] of tempsPropres(profil)) console.log(`${t.toFixed(1).padStart(8)} ms  ${cle}`)
       await contexte.close()
@@ -197,28 +264,28 @@ try {
   } else {
     console.log(`réseau : ${RESEAU} · ${ESSAIS} essais par cas · médianes\n`)
     console.log(
-      `${'document'.padEnd(22)}${'cache'.padEnd(8)}${'octets'.padStart(8)}${'js/css'.padStart(9)}${'meta'.padStart(9)}${'synced'.padStart(9)}${'calme'.padStart(9)}${'longues'.padStart(9)}${'max'.padStart(9)}`
+      `${'document'.padEnd(22)}${'cache'.padEnd(8)}${'octets'.padStart(8)}${'js/css'.padStart(9)}${'meta'.padStart(9)}${'synced'.padStart(9)}${'calme'.padStart(9)}${'longues'.padStart(9)}${'max'.padStart(9)}${'ws'.padStart(8)}`
     )
     for (const d of docs) {
       const resultats = { vide: [], plein: [] }
       for (let i = 0; i < ESSAIS; i++) {
         const contexte = await navigateur.newContext()
-        await contexte.addCookies([{ name: nom, value: valeur, url: inst.base }])
-        resultats.vide.push(await ouvrir(contexte, inst, d.id))
-        resultats.plein.push(await ouvrir(contexte, inst, d.id))
+        await contexte.addCookies([{ name: nom, value: valeur, url: base }])
+        resultats.vide.push(await ouvrir(contexte, base, d.id))
+        resultats.plein.push(await ouvrir(contexte, base, d.id))
         await contexte.close()
       }
       for (const cache of ['vide', 'plein']) {
         const r = resultats[cache]
         const med = (k) => mediane(r.map((x) => x[k]))
-        const titre = `${d.profil} (${Math.round(d.octetsYjs / 1024)} ko)`
+        const titre = d.octetsYjs === null ? d.profil : `${d.profil} (${Math.round(d.octetsYjs / 1024)} ko)`
         console.log(
-          `${titre.padEnd(22)}${cache.padEnd(8)}${ko(med('octets'))}${ms(med('statiques'))}${ms(med('meta'))}${ms(med('synced'))}${ms(med('calme'))}${ms(med('longues'))}${ms(med('plusLongue'))}`
+          `${titre.padEnd(22)}${cache.padEnd(8)}${ko(med('octets'))}${ms(med('statiques'))}${ms(med('meta'))}${ms(med('synced'))}${ms(med('calme'))}${ms(med('longues'))}${ms(med('plusLongue'))}${ko(med('octetsWs'))}`
         )
       }
     }
     await navigateur.close()
   }
 } finally {
-  await inst.arreter()
+  await arreter()
 }

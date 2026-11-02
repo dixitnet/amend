@@ -138,3 +138,9 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 - Audit : `docs/audit-chargement-2026-11-02.md`, avec les outils `tools/banc-ouverture.mjs` et `tools/analyse-bundle.mjs`. Constat vérifié en production : ni compression ni cache, 790 ko retéléchargés à chaque ouverture.
 - Décision de Sylvain : points 1 (cache des fichiers statiques), 2a (compression par Caddy, `encode zstd gzip`), 3 (état initial compressé sur la WebSocket, message `etat-z`, demandé par `?z=1`) et 4 (métadonnées demandées dès l'arrivée par `public/precharge.js`, un seul `/api/auth/me` par page). En réserve : chargement à la demande des modules hors éditeur, préchargement des polices, cache des ancres de commentaires.
 - Résultat au banc (4G simulée) : livre 2,4 s → 1,2 s à la première visite, 0,48 s ensuite.
+
+## 16. Tests de la production par Claude (02/11/2026)
+
+- Décision de Sylvain : un moyen pérenne pour que Claude teste la production. `www.amend.ink` est autorisé dans le réseau de l'environnement cloud. Pour l'ouverture réelle d'un document : compte de test **lecteur**, cookie dans le secret `AMEND_PROD_COOKIE`, documents dans `AMEND_PROD_DOCS`, banc `tools/banc-ouverture.mjs --base=…` (lecture seule vérifiée : refuse un rôle autre que lecteur ou un compte sans nom).
+- Écarté : un jeton de test de longue durée côté serveur (surface d'attaque pour un usage marginal). Le cookie se renouvelle tous les 30 jours.
+- Vérifié en production le 02/11 : `index.html` en `no-cache` et 304 ; bundle en zstd (201 ko transférés pour 611 ko), `immutable` ; seconde visite : 1 ko transféré.

@@ -40,6 +40,13 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 - Test serveur connu : « clé API absente → 501 » échoue sur le Mac car le vrai `.env` est rechargé ; il passe sans `.env`.
 - `_a_supprimer/` et `revue-*.md` sont ignorés par git ; `mac-launchagent/`, `data/`, `.env` aussi.
 
+## Tester la production (lecture seule)
+
+- L'environnement cloud de Claude autorise `www.amend.ink` : `curl` (en-têtes, compression, cache, version servie) et Chromium (Playwright) y ont accès.
+- Ouverture réelle d'un document : `NODE_USE_ENV_PROXY=1 node tools/banc-ouverture.mjs --base=https://www.amend.ink [--essais=3] [--requetes] [--cpu]`, avec un **compte de test lecteur**. Son cookie de session est dans le secret d'environnement `AMEND_PROD_COOKIE`, les documents dans `AMEND_PROD_DOCS` (identifiants séparés par des virgules). Ne jamais afficher, copier ni écrire ce cookie.
+- Le banc refuse de tourner si le compte n'est pas lecteur ou n'a pas de nom ; il n'envoie aucune requête qui modifie. Claude n'utilise ce compte que pour lire, et n'agit jamais sur la production autrement (pas de `ssh`, pas d'écriture par l'API).
+- Le cookie vaut 30 jours : un refus 401/403 du banc veut dire qu'il faut le renouveler (Sylvain, dans les réglages de l'environnement).
+
 ## Architecture (repères)
 
 - `client/` : Vite + ProseMirror + Yjs (y-prosemirror). `client/src/` : schéma (`schema.js`), suivi des modifications (`trackChanges.js`, marques `ins.tracked-insertion` / `del.tracked-deletion`), barre d'outils (`barreOutils.js`), exports (`exportVariante.js`, `exportCommun.js`, `typstExport.js`, `docxExport.js`, `publicationExport.js`), typographie (`typographie.js`).
