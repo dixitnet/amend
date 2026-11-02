@@ -298,6 +298,14 @@ export class Personne {
     const b = await this.boiteDe(texte, 0, 'fin')
     await this.page.mouse.click(b.x, b.y + b.height / 2)
     await attendre(100)
+    // Un clic posé pile sur la limite d'un caractère est ambigu (le WebKit de
+    // macOS met parfois le curseur après l'espace suivant) : si le curseur
+    // n'est pas juste derrière le texte, on l'y replace au clavier.
+    const c = await this.curseur()
+    if (!c || !c.vide || !(c.avant || '').endsWith(texte.slice(-12))) {
+      await this.selectionner(texte)
+      await this.touche('ArrowRight')
+    }
   }
 
   async boiteDe(texte, occurrence = 0, bord = null) {
