@@ -1,4 +1,7 @@
+import { writeFileSync } from 'node:fs'
 import { demarrerEssai, convergenceV2 } from './piloter.mjs'
+const SORTIE = process.argv.find((a) => a.startsWith('--sortie='))?.split('=')[1]
+const resultats = {}
 import { attendre } from '../campagne/outils.mjs'
 const e = await demarrerEssai()
 let salle = 100
@@ -17,6 +20,7 @@ const essai = async (nom, modeQ, geste) => {
     await a.page.close()
     await b.page.close()
   }
+  resultats[nom] = res
   console.log(`■ ${nom}\n   ${res.map((r) => JSON.stringify(r)).join('\n   ')}`)
 }
 try {
@@ -51,3 +55,4 @@ try {
 } finally {
   await e.fermer()
 }
+if (SORTIE) writeFileSync(SORTIE, JSON.stringify(resultats, null, 1))
