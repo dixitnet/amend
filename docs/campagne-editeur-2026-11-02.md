@@ -22,12 +22,14 @@ Les échecs dus à l'outil lui-même (touches enchaînées sans délai, triple-c
 
 ## Écarts — perte de texte ou de traçabilité
 
+Causes : voir `docs/diagnostic-editeur-2026-11-02.md`.
+
 1. **Sélection puis Entrée, en suivi : le texte sélectionné est supprimé pour de bon.** Il n'est pas barré, n'apparaît pas au panneau, et « tout rejeter » ne le rend pas. Systématique (26 cas sur 26 : mot, mots, bout de mot, titre, citation, plusieurs paragraphes…). Confirmé en production. Pour la correctrice, le geste est refusé (rien ne se passe). Piste : `rewriteSplitForTracking` (`client/src/suivi/reecriture.js`) ne traite qu'une coupure sans sélection (`isPureSplitStep` exige `from === to`) ; avec une sélection, la réécriture renvoie `null` et la transaction d'origine passe hors suivi.
 2. **Ctrl+A puis frappe, en suivi : aucune lettre n'apparaît.** Tout le document est barré, mais la frappe est perdue, dès la première lettre. Hors suivi, le même geste marche.
 3. **Texte d'un bloc (dictée, saisie prédictive) sur une sélection qui va d'un titre à un paragraphe, ou d'un paragraphe à une citation : la fin du paragraphe est dupliquée.** Proposé : `du {+gris beau ce matin, dit-elle.+}[-salon.-]⏎[-Il fait-] beau ce matin, dit-elle.` ; une fois accepté, « beau ce matin, dit-elle. » figure deux fois. Éditrice et correctrice. Piste : `effacementMultiBloc` reprend comme « texte tapé » tout le texte de la tranche, qui contient aussi le reste du bloc que ProseMirror reconstruit.
 4. **Collage sur une sélection qui va d'un paragraphe à une citation, en suivi : la sélection disparaît sans être barrée** (`du vert beau ce matin`). Refusé pour la correctrice.
 5. **Deux personnes qui tapent au même endroit, en même temps, en suivi : des espaces entrent hors suivi.** 6 tours sur 6 en endurance. Avec la correctrice, c'est **8 tours sur 8, y compris quand l'autre personne tape ailleurs dans le paragraphe** : ses espaces entrent dans le texte sans proposition, et le serveur le signale lui-même (« un correcteur ne modifie le texte qu'en suivi de modifications »), sans le bloquer dans le mode par défaut `CORRECTEUR_ETANCHE=observer`. Taper contre l'ajout de quelqu'un, sans simultanéité, ne produit rien de tel. Hypothèse : chaque lettre tapée en suivi porte sa propre marque (horodatage par frappe), et la conversion ProseMirror ↔ Yjs de y-prosemirror perd la marque d'une espace quand une mise à jour distante arrive pendant la frappe.
-6. **Vu une fois, non reproduit (48 essais ciblés) : une touche morte laisse un « ^ » dans le texte, puis la vue d'Alice décroche.** Après « tout accepter », Bruno et Chloé voient le texte accepté, Alice garde sa version, et ses modifications suivantes ne parviennent plus aux autres (aucune erreur en console). Rare, mais la conséquence — une personne qui écrit dans le vide sans le savoir — justifie de le garder en tête ; le scénario exact est dans le journal de la campagne (sélection au clavier en début de paragraphe, en suivi, ^ puis e).
+6. **Vu une fois, non reproduit (48 essais ciblés) : une touche morte laisse un « ^ » dans le texte, puis l'éditrice ne peut plus rien modifier.** Corrigé après diagnostic (`docs/diagnostic-editeur-2026-11-02.md`, D.6) : les trois personnes voyaient le même texte ; tout indique une composition restée ouverte chez l'éditrice, que le pilotage automatique peut provoquer. Hypothèse à vérifier à la main.
 
 ## Écarts — résultat différent de Google Docs, sans perte
 
@@ -52,6 +54,7 @@ Même campagne rejouée dans **WebKit 26.6** (le moteur de Safari, version Linux
 1. **Tous les écarts 1 à 16 se retrouvent à l'identique**, avec les mêmes proportions (Entrée sur une sélection, Ctrl+A, plusieurs paragraphes, deux cartes au lieu d'un remplacement, commentaires perdus à l'acceptation…). Ce sont donc des défauts de l'éditeur, pas d'un navigateur.
 2. **Défaut 5 plus large dans WebKit** : entre deux éditeurs, des espaces entrent hors suivi dans 10 tours sur 10, **y compris quand les deux personnes tapent à des endroits différents** du paragraphe (dans Chromium, il fallait le même endroit). Avec la correctrice : 5 tours sur 10, et 6 signalements du serveur.
 3. Rien de propre à WebKit par ailleurs (un seul détail sans effet visible : après un collage, la sélection n'est pas exactement repliée sur le curseur).
+4. **Sur le Mac** (WebKit de Playwright pour macOS, raccourcis Cmd/Option, matrice rapide : 234 cas, 1 830 vérifications) : **aucun écart nouveau**, mêmes défauts et mêmes proportions. Les scénarios se sont arrêtés au lecteur : un Retour arrière hors d'un champ modifiable y fait revenir à la page précédente, le lecteur a quitté le document et la suite a échoué en cascade. Comportement du navigateur de test, pas d'amend.ink (Safari ne le fait plus par défaut) ; les scénarios notent désormais l'écart et rouvrent la page.
 
 À vérifier à la main dans le vrai Safari (ce qu'aucun automate ne pilote) — document d'essai, suivi activé :
 
@@ -62,6 +65,7 @@ Même campagne rejouée dans **WebKit 26.6** (le moteur de Safari, version Linux
 5. Correcteur orthographique : clic droit sur un mot souligné, choisir la suggestion → remplacement proposé (barré puis ajout), pas de modification directe.
 6. Option+Maj+→ puis frappe ; Cmd+A puis frappe (défaut 2) ; Cmd+Z / Cmd+Maj+Z.
 7. Triple-clic au trackpad sur un paragraphe, puis frappe.
+8. En lecteur (ou sur un passage non modifiable), Retour arrière : la page doit rester sur le document.
 
 ## Non couvert
 
