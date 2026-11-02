@@ -17,7 +17,7 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 - `basic_auth` retiré le 15/09 : l'accès repose entièrement sur l'authentification applicative (session + accès par document). Sans Mailgun fonctionnel, l'instance est inutilisable (lien magique ou invitation).
 - Mailgun en zone **EU** (`api.eu.mailgun.net`). `SESSION_SECRET` obligatoire (sinon déconnexion générale à chaque redémarrage). `ADMIN_EMAILS` ouvre l'amorçage et les routes d'administration.
 - Sauvegarde (10/10) : le NAS tire `data/` chaque nuit, puis envoi quotidien vers Proton Drive par script autonome (CLI officielle), données et secrets envoyés sans chiffrement supplémentaire au-delà de Proton.
-- Déploiement toujours manuel / sur demande, via `deploy/livrer.sh`. Le Mac est l'environnement de dev et de test.
+- Déploiement toujours manuel / sur demande, par Sylvain via `deploy/deployer.sh` (depuis le 02/11/2026 ; avant : `deploy/livrer.sh`). Le développement se fait par Claude sur la branche `dev-claude` ; le Mac ne sert plus qu'à la préproduction ponctuelle (voir § 14).
 - Mise à jour système du VPS (apt upgrade + reboot) : commandes données le 24/10, à faire par Sylvain.
 - Guide complet : `serveur-production-collabtext.md` (sections 0 à 14, journal des déploiements).
 
@@ -122,3 +122,13 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 - À savoir avant les essais : réglage valable pour toute l'instance (remettre Haiku / Sonnet après coup) ; n'essayer que sur ses propres textes tant que le DPA et les conditions générales de Scaleway ne sont pas lus ; Scaleway ne plafonne pas la dépense, seuls les quotas internes freinent ; sortie maximale des modèles inconnue (si Scaleway refuse `max_tokens`, baisser le garde-fou « sortieMaxJetons ») ; lire `events-ia.jsonl` et `events-dialogue.jsonl` (modèle, arrêt, jetons).
 - Tests : `fournisseurs.test.js` (traduction, réflexion, outils, tarifs, comptes en euros), `ia-corrections.test.js` et `dialogue.test.js` (faux Scaleway), `adminIa.test.js` (affichage en euros). Jamais testé contre le vrai Scaleway.
 - **Comprendre les refus (29/10/2026).** Les essais réels ont montré des lots de corrections refusés en entier sans qu'on sache pourquoi (gpt-oss : 6 refus ; Qwen 3.5 : 37). `events-dialogue.jsonl` porte désormais `motifsRefus` (`{ introuvable, ambigu, identique, en-attente, chevauche, structure, mal-forme, autre }`, nombre de refus par motif), jamais un mot du document ; l'événement `fin` envoyé au client porte `motifs`, et `events-agents.jsonl` (connecteur) porte `motifs` dans chaque ligne d'écriture. Classement : `motifDeRefus` (`server/agentTexte.js`). Attente sur un 429 : `delaiRelance` (`server/dialogue.js`), nombre de tentatives = garde-fou `margoRelances`.
+
+## 14. Organisation « dev-claude » (02/11/2026)
+
+- Décisions de Sylvain : **Claude développe sur une branche dédiée fixe, `dev-claude`**, commite et pousse lui-même, puis **fusionne dans `main` avec l'accord de Sylvain** (fusion directe, sans demande de fusion GitHub). Le Mac ne fait plus de développement : seulement des tests de préproduction ponctuels et le déploiement.
+- `deploy/livrer.sh` est supprimé (contrôles, commit et poussée passent chez Claude). Remplacé par `deploy/deployer.sh` : récupère `origin/main`, affiche le commit, demande confirmation, lance `deploy/deploy.sh` sur le VPS en SSH (option `--restart`) et affiche la fin du journal. Il ne commite, ne fusionne et ne pousse rien.
+- Contrôles : Claude lance `format:check`, `lint` et `npm test` avant chaque commit, dans son propre environnement, et signale ce qui n'a pas pu y tourner (ex. compilation Typst réelle).
+- En fin de lot, Claude donne le bloc Mac de préproduction (checkout de `dev-claude`, installation, build, relance du LaunchAgent si le serveur a changé), demande l'accord de fusion, puis donne le bloc de déploiement.
+- Inchangé : Claude n'agit jamais sur le VPS (pas de `ssh`), ne déploie pas, ne lit pas le `.env`. Pas de poussée forcée ni de réécriture de `main`.
+- Sessions Claude Code dans le cloud : une branche `claude/…` peut être imposée par la session ; elle tient lieu de `dev-claude` pour cette session.
+- `.claude/settings.json` : simplification proposée à Sylvain (Claude ne modifie pas ses propres permissions).

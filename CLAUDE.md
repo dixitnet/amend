@@ -12,15 +12,15 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 4. **Ne pas alourdir l'application** avec des fonctions trop spécifiques à un usage marginal. Le signaler soi-même, et insister, quand une idée relève de ce cas.
 5. **Limites et consommation d'IA : toujours en signes, espaces compris** — jamais en pages, feuillets ou autre unité (interface, messages d'erreur, back-office, docs).
 6. **Tarifs et seuils** : ne pas fixer de seuils ni calculer de montants en euros sur des hypothèses d'usage non vérifiées. Règles simples et lisibles d'abord ; les seuils se déterminent ensuite sur les journaux réels.
-7. **Claude ne commit jamais et ne pousse jamais.** Sylvain livre lui-même avec `./deploy/livrer.sh "message"`. Claude propose le message de commit.
-8. **Claude n'agit pas sur le VPS de production** (pas de `ssh`). Il donne les commandes à coller, en précisant si le bloc est pour **le terminal du Mac** ou pour **le VPS (SSH)**. Tout bloc destiné au Mac commence par `cd ~/Documents/collabtext-test/collabtext`.
-9. **À la fin de chaque lot de développement**, donner le bloc de livraison complet (livrer.sh avec un message, puis, si besoin, la partie VPS séparée) sans qu'il ait à le demander.
+7. **Claude développe sur la branche `dev-claude`** : il commite (messages en français) et pousse sur `origin dev-claude`, après `npm run format:check`, `npm run lint` et `npm test` au vert. Il ne fusionne dans `main` et ne pousse `main` **qu'avec l'accord explicite de Sylvain**, donné pour ce lot. Jamais de poussée forcée, de `reset` ni de réécriture de l'historique de `main`. (Une session Claude Code dans le cloud peut se voir imposer une branche `claude/…` : elle tient alors lieu de `dev-claude` pour cette session.)
+8. **Claude n'agit pas sur le VPS de production** (pas de `ssh`) et ne déploie pas. Il donne les commandes à coller, en précisant si le bloc est pour **le terminal du Mac** ou pour **le VPS (SSH)**. Tout bloc destiné au Mac commence par `cd ~/Documents/collabtext-test/collabtext`. Le Mac ne sert plus au développement, seulement à des tests de préproduction ponctuels et au déploiement.
+9. **À la fin de chaque lot de développement**, sans qu'il ait à le demander : dire ce qui a été commité et poussé sur `dev-claude`, donner le bloc Mac de **préproduction** (récupérer la branche et la tester), demander l'accord de fusion dans `main`, puis, une fois fusionné, donner le bloc de **déploiement** (`./deploy/deployer.sh`, avec `--restart` si le `.env` a changé) et, si besoin, la partie VPS séparée.
 10. Peu d'emojis dans les messages.
 
 ## Dépôt et environnements
 
-- Dépôt : `~/Documents/collabtext-test/collabtext` (Mac, dev) ; remote `git@github.com:dixitnet/amend.git` (privé).
-- Dev : serveur tenu par le LaunchAgent `net.dixit.collabtext` (relance : `launchctl kickstart -k gui/$(id -u)/net.dixit.collabtext`). Le serveur sert `client/dist` depuis le disque : un rebuild du client prend effet sans redémarrage ; un changement dans `server/` ou `.env` demande un redémarrage.
+- Dépôt : remote `git@github.com:dixitnet/amend.git` (privé). Branches : `main` (production) et `dev-claude` (développement par Claude). Copie sur le Mac : `~/Documents/collabtext-test/collabtext` (préproduction et déploiement, pas de développement).
+- Préproduction sur le Mac : serveur tenu par le LaunchAgent `net.dixit.collabtext` (relance : `launchctl kickstart -k gui/$(id -u)/net.dixit.collabtext`). Le serveur sert `client/dist` depuis le disque : un rebuild du client prend effet sans redémarrage ; un changement dans `server/` ou `.env` demande un redémarrage.
 - Prod : VPS Gandi V-R1 (1 vCPU, 1 Go RAM + 2 Go swap), Debian 13, Node 24, Caddy, service systemd `amend` (MemoryMax 700M), code dans `/opt/amend/app`, données dans `/opt/amend/data`. Site public : https://www.amend.ink.
 - `.env` (jamais commité) : `PORT`, `DATA_DIR`, `SESSION_SECRET`, `ADMIN_EMAILS`, `APP_BASE_URL`, `MAILGUN_API_KEY`, `MAILGUN_DOMAIN` (zone EU), `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` (optionnel), `SCALEWAY_API_KEY` (optionnel), `CORRECTEUR_ETANCHE`. Ne jamais afficher ni copier ces valeurs.
 - Sauvegardes : le NAS tire `data/` du VPS chaque nuit, puis envoi vers Proton Drive.
@@ -28,9 +28,14 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 ## Livrer
 
 - Commandes npm (racine) : `npm test` (= `test:server` puis `test:client`, via `tools/lancer-tests.mjs`), `npm run lint` (eslint), `npm run format:check` (prettier sur server, shared, client/src, tools), `npm run build:client`, `npm run format` (prettier --write sur les fichiers donnés).
-- Livraison = `./deploy/livrer.sh "message"` : exige la branche `main`, enchaîne prettier, eslint, tests, puis demande confirmation (o/N) avant commit + push (seuls certains chemins sont indexés : client/src, client/test, client/public, server, shared, tools, deploy, package*.json, eslint.config.js, README.md — donc **pas** `CLAUDE.md`, `docs/` ni `.claude/`, à commiter à la main), puis confirmation avant d'exécuter `deploy/deploy.sh` sur le VPS en SSH. `./deploy/livrer.sh --controles` lance les contrôles seuls, sans rien modifier ; `--sans-deploiement` s'arrête après le push. Variable `AMEND_SSH` pour la cible (défaut `amend@92.243.27.71`).
-- Déploiement manuel sur le VPS (hors livrer.sh) : `git pull`, `npm ci --omit=dev` à la racine (le serveur dépend de `yjs` et `y-protocols`), `cd client && npm ci && npm run build`, puis `sudo systemctl restart amend` seulement si `server/` ou `.env` a changé.
-- Avant de conclure qu'un lot est prêt : `npm run format:check`, `npm run lint`, `npm test`.
+- Cycle d'un lot :
+  1. Claude développe sur `dev-claude`, lance les contrôles, commite (y compris `CLAUDE.md`, `docs/`, `.claude/` quand ils changent) et pousse `origin dev-claude`. Avant de commiter, vérifier qu'aucun fichier de secrets (`.env`, `*.key`, `*.pem`…) n'est indexé.
+  2. Préproduction (facultative, sur le Mac) : bloc donné par Claude, du type
+     `git fetch origin && git checkout dev-claude && git pull --ff-only && npm ci && (cd client && npm ci && npm run build)`, puis `launchctl kickstart -k gui/$(id -u)/net.dixit.collabtext` si `server/`, `shared/` ou `package*.json` ont changé. Retour : `git checkout main && git pull --ff-only`.
+  3. Fusion, sur accord explicite de Sylvain : Claude met `dev-claude` à jour avec `main` si besoin, relance les contrôles, puis `git checkout main && git pull --ff-only origin main && git merge --no-ff dev-claude && git push origin main`, et revient sur `dev-claude`.
+  4. Déploiement, par Sylvain depuis le Mac : `./deploy/deployer.sh` (fetch, affiche le commit de `origin/main`, confirmation, puis `deploy/deploy.sh` sur le VPS en SSH et fin du journal). `--restart` force le redémarrage (changement du `.env`). Variable `AMEND_SSH` pour la cible (défaut `amend@92.243.27.71`).
+- Déploiement manuel sur le VPS (hors deployer.sh) : `git pull`, `npm ci --omit=dev` à la racine (le serveur dépend de `yjs` et `y-protocols`), `cd client && npm ci && npm run build`, puis `sudo systemctl restart amend` seulement si `server/` ou `.env` a changé.
+- Avant tout commit, et avant de conclure qu'un lot est prêt : `npm run format:check`, `npm run lint`, `npm test`.
 - `client/src/style.css` ne passe pas `prettier --check` (déjà le cas, hors périmètre du contrôle).
 - Test serveur connu : « clé API absente → 501 » échoue sur le Mac car le vrai `.env` est rechargé ; il passe sans `.env`.
 - `_a_supprimer/` et `revue-*.md` sont ignorés par git ; `mac-launchagent/`, `data/`, `.env` aussi.
