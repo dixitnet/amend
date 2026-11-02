@@ -9,6 +9,7 @@
 // sert tout de suite aux autres personnes qui sont dans le document, et à
 // vos prochaines modifications ; celles qui existent déjà gardent le nom
 // qu'elles portaient quand vous les avez faites.
+import { majMoi } from './auth.js'
 
 /**
  * Ouvre la fenêtre « Mon nom ». `surChangement(nom, couleur)` est appelé
@@ -79,6 +80,7 @@ export function ouvrirChangementDeNom({ nomActuel = '', surChangement } = {}) {
           ok.disabled = false
           return
         }
+        majMoi({ nom: corps.nom, couleur: corps.couleur })
         if (surChangement) surChangement(corps.nom, corps.couleur)
         fermer(corps.nom)
       } catch {

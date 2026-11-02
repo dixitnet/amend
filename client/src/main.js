@@ -48,7 +48,7 @@ async function route() {
 
   if (docMatch) {
     const docId = docMatch[1]
-    const res = await fetch(`/api/docs/${docId}`)
+    const res = await metaDuDocument(docId)
     if (res.status === 403) {
       app.innerHTML =
         '<div class="home"><p>Vous n\'avez pas accès à ce document.</p><a href="#/login">Se connecter →</a></div>'
@@ -106,6 +106,16 @@ async function route() {
   }
 
   mountHome(app)
+}
+
+/** La réponse de `GET /api/docs/<id>`, reprise de public/precharge.js si
+ * elle a été demandée dès l'arrivée sur la page, sinon demandée maintenant.
+ * Reprise une seule fois : une navigation ultérieure redemande. */
+function metaDuDocument(docId) {
+  const pre = window.__amendMeta
+  window.__amendMeta = null
+  if (pre && pre.id === docId) return pre.reponse.catch(() => fetch(`/api/docs/${docId}`))
+  return fetch(`/api/docs/${docId}`)
 }
 
 window.addEventListener('hashchange', route)

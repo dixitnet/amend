@@ -63,7 +63,8 @@ function creer() {
   const ydoc = new Y.Doc()
   const p = new SimpleProvider(ydoc, 'doc1', USER)
   const evenements = []
-  for (const nom of ['status', 'synced', 'refuse', 'title']) p.addEventListener(nom, (e) => evenements.push([nom, e.detail]))
+  for (const nom of ['status', 'synced', 'refuse', 'title'])
+    p.addEventListener(nom, (e) => evenements.push([nom, e.detail]))
   return { ydoc, p, ws: () => FauxWS.instances.at(-1), evenements }
 }
 const synced = (ws, sv = '') => ws.recevoir(JSON.stringify({ type: 'synced', sv }))
@@ -76,7 +77,11 @@ test('l’adresse porte le document, le nom (encodé) et le vecteur d’état', 
   assert.equal(url.host, 'amend.test')
   assert.equal(url.pathname, '/ws/doc1')
   assert.equal(url.searchParams.get('user'), 'Alice & Co')
-  assert.equal(url.searchParams.get('sv'), Buffer.from(Y.encodeStateVector(new Y.Doc())).toString('base64'), 'vecteur à la création : document vide')
+  assert.equal(
+    url.searchParams.get('sv'),
+    Buffer.from(Y.encodeStateVector(new Y.Doc())).toString('base64'),
+    'vecteur à la création : document vide'
+  )
   p.destroy()
 })
 
@@ -258,5 +263,61 @@ test('sendTitle : un message texte, et rien hors ligne', () => {
   ws().ouvrir()
   p.sendTitle('Titre')
   assert.deepEqual(ws().textes.at(-1), { type: 'title', title: 'Titre' })
+  p.destroy()
+})
+
+// --- État initial compressé (`etat-z`, 02/11/2026) ---
+
+const { deflateRawSync } = await import('node:zlib')
+const attendre = (cond, ms = 2000) =>
+  new Promise((resolve, reject) => {
+    const t0 = Date.now()
+    const tour = () => (cond() ? resolve() : Date.now() - t0 > ms ? reject(new Error('délai')) : setTimeout(tour, 5))
+    tour()
+  })
+
+function etatDe(texte) {
+  const d = new Y.Doc()
+  d.getText('t').insert(0, texte)
+  return Y.encodeStateAsUpdate(d)
+}
+
+test('le client demande la compression quand le navigateur sait décompresser', () => {
+  const { p, ws } = creer()
+  assert.equal(new URL(ws().url.replace('wss:', 'https:')).searchParams.get('z'), '1')
+  p.destroy()
+})
+
+test('état compressé : décompressé et appliqué, et « synced » n’arrive qu’après, dans l’ordre', async () => {
+  const { ydoc, p, ws, evenements } = creer()
+  ws().ouvrir()
+  const etat = etatDe('Un long texte. '.repeat(2000))
+  ws().recevoir(JSON.stringify({ type: 'etat-z', octets: etat.length }))
+  ws().recevoir(deflateRawSync(etat).buffer)
+  // Arrivés pendant la décompression : ils attendent leur tour.
+  const suite = new Y.Doc()
+  Y.applyUpdate(suite, etat)
+  const avant = Y.encodeStateVector(suite)
+  suite.getText('t').insert(0, 'Début. ')
+  ws().recevoir(Y.encodeStateAsUpdate(suite, avant).buffer)
+  synced(ws(), svDe(suite))
+  assert.equal(p.synced, false, 'pas de « synced » tant que l’état n’est pas appliqué')
+  await attendre(() => p.synced)
+  assert.equal(ydoc.getText('t').toString(), suite.getText('t').toString())
+  assert.equal(evenements.filter(([n]) => n === 'synced').length, 1)
+  p.destroy()
+})
+
+test('décompression impossible : rien n’est affiché comme complet, reconnexion sans compression', async () => {
+  const { p, ws } = creer()
+  const premiere = ws()
+  premiere.ouvrir()
+  premiere.recevoir(JSON.stringify({ type: 'etat-z', octets: 10 }))
+  premiere.recevoir(new Uint8Array([0xff, 0xff, 0xff, 0xff]).buffer)
+  synced(premiere)
+  await attendre(() => premiere.readyState === 3)
+  assert.equal(p.synced, false, '« synced » jeté avec l’état incomplet')
+  await attendre(() => FauxWS.instances.length === 2, 3000)
+  assert.equal(new URL(ws().url.replace('wss:', 'https:')).searchParams.get('z'), null)
   p.destroy()
 })

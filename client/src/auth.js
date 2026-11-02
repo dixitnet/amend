@@ -1,25 +1,38 @@
 // Session (email) et jetons — côté client. Voir server/auth.js et
 // claude/conception-gestion-utilisateurs.md (projet Amend).
 
-let cachedEmail // undefined = pas encore vérifié, null = pas connecté
+let cachedMoi // undefined = pas encore vérifié ; sinon la réponse de /api/auth/me
 let generation = 0 // change à chaque ouverture ou fermeture de session
 
-export async function getSessionEmail() {
-  if (cachedEmail !== undefined) return cachedEmail
+/** `{ email, admin, nom, couleur }` du compte de la session (`email` à null :
+ * pas connecté). Lu une fois par page et partagé — le menu du compte et la
+ * palette de contact le demandaient chacun (audit du 02/11/2026). Un
+ * changement de nom ou de couleur fait ici le met à jour (`majMoi`). */
+export async function getMoi() {
+  if (cachedMoi !== undefined) return cachedMoi
   const depart = generation
   const res = await fetch('/api/auth/me')
   const data = await res.json()
-  const email = data.email || null
+  const moi = { ...data, email: data.email || null }
   // Une session ouverte pendant que cette requête était en vol (invitation
   // acceptée au chargement de la page) la rend périmée : on ne la met pas en
   // cache, sous peine de figer « non connecté » après la connexion.
-  if (depart === generation) cachedEmail = email
-  return email
+  if (depart === generation) cachedMoi = moi
+  return moi
+}
+
+export async function getSessionEmail() {
+  return (await getMoi()).email
+}
+
+/** Le nom ou la couleur viennent d'être enregistrés : le cache suit. */
+export function majMoi(champs) {
+  if (cachedMoi && cachedMoi.email) cachedMoi = { ...cachedMoi, ...champs }
 }
 
 export function forgetSessionCache() {
   generation++
-  cachedEmail = undefined
+  cachedMoi = undefined
 }
 
 /** Ce que ce navigateur garde de la personne qui part (audit C19) : les
