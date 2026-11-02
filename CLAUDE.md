@@ -40,6 +40,20 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 - Test serveur connu : « clé API absente → 501 » échoue sur le Mac car le vrai `.env` est rechargé ; il passe sans `.env`.
 - `_a_supprimer/` et `revue-*.md` sont ignorés par git ; `mac-launchagent/`, `data/`, `.env` aussi.
 
+## Tester la production (compte de test de Claude)
+
+- L'environnement cloud de Claude autorise `www.amend.ink` : `curl` (en-têtes, compression, cache, version servie) et Chromium (Playwright) y ont accès.
+- **Compte de test** : un compte ordinaire, **jamais dans `ADMIN_EMAILS`**. Son cookie de session est dans le secret d'environnement `AMEND_PROD_COOKIE` (30 jours). Ne jamais afficher, copier ni écrire ce cookie. Le serveur ne lui ouvre que ses propres documents et ceux qu'on lui partage : c'est la frontière, il n'y en a pas d'autre (les dossiers ne sont qu'un rangement personnel).
+- Outils : `node tools/prod.mjs verifier | documents | creer "titre"` ; en module, `tools/prod.mjs` fournit `api`, `creerDocumentTest`, `contexteProd` (Chromium connecté avec le compte), `deposerEtat`. Ouverture réelle mesurée : `node tools/banc-ouverture.mjs --base=https://www.amend.ink [--profils=vide,livre] [--docs=…]` (corpus créé une fois au nom du compte, puis réutilisé). Les deux refusent un cookie d'administrateur et se relancent seuls avec `NODE_USE_ENV_PROXY=1` derrière un proxy.
+- Règles pour Claude avec ce compte :
+  1. n'agir que sur les documents du compte de test (créés par lui) ou partagés avec lui pour un test ;
+  2. tout document créé s'intitule « TEST — … » (`creerDocumentTest` l'impose) ;
+  3. aucune invitation vers une adresse réelle (elle enverrait un vrai courrier), aucune publication de page ;
+  4. l'IA (Margo, corrections) seulement quand le test l'exige : elle coûte réellement ;
+  5. jamais de suppression du compte, ni de « déconnecter partout » (le cookie deviendrait inutilisable) ;
+  6. aucune autre action sur la production : pas de `ssh`, pas de compte administrateur.
+- Un refus « cookie refusé » ou 401/403 veut dire qu'il faut renouveler le cookie (Sylvain : fenêtre privée connectée avec le compte de test, outils de développement → Application → Cookies → `collabtext_session`, puis réglages de l'environnement ; fermer la fenêtre sans se déconnecter).
+
 ## Architecture (repères)
 
 - `client/` : Vite + ProseMirror + Yjs (y-prosemirror). `client/src/` : schéma (`schema.js`), suivi des modifications (`trackChanges.js`, marques `ins.tracked-insertion` / `del.tracked-deletion`), barre d'outils (`barreOutils.js`), exports (`exportVariante.js`, `exportCommun.js`, `typstExport.js`, `docxExport.js`, `publicationExport.js`), typographie (`typographie.js`).
