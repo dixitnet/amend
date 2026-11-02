@@ -6,7 +6,12 @@
 //
 //   node tools/campagne/composition.mjs [--tours=40]
 
-import { demarrer, documentPartage, ouvrir, attendre, convergence } from './outils.mjs'
+import { demarrer, documentPartage, ouvrir, attendre, convergence, COMPOSITION, NAVIGATEUR } from './outils.mjs'
+
+if (!COMPOSITION) {
+  console.log(`composition non pilotable dans ${NAVIGATEUR} : Chromium seulement`)
+  process.exit(0)
+}
 
 const args = process.argv.slice(2)
 const TOURS = Number(args.find((a) => a.startsWith('--tours='))?.split('=')[1] ?? 40)

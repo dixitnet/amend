@@ -25,7 +25,7 @@
 //   node tools/campagne/matrice.mjs [--filtre=regex] [--rapide] [--sortie=fichier.json]
 
 import { writeFileSync } from 'node:fs'
-import { demarrer, documentPartage, ouvrir, attendre, convergence } from './outils.mjs'
+import { demarrer, documentPartage, ouvrir, attendre, convergence, COMPOSITION, NAVIGATEUR } from './outils.mjs'
 
 const args = process.argv.slice(2)
 const option = (n, d) => args.find((a) => a.startsWith(`--${n}=`))?.split('=')[1] ?? d
@@ -150,6 +150,7 @@ try {
     for (const geste of gestes) {
       for (const saisie of SAISIES) {
         if (RAPIDE && !SAISIES_RAPIDES.has(saisie[0])) continue
+        if (saisie[0] === 'touche-morte' && !COMPOSITION) continue
         for (const [mode, qui] of MODES) {
           const cas = { mode, nature, geste, saisie: saisie[0] }
           const nom = `${mode} · ${nature} · ${geste} · ${saisie[0]}`
@@ -279,6 +280,23 @@ try {
 }
 
 const echecs = resultats.filter((r) => !r.ok)
-console.log(`\n${resultats.length} vérifications, ${echecs.length} échecs, ${Math.round((Date.now() - t0) / 1000)} s`)
+// Bilan compact, à recopier : échecs par vérification et par mode.
+const bilan = {}
+for (const r of resultats) {
+  const b = (bilan[r.verif] ??= {})
+  const m = (b[r.mode] ??= [0, 0])
+  m[1]++
+  if (!r.ok) m[0]++
+}
+console.log(`\nbilan (${NAVIGATEUR}) — échecs / vérifications :`)
+for (const [v, parMode] of Object.entries(bilan)) {
+  const t = Object.entries(parMode)
+    .map(([m, [e, n]]) => `${m} ${e}/${n}`)
+    .join('  ')
+  console.log(`  ${v.padEnd(40)} ${t}`)
+}
+console.log(
+  `\n${NAVIGATEUR} : ${resultats.length} vérifications, ${echecs.length} échecs, ${Math.round((Date.now() - t0) / 1000)} s`
+)
 if (SORTIE) writeFileSync(SORTIE, JSON.stringify(resultats, null, 1))
 process.exitCode = echecs.length ? 1 : 0

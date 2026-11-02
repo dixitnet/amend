@@ -45,12 +45,31 @@ Les échecs dus à l'outil lui-même (touches enchaînées sans délai, triple-c
 15. **En suivi, taper sur un mot en italique perd l'italique** (hors suivi, il est conservé). Même chose pour un lien : le nouveau texte sort du lien.
 16. **Raccourcis de Google Docs absents** : Ctrl+Alt+M (commenter), Ctrl+Alt+1…6 et Ctrl+Alt+0 (titres, paragraphe).
 
+## Safari (moteur WebKit)
+
+Même campagne rejouée dans **WebKit 26.6** (le moteur de Safari, version Linux pilotée par Playwright) : matrice de 546 cas (les touches mortes ne se pilotent que dans Chromium), 4 025 vérifications ; 39 scénarios ; endurance.
+
+1. **Tous les écarts 1 à 16 se retrouvent à l'identique**, avec les mêmes proportions (Entrée sur une sélection, Ctrl+A, plusieurs paragraphes, deux cartes au lieu d'un remplacement, commentaires perdus à l'acceptation…). Ce sont donc des défauts de l'éditeur, pas d'un navigateur.
+2. **Défaut 5 plus large dans WebKit** : entre deux éditeurs, des espaces entrent hors suivi dans 10 tours sur 10, **y compris quand les deux personnes tapent à des endroits différents** du paragraphe (dans Chromium, il fallait le même endroit). Avec la correctrice : 5 tours sur 10, et 6 signalements du serveur.
+3. Rien de propre à WebKit par ailleurs (un seul détail sans effet visible : après un collage, la sélection n'est pas exactement repliée sur le curseur).
+
+À vérifier à la main dans le vrai Safari (ce qu'aucun automate ne pilote) — document d'essai, suivi activé :
+
+1. Touche morte réelle sur une sélection : sélectionner « noir », taper ^ puis e, puis « tre » → `noir` barré, `être` ajouté, une carte, aucun « ^ » qui reste.
+2. Appui long sur une lettre (menu des accents) sur une sélection : même attendu.
+3. Dictée (Fn Fn) sur une sélection : barré puis ajout, rien d'effacé pour de bon.
+4. Substitutions de macOS (Édition → Substitutions : guillemets intelligents, tirets, remplacement de texte) : taper `"oui"` et `--` en suivi → une seule transformation, proposée, sans doublon avec la typographie d'amend.ink.
+5. Correcteur orthographique : clic droit sur un mot souligné, choisir la suggestion → remplacement proposé (barré puis ajout), pas de modification directe.
+6. Option+Maj+→ puis frappe ; Cmd+A puis frappe (défaut 2) ; Cmd+Z / Cmd+Maj+Z.
+7. Triple-clic au trackpad sur un paragraphe, puis frappe.
+
 ## Non couvert
 
-Firefox et Safari (seul Chromium est disponible ici — à faire sur le Mac pour Safari), tactile et iPhone, méthodes de saisie asiatiques, notes de bas de page, listes et tableaux en suivi, images, exports après acceptation, coupures réseau (déjà couvertes par `tools/fuzz-collab.js`).
+Firefox, Safari réel sur macOS (voir la liste ci-dessus), tactile et iPhone, méthodes de saisie asiatiques, notes de bas de page, listes et tableaux en suivi, images, exports après acceptation, coupures réseau (déjà couvertes par `tools/fuzz-collab.js`).
 
 ## Outils (dans `tools/campagne/`)
 
+- Tous acceptent `--navigateur=webkit` (ou `firefox`) ; sur le Mac, les raccourcis sont traduits (Cmd, Option).
 - `matrice.mjs` : la matrice « sélectionner puis taper » (`--filtre=<regex>`, `--rapide`, `--port`, `--sortie=fichier.json`) — environ 30 min.
 - `scenarios.mjs` : les 39 scénarios à plusieurs et commentaires (`--filtre=<regex>`) — environ 1 min 15.
 - `endurance.mjs` : frappe simultanée en suivi (`--tours`, `--qui=chloe,alice`) ; `composition.mjs` : touches mortes.

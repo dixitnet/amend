@@ -16,7 +16,29 @@
 import { createRequire } from 'node:module'
 import { lancerInstance } from '../instance-test.js'
 
-const { chromium } = createRequire(import.meta.url)('playwright')
+const playwright = createRequire(import.meta.url)('playwright')
+
+// Le navigateur : `--navigateur=webkit` (le moteur de Safari) ou `firefox`,
+// ou la variable NAVIGATEUR ; Chromium par défaut.
+export const NAVIGATEUR =
+  process.argv.find((a) => a.startsWith('--navigateur='))?.split('=')[1] || process.env.NAVIGATEUR || 'chromium'
+if (!['chromium', 'webkit', 'firefox'].includes(NAVIGATEUR)) throw new Error(`navigateur inconnu : ${NAVIGATEUR}`)
+const MAC = process.platform === 'darwin'
+
+/** Les raccourcis écrits pour Linux (Ctrl), traduits pour le Mac (Cmd, Option). */
+export function traduireTouche(t) {
+  if (!MAC) return t
+  const table = {
+    'Control+Shift+ArrowRight': 'Alt+Shift+ArrowRight',
+    'Control+Shift+ArrowLeft': 'Alt+Shift+ArrowLeft',
+    'Shift+End': 'Meta+Shift+ArrowRight',
+    'Shift+Home': 'Meta+Shift+ArrowLeft',
+  }
+  return table[t] || t.replace(/^Control\+/, 'Meta+')
+}
+
+/** La composition (touche morte) ne se pilote que par le protocole de Chromium. */
+export const COMPOSITION = NAVIGATEUR === 'chromium'
 
 export const COMPTES = {
   alice: { mail: 'alice@test.local', nom: 'Alice' },
@@ -35,7 +57,7 @@ export async function demarrer({ port = 19400 } = {}) {
   for (const c of Object.values(COMPTES)) {
     await inst.api('/api/auth/name', { cookie: inst.cookies[c.mail], methode: 'POST', corps: { nom: c.nom } })
   }
-  const navigateur = await chromium.launch()
+  const navigateur = await playwright[NAVIGATEUR].launch()
   return { inst, navigateur }
 }
 
@@ -83,7 +105,6 @@ export async function ouvrir(navigateur, inst, qui, id, { largeur = 1280 } = {})
   const contexte = await navigateur.newContext({
     viewport: { width: largeur, height: 900 },
     locale: 'fr-FR',
-    permissions: ['clipboard-read', 'clipboard-write'],
   })
   const [nom, valeur] = inst.cookies[compte.mail].split(';')[0].split(/=(.*)/s)
   await contexte.addCookies([{ name: nom, value: valeur, url: inst.base }])
@@ -172,7 +193,7 @@ export class Personne {
   async remplirSansSuivi(paragraphes) {
     await this.suivi(false)
     await this.focus()
-    await this.page.keyboard.press('Control+A')
+    await this.page.keyboard.press(traduireTouche('Control+A'))
     await this.page.keyboard.press('Delete')
     for (let i = 0; i < paragraphes.length; i++) {
       if (i) await this.page.keyboard.press('Enter')
@@ -186,7 +207,7 @@ export class Personne {
   async remettre(html) {
     await this.suivi(false)
     await this.focus()
-    await this.page.keyboard.press('Control+A')
+    await this.page.keyboard.press(traduireTouche('Control+A'))
     await attendre(80)
     await this.coller(html.replace(/<[^>]+>/g, ' '), html)
     await attendre(250)
@@ -349,6 +370,7 @@ export class Personne {
   /** Une lettre accentuée par touche morte (^ puis e → ê) : une composition,
    * comme sur un clavier français de Mac. */
   async composer(etapes, final) {
+    if (!COMPOSITION) throw new Error(`composition non pilotable dans ${NAVIGATEUR}`)
     const cdp = await this.contexte.newCDPSession(this.page)
     for (const e of etapes) {
       await cdp.send('Input.imeSetComposition', { text: e, selectionStart: e.length, selectionEnd: e.length })
@@ -364,7 +386,7 @@ export class Personne {
     // signalé le déplacement du curseur (selectionchange) quand la touche
     // suivante arrive — une course qu'aucune main ne produit.
     for (let i = 0; i < fois; i++) {
-      await this.page.keyboard.press(t)
+      await this.page.keyboard.press(traduireTouche(t))
       await attendre(30)
     }
   }
