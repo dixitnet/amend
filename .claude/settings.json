@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(npm ci:*)",
       "Bash(npm test:*)",
       "Bash(npm run test:server:*)",
       "Bash(npm run test:client:*)",
@@ -12,9 +13,14 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
       "Bash(git fetch:*)",
+      "Bash(git pull:*)",
       "Bash(git checkout:*)",
       "Bash(git merge:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
       "Bash(git commit:*)",
       "Bash(git push origin dev-claude:*)",
       "Bash(git push -u origin dev-claude:*)"
@@ -28,13 +34,14 @@
     "deny": [
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
       "Bash(git push origin --delete:*)",
       "Bash(git reset:*)",
+      "Bash(git rebase:*)",
       "Bash(git stash:*)",
       "Bash(ssh:*)",
       "Bash(scp:*)",
       "Bash(rsync:*)",
-      "Bash(./deploy/livrer.sh:*)",
       "Bash(./deploy/deployer.sh:*)",
       "Bash(./deploy/deploy.sh:*)",
       "Read(./.env)",
