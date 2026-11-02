@@ -10,7 +10,7 @@
 
 /* global document -- fonctions exécutées dans la page (Playwright) */
 import { writeFileSync } from 'node:fs'
-import { demarrer, documentPartage, ouvrir, attendre, convergence } from './outils.mjs'
+import { demarrer, documentPartage, ouvrir, attendre, convergence, NAVIGATEUR } from './outils.mjs'
 
 const args = process.argv.slice(2)
 const option = (n, d) => args.find((a) => a.startsWith(`--${n}=`))?.split('=')[1] ?? d
@@ -694,6 +694,8 @@ try {
   await inst.arreter()
 }
 const echecs = resultats.filter((r) => !r.ok)
-console.log(`\n${resultats.length} vérifications, ${echecs.length} échecs, ${Math.round((Date.now() - t0) / 1000)} s`)
+console.log(
+  `\n${NAVIGATEUR} : ${resultats.length} vérifications, ${echecs.length} échecs, ${Math.round((Date.now() - t0) / 1000)} s`
+)
 if (SORTIE) writeFileSync(SORTIE, JSON.stringify(resultats, null, 1))
 process.exitCode = echecs.length ? 1 : 0
