@@ -15,18 +15,17 @@
 // Chromium (Playwright), deux fois : cache vide, puis cache du navigateur
 // rempli (seconde visite). Le client doit être compilé (`npm run build:client`).
 //
-// Mode production, en LECTURE SEULE (02/11/2026) :
+// Mode production, avec le compte de test de Claude (tools/prod.mjs, CLAUDE.md) :
 //
-//   node tools/banc-ouverture.mjs --base=https://www.amend.ink [--docs=id1,id2] [--essais=3]
+//   node tools/banc-ouverture.mjs --base=https://www.amend.ink [--profils=vide,livre] [--docs=id1,id2]
 //
-//   - cookie de session du compte de test dans la variable d'environnement
-//     AMEND_PROD_COOKIE (jamais en argument ni dans le dépôt) ; il vaut 30 jours ;
-//   - documents dans --docs ou dans AMEND_PROD_DOCS (séparés par des virgules) ;
-//   - derrière un proxy (session Claude dans le cloud), lancer avec
-//     NODE_USE_ENV_PROXY=1 : sinon `fetch` de Node ignore le proxy ;
-//   - le banc refuse de tourner si le compte n'est pas **lecteur** de chaque
-//     document, ou s'il n'a pas de nom (la fenêtre « Votre nom » écrirait) :
-//     il n'envoie aucune requête qui modifie quoi que ce soit.
+//   - cookie du compte de test dans AMEND_PROD_COOKIE (jamais en argument ni
+//     dans le dépôt) ; refus si c'est un compte administrateur ;
+//   - --profils : documents du corpus, créés une fois au nom du compte de test
+//     (« TEST — banc <profil> ») puis réutilisés ; par défaut vide et livre ;
+//   - --docs (ou AMEND_PROD_DOCS) : en plus, des documents existants que le
+//     compte peut ouvrir ;
+//   - se relance de lui-même avec NODE_USE_ENV_PROXY=1 derrière un proxy.
 //
 // Mesures (médiane des essais) :
 //   - octets   : transférés sur le réseau (HTTP), WebSocket non comprise
@@ -43,6 +42,16 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { lancerInstance } from './instance-test.js'
+import { construire } from './corpus.js'
+import {
+  api as apiProd,
+  contexteProd,
+  creerDocumentTest,
+  deposerEtat,
+  documents as documentsProd,
+  relancerAvecProxySiBesoin,
+  verifierCompte,
+} from './prod.mjs'
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -54,6 +63,10 @@ const PORT = Number(option('port', 18950))
 const CPU = args.includes('--cpu')
 const REQUETES = args.includes('--requetes')
 const BASE_PROD = option('base', '').replace(/\/$/, '')
+if (BASE_PROD) {
+  process.env.AMEND_PROD_BASE = BASE_PROD
+  relancerAvecProxySiBesoin()
+}
 
 // Débits en octets/s, latence en ms (valeurs de type « 4G correcte » et « ADSL »).
 const RESEAUX = {
@@ -196,52 +209,63 @@ async function preparerInstance() {
   return { base: inst.base, cookie, docs, arreter: () => inst.arreter() }
 }
 
-/** Les documents de production : vérifiés en lecture seule, sans rien écrire. */
+/** Les documents de production, au nom du compte de test : ceux du corpus
+ * (créés au premier passage, puis réutilisés) et ceux passés par --docs. */
 async function preparerProduction() {
-  const brut = (process.env.AMEND_PROD_COOKIE || '').trim()
-  if (!brut)
-    throw new Error('AMEND_PROD_COOKIE absent : le cookie de session du compte de test (secret de l’environnement)')
-  const cookie = brut.includes('=') ? brut.split(';')[0] : `collabtext_session=${brut}`
+  const moi = await verifierCompte()
+  if (!moi.nom) await apiProd('/api/auth/name', { methode: 'POST', corps: { nom: 'Banc Claude' } })
+  const existants = await documentsProd()
+  const docs = []
+  const profils =
+    args.some((a) => a.startsWith('--profils=')) || !option('docs', process.env.AMEND_PROD_DOCS || '')
+      ? option('profils', 'vide,livre').split(',')
+      : []
+  let navigateur = null
+  for (const profil of profils) {
+    const titre = `TEST — banc ${profil}`
+    let doc = existants.find((d) => d.jeSuisProprietaire && d.title === titre)
+    let octetsYjs = 0
+    if (profil !== 'vide') octetsYjs = construire(profil).bin.length
+    if (!doc) {
+      doc = await creerDocumentTest(titre)
+      if (profil !== 'vide') {
+        console.log(`→ dépôt du corpus « ${profil} » dans ${doc.id}`)
+        navigateur ??= await chromium.launch()
+        const contexte = await contexteProd(navigateur)
+        const page = await contexte.newPage()
+        await page.goto(`${BASE_PROD}/`)
+        await deposerEtat(page, doc.id, construire(profil).bin)
+        await contexte.close()
+      }
+    }
+    docs.push({ profil, id: doc.id, octetsYjs })
+  }
+  if (navigateur) await navigateur.close()
   const ids = (option('docs', '') || process.env.AMEND_PROD_DOCS || '')
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean)
-  if (!ids.length) throw new Error('aucun document : --docs=id1,id2 ou AMEND_PROD_DOCS')
-  const docs = []
   for (const id of ids) {
-    let r
-    try {
-      r = await fetch(`${BASE_PROD}/api/docs/${id}`, { headers: { cookie } })
-    } catch (err) {
-      throw new Error(
-        `${BASE_PROD} injoignable (${err.cause?.code || err.message}). Derrière un proxy (session Claude dans le cloud) : NODE_USE_ENV_PROXY=1`
-      )
-    }
-    if (r.status === 401 || r.status === 403)
-      throw new Error(`${id} : accès refusé (${r.status}) — cookie expiré (30 jours) ou compte sans accès`)
-    if (!r.ok) throw new Error(`${id} : réponse ${r.status}`)
-    const meta = await r.json()
-    if (meta.myRole !== 'lecteur')
-      throw new Error(
-        `${id} : le compte de test est « ${meta.myRole} » ; le banc ne tourne qu’en lecteur (lecture seule)`
-      )
-    if (!meta.myName)
-      throw new Error(
-        'le compte de test n’a pas de nom : ouvrez une fois un document avec ce compte pour le lui donner'
-      )
-    docs.push({ profil: (meta.title || id).slice(0, 20), id, octetsYjs: null })
+    const r = await apiProd(`/api/docs/${id}`)
+    if (r.status !== 200) throw new Error(`${id} : réponse ${r.status} (pas d’accès pour le compte de test ?)`)
+    docs.push({ profil: (r.json.title || id).slice(0, 20), id, octetsYjs: null })
   }
-  return { base: BASE_PROD, cookie, docs, arreter: async () => {} }
+  return { base: BASE_PROD, cookie: null, docs, arreter: async () => {} }
 }
 
 const { base, cookie, docs, arreter } = BASE_PROD ? await preparerProduction() : await preparerInstance()
 try {
   const navigateur = await chromium.launch()
-  const [nom, valeur] = cookie.split(';')[0].split(/=(.*)/s)
+  const nouveauContexte = async () => {
+    if (BASE_PROD) return contexteProd(navigateur)
+    const [nom, valeur] = cookie.split(';')[0].split(/=(.*)/s)
+    const contexte = await navigateur.newContext()
+    await contexte.addCookies([{ name: nom, value: valeur, url: base }])
+    return contexte
+  }
   if (REQUETES) {
     for (const d of docs) {
-      const contexte = await navigateur.newContext()
-      await contexte.addCookies([{ name: nom, value: valeur, url: base }])
+      const contexte = await nouveauContexte()
       const r = await ouvrir(contexte, base, d.id)
       console.log(`\n${d.profil} — requêtes (début → fin, ms depuis la navigation) ; synced ${Math.round(r.synced)} ms`)
       for (const [chemin, debut, fin] of r.requetes.sort((a, b) => a[1] - b[1]))
@@ -251,8 +275,7 @@ try {
     await navigateur.close()
   } else if (CPU) {
     for (const d of docs) {
-      const contexte = await navigateur.newContext()
-      await contexte.addCookies([{ name: nom, value: valeur, url: base }])
+      const contexte = await nouveauContexte()
       await ouvrir(contexte, base, d.id) // premier passage : cache et compilation chauds
       const { profil, synced, calme } = await ouvrir(contexte, base, d.id, { cpu: true })
       console.log(`\n${d.profil} — synced ${Math.round(synced)} ms, calme ${Math.round(calme)} ms ; temps propre :`)
@@ -269,8 +292,7 @@ try {
     for (const d of docs) {
       const resultats = { vide: [], plein: [] }
       for (let i = 0; i < ESSAIS; i++) {
-        const contexte = await navigateur.newContext()
-        await contexte.addCookies([{ name: nom, value: valeur, url: base }])
+        const contexte = await nouveauContexte()
         resultats.vide.push(await ouvrir(contexte, base, d.id))
         resultats.plein.push(await ouvrir(contexte, base, d.id))
         await contexte.close()
