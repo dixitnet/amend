@@ -943,8 +943,13 @@ export function mountEditor(root, docId, user, docMeta) {
   view.setProps({
     dispatchTransaction: makeDispatchTransaction(view, () => user, {
       peutModifierLibrement: () => !!cap.canEditFreely,
-      surRefus: () =>
-        messageFugace('Cette modification ne peut pas être suivie : elle est réservée aux éditeurs.', { erreur: true }),
+      surRefus: (_tr, raison) =>
+        messageFugace(
+          raison === 'texte'
+            ? 'En suivi des modifications, ce geste effacerait du texte sans laisser de trace : effacez d’abord la sélection, puis recommencez.'
+            : 'Cette modification ne peut pas être suivie : elle est réservée aux éditeurs.',
+          { erreur: true }
+        ),
     }),
   })
 

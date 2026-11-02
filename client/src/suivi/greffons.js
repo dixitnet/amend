@@ -247,6 +247,22 @@ export function effacementSuivi(getUser, versLArriere) {
  * remplace les cas particuliers (boutons cachés, gardes par greffon) et
  * couvre ceux qu'on n'a pas listés. `surRefus` prévient la personne.
  */
+/** `true` si la transaction retire du texte du document : un des intervalles
+ * que ses pas remplacent contient des caractères. Une coupure ou une
+ * jointure de blocs, un changement de type de bloc ne remplacent que des
+ * bornes de nœuds : faux. */
+export function effaceDuTexte(tr) {
+  for (let i = 0; i < tr.steps.length; i++) {
+    const avant = tr.docs[i]
+    let trouve = false
+    tr.steps[i].getMap().forEach((debut, fin) => {
+      if (!trouve && fin > debut && avant.textBetween(debut, fin, '', '').length > 0) trouve = true
+    })
+    if (trouve) return true
+  }
+  return false
+}
+
 export function makeDispatchTransaction(
   view,
   getUser,
@@ -262,7 +278,18 @@ export function makeDispatchTransaction(
     ) {
       const rewritten = rewriteForTracking(view.state, tr, getUser())
       if (!rewritten && !peutModifierLibrement()) {
-        surRefus(tr)
+        surRefus(tr, 'role')
+        return
+      }
+      // Un éditeur aussi : en suivi, un geste qu'on ne sait pas suivre et qui
+      // **ferait disparaître du texte** est refusé (02/11/2026, campagne de
+      // tests, famille A du diagnostic). Sélection puis Entrée, collage sur une
+      // sélection qui traverse une citation… effaçaient le texte pour de bon,
+      // sans trace et sans que « tout rejeter » le rende. Les gestes de
+      // structure qui n'effacent rien (titre, liste, recoller deux
+      // paragraphes) passent comme avant, hors suivi.
+      if (!rewritten && effaceDuTexte(tr)) {
+        surRefus(tr, 'texte')
         return
       }
       if (rewritten) {
