@@ -1,0 +1,69 @@
+diff --git a/node_modules/y-prosemirror/src/plugins/sync-plugin.js b/node_modules/y-prosemirror/src/plugins/sync-plugin.js
+index dccfb76..1880bfa 100644
+--- a/node_modules/y-prosemirror/src/plugins/sync-plugin.js
++++ b/node_modules/y-prosemirror/src/plugins/sync-plugin.js
+@@ -1084,10 +1084,60 @@ const updateYText = (ytext, ptexts, meta) => {
+     content.map((c) => c.insert).join('')
+   )
+   ytext.delete(index, remove)
+-  ytext.insert(index, insert)
+-  ytext.applyDelta(
+-    content.map((c) => ({ retain: c.insert.length, attributes: c.attributes }))
+-  )
++  // amend.ink (02/11/2026) — correctif local, voir client/patches/LISEZMOI.md.
++  // L'original insérait le texte nouveau SANS marques, puis réappliquait les
++  // marques de TOUT le paragraphe (`applyDelta`, avec `null` explicite sur
++  // chaque morceau non marqué). Quand une autre personne faisait la même passe
++  // au même moment, ses balises « sans marque » encadraient le texte qu'on
++  // venait d'insérer : des espaces tapées en suivi perdaient leur marque
++  // d'insertion et entraient dans le texte hors suivi (campagne de tests,
++  // écart 5). Ici : (1) le texte nouveau est inséré avec ses marques ;
++  // (2) on ne reformate que les caractères dont les marques diffèrent.
++  if (insert.length > 0) {
++    let debutMorceau = 0
++    let ecrit = 0
++    for (const c of content) {
++      const finMorceau = debutMorceau + c.insert.length
++      const a = Math.max(debutMorceau, index)
++      const b = Math.min(finMorceau, index + insert.length)
++      if (b > a) {
++        ytext.insert(index + ecrit, c.insert.slice(a - debutMorceau, b - debutMorceau), c.attributes)
++        ecrit += b - a
++      }
++      debutMorceau = finMorceau
++    }
++  }
++  const memesMarques = (x, y) => {
++    const cles = new Set([...Object.keys(x || {}), ...Object.keys(y || {})])
++    for (const k of cles) {
++      const vx = x && x[k] != null ? x[k] : null
++      const vy = y && y[k] != null ? y[k] : null
++      if (JSON.stringify(vx) !== JSON.stringify(vy)) return false
++    }
++    return true
++  }
++  // Les marques actuelles dans Yjs, caractère par caractère.
++  const actuelles = []
++  for (const d of ytext.toDelta()) {
++    const n = typeof d.insert === 'string' ? d.insert.length : 1
++    for (let i = 0; i < n; i++) actuelles.push(d.attributes || {})
++  }
++  let pos = 0
++  for (const c of content) {
++    const n = c.insert.length
++    let i = 0
++    while (i < n) {
++      if (memesMarques(actuelles[pos + i], c.attributes)) {
++        i++
++        continue
++      }
++      let j = i
++      while (j < n && !memesMarques(actuelles[pos + j], c.attributes)) j++
++      ytext.format(pos + i, j - i, c.attributes)
++      i = j
++    }
++    pos += n
++  }
+ }
+ 
+ const hashedMarkNameRegex = /(.*)(--[a-zA-Z0-9+/=]{8})$/

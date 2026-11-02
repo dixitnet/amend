@@ -6,3 +6,5 @@ _a_supprimer
 package-lock.json
 client/package-lock.json
 *.md
+tools/essai-y-prosemirror-v2/dist
+tools/essai-y-prosemirror-v2/node_modules

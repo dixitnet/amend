@@ -1,0 +1,24 @@
+{
+  "name": "essai-y-prosemirror-v2",
+  "private": true,
+  "type": "module",
+  "description": "Essai isolé de @y/prosemirror 2 (mode suggestion natif, Yjs 14) — hors application, voir docs/essai-y-prosemirror-v2-2026-11-02.md",
+  "scripts": {
+    "build": "esbuild src/essai.js --bundle --format=esm --outfile=dist/essai.js",
+    "campagne": "node campagne.mjs",
+    "compo": "node compo.mjs"
+  },
+  "dependencies": {
+    "@y/prosemirror": "2.0.0-15",
+    "@y/protocols": "1.0.6-rc.1",
+    "@y/y": "14.0.0-rc.29",
+    "esbuild": "^0.28.2",
+    "lib0": "1.0.0-rc.36",
+    "prosemirror-commands": "^1.7.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.4",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-transform": "^1.10.5",
+    "prosemirror-view": "^1.42.6"
+  }
+}

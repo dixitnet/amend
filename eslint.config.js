@@ -3,7 +3,7 @@
 import globals from 'globals'
 
 export default [
-  { ignores: ['client/dist/**', 'node_modules/**', 'client/node_modules/**', 'data/**', 'tests/**', '_a_supprimer/**', 'client/vite.config.js.timestamp-*'] },
+  { ignores: ['client/dist/**', 'node_modules/**', 'client/node_modules/**', 'data/**', 'tests/**', '_a_supprimer/**', 'client/vite.config.js.timestamp-*', 'tools/essai-y-prosemirror-v2/dist/**', 'tools/essai-y-prosemirror-v2/node_modules/**'] },
   {
     files: ['server/**/*.js', 'shared/**/*.js', 'tools/**/*.{js,mjs}', 'eslint.config.js'],
     languageOptions: { ecmaVersion: 2024, sourceType: 'module', globals: { ...globals.node } },
