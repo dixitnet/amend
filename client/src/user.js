@@ -1,5 +1,6 @@
 import { equiperModale } from './modale.js'
 import { COULEURS, COULEUR_IA } from '../../shared/identite.js'
+import { majMoi } from './auth.js'
 
 // La palette est commune au serveur (shared/identite.js) : aucun vert, réservé à l'IA.
 const COLORS = COULEURS
@@ -96,7 +97,10 @@ async function enregistrerNom(nom) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ nom }),
     })
-    return res.ok ? await res.json() : null
+    if (!res.ok) return null
+    const enregistre = await res.json()
+    majMoi({ nom: enregistre.nom, couleur: enregistre.couleur })
+    return enregistre
   } catch {
     return null
   }

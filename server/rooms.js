@@ -21,7 +21,14 @@
 //                    client renvoie alors seulement ce qui manque)
 //                    { type: 'refuse', raison } (serveur → client : une
 //                    opération n'a pas été acceptée ; le client recharge)
+//                    { type: 'etat-z', octets } (serveur → client, 02/11/2026 :
+//                    la trame binaire qui suit est l'état initial compressé
+//                    en deflate brut ; seulement si le client l'a demandé
+//                    par `?z=1` à l'ouverture, et au-delà de quelques Ko.
+//                    Un client ancien ne le demande pas et reçoit l'état
+//                    en clair.)
 
+import { deflateRawSync } from 'node:zlib'
 import { verifierLecteur as verifierLecteurDoc } from './replique.js'
 
 /** Ce qu'un client peut faire relayer aux autres par une trame texte : sa
@@ -33,6 +40,9 @@ const TITRE_MAX_CARACTERES = 200
 /** Messages gardés pendant le chargement de la réplique, par participant. */
 const EN_ATTENTE_MAX_MESSAGES = 500
 const EN_ATTENTE_MAX_OCTETS = 8 * 1024 * 1024
+/** En deçà, l'état initial part en clair même si le client accepte la
+ * compression : le gain ne vaut pas le détour. */
+export const SEUIL_COMPRESSION_OCTETS = 8 * 1024
 
 export class Rooms {
   constructor(storage, repliques) {
@@ -51,13 +61,13 @@ export class Rooms {
    * (celui que ses commentaires portent). Absent : tout est permis (les
    * outils et les tests qui ne s'occupent pas des rôles).
    */
-  join(docId, conn, user, acces = null, { vecteur = null } = {}) {
+  join(docId, conn, user, acces = null, { vecteur = null, compression = false } = {}) {
     let members = this.rooms.get(docId)
     if (!members) {
       members = new Set()
       this.rooms.set(docId, members)
     }
-    const member = { conn, user, acces, pret: false, enAttente: [] }
+    const member = { conn, user, acces, pret: false, enAttente: [], compression }
     members.add(member)
 
     // Les messages arrivés pendant le chargement de la réplique sont
@@ -116,10 +126,30 @@ export class Rooms {
     } catch {
       etat = this.repliques.etat(docId)
     }
-    if (etat && etat.length > 2) member.conn.send(Buffer.from(etat), { binary: true })
+    if (etat && etat.length > 2) this._envoyerBinaireInitial(member, etat)
     const sv = this.repliques.vecteur(docId)
     member.conn.send(JSON.stringify({ type: 'synced', sv: sv ? Buffer.from(sv).toString('base64') : null }))
     if (this.presenceAgents) for (const message of this.presenceAgents.messagesPour(docId)) member.conn.send(message)
+  }
+
+  /** L'état initial, compressé si le client l'accepte et que ça vaut la
+   * peine (audit du premier chargement, 02/11/2026) : un livre de 800 Ko
+   * d'état Yjs en fait trois à dix fois moins. Synchrone, pour que rien
+   * d'autre ne s'intercale entre l'annonce `etat-z` et sa trame. */
+  _envoyerBinaireInitial(member, etat) {
+    if (member.compression && etat.length >= SEUIL_COMPRESSION_OCTETS) {
+      try {
+        const z = deflateRawSync(etat)
+        if (z.length < etat.length) {
+          member.conn.send(JSON.stringify({ type: 'etat-z', octets: etat.length }))
+          member.conn.send(z, { binary: true })
+          return
+        }
+      } catch (err) {
+        console.error('[rooms] compression de l’état impossible, envoi en clair :', err.message)
+      }
+    }
+    member.conn.send(Buffer.from(etat), { binary: true })
   }
 
   /** Un message de contrôle (texte) à toute la salle, sans expéditeur. */

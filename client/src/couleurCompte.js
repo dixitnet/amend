@@ -14,6 +14,7 @@
 
 import { COULEURS_CHOIX, NOMS_COULEURS } from '../../shared/identite.js'
 import { equiperModale } from './modale.js'
+import { majMoi } from './auth.js'
 
 /**
  * Ouvre la fenêtre « Ma couleur ». `surChangement(couleur, nom)` est appelé
@@ -120,6 +121,7 @@ export function ouvrirChoixDeCouleur({ couleurActuelle = '', surChangement } = {
           ok.disabled = false
           return
         }
+        majMoi({ couleur: corps.couleur, nom: corps.nom })
         if (surChangement) surChangement(corps.couleur, corps.nom)
         terminer(corps.couleur)
       } catch {

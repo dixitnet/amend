@@ -24,5 +24,12 @@ www.amend.ink {
     # Pas de includeSubDomains ni de preload : on ne s'engage que pour www.
     header Strict-Transport-Security "max-age=604800"
 
+    # Compression (02/11/2026, docs/audit-chargement-2026-11-02.md) : le
+    # bundle JS passe de 611 à ~190 ko, la CSS de 109 à ~20 ko. Types
+    # compressés : ceux de Caddy par défaut (text/*, JSON, JavaScript, SVG…).
+    # Le flux ndjson de Margo (application/x-ndjson) n'en fait pas partie et
+    # reste envoyé ligne par ligne. Les WebSockets ne sont pas concernées.
+    encode zstd gzip
+
     reverse_proxy localhost:8787
 }

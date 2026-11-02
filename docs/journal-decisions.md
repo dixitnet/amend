@@ -132,3 +132,9 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 - Inchangé : Claude n'agit jamais sur le VPS (pas de `ssh`), ne déploie pas, ne lit pas le `.env`. Pas de poussée forcée ni de réécriture de `main`.
 - Sessions Claude Code dans le cloud : une branche `claude/…` peut être imposée par la session ; elle tient lieu de `dev-claude` pour cette session.
 - `.claude/settings.json` : simplification proposée à Sylvain (Claude ne modifie pas ses propres permissions).
+
+## 15. Premier chargement d'un document (02/11/2026)
+
+- Audit : `docs/audit-chargement-2026-11-02.md`, avec les outils `tools/banc-ouverture.mjs` et `tools/analyse-bundle.mjs`. Constat vérifié en production : ni compression ni cache, 790 ko retéléchargés à chaque ouverture.
+- Décision de Sylvain : points 1 (cache des fichiers statiques), 2a (compression par Caddy, `encode zstd gzip`), 3 (état initial compressé sur la WebSocket, message `etat-z`, demandé par `?z=1`) et 4 (métadonnées demandées dès l'arrivée par `public/precharge.js`, un seul `/api/auth/me` par page). En réserve : chargement à la demande des modules hors éditeur, préchargement des polices, cache des ancres de commentaires.
+- Résultat au banc (4G simulée) : livre 2,4 s → 1,2 s à la première visite, 0,48 s ensuite.

@@ -12,7 +12,7 @@
 // aussi à savoir si la personne est administratrice.
 
 import { lierMenuAria } from './menuAria.js'
-import { getSessionEmail, logout, logoutEverywhere } from './auth.js'
+import { getMoi, getSessionEmail, logout, logoutEverywhere } from './auth.js'
 import { initials } from './presence.js'
 import { ouvrirChangementDeNom } from './nomCompte.js'
 import { ouvrirChoixDeCouleur } from './couleurCompte.js'
@@ -175,8 +175,7 @@ export function monterMenuCompte(container, { couleur, surNom, surCouleur } = {}
     // Les entrées d'administration ne s'ajoutent que si le serveur le dit —
     // il refuserait de toute façon les autres (403), mais un lien qui mène
     // à un refus est pire qu'un lien absent.
-    fetch('/api/auth/me')
-      .then((r) => r.json())
+    getMoi()
       .then((moi) => {
         if (moi.nom) {
           nomCourant = moi.nom

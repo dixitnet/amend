@@ -14,6 +14,23 @@ function fromBase64(b64) {
   return bytes
 }
 
+/** Vrai si ce navigateur sait décompresser du deflate brut (Chrome 103,
+ * Safari 16.4, Firefox 113). Sinon, on ne demande pas la compression. */
+export function compressionDisponible() {
+  try {
+    new DecompressionStream('deflate-raw')
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Décompresse une trame deflate brut (l'état initial, message `etat-z`). */
+export async function decompresser(octets) {
+  const flux = new Blob([octets]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
+  return new Uint8Array(await new Response(flux).arrayBuffer())
+}
+
 /**
  * A minimal, dependency-free (beyond yjs/y-protocols) counterpart to the
  * server's relay in server/rooms.js:
@@ -62,6 +79,10 @@ export class SimpleProvider extends EventTarget {
     // something more useful than an endless silent "reconnexion…".
     this.likelyRejected = false
     this._consecutiveFailedAttempts = 0
+    // L'état initial compressé (02/11/2026, message `etat-z`) : demandé si le
+    // navigateur sait le décompresser, et plus jamais pour cet onglet après
+    // un échec de décompression.
+    this._compression = compressionDisponible()
 
     // Vrai entre le `synced` d'une connexion et sa fermeture : c'est
     // seulement là qu'une frappe part telle quelle. Entre l'ouverture et
@@ -118,7 +139,8 @@ export class SimpleProvider extends EventTarget {
     // reste. Dans l'URL plutôt qu'en premier message, pour que la réponse
     // ne dépende pas d'une course avec le chargement de la réplique.
     const sv = encodeURIComponent(toBase64(Y.encodeStateVector(this.ydoc)))
-    return `${proto}//${location.host}/ws/${this.docId}?user=${encodeURIComponent(this.user.name)}&sv=${sv}`
+    const z = this._compression ? '&z=1' : ''
+    return `${proto}//${location.host}/ws/${this.docId}?user=${encodeURIComponent(this.user.name)}&sv=${sv}${z}`
   }
 
   _connect() {
@@ -144,12 +166,43 @@ export class SimpleProvider extends EventTarget {
       // chaque reconnexion — la cause des journaux de 100 Mo.
     })
 
-    ws.addEventListener('message', (event) => {
-      if (typeof event.data === 'string') {
-        this._handleText(event.data)
-      } else {
-        Y.applyUpdate(this.ydoc, new Uint8Array(event.data), this)
+    // Une trame annoncée par `etat-z` est compressée : sa décompression est
+    // asynchrone, et tout ce qui arrive pendant ce temps (dont `synced`)
+    // attend dans `file`, dans l'ordre. Sans compression en cours, tout est
+    // traité aussitôt, comme avant.
+    const file = []
+    let compresseeAttendue = false
+    let decompression = null
+    const traiter = (data) => {
+      if (typeof data === 'string') {
+        if (this._estAnnonceCompressee(data)) compresseeAttendue = true
+        else this._handleText(data)
+        return
       }
+      if (!compresseeAttendue) {
+        Y.applyUpdate(this.ydoc, new Uint8Array(data), this)
+        return
+      }
+      compresseeAttendue = false
+      decompression = decompresser(new Uint8Array(data))
+        .then((etat) => {
+          if (this._ws !== ws) return
+          Y.applyUpdate(this.ydoc, etat, this)
+          decompression = null
+          while (file.length && !decompression) traiter(file.shift())
+        })
+        .catch(() => {
+          // Un état incomplet ne doit pas s'afficher comme complet : on
+          // jette ce qui suivait (dont `synced`) et on se reconnecte sans
+          // compression.
+          file.length = 0
+          this._compression = false
+          if (this._ws === ws) ws.close()
+        })
+    }
+    ws.addEventListener('message', (event) => {
+      if (decompression) file.push(event.data)
+      else traiter(event.data)
     })
 
     ws.addEventListener('close', () => {
@@ -177,6 +230,11 @@ export class SimpleProvider extends EventTarget {
       this._connect()
     }, this._reconnectDelay)
     this._reconnectDelay = Math.min(this._reconnectDelay * 1.7, 10000)
+  }
+
+  /** L'annonce `etat-z` telle que le serveur l'écrit (`JSON.stringify`, type en premier). */
+  _estAnnonceCompressee(text) {
+    return text.startsWith('{"type":"etat-z"')
   }
 
   _handleText(text) {

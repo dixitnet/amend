@@ -88,6 +88,34 @@ Elles sont classées par gain attendu sur le temps d'ouverture.
 
 Ordre recommandé : 1 et 2 (2a), puis 3, puis éventuellement 4. Les points 5 à 7 restent en réserve.
 
+## Résultat du lot 1, 2a, 3 et 4 (02/11/2026)
+
+Décision de Sylvain : 1, 2a, 3 et 4.
+
+- **1. Cache** (`server/statique.js`) : `assets/*` en `public, max-age=31536000, immutable` ; `.html` en `no-cache` ; le reste de `public/` une heure. Validateurs `ETag` (faible, taille + date) et `Last-Modified`, réponse 304. `HEAD` est géré. Un fichier de `assets/` absent (version précédente) reçoit un 404 franc au lieu de la page d'accueil.
+- **2a. Compression** : `encode zstd gzip` dans `deploy/Caddyfile.exemple`, à poser sur le VPS. Types par défaut de Caddy : le flux ndjson de Margo n'est pas compressé.
+- **3. État initial compressé** :
+  - le client demande `?z=1` si le navigateur sait décompresser (`DecompressionStream('deflate-raw')`) ;
+  - au-delà de 8 Ko, le serveur envoie `{type:'etat-z', octets}` puis la trame compressée (deflate brut) ;
+  - côté client, ce qui arrive pendant la décompression (dont `synced`) attend son tour. Si la décompression échoue, il se reconnecte sans compression et rien n'est affiché comme complet ;
+  - un ancien client ne demande rien et reçoit l'état en clair.
+- **4. Métadonnées plus tôt** :
+  - `client/public/precharge.js` (en `defer`, la CSP interdisant les scripts en ligne) lance `GET /api/docs/<id>` pendant le téléchargement du bundle, et `main.js` reprend la réponse ;
+  - `/api/auth/me` n'est plus lu qu'une fois par page (`getMoi()` dans `auth.js`), et le cache suit les changements de nom et de couleur (`majMoi`).
+
+Banc, 4G simulée, sans la compression de Caddy (qui ne tourne pas en local) :
+
+| Document | Cache | Avant : octets / affiché | Après : octets / affiché |
+|---|---|---|---|
+| vide | vide | 790 ko / 1,0 s | 793 ko / 0,94 s |
+| vide | plein | 790 ko / 1,0 s | **6 ko / 0,27 s** |
+| thèse | vide | 790 ko / 2,0 s | 793 ko / 1,17 s |
+| thèse | plein | 790 ko / 2,0 s | **6 ko / 0,44 s** |
+| livre | vide | 790 ko / 2,4 s | 793 ko / 1,21 s |
+| livre | plein | 790 ko / 2,4 s | **6 ko / 0,48 s** |
+
+Les métadonnées arrivent vers 0,43 s au lieu de 0,92 s. Avec Caddy, la première visite perd encore environ 500 ko. Le gain de la WebSocket est surestimé par le corpus synthétique : pour un vrai texte, compter un facteur 3 à 5.
+
 ## Vérifier la production (terminal du Mac)
 
 Ces commandes affichent la compression et les en-têtes de cache réellement servis par www.amend.ink :

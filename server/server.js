@@ -389,7 +389,8 @@ server.on('upgrade', (req, socket) => {
       email: emailSession,
       id: idCompte(emailSession),
     },
-    { vecteur }
+    // `z=1` : le client sait décompresser l'état initial (rooms.js, `etat-z`).
+    { vecteur, compression: url.searchParams.get('z') === '1' }
   )
   // Journal des connexions : la liste d'accès dit qui *peut* venir, elle ne
   // dit jamais qui vient (voir claude/conception-backoffice.md §3). On
