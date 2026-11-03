@@ -870,3 +870,47 @@ test('motifDeRefus : chaque raison connue tombe dans sa catégorie, le reste dan
   assert.equal(motifDeRefus('autre chose'), 'autre')
   assert.deepEqual(compterMotifs([]), {})
 })
+
+// --- Refus plus utiles (03/11/2026) --------------------------------------------
+
+test('apostrophes et tirets recopiés « à plat » retrouvent quand même le passage, sans fausse modification', () => {
+  const y = docAvec((f) => {
+    bloc(f, 'paragraph', ['Il l’a dit – puis se tut.'])
+  })
+  // Un modèle recopie souvent ’ en ' et – en - : même longueur, retrouvé, et
+  // seul ce qui change vraiment est proposé — ni l'apostrophe ni le tiret du
+  // texte ne sont touchés.
+  const v = proposer(y, [{ bloc: 1, avant: "l'a dit - puis", apres: "l'a dit - ensuite" }], AUTEUR)
+  assert.deepEqual(v.refuses, [])
+  const { accepte, segments } = lectures(y, 1)
+  assert.equal(accepte, 'Il l’a dit – ensuite se tut.')
+  const touches = segments.filter((x) => x.attrs.insertion || x.attrs.deletion).map((x) => x.texte)
+  assert.deepEqual(touches.sort(), ['ensuite', 'puis'])
+})
+
+test('introuvable à la ponctuation près, déjà conforme, appel de note : le refus dit quoi faire', () => {
+  const y = docAvec((f) => {
+    bloc(f, 'paragraph', ['Les données, mal nommées, sont là.'])
+    bloc(f, 'paragraph', ['Il le dit : oui.'])
+    bloc(f, 'paragraph', ['Zan naquit', { atome: 'footnote' }, 'jusqu’au soir.'])
+  })
+  const v = proposer(
+    y,
+    [
+      { bloc: 1, avant: 'Les données mal nommées', apres: 'Les données mal nommées' + 'x' },
+      { bloc: 2, avant: 'Il le dit : oui.', apres: 'Il le dit : oui.' },
+      { bloc: 3, avant: 'naquit⟦1⟧jusqu’au', apres: 'naquit⟦1⟧ jusqu’au' },
+    ],
+    AUTEUR
+  )
+  const raisons = Object.fromEntries(v.refuses.map((r) => [r.index, r.raison]))
+  assert.match(raisons[0], /à la ponctuation près/)
+  assert.match(raisons[1], /rien ne change .* déjà conforme .* passe à la suite/)
+  assert.match(raisons[2], /pour insérer juste après l'appel, prends comme `avant` les premiers mots qui le suivent/)
+  assert.deepEqual(compterMotifs(v.refuses), { 'introuvable-ponctuation': 1, identique: 1, structure: 1 })
+  // Vraiment introuvable : le motif reste « introuvable ».
+  assert.equal(
+    motifDeRefus(proposer(y, [{ bloc: 1, avant: 'absent', apres: 'x' }], AUTEUR).refuses[0].raison),
+    'introuvable'
+  )
+})

@@ -35,12 +35,19 @@ export { NOM_TEXTE, NOM_COMMENTAIRES, NOM_ORPHELINS }
 
 const MARQUES_DE_SUIVI = new Set(['insertion', 'deletion', 'authorColor'])
 
-/** Espaces insécables et apostrophes typographiques : un agent écrit
- * rarement la même chose que le document, et « introuvable » pour une
- * espace fine est une réponse inutile. Longueur conservée (1 pour 1), pour
- * que les positions trouvées sur le texte normalisé valent pour l'original. */
+/** Espaces insécables, apostrophes et tirets typographiques : un agent écrit
+ * rarement la même chose que le document, et « introuvable » pour une espace
+ * fine ou un tiret demi-cadratin est une réponse inutile (les tirets depuis le
+ * 03/11/2026 : un petit modèle recopie – en -). Longueur conservée (1 pour 1),
+ * pour que les positions trouvées sur le texte normalisé valent pour
+ * l'original. Pas les guillemets : « non » recopié "non" n'a pas la même
+ * longueur, et des guillemets droits se retypographient mal (lequel ouvre ?) —
+ * le refus « à la ponctuation près » demande alors de recopier exactement. */
 export function normaliser(s) {
-  return s.replace(/[    ]/g, ' ').replace(/[’‘ʼ]/g, "'")
+  return s
+    .replace(/[\u00a0\u202f\u2009\u2007]/g, ' ')
+    .replace(/[’‘ʼ]/g, "'")
+    .replace(/[‐‑‒–—―−]/g, '-')
 }
 
 // --- Lecture --------------------------------------------------------------
@@ -285,6 +292,7 @@ export function statistiques(blocs) {
  * un modèle se fait refuser, sans jamais écrire un mot du document. */
 export function motifDeRefus(raison) {
   const r = String(raison || '')
+  if (/à la ponctuation près/.test(r)) return 'introuvable-ponctuation'
   if (/introuvable/.test(r)) return 'introuvable'
   if (/apparaît \d+ fois/.test(r)) return 'ambigu'
   if (/rien ne change/.test(r)) return 'identique'
@@ -353,7 +361,8 @@ function situerSansGarde(bloc, citation) {
       raison: `ce passage apparaît ${exact.length} fois dans ${lieu} : allonge-le pour qu'il soit unique`,
     }
   const large = occurrences(normaliser(bloc.texte), normaliser(citation))
-  if (large.length === 1) return { ok: true, debut: large[0], fin: large[0] + citation.length, approche: true }
+  if (large.length === 1)
+    return { ok: true, debut: large[0], fin: large[0] + citation.length, approche: true, typographie: true }
   if (large.length > 1)
     return {
       ok: false,
@@ -376,6 +385,18 @@ function situerSansGarde(bloc, citation) {
         ok: false,
         raison: `ce passage apparaît ${souple.length} fois dans ${lieu} : allonge-le pour qu'il soit unique`,
       }
+  }
+  // Les mêmes lettres et chiffres, dans le même ordre, mais pas la même
+  // ponctuation ni les mêmes espaces : on ne devine pas lesquelles, mais on le
+  // dit — au modèle, qui recopiera mieux, et au journal (motif
+  // `introuvable-ponctuation`), qui mesure ce cas sans garder un mot du texte.
+  const lettres = (t) => t.replace(/[^\p{L}\p{N}]+/gu, '').toLowerCase()
+  const squelette = lettres(citation)
+  if (squelette && lettres(bloc.texte).includes(squelette)) {
+    return {
+      ok: false,
+      raison: `ce passage est introuvable dans ${lieu} à la ponctuation près : les mots y sont, mais la ponctuation ou les espaces diffèrent — recopie-le exactement, tel que lire le montre, ou raccourcis-le aux seuls mots qui changent`,
+    }
   }
   return {
     ok: false,
@@ -411,7 +432,7 @@ function plageDansLeTexte(bloc, debut, fin, { permettreMarques = false } = {}) {
       raison:
         atome.texte === '\n'
           ? "le passage recouvre un saut de ligne : fais deux propositions distinctes, de part et d'autre"
-          : `le passage recouvre l'appel de note ${atome.texte} : fais deux propositions distinctes, de part et d'autre — et pour supprimer la note entière, utilise \`supprimer\``,
+          : `le passage recouvre l'appel de note ${atome.texte} : fais deux propositions distinctes, de part et d'autre — pour insérer juste après l'appel, prends comme \`avant\` les premiers mots qui le suivent et ajoute le texte devant eux dans \`apres\` ; juste avant l'appel, les derniers mots qui le précèdent ; pour supprimer la note entière, utilise \`supprimer\``,
     }
   }
   const xt = couverts[0].xt
@@ -567,8 +588,20 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
     // Un nœud texte ProseMirror ne porte pas de saut de ligne.
     // Typographié comme ce qu'on taperait dans l'éditeur (shared/typographie.js).
     const apres = typographier(r.apres.replace(/[\r\n]+/g, ' '))
-    const modifications = modificationsDe(r.avant, apres)
-    if (!modifications.length) return refuse(index, numero, 'rien ne change entre `avant` et `apres`')
+    // Retrouvé à la typographie près (le modèle a recopié ’ en ', « » en "",
+    // – en -) : la correction se calcule sur le texte **du document**, sinon
+    // chaque apostrophe ou guillemet recopié à plat deviendrait une fausse
+    // modification (le même signe barré puis réécrit). Même longueur : les
+    // positions sont les mêmes. Pas pour une majuscule recopiée en minuscule,
+    // où le texte du document ferait proposer un changement de casse.
+    const base = trouve.typographie ? bloc.texte.slice(trouve.debut, trouve.fin) : r.avant
+    const modifications = modificationsDe(base, apres)
+    if (!modifications.length)
+      return refuse(
+        index,
+        numero,
+        'rien ne change entre `avant` et `apres` : le texte est déjà conforme (espaces insécables, guillemets et apostrophes typographiques y sont peut-être déjà, même si tu ne les distingues pas) — passe à la suite'
+      )
 
     const morceaux = []
     for (const m of modifications) {

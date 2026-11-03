@@ -511,9 +511,44 @@ test('la consigne de Margo est celle du connecteur « inviter Claude », plus la
   assert.match(c, /Ne propose des modifications que si la personne le demande clairement/)
   // Les anciennes règles de conduite ont disparu.
   assert.doesNotMatch(c, /étapes|quinzaine|jamais tout le document|Dans le doute, demande|traite d’abord le début/)
-  assert.ok(c.length < 1500, `consigne trop longue : ${c.length}`)
+  // Méthode, bilan fidèle et faits du monde (03/11/2026, après les essais de
+  // Qwen 3.8 27B sur un livre entier) : la consigne s'allonge un peu.
+  assert.match(c, /ne relis pas et ne recherche pas ce que tu as déjà lu/)
+  assert.match(c, /ne présente comme fait que ce que les outils ont confirmé/)
+  assert.match(c, /d’après ta seule connaissance/)
+  assert.ok(c.length < 2200, `consigne trop longue : ${c.length}`)
   const sel = consigne({ prenom: 'A', titre: 'T', portee: { type: 'selection', de: 3, a: 7 } })
   assert.match(sel, /le passage sélectionné \(blocs 3 à 7\)/)
+})
+
+test('une recherche déjà faite n’est pas relancée ; le libellé de lecture dit les blocs vraiment lus', async () => {
+  const doc = await documentDeTest()
+  requetes.length = 0
+  scenario = [
+    outil('t1', 'lire', { de: 1, nombre: 40 }),
+    outil('t2', 'chercher', { texte: 'Zan' }),
+    outil('t3', 'chercher', { texte: ' ZAN ' }),
+    outil('t4', 'chercher', { texte: 'Zan', limite: 3 }),
+    texte('Fait.'),
+  ]
+  const r = await dialoguer(doc.id, 'admin@example.com', {
+    messages: [{ role: 'user', content: 'Cherche Zan.' }],
+    portee: { type: 'document' },
+  })
+  assert.equal(r.status, 200)
+  const fins = r.evenements.filter((e) => e.type === 'outil_fin')
+  // `lire` annonçait 1 à 40 ; le document n'a que 3 blocs.
+  assert.equal(r.evenements.find((e) => e.type === 'outil').libelle, 'lit les blocs 1 à 40')
+  assert.equal(fins[0].libelle, 'lit les blocs 1 à 3')
+  assert.deepEqual(
+    fins.slice(1).map((e) => e.ok),
+    [true, false, true],
+    'la même recherche (à la casse et aux espaces près) est refusée ; une autre limite est une autre recherche'
+  )
+  const reponse = requetes[3].corps.messages.at(-1).content[0]
+  assert.match(reponse.content, /Tu as déjà cherché « ZAN » pendant cette demande/)
+  assert.equal(reponse.is_error, true)
+  scenario = []
 })
 
 test('une réponse déjà en cours pour la même personne et le même document : 429', async () => {

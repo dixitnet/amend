@@ -302,6 +302,8 @@ test('Scaleway : les quatre modèles sont proposés au back-office, avec leurs t
   assert.ok(Math.abs(coutEur('gpt-oss-120b', { cacheLu: 1e6 }) - 0.15) < 1e-9)
   // Qwen 3.8 27B : 0,60 + 3,30 €.
   assert.ok(Math.abs(coutEur('qwen3.8-27b', { entree: 1e6, sortie: 1e6 }) - 3.9) < 1e-9)
+  // L'entrée relue en cache : 0,12 € le million (grille Scaleway), pas 0,60.
+  assert.ok(Math.abs(coutEur('qwen3.8-27b', { cacheLu: 1e6 }) - 0.12) < 1e-9)
   // Le prix de Qwen 3.5 n'est pas confirmé : il est marqué provisoire.
   assert.equal(TARIFS_EUR['qwen3.5-397b-a17b'].provisoire, true)
   // Claude et Mistral restent en dollars.

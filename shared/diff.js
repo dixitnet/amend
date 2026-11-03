@@ -83,11 +83,16 @@ const MAX_CELLS = 4_000_000
  *    espace ordinaire : on garde celle du texte. L'inverse — une espace
  *    ordinaire devenue insécable avant « : » ou « ? » — reste une vraie
  *    correction et reste proposée.
+ *  - Un tiret typographique (– — ‒ ― −) que le modèle rend en trait d'union
+ *    (03/11/2026) : même règle, on garde celui du texte ; l'inverse reste une
+ *    vraie correction.
  */
 const ESPACES_SPECIALES = /[\u00a0\u202f\u2009\u2007]/
+const TIRETS = /^[\u2012\u2013\u2014\u2015\u2212]$/
 function memeJeton(ancien, nouveau) {
   if (ancien === nouveau) return true
   if (ancien.normalize('NFC') === nouveau.normalize('NFC')) return true
+  if (TIRETS.test(ancien) && nouveau === '-') return true
   return (
     ancien.length === nouveau.length &&
     ESPACES_SPECIALES.test(ancien) &&

@@ -583,7 +583,10 @@ export async function monterDialogue({
         } else if (evt.type === 'outil_fin') {
           if (ligneOutil) {
             ligneOutil.classList.add(evt.ok ? 'fait' : 'echec')
-            ligneOutil.textContent = ligneOutil.textContent.replace(/…$/, evt.ok ? ' ✓' : ' (refusé)')
+            // `libelle` : ce que l'outil a réellement fait (les blocs lus), quand
+            // il diffère de ce qui était annoncé.
+            const texte = evt.libelle ? `Margo ${evt.libelle}…` : ligneOutil.textContent
+            ligneOutil.textContent = texte.replace(/…$/, evt.ok ? ' ✓' : ' (refusé)')
           }
         } else if (evt.type === 'erreur') {
           inserer(el('div', 'dialogue-erreur', evt.message))

@@ -61,15 +61,18 @@ export const TARIFS_USD = {
  * gpt-oss-120b 0,15 / 0,60 € ; Qwen 3 235B Instruct 0,75 / 2,25 €. Qwen 3.5
  * 397B : **prix non trouvé** chez Scaleway — valeur provisoire (0,6 / 3,6 €,
  * celle qu'affichent IONOS et OVHcloud), à corriger d'après la console
- * Scaleway. Le cache automatique de Scaleway n'a pas de tarif connu : les
- * jetons relus sont comptés plein tarif (estimation haute). */
+ * Scaleway. Le tarif du cache automatique de Scaleway n'est connu que pour
+ * Qwen 3.8 27B (0,12 €) ; pour les autres, les jetons relus sont comptés plein
+ * tarif (estimation haute), à corriger d'après la console Scaleway. */
 export const TARIFS_EUR = {
   'gpt-oss-120b': { entree: 0.15, sortie: 0.6, poidsCacheLu: 1 },
   'qwen3.5-397b-a17b': { entree: 0.6, sortie: 3.6, poidsCacheLu: 1, provisoire: true },
   'qwen3-235b-a22b-instruct-2507': { entree: 0.75, sortie: 2.25, poidsCacheLu: 1 },
-  // Grille Scaleway du 31/10/2026 : 0,60 / 3,30 € (entrée en cache 0,12 €, non
-  // distinguée ici : jetons relus comptés plein tarif, estimation haute).
-  'qwen3.8-27b': { entree: 0.6, sortie: 3.3, poidsCacheLu: 1 },
+  // Grille Scaleway du 31/10/2026 : 0,60 / 3,30 €, entrée relue en cache
+  // 0,12 € (soit 0,2 du tarif d'entrée, compté depuis le 03/11/2026 : le
+  // journal montre que le cache de Scaleway sert, jusqu'à 85 % de l'entrée
+  // d'une demande de Margo).
+  'qwen3.8-27b': { entree: 0.6, sortie: 3.3, poidsCacheLu: 0.2 },
 }
 
 function coutSelon(t, j) {
