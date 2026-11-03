@@ -179,10 +179,7 @@ test('la touche maintenue enfoncée n’insère rien', () => {
   for (let i = 0; i < 20; i++) e.effacerAvant()
   assert.equal(e.texte(), 'Le chat dort.', 'aucun caractère ajouté ni retiré')
   assert.equal(e.texteAccepte(), 'dort.')
-  assert.ok(
-    !e.marques().some((m) => m.startsWith('+')),
-    'effacer ne doit jamais produire d’insertion'
-  )
+  assert.ok(!e.marques().some((m) => m.startsWith('+')), 'effacer ne doit jamais produire d’insertion')
 })
 
 test('sans suivi, le retour arrière efface pour de bon', () => {
@@ -223,10 +220,7 @@ test('réécrire ce qu’on vient d’écrire ne laisse pas de barré', () => {
   const avant = e.marques().length
   e.selection(4, 9).taper('chat')
   assert.equal(e.texteAccepte(), 'Le chat dort.')
-  assert.ok(
-    !e.marques().some((m) => m.startsWith('-')),
-    'du texte jamais accepté ne doit pas ressortir barré'
-  )
+  assert.ok(!e.marques().some((m) => m.startsWith('-')), 'du texte jamais accepté ne doit pas ressortir barré')
   assert.ok(avant > 0)
   valide(e)
 })
@@ -374,7 +368,10 @@ test('une suggestion vide ne fabrique pas de paragraphe vide', () => {
   acceptAllChanges(e.view)
   assert.ok(e.nbBlocs() >= 1)
   assert.ok(
-    !e.texte().split('\n').some((l, i, t) => l === '' && t.length > 1),
+    !e
+      .texte()
+      .split('\n')
+      .some((l, i, t) => l === '' && t.length > 1),
     'aucun bloc vide ne doit subsister'
   )
   valide(e)
@@ -461,11 +458,10 @@ test('taper par-dessus une sélection qui couvre un paragraphe et une citation',
   // `replaceAround`, une forme que la réécriture ignorait tout autant.
   const e = editeur(doc('premier', { citation: 'citation' }))
   e.selection(3, 14).taper('X')
-  assert.equal(e.texteAccepte(), 'prX\nation')
-  assert.ok(
-    e.marques().includes('+X'),
-    'la frappe doit être marquée comme une insertion'
-  )
+  // La frappe vient après le passage barré, comme dans un seul bloc (écart 7a,
+  // 03/11/2026) ; la coupure qui reste à l'acceptation est l'écart 7b.
+  assert.equal(e.texteAccepte(), 'pr\nXation')
+  assert.ok(e.marques().includes('+X'), 'la frappe doit être marquée comme une insertion')
   assert.ok(
     e.marques().some((m) => m === '-emier'),
     'le texte remplacé reste barré'
@@ -491,7 +487,13 @@ test('une correction de l’IA fait une carte « remplacement », pas deux', () 
   // Signalé par Sylvain le 28/09/2026 : les marques posées par le diff de
   // l'IA n'avaient pas de groupe, donc jamais de pairage.
   const e = editeur(doc('Le chat dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe.'))
-  insertAISuggestion(e.view, 1, finDoc(e), 'Le chat dort sur le tapis bleu, devant la cheminée, pendant que la pluie tombe.', IA)
+  insertAISuggestion(
+    e.view,
+    1,
+    finDoc(e),
+    'Le chat dort sur le tapis bleu, devant la cheminée, pendant que la pluie tombe.',
+    IA
+  )
   const liste = listChanges(e.doc)
   assert.equal(liste.length, 1, JSON.stringify(liste.map((c) => [c.type, c.text])))
   assert.equal(liste[0].type, 'remplacement')
@@ -507,7 +509,13 @@ test('une correction de l’IA fait une carte « remplacement », pas deux', () 
 test('plusieurs mots corrigés : un remplacement par mot, et un ajout seul reste un ajout', () => {
   const origine = 'Le chat dort sur le tapis, devant la cheminée, pendant que la pluie tombe sur le toit.'
   const e = editeur(doc(origine))
-  insertAISuggestion(e.view, 1, finDoc(e), 'Le chien dort sur le grand tapis, devant la cheminée, pendant que la pluie tombe sur le toit.', IA)
+  insertAISuggestion(
+    e.view,
+    1,
+    finDoc(e),
+    'Le chien dort sur le grand tapis, devant la cheminée, pendant que la pluie tombe sur le toit.',
+    IA
+  )
   const types = listChanges(e.doc).map((c) => c.type)
   assert.deepEqual(types, ['remplacement', 'insertion'], JSON.stringify(types))
   rejectAllChanges(e.view)
@@ -556,7 +564,9 @@ test('D2 — effacer l’insertion en attente d’un autre la barre, la sienne s
   const b = editeur(e.doc, { user: BOB })
   b.selection(4, 8).effacerAvant()
   assert.equal(b.texte(), 'Le chat dort.', 'le texte d’Alice est encore là, barré')
-  const types = listChanges(b.doc).map((c) => `${c.type}:${c.user}`).sort()
+  const types = listChanges(b.doc)
+    .map((c) => `${c.type}:${c.user}`)
+    .sort()
   assert.deepEqual(types, ['deletion:Bob', 'insertion:Alice'])
   // Accepter tout : le texte disparaît ; rejeter tout : il reste (proposé).
   const a = editeur(b.doc)
@@ -577,8 +587,18 @@ test('D5 — une réécriture entière par l’IA garde la mise en forme du para
   assert.equal(e.texte(), 'Un félin sommeille sur un tapis écarlate, tranquille.')
   assert.ok(aGras(e, 1), 'le gras a disparu')
   // Diff fin : un mot remplacé au milieu d'un passage en gras reste en gras.
-  const f = enGras(editeur(doc('Le chat dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe.')), 4, 8)
-  insertAISuggestion(f.view, 1, finDoc(f), 'Le chien dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe.', IA)
+  const f = enGras(
+    editeur(doc('Le chat dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe.')),
+    4,
+    8
+  )
+  insertAISuggestion(
+    f.view,
+    1,
+    finDoc(f),
+    'Le chien dort sur le tapis rouge, devant la cheminée, pendant que la pluie tombe.',
+    IA
+  )
   acceptAllChanges(f.view)
   assert.ok(aGras(f, 4), 'le mot inséré a perdu le gras du mot remplacé')
 })
@@ -691,16 +711,70 @@ test('S6 — hors suivi, taper juste après un passage barré n’hérite pas du
 })
 
 test('S6 — une sélection sur deux paragraphes, effacée ou remplacée, va et revient', () => {
-  allerRetour(() => { const x = editeur(doc('Premier.', 'Second.')); x.selection(4, 15).effacerAvant(); return x }, 'Pre\nnd.', 'Premier.\nSecond.')
-  allerRetour(() => { const x = editeur(doc('Premier.', 'Second.')); x.selection(4, 15).taper('X'); return x }, 'PreX\nnd.', 'Premier.\nSecond.')
+  allerRetour(
+    () => {
+      const x = editeur(doc('Premier.', 'Second.'))
+      x.selection(4, 15).effacerAvant()
+      return x
+    },
+    'Pre\nnd.',
+    'Premier.\nSecond.'
+  )
+  allerRetour(
+    () => {
+      const x = editeur(doc('Premier.', 'Second.'))
+      x.selection(4, 15).taper('X')
+      return x
+    },
+    'Pre\nXnd.',
+    'Premier.\nSecond.'
+  ) // écart 7a : ajout après le barré
 })
 
 test('S6 — l’IA : sélection partielle, deux paragraphes pour deux, titre, liste, insécables', () => {
-  allerRetour(() => { const x = editeur(doc('Le chat dort sur le tapis.')); insertAISuggestion(x.view, 4, 13, 'chien court', IA); return x }, 'Le chien court sur le tapis.', 'Le chat dort sur le tapis.')
-  allerRetour(() => { const x = editeur(doc('Le chat dort.', 'Le chien court.')); insertAISuggestion(x.view, 1, x.doc.content.size - 1, 'Le chat ronfle.\nLe chien galope.', IA); return x }, 'Le chat ronfle.\nLe chien galope.', 'Le chat dort.\nLe chien court.')
-  allerRetour(() => { const x = editeur(doc({ h: 1, texte: 'Titre' }, 'Texte.')); insertAISuggestion(x.view, 1, x.doc.content.size - 1, 'Grand titre\nTexte long.', IA); return x }, 'Grand titre\nTexte long.', 'Titre\nTexte.')
-  allerRetour(() => { const x = editeur(doc('Il a dit : bonjour.')); insertAISuggestion(x.view, 1, 20, 'Il a dit : « bonjour ».', IA); return x }, 'Il a dit : « bonjour ».', 'Il a dit : bonjour.')
-  const liste = schema.node('doc', null, [schema.node('bullet_list', null, [schema.node('list_item', null, [schema.node('paragraph', null, [schema.text('Le chat dort sur le tapis rouge.')])])])])
+  allerRetour(
+    () => {
+      const x = editeur(doc('Le chat dort sur le tapis.'))
+      insertAISuggestion(x.view, 4, 13, 'chien court', IA)
+      return x
+    },
+    'Le chien court sur le tapis.',
+    'Le chat dort sur le tapis.'
+  )
+  allerRetour(
+    () => {
+      const x = editeur(doc('Le chat dort.', 'Le chien court.'))
+      insertAISuggestion(x.view, 1, x.doc.content.size - 1, 'Le chat ronfle.\nLe chien galope.', IA)
+      return x
+    },
+    'Le chat ronfle.\nLe chien galope.',
+    'Le chat dort.\nLe chien court.'
+  )
+  allerRetour(
+    () => {
+      const x = editeur(doc({ h: 1, texte: 'Titre' }, 'Texte.'))
+      insertAISuggestion(x.view, 1, x.doc.content.size - 1, 'Grand titre\nTexte long.', IA)
+      return x
+    },
+    'Grand titre\nTexte long.',
+    'Titre\nTexte.'
+  )
+  allerRetour(
+    () => {
+      const x = editeur(doc('Il a dit : bonjour.'))
+      insertAISuggestion(x.view, 1, 20, 'Il a dit : « bonjour ».', IA)
+      return x
+    },
+    'Il a dit : « bonjour ».',
+    'Il a dit : bonjour.'
+  )
+  const liste = schema.node('doc', null, [
+    schema.node('bullet_list', null, [
+      schema.node('list_item', null, [
+        schema.node('paragraph', null, [schema.text('Le chat dort sur le tapis rouge.')]),
+      ]),
+    ]),
+  ])
   const x = editeur(liste)
   insertAISuggestion(x.view, 3, 35, 'Le chat dort sur le tapis bleu.', IA)
   valide(x)
@@ -738,7 +812,13 @@ function lecture(p) {
 
 test('l’IA reçoit un repère à la place d’une note, et un saut de ligne comme tel', () => {
   const d = schema.node('doc', null, [
-    pNoeuds(schema.text('La ville se transforme'), noteDe('Voir Grisot, 2020.'), schema.text(' lentement.'), sautDeLigne(), schema.text('Seconde ligne.')),
+    pNoeuds(
+      schema.text('La ville se transforme'),
+      noteDe('Voir Grisot, 2020.'),
+      schema.text(' lentement.'),
+      sautDeLigne(),
+      schema.text('Seconde ligne.')
+    ),
   ])
   const e = editeur(d)
   const [bloc] = getTextBlocksInRange(e.view.state.doc, 1, d.content.size - 1)
@@ -749,17 +829,31 @@ test('l’IA reçoit un repère à la place d’une note, et un saut de ligne co
   // bornes), « lentement » commence 20 positions plus loin que la fin de
   // « transforme », pas 0.
   assert.equal(bloc.posDe(0), 1)
-  assert.equal(bloc.posDe('La ville se transforme'.length), 1 + 'La ville se transforme'.length, 'la borne va à la tranche d’avant la note')
+  assert.equal(
+    bloc.posDe('La ville se transforme'.length),
+    1 + 'La ville se transforme'.length,
+    'la borne va à la tranche d’avant la note'
+  )
   assert.equal(bloc.posDe('La ville se transforme'.length + 1), 1 + 'La ville se transforme'.length + 20 + 1)
 })
 
 test('une correction à côté d’une note ne touche que le mot fautif, et la note reste', () => {
   const d = schema.node('doc', null, [
-    pNoeuds(schema.text('La ville se tranforme'), noteDe('Voir Grisot, 2020.'), schema.text(' lentement, et les habitans suivent.')),
+    pNoeuds(
+      schema.text('La ville se tranforme'),
+      noteDe('Voir Grisot, 2020.'),
+      schema.text(' lentement, et les habitans suivent.')
+    ),
   ])
   const e = editeur(d)
   // Le modèle a gardé le repère : deux corrections, de part et d'autre.
-  insertAISuggestion(e.view, 1, d.content.size - 1, 'La ville se transforme⟦1⟧ lentement, et les habitants suivent.', IA)
+  insertAISuggestion(
+    e.view,
+    1,
+    d.content.size - 1,
+    'La ville se transforme⟦1⟧ lentement, et les habitants suivent.',
+    IA
+  )
   assert.equal(e.nbBlocs(), 1, 'pas de réécriture entière')
   const notes = []
   e.view.state.doc.descendants((n) => {
@@ -773,7 +867,9 @@ test('une correction à côté d’une note ne touche que le mot fautif, et la n
 })
 
 test('si le modèle perd le repère, la note reste où elle était', () => {
-  const d = schema.node('doc', null, [pNoeuds(schema.text('Un texte'), noteDe('La note.'), schema.text(' avec une fote.'))])
+  const d = schema.node('doc', null, [
+    pNoeuds(schema.text('Un texte'), noteDe('La note.'), schema.text(' avec une fote.')),
+  ])
   const e = editeur(d)
   insertAISuggestion(e.view, 1, d.content.size - 1, 'Un texte avec une faute.', IA)
   acceptAllChanges(e.view)
@@ -787,12 +883,18 @@ test('un paragraphe avec une note n’est jamais barré d’un bloc, même très
   insertAISuggestion(e.view, 1, d.content.size - 1, 'Un félin sommeille sur le tapis écarlate.⟦1⟧', IA)
   assert.equal(e.nbBlocs(), 1)
   acceptAllChanges(e.view)
-  assert.equal(lecture(e.view.state.doc.firstChild), 'Un félin sommeille sur le tapis écarlate.⟦⟧', 'la note a survécu à la réécriture')
+  assert.equal(
+    lecture(e.view.state.doc.firstChild),
+    'Un félin sommeille sur le tapis écarlate.⟦⟧',
+    'la note a survécu à la réécriture'
+  )
   valide(e)
 })
 
 test('les mots de deux lignes ne sont plus soudés, et le saut de ligne n’est jamais marqué', () => {
-  const d = schema.node('doc', null, [pNoeuds(schema.text('Première ligne'), sautDeLigne(), schema.text('seconde ligne avec chomage.'))])
+  const d = schema.node('doc', null, [
+    pNoeuds(schema.text('Première ligne'), sautDeLigne(), schema.text('seconde ligne avec chomage.')),
+  ])
   const e = editeur(d)
   const [bloc] = getTextBlocksInRange(e.view.state.doc, 1, d.content.size - 1)
   assert.equal(bloc.text, 'Première ligne\nseconde ligne avec chomage.')
@@ -805,7 +907,8 @@ test('les mots de deux lignes ne sont plus soudés, et le saut de ligne n’est 
   assert.equal(p.child(1).marks.length, 0)
   let marques = 0
   p.descendants((n) => {
-    if (n.isText && n.marks.some((m) => m.type.name === 'insertion' || m.type.name === 'deletion')) marques += n.text.length
+    if (n.isText && n.marks.some((m) => m.type.name === 'insertion' || m.type.name === 'deletion'))
+      marques += n.text.length
   })
   assert.equal(marques, 2, 'o barré, ô ajouté — rien d’autre')
   acceptAllChanges(e.view)
@@ -821,8 +924,16 @@ test('plusieurs paragraphes, dont un avec note : chacun est corrigé chez lui', 
   ])
   const e = editeur(d)
   const blocs = getTextBlocksInRange(e.view.state.doc, 1, d.content.size - 1)
-  assert.deepEqual(blocs.map((b) => b.text), ['Premier paragraphe avec une fote.', 'Deuxième⟦1⟧ paragraphe, sans faute.', 'Troisieme paragraphe.'])
-  insertAIParagraphSuggestions(e.view, blocs, ['Premier paragraphe avec une faute.', 'Deuxième⟦1⟧ paragraphe, sans faute.', 'Troisième paragraphe.'], IA)
+  assert.deepEqual(
+    blocs.map((b) => b.text),
+    ['Premier paragraphe avec une fote.', 'Deuxième⟦1⟧ paragraphe, sans faute.', 'Troisieme paragraphe.']
+  )
+  insertAIParagraphSuggestions(
+    e.view,
+    blocs,
+    ['Premier paragraphe avec une faute.', 'Deuxième⟦1⟧ paragraphe, sans faute.', 'Troisième paragraphe.'],
+    IA
+  )
   acceptAllChanges(e.view)
   assert.equal(e.nbBlocs(), 3)
   assert.equal(e.view.state.doc.child(1).child(1).type.name, 'footnote')

@@ -485,7 +485,14 @@ scenario('Remplacer un mot en italique : la frappe reste en italique', async ({ 
     const mot = suivi ? 'roux' : 'blanc'
     verifier(
       `${suivi ? 'en suivi' : 'hors suivi'} : « ${mot} » en italique (comme Google Docs)`,
-      new RegExp(`<em>(?:<[^>]+>)*${mot}`).test(html.replace(/<span class="remote[^>]*><\/span>/g, '')),
+      // Le texte réellement contenu dans l'italique (en suivi, chaque lettre
+      // tapée forme son propre élément : le mot n'est pas d'un seul tenant
+      // dans le HTML).
+      (
+        await alice.page.evaluate(() =>
+          [...document.querySelectorAll('.ProseMirror p em')].map((e) => e.textContent).join('|')
+        )
+      ).includes(mot),
       html.slice(0, 300)
     )
   }
@@ -503,7 +510,13 @@ scenario('Remplacer le texte d’un lien, en suivi', async ({ alice, tous, verif
   const html = await alice.page.evaluate(() => document.querySelector('.ProseMirror p').innerHTML)
   verifier(
     'le nouveau texte garde le lien (Google Docs)',
-    /<a [^>]*href="https:\/\/exemple.fr"[^>]*>(?:(?!<\/a>).)*blanc/.test(html),
+    (
+      await alice.page.evaluate(() =>
+        [...document.querySelectorAll('.ProseMirror p a[href^="https://exemple.fr"]')]
+          .map((e) => e.textContent)
+          .join('|')
+      )
+    ).includes('blanc'),
     html.slice(0, 400)
   )
 })
