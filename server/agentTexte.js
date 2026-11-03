@@ -39,7 +39,7 @@ const MARQUES_DE_SUIVI = new Set(['insertion', 'deletion', 'authorColor'])
  * rarement la même chose que le document, et « introuvable » pour une
  * espace fine est une réponse inutile. Longueur conservée (1 pour 1), pour
  * que les positions trouvées sur le texte normalisé valent pour l'original. */
-function normaliser(s) {
+export function normaliser(s) {
   return s.replace(/[    ]/g, ' ').replace(/[’‘ʼ]/g, "'")
 }
 
@@ -81,6 +81,37 @@ export function blocsDuDocument(ydoc) {
       }
     }
   }
+}
+
+/**
+ * Les images du document, dans l'ordre : `[{ numero, el, alt, suivi,
+ * apresBloc }]`. Une image est un **bloc** (schema.js), mais sans texte : elle
+ * n'a pas de numéro de bloc — celui que l'éditeur affiche ne compte que les
+ * paragraphes et les titres. On la désigne donc par son rang parmi les
+ * images (1, 2…) et on la situe par le bloc de texte qui la précède
+ * (`apresBloc`, 0 si elle ouvre le document). Même parcours que
+ * `blocsDuDocument`, pour que ce numéro de bloc soit le même.
+ */
+export function imagesDuDocument(ydoc) {
+  const images = []
+  let blocs = 0
+  const parcourir = (parent) => {
+    for (const enfant of parent.toArray()) {
+      if (!(enfant instanceof Y.XmlElement)) continue
+      if (enfant.nodeName === 'image') {
+        images.push({
+          numero: images.length + 1,
+          el: enfant,
+          alt: String(enfant.getAttribute('alt') || ''),
+          suivi: enfant.getAttribute('suivi') || null,
+          apresBloc: blocs,
+        })
+      } else if (estBlocTexte(enfant)) blocs++
+      else parcourir(enfant)
+    }
+  }
+  parcourir(ydoc.getXmlFragment(NOM_TEXTE))
+  return images
 }
 
 function estBlocTexte(el) {
@@ -186,7 +217,17 @@ function lireContenu(el) {
           })
         }
       }
-      ajouter({ xt: null, texte: marque, attrs: {}, atome: true, nom: enfant.nodeName, supprime, enAttente: !!suivi })
+      ajouter({
+        xt: null,
+        el: enfant,
+        texte: marque,
+        attrs: {},
+        atome: true,
+        nom: enfant.nodeName,
+        suivi: suivi || null,
+        supprime,
+        enAttente: !!suivi,
+      })
     }
   }
   return { segments, texte, enAttente: enAttente || notes.some((x) => x.enAttente), notes }
@@ -367,7 +408,10 @@ function plageDansLeTexte(bloc, debut, fin, { permettreMarques = false } = {}) {
   if (atome) {
     return {
       ok: false,
-      raison: `le passage recouvre ${atome.texte === '\n' ? 'un saut de ligne' : `la note ou l'image ${atome.texte}`} : fais deux propositions distinctes, de part et d'autre`,
+      raison:
+        atome.texte === '\n'
+          ? "le passage recouvre un saut de ligne : fais deux propositions distinctes, de part et d'autre"
+          : `le passage recouvre l'appel de note ${atome.texte} : fais deux propositions distinctes, de part et d'autre — et pour supprimer la note entière, utilise \`supprimer\``,
     }
   }
   const xt = couverts[0].xt
@@ -694,6 +738,353 @@ export function ajouter(ydoc, ajouts, auteur, ts = Date.now()) {
       appliques.push({ index, bloc: numero + 1, paragraphes: lignes.length })
     }
   }, 'agent')
+  return { appliques: appliques.sort((a, b) => a.index - b.index), refuses: refuses.sort((a, b) => a.index - b.index) }
+}
+
+// --- Supprimer une note ou une image -----------------------------------------
+
+/** Pourquoi un nœud suivi entier (note, image) ne peut pas être proposé à la
+ * suppression, ou `null`. */
+function refusDuSuivi(suivi, nom) {
+  if (!suivi) return null
+  if (suivi.type === 'deletion') return `${nom} est déjà proposée à la suppression, en attente d'un éditeur`
+  return `${nom} vient d'être proposée (ajout en attente) : un éditeur doit d'abord l'accepter ou la refuser`
+}
+
+/**
+ * Propose de supprimer, **en suivi de modifications**, des notes de bas de
+ * page entières (`{ bloc, note }`, le repère ⟦k⟧ de la note dans le bloc) ou
+ * des images (`{ image }`, leur rang parmi les images du document).
+ *
+ * Même geste qu'une personne qui efface une note ou une image en suivi
+ * (client/src/suivi/reecriture.js) : le nœud reste en place et porte
+ * `suivi: { type: 'deletion', user, userColor, ts }`. Accepter le retire,
+ * refuser efface l'attribut. Le texte d'une note qu'une modification en
+ * attente touche n'empêche rien : la décision sur la note entière l'emporte.
+ *
+ * `{ appliques: [{ index, bloc }], refuses: [{ index, bloc, raison }] }` —
+ * `bloc` est celui de la note, ou celui qui précède l'image (null au début).
+ */
+export function supprimer(ydoc, elements, auteur, ts = Date.now()) {
+  const blocs = blocsDuDocument(ydoc)
+  const images = imagesDuDocument(ydoc)
+  const appliques = []
+  const refuses = []
+  const retenus = []
+  const vus = new Set()
+  const refuse = (index, bloc, raison) => refuses.push({ index, bloc, raison })
+
+  elements.forEach((e, index) => {
+    if (!e || typeof e !== 'object') return refuse(index, null, 'élément invalide')
+    const aNote = e.note !== undefined && e.note !== null
+    const aImage = e.image !== undefined && e.image !== null
+    if (aNote === aImage) {
+      return refuse(
+        index,
+        Number.isInteger(e.bloc) ? e.bloc : null,
+        'donne soit `bloc` et `note` (pour une note), soit `image` (pour une image)'
+      )
+    }
+    let cible
+    if (aImage) {
+      if (!Number.isInteger(e.image) || e.image < 1)
+        return refuse(index, null, "`image` doit être le numéro de l'image, tel que `lire` le donne (⟦image n⟧)")
+      const img = images[e.image - 1]
+      if (!img) {
+        return refuse(
+          index,
+          null,
+          images.length
+            ? `il n'y a pas d'image ${e.image} (le document en compte ${images.length})`
+            : "le document n'a aucune image"
+        )
+      }
+      const refus = refusDuSuivi(img.suivi, `l'image ${e.image}`)
+      if (refus) return refuse(index, img.apresBloc || null, refus)
+      cible = { el: img.el, bloc: img.apresBloc || null }
+    } else {
+      if (!Number.isInteger(e.bloc)) return refuse(index, null, 'numéro de bloc manquant ou invalide')
+      const c = cibleDe(blocs, e.bloc, e.note, { pourCorriger: false })
+      if (c.refus) return refuse(index, e.bloc, c.refus)
+      const refus = refusDuSuivi(c.note.suivi, `la note ⟦${e.note}⟧ du bloc ${e.bloc}`)
+      if (refus) return refuse(index, e.bloc, refus)
+      cible = { el: c.note.el, bloc: e.bloc }
+    }
+    if (vus.has(cible.el))
+      return refuse(index, cible.bloc, 'cet élément est déjà demandé plus haut dans la même demande')
+    vus.add(cible.el)
+    retenus.push({ index, ...cible })
+  })
+
+  if (!retenus.length) return { appliques, refuses: refuses.sort((a, b) => a.index - b.index) }
+
+  const suivi = { type: 'deletion', user: auteur.name, userColor: auteur.color, ts }
+  ydoc.transact(() => {
+    for (const r of retenus) {
+      r.el.setAttribute('suivi', { ...suivi })
+      appliques.push({ index: r.index, bloc: r.bloc })
+    }
+  }, 'agent')
+  return { appliques: appliques.sort((a, b) => a.index - b.index), refuses: refuses.sort((a, b) => a.index - b.index) }
+}
+
+// --- Les modifications en attente -------------------------------------------
+
+/** Qui a proposé un segment, et quoi : `{ type, user }` ou `null`. Le texte
+ * porte ses marques, un nœud entier (note, image, saut de ligne) son
+ * attribut `suivi`. */
+function suiviDuSegment(seg) {
+  if (seg.atome) return seg.suivi ? { type: seg.suivi.type, user: seg.suivi.user || '' } : null
+  if (seg.attrs.insertion) return { type: 'insertion', user: seg.attrs.insertion.user || '' }
+  if (seg.attrs.deletion) return { type: 'deletion', user: seg.attrs.deletion.user || '' }
+  return null
+}
+
+/** Les modifications d'un contenu (un bloc, ou le texte d'une note) : des
+ * suites de segments en attente **contigus et du même auteur** — un mot
+ * barré suivi de son remplaçant font une seule modification, comme dans le
+ * panneau. Une note suivie entière n'en fait pas partie (elle est traitée à
+ * part) et coupe la suite. */
+function regrouper(segments) {
+  const groupes = []
+  let courant = null
+  for (const seg of segments) {
+    const suivi = suiviDuSegment(seg)
+    if (!suivi || (seg.atome && seg.nom === 'footnote')) {
+      courant = null
+      continue
+    }
+    if (courant && courant.user === suivi.user) courant.segments.push(seg)
+    else {
+      courant = { user: suivi.user, segments: [seg] }
+      groupes.push(courant)
+    }
+  }
+  return groupes
+}
+
+const EXTRAIT_MODIFICATION = 200
+const CONTEXTE_MODIFICATION = 40
+const court = (t) => (t.length > EXTRAIT_MODIFICATION ? `${t.slice(0, EXTRAIT_MODIFICATION)}…` : t)
+const lisible = (t) => t.replace(/\n/g, ' ⏎ ')
+
+/** Ce que dit une modification de texte : « remplace … par … », « insère … »,
+ * « supprime … », avec le texte qui l'entoure (tel qu'il se lirait accepté). */
+function decrireGroupe(groupe, texte) {
+  let avant = ''
+  let apres = ''
+  for (const seg of groupe.segments) {
+    const s = suiviDuSegment(seg)
+    if (s.type === 'deletion') avant += seg.texte
+    else apres += seg.texte
+  }
+  const premier = groupe.segments[0]
+  const dernier = groupe.segments[groupe.segments.length - 1]
+  const debut = premier.decalage
+  const fin = dernier.visible ? dernier.decalage + dernier.texte.length : dernier.decalage
+  const n = CONTEXTE_MODIFICATION
+  const gauche = texte.slice(Math.max(0, debut - n), debut)
+  const droite = texte.slice(fin, fin + n)
+  const contexte = `${debut > n ? '…' : ''}${gauche}${texte.slice(debut, fin)}${droite}${fin + n < texte.length ? '…' : ''}`
+  let quoi
+  if (avant && apres) quoi = `remplace « ${court(lisible(avant))} » par « ${court(lisible(apres))} »`
+  else if (apres) quoi = `insère « ${court(lisible(apres))} »`
+  else quoi = `supprime « ${court(lisible(avant))} »`
+  return { avant, apres, quoi, contexte: lisible(contexte) }
+}
+
+/**
+ * Toutes les modifications en attente du document, dans l'ordre :
+ * `[{ id, bloc, auteur, quoi, contexte, nature, cible }]`.
+ *
+ * `id` désigne la modification **dans l'état présent du document** :
+ * `12-1` (la première du bloc 12), `12-n2` (la note ⟦2⟧ du bloc 12, ajoutée
+ * ou supprimée entière), `12-n2-1` (une correction dans le texte de cette
+ * note), `image-3`, `12-coupure` (un paragraphe coupé en deux en suivi). Il
+ * change dès que le document change : on le relit avant de s'en servir.
+ *
+ * `nature` et `cible` servent à `retirer` : `texte` (des segments),
+ * `paragraphe` (un paragraphe entièrement ajouté par la même personne),
+ * `noeud` (une note, une image ou un saut de ligne suivis entiers),
+ * `coupure` (que seul un éditeur défait).
+ */
+export function modificationsDuDocument(ydoc) {
+  const blocs = blocsDuDocument(ydoc)
+  const images = imagesDuDocument(ydoc)
+  const out = []
+  const parBloc = new Map()
+  for (const img of images) {
+    if (!img.suivi) continue
+    const liste = parBloc.get(img.apresBloc) || []
+    liste.push(img)
+    parBloc.set(img.apresBloc, liste)
+  }
+  const ajouterImages = (n) => {
+    for (const img of parBloc.get(n) || []) {
+      const ajout = img.suivi.type !== 'deletion'
+      out.push({
+        id: `image-${img.numero}`,
+        bloc: n || null,
+        auteur: img.suivi.user || '',
+        quoi: `${ajout ? 'ajoute' : 'supprime'} l'image ${img.numero}${img.alt.trim() ? ` « ${court(img.alt.trim())} »` : ''}`,
+        contexte: '',
+        nature: 'noeud',
+        cible: { el: img.el, type: img.suivi.type },
+      })
+    }
+  }
+  ajouterImages(0)
+  for (const b of blocs) {
+    const coupure = b.el.getAttribute('trackedBreak')
+    if (coupure) {
+      out.push({
+        id: `${b.n}-coupure`,
+        bloc: b.n,
+        auteur: coupure.user || '',
+        quoi: `coupe le paragraphe : le bloc ${b.n} commence ici`,
+        contexte: court(lisible(b.texte.slice(0, CONTEXTE_MODIFICATION))),
+        nature: 'coupure',
+        cible: null,
+      })
+    }
+    const groupes = regrouper(b.segments)
+    // Un paragraphe entièrement proposé par une seule personne (`ajouter`, ou
+    // la réécriture d'un paragraphe) : le retirer retire le bloc.
+    const entier =
+      groupes.length === 1 &&
+      b.segments.length > 0 &&
+      b.segments.every((seg) => !seg.atome && seg.attrs.insertion) &&
+      !b.el.getAttribute('trackedBreak')
+    groupes.forEach((g, i) => {
+      const d = decrireGroupe(g, b.texte)
+      out.push({
+        id: `${b.n}-${i + 1}`,
+        bloc: b.n,
+        auteur: g.user,
+        quoi: entier ? `ajoute le paragraphe « ${court(lisible(d.apres))} »` : d.quoi,
+        contexte: entier ? '' : d.contexte,
+        nature: entier ? 'paragraphe' : 'texte',
+        cible: entier ? { el: b.el } : { segments: g.segments },
+      })
+    })
+    for (const note of b.notes) {
+      const nom = `la note ⟦${note.k}⟧${note.numero ? ` (note ${note.numero})` : ''}`
+      if (note.suivi) {
+        const ajout = note.suivi.type !== 'deletion'
+        out.push({
+          id: `${b.n}-n${note.k}`,
+          bloc: b.n,
+          note: note.k,
+          auteur: note.suivi.user || '',
+          quoi: `${ajout ? 'ajoute' : 'supprime'} ${nom} : « ${court(lisible(note.texte))} »`,
+          contexte: '',
+          nature: 'noeud',
+          cible: { el: note.el, type: note.suivi.type },
+        })
+        continue
+      }
+      regrouper(note.segments).forEach((g, i) => {
+        const d = decrireGroupe(g, note.texte)
+        out.push({
+          id: `${b.n}-n${note.k}-${i + 1}`,
+          bloc: b.n,
+          note: note.k,
+          auteur: g.user,
+          quoi: `dans ${nom}, ${d.quoi}`,
+          contexte: d.contexte,
+          nature: 'texte',
+          cible: { segments: g.segments },
+        })
+      })
+    }
+    ajouterImages(b.n)
+  }
+  return out
+}
+
+/**
+ * Retire des propositions **de l'auteur lui-même** (`auteur.name`), désignées
+ * par leur `id` (`modificationsDuDocument`), sans laisser de trace — comme
+ * une personne qui efface ce qu'elle vient de proposer : le texte inséré
+ * disparaît, le texte barré redevient normal, la note ou l'image ajoutée est
+ * retirée, celle qu'on proposait de supprimer reste. La proposition d'un
+ * autre ne se retire pas : seul un éditeur la refuse.
+ *
+ * `{ appliques: [{ index, id, bloc }], refuses: [{ index, id, bloc, raison }] }`
+ */
+export function retirer(ydoc, ids, auteur) {
+  const toutes = modificationsDuDocument(ydoc)
+  const parId = new Map(toutes.map((m) => [m.id, m]))
+  const appliques = []
+  const refuses = []
+  const retenues = []
+  const vus = new Set()
+  ids.forEach((id, index) => {
+    const cle = typeof id === 'string' ? id.trim() : ''
+    const m = parId.get(cle)
+    if (!m) {
+      return refuses.push({
+        index,
+        id: cle,
+        bloc: null,
+        raison: `aucune modification en attente ne porte l'identifiant « ${court(cle)} » — relis \`modifications\` : les identifiants changent dès que le document change`,
+      })
+    }
+    if (m.auteur !== auteur.name)
+      return refuses.push({
+        index,
+        id: cle,
+        bloc: m.bloc,
+        raison: `cette modification est de ${m.auteur || 'quelqu’un d’autre'} : tu ne retires que les tiennes (un éditeur accepte ou refuse les autres)`,
+      })
+    if (m.nature === 'coupure')
+      return refuses.push({ index, id: cle, bloc: m.bloc, raison: 'une coupure de paragraphe ne se retire pas ici' })
+    if (vus.has(cle))
+      return refuses.push({ index, id: cle, bloc: m.bloc, raison: 'déjà demandé plus haut dans la même demande' })
+    vus.add(cle)
+    retenues.push({ index, m })
+  })
+  if (!retenues.length) return { appliques, refuses: refuses.sort((a, b) => a.index - b.index) }
+
+  // Les segments de texte, du dernier au premier dans chaque XmlText : effacer
+  // ne décale que ce qui suit.
+  const morceaux = []
+  const elements = []
+  for (const { m } of retenues) {
+    if (m.nature === 'texte') {
+      for (const seg of m.cible.segments) {
+        if (seg.atome) elements.push({ el: seg.el, type: seg.suivi.type })
+        else morceaux.push({ xt: seg.xt, debut: seg.debut, fin: seg.fin, insertion: !!seg.attrs.insertion })
+      }
+    } else if (m.nature === 'paragraphe') elements.push({ el: m.cible.el, type: 'insertion' })
+    else elements.push(m.cible)
+  }
+  const rangs = new Map()
+  for (const x of morceaux) if (!rangs.has(x.xt)) rangs.set(x.xt, rangs.size)
+  morceaux.sort((a, b) => rangs.get(a.xt) - rangs.get(b.xt) || b.debut - a.debut)
+
+  ydoc.transact(() => {
+    for (const x of morceaux) {
+      if (x.insertion) x.xt.delete(x.debut, x.fin - x.debut)
+      else x.xt.format(x.debut, x.fin - x.debut, { deletion: null })
+    }
+    for (const { el, type } of elements) {
+      if (type === 'deletion') {
+        el.removeAttribute('suivi')
+        continue
+      }
+      const parent = el.parent
+      const position = parent ? parent.toArray().indexOf(el) : -1
+      if (position === -1) continue
+      // Le document ne reste jamais sans bloc : le dernier se vide seulement.
+      if (parent === ydoc.getXmlFragment(NOM_TEXTE) && parent.length === 1) {
+        for (const enfant of el.toArray()) if (enfant instanceof Y.XmlText) enfant.delete(0, enfant.length)
+        continue
+      }
+      parent.delete(position, 1)
+    }
+  }, 'agent')
+  for (const { index, m } of retenues) appliques.push({ index, id: m.id, bloc: m.bloc })
   return { appliques: appliques.sort((a, b) => a.index - b.index), refuses: refuses.sort((a, b) => a.index - b.index) }
 }
 

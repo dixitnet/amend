@@ -191,11 +191,22 @@ test('les outils dépendent du rôle : le lecteur ne propose pas, le correcteur 
     'commentaires',
     'commenter',
     'lire',
+    'modifications',
     'plan',
     'proposer',
     'repondre',
+    'retirer',
+    'supprimer',
   ])
-  assert.deepEqual(await noms(lecteur.secret), ['chercher', 'commentaires', 'commenter', 'lire', 'plan', 'repondre'])
+  assert.deepEqual(await noms(lecteur.secret), [
+    'chercher',
+    'commentaires',
+    'commenter',
+    'lire',
+    'modifications',
+    'plan',
+    'repondre',
+  ])
   const refus = await rpc(lecteur.secret, 'tools/call', {
     name: 'proposer',
     arguments: { remplacements: [{ bloc: 2, avant: 'mardi', apres: 'lundi' }] },
@@ -211,6 +222,11 @@ test('les outils dépendent du rôle : le lecteur ne propose pas, le correcteur 
     arguments: { notes: [{ bloc: 2, texte: 'x' }] },
   })
   assert.equal(refusNote.error.code, -32602, 'un lecteur ne propose pas de note')
+  const refusSuppression = await rpc(lecteur.secret, 'tools/call', {
+    name: 'supprimer',
+    arguments: { elements: [{ image: 1 }] },
+  })
+  assert.equal(refusSuppression.error.code, -32602, 'un lecteur ne propose pas de suppression')
   const outils = (await rpc(correcteur.secret, 'tools/list')).result.tools
   for (const o of outils) {
     assert.equal(o.inputSchema.type, 'object')
@@ -431,6 +447,134 @@ test('les notes de bas de page : lues sous leur bloc, trouvées, corrigées, com
     await new Promise((r) => setTimeout(r, 100))
   }
   assert.match(rejoue.getXmlFragment('prosemirror-content').toString(), /registre paroissial/)
+})
+
+/** Une image entre deux paragraphes, une note, et des apostrophes
+ * typographiques. */
+async function documentAvecImage() {
+  const res = await fetch(`${BASE}/api/docs`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: cookie('alice@example.com') },
+    body: JSON.stringify({ title: 'Avec image' }),
+  })
+  const doc = await res.json()
+  const y = new Y.Doc()
+  const f = y.getXmlFragment('prosemirror-content')
+  const p1 = new Y.XmlElement('paragraph')
+  f.push([p1])
+  const t1 = new Y.XmlText()
+  const note = new Y.XmlElement('footnote')
+  const t2 = new Y.XmlText()
+  p1.push([t1, note, t2])
+  t1.insert(0, 'L’État l’avait dit')
+  const interne = new Y.XmlText()
+  note.push([interne])
+  interne.insert(0, 'Journal officiel.')
+  t2.insert(0, ', et l’État l’a fait.')
+  const img = new Y.XmlElement('image')
+  img.setAttribute('src', '/api/docs/x/images/a.png')
+  img.setAttribute('alt', 'Le port de Nantes')
+  f.push([img])
+  const p2 = new Y.XmlElement('paragraph')
+  f.push([p2])
+  const t3 = new Y.XmlText()
+  p2.push([t3])
+  t3.insert(0, 'Après l’image.')
+  storage.appendUpdate(doc.id, Buffer.from(Y.encodeStateAsUpdate(y)))
+  await storage.flushAll()
+  return doc
+}
+
+test('les images se lisent à leur place, sans décaler les blocs ; notes et images se suppriment en suivi', async () => {
+  const doc = await documentAvecImage()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
+  assert.match(texteDe(await appeler(secret, 'plan')), /2 blocs, .*1 note\(s\) de bas de page, 1 image\(s\)/)
+  const lu = texteDe(await appeler(secret, 'lire'))
+  assert.match(lu, /⟦1⟧ note 1 : Journal officiel\.\n {6}⟦image 1⟧ « Le port de Nantes »\n\[2\] Après l’image\./)
+  assert.match(lu, /numéro ⟦image n⟧/)
+  // La suite d'une lecture ne répète pas l'image du bloc précédent.
+  assert.doesNotMatch(texteDe(await appeler(secret, 'lire', { de: 2 })), /image 1/)
+
+  // Le passage d'un remplacement ne peut pas avaler l'appel de note : le refus
+  // dit quoi faire.
+  const avale = await appeler(secret, 'proposer', {
+    remplacements: [{ bloc: 1, avant: 'dit⟦1⟧, et', apres: 'dit, et' }],
+  })
+  assert.ok(avale.isError)
+  assert.match(texteDe(avale), /utilise `supprimer`/)
+
+  const r = await appeler(secret, 'supprimer', {
+    elements: [{ bloc: 1, note: 1 }, { image: 1 }, { image: 2 }, { bloc: 2, note: 1 }, { bloc: 1, note: 1, image: 1 }],
+  })
+  assert.ok(!r.isError, texteDe(r))
+  const t = texteDe(r)
+  assert.match(t, /2 suppression\(s\) proposée\(s\) en suivi de modifications/)
+  assert.match(t, /Refusé — élément 3 : il n'y a pas d'image 2 \(le document en compte 1\)/)
+  assert.match(t, /Refusé — élément 4 \(bloc 2\) : le bloc 2 ne porte aucune note/)
+  assert.match(t, /Refusé — élément 5 \(bloc 1\) : donne soit/)
+
+  const apres = texteDe(await appeler(secret, 'lire'))
+  assert.match(apres, /⟦1⟧ note barrée : Journal officiel\. {2}⚑ proposée à la suppression/)
+  assert.match(apres, /⟦image 1⟧ « Le port de Nantes » {2}⚑ proposée à la suppression/)
+
+  const encore = await appeler(secret, 'supprimer', { elements: [{ image: 1 }] })
+  assert.ok(encore.isError)
+  assert.match(texteDe(encore), /déjà proposée à la suppression/)
+})
+
+test('chercher ne bute pas sur les apostrophes typographiques et compte toutes les occurrences', async () => {
+  const doc = await documentAvecImage()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
+  assert.match(texteDe(await appeler(secret, 'modifications')), /Aucune modification en attente/)
+  const t = texteDe(await appeler(secret, 'chercher', { texte: "l'état" }))
+  assert.match(t, /^2 occurrence\(s\) de « l'état » à 1 endroit\(s\) :/)
+  assert.match(t, /\[1\] L’État l’avait dit.* \(2 fois\)/)
+  const limite = texteDe(await appeler(secret, 'chercher', { texte: 'l', limite: 1 }))
+  assert.match(limite, /à 3 endroit\(s\) ; les 1 premiers ci-dessous/)
+})
+
+test('modifications liste ce qui est en attente ; retirer n’ôte que ses propres propositions', async () => {
+  const doc = await documentDeTest()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'correcteur', par: 'alice@example.com' })
+  // Une proposition d'une personne, Paul, déjà dans le journal quand le
+  // serveur charge le document.
+  const paul = new Y.Doc()
+  for (const op of storage.readUpdates(doc.id)) Y.applyUpdate(paul, op)
+  const vecteur = Y.encodeStateVector(paul)
+  const xt = paul.getXmlFragment('prosemirror-content').get(1).get(0)
+  const trace = { user: 'Paul', userColor: '#3d5a80', ts: 1, groupe: 'g1' }
+  paul.transact(() => {
+    xt.insert(19, 'lundi', { insertion: trace, authorColor: { user: 'Paul', userColor: '#3d5a80' } })
+    xt.format(14, 5, { deletion: trace })
+  })
+  storage.appendUpdate(doc.id, Buffer.from(Y.encodeStateAsUpdate(paul, vecteur)))
+  await storage.flushAll()
+
+  await appeler(secret, 'proposer', { remplacements: [{ bloc: 3, avant: 'des pomme au', apres: 'des pommes au' }] })
+  await appeler(secret, 'ajouter', { ajouts: [{ apres_bloc: 5, texte: 'Un épilogue de trop.' }] })
+
+  const liste = texteDe(await appeler(secret, 'modifications'))
+  assert.match(liste, /^3 modification\(s\) en attente dans le document, dont 2 de toi\./)
+  assert.match(
+    liste,
+    /• 2-1 \(bloc 2\) — Paul : remplace « mardi » par « lundi »\n {6}contexte : « Zan naquit un lundi/
+  )
+  assert.match(liste, /• 3-1 \(bloc 3\) — Claude[^\n]*\(toi\) : insère « s »/)
+  assert.match(liste, /• 6-1 \(bloc 6\) — Claude[^\n]*\(toi\) : ajoute le paragraphe « Un épilogue de trop\. »/)
+  assert.doesNotMatch(liste.match(/• 2-1[^\n]*/)[0], /\(toi\)/)
+  assert.match(texteDe(await appeler(secret, 'modifications', { de: 4 })), /• 6-1/)
+  assert.doesNotMatch(texteDe(await appeler(secret, 'modifications', { de: 4 })), /• 3-1/)
+
+  const r = await appeler(secret, 'retirer', { modifications: ['6-1', '2-1', 'zz'] })
+  assert.ok(!r.isError, texteDe(r))
+  assert.match(texteDe(r), /1 proposition\(s\) retirée\(s\)/)
+  assert.match(texteDe(r), /Refusé — « 2-1 » : cette modification est de Paul/)
+  assert.match(texteDe(r), /Refusé — « zz » : aucune modification en attente/)
+  const lu = texteDe(await appeler(secret, 'lire'))
+  assert.match(lu, /sur 5\./, 'le paragraphe ajouté a disparu')
+  assert.doesNotMatch(lu, /épilogue/)
+  const reste = texteDe(await appeler(secret, 'modifications'))
+  assert.match(reste, /^2 modification\(s\) en attente dans le document, dont 1 de toi\./)
 })
 
 test('proposer : plus de plafond par appel — chaque remplacement est jugé séparément, les refus sont expliqués', async () => {

@@ -168,3 +168,13 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 - Mistral Small 4 (`mistral-small-2603`, réflexion none / high, 0,15 / 0,60 $ + 10 % UE) ajouté au back-office. Mistral Medium 3.5, demandé aussi, n'a **pas** été ajouté : Mistral l'a déclaré obsolète le 31/10/2026 et renvoie vers Large 4.
 - Banc d'essai : un choix de réflexion par colonne, limité aux niveaux que le modèle accepte (Anthropic : réflexion adaptative et niveau d'effort ; Mistral / Scaleway : `reasoning_effort`). Le niveau en production ne change pas : on mesure d'abord au banc.
 - Reste à voir à l'essai : Mistral recommande de renvoyer sa réflexion dans l'historique des échanges ; nous la retirons. Tarif de Large 4 sur sa fiche : 0,70 / 2,10 $ (l'estimation du back-office est sur 0,68 / 2,09 $ + 10 %).
+
+## 20. Outils de Margo et du connecteur : supprimer, retirer, modifications (03/11/2026)
+
+- Revue des outils (Margo et « Inviter Claude » partagent `server/mcp.js`). Décision de Sylvain : points 1, 2, 3, 6, 9 puis 4 et 5. Écartés pour l'instant : mise en forme visible ou proposable (7, 8), retouche de ses commentaires (10, marginal), structure en suivi (11), Margo avec les droits d'un éditeur (12, déconseillé).
+- `supprimer` : propose en suivi la suppression d'une note entière (`bloc` + `note`) ou d'une image (`image`) — même attribut `suivi: { type: 'deletion' }` qu'une suppression faite dans l'éditeur. Un passage de `proposer` qui recouvre un appel de note renvoie vers cet outil.
+- Images : ce sont des blocs sans texte, que `lire` ne montrait pas. Elles s'affichent à leur place, entre les blocs, avec leur rang `⟦image n⟧` et leur texte alternatif ; elles ne prennent pas de numéro de bloc (celui de l'éditeur ne compte que paragraphes et titres). `plan` en donne le nombre.
+- `chercher` : insensible aux apostrophes (’/') et aux espaces insécables, comme `proposer` ; donne le nombre total d'occurrences et d'endroits.
+- `modifications` (lecture) : les modifications en attente, avec auteur, « remplace / insère / supprime », contexte, et un identifiant (`12-1`, `12-n2`, `12-n2-1`, `image-3`, `12-coupure`) valable pour l'état présent du document. Compte dans les signes lus de Margo.
+- `retirer` : retire sans trace les propositions **de l'agent lui-même** (même nom d'auteur), désignées par ces identifiants. Limite connue : toutes les conversations Margo signent « Margo (IA) », donc Margo peut retirer une proposition de Margo faite à la demande d'une autre personne.
+- Descriptions précisées : suppression d'un paragraphe entier par `proposer` (vérifiée : accepté, le bloc disparaît), structure (titre, liste, déplacement) à proposer en commentaire, déplacement d'une note = `supprimer` + `ajouter_note`.

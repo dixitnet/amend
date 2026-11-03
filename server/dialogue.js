@@ -38,7 +38,7 @@ import { garde } from './garde-fous.js'
 // demande en signes (server/quotasIa.js). Margo n'est informée d'aucun de ces
 // seuils ; au-delà du nombre d'étapes, un dernier appel **sans outil** lui fait
 // dire ce qui est fait et ce qui reste, au lieu d'une coupure sèche.
-const LECTURES = new Set(['lire', 'chercher'])
+const LECTURES = new Set(['lire', 'chercher', 'modifications'])
 const ARRETS_INCOMPLETS = new Set(['max_tokens', 'tours', 'erreur'])
 
 /** `detail` : le texte technique, pour le journal du serveur seulement — la
@@ -73,16 +73,19 @@ const LIBELLES = {
   },
   chercher: (a) => `cherche « ${String(a.texte || '').slice(0, 40)} »`,
   commentaires: () => 'relit les commentaires',
+  modifications: () => 'relit les modifications en attente',
+  retirer: (a) => `retire ${taille(a.modifications)} de ses propositions`,
   proposer: (a) => `prépare ${taille(a.remplacements)} correction(s)`,
   ajouter: (a) => `prépare ${taille(a.ajouts)} ajout(s)`,
   ajouter_note: (a) => `prépare ${taille(a.notes)} note(s)`,
+  supprimer: (a) => `prépare ${taille(a.elements)} suppression(s)`,
   commenter: (a) => `rédige ${taille(a.commentaires)} commentaire(s)`,
   repondre: () => 'répond à un commentaire',
 }
 const taille = (x) => (Array.isArray(x) ? x.length : 0)
 const libelle = (nom, args) => (LIBELLES[nom] ? LIBELLES[nom](args || {}) : nom)
 
-const COMPTE_MODIFS = new Set(['proposer', 'ajouter', 'ajouter_note'])
+const COMPTE_MODIFS = new Set(['proposer', 'ajouter', 'ajouter_note', 'supprimer'])
 const COMPTE_COMMENTAIRES = new Set(['commenter', 'repondre'])
 
 /** La consigne de Margo : la même que celle du connecteur « inviter Claude »
