@@ -146,7 +146,7 @@ const DEFINITIONS = [
     min: 1,
     max: 1_000_000,
     nature: 'emballement',
-    quoi: 'Appels aux outils qui écrivent (proposer, ajouter, ajouter_note, commenter, répondre), comptés par invitation (connecteur) ou par conversation (Margo, par personne et par document) sur une heure glissante. Un appel peut porter plusieurs propositions : ce n’est pas le nombre de corrections.',
+    quoi: 'Appels aux outils qui écrivent (proposer, ajouter, ajouter_note, supprimer, retirer, commenter, répondre), comptés par invitation (connecteur) ou par conversation (Margo, par personne et par document) sur une heure glissante. Un appel peut porter plusieurs propositions : ce n’est pas le nombre de corrections.',
   },
 
   // --- Connecteur ----------------------------------------------------------

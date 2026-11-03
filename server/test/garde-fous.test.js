@@ -175,6 +175,17 @@ const PAS_UN_SEUIL = [
     pourquoi: 'défaut de pagination',
   },
   { fichier: 'mcp.js', motif: /^export const LIRE_PAR_DEFAUT = 40$/, pourquoi: 'défaut de pagination' },
+  { fichier: 'mcp.js', motif: /^const MODIFICATIONS_PAR_DEFAUT = 50$/, pourquoi: 'défaut de pagination' },
+  {
+    fichier: 'agentTexte.js',
+    motif: /^const EXTRAIT_MODIFICATION = 200$/,
+    pourquoi: 'longueur d’un extrait cité par `modifications`, pas une limite',
+  },
+  {
+    fichier: 'agentTexte.js',
+    motif: /^const CONTEXTE_MODIFICATION = 40$/,
+    pourquoi: 'contexte de repérage d’une modification, pas une limite',
+  },
   {
     fichier: 'dialogue.js',
     motif: /^const ATTENTE_QUOTA_MS = 20_000$/,

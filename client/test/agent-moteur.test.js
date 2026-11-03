@@ -38,9 +38,8 @@ import { doc as fabriqueDoc, editeur, IA } from './harness.js'
 // (sinon les `instanceof` du moteur ne reconnaîtraient rien).
 const racine = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const YS = await import(pathToFileURL(join(racine, 'node_modules', 'yjs', 'dist', 'yjs.mjs')).href)
-const { proposer, ajouter, ajouterNotes, commenter, repondre, fils } = await import(
-  pathToFileURL(join(racine, 'server', 'agentTexte.js')).href
-)
+const { proposer, ajouter, ajouterNotes, supprimer, retirer, modificationsDuDocument, commenter, repondre, fils } =
+  await import(pathToFileURL(join(racine, 'server', 'agentTexte.js')).href)
 
 /** Un document ProseMirror → un Y.Doc côté serveur ET côté client. */
 function mondes(pmDoc) {
@@ -545,4 +544,160 @@ test('un commentaire sur une note s’ancre sur le texte qui précède son appel
   const a = relativePositionToAbsolutePosition(client, fragment, Y.createRelativePositionFromJSON(c.anchorTo), mapping)
   assert.equal(pm.textBetween(de, a), 'Zan naquit un mardi')
   assert.equal(c.text, 'À propos de la note 1 : À sourcer.')
+})
+
+// --- Supprimer une note, une image, un paragraphe -----------------------------
+
+test('une note et une image proposées à la suppression : une modification chacune, accepter les retire, refuser les rend', () => {
+  const note = schema.node('footnote', { suivi: null }, [schema.text('Source : Journal officiel.')])
+  const avant = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Zan naquit'), note, schema.text(' un mardi.')]),
+    schema.node('image', { src: '/api/docs/x/images/a.png', alt: 'Un port' }),
+    schema.node('paragraph', null, [schema.text('Après l’image.')]),
+  ])
+  const { client, resultat } = ecrire(avant, (s) => supprimer(s, [{ bloc: 1, note: 1 }, { image: 1 }], CLAUDE_NOTES))
+  assert.deepEqual(resultat.refuses, [])
+  assert.deepEqual(resultat.appliques, [
+    { index: 0, bloc: 1 },
+    { index: 1, bloc: 1 },
+  ])
+  const propose = relu(client)
+  const [n] = notesDe(propose)
+  assert.equal(n.suivi.type, 'deletion')
+  assert.deepEqual(Object.keys(n.suivi).sort(), ['ts', 'type', 'user', 'userColor'])
+  assert.equal(propose.child(1).attrs.suivi.type, 'deletion')
+  const changes = listChanges(propose)
+  assert.equal(changes.length, 2, 'deux propositions à relire : la note, l’image')
+  assert.ok(changes.every(estModificationDAgent))
+
+  const accepter = editeur(propose, { suivi: false })
+  acceptAllChanges(accepter.view)
+  assert.deepEqual(notesDe(accepter.doc), [])
+  assert.equal(accepter.doc.childCount, 2, 'l’image est retirée')
+  assert.equal(accepter.doc.child(0).textContent, 'Zan naquit un mardi.')
+
+  for (const defaire of [rejectAllChanges, rejectAgentChanges]) {
+    const refuser = editeur(propose, { suivi: false })
+    defaire(refuser.view)
+    assert.deepEqual(notesDe(refuser.doc), [{ texte: 'Source : Journal officiel.', suivi: null }])
+    assert.equal(refuser.doc.child(1).type.name, 'image')
+    assert.equal(refuser.doc.child(1).attrs.suivi, null)
+    assert.equal(listChanges(refuser.doc).length, 0)
+  }
+})
+
+test('supprimer un paragraphe entier avec `proposer` : accepté, le bloc disparaît ; refusé, il revient', () => {
+  const avant = fabriqueDoc('Premier paragraphe.', 'Un paragraphe de trop, à retirer.', 'Troisième paragraphe.')
+  const { client, resultat } = ecrire(avant, (s) =>
+    proposer(s, [{ bloc: 2, avant: 'Un paragraphe de trop, à retirer.', apres: '' }], AGENT)
+  )
+  assert.deepEqual(resultat.refuses, [])
+  const propose = relu(client)
+  const accepter = editeur(propose, { suivi: false })
+  acceptAllChanges(accepter.view)
+  assert.equal(accepter.texte(), 'Premier paragraphe.\nTroisième paragraphe.')
+  assert.equal(accepter.doc.childCount, 2, 'pas de paragraphe vide laissé derrière')
+  const refuser = editeur(propose, { suivi: false })
+  rejectAllChanges(refuser.view)
+  assert.equal(refuser.texte(), 'Premier paragraphe.\nUn paragraphe de trop, à retirer.\nTroisième paragraphe.')
+})
+
+// --- Lister et retirer ses propres propositions -------------------------------
+
+/** Le document Yjs d'un client, rejoué côté serveur (après ce qu'il y a
+ * écrit), pour enchaîner deux gestes de l'agent. */
+function suite(client, action) {
+  const serveur = new YS.Doc()
+  YS.applyUpdate(serveur, Y.encodeStateAsUpdate(client))
+  let update = null
+  serveur.on('update', (u) => {
+    update = update ? YS.mergeUpdates([update, u]) : u
+  })
+  const resultat = action(serveur)
+  if (update) Y.applyUpdate(client, update)
+  return resultat
+}
+
+test('modifications : une par proposition, avec son auteur et ce qu’elle change', () => {
+  const note = schema.node('footnote', { suivi: null }, [schema.text('Source : la mairie.')])
+  const avant = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Ils mange des pomme.'), note]),
+    schema.node('image', { src: '/api/docs/x/images/a.png', alt: 'Un port' }),
+    schema.node('paragraph', null, [schema.text('Fin.')]),
+  ])
+  const { client } = ecrire(avant, (s) => {
+    proposer(
+      s,
+      [
+        { bloc: 1, avant: 'Ils mange', apres: 'Ils mangent' },
+        { bloc: 1, note: 1, avant: 'la mairie', apres: 'la préfecture' },
+      ],
+      CLAUDE_NOTES
+    )
+    supprimer(s, [{ image: 1 }], CLAUDE_NOTES)
+    ajouter(s, [{ apres_bloc: 2, texte: 'Un ajout.' }], CLAUDE_NOTES)
+  })
+  const liste = suite(client, (s) => modificationsDuDocument(s)).map(({ id, bloc, auteur, quoi, nature }) => ({
+    id,
+    bloc,
+    auteur,
+    quoi,
+    nature,
+  }))
+  assert.deepEqual(liste, [
+    { id: '1-1', bloc: 1, auteur: CLAUDE_NOTES.name, quoi: 'insère « nt »', nature: 'texte' },
+    {
+      id: '1-n1-1',
+      bloc: 1,
+      auteur: CLAUDE_NOTES.name,
+      quoi: 'dans la note ⟦1⟧ (note 1), remplace « mairie » par « préfecture »',
+      nature: 'texte',
+    },
+    { id: 'image-1', bloc: 1, auteur: CLAUDE_NOTES.name, quoi: "supprime l'image 1 « Un port »", nature: 'noeud' },
+    { id: '3-1', bloc: 3, auteur: CLAUDE_NOTES.name, quoi: 'ajoute le paragraphe « Un ajout. »', nature: 'paragraphe' },
+  ])
+})
+
+test('retirer ses propositions rend le document d’origine, sans trace ; celles des autres restent', () => {
+  const note = schema.node('footnote', { suivi: null }, [schema.text('Source : la mairie.')])
+  const avant = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('Ils mange des pomme au marché.'), note]),
+    schema.node('image', { src: '/api/docs/x/images/a.png', alt: 'Un port' }),
+    schema.node('paragraph', null, [schema.text('Le chat dort.')]),
+  ])
+  const AUTRE = { name: 'Paul', color: '#3d5a80' }
+  const { client } = ecrire(avant, (s) => {
+    proposer(s, [{ bloc: 1, avant: 'Ils mange', apres: 'Ils mangent' }], CLAUDE_NOTES)
+    proposer(s, [{ bloc: 1, avant: 'des pomme', apres: 'des pommes' }], AUTRE)
+    proposer(s, [{ bloc: 1, note: 1, avant: 'la mairie', apres: 'la préfecture' }], CLAUDE_NOTES)
+    ajouterNotes(s, [{ bloc: 2, apres: 'Le chat', texte: 'Un chat gris.' }], CLAUDE_NOTES)
+    ajouter(s, [{ apres_bloc: 2, texte: 'Un paragraphe en trop.' }], CLAUDE_NOTES)
+  })
+  suite(client, (s) => supprimer(s, [{ image: 1 }], CLAUDE_NOTES))
+  const ids = suite(client, (s) => modificationsDuDocument(s)).map((m) => [m.id, m.auteur])
+  const miens = ids.filter(([, a]) => a === CLAUDE_NOTES.name).map(([id]) => id)
+  const autres = ids.filter(([, a]) => a !== CLAUDE_NOTES.name).map(([id]) => id)
+  assert.equal(miens.length, 5)
+  assert.equal(autres.length, 1)
+
+  const verdict = suite(client, (s) => retirer(s, [...miens, autres[0], 'zz-9'], CLAUDE_NOTES))
+  assert.equal(verdict.appliques.length, 5)
+  assert.deepEqual(
+    verdict.refuses.map((r) => r.raison.slice(0, 40)),
+    ['cette modification est de Paul : tu ne r', 'aucune modification en attente ne porte '].map((x) => x.slice(0, 40))
+  )
+  const apres = relu(client)
+  assert.equal(apres.childCount, 3, 'le paragraphe ajouté est retiré, pas de bloc vide')
+  assert.equal(apres.child(1).type.name, 'image')
+  assert.equal(apres.child(1).attrs.suivi, null, 'l’image n’est plus proposée à la suppression')
+  assert.deepEqual(notesDe(apres), [{ texte: 'Source : la mairie.', suivi: null }])
+  assert.equal(apres.child(2).textContent, 'Le chat dort.')
+  assert.equal(apres.child(2).childCount, 1, 'le texte est de nouveau d’un seul tenant')
+  // Reste la seule proposition de Paul.
+  const restent = listChanges(apres)
+  assert.equal(restent.length, 1)
+  assert.equal(restent[0].user, 'Paul')
+  const refuser = editeur(apres, { suivi: false })
+  rejectAllChanges(refuser.view)
+  assert.equal(refuser.doc.child(0).textContent, 'Ils mange des pomme au marché.Source : la mairie.')
 })
