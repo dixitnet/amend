@@ -82,6 +82,13 @@ async function route() {
     return
   }
 
+  // Le banc d'essai de Margo (03/11/2026), sous la rubrique IA.
+  if (hash === '#/admin/ia/banc') {
+    const { mountAdminBanc } = await import('./adminBanc.js')
+    mountAdminBanc(app)
+    return
+  }
+
   if (hash === '#/admin/ia') {
     const { mountAdminIa } = await import('./adminIa.js')
     mountAdminIa(app)

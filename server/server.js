@@ -39,6 +39,7 @@ import { Agents } from './agents.js'
 import { PresenceAgents } from './presenceAgents.js'
 import { Mcp } from './mcp.js'
 import { Dialogue } from './dialogue.js'
+import { Banc } from './banc.js'
 import { ReglagesIa } from './reglagesIa.js'
 import { UsageIa } from './usageIa.js'
 import { QuotasIa } from './quotasIa.js'
@@ -212,6 +213,9 @@ const reglagesIa = new ReglagesIa(DATA_DIR)
 const usageIa = new UsageIa(DATA_DIR)
 const quotas = new QuotasIa({ reglages: reglagesIa, usage: usageIa, registre: registreLimiteurs })
 const dialogue = new Dialogue({ storage, rooms, quotas, estAdmin: isAdminEmail, metrics, presence: presenceAgents })
+// Le banc d'essai de Margo (back-office, server/banc.js) : sa propre boucle de
+// Margo, sur des copies en mémoire, sans quotas ni journal.
+const banc = new Banc()
 
 // Plus de plafond de participants simultanés par document (le
 // MAX_USERS_PER_DOC = 10 du 13/09/2026 a été retiré le 15/09) : c'était une
@@ -226,6 +230,7 @@ const dialogue = new Dialogue({ storage, rooms, quotas, estAdmin: isAdminEmail, 
  * les variables de ce fichier ni ses imports (server/routes/*.js). */
 const ctx = {
   agents,
+  banc,
   dialogue,
   mcp,
   metrics,

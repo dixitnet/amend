@@ -17,6 +17,7 @@ import { cleDe } from '../fournisseurs.js'
 import { BORNES, DEFAUTS, FONCTIONS, MODELES, NIVEAUX, NOMS_FONCTION } from '../reglagesIa.js'
 import { CORPS_JSON_OCTETS_MAX, GARDE_FOUS, GROUPES, gardeFousEnVigueur } from '../garde-fous.js'
 import { TARIFS_EUR, TARIFS_USD, moisDe } from '../usageIa.js'
+import { BANC_CORPS_OCTETS_MAX, BancErreur, COLONNES_MAX, validerDemande } from '../banc.js'
 
 /** Le mode d'emploi glissé dans l'archive. Une sauvegarde qu'on retrouve
  * dans deux ans sans savoir quoi en faire ne sert à personne — et le jour
@@ -64,6 +65,7 @@ sauvegarde.
 export async function routesAdmin(req, res, url, ctx) {
   const { pathname } = url
   const {
+    banc,
     metrics,
     repliques,
     reglagesIa,
@@ -147,6 +149,73 @@ export async function routesAdmin(req, res, url, ctx) {
       tarifsEur: TARIFS_EUR,
       boutons: usageIa.boutons(),
     })
+  }
+
+  // Le banc d'essai de Margo (03/11/2026, server/banc.js) : GET donne de quoi
+  // remplir la page (modèles, manière de répondre en vigueur, limite de
+  // production) ; POST lance l'essai et répond en ndjson, une ligne par
+  // événement, chacun marqué de sa colonne. Rien n'est compté ni journalisé.
+  if (pathname === '/api/admin/banc' && (req.method === 'GET' || req.method === 'POST')) {
+    const admin = readSession(req)
+    if (!isAdminEmail(admin)) return sendJson(res, 403, { error: 'réservé aux administrateurs' })
+    if (!banc) return sendJson(res, 501, { error: 'banc indisponible' })
+    const margo = reglagesIa.de('margo')
+    if (req.method === 'GET') {
+      return sendJson(res, 200, {
+        modeles: MODELES.map((m) => ({ ...m, cle: Boolean(cleDe(m.id)) })),
+        modeleMargo: margo.modele,
+        maniere: margo.maniere || '',
+        signesParDemande: margo.signesParDemande,
+        colonnesMax: COLONNES_MAX,
+        enCours: banc.enCours,
+      })
+    }
+    let corps
+    try {
+      corps = await readJsonBody(req, BANC_CORPS_OCTETS_MAX)
+    } catch (err) {
+      return sendJson(res, err.status || 400, {
+        error: err.status === 413 ? 'texte trop volumineux pour le banc' : 'requête illisible',
+      })
+    }
+    let demande
+    try {
+      demande = validerDemande(corps, { reglages: margo, modeles: MODELES })
+    } catch (err) {
+      if (err instanceof BancErreur) return sendJson(res, err.status, { error: err.message })
+      throw err
+    }
+    if (banc.enCours)
+      return sendJson(res, 429, { error: 'Un essai est déjà en cours sur cette instance. Attendez qu’il se termine.' })
+    const prenom = String((users && users.nomDe(admin)) || admin.split('@')[0])
+      .trim()
+      .split(/\s+/)[0]
+    let coupe = false
+    res.on('close', () => {
+      coupe = true
+    })
+    res.writeHead(200, {
+      'content-type': 'application/x-ndjson; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-accel-buffering': 'no',
+    })
+    const ecrire = (evt) => {
+      if (!coupe) res.write(JSON.stringify(evt) + '\n')
+    }
+    try {
+      await banc.lancer(
+        demande,
+        { email: admin, prenom, signesParDemande: margo.signesParDemande },
+        ecrire,
+        () => coupe
+      )
+    } catch (err) {
+      ecrire({ type: 'erreur', message: err instanceof BancErreur ? err.message : 'L’essai s’est interrompu.' })
+      if (!(err instanceof BancErreur)) console.error('[banc]', err && err.message)
+    }
+    ecrire({ type: 'termine' })
+    res.end()
+    return
   }
 
   // Tarifs du modèle, en euros par million de jetons — lus du .env comme le
