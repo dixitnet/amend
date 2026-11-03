@@ -214,8 +214,13 @@ const PAS_UN_SEUIL = [
   { fichier: 'agentTexte.js', motif: /out\.length > 400/, pourquoi: 'extrait affiché du passage commenté' },
   {
     fichier: 'dialogue.js',
-    motif: /cherche « \$\{String\(a\.texte \|\| ''\)\.slice\(0, 40\)\}/,
+    motif: /cherche « \$\{String\(motifs\[0\] \|\| ''\)\.slice\(0, 40\)\}/,
     pourquoi: 'libellé affiché : début du texte cherché',
+  },
+  {
+    fichier: 'dialogue.js',
+    motif: /const montres = motifs\.slice\(0, 3\)\.map\(\(m\) => `« \$\{m\.slice\(0, 30\)\} »`\)/,
+    pourquoi: 'libellé affiché : les trois premiers textes cherchés, abrégés',
   },
   {
     fichier: 'dialogue.js',

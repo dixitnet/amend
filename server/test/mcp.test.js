@@ -206,6 +206,7 @@ test('les outils dépendent du rôle : le lecteur ne propose pas, le correcteur 
     'modifications',
     'plan',
     'repondre',
+    'retirer',
   ])
   const refus = await rpc(lecteur.secret, 'tools/call', {
     name: 'proposer',
@@ -567,7 +568,7 @@ test('modifications liste ce qui est en attente ; retirer n’ôte que ses propr
 
   const r = await appeler(secret, 'retirer', { modifications: ['6-1', '2-1', 'zz'] })
   assert.ok(!r.isError, texteDe(r))
-  assert.match(texteDe(r), /1 proposition\(s\) retirée\(s\)/)
+  assert.match(texteDe(r), /1 élément\(s\) retiré\(s\)/)
   assert.match(texteDe(r), /Refusé — « 2-1 » : cette modification est de Paul/)
   assert.match(texteDe(r), /Refusé — « zz » : aucune modification en attente/)
   const lu = texteDe(await appeler(secret, 'lire'))
@@ -575,6 +576,58 @@ test('modifications liste ce qui est en attente ; retirer n’ôte que ses propr
   assert.doesNotMatch(lu, /épilogue/)
   const reste = texteDe(await appeler(secret, 'modifications'))
   assert.match(reste, /^2 modification\(s\) en attente dans le document, dont 1 de toi\./)
+})
+
+test('chercher plusieurs textes d’un coup : un résultat par texte', async () => {
+  const doc = await documentDeTest()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
+  const t = texteDe(await appeler(secret, 'chercher', { textes: ['mardi', 'pomme', 'zzz', 'mardi'] }))
+  assert.match(t, /1 occurrence\(s\) de « mardi »/)
+  assert.match(t, /1 occurrence\(s\) de « pomme »/)
+  assert.match(t, /Aucun bloc ni aucune note ne contient « zzz »/)
+  assert.equal(t.match(/de « mardi »/g).length, 1, 'un texte donné deux fois n’est cherché qu’une fois')
+  const vide = await appeler(secret, 'chercher', {})
+  assert.equal(vide.isError, true)
+  assert.match(texteDe(vide), /`textes`/)
+})
+
+test('retirer ses propres commentaires : un fil avec ses réponses, une réponse seule — jamais ceux des autres', async () => {
+  const doc = await documentDeTest()
+  const { secret } = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com' })
+  await appeler(secret, 'commenter', {
+    commentaires: [
+      { bloc: 2, citation: 'un mardi', texte: 'Doublon.' },
+      { bloc: 3, citation: 'Ils mange', texte: 'À garder.' },
+      { bloc: 5, citation: 'Il mourut', texte: 'Fil répondu par un autre.' },
+    ],
+  })
+  const liste = texteDe(await appeler(secret, 'commentaires'))
+  const ids = [...liste.matchAll(/Fil (c-[\w-]+)/g)].map((m) => m[1])
+  assert.equal(ids.length, 3)
+  await appeler(secret, 'repondre', { commentaire: ids[0], texte: 'Ma réponse.' })
+  await appeler(secret, 'repondre', { commentaire: ids[1], texte: 'Réponse en trop.' })
+  // Quelqu'un d'autre (un second agent, autre nom) répond au troisième fil.
+  const autre = agents.inviter({ docId: doc.id, role: 'lecteur', par: 'alice@example.com', nom: 'Paul' })
+  const reponseAutre = await appeler(autre.secret, 'repondre', { commentaire: ids[2], texte: 'Vu.' })
+  assert.ok(!reponseAutre.isError, texteDe(reponseAutre))
+  const avant = texteDe(await appeler(secret, 'commentaires'))
+  assert.match(avant, /`retirer` peut le retirer/)
+  const reponseEnTrop = avant.match(/Réponse en trop\.  \[réponse (r-[\w-]+)\]/)[1]
+
+  const r = await appeler(secret, 'retirer', { modifications: [ids[0], reponseEnTrop, ids[2]] })
+  assert.ok(!r.isError, texteDe(r))
+  assert.match(texteDe(r), /2 élément\(s\) retiré\(s\)/)
+  assert.match(texteDe(r), /Refusé — « c-[\w-]+ » : ce fil porte la réponse de quelqu’un d’autre/)
+  const apres = texteDe(await appeler(secret, 'commentaires'))
+  assert.doesNotMatch(apres, /Doublon|Ma réponse|Réponse en trop/)
+  assert.match(apres, /À garder\./)
+  assert.match(apres, /Fil répondu par un autre\./)
+  // Le commentaire d'un autre ne se retire pas.
+  const sienne = texteDe(await appeler(autre.secret, 'commentaires'))
+  assert.match(sienne, /Fil c-[\w-]+ \(bloc 5\) — Claude sur/)
+  const refus = await appeler(autre.secret, 'retirer', { modifications: [ids[1]] })
+  assert.equal(refus.isError, true)
+  assert.match(texteDe(refus), /ce commentaire est de Claude : tu ne retires que les tiens/)
 })
 
 test('proposer : plus de plafond par appel — chaque remplacement est jugé séparément, les refus sont expliqués', async () => {
@@ -604,10 +657,10 @@ test('commenter, commentaires, repondre : la marge d’un lecteur aussi', async 
   assert.match(texteDe(c), /1 commentaire\(s\) posé\(s\)/)
   assert.match(texteDe(c), /Refusé — commentaire 2/)
   const liste = texteDe(await appeler(secret, 'commentaires'))
-  assert.match(liste, /Fil c-\d+-\w+ \(bloc 2\) — Claude sur « un mardi » : Précisez la date\./)
+  assert.match(liste, /Fil c-\d+-\w+ \(bloc 2\) — Claude \(toi\) sur « un mardi » : Précisez la date\./)
   const id = liste.match(/Fil (c-[\w-]+)/)[1]
   assert.match(texteDe(await appeler(secret, 'repondre', { commentaire: id, texte: 'Le 3.' })), /Réponse enregistrée/)
-  assert.match(texteDe(await appeler(secret, 'commentaires')), /↳ Claude : Le 3\./)
+  assert.match(texteDe(await appeler(secret, 'commentaires')), /↳ Claude \(toi\) : Le 3\.  \[réponse r-[\w-]+\]/)
   const inconnu = await appeler(secret, 'repondre', { commentaire: 'c-nexiste-pas', texte: 'x' })
   assert.equal(inconnu.isError, true)
 })

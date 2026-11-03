@@ -25,7 +25,7 @@
 import { createHash } from 'node:crypto'
 import { ErreurHttp } from './erreurs.js'
 import { cleDe, envoyer, fournisseurDe, serviceDe } from './fournisseurs.js'
-import { Mcp, COULEUR_AGENT, instructionsDocument } from './mcp.js'
+import { Mcp, COULEUR_AGENT, instructionsDocument, motifsDeRecherche } from './mcp.js'
 import { blocsDuDocument, normaliser } from './agentTexte.js'
 import { capabilities } from './roles.js'
 import { signes } from './quotasIa.js'
@@ -71,7 +71,12 @@ const LIBELLES = {
     const n = Number.isInteger(a.nombre) ? a.nombre : 40
     return `lit les blocs ${de} à ${de + n - 1}`
   },
-  chercher: (a) => `cherche « ${String(a.texte || '').slice(0, 40)} »`,
+  chercher: (a) => {
+    const motifs = motifsDeRecherche(a)
+    if (motifs.length <= 1) return `cherche « ${String(motifs[0] || '').slice(0, 40)} »`
+    const montres = motifs.slice(0, 3).map((m) => `« ${m.slice(0, 30)} »`)
+    return `cherche ${montres.join(', ')}${motifs.length > 3 ? ` et ${motifs.length - 3} autre(s)` : ''}`
+  },
   commentaires: () => 'relit les commentaires',
   modifications: () => 'relit les modifications en attente',
   retirer: (a) => `retire ${taille(a.modifications)} de ses propositions`,
@@ -93,12 +98,11 @@ export function libelleDeLecture(contenu) {
 }
 
 /** Deux recherches identiques : même texte (sans tenir compte des majuscules,
- * apostrophes, guillemets, tirets ni espaces insécables) et même limite. */
-export function cleDeRecherche(args) {
-  const a = args || {}
-  const texte = normaliser(String(a.texte || '').trim()).toLocaleLowerCase('fr')
-  if (!texte) return null
-  return `${texte}\u0000${Number.isInteger(a.limite) ? a.limite : ''}`
+ * apostrophes, tirets ni espaces insécables) et même limite. */
+export function cleDeRecherche(texte, limite) {
+  const t = normaliser(String(texte || '').trim()).toLocaleLowerCase('fr')
+  if (!t) return null
+  return `${t}\u0000${Number.isInteger(limite) ? limite : ''}`
 }
 const libelle = (nom, args) => (LIBELLES[nom] ? LIBELLES[nom](args || {}) : nom)
 
@@ -413,18 +417,28 @@ export class Dialogue {
           let contenu
           let enErreur = false
           let libelleLu = null
-          const cleRecherche = d.name === 'chercher' ? cleDeRecherche(d.input) : null
-          if (cleRecherche && recherches.has(cleRecherche)) {
-            contenu = `Tu as déjà cherché « ${String((d.input || {}).texte || '').trim()} » pendant cette demande : le résultat est plus haut dans la conversation. Ne relance pas une recherche déjà faite ; travaille sur ce que tu as déjà lu.`
-            emettre({ type: 'outil_fin', nom: d.name, ok: false })
-            resultats.push({ type: 'tool_result', tool_use_id: d.id, content: contenu, is_error: true })
-            continue
+          let args = d.input
+          let dejaCherche = []
+          if (d.name === 'chercher') {
+            const limite = (d.input || {}).limite
+            const motifs = motifsDeRecherche(d.input)
+            const nouveaux = motifs.filter((m) => !recherches.has(cleDeRecherche(m, limite)))
+            dejaCherche = motifs.filter((m) => !nouveaux.includes(m))
+            if (motifs.length && !nouveaux.length) {
+              contenu = `Tu as déjà cherché ${dejaCherche.map((m) => `« ${m} »`).join(', ')} pendant cette demande : le résultat est plus haut dans la conversation. Ne relance pas une recherche déjà faite ; travaille sur ce que tu as déjà lu.`
+              emettre({ type: 'outil_fin', nom: d.name, ok: false })
+              resultats.push({ type: 'tool_result', tool_use_id: d.id, content: contenu, is_error: true })
+              continue
+            }
+            for (const m of nouveaux) recherches.add(cleDeRecherche(m, limite))
+            if (dejaCherche.length) args = { textes: nouveaux, ...(limite !== undefined ? { limite } : {}) }
           }
-          if (cleRecherche) recherches.add(cleRecherche)
           try {
-            const r = await this.mcp._appeler({ name: d.name, arguments: d.input }, acces)
+            const r = await this.mcp._appeler({ name: d.name, arguments: args }, acces)
             contenu = (r.content || []).map((c) => c.text).join('\n')
             enErreur = !!r.isError
+            if (dejaCherche.length && !enErreur)
+              contenu = `Déjà cherché plus haut, non relancé : ${dejaCherche.map((m) => `« ${m} »`).join(', ')}.\n\n${contenu}`
             if (d.name === 'lire' && !enErreur) libelleLu = libelleDeLecture(contenu)
             if (enErreur) contenu = `${contenu}\n${CONDUITE_ERREUR}`
             if (LECTURES.has(d.name) && !enErreur) {

@@ -189,3 +189,11 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
   - Margo : une recherche déjà faite dans la même demande n'est pas relancée (réponse « tu as déjà cherché ») ; le libellé « lit les blocs » donne les blocs réellement lus (fenêtre de Margo et banc) ;
   - back-office : l'entrée relue en cache de Qwen 3.8 27B comptée à 0,12 € (grille Scaleway) au lieu de 0,60 € ; les autres modèles Scaleway restent au plein tarif faute de prix connu.
 - Abandonné : signal de vie dans le flux (l'« erreur réseau » venait de la mise en veille du Mac).
+
+## 22. Margo : au fil de la lecture, recherches groupées, commentaires retirables (03/11/2026)
+
+- Constat sur la demande de cohérence du livre entier : Qwen 3.8 27B lit tout puis lance une recherche par date (environ 84) et atteint la limite d'étapes sans rien poser — bilan désormais fidèle ; Sonnet 5.5 va au bout (4 corrections, 12 commentaires, vraies contradictions internes) mais double des fils existants et ne peut pas retirer ses commentaires. Conclusion d'usage : Margo reste sur Sonnet 5.5 ; Qwen 3.8 27B seulement pour une correction à l'échelle d'un chapitre.
+- Décision de Sylvain (points 1 à 4) :
+  - consigne commune : travailler au fil de la lecture (poser corrections et commentaires après chaque lecture) ; consulter `commentaires` avant de commenter (aussi dans la description de `commenter`) ;
+  - `chercher` accepte `textes` (plusieurs textes en un appel, un résultat par texte) ; Margo ne relance que ceux qui n'ont pas encore été cherchés dans la demande ;
+  - `retirer` s'étend aux commentaires de l'agent : un fil avec ses réponses (refusé s'il porte la réponse de quelqu'un d'autre), ou une réponse seule ; `commentaires` marque « (toi) » et donne l'identifiant de ses réponses. `retirer` est ouvert aux lecteurs (ils commentent ; ils n'ont jamais de modification à retirer).

@@ -1043,24 +1043,63 @@ export function modificationsDuDocument(ydoc) {
  * retirée, celle qu'on proposait de supprimer reste. La proposition d'un
  * autre ne se retire pas : seul un éditeur la refuse.
  *
+ * Depuis le 03/11/2026, aussi ses propres commentaires, par leur identifiant
+ * (celui que `fils` donne) : un fil s'en va avec ses réponses — refusé s'il
+ * porte la réponse de quelqu'un d'autre —, une réponse s'en va seule.
+ *
  * `{ appliques: [{ index, id, bloc }], refuses: [{ index, id, bloc, raison }] }`
  */
 export function retirer(ydoc, ids, auteur) {
   const toutes = modificationsDuDocument(ydoc)
   const parId = new Map(toutes.map((m) => [m.id, m]))
+  const carte = ydoc.getMap(NOM_COMMENTAIRES)
+  const masques = ydoc.getMap(NOM_ORPHELINS)
   const appliques = []
   const refuses = []
   const retenues = []
+  const commentaires = [] // [{ index, id, cles }]
   const vus = new Set()
   ids.forEach((id, index) => {
     const cle = typeof id === 'string' ? id.trim() : ''
+    // Un commentaire (fil ou réponse) de l'agent lui-même (03/11/2026).
+    const c = cle && !parId.has(cle) ? carte.get(cle) : null
+    if (c && typeof c === 'object' && !masques.has(cle)) {
+      if (vus.has(cle))
+        return refuses.push({ index, id: cle, bloc: null, raison: 'déjà demandé plus haut dans la même demande' })
+      vus.add(cle)
+      if (c.author !== auteur.name)
+        return refuses.push({
+          index,
+          id: cle,
+          bloc: null,
+          raison: `ce commentaire est de ${c.author || 'quelqu’un d’autre'} : tu ne retires que les tiens`,
+        })
+      const cles = [cle]
+      if (!c.parent) {
+        const reponses = []
+        carte.forEach((r, rid) => {
+          if (r && typeof r === 'object' && r.parent === cle) reponses.push({ ...r, id: rid })
+        })
+        if (reponses.some((r) => r.author !== auteur.name))
+          return refuses.push({
+            index,
+            id: cle,
+            bloc: null,
+            raison:
+              'ce fil porte la réponse de quelqu’un d’autre : il ne se retire pas ; corrige-toi plutôt par une réponse dans le fil',
+          })
+        cles.push(...reponses.map((r) => r.id))
+      }
+      commentaires.push({ index, id: cle, cles })
+      return
+    }
     const m = parId.get(cle)
     if (!m) {
       return refuses.push({
         index,
         id: cle,
         bloc: null,
-        raison: `aucune modification en attente ne porte l'identifiant « ${court(cle)} » — relis \`modifications\` : les identifiants changent dès que le document change`,
+        raison: `aucune modification en attente ni aucun commentaire ne porte l'identifiant « ${court(cle)} » — relis \`modifications\` ou \`commentaires\` : les identifiants des modifications changent dès que le document change`,
       })
     }
     if (m.auteur !== auteur.name)
@@ -1077,7 +1116,7 @@ export function retirer(ydoc, ids, auteur) {
     vus.add(cle)
     retenues.push({ index, m })
   })
-  if (!retenues.length) return { appliques, refuses: refuses.sort((a, b) => a.index - b.index) }
+  if (!retenues.length && !commentaires.length) return { appliques, refuses: refuses.sort((a, b) => a.index - b.index) }
 
   // Les segments de texte, du dernier au premier dans chaque XmlText : effacer
   // ne décale que ce qui suit.
@@ -1116,7 +1155,15 @@ export function retirer(ydoc, ids, auteur) {
       }
       parent.delete(position, 1)
     }
+    // Un fil s'en va avec ses réponses, en une transaction, comme quand une
+    // personne le résout (client/src/comments.js, `supprimerFil`).
+    for (const { cles } of commentaires)
+      for (const cle of cles) {
+        carte.delete(cle)
+        masques.delete(cle)
+      }
   }, 'agent')
+  for (const { index, id } of commentaires) appliques.push({ index, id, bloc: null })
   for (const { index, m } of retenues) appliques.push({ index, id: m.id, bloc: m.bloc })
   return { appliques: appliques.sort((a, b) => a.index - b.index), refuses: refuses.sort((a, b) => a.index - b.index) }
 }

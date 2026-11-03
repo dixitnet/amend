@@ -516,6 +516,8 @@ test('la consigne de Margo est celle du connecteur « inviter Claude », plus la
   assert.match(c, /ne relis pas et ne recherche pas ce que tu as déjà lu/)
   assert.match(c, /ne présente comme fait que ce que les outils ont confirmé/)
   assert.match(c, /d’après ta seule connaissance/)
+  assert.match(c, /Travaille au fil de la lecture/)
+  assert.match(c, /consulte `commentaires` pour ne pas doubler un fil existant/)
   assert.ok(c.length < 2200, `consigne trop longue : ${c.length}`)
   const sel = consigne({ prenom: 'A', titre: 'T', portee: { type: 'selection', de: 3, a: 7 } })
   assert.match(sel, /le passage sélectionné \(blocs 3 à 7\)/)
@@ -548,6 +550,33 @@ test('une recherche déjà faite n’est pas relancée ; le libellé de lecture 
   const reponse = requetes[3].corps.messages.at(-1).content[0]
   assert.match(reponse.content, /Tu as déjà cherché « ZAN » pendant cette demande/)
   assert.equal(reponse.is_error, true)
+  scenario = []
+})
+
+test('plusieurs textes d’un coup : seuls ceux qui n’ont pas encore été cherchés sont relancés', async () => {
+  const doc = await documentDeTest()
+  requetes.length = 0
+  scenario = [
+    outil('t1', 'chercher', { texte: 'mardi' }),
+    outil('t2', 'chercher', { textes: ['Mardi', 'pomme'] }),
+    outil('t3', 'chercher', { textes: ['pomme', 'mardi'] }),
+    texte('Fait.'),
+  ]
+  const r = await dialoguer(doc.id, 'admin@example.com', {
+    messages: [{ role: 'user', content: 'Cherche.' }],
+    portee: { type: 'document' },
+  })
+  assert.equal(r.status, 200)
+  const libelles = r.evenements.filter((e) => e.type === 'outil').map((e) => e.libelle)
+  assert.deepEqual(libelles, ['cherche « mardi »', 'cherche « Mardi », « pomme »', 'cherche « pomme », « mardi »'])
+  assert.deepEqual(
+    r.evenements.filter((e) => e.type === 'outil_fin').map((e) => e.ok),
+    [true, true, false]
+  )
+  const second = requetes[2].corps.messages.at(-1).content[0].content
+  assert.match(second, /^Déjà cherché plus haut, non relancé : « Mardi »\./)
+  assert.match(second, /de « pomme »/)
+  assert.doesNotMatch(second, /occurrence\(s\) de « Mardi »/)
   scenario = []
 })
 
