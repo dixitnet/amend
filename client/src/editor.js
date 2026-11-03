@@ -3,6 +3,7 @@ import { monterReglagesAffichage } from './reglagesAffichage.js'
 import * as Y from 'yjs'
 import { ySyncPlugin, yCursorPlugin, yUndoPlugin, undo, redo } from 'y-prosemirror'
 import { EditorState, Plugin } from 'prosemirror-state'
+import { curseursPendantComposition } from './curseursComposition.js'
 import { EditorView } from 'prosemirror-view'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap } from 'prosemirror-commands'
@@ -624,11 +625,18 @@ export function mountEditor(root, docId, user, docMeta) {
   // d'accroche sur chaque changement d'état (sélection comprise).
   let syncToolbar = () => {}
 
+  // Pas de curseur distant pendant une touche morte (écart 6, voir le module).
+  const curseursComposition = curseursPendantComposition()
+
   const state = EditorState.create({
     schema,
     plugins: [
       ySyncPlugin(yXml),
-      yCursorPlugin(provider.awareness, { cursorBuilder: buildCursor }),
+      yCursorPlugin(provider.awareness, {
+        cursorBuilder: buildCursor,
+        awarenessStateFilter: curseursComposition.filtre,
+      }),
+      curseursComposition.greffon,
       yUndoPlugin(),
       // Tout le monde arrive suivi **activé** (Sylvain, 29/09/2026) : un
       // éditeur qui veut écrire sans trace le coupe lui-même, ce qui vaut

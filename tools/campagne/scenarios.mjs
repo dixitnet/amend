@@ -517,6 +517,39 @@ scenario('Sélection au clavier (Maj+Fin) puis frappe, en suivi', async ({ alice
   verifier('fin de phrase barrée puis remplacée', vu.includes('canapé[A- du salon.-]{A+, vers midi.+}'), L(vu))
 })
 
+for (const [suivi, cote] of [
+  [true, 'avant'],
+  [true, 'après'],
+  [false, 'avant'],
+]) {
+  scenario(
+    `Touche morte contre le curseur de l’autre (${suivi ? 'suivi' : 'hors suivi'}, curseur ${cote} le mot)`,
+    async ({ alice, bruno, tous, verifier }) => {
+      await alice.suivi(suivi)
+      await bruno.focus()
+      if (cote === 'avant') {
+        await bruno.selectionner('noir')
+        await bruno.touche('ArrowLeft')
+      } else await bruno.cliquerApres('noir')
+      await attendre(400)
+      await alice.focus()
+      await alice.selectionner('noir')
+      await alice.composer(['^'], 'ê')
+      await alice.taper('tre')
+      const vu = await convergence(tous)
+      const attendu = suivi ? 'Le chat [A-noir-]{A+être+} dort' : 'Le chat être dort'
+      verifier('ê composé proprement, sans « ^ » ni doublon', vu.includes(attendu), L(vu))
+      // L'éditrice n'est pas bloquée : elle peut encore écrire.
+      await alice.taper(' ok')
+      const ensuite = await convergence(tous)
+      verifier('l’éditrice peut encore écrire', ensuite.includes('ok'), L(ensuite))
+      await attendre(300)
+      const curseur = await alice.page.locator('.remote-cursor[data-user="Bruno"]').count()
+      verifier('le curseur de Bruno réapparaît', curseur === 1, `curseurs de Bruno : ${curseur}`)
+    }
+  )
+}
+
 // --- Commentaires ------------------------------------------------------------
 
 scenario('Commenter : tout le monde voit le commentaire', async ({ alice, bruno, chloe, louis, verifier }) => {
