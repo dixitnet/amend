@@ -2,12 +2,19 @@
 // (Découpé de l'ancien `trackChanges.js`, 1 630 lignes — audit du 10/10/2026, C11.
 // `../trackChanges.js` réexporte tout : aucun import à changer.)
 
-import { TextSelection } from 'prosemirror-state'
+import { Selection, TextSelection } from 'prosemirror-state'
 import { estNoeudSuivi, idDeGroupe, suiviDuNoeud } from './etat.js'
+import { compositionEnCours } from './composition.js'
 
 export function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
   const insertionType = state.schema.marks.insertion
+  const deletionType = state.schema.marks.deletion
   const ranges = []
+  // Texte déjà barré (par n'importe qui) : laissé tel quel. Le barrer de
+  // nouveau remplaçait la suppression de l'autre par la sienne, et rejeter
+  // la seconde effaçait aussi la première (écart 8 de la campagne de tests
+  // du 02/11/2026). Compté quand même : la sélection en contenait.
+  let dejaBarres = 0
   state.doc.nodesBetween(from, to, (node, pos) => {
     // Un nœud suivi entier dans la sélection (note, image) : par son
     // attribut `suivi`, pas par une marque — voir schema.js. Déjà proposé
@@ -30,6 +37,10 @@ export function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
     const start = Math.max(pos, from)
     const end = Math.min(pos + node.nodeSize, to)
     if (start >= end) return
+    if (deletionType && deletionType.isInSet(node.marks)) {
+      dejaBarres++
+      return
+    }
     // Retiré pour de bon seulement si c'est **sa propre** insertion en
     // attente (D2 du rapport du 28/09/2026) : effacer ce qu'un autre vient
     // de proposer le barre, comme n'importe quel texte — sinon un
@@ -49,7 +60,7 @@ export function markRangeForTrackedDeletion(state, tr, from, to, delMark) {
   }
   // Le nombre de morceaux (texte ou nœud) que la sélection contenait —
   // zéro pour une sélection qui ne couvre que des bords de blocs.
-  return ranges.length
+  return ranges.length + dejaBarres
 }
 
 /** `true` si [f, t) est déjà proposé à la suppression — du texte barré, ou
@@ -251,8 +262,18 @@ function effacementMultiBloc(state, tr, step, user) {
   // La sélection doit bien être ce que le pas efface, sinon on ne sait pas
   // de quoi il s'agit (bascule de liste, changement de bloc…).
   if (step.from > from || step.to < to) return null
-  const texte = texteDeLaTranche(step.slice)
+  let texte = texteDeLaTranche(step.slice)
   if (texte === null) return null
+  // Texte entré d'un bloc (dictée, saisie prédictive) : ProseMirror remplace
+  // la plage jusqu'au bout du bloc par un bloc neuf qui contient la frappe ET
+  // le reste du bloc, resté en place chez nous. Sans ce retrait, le reste
+  // était inséré une seconde fois (écart 3).
+  const resteApres = step.to > to ? state.doc.textBetween(to, step.to, '', '') : ''
+  const resteAvant = step.from < from ? state.doc.textBetween(step.from, from, '', '') : ''
+  if (resteApres && texte.length > resteApres.length && texte.endsWith(resteApres))
+    texte = texte.slice(0, texte.length - resteApres.length)
+  if (resteAvant && texte.length > resteAvant.length && texte.startsWith(resteAvant))
+    texte = texte.slice(resteAvant.length)
 
   const insertionType = state.schema.marks.insertion
   const deletionType = state.schema.marks.deletion
@@ -264,8 +285,20 @@ function effacementMultiBloc(state, tr, step, user) {
   const out = state.tr
   markRangeForTrackedDeletion(state, out, from, to, delMark)
 
-  let curseur = out.mapping.map(from)
-  if (texte.length > 0 && positionUtilisable(out.doc, curseur)) {
+  // La frappe vient après le passage barré, comme dans un seul bloc
+  // (« ancien barré, puis nouveau », 09/10/2026 ; écart 7a). Ctrl+A : la fin
+  // de la sélection est entre les blocs, pas dans un texte ; on remonte au
+  // dernier endroit où l'on peut écrire, sinon la frappe était perdue (écart 2).
+  //
+  // Sauf pendant une composition (touche morte, méthode de saisie) : le
+  // navigateur compose au début de la sélection, à l'écran ; poser le texte
+  // ailleurs dans le modèle casse la composition (« ^ » laissé, éditeur
+  // bloqué — vu au banc le 03/11/2026). La frappe reste alors au début.
+  const pendantComposition = tr.getMeta('composition') != null || compositionEnCours()
+  let curseur = pendantComposition
+    ? positionDeTexteAvant(out.doc, out.mapping.map(from))
+    : positionDeTexteAvant(out.doc, out.mapping.map(to))
+  if (texte.length > 0 && curseur !== null) {
     const insMark = insertionType.create({ user: user.name, userColor: user.color, ts, groupe })
     const authorMark = state.schema.marks.authorColor?.create({
       user: user.name,
@@ -279,11 +312,19 @@ function effacementMultiBloc(state, tr, step, user) {
   }
 
   if (out.steps.length === 0) return seulementLeCurseur(state, from)
-  if (positionUtilisable(out.doc, curseur)) {
+  if (curseur !== null && positionUtilisable(out.doc, curseur)) {
     out.setSelection(TextSelection.create(out.doc, curseur))
   }
   out.setMeta('trackChangesInternal', true)
   return out
+}
+
+/** `pos` si l'on peut y écrire, sinon la dernière position d'écriture qui la
+ * précède (fin du bloc de texte précédent) ; `null` s'il n'y en a pas. */
+function positionDeTexteAvant(doc, pos) {
+  if (positionUtilisable(doc, pos)) return pos
+  const sel = Selection.findFrom(doc.resolve(Math.min(pos, doc.content.size)), -1, true)
+  return sel && positionUtilisable(doc, sel.head) ? sel.head : null
 }
 
 export function rewriteForTracking(state, tr, user) {
@@ -342,11 +383,26 @@ export function rewriteForTracking(state, tr, user) {
   // marques (voir idDeGroupe ci-dessus). Un simple effacement (rien à
   // insérer) ou une frappe au curseur (rien à effacer) n'en a pas besoin :
   // il n'y a qu'une seule moitié.
-  const groupe = cibleTo > cibleFrom && slice.size > 0 ? idDeGroupe(ts) : null
+  // Une composition (touche morte) remplace son propre caractère provisoire
+  // (« ^ » puis « ê ») : elle garde le groupe du remplacement en cours, sinon
+  // le panneau montrait une suppression et un ajout séparés (écart 13).
+  const groupeHerite = cibleTo > cibleFrom && slice.size > 0 ? groupeDeMonAjout(state, cibleFrom, cibleTo, user) : null
+  let groupe = groupeHerite || (cibleTo > cibleFrom && slice.size > 0 ? idDeGroupe(ts) : null)
+  // Frappe au curseur contre sa propre suppression encore seule (sélection
+  // effacée, ou retours arrière lettre à lettre, puis frappe) : les deux
+  // moitiés forment un remplacement, comme dans Google Docs (écart 13).
+  const supprimeeVoisine =
+    !groupe && cibleTo === cibleFrom && slice.size > 0 ? maSuppressionContre(state, cibleFrom, user) : null
+  if (supprimeeVoisine) groupe = idDeGroupe(ts)
   const insMark = insertionType.create({ user: user.name, userColor: user.color, ts, groupe })
   const delMark = deletionType.create({ user: user.name, userColor: user.color, ts, groupe })
   const authorMark = state.schema.marks.authorColor?.create({ user: user.name, userColor: user.color })
+  // La mise en forme de la frappe : celle du passage qu'elle remplace (le
+  // premier caractère sélectionné), lien compris, comme hors suivi et dans
+  // Google Docs ; au curseur, celle que ProseMirror donnerait (écart 15).
+  const marquesDeFrappe = marquesPourLaFrappe(state, cibleFrom, cibleTo)
   const out = state.tr
+  if (supprimeeVoisine) regrouperSuppression(out, supprimeeVoisine, groupe)
 
   const morceaux = cibleTo > cibleFrom ? markRangeForTrackedDeletion(state, out, cibleFrom, cibleTo, delMark) : 0
 
@@ -377,7 +433,7 @@ export function rewriteForTracking(state, tr, user) {
       // …sauf la mise en forme active au curseur (gras, italique…) : taper
       // au milieu d'un mot en gras reste en gras, en suivi comme hors
       // suivi (D1 du rapport du 28/09/2026).
-      out.insert(insPos, state.schema.text(text, marquesDeMiseEnForme(state)))
+      out.insert(insPos, state.schema.text(text, marquesDeFrappe))
       const insEnd = insPos + text.length
       out.addMark(insPos, insEnd, insMark)
       if (authorMark) out.addMark(insPos, insEnd, authorMark)
@@ -431,12 +487,100 @@ export function rewriteForTracking(state, tr, user) {
   // le geste.
   if (curseur != null && positionUtilisable(out.doc, curseur)) {
     out.setSelection(TextSelection.create(out.doc, curseur))
+    // Un lien n'est pas « inclusif » : sans ceci, seule la première lettre
+    // tapée sur le texte d'un lien restait dans le lien.
+    if (marquesDeFrappe.some((m) => m.type.name === 'link')) out.setStoredMarks(marquesDeFrappe)
   }
   out.setMeta('trackChangesInternal', true)
   // Texte tapé par-dessus une sélection : le plugin des commentaires doit
   // garder le passage commenté sur l'ancien texte barré (voir estRemplacement).
   if (groupe) out.setMeta('remplacementFrappe', true)
   return out
+}
+
+/** Les marques de mise en forme gardées par une frappe : les mêmes que
+ * `marquesDeMiseEnForme`, plus le lien. */
+const MARQUES_DE_FRAPPE = new Set([...MARQUES_MISE_EN_FORME, 'link'])
+
+/** La mise en forme à donner au texte tapé. Par-dessus une sélection : celle
+ * de son premier caractère ; au curseur : les marques en attente, sinon celles
+ * que ProseMirror donnerait à cet endroit. */
+function marquesPourLaFrappe(state, from, to) {
+  if (state.storedMarks) return state.storedMarks.filter((m) => MARQUES_DE_FRAPPE.has(m.type.name))
+  if (to > from) {
+    let marques = null
+    state.doc.nodesBetween(from, to, (n) => {
+      if (marques === null && n.isText) marques = n.marks
+      return marques === null
+    })
+    if (marques) return marques.filter((m) => MARQUES_DE_FRAPPE.has(m.type.name))
+  }
+  return marquesDeMiseEnForme(state)
+}
+
+/** Le groupe de [from, to] si tout ce texte est un ajout en attente de
+ * `user`, d'un seul et même groupe ; sinon `null`. */
+function groupeDeMonAjout(state, from, to, user) {
+  const insertionType = state.schema.marks.insertion
+  let groupe
+  let ok = true
+  state.doc.nodesBetween(from, to, (n) => {
+    if (!ok || !n.isText) return
+    const m = insertionType.isInSet(n.marks)
+    if (!m || m.attrs.user !== user.name || !m.attrs.groupe) ok = false
+    else if (groupe === undefined) groupe = m.attrs.groupe
+    else if (groupe !== m.attrs.groupe) ok = false
+  })
+  return ok && groupe ? groupe : null
+}
+
+/** La suite de caractères que `user` a proposé de supprimer, sans groupe,
+ * collée à `pos` (juste avant, sinon juste après) et qui n'est pas déjà
+ * prolongée par un de ses ajouts : `[{from, to, mark}]`, ou `null`. */
+function maSuppressionContre(state, pos, user) {
+  const { insertion, deletion } = state.schema.marks
+  const $pos = state.doc.resolve(pos)
+  if (!$pos.parent.inlineContent) return null
+  const mienne = (n) => {
+    if (!n || !n.isText || insertion.isInSet(n.marks)) return null
+    const m = deletion.isInSet(n.marks)
+    return m && m.attrs.user === user.name && !m.attrs.groupe ? m : null
+  }
+  const monAjout = (n) => {
+    const m = n && n.isText && insertion.isInSet(n.marks)
+    return !!m && m.attrs.user === user.name
+  }
+  // Déjà contre un de ses ajouts : on prolonge cet ajout, rien à apparier.
+  if (monAjout($pos.nodeBefore) || monAjout($pos.nodeAfter)) return null
+  const debutBloc = $pos.start()
+  const finBloc = $pos.end()
+  const morceaux = []
+  // Avant le curseur.
+  for (let p = pos; p > debutBloc;) {
+    const n = state.doc.resolve(p).nodeBefore
+    const m = mienne(n)
+    if (!m) break
+    morceaux.unshift({ from: p - n.nodeSize, to: p, mark: m })
+    p -= n.nodeSize
+  }
+  if (morceaux.length) return morceaux
+  // Après le curseur.
+  for (let p = pos; p < finBloc;) {
+    const n = state.doc.resolve(p).nodeAfter
+    const m = mienne(n)
+    if (!m) break
+    morceaux.push({ from: p, to: p + n.nodeSize, mark: m })
+    p += n.nodeSize
+  }
+  return morceaux.length ? morceaux : null
+}
+
+/** Donne `groupe` à chaque morceau de la suppression, sans toucher au reste
+ * de ses attributs (auteur, date). */
+function regrouperSuppression(tr, morceaux, groupe) {
+  for (const { from, to, mark } of morceaux) {
+    tr.addMark(from, to, mark.type.create({ ...mark.attrs, groupe }))
+  }
 }
 
 /** Une position où l'on peut réellement poser un curseur de texte. */

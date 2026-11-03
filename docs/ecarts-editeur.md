@@ -11,24 +11,24 @@ Statuts : **à corriger** (petit chantier, utile quelle que soit la suite), **at
 | N° | Écart | Famille | Statut | Piste | Taille |
 |---|---|---|---|---|---|
 | 1 | Sélection puis Entrée, en suivi : le texte était effacé hors suivi | A | **atténué** (refusé avec message, aa5ea9d) | suivre le geste : barrer la sélection, puis couper | petit |
-| 2 | Ctrl+A puis frappe, en suivi : la frappe est perdue | B | **à corriger** | insérer dans le premier bloc de texte, pas à la position 0 | petit |
-| 3 | Dictée / saisie prédictive sur une sélection titre → paragraphe ou paragraphe → citation : texte dupliqué | B | **à corriger** | retirer de la tranche le reste du bloc que ProseMirror reconstruit | petit |
+| 2 | Ctrl+A puis frappe, en suivi : la frappe est perdue | B | **corrigé** (03/11/2026) : la frappe va dans le dernier bloc de texte de la sélection | — | — |
+| 3 | Dictée / saisie prédictive sur une sélection titre → paragraphe ou paragraphe → citation : texte dupliqué | B | **corrigé** (03/11/2026) : le reste du bloc reconstruit par ProseMirror est retiré de la frappe | — | — |
 | 4 | Collage sur une sélection paragraphe → citation : effacé hors suivi | A | **atténué** (refusé avec message, aa5ea9d) | suivre le collage multi-blocs | moyen |
 | 5 | Frappe simultanée dans le même paragraphe : espaces hors suivi | D | **corrigé** à des endroits différents (correctif y-prosemirror, aa5ea9d) ; reste « même endroit, même instant » | résiduel : attendre la v2 | — |
 | 6 | Touche morte (ê) sur une sélection collée au curseur d'une autre personne : « ^ » laissé ou texte doublé, puis éditeur bloqué jusqu'au rechargement (aussi hors suivi) | D | **corrigé** (03/11/2026) : les curseurs distants sont masqués pendant une composition (`client/src/curseursComposition.js`) ; scénarios « Touche morte contre le curseur de l'autre » | — | — |
-| 7a | Sélection sur plusieurs paragraphes : ajout placé avant le barré | B | **à corriger** | même ordre que dans un seul paragraphe (« ancien barré, puis nouveau ») | petit |
+| 7a | Sélection sur plusieurs paragraphes : ajout placé avant le barré | B | **corrigé** (03/11/2026) : ajout après le barré, comme dans un seul paragraphe ; sauf pendant une composition (touche morte), où la frappe reste au début : la déplacer cassait la composition | — | — |
 | 7b | Sélection sur plusieurs paragraphes : la coupure reste après acceptation | B | **attendre la v2** | une « jointure suivie » (nouvel attribut de bloc) | lourd |
-| 8 | Barrer un passage déjà barré par un autre : sa suppression passe au nouveau nom, et le rejet efface les deux | C | **à corriger** | sauter le texte déjà barré | petit |
+| 8 | Barrer un passage déjà barré par un autre : sa suppression passe au nouveau nom, et le rejet efface les deux | C | **corrigé** (03/11/2026) : le texte déjà barré est laissé à son auteur | — | — |
 | 9 | Commentaire masqué quand on accepte la suppression ou le remplacement de son passage | E | **à décider** | reporter le fil sur le nouveau texte (comme Google Docs) | moyen |
 | 10 | Gras / mise en forme en suivi appliqués directement (éditeur) | A | **attendre la v2** | suivi de la mise en forme | lourd |
 | 11 | Deux personnes au même endroit : lettres mêlées (aussi hors suivi) | D | **attendre la v2** | — (rare) | — |
 | 12 | Suppr. en fin de paragraphe en suivi : fusion hors suivi | A | **attendre la v2** | jointure suivie (cf. 7b) | lourd |
-| 13 | Touche morte, ou retour arrière puis frappe : deux cartes au lieu d'un « remplacement » | C | **à corriger** | garder le groupe d'une composition ; apparier un ajout collé à une suppression du même auteur | petit à moyen |
+| 13 | Touche morte, ou retour arrière puis frappe : deux cartes au lieu d'un « remplacement » | C | **corrigé** (03/11/2026) : la composition garde le groupe ; une frappe collée à sa propre suppression forme un remplacement | — | — |
 | 14 | Retour arrière puis frappe : nouveau texte avant le barré | E | **à décider** | aligner sur « ancien barré, puis nouveau » ou garder | petit |
-| 15 | En suivi, taper sur un mot en italique (ou un lien) perd l'italique (le lien) | C | **à corriger** | reprendre les marques de la tranche de ProseMirror | petit |
+| 15 | En suivi, taper sur un mot en italique (ou un lien) perd l'italique (le lien) | C | **corrigé** (03/11/2026) : la frappe prend la mise en forme (et le lien) du premier caractère remplacé | — | — |
 | 16 | Raccourcis Google Docs absents : Ctrl+Alt+M (commenter), Ctrl+Alt+1…6 / 0 (titres) | E | **à décider** | ajouter les raccourcis | petit |
 
-Lot de corrections suggéré (petits chantiers, indépendants de la v2) : ~~6~~ (fait), puis **2, 3, 7a, 8, 15, 13**. Les points à décider (9, 14, 16) relèvent de Sylvain.
+Lot de corrections des petits chantiers (6, 2, 3, 7a, 8, 15, 13) : fait le 03/11/2026 ; tests `client/test/ecartsSuivi.test.js`. Matrice complète après correction : 4 635 vérifications, 159 échecs (380 le 02/11), tous attendus (Entrée et collage multi-blocs refusés, coupure 7b, composition multi-blocs au début, artefacts de geste) ; « rien de perdu », « tout rejeter », Ctrl+Z, « une seule modification » : 0 échec. À surveiller : la dictée sur une sélection paragraphe → citation est restée une fois sans effet dans la matrice complète (non reproduit en trois passages isolés). Les points à décider (9, 14, 16) relèvent de Sylvain.
 
 ## Veille de y-prosemirror v2
 

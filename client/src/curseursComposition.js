@@ -16,6 +16,7 @@
 
 import { Plugin } from 'prosemirror-state'
 import { yCursorPluginKey } from 'y-prosemirror'
+import { noterComposition } from './suivi/composition.js'
 
 /**
  * `filtre` se passe à `yCursorPlugin(…, { awarenessStateFilter: filtre })` ;
@@ -36,6 +37,7 @@ export function curseursPendantComposition() {
         // Avant que le navigateur ne touche au texte : les curseurs distants
         // quittent le DOM, la composition se fait sur du texte seul.
         compositionstart(view) {
+          noterComposition(true)
           if (!composition) {
             composition = true
             redessiner(view)
@@ -45,6 +47,7 @@ export function curseursPendantComposition() {
         // Après coup, quand ProseMirror a fini de lire la composition.
         compositionend(view) {
           composition = false
+          noterComposition(false)
           setTimeout(() => redessiner(view), 0)
           return false
         },
