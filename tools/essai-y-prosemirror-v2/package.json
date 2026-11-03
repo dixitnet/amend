@@ -6,7 +6,8 @@
   "scripts": {
     "build": "esbuild src/essai.js --bundle --format=esm --outfile=dist/essai.js",
     "campagne": "node campagne.mjs",
-    "compo": "node compo.mjs"
+    "compo": "node compo.mjs",
+    "veille": "node veille.mjs"
   },
   "dependencies": {
     "@y/prosemirror": "2.0.0-15",

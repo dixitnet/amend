@@ -1,5 +1,6 @@
 // Essai v2 : les gestes qui posent problème dans amend.ink, rejoués avec le mode
 // suggestion natif de @y/prosemirror 2 + Yjs 14. Chaque cas dans une salle neuve.
+import { writeFileSync } from 'node:fs'
 import { demarrerEssai, convergenceV2 } from './piloter.mjs'
 import { attendre } from '../campagne/outils.mjs'
 
@@ -9,7 +10,10 @@ const P3 = 'La pluie reviendra demain soir.'
 const BASE = [P1, P2, P3].join('\n')
 const L = JSON.stringify
 let salle = 0
-const filtre = process.argv[2] ? new RegExp(process.argv[2]) : null
+const args = process.argv.slice(2)
+const SORTIE = args.find((a) => a.startsWith('--sortie='))?.split('=')[1]
+const motif = args.find((a) => !a.startsWith('--'))
+const filtre = motif ? new RegExp(motif) : null
 
 const e = await demarrerEssai()
 const resultats = []
@@ -176,3 +180,4 @@ try {
 } finally {
   await e.fermer()
 }
+if (SORTIE) writeFileSync(SORTIE, JSON.stringify(resultats, null, 1))

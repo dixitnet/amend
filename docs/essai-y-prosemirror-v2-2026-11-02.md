@@ -45,5 +45,5 @@ Aucune erreur en console. Non testés : l'attribution des modifications à une p
 ## Recommandation
 
 - **Ne pas migrer maintenant ; miser dessus pour plus tard**, et ne pas investir de gros chantiers maison (jointure suivie, suivi de la mise en forme) que la v2 rendrait inutiles.
-- **Rejouer cet essai** à chaque nouvelle pré-version importante de `@y/prosemirror`, et à la sortie stable de Yjs 14 : `tools/essai-y-prosemirror-v2/` (mettre à jour les versions dans `package.json`, puis `npm i && npm run build && npm run campagne && npm run compo`). Critères de passage : touches mortes, Ctrl+Z, effacement de la suggestion d'un autre, affichage multi-paragraphes.
+- **Rejouer cet essai** chaque mois et à la sortie stable de Yjs 14, selon la procédure de veille de `docs/ecarts-editeur.md` (`node tools/essai-y-prosemirror-v2/veille.mjs --essayer`, qui juge seul les critères de passage).
 - Signaler en amont (dépôt `yjs/y-prosemirror`) les défauts touche morte / Ctrl+Z en mode suggestion, si l'on veut accélérer : ils sont reproductibles en quelques lignes avec cet outillage.
