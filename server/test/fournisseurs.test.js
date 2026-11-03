@@ -16,6 +16,7 @@ import {
   envoyer,
   urlMistral,
   urlScaleway,
+  reflexionDe,
 } from '../fournisseurs.js'
 import { suggestEdit, AIConfigError } from '../ai.js'
 import { MODELES } from '../reglagesIa.js'
@@ -93,7 +94,8 @@ test('requête : consigne, outils, appels et résultats d’outil, réflexion co
   })
   assert.equal(corps.model, 'mistral-large-4-0')
   assert.equal(corps.max_tokens, 16384)
-  assert.equal(corps.reasoning_effort, 'none')
+  // Large 4 refuse `none` depuis la fin de son aperçu : le plus bas est `low`.
+  assert.equal(corps.reasoning_effort, 'low')
   assert.equal(corps.thinking, undefined)
   assert.equal(corps.tool_choice, 'none')
   assert.equal(corps.stream, false)
@@ -219,7 +221,7 @@ test('Corrections IA sur Mistral : requête traduite, réflexion coupée, sugges
   assert.equal(appels.length, 1)
   assert.equal(appels[0].url, 'https://api.eu.mistral.ai/v1/chat/completions')
   assert.equal(appels[0].headers.authorization, 'Bearer cle-m')
-  assert.equal(appels[0].corps.reasoning_effort, 'none')
+  assert.equal(appels[0].corps.reasoning_effort, 'low')
   assert.equal(appels[0].corps.messages[0].role, 'system')
   assert.match(appels[0].corps.messages[1].content, /<passage>\nLéconomie se redresse\.\n<\/passage>/)
   assert.equal(r.suggestion, 'L’économie se redresse.')
@@ -348,9 +350,26 @@ test('Scaleway : « sans réflexion » devient low pour gpt-oss (qui ne se coupe
     'none'
   )
   assert.equal(traduireRequete({ ...base, model: 'qwen3.8-27b' }, 'scaleway').reasoning_effort, 'none')
-  assert.equal(traduireRequete({ ...base, model: 'mistral-large-4-0' }).reasoning_effort, 'none')
+  assert.equal(traduireRequete({ ...base, model: 'mistral-large-4-0' }).reasoning_effort, 'low')
+  assert.equal(traduireRequete({ ...base, model: 'mistral-small-2603' }).reasoning_effort, 'none')
   const sans = traduireRequete({ model: 'gpt-oss-120b', messages: [{ role: 'user', content: 'x' }] }, 'scaleway')
   assert.equal(sans.reasoning_effort, undefined)
+})
+
+test('niveau de réflexion demandé : `output_config.effort` devient `reasoning_effort`, tel quel', () => {
+  const base = { max_tokens: 100, messages: [{ role: 'user', content: 'Salut' }] }
+  const r = traduireRequete({ ...base, model: 'mistral-large-4-0', output_config: { effort: 'high' } })
+  assert.equal(r.reasoning_effort, 'high')
+  assert.equal(r.output_config, undefined, 'rien d’autre ne part chez Mistral')
+  const g = traduireRequete({ ...base, model: 'gpt-oss-120b', output_config: { effort: 'medium' } }, 'scaleway')
+  assert.equal(g.reasoning_effort, 'medium')
+})
+
+test('table des niveaux de réflexion : du moins au plus coûteux, le premier est celui de la production', () => {
+  assert.deepEqual(reflexionDe('mistral-large-4-0'), { niveaux: ['low', 'medium', 'high'], defaut: 'low' })
+  assert.deepEqual(reflexionDe('claude-sonnet-5-5').defaut, 'aucune')
+  assert.deepEqual(reflexionDe('mistral-small-2603').niveaux, ['aucune', 'high'])
+  assert.deepEqual(reflexionDe('modele-inconnu'), { niveaux: ['aucune'], defaut: 'aucune' })
 })
 
 test('Scaleway : choix d’outil — auto, aucun, requis, ou une fonction nommée', () => {

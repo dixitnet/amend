@@ -25,7 +25,7 @@ import * as Y from 'yjs'
 import { Dialogue } from './dialogue.js'
 import { blocsDuDocument, fils, NOM_TEXTE } from './agentTexte.js'
 import { capabilities } from './roles.js'
-import { cleDe, serviceDe } from './fournisseurs.js'
+import { cleDe, reflexionDe, serviceDe } from './fournisseurs.js'
 import { nfc } from '../shared/propre.js'
 
 export const COLONNES_MAX = 3
@@ -235,7 +235,13 @@ export function validerDemande(corps, { reglages, modeles }) {
     if (!cleDe(modele))
       throw new BancErreur(400, `Colonne ${i + 1} : la clé d’accès à ${serviceDe(modele)} n’est pas configurée.`)
     const maniere = col && typeof col.maniere === 'string' ? col.maniere : reglages.maniere || ''
-    return { modele, nom: connu.nom, maniere, maniereModifiee: maniere !== (reglages.maniere || '') }
+    // Le niveau de réflexion : l'un de ceux que le modèle accepte ; par défaut,
+    // celui de la production (le moins coûteux).
+    const { niveaux, defaut } = reflexionDe(modele)
+    const reflexion = col && col.reflexion != null && col.reflexion !== '' ? col.reflexion : defaut
+    if (!niveaux.includes(reflexion))
+      throw new BancErreur(400, `Colonne ${i + 1} : niveau de réflexion non accepté par ${connu.nom}.`)
+    return { modele, nom: connu.nom, maniere, maniereModifiee: maniere !== (reglages.maniere || ''), reflexion }
   })
   const blocs = blocsDeTexte(texte)
   if (!blocs.length) throw new BancErreur(400, 'Collez un texte à faire relire.')
@@ -318,7 +324,12 @@ export class Banc {
         type: 'debut',
         signes: taille,
         consigne: demande.consigne.length,
-        colonnes: demande.colonnes.map((c) => ({ modele: c.modele, nom: c.nom, maniereModifiee: c.maniereModifiee })),
+        colonnes: demande.colonnes.map((c) => ({
+          modele: c.modele,
+          nom: c.nom,
+          maniereModifiee: c.maniereModifiee,
+          reflexion: c.reflexion,
+        })),
         refuseeEnProduction: taille + demande.consigne.length > signesParDemande,
         signesParDemande,
       })
@@ -341,6 +352,8 @@ export class Banc {
             // les numéros de bloc). Sous la limite, rien ne change.
             signesParDemande: Math.max(signesParDemande, 3 * (taille + demande.consigne.length)),
             maniere: col.maniere,
+            // Le niveau par défaut est celui de la production : rien à demander de plus.
+            reflexion: col.reflexion === reflexionDe(col.modele).defaut ? null : col.reflexion,
             acces: { agent, capabilities: capabilities('correcteur') },
           }
           const debut = this.maintenant()

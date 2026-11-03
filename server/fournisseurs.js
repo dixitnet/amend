@@ -68,6 +68,34 @@ export function variableDe(modele) {
   return SERVICES[fournisseurDe(modele)].variable
 }
 
+// ------------------------------------------------------- niveaux de réflexion
+/** Les niveaux de réflexion que chaque modèle accepte (03/11/2026), du moins
+ * coûteux au plus coûteux. `aucune` : réflexion coupée (Anthropic :
+ * `between_tools` ou `disabled` ; Mistral et Scaleway : `reasoning_effort:
+ * none`) ; les autres valeurs sont celles de l'API (`output_config.effort` chez
+ * Anthropic, `reasoning_effort` ailleurs). `defaut` : ce que la production
+ * envoie — le moins coûteux des niveaux acceptés.
+ *
+ * Sources : documentation d'Anthropic (Sonnet 5.5, Haiku 5.5 : réflexion
+ * adaptative et niveau d'effort) ; documentation de Mistral, page « Reasoning »
+ * (Large 4 : low, medium, high — `none` refusé depuis la fin de l'aperçu ;
+ * Small 4 : none, high) ; Scaleway (gpt-oss-120b refuse `none` ; Qwen 3.8 27B :
+ * none, low, medium, xhigh). Un modèle absent de la table n'a que `aucune`. */
+export const REFLEXION = {
+  'claude-haiku-5-5': ['aucune', 'low', 'medium', 'high'],
+  'claude-sonnet-5-5': ['aucune', 'low', 'medium', 'high'],
+  'mistral-large-4-0': ['low', 'medium', 'high'],
+  'mistral-small-2603': ['aucune', 'high'],
+  'gpt-oss-120b': ['low', 'medium', 'high'],
+  'qwen3.8-27b': ['aucune', 'low', 'medium', 'xhigh'],
+}
+
+/** `{ niveaux, defaut }` pour un modèle. */
+export function reflexionDe(modele) {
+  const niveaux = REFLEXION[modele] || ['aucune']
+  return { niveaux, defaut: niveaux[0] }
+}
+
 // -------------------------------------------------------- identifiants d'appel
 /** Mistral impose des identifiants d'appel d'outil de 9 caractères [A-Za-z0-9].
  * Déterministe : le même identifiant Anthropic donne toujours le même. */
@@ -101,9 +129,11 @@ function texteDe(contenu) {
  * d'outil : un message `user` juste après un message `tool` est refusé par
  * certaines versions de l'API.
  *
- * Chez Scaleway, `gpt-oss-120b` ne se laisse pas couper la réflexion (« none »
- * est refusé) : `disabled` devient `low`, le plus bas ; les modèles Qwen
- * acceptent `none`. Le contenu de réflexion renvoyé n'est jamais lu (voir
+ * Un modèle qui ne se laisse pas couper la réflexion (`gpt-oss-120b` chez
+ * Scaleway, Mistral Large 4 depuis la fin de son aperçu : « none » est refusé)
+ * reçoit le plus bas de ses niveaux (`low`, table `REFLEXION`). Un niveau
+ * demandé explicitement (`output_config.effort`, le banc d'essai) devient
+ * `reasoning_effort` tel quel. Le contenu de réflexion renvoyé n'est jamais lu (voir
  * `traduireReponse`), mais ses jetons se paient : ils figurent dans la
  * consommation. Pour le choix d'outil, Scaleway ne documente que `auto` et une
  * fonction nommée ; `none` et `required` sont transmis tels quels, comme sur
@@ -157,8 +187,11 @@ export function traduireRequete(a, service = 'mistral') {
   }
   const corps = { model: a.model, messages, stream: false }
   if (a.max_tokens != null) corps.max_tokens = a.max_tokens
-  if (a.thinking && a.thinking.type === 'disabled') {
-    corps.reasoning_effort = service === 'scaleway' && /^gpt-oss/i.test(a.model) ? 'low' : 'none'
+  const effort = a.output_config && a.output_config.effort
+  if (effort) corps.reasoning_effort = effort
+  else if (a.thinking && a.thinking.type === 'disabled') {
+    const plusBas = reflexionDe(a.model).defaut
+    corps.reasoning_effort = plusBas === 'aucune' ? 'none' : plusBas
   }
   if (a.temperature != null) corps.temperature = a.temperature
   if (a.top_p != null) corps.top_p = a.top_p

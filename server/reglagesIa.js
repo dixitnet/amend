@@ -35,6 +35,10 @@ export const MODELES = [
   { id: 'claude-haiku-5-5', nom: 'Haiku 5.5', fournisseur: 'Anthropic' },
   { id: 'claude-sonnet-5-5', nom: 'Sonnet 5.5', fournisseur: 'Anthropic' },
   { id: 'mistral-large-4-0', nom: 'Mistral Large 4', fournisseur: 'Mistral (UE)' },
+  // Ajouté le 03/11/2026 : petit modèle de Mistral, réflexion coupable (none /
+  // high). Jamais passé au banc de mesures. Mistral Medium 3.5, obsolète chez
+  // Mistral depuis le 31/10/2026, n'a pas été ajouté.
+  { id: 'mistral-small-2603', nom: 'Mistral Small 4', fournisseur: 'Mistral (UE)' },
   // Scaleway (Paris), ajoutés le 29/10/2026 pour des essais réels : zéro
   // rétention par défaut, droit européen. Ils demandent `SCALEWAY_API_KEY`.
   // Jamais passés au banc : à juger sur de vrais textes (events-ia.jsonl).

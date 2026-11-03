@@ -814,7 +814,7 @@ test('Margo sur Mistral Large 4 : la boucle d’outils passe par le point d’ac
     assert.equal(premiere.url, 'https://api.eu.mistral.ai/v1/chat/completions')
     assert.equal(premiere.headers.authorization, 'Bearer cle-mistral-factice')
     assert.equal(premiere.corps.model, 'mistral-large-4-0')
-    assert.equal(premiere.corps.reasoning_effort, 'none')
+    assert.equal(premiere.corps.reasoning_effort, 'low')
     assert.equal(premiere.corps.thinking, undefined)
     assert.equal(premiere.corps.messages[0].role, 'system')
     assert.match(premiere.corps.messages[0].content, /Tu t’appelles Margo/)

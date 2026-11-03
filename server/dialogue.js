@@ -330,6 +330,7 @@ export class Dialogue {
           definitions,
           messages: avecCache(messages),
           sansOutil: bilanFinal,
+          reflexion: session.reflexion,
         })
         cumul.tours = tour
         const u = reponse.usage || {}
@@ -489,15 +490,24 @@ export class Dialogue {
   /** Un appel à l’API, avec le repli de réglage de la réflexion (Sonnet 5
    * accepte `disabled`, Sonnet 5.5 veut `between_tools`) mémorisé par modèle,
    * et deux nouvelles tentatives sur 429 / 5xx. */
-  async _appel({ modele, systeme, definitions, messages, sansOutil = false }) {
+  async _appel({ modele, systeme, definitions, messages, sansOutil = false, reflexion = null }) {
     const fetcher = this.fetcher || globalThis.fetch
     const service = serviceDe(modele)
-    const connu = this.reflexion.get(modele)
-    // Mistral et Scaleway : la réflexion est coupée d'emblée (`disabled` devient
-    // `reasoning_effort`, server/fournisseurs.js) ; pas de repli à tenter.
-    const chaine = fournisseurDe(modele) !== 'anthropic' ? ['disabled'] : ['between_tools', 'disabled', null]
-    // Le réglage qui a marché d'abord ; les autres seulement s'il est refusé un jour.
-    const reglages = connu !== undefined ? [connu, ...chaine.filter((r) => r !== connu)] : chaine
+    const anthropic = fournisseurDe(modele) === 'anthropic'
+    // Un niveau de réflexion demandé (le banc d'essai, server/banc.js) : réflexion
+    // adaptative et niveau d'effort chez Anthropic, `reasoning_effort` ailleurs
+    // (server/fournisseurs.js). Sinon, réflexion coupée, comme en production.
+    const niveau = reflexion && reflexion !== 'aucune' ? reflexion : null
+    let reglages
+    if (niveau) reglages = [anthropic ? 'adaptive' : null]
+    else {
+      const connu = this.reflexion.get(modele)
+      // Mistral et Scaleway : la réflexion est coupée d'emblée (`disabled` devient
+      // `reasoning_effort`, server/fournisseurs.js) ; pas de repli à tenter.
+      const chaine = !anthropic ? ['disabled'] : ['between_tools', 'disabled', null]
+      // Le réglage qui a marché d'abord ; les autres seulement s'il est refusé un jour.
+      reglages = connu !== undefined ? [connu, ...chaine.filter((r) => r !== connu)] : chaine
+    }
     let derniereErreur = ''
     for (const reglage of reglages) {
       const corps = {
@@ -509,6 +519,7 @@ export class Dialogue {
       }
       if (sansOutil) corps.tool_choice = { type: 'none' } // les outils restent déclarés : l'historique en contient
       if (reglage) corps.thinking = { type: reglage }
+      if (niveau) corps.output_config = { effort: niveau }
       for (let essai = 0; ; essai++) {
         let reponse
         try {
@@ -532,7 +543,7 @@ export class Dialogue {
           data = null
         }
         if (reponse.ok) {
-          this.reflexion.set(modele, reglage)
+          if (!niveau) this.reflexion.set(modele, reglage)
           return data
         }
         derniereErreur = (data && data.error && data.error.message) || ''

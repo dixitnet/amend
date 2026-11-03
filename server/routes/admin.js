@@ -13,7 +13,7 @@ import { supprimerDefinitivement } from '../corbeille.js'
 import { TITRE_BIENVENUE, ecrireModele, estDocBienvenue } from '../modeleBienvenue.js'
 import { cleDuRetour } from '../supportTraites.js'
 import { sendJson, readJsonBody, decoderSegment, PAS_TRAITE } from '../http.js'
-import { cleDe } from '../fournisseurs.js'
+import { cleDe, reflexionDe } from '../fournisseurs.js'
 import { BORNES, DEFAUTS, FONCTIONS, MODELES, NIVEAUX, NOMS_FONCTION } from '../reglagesIa.js'
 import { CORPS_JSON_OCTETS_MAX, GARDE_FOUS, GROUPES, gardeFousEnVigueur } from '../garde-fous.js'
 import { TARIFS_EUR, TARIFS_USD, moisDe } from '../usageIa.js'
@@ -162,7 +162,7 @@ export async function routesAdmin(req, res, url, ctx) {
     const margo = reglagesIa.de('margo')
     if (req.method === 'GET') {
       return sendJson(res, 200, {
-        modeles: MODELES.map((m) => ({ ...m, cle: Boolean(cleDe(m.id)) })),
+        modeles: MODELES.map((m) => ({ ...m, cle: Boolean(cleDe(m.id)), reflexion: reflexionDe(m.id) })),
         modeleMargo: margo.modele,
         maniere: margo.maniere || '',
         signesParDemande: margo.signesParDemande,

@@ -39,6 +39,29 @@ export function modelesParDefaut(d) {
   return Array.from({ length: d.colonnesMax }, (_, i) => (i < 2 ? ordre[i] || '' : ''))
 }
 
+/** Les niveaux de réflexion, dits en français. Les valeurs sont celles des API. */
+export const LIBELLES_REFLEXION = {
+  aucune: 'aucune',
+  low: 'basse',
+  medium: 'moyenne',
+  high: 'haute',
+  xhigh: 'très haute',
+}
+const libelleReflexion = (n) => LIBELLES_REFLEXION[n] || n
+
+/** Les options du choix de réflexion pour un modèle : ses niveaux, le premier
+ * (celui de la production) marqué comme tel. */
+export function optionsReflexion(d, modele) {
+  const m = d.modeles.find((x) => x.id === modele)
+  const r = (m && m.reflexion) || { niveaux: ['aucune'], defaut: 'aucune' }
+  return r.niveaux
+    .map(
+      (n) =>
+        `<option value="${esc(n)}"${n === r.defaut ? ' selected' : ''}>${esc(libelleReflexion(n))}${n === r.defaut ? ' (production)' : ''}</option>`
+    )
+    .join('')
+}
+
 function carteColonne(i, d, modele) {
   const options = d.modeles
     .map(
@@ -52,6 +75,11 @@ function carteColonne(i, d, modele) {
       <label class="bo-ia-champ">
         <span>Modèle</span>
         <select name="modele${i}"><option value="">— aucune —</option>${options}</select>
+      </label>
+      <label class="bo-ia-champ" data-reflexion>
+        <span>Réflexion</span>
+        <select name="reflexion${i}">${optionsReflexion(d, modele)}</select>
+        <small>Les niveaux que ce modèle accepte. Plus haut : souvent meilleur, plus lent et plus cher.</small>
       </label>
       <details class="bo-banc-maniere">
         <summary>Manière de répondre <span class="bo-attente" data-maniere-etat hidden>modifiée</span></summary>
@@ -122,7 +150,7 @@ function colonneResultat(col) {
   const section = document.createElement('section')
   section.className = 'bo-banc-col'
   section.innerHTML = `
-    <h3>${esc(col.nom)} ${col.maniereModifiee ? '<span class="bo-attente">manière modifiée</span>' : ''}</h3>
+    <h3>${esc(col.nom)} ${col.reflexion ? `<span class="bo-attente">réflexion ${esc(libelleReflexion(col.reflexion))}</span>` : ''} ${col.maniereModifiee ? '<span class="bo-attente">manière modifiée</span>' : ''}</h3>
     <p class="bo-banc-etat bo-note" role="status">En cours…</p>
     <details class="bo-banc-etapes"><summary>Étapes (<span data-nb-etapes>0</span>)</summary><ol></ol></details>
     <div class="bo-banc-reponse"></div>
@@ -256,7 +284,11 @@ export async function mountAdminBanc(root, { fetcher = (...a) => fetch(...a) } =
 
   const colonnesChoisies = () =>
     parDefaut
-      .map((_, i) => ({ modele: form.elements[`modele${i}`].value, maniere: form.elements[`maniere${i}`].value }))
+      .map((_, i) => ({
+        modele: form.elements[`modele${i}`].value,
+        reflexion: form.elements[`reflexion${i}`].value,
+        maniere: form.elements[`maniere${i}`].value,
+      }))
       .filter((c) => c.modele)
 
   const majEstimation = () => {
@@ -282,6 +314,16 @@ export async function mountAdminBanc(root, { fetcher = (...a) => fetch(...a) } =
     })
   )
   form.querySelectorAll('.bo-banc-carte').forEach((carte) => {
+    // Le choix de réflexion suit le modèle ; il disparaît quand le modèle n'a qu'un niveau.
+    const i = carte.dataset.col
+    const choixModele = form.elements[`modele${i}`]
+    const choixReflexion = form.elements[`reflexion${i}`]
+    const majReflexion = () => {
+      choixReflexion.innerHTML = optionsReflexion(d, choixModele.value)
+      carte.querySelector('[data-reflexion]').hidden = !choixModele.value || choixReflexion.options.length < 2
+    }
+    choixModele.addEventListener('change', majReflexion)
+    majReflexion()
     const zone = carte.querySelector('textarea')
     const etat = carte.querySelector('[data-maniere-etat]')
     zone.addEventListener('input', () => {
