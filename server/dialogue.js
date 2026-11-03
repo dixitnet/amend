@@ -438,7 +438,8 @@ export class Dialogue {
       // « incomplet » : la demande s'est arrêtée avant d'être menée à bien
       // (coupure, étapes ou lecture épuisées, incident) — l'interface le dit.
       const incomplet = ARRETS_INCOMPLETS.has(arret)
-      sortie({ type: 'fin', ...bilan, ...(incomplet ? { incomplet: true } : {}), usage: { ...cumul } })
+      // `lus` : les signes lus par `lire` et `chercher` (le banc d'essai l'affiche).
+      sortie({ type: 'fin', ...bilan, ...(incomplet ? { incomplet: true } : {}), usage: { ...cumul }, lus })
       try {
         this.quotas.enregistrer({
           email: session.email,

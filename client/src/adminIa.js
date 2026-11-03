@@ -257,6 +257,7 @@ export async function mountAdminIa(root, { fetcher = (...a) => fetch(...a), mois
   root.innerHTML = `
     <div class="home backoffice bo-ia">
       ${entete('ia', vue)}
+      <p class="bo-note"><a href="#/admin/ia/banc">Banc d’essai de Margo →</a> comparer deux ou trois modèles, ou manières de répondre, sur un même texte.</p>
       <h2>Réglages</h2>
       <p class="bo-note">Deux fonctions, réglées chacune de leur côté, pour toute l'instance. Tout se compte en <strong>signes, espaces compris</strong>. Les administrateurs sont soumis aux mêmes limites que les autres. <strong>Une demande = un clic</strong> (ou un message à Margo), quel que soit le nombre de paragraphes sélectionnés : c'est l'unité du plafond par heure. Les signes envoyés sont la somme des paragraphes. Une demande ne compte dans les signes du mois que si elle a abouti : une erreur, une réponse coupée ou un refus de limite ne coûtent rien à la personne.</p>
 
