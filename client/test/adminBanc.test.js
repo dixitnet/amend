@@ -30,9 +30,34 @@ const attendre = (ms = 30) => new Promise((r) => setTimeout(r, ms))
 
 const DONNEES = {
   modeles: [
-    { id: 'claude-haiku-5-5', nom: 'Haiku 5.5', fournisseur: 'Anthropic', cle: true },
-    { id: 'claude-sonnet-5-5', nom: 'Sonnet 5.5', fournisseur: 'Anthropic', cle: true },
-    { id: 'mistral-large-4-0', nom: 'Mistral Large 4', fournisseur: 'Mistral (UE)', cle: false },
+    {
+      id: 'claude-haiku-5-5',
+      nom: 'Haiku 5.5',
+      fournisseur: 'Anthropic',
+      cle: true,
+      reflexion: { niveaux: ['aucune', 'low', 'medium', 'high'], defaut: 'aucune' },
+    },
+    {
+      id: 'claude-sonnet-5-5',
+      nom: 'Sonnet 5.5',
+      fournisseur: 'Anthropic',
+      cle: true,
+      reflexion: { niveaux: ['aucune', 'low', 'medium', 'high'], defaut: 'aucune' },
+    },
+    {
+      id: 'mistral-large-4-0',
+      nom: 'Mistral Large 4',
+      fournisseur: 'Mistral (UE)',
+      cle: false,
+      reflexion: { niveaux: ['low', 'medium', 'high'], defaut: 'low' },
+    },
+    {
+      id: 'qwen3.5-397b-a17b',
+      nom: 'Qwen 3.5',
+      fournisseur: 'Scaleway',
+      cle: true,
+      reflexion: { niveaux: ['aucune'], defaut: 'aucune' },
+    },
   ],
   modeleMargo: 'claude-sonnet-5-5',
   maniere: 'Sois brève.',
@@ -77,6 +102,20 @@ test('la page : trois colonnes, un modèle sans clé non choisissable, l’avert
   assert.equal(form.elements.modele2.value, '')
   assert.equal(form.querySelector('option[value="mistral-large-4-0"]').disabled, true)
   assert.equal(form.elements.maniere0.value, 'Sois brève.')
+  // Réflexion : les niveaux du modèle, celui de la production choisi d'avance ;
+  // le choix suit le modèle, et disparaît pour un modèle à un seul niveau ou une colonne vide.
+  assert.deepEqual(
+    [...form.elements.reflexion0.options].map((o) => o.textContent),
+    ['aucune (production)', 'basse', 'moyenne', 'haute']
+  )
+  assert.equal(form.elements.reflexion0.value, 'aucune')
+  assert.equal(racine.querySelector('[data-col="2"] [data-reflexion]').hidden, true)
+  form.elements.modele0.value = 'qwen3.5-397b-a17b'
+  form.elements.modele0.dispatchEvent(new window.Event('change'))
+  assert.equal(racine.querySelector('[data-col="0"] [data-reflexion]').hidden, true)
+  form.elements.modele0.value = 'claude-sonnet-5-5'
+  form.elements.modele0.dispatchEvent(new window.Event('change'))
+  assert.equal(racine.querySelector('[data-col="0"] [data-reflexion]').hidden, false)
   assert.match(racine.textContent, /comptés nulle part/)
 
   form.elements.texte.value = 'Un texte bien plus long que cinquante signes, pour voir la limite.'
@@ -106,7 +145,7 @@ test('lancer : ce qui part, puis les résultats côte à côte', async () => {
         signesParDemande: 50,
         refuseeEnProduction: true,
         colonnes: [
-          { modele: 'claude-sonnet-5-5', nom: 'Sonnet 5.5', maniereModifiee: false },
+          { modele: 'claude-sonnet-5-5', nom: 'Sonnet 5.5', maniereModifiee: false, reflexion: 'high' },
           { modele: 'claude-haiku-5-5', nom: 'Haiku 5.5', maniereModifiee: true },
         ],
       },
@@ -159,6 +198,7 @@ test('lancer : ce qui part, puis les résultats côte à côte', async () => {
   form.elements.texte.value = 'Zan naquit.\nIls mange.'
   form.elements.consigne.value = 'Corrige.'
   form.elements.maniere1.value = 'Autre.'
+  form.elements.reflexion0.value = 'high'
   form.dispatchEvent(new window.Event('submit', { cancelable: true }))
   await attendre(80)
 
@@ -168,8 +208,8 @@ test('lancer : ce qui part, puis les résultats côte à côte', async () => {
     texte: 'Zan naquit.\nIls mange.',
     consigne: 'Corrige.',
     colonnes: [
-      { modele: 'claude-sonnet-5-5', maniere: 'Sois brève.' },
-      { modele: 'claude-haiku-5-5', maniere: 'Autre.' },
+      { modele: 'claude-sonnet-5-5', reflexion: 'high', maniere: 'Sois brève.' },
+      { modele: 'claude-haiku-5-5', reflexion: 'aucune', maniere: 'Autre.' },
     ],
   })
 
@@ -187,6 +227,7 @@ test('lancer : ce qui part, puis les résultats côte à côte', async () => {
     /Terminé — 2,5 s · 2 appel\(s\) au modèle · 1\s?234\s?signes lus/u
   )
   // Colonne 2 : manière modifiée, gras rendu sans innerHTML, erreur, commentaire avec son passage.
+  assert.match(cols[0].querySelector('h3').textContent, /réflexion haute/)
   assert.match(cols[1].querySelector('h3').textContent, /manière modifiée/)
   assert.equal(cols[1].querySelector('.bo-banc-reponse strong').textContent, 'commentaire')
   assert.equal(cols[1].querySelector('.bo-banc-erreurs').textContent, 'Coupé.')

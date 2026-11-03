@@ -14,7 +14,7 @@ process.env.PORT = String(PORT)
 const DATA_DIR = mkdtempSync(join(tmpdir(), 'collabtext-test-banc-'))
 process.env.DATA_DIR = DATA_DIR
 process.env.ANTHROPIC_API_KEY = 'cle-factice-de-test'
-process.env.MISTRAL_API_KEY = ''
+process.env.MISTRAL_API_KEY = 'cle-mistral-factice'
 process.env.SCALEWAY_API_KEY = ''
 process.env.MAILGUN_API_KEY = ''
 process.env.MAILGUN_DOMAIN = ''
@@ -39,8 +39,21 @@ globalThis.fetch = async (url, init) => {
     await new Promise((r) => setTimeout(r, 5))
     return new Response(JSON.stringify(suivant), { status: 200, headers: { 'content-type': 'application/json' } })
   }
+  if (String(url).startsWith('https://api.eu.mistral.ai/')) {
+    const corps = JSON.parse(init.body)
+    requetesMistral.push(corps)
+    const suivant = (scenarios[corps.model] || []).shift()
+    if (!suivant) return new Response(JSON.stringify({ message: 'appel non prévu par le scénario' }), { status: 500 })
+    return new Response(JSON.stringify(suivant), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
   return vraiFetch(url, init)
 }
+const requetesMistral = []
+const mistralTexte = (t) => ({
+  id: 'x',
+  choices: [{ message: { role: 'assistant', content: t }, finish_reason: 'stop' }],
+  usage: { prompt_tokens: 10, completion_tokens: 5 },
+})
 
 const { blocsDeTexte, documentDeTexte, resultatDe, morceauxEnLigne } = await import('../banc.js')
 const { proposer, commenter, blocsDuDocument } = await import('../agentTexte.js')
@@ -180,8 +193,12 @@ test('GET : les modèles avec l’état de leur clé, la manière de répondre e
   assert.ok(Number.isInteger(d.signesParDemande))
   const sonnet = d.modeles.find((m) => m.id === 'claude-sonnet-5-5')
   const mistral = d.modeles.find((m) => m.id === 'mistral-large-4-0')
+  const qwen = d.modeles.find((m) => m.id === 'qwen3.5-397b-a17b')
   assert.equal(sonnet.cle, true)
-  assert.equal(mistral.cle, false)
+  assert.equal(mistral.cle, true)
+  assert.equal(qwen.cle, false)
+  assert.deepEqual(sonnet.reflexion, { niveaux: ['aucune', 'low', 'medium', 'high'], defaut: 'aucune' })
+  assert.deepEqual(mistral.reflexion, { niveaux: ['low', 'medium', 'high'], defaut: 'low' })
   assert.equal(d.enCours, false)
 })
 
@@ -194,7 +211,15 @@ test('demandes invalides : 400 avec un message clair, sans appel au fournisseur'
     [{ texte: TEXTE, consigne: 'x', colonnes: [] }, /au moins un modèle/],
     [{ texte: TEXTE, consigne: 'x', colonnes: [...col, ...col, ...col, ...col] }, /3 colonnes au plus/],
     [{ texte: TEXTE, consigne: 'x', colonnes: [{ modele: 'gpt-5' }] }, /modèle inconnu/],
-    [{ texte: TEXTE, consigne: 'x', colonnes: [{ modele: 'mistral-large-4-0' }] }, /clé d’accès à Mistral/],
+    [{ texte: TEXTE, consigne: 'x', colonnes: [{ modele: 'qwen3.5-397b-a17b' }] }, /clé d’accès à Scaleway/],
+    [
+      { texte: TEXTE, consigne: 'x', colonnes: [{ modele: 'mistral-large-4-0', reflexion: 'aucune' }] },
+      /réflexion non accepté/,
+    ],
+    [
+      { texte: TEXTE, consigne: 'x', colonnes: [{ modele: 'claude-haiku-5-5', reflexion: 'max' }] },
+      /réflexion non accepté/,
+    ],
   ]
   for (const [corps, motif] of cas) {
     const r = await banc(ADMIN, corps)
@@ -307,4 +332,39 @@ test('Y.Doc détruit après l’essai : le banc ne garde aucune copie', async ()
     evts.map((e) => e.type),
     ['debut', 'texte', 'fin', 'resultat']
   )
+})
+
+test('niveau de réflexion par colonne : effort chez Anthropic, reasoning_effort chez Mistral, défaut = production', async () => {
+  requetes.length = 0
+  requetesMistral.length = 0
+  scenarios['claude-sonnet-5-5'] = [texte('Moyen.')]
+  scenarios['claude-haiku-5-5'] = [texte('Sans.')]
+  scenarios['mistral-large-4-0'] = [mistralTexte('Haut.'), mistralTexte('Bas.')]
+  const r = await banc(ADMIN, {
+    texte: TEXTE,
+    consigne: 'Un avis ?',
+    colonnes: [
+      { modele: 'claude-sonnet-5-5', reflexion: 'medium' },
+      { modele: 'claude-haiku-5-5' },
+      { modele: 'mistral-large-4-0', reflexion: 'high' },
+    ],
+  })
+  assert.equal(r.status, 200)
+  assert.deepEqual(
+    r.evenements[0].colonnes.map((c) => c.reflexion),
+    ['medium', 'aucune', 'high']
+  )
+  const sonnet = requetes.find((q) => q.model === 'claude-sonnet-5-5')
+  assert.deepEqual(sonnet.thinking, { type: 'adaptive' })
+  assert.deepEqual(sonnet.output_config, { effort: 'medium' })
+  const haiku = requetes.find((q) => q.model === 'claude-haiku-5-5')
+  assert.equal(haiku.output_config, undefined, 'réflexion coupée, comme en production')
+  assert.notEqual(haiku.thinking && haiku.thinking.type, 'adaptive')
+  assert.equal(requetesMistral[0].reasoning_effort, 'high')
+
+  // Sans niveau demandé, Large 4 reçoit celui de la production : `low` (Mistral refuse `none`).
+  requetesMistral.length = 0
+  const r2 = await banc(ADMIN, { texte: TEXTE, consigne: 'Un avis ?', colonnes: [{ modele: 'mistral-large-4-0' }] })
+  assert.equal(r2.status, 200)
+  assert.equal(requetesMistral[0].reasoning_effort, 'low')
 })

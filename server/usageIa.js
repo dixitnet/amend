@@ -50,6 +50,9 @@ export const TARIFS_USD = {
   // facture pas le cache à part dans cette estimation : les jetons relus sont
   // comptés plein tarif (estimation haute). À revérifier à la fin de l'aperçu.
   'mistral-large-4-0': { entree: 0.748, sortie: 2.299, poidsCacheLu: 1 },
+  // Mistral Small 4 : 0,15 / 0,60 $ (fiche du modèle, 03/11/2026), majoré de 10 %
+  // pour le point d'accès européen comme Large 4.
+  'mistral-small-2603': { entree: 0.165, sortie: 0.66, poidsCacheLu: 1 },
 }
 
 /** Euros par million de jetons (entrée, sortie) : les modèles de Scaleway, qui

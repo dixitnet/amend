@@ -122,12 +122,13 @@ test('les réglages : réservés aux administrateurs, bornés, avec des messages
       'claude-haiku-5-5',
       'claude-sonnet-5-5',
       'mistral-large-4-0',
+      'mistral-small-2603',
       'gpt-oss-120b',
       'qwen3.5-397b-a17b',
       'qwen3-235b-a22b-instruct-2507',
       'qwen3.8-27b',
     ],
-    'Haiku, Sonnet, Mistral Large 4 et les quatre modèles de Scaleway seulement'
+    'Haiku, Sonnet, Mistral Large 4 et Small 4, et les quatre modèles de Scaleway seulement'
   )
   assert.deepEqual(etat.niveaux, ['admin', 'editeur', 'correcteur'])
   assert.equal(etat.reglages.corrections.modele, 'claude-haiku-5-5')
@@ -431,7 +432,7 @@ test('Corrections IA sur Mistral Large 4 : sans clé, 501 qui nomme MISTRAL_API_
     assert.equal(requetesMistral.length, 1)
     assert.equal(requetesMistral[0].url, 'https://api.eu.mistral.ai/v1/chat/completions')
     assert.equal(requetesMistral[0].corps.model, 'mistral-large-4-0')
-    assert.equal(requetesMistral[0].corps.reasoning_effort, 'none')
+    assert.equal(requetesMistral[0].corps.reasoning_effort, 'low')
 
     const ligne = await ligneDe('mistral@example.com')
     assert.equal(ligne.corrections.demandes, 1)
