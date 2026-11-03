@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto'
 import { ErreurHttp } from './erreurs.js'
 import { cleDe, envoyer, fournisseurDe, serviceDe } from './fournisseurs.js'
 import { Mcp, COULEUR_AGENT, instructionsDocument } from './mcp.js'
-import { blocsDuDocument } from './agentTexte.js'
+import { blocsDuDocument, normaliser } from './agentTexte.js'
 import { capabilities } from './roles.js'
 import { signes } from './quotasIa.js'
 import { garde } from './garde-fous.js'
@@ -83,6 +83,23 @@ const LIBELLES = {
   repondre: () => 'répond à un commentaire',
 }
 const taille = (x) => (Array.isArray(x) ? x.length : 0)
+
+/** Ce que `lire` a réellement rendu (« blocs 641 à 684 sur 684 »), pour
+ * corriger le libellé annoncé d'après la demande (« 641 à 680 »… ou 720). */
+export function libelleDeLecture(contenu) {
+  const m = /— blocs (\d+) à (\d+) sur \d+/.exec(String(contenu || ''))
+  if (!m) return null
+  return m[1] === m[2] ? `lit le bloc ${m[1]}` : `lit les blocs ${m[1]} à ${m[2]}`
+}
+
+/** Deux recherches identiques : même texte (sans tenir compte des majuscules,
+ * apostrophes, guillemets, tirets ni espaces insécables) et même limite. */
+export function cleDeRecherche(args) {
+  const a = args || {}
+  const texte = normaliser(String(a.texte || '').trim()).toLocaleLowerCase('fr')
+  if (!texte) return null
+  return `${texte}\u0000${Number.isInteger(a.limite) ? a.limite : ''}`
+}
 const libelle = (nom, args) => (LIBELLES[nom] ? LIBELLES[nom](args || {}) : nom)
 
 const COMPTE_MODIFS = new Set(['proposer', 'ajouter', 'ajouter_note', 'supprimer'])
@@ -286,6 +303,9 @@ export class Dialogue {
       sortie(evt)
     }
     let lus = 0
+    // Les recherches déjà faites pendant cette demande (03/11/2026) : un petit
+    // modèle relance la même vingt fois. La seconde n'est pas exécutée.
+    const recherches = new Set()
     const plafondLecture = Math.ceil((session.signesParDemande * garde('margoMargeLecture')) / 100)
     this.enCours.add(agent.id)
     this.collecteurs.set(agent.id, [])
@@ -392,10 +412,20 @@ export class Dialogue {
           outils[d.name] = (outils[d.name] || 0) + 1
           let contenu
           let enErreur = false
+          let libelleLu = null
+          const cleRecherche = d.name === 'chercher' ? cleDeRecherche(d.input) : null
+          if (cleRecherche && recherches.has(cleRecherche)) {
+            contenu = `Tu as déjà cherché « ${String((d.input || {}).texte || '').trim()} » pendant cette demande : le résultat est plus haut dans la conversation. Ne relance pas une recherche déjà faite ; travaille sur ce que tu as déjà lu.`
+            emettre({ type: 'outil_fin', nom: d.name, ok: false })
+            resultats.push({ type: 'tool_result', tool_use_id: d.id, content: contenu, is_error: true })
+            continue
+          }
+          if (cleRecherche) recherches.add(cleRecherche)
           try {
             const r = await this.mcp._appeler({ name: d.name, arguments: d.input }, acces)
             contenu = (r.content || []).map((c) => c.text).join('\n')
             enErreur = !!r.isError
+            if (d.name === 'lire' && !enErreur) libelleLu = libelleDeLecture(contenu)
             if (enErreur) contenu = `${contenu}\n${CONDUITE_ERREUR}`
             if (LECTURES.has(d.name) && !enErreur) {
               if (lus + contenu.length > plafondLecture) {
@@ -409,7 +439,7 @@ export class Dialogue {
             contenu = `L’outil « ${d.name} » n’a pas pu s’exécuter (incident interne du service). Rien n’a été modifié par cet appel. ${CONDUITE_ERREUR}`
             enErreur = true
           }
-          emettre({ type: 'outil_fin', nom: d.name, ok: !enErreur })
+          emettre({ type: 'outil_fin', nom: d.name, ok: !enErreur, ...(libelleLu ? { libelle: libelleLu } : {}) })
           resultats.push({
             type: 'tool_result',
             tool_use_id: d.id,

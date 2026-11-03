@@ -186,9 +186,10 @@ function colonneResultat(col) {
         etapes.appendChild(li)
         section.querySelector('[data-nb-etapes]').textContent = String(etapes.children.length)
         etat.textContent = `En cours : ${evt.libelle}`
-      } else if (evt.type === 'outil_fin' && !evt.ok) {
+      } else if (evt.type === 'outil_fin') {
         const dernier = etapes.lastElementChild
-        if (dernier) dernier.classList.add('bo-alerte')
+        if (dernier && evt.libelle) dernier.textContent = evt.libelle
+        if (dernier && !evt.ok) dernier.classList.add('bo-alerte')
       } else if (evt.type === 'erreur') {
         erreurs.hidden = false
         erreurs.textContent = (erreurs.textContent ? erreurs.textContent + ' ' : '') + evt.message
