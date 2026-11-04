@@ -682,10 +682,9 @@ test('retirer ses propositions rend le document d’origine, sans trace ; celles
 
   const verdict = suite(client, (s) => retirer(s, [...miens, autres[0], 'zz-9'], CLAUDE_NOTES))
   assert.equal(verdict.appliques.length, 5)
-  assert.deepEqual(
-    verdict.refuses.map((r) => r.raison.slice(0, 40)),
-    ['cette modification est de Paul : tu ne r', 'aucune modification en attente ne porte '].map((x) => x.slice(0, 40))
-  )
+  assert.equal(verdict.refuses.length, 2)
+  assert.match(verdict.refuses[0].raison, /^cette modification est de Paul : tu ne retires/)
+  assert.match(verdict.refuses[1].raison, /^aucune modification en attente ni aucun commentaire/)
   const apres = relu(client)
   assert.equal(apres.childCount, 3, 'le paragraphe ajouté est retiré, pas de bloc vide')
   assert.equal(apres.child(1).type.name, 'image')
