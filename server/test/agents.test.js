@@ -391,7 +391,13 @@ test('ce qui ne peut pas être proposé est refusé avec sa raison, le reste pas
   assert.match(raisons[6], /numéro/)
   assert.match(raisons[7], /texte/)
   // Le journal range chaque refus dans une catégorie, sans jamais citer le texte.
-  assert.deepEqual(compterMotifs(v.refuses), { introuvable: 1, ambigu: 1, structure: 1, 'mal-forme': 3, identique: 1 })
+  assert.deepEqual(compterMotifs(v.refuses), {
+    introuvable: 1,
+    ambigu: 1,
+    structure: 1,
+    'mal-forme': 3,
+    'identique-strict': 1,
+  })
   assert.equal(lectures(y, 3).accepte, 'Ce texte est correct.')
 })
 
@@ -888,26 +894,38 @@ test('apostrophes et tirets recopiés « à plat » retrouvent quand même le pa
   assert.deepEqual(touches.sort(), ['ensuite', 'puis'])
 })
 
-test('introuvable à la ponctuation près, déjà conforme, appel de note : le refus dit quoi faire', () => {
+test('introuvable à la ponctuation près, trois sortes d’« identique », appel de note : le refus dit quoi faire', () => {
   const y = docAvec((f) => {
     bloc(f, 'paragraph', ['Les données, mal nommées, sont là.'])
     bloc(f, 'paragraph', ['Il le dit : oui.'])
     bloc(f, 'paragraph', ['Zan naquit', { atome: 'footnote' }, 'jusqu’au soir.'])
+    bloc(f, 'paragraph', ['Elle l’a dit.'])
   })
   const v = proposer(
     y,
     [
       { bloc: 1, avant: 'Les données mal nommées', apres: 'Les données mal nommées' + 'x' },
-      { bloc: 2, avant: 'Il le dit : oui.', apres: 'Il le dit : oui.' },
+      { bloc: 2, avant: 'Il le dit : oui.', apres: 'Il le dit : oui.' },
       { bloc: 3, avant: 'naquit⟦1⟧jusqu’au', apres: 'naquit⟦1⟧ jusqu’au' },
+      { bloc: 4, avant: 'Elle l’a dit.', apres: "Elle l'a dit." },
+      { bloc: 4, avant: 'Elle l’a dit.', apres: 'Elle l’a dit.' },
     ],
     AUTEUR
   )
   const raisons = Object.fromEntries(v.refuses.map((r) => [r.index, r.raison]))
   assert.match(raisons[0], /à la ponctuation près/)
-  assert.match(raisons[1], /rien ne change .* déjà conforme .* passe à la suite/)
+  assert.match(raisons[1], /rien ne change .*seules des espaces diffèrent.* passe à la suite/)
   assert.match(raisons[2], /pour insérer juste après l'appel, prends comme `avant` les premiers mots qui le suivent/)
-  assert.deepEqual(compterMotifs(v.refuses), { 'introuvable-ponctuation': 1, identique: 1, structure: 1 })
+  assert.match(raisons[3], /rien ne change .*une fois la typographie appliquée/)
+  assert.match(raisons[4], /rien ne change .*recopié à l’identique/)
+  // Le journal distingue les trois « identique », sans un mot du texte.
+  assert.deepEqual(compterMotifs(v.refuses), {
+    'introuvable-ponctuation': 1,
+    'identique-espaces': 1,
+    'identique-typographie': 1,
+    'identique-strict': 1,
+    structure: 1,
+  })
   // Vraiment introuvable : le motif reste « introuvable ».
   assert.equal(
     motifDeRefus(proposer(y, [{ bloc: 1, avant: 'absent', apres: 'x' }], AUTEUR).refuses[0].raison),
