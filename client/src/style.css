@@ -4286,6 +4286,7 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
 }
 .landing-avis .icone { flex: none; }
 .landing-titre { margin: 0; max-width: 18em; font-size: clamp(28px, 5.2vw, 44px); font-weight: 500; line-height: 1.15; letter-spacing: -0.02em; }
+.landing-titre-ligne { display: inline-block; }
 .landing-pitch { margin: 18px auto 0; max-width: 36em; color: var(--muted); font-size: 17px; line-height: 1.6; }
 .landing-exemple {
   margin: 32px auto 0; width: 100%; max-width: 560px; box-sizing: border-box; padding: 18px 20px; text-align: left;
@@ -4305,6 +4306,20 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sys
 .landing-exemple-accepter, .landing-exemple-rejeter { padding: 4px 10px; border-radius: 6px; font-weight: 500; }
 .landing-exemple-accepter { background: color-mix(in srgb, var(--accent) 16%, transparent); color: color-mix(in srgb, var(--accent) 75%, var(--fg)); }
 .landing-exemple-rejeter { color: var(--danger); }
+/* Margo : la même carte, une autre couleur — l'IA propose comme une personne. */
+.landing-exemple-cartes { display: flex; flex-direction: column; gap: 8px; }
+.landing-exemple ins.landing-exemple-ia { background: color-mix(in srgb, #6a55b4 16%, transparent); color: color-mix(in srgb, #6a55b4 80%, var(--fg)); }
+.landing-exemple-carte-ia { border-color: color-mix(in srgb, #6a55b4 40%, var(--border)); }
+.landing-exemple-carte-ia .landing-exemple-pastille { background: #6a55b4; }
+
+/* Trois blocs : relire, l'IA, exporter. Une colonne sur téléphone. */
+.landing-atouts { margin: 0 0 40px; text-align: center; }
+.landing-atouts-grille { display: grid; grid-template-columns: 1fr; gap: 16px; text-align: left; }
+@media (min-width: 760px) { .landing-atouts-grille { grid-template-columns: repeat(3, 1fr); gap: 20px; } }
+.landing-atout h2 { margin: 0 0 6px; font-size: 17px; font-weight: 500; }
+.landing-atout p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
+.landing-plus { display: inline-block; margin-top: 20px; color: color-mix(in srgb, var(--accent) 75%, var(--fg)); font-size: 15px; font-weight: 500; text-decoration: none; }
+.landing-plus:hover { text-decoration: underline; }
 
 /* Deux cartes ; sur téléphone, une colonne, la liste d'attente d'abord (le
    visiteur sans compte est le cas majoritaire). Champs et boutons à 44 px :
