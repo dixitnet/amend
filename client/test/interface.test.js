@@ -844,6 +844,9 @@ test('la page d’accueil publique se monte pour un visiteur', async () => {
   const racine = dom.window.document.getElementById('app')
   assert.ok(racine.querySelector('.amend-logo'), 'le logo')
   assert.equal(racine.querySelectorAll('.landing-form').length, 2, 'liste d’attente et connexion')
+  assert.equal(racine.querySelectorAll('.landing-atout').length, 3, 'relire, l’IA, exporter')
+  assert.equal(racine.querySelectorAll('.landing-exemple-carte').length, 2, 'Claire et Margo')
+  assert.match(racine.querySelector('.landing-plus').getAttribute('href'), /^\/p\//, 'en savoir plus → l’aide')
 })
 
 test('la palette de contact se monte', async () => {
