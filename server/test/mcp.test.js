@@ -602,8 +602,11 @@ test('retirer ses propres commentaires : un fil avec ses réponses, une réponse
     ],
   })
   const liste = texteDe(await appeler(secret, 'commentaires'))
-  const ids = [...liste.matchAll(/Fil (c-[\w-]+)/g)].map((m) => m[1])
-  assert.equal(ids.length, 3)
+  // Créés dans la même milliseconde, les fils sont triés par identifiant
+  // (aléatoire) : on les retrouve par leur texte.
+  const idDe = (texte) => liste.match(new RegExp(`Fil (c-[\\w-]+) [^\\n]*: ${texte}`))[1]
+  const ids = ['Doublon\\.', 'À garder\\.', 'Fil répondu par un autre\\.'].map(idDe)
+  assert.equal(new Set(ids).size, 3)
   await appeler(secret, 'repondre', { commentaire: ids[0], texte: 'Ma réponse.' })
   await appeler(secret, 'repondre', { commentaire: ids[1], texte: 'Réponse en trop.' })
   // Quelqu'un d'autre (un second agent, autre nom) répond au troisième fil.

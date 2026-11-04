@@ -103,6 +103,17 @@ const DEFINITIONS = [
     quoi: 'Une demande à Margo est une boucle (lire, proposer, relire…). Une demande normale en consomme 20 à 40. Au-delà, un dernier appel sans outil demande à Margo de dire ce qui est fait et ce qui reste, au lieu d’une coupure sèche. Margo n’en est pas informée.',
   },
   {
+    id: 'margoRefusEnSerie',
+    groupe: 'margo',
+    nom: 'Écritures refusées d’affilée avant d’alerter Margo',
+    unite: 'appels refusés en entier',
+    defaut: 5,
+    min: 2,
+    max: 1000,
+    nature: 'emballement',
+    quoi: 'Un appel d’écriture (corriger, ajouter, commenter…) dont tout est refusé, puis un autre, puis un autre : le modèle insiste sur une correction impossible ou déjà faite. À ce nombre, Margo reçoit un message qui lui demande de cesser et de passer à la suite. Au double, la demande s’arrête et Margo fait son bilan sans outil, comme à la limite d’étapes. Un appel accepté, même en partie, remet le compte à zéro.',
+  },
+  {
     id: 'margoCoupures',
     groupe: 'margo',
     nom: 'Reprises après une réponse coupée, au plus',

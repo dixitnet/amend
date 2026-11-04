@@ -39,7 +39,10 @@ import { garde } from './garde-fous.js'
 // seuils ; au-delà du nombre d'étapes, un dernier appel **sans outil** lui fait
 // dire ce qui est fait et ce qui reste, au lieu d'une coupure sèche.
 const LECTURES = new Set(['lire', 'chercher', 'modifications'])
-const ARRETS_INCOMPLETS = new Set(['max_tokens', 'tours', 'erreur'])
+const ARRETS_INCOMPLETS = new Set(['max_tokens', 'tours', 'refus', 'erreur'])
+// Les outils qui écrivent : leurs refus en série déclenchent le coupe-circuit
+// (`margoRefusEnSerie`, server/garde-fous.js).
+const ECRITURES = new Set(['proposer', 'ajouter', 'ajouter_note', 'supprimer', 'commenter', 'repondre', 'retirer'])
 
 /** `detail` : le texte technique, pour le journal du serveur seulement — la
  * personne ne reçoit que `message`, écrit pour elle. */
@@ -143,6 +146,14 @@ const CONDUITE_ERREUR =
 const CONSIGNE_COUPURE =
   'Consigne du service : ta réponse précédente a été coupée parce qu’elle était trop longue ; elle a été jetée et aucun des appels qu’elle contenait n’a été exécuté. ' +
   'Refais-les en plus petit : une quinzaine de corrections au plus par appel de `proposer`, et les commentaires dans des étapes à part, après les corrections. Ne répète pas ce que tu as déjà posé.'
+
+const consigneRefus = (n) =>
+  `Consigne du service : tes ${n} dernières écritures ont toutes été refusées. Ne réessaie pas : le texte est sans doute déjà conforme, ou le passage n’est pas celui que tu crois. ` +
+  'Relis les motifs des refus, puis passe à un autre passage ou termine en faisant le bilan. Si les refus continuent, la demande s’arrêtera.'
+
+const CONSIGNE_BILAN_REFUS =
+  'Consigne du service : tes propositions ont été refusées trop de fois de suite ; la demande s’arrête et tu ne peux plus appeler d’outil. ' +
+  'En deux ou trois phrases, dis ce que tu as déjà fait (ce qui est posé reste en suivi dans le document), ce qui a été refusé et pourquoi, et ce qu’il reste à faire.'
 
 const CONSIGNE_BILAN =
   'Consigne du service : cette demande a atteint la limite technique d’étapes, tu ne peux plus appeler d’outil. ' +
@@ -335,6 +346,10 @@ export class Dialogue {
       ]
       const definitions = outilsApi(this.mcp, acces)
 
+      // Le coupe-circuit (03/11/2026) : des appels d'écriture refusés en entier,
+      // d'affilée. Au seuil, un message ; au double, le bilan sans outil.
+      let refusEnSerie = 0
+      let arretRefus = false
       for (let tour = 1; ; tour++) {
         if (annule()) {
           arret = 'annule'
@@ -342,13 +357,13 @@ export class Dialogue {
         }
         // Après `margoEtapes` étapes, un dernier appel **sans outil** : Margo dit
         // ce qui est fait et ce qui reste, au lieu d'être coupée net.
-        const bilanFinal = tour > garde('margoEtapes')
+        const bilanFinal = tour > garde('margoEtapes') || arretRefus
         if (bilanFinal) {
-          arret = 'tours'
+          arret = arretRefus ? 'refus' : 'tours'
           const dernier = messages[messages.length - 1]
           dernier.content = [
             ...(Array.isArray(dernier.content) ? dernier.content : [{ type: 'text', text: String(dernier.content) }]),
-            { type: 'text', text: CONSIGNE_BILAN },
+            { type: 'text', text: arretRefus ? CONSIGNE_BILAN_REFUS : CONSIGNE_BILAN },
           ]
         }
         const reponse = await this._appel({
@@ -390,12 +405,13 @@ export class Dialogue {
           }
         }
         if (bilanFinal) {
-          arret = 'tours'
+          arret = arretRefus ? 'refus' : 'tours'
           if (!ditQuelqueChose)
             emettre({
               type: 'erreur',
-              message:
-                'La demande s’arrête ici : elle demande trop d’étapes pour une seule réponse. Les modifications déjà posées restent à relire dans le panneau ; reformulez la demande plus précisément, ou sur un passage plus court.',
+              message: arretRefus
+                ? 'La demande s’arrête ici : les propositions de Margo étaient refusées les unes après les autres. Les modifications déjà posées restent à relire dans le panneau ; reformulez la demande, ou essayez sur un passage plus court.'
+                : 'La demande s’arrête ici : elle demande trop d’étapes pour une seule réponse. Les modifications déjà posées restent à relire dans le panneau ; reformulez la demande plus précisément, ou sur un passage plus court.',
             })
           break
         }
@@ -452,6 +468,12 @@ export class Dialogue {
           } catch (err) {
             contenu = `L’outil « ${d.name} » n’a pas pu s’exécuter (incident interne du service). Rien n’a été modifié par cet appel. ${CONDUITE_ERREUR}`
             enErreur = true
+          }
+          if (ECRITURES.has(d.name)) {
+            const seuil = garde('margoRefusEnSerie')
+            refusEnSerie = enErreur ? refusEnSerie + 1 : 0
+            if (refusEnSerie === seuil) contenu = `${contenu}\n\n${consigneRefus(seuil)}`
+            if (refusEnSerie >= 2 * seuil) arretRefus = true
           }
           emettre({ type: 'outil_fin', nom: d.name, ok: !enErreur, ...(libelleLu ? { libelle: libelleLu } : {}) })
           resultats.push({

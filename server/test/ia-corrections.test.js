@@ -538,7 +538,11 @@ test('garde-fous du back-office : listés avec leur documentation, réglables pa
   await regler({ corrections: { signesParDemande: 100_000 } })
   try {
     const etat = await conso()
-    assert.equal(etat.gardeFous.definitions.length, 9, 'neuf garde-fous, tous visibles (22/10/2026)')
+    assert.equal(
+      etat.gardeFous.definitions.length,
+      10,
+      'dix garde-fous, tous visibles (22/10/2026, coupe-circuit le 04/11/2026)'
+    )
     assert.ok(etat.gardeFous.definitions.every((g) => g.quoi && g.unite && g.nom))
     assert.equal(etat.gardeFous.valeurs.correctionsEnParallele, 8)
     assert.equal(etat.maniereMax, undefined, 'la manière de répondre n’a plus de longueur réglée')

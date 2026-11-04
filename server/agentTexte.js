@@ -295,6 +295,9 @@ export function motifDeRefus(raison) {
   if (/à la ponctuation près/.test(r)) return 'introuvable-ponctuation'
   if (/introuvable/.test(r)) return 'introuvable'
   if (/apparaît \d+ fois/.test(r)) return 'ambigu'
+  if (/rien ne change.*recopié à l’identique/.test(r)) return 'identique-strict'
+  if (/rien ne change.*seules des espaces diffèrent/.test(r)) return 'identique-espaces'
+  if (/rien ne change.*une fois la typographie appliquée/.test(r)) return 'identique-typographie'
   if (/rien ne change/.test(r)) return 'identique'
   if (/en attente/.test(r)) return 'en-attente'
   if (/chevauche/.test(r)) return 'chevauche'
@@ -311,6 +314,29 @@ export function compterMotifs(refuses) {
     motifs[m] = (motifs[m] || 0) + 1
   }
   return motifs
+}
+
+// --- Un remplacement qui ne change rien ---------------------------------------
+
+/**
+ * Pourquoi un remplacement ne change rien, en trois cas que le journal
+ * distingue (03/11/2026 : 116 refus « identique » sur 125 pour Qwen 3.8 27B,
+ * 10 sur 11 pour Sonnet 5.5, sans qu'on sache ce qui était identique) — le
+ * motif seulement, jamais le texte :
+ *  - `strict` : le modèle a recopié le passage tel quel ;
+ *  - `espaces` : seules des espaces différaient (insécables ou non) ;
+ *  - `typographie` : le reste — apostrophes, guillemets, tirets, accents codés
+ *    autrement — qu'efface la typographie automatique de `apres`.
+ * `texte` : le passage du document ; `apres` : ce que le modèle a écrit, avant
+ * typographie ; `avant` : sa copie du passage.
+ */
+export function raisonIdentique(texte, apres, avant = texte) {
+  const sansEspaces = (t) => t.replace(/[\s\u00a0\u202f\u2009\u2007]+/g, '')
+  if (apres === texte || apres === avant)
+    return 'rien ne change entre `avant` et `apres` (recopié à l’identique) : passe à la suite'
+  if (sansEspaces(apres) === sansEspaces(texte))
+    return 'rien ne change entre `avant` et `apres` (seules des espaces diffèrent) : les espaces du texte sont déjà les bonnes — les insécables avant : ; ! ? et dans les guillemets y sont, même si tu ne les distingues pas ; la typographie des espaces est rétablie automatiquement — passe à la suite'
+  return 'rien ne change entre `avant` et `apres` (une fois la typographie appliquée) : apostrophes, guillemets et tirets du texte sont déjà corrects, et la typographie de ton texte est rétablie automatiquement — passe à la suite'
 }
 
 // --- Retrouver un passage --------------------------------------------------
@@ -596,12 +622,7 @@ export function proposer(ydoc, remplacements, auteur, ts = Date.now()) {
     // où le texte du document ferait proposer un changement de casse.
     const base = trouve.typographie ? bloc.texte.slice(trouve.debut, trouve.fin) : r.avant
     const modifications = modificationsDe(base, apres)
-    if (!modifications.length)
-      return refuse(
-        index,
-        numero,
-        'rien ne change entre `avant` et `apres` : le texte est déjà conforme (espaces insécables, guillemets et apostrophes typographiques y sont peut-être déjà, même si tu ne les distingues pas) — passe à la suite'
-      )
+    if (!modifications.length) return refuse(index, numero, raisonIdentique(base, r.apres, r.avant))
 
     const morceaux = []
     for (const m of modifications) {

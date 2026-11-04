@@ -348,6 +348,40 @@ test('plus de limite de forme : un long message, une longue conversation, des r�
   }
 })
 
+test('des écritures refusées d’affilée : un avertissement au seuil, le bilan sans outil au double ; un succès remet à zéro', async () => {
+  const { garde } = await import('../garde-fous.js')
+  const SEUIL = garde('margoRefusEnSerie')
+  assert.equal(SEUIL, 5)
+  const doc = await documentDeTest()
+  requetes.length = 0
+  const refusee = (i) => outil(`r${i}`, 'proposer', { remplacements: [{ bloc: 2, avant: 'absent', apres: 'x' }] })
+  scenario = [
+    // Quatre refus, un succès (le compte repart de zéro), puis dix refus.
+    ...Array.from({ length: SEUIL - 1 }, (_, i) => refusee(i)),
+    outil('ok', 'proposer', { remplacements: [{ bloc: 3, avant: 'Ils mange', apres: 'Ils mangent' }] }),
+    ...Array.from({ length: 2 * SEUIL }, (_, i) => refusee(10 + i)),
+    texte('J’ai corrigé un accord ; le reste était déjà conforme.'),
+  ]
+  const r = await dialoguer(doc.id, 'admin@example.com', msg('corrige'))
+  assert.equal(r.status, 200)
+  const contenus = requetes.map((q) => JSON.stringify(q.corps.messages.at(-1).content))
+  // Aucun avertissement avant le succès : quatre refus seulement.
+  assert.ok(contenus.slice(0, SEUIL + 1).every((c) => !/dernières écritures ont toutes été refusées/.test(c)))
+  // Le cinquième refus d'affilée porte l'avertissement.
+  assert.match(contenus[SEUIL + 1 + SEUIL - 1], /tes 5 dernières écritures ont toutes été refusées/)
+  // Au dixième, plus d'outil : le bilan.
+  const dernier = requetes.at(-1).corps
+  assert.equal(requetes.length, SEUIL + 2 * SEUIL + 1)
+  assert.deepEqual(dernier.tool_choice, { type: 'none' })
+  assert.match(contenus.at(-1), /refusées trop de fois de suite/)
+  assert.ok(r.evenements.some((e) => e.type === 'texte' && /un accord/.test(e.texte)))
+  assert.equal(r.fin.incomplet, true)
+  assert.equal(r.fin.modifications, 1)
+  const ligne = readFileSync(join(DATA_DIR, 'events-dialogue.jsonl'), 'utf8').trim().split('\n').at(-1)
+  assert.equal(JSON.parse(ligne).arret, 'refus')
+  scenario = []
+})
+
 test('une boucle d’outils sans fin : le filet de sécurité (100 étapes), puis un bilan sans outil au lieu d’une coupure sèche', async () => {
   const { garde } = await import('../garde-fous.js')
   const TOURS_SECURITE = garde('margoEtapes')

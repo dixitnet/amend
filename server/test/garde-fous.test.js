@@ -25,7 +25,7 @@ const dossier = () => mkdtempSync(join(tmpdir(), 'collabtext-test-garde-fous-'))
 
 afterEach(() => appliquerGardeFous({}))
 
-test('neuf garde-fous, pas un de plus : les vingt autres ont été supprimés le 22/10/2026', () => {
+test('dix garde-fous, pas un de plus : les vingt autres ont été supprimés le 22/10/2026, le coupe-circuit ajouté le 04/11/2026', () => {
   assert.deepEqual(GARDE_FOUS.map((g) => g.id).sort(), [
     'corpsMcpOctets',
     'correctionsEnParallele',
@@ -34,6 +34,7 @@ test('neuf garde-fous, pas un de plus : les vingt autres ont été supprimés le
     'margoCoupures',
     'margoEtapes',
     'margoMargeLecture',
+    'margoRefusEnSerie',
     'margoRelances',
     'sortieMaxJetons',
   ])
