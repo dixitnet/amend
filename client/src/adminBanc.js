@@ -46,6 +46,7 @@ export const LIBELLES_REFLEXION = {
   medium: 'moyenne',
   high: 'haute',
   xhigh: 'très haute',
+  max: 'maximale',
 }
 const libelleReflexion = (n) => LIBELLES_REFLEXION[n] || n
 

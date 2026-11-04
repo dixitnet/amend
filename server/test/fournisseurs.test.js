@@ -263,7 +263,14 @@ test('Corrections IA sur Mistral : une réponse coupée par le budget est refus�
 // (Generative APIs, Paris), pour des essais réels. Faux fetch : aucun appel.
 
 test('Scaleway : les modèles gpt-oss et Qwen vont chez Scaleway, avec leur clé et leur nom', () => {
-  for (const m of ['gpt-oss-120b', 'qwen3.5-397b-a17b', 'qwen3-235b-a22b-instruct-2507', 'qwen3.8-27b']) {
+  for (const m of [
+    'gpt-oss-120b',
+    'qwen3.5-397b-a17b',
+    'qwen3-235b-a22b-instruct-2507',
+    'qwen3.8-27b',
+    'glm-5.3',
+    'deepseek-v4.1-flash-1017',
+  ]) {
     assert.equal(fournisseurDe(m), 'scaleway')
     assert.equal(serviceDe(m), 'Scaleway')
     assert.equal(variableDe(m), 'SCALEWAY_API_KEY')
@@ -286,8 +293,15 @@ test('Scaleway : l’adresse est api.scaleway.ai, sauf essai', () => {
   delete process.env.SCALEWAY_API_URL
 })
 
-test('Scaleway : les quatre modèles sont proposés au back-office, avec leurs tarifs en euros', () => {
-  for (const id of ['gpt-oss-120b', 'qwen3.5-397b-a17b', 'qwen3-235b-a22b-instruct-2507', 'qwen3.8-27b']) {
+test('Scaleway : les six modèles sont proposés au back-office, avec leurs tarifs en euros', () => {
+  for (const id of [
+    'gpt-oss-120b',
+    'qwen3.5-397b-a17b',
+    'qwen3-235b-a22b-instruct-2507',
+    'qwen3.8-27b',
+    'glm-5.3',
+    'deepseek-v4.1-flash-1017',
+  ]) {
     const m = MODELES.find((x) => x.id === id)
     assert.ok(m, id)
     assert.match(m.fournisseur, /Scaleway/)
@@ -306,6 +320,12 @@ test('Scaleway : les quatre modèles sont proposés au back-office, avec leurs t
   assert.ok(Math.abs(coutEur('qwen3.8-27b', { cacheLu: 1e6 }) - 0.12) < 1e-9)
   // Le prix de Qwen 3.5 n'est pas confirmé : il est marqué provisoire.
   assert.equal(TARIFS_EUR['qwen3.5-397b-a17b'].provisoire, true)
+  // GLM-5.3 : 1,80 + 5,50 € ; DeepSeek V4.1 Flash : 0,60 + 1,80 €, cache relu à 0,12 €.
+  assert.ok(Math.abs(coutEur('glm-5.3', { entree: 1e6, sortie: 1e6 }) - 7.3) < 1e-9)
+  assert.ok(Math.abs(coutEur('deepseek-v4.1-flash-1017', { entree: 1e6, sortie: 1e6 }) - 2.4) < 1e-9)
+  assert.ok(Math.abs(coutEur('deepseek-v4.1-flash-1017', { cacheLu: 1e6 }) - 0.12) < 1e-9)
+  assert.equal(TARIFS_EUR['glm-5.3'].provisoire, true)
+  assert.equal(TARIFS_EUR['deepseek-v4.1-flash-1017'].provisoire, true)
   // Claude et Mistral restent en dollars.
   assert.equal(coutEur('claude-sonnet-5-5', { entree: 1e6 }), 0)
 })
@@ -352,6 +372,8 @@ test('Scaleway : « sans réflexion » devient low pour gpt-oss (qui ne se coupe
     'none'
   )
   assert.equal(traduireRequete({ ...base, model: 'qwen3.8-27b' }, 'scaleway').reasoning_effort, 'none')
+  assert.equal(traduireRequete({ ...base, model: 'glm-5.3' }, 'scaleway').reasoning_effort, 'none')
+  assert.equal(traduireRequete({ ...base, model: 'deepseek-v4.1-flash-1017' }, 'scaleway').reasoning_effort, 'none')
   assert.equal(traduireRequete({ ...base, model: 'mistral-large-4-0' }).reasoning_effort, 'low')
   assert.equal(traduireRequete({ ...base, model: 'mistral-small-2603' }).reasoning_effort, 'none')
   const sans = traduireRequete({ model: 'gpt-oss-120b', messages: [{ role: 'user', content: 'x' }] }, 'scaleway')
