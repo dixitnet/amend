@@ -153,6 +153,7 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 - y-prosemirror v2 (`@y/prosemirror`, Yjs 14, mode suggestion natif) : bonne conception pour nos défauts de fond, pas prête (touches mortes, Ctrl+Z, suggestion d'autrui effaçable, affichage) — `docs/essai-y-prosemirror-v2-2026-11-02.md`. **On mise dessus pour plus tard** : pas de chantier maison lourd qu'elle rendrait inutile (jointure suivie, suivi de la mise en forme).
 - Registre des écarts à corriger et procédure de veille mensuelle de la v2 (script `tools/essai-y-prosemirror-v2/veille.mjs`, critères de passage) : `docs/ecarts-editeur.md`.
 - 03/11/2026 : écart 6 corrigé (touche morte contre le curseur d'une autre personne : curseurs distants masqués pendant une composition) ; veille de la v2 programmée le 1er de chaque mois à 10 h 37 (tâche planifiée qui revient dans la session Claude de la campagne).
+- 03/11/2026 : écarts 2, 3, 7a, 8, 13, 15 corrigés dans la réécriture en suivi (`client/src/suivi/reecriture.js`, tests `client/test/ecartsSuivi.test.js`) ; deux tests anciens mis à jour (ordre « barré puis ajout » sur plusieurs paragraphes). Restent : 7b, 10, 11, 12 (attendre la v2), 9, 14, 16 (à décider).
 
 ## 18. Banc d'essai de Margo (03/11/2026)
 
