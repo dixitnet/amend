@@ -7,9 +7,10 @@
 //     /v1/chat/completions (outils → `function`, tool_use ↔ tool_calls, arrêt
 //     par longueur → max_tokens, jetons), puis la réponse est retraduite au
 //     format Messages. Le reste du code ne voit aucune différence ;
-//   - `gpt-oss-*` et `qwen*` : à Scaleway (Generative APIs, Paris), par la même
-//     traduction — l'API de Scaleway est elle aussi compatible OpenAI (ajouté le
-//     29/10/2026 ; claude/etude-scaleway-generative-apis.md).
+//   - `gpt-oss-*`, `qwen*`, `glm-*` et `deepseek-*` : à Scaleway (Generative
+//     APIs, Paris), par la même traduction — l'API de Scaleway est elle aussi
+//     compatible OpenAI (ajouté le 29/10/2026 ;
+//     claude/etude-scaleway-generative-apis.md ; GLM et DeepSeek le 04/11/2026).
 // La traduction est celle de la passerelle du banc d'essai
 // (banc-modeles/passerelle-mistral.js), qui a servi à mesurer Mistral Large 4
 // sur Corrections IA et sur Margo (rapports du volet 1 et du volet 2).
@@ -39,7 +40,7 @@ export function urlScaleway() {
 }
 
 const MODELE_MISTRAL = /^(open-)?(mistral|ministral|magistral|codestral|devstral|pixtral)/i
-const MODELE_SCALEWAY = /^(gpt-oss|qwen)/i
+const MODELE_SCALEWAY = /^(gpt-oss|qwen|glm|deepseek)/i
 
 /** 'anthropic', 'mistral' ou 'scaleway', d'après l'identifiant du modèle. */
 export function fournisseurDe(modele) {
@@ -80,7 +81,9 @@ export function variableDe(modele) {
  * adaptative et niveau d'effort) ; documentation de Mistral, page « Reasoning »
  * (Large 4 : low, medium, high — `none` refusé depuis la fin de l'aperçu ;
  * Small 4 : none, high) ; Scaleway (gpt-oss-120b refuse `none` ; Qwen 3.8 27B :
- * none, low, medium, xhigh). Un modèle absent de la table n'a que `aucune`. */
+ * none, low, medium, xhigh ; GLM-5.3 et DeepSeek V4.1 Flash : none, low,
+ * high, max — page « Supported models » du 04/11/2026). Un modèle absent de la
+ * table n'a que `aucune`. */
 export const REFLEXION = {
   'claude-haiku-5-5': ['aucune', 'low', 'medium', 'high'],
   'claude-sonnet-5-5': ['aucune', 'low', 'medium', 'high'],
@@ -88,6 +91,8 @@ export const REFLEXION = {
   'mistral-small-2603': ['aucune', 'high'],
   'gpt-oss-120b': ['low', 'medium', 'high'],
   'qwen3.8-27b': ['aucune', 'low', 'medium', 'xhigh'],
+  'glm-5.3': ['aucune', 'low', 'high', 'max'],
+  'deepseek-v4.1-flash-1017': ['aucune', 'low', 'high', 'max'],
 }
 
 /** `{ niveaux, defaut }` pour un modèle. */

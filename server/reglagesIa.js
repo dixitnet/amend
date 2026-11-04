@@ -48,6 +48,13 @@ export const MODELES = [
   // Ajouté le 31/10/2026 : 27 milliards de paramètres, contexte 256 K, sortie
   // jusqu'à 32 K, réflexion réglable (none/low/medium/xhigh). Jamais passé au banc.
   { id: 'qwen3.8-27b', nom: 'Qwen 3.8 27B', fournisseur: 'Scaleway (Paris)' },
+  // Ajoutés le 04/11/2026 pour essayer Margo sur des tâches longues (livre
+  // entier), où Qwen 3.8 27B décroche : les deux grands modèles ouverts en tête
+  // des classements d'octobre 2026. Contexte 256 K ; réflexion coupable (none /
+  // low / high / max) ; sortie au plus 16 K pour GLM-5.3 (le garde-fou
+  // « sortieMaxJetons » est à 16 384), 131 K pour DeepSeek. Jamais passés au banc.
+  { id: 'glm-5.3', nom: 'GLM-5.3', fournisseur: 'Scaleway (Paris)' },
+  { id: 'deepseek-v4.1-flash-1017', nom: 'DeepSeek V4.1 Flash', fournisseur: 'Scaleway (Paris)' },
 ]
 
 /** Niveaux d'accès, du plus fermé au plus ouvert. Le niveau est un **minimum** :
