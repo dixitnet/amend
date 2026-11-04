@@ -320,12 +320,12 @@ test('Scaleway : les six modèles sont proposés au back-office, avec leurs tari
   assert.ok(Math.abs(coutEur('qwen3.8-27b', { cacheLu: 1e6 }) - 0.12) < 1e-9)
   // Le prix de Qwen 3.5 n'est pas confirmé : il est marqué provisoire.
   assert.equal(TARIFS_EUR['qwen3.5-397b-a17b'].provisoire, true)
-  // GLM-5.3 : 1,80 + 5,50 € ; DeepSeek V4.1 Flash : 0,60 + 1,80 €, cache relu à 0,12 €.
+  // GLM-5.3 : 1,80 + 5,50 € ; DeepSeek V4.1 Flash : 0,40 + 0,80 €, cache relu à 0,08 €.
   assert.ok(Math.abs(coutEur('glm-5.3', { entree: 1e6, sortie: 1e6 }) - 7.3) < 1e-9)
-  assert.ok(Math.abs(coutEur('deepseek-v4.1-flash-1017', { entree: 1e6, sortie: 1e6 }) - 2.4) < 1e-9)
-  assert.ok(Math.abs(coutEur('deepseek-v4.1-flash-1017', { cacheLu: 1e6 }) - 0.12) < 1e-9)
+  assert.ok(Math.abs(coutEur('deepseek-v4.1-flash-1017', { entree: 1e6, sortie: 1e6 }) - 1.2) < 1e-9)
+  assert.ok(Math.abs(coutEur('deepseek-v4.1-flash-1017', { cacheLu: 1e6 }) - 0.08) < 1e-9)
   assert.equal(TARIFS_EUR['glm-5.3'].provisoire, true)
-  assert.equal(TARIFS_EUR['deepseek-v4.1-flash-1017'].provisoire, true)
+  assert.equal(TARIFS_EUR['deepseek-v4.1-flash-1017'].provisoire, undefined)
   // Claude et Mistral restent en dollars.
   assert.equal(coutEur('claude-sonnet-5-5', { entree: 1e6 }), 0)
 })

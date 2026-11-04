@@ -76,10 +76,11 @@ export const TARIFS_EUR = {
   // Ajoutés le 04/11/2026. Prix relevés sur la page « Generative APIs » de
   // Scaleway, dont la date n'est pas sûre (sa grille tarifaire n'a pas pu être
   // lue) : provisoires, à vérifier dans la console. GLM-5.3 : 1,80 / 5,50 €,
-  // cache non publié (plein tarif). DeepSeek V4.1 Flash : 0,60 / 1,80 €, entrée
-  // relue en cache 0,12 € (0,2 du tarif d'entrée).
+  // cache non publié (plein tarif). DeepSeek V4.1 Flash : tarif confirmé dans
+  // la console par Sylvain le 04/11/2026, 0,40 / 0,80 €, entrée relue en cache
+  // 0,08 € (0,2 du tarif d'entrée).
   'glm-5.3': { entree: 1.8, sortie: 5.5, poidsCacheLu: 1, provisoire: true },
-  'deepseek-v4.1-flash-1017': { entree: 0.6, sortie: 1.8, poidsCacheLu: 0.2, provisoire: true },
+  'deepseek-v4.1-flash-1017': { entree: 0.4, sortie: 0.8, poidsCacheLu: 0.2 },
 }
 
 function coutSelon(t, j) {
