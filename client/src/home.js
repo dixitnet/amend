@@ -1,6 +1,6 @@
 import { getSessionEmail, requestReconnectLink } from './auth.js'
 import { logoAmend } from './logo.js'
-import { lienAide } from './aide.js'
+import { lienAide, URL_AIDE } from './aide.js'
 import { monterMenuCompte } from './compteMenu.js'
 import { monterListeDocuments } from './listeDocuments.js'
 import { icone } from './interface/icones.js'
@@ -16,12 +16,17 @@ export async function mountHome(root) {
 }
 
 /** Visiteurs non connectés — la page d'accueil publique (17/09/2026, reprise
- * le 21/10/2026 dans le langage graphique de l'éditeur).
+ * le 21/10/2026 dans le langage graphique de l'éditeur, textes refaits le
+ * 04/11/2026 : « Écrire à plusieurs. Avec l'IA, jamais par elle. »).
  *
  * Le visiteur se pose trois questions, dans cet ordre : *qu'est-ce que
- * c'est* (le titre, une phrase, un exemple de modification proposée),
+ * c'est* (le titre, une phrase, un exemple de modifications proposées par
+ * une personne et par Margo, puis trois blocs : relire, l'IA, exporter),
  * *puis-je entrer* (la mention « sur invitation »), *comment* (deux cartes :
- * la liste d'attente pour qui n'a pas d'accès, la connexion pour qui en a un).
+ * la bêta pour qui n'a pas d'accès, la connexion pour qui en a un).
+ *
+ * La version longue de la présentation vit dans l'aide (lien « En savoir
+ * plus ») : la page d'accueil reste courte.
  *
  * Deux décisions qui tiennent la page :
  *
@@ -72,25 +77,29 @@ function mountPublicLanding(root) {
   const avis = document.createElement('p')
   avis.className = 'landing-avis'
   avis.append(icone('etincelle', 16))
-  avis.append(
-    "L'application fonctionne, mais elle est en phase de lancement : " + "l'accès se fait uniquement sur invitation."
-  )
+  avis.append("Bêta : l'accès se fait sur invitation.")
   hero.appendChild(avis)
 
   const titre = document.createElement('h1')
   titre.className = 'landing-titre'
-  titre.textContent = 'Écrire et relire à plusieurs, avec un vrai suivi des modifications.'
+  // Deux phrases, deux lignes sur ordinateur : la coupure tombe entre elles,
+  // pas au milieu de la seconde.
+  for (const phrase of ['Écrire à plusieurs.', "Avec l'IA, jamais par elle."]) {
+    const ligne = document.createElement('span')
+    ligne.className = 'landing-titre-ligne'
+    ligne.textContent = phrase
+    titre.append(ligne, ' ')
+  }
   hero.appendChild(titre)
 
   const pitch = document.createElement('p')
   pitch.className = 'landing-pitch'
   pitch.textContent =
-    'amend.ink est un éditeur de texte collaboratif, léger et auto-hébergé. ' +
-    'Chacun voit qui écrit quoi, propose ses corrections plutôt que de les ' +
-    'imposer, et garde la main sur la mise en page et les exports.'
+    "amend.ink réunit dans une seule interface tout ce qu'il faut pour écrire, relire et exporter un texte."
   hero.appendChild(pitch)
   hero.appendChild(exempleDeModification())
   main.appendChild(hero)
+  main.appendChild(troisBlocs())
 
   // --- Deux cartes --------------------------------------------------------
   const colonnes = document.createElement('div')
@@ -129,8 +138,53 @@ function mountPublicLanding(root) {
   root.appendChild(wrap)
 }
 
-/** Une modification proposée, dessinée comme dans l'éditeur : ce que fait
- * l'application, montré plutôt qu'expliqué. Purement décoratif (rien ne se
+/** Les trois gestes de l'application, en une phrase chacun, puis le lien
+ * vers la présentation complète (dans l'aide, lisible sans compte). */
+function troisBlocs() {
+  const section = document.createElement('section')
+  section.className = 'landing-atouts'
+  section.setAttribute('aria-label', 'Ce que fait amend.ink')
+  const blocs = [
+    [
+      'Relire à plusieurs',
+      'Suivi des modifications, commentaires, droits (éditeur, correcteur, lecteur) et historique des ' +
+        "versions : le dialogue entre l'auteur et l'éditeur devient simple.",
+    ],
+    [
+      "L'IA à sa place",
+      'Margo propose des corrections et commente, comme le ferait un correcteur. ' +
+        "Elle n'écrit jamais à votre place : vous acceptez ou refusez.",
+    ],
+    [
+      'Exporter proprement',
+      'Un PDF prêt à imprimer, mis en page selon vos propres modèles, ou un document Word ou texte propre.',
+    ],
+  ]
+  const grille = document.createElement('div')
+  grille.className = 'landing-atouts-grille'
+  for (const [titre, texte] of blocs) {
+    const bloc = document.createElement('article')
+    bloc.className = 'landing-atout'
+    const h2 = document.createElement('h2')
+    h2.textContent = titre
+    const p = document.createElement('p')
+    p.textContent = texte
+    bloc.append(h2, p)
+    grille.appendChild(bloc)
+  }
+  const plus = document.createElement('a')
+  plus.className = 'landing-plus'
+  plus.href = URL_AIDE
+  plus.target = '_blank'
+  plus.rel = 'noopener'
+  plus.textContent = 'En savoir plus →'
+  section.append(grille, plus)
+  return section
+}
+
+/** Des modifications proposées, dessinées comme dans l'éditeur : ce que fait
+ * l'application, montré plutôt qu'expliqué — une personne (Claire) et Margo,
+ * l'IA, qui propose comme un correcteur. Purement décoratif (rien ne se
  * clique, rien n'est lu par un lecteur d'écran : le texte au-dessus dit déjà
  * tout). */
 function exempleDeModification() {
@@ -143,24 +197,47 @@ function exempleDeModification() {
   ancien.textContent = 'bien souvent'
   const nouveau = document.createElement('ins')
   nouveau.textContent = 'le plus souvent'
-  texte.append('Le quartier ', ancien, ' ', nouveau, ' transforme un travail de long terme sur les tissus existants.')
+  const accord = document.createElement('ins')
+  accord.className = 'landing-exemple-ia'
+  accord.textContent = 's'
+  texte.append(
+    'Le quartier ',
+    ancien,
+    ' ',
+    nouveau,
+    ' transforme un travail de long terme sur les tissus existant',
+    accord,
+    '.'
+  )
+  const cartes = document.createElement('div')
+  cartes.className = 'landing-exemple-cartes'
+  cartes.append(
+    carteProposition({ initiales: 'CL', qui: 'Claire', quoi: 'propose · il y a 2 min' }),
+    carteProposition({ initiales: 'IA', qui: 'Margo (IA)', quoi: 'propose', ia: true })
+  )
+  fig.append(texte, cartes)
+  return fig
+}
+
+function carteProposition({ initiales, qui, quoi, ia = false }) {
   const carte = document.createElement('div')
-  carte.className = 'landing-exemple-carte'
+  carte.className = 'landing-exemple-carte' + (ia ? ' landing-exemple-carte-ia' : '')
   const pastille = document.createElement('span')
   pastille.className = 'landing-exemple-pastille'
-  pastille.textContent = 'CL'
-  const qui = document.createElement('span')
-  qui.className = 'landing-exemple-qui'
-  qui.innerHTML = '<b>Claire</b> propose · il y a 2 min'
+  pastille.textContent = initiales
+  const ligne = document.createElement('span')
+  ligne.className = 'landing-exemple-qui'
+  const nom = document.createElement('b')
+  nom.textContent = qui
+  ligne.append(nom, ' ' + quoi)
   const accepter = document.createElement('span')
   accepter.className = 'landing-exemple-accepter'
   accepter.textContent = 'Accepter'
   const rejeter = document.createElement('span')
   rejeter.className = 'landing-exemple-rejeter'
   rejeter.textContent = 'Rejeter'
-  carte.append(pastille, qui, accepter, rejeter)
-  fig.append(texte, carte)
-  return fig
+  carte.append(pastille, ligne, accepter, rejeter)
+  return carte
 }
 
 /** Un formulaire à un champ : libellé, saisie, bouton, et un message qui
@@ -224,13 +301,13 @@ function carteListeAttente() {
   carte.className = 'landing-carte'
 
   const h2 = document.createElement('h2')
-  h2.textContent = "Rejoindre la liste d'attente"
+  h2.textContent = 'Rejoindre la bêta'
   const p = document.createElement('p')
-  p.textContent = "Laissez votre adresse : vous serez prévenu·e dès qu'une place se libère."
+  p.textContent = "Laissez votre adresse : on vous écrit dès qu'une place se libère."
   carte.append(h2, p)
 
   const { form, message } = formulaireEmail({
-    libelleBouton: "M'inscrire",
+    libelleBouton: 'Laisser mon adresse',
     autocomplete: 'email',
     messageSucces: 'Merci — vous êtes sur la liste. On vous écrit dès que possible.',
     onEnvoi: async (email) => {
