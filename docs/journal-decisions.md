@@ -221,3 +221,10 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 - Essais réels (demande de cohérence du livre entier, `events-dialogue.jsonl`) :
   - GLM-5.3 : 35 étapes, 6 modifications et 13 commentaires, 11 refus, coupé par une perte de réseau en 4G (arrêt `annule`, aucune erreur côté serveur) ; 3,51 M jetons d'entrée **sans aucun cache** (≈ 6,34 € au tarif provisoire). Hors de prix pour Margo sur un livre tant que le cache ne sert pas.
   - DeepSeek V4.1 Flash : 21 étapes, 160 s, terminé ; 9 modifications, 9 commentaires, 5 refus ; 0,86 M jetons d'entrée hors cache et 0,70 M relus en cache (45 %) : **≈ 0,40 €** au tarif confirmé (Sonnet 5.5 : ≈ 0,97 $ sur la même tâche, § 22). Réserves : un fait du monde corrigé d'office ([376]), deux choix d'auteur passés en correction, un bilan qui annonce plus de commentaires que posés. Margo reste sur Sonnet 5.5 ; à départager au banc (`docs/banc-margo-montfaucon.md`).
+
+## 25. Refonder le cœur sur Yjs 14 et `@y/prosemirror` 2 : étude et prototype (07/11/2026)
+
+- Veille de la v2 du 07/11 : aucune nouvelle version depuis l'essai du 02/11 (`docs/ecarts-editeur.md`).
+- Étude `docs/etude-refondation-coeur-2026-11-07.md`, à la demande de Sylvain (reconstruire plutôt que mettre à jour, compromis fonctionnels admis) : circuit d'une frappe en suivi, points faibles de la vue ProseMirror, sort de chaque fichier du cœur, alternatives à ProseMirror (aucune ne règle nos défauts), perspectives amont, architecture cible (deux documents Yjs, base et suggestions ; rôles = droits par document ; attribution par le serveur ; l'IA écrit un delta comme un auteur), compromis, plan de prototype en sept jalons.
+- Constats : Yjs 14 (`@y/y` 14.0.0-rc.29) sans version stable ni date, tickets de fond ouverts ; y/hub, le serveur de référence, est AGPL ou commercial et demande Redis, PostgreSQL, S3 : on garderait notre serveur. Nos trois échecs (touche morte, Ctrl+Z, suggestion d'autrui) ne sont signalés dans aucun ticket amont.
+- En attente de Sylvain : direction, compromis, lancement du prototype, signalement en amont, passage de `prosemirror-view` en 1.42.9.
