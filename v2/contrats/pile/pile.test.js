@@ -118,17 +118,22 @@ test('contrats 2 et 4 : le document se lit côté serveur, et survit au redémar
   await a.keyboard.type('Texte à garder')
   await a.keyboard.press('Enter')
   await a.keyboard.type('Deuxième paragraphe')
-  await attendre(400)
-  await a.context().close()
 
-  // Lecture côté serveur : l'état Yjs 14 tenu par y/hub, relu en blocs BlockNote.
+  // Lecture côté serveur : l'état Yjs 14 tenu par y/hub, relu en blocs
+  // BlockNote ; on attend activement que la dernière frappe y soit arrivée.
   const cookie = await session('Lecteur')
-  const r = await fetch(`${pile.collab}/collaboration/ydoc/v1/amend/${doc}`, {
-    headers: { cookie, accept: 'application/json' },
-  })
-  assert.equal(r.status, 200)
-  const { doc: etat } = await r.json()
-  assert.equal(texteDesBlocs(lireBlocs(Buffer.from(etat, 'base64'))), 'Texte à garder\nDeuxième paragraphe')
+  const lireCoteServeur = async () => {
+    const r = await fetch(`${pile.collab}/collaboration/ydoc/v1/amend/${doc}`, {
+      headers: { cookie, accept: 'application/json' },
+    })
+    assert.equal(r.status, 200)
+    return texteDesBlocs(lireBlocs(Buffer.from((await r.json()).doc, 'base64')))
+  }
+  const attendu = 'Texte à garder\nDeuxième paragraphe'
+  let lu = ''
+  for (let t0 = Date.now(); Date.now() - t0 < 8000 && lu !== attendu; await attendre(200)) lu = await lireCoteServeur()
+  assert.equal(lu, attendu)
+  await a.context().close()
 
   // Redémarrage du serveur et de y/hub, après écriture dans PostgreSQL.
   await attendre(2500)

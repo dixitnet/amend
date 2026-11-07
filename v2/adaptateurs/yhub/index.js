@@ -46,7 +46,7 @@ export async function demarrerCollaboration({
       // Les en-têtes de la requête se lisent avant toute attente (uWebSockets).
       const cookie = req.getHeader('cookie') || ''
       return identifier(cookie).then((personne) => {
-        if (!personne) throw apiError(401, 'session absente')
+        if (typeof personne?.id !== 'string' || !personne.id) throw apiError(401, 'session absente')
         return { userid: personne.id }
       })
     },
