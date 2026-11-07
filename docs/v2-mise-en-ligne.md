@@ -1,6 +1,6 @@
 # amend.ink v2 : mise en ligne d'essai (v2.amend.ink)
 
-Statut : **prêt**, revue de Mistral traitée (`docs/v2-revues/2026-11-07-etape-1-mise-en-ligne-cloture.md`) ; en attente de l’accord de Sylvain (07/11/2026).
+Statut : **prêt**, revue de Mistral traitée (`docs/v2-revues/2026-11-07-etape-1-mise-en-ligne-cloture.md`) ; accord de Sylvain donné le 07/11/2026, fusionné dans `main`.
 
 ## But
 

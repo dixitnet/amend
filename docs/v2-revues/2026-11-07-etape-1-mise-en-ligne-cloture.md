@@ -3,7 +3,7 @@
 - Relecteur : Mistral, modèle `mistral-large-latest` ; consommation : 16891 jetons en entrée, 566 en sortie
 - Pièces : `docs/v2-regles-developpement.md`, `docs/v2-renoncements.md`, `docs/v2-veille.md`, `v2/adr/0001-architecture-docs-allege.md`, `v2/adr/0002-couches.md`, `v2/adr/0003-blocknote.md`, `v2/adr/0004-yhub.md`, `v2/adr/0005-connexion.md`, `v2/adr/0006-licence.md`, `v2/adr/0007-relecteur-ia.md`, `v2/adr/0008-design.md`, `v2/adr/0009-traductions.md`, `docs/v2-mise-en-ligne.md`, `Arborescence de v2/ (fichiers suivis)`, `v2/package.json`, `Diff de v2/ depuis 96e23b8`
 - Commit relu : `fe783f8` (depuis `96e23b8`)
-- Statut : avis reçu ; réponse de Claude écrite ; arbitrage de Sylvain à venir.
+- Statut : avis reçu ; réponse de Claude écrite ; arbitré par Sylvain le 07/11/2026.
 
 ## Avis du relecteur
 
@@ -35,4 +35,4 @@ Le correctif temporaire pour la police BlockNote (rebranchement de `--bn-font-fa
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+07/11/2026 : réponses validées (R1 corrigé ; R2, R3, R4 contestés) ; fusion dans `main` acceptée pour la mise en ligne d'essai.
