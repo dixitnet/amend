@@ -235,3 +235,4 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 
 - Décision de Sylvain : développer une v2 sur BlockNote + y/hub + notre serveur Node, couche par couche, en acceptant de renoncer à des principes ou à des fonctions, sans migration des documents de la v1.
 - Préalable demandé : des règles de développement (couches, ne pas développer dans toutes les couches, profiter des progrès des fondations) et une vérification du code et de l'architecture par une autre IA. Projet : `docs/v2-regles-developpement.md`, en attente de validation (questions ouvertes en fin de document).
+- Règles validées le même jour (`docs/v2-regles-developpement.md`) : code dans `v2/` de ce dépôt ; AGPL-3.0 pour toute la v2 ; relecteur IA Mistral, aux étapes seulement (ouverture et clôture) ; connexion par lien magique ; développement et essais dans l'environnement en nuage de Claude. Section « v2 » ajoutée à `CLAUDE.md`.

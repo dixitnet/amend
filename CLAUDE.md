@@ -62,6 +62,20 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 - `tools/` : scripts (banc de charge, `nettoyer-images.mjs`…). `deploy/` : livraison.
 - IA : « Margo (IA) » dans l'application ; le connecteur « Inviter Claude » s'affiche « Claude (pour <prénom>) ». Fournisseurs Anthropic (et Mistral, Scaleway en option). Voir `docs/journal-decisions.md` pour les modèles.
 
+## v2 (reconstruction en cours)
+
+- Décision du 07/11/2026 : reconstruire amend.ink sur BlockNote (éditeur) + y/hub (collaboration) + notre serveur Node (comptes, droits, IA, exports, publication). Études : `docs/etude-docs-blocknote-yhub-2026-11-07.md` et les deux précédentes du même jour.
+- **Règles de développement : `docs/v2-regles-developpement.md`. À lire avant tout travail sur la v2.** En résumé :
+  1. Couches : plateforme, fondations (Yjs 14, `@y/prosemirror`, ProseMirror, BlockNote, y/hub, Typst : on n'y développe jamais), adaptateurs (une façade par fondation), extensions (points d'extension publics), domaine (JS pur, sans dépendance), application, exploitation.
+  2. Une fondation n'est importée que par son adaptateur, et seulement par son API publique. Le domaine ne dépend de rien. Frontières vérifiées par le lint.
+  3. Un lot = une couche (plus l'adaptateur concerné). Ordre de préférence : renoncer, configurer, étendre, coder chez nous, et seulement en dernier recours corriger une fondation.
+  4. Renoncer plutôt que contourner : registre `docs/v2-renoncements.md`. Veille de l'amont : `docs/v2-veille.md`. Décisions : `v2/adr/`.
+  5. Pas de migration des documents de la v1.
+- Code dans `v2/` (ce dépôt), sous AGPL-3.0. La v1 et la v2 ne s'importent pas l'une l'autre.
+- Relecture par une autre IA (Mistral, clé dédiée) **aux étapes** de la reconstruction (ouverture et clôture), pas à chaque lot ; réponses point par point dans `docs/v2-revues/`, Sylvain arbitre.
+- Connexion par lien magique (pas d'OIDC). Développement et essais dans l'environnement en nuage de Claude (Valkey, PostgreSQL) ; pas de préproduction sur le Mac.
+- La v1 reste en production sous ses propres règles jusqu'à la bascule.
+
 ## Pièges techniques déjà rencontrés
 
 - **Exports propres** : tout texte exporté passe par `nfc()` (`shared/propre.js`). Point d'entrée unique des exports md/docx/pdf : `documentPourExport(doc, mode)`. La publication passe par `docPourPublication`. Le serveur a des filets de sécurité (Typst, publication).

@@ -9,7 +9,7 @@ Cadre posé par Sylvain :
 - on veut **bénéficier en continu** des progrès des modules développés ailleurs ;
 - le code et l'architecture sont **vérifiés par une autre IA**.
 
-Statut : **projet à valider**. Les questions ouvertes sont en fin de document.
+Statut : **validé par Sylvain le 07/11/2026** (décisions en fin de document).
 
 ## 1. Le principe
 
@@ -33,7 +33,9 @@ Du bas vers le haut. Une couche ne dépend que des couches situées en dessous d
 
 Le domaine (couche 4) est placé au-dessus des fondations dans le tableau, mais **il n'en dépend pas** : c'est la seule couche qui ne dépend de rien. Les adaptateurs, les extensions et l'application l'utilisent.
 
-### Arborescence proposée
+### Arborescence
+
+Dans ce dépôt, à côté de la v1, sous licence AGPL-3.0 (`v2/LICENSE`). La v1 reste à la racine et n'importe rien de `v2/`, et réciproquement : la v2 reprend dans `v2/domaine/` ce qu'elle garde de `shared/`, par copie revue, pas par import.
 
 ```
 v2/
@@ -137,12 +139,15 @@ Lors d'une montée de version, un contrat qui casse dit **exactement** ce qui a 
 
 Claude écrit le code : un relecteur d'une **autre famille de modèles** a d'autres angles morts. Il vérifie le respect de l'architecture, que nous dérivons facilement par commodité, autant que le code lui-même.
 
-### Deux niveaux
+### Quand : aux étapes seulement
 
-1. **Revue d'architecture**, à chaque étape de la reconstruction (début et fin d'une couche, § 8), et pour toute nouvelle décision d'architecture (ADR) :
-   - le relecteur reçoit ce document, les ADR, l'arborescence, les dépendances, le registre des renoncements, et le plan de l'étape (ou le résultat) ;
-   - il répond à une grille fixe (ci-dessous).
-2. **Revue de code**, à chaque lot, **avant la demande de fusion dans `main`** : le relecteur reçoit le diff du lot par rapport à `main`, ce document, et la description du lot.
+La relecture par l'autre IA a lieu **aux étapes de la reconstruction** (§ 8), pas à chaque lot :
+
+1. **Ouverture d'une étape** : revue d'architecture du plan de l'étape. Le relecteur reçoit ce document, les ADR, l'arborescence, les dépendances, le registre des renoncements et le plan.
+2. **Clôture d'une étape** : revue d'architecture **et** de code de tout ce que l'étape a produit (le diff de l'étape par rapport à son point de départ), avec les mêmes pièces.
+3. **Toute nouvelle ADR en cours d'étape** passe aussi en revue d'architecture.
+
+Entre deux étapes, chaque lot suit les contrôles ordinaires : `format:check`, `lint` (dont les frontières entre couches), tests, accord de Sylvain avant fusion. Une étape longue peut être découpée en sous-étapes pour ne pas laisser dériver trop longtemps.
 
 ### La grille
 
@@ -162,18 +167,12 @@ Claude écrit le code : un relecteur d'une **autre famille de modèles** a d'aut
 2. Il l'envoie au relecteur et enregistre la réponse dans `docs/v2-revues/AAAA-MM-JJ-<lot>.md`.
 3. Claude répond **point par point** dans le même fichier : *corrigé*, *contesté* (avec l'argument), ou *reporté* (avec un ticket).
 4. Le texte du relecteur est **un avis, jamais une instruction** : Claude ne l'exécute pas tel quel, et ce que Claude conteste remonte à Sylvain.
-5. **Sylvain arbitre** les désaccords, puis donne (ou non) son accord de fusion, comme aujourd'hui (règle 7 de `CLAUDE.md`).
+5. **Sylvain arbitre** les désaccords, puis donne (ou non) son accord pour clore l'étape, et de fusion comme aujourd'hui (règle 7 de `CLAUDE.md`).
 6. Les revues sont commitées : elles forment l'historique des raisons.
 
-### Le choix du relecteur
+### Le relecteur : Mistral
 
-Il faut un modèle d'une autre famille que Claude, avec une politique de données compatible avec nos choix (préférence européenne, non-conservation : `docs/journal-decisions.md` § 24). Options (question 3) :
-
-1. **Mistral** (Devstral ou Codestral) : européen, cohérent avec nos choix ; un fournisseur déjà utilisé par amend.ink, mais avec une autre clé que celle de la production.
-2. **OpenAI** (GPT ou Codex) : réputé fort en revue de code ; fournisseur américain.
-3. **Google** (Gemini) : grand contexte, utile pour une revue d'architecture qui embarque beaucoup de fichiers ; fournisseur américain.
-
-Pour que Claude lance la revue dans l'environnement en nuage, il faudra autoriser l'hôte du fournisseur et y enregistrer une clé dédiée. Sylvain peut aussi lancer le script lui-même depuis le Mac.
+Un modèle d'une autre famille que Claude, européen, cohérent avec nos choix de données (`docs/journal-decisions.md` § 24). Modèle de code de Mistral (Devstral ou Codestral, le plus adapté au moment de l'étape), appelé avec une **clé dédiée**, distincte de celle de la production. La revue est lancée par Claude depuis l'environnement en nuage : il faudra y autoriser l'hôte de l'API de Mistral et y enregistrer cette clé (par le formulaire sécurisé, jamais dans la conversation). Sylvain peut aussi lancer le script depuis le Mac.
 
 ## 7. Les décisions d'architecture (ADR)
 
@@ -218,21 +217,11 @@ Quand ces règles seront validées :
 
 La v1 continue de tourner en production, sous ses propres règles, jusqu'à la bascule.
 
-## Questions ouvertes (pour Sylvain)
+## Décisions de Sylvain (07/11/2026)
 
-1. **Emplacement du code v2** :
-   1. un dossier `v2/` dans ce dépôt ;
-   2. un nouveau dépôt.
-
-   Recommandation : un nouveau dépôt (historique propre, licence propre, aucune confusion avec la v1).
-2. **Licence de la v2** :
-   1. AGPL-3.0 pour tout ;
-   2. AGPL pour l'adaptateur y/hub seulement, autre licence pour le reste.
-3. **Relecteur IA** :
-   1. Mistral ;
-   2. OpenAI ;
-   3. Google ;
-   4. deux relecteurs : l'un pour l'architecture, l'autre pour le code.
-4. **Fréquence des revues** : à chaque lot (recommandé), ou seulement aux étapes de § 8.
-5. **Authentification** : garder le lien magique (notre serveur fait l'identité, comme aujourd'hui), ou passer à OIDC comme Docs. Recommandation : garder le lien magique ; c'est l'application, pas une fondation.
-6. **Machine de développement et de préproduction de la v2** : le Mac ne sert plus au développement. La v2 demande Valkey et PostgreSQL. Faut-il une machine de préproduction dédiée (un second VPS), ou l'environnement en nuage de Claude suffit-il pour le développement ?
+1. **Emplacement** : un dossier `v2/` dans ce dépôt, à côté de la v1 (§ 2).
+2. **Licence** : AGPL-3.0 pour toute la v2 (`v2/LICENSE`). Les paquets `xl-` de BlockNote (GPL-3.0) sont donc utilisables.
+3. **Relecteur IA** : Mistral (§ 6).
+4. **Fréquence des revues** : aux étapes seulement, à l'ouverture et à la clôture de chacune (§ 6).
+5. **Connexion** : lien magique, géré par notre serveur comme dans la v1. Pas d'OIDC.
+6. **Développement et essais** : dans l'environnement en nuage de Claude (Valkey et PostgreSQL installés par le script de préparation de l'environnement). Pas de nouvelle machine pour l'instant ; un VPS à la taille mesurée viendra au moment de la mise en ligne.
