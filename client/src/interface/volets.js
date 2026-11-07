@@ -50,6 +50,8 @@ export const FERME = 'ferme'
  * @param {(etat:string)=>void} [o.surChangement]  après chaque changement (panneau ou 'ferme')
  * @param {() => boolean} [o.fermerAuDepart]  vrai : le volet démarre fermé, quoi qu'on ait retenu (tiroirs du format M)
  * @param {() => boolean} [o.memoriser]       faux : l'état du moment n'est pas retenu (un tiroir n'est pas une habitude)
+ * @param {(retenu: string|null) => string|null} [o.etatDeDepart]  corrige l'état retenu au montage (« Fichiers » ne
+ *        se rouvre que si l'on vient d'y choisir le document, editor.js)
  */
 export function monterVolet({
   colonne,
@@ -60,6 +62,7 @@ export function monterVolet({
   surChangement,
   fermerAuDepart = () => false,
   memoriser = () => true,
+  etatDeDepart = (retenu) => retenu,
 }) {
   colonne.classList.add('volet')
   const boutons = new Map()
@@ -108,7 +111,7 @@ export function monterVolet({
     appliquer(etat === id ? FERME : id)
   }
 
-  appliquer(fermerAuDepart() ? FERME : lire(cleMemoire) || defaut)
+  appliquer(fermerAuDepart() ? FERME : etatDeDepart(lire(cleMemoire)) || defaut)
 
   return {
     etat: () => etat,

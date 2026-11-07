@@ -5,10 +5,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   arbre,
+  arbreFichiers,
   chemin,
   compter,
   construireVue,
   dateCorbeille,
+  dossiersVers,
   libelleChemin,
   normaliser,
   optionsDeplacement,
@@ -149,4 +151,31 @@ test('un titre vide se cherche comme « Sans titre »', () => {
 test('la date d’entrée dans la corbeille', () => {
   assert.equal(dateCorbeille({ corbeille: { le: Date.UTC(2026, 9, 12, 12) } }), '12/10/2026')
   assert.equal(dateCorbeille({}), '')
+})
+
+test('volet « Fichiers » : l’arbre entier, sous-dossiers puis documents, par titre', () => {
+  const docs = [
+    doc('d1', 'Zola', { dossier: 'a', updatedAt: 9000 }),
+    doc('d2', 'Balzac', { dossier: 'a' }),
+    doc('d3', 'Au fond', { dossier: 'c' }),
+    doc('d4', 'Racine', { starred: true }),
+    doc('d5', 'Perdu', { dossier: 'n_existe_plus' }),
+    doc('d6', '', { dossier: 'z', starred: true }),
+  ]
+  const a = arbreFichiers({ docs, dossiers: DOSSIERS })
+  assert.deepEqual(a.dossiers.map((n) => n.dossier.nom), ['Archives', 'Thèse'])
+  const these = a.dossiers[1]
+  assert.deepEqual(these.documents.map((d) => d.id), ['d2', 'd1'], 'par titre, pas par date')
+  assert.deepEqual(these.dossiers.map((n) => n.dossier.id), ['b'])
+  assert.deepEqual(these.dossiers[0].dossiers[0].documents.map((d) => d.id), ['d3'])
+  assert.deepEqual(a.documents.map((d) => d.id), ['d5', 'd4'], 'à la racine, dont un dossier disparu')
+  assert.deepEqual(a.favoris.map((d) => d.id), ['d4', 'd6'], '« Sans titre » se classe à son nom')
+})
+
+test('volet « Fichiers » : les dossiers à déplier pour voir un document', () => {
+  const docs = [doc('d3', 'Au fond', { dossier: 'c' }), doc('d4', 'Racine'), doc('d5', 'Perdu', { dossier: 'x' })]
+  assert.deepEqual(dossiersVers(docs, DOSSIERS, 'd3'), ['a', 'b', 'c'])
+  assert.deepEqual(dossiersVers(docs, DOSSIERS, 'd4'), [])
+  assert.deepEqual(dossiersVers(docs, DOSSIERS, 'd5'), [])
+  assert.deepEqual(dossiersVers(docs, DOSSIERS, 'inconnu'), [])
 })

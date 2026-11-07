@@ -190,3 +190,46 @@ export function dateCorbeille(entree) {
   if (!le) return ''
   return new Date(le).toLocaleDateString('fr-FR')
 }
+
+/**
+ * L'arbre du volet « Fichiers » de l'éditeur (07/11/2026,
+ * docs/journal-decisions.md § 25). Le même rangement que la page « Mes
+ * documents », vu d'un bloc : à chaque niveau les sous-dossiers (A → Z) puis
+ * les documents, **par titre** — un document garde sa place quand quelqu'un
+ * y écrit. Les documents dont le dossier n'existe plus, et ceux qu'on
+ * n'a pas rangés (partagés compris), sont à la racine.
+ *
+ * @returns {{ favoris: object[], dossiers: {dossier, dossiers, documents}[], documents: object[] }}
+ */
+export function arbreFichiers({ docs, dossiers }) {
+  const ids = new Set(dossiers.map((d) => d.id))
+  const parent = (d) => (d.parent && ids.has(d.parent) ? d.parent : null)
+  const documentsDe = (id) =>
+    trier(
+      docs.filter((doc) => dossierDe(doc, ids) === id),
+      'titre'
+    )
+  const noeuds = (id) =>
+    dossiers
+      .filter((d) => parent(d) === id)
+      .sort((a, b) => collateur.compare(a.nom, b.nom))
+      .map((d) => ({ dossier: d, dossiers: noeuds(d.id), documents: documentsDe(d.id) }))
+  return {
+    favoris: trier(
+      docs.filter((d) => d.starred),
+      'titre'
+    ),
+    dossiers: noeuds(null),
+    documents: documentsDe(null),
+  }
+}
+
+/** Les identifiants des dossiers qui mènent à un document (de la racine à
+ * son dossier) : ceux qu'il faut déplier pour le voir. Vide s'il est à la
+ * racine ou inconnu. */
+export function dossiersVers(docs, dossiers, docId) {
+  const doc = docs.find((d) => d.id === docId)
+  if (!doc) return []
+  const ids = new Set(dossiers.map((d) => d.id))
+  return chemin(dossiers, dossierDe(doc, ids)).map((d) => d.id)
+}

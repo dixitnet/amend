@@ -67,7 +67,7 @@ export function creerColonnePlan() {
   const outlineSidebar = document.createElement('div')
   outlineSidebar.className = 'outline-sidebar'
   outlineSidebar.setAttribute('role', 'navigation')
-  outlineSidebar.setAttribute('aria-label', 'Plan du document')
+  outlineSidebar.setAttribute('aria-label', 'Plan et documents')
   const outlineSection = document.createElement('div')
   outlineSection.className = 'sidebar-section outline-section'
   return { outlineSidebar, outlineSection }

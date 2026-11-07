@@ -13,7 +13,7 @@ globalThis.localStorage = dom.window.localStorage
 
 const { monterVolet, FERME } = await import('../src/interface/volets.js')
 
-function monter({ defaut = 'modifications', cle = 'essai.volet' } = {}) {
+function monter({ defaut = 'modifications', cle = 'essai.volet', etatDeDepart } = {}) {
   const colonne = document.createElement('div')
   const rangee = document.createElement('div')
   document.body.append(rangee, colonne)
@@ -29,6 +29,7 @@ function monter({ defaut = 'modifications', cle = 'essai.volet' } = {}) {
     ],
     cleMemoire: cle,
     defaut,
+    etatDeDepart,
     surChangement: (e) => changements.push(e),
   })
   const bouton = (id) => rangee.querySelector(`.volet-bouton[data-panneau="${id}"]`)
@@ -73,6 +74,16 @@ test('l’état est retenu (par appareil) et rejoué au montage suivant', () => 
   assert.equal(monter().v.etat(), 'margo')
   monter().v.fermer()
   assert.equal(monter().v.etat(), FERME, 'fermé, il le reste au rechargement')
+})
+
+test('l’état retenu peut être corrigé au montage (« Fichiers » revient au plan)', () => {
+  localStorage.clear()
+  monter().bouton('margo').click()
+  const corrige = (retenu) => (retenu === 'margo' ? 'modifications' : retenu)
+  assert.equal(monter({ etatDeDepart: corrige }).v.etat(), 'modifications')
+  assert.equal(monter({ etatDeDepart: (r) => r }).v.etat(), 'modifications', 'et la correction a été retenue')
+  monter().v.fermer()
+  assert.equal(monter({ etatDeDepart: corrige }).v.etat(), FERME, 'un volet fermé le reste')
 })
 
 test('cacher le bouton du panneau ouvert (pas de droit à Margo) ramène à un panneau disponible', () => {
