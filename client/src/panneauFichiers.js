@@ -1,5 +1,5 @@
 // Le volet « Fichiers » de l'éditeur (07/11/2026, docs/journal-decisions.md
-// § 25) : passer d'un document à l'autre sans revenir à « Mes documents ».
+// § 27) : passer d'un document à l'autre sans revenir à « Mes documents ».
 //
 // Il montre le rangement de la personne tel que l'accueil le tient (mêmes
 // routes, mêmes calculs — rangementDocs.js) : un filtre, les favoris, puis

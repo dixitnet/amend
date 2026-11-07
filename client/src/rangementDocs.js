@@ -193,7 +193,7 @@ export function dateCorbeille(entree) {
 
 /**
  * L'arbre du volet « Fichiers » de l'éditeur (07/11/2026,
- * docs/journal-decisions.md § 25). Le même rangement que la page « Mes
+ * docs/journal-decisions.md § 27). Le même rangement que la page « Mes
  * documents », vu d'un bloc : à chaque niveau les sous-dossiers (A → Z) puis
  * les documents, **par titre** — un document garde sa place quand quelqu'un
  * y écrit. Les documents dont le dossier n'existe plus, et ceux qu'on
