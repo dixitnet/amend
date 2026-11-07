@@ -28,8 +28,11 @@ Du bas vers le haut. Une couche ne dépend que des couches situées en dessous d
 | 2 | **Adaptateurs** | une façade par fondation : ce que l'application appelle de BlockNote, de y/hub, de Yjs, de Typst, de l'IA | nous, en **très peu de code** |
 | 3 | **Extensions** | ce qui se branche sur les points d'extension publics des fondations : bloc « note de bas de page », extension « typographie française », greffon d'authentification de y/hub, rendu des suggestions | nous, chacune isolée, écrite **comme si elle devait partir en amont** |
 | 4 | **Domaine** | les règles d'amend.ink, sans aucune fondation : rôles et capacités, règles éditoriales, typographie (fonctions pures), `nfc`, consignes et garde-fous de Margo, limites en signes, modèle de mise en page du livre | nous ; **JavaScript pur**, testable sans navigateur ni serveur |
-| 5 | **Application** | l'assemblage : écrans React, serveur Node (comptes, `abilities`, commentaires, exports, publication, back-office), configuration de y/hub | nous |
-| 6 | **Exploitation** | déploiement, sauvegardes, surveillance | nous ; scripts, pas de code applicatif |
+| 5 | **Application technique** | l'assemblage et la logique : état, appels au serveur, enchaînements d'écrans ; serveur Node (comptes, `abilities`, commentaires, exports, publication, back-office), configuration de y/hub | nous |
+| 6 | **Design** | l'apparence : jetons de design (couleurs, typographies, espacements, rayons, ombres), thème de BlockNote, styles, icônes, composants de présentation, mises en page d'écran | nous (ou un designer), **sans toucher à la technique** |
+| 7 | **Exploitation** | déploiement, sauvegardes, surveillance | nous ; scripts, pas de code applicatif |
+
+En parallèle des couches, **les textes de l'interface** vivent dans des catalogues de traduction (§ 3, « Traductions ») : aucune couche n'écrit de phrase destinée à une personne en dur dans son code.
 
 Le domaine (couche 4) est placé au-dessus des fondations dans le tableau, mais **il n'en dépend pas** : c'est la seule couche qui ne dépend de rien. Les adaptateurs, les extensions et l'application l'utilisent.
 
@@ -43,9 +46,11 @@ v2/
   adaptateurs/      couche 2 : un dossier par fondation (blocknote/, yhub/, yjs/, typst/, ia/)
   extensions/       couche 3 : un dossier par extension (notes/, typographie/, yhub-auth/…)
   application/
-    client/         couche 5 : React, écrans
+    client/         couche 5 : React, logique des écrans (sans style)
     serveur/        couche 5 : Node
-  exploitation/     couche 6
+  design/           couche 6 : jetons, thèmes, styles, icônes, composants de présentation
+  i18n/             catalogues de textes (fr, en…), communs au client et au serveur
+  exploitation/     couche 7
   contrats/         tests de contrat des fondations (§ 5)
   adr/              décisions d'architecture (§ 7)
 ```
@@ -64,6 +69,7 @@ v2/
 ### Un lot = une couche
 
 5. **Un lot de développement ne touche qu'une couche**, plus au besoin l'adaptateur qui la relie à une fondation. Si un besoin oblige à toucher trois couches, c'est qu'il est mal découpé ou mal placé : on le redécoupe.
+   Le design (couche 6) et la technique (couches 2 à 5) sont **toujours** dans des lots séparés (règle 20).
 6. **Ordre de préférence pour réaliser un besoin** :
    1. ne pas le faire (renoncer) ;
    2. la configuration d'une fondation ;
@@ -94,6 +100,34 @@ v2/
     - contrats (§ 5) ;
     - application : quelques parcours de bout en bout (Playwright), dont nos critères de saisie.
 15. **Les règles permanentes de `CLAUDE.md` s'appliquent** : nom « amend.ink », signes, français, propositions numérotées, pas d'alourdissement, NFC à l'export.
+
+### Design et technique : séparation stricte
+
+16. **Deux sortes de composants d'interface, jamais mélangées** :
+    - les **composants de présentation** (`v2/design/`) reçoivent des données simples et des fonctions de rappel, et rendent de l'apparence. Ils n'appellent ni le serveur, ni Yjs, ni BlockNote, ni le domaine ; ils ne connaissent pas les règles ;
+    - les **composants techniques** (`v2/application/client/`) tiennent l'état, appellent le serveur et les adaptateurs, appliquent les règles, et **délèguent tout l'affichage** aux composants de présentation.
+17. **Aucun style dans le code technique** : pas de couleur, de taille, de marge ni de police en dur, pas d'attribut `style`, pas de feuille de style hors de `v2/design/`. Le code technique ne pose que des **noms de rôle** (« bouton principal », « carte de suggestion », « auteur 3 ») ; le design décide de leur apparence.
+18. **Tout passe par des jetons de design** (variables CSS : couleurs, typographies, espacements, rayons, ombres, durées d'animation). Le thème de BlockNote et celui de sa bibliothèque d'interface sont **dérivés de nos jetons**, jamais l'inverse. Le mode sombre, et un éventuel thème d'instance (comme la personnalisation à l'exécution de Docs), ne sont qu'un autre jeu de valeurs.
+19. **Les extensions** (couche 3) qui dessinent quelque chose, par exemple l'appel de note, posent des classes et des attributs de rôle ; leur apparence est définie dans `v2/design/`.
+20. **Un lot de design ne touche que `v2/design/`** (et des catalogues de textes au besoin), **un lot technique ne touche pas à `v2/design/`**. Changer l'apparence d'amend.ink ne doit demander aucune modification de la logique, et inversement. C'est vérifié par le lint (frontières entre dossiers, interdiction de `style` et de valeurs de couleur ou de taille dans le code technique).
+21. **Les rendus imprimés** (PDF Typst, Word, page publiée) ont aussi leur couche de design : les modèles de mise en page et les profils sont séparés du code qui parcourt le document.
+22. **Accessibilité** : elle relève des deux couches. La présentation garantit contrastes, tailles et focus visibles ; la technique garantit sémantique, rôles ARIA et navigation au clavier.
+
+### Traductions : anticipées dès le premier écran
+
+23. **Aucun texte destiné à une personne en dur dans le code**, à aucune couche : interface, messages d'erreur, courriers, notifications, textes d'aide, exports (« Table des matières », « Notes »), back-office. Tout passe par une **clé** dans un catalogue de `v2/i18n/`. Vérifié par le lint (interdiction des chaînes littérales dans le rendu).
+24. **Le français est la langue source.** L'anglais est la première langue cible, préparée dès l'étape 6, même si elle n'est publiée que plus tard. Le nom « amend.ink » ne se traduit jamais.
+25. **Le domaine et le serveur rendent des codes, pas des phrases** (`{ code: 'limite-ia-atteinte', signes: 120000 }`). La couche d'interface, ou le module de courrier, choisit la phrase dans la langue de la personne.
+26. **Pas de phrase assemblée par morceaux.** Les messages ont des paramètres nommés et gèrent le pluriel (format de messages ICU ou équivalent). Les dates, les nombres et les durées passent par `Intl`, dans la langue de la personne.
+27. **Les unités restent les signes, espaces compris** (règle 5 de `CLAUDE.md`), traduits par exemple en « characters (including spaces) » en anglais, jamais en mots ni en pages.
+28. **Deux langues à ne pas confondre** :
+    - la **langue de l'interface** (préférence de la personne, puis navigateur, puis français) ;
+    - la **langue du document** (propriété du document, choisie par ses éditeurs). Elle règle la typographie (règles françaises seulement pour un document en français), la langue déclarée dans les exports (`lang` de Typst, Word) et les consignes de Margo.
+
+    Un auteur anglophone peut relire un livre français, et inversement.
+29. **Les fondations ont leurs propres traductions** (BlockNote fournit le français) : on les branche dans l'adaptateur, et on les complète par nos catalogues plutôt que de les modifier.
+30. **Les consignes de l'IA** (Margo) sont des textes : elles vivent dans des catalogues versionnés, par langue de document, et non dans le code.
+31. **Contrôle** : un test vérifie que toutes les clés existent dans chaque langue préparée, et un affichage en pseudo-langue (textes allongés, accents) révèle les chaînes oubliées et les mises en page qui cassent.
 
 ## 4. Profiter des progrès des fondations
 
@@ -159,7 +193,9 @@ Entre deux étapes, chaque lot suit les contrôles ordinaires : `format:check`, 
 6. **Tests** : ce qui change est-il couvert ? un contrat manque-t-il ?
 7. **Exports propres** : NFC, pas de remplacement parasite, typographie française.
 8. **Licences** : une dépendance nouvelle, et sa licence.
-9. **Documentation** : ADR, renoncements, veille à jour ?
+9. **Design et technique** : du style, une couleur ou une taille dans le code technique ? un composant de présentation qui appelle le serveur ou applique une règle ? une valeur hors des jetons de design ?
+10. **Traductions** : une phrase en dur, assemblée par morceaux, sans pluriel ? une date ou un nombre formaté à la main ? la langue de l'interface confondue avec celle du document ?
+11. **Documentation** : ADR, renoncements, veille à jour ?
 
 ### Le déroulement
 
@@ -190,7 +226,9 @@ Premières fiches attendues :
 4. y/hub, Valkey et PostgreSQL ;
 5. authentification ;
 6. licence ;
-7. relecteur IA.
+7. relecteur IA ;
+8. système de design (jetons, thème de BlockNote dérivé, bibliothèque de composants de présentation) ;
+9. traductions (bibliothèque de messages, format des catalogues, outil de traduction : simple fichier ou plateforme comme Crowdin, qu'utilise Docs).
 
 ## 8. L'ordre de reconstruction
 
@@ -198,20 +236,20 @@ Chaque étape s'ouvre et se ferme par une revue d'architecture (§ 6). Elle a un
 
 | Étape | Couches | Contenu | Sortie | Renoncements à examiner |
 |---|---|---|---|---|
-| 1. Squelette | 0, 1, 6 | BlockNote (exemple minimal) + y/hub (un processus, Valkey, PostgreSQL) + un serveur Node vide, sur une machine de la taille visée | deux navigateurs éditent le même document ; mémoire mesurée | la petite machine actuelle |
+| 1. Squelette | 0, 1, 7, et l'ossature de 6 et de `i18n/` | BlockNote (exemple minimal) + y/hub (un processus, Valkey, PostgreSQL) + un serveur Node vide ; jetons de design minimaux et thème BlockNote dérivé ; catalogue français et mécanisme de traduction en place, lint des frontières, des styles et des chaînes actif dès le premier fichier | deux navigateurs éditent le même document ; mémoire mesurée ; aucun texte ni style en dur | la petite machine actuelle |
 | 2. Domaine | 4 | rôles et capacités, typographie, `nfc`, limites en signes, repris de la v1 en JS pur | tests unitaires verts ; aucune dépendance | les règles de la v1 devenues inutiles (marques de suivi, groupes, orphelins datés) |
 | 3. Droits et collaboration | 2, 3 | adaptateur y/hub, greffon d'authentification, `abilities` ; tableau lecteur / correcteur / éditeur, historique depuis la date d'accès | contrats y/hub verts | « le lecteur écrit ses commentaires dans le document » |
 | 4. Éditeur | 2, 3 | adaptateur BlockNote ; extensions note de bas de page et typographie | contrats BlockNote verts | table des matières dans le texte, styles de paragraphe, colonnes à l'écran |
 | 5. Relecture | 3, 5 | mode suggestion, commentaires par API, historique | campagne de saisie rejouée | règle D2, couleurs stockées, cartes appariées |
-| 6. Application | 5 | comptes, documents, partage, écran d'édition | parcours de bout en bout | lien magique ou OIDC, dossiers, arborescence de chapitres |
+| 6. Application | 5, puis 6 | comptes, documents, partage, écran d'édition (logique), puis leur design en lots séparés ; catalogue anglais préparé | parcours de bout en bout ; pseudo-langue sans chaîne oubliée | dossiers, arborescence de chapitres |
 | 7. Exports | 2, 4, 5 | Typst de livre et Word, à partir du JSON de BlockNote | export d'un livre de référence identique à l'attendu | profils CSS, colonnes, Word |
 | 8. IA | 2, 4, 5 | Margo comme auteur attribué dans les suggestions ; MCP | banc Margo rejoué | multi-fournisseurs, IA dans l'éditeur (BlockNote AI) |
-| 9. Publication et back-office | 5 | page publiée, journaux, administration | — | page publiée, back-office complet |
+| 9. Publication et back-office | 5, 6 | page publiée, journaux, administration | — | page publiée, back-office complet |
 
 ## 9. Ce qui change dans `CLAUDE.md`
 
-Quand ces règles seront validées :
-- une section « v2 » qui y renvoie, avec les règles 1 à 6 en résumé ;
+Fait le 07/11/2026, complété le même jour (design, traductions) :
+- une section « v2 » qui y renvoie, avec les règles essentielles en résumé (couches, séparation design / technique, traductions) ;
 - l'emplacement du code v2 ;
 - les commandes de contrôle de la v2 et la procédure de revue par l'autre IA.
 
