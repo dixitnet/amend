@@ -13,6 +13,8 @@ const CONF = {
   secret: process.env.V2_SECRET || randomBytes(32).toString('hex'),
   jetonInterne: process.env.V2_JETON_INTERNE || '',
   dev: process.env.V2_DEV === '1',
+  // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
+  cookieSecure: process.env.V2_COOKIE_SECURE === '1',
   collaboration: process.env.V2_COLLAB_URL || 'ws://127.0.0.1:4400/collaboration/ws/v1/amend',
   statique: process.env.V2_STATIQUE || join(import.meta.dirname, '../../dist'),
 }
@@ -62,7 +64,14 @@ const routes = {
     if (!propre) return json(res, 400, { code: 'nom-absent' })
     const id = `dev-${Buffer.from(propre.toLowerCase()).toString('base64url')}`
     const jeton = creerJeton(CONF.secret, { id, nom: propre })
-    json(res, 200, { id, nom: propre }, { 'set-cookie': `${NOM_COOKIE}=${jeton}; Path=/; HttpOnly; SameSite=Lax` })
+    json(
+      res,
+      200,
+      { id, nom: propre },
+      {
+        'set-cookie': `${NOM_COOKIE}=${jeton}; Path=/; HttpOnly; SameSite=Lax${CONF.cookieSecure ? '; Secure' : ''}`,
+      },
+    )
   },
   // Pour le processus de collaboration seulement (jeton interne).
   'GET /api/interne/droits': (req, res, url) => {

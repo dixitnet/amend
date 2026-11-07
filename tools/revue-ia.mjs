@@ -27,6 +27,8 @@ const arg = (nom, defaut = null) => process.argv.find((a) => a.startsWith(`--${n
 const ETAPE = arg('etape')
 const PHASE = arg('phase')
 const DEPUIS = arg('depuis')
+const PLAN = arg('plan') // un autre document que docs/v2-etape-N-plan.md (mise en ligne…)
+const SUJET = arg('sujet', 'architecture et code') // ce que le relecteur doit regarder
 const MODELE = arg('modele', 'mistral-large-latest')
 const ESSAI = process.argv.includes('--essai')
 const PLAFOND_SIGNES = 400_000
@@ -64,7 +66,7 @@ const pieces = []
 const ajouter = (titre, texte) => pieces.push({ titre, texte })
 for (const f of ['docs/v2-regles-developpement.md', 'docs/v2-renoncements.md', 'docs/v2-veille.md']) ajouter(f, lire(f))
 for (const f of suivis('v2/adr/*.md')) ajouter(f, lire(f))
-const plan = `docs/v2-etape-${ETAPE}-plan.md`
+const plan = PLAN || `docs/v2-etape-${ETAPE}-plan.md`
 if (!existsSync(join(RACINE, plan))) throw new Error(`plan absent : ${plan}`)
 ajouter(plan, lire(plan))
 const arbo = suivis('v2/').filter((f) => !f.startsWith('v2/adr/'))
@@ -81,7 +83,7 @@ for (const p of pieces)
   if (SECRET.test(p.texte)) throw new Error(`motif de secret repéré dans « ${p.titre} » : revue annulée`)
 
 // 2. La consigne : la grille du § 6 des règles.
-const consigne = `Tu es relecteur d'architecture et de code pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2). Un autre modèle (Claude) écrit le code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
+const consigne = `Tu es relecteur (${SUJET}) pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2). Un autre modèle (Claude) écrit le code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
 
 Phase : ${PHASE === 'ouverture' ? `OUVERTURE de l'étape ${ETAPE} — tu relis le PLAN avant tout développement` : `CLÔTURE de l'étape ${ETAPE} — tu relis l'architecture ET le code produit (diff fourni)`}.
 
