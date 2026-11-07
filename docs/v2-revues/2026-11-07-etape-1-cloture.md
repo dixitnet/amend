@@ -3,7 +3,7 @@
 - Relecteur : Mistral, modèle `mistral-large-latest` ; consommation : 39381 jetons en entrée, 743 en sortie
 - Pièces : `docs/v2-regles-developpement.md`, `docs/v2-renoncements.md`, `docs/v2-veille.md`, `v2/adr/0001-architecture-docs-allege.md`, `v2/adr/0002-couches.md`, `v2/adr/0003-blocknote.md`, `v2/adr/0004-yhub.md`, `v2/adr/0005-connexion.md`, `v2/adr/0006-licence.md`, `v2/adr/0007-relecteur-ia.md`, `v2/adr/0008-design.md`, `v2/adr/0009-traductions.md`, `docs/v2-etape-1-plan.md`, `Arborescence de v2/ (fichiers suivis)`, `v2/package.json`, `Diff de v2/ depuis 4421e21`
 - Commit relu : `6c41087` (depuis `4421e21`)
-- Statut : avis reçu ; réponse de Claude écrite ; arbitrage de Sylvain à venir.
+- Statut : avis reçu ; réponse de Claude écrite ; arbitré par Sylvain le 07/11/2026.
 
 ## Avis du relecteur
 
@@ -41,4 +41,4 @@ Contrôles après corrections : `npm run lint`, `npm run format:check`, `npm tes
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+07/11/2026 : réponses validées (R3, R4, R6 corrigés ; R1, R2, R5 contestés) ; étape 1 close ; fusion dans `main` acceptée. Défaut de police de BlockNote : pas de signalement en amont pour l'instant (à réexaminer à la prochaine montée de version).

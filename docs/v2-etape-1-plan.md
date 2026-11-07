@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 1, « Squelette »
 
-Statut : **en cours** depuis le 07/11/2026 (revue d'ouverture : `docs/v2-revues/2026-11-07-etape-1-ouverture.md`, arbitrée par Sylvain).
+Statut : **close** le 07/11/2026 (revue de clôture arbitrée par Sylvain : `docs/v2-revues/2026-11-07-etape-1-cloture.md`) ; ouverte le même jour (revue d'ouverture : `docs/v2-revues/2026-11-07-etape-1-ouverture.md`, arbitrée par Sylvain).
 
 Références : `docs/v2-regles-developpement.md` (règles), `v2/adr/` (décisions), § 8 des règles (ordre de reconstruction).
 
@@ -86,7 +86,7 @@ Comptes réels et lien magique (étape 6), droits et rôles (étape 3), mode sug
 2. **Atteint.** Le lint refuse un import de fondation hors de son adaptateur, un mélange de couches, un attribut `style` ou une feuille de style dans le code technique, un texte en dur dans un rendu (`tests/unitaires/frontieres.test.js`). Ce test a révélé que les fichiers `.jsx` échappaient au lint (ESLint ne les lit que si on les déclare) et qu'un motif `yjs` prenait le dossier `adaptateurs/yjs/` pour le paquet : corrigés.
 3. **Atteint.** Aucun texte ni style en dur dans le code produit ; catalogues `fr` et `en` complets, sans texte d'attente ; l'interface suit la langue du navigateur.
 4. **Atteint.** Mémoire mesurée (ci-dessous).
-5. **Revue de clôture reçue et traitée** (`docs/v2-revues/2026-11-07-etape-1-cloture.md` : 3 constats corrigés, 3 contestés, dont une erreur de fait sur la licence de uWebSockets.js) ; accord de Sylvain à venir.
+5. **Revue de clôture reçue et traitée** (`docs/v2-revues/2026-11-07-etape-1-cloture.md` : 3 constats corrigés, 3 contestés, dont une erreur de fait sur la licence de uWebSockets.js) ; accord de Sylvain donné le 07/11/2026.
 
 ### Mémoire (PSS, Mo ; environnement en nuage de Claude, PostgreSQL 16 et Redis 7.0 avec leurs réglages par défaut)
 
