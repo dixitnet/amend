@@ -37,8 +37,16 @@ export async function routesDocuments(req, res, url, ctx) {
         error: `limite de ${documentsMaxParCompte()} documents par compte atteinte — supprimez-en pour en créer d’autres`,
       })
     }
+    // Créer directement dans un dossier (volet « Fichiers », 07/11/2026) : le
+    // dossier est vérifié **avant** la création, pour qu'un dossier disparu
+    // entre-temps ne laisse pas un document créé mais mal rangé.
+    const dossier = typeof body.dossier === 'string' && body.dossier ? body.dossier : null
+    if (dossier && !rangements.lire(email).dossiers.some((d) => d.id === dossier)) {
+      return sendJson(res, 404, { error: 'dossier introuvable' })
+    }
     const doc = storage.createDoc(typeof body.title === 'string' ? body.title.slice(0, 200) : '', email)
-    return sendJson(res, 201, doc)
+    if (dossier) rangements.placerDocument(email, doc.id, dossier)
+    return sendJson(res, 201, dossier ? { ...doc, dossier } : doc)
   }
 
   const docMatch = pathname.match(/^\/api\/docs\/([A-Za-z0-9_-]+)$/)

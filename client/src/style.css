@@ -3683,9 +3683,10 @@ tr.bo-traite { opacity: 0.6; }
 .rangee-boutons .volet-extra { display: none; }
 .rangee-boutons.ouvert { justify-content: flex-start; padding: 0 6px 0 8px; }
 .rangee-boutons.ouvert { overflow: hidden; container: segment / inline-size; }
-/* Segment du plan à sa largeur minimale : « Fichiers » (grisé) ne garde que son icône. */
+/* Volet gauche à sa largeur minimale : Plan et Fichiers ne gardent que leur
+   icône (le nom reste en bulle), plutôt que « Pl… » et « Fichi… ». */
 @container segment (max-width: 229px) {
-  .volet-bouton.volet-extra:disabled .volet-libelle { display: none; }
+  .rangee-boutons.ouvert .volet-bouton .volet-libelle { display: none; }
 }
 .rangee-boutons.ouvert .volet-bouton {
   width: auto;
@@ -3768,6 +3769,9 @@ tr.bo-traite { opacity: 0.6; }
    affiché même si le volet est fermé sur ordinateur — la feuille a sa croix. */
 .outline-dans-feuille.volet-ferme { display: block; }
 .outline-dans-feuille .volet-panneau[hidden] { display: flex; }
+/* La feuille du téléphone et de la tablette ne montre que le plan. */
+.outline-dans-feuille .volet-panneau[data-panneau='fichiers'],
+.outline-dans-feuille .volet-panneau[data-panneau='fichiers'][hidden] { display: none; }
 .outline-dans-feuille[data-mode] { position: static; }
 
 /* Margo dans son onglet : la palette ne flotte plus, elle remplit le volet. */
@@ -4526,3 +4530,114 @@ body {
 .lien-evitement:focus-visible {
   transform: none;
 }
+
+/* ==========================================================================
+   Le volet « Fichiers » de l'éditeur (07/11/2026, panneauFichiers.js) : le
+   rangement de « Mes documents » dans le volet gauche, à côté du plan.
+   ========================================================================== */
+.fichiers-section { padding: 10px 8px; gap: 6px; border-bottom: none; }
+.fichiers-tete { display: flex; align-items: center; gap: 4px; }
+.fichiers-filtre-champ {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+}
+.fichiers-filtre-champ:focus-within { border-color: var(--accent); }
+.fichiers-filtre {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+}
+.fichiers-nouveau {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.fichiers-nouveau:hover,
+.fichiers-nouveau:focus-visible { background: var(--panel-bg); color: var(--fg); }
+.fichiers-message { margin: 4px 2px; font-size: 12.5px; color: var(--danger, #b3261e); }
+.fichiers-section .fichiers-section {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 6px 2px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.fichiers-liste { list-style: none; margin: 0; padding: 0; }
+.fichiers-arbre { margin-top: 6px; }
+.fichiers-sous-liste { padding-left: 14px; }
+.fichiers-ligne { display: flex; align-items: center; min-width: 0; }
+.fichiers-resultats .fichiers-ligne { flex-direction: column; align-items: stretch; }
+.fichiers-doc,
+.fichiers-dossier {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.fichiers-doc { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Dans l'arbre, un document s'aligne sur l'icône des dossiers voisins. */
+.fichiers-arbre .fichiers-doc { padding-left: 25px; }
+.fichiers-doc:hover,
+.fichiers-dossier:hover { background: var(--panel-bg); }
+.fichiers-doc.courant {
+  cursor: default;
+  font-weight: 500;
+  background: var(--surlignage);
+}
+.fichiers-dossier svg { flex: none; color: var(--muted); }
+.fichiers-dossier-nom { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fichiers-emplacement {
+  padding: 0 6px 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Le « + » d'un dossier n'apparaît qu'au survol (ou au clavier) ; toujours
+   là, discret, sur écran tactile, où il n'y a pas de survol. */
+.fichiers-ligne-dossier .fichiers-nouveau { opacity: 0; }
+.fichiers-ligne-dossier:hover .fichiers-nouveau,
+.fichiers-ligne-dossier .fichiers-nouveau:focus-visible { opacity: 1; }
+@media (hover: none) {
+  .fichiers-ligne-dossier .fichiers-nouveau { opacity: 0.55; }
+}
+.fichiers-vide { margin: 6px; font-size: 12.5px; color: var(--muted); list-style: none; }

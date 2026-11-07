@@ -120,6 +120,22 @@ test('quitter un document efface son rangement chez soi, sans toucher aux autres
   assert.equal((await liste(ALICE))[0].dossier !== undefined, true)
 })
 
+test('créer un document directement dans un dossier (volet « Fichiers »)', async () => {
+  const d = (await api('/api/rangement/dossiers', ALICE, { methode: 'POST', corps: { nom: 'Brouillons' } })).json
+    .dossier.id
+  const c = await api('/api/docs', ALICE, { methode: 'POST', corps: { title: '', dossier: d } })
+  assert.equal(c.status, 201)
+  assert.equal(c.json.dossier, d)
+  assert.equal((await liste(ALICE)).find((x) => x.id === c.json.id).dossier, d)
+  const avant = (await liste(BOB)).length
+  const refus = await api('/api/docs', BOB, { methode: 'POST', corps: { title: '', dossier: d } })
+  assert.equal(refus.status, 404, 'le dossier d’Alice n’existe pas pour Bob')
+  assert.equal((await liste(BOB)).length, avant, 'et aucun document n’a été créé')
+  const racine = await api('/api/docs', ALICE, { methode: 'POST', corps: { title: 'Racine', dossier: null } })
+  assert.equal(racine.status, 201)
+  assert.equal((await liste(ALICE)).find((x) => x.id === racine.json.id).dossier, null)
+})
+
 test('non connecté : 401', async () => {
   assert.equal((await inst.api('/api/rangement')).status, 401)
 })

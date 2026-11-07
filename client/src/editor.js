@@ -32,6 +32,7 @@ import { calculerDisposition, decalageBarre } from './interface/disposition.js'
 import { commentsPlugin, mountCommentsPanel, commentaireAuPoint, commentairesAncres } from './comments.js'
 import { mountCommentsGutter, mountGutterComposer } from './commentsGutter.js'
 import { mountOutlinePanel } from './outline.js'
+import { monterPanneauFichiers, suiteFichiers, titreASaisir } from './panneauFichiers.js'
 import { mountWordCount } from './wordcount.js'
 import { mountCompteursRelecture } from './compteursRelecture.js'
 import { markdownShortcutsPlugin } from './markdownShortcuts.js'
@@ -421,6 +422,34 @@ export function mountEditor(root, docId, user, docMeta) {
 
   const { outlineSidebar, outlineSection } = creerColonnePlan()
 
+  // Quitter ce document en perdant des modifications (07/11/2026) : tant que
+  // la connexion est coupée, ce qu'on a tapé n'existe que dans cet onglet, et
+  // changer de document démonte l'éditeur. On demande avant — depuis le volet
+  // « Fichiers » comme depuis le lien « Mes documents » du bandeau.
+  const peutQuitter = () =>
+    !provider.hasPendingLocalChanges ||
+    window.confirm('Des modifications ne sont pas encore enregistrées (connexion coupée). Quitter quand même ?')
+  const gardeLiens = (e) => {
+    const lien = e.target instanceof Element ? e.target.closest('a[href^="#/"]') : null
+    if (!lien || e.defaultPrevented) return
+    if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    if (!peutQuitter()) e.preventDefault()
+  }
+  shell.addEventListener('click', gardeLiens, true)
+  ecouteursGlobaux.push(() => shell.removeEventListener('click', gardeLiens, true))
+
+  // Le volet « Fichiers » (07/11/2026, panneauFichiers.js) : le second onglet
+  // du volet gauche. Il ne charge rien tant qu'on ne le montre pas.
+  const panneauFichiers = document.createElement('div')
+  panneauFichiers.className = 'sidebar-section fichiers-section'
+  const fichiers = monterPanneauFichiers(panneauFichiers, { docId, peutQuitter })
+  const majTitreFichiers = () => fichiers.majTitre(titleInput.value)
+  titleInput.addEventListener('input', majTitreFichiers)
+  titleInput.addEventListener('change', majTitreFichiers)
+  // « Plan » par défaut ; « Fichiers » seulement si l'on vient d'y choisir ce
+  // document (le mot laissé par le panneau, lu et effacé une fois).
+  const venuDesFichiers = suiteFichiers()
+
   // La rangée fixe sous le bandeau (lot L1, 21/10/2026, revu le jour même) :
   // au bord gauche le bouton du plan, un trait, la barre d'édition — alignée
   // sur le bord gauche du texte —, un trait, et au bord droit les boutons
@@ -466,13 +495,18 @@ export function mountEditor(root, docId, user, docMeta) {
   const voletGauche = monterVolet({
     colonne: outlineSidebar,
     hoteBoutons: boutonsGauche,
-    panneaux: [{ id: 'plan', libelle: 'Plan du document', court: 'Plan', icone: 'plan', panneau: outlineSection }],
+    panneaux: [
+      { id: 'plan', libelle: 'Plan du document', court: 'Plan', icone: 'plan', panneau: outlineSection },
+      { id: 'fichiers', libelle: 'Mes documents', court: 'Fichiers', icone: 'dossier', panneau: panneauFichiers },
+    ],
     cleMemoire: 'amend.volet.gauche',
     defaut: 'plan',
     fermerAuDepart: () => tiroirMedia.matches,
     memoriser: () => !tiroirMedia.matches,
+    etatDeDepart: (retenu) => (retenu === 'fichiers' && !venuDesFichiers ? 'plan' : retenu),
     surChangement: (etat) => {
       if (etat !== 'ferme' && tiroirMedia.matches) fermerLeDroit()
+      if (etat === 'fichiers') fichiers.afficher()
       disposer()
     },
   })
@@ -523,8 +557,8 @@ export function mountEditor(root, docId, user, docMeta) {
   fermerLeDroit = () => voletDroit.fermer()
 
   // Volets ouverts (vue V1) : au-dessus de chaque volet, ses onglets, puis le
-  // bouton qui le replie ; « Fichiers » est annoncé, pas encore actif. Ces
-  // éléments n'existent que volet ouvert (style.css, `.ouvert`).
+  // bouton qui le replie. Ces éléments n'existent que volet ouvert (style.css,
+  // `.ouvert`).
   const extra = (el) => {
     el.classList.add('volet-extra')
     return el
@@ -544,16 +578,9 @@ export function mountEditor(root, docId, user, docMeta) {
     b.addEventListener('click', action)
     return extra(b)
   }
-  const fichiers = document.createElement('button')
-  fichiers.type = 'button'
-  fichiers.className = 'volet-bouton'
-  fichiers.disabled = true
-  fichiers.title = 'Fichiers — bientôt'
-  fichiers.innerHTML = `${svgIcone('dossier', 18)}<span class="volet-libelle">Fichiers</span>`
   boutonsGauche.append(
-    extra(fichiers),
     espace(),
-    boutonReplier('gauche', 'Replier le plan', () => voletGauche.fermer())
+    boutonReplier('gauche', 'Replier le volet', () => voletGauche.fermer())
   )
   boutonsDroite.append(
     espace(),
@@ -1189,6 +1216,12 @@ export function mountEditor(root, docId, user, docMeta) {
     placerLeSuivi()
   }
   ajusterTelephone()
+  // Un document qu'on vient de créer depuis le volet « Fichiers » : on le
+  // nomme d'abord (« Sans titre » sélectionné, remplacé à la première lettre).
+  if (titreASaisir(docId)) {
+    titleInput.focus()
+    titleInput.select()
+  }
   if (petitEcranMedia.addEventListener) {
     petitEcranMedia.addEventListener('change', ajusterTelephone)
     ecouteursGlobaux.push(() => petitEcranMedia.removeEventListener('change', ajusterTelephone))
