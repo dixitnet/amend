@@ -1,6 +1,6 @@
 # amend.ink v2 : mise en ligne d'essai (v2.amend.ink)
 
-Statut : **projet**, soumis à la revue de Mistral (sécurité et exploitation) puis à l'accord de Sylvain (07/11/2026).
+Statut : **prêt**, revue de Mistral traitée (`docs/v2-revues/2026-11-07-etape-1-mise-en-ligne-cloture.md`) ; en attente de l’accord de Sylvain (07/11/2026).
 
 ## But
 
@@ -43,7 +43,8 @@ Prérequis : l'étape 1 et ce lot sont dans `main` (accord de Sylvain).
 4. **VPS (SSH)** : `bash /opt/amend/app/v2/exploitation/prod/deployer.sh` (à chaque mise à jour de la v2).
 5. **VPS (SSH)** : `caddy hash-password`, puis ajouter le bloc `v2/exploitation/prod/Caddyfile.v2` à `/etc/caddy/Caddyfile` avec l'empreinte, `sudo caddy validate --config /etc/caddy/Caddyfile`, `sudo systemctl reload caddy`.
 6. Essai : `https://v2.amend.ink/#essai`, mot de passe, puis un nom.
-7. **VPS (SSH)** : `bash /opt/amend/app/v2/exploitation/prod/mesurer.sh` après une séance d'essai (mémoire actuelle et **pointe** de chaque service).
+7. **Contrôle extérieur** (Claude, depuis son environnement) : `v2.amend.ink` refuse sans mot de passe, et le port 4400 du VPS ne répond pas depuis Internet.
+8. **VPS (SSH)** : `bash /opt/amend/app/v2/exploitation/prod/mesurer.sh` après une séance d'essai (mémoire actuelle et **pointe** de chaque service).
 
 Retour arrière : `sudo systemctl disable --now amend-v2 amend-v2-collab`, retirer le bloc Caddy et recharger. La v1 n'est pas touchée.
 
