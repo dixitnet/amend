@@ -206,6 +206,15 @@ Entre deux étapes, chaque lot suit les contrôles ordinaires : `format:check`, 
 5. **Sylvain arbitre** les désaccords, puis donne (ou non) son accord pour clore l'étape, et de fusion comme aujourd'hui (règle 7 de `CLAUDE.md`).
 6. Les revues sont commitées : elles forment l'historique des raisons.
 
+### Mistral et les tests
+
+Ce qui est utile, au-delà des revues d'architecture et de code :
+
+1. **Revue de sécurité et d'exploitation** de toute mise en ligne (configuration de Caddy, services, ports, secrets, bases) : c'est là qu'une erreur coûte le plus.
+2. **Conception de scénarios adverses à l'ouverture d'une étape**, surtout pour les droits (étape 3) et la relecture (étape 5) : Mistral propose des cas d'attaque ou de bord à partir des règles et du plan ; Claude les écrit en contrats, et ce qui est retenu entre dans le critère de sortie.
+3. **Lecture du rapport de tests à la clôture** (mesures, échecs, journaux), déjà comprise dans la revue de clôture.
+4. **Pas maintenant** : Mistral en « utilisateur simulé » qui pilote le navigateur. Coûteux et peu fiable à ce stade ; à réexaminer à l'étape 6, quand les parcours complets existeront.
+
 ### Le relecteur : Mistral
 
 Un modèle d'une autre famille que Claude, européen, cohérent avec nos choix de données (`docs/journal-decisions.md` § 24). Modèle de code de Mistral (Devstral ou Codestral, le plus adapté au moment de l'étape), appelé avec une **clé dédiée**, distincte de celle de la production. La revue est lancée par Claude depuis l'environnement en nuage : il faudra y autoriser l'hôte de l'API de Mistral et y enregistrer cette clé (par le formulaire sécurisé, jamais dans la conversation). Sylvain peut aussi lancer le script depuis le Mac.
