@@ -58,3 +58,4 @@ But : savoir quand `@y/prosemirror` 2 (mode suggestion natif, Yjs 14) devient ut
 | Date | Versions | Critères 1–5 | Non-régression | Suite |
 |---|---|---|---|---|
 | 02/11/2026 | `@y/prosemirror` 2.0.0-15, `@y/y` 14.0.0-rc.29 | ✗ ✗ ✗ ✗ ✗ | ✓ | pas encore ; prochain passage début décembre 2026 |
+| 07/11/2026 | inchangées : `@y/prosemirror` 2.0.0-15 (11/10), `@y/y` 14.0.0-rc.29 (15/10), `lib0` 1.0.0-rc.36, `@y/protocols` 1.0.6-rc.1 ; aucune stable (« latest » : 2.0.0-0 et 14.0.0-rc.7) ; y-prosemirror 1.x toujours 1.3.7 (correctif local toujours valable) | non rejoués (mêmes versions qu'au 02/11) | — | rien de nouveau : un seul commit sur `yjs/y-prosemirror` depuis le 11/10 (CI, 04/11), aucun sur le code de `yjs/yjs` depuis le 15/10. Le journal des changements garde, non publiée, l'entrée « Implied format attribution is no longer rendered » (attribution de mise en forme fondue dans l'insertion suivie) : à suivre pour l'écart 10. Prochain passage début décembre 2026 |
