@@ -229,7 +229,7 @@ test('l’éditeur se monte sur un document, sans rien jeter', async () => {
   )
   const boutons = (cote) =>
     [...rangee.querySelectorAll(`.${cote} .volet-bouton[data-panneau]`)].map((b) => b.dataset.panneau)
-  assert.deepEqual(boutons('rangee-gauche'), ['plan'])
+  assert.deepEqual(boutons('rangee-gauche'), ['plan', 'fichiers'], 'le plan, puis « Fichiers » (07/11/2026)')
   assert.deepEqual(boutons('rangee-droite'), ['modifications', 'margo'])
   assert.equal(
     racine.querySelectorAll('.sidebar .volet-bouton, .outline-sidebar .volet-bouton').length,
