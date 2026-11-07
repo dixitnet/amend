@@ -10,6 +10,7 @@ Le cœur de la v1 (suivi des modifications par réécriture des transactions, sy
 ## Décision
 
 Reconstruire amend.ink en reprenant l'architecture de Docs, allégée :
+
 - **éditeur** : BlockNote, avec son mode suggestion, ses commentaires et son historique ;
 - **collaboration** : y/hub, qui tient le contenu des documents ;
 - **notre serveur Node** : comptes, droits (il répond à y/hub « qui a le droit de quoi »), IA, exports, publication, back-office.

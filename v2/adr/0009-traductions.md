@@ -1,12 +1,12 @@
 # ADR 0009 — Traductions
 
-- Statut : proposée (ouverture de l'étape 1)
+- Statut : acceptée (Sylvain, 07/11/2026, à l'ouverture de l'étape 1)
 
 ## Contexte
 
 Règles 23 à 31 : aucun texte en dur, catalogues dans `v2/i18n/`, français source, anglais préparé, pluriels et paramètres nommés, langue de l'interface distincte de celle du document.
 
-## Décision proposée
+## Décision
 
 - Format ICU, par `intl-messageformat` (FormatJS) : standard, sans dépendance à React, utilisable au client comme au serveur.
 - Catalogues JSON par langue (`v2/i18n/fr.json`, `en.json`), clés hiérarchiques ; un module `v2/i18n/` minimal (choix de la langue, formatage, repli sur le français).

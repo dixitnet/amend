@@ -1,0 +1,18 @@
+{
+  "application": {
+    "nom": "amend.ink",
+    "chargement": "Loading…",
+    "erreur": "An error occurred: {code}."
+  },
+  "connexion": {
+    "titre": "Development sign-in",
+    "explication": "Development version: pick a name, no email or password needed.",
+    "nom": "Your name",
+    "bouton": "Enter"
+  },
+  "document": {
+    "titre": "Document {id}",
+    "participants": "{n, plural, =0 {Nobody else} one {# other person} other {# other people}} on this document",
+    "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}"
+  }
+}

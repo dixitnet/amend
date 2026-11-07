@@ -1,12 +1,12 @@
 # ADR 0008 — Système de design
 
-- Statut : proposée (ouverture de l'étape 1)
+- Statut : acceptée (Sylvain, 07/11/2026, à l'ouverture de l'étape 1)
 
 ## Contexte
 
 Règles 16 à 22 : séparation stricte du design et de la technique, tout par jetons de design, thème de BlockNote dérivé de nos jetons.
 
-## Décision proposée
+## Décision
 
 - Jetons en variables CSS dans `v2/design/jetons.css` (couleurs, typographies, espacements, rayons, ombres, durées), avec un jeu clair et un jeu sombre.
 - Thème de BlockNote construit à partir de ces jetons dans `v2/design/` (BlockNote expose ses couleurs et polices en variables CSS et par un objet de thème).

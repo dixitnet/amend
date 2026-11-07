@@ -76,6 +76,7 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 - Code dans `v2/` (ce dépôt), sous AGPL-3.0. La v1 et la v2 ne s'importent pas l'une l'autre.
 - Relecture par une autre IA (Mistral, clé dédiée) **aux étapes** de la reconstruction (ouverture et clôture), pas à chaque lot ; réponses point par point dans `docs/v2-revues/`, Sylvain arbitre.
 - Connexion par lien magique (pas d'OIDC). Développement et essais dans l'environnement en nuage de Claude (Valkey, PostgreSQL) ; pas de préproduction sur le Mac.
+- Commandes de la v2 (dans `v2/`, Node 24 : `export PATH=/opt/node24/bin:$PATH`) : `npm run lint`, `npm run format:check`, `npm test` avant tout commit qui touche `v2/` ; `npm run test:pile` (pile complète, Chromium) et `npm run mesurer` aux étapes ; `npm run dev` pour lancer. Voir `v2/LISEZMOI.md`. Revue : `node tools/revue-ia.mjs --etape=N --phase=ouverture|cloture [--depuis=<commit>] --modele=mistral-large-latest` (la clé est injectée par le proxy ; passer `MISTRAL_REVUE_API_KEY=proxy-injected`).
 - La v1 reste en production sous ses propres règles jusqu'à la bascule.
 
 ## Pièges techniques déjà rencontrés

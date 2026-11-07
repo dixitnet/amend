@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 1, « Squelette »
 
-Statut : **ouverture** (07/11/2026). Revue de Mistral reçue (`docs/v2-revues/2026-11-07-etape-1-ouverture.md`), plan corrigé en conséquence ; en attente de l'arbitrage de Sylvain. Rien n'est développé avant.
+Statut : **en cours** depuis le 07/11/2026 (revue d'ouverture : `docs/v2-revues/2026-11-07-etape-1-ouverture.md`, arbitrée par Sylvain).
 
 Références : `docs/v2-regles-developpement.md` (règles), `v2/adr/` (décisions), § 8 des règles (ordre de reconstruction).
 
@@ -77,3 +77,31 @@ Comptes réels et lien magique (étape 6), droits et rôles (étape 3), mode sug
 1. Fondations en pré-version (`@y/y` 14 rc, `@y/prosemirror` 2 rc, `@y/hub` 0.x, BlockNote 0.x) : incompatibilités entre leurs versions ; on retient les versions qu'utilise BlockNote.
 2. y/hub dépend d'un binaire natif (uWebSockets.js) récupéré depuis GitHub : installation à vérifier dans l'environnement.
 3. Outils de lint : la règle « pas de chaîne littérale » peut être bruyante ; on la règle au plus juste plutôt que de la désactiver.
+
+## Résultat (07/11/2026)
+
+### Critères de sortie
+
+1. **Atteint.** Deux navigateurs éditent le même document et convergent ; le contenu survit au redémarrage du serveur et de y/hub (relu depuis PostgreSQL) ; contrats 1 à 5 verts, dont le refus d'une connexion sans session ou avec une session falsifiée (`npm run test:pile`, 5 sur 5).
+2. **Atteint.** Le lint refuse un import de fondation hors de son adaptateur, un mélange de couches, un attribut `style` ou une feuille de style dans le code technique, un texte en dur dans un rendu (`tests/unitaires/frontieres.test.js`). Ce test a révélé que les fichiers `.jsx` échappaient au lint (ESLint ne les lit que si on les déclare) et qu'un motif `yjs` prenait le dossier `adaptateurs/yjs/` pour le paquet : corrigés.
+3. **Atteint.** Aucun texte ni style en dur dans le code produit ; catalogues `fr` et `en` complets, sans texte d'attente ; l'interface suit la langue du navigateur.
+4. **Atteint.** Mémoire mesurée (ci-dessous).
+5. **À venir** : revue de clôture de Mistral, puis accord de Sylvain.
+
+### Mémoire (PSS, Mo ; environnement en nuage de Claude, PostgreSQL 16 et Redis 7.0 avec leurs réglages par défaut)
+
+| Situation | Serveur | y/hub | PostgreSQL | Redis | Total |
+|---|---|---|---|---|---|
+| Au repos | 29 | 90 | 47 | 6 | **171** |
+| 2 documents ouverts | 30 | 116 | 47 | 6 | **199** |
+| 10 documents ouverts | 36 | 129 | 49 | 6 | **219** |
+| Plus un livre de 500 000 signes (1 000 paragraphes) | 38 | 148 | 51 | 11 | **248** |
+| Le livre ouvert par une seconde personne (ouverture en 0,3 s) | 32 | 169 | 53 | 11 | **265** |
+
+**Recommandation** : la pile v2 tient dans **environ 300 Mo** à l'échelle d'aujourd'hui, nettement moins que les 2 à 4 Go envisagés dans l'étude. Une machine de 1 Go (celle de la v1, qui disparaîtrait) suffit en principe ; 2 Go donnent de la marge pour les pointes (compactage d'un gros document par les fils de calcul de y/hub, plusieurs livres ouverts), qui ne sont pas mesurées ici. Le renoncement « petite machine » n'est donc pas nécessaire : décision à prendre avant la mise en ligne, après une mesure des pointes.
+
+### Constats en chemin
+
+1. **BlockNote 0.57** : l'option `fontFamily` du thème n'a aucun effet (la variable `--bn-font-family` n'est utilisée par aucune règle CSS). Contourné dans `design/styles.css` par les classes publiques, sans toucher la fondation ; noté dans `docs/v2-veille.md` et surveillé par le contrat des jetons.
+2. **npm installe aussi Yjs 13** (déclaré par BlockNote pour sa collaboration historique) : le contrat 1 vérifie qu'aucun fichier de la v2 ne l'importe.
+3. **Persistance** : y/hub écrit dans PostgreSQL après un délai réglable (`V2_DELAI_PERSISTANCE`, 2 s en développement) ; entre-temps, le contenu est dans Redis.

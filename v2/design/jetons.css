@@ -1,0 +1,56 @@
+/* Jetons de design de la v2 (ADR 0008, règle 18). Toute valeur visuelle de
+   l'application passe par ces variables ; le thème de l'éditeur en dérive
+   (theme.js). Un jeu clair, un jeu sombre. */
+:root {
+  --couleur-fond: #fbfaf7;
+  --couleur-surface: #ffffff;
+  --couleur-texte: #1d1c1a;
+  --couleur-texte-discret: #6b675f;
+  --couleur-bordure: #e3dfd6;
+  --couleur-accent: #8a3b12;
+  --couleur-accent-texte: #ffffff;
+  --couleur-survol: #f1eee7;
+  --couleur-selection: #f3e2d6;
+  --ombre-menu: 0 4px 16px rgba(29, 28, 26, 0.12);
+
+  --police-texte: 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+  --police-interface: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --taille-texte: 1.125rem;
+  --taille-interface: 0.9375rem;
+  --interligne-texte: 1.6;
+
+  --espace-1: 0.25rem;
+  --espace-2: 0.5rem;
+  --espace-3: 1rem;
+  --espace-4: 1.5rem;
+  --espace-5: 3rem;
+  --largeur-page: 44rem;
+  --rayon: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --couleur-fond: #191816;
+    --couleur-surface: #22211e;
+    --couleur-texte: #ece9e2;
+    --couleur-texte-discret: #a39e93;
+    --couleur-bordure: #3a3833;
+    --couleur-accent: #e0956a;
+    --couleur-accent-texte: #191816;
+    --couleur-survol: #2c2a26;
+    --couleur-selection: #4a3427;
+    --ombre-menu: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Couleurs des personnes (curseurs, présence), par emplacement. */
+:root {
+  --auteur-1: #b5562a;
+  --auteur-2: #2f7d6d;
+  --auteur-3: #5b5fc7;
+  --auteur-4: #a33f7e;
+  --auteur-5: #7a7a1f;
+  --auteur-6: #2d6fa3;
+  --auteur-7: #9a5b13;
+  --auteur-8: #4f8a2e;
+}

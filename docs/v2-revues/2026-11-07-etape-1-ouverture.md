@@ -3,7 +3,7 @@
 - Relecteur : Mistral, modèle `mistral-large-latest` ; consommation : 11892 jetons en entrée, 1150 en sortie
 - Pièces : `docs/v2-regles-developpement.md`, `docs/v2-renoncements.md`, `docs/v2-veille.md`, `v2/adr/0001-architecture-docs-allege.md`, `v2/adr/0002-couches.md`, `v2/adr/0003-blocknote.md`, `v2/adr/0004-yhub.md`, `v2/adr/0005-connexion.md`, `v2/adr/0006-licence.md`, `v2/adr/0007-relecteur-ia.md`, `v2/adr/0008-design.md`, `v2/adr/0009-traductions.md`, `docs/v2-etape-1-plan.md`, `Arborescence de v2/ (fichiers suivis)`
 - Commit relu : `da1f947`
-- Statut : avis reçu ; réponse de Claude écrite ; arbitrage de Sylvain à venir.
+- Statut : avis reçu ; réponse de Claude écrite ; arbitré par Sylvain le 07/11/2026.
 
 ## Avis du relecteur
 
@@ -71,4 +71,4 @@ Le plan prévoit des catalogues `fr.json` et `en.json` avec les mêmes clés, ma
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+07/11/2026 : réponses R1 à R7 et plan corrigé validés ; ADR 0008 (design : Mantine) et 0009 (traductions : `intl-messageformat`) acceptées ; développement de l'étape 1 lancé.
