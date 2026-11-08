@@ -12,7 +12,7 @@ Statut : **validée** par Sylvain le 08/11/2026, revue le même jour : tests lé
 | **T1** domaine, traductions | fonctions pures ; cas nominaux puis cas limites, dont un corpus de **données piégées** | `node:test`, sans réseau ni navigateur | < 1 s |
 | **T2** adaptateurs, isolés | Yjs : deux documents en mémoire ; BlockNote : éditeur sans navigateur ; y/hub : contre Redis et PostgreSQL locaux, client sans navigateur | `node:test` | secondes |
 | **T3** serveur | routes, codes, cookies, en processus | `node:test`, requêtes HTTP | < 1 s |
-| **T4** design | rendu des composants, français, anglais, pseudo-langue ; en navigateur, contrôles d'affichage programmés (texte en dur, débordement, hors écran), clair et sombre, téléphone et ordinateur ; captures relues par Claude | rendu React sans navigateur ; contrôles et captures dans Chromium | secondes |
+| **T4** design | rendu des composants, français, anglais, pseudo-langue ; en navigateur, contrôles d'affichage programmés (texte en dur, débordement, hors écran), clair et sombre, formats L (Mac) et M (iPad) ; captures relues par Claude | rendu React sans navigateur ; contrôles et captures dans Chromium | secondes |
 | **T5** pile complète | parcours dans un vrai navigateur | Playwright : Chromium ; Chromium, WebKit (Safari) et Firefox dans GitHub | dizaines de secondes |
 | **T6** en ligne | `v2.amend.ink` derrière le mot de passe | HTTP depuis la session de Claude ; parcours complets, WebSocket comprise, depuis GitHub | minute |
 
@@ -27,7 +27,7 @@ T0 à T4 tournent dans `npm test` à chaque commit. T5 à chaque clôture d'éta
 
   Son jugement des captures d'écran s'est révélé peu fiable (`docs/v2-tests/etape-1-captures.md`) : l'affichage est vérifié par des contrôles programmés (pseudo-langue, débordements, éléments hors de l'écran), et Claude relit lui-même les captures.
 - **GitHub Actions** fait tourner sans personne : T0 à T5 à chaque envoi, sur trois moteurs ; T6 chaque nuit et à la demande (le mot de passe est un secret du dépôt).
-- **Sylvain** arbitre ; la recette à la main se réduit à ce qu'aucune machine ne fait : un vrai clavier français, un vrai iPhone.
+- **Sylvain** arbitre ; la recette à la main se réduit à ce qu'aucune machine ne fait : un vrai clavier français, un vrai iPad.
 
 ## Le Mac et Chrome de Sylvain
 

@@ -111,6 +111,7 @@ v2/
 19. **Les extensions** (couche 3) qui dessinent quelque chose, par exemple l'appel de note, posent des classes et des attributs de rôle ; leur apparence est définie dans `v2/design/`.
 20. **Un lot de design ne touche que `v2/design/`** (et des catalogues de textes au besoin), **un lot technique ne touche pas à `v2/design/`**. Changer l'apparence d'amend.ink ne doit demander aucune modification de la logique, et inversement. C'est vérifié par le lint (frontières entre dossiers, interdiction de `style` et de valeurs de couleur ou de taille dans le code technique).
 21. **Les rendus imprimés** (PDF Typst, Word, page publiée) ont aussi leur couche de design : les modèles de mise en page et les profils sont séparés du code qui parcourt le document.
+21 bis. **Formats d'écran visés** (décision de Sylvain, 08/11/2026) : **L** (Mac) et **M** (iPad, en portrait et en paysage). Le format **S** (iPhone) fera l'objet d'un développement spécifique plus tard, avec des compromis fonctionnels forts ; on ne conçoit ni ne teste pour lui d'ici là.
 22. **Accessibilité** : elle relève des deux couches. La présentation garantit contrastes, tailles et focus visibles ; la technique garantit sémantique, rôles ARIA et navigation au clavier.
 
 ### Traductions : anticipées dès le premier écran

@@ -1,5 +1,6 @@
 // T5 : vérifications d'affichage programmées (déterministes), en pseudo-langue,
-// sur téléphone et sur ordinateur, en clair et en sombre : aucun texte
+// aux formats visés (L : Mac ; M : iPad, en portrait et en paysage ; le
+// format S, iPhone, viendra plus tard), en clair et en sombre : aucun texte
 // d'interface resté en dur, aucun débordement, rien hors de l'écran.
 // (Le jugement de captures par Mistral s'est révélé peu fiable :
 // docs/v2-tests/etape-1-captures.md.)
@@ -20,7 +21,11 @@ after(async () => {
   await pile?.arreter()
 })
 
-const TAILLES = { telephone: { width: 360, height: 740 }, ordinateur: { width: 1280, height: 800 } }
+const TAILLES = {
+  'L (Mac)': { width: 1440, height: 900 },
+  'M (iPad, portrait)': { width: 820, height: 1180 },
+  'M (iPad, paysage)': { width: 1180, height: 820 },
+}
 
 /** Problèmes d'affichage de la page, hors du texte du document (`.bn-editor`). */
 const problemes = (page, pseudo) =>
@@ -65,9 +70,9 @@ for (const [taille, viewport] of Object.entries(TAILLES))
       await ctx.close()
     })
 
-test('français et anglais, téléphone : aucun débordement', async () => {
+test('français et anglais, iPad en portrait : aucun débordement', async () => {
   for (const langue of ['fr', 'en']) {
-    const ctx = await nav.newContext({ viewport: TAILLES.telephone, locale: 'fr-FR' })
+    const ctx = await nav.newContext({ viewport: TAILLES['M (iPad, portrait)'], locale: 'fr-FR' })
     const page = await ctx.newPage()
     await page.goto(`${pile.url}/?langue=${langue}#${docTest('affichage')}`)
     await page.waitForSelector('input[name=nom]')
@@ -81,7 +86,7 @@ test('français et anglais, téléphone : aucun débordement', async () => {
 })
 
 test('le détecteur trouve bien un texte en dur et un débordement plantés exprès', async () => {
-  const ctx = await nav.newContext({ viewport: TAILLES.telephone, locale: 'fr-FR' })
+  const ctx = await nav.newContext({ viewport: TAILLES['M (iPad, portrait)'], locale: 'fr-FR' })
   const page = await ctx.newPage()
   await page.goto(`${pile.url}/?langue=pseudo#${docTest('affichage')}`)
   await page.waitForSelector('input[name=nom]')

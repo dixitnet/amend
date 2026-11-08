@@ -50,7 +50,7 @@ Claude a relu lui-même les huit captures (il lit les images). Le jugement de Mi
 - V3 et V4 : avis de goût, sans défaut constaté ; à reprendre au moment du design de l'éditeur (étape 4).
 - Le premier passage (`mistral-medium-latest`) affirmait aussi un titre non encadré et un bouton sans focus visible sur une capture d'erreur : faux, et la capture d'erreur était elle-même fausse (prise avant l'affichage du message), corrigée dans `exploitation/dev/captures.mjs`.
 
-**Défauts réels vus par Claude**, absents de l'avis de Mistral, à traiter dans un lot de design :
+**Défauts réels vus par Claude**, absents de l'avis de Mistral. Décision de Sylvain (08/11/2026) : le design vise les formats L (Mac) et M (iPad) seulement ; le format S (iPhone) viendra plus tard. Les défauts 1 et 3, propres au téléphone, sortent donc du périmètre ; le 2 reste à traiter dans un lot de design :
 
 1. Sur téléphone, la carte de connexion touche les bords de l'écran (pas de marge latérale).
 2. Le texte de l'éditeur est en retrait d'environ 54 px par rapport à l'en-tête (marge des poignées de BlockNote) : alignement à revoir, surtout sur téléphone.
