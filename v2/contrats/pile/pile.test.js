@@ -11,6 +11,10 @@ import {
   docTest,
   ouvrir as ouvrirSur,
   attendreTexte,
+  texte,
+  attendreEtat,
+  donnerRole,
+  oublierDocuments,
   session as sessionSur,
 } from './outils.mjs'
 
@@ -58,7 +62,17 @@ test('contrat 4 : y/hub refuse une connexion sans session, accepte une session v
   const doc = docTest('session')
   assert.equal(await upgrade(doc, null), 401)
   assert.equal(await upgrade(doc, 'amend2_session=faux.jeton'), 401)
-  assert.equal(await upgrade(doc, await session('Contrat')), 101)
+  // Une session valide sans rôle sur le document : refusée ; avec, acceptée.
+  const contrat = await session('Contrat')
+  assert.equal(await upgrade(doc, contrat), 403)
+  const creation = await fetch(`${pile.url}/api/dev/documents`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: contrat },
+    body: JSON.stringify({ document: doc }),
+  })
+  assert.equal(creation.status, 201)
+  assert.equal(await upgrade(doc, contrat), 101)
+  assert.equal(await upgrade(doc, await session('Autre')), 403)
 })
 
 test('deux navigateurs éditent le même document et convergent', async () => {
@@ -86,6 +100,7 @@ test('contrats 2 et 4 : le document se lit côté serveur, et survit au redémar
 
   // Lecture côté serveur : l'état Yjs 14 tenu par y/hub, relu en blocs
   // BlockNote ; on attend activement que la dernière frappe y soit arrivée.
+  await donnerRole(pile.url, doc, 'Lecteur', 'lecteur')
   const cookie = await session('Lecteur')
   const lireCoteServeur = async () => {
     const r = await fetch(`${pile.collab}/collaboration/ydoc/v1/amend/${doc}`, {
@@ -103,6 +118,9 @@ test('contrats 2 et 4 : le document se lit côté serveur, et survit au redémar
   // Redémarrage du serveur et de y/hub, après écriture dans PostgreSQL.
   await attendre(2500)
   await pile.redemarrer()
+  // La table des accès est en mémoire jusqu'à l'étape 6 : perdue au redémarrage,
+  // le document est recréé par la première personne qui l'ouvre (en développement).
+  oublierDocuments()
   const b = await ouvrir('Bruno', doc)
   await attendreTexte(b, 'Texte à garder\nDeuxième paragraphe')
   await b.context().close()
@@ -130,4 +148,52 @@ test('l’interface suit la langue du navigateur', async () => {
   assert.equal(await page.textContent('h1'), 'Development sign-in')
   assert.equal(await page.getAttribute('html', 'lang'), 'en')
   await ctx.close()
+})
+
+test('droits : un correcteur lit, ne peut pas écrire, et l’interface le lui dit', async () => {
+  const doc = docTest('correcteur')
+  const p = await ouvrir('Paule', doc)
+  const c = await ouvrir('Carl', doc, { role: 'correcteur' })
+  assert.equal(await p.$('.page-edition__mention'), null, 'pas de mention pour la propriétaire')
+  assert.equal(await c.textContent('.page-edition__mention'), 'Lecture seule')
+  assert.equal(await c.getAttribute('.bn-editor', 'contenteditable'), 'false')
+
+  await p.click('.bn-editor')
+  await p.keyboard.type('Texte de Paule.')
+  await attendreTexte(c, 'Texte de Paule.')
+
+  // Le correcteur tape quand même : l'interface ne bouge pas.
+  await c.click('.bn-inline-content')
+  await c.keyboard.type(' Ajout interdit.')
+  assert.equal(await texte(c), 'Texte de Paule.')
+
+  // Et s'il force l'éditeur (outils de développement), y/hub refuse l'écriture :
+  // rien n'arrive chez la propriétaire ni au rechargement.
+  await c.evaluate(() => document.querySelector('.bn-editor').setAttribute('contenteditable', 'true'))
+  await c.click('.bn-inline-content')
+  await c.keyboard.press('End')
+  await c.keyboard.type(' Forcé.')
+  await attendre(2000)
+  assert.equal(await texte(p), 'Texte de Paule.')
+  await c.reload()
+  await attendreEtat(c, 'Synchronisé')
+  await attendreTexte(c, 'Texte de Paule.')
+  await p.context().close()
+  await c.context().close()
+})
+
+test('droits : sans rôle, un document existant ne s’ouvre pas, avec un message traduit', async () => {
+  const doc = docTest('ferme')
+  const p = await ouvrir('Paule', doc)
+  const ctx = await nav.newContext({ locale: 'fr-FR' })
+  const intrus = await ctx.newPage()
+  await intrus.goto(`${pile.url}/#${doc}`)
+  await intrus.fill('input[name=nom]', 'Intrus')
+  await intrus.click('button[type=submit]')
+  await intrus.waitForFunction(() =>
+    /n’existe pas, ou vous n’y avez pas accès/.test(document.querySelector('.ecran-simple [role=status]')?.textContent),
+  )
+  assert.equal(await intrus.$('.bn-editor'), null)
+  await ctx.close()
+  await p.context().close()
 })

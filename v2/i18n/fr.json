@@ -14,7 +14,8 @@
     "titre": "Document {id}",
     "participants": "{n, plural, =0 {Personne d’autre} one {# autre personne} other {# autres personnes}} sur ce document",
     "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
-    "zoneEdition": "Texte du document {id}"
+    "zoneEdition": "Texte du document {id}",
+    "lectureSeule": "Lecture seule"
   },
   "erreurs": {
     "document-vide": "Ce document n’a pas de nom.",
@@ -23,6 +24,7 @@
     "nom-vide": "Indiquez un nom.",
     "nom-trop-long": "Ce nom est trop long (80 signes au plus).",
     "nom-caracteres": "Ce nom contient des caractères invisibles ou de contrôle.",
-    "reseau": "Le serveur ne répond pas. Vérifiez la connexion."
+    "reseau": "Le serveur ne répond pas. Vérifiez la connexion.",
+    "document-introuvable": "Ce document n’existe pas, ou vous n’y avez pas accès."
   }
 }

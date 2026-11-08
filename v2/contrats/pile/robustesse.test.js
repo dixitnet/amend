@@ -14,6 +14,7 @@ import {
   ouvrir as ouvrirSur,
   attendreEtat,
   attendreTexte,
+  donnerRole,
   session,
 } from './outils.mjs'
 
@@ -32,7 +33,10 @@ after(async () => {
   await pile?.arreter()
 })
 
+const lecteurs = new Set()
 async function texteCoteServeur(docId) {
+  if (!lecteurs.has(docId)) await donnerRole(pile.url, docId, 'Lecteur', 'lecteur')
+  lecteurs.add(docId)
   const r = await fetch(`${pile.collab}/collaboration/ydoc/v1/amend/${docId}`, {
     headers: { cookie: await session(pile.url, 'Lecteur'), accept: 'application/json' },
   })

@@ -14,7 +14,8 @@
     "titre": "Document {id}",
     "participants": "{n, plural, =0 {Nobody else} one {# other person} other {# other people}} on this document",
     "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
-    "zoneEdition": "Text of document {id}"
+    "zoneEdition": "Text of document {id}",
+    "lectureSeule": "Read only"
   },
   "erreurs": {
     "document-vide": "This document has no name.",
@@ -23,6 +24,7 @@
     "nom-vide": "Enter a name.",
     "nom-trop-long": "This name is too long (80 characters at most).",
     "nom-caracteres": "This name contains invisible or control characters.",
-    "reseau": "The server is not responding. Check your connection."
+    "reseau": "The server is not responding. Check your connection.",
+    "document-introuvable": "This document does not exist, or you do not have access to it."
   }
 }

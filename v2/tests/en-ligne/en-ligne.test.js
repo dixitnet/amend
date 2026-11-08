@@ -93,7 +93,21 @@ sauf(
   async () => {
     const nav = await playwright[process.env.NAVIGATEUR || 'chromium'].launch()
     const doc = `verif-${Date.now().toString(36)}`
+    // La première personne crée le document et en est propriétaire ; elle
+    // donne ensuite le rôle d'éditeur aux suivantes.
+    let proprietaire = null
+    const post = (chemin, cookie, corps) =>
+      fetch(`${BASE}${chemin}`, {
+        method: 'POST',
+        headers: { ...AUTH, 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
+        body: JSON.stringify(corps),
+      })
     const ouvrir = async (nom) => {
+      if (proprietaire) {
+        const { id } = await (await post('/api/dev/session', null, { nom })).json()
+        const r = await post('/api/dev/acces', proprietaire, { document: doc, personne: id, role: 'editeur' })
+        assert.equal(r.status, 200, `rôle d'éditeur pour ${nom}`)
+      }
       const ctx = await nav.newContext({
         locale: 'fr-FR',
         httpCredentials: MDP ? { username: IDENT, password: MDP } : undefined,
@@ -108,6 +122,10 @@ sauf(
       await page.waitForFunction(() => document.querySelector('[role=status]')?.textContent === 'Synchronisé', null, {
         timeout: 30000,
       })
+      if (!proprietaire) {
+        const c = (await ctx.cookies(BASE)).find((x) => x.name === 'amend2_session')
+        proprietaire = `${c.name}=${c.value}`
+      }
       return page
     }
     const lire = (p) =>
