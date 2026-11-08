@@ -30,6 +30,8 @@ La première version de cette décision posait nos propres jetons (variables CSS
 
 Feuilles de style : la règle « aucune feuille maison » est révisée le 08/11/2026 (Sylvain, étape 4) : `design/feuilles/` peut contenir des feuilles dont chaque règle porte la clé d'un réglage de cette table (`/* réglage : css.… */`) ; le contrat le vérifie.
 
+Picto d'amend.ink (`design/picto/amend-ink.svg`) : une feuille d'amandier au trait dont la tige, taillée comme une plume, trace un trait d'encre (variante « 3h, monochrome », recadrée, choisie par Sylvain le 08/11/2026). Il n'a pas de couleur à lui : `currentColor`, il prend celle du texte de Mantine là où il est placé. Son emploi (bouton, onglet du navigateur, icône d'application) et sa taille dans un bouton restent à décider.
+
 Les couleurs des personnes (curseurs, présence) sont prises dans la palette de Mantine (`design/auteurs.js`), sans valeur nouvelle ; le gris et le noir en sont exclus pour ne pas se confondre avec le texte (confirmé par Sylvain le 08/11/2026).
 
 ## Points ouverts
