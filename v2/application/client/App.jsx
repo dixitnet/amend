@@ -1,4 +1,4 @@
-// L'écran de l'étape 1 (couche application technique) : état, appels au
+// L'écran d'un document (couche application technique) : état, appels au
 // serveur, ouverture du document. Tout l'affichage est délégué à la couche
 // design ; tous les textes viennent de v2/i18n/.
 import { useEffect, useMemo, useState } from 'react'
@@ -65,7 +65,48 @@ export function App() {
   return <Document config={etat.config} personne={etat.personne} docId={doc.id} />
 }
 
+/** Mes droits sur un document, décidés par le serveur. En développement, un
+ * document qui n'existe pas encore est créé : j'en deviens propriétaire. */
+async function obtenirDroits(docId, dev) {
+  try {
+    const r = await fetch(`/api/droits?document=${encodeURIComponent(docId)}`)
+    if (r.ok) return r.json()
+    if (r.status === 404 && dev) {
+      const creation = await fetch('/api/dev/documents', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ document: docId }),
+      })
+      if (creation.ok) return creation.json()
+    }
+    return { code: (await lireJson(r)).code || `http-${r.status}` }
+  } catch {
+    return { code: 'reseau' }
+  }
+}
+
 function Document({ config, personne, docId }) {
+  const [droits, setDroits] = useState(null)
+  useEffect(() => {
+    let actif = true
+    obtenirDroits(docId, config.dev).then((d) => actif && setDroits(d))
+    return () => {
+      actif = false
+    }
+  }, [config, docId])
+  useEffect(() => {
+    const f = () => location.reload()
+    window.addEventListener('hashchange', f)
+    return () => window.removeEventListener('hashchange', f)
+  }, [])
+  if (!droits) return <EcranMessage texte={t('application.chargement')} />
+  if (droits.code) return <EcranMessage texte={messageErreur(t, droits.code)} />
+  return <Edition config={config} personne={personne} docId={docId} droits={droits} />
+}
+
+function Edition({ config, personne, docId, droits }) {
+  // L'interface suit les capacités, jamais le nom du rôle.
+  const modifiable = droits.capacites.includes('ecrire')
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
     () => ouvrirDocument({ url: config.collaboration, docId, personne: moi }),
@@ -76,17 +117,13 @@ function Document({ config, personne, docId }) {
   useEffect(() => session.surEtat(setConnexion), [session])
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
-  useEffect(() => {
-    const f = () => location.reload()
-    window.addEventListener('hashchange', f)
-    return () => window.removeEventListener('hashchange', f)
-  }, [])
 
   return (
     <PageEdition
       titre={t('document.titre', { id: docId })}
       etat={t('document.etat', { etat: connexion })}
       participants={t('document.participants', { n: autres })}
+      mention={modifiable ? null : t('document.lectureSeule')}
       editeur={
         <EditeurCollaboratif
           contexte={session.contexte}
@@ -94,6 +131,7 @@ function Document({ config, personne, docId }) {
           langue={t.langue}
           theme={themeEditeur}
           nomAccessible={t('document.zoneEdition', { id: docId })}
+          modifiable={modifiable}
         />
       }
     />

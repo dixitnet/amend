@@ -8,8 +8,34 @@ export const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
 export const lancerNavigateur = () => playwright[NAVIGATEUR].launch()
 export const docTest = (nom) => `t5-${nom}-${Date.now().toString(36)}`
 
-/** Une personne connectée sur un document, prête à écrire. */
-export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR' } = {}) {
+/** Le cookie de session du propriétaire de chaque document ouvert par ces
+ * outils : la première personne qui ouvre un document le crée (client en
+ * développement), puis donne un rôle aux suivantes. */
+const proprietaires = new Map()
+const cle = (base, docId) => `${base} ${docId}`
+/** À appeler quand la table des accès (en mémoire) a été perdue : redémarrage. */
+export const oublierDocuments = () => proprietaires.clear()
+
+/** Le propriétaire d'un document donne `role` (ou retire, `null`) à `nom`. */
+export async function donnerRole(base, docId, nom, role) {
+  const r0 = await fetch(`${base}/api/dev/session`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ nom }),
+  })
+  const { id } = await r0.json()
+  const r = await fetch(`${base}/api/dev/acces`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: proprietaires.get(cle(base, docId)) },
+    body: JSON.stringify({ document: docId, personne: id, role }),
+  })
+  assert.equal(r.status, 200, `rôle ${role} pour ${nom} sur ${docId}`)
+}
+
+/** Une personne connectée sur un document ; le créateur en est propriétaire,
+ * les suivantes reçoivent `role` (éditeur par défaut). */
+export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR', role = 'editeur' } = {}) {
+  if (proprietaires.has(cle(base, docId))) await donnerRole(base, docId, nom, role)
   const ctx = await nav.newContext({ locale })
   const page = await ctx.newPage()
   await page.goto(`${base}/#${docId}`)
@@ -19,6 +45,10 @@ export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR' } = {}) {
     await page.click('button[type=submit]')
   }
   await page.waitForSelector('.bn-editor')
+  if (!proprietaires.has(cle(base, docId))) {
+    const c = (await ctx.cookies(base)).find((x) => x.name === 'amend2_session')
+    proprietaires.set(cle(base, docId), `${c.name}=${c.value}`)
+  }
   await attendreEtat(page, 'Synchronisé')
   return page
 }

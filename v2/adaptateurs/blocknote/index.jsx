@@ -1,13 +1,14 @@
 // Adaptateur BlockNote (couche 2) : l'éditeur collaboratif, lié au document
 // ouvert par l'adaptateur Yjs. Il reçoit sa langue, la personne et un thème
-// (fourni par la couche design) ; il n'en décide aucun.
+// (fourni par la couche design) ; il n'en décide aucun. `modifiable` règle la
+// seule interface : ce qu'une personne peut écrire, c'est y/hub qui le garantit.
 import '@blocknote/mantine/style.css'
 import { useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import { withCollaboration } from '@blocknote/core/y'
 import { dictionnaire } from './dictionnaire.js'
 
-export function EditeurCollaboratif({ contexte, personne, langue, theme, nomAccessible }) {
+export function EditeurCollaboratif({ contexte, personne, langue, theme, nomAccessible, modifiable = true }) {
   const editeur = useCreateBlockNote(
     withCollaboration({
       dictionary: dictionnaire(langue),
@@ -21,5 +22,5 @@ export function EditeurCollaboratif({ contexte, personne, langue, theme, nomAcce
     }),
     [contexte],
   )
-  return <BlockNoteView editor={editeur} theme={theme} />
+  return <BlockNoteView editor={editeur} theme={theme} editable={modifiable} />
 }
