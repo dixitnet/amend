@@ -2,7 +2,7 @@
 // serveur, ouverture du document. Tout l'affichage est délégué à la couche
 // design ; tous les textes viennent de v2/i18n/.
 import { useEffect, useMemo, useState } from 'react'
-import { PageEdition, EcranMessage, EcranConnexion, themeEditeur, couleurAuteur } from '../../design/index.js'
+import { PageEdition, EcranMessage, EcranConnexion, couleurAuteur } from '../../design/index.js'
 import { creerTraducteur, choisirLangue, messageErreur, LANGUE_PSEUDO } from '../../i18n/index.js'
 import { identifiantDocument } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
@@ -129,7 +129,6 @@ function Edition({ config, personne, docId, droits }) {
           contexte={session.contexte}
           personne={moi}
           langue={t.langue}
-          theme={themeEditeur}
           nomAccessible={t('document.zoneEdition', { id: docId })}
           modifiable={modifiable}
         />

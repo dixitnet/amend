@@ -6,16 +6,16 @@ Reconstruction d'amend.ink sur BlockNote (éditeur), y/hub (collaboration) et un
 
 ## Couches
 
-| Dossier                                                              | Couche                                                   | Peut importer                      |
-| -------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------- |
-| `domaine/`                                                           | 4, règles d'amend.ink en JS pur                          | rien d'autre que `domaine/`        |
-| `adaptateurs/<fondation>/`                                           | 2, une façade par fondation                              | sa fondation seulement             |
-| `extensions/`                                                        | 3, points d'extension de BlockNote                       | BlockNote seulement                |
-| `application/client/`, `application/serveur/`, `application/collab/` | 5, logique (aucun style, aucun texte)                    | adaptateurs, design, i18n, domaine |
-| `design/`                                                            | 6, apparence (jetons, thème, composants de présentation) | Mantine seulement                  |
-| `i18n/`                                                              | textes, format ICU                                       | `intl-messageformat` seulement     |
-| `exploitation/`                                                      | 7, lancement, mesures                                    | tout (outillage)                   |
-| `contrats/`, `tests/`                                                | tests                                                    | tout                               |
+| Dossier                                                              | Couche                                                               | Peut importer                      |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
+| `domaine/`                                                           | 4, règles d'amend.ink en JS pur                                      | rien d'autre que `domaine/`        |
+| `adaptateurs/<fondation>/`                                           | 2, une façade par fondation                                          | sa fondation seulement             |
+| `extensions/`                                                        | 3, points d'extension de BlockNote                                   | BlockNote seulement                |
+| `application/client/`, `application/serveur/`, `application/collab/` | 5, logique (aucun style, aucun texte)                                | adaptateurs, design, i18n, domaine |
+| `design/`                                                            | 6, apparence (Mantine, réglages décidés, composants de présentation) | Mantine seulement                  |
+| `i18n/`                                                              | textes, format ICU                                                   | `intl-messageformat` seulement     |
+| `exploitation/`                                                      | 7, lancement, mesures                                                | tout (outillage)                   |
+| `contrats/`, `tests/`                                                | tests                                                                | tout                               |
 
 Ces frontières sont vérifiées par `npm run lint` (`eslint.config.js`) ; `tests/unitaires/frontieres.test.js` vérifie que le lint refuse bien ce qu'il doit refuser.
 

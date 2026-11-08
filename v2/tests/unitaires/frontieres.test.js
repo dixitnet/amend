@@ -64,13 +64,46 @@ test('les couches ne se mélangent pas', async () => {
 })
 
 test('aucun style dans le code technique, aucune feuille hors du design', async () => {
-  await refuse(
-    'application/client/X.jsx',
-    'export const X = () => <div style={{ color: "red" }} />',
-    /style dans le code technique/,
-  )
+  await refuse('application/client/X.jsx', 'export const X = () => <div style={{ color: "red" }} />', /style en dur/)
   await refuse('application/client/x.js', "import './joli.css'", /feuille de style/)
-  await accepte('design/x.js', "import './jetons.css'")
+  await refuse('adaptateurs/blocknote/x.js', "import '@blocknote/mantine/style.css'", /feuille de style/)
+})
+
+test('aucune valeur de design hors de v2/design/ : couleur, taille, variable CSS, classe', async () => {
+  const valeur = /valeur de design/
+  for (const [chemin, code] of [
+    ['application/client/x.js', "export const c = '#8a3b12'"],
+    ['application/client/x.js', "export const c = 'rgb(1, 2, 3)'"],
+    ['adaptateurs/blocknote/x.js', "export const c = 'oklch(0.5 0.1 30)'"],
+    ['adaptateurs/yjs/x.js', "export const c = 'var(--auteur-1)'"],
+    ['adaptateurs/yhub/x.js', "export const t = '12px'"],
+    ['domaine/x.js', "export const t = '1.5rem'"],
+    ['i18n/x.js', 'export const t = (n) => `${n} : 4px`'],
+  ])
+    await refuse(chemin, code, valeur)
+  await refuse('application/client/X.jsx', 'export const X = () => <p className="rouge" />', /classe d’apparence/)
+  // Le texte ordinaire passe : un nom de document, une adresse.
+  await accepte('application/client/x.js', "export const a = location.hash.slice(1) + '#essai'")
+})
+
+test('dans le design : Mantine tel quel, aucune valeur ni réglage non décidé', async () => {
+  const nonDecide = /réglage de design non décidé/
+  await refuse('design/X.jsx', 'export const X = () => <Button color="red" />', nonDecide)
+  await refuse('design/X.jsx', 'export const X = () => <Stack gap="xs" />', nonDecide)
+  await refuse('design/X.jsx', 'export const X = () => <Paper p="lg" withBorder />', nonDecide)
+  await refuse('design/x.js', "export const c = '#ffffff'", nonDecide)
+  await refuse('design/x.js', "export const c = 'var(--ma-couleur)'", nonDecide)
+  await refuse('design/X.jsx', 'export const X = () => <div style={{ margin: 0 }} />', /style en dur/)
+  await refuse('design/x.js', "import './jetons.css'", /feuille de style maison/)
+  // Les feuilles des fondations, livrées telles quelles, et les variables de Mantine.
+  await accepte('design/x.js', "import '@mantine/core/styles.css'\nimport '@blocknote/mantine/style.css'")
+  await accepte('design/x.js', "export const c = 'var(--mantine-color-blue-filled)'")
+  await accepte(
+    'design/X.jsx',
+    "import { Title } from '@mantine/core'\nexport const X = ({ t }) => <Title order={1}>{t}</Title>",
+  )
+  // Le seul fichier où une valeur est permise : les réglages décidés.
+  await accepte('design/reglages.js', "export const REGLAGES = { theme: { primaryColor: 'red' } }")
 })
 
 test('aucun texte en dur dans un rendu', async () => {

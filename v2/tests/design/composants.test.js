@@ -23,6 +23,8 @@ before(async () => {
 after(() => vite?.close())
 
 const LANGUES = ['fr', 'en', 'pseudo']
+/** Rendu dans le cadre de design (fournisseur Mantine), comme dans l'application. */
+const rendre = (el) => renderToStaticMarkup(h(design.CadreDesign, null, el))
 const echapper = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 test('chaque message de chaque langue se formate (pseudo-langue comprise)', () => {
@@ -51,7 +53,7 @@ test('page d’édition : tous ses textes s’affichent, dans chaque langue, ave
       etat: t('document.etat', { etat: 'connecte' }),
       participants: t('document.participants', { n: 2 }),
     }
-    const html = renderToStaticMarkup(h(design.PageEdition, { ...textes, editeur: h('div', { id: 'editeur' }) }))
+    const html = rendre(h(design.PageEdition, { ...textes, editeur: h('div', { id: 'editeur' }) }))
     for (const [nom, texte] of Object.entries(textes)) assert.ok(html.includes(echapper(texte)), `${l} : ${nom}`)
     assert.match(html, /role="document"/)
     assert.match(html, /role="status"/)
@@ -62,7 +64,7 @@ test('page d’édition : tous ses textes s’affichent, dans chaque langue, ave
 test('écran de connexion : champ étiqueté, bouton, textes de chaque langue', () => {
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
-    const html = renderToStaticMarkup(
+    const html = rendre(
       h(design.EcranConnexion, {
         titre: t('connexion.titre'),
         explication: t('connexion.explication'),
@@ -73,26 +75,33 @@ test('écran de connexion : champ étiqueté, bouton, textes de chaque langue', 
     )
     for (const cle of ['connexion.titre', 'connexion.explication', 'connexion.nom', 'connexion.bouton'])
       assert.ok(html.includes(echapper(t(cle))), `${l} : ${cle}`)
-    assert.match(html, /<label[^>]*>[\s\S]*<input[^>]*name="nom"/, 'le champ est dans son étiquette')
+    const pour = /<label[^>]*for="([^"]+)"/.exec(html)?.[1]
+    assert.ok(pour, 'une étiquette désigne un champ')
+    assert.match(
+      html,
+      new RegExp(`<input[^>]*id="${pour}"[^>]*name="nom"|<input[^>]*name="nom"[^>]*id="${pour}"`),
+      'le champ « nom » a son étiquette',
+    )
     assert.match(html, /<button[^>]*type="submit"/)
   }
 })
 
 test('un texte piégé s’affiche comme du texte, jamais comme du code', () => {
-  const html = renderToStaticMarkup(
+  const html = rendre(
     h(design.PageEdition, { titre: '<script>alert(1)</script>', etat: '<b>x</b>', participants: '&', editeur: null }),
   )
   assert.doesNotMatch(html, /<script>|<b>/)
   assert.doesNotMatch(html, /page-edition__mention/, 'pas de mention sans texte')
-  const avec = renderToStaticMarkup(h(design.PageEdition, { titre: 'x', mention: 'Lecture seule', editeur: null }))
-  assert.match(avec, /class="page-edition__mention">Lecture seule</)
+  const avec = rendre(h(design.PageEdition, { titre: 'x', mention: 'Lecture seule', editeur: null }))
+  assert.match(avec, /page-edition__mention[^>]*>[\s\S]*Lecture seule</)
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
-test('couleur d’auteur : stable, et toujours un des 8 emplacements', () => {
+test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni noire', () => {
   for (const id of ['alice', 'bruno', 'dev-xyz', '', '👩🏽\u200D💻']) {
     const c = design.couleurAuteur(id)
     assert.equal(c, design.couleurAuteur(id))
-    assert.match(c, /^var\(--auteur-[1-8]\)$/)
+    assert.match(c, /^var\(--mantine-color-[a-z]+-filled\)$/)
+    assert.doesNotMatch(c, /-(gray|dark)-/)
   }
 })

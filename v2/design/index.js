@@ -1,8 +1,6 @@
-// La couche design (couche 6) : ce que l'application peut afficher.
-import './jetons.css'
-import './styles.css'
-
+// La couche design (couche 6) : ce que l'application peut afficher. Mantine
+// tel quel ; les seuls réglages permis sont ceux décidés (reglages.js).
+export { CadreDesign } from './Cadre.jsx'
 export { PageEdition } from './composants/PageEdition.jsx'
 export { EcranMessage, EcranConnexion } from './composants/EcranSimple.jsx'
-export { themeEditeur } from './theme.js'
 export { couleurAuteur } from './auteurs.js'
