@@ -11,6 +11,7 @@
     "@blocknote/core": "0.57.0",
     "@blocknote/mantine": "0.57.0",
     "@blocknote/react": "0.57.0",
+    "@formatjs/icu-messageformat-parser": "3.5.22",
     "@mantine/core": "9.7.5",
     "@mantine/hooks": "9.7.5",
     "@y/hub": "0.10.1",
@@ -38,7 +39,7 @@
     "lint": "eslint .",
     "format": "prettier --write",
     "format:check": "prettier --check .",
-    "test": "node --test --test-concurrency=1 \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\" \"tests/services/*.test.js\"",
+    "test": "node --test --test-concurrency=1 \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\" \"tests/design/*.test.js\" \"tests/services/*.test.js\"",
     "test:contrats": "node --test --test-concurrency=1 contrats/",
     "mesurer": "node exploitation/dev/mesurer.mjs",
     "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\""

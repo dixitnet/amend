@@ -35,7 +35,7 @@ const session = (base, nom) =>
 const moi = (base, cookie) => fetch(`${base}/api/moi`, { headers: cookie ? { cookie } : {} })
 
 test('session de développement : nom en NFC, cookie HttpOnly, identité relue', async () => {
-  const r = await session(dev, 'été')
+  const r = await session(dev, 'e\u0301te\u0301')
   assert.equal(r.status, 200)
   assert.equal((await r.json()).nom, 'été')
   const cookie = r.headers.get('set-cookie')

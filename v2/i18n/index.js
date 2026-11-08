@@ -5,6 +5,7 @@
 import { IntlMessageFormat } from 'intl-messageformat'
 import fr from './fr.json' with { type: 'json' }
 import en from './en.json' with { type: 'json' }
+import { pseudoCatalogue } from './pseudo.js'
 
 export const CATALOGUES = { fr, en }
 export const LANGUES = Object.keys(CATALOGUES)
@@ -34,14 +35,24 @@ export function choisirLangue(preferences = []) {
 
 /** Un traducteur pour une langue : `t('document.participants', { n: 2 })`. */
 export function creerTraducteur(langue = LANGUE_SOURCE) {
+  // « pseudo » : langue de contrôle, jamais proposée aux personnes (règle 31).
+  if (langue === LANGUE_PSEUDO)
+    return traducteur(LANGUE_PSEUDO, (CATALOGUES_CONTROLE.pseudo ??= pseudoCatalogue(fr)), 'fr')
   const l = LANGUES.includes(langue) ? langue : LANGUE_SOURCE
+  return traducteur(l, CATALOGUES[l], l)
+}
+
+export const LANGUE_PSEUDO = 'pseudo'
+const CATALOGUES_CONTROLE = {}
+
+function traducteur(l, catalogue, locale) {
   const cache = new Map()
   const t = (cle, valeurs) => {
     let fmt = cache.get(cle)
     if (!fmt) {
-      const brut = chercher(CATALOGUES[l], cle) ?? chercher(CATALOGUES[LANGUE_SOURCE], cle)
+      const brut = chercher(catalogue, cle) ?? chercher(CATALOGUES[LANGUE_SOURCE], cle)
       if (typeof brut !== 'string') throw new Error(`clé de traduction inconnue : ${cle}`)
-      fmt = new IntlMessageFormat(brut, l)
+      fmt = new IntlMessageFormat(brut, locale)
       cache.set(cle, fmt)
     }
     return fmt.format(valeurs)

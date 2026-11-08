@@ -14,7 +14,7 @@ const FONDATIONS = {
   prosemirror: 'prosemirror-.*|@tiptap/.*',
   mantine: '@mantine/.*',
   lib0: 'lib0(/.*)?',
-  icu: 'intl-messageformat',
+  icu: 'intl-messageformat|@formatjs/.*',
   serveur: 'uws|postgres|redis',
 }
 const COUCHES = ['domaine', 'adaptateurs', 'extensions', 'application', 'design', 'i18n']
