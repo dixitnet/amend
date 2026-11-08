@@ -44,6 +44,7 @@
     "test": "node --test --test-concurrency=1 \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\" \"tests/design/*.test.js\" \"tests/services/*.test.js\"",
     "test:contrats": "node --test --test-concurrency=1 contrats/",
     "mesurer": "node exploitation/dev/mesurer.mjs",
-    "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\""
+    "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\"",
+    "test:en-ligne": "node --test --test-concurrency=1 --test-timeout=180000 \"tests/en-ligne/*.test.js\""
   }
 }
