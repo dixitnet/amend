@@ -1,7 +1,7 @@
 # Revue d'ouverture de l'étape 4, « Éditeur » (2026-11-08)
 
 - Relecteur : **Claude** (Mistral suspendu depuis le 08/11/2026, règles de la v2, § 6) ; grille du § 6 appliquée au plan `docs/v2-etape-4-plan.md`.
-- Statut : revue écrite ; arbitrage de Sylvain à venir.
+- Statut : revue écrite ; arbitré par Sylvain le 08/11/2026.
 
 ## Grille
 
@@ -22,4 +22,4 @@
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+08/11/2026 : plan accepté (« ok ») ; voir « Arbitrage » dans `docs/v2-etape-4-plan.md`.

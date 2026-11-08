@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 4, « Éditeur »
 
-Statut : **ouverture** (08/11/2026), soumis à l'arbitrage de Sylvain. Rien n'est développé avant. Mistral étant suspendu, la revue d'ouverture est faite par Claude (`docs/v2-revues/2026-11-08-etape-4-ouverture.md`), et les scénarios de test aussi (`docs/v2-tests/etape-4-scenarios.md`).
+Statut : **arbitré** par Sylvain le 08/11/2026 (« ok » sur les six questions ; voir « Arbitrage » en fin de plan) ; développement lancé. Mistral étant suspendu, la revue d'ouverture est faite par Claude (`docs/v2-revues/2026-11-08-etape-4-ouverture.md`), et les scénarios de test aussi (`docs/v2-tests/etape-4-scenarios.md`).
 
 Références : `docs/v2-regles-developpement.md` (§ 3 « Avant de proposer », § 8), `docs/v2-procedure-tests.md`, `v2/adr/0003-blocknote.md`, `v2/adr/0008-design.md`.
 
@@ -89,3 +89,12 @@ Proposition : renoncer aux trois et les inscrire au registre (`docs/v2-renonceme
 - Notes dans les exports PDF et Word (étape 7) ; typographie des textes de Margo (étape 8).
 - Apparence des notes au-delà des valeurs par défaut, poignées de bloc, barre fixe : travail sur l'interface (points ouverts de l'ADR 0008).
 - Proposer en amont (BlockNote) les notes de bas de page et la typographie française, comme le recommandait l'étude du 07/11 : décision de Sylvain.
+
+## Arbitrage de Sylvain (08/11/2026)
+
+1. Blocs et styles : ceux proposés ; l'image reste au schéma, sans envoi de fichier avant l'étape 6 (renoncement n° 8 pour le reste).
+2. Notes : modèle a, après essai et captures ; affichage choisi par Sylvain.
+3. Règle 1 révisée : les extensions peuvent importer `prosemirror-state`, `prosemirror-model` et `@handlewithcare/prosemirror-inputrules`, dans les versions de BlockNote, une seule copie.
+4. Tout document est en français d'ici l'étape 6 ; l'extension reçoit la langue en paramètre.
+5. Renoncements n° 5, 6 et 7 inscrits au registre.
+6. Proposer en amont (BlockNote) les notes et la typographie : oui, le moment venu, chaque envoi soumis à Sylvain avant.

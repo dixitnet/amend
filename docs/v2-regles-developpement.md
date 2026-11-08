@@ -59,7 +59,7 @@ v2/
 
 ### Couches et dépendances
 
-1. **Une fondation n'est importée que par son adaptateur.** L'application et les extensions passent par `adaptateurs/<fondation>/`. Exception assumée : les extensions BlockNote importent les API d'extension de BlockNote (c'est leur raison d'être), et rien d'autre.
+1. **Une fondation n'est importée que par son adaptateur.** L'application et les extensions passent par `adaptateurs/<fondation>/`. Exception assumée : les extensions BlockNote importent les API d'extension de BlockNote (c'est leur raison d'être), et les paquets qu'exigent ses points d'extension publics : `prosemirror-state`, `prosemirror-model` et `@handlewithcare/prosemirror-inputrules`, dans les versions que BlockNote embarque (dépendances exactes, une seule copie vérifiée par un contrat). Rien d'autre (révisée le 08/11/2026, étape 4).
 2. **Seulement l'API publique.**
    - Aucun import de chemins internes (`…/src/…`, `…/dist/…` non exportés), aucun membre privé (`_x`), aucune copie de code d'une fondation modifiée chez nous.
    - Si l'API publique ne suffit pas : on renonce, on contourne au niveau application, ou on contribue en amont (§ 4).
