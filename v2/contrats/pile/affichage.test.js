@@ -46,7 +46,8 @@ const problemes = (page, pseudo) =>
       const marcheur = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
       for (let n = marcheur.nextNode(); n; n = marcheur.nextNode()) {
         const t = n.textContent.trim()
-        if (!t || n.parentElement.closest('.bn-container, script, style')) continue
+        // Un symbole sans lettre (l'astérisque d'un champ obligatoire) n'a pas de langue.
+        if (!/\p{L}/u.test(t) || n.parentElement.closest('.bn-container, script, style')) continue
         const bloc = n.parentElement.textContent
         if (!bloc.includes('⟦') || !bloc.includes('⟧')) p.push(`texte en dur : « ${t.slice(0, 40)} »`)
       }

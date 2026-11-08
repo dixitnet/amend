@@ -1,13 +1,16 @@
 // Composants de présentation : écrans simples (attente, erreur, connexion de
-// développement). Ils n'appellent rien : la connexion remonte par `surEntrer`.
+// développement), faits de composants Mantine sans réglage. Ils n'appellent
+// rien : la connexion remonte par `surEntrer`.
+import { Container, Stack, Title, Text, TextInput, Button } from '@mantine/core'
+
 export function EcranMessage({ titre, texte }) {
   return (
-    <section className="ecran-simple">
-      {titre ? <h1 className="ecran-simple__titre">{titre}</h1> : null}
-      <p className="ecran-simple__texte" role="status">
-        {texte}
-      </p>
-    </section>
+    <Container className="ecran-simple">
+      <Stack>
+        {titre ? <Title order={1}>{titre}</Title> : null}
+        <Text role="status">{texte}</Text>
+      </Stack>
+    </Container>
   )
 }
 
@@ -18,18 +21,17 @@ export function EcranConnexion({ titre, explication, libelleNom, libelleBouton, 
     if (String(nom || '').trim()) surEntrer(String(nom).trim())
   }
   return (
-    <section className="ecran-simple">
-      <h1 className="ecran-simple__titre">{titre}</h1>
-      <p className="ecran-simple__texte">{explication}</p>
-      <form onSubmit={soumettre}>
-        <label className="champ">
-          <span>{libelleNom}</span>
-          <input name="nom" autoComplete="name" required autoFocus />
-        </label>
-        <button className="bouton-principal" type="submit">
-          {libelleBouton}
-        </button>
-      </form>
-    </section>
+    <Container className="ecran-simple">
+      <Stack>
+        <Title order={1}>{titre}</Title>
+        <Text>{explication}</Text>
+        <form onSubmit={soumettre}>
+          <Stack>
+            <TextInput name="nom" label={libelleNom} autoComplete="name" required autoFocus />
+            <Button type="submit">{libelleBouton}</Button>
+          </Stack>
+        </form>
+      </Stack>
+    </Container>
   )
 }

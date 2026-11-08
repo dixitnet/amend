@@ -1,21 +1,22 @@
-// Composant de présentation : la page d'un document. Conteneur générique, il
-// ne sait rien de l'éditeur qu'il reçoit (revue R4) ; ses textes lui
-// arrivent traduits. `mention` (facultative) signale un mode particulier de la
-// page, par exemple la lecture seule.
+// Composant de présentation : la page d'un document, faite de composants
+// Mantine sans réglage. Conteneur générique, il ne sait rien de l'éditeur
+// qu'il reçoit (revue R4) ; ses textes lui arrivent traduits. `mention`
+// (facultative) signale un mode particulier de la page, par exemple la
+// lecture seule.
+import { Container, Stack, Group, Title, Text, Badge } from '@mantine/core'
+
 export function PageEdition({ titre, etat, participants, mention, editeur }) {
   return (
-    <div className="page-edition">
-      <header className="page-edition__entete">
-        <h1 className="page-edition__titre">{titre}</h1>
-        {mention ? <p className="page-edition__mention">{mention}</p> : null}
-        <p className="page-edition__info" role="status">
-          {etat}
-        </p>
-        <p className="page-edition__info">{participants}</p>
-      </header>
-      <main className="page-edition__document" role="document">
-        {editeur}
-      </main>
-    </div>
+    <Container className="page-edition">
+      <Stack component="header">
+        <Group>
+          <Title order={1}>{titre}</Title>
+          {mention ? <Badge className="page-edition__mention">{mention}</Badge> : null}
+          <Text role="status">{etat}</Text>
+        </Group>
+        <Text>{participants}</Text>
+      </Stack>
+      <main role="document">{editeur}</main>
+    </Container>
   )
 }

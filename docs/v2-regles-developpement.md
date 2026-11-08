@@ -29,7 +29,7 @@ Du bas vers le haut. Une couche ne dépend que des couches situées en dessous d
 | 3 | **Extensions** | ce qui se branche sur les points d'extension publics des fondations : bloc « note de bas de page », extension « typographie française », greffon d'authentification de y/hub, rendu des suggestions | nous, chacune isolée, écrite **comme si elle devait partir en amont** |
 | 4 | **Domaine** | les règles d'amend.ink, sans aucune fondation : rôles et capacités, règles éditoriales, typographie (fonctions pures), `nfc`, consignes et garde-fous de Margo, limites en signes, modèle de mise en page du livre | nous ; **JavaScript pur**, testable sans navigateur ni serveur |
 | 5 | **Application technique** | l'assemblage et la logique : état, appels au serveur, enchaînements d'écrans ; serveur Node (comptes, `abilities`, commentaires, exports, publication, back-office), configuration de y/hub | nous |
-| 6 | **Design** | l'apparence : jetons de design (couleurs, typographies, espacements, rayons, ombres), thème de BlockNote, styles, icônes, composants de présentation, mises en page d'écran | nous (ou un designer), **sans toucher à la technique** |
+| 6 | **Design** | l'apparence : Mantine (thème, composants), feuilles de style de Mantine et de BlockNote telles que livrées, composants de présentation, mises en page d'écran ; les seuls réglages permis sont ceux décidés par Sylvain (ADR 0008) | nous (ou un designer), **sans toucher à la technique** |
 | 7 | **Exploitation** | déploiement, sauvegardes, surveillance | nous ; scripts, pas de code applicatif |
 
 En parallèle des couches, **les textes de l'interface** vivent dans des catalogues de traduction (§ 3, « Traductions ») : aucune couche n'écrit de phrase destinée à une personne en dur dans son code.
@@ -48,7 +48,7 @@ v2/
   application/
     client/         couche 5 : React, logique des écrans (sans style)
     serveur/        couche 5 : Node
-  design/           couche 6 : jetons, thèmes, styles, icônes, composants de présentation
+  design/           couche 6 : Mantine, réglages décidés (reglages.js), composants de présentation
   i18n/             catalogues de textes (fr, en…), communs au client et au serveur
   exploitation/     couche 7
   contrats/         tests de contrat des fondations (§ 5)
@@ -118,10 +118,10 @@ Ajouté le 08/11/2026, après une proposition précipitée (un lot de design pou
 16. **Deux sortes de composants d'interface, jamais mélangées** :
     - les **composants de présentation** (`v2/design/`) reçoivent des données simples et des fonctions de rappel, et rendent de l'apparence. Ils n'appellent ni le serveur, ni Yjs, ni BlockNote, ni le domaine ; ils ne connaissent pas les règles ;
     - les **composants techniques** (`v2/application/client/`) tiennent l'état, appellent le serveur et les adaptateurs, appliquent les règles, et **délèguent tout l'affichage** aux composants de présentation.
-17. **Aucun style dans le code technique** : pas de couleur, de taille, de marge ni de police en dur, pas d'attribut `style`, pas de feuille de style hors de `v2/design/`. Le code technique ne pose que des **noms de rôle** (« bouton principal », « carte de suggestion », « auteur 3 ») ; le design décide de leur apparence.
-18. **Tout passe par des jetons de design** (variables CSS : couleurs, typographies, espacements, rayons, ombres, durées d'animation). Le thème de BlockNote et celui de sa bibliothèque d'interface sont **dérivés de nos jetons**, jamais l'inverse. Le mode sombre, et un éventuel thème d'instance (comme la personnalisation à l'exécution de Docs), ne sont qu'un autre jeu de valeurs.
+17. **Aucun élément de design hors de `v2/design/`** : pas de couleur, de taille, de marge ni de police, pas de variable CSS, pas d'attribut `style` ni `className`, pas de feuille de style, y compris celles des fondations (importées par le design seulement). Le code technique ne pose que des **noms de rôle** (« bouton principal », « carte de suggestion », « auteur 3 ») ; le design décide de leur apparence.
+18. **Mantine est la source du design, et aucune valeur n'est inventée** (révisée le 08/11/2026, ADR 0008). Composants et thème de Mantine, feuilles de style de Mantine et de BlockNote telles que livrées ; l'éditeur reprend le fournisseur Mantine de l'application. **Toute valeur ou tout réglage de design** (couleur, police, taille, espacement, variante de composant, prop de style de Mantine) **est une décision de Sylvain**, inscrite dans `v2/design/reglages.js` et dans la table « Réglages décidés » de l'ADR 0008 ; Claude n'en fixe aucun de lui-même, il propose. Le mode sombre et un éventuel thème d'instance ne sont que d'autres réglages.
 19. **Les extensions** (couche 3) qui dessinent quelque chose, par exemple l'appel de note, posent des classes et des attributs de rôle ; leur apparence est définie dans `v2/design/`.
-20. **Un lot de design ne touche que `v2/design/`** (et des catalogues de textes au besoin), **un lot technique ne touche pas à `v2/design/`**. Changer l'apparence d'amend.ink ne doit demander aucune modification de la logique, et inversement. C'est vérifié par le lint (frontières entre dossiers, interdiction de `style` et de valeurs de couleur ou de taille dans le code technique).
+20. **Un lot de design ne touche que `v2/design/`** (et des catalogues de textes au besoin), **un lot technique ne touche pas à `v2/design/`**. Changer l'apparence d'amend.ink ne doit demander aucune modification de la logique, et inversement. C'est vérifié par le lint (frontières entre dossiers ; hors du design : ni `style`, ni `className`, ni feuille de style, ni valeur de couleur, de taille ou de variable CSS ; dans le design : ni `style`, ni feuille maison, ni prop de style de Mantine, ni valeur, hors de `reglages.js`) et par un contrat statique (chaque réglage a sa décision dans l'ADR 0008 ; aucune feuille de style maison).
 21. **Les rendus imprimés** (PDF Typst, Word, page publiée) ont aussi leur couche de design : les modèles de mise en page et les profils sont séparés du code qui parcourt le document.
 21 bis. **Formats d'écran visés** (décision de Sylvain, 08/11/2026) : **L** (Mac) et **M** (iPad, en portrait et en paysage). Le format **S** (iPhone) fera l'objet d'un développement spécifique plus tard, avec des compromis fonctionnels forts ; on ne conçoit ni ne teste pour lui d'ici là.
 22. **Accessibilité** : elle relève des deux couches. La présentation garantit contrastes, tailles et focus visibles ; la technique garantit sémantique, rôles ARIA et navigation au clavier.
@@ -208,7 +208,7 @@ Entre deux étapes, chaque lot suit les contrôles ordinaires : `format:check`, 
 6. **Tests** : ce qui change est-il couvert ? un contrat manque-t-il ?
 7. **Exports propres** : NFC, pas de remplacement parasite, typographie française.
 8. **Licences** : une dépendance nouvelle, et sa licence.
-9. **Design et technique** : du style, une couleur ou une taille dans le code technique ? un composant de présentation qui appelle le serveur ou applique une règle ? une valeur hors des jetons de design ?
+9. **Design et technique** : un élément de design hors de `v2/design/` ? un composant de présentation qui appelle le serveur ou applique une règle ? une valeur ou un réglage de design qui n'est pas une décision de Sylvain notée dans l'ADR 0008 ?
 10. **Traductions** : une phrase en dur, assemblée par morceaux, sans pluriel ? une date ou un nombre formaté à la main ? la langue de l'interface confondue avec celle du document ?
 11. **Documentation** : ADR, renoncements, veille à jour ?
 
@@ -253,7 +253,7 @@ Premières fiches attendues :
 5. authentification ;
 6. licence ;
 7. relecteur IA ;
-8. système de design (jetons, thème de BlockNote dérivé, bibliothèque de composants de présentation) ;
+8. système de design (Mantine, réglages décidés, composants de présentation) ;
 9. traductions (bibliothèque de messages, format des catalogues, outil de traduction : simple fichier ou plateforme comme Crowdin, qu'utilise Docs).
 
 ## 8. L'ordre de reconstruction

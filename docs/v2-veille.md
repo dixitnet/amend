@@ -30,7 +30,7 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 
 | Fondation | Défaut | Contournement | Retrait |
 |---|---|---|---|
-| BlockNote 0.57.0 | l'option `fontFamily` du thème remplit `--bn-font-family`, mais aucune règle CSS ne l'utilise (`.bn-default-styles` écrit Inter en dur) | `v2/design/styles.css` rebranche la police sur `.bn-root .bn-editor` (classes publiques documentées) | quand BlockNote corrige ; à signaler en amont (décision de Sylvain) ; le contrat des jetons le surveille |
+| BlockNote 0.57.0 | l'option `fontFamily` du thème remplit `--bn-font-family`, mais aucune règle CSS ne l'utilise (`.bn-default-styles` écrit Inter en dur) | **sans objet depuis le 08/11/2026** : la v2 n'impose plus de police (ADR 0008 révisée, Mantine et BlockNote tels quels) ; contournement retiré | à signaler en amont si une police est un jour décidée |
 
 ## Correctifs temporaires de fondations en place
 

@@ -126,18 +126,27 @@ test('contrats 2 et 4 : le document se lit côté serveur, et survit au redémar
   await b.context().close()
 })
 
-test('contrat 5 : les jetons de design atteignent l’éditeur (couleur et police)', async () => {
-  const a = await ouvrir('Alice', docTest('jetons'))
-  const lire = () =>
-    a.evaluate(() => {
-      const s = getComputedStyle(document.querySelector('.bn-editor'))
-      return { fond: s.backgroundColor, police: s.fontFamily }
-    })
-  const avant = await lire()
-  assert.match(avant.police, /Iowan Old Style|Source Serif/, 'la police des jetons atteint l’éditeur')
-  await a.evaluate(() => document.documentElement.style.setProperty('--couleur-fond', 'rgb(1, 2, 3)'))
-  assert.equal((await lire()).fond, 'rgb(1, 2, 3)')
-  await a.context().close()
+test('contrat 5 : l’éditeur est dans le fournisseur Mantine de l’application, en clair comme en sombre', async () => {
+  for (const schema of ['light', 'dark']) {
+    const ctx = await nav.newContext({ colorScheme: schema, locale: 'fr-FR' })
+    const page = await ctx.newPage()
+    await page.goto(`${pile.url}/#${docTest(`mantine-${schema}`)}`)
+    await page.fill('input[name=nom]', 'Alice')
+    await page.click('button[type=submit]')
+    await page.waitForSelector('.bn-editor')
+    const lu = await page.evaluate(() => ({
+      page: document.documentElement.getAttribute('data-mantine-color-scheme'),
+      editeur: document.querySelector('.bn-container').getAttribute('data-mantine-color-scheme'),
+      // Les variables de Mantine sont posées par le fournisseur de l'application.
+      variables: getComputedStyle(document.documentElement).getPropertyValue('--mantine-color-body').trim() !== '',
+      police: getComputedStyle(document.querySelector('.bn-editor')).fontFamily,
+    }))
+    assert.equal(lu.page, schema, 'le fournisseur Mantine suit le système')
+    assert.equal(lu.editeur, schema, 'l’éditeur suit le même schéma')
+    assert.ok(lu.variables, 'variables de Mantine présentes')
+    assert.match(lu.police, /Inter/, 'police de BlockNote telle quelle')
+    await ctx.close()
+  }
 })
 
 test('l’interface suit la langue du navigateur', async () => {

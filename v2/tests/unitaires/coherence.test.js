@@ -1,4 +1,5 @@
-// T0 : cohérence entre le code, les catalogues de textes et les jetons de design.
+// T0 : cohérence entre le code et les catalogues de textes. (Le design n'a plus
+// de jetons à lui : contrats/statiques/design-decide.test.js.)
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -40,26 +41,4 @@ test('chaque code d’erreur du domaine a son message', () => {
   for (const { f, s } of code.filter((c) => c.f.startsWith('domaine/')))
     for (const m of s.matchAll(/code: '([a-z-]+)'/g))
       assert.ok(existantes.has(`erreurs.${m[1]}`), `${f} : le code « ${m[1]} » n’a pas de message`)
-})
-
-test('chaque variable CSS utilisée est définie dans les jetons ; le jeu sombre redéfinit chaque couleur', () => {
-  const jetons = lire(join(V2, 'design/jetons.css'))
-  const definies = new Set([...jetons.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]))
-  const design = fichiers(join(V2, 'design'), /\.(css|js|jsx)$/)
-  for (const f of design)
-    for (const m of lire(f).matchAll(/var\(\s*(--[a-z0-9-]+)|v\('([a-z0-9-]+)'\)/g)) {
-      const nom = m[1] || `--${m[2]}`
-      if (nom.startsWith('--bn-')) continue // variables de BlockNote (thème)
-      // Nom construit à l'exécution (`--auteur-${n}`) : la famille doit exister.
-      if (nom.endsWith('-'))
-        assert.ok(
-          [...definies].some((d) => d.startsWith(nom)),
-          `${relative(V2, f)} : famille ${nom}* absente`,
-        )
-      else assert.ok(definies.has(nom), `${relative(V2, f)} utilise ${nom}, absent de jetons.css`)
-    }
-  const clair = jetons.slice(0, jetons.indexOf('@media (prefers-color-scheme: dark)'))
-  const sombre = jetons.slice(jetons.indexOf('@media (prefers-color-scheme: dark)'))
-  for (const m of clair.matchAll(/(--(?:couleur|ombre)-[a-z0-9-]+)\s*:/g))
-    assert.ok(sombre.includes(`${m[1]}:`), `${m[1]} n’a pas de valeur sombre`)
 })

@@ -43,15 +43,25 @@ async function texteCoteServeur(docId) {
   return texteDesBlocs(lireBlocs(Buffer.from((await r.json()).doc, 'base64')))
 }
 
-test('y/hub arrêté puis relancé : « Hors ligne », puis « Synchronisé », et la frappe faite entre-temps arrive', async () => {
+test('y/hub arrêté puis relancé : l’interface ne dit plus « Synchronisé », puis le redit, et la frappe faite entre-temps arrive', async () => {
   const doc = docTest('coupure')
   const a = await ouvrir('Alice', doc)
   const b = await ouvrir('Bruno', doc)
   await pile.arreterCollab()
-  await attendreEtat(a, 'Hors ligne', 15000)
-  await a.click('.bn-editor')
-  await a.keyboard.type('Écrit pendant la coupure.')
-  await pile.relancerCollab()
+  try {
+    // Le client passe un instant par « Hors ligne », puis retente sans fin :
+    // « Connexion… ». Les deux disent la perte de synchronisation.
+    await a.waitForFunction(
+      () => ['Hors ligne', 'Connexion…'].includes(document.querySelector('[role=status]')?.textContent),
+      null,
+      { timeout: 15000 },
+    )
+    await a.click('.bn-editor')
+    await a.keyboard.type('Écrit pendant la coupure.')
+  } finally {
+    // Relancé même si une vérification échoue : les tests suivants en ont besoin.
+    await pile.relancerCollab()
+  }
   await attendreEtat(a, 'Synchronisé', 20000)
   await attendreTexte(b, 'Écrit pendant la coupure.', 15000)
   await a.context().close()
@@ -65,8 +75,11 @@ test('y/hub tué net en pleine frappe : rien n’est perdu après reconnexion', 
   await a.keyboard.type('Avant. ')
   await attendre(300)
   await pile.arreterCollab('SIGKILL')
-  await a.keyboard.type('Pendant. ')
-  await pile.relancerCollab()
+  try {
+    await a.keyboard.type('Pendant. ')
+  } finally {
+    await pile.relancerCollab()
+  }
   await attendreEtat(a, 'Synchronisé', 20000)
   await a.keyboard.type('Après.')
   const attendu = 'Avant. Pendant. Après.'
