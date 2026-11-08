@@ -8,6 +8,8 @@ import { join, extname, normalize, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerTableAcces } from './acces.js'
+import { creerCommentaires } from './commentaires.js'
+import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { nomPersonne, identifiantDocument, ROLES, roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
@@ -22,6 +24,7 @@ const confDepuisEnv = () => ({
   cookieSecure: process.env.V2_COOKIE_SECURE === '1',
   collaboration: process.env.V2_COLLAB_URL || 'ws://127.0.0.1:4400/collaboration/ws/v1/amend',
   statique: process.env.V2_STATIQUE || join(import.meta.dirname, '../../dist'),
+  postgres: process.env.V2_POSTGRES || 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub',
 })
 
 /** Comparaison à temps constant du jeton interne. */
@@ -60,7 +63,7 @@ async function lireCorps(req, max = 10_000) {
  * tous sauf propriétaire (un seul, le créateur ; le transfert vient à l'étape 6). */
 const ROLES_DONNABLES = ROLES.filter((r) => r !== 'proprietaire')
 
-const creerRoutes = (CONF, table = creerTableAcces()) => {
+const creerRoutes = (CONF, table) => {
   const personneDe = (req) => lireJeton(CONF.secret, lireCookie(req.headers.cookie))
   /** Le rôle effectif d'une personne sur un document : décidé par le domaine. */
   const roleSur = (docId, idPersonne) => roleEffectif(table.rolesDe(docId, idPersonne))
@@ -164,9 +167,21 @@ async function servirFichier(CONF, res, chemin) {
   }
 }
 
-export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces()) {
+/**
+ * @param {object} [CONF]
+ * @param {ReturnType<typeof creerTableAcces>} [table]
+ * @param {any} [depot] le dépôt des commentaires ; sans lui, leurs routes répondent 503
+ */
+export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces(), depot = null) {
   if (!CONF.secret) throw new Error('secret de session absent')
   const routes = creerRoutes(CONF, table)
+  const commentaires = creerCommentaires({
+    personneDe: (req) => lireJeton(CONF.secret, lireCookie(req.headers.cookie)),
+    roleSur: (docId, idPersonne) => roleEffectif(table.rolesDe(docId, idPersonne)),
+    depot,
+    json,
+    lireCorps,
+  })
   return http.createServer(async (req, res) => {
     try {
       // L'analyse de l'adresse peut échouer (« // ») : dans le bloc protégé.
@@ -178,6 +193,7 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces()) 
       }
       const route = routes[`${req.method} ${url.pathname}`]
       if (route) return await route(req, res, url)
+      if (await commentaires(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })
       if (url.pathname.startsWith('/api/')) return json(res, 404, { code: 'introuvable' })
@@ -197,5 +213,8 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces()) 
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const CONF = confDepuisEnv()
-  creerServeur(CONF).listen(CONF.port, '127.0.0.1', () => console.log(`[serveur] http://127.0.0.1:${CONF.port}`))
+  const depot = await ouvrirCommentaires(CONF.postgres)
+  creerServeur(CONF, creerTableAcces(), depot).listen(CONF.port, '127.0.0.1', () =>
+    console.log(`[serveur] http://127.0.0.1:${CONF.port}`),
+  )
 }

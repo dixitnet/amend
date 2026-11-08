@@ -160,6 +160,17 @@ export default [
       'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
     },
   },
+  {
+    files: ['adaptateurs/postgres/**'],
+    rules: {
+      'no-restricted-imports': imports({
+        permises: ['serveur'],
+        couches: ['application', 'design', 'i18n', 'extensions', 'yjs', 'blocknote', 'yhub'],
+        css: true,
+      }),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
+    },
+  },
   // Couche 3 : les extensions se branchent sur BlockNote, et sur rien d'autre.
   {
     files: ['extensions/**'],

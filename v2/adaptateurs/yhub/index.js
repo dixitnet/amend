@@ -3,9 +3,10 @@
 // connexion, il demande à l'application qui est la personne (`identifier`) et
 // ce qu'elle peut faire (`droits`), comme l'adaptateur de Docs.
 import { createYHub, createAuthPlugin, createAuthorize, createDocumentPermissions, apiError } from '@y/hub'
+import { BRANCHES } from '../../domaine/index.js'
 
-/** Les branches ouvertes : le texte et les suggestions ; toute autre est refusée. */
-const BRANCHES = new Set(['main', 'suggestions'])
+/** Les branches ouvertes (domaine) : le texte et les suggestions ; toute autre est refusée. */
+const OUVERTES = new Set(BRANCHES)
 
 /**
  * Ce que le domaine accorde sur une branche, traduit en permissions de y/hub
@@ -62,7 +63,7 @@ export async function demarrerCollaboration({
     },
     authorize: createAuthorize({
       document: async (docRef, personne) => {
-        if (!personne || docRef.org !== ORGANISATION || !BRANCHES.has(docRef.branch)) return null
+        if (!personne || docRef.org !== ORGANISATION || !OUVERTES.has(docRef.branch)) return null
         // Une demande de droits qui échoue (serveur lent ou absent) vaut refus.
         const accorde = await droits(docRef.docid, personne.userid, docRef.branch).catch(() => null)
         return accorde ? permissions(accorde) : null
