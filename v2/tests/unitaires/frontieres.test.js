@@ -39,6 +39,35 @@ test('une fondation importée hors de son adaptateur est refusée', async () => 
   await accepte('design/X.jsx', "import { Button } from '@mantine/core'\nexport const x = Button")
 })
 
+test('règle 1 révisée : les extensions importent ce qu’exigent les points d’extension de BlockNote, rien d’autre', async () => {
+  await accepte('extensions/x.js', "import { Plugin } from 'prosemirror-state'\nexport const x = Plugin")
+  await accepte('extensions/x.js', "import { Slice } from 'prosemirror-model'\nexport const x = Slice")
+  await accepte(
+    'extensions/x.js',
+    "import { inputRules } from '@handlewithcare/prosemirror-inputrules'\nexport const x = inputRules",
+  )
+  await refuse(
+    'extensions/x.js',
+    "import { EditorView } from 'prosemirror-view'\nexport const x = EditorView",
+    /fondation importée/,
+  )
+  await refuse(
+    'extensions/x.js',
+    "import { Editor } from '@tiptap/core'\nexport const x = Editor",
+    /fondation importée/,
+  )
+  await refuse(
+    'application/client/x.js',
+    "import { Plugin } from 'prosemirror-state'\nexport const x = Plugin",
+    /fondation importée/,
+  )
+  await refuse(
+    'design/x.js',
+    "import { Plugin } from 'prosemirror-state'\nexport const x = Plugin",
+    /fondation importée/,
+  )
+})
+
 test('le domaine ne dépend de rien', async () => {
   await refuse(
     'domaine/x.js',
