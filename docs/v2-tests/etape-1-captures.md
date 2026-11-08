@@ -50,11 +50,10 @@ Claude a relu lui-même les huit captures (il lit les images). Le jugement de Mi
 - V3 et V4 : avis de goût, sans défaut constaté ; à reprendre au moment du design de l'éditeur (étape 4).
 - Le premier passage (`mistral-medium-latest`) affirmait aussi un titre non encadré et un bouton sans focus visible sur une capture d'erreur : faux, et la capture d'erreur était elle-même fausse (prise avant l'affichage du message), corrigée dans `exploitation/dev/captures.mjs`.
 
-**Défauts réels vus par Claude**, absents de l'avis de Mistral. Décision de Sylvain (08/11/2026) : le design vise les formats L (Mac) et M (iPad) seulement ; le format S (iPhone) viendra plus tard. Les défauts 1 et 3, propres au téléphone, sortent donc du périmètre ; le 2 reste à traiter dans un lot de design :
+**Constats de Claude**, absents de l'avis de Mistral :
 
-1. Sur téléphone, la carte de connexion touche les bords de l'écran (pas de marge latérale).
-2. Le texte de l'éditeur est en retrait d'environ 54 px par rapport à l'en-tête (marge des poignées de BlockNote) : alignement à revoir, surtout sur téléphone.
-3. Sur téléphone, le titre de niveau 1 du document est disproportionné (deux lignes pour « Chapitre premier »).
+1. et 3. Propres au téléphone (carte de connexion collée aux bords, grand titre disproportionné) : hors périmètre, le design vise les formats L (Mac) et M (iPad) seulement (décision de Sylvain, 08/11/2026).
+2. Retrait de 54 px du texte de l'éditeur par rapport à l'en-tête : **vérifié, ce n'est pas un défaut**. La zone d'édition est alignée sur l'en-tête (368 px sur Mac, 58 px sur iPad) ; les 54 px sont la marge que BlockNote réserve à ses poignées de bloc (« + » et déplacement), qui y apparaissent au survol ou au toucher. Garder ou masquer ces poignées pour un éditeur de livre est une décision de l'étape 4 (ADR 0003), pas un lot de design maintenant.
 
 **Décision proposée** : le jugement visuel par Mistral n'est plus un test. Il est remplacé par des **vérifications programmées** dans le navigateur, déterministes et rapides (`v2/contrats/pile/affichage.test.js`) : en pseudo-langue, sur téléphone et sur ordinateur, en clair et en sombre, aucun texte d'interface hors ⟦ ⟧, aucun défilement horizontal, rien hors de l'écran, aucun texte coupé ; un test plante exprès un défaut pour prouver que le détecteur le trouve. Les captures restent produites à chaque clôture, et Claude les relit.
 
