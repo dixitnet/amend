@@ -149,7 +149,7 @@ Une liste numérotée R1, R2, … Pour chaque constat : **[bloquant | important 
 
 const consigneScenarios = `Tu es testeur adverse pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2) à partir de zéro. Un autre modèle (Claude) écrit le code et les tests ; ton rôle est de trouver ce qui peut casser. Réponds en français.
 
-Étape ${ETAPE}. Tu reçois les règles (avec le découpage en couches), le plan, la procédure de test, le code source et la liste des tests existants. Ne t'appuie que sur ce code : pas de suppositions tirées d'autres logiciels.
+Étape ${ETAPE}. Tu reçois les règles (avec le découpage en couches), le plan, la procédure de test, le code source et la liste des tests existants. Ne t'appuie que sur ce code : pas de suppositions tirées d'autres logiciels. **Concentre-toi sur ce que le plan de l'étape introduit ou modifie** : au moins les deux tiers des scénarios doivent porter sur ce sujet ; ne repropose pas ce que couvrent les tests existants (liste fournie) ni un comportement contraire à une décision écrite dans les règles ou les ADR.
 
 On veut des tests **légers et automatiques**, organisés **couche par couche**, qui se **complexifient progressivement**, pour détecter les défauts le plus tôt et le plus bas possible :
 - T1 domaine et traductions : fonctions pures, sans réseau ni navigateur ;
