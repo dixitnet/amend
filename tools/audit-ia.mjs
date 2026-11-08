@@ -185,7 +185,12 @@ async function appeler(systeme, dossier) {
 function verifier(avis, fichiers) {
   const DEBUT = /^\s*\**(A?\d+)[.)]?\**[\s.]/
   const constats = avis
+    // Les constats seulement : de « Constats » au titre suivant (la liste des
+    // points de grille sans remarque commence aussi par des numéros).
     .slice(Math.max(0, avis.indexOf('## Constats')))
+    .split(/\n(?=#{1,4} )/)
+    .slice(0, 1)
+    .join('\n')
     .split('\n')
     .reduce(
       (liste, l) =>
