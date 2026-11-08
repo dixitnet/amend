@@ -2,7 +2,7 @@
 
 - Auditeur : Scaleway, modèle `glm-5.3` ; consommation : 100715 signes envoyés, 3128 reçus (et 11766 de réflexion) ; réflexion `low` ; 18 s ; arrêt : stop
 - Diff audité : `v2/` de `8644c6a` à `9e88da4` (32 fichiers)
-- Statut : avis reçu ; réponse de Claude écrite ; arbitrage de Sylvain à venir (demande de fusion).
+- Statut : avis reçu ; réponse de Claude écrite ; arbitré par Sylvain le 08/11/2026 (fusion).
 
 ## Avis de l'auditeur
 
@@ -45,4 +45,4 @@ Bilan : 7 constats, 4 justes (dont un défaut réel du serveur), 3 faux.
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+08/11/2026 : fusion dans `main`.
