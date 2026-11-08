@@ -27,3 +27,44 @@ test('document vide, et document jamais écrit : aucun bloc, aucune erreur', () 
 test('état illisible : erreur de code document-illisible', () => {
   assert.throws(() => lireBlocs(new Uint8Array([1, 2, 3, 250, 251])), { code: 'document-illisible' })
 })
+
+test('schéma du livre : chaque bloc et style retenu fait l’aller-retour', () => {
+  const texte = (t, styles = {}) => [{ type: 'text', text: t, styles }]
+  const blocs = [
+    { type: 'heading', props: { level: 1 }, content: texte('Chapitre') },
+    { type: 'heading', props: { level: 3 }, content: texte('Section') },
+    {
+      type: 'paragraph',
+      content: [
+        ...texte('gras ', { bold: true }),
+        ...texte('italique ', { italic: true }),
+        ...texte('souligné ', { underline: true }),
+        ...texte('barré', { strike: true }),
+      ],
+    },
+    { type: 'quote', content: texte('Citation') },
+    { type: 'bulletListItem', content: texte('puce') },
+    { type: 'numberedListItem', content: texte('numéro') },
+    { type: 'divider' },
+  ]
+  const relus = lireBlocs(ecrireBlocs(blocs))
+  assert.deepEqual(
+    relus.map((b) => b.type),
+    ['heading', 'heading', 'paragraph', 'quote', 'bulletListItem', 'numberedListItem', 'divider'],
+  )
+  assert.deepEqual(
+    relus[2].content.map((c) => c.styles),
+    [{ bold: true }, { italic: true }, { underline: true }, { strike: true }],
+  )
+})
+
+test('schéma du livre : blocs et styles retirés refusés avec un code, jamais une erreur interne', () => {
+  for (const blocs of [
+    [{ type: 'video', props: { url: 'v.mp4' } }],
+    [{ type: 'codeBlock', content: 'x' }],
+    [{ type: 'checkListItem', content: 'x' }],
+    [{ type: 'paragraph', content: [{ type: 'text', text: 'c', styles: { code: true } }] }],
+    [{ type: 'paragraph', content: [{ type: 'text', text: 'c', styles: { textColor: 'red' } }] }],
+  ])
+    assert.throws(() => ecrireBlocs(blocs), { code: 'blocs-invalides' }, JSON.stringify(blocs))
+})

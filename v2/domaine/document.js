@@ -14,3 +14,9 @@ export function identifiantDocument(brut) {
   if (!/^[A-Za-z0-9_-]+$/.test(id)) return { ok: false, code: 'document-caracteres' }
   return { ok: true, id }
 }
+
+/** La langue d'un document, tant qu'elle n'est pas enregistrée avec lui
+ * (étape 6) : le français (décision de Sylvain, étape 4). Elle règle la
+ * typographie, et plus tard les exports et Margo ; elle n'est pas la langue
+ * de l'interface. */
+export const LANGUE_DOCUMENT_PAR_DEFAUT = 'fr'

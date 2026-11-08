@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PageEdition, EcranMessage, EcranConnexion, couleurAuteur } from '../../design/index.js'
 import { creerTraducteur, choisirLangue, messageErreur, LANGUE_PSEUDO } from '../../i18n/index.js'
-import { identifiantDocument } from '../../domaine/index.js'
+import { identifiantDocument, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 
@@ -129,6 +129,7 @@ function Edition({ config, personne, docId, droits }) {
           contexte={session.contexte}
           personne={moi}
           langue={t.langue}
+          langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
           nomAccessible={t('document.zoneEdition', { id: docId })}
           modifiable={modifiable}
         />
