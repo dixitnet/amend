@@ -20,11 +20,17 @@ La première version de cette décision posait nos propres jetons (variables CSS
 
 ## Réglages décidés
 
-| Réglage                          | Valeur                                      | Décision                                                                                                                                                                                        |
-| -------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fournisseur.defaultColorScheme` | `'auto'` : clair ou sombre selon le système | Procédure de test validée par Sylvain le 08/11/2026 (`docs/v2-procedure-tests.md` : « clair et sombre ») ; c'est aussi le comportement de base de l'éditeur BlockNote. À confirmer par Sylvain. |
+| Réglage                          | Valeur                                      | Décision                                                                                                                                                                                                   |
+| -------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fournisseur.defaultColorScheme` | `'auto'` : clair ou sombre selon le système | Procédure de test validée par Sylvain le 08/11/2026 (`docs/v2-procedure-tests.md` : « clair et sombre ») ; c'est aussi le comportement de base de l'éditeur BlockNote. Confirmé par Sylvain le 08/11/2026. |
 
-Les couleurs des personnes (curseurs, présence) sont prises dans la palette de Mantine (`design/auteurs.js`), sans valeur nouvelle ; le gris et le noir en sont exclus pour ne pas se confondre avec le texte (à confirmer par Sylvain).
+Les couleurs des personnes (curseurs, présence) sont prises dans la palette de Mantine (`design/auteurs.js`), sans valeur nouvelle ; le gris et le noir en sont exclus pour ne pas se confondre avec le texte (confirmé par Sylvain le 08/11/2026).
+
+## Points ouverts
+
+1. **Contraste du bleu par défaut de Mantine** (bouton principal, badge : texte blanc sur `blue.6`, 3,56:1, sous le minimum WCAG AA de 4,5:1). Décision de Sylvain le 08/11/2026 : ne rien régler pour l'instant, traiter avec le travail sur l'interface ; options relevées : nuance plus foncée (`primaryShade` 8 : 5,02:1) ou texte noir (contraste automatique : 5,90:1). Seuls ces deux éléments sont exclus du contrôle de contraste du test d'accessibilité (`contrats/pile/robustesse.test.js`, `CONTRASTE_EN_ATTENTE`) ; un test de suivi échoue quand le défaut disparaît, pour rappeler de retirer l'exclusion.
+2. **Haut de page** : Mantine sans réglage laisse le titre collé au haut de l'écran. À traiter avec le travail sur l'interface.
+3. **État hors ligne** : quand y/hub est coupé, l'interface finit sur « Connexion… » et non « Hors ligne ». À traiter avec le travail sur l'interface.
 
 ## Options écartées
 
