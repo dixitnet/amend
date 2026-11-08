@@ -1,7 +1,7 @@
 # Revue de clôture de l'étape 4, « Éditeur » (2026-11-08)
 
 - Relecteur : **Claude** (Mistral suspendu depuis le 08/11/2026) ; grille du § 6 des règles appliquée au diff de l'étape (`bec9478..`).
-- Statut : revue écrite ; arbitrage de Sylvain à venir.
+- Statut : revue écrite ; arbitré par Sylvain le 08/11/2026.
 
 ## Grille
 
@@ -24,4 +24,4 @@
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+08/11/2026 : étape close, fusion dans `main`. Restent ouverts : l'apparence des notes (tailles, couleur, espace après l'appel, à confirmer sur capture) et un raccourci clavier pour insérer une note.
