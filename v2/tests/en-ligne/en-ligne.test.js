@@ -7,6 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
+import https from 'node:https'
 import dns from 'node:dns/promises'
 import * as playwright from 'playwright'
 
@@ -18,15 +19,31 @@ const AUTH = MDP ? { authorization: `Basic ${Buffer.from(`${IDENT}:${MDP}`).toSt
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
 const sauf = (condition, raison, nom, f) => test(nom, (t) => (condition ? t.skip(raison) : f(t)))
 
+/** Code HTTP d'une ouverture de WebSocket, sans mot de passe (fetch refuse l'en-tête Upgrade). */
+function upgradeSansMotDePasse(chemin) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(`${BASE}${chemin}`, {
+      headers: {
+        connection: 'Upgrade',
+        upgrade: 'websocket',
+        'sec-websocket-version': '13',
+        'sec-websocket-key': Buffer.from('amend-en-ligne-v2').toString('base64'),
+      },
+    })
+    req.on('upgrade', (res, socket) => (socket.destroy(), resolve(101)))
+    req.on('response', (res) => (res.resume(), resolve(res.statusCode)))
+    req.on('error', reject)
+    req.end()
+  })
+}
+
 sauf(
   !MDP,
   'sans V2_MOT_DE_PASSE (le proxy de la session ajoute le mot de passe à tout)',
   'sans mot de passe : 401 partout, WebSocket comprise',
   async () => {
-    for (const chemin of ['/', '/api/config', '/collaboration/ws/v1/amend/essai']) {
-      const r = await fetch(`${BASE}${chemin}`, { headers: { connection: 'Upgrade', upgrade: 'websocket' } })
-      assert.equal(r.status, 401, chemin)
-    }
+    for (const chemin of ['/', '/api/config']) assert.equal((await fetch(`${BASE}${chemin}`)).status, 401, chemin)
+    assert.equal(await upgradeSansMotDePasse('/collaboration/ws/v1/amend/essai'), 401, 'WebSocket')
   },
 )
 
