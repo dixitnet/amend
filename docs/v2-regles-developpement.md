@@ -19,7 +19,7 @@ Le cœur technique (synchronisation, éditeur, suivi des modifications, historiq
 
 ## 2. Les couches
 
-Du bas vers le haut. Une couche ne dépend que des couches situées en dessous d'elle.
+Du bas vers le haut. Les dépendances permises sont celles du graphe ci-dessous, et seulement elles (révisé le 08/11/2026, Sylvain ; la première rédaction, « une couche ne dépend que des couches situées en dessous d'elle », ne décrivait ni l'architecture voulue ni ce que le lint vérifiait).
 
 | N° | Couche | Contenu | Qui l'écrit |
 |---|---|---|---|
@@ -35,6 +35,20 @@ Du bas vers le haut. Une couche ne dépend que des couches situées en dessous d
 En parallèle des couches, **les textes de l'interface** vivent dans des catalogues de traduction (§ 3, « Traductions ») : aucune couche n'écrit de phrase destinée à une personne en dur dans son code.
 
 Le domaine (couche 4) est placé au-dessus des fondations dans le tableau, mais **il n'en dépend pas** : c'est la seule couche qui ne dépend de rien. Les adaptateurs, les extensions et l'application l'utilisent.
+
+### Le graphe des dépendances
+
+| Qui | peut importer | jamais |
+|---|---|---|
+| domaine | rien | tout le reste |
+| i18n | sa fondation (ICU) | nos autres dossiers |
+| design | Mantine, les feuilles de style livrées par les fondations, `design/feuilles/` | technique : adaptateurs, extensions, domaine, application, i18n |
+| adaptateur d'une fondation | sa fondation (par son API publique), le domaine ; **l'adaptateur BlockNote : les extensions de BlockNote** | les autres adaptateurs, l'application, le design, i18n |
+| extensions (de BlockNote) | l'API de BlockNote et ce qu'exigent ses points d'extension (règle 1), le domaine | les adaptateurs, l'application, le design, i18n |
+| application | adaptateurs, extensions, domaine, design, i18n | toute fondation |
+| exploitation, tests, contrats | tout | — |
+
+**Principe qui protège les montées de version** (condition de Sylvain à cette révision) : une fondation n'est touchée que par son adaptateur et, pour BlockNote, par ses extensions. Monter la version d'une fondation ne demande donc de revoir que ces dossiers-là, avec leurs contrats ; rien au-dessus ne dépend d'elle directement. Le lint vérifie ce graphe (`v2/eslint.config.js`), et `tests/unitaires/frontieres.test.js` qu'il refuse bien ce qu'il doit refuser.
 
 ### Arborescence
 
@@ -185,8 +199,8 @@ Lors d'une montée de version, un contrat qui casse dit **exactement** ce qui a 
 
 **Révisée le 08/11/2026 (Sylvain) : Mistral est remplacé par une IA de Scaleway**, sous deux formes :
 
-1. **Audit partiel, avant chaque fusion dans `main`** : Claude le lance dans sa session sur le diff de sa branche par rapport à `main`, avant de demander l'accord de fusion ; grille ci-dessous ; constats cités par fichier et ligne (sinon écartés) ; Claude vérifie chacun et répond (corrigé, contesté, question pour Sylvain) dans `docs/v2-revues/` ; un résumé de trois lignes accompagne la demande d'accord. Il éclaire, il ne bloque pas.
-2. **Audit complet, selon les règles de l'art, moins fréquent** : toutes les deux étapes closes et au moins une fois par mois (le premier des deux), plus avant la bascule de la v1 et après toute montée de version importante d'une fondation (Sylvain, 08/11/2026) : tout `v2/`, module par module ; outils déterministes d'abord (`npm audit`, licences, couverture des tests, `knip`, Semgrep, axe, mesure), puis l'IA avec leurs résultats, puis contre-vérification par Claude ; rapport daté dans `docs/v2-audits/`, points ouverts suivis d'un audit à l'autre.
+1. **Audit partiel, avant chaque fusion dans `main`** (modèle : GLM-5.3, réflexion basse) : Claude le lance dans sa session sur le diff de sa branche par rapport à `main`, avant de demander l'accord de fusion ; grille ci-dessous ; constats cités par fichier et ligne (sinon écartés) ; Claude vérifie chacun et répond (corrigé, contesté, question pour Sylvain) dans `docs/v2-revues/` ; un résumé de trois lignes accompagne la demande d'accord. Il éclaire, il ne bloque pas.
+2. **Audit complet, selon les règles de l'art, moins fréquent** (modèle : GLM-5.3, comme l'audit partiel ; Sylvain, 08/11/2026, après l'essai comparatif) : toutes les deux étapes closes et au moins une fois par mois (le premier des deux), plus avant la bascule de la v1 et après toute montée de version importante d'une fondation (Sylvain, 08/11/2026) : tout `v2/`, module par module ; outils déterministes d'abord (`npm audit`, licences, couverture des tests, `knip`, Semgrep, axe, mesure), puis l'IA avec leurs résultats, puis contre-vérification par Claude ; rapport daté dans `docs/v2-audits/`, points ouverts suivis d'un audit à l'autre.
 
 Clé dédiée (application IAM à part, permission `GenerativeApisModelAccess` seulement), dans le projet Scaleway existant ; jamais dans le code ni le chat (formulaire sécurisé de l'environnement, secret GitHub). Consommation notée en signes à chaque audit. Le modèle de chaque audit est choisi par Sylvain après un essai comparatif. Les scénarios de test restent écrits par Claude.
 

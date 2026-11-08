@@ -23,6 +23,9 @@ for (const paquet of PAQUETS)
     assert.equal(declares[paquet], installee, 'déclarée en version exacte, celle installée')
     const demandee = verrou['node_modules/@blocknote/core'].dependencies[paquet]
     assert.ok(demandee, `BlockNote déclare ${paquet}`)
+    // Seule la forme « ^x.y.z » est lue : toute autre forme (~, plage,
+    // préversion) doit faire relire ce contrat, pas passer en silence.
+    assert.match(demandee, /^\^\d+\.\d+\.\d+$/, `forme de version non prise en charge : ${demandee}`)
     const [maj, min, cor] = installee.split('.').map(Number)
     const [dmaj, dmin, dcor] = demandee.replace(/^\^/, '').split('.').map(Number)
     assert.ok(

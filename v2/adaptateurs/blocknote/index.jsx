@@ -19,7 +19,8 @@ import { insererNote, notesDuDocument, extensionNote } from '../../extensions/no
  * @param {object} p
  * @param {{ note: { titre: string, aide: string, groupe: string } }} p.libelles
  * @param {(notes: ReturnType<typeof notesDuDocument>) => void} [p.surNotes]
- *   rappelé avec les notes du document, à chaque changement
+ *   rappelé avec les notes du document, à chaque changement ; doit être stable
+ *   (un setter de useState, par exemple) : sinon l'abonnement est refait à chaque rendu
  */
 export function EditeurCollaboratif({
   contexte,
