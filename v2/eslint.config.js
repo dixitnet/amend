@@ -14,7 +14,7 @@ const FONDATIONS = {
   prosemirror: 'prosemirror-.*|@tiptap/.*',
   mantine: '@mantine/.*',
   lib0: 'lib0(/.*)?',
-  icu: 'intl-messageformat',
+  icu: 'intl-messageformat|@formatjs/.*',
   serveur: 'uws|postgres|redis',
 }
 const COUCHES = ['domaine', 'adaptateurs', 'extensions', 'application', 'design', 'i18n']
@@ -53,7 +53,7 @@ const navigateur = { ...globals.browser }
 const jsx = { ecmaFeatures: { jsx: true } }
 
 export default [
-  { ignores: ['node_modules/**', 'dist/**', '.mesures/**'] },
+  { ignores: ['node_modules/**', 'dist/**', '.mesures/**', '.captures/**'] },
   js.configs.recommended,
   {
     // ESLint ne lit les .jsx que si on les déclare : sans cette ligne, les

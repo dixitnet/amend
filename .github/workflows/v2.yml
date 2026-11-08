@@ -1,0 +1,130 @@
+# Tests de la v2 (docs/v2-procedure-tests.md) :
+#   - rapides (T0 à T4, dont y/hub contre PostgreSQL et Redis) à chaque envoi
+#     qui touche v2/ ;
+#   - pile complète (T5) sur trois moteurs : Chromium, WebKit (Safari), Firefox ;
+#   - en ligne (T6) contre v2.amend.ink chaque nuit, à la demande, et après
+#     chaque envoi sur main (WebSocket et ports compris, ce que la session de
+#     Claude ne peut pas faire). Secrets du dépôt : V2_IDENTIFIANT, V2_MOT_DE_PASSE.
+name: v2
+
+on:
+  push:
+    branches: [main, dev-claude, 'claude/**']
+    paths: ['v2/**', '.github/workflows/v2.yml']
+  pull_request:
+    paths: ['v2/**', '.github/workflows/v2.yml']
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: v2
+
+env:
+  V2_SERVICES_EXTERNES: '1'
+  V2_POSTGRES: postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub
+  V2_REDIS: redis://127.0.0.1:6379
+
+jobs:
+  rapides:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: amendv2
+          POSTGRES_PASSWORD: amendv2-dev
+          POSTGRES_DB: amendv2_yhub
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U amendv2" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+      - run: npm ci
+      - name: Lint (couches, styles, textes)
+        run: npm run lint
+      - name: Format
+        run: npm run format:check
+      - name: T0 à T4
+        run: npm test
+
+  pile:
+    if: github.event_name != 'schedule'
+    needs: rapides
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        navigateur: [chromium, webkit, firefox]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: amendv2
+          POSTGRES_PASSWORD: amendv2-dev
+          POSTGRES_DB: amendv2_yhub
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U amendv2" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.navigateur }}
+      - name: T5 (${{ matrix.navigateur }})
+        run: npm run test:pile
+        env:
+          NAVIGATEUR: ${{ matrix.navigateur }}
+
+  en-ligne:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Vérifier que les secrets sont posés
+        run: test -n "$V2_MOT_DE_PASSE" || { echo "::error::secret V2_MOT_DE_PASSE absent (Settings, Secrets and variables, Actions)"; exit 1; }
+        env:
+          V2_MOT_DE_PASSE: ${{ secrets.V2_MOT_DE_PASSE }}
+      - name: T6 (v2.amend.ink)
+        run: npm run test:en-ligne
+        env:
+          V2_IDENTIFIANT: ${{ secrets.V2_IDENTIFIANT }}
+          V2_MOT_DE_PASSE: ${{ secrets.V2_MOT_DE_PASSE }}

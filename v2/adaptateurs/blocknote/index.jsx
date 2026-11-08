@@ -7,10 +7,12 @@ import { BlockNoteView } from '@blocknote/mantine'
 import { withCollaboration } from '@blocknote/core/y'
 import { dictionnaire } from './dictionnaire.js'
 
-export function EditeurCollaboratif({ contexte, personne, langue, theme }) {
+export function EditeurCollaboratif({ contexte, personne, langue, theme, nomAccessible }) {
   const editeur = useCreateBlockNote(
     withCollaboration({
       dictionary: dictionnaire(langue),
+      // La zone d'édition doit avoir un nom pour les lecteurs d'écran (axe-core).
+      domAttributes: { editor: { 'aria-label': nomAccessible } },
       collaboration: {
         fragment: contexte.fragment,
         provider: contexte.fournisseur,

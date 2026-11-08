@@ -11,6 +11,7 @@
     "@blocknote/core": "0.57.0",
     "@blocknote/mantine": "0.57.0",
     "@blocknote/react": "0.57.0",
+    "@formatjs/icu-messageformat-parser": "3.5.22",
     "@mantine/core": "9.7.5",
     "@mantine/hooks": "9.7.5",
     "@y/hub": "0.10.1",
@@ -26,8 +27,10 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@vitejs/plugin-react": "6.2.1",
+    "axe-core": "4.14.0",
     "eslint": "10.14.0",
     "globals": "17.14.0",
+    "playwright": "1.63.0",
     "prettier": "3.9.10",
     "vite": "8.3.6"
   },
@@ -38,9 +41,10 @@
     "lint": "eslint .",
     "format": "prettier --write",
     "format:check": "prettier --check .",
-    "test": "node --test \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\"",
+    "test": "node --test --test-concurrency=1 \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\" \"tests/design/*.test.js\" \"tests/services/*.test.js\"",
     "test:contrats": "node --test --test-concurrency=1 contrats/",
     "mesurer": "node exploitation/dev/mesurer.mjs",
-    "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\""
+    "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\"",
+    "test:en-ligne": "node --test --test-concurrency=1 --test-timeout=180000 \"tests/en-ligne/*.test.js\""
   }
 }

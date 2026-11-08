@@ -1,7 +1,15 @@
 // Traductions (règles 23 à 31, ADR 0009).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { CATALOGUES, LANGUES, LANGUE_SOURCE, cles, creerTraducteur, choisirLangue } from '../../i18n/index.js'
+import {
+  CATALOGUES,
+  LANGUES,
+  LANGUE_SOURCE,
+  cles,
+  creerTraducteur,
+  choisirLangue,
+  messageErreur,
+} from '../../i18n/index.js'
 import exceptions from '../../i18n/exceptions.json' with { type: 'json' }
 
 const valeur = (cat, cle) => cle.split('.').reduce((v, k) => v?.[k], cat)
@@ -39,4 +47,24 @@ test('langue : préférences, repli sur le français', () => {
 
 test('le nom amend.ink ne se traduit pas', () => {
   for (const l of LANGUES) assert.equal(CATALOGUES[l].application.nom, 'amend.ink')
+})
+
+test('une clé absente d’une langue retombe sur le français', () => {
+  const sauve = CATALOGUES.en.document.participants
+  delete CATALOGUES.en.document.participants
+  try {
+    assert.equal(creerTraducteur('en')('document.participants', { n: 2 }), '2 autres personnes sur ce document')
+  } finally {
+    CATALOGUES.en.document.participants = sauve
+  }
+})
+
+test('un paramètre manquant lève une erreur explicite (défaut vu tôt, pas un texte incomplet)', () => {
+  assert.throws(() => creerTraducteur('fr')('document.titre', {}), /"id" was not provided/)
+})
+
+test('messageErreur : message dédié, ou message générique avec le code', () => {
+  const t = creerTraducteur('fr')
+  assert.equal(messageErreur(t, 'nom-vide'), 'Indiquez un nom.')
+  assert.equal(messageErreur(t, 'inconnu-42'), 'Une erreur est survenue : inconnu-42.')
 })
