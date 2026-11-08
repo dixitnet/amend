@@ -13,7 +13,8 @@
   "document": {
     "titre": "Document {id}",
     "participants": "{n, plural, =0 {Nobody else} one {# other person} other {# other people}} on this document",
-    "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}"
+    "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
+    "zoneEdition": "Text of document {id}"
   },
   "erreurs": {
     "document-vide": "This document has no name.",

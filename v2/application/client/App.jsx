@@ -83,7 +83,13 @@ function Document({ config, personne, docId }) {
       etat={t('document.etat', { etat: connexion })}
       participants={t('document.participants', { n: autres })}
       editeur={
-        <EditeurCollaboratif contexte={session.contexte} personne={moi} langue={t.langue} theme={themeEditeur} />
+        <EditeurCollaboratif
+          contexte={session.contexte}
+          personne={moi}
+          langue={t.langue}
+          theme={themeEditeur}
+          nomAccessible={t('document.zoneEdition', { id: docId })}
+        />
       }
     />
   )

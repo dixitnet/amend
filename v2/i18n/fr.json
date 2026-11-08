@@ -13,7 +13,8 @@
   "document": {
     "titre": "Document {id}",
     "participants": "{n, plural, =0 {Personne d’autre} one {# autre personne} other {# autres personnes}} sur ce document",
-    "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}"
+    "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
+    "zoneEdition": "Texte du document {id}"
   },
   "erreurs": {
     "document-vide": "Ce document n’a pas de nom.",
