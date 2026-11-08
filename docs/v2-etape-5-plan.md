@@ -135,3 +135,29 @@ Conséquences pour cette étape : questions posées à Sylvain le 08/11/2026 (jo
 
 À vérifier à la conception : Docs prévient les autres navigateurs d'un nouveau commentaire par la présence (« commentsPing ») ; un correcteur sans présence publiée ne le peut pas. Piste : l'ancre posée par le serveur est une modification du document, qui suffit à prévenir les autres.
 
+### Essai de l'ancre posée par le serveur (08/11/2026) : concluant
+
+Montage essayé (page d'essai, deux postes) :
+- **Navigateur du correcteur** : la sélection est traduite en coordonnées du texte principal (identifiant du bloc et décalage, sans compter les insertions suggérées), plus le **passage cité**.
+- **Serveur** : il relit le document principal (`ynodeToPmnode` de `@y/prosemirror` avec le transformateur de BlockNote), pose la marque `comment` avec ProseMirror, et en déduit la modification Yjs (différence des deltas, `lib0/delta`). Au lot 1, cette modification partira vers y/hub (`PATCH /ydoc`, identité du serveur).
+
+Résultats :
+1. Une insertion suggérée avant le mot et une suppression suggérée après : la marque tombe sur le bon mot, chez le correcteur et chez l'éditeur, sans apparaître comme une suggestion ; elle tient après « tout accepter ».
+2. Sélection sur deux paragraphes : marque posée ; texte en italique : la marque s'y ajoute sans abîmer le style ; deux ancres : 252 octets de mise à jour.
+3. Sélection faite seulement de texte suggéré : **refusée** (`ancre-vide`), rien dans le texte principal pour l'accrocher.
+4. Texte principal modifié entre la sélection et la pose : **détecté** (`ancre-perimee`, le passage cité ne correspond plus) ; le navigateur recalcule et renvoie.
+5. Bloc absent du texte principal (bloc entièrement suggéré) : `bloc-introuvable`.
+6. Défaut d'affichage mineur : un texte suggéré inséré juste au bord du passage commenté peut s'afficher dans le surlignage du commentaire.
+
+Paquets nouveaux pour le serveur : `@y/prosemirror` (déjà là), `prosemirror-transform` et `lib0/delta` (dépendances de BlockNote, dans ses versions), à placer dans l'adaptateur BlockNote côté serveur ; le contrat d'une seule copie s'étend à `prosemirror-transform`.
+
+### Accepter et refuser : essai de trois dispositions (08/11/2026)
+
+Ni Docs (pas de suggestions) ni les exemples de BlockNote (aucun bouton : seulement les fonctions) n'en proposent. Trois dispositions essayées avec les composants de Mantine sans réglage, la correctrice tapant au clavier (remplacement, ajout, suppression), avec « Tout accepter » et « Tout refuser » en tête dans les trois :
+
+- **A. Boutons dans l'info-bulle** qui s'ouvre au survol d'une suggestion : **ne marche pas tel quel**, l'info-bulle de BlockNote disparaît quand la souris la rejoint ; il faudrait la retenir, du code en plus.
+- **B. Petite barre au-dessus de la suggestion** où se trouve le curseur (auteur, Accepter, Refuser) : marche ; sa place doit être réglée pour ne pas couvrir le texte ni l'info-bulle.
+- **C. Panneau à côté du texte**, une ligne par suggestion (« Carla supprime « loin du centre » », Accepter, Refuser) : marche, le plus lisible ; un remplacement y fait deux lignes (suppression puis ajout), qu'on peut réunir en « remplace … par … ».
+
+Captures envoyées à Sylvain ; choix à venir.
+
