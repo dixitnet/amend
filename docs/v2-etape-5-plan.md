@@ -126,3 +126,12 @@ Docs est passé de Hocuspocus à **y/hub** (version 6.0.0, `src/yhub-server/`) :
 
 Conséquences pour cette étape : questions posées à Sylvain le 08/11/2026 (journal). L'essai de l'ancre posée par le serveur est arrêté à mi-chemin (partie serveur concluante, partie navigateur non faite) en attendant ses réponses.
 
+### Réponses de Sylvain (08/11/2026)
+
+1. **a** : fils et commentaires dans **notre base** (PostgreSQL), avec notre propre magasin de fils côté navigateur, comme Docs (`DocsThreadStore`) ; droits vérifiés par le serveur. Remplace la réponse 1 de l'arbitrage (`RESTYjsThreadStore`).
+2. **b** : écart assumé avec Docs, **le serveur pose l'ancre** du commentaire d'un correcteur dans le texte principal (essai en cours) ; l'éditeur et le propriétaire la posent dans leur navigateur, comme Docs.
+3. **a** : comme Docs, le correcteur et le lecteur **ne publient pas leur présence** (ils voient celle des autres). Remplace la réponse 5 de l'arbitrage.
+4. **a** : décision gardée, tout le monde voit tout l'historique.
+
+À vérifier à la conception : Docs prévient les autres navigateurs d'un nouveau commentaire par la présence (« commentsPing ») ; un correcteur sans présence publiée ne le peut pas. Piste : l'ancre posée par le serveur est une modification du document, qui suffit à prévenir les autres.
+
