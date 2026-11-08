@@ -67,7 +67,7 @@ export const texte = (page) =>
       .map((el) => {
         const copie = el.cloneNode(true)
         copie.querySelectorAll('.ProseMirror-widget').forEach((c) => c.remove())
-        return copie.textContent.replace(/⁠/g, '')
+        return copie.textContent.replace(/\u2060/g, '')
       })
       .filter((l, i, tout) => l || i < tout.length - 1)
       .join('\n'),
