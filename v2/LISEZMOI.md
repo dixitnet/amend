@@ -22,12 +22,13 @@ Ces frontières sont vérifiées par `npm run lint` (`eslint.config.js`) ; `test
 ## Commandes (dans `v2/`, Node 24)
 
 - `npm run dev` : PostgreSQL et Redis locaux, schéma de y/hub, client construit, serveur (http://127.0.0.1:4300) et y/hub (port 4400). Document : `http://127.0.0.1:4300/#nom-du-document`. Connexion de développement par un simple nom.
+  - Droits (étape 2) : la première personne qui ouvre un document le crée et en est **propriétaire** ; les autres n'y ont pas accès tant qu'on ne leur a pas donné un rôle (`lecteur`, `correcteur`, `editeur`). Donner un rôle, depuis la session d'une personne qui peut inviter (propriétaire ou éditeur) : `POST /api/dev/acces` avec `{ "document", "personne" (identifiant rendu par /api/dev/session), "role" }` ; `"role": null` retire l'accès. La table des accès est en mémoire jusqu'à l'étape 6 : un redémarrage du serveur l'efface.
 - `npm run lint`, `npm run format:check`, `npm test` (unitaires et contrats statiques, rapides) : avant tout commit.
 - `npm run test:pile` : contrats et parcours sur la pile complète (Chromium), une trentaine de secondes.
 - `npm run mesurer` : mémoire de chaque processus (PSS) au repos, avec 2 et 10 documents, avec un livre ; temps d'ouverture.
 
 ## Processus
 
-1. **Serveur** (`application/serveur/`) : identité (session de développement à l'étape 1), droits, fichiers du client. Répond par des codes, jamais par des phrases.
+1. **Serveur** (`application/serveur/`) : identité (session de développement), droits (décidés par `domaine/droits.js`, table des accès provisoire `acces.js`), fichiers du client. Répond par des codes, jamais par des phrases.
 2. **Collaboration** (`application/collab/` + `adaptateurs/yhub/`) : y/hub, qui tient le contenu ; il demande au serveur qui est la personne et ce qu'elle peut faire.
 3. **PostgreSQL** et **Redis** (ou Valkey) : stockage de y/hub.
