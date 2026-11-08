@@ -45,12 +45,15 @@ Raison : des exports propres et un livre, pas une page web ; ce qu'on retire n'a
 
 Proposition : **a**, après un essai qui montre deux ou trois affichages possibles en captures, pour que Sylvain choisisse (l'affichage est une décision de design). Si l'essai échoue, retour à cette question.
 
-### 3. Où brancher la typographie
+Règle à réexaminer à ce moment-là : afficher une note (appel en exposant, texte replié ou visible) demandera sans doute quelques règles CSS propres à cet élément, que Mantine ne fournit pas. La règle actuelle (aucune feuille de style maison, ADR 0008) l'interdit ; une fois l'affichage choisi par Sylvain, il faudra permettre une feuille de design limitée aux réglages décidés, vérifiée comme `reglages.js`.
 
-- **Avec l'API de BlockNote seule** : raccourcis clavier de l'extension (`keyboardShortcuts`) pour `' " . ; : ! ?` et le Retour arrière, et gestionnaire de collage (`pasteHandler`). Aucune exception aux règles.
-- **Avec un greffon ProseMirror** (`prosemirrorPlugins`, point d'extension public de BlockNote) : plus sûr pour les claviers et la saisie composée, mais il faut importer `prosemirror-state` dans `extensions/`, ce que la règle 1 interdit aujourd'hui.
+### 3. Où brancher la typographie, et une règle à réexaminer
 
-Proposition : essayer d'abord avec l'API de BlockNote seule (essai sur vrais claviers simulés : touches mortes, clavier français du Mac, collage). Si l'essai montre une limite, revenir demander l'exception, limitée à `prosemirror-state` dans `extensions/`.
+BlockNote fait lui-même ses remplacements à la frappe (`# ` qui devient un titre, par exemple) avec un module de ProseMirror, `@handlewithcare/prosemirror-inputrules`, qui sait défaire le dernier remplacement au Retour arrière : exactement le principe de nos cinq règles. Son point d'extension `prosemirrorPlugins` est public et documenté. Mais l'utiliser oblige à importer ce module et `prosemirror-state` dans `extensions/`, ce que la règle 1 interdit (« une fondation n'est importée que par son adaptateur »).
+
+Respecter la lettre de la règle obligerait à recréer ce mécanisme avec des raccourcis clavier : plus de code, moins sûr (touches mortes, saisie composée, iPad), pour un résultat que BlockNote fournit. C'est le signe que la règle est mal posée pour ce cas.
+
+**Proposition de révision de la règle 1** : une extension peut importer, en plus de l'API de BlockNote, les paquets que les points d'extension publics de BlockNote exigent (`prosemirror-state`, `prosemirror-model`, et `@handlewithcare/prosemirror-inputrules`), **dans les versions que BlockNote embarque**, déclarés en dépendances exactes, une seule copie vérifiée par un contrat statique (comme pour Yjs). Rien d'autre de ProseMirror, et toujours rien hors de `extensions/` et des adaptateurs.
 
 ### 4. La langue du document, d'ici l'étape 6
 
@@ -66,7 +69,7 @@ Proposition : renoncer aux trois et les inscrire au registre (`docs/v2-renonceme
 
 ## Contenu, en lots d'une couche (après arbitrage)
 
-0. **Essais** dans le brouillon de Claude (hors du dépôt) : notes (modèle a, deux ou trois affichages, captures) ; typographie avec l'API de BlockNote seule (frappe, touches mortes, Retour arrière, collage). Résultats et captures soumis à Sylvain.
+0. **Essais** dans le brouillon de Claude (hors du dépôt) : notes (modèle a, deux ou trois affichages, captures) ; typographie par le module de règles de saisie de BlockNote (frappe, touches mortes, Retour arrière, collage). Résultats et captures soumis à Sylvain.
 1. **Domaine** : `domaine/typographie.js`, les cinq règles, pures ; T1 sur les données piégées (adresses, courriels, idempotence, existant correct, signes collés).
 2. **Extensions** (`extensions/`) : la typographie (frappe et collage) et la note de bas de page (contenu en ligne, numérotation). Elles posent des éléments et des attributs sémantiques, sans apparence (règle 19, ADR 0008).
 3. **Adaptateur BlockNote** : le schéma du livre (blocs et styles retenus, plus la note), et le branchement des extensions.
