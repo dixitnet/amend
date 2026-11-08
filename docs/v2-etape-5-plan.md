@@ -63,7 +63,7 @@ Aujourd'hui, un correcteur ou un lecteur ne publie pas sa présence (curseur, «
 ## Risques connus, à vérifier en premier
 
 1. **Typographie en mode suggestion** : un remplacement à la frappe doit rester une seule suggestion propre (risque noté à l'étape 4).
-2. **Notes de bas de page en mode suggestion** : insérer, modifier, supprimer une note en suggestion, puis accepter ou refuser.
+2. ~~Notes de bas de page en mode suggestion~~ : sans objet, les notes sont retirées (08/11/2026).
 3. **Mémoire** : un second document (la branche de suggestions) par document ouvert ; à mesurer.
 
 ## Contenu, en lots (après arbitrage)
@@ -109,4 +109,7 @@ Ce qui ne marche pas :
 4. **Ancre des commentaires du correcteur** : quand le correcteur (mode suggestion) commente un passage, le fil est créé mais **aucune marque n'est posée dans le texte** (le commentaire n'est rattaché à rien) ; pour l'éditeur, la marque est posée. La marque d'un commentaire vit dans le texte du document principal, où le correcteur n'écrit pas.
 5. **Correction du plan** : Docs n'utilise pas `RESTYjsThreadStore`. Son magasin de fils est le sien (routes de son serveur pour les fils et les commentaires), et **la marque est posée par le navigateur**, dans le texte ; une personne qui ne peut pas modifier le document n'a pas d'interface de commentaire. Docs ne résout donc pas le cas de notre correcteur.
 
-Questions posées à Sylvain : voir le journal (08/11/2026).
+Réponses de Sylvain (08/11/2026) :
+- typographie : **le correcteur n'a pas la typographie à la frappe** tant que BlockNote n'a pas corrigé le défaut (option 2) ; la variante en une transaction n'est pas retenue ;
+- ancre des commentaires : **le serveur pose la marque** dans le texte principal (option 1 ; dans l'option 2, le commentaire n'aurait été lié à aucun bloc), après un essai de faisabilité ;
+- avant de poursuivre l'étape, **les notes de bas de page sont retirées** et archivées (`docs/v2-archives/notes-2026-11-08/`).

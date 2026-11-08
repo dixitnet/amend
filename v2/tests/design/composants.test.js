@@ -106,23 +106,3 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
     assert.doesNotMatch(c, /-(gray|dark)-/)
   }
 })
-
-test('liste des notes : rien sans note ; numérotée, styles rendus par leurs balises, texte échappé', () => {
-  assert.equal(rendre(h(design.ListeNotes, { titre: 'Notes', notes: [] })).includes('<ol'), false)
-  const html = rendre(
-    h(design.ListeNotes, {
-      titre: 'Notes',
-      notes: [
-        [
-          { texte: 'Voir ', styles: {} },
-          { texte: 'Titre', styles: { italic: true, bold: true } },
-        ],
-        [{ texte: '<script>x</script>', styles: {} }],
-      ],
-    }),
-  )
-  assert.match(html, /<ol/)
-  assert.match(html, /<strong><em>Titre<\/em><\/strong>|<em><strong>Titre<\/strong><\/em>/)
-  assert.doesNotMatch(html, /<script>/)
-  assert.equal((html.match(/<li/g) || []).length, 2)
-})

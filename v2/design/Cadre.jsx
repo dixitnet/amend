@@ -5,7 +5,6 @@
 import '@mantine/core/styles.css'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
-import './feuilles/notes.css'
 import { MantineProvider, createTheme } from '@mantine/core'
 import { REGLAGES } from './reglages.js'
 

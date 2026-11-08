@@ -9,7 +9,6 @@ import {
   defaultStyleSpecs,
   createHeadingBlockSpec,
 } from '@blocknote/core'
-import { specNote, TYPE_NOTE } from '../../extensions/note/index.js'
 
 const { paragraph, quote, bulletListItem, numberedListItem, divider, table, image } = defaultBlockSpecs
 const { bold, italic, underline, strike } = defaultStyleSpecs
@@ -29,6 +28,6 @@ const STYLES_DU_LIVRE = { bold, italic, underline, strike }
 
 export const schemaLivre = BlockNoteSchema.create({
   blockSpecs: BLOCS_DU_LIVRE,
-  inlineContentSpecs: { ...defaultInlineContentSpecs, [TYPE_NOTE]: specNote },
+  inlineContentSpecs: defaultInlineContentSpecs,
   styleSpecs: STYLES_DU_LIVRE,
 })

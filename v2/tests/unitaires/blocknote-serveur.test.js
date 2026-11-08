@@ -69,60 +69,13 @@ test('schéma du livre : blocs et styles retirés refusés avec un code, jamais 
     assert.throws(() => ecrireBlocs(blocs), { code: 'blocs-invalides' }, JSON.stringify(blocs))
 })
 
-test('note de bas de page : texte riche, aller-retour à l’identique, notes dans l’ordre du texte', async () => {
-  const { notesDuDocument } = await import('../../extensions/note/index.js')
-  const t = (text, styles = {}) => ({ type: 'text', text, styles })
-  const blocs = [
-    {
-      type: 'paragraph',
-      content: [
-        t('Appel'),
-        { type: 'note', content: [t('Voir '), t('Histoire des gares', { italic: true }), t(', p. 12.')] },
-        t(' suite'),
-        { type: 'note', content: [t('Seconde.')] },
-      ],
-    },
-    { type: 'bulletListItem', content: [t('Liste'), { type: 'note', content: [t('Troisième.')] }] },
-  ]
-  const relus = lireBlocs(ecrireBlocs(blocs))
-  const note = relus[0].content[1]
-  assert.equal(note.type, 'note')
-  assert.deepEqual(note.content, [t('Voir '), t('Histoire des gares', { italic: true }), t(', p. 12.')])
-  assert.deepEqual(
-    notesDuDocument(relus).map((n) => n.map((m) => m.texte).join('')),
-    ['Voir Histoire des gares, p. 12.', 'Seconde.', 'Troisième.'],
-  )
-  assert.equal(notesDuDocument(relus)[0][1].styles.italic, true)
-})
-
-test('note de bas de page dans une cellule de tableau : relue et listée', async () => {
-  // Constat A2 de l'audit partiel (Qwen 3.5, 08/11/2026) : cas non couvert.
-  const { notesDuDocument } = await import('../../extensions/note/index.js')
+test('texte brut : cellules de tableau comprises', () => {
   const t = (text) => ({ type: 'text', text, styles: {} })
   const blocs = [
-    { type: 'paragraph', content: [t('Avant'), { type: 'note', content: [t('Première.')] }] },
-    {
-      type: 'table',
-      content: {
-        type: 'tableContent',
-        rows: [{ cells: [[t('A'), { type: 'note', content: [t('Dans la cellule.')] }], [t('B')]] }],
-      },
-    },
-  ]
-  const relus = lireBlocs(ecrireBlocs(blocs))
-  assert.deepEqual(
-    notesDuDocument(relus).map((n) => n.map((m) => m.texte).join('')),
-    ['Première.', 'Dans la cellule.'],
-  )
-})
-
-test('texte brut : cellules de tableau et texte des notes compris', () => {
-  const t = (text) => ({ type: 'text', text, styles: {} })
-  const blocs = [
-    { type: 'paragraph', content: [t('Appel'), { type: 'note', content: [t(' (note)')] }, t(' fin')] },
+    { type: 'paragraph', content: [t('Appel fin')] },
     { type: 'table', content: { type: 'tableContent', rows: [{ cells: [[t('A1')], [t('B1')]] }] } },
   ]
-  assert.equal(texteDesBlocs(lireBlocs(ecrireBlocs(blocs))), 'Appel (note) fin\nA1\tB1')
+  assert.equal(texteDesBlocs(lireBlocs(ecrireBlocs(blocs))), 'Appel fin\nA1\tB1')
 })
 
 test('contrat : le schéma du livre a la marque « link » dont la typographie protège les adresses', async () => {
@@ -130,16 +83,4 @@ test('contrat : le schéma du livre a la marque « link » dont la typographie p
   const { BlockNoteEditor } = await import('@blocknote/core')
   const { schemaLivre } = await import('../../adaptateurs/blocknote/schema.js')
   assert.ok(BlockNoteEditor.create({ schema: schemaLivre }).pmSchema.marks.link)
-})
-
-test('collage : après une note, un guillemet ferme la citation (la note compte comme un objet)', async () => {
-  const { BlockNoteEditor } = await import('@blocknote/core')
-  const { Fragment } = await import('prosemirror-model')
-  const { schemaLivre } = await import('../../adaptateurs/blocknote/schema.js')
-  const { typographierFragment } = await import('../../extensions/typographie/index.js')
-  const s = BlockNoteEditor.create({ schema: schemaLivre }).pmSchema
-  const fragment = Fragment.from([s.text('"cité'), s.nodes.note.create(null, s.text('Source.')), s.text('"')])
-  const resultat = typographierFragment(fragment, 'fr')
-  assert.equal(resultat.child(0).text, '«\u00A0cité')
-  assert.equal(resultat.child(2).text, '\u00A0»')
 })

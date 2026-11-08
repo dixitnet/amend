@@ -20,15 +20,13 @@ La première version de cette décision posait nos propres jetons (variables CSS
 
 ## Réglages décidés
 
-| Réglage                          | Valeur                                                                            | Décision                                                                                                                                                                                                   |
-| -------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fournisseur.defaultColorScheme` | `'auto'` : clair ou sombre selon le système                                       | Procédure de test validée par Sylvain le 08/11/2026 (`docs/v2-procedure-tests.md` : « clair et sombre ») ; c'est aussi le comportement de base de l'éditeur BlockNote. Confirmé par Sylvain le 08/11/2026. |
-| `css.note.numerotation`          | numéro des notes calculé à l'affichage (compteur CSS), jamais stocké              | Affichage B des notes, choisi par Sylvain le 08/11/2026 (étape 4).                                                                                                                                         |
-| `css.note.appel`                 | appel de note en exposant, à la petite taille de Mantine (`xs`)                   | Affichage B (Sylvain, 08/11/2026) ; taille confirmée telle quelle (08/11/2026).                                                                                                                            |
-| `css.note.repliee`               | texte de la note caché tant que le curseur n'y est pas                            | Affichage B (Sylvain, 08/11/2026).                                                                                                                                                                         |
-| `css.note.ouverte`               | texte de la note ouverte, à la taille `sm` et dans la couleur atténuée de Mantine | Affichage B (Sylvain, 08/11/2026) ; taille et couleur confirmées telles quelles (08/11/2026).                                                                                                              |
+| Réglage                          | Valeur                                      | Décision                                                                                                                                                                                                   |
+| -------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fournisseur.defaultColorScheme` | `'auto'` : clair ou sombre selon le système | Procédure de test validée par Sylvain le 08/11/2026 (`docs/v2-procedure-tests.md` : « clair et sombre ») ; c'est aussi le comportement de base de l'éditeur BlockNote. Confirmé par Sylvain le 08/11/2026. |
 
 Feuilles de style : la règle « aucune feuille maison » est révisée le 08/11/2026 (Sylvain, étape 4) : `design/feuilles/` peut contenir des feuilles dont chaque règle porte la clé d'un réglage de cette table (`/* réglage : css.… */`) ; le contrat le vérifie.
+
+Les quatre réglages des notes de bas de page (`css.note.numerotation`, `css.note.appel`, `css.note.repliee`, `css.note.ouverte`, affichage B, décisions de Sylvain du 08/11/2026) sont sortis de la table avec le retrait des notes, le 08/11/2026 (décision de Sylvain) ; ils sont archivés dans `docs/v2-archives/notes-2026-11-08/`. `design/feuilles/` est vide en attendant.
 
 Les couleurs des personnes (curseurs, présence) sont prises dans la palette de Mantine (`design/auteurs.js`), sans valeur nouvelle ; le gris et le noir en sont exclus pour ne pas se confondre avec le texte (confirmé par Sylvain le 08/11/2026).
 

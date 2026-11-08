@@ -71,18 +71,18 @@ test('règle 1 révisée : les extensions importent ce qu’exigent les points d
 test('graphe des dépendances (règles, § 2) : chaque arête permise passe, chaque arête interdite est refusée', async () => {
   const imp = (chemin) => `import { x } from '${chemin}'\nexport const y = x`
   // Permis.
-  await accepte('adaptateurs/blocknote/x.js', imp('../../extensions/note/index.js'))
+  await accepte('adaptateurs/blocknote/x.js', imp('../../extensions/typographie/index.js'))
   await accepte('adaptateurs/blocknote/x.js', imp('../../domaine/index.js'))
   await accepte('extensions/x.js', imp('../domaine/index.js'))
   await accepte('application/client/x.js', imp('../../design/index.js'))
-  await accepte('application/client/x.js', imp('../../extensions/note/index.js'))
+  await accepte('application/client/x.js', imp('../../extensions/typographie/index.js'))
   // Interdit : seul l'adaptateur BlockNote branche les extensions (de BlockNote).
-  await refuse('adaptateurs/yjs/x.js', imp('../../extensions/note/index.js'), /couches/)
-  await refuse('adaptateurs/yhub/x.js', imp('../../extensions/note/index.js'), /couches/)
+  await refuse('adaptateurs/yjs/x.js', imp('../../extensions/typographie/index.js'), /couches/)
+  await refuse('adaptateurs/yhub/x.js', imp('../../extensions/typographie/index.js'), /couches/)
   await refuse('extensions/x.js', imp('../adaptateurs/blocknote/index.jsx'), /couches/)
   await refuse('extensions/x.js', imp('../application/client/App.jsx'), /couches/)
   await refuse('adaptateurs/blocknote/x.js', imp('../../application/client/App.jsx'), /couches/)
-  await refuse('domaine/x.js', imp('../extensions/note/index.js'), /couches|ne dépend de rien/)
+  await refuse('domaine/x.js', imp('../extensions/typographie/index.js'), /couches|ne dépend de rien/)
   await refuse('design/x.js', imp('../domaine/index.js'), /couches/)
 })
 

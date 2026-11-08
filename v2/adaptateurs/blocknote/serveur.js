@@ -40,7 +40,7 @@ export function ecrireBlocs(blocs, racine = 'doc') {
 
 /** Le texte brut d'une liste de blocs (pour comparer, compter, indexer) : un
  * bloc par ligne, une ligne de tableau par ligne (cellules séparées par une
- * tabulation), le texte d'une note à la place de son appel. */
+ * tabulation). */
 export function texteDesBlocs(blocs) {
   const lignes = []
   const enLigne = (contenu) =>
