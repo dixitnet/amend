@@ -19,6 +19,16 @@ document.title = t('application.nom')
 
 const lireJson = (r) => r.json().catch(() => ({}))
 
+/** Le nom du document dans l'adresse (#nom), `essai` par défaut ; `null` si
+ * l'adresse est mal encodée (`#%`), au lieu de faire planter l'écran. */
+function nomDansAdresse() {
+  try {
+    return decodeURIComponent(location.hash.slice(1)) || 'essai'
+  } catch {
+    return null
+  }
+}
+
 export function App() {
   const [etat, setEtat] = useState({ phase: 'chargement' })
 
@@ -35,13 +45,17 @@ export function App() {
   }
 
   async function entrer(nom) {
-    const r = await fetch('/api/dev/session', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ nom }),
-    })
-    if (!r.ok) return setEtat({ phase: 'erreur', code: (await lireJson(r)).code || `http-${r.status}` })
-    charger()
+    try {
+      const r = await fetch('/api/dev/session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nom }),
+      })
+      if (!r.ok) return setEtat({ phase: 'erreur', code: (await lireJson(r)).code || `http-${r.status}` })
+      charger()
+    } catch {
+      setEtat({ phase: 'erreur', code: 'reseau' })
+    }
   }
 
   useEffect(() => {
@@ -60,7 +74,9 @@ export function App() {
         surEntrer={entrer}
       />
     )
-  const doc = identifiantDocument(decodeURIComponent(location.hash.slice(1)) || 'essai')
+  const nom = nomDansAdresse()
+  // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
+  const doc = nom === null ? { ok: false, code: 'document-caracteres' } : identifiantDocument(nom)
   if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
   return <Document config={etat.config} personne={etat.personne} docId={doc.id} />
 }

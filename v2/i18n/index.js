@@ -10,6 +10,8 @@ import { pseudoCatalogue } from './pseudo.js'
 export const CATALOGUES = { fr, en }
 export const LANGUES = Object.keys(CATALOGUES)
 export const LANGUE_SOURCE = 'fr'
+export const LANGUE_PSEUDO = 'pseudo'
+const CATALOGUES_CONTROLE = {}
 
 /** Les clés d'un catalogue, à plat : `document.titre`, … */
 export function cles(catalogue, prefixe = '') {
@@ -42,9 +44,6 @@ export function creerTraducteur(langue = LANGUE_SOURCE) {
   return traducteur(l, CATALOGUES[l], l)
 }
 
-export const LANGUE_PSEUDO = 'pseudo'
-const CATALOGUES_CONTROLE = {}
-
 function traducteur(l, catalogue, locale) {
   const cache = new Map()
   const t = (cle, valeurs) => {
@@ -64,9 +63,8 @@ function traducteur(l, catalogue, locale) {
 /** Le message d'un code d'erreur : `erreurs.<code>` s'il existe, sinon le
  * message générique avec le code (les codes viennent du domaine et du serveur). */
 export function messageErreur(t, code) {
-  try {
-    return t(`erreurs.${code}`)
-  } catch {
-    return t('application.erreur', { code })
-  }
+  // Seule une clé absente renvoie au message générique : un message mal formé
+  // doit se voir, pas se cacher derrière lui.
+  const cle = `erreurs.${code}`
+  return chercher(CATALOGUES[LANGUE_SOURCE], cle) === undefined ? t('application.erreur', { code }) : t(cle)
 }

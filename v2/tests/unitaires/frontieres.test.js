@@ -68,6 +68,24 @@ test('règle 1 révisée : les extensions importent ce qu’exigent les points d
   )
 })
 
+test('graphe des dépendances (règles, § 2) : chaque arête permise passe, chaque arête interdite est refusée', async () => {
+  const imp = (chemin) => `import { x } from '${chemin}'\nexport const y = x`
+  // Permis.
+  await accepte('adaptateurs/blocknote/x.js', imp('../../extensions/note/index.js'))
+  await accepte('adaptateurs/blocknote/x.js', imp('../../domaine/index.js'))
+  await accepte('extensions/x.js', imp('../domaine/index.js'))
+  await accepte('application/client/x.js', imp('../../design/index.js'))
+  await accepte('application/client/x.js', imp('../../extensions/note/index.js'))
+  // Interdit : seul l'adaptateur BlockNote branche les extensions (de BlockNote).
+  await refuse('adaptateurs/yjs/x.js', imp('../../extensions/note/index.js'), /couches/)
+  await refuse('adaptateurs/yhub/x.js', imp('../../extensions/note/index.js'), /couches/)
+  await refuse('extensions/x.js', imp('../adaptateurs/blocknote/index.jsx'), /couches/)
+  await refuse('extensions/x.js', imp('../application/client/App.jsx'), /couches/)
+  await refuse('adaptateurs/blocknote/x.js', imp('../../application/client/App.jsx'), /couches/)
+  await refuse('domaine/x.js', imp('../extensions/note/index.js'), /couches|ne dépend de rien/)
+  await refuse('design/x.js', imp('../domaine/index.js'), /couches/)
+})
+
 test('le domaine ne dépend de rien', async () => {
   await refuse(
     'domaine/x.js',
@@ -131,6 +149,14 @@ test('dans le design : Mantine tel quel, aucune valeur ni réglage non décidé'
     'design/X.jsx',
     "import { Title } from '@mantine/core'\nexport const X = ({ t }) => <Title order={1}>{t}</Title>",
   )
+  // Les feuilles d'un paquet : seulement Mantine et BlockNote.
+  await refuse('design/x.js', "import 'autre-paquet/dist/style.css'", /paquet autre que Mantine ou BlockNote/)
+  await accepte('design/x.js', "import '@mantine/core/styles.css'")
+  // Une valeur en pourcentage ou en ch est une valeur de design.
+  await refuse('design/x.js', "export const c = '50%'", nonDecide)
+  await refuse('application/client/x.js', "export const c = '60ch'", /valeur de design/)
+  // Dans reglages.js, les valeurs sont permises, pas les textes ni les styles en dur.
+  await refuse('design/reglages.js', 'export const X = () => <p>Bonjour</p>', /texte en dur/)
   // Le seul fichier où une valeur est permise : les réglages décidés.
   await accepte('design/reglages.js', "export const REGLAGES = { theme: { primaryColor: 'red' } }")
 })

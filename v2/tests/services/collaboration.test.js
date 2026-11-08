@@ -54,6 +54,7 @@ before(async () => {
     },
     droits: async (docId, id) => {
       appelsDroits.push({ docId, id })
+      if (id.startsWith('panne')) throw new Error('serveur des droits injoignable')
       const role = roleSimule(id)
       return acces(capacites(roleEffectif(role === 'banni' ? [] : [role ?? 'editeur'])))
     },
@@ -198,4 +199,8 @@ t2('rôle retiré : la connexion suivante est refusée (les droits sont redemand
   assert.equal(await upgrade(id, { cookie: 'qui=edith' }), 403)
   rolesFixes.set('edith', 'correcteur')
   assert.equal(await upgrade(id, { cookie: 'qui=edith' }), 101)
+})
+
+t2('demande de droits en échec : refus (403), jamais un accès', async () => {
+  assert.equal(await upgrade(docId('panne'), { cookie: 'qui=panne-1' }), 403)
 })

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "application/serveur/index.js",
+    "application/collab/index.js",
+    "exploitation/**/*.mjs",
+    "tests/**/*.test.js",
+    "contrats/**/*.test.js"
+  ],
+  "project": ["**/*.{js,mjs,jsx}"],
+  "ignoreDependencies": ["axe-core", "lib0"]
+}

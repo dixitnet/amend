@@ -2,6 +2,7 @@
 // la frappe et au collage, Retour arrière, schéma du livre (menus et collage).
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
+import { fr } from '@blocknote/core/locales'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import {
   lancerNavigateur,
@@ -103,15 +104,39 @@ test('collage : texte brut et HTML typographiés et en NFC ; adresse d’un lien
 })
 
 test('schéma du livre : le menu « / » ne propose que les blocs retenus', async () => {
+  // Les libellés attendus viennent du dictionnaire de BlockNote (clés stables),
+  // pas d'un texte écrit ici : le test survit à un changement de libellé amont.
+  const libelle = (cle) => fr.slash_menu[cle].title
   const page = await pageEcriture('menu')
   await page.keyboard.type('/')
   await page.waitForSelector('.bn-suggestion-menu')
-  const items = await page.$$eval('.bn-suggestion-menu-item', (els) => els.map((e) => e.textContent))
-  const tout = items.join(' | ')
-  for (const present of ['Titre 1', 'Titre 3', 'Citation', 'Liste à puces', 'Liste numérotée', 'Tableau', 'Image'])
-    assert.ok(new RegExp(present, 'i').test(tout), `${present} proposé : ${tout}`)
-  for (const absent of ['Titre 4', 'Vidéo', 'Audio', 'Fichier', 'Code', 'cocher', 'repliable'])
-    assert.ok(!new RegExp(absent, 'i').test(tout), `${absent} absent : ${tout}`)
+  const titres = await page.$$eval('.bn-suggestion-menu-item', (els) =>
+    els.map((e) => e.querySelector('.bn-mt-suggestion-menu-item-title, [class*=title]')?.textContent ?? e.textContent),
+  )
+  const tout = titres.join(' | ')
+  for (const cle of [
+    'heading',
+    'heading_2',
+    'heading_3',
+    'quote',
+    'bullet_list',
+    'numbered_list',
+    'table',
+    'image',
+    'divider',
+  ])
+    assert.ok(tout.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
+  for (const cle of [
+    'heading_4',
+    'toggle_heading',
+    'check_list',
+    'toggle_list',
+    'code_block',
+    'video',
+    'audio',
+    'file',
+  ])
+    assert.ok(!tout.includes(libelle(cle)), `${cle} (${libelle(cle)}) absent : ${tout}`)
   await page.context().close()
 })
 

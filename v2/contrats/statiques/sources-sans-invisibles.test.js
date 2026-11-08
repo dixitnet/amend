@@ -15,7 +15,7 @@ function fichiers(dossier) {
   return readdirSync(dossier).flatMap((nom) => {
     if (IGNORES.includes(nom)) return []
     const chemin = join(dossier, nom)
-    return statSync(chemin).isDirectory() ? fichiers(chemin) : /\.(m?js|jsx|json)$/.test(nom) ? [chemin] : []
+    return statSync(chemin).isDirectory() ? fichiers(chemin) : /\.(m?js|jsx|json|css)$/.test(nom) ? [chemin] : []
   })
 }
 

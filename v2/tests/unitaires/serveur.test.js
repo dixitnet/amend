@@ -1,6 +1,7 @@
 // T3 : le serveur, en processus (requêtes HTTP réelles, sans navigateur ni
 // service), rejoué sur les données piégées.
 import { test, before, after } from 'node:test'
+import http from 'node:http'
 import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -78,6 +79,7 @@ test('requêtes malformées : codes, jamais de plantage', async () => {
     method: 'POST',
     body: JSON.stringify({ nom: 'a'.repeat(20000) }),
   })
+  assert.equal(gros.status, 413)
   assert.equal((await gros.json()).code, 'requete-trop-grosse')
   assert.equal((await fetch(`${dev}/api/inconnue`)).status, 404)
   assert.equal((await fetch(`${dev}/api/config`, { method: 'DELETE' })).status, 405)
@@ -267,4 +269,65 @@ test('fichiers : pas de sortie du dossier statique', async () => {
     const r = await fetch(`${dev}${chemin}`)
     assert.doesNotMatch(await r.text(), /root:/, chemin)
   }
+})
+
+test('en ligne, un secret de session absent arrête le serveur ; en développement, un secret de repli', () => {
+  const avant = { secret: process.env.V2_SECRET, dev: process.env.V2_DEV }
+  try {
+    delete process.env.V2_SECRET
+    delete process.env.V2_DEV
+    assert.throws(() => creerServeur(), /secret de session absent/)
+    process.env.V2_DEV = '1'
+    assert.doesNotThrow(() => creerServeur().close())
+  } finally {
+    if (avant.secret === undefined) delete process.env.V2_SECRET
+    else process.env.V2_SECRET = avant.secret
+    if (avant.dev === undefined) delete process.env.V2_DEV
+    else process.env.V2_DEV = avant.dev
+  }
+})
+
+test('une erreur à nous : 500 et code erreur-interne, jamais le détail', async () => {
+  const table = {
+    rolesDe: () => {
+      throw new Error('panne simulée de la table des accès')
+    },
+  }
+  const s = creerServeur({ ...BASE, dev: true }, table)
+  await new Promise((r) => s.listen(0, '127.0.0.1', r))
+  serveurs.push(s)
+  const erreurs = []
+  const original = console.error
+  console.error = (...a) => erreurs.push(a.join(' '))
+  try {
+    const r = await fetch(`http://127.0.0.1:${s.address().port}/api/interne/droits?document=d&personne=p`, {
+      headers: { 'x-amend-interne': BASE.jetonInterne },
+    })
+    assert.equal(r.status, 500)
+    assert.deepEqual(await r.json(), { code: 'erreur-interne' })
+    assert.ok(
+      erreurs.some((e) => e.includes('panne simulée')),
+      'l’erreur est journalisée',
+    )
+  } finally {
+    console.error = original
+  }
+})
+
+test('une adresse de requête illisible (« // ») : 400, et le serveur continue de répondre', async () => {
+  // Audit partiel du 08/11/2026 (constat 3) : l'analyse de l'adresse était hors
+  // du bloc qui intercepte les erreurs ; sous Node 24, le rejet arrêtait le processus.
+  const base = new URL(dev)
+  const statut = (chemin) =>
+    new Promise((resolve, reject) => {
+      const req = http.request({ host: base.hostname, port: base.port, path: chemin }, (res) => {
+        res.resume()
+        resolve(res.statusCode)
+      })
+      req.on('error', reject)
+      req.end()
+    })
+  assert.equal(await statut('//'), 400)
+  assert.equal(await statut('//a:b@'), 400)
+  assert.equal((await fetch(`${dev}/api/config`)).status, 200, 'le serveur répond toujours')
 })

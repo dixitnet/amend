@@ -55,7 +55,8 @@ test('page d’édition : tous ses textes s’affichent, dans chaque langue, ave
     }
     const html = rendre(h(design.PageEdition, { ...textes, editeur: h('div', { id: 'editeur' }) }))
     for (const [nom, texte] of Object.entries(textes)) assert.ok(html.includes(echapper(texte)), `${l} : ${nom}`)
-    assert.match(html, /role="document"/)
+    assert.match(html, /<main[ >]/, 'le contenu principal garde son repère')
+    assert.doesNotMatch(html, /role="document"/)
     assert.match(html, /role="status"/)
     assert.match(html, /id="editeur"/, 'l’éditeur reçu en emplacement est rendu')
   }

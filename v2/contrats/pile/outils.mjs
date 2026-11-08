@@ -53,7 +53,6 @@ export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR', role = '
   return page
 }
 
-export const etat = (page) => page.evaluate(() => document.querySelector('[role=status]')?.textContent)
 export async function attendreEtat(page, attendu, delai = 20000) {
   await page.waitForFunction((a) => document.querySelector('[role=status]')?.textContent === a, attendu, {
     timeout: delai,

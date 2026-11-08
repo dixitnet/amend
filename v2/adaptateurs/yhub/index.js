@@ -53,7 +53,9 @@ export async function demarrerCollaboration({
     authorize: createAuthorize({
       document: async (docRef, personne) => {
         if (!personne || docRef.org !== ORGANISATION || docRef.branch !== 'main') return null
-        return PERMISSIONS[await droits(docRef.docid, personne.userid)] || null
+        // Une demande de droits qui échoue (serveur lent ou absent) vaut refus.
+        const droit = await droits(docRef.docid, personne.userid).catch(() => null)
+        return PERMISSIONS[droit] || null
       },
     }),
   })

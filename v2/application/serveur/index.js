@@ -4,7 +4,7 @@
 // document »). Ses réponses portent des codes, jamais des phrases (règle 25).
 import http from 'node:http'
 import { readFile } from 'node:fs/promises'
-import { join, extname, normalize } from 'node:path'
+import { join, extname, normalize, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerTableAcces } from './acces.js'
@@ -13,7 +13,9 @@ import { nomPersonne, identifiantDocument, ROLES, roleEffectif, capacites, acces
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
 const confDepuisEnv = () => ({
   port: Number(process.env.V2_PORT || 4300),
-  secret: process.env.V2_SECRET || randomBytes(32).toString('hex'),
+  // En ligne, pas de secret de repli : son absence doit arrêter le serveur
+  // (sinon les sessions sauteraient à chaque redémarrage, sans alerte).
+  secret: process.env.V2_SECRET || (process.env.V2_DEV === '1' ? randomBytes(32).toString('hex') : ''),
   jetonInterne: process.env.V2_JETON_INTERNE || '',
   dev: process.env.V2_DEV === '1',
   // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
@@ -48,7 +50,10 @@ async function lireCorps(req, max = 10_000) {
     brut += morceau
     if (brut.length > max) throw Object.assign(new Error('trop gros'), { code: 'requete-trop-grosse' })
   }
-  return brut ? JSON.parse(brut) : {}
+  const corps = brut ? JSON.parse(brut) : {}
+  if (!corps || typeof corps !== 'object' || Array.isArray(corps))
+    throw Object.assign(new Error('corps invalide'), { code: 'requete-invalide' })
+  return corps
 }
 
 /** Les rôles qu'un développeur peut donner par la route de développement :
@@ -144,7 +149,8 @@ const creerRoutes = (CONF, table = creerTableAcces()) => {
 async function servirFichier(CONF, res, chemin) {
   const relatif = normalize(chemin).replace(/^(\.\.[/\\])+/, '')
   const fichier = join(CONF.statique, relatif === '/' ? 'index.html' : relatif)
-  if (!fichier.startsWith(CONF.statique)) return json(res, 404, { code: 'introuvable' })
+  if (fichier !== CONF.statique && !fichier.startsWith(CONF.statique + sep))
+    return json(res, 404, { code: 'introuvable' })
   try {
     const contenu = await readFile(fichier)
     res.writeHead(200, { 'content-type': TYPES[extname(fichier)] || 'application/octet-stream' })
@@ -161,9 +167,15 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces()) 
   if (!CONF.secret) throw new Error('secret de session absent')
   const routes = creerRoutes(CONF, table)
   return http.createServer(async (req, res) => {
-    const url = new URL(req.url, 'http://local')
-    const route = routes[`${req.method} ${url.pathname}`]
     try {
+      // L'analyse de l'adresse peut échouer (« // ») : dans le bloc protégé.
+      let url
+      try {
+        url = new URL(req.url, 'http://local')
+      } catch {
+        return json(res, 400, { code: 'requete-invalide' })
+      }
+      const route = routes[`${req.method} ${url.pathname}`]
       if (route) return await route(req, res, url)
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })
@@ -171,7 +183,13 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces()) 
       if (req.method === 'GET') return await servirFichier(CONF, res, url.pathname)
       json(res, 405, { code: 'methode-refusee' })
     } catch (err) {
-      json(res, 400, { code: err.code || 'requete-invalide' })
+      // Requête mal formée (corps trop gros, JSON illisible) : la faute du client.
+      if (err.code === 'requete-trop-grosse') return json(res, 413, { code: err.code })
+      if (err.code === 'requete-invalide' || err instanceof SyntaxError)
+        return json(res, 400, { code: 'requete-invalide' })
+      // Le reste est une erreur à nous : 500, et une trace dans le journal du service.
+      console.error(`[serveur] ${req.method} ${req.url} :`, err)
+      json(res, 500, { code: 'erreur-interne' })
     }
   })
 }

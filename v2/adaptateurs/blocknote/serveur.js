@@ -38,12 +38,18 @@ export function ecrireBlocs(blocs, racine = 'doc') {
   }
 }
 
-/** Le texte brut d'une liste de blocs (pour comparer, compter, indexer). */
+/** Le texte brut d'une liste de blocs (pour comparer, compter, indexer) : un
+ * bloc par ligne, une ligne de tableau par ligne (cellules séparées par une
+ * tabulation), le texte d'une note à la place de son appel. */
 export function texteDesBlocs(blocs) {
   const lignes = []
+  const enLigne = (contenu) =>
+    (contenu || []).map((c) => c.text ?? (Array.isArray(c.content) ? enLigne(c.content) : '')).join('')
   const parcourir = (liste) => {
     for (const b of liste) {
-      if (Array.isArray(b.content)) lignes.push(b.content.map((c) => c.text ?? '').join(''))
+      if (Array.isArray(b.content)) lignes.push(enLigne(b.content))
+      else if (b.content?.type === 'tableContent')
+        for (const rangee of b.content.rows) lignes.push(rangee.cells.map((c) => enLigne(c.content ?? c)).join('\t'))
       if (b.children?.length) parcourir(b.children)
     }
   }

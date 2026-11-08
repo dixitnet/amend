@@ -11,18 +11,25 @@ const CONF = {
   jetonInterne: process.env.V2_JETON_INTERNE || '',
   origines: (process.env.V2_ORIGINES || 'http://127.0.0.1:4300').split(',').filter(Boolean),
   delaiPersistance: Number(process.env.V2_DELAI_PERSISTANCE || 2000),
+  delaiServeur: 5000,
 }
 
-async function identifier(cookie) {
-  if (!cookie) return null
-  const r = await fetch(`${CONF.serveur}/api/moi`, { headers: { cookie } })
-  return r.ok ? r.json() : null
+/** Une question au serveur : réponse en JSON, ou `null` (refus) s'il ne répond
+ * pas dans le délai ou répond une erreur. */
+async function demander(url, entetes) {
+  try {
+    const r = await fetch(url, { headers: entetes, signal: AbortSignal.timeout(CONF.delaiServeur) })
+    return r.ok ? await r.json() : null
+  } catch {
+    return null
+  }
 }
+
+const identifier = async (cookie) => (cookie ? demander(`${CONF.serveur}/api/moi`, { cookie }) : null)
 
 async function droits(docId, idPersonne) {
   const url = `${CONF.serveur}/api/interne/droits?document=${encodeURIComponent(docId)}&personne=${encodeURIComponent(idPersonne)}`
-  const r = await fetch(url, { headers: { 'x-amend-interne': CONF.jetonInterne } })
-  return r.ok ? (await r.json()).droit : null
+  return (await demander(url, { 'x-amend-interne': CONF.jetonInterne }))?.droit ?? null
 }
 
 const collab = await demarrerCollaboration({ ...CONF, identifier, droits })
@@ -30,6 +37,12 @@ console.log(`[collab] ws://127.0.0.1:${CONF.port}${collab.cheminWebSocket}/<docu
 
 for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, async () => {
-    await collab.fermer()
-    process.exit(0)
+    try {
+      await collab.fermer()
+      process.exit(0)
+    } catch (err) {
+      // Un arrêt qui n'a pas pu finir proprement doit se voir (code non nul, journal).
+      console.error('[collab] arrêt incomplet :', err)
+      process.exit(1)
+    }
   })

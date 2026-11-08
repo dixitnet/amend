@@ -20,8 +20,9 @@ const ACCENTS = {
   O: 'Ô',
   U: 'Ü',
   C: 'Ç',
+  N: 'Ñ',
 }
-const accentuer = (s) => s.replace(/[aeioucnAEIOUC]/g, (c) => ACCENTS[c])
+const accentuer = (s) => s.replace(/[aeioucnAEIOUCN]/g, (c) => ACCENTS[c])
 const allonger = (s) => s + '~'.repeat(Math.ceil(s.replace(/\s/g, '').length * 0.4))
 
 function transformer(elements) {

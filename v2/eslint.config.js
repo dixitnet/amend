@@ -45,6 +45,12 @@ function imports({ permises = [], couches = [], css = false, cssDesign = false }
       regex: '^\\.{1,2}/(?!feuilles/[\\w-]+\\.css$).*\\.css$',
       message: 'feuille de style maison : Mantine et BlockNote tels quels, réglages décidés seulement (ADR 0008)',
     })
+  if (cssDesign)
+    patterns.push({
+      // Les feuilles d'un paquet : seulement celles de Mantine et de BlockNote.
+      regex: '^(?!\\.)(?!(@mantine|@blocknote)/).*\\.css$',
+      message: 'feuille de style d’un paquet autre que Mantine ou BlockNote (ADR 0008)',
+    })
   if (couches.length)
     patterns.push({
       regex: `(^|/)(${couches.join('|')})(/|$)`,
@@ -68,7 +74,7 @@ const STYLE_EN_DUR = { selector: "JSXAttribute[name.name='style']", message: 'st
 
 /** Une valeur de design écrite dans une chaîne : couleur, variable CSS, taille. */
 const VALEUR_VISUELLE =
-  '#[0-9a-fA-F]{3,8}\\b|\\b(rgba?|hsla?|hwb|oklch|oklab|lab|lch|color-mix)\\(|var\\(--|\\b[0-9]+(\\.[0-9]+)?(px|rem|em|vh|vw|pt)\\b'
+  '#[0-9a-fA-F]{3,8}\\b|\\b(rgba?|hsla?|hwb|oklch|oklab|lab|lch|color-mix)\\(|var\\(--|\\b[0-9]+(\\.[0-9]+)?(px|rem|em|ex|ch|vh|vw|vmin|vmax|pt|cm|mm|in|fr)\\b|\\b[0-9]+(\\.[0-9]+)?%'
 /** Dans le design, une variable de Mantine n'est pas une valeur inventée. */
 const VALEUR_VISUELLE_DESIGN = VALEUR_VISUELLE.replace('var\\(--', 'var\\(--(?!mantine-)')
 const valeursVisuelles = (message, motif = VALEUR_VISUELLE) => [
@@ -193,7 +199,10 @@ export default [
   },
   // Le seul fichier où une valeur de design est permise : les réglages
   // décidés par Sylvain, chacun noté dans l'ADR 0008 (contrat statique).
-  { files: ['design/reglages.js'], rules: { 'no-restricted-syntax': 'off' } },
+  {
+    files: ['design/reglages.js'],
+    rules: { 'no-restricted-syntax': ['error', STYLE_EN_DUR, ...TEXTE_EN_DUR] },
+  },
   // Les traductions : le format ICU et rien d'autre (ADR 0009).
   {
     files: ['i18n/**'],

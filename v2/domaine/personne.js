@@ -4,7 +4,8 @@
 const LONGUEUR_MAX_NOM = 80
 
 // Contrôles, espace sans chasse, marques et isolats de sens d'écriture.
-const INVISIBLES = /[\p{Cc}\u200B\u200E\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u
+// (Pas toute la catégorie Cf : elle comprend le liant des emojis composés.)
+const INVISIBLES = /[\p{Cc}\u00AD\u200B\u200E\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/u
 
 /** @returns {{ ok: true, nom: string } | { ok: false, code: string }} */
 export function nomPersonne(brut) {

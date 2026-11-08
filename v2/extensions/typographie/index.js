@@ -30,7 +30,7 @@ function regleDeFrappe(langue) {
 }
 
 /** Le contenu collé, typographié bloc par bloc. */
-function typographierFragment(fragment, langue) {
+export function typographierFragment(fragment, langue) {
   const noeuds = []
   let precedent = ''
   fragment.forEach((noeud) => {
@@ -45,7 +45,9 @@ function typographierFragment(fragment, langue) {
       precedent = OBJET
     } else {
       noeuds.push(noeud.copy(typographierFragment(noeud.content, langue)))
-      precedent = ''
+      // Un bloc repart de zéro ; un nœud en ligne (une note) compte comme un
+      // objet : le signe qui le suit n'est pas en début de bloc.
+      precedent = noeud.isInline ? OBJET : ''
     }
   })
   return Fragment.fromArray(noeuds)

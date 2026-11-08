@@ -70,7 +70,9 @@ test('le découpage des chemins et la lecture des exports', () => {
 test("aucun import hors de l'API publique d'un paquet", () => {
   const fautifs = []
   for (const fichier of fichiers(V2)) {
-    if (fichier.includes('/contrats/statiques/')) continue
+    // Fichiers faits d'imports écrits exprès pour être refusés : les contrats
+    // statiques eux-mêmes, et le test du lint des frontières.
+    if (fichier.includes('/contrats/statiques/') || fichier.endsWith('/tests/unitaires/frontieres.test.js')) continue
     for (const s of importsDe(readFileSync(fichier, 'utf8'))) {
       const ou = `${relative(V2, fichier)} : ${s}`
       if (s.includes('node_modules')) fautifs.push(ou)
