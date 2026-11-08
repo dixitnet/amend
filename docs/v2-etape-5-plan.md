@@ -113,3 +113,16 @@ Réponses de Sylvain (08/11/2026) :
 - typographie : **le correcteur n'a pas la typographie à la frappe** tant que BlockNote n'a pas corrigé le défaut (option 2) ; la variante en une transaction n'est pas retenue ;
 - ancre des commentaires : **le serveur pose la marque** dans le texte principal (option 1 ; dans l'option 2, le commentaire n'aurait été lié à aucun bloc), après un essai de faisabilité ;
 - avant de poursuivre l'étape, **les notes de bas de page sont retirées** et archivées (`docs/v2-archives/notes-2026-11-08/`).
+
+## Ce que fait Docs (lu dans son code, branche `main`, 08/11/2026)
+
+Docs est passé de Hocuspocus à **y/hub** (version 6.0.0, `src/yhub-server/`) : son montage est le modèle direct du nôtre.
+
+1. **Rôles** (`src/backend/core/choices.py`, `models.py`) : lecteur, **commentateur** (« peut lire et commenter »), éditeur, administrateur, propriétaire. Le commentateur a `comment` mais ni `update` ni `partial_update`.
+2. **Permissions y/hub** (`src/yhub-server/src/permissions.ts`, `server.ts`) : écriture (`ydoc`, `ws` en `-ru-`) seulement avec `update` ; sinon lecture (`-r--`). **Seule la branche `main`** est ouverte (toute autre est refusée). **Présence** : celui qui ne peut pas écrire **reçoit la présence sans publier la sienne** (correctif de sécurité de la 6.0.0, « stop read-only users from sharing their cursor ») ; c'est un écart voulu par rapport au défaut de y/hub. **Historique** : à partir de la date d'accès (`accessSince`), retour à une version pour l'éditeur seulement.
+3. **Commentaires** : Docs n'utilise ni `YjsThreadStore` ni `RESTYjsThreadStore`, mais **son propre magasin** (`DocsThreadStore`, dérivé de `ThreadStore`) : les fils et les commentaires sont dans **sa base de données** (modèles `Thread`, `Comment`, routes `documents/{id}/threads/…`, droits vérifiés par le serveur : `CommentPermission`, auteur seul pour modifier, modération par l'administrateur et le propriétaire). Seule l'**ancre** est dans le texte : la marque `comment` posée **par le navigateur** (`setMark`). Le serveur n'écrit jamais dans le document Yjs pour un commentaire.
+4. **Le commentateur ne peut pas commenter dans l'interface** : sans `partial_update`, il reçoit l'éditeur en lecture seule (`BlockNoteReader`), sans bulle de saisie ni fil. Son rôle n'a d'effet que sur l'API. Docs ne résout donc pas l'ancre d'un commentaire posé sans droit d'écrire.
+5. **Pas de mode suggestion** dans Docs (ni extension, ni branche).
+
+Conséquences pour cette étape : questions posées à Sylvain le 08/11/2026 (journal). L'essai de l'ancre posée par le serveur est arrêté à mi-chemin (partie serveur concluante, partie navigateur non faite) en attendant ses réponses.
+
