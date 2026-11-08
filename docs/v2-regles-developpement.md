@@ -208,6 +208,8 @@ Entre deux étapes, chaque lot suit les contrôles ordinaires : `format:check`, 
 
 ### Mistral et les tests
 
+Procédure complète (niveaux de test, cycle d'une étape, rôles de Claude, de Mistral et de Sylvain) : `docs/v2-procedure-tests.md`.
+
 Ce qui est utile, au-delà des revues d'architecture et de code :
 
 1. **Revue de sécurité et d'exploitation** de toute mise en ligne (configuration de Caddy, services, ports, secrets, bases) : c'est là qu'une erreur coûte le plus.
