@@ -2,3 +2,4 @@
 export { identifiantDocument, LONGUEUR_MAX_IDENTIFIANT } from './document.js'
 export { nomPersonne, LONGUEUR_MAX_NOM } from './personne.js'
 export { ROLES, roleEffectif, capacites, acces } from './droits.js'
+export { typographier, saisie, ESPACE_INSECABLE, ESPACE_FINE } from './typographie.js'
