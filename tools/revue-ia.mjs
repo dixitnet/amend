@@ -121,17 +121,24 @@ Une liste numérotée R1, R2, … Pour chaque constat : **[bloquant | important 
 ## Points de grille sans remarque
 (les numéros)`
 
-const consigneScenarios = `Tu es testeur adverse pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2). Un autre modèle (Claude) écrit le code et les tests ; ton rôle est de trouver ce qui peut casser et que les tests existants ne couvrent pas. Réponds en français.
+const consigneScenarios = `Tu es testeur adverse pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2) à partir de zéro. Un autre modèle (Claude) écrit le code et les tests ; ton rôle est de trouver ce qui peut casser. Réponds en français.
 
-Étape ${ETAPE}. Tu reçois les règles, le plan de l'étape, la procédure de test, le code source et la liste des tests existants. Cherche des scénarios concrets dans ces familles : droits et contournements (session forgée, accès au document d'un autre, appel direct au serveur de collaboration) ; concurrence (deux personnes, réseau coupé, redémarrage pendant la frappe) ; données limites (document vide, très long, caractères combinants, NFC, emoji, nom de document inhabituel) ; saisie ; exploitation (mémoire, base ou Redis indisponible, redémarrage) ; traductions ; configuration en ligne (Caddy, ports, cookies).
+Étape ${ETAPE}. Tu reçois les règles (avec le découpage en couches), le plan, la procédure de test, le code source et la liste des tests existants. Ne t'appuie que sur ce code : pas de suppositions tirées d'autres logiciels.
 
-Chaque scénario doit s'appuyer sur un élément précis du dossier (fichier, fonction, réglage) ; pas de scénario générique. Ne propose pas ce que les tests existants couvrent déjà.
+On veut des tests **légers et automatiques**, organisés **couche par couche**, qui se **complexifient progressivement**, pour détecter les défauts le plus tôt et le plus bas possible :
+- T1 domaine et traductions : fonctions pures, sans réseau ni navigateur ;
+- T2 adaptateurs pris isolément : Yjs (deux documents en mémoire), BlockNote (éditeur sans navigateur), y/hub (contre Redis et PostgreSQL locaux, client sans navigateur) ;
+- T3 serveur applicatif : requêtes HTTP en processus (routes, codes, cookies) ;
+- T4 design : rendu des composants, clair et sombre, français, anglais et pseudo-langue ;
+- T5 pile complète dans un navigateur automatisé (Chromium, WebKit, Firefox) ;
+- T6 en ligne (v2.amend.ink, derrière un mot de passe).
+Pour chaque couche, va du cas nominal au cas limite. Un défaut doit être attrapé à la couche la plus basse possible : ne propose un test T5 ou T6 que si rien de plus bas ne peut l'attraper.
 
 Format de réponse, strictement :
-## Scénarios
-Une liste numérotée S1, S2, … (douze au plus, les plus utiles d'abord). Pour chaque scénario : **[grave | moyen | faible]**, le titre, l'élément du dossier visé, les gestes (préconditions, actions), le résultat attendu, et le niveau suggéré (**automatique** sur la pile locale, ou **à la main** en ligne).
-## Ce qui me semble bien couvert
-(deux ou trois lignes)`
+## Scénarios par couche
+Pour chaque couche (T1 à T6), une liste numérotée (T1.1, T1.2, …), du plus simple au plus difficile, cinq au plus par couche. Pour chaque scénario : **[grave | moyen | faible]**, le titre, l'élément du code visé (fichier, fonction), les entrées, le résultat attendu. Pas de scénario sans élément précis du dossier ; pas de doublon avec les tests existants.
+## Données piégées
+Un bloc de code JSON : un objet dont chaque clé est un usage (\"noms\", \"identifiantsDeDocument\", \"textes\", \"cookies\"…) et chaque valeur une liste de chaînes difficiles (Unicode combinant, NFD, emoji, très long, caractères de contrôle, injections), chacune avec la raison en commentaire dans une liste parallèle \"raisons\".`
 
 const consigne = PHASE === 'scenarios' ? consigneScenarios : consigneRevue
 
@@ -146,7 +153,8 @@ console.log(`Dossier : ${pieces.length} pièces, ${total} signes ; modèle ${MOD
 for (const p of pieces) console.log(`  - ${p.titre} (${p.texte.length} signes)`)
 if (ESSAI) process.exit(0)
 
-// 3. L'appel.
+// 3. L'appel, en réception progressive : une longue réponse produite d'un bloc
+// était coupée par un intermédiaire (502) ; le flux garde la connexion active.
 const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
   method: 'POST',
   headers: {
@@ -156,6 +164,7 @@ const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
   body: JSON.stringify({
     model: MODELE,
     temperature: 0.2,
+    stream: true,
     messages: [
       { role: 'system', content: consigne },
       { role: 'user', content: `Dossier de revue :\n\n${dossier}` },
@@ -166,8 +175,25 @@ if (!r.ok) {
   console.error(`Mistral : ${r.status} ${(await r.text()).slice(0, 300)}`)
   process.exit(1)
 }
-const j = await r.json()
-const avis = j.choices?.[0]?.message?.content || '(réponse vide)'
+let avis = ''
+let modeleServi = MODELE
+let reste = ''
+const decodeur = new TextDecoder()
+for await (const morceau of r.body) {
+  reste += decodeur.decode(morceau, { stream: true })
+  const lignes = reste.split('\n')
+  reste = lignes.pop()
+  for (const ligne of lignes) {
+    if (!ligne.startsWith('data:')) continue
+    const donnees = ligne.slice(5).trim()
+    if (!donnees || donnees === '[DONE]') continue
+    const evt = JSON.parse(donnees)
+    modeleServi = evt.model || modeleServi
+    avis += evt.choices?.[0]?.delta?.content || ''
+  }
+}
+if (!avis.trim()) avis = '(réponse vide)'
+const j = { model: modeleServi }
 // Règle 5 de CLAUDE.md : la consommation d'IA se dit en signes.
 const usage = `${total + consigne.length} signes envoyés, ${avis.length} reçus`
 
