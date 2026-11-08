@@ -53,7 +53,7 @@ const navigateur = { ...globals.browser }
 const jsx = { ecmaFeatures: { jsx: true } }
 
 export default [
-  { ignores: ['node_modules/**', 'dist/**', '.mesures/**'] },
+  { ignores: ['node_modules/**', 'dist/**', '.mesures/**', '.captures/**'] },
   js.configs.recommended,
   {
     // ESLint ne lit les .jsx que si on les déclare : sans cette ligne, les

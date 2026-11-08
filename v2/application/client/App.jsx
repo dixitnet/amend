@@ -3,12 +3,17 @@
 // design ; tous les textes viennent de v2/i18n/.
 import { useEffect, useMemo, useState } from 'react'
 import { PageEdition, EcranMessage, EcranConnexion, themeEditeur, couleurAuteur } from '../../design/index.js'
-import { creerTraducteur, choisirLangue, messageErreur } from '../../i18n/index.js'
+import { creerTraducteur, choisirLangue, messageErreur, LANGUE_PSEUDO } from '../../i18n/index.js'
 import { identifiantDocument } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 
-const t = creerTraducteur(choisirLangue(navigator.languages))
+// La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
+// essais et les captures), sinon celle du navigateur.
+const demandee = new URLSearchParams(location.search).get('langue')
+const t = creerTraducteur(
+  demandee === LANGUE_PSEUDO ? LANGUE_PSEUDO : choisirLangue([demandee, ...navigator.languages]),
+)
 document.documentElement.lang = t.langue
 document.title = t('application.nom')
 

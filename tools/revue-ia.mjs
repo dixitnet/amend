@@ -33,7 +33,7 @@ const MODELE = arg('modele', 'mistral-large-latest')
 const ESSAI = process.argv.includes('--essai')
 const PLAFOND_SIGNES = 400_000
 
-if (!ETAPE || !['ouverture', 'cloture', 'scenarios'].includes(PHASE)) {
+if (!ETAPE || !['ouverture', 'cloture', 'scenarios', 'captures'].includes(PHASE)) {
   console.error(
     'Usage : node tools/revue-ia.mjs --etape=N --phase=ouverture|cloture [--depuis=<commit>] [--modele=…] [--essai]'
   )
@@ -64,14 +64,40 @@ const lire = (f) => {
 // 1. Les pièces.
 const pieces = []
 const ajouter = (titre, texte) => pieces.push({ titre, texte })
-for (const f of ['docs/v2-regles-developpement.md', 'docs/v2-renoncements.md', 'docs/v2-veille.md']) ajouter(f, lire(f))
-for (const f of suivis('v2/adr/*.md')) ajouter(f, lire(f))
-const plan = PLAN || `docs/v2-etape-${ETAPE}-plan.md`
-if (!existsSync(join(RACINE, plan))) throw new Error(`plan absent : ${plan}`)
-ajouter(plan, lire(plan))
+const images = []
+if (PHASE === 'captures') {
+  // Les captures (exploitation/dev/captures.mjs) et ce qui règle l'apparence.
+  const dossierCaptures = join(RACINE, 'v2/.captures', `etape-${ETAPE}`)
+  if (!existsSync(join(dossierCaptures, 'LISTE.txt')))
+    throw new Error(`captures absentes : lancer node exploitation/dev/captures.mjs --etape=${ETAPE} dans v2/`)
+  const liste = readFileSync(join(dossierCaptures, 'LISTE.txt'), 'utf8')
+  ajouter('Liste des captures, dans l’ordre des images', liste)
+  for (const ligne of liste.trim().split('\n')) {
+    const fichier = ligne.split(' : ')[0]
+    images.push({ nom: fichier, donnees: readFileSync(join(dossierCaptures, fichier)).toString('base64') })
+  }
+  for (const f of [
+    'v2/design/jetons.css',
+    'v2/design/styles.css',
+    'v2/design/theme.js',
+    'v2/design/composants/PageEdition.jsx',
+    'v2/design/composants/EcranSimple.jsx',
+  ])
+    ajouter(f, lire(f))
+}
+if (PHASE !== 'captures') {
+  for (const f of ['docs/v2-regles-developpement.md', 'docs/v2-renoncements.md', 'docs/v2-veille.md'])
+    ajouter(f, lire(f))
+  for (const f of suivis('v2/adr/*.md')) ajouter(f, lire(f))
+  const plan = PLAN || `docs/v2-etape-${ETAPE}-plan.md`
+  if (!existsSync(join(RACINE, plan))) throw new Error(`plan absent : ${plan}`)
+  ajouter(plan, lire(plan))
+}
 const arbo = suivis('v2/').filter((f) => !f.startsWith('v2/adr/'))
-ajouter('Arborescence de v2/ (fichiers suivis)', arbo.length ? arbo.join('\n') : '(vide)')
-if (existsSync(join(RACINE, 'v2/package.json'))) ajouter('v2/package.json', lire('v2/package.json'))
+if (PHASE !== 'captures') {
+  ajouter('Arborescence de v2/ (fichiers suivis)', arbo.length ? arbo.join('\n') : '(vide)')
+  if (existsSync(join(RACINE, 'v2/package.json'))) ajouter('v2/package.json', lire('v2/package.json'))
+}
 if (PHASE === 'scenarios') {
   ajouter('docs/v2-procedure-tests.md', lire('docs/v2-procedure-tests.md'))
   ajouter('docs/v2-mise-en-ligne.md', lire('docs/v2-mise-en-ligne.md'))
@@ -140,13 +166,27 @@ Pour chaque couche (T1 à T6), une liste numérotée (T1.1, T1.2, …), du plus 
 ## Données piégées
 Un bloc de code JSON : un objet dont chaque clé est un usage (\"noms\", \"identifiantsDeDocument\", \"textes\", \"cookies\"…) et chaque valeur une liste de chaînes difficiles (Unicode combinant, NFD, emoji, très long, caractères de contrôle, injections), chacune avec la raison en commentaire dans une liste parallèle \"raisons\".`
 
-const consigne = PHASE === 'scenarios' ? consigneScenarios : consigneRevue
+const consigneCaptures = `Tu es relecteur de design pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs (livres, essais), en cours de reconstruction (v2). Réponds en français.
+
+Tu reçois des captures d'écran (dans l'ordre de la liste fournie : écran, langue, thème, taille), les jetons de design et les styles. La pseudo-langue « pseudo » accentue, allonge d'environ 40 % et encadre chaque texte de ⟦ ⟧ : un texte sans ⟦ ⟧ dans une capture en pseudo-langue est resté en dur ; un crochet manquant signale un texte coupé.
+
+Grille : 1. lisibilité et hiérarchie (titres, texte du livre, informations) ; 2. contraste, en clair et en sombre ; 3. débordements, coupures, chevauchements, surtout en pseudo-langue et sur téléphone ; 4. textes non traduits (pseudo-langue) ; 5. cohérence de l'alignement et des espacements entre l'en-tête et la zone d'écriture ; 6. adéquation à un usage d'auteur (confort de lecture d'un long texte) ; 7. accessibilité visible (taille, focus, zones cliquables).
+
+Ne juge que ce que tu vois. Format, strictement :
+## Synthèse
+(3 à 5 lignes)
+## Constats
+Une liste numérotée V1, V2, … : **[important | mineur | question]**, la ou les captures concernées (nom de fichier), le point de grille, ce que tu vois, et une proposition qui passe par les jetons ou les styles (jamais par le code technique).
+## Points de grille sans remarque
+(les numéros)`
+
+const consigne = PHASE === 'scenarios' ? consigneScenarios : PHASE === 'captures' ? consigneCaptures : consigneRevue
 
 const dossier = pieces.map((p) => `===== ${p.titre} =====\n${p.texte}`).join('\n\n')
 const date = new Date().toISOString().slice(0, 10)
 const sortie =
-  PHASE === 'scenarios'
-    ? join(RACINE, 'docs/v2-tests', `etape-${ETAPE}-scenarios.md`)
+  PHASE === 'scenarios' || PHASE === 'captures'
+    ? join(RACINE, 'docs/v2-tests', `etape-${ETAPE}-${PHASE}.md`)
     : join(RACINE, 'docs/v2-revues', `${date}-etape-${ETAPE}-${PHASE}.md`)
 
 console.log(`Dossier : ${pieces.length} pièces, ${total} signes ; modèle ${MODELE}`)
@@ -167,7 +207,15 @@ const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
     stream: true,
     messages: [
       { role: 'system', content: consigne },
-      { role: 'user', content: `Dossier de revue :\n\n${dossier}` },
+      {
+        role: 'user',
+        content: images.length
+          ? [
+              { type: 'text', text: `Dossier de revue :\n\n${dossier}` },
+              ...images.map((i) => ({ type: 'image_url', image_url: `data:image/png;base64,${i.donnees}` })),
+            ]
+          : `Dossier de revue :\n\n${dossier}`,
+      },
     ],
   }),
 })
@@ -195,13 +243,13 @@ for await (const morceau of r.body) {
 if (!avis.trim()) avis = '(réponse vide)'
 const j = { model: modeleServi }
 // Règle 5 de CLAUDE.md : la consommation d'IA se dit en signes.
-const usage = `${total + consigne.length} signes envoyés, ${avis.length} reçus`
+const usage = `${total + consigne.length} signes envoyés${images.length ? ` et ${images.length} images` : ''}, ${avis.length} reçus`
 
 // 4. Le fichier de revue.
 mkdirSync(dirname(sortie), { recursive: true })
 writeFileSync(
   sortie,
-  `# ${PHASE === 'scenarios' ? 'Scénarios adverses' : PHASE === 'ouverture' ? 'Revue d’ouverture' : 'Revue de clôture'} de l’étape ${ETAPE} (${date})
+  `# ${PHASE === 'scenarios' ? 'Scénarios adverses' : PHASE === 'captures' ? 'Captures jugées' : PHASE === 'ouverture' ? 'Revue d’ouverture' : 'Revue de clôture'} de l’étape ${ETAPE} (${date})
 
 - Relecteur : Mistral, modèle \`${j.model || MODELE}\` ; consommation : ${usage}
 - Pièces : ${pieces.map((p) => `\`${p.titre}\``).join(', ')}

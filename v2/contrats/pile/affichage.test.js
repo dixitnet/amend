@@ -1,0 +1,110 @@
+// T5 : vérifications d'affichage programmées (déterministes), en pseudo-langue,
+// sur téléphone et sur ordinateur, en clair et en sombre : aucun texte
+// d'interface resté en dur, aucun débordement, rien hors de l'écran.
+// (Le jugement de captures par Mistral s'est révélé peu fiable :
+// docs/v2-tests/etape-1-captures.md.)
+import { test, before, after } from 'node:test'
+import assert from 'node:assert/strict'
+import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
+import { lancerNavigateur, docTest, attendreEtat } from './outils.mjs'
+
+let pile, nav
+before(async () => {
+  preparerServices()
+  construireClient()
+  pile = await demarrerPile({ port: 4340, portCollab: 4440 })
+  nav = await lancerNavigateur()
+})
+after(async () => {
+  await nav?.close()
+  await pile?.arreter()
+})
+
+const TAILLES = { telephone: { width: 360, height: 740 }, ordinateur: { width: 1280, height: 800 } }
+
+/** Problèmes d'affichage de la page, hors du texte du document (`.bn-editor`). */
+const problemes = (page, pseudo) =>
+  page.evaluate((pseudo) => {
+    const p = []
+    const largeur = document.documentElement.clientWidth
+    if (document.documentElement.scrollWidth > largeur + 1)
+      p.push(`défilement horizontal (${document.documentElement.scrollWidth} > ${largeur})`)
+    const interface_ = [...document.querySelectorAll('body *')].filter((el) => !el.closest('.bn-container'))
+    for (const el of interface_) {
+      const r = el.getBoundingClientRect()
+      if (r.width && (r.right > largeur + 1 || r.left < -1))
+        p.push(`hors de l'écran : <${el.tagName.toLowerCase()} class="${el.className}">`)
+      if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'hidden')
+        p.push(`texte coupé : ${el.className}`)
+    }
+    if (pseudo) {
+      const marcheur = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+      for (let n = marcheur.nextNode(); n; n = marcheur.nextNode()) {
+        const t = n.textContent.trim()
+        if (!t || n.parentElement.closest('.bn-container, script, style')) continue
+        const bloc = n.parentElement.textContent
+        if (!bloc.includes('⟦') || !bloc.includes('⟧')) p.push(`texte en dur : « ${t.slice(0, 40)} »`)
+      }
+    }
+    return p
+  }, pseudo)
+
+for (const [taille, viewport] of Object.entries(TAILLES))
+  for (const theme of ['light', 'dark'])
+    test(`pseudo-langue, ${taille}, thème ${theme === 'dark' ? 'sombre' : 'clair'} : connexion et document sans défaut d'affichage`, async () => {
+      const ctx = await nav.newContext({ viewport, colorScheme: theme, locale: 'fr-FR' })
+      const page = await ctx.newPage()
+      await page.goto(`${pile.url}/?langue=pseudo#${docTest('affichage')}`)
+      await page.waitForSelector('input[name=nom]')
+      assert.deepEqual(await problemes(page, true), [], 'écran de connexion')
+      await page.fill('input[name=nom]', 'Camille Dupré')
+      await page.click('button[type=submit]')
+      await page.waitForSelector('.bn-editor')
+      await page.waitForFunction(() => /⟦Sy/.test(document.querySelector('[role=status]')?.textContent || ''))
+      assert.deepEqual(await problemes(page, true), [], 'page du document')
+      await ctx.close()
+    })
+
+test('français et anglais, téléphone : aucun débordement', async () => {
+  for (const langue of ['fr', 'en']) {
+    const ctx = await nav.newContext({ viewport: TAILLES.telephone, locale: 'fr-FR' })
+    const page = await ctx.newPage()
+    await page.goto(`${pile.url}/?langue=${langue}#${docTest('affichage')}`)
+    await page.waitForSelector('input[name=nom]')
+    await page.fill('input[name=nom]', 'Camille Dupré')
+    await page.click('button[type=submit]')
+    await page.waitForSelector('.bn-editor')
+    if (langue === 'fr') await attendreEtat(page, 'Synchronisé')
+    assert.deepEqual(await problemes(page, false), [], langue)
+    await ctx.close()
+  }
+})
+
+test('le détecteur trouve bien un texte en dur et un débordement plantés exprès', async () => {
+  const ctx = await nav.newContext({ viewport: TAILLES.telephone, locale: 'fr-FR' })
+  const page = await ctx.newPage()
+  await page.goto(`${pile.url}/?langue=pseudo#${docTest('affichage')}`)
+  await page.waitForSelector('input[name=nom]')
+  await page.evaluate(() => {
+    const p = document.createElement('p')
+    p.textContent = 'Texte resté en dur'
+    const large = document.createElement('div')
+    large.className = 'trop-large'
+    large.setAttribute('style', 'width: 2000px; height: 1px')
+    document.body.append(p, large)
+  })
+  const trouves = await problemes(page, true)
+  assert.ok(
+    trouves.some((x) => x.includes('Texte resté en dur')),
+    JSON.stringify(trouves),
+  )
+  assert.ok(
+    trouves.some((x) => x.includes('défilement horizontal')),
+    JSON.stringify(trouves),
+  )
+  assert.ok(
+    trouves.some((x) => x.includes('trop-large')),
+    JSON.stringify(trouves),
+  )
+  await ctx.close()
+})
