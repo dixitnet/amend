@@ -24,8 +24,8 @@ Que chaque personne n'ait, sur chaque document, que les droits de son rôle, dé
 
 ## Ce qui est établi, et ce qui ne l'est pas
 
-- **Établi** (décisions de produit, v1 et ADR 0001) : le serveur décide, y/hub applique ; un rôle inconnu vaut le plus restrictif ; aucun rôle, aucun accès ; plusieurs éditeurs possibles sur un document, donc un propriétaire (Sylvain, 08/11/2026).
-- **À arbitrer** : la liste des rôles (options ci-dessous).
+- **Établi** (décisions de produit, v1 et ADR 0001) : le serveur décide, y/hub applique ; un rôle inconnu vaut le plus restrictif ; aucun rôle, aucun accès ; plusieurs éditeurs possibles sur un document, donc un propriétaire (Sylvain, 08/11/2026) ; des équipes et dossiers partagés viendront plus tard.
+- **Arbitré** (08/11/2026) : quatre rôles, lecteur, correcteur, éditeur, propriétaire ; les éditeurs invitent, y compris des éditeurs ; un propriétaire, transmissible.
 - **Pas encore utilisable** à cette étape : la suggestion et les commentaires (étape 5). Tant qu'ils n'existent pas, un correcteur (et un lecteur, s'il est gardé) ne peut que **lire**.
 - **Pas établi** : où et comment sont enregistrés les comptes, les documents et les accès. C'est l'objet de l'étape 6, avec son ADR. À cette étape, la table des accès est **provisoire, en mémoire**, alimentée par une route de développement ; elle est remplacée à l'étape 6 sans changer l'interface que le serveur offre à y/hub.
 
@@ -75,51 +75,52 @@ Docs traduit ces rôles en permissions de y/hub à la connexion : lecture seule 
 
 Différence de fond avec Docs : Docs n'a **pas de suggestion** ; son commentateur ne propose rien. Notre **correcteur** est un commentateur qui, en plus, écrit des suggestions. Avec y/hub, cela tient en permissions : il lit la branche principale et écrit dans la branche (ou le document) de suggestions, y/hub refuse le reste. La règle « le correcteur ne touche pas au texte accepté », qui demandait en v1 une analyse du texte côté serveur, devient une ligne de permissions.
 
-## Options pour amend.ink
+## Décision de Sylvain (08/11/2026) : quatre rôles
 
-Toutes gardent : un document a toujours au moins un propriétaire ; seul un propriétaire nomme un propriétaire et supprime le document ; toute personne connectée crée un document et en devient propriétaire ; les rôles sont ordonnés (chaque rôle a les capacités du précédent).
-
-### Option 1 : les cinq rôles de Docs, le commentateur devenant correcteur
-
-lecteur < correcteur < éditeur < administrateur < propriétaire. Copie fidèle de Docs, le plus riche, le moins à inventer. Mais l'administrateur ne sert que si un propriétaire veut déléguer la gestion des accès sans céder la suppression : besoin non établi chez nos auteurs et éditeurs.
-
-### Option 2 : quatre rôles, sans administrateur (recommandée)
-
-lecteur < correcteur < éditeur < propriétaire.
+lecteur < correcteur < éditeur < propriétaire. Les éditeurs invitent, y compris d'autres éditeurs. Le propriétaire est un éditeur qui a en plus les seuls droits nécessaires : **la vie et la mort du document, et le transfert de propriété**. Un seul propriétaire, donc, qui transmet la propriété (pas de « dernier propriétaire » à protéger).
 
 | Rôle | Texte (branche principale, y/hub) | Suggestions (étape 5) | Commentaires (BlockNote, étape 5) | Accès et document |
 |---|---|---|---|---|
-| **lecteur** | lire | voir | lire seulement (ou `comment`, voir question 4) | quitter |
+| **lecteur** | lire | voir | à trancher à l'étape 5 (lecture seule ou `comment`) | quitter |
 | **correcteur** | lire | voir, écrire | `comment` | quitter |
-| **éditeur** | lire, écrire ; historique, retour arrière | voir, écrire ; accepter, rejeter | `editor` | quitter |
-| **propriétaire** | comme l'éditeur | comme l'éditeur | `editor` | inviter, changer les rôles, retirer (y compris des éditeurs) ; nommer un autre propriétaire ; supprimer, restaurer ; quitter s'il en reste un autre |
+| **éditeur** | lire, écrire ; historique, retour arrière | voir, écrire ; accepter, rejeter | `editor` | inviter (tous rôles sauf propriétaire), changer un rôle, retirer un accès, sauf celui du propriétaire ; quitter |
+| **propriétaire** | comme l'éditeur | comme l'éditeur | `editor` | comme l'éditeur ; supprimer et restaurer le document ; transférer la propriété (il devient alors éditeur) ; ne peut pas quitter sans transférer |
 
-C'est le découpage de Docs moins l'administrateur, plus la suggestion. Il répond au besoin posé (plusieurs éditeurs, un propriétaire qui gère leurs droits). L'administrateur se rouvre sans casser la table s'il manque un jour.
+Créer un document : toute personne connectée ; elle en devient propriétaire. Pas d'administrateur ; pas de lien de partage (la page publiée couvre la lecture publique), à rouvrir à l'étape 6 si besoin.
 
-### Option 3 : trois rôles, sans lecteur ni administrateur
+## Anticiper les équipes et les dossiers partagés
 
-correcteur < éditeur < propriétaire. Le plus sobre : pas de rôle sans contribution, lire un texte fini relevant de la page publiée. Le jour où un « lecteur » manque, BlockNote et y/hub le savent faire (lecture seule) et il s'ajoute en une ligne.
+Besoin annoncé (Sylvain, 08/11/2026), pas pour cette étape : des **équipes** qui partagent un **dossier commun**, comme un Drive partagé de Google. Rien n'est développé pour elles avant qu'elles soient au plan ; mais quatre choix de cette étape et de l'étape 6 les rendraient coûteuses s'ils étaient faits sans y penser.
 
-### Variantes, indépendantes de l'option choisie
+### Comment font les autres
 
-- **2a. Plusieurs propriétaires** (Docs), le dernier protégé ; **ou un seul**, transmissible (v1). Plusieurs est plus simple à expliquer (« un rôle comme les autres ») et évite le cas « propriétaire parti » ; un seul est plus lisible pour un contrat d'édition. Recommandé : plusieurs, le dernier protégé.
-- **2b. L'éditeur peut-il inviter ?** Docs : non (administrateur et propriétaire seulement). v1 : oui. Voie intermédiaire : l'éditeur invite des correcteurs (et lecteurs), seul le propriétaire touche aux éditeurs et aux propriétaires. Recommandé : propriétaire seul pour commencer (une règle, pas de cas) ; la voie intermédiaire si l'usage la demande.
-- **2c. Lien de partage** (Docs) : hors périmètre ; la page publiée couvre la lecture publique. À rouvrir à l'étape 6 si besoin.
+- **Docs** : un accès donne un rôle à **une personne ou une équipe** (jamais les deux) ; les documents forment un arbre, un document hérite des accès de ses ancêtres ; le rôle effectif est **le plus fort** de tous les accès qui s'appliquent (personnels, d'équipe, hérités). On ne peut pas donner sur un document un rôle plus faible que celui hérité. Les équipes viennent de l'annuaire (le fournisseur d'identité), Docs ne les gère pas.
+- **Drive partagé de Google** : les fichiers appartiennent **au dossier partagé**, pas à une personne ; ils restent quand un membre part. Déposer un fichier dans un Drive partagé en transfère la propriété au Drive. Les membres ont un rôle sur le Drive entier ; on peut ajouter des personnes sur un fichier, pas retirer à un fichier un accès venu du Drive.
+- **v1** : les dossiers ne sont qu'un rangement personnel, sans effet sur les droits (`docs/journal-decisions.md` : en faire une frontière d’accès a été écarté).
+
+### Conséquences pour nous
+
+1. **Le rôle effectif est un maximum.** Dès cette étape, les rôles sont ordonnés et le domaine calcule le rôle effectif comme le plus fort d'une liste de rôles (`roleEffectif(roles)`). Aujourd'hui la liste n'a qu'un élément ; demain elle contiendra le rôle personnel, celui de l'équipe, celui hérité du dossier. Coût nul, et aucune règle à réécrire le jour venu.
+2. **La décision reste « une personne, un document ».** y/hub et BlockNote ne voient jamais d'équipe ni de dossier : notre serveur leur répond avec le rôle effectif, à la connexion. Les équipes ne toucheront donc ni à l'adaptateur y/hub, ni à l'éditeur. L'identifiant d'un document ne doit **rien** contenir de son dossier (déplacer un document ne change pas son nom dans y/hub).
+3. **Le propriétaire peut être une équipe.** Avec un propriétaire toujours personnel, un document du dossier d'équipe disparaîtrait ou deviendrait orphelin au départ de la personne. Le modèle de l'étape 6 prévoit donc un **titulaire** (personne, plus tard équipe) pour chaque accès, propriété comprise ; déposer un document dans un dossier d'équipe en transférera la propriété à l'équipe (comme Google). À cette étape, seule la forme en tient compte : le domaine parle de titulaire, la table provisoire ne contient que des personnes.
+4. **Deux sortes de dossiers, à ne pas confondre.** Le rangement personnel (sans effet sur les droits, comme en v1) et le dossier d'équipe (qui porte des accès, hérités par ses documents). L'ADR de stockage (étape 6) décide du modèle (accès : titulaire, cible document ou dossier, rôle) et de l'héritage, même si les équipes arrivent plus tard.
+
+Questions ouvertes, à trancher quand les équipes seront au plan (rien ne les bloque d'ici là) : qui gère une équipe (ses membres, son rôle) ; un document peut-il appartenir à plusieurs dossiers d'équipe (Docs et Google : non) ; peut-on restreindre un document dans un dossier d'équipe (Docs et Google : non, on peut seulement ajouter) ; les équipes viennent-elles d'un annuaire ou sont-elles gérées dans amend.ink (nous n'avons pas d'annuaire : chez nous, sans doute).
 
 ## Ce qui reste à écrire chez nous
 
 1. **La table rôles → capacités** (domaine) et sa traduction en permissions de y/hub (adaptateur, qui existe). Seul code de droits de cette étape.
-2. **Les règles de gestion des accès** (2a, 2b, dernier propriétaire) : fonctions pures du domaine, mais consommées par les invitations ; donc **étape 6**, avec le stockage.
+2. **Les règles de gestion des accès** (qui donne quel rôle, l'accès du propriétaire intouchable, le transfert) : fonctions pures du domaine, mais consommées par les invitations ; donc **étape 6**, avec le stockage et son ADR (qui prévoit les équipes, ci-dessus).
 3. **Où vivent les commentaires du correcteur**, qui ne peut pas écrire dans la branche principale : `RESTYjsThreadStore` (la voie de Docs) ou avec les suggestions ; étape 5.
 4. **Imposer le mode suggestion au correcteur dans l'interface** : un réglage de l'éditeur ; la garantie vient de y/hub. Étape 5.
 
 ## Contenu, en lots d'une couche
 
-1. **Domaine** (`domaine/droits.js`) : les rôles retenus, ordonnés, et leurs capacités en codes (`lire`, `commenter`, `suggerer`, `ecrire`, `arbitrer`, `restaurer`, `gerer`, `nommerProprietaire`, `supprimer`) ; `capacites(role)` (rôle inconnu → le plus restrictif ; aucun rôle → rien) ; `acces(capacites)` : ce que la collaboration doit autoriser (`ecriture`, `lecture`, ou rien). Aucun libellé : les noms des rôles affichés passent par `i18n/`. `suggerer` et `commenter` sont déclarées mais branchées sur rien avant l'étape 5.
+1. **Domaine** (`domaine/droits.js`) : les quatre rôles, ordonnés, et leurs capacités en codes (`lire`, `commenter`, `suggerer`, `ecrire`, `arbitrer`, `restaurer`, `inviter`, `supprimer`, `transferer`) ; `roleEffectif(roles)` (le plus fort) ; `capacites(role)` (rôle inconnu → le plus restrictif ; aucun rôle → rien) ; `acces(capacites)` : ce que la collaboration doit autoriser (`ecriture`, `lecture`, ou rien). Aucun libellé : les noms des rôles affichés passent par `i18n/`. `suggerer` et `commenter` sont déclarées mais branchées sur rien avant l'étape 5.
 2. **Serveur** : la route interne `droits` répond d'après la table des accès et le domaine ; route de développement pour donner un rôle à une personne sur un document ; création d'un document en développement : la personne qui le crée en devient **propriétaire**.
 3. **Adaptateur y/hub** : inchangé dans sa forme (il traduit déjà `ecriture` et `lecture`) ; vérifié par ses tests.
 4. **Tests** (procédure par couches) :
-   - T1 : table des rôles et des capacités, ordre des rôles, rôle inconnu, aucun rôle, traduction en accès ;
+   - T1 : table des rôles et des capacités, ordre des rôles, rôle effectif (le plus fort, liste vide, rôle inconnu dans la liste), rôle inconnu, aucun rôle, traduction en accès ;
    - T3 : route des droits (chaque rôle, rôle inconnu, absent, document inconnu), créateur propriétaire, route de développement fermée hors développement ;
    - T2 : y/hub applique le rôle décidé par le serveur (écriture refusée à un correcteur et, s'il est gardé, à un lecteur ; acceptée pour un éditeur et un propriétaire) ;
    - T5 : deux navigateurs, un propriétaire et un correcteur : la frappe du correcteur ne s'enregistre pas, et l'interface le lui dit (texte traduit).
@@ -134,13 +135,14 @@ correcteur < éditeur < propriétaire. Le plus sobre : pas de rôle sans contrib
 
 - Suggestion et commentaires, et les droits qui s'y rattachent : étape 5.
 - Historique visible à partir de la date d'accès (idée reprise de Docs) : étape 5, avec les versions.
-- Stockage des comptes, documents et accès ; invitations ; règles de gestion des accès ; lien magique ; lien de partage éventuel : étape 6.
+- Stockage des comptes, documents et accès ; invitations ; règles de gestion des accès ; transfert de propriété ; lien magique ; lien de partage éventuel : étape 6 (son ADR prévoit les équipes).
+- Équipes et dossiers partagés : étape à placer au plan quand le besoin sera daté.
 - Typographie (étape 4), NFC des exports (étape 7), limites en signes (étape 8).
 
 ## Questions pour Sylvain
 
 1. Fusionner les étapes 2 et 3 en « Droits », et renvoyer typographie, NFC des exports et limites en signes aux étapes qui s'en servent ?
-2. Rôles : option 1 (cinq, comme Docs), **option 2** (lecteur, correcteur, éditeur, propriétaire) ou option 3 (correcteur, éditeur, propriétaire) ?
-3. Propriétaires : plusieurs, le dernier protégé (Docs), ou un seul transmissible (v1) ?
-4. Qui invite : le propriétaire seul, ou l'éditeur aussi pour les correcteurs et lecteurs ? Et le lecteur (s'il est gardé) peut-il commenter ?
+2. ~~Rôles~~ : arbitré le 08/11/2026 (quatre rôles, les éditeurs invitent, un propriétaire transmissible).
+3. Un éditeur peut-il retirer un autre éditeur, ou seulement ceux qu'il a invités ? (Proposition : tout accès sauf celui du propriétaire, comme en v1.)
+4. Équipes : d'accord pour que le propriétaire d'un document puisse être, plus tard, une équipe (modèle Google), et pour que l'ADR de stockage de l'étape 6 le prévoie ?
 5. En attendant la suggestion (étape 5), un correcteur ne peut que lire (y/hub le garantit) : d'accord ?
