@@ -34,6 +34,15 @@ body {
   color: var(--couleur-texte-discret);
 }
 
+.page-edition__mention {
+  margin: 0;
+  padding: 0 var(--espace-2);
+  border: 1px solid var(--couleur-accent);
+  border-radius: var(--rayon);
+  color: var(--couleur-accent);
+  font-size: 0.875rem;
+}
+
 .page-edition__document {
   padding-top: var(--espace-4);
   font-family: var(--police-texte);
