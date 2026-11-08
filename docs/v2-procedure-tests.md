@@ -1,6 +1,6 @@
 # amend.ink v2 : procédure de test
 
-Statut : **projet** (08/11/2026), à valider par Sylvain.
+Statut : **validée** par Sylvain le 08/11/2026 ; appliquée à partir de l’étape 1.
 
 ## Qui fait quoi
 

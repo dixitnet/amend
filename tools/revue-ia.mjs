@@ -33,7 +33,7 @@ const MODELE = arg('modele', 'mistral-large-latest')
 const ESSAI = process.argv.includes('--essai')
 const PLAFOND_SIGNES = 400_000
 
-if (!ETAPE || !['ouverture', 'cloture'].includes(PHASE)) {
+if (!ETAPE || !['ouverture', 'cloture', 'scenarios'].includes(PHASE)) {
   console.error(
     'Usage : node tools/revue-ia.mjs --etape=N --phase=ouverture|cloture [--depuis=<commit>] [--modele=…] [--essai]'
   )
@@ -72,6 +72,18 @@ ajouter(plan, lire(plan))
 const arbo = suivis('v2/').filter((f) => !f.startsWith('v2/adr/'))
 ajouter('Arborescence de v2/ (fichiers suivis)', arbo.length ? arbo.join('\n') : '(vide)')
 if (existsSync(join(RACINE, 'v2/package.json'))) ajouter('v2/package.json', lire('v2/package.json'))
+if (PHASE === 'scenarios') {
+  ajouter('docs/v2-procedure-tests.md', lire('docs/v2-procedure-tests.md'))
+  ajouter('docs/v2-mise-en-ligne.md', lire('docs/v2-mise-en-ligne.md'))
+  const sources = arbo.filter(
+    (f) => /\.(m?js|jsx|css|json|sh|service|conf)$|Caddyfile/.test(f) && !/package-lock|\/tests\/|\/contrats\//.test(f)
+  )
+  for (const f of sources) ajouter(f, lire(f))
+  const titres = arbo
+    .filter((f) => /\/(tests|contrats)\/.*\.test\.m?js$/.test(f))
+    .map((f) => `${f}\n` + [...lire(f).matchAll(/^test\('([^']+)'/gm)].map((m) => `  - ${m[1]}`).join('\n'))
+  ajouter('Tests existants (fichier, puis titres)', titres.join('\n'))
+}
 if (PHASE === 'cloture') {
   const diff = git('diff', `${DEPUIS}..HEAD`, '--', 'v2/', ':(exclude)v2/package-lock.json', ':(exclude)v2/LICENSE')
   ajouter(`Diff de v2/ depuis ${DEPUIS}`, diff || '(aucun changement)')
@@ -82,8 +94,9 @@ const SECRET = /(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE 
 for (const p of pieces)
   if (SECRET.test(p.texte)) throw new Error(`motif de secret repéré dans « ${p.titre} » : revue annulée`)
 
-// 2. La consigne : la grille du § 6 des règles.
-const consigne = `Tu es relecteur (${SUJET}) pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2). Un autre modèle (Claude) écrit le code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
+// 2. La consigne : la grille du § 6 des règles (revues) ou la recherche de
+// scénarios adverses (docs/v2-procedure-tests.md).
+const consigneRevue = `Tu es relecteur (${SUJET}) pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2). Un autre modèle (Claude) écrit le code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
 
 Phase : ${PHASE === 'ouverture' ? `OUVERTURE de l'étape ${ETAPE} — tu relis le PLAN avant tout développement` : `CLÔTURE de l'étape ${ETAPE} — tu relis l'architecture ET le code produit (diff fourni)`}.
 
@@ -108,9 +121,26 @@ Une liste numérotée R1, R2, … Pour chaque constat : **[bloquant | important 
 ## Points de grille sans remarque
 (les numéros)`
 
+const consigneScenarios = `Tu es testeur adverse pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2). Un autre modèle (Claude) écrit le code et les tests ; ton rôle est de trouver ce qui peut casser et que les tests existants ne couvrent pas. Réponds en français.
+
+Étape ${ETAPE}. Tu reçois les règles, le plan de l'étape, la procédure de test, le code source et la liste des tests existants. Cherche des scénarios concrets dans ces familles : droits et contournements (session forgée, accès au document d'un autre, appel direct au serveur de collaboration) ; concurrence (deux personnes, réseau coupé, redémarrage pendant la frappe) ; données limites (document vide, très long, caractères combinants, NFC, emoji, nom de document inhabituel) ; saisie ; exploitation (mémoire, base ou Redis indisponible, redémarrage) ; traductions ; configuration en ligne (Caddy, ports, cookies).
+
+Chaque scénario doit s'appuyer sur un élément précis du dossier (fichier, fonction, réglage) ; pas de scénario générique. Ne propose pas ce que les tests existants couvrent déjà.
+
+Format de réponse, strictement :
+## Scénarios
+Une liste numérotée S1, S2, … (douze au plus, les plus utiles d'abord). Pour chaque scénario : **[grave | moyen | faible]**, le titre, l'élément du dossier visé, les gestes (préconditions, actions), le résultat attendu, et le niveau suggéré (**automatique** sur la pile locale, ou **à la main** en ligne).
+## Ce qui me semble bien couvert
+(deux ou trois lignes)`
+
+const consigne = PHASE === 'scenarios' ? consigneScenarios : consigneRevue
+
 const dossier = pieces.map((p) => `===== ${p.titre} =====\n${p.texte}`).join('\n\n')
 const date = new Date().toISOString().slice(0, 10)
-const sortie = join(RACINE, 'docs/v2-revues', `${date}-etape-${ETAPE}-${PHASE}.md`)
+const sortie =
+  PHASE === 'scenarios'
+    ? join(RACINE, 'docs/v2-tests', `etape-${ETAPE}-scenarios.md`)
+    : join(RACINE, 'docs/v2-revues', `${date}-etape-${ETAPE}-${PHASE}.md`)
 
 console.log(`Dossier : ${pieces.length} pièces, ${total} signes ; modèle ${MODELE}`)
 for (const p of pieces) console.log(`  - ${p.titre} (${p.texte.length} signes)`)
@@ -138,26 +168,27 @@ if (!r.ok) {
 }
 const j = await r.json()
 const avis = j.choices?.[0]?.message?.content || '(réponse vide)'
-const usage = j.usage ? `${j.usage.prompt_tokens} jetons en entrée, ${j.usage.completion_tokens} en sortie` : 'inconnu'
+// Règle 5 de CLAUDE.md : la consommation d'IA se dit en signes.
+const usage = `${total + consigne.length} signes envoyés, ${avis.length} reçus`
 
 // 4. Le fichier de revue.
 mkdirSync(dirname(sortie), { recursive: true })
 writeFileSync(
   sortie,
-  `# Revue ${PHASE === 'ouverture' ? 'd’ouverture' : 'de clôture'} de l’étape ${ETAPE} (${date})
+  `# ${PHASE === 'scenarios' ? 'Scénarios adverses' : PHASE === 'ouverture' ? 'Revue d’ouverture' : 'Revue de clôture'} de l’étape ${ETAPE} (${date})
 
 - Relecteur : Mistral, modèle \`${j.model || MODELE}\` ; consommation : ${usage}
 - Pièces : ${pieces.map((p) => `\`${p.titre}\``).join(', ')}
 - Commit relu : \`${git('rev-parse', '--short', 'HEAD').trim()}\`${PHASE === 'cloture' ? ` (depuis \`${DEPUIS}\`)` : ''}
 - Statut : avis reçu ; réponse de Claude à écrire ; arbitrage de Sylvain à venir.
 
-## Avis du relecteur
+## ${PHASE === 'scenarios' ? 'Proposition de Mistral' : 'Avis du relecteur'}
 
 ${avis.trim()}
 
-## Réponse de Claude
+## ${PHASE === 'scenarios' ? 'Classement par Claude' : 'Réponse de Claude'}
 
-(Pour chaque constat : *corrigé*, *contesté* avec l'argument, ou *reporté* avec la suite prévue.)
+${PHASE === 'scenarios' ? '(Pour chaque scénario : *automatique* avec le test qui le couvre, *à la main* avec sa ligne de recette, ou *écarté* avec la raison.)' : '(Pour chaque constat : *corrigé*, *contesté* avec l’argument, ou *reporté* avec la suite prévue.)'}
 
 ## Arbitrage de Sylvain
 
