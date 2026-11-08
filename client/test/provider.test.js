@@ -276,6 +276,14 @@ const attendre = (cond, ms = 2000) =>
     tour()
   })
 
+// Une trame telle qu'un vrai WebSocket la livre : un ArrayBuffer aux octets
+// exacts. `deflateRawSync(…).buffer` ne l'est pas : c'est la réserve de zlib
+// (16 Kio sous Node 22, 64 Kio sous Node 24), le flux compressé suivi de
+// zéros. Node 22 ignorait ces octets en trop ; Node 24, comme les navigateurs
+// et la norme Compression Streams, refuse « Trailing junk » — ce qui faisait
+// passer le test par la voie « décompression impossible ».
+const trame = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength)
+
 function etatDe(texte) {
   const d = new Y.Doc()
   d.getText('t').insert(0, texte)
@@ -293,16 +301,17 @@ test('état compressé : décompressé et appliqué, et « synced » n’arrive 
   ws().ouvrir()
   const etat = etatDe('Un long texte. '.repeat(2000))
   ws().recevoir(JSON.stringify({ type: 'etat-z', octets: etat.length }))
-  ws().recevoir(deflateRawSync(etat).buffer)
+  ws().recevoir(trame(deflateRawSync(etat)))
   // Arrivés pendant la décompression : ils attendent leur tour.
   const suite = new Y.Doc()
   Y.applyUpdate(suite, etat)
   const avant = Y.encodeStateVector(suite)
   suite.getText('t').insert(0, 'Début. ')
-  ws().recevoir(Y.encodeStateAsUpdate(suite, avant).buffer)
+  ws().recevoir(trame(Y.encodeStateAsUpdate(suite, avant)))
   synced(ws(), svDe(suite))
   assert.equal(p.synced, false, 'pas de « synced » tant que l’état n’est pas appliqué')
-  await attendre(() => p.synced)
+  await attendre(() => p.synced || ws().readyState === 3)
+  assert.notEqual(ws().readyState, 3, 'la décompression a échoué (connexion fermée)')
   assert.equal(ydoc.getText('t').toString(), suite.getText('t').toString())
   assert.equal(evenements.filter(([n]) => n === 'synced').length, 1)
   p.destroy()
