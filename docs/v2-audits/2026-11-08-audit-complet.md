@@ -3,7 +3,7 @@
 - Auditeur : Scaleway, modèle `glm-5.3`, réflexion `low` ; consommation totale : 708810 signes envoyés, 39759 reçus
 - Code audité : `v2/` au commit `9e0aee2`, module par module
 - Outils déterministes : `couverture.txt`, `knip.txt`, `npm-audit.txt`, `semgrep.txt`
-- Statut : avis reçus ; réponses de Claude écrites ; arbitrage de Sylvain à venir.
+- Statut : avis reçus ; réponses de Claude écrites ; arbitré par Sylvain le 08/11/2026 (corriger les importants, sauf la sauvegarde reportée à la mise en ligne avec de vrais textes, et les mineurs) ; corrections faites le même jour (voir « Corrections »).
 
 ## Synthèse de Claude
 
@@ -11,7 +11,7 @@ Environ 75 constats sur 9 modules, chacun vérifié dans le code : **à peu prè
 
 **Importants, à corriger maintenant** : demande de droits qui échoue sans refus explicite (y/hub) ; secret de session non exigé en ligne ; adresse `#%` qui fait planter le client ; repère « contenu principal » effacé (`role="document"`) ; sauvegarde et restauration de la base v2 absentes (avant tout essai avec de vrais textes) ; vulnérabilités de la chaîne de y/hub à inscrire dans la veille.
 
-**Mineurs, regroupables en un lot** : typographie après un emoji et après une note collée ; caractères invisibles manquants dans les noms ; `catch` trop large des messages d'erreur ; délais et refus dans le processus de collaboration ; codes HTTP et journal des erreurs internes ; chemin statique comparé avec séparateur ; client (connexion en panne, `lang`) ; `texteDesBlocs` incomplet ; contrat du nom `link` ; durcissement systemd, pare-feu et vérification du déploiement ; garde-fous (feuilles de style importables, `reglages.js`, unités, licence GPL-3.0) ; documentation (ADR 0004 sur le client, arborescence, veille).
+**Mineurs, regroupables en un lot** : typographie après une note collée ; caractères invisibles manquants dans les noms ; `catch` trop large des messages d'erreur ; délais et refus dans le processus de collaboration ; codes HTTP et journal des erreurs internes ; chemin statique comparé avec séparateur ; client (connexion en panne, `lang`) ; `texteDesBlocs` incomplet ; contrat du nom `link` ; durcissement systemd, pare-feu et vérification du déploiement ; garde-fous (feuilles de style importables, `reglages.js`, unités, licence GPL-3.0) ; documentation (ADR 0004 sur le client, arborescence, veille).
 
 **Pour plus tard** : présence et identifiant publié, expiration des sessions, CSRF (étape 6) ; en-têtes et HSTS (mise en ligne) ; lecture du numéro de note, lien liste-appel, titre de page (interface) ; test de la présence d'un lecteur (étape 5).
 
@@ -46,7 +46,7 @@ Le module Domaine est conforme à l'architecture : JavaScript pur, aucune dépen
 ### Réponse de Claude
 
 - **1 : faux.** « Un rôle inconnu vaut le plus restrictif » est une décision établie (v1, plan de l'étape 2) ; le plus restrictif des rôles est le lecteur, et « aucun rôle » vaut rien : c'est voulu et testé.
-- **2 : juste, mineur.** Après un emoji, le dernier signe vu est une demi-paire UTF-16 : un `"` collé à un emoji serait pris pour un guillemet fermant. Correctif : comparer le dernier point de code.
+- **2 : faux** (relu en corrigeant). Un emoji n'est pas un signe ouvrant : qu'on regarde sa dernière demi-paire ou l'emoji entier, un `"` qui le suit est fermant dans les deux cas ; aucun changement de comportement possible.
 - **3 : juste en partie, mineur.** `\p{Cf}` en bloc interdirait le liant sans chasse (U+200D) des emojis composés, que la règle permet ; mais le trait d'union conditionnel (U+00AD) et U+2061–2064 manquent : à ajouter à la liste.
 - **4 : faux.** Le test « hors du français, rien ne change » vérifie aussi `saisie(…, { langue: 'en' })`.
 - **5 : hors sujet** (citation invalide ; le serveur est audité plus bas).
@@ -503,6 +503,12 @@ Le module garde-fous est d'une qualité rare : le lint des frontières, les cont
 - **A11 et 6 : sans citation.**
 - **A12 : juste.** À noter dans la veille avec les montées de version mensuelles.
 
+## Corrections (08/11/2026)
+
+Faites, avec un test chacune : demande de droits en échec refusée (y/hub) ; secret de session exigé hors développement ; adresse mal encodée sans écran blanc ; repère « contenu principal » rendu ; vulnérabilités de la chaîne de y/hub et d'eslint évaluées dans la veille ; caractères invisibles des noms ; message d'erreur générique réservé aux codes inconnus ; ordre des déclarations et `N` de la pseudo-langue ; délai et refus du processus de collaboration, arrêt sûr ; 400, 413 et 500 distingués, erreurs internes journalisées ; dossier statique comparé avec séparateur ; connexion en panne sans promesse perdue ; `lang` du HTML ; texte brut avec tableaux et notes ; contrat du nom `link` ; guillemet après une note collée ; durcissement systemd ; installation qui échoue sans pare-feu ; déploiement qui vérifie les services ; garde-fous du lint (feuilles de paquets, unités, `reglages.js`) ; licence GPL-3.0 admise ; ADR 0004 (client de collaboration) ; arborescence (`collab/`).
+
+Reportés (décision de Sylvain ou étape à venir) : sauvegarde et restauration de la base v2 (mise en ligne avec de vrais textes) ; présence et identifiant publié, expiration des sessions, CSRF (étape 6) ; en-têtes et HSTS (mise en ligne) ; lecture du numéro de note, lien liste-appel, titre de page (interface) ; test de la présence d'un lecteur (étape 5).
+
 ## Arbitrage de Sylvain
 
-(À compléter.)
+08/11/2026 : corriger les importants et les mineurs ; sauvegarde plus tard ; fusion avec le lot.

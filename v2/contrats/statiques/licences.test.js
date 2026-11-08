@@ -15,6 +15,7 @@ const COMPATIBLES = new Set([
   '0BSD',
   'Apache-2.0', // compatible avec la (A)GPL-3.0
   'MPL-2.0', // BlockNote ; compatible avec la (A)GPL-3.0 (section 3.3 de la MPL)
+  'GPL-3.0', // paquets « xl- » de BlockNote, utilisables (ADR 0006, décision 2 de Sylvain)
   'BlueOak-1.0.0', // permissive
   'Unlicense', // domaine public (postgres)
   '(MIT OR CC0-1.0)',

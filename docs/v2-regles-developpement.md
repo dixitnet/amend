@@ -61,7 +61,8 @@ v2/
   extensions/       couche 3 : un dossier par extension (notes/, typographie/, yhub-auth/…)
   application/
     client/         couche 5 : React, logique des écrans (sans style)
-    serveur/        couche 5 : Node
+    serveur/        couche 5 : Node (identité, droits, fichiers du client)
+    collab/         couche 5 : le processus de collaboration (y/hub, branché sur le serveur)
   design/           couche 6 : Mantine, réglages décidés (reglages.js), composants de présentation
   i18n/             catalogues de textes (fr, en…), communs au client et au serveur
   exploitation/     couche 7

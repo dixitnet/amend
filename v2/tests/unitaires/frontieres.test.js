@@ -149,6 +149,14 @@ test('dans le design : Mantine tel quel, aucune valeur ni réglage non décidé'
     'design/X.jsx',
     "import { Title } from '@mantine/core'\nexport const X = ({ t }) => <Title order={1}>{t}</Title>",
   )
+  // Les feuilles d'un paquet : seulement Mantine et BlockNote.
+  await refuse('design/x.js', "import 'autre-paquet/dist/style.css'", /paquet autre que Mantine ou BlockNote/)
+  await accepte('design/x.js', "import '@mantine/core/styles.css'")
+  // Une valeur en pourcentage ou en ch est une valeur de design.
+  await refuse('design/x.js', "export const c = '50%'", nonDecide)
+  await refuse('application/client/x.js', "export const c = '60ch'", /valeur de design/)
+  // Dans reglages.js, les valeurs sont permises, pas les textes ni les styles en dur.
+  await refuse('design/reglages.js', 'export const X = () => <p>Bonjour</p>', /texte en dur/)
   // Le seul fichier où une valeur est permise : les réglages décidés.
   await accepte('design/reglages.js', "export const REGLAGES = { theme: { primaryColor: 'red' } }")
 })

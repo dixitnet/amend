@@ -68,3 +68,9 @@ test('messageErreur : message dédié, ou message générique avec le code', () 
   assert.equal(messageErreur(t, 'nom-vide'), 'Indiquez un nom.')
   assert.equal(messageErreur(t, 'inconnu-42'), 'Une erreur est survenue : inconnu-42.')
 })
+
+test('message d’erreur : code connu, son message ; code inconnu, le message générique avec le code', () => {
+  const t = creerTraducteur('fr')
+  assert.equal(messageErreur(t, 'reseau'), t('erreurs.reseau'))
+  assert.match(messageErreur(t, 'code-inconnu'), /code-inconnu/)
+})

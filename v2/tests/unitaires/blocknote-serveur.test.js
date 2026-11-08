@@ -115,3 +115,31 @@ test('note de bas de page dans une cellule de tableau : relue et listée', async
     ['Première.', 'Dans la cellule.'],
   )
 })
+
+test('texte brut : cellules de tableau et texte des notes compris', () => {
+  const t = (text) => ({ type: 'text', text, styles: {} })
+  const blocs = [
+    { type: 'paragraph', content: [t('Appel'), { type: 'note', content: [t(' (note)')] }, t(' fin')] },
+    { type: 'table', content: { type: 'tableContent', rows: [{ cells: [[t('A1')], [t('B1')]] }] } },
+  ]
+  assert.equal(texteDesBlocs(lireBlocs(ecrireBlocs(blocs))), 'Appel (note) fin\nA1\tB1')
+})
+
+test('contrat : le schéma du livre a la marque « link » dont la typographie protège les adresses', async () => {
+  // Constat A6 de l'audit complet (08/11/2026) : le nom vient du schéma par défaut de BlockNote.
+  const { BlockNoteEditor } = await import('@blocknote/core')
+  const { schemaLivre } = await import('../../adaptateurs/blocknote/schema.js')
+  assert.ok(BlockNoteEditor.create({ schema: schemaLivre }).pmSchema.marks.link)
+})
+
+test('collage : après une note, un guillemet ferme la citation (la note compte comme un objet)', async () => {
+  const { BlockNoteEditor } = await import('@blocknote/core')
+  const { Fragment } = await import('prosemirror-model')
+  const { schemaLivre } = await import('../../adaptateurs/blocknote/schema.js')
+  const { typographierFragment } = await import('../../extensions/typographie/index.js')
+  const s = BlockNoteEditor.create({ schema: schemaLivre }).pmSchema
+  const fragment = Fragment.from([s.text('"cité'), s.nodes.note.create(null, s.text('Source.')), s.text('"')])
+  const resultat = typographierFragment(fragment, 'fr')
+  assert.equal(resultat.child(0).text, '«\u00A0cité')
+  assert.equal(resultat.child(2).text, '\u00A0»')
+})

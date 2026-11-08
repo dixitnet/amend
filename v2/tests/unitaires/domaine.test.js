@@ -47,3 +47,9 @@ test('nom : données piégées', () => {
     assert.equal(r.ok ? 'ok' : r.code, attendu[texte], raison)
   }
 })
+
+test('nom : trait d’union conditionnel et opérateurs invisibles refusés, liant des emojis permis', () => {
+  for (const c of ['\u00AD', '\u2061', '\u2062', '\u2063', '\u2064'])
+    assert.equal(nomPersonne(`Ali${c}ce`).code, 'nom-caracteres', JSON.stringify(c))
+  assert.equal(nomPersonne('👩🏽\u200D💻').ok, true)
+})

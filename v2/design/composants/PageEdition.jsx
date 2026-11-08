@@ -16,7 +16,7 @@ export function PageEdition({ titre, etat, participants, mention, editeur, notes
         </Group>
         <Text>{participants}</Text>
       </Stack>
-      <main role="document">
+      <main>
         {editeur}
         {notes}
       </main>
