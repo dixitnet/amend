@@ -183,7 +183,12 @@ Lors d'une montée de version, un contrat qui casse dit **exactement** ce qui a 
 
 ## 6. La vérification par une autre IA
 
-**Suspendue depuis le 08/11/2026** (décision de Sylvain) : Mistral n'est plus sollicité, ni pour les revues ni pour les scénarios de test, jusqu'à nouvel ordre. En attendant, Claude passe lui-même la grille de revue ci-dessous à l'ouverture et à la clôture de chaque étape, et l'écrit dans `docs/v2-revues/` ; Sylvain arbitre comme avant.
+**Révisée le 08/11/2026 (Sylvain) : Mistral est remplacé par une IA de Scaleway**, sous deux formes :
+
+1. **Audit partiel, avant chaque fusion dans `main`** : Claude le lance dans sa session sur le diff de sa branche par rapport à `main`, avant de demander l'accord de fusion ; grille ci-dessous ; constats cités par fichier et ligne (sinon écartés) ; Claude vérifie chacun et répond (corrigé, contesté, question pour Sylvain) dans `docs/v2-revues/` ; un résumé de trois lignes accompagne la demande d'accord. Il éclaire, il ne bloque pas.
+2. **Audit complet, selon les règles de l'art, moins fréquent** (rythme : voir ci-dessous) : tout `v2/`, module par module ; outils déterministes d'abord (`npm audit`, licences, couverture des tests, `knip`, Semgrep, axe, mesure), puis l'IA avec leurs résultats, puis contre-vérification par Claude ; rapport daté dans `docs/v2-audits/`, points ouverts suivis d'un audit à l'autre.
+
+Clé dédiée (application IAM à part, permission `GenerativeApisModelAccess` seulement), dans le projet Scaleway existant ; jamais dans le code ni le chat (formulaire sécurisé de l'environnement, secret GitHub). Consommation notée en signes à chaque audit. Le modèle de chaque audit est choisi par Sylvain après un essai comparatif. Les scénarios de test restent écrits par Claude.
 
 ### Pourquoi
 
