@@ -11,7 +11,7 @@ import { preparerServices, POSTGRES, REDIS } from '../../exploitation/dev/pile.m
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { lireBlocs, texteDesBlocs } from '../../adaptateurs/blocknote/serveur.js'
-import { roleEffectif, capacites, acces } from '../../domaine/index.js'
+import { roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
 
 const PORT = 4511
 const ORIGINE = 'http://127.0.0.1:4300'
@@ -52,11 +52,11 @@ before(async () => {
       const m = /qui=([\w-]+)/.exec(cookie)
       return m ? { id: m[1] } : null
     },
-    droits: async (docId, id) => {
-      appelsDroits.push({ docId, id })
+    droits: async (docId, id, branche) => {
+      appelsDroits.push({ docId, id, branche })
       if (id.startsWith('panne')) throw new Error('serveur des droits injoignable')
       const role = roleSimule(id)
-      return acces(capacites(roleEffectif(role === 'banni' ? [] : [role ?? 'editeur'])))
+      return accesBranche(capacites(roleEffectif(role === 'banni' ? [] : [role ?? 'editeur'])), branche)
     },
   })
 })
@@ -66,9 +66,10 @@ const t2 = (nom, f) => test(nom, (t) => (raisonSaut ? t.skip(raisonSaut) : f(t))
 const docId = (n) => `t2-${n}-${Date.now().toString(36)}`
 
 /** Code HTTP d'une ouverture de WebSocket vers y/hub, sans navigateur. */
-function upgrade(id, entetes = {}) {
+function upgrade(id, entetes = {}, branche = null) {
   return new Promise((resolve, reject) => {
-    const req = http.request(`http://127.0.0.1:${PORT}/collaboration/ws/v1/amend/${id}`, {
+    const q = branche === null ? '' : `?branch=${encodeURIComponent(branche)}`
+    const req = http.request(`http://127.0.0.1:${PORT}/collaboration/ws/v1/amend/${id}${q}`, {
       headers: {
         connection: 'Upgrade',
         upgrade: 'websocket',
@@ -190,6 +191,46 @@ for (const [role, ecrit] of [
       }
     },
   )
+
+t2(
+  'branches : suggestions ouvertes au correcteur et à l’éditeur, fermées au lecteur ; aucune autre branche',
+  async () => {
+    const id = docId('branches')
+    for (const [qui, attendu] of [
+      ['correcteur-1', 101],
+      ['editeur-1', 101],
+      ['proprietaire-1', 101],
+      ['lecteur-1', 403],
+    ])
+      assert.equal(await upgrade(id, { cookie: `qui=${qui}` }, 'suggestions'), attendu, qui)
+    for (const b of ['autre', 'Main', 'suggestions/x', ''])
+      assert.equal(await upgrade(id, { cookie: 'qui=proprietaire-1' }, b), b === '' ? 400 : 403, `branche « ${b} »`)
+    assert.ok(
+      appelsDroits.some((a) => a.docId === id && a.branche === 'suggestions'),
+      'la branche est transmise',
+    )
+  },
+)
+
+t2('présence : comme dans Docs, le correcteur et le lecteur voient les autres sans se montrer', async () => {
+  const id = docId('presence')
+  const e = client(id, 'editeur-p')
+  let autresVusParE = -1
+  e.surParticipants((n) => (autresVusParE = n))
+  const c = client(id, 'correcteur-p')
+  const l = client(id, 'lecteur-p')
+  let autresVusParC = -1
+  c.surParticipants((n) => (autresVusParC = n))
+  try {
+    assert.ok(await attendreQue(() => autresVusParC === 1), `le correcteur voit l’éditeur (${autresVusParC})`)
+    await attendre(1500)
+    assert.equal(autresVusParE, 0, 'l’éditeur ne voit ni le correcteur ni le lecteur')
+  } finally {
+    e.fermer()
+    c.fermer()
+    l.fermer()
+  }
+})
 
 t2('rôle retiré : la connexion suivante est refusée (les droits sont redemandés)', async () => {
   const id = docId('retrait')

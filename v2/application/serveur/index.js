@@ -8,7 +8,7 @@ import { join, extname, normalize, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerTableAcces } from './acces.js'
-import { nomPersonne, identifiantDocument, ROLES, roleEffectif, capacites, acces } from '../../domaine/index.js'
+import { nomPersonne, identifiantDocument, ROLES, roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
 const confDepuisEnv = () => ({
@@ -140,8 +140,9 @@ const creerRoutes = (CONF, table = creerTableAcces()) => {
       if (!jetonValide(CONF.jetonInterne, req.headers['x-amend-interne'])) return json(res, 403, { code: 'interdit' })
       const docId = url.searchParams.get('document')
       const idPersonne = url.searchParams.get('personne')
-      if (!docId || !idPersonne) return json(res, 400, { code: 'parametres-absents' })
-      json(res, 200, { droit: acces(capacites(roleSur(docId, idPersonne))) })
+      const branche = url.searchParams.get('branche')
+      if (!docId || !idPersonne || !branche) return json(res, 400, { code: 'parametres-absents' })
+      json(res, 200, { acces: accesBranche(capacites(roleSur(docId, idPersonne)), branche) })
     },
   }
 }

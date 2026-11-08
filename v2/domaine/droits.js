@@ -8,9 +8,8 @@
 export const ROLES = Object.freeze(['lecteur', 'correcteur', 'editeur', 'proprietaire'])
 
 /** Ce que chaque rôle ajoute au précédent.
- * - `commenter`, `suggerer` : branchées à l'étape 5 (commentaires, suggestions) ;
- *   d'ici là un correcteur ne fait que lire. Le lecteur et les commentaires :
- *   à trancher à l'étape 5.
+ * - `commenter`, `suggerer` : commenter et proposer des suggestions (étape 5) ;
+ *   le lecteur ne commente pas (Sylvain, 08/11/2026).
  * - `arbitrer` : accepter ou rejeter une suggestion ; `restaurer` : revenir à
  *   une version ; `inviter` : donner un rôle (sauf propriétaire), changer ou
  *   retirer un accès (sauf celui du propriétaire).
@@ -50,10 +49,60 @@ export function capacites(role) {
   return estRole(role) ? CAPACITES[role] : CAPACITES[PLUS_RESTRICTIF]
 }
 
-/** Ce que la collaboration doit autoriser sur le texte : `ecriture`,
- * `lecture`, ou `null` (aucun accès). */
-export function acces(caps) {
-  if (caps.includes('ecrire')) return 'ecriture'
-  if (caps.includes('lire')) return 'lecture'
+/** Les branches d'un document dans la collaboration : le texte (`main`) et
+ * les suggestions des correcteurs (`suggestions`, étape 5). */
+export const BRANCHES = Object.freeze(['main', 'suggestions'])
+
+/**
+ * Ce que la collaboration doit autoriser à une personne sur une branche du
+ * document, selon ses capacités (montage de Docs, étape 5) ; `null` : aucun
+ * accès.
+ * - `texte` : `ecriture` ou `lecture` ;
+ * - `presence` : publier sa présence (curseur, « personnes sur ce document ») ;
+ *   comme dans Docs, seulement si l'on peut modifier le texte ;
+ * - `restaurer` : nommer une version et revenir à une version.
+ * Le correcteur lit le texte et écrit dans les suggestions ; l'éditeur écrit
+ * dans les deux (il accepte et refuse) ; le lecteur lit le texte seul, sans
+ * les suggestions. Tout le monde voit tout l'historique (Sylvain, 08/11/2026).
+ * @returns {{ texte: 'ecriture' | 'lecture', presence: boolean, restaurer: boolean } | null}
+ */
+export function accesBranche(caps, branche) {
+  if (branche === 'main') {
+    if (caps.includes('ecrire')) return { texte: 'ecriture', presence: true, restaurer: caps.includes('restaurer') }
+    if (caps.includes('lire')) return { texte: 'lecture', presence: false, restaurer: false }
+    return null
+  }
+  if (branche === 'suggestions' && caps.includes('suggerer'))
+    return { texte: 'ecriture', presence: false, restaurer: false }
   return null
+}
+
+/**
+ * Les droits sur les fils de commentaires (montage de Docs : `Thread` et
+ * `Comment`, `get_abilities`). Commenter demande la capacité `commenter`
+ * (correcteur et au-dessus ; le lecteur ne commente pas) ; modérer, c'est-à-
+ * dire supprimer le commentaire d'un autre ou résoudre son fil, demande
+ * `arbitrer` (éditeur et propriétaire).
+ * @param {readonly string[]} caps
+ * @param {string} idPersonne
+ * @param {'voir' | 'creer' | 'repondre' | 'reagir' | 'modifier' | 'supprimer' | 'resoudre'} action
+ * @param {{ auteur?: string } | null} [objet] le commentaire (modifier, supprimer) ou le fil (résoudre)
+ */
+export function peutCommenter(caps, idPersonne, action, objet = null) {
+  if (!caps.includes('commenter')) return false
+  const sien = typeof objet?.auteur === 'string' && objet.auteur === idPersonne
+  switch (action) {
+    case 'voir':
+    case 'creer':
+    case 'repondre':
+    case 'reagir':
+      return true
+    case 'modifier':
+      return sien
+    case 'supprimer':
+    case 'resoudre':
+      return sien || caps.includes('arbitrer')
+    default:
+      return false
+  }
 }

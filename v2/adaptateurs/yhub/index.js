@@ -4,20 +4,29 @@
 // ce qu'elle peut faire (`droits`), comme l'adaptateur de Docs.
 import { createYHub, createAuthPlugin, createAuthorize, createDocumentPermissions, apiError } from '@y/hub'
 
-/** Les droits d'amend.ink, traduits en permissions de y/hub. */
-const PERMISSIONS = {
-  ecriture: createDocumentPermissions({
-    ydoc: '-ru-',
-    awareness: '-ru-',
-    history: { from: 0 },
-    endpoint: { ws: '-ru-', ydoc: '-r--' },
-  }),
-  lecture: createDocumentPermissions({
-    ydoc: '-r--',
-    awareness: '-r--',
-    history: { from: 0 },
-    endpoint: { ws: '-r--', ydoc: '-r--' },
-  }),
+/** Les branches ouvertes : le texte et les suggestions ; toute autre est refusée. */
+const BRANCHES = new Set(['main', 'suggestions'])
+
+/**
+ * Ce que le domaine accorde sur une branche, traduit en permissions de y/hub
+ * (montage de Docs, `src/yhub-server/src/permissions.ts`) : écrire ou lire le
+ * texte ; publier sa présence ou seulement voir celle des autres ; l'historique
+ * en entier pour tous ; nommer une version et y revenir pour qui peut restaurer.
+ * Les routes de y/hub se lisent toutes ; les droits fins sont dans `history`.
+ * @param {{ texte: 'ecriture' | 'lecture', presence: boolean, restaurer: boolean }} a
+ */
+function permissions(a) {
+  const ecrire = a.texte === 'ecriture'
+  return createDocumentPermissions({
+    ydoc: ecrire ? '-ru-' : '-r--',
+    awareness: a.presence ? '-ru-' : '-r--',
+    history: a.restaurer ? { from: 0, rollback: true, version: 'crud' } : { from: 0, version: '-r--' },
+    endpoint: {
+      '*': '-r--',
+      ws: ecrire ? '-ru-' : '-r--',
+      ...(a.restaurer ? { rollback: 'c---', version: 'crud' } : null),
+    },
+  })
 }
 
 const ORGANISATION = 'amend'
@@ -29,7 +38,8 @@ const ORGANISATION = 'amend'
  * @param {string} o.postgres   url PostgreSQL
  * @param {string[]} o.origines origines autorisées des navigateurs
  * @param {(cookie: string) => Promise<{ id: string } | null>} o.identifier
- * @param {(docId: string, idPersonne: string) => Promise<'ecriture' | 'lecture' | null>} o.droits
+ * @param {(docId: string, idPersonne: string, branche: string) => Promise<{ texte: 'ecriture' | 'lecture', presence: boolean, restaurer: boolean } | null>} o.droits
+ *   ce que le domaine accorde à la personne sur cette branche du document
  * @param {number} [o.delaiPersistance] ms avant qu'une modification soit écrite dans PostgreSQL
  */
 export async function demarrerCollaboration({
@@ -52,10 +62,10 @@ export async function demarrerCollaboration({
     },
     authorize: createAuthorize({
       document: async (docRef, personne) => {
-        if (!personne || docRef.org !== ORGANISATION || docRef.branch !== 'main') return null
+        if (!personne || docRef.org !== ORGANISATION || !BRANCHES.has(docRef.branch)) return null
         // Une demande de droits qui échoue (serveur lent ou absent) vaut refus.
-        const droit = await droits(docRef.docid, personne.userid).catch(() => null)
-        return PERMISSIONS[droit] || null
+        const accorde = await droits(docRef.docid, personne.userid, docRef.branch).catch(() => null)
+        return accorde ? permissions(accorde) : null
       },
     }),
   })

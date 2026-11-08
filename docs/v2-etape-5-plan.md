@@ -161,3 +161,10 @@ Ni Docs (pas de suggestions) ni les exemples de BlockNote (aucun bouton : seulem
 
 Captures envoyées à Sylvain ; choix à venir.
 
+Choix de Sylvain (08/11/2026) : **C**, le panneau à côté du texte, un remplacement sur une seule ligne (« remplace … par … ») ; « avance ».
+
+## Avancement du développement
+
+- **Lot 1a, domaine** (`domaine/droits.js`) : `accesBranche(capacités, branche)` (texte en écriture ou en lecture, présence, restaurer ; branches `main` et `suggestions` seulement ; **le lecteur ne voit pas les suggestions**, choix de Claude par défaut, comme le lecteur de Docs qui n'a que le texte) ; `peutCommenter` (modèle de Docs : commenter à partir du correcteur ; modifier le sien seulement ; supprimer et résoudre : le sien, ou tout fil pour qui peut arbitrer).
+- **Lot 1b, y/hub et serveur** : permissions par branche calculées depuis le domaine (adaptateur y/hub, comme `permissions.ts` de Docs) ; la route interne des droits prend la branche ; présence publiée seulement par qui écrit le texte ; historique entier pour tous, versions et retour arrière pour qui peut restaurer. Tests de service sur y/hub réel (accès par branche et par rôle, présence).
+
