@@ -2,10 +2,10 @@
 // Mantine sans réglage. Conteneur générique, il ne sait rien de l'éditeur
 // qu'il reçoit (revue R4) ; ses textes lui arrivent traduits. `mention`
 // (facultative) signale un mode particulier de la page, par exemple la
-// lecture seule. `notes` (facultatif) : la liste des notes, après le texte.
+// lecture seule.
 import { Container, Stack, Group, Title, Text, Badge } from '@mantine/core'
 
-export function PageEdition({ titre, etat, participants, mention, editeur, notes }) {
+export function PageEdition({ titre, etat, participants, mention, editeur }) {
   return (
     <Container>
       <Stack component="header">
@@ -16,10 +16,7 @@ export function PageEdition({ titre, etat, participants, mention, editeur, notes
         </Group>
         <Text>{participants}</Text>
       </Stack>
-      <main>
-        {editeur}
-        {notes}
-      </main>
+      <main>{editeur}</main>
     </Container>
   )
 }

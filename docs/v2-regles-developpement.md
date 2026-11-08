@@ -190,7 +190,7 @@ Ajouté le 08/11/2026, après une proposition précipitée (un lot de design pou
 Pour chaque fondation, une petite suite qui vérifie **ce dont nous dépendons**, et rien d'autre. Exemples :
 
 - **Yjs / `@y/prosemirror`** : une suggestion attribuée à son auteur ; accepter et rejeter rendent le bon texte ; la base ne bouge pas en mode suggestion.
-- **BlockNote** : le bloc « note » s'insère, se sérialise, passe en suggestion ; la typographie française s'applique à la frappe.
+- **BlockNote** : la typographie française s'applique à la frappe (et, à la reprise des notes, la note s'insère, se sérialise, passe en suggestion).
 - **y/hub** : un correcteur ne peut pas écrire dans la base ; un lecteur ne publie pas sa présence ; l'historique commence à la date d'accès.
 - **Typst** : un document de référence compile, et le PDF contient ce qu'on attend.
 
@@ -285,7 +285,7 @@ Chaque étape s'ouvre et se ferme par une revue d'architecture (§ 6). Les ancie
 |---|---|---|---|---|
 | 1. Squelette | 0, 1, 7, et l'ossature de 6 et de `i18n/` | BlockNote (exemple minimal) + y/hub (un processus, Valkey, PostgreSQL) + un serveur Node vide ; jetons de design minimaux et thème BlockNote dérivé ; catalogue français et mécanisme de traduction en place, lint des frontières, des styles et des chaînes actif dès le premier fichier | deux navigateurs éditent le même document ; mémoire mesurée ; aucun texte ni style en dur | la petite machine actuelle |
 | 2. Droits (fusion des anciennes étapes 2 et 3, 08/11/2026) | 2, 3, 4, 5 | rôles (lecteur, correcteur, éditeur, propriétaire) et capacités dans le domaine ; réponse du serveur à y/hub selon le rôle ; `docs/v2-etape-2-plan.md` | un correcteur et un lecteur ne peuvent pas écrire, à toutes les couches | le lecteur sans contribution (gardé), l'administrateur de Docs (écarté) |
-| 4. Éditeur | 2, 3, 4 | adaptateur BlockNote ; extensions note de bas de page et typographie (règles du domaine comprises) | contrats BlockNote verts | table des matières dans le texte, styles de paragraphe, colonnes à l'écran |
+| 4. Éditeur | 2, 3, 4 | adaptateur BlockNote ; extensions note de bas de page et typographie (règles du domaine comprises) ; **notes retirées le 08/11/2026** (décision de Sylvain : fonction non critique, à reprendre plus tard, très simplifiée ; archive `docs/v2-archives/notes-2026-11-08/`) | contrats BlockNote verts | table des matières dans le texte, styles de paragraphe, colonnes à l'écran |
 | 5. Relecture | 3, 5 | mode suggestion, commentaires par API, historique (depuis la date d'accès) ; droits des suggestions et des commentaires | campagne de saisie rejouée | règle D2, couleurs stockées, cartes appariées |
 | 6. Application | 5, puis 6 | comptes, documents, partage (règles de gestion des accès, transfert de propriété ; stockage qui prévoit les équipes), interface à partir de Mantine (direction du 08/11/2026 ; **points ouverts de l'ADR 0008 à traiter**, dont le contraste du bleu par défaut), écran d'édition (logique), puis leur design en lots séparés ; catalogue anglais préparé | parcours de bout en bout ; pseudo-langue sans chaîne oubliée | dossiers, arborescence de chapitres |
 | 7. Exports | 2, 4, 5 | Typst de livre et Word, à partir du JSON de BlockNote ; `nfc` des textes exportés | export d'un livre de référence identique à l'attendu | profils CSS, colonnes, Word |
