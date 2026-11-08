@@ -1,24 +1,30 @@
-// Audit partiel du code de la v2 par une IA de Scaleway, avant une fusion dans
-// main (règles de la v2, § 6 ; décisions de Sylvain du 08/11/2026).
+// Audit du code de la v2 par une IA de Scaleway (règles de la v2, § 6 ;
+// décisions de Sylvain du 08/11/2026 : GLM-5.3 pour les deux audits).
 //
-//   node tools/audit-ia.mjs --modele=<id Scaleway> [--depuis=<commit>] [--reflexion=low] [--essai]
+//   node tools/audit-ia.mjs --modele=glm-5.3 [--depuis=<commit>] [--reflexion=low] [--essai]
+//   node tools/audit-ia.mjs --modele=glm-5.3 --complet --outils=<dossier> [--reflexion=low] [--essai]
 //
-// Envoie le diff de v2/ depuis `--depuis` (par défaut : la base commune avec
-// origin/main), chaque ligne numérotée comme dans le fichier, avec les règles
-// de la v2, les ADR et le registre des renoncements. Le modèle rend des
-// constats cités par fichier et ligne ; le script vérifie chaque citation
-// (un constat sans citation, ou citant une ligne qui n'existe pas, est marqué
-// comme tel). L'avis est écrit dans docs/v2-revues/ ; Claude y répond point
-// par point, Sylvain arbitre. Clé : injectée par le proxy de la session
-// (api.scaleway.ai) ou SCALEWAY_AUDIT_API_KEY ; jamais dans le code.
+// Partiel (avant une fusion) : le diff de v2/ depuis `--depuis` (par défaut la
+// base commune avec origin/main), lignes numérotées comme dans le fichier final.
+// Complet (selon les règles de l'art, moins fréquent) : tout v2/, module par
+// module, sources entières aux lignes numérotées, avec les résultats des outils
+// déterministes (fichiers texte du dossier `--outils` : npm audit, couverture,
+// knip, Semgrep…) et la liste des tests existants.
+// Dans les deux cas : règles de la v2, ADR et registre des renoncements joints ;
+// chaque constat doit citer `fichier:ligne`, et le script vérifie chaque citation.
+// L'avis est écrit dans docs/v2-revues/ (partiel) ou docs/v2-audits/ (complet) ;
+// Claude y répond point par point, Sylvain arbitre. Clé : injectée par le proxy
+// de la session (api.scaleway.ai) ou SCALEWAY_AUDIT_API_KEY ; jamais dans le code.
 import { execFileSync, spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..')
 const arg = (nom, defaut = null) => process.argv.find((a) => a.startsWith(`--${nom}=`))?.split('=')[1] ?? defaut
 const MODELE = arg('modele')
+const COMPLET = process.argv.includes('--complet')
+const OUTILS = arg('outils')
 const ESSAI = process.argv.includes('--essai')
 // Intensité de la réflexion (none, low, high, max) : au-delà de « low », la
 // réflexion de DeepSeek et de GLM épuise la sortie avant toute réponse (essai du 08/11).
@@ -26,8 +32,11 @@ const REFLEXION = arg('reflexion', 'low')
 const PLAFOND_SIGNES = 400_000
 const ADRESSE = 'https://api.scaleway.ai/v1/chat/completions'
 
-if (!MODELE) {
-  console.error('Usage : node tools/audit-ia.mjs --modele=<id Scaleway> [--depuis=<commit>] [--essai]')
+if (!MODELE || (COMPLET && !OUTILS)) {
+  console.error(
+    'Usage : node tools/audit-ia.mjs --modele=<id> [--depuis=<commit>] [--reflexion=low] [--essai]\n' +
+      '        node tools/audit-ia.mjs --modele=<id> --complet --outils=<dossier> [--reflexion=low] [--essai]'
+  )
   process.exit(2)
 }
 
@@ -41,12 +50,21 @@ if ((process.env.HTTPS_PROXY || process.env.https_proxy) && !process.env.NODE_US
 }
 
 const git = (...a) => execFileSync('git', a, { cwd: RACINE, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-const DEPUIS = arg('depuis') || git('merge-base', 'HEAD', 'origin/main').trim()
 const INTERDIT = /(^|\/)\.env|\.key$|\.pem$|(^|\/)data\//
 const lire = (f) => {
   if (INTERDIT.test(f)) throw new Error(`fichier interdit dans un audit : ${f}`)
   return readFileSync(join(RACINE, f), 'utf8')
 }
+const SECRET = /(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|collabtext_session=)/
+const suivis = (motif) => git('ls-files', '--', motif).split('\n').filter(Boolean)
+const date = new Date().toISOString().slice(0, 10)
+const commit = git('rev-parse', '--short', 'HEAD').trim()
+
+/** Les pièces communes : règles, renoncements, décisions. */
+const piecesCommunes = () => [
+  ...['docs/v2-regles-developpement.md', 'docs/v2-renoncements.md'].map((f) => ({ titre: f, texte: lire(f) })),
+  ...suivis('v2/adr/*.md').map((f) => ({ titre: f, texte: lire(f) })),
+]
 
 /** Le diff, chaque ligne présente dans le fichier final précédée de son numéro. */
 function diffNumerote(diff) {
@@ -65,43 +83,13 @@ function diffNumerote(diff) {
   }
   return sortie.join('\n')
 }
+const numerote = (texte) =>
+  texte
+    .split('\n')
+    .map((l, i) => `${String(i + 1).padStart(5)}  ${l}`)
+    .join('\n')
 
-// 1. Les pièces : les règles et décisions, puis le diff numéroté.
-const pieces = []
-const ajouter = (titre, texte) => pieces.push({ titre, texte })
-for (const f of ['docs/v2-regles-developpement.md', 'docs/v2-renoncements.md']) ajouter(f, lire(f))
-for (const f of git('ls-files', '--', 'v2/adr/*.md').split('\n').filter(Boolean)) ajouter(f, lire(f))
-const exclus = [':(exclude)v2/package-lock.json', ':(exclude)v2/LICENSE']
-const fichiers = git('diff', '--name-only', `${DEPUIS}..HEAD`, '--', 'v2/', ...exclus)
-  .split('\n')
-  .filter(Boolean)
-if (!fichiers.length) {
-  console.log(`Aucun changement dans v2/ depuis ${DEPUIS} : rien à auditer.`)
-  process.exit(0)
-}
-ajouter(
-  `Diff de v2/ depuis ${DEPUIS.slice(0, 7)}, lignes numérotées comme dans le fichier final`,
-  diffNumerote(git('diff', '-U5', `${DEPUIS}..HEAD`, '--', 'v2/', ...exclus))
-)
-const total = pieces.reduce((n, p) => n + p.texte.length, 0)
-if (total > PLAFOND_SIGNES) throw new Error(`dossier trop gros (${total} signes) : auditer en plusieurs fois`)
-const SECRET = /(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|collabtext_session=)/
-for (const p of pieces)
-  if (SECRET.test(p.texte)) throw new Error(`motif de secret repéré dans « ${p.titre} » : audit annulé`)
-
-// 2. La consigne : la grille du § 6 des règles, sur le diff seul.
-const consigne = `Tu audites le code d'amend.ink v2, un éditeur de texte collaboratif pour auteurs et éditeurs, avant une fusion dans la branche principale. Un autre modèle (Claude) a écrit ce code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
-
-Tu reçois les règles de développement, les décisions (ADR), le registre des renoncements, puis le diff à auditer. Chaque ligne du diff présente dans le fichier final est précédée de son numéro de ligne ; les lignes retirées (commençant par « - ») n'en ont pas.
-
-Règles d'audit, strictes :
-- N'audite que le diff : pas de remarque sur du code absent du diff, ni sur ce qui relève d'une étape future du plan.
-- Juge par rapport aux règles et décisions fournies, pas par rapport à tes préférences. Un choix écrit dans une règle ou un ADR n'est pas un défaut.
-- Chaque constat cite au moins un emplacement exact au format \`chemin/du/fichier.js:123\`, avec le numéro de ligne donné dans le diff. Un constat sans citation exacte sera écarté.
-- N'invente rien : si tu n'es pas sûr, classe le constat en « question ».
-
-Grille :
-1. Couches : fondation importée hors de son adaptateur ? domaine dépendant ? élément de design hors de v2/design/ ?
+const GRILLE_PARTIELLE = `1. Couches : arête hors du graphe des dépendances (règles, § 2) ? élément de design hors de v2/design/ ?
 2. API publique : chemin interne, membre privé, code de fondation copié ?
 3. Redondance avec l'amont : refait-on ce qu'une fondation fait déjà ?
 4. Simplicité : code mort, abstraction inutile, option « au cas où » ?
@@ -110,127 +98,176 @@ Grille :
 7. Tests : ce qui change est-il couvert ? un test qui ne vérifie pas ce qu'il annonce ?
 8. Exports propres et typographie : NFC, remplacements parasites ?
 9. Traductions : texte en dur, phrase assemblée, langue d'interface confondue avec celle du document ?
-10. Licences : dépendance nouvelle ?
+10. Licences : dépendance nouvelle ?`
+
+const GRILLE_COMPLETE = `1. Architecture : couches et graphe des dépendances (règles, § 2), API publique des fondations, montées de version protégées.
+2. Sécurité, d'après l'OWASP ASVS (niveau 2 quand il s'applique) : authentification et session, contrôle d'accès, validation des entrées, encodage des sorties (XSS), CSRF, en-têtes, secrets, journaux.
+3. Correction et robustesse : erreurs non traitées, cas limites, conditions de course, fuites de ressources, comportement en panne.
+4. Simplicité : code mort, abstraction inutile, duplication, complexité.
+5. Tests : comportements importants non testés, tests qui ne vérifient pas ce qu'ils annoncent.
+6. Accessibilité (RGAA niveau AA) : sémantique, rôles, clavier.
+7. Performance et mémoire, au regard de la petite machine de production.
+8. Exploitation : configuration, limites des services, journaux, sauvegarde et restauration.
+9. Données personnelles (RGPD) : ce qui est stocké, combien de temps, qui y accède.
+10. Traductions, exports propres, licences.`
+
+const consigne = (
+  perimetre,
+  grille
+) => `Tu audites le code d'amend.ink v2, un éditeur de texte collaboratif pour auteurs et éditeurs. Un autre modèle (Claude) a écrit ce code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
+
+Tu reçois les règles de développement, les décisions (ADR), le registre des renoncements, puis ${perimetre}. Chaque ligne de code est précédée de son numéro de ligne dans le fichier.
+
+Règles d'audit, strictes :
+- N'audite que le code fourni ; pas de remarque sur ce qui relève d'une étape future du plan.
+- Juge par rapport aux règles et décisions fournies, pas par rapport à tes préférences. Un choix écrit dans une règle, un ADR ou le registre des renoncements n'est pas un défaut.
+- Chaque constat cite au moins un emplacement exact au format \`chemin/du/fichier.js:123\`, avec le numéro de ligne donné. Un constat sans citation exacte sera écarté.
+- N'invente rien : si tu n'es pas sûr, classe le constat en « question ».
+
+Grille :
+${grille}
 
 Format de réponse, strictement :
 ## Synthèse
 (3 à 5 lignes)
 ## Constats
-Une liste numérotée A1, A2, … Pour chaque constat, sur une ligne d'en-tête : **[grave | important | mineur | question]**, le point de grille (1 à 10), la ou les citations \`fichier:ligne\` ; puis le constat en une ou deux phrases, et ce que tu proposes.
+Une liste numérotée A1, A2, … Pour chaque constat, sur une ligne d'en-tête : **[grave | important | mineur | question]**, le point de grille, la ou les citations \`fichier:ligne\` ; puis le constat en une ou deux phrases, et ce que tu proposes.
 ## Points de grille sans remarque
 (les numéros)`
 
-const dossier = pieces.map((p) => `===== ${p.titre} =====\n${p.texte}`).join('\n\n')
-const date = new Date().toISOString().slice(0, 10)
-const sortie = join(RACINE, 'docs/v2-revues', `${date}-audit-partiel-${MODELE}.md`)
-console.log(
-  `Dossier : ${pieces.length} pièces, ${total} signes, ${fichiers.length} fichiers modifiés ; modèle ${MODELE}`
-)
-if (ESSAI) process.exit(0)
-
-// 3. L'appel, en réception progressive (une longue réponse d'un bloc peut
-// être coupée par un intermédiaire).
-const debut = Date.now()
-const r = await fetch(ADRESSE, {
-  method: 'POST',
-  headers: {
-    'content-type': 'application/json',
-    authorization: `Bearer ${process.env.SCALEWAY_AUDIT_API_KEY || 'injectee-par-le-proxy'}`,
-  },
-  body: JSON.stringify({
-    model: MODELE,
-    temperature: 0.2,
-    // Les modèles qui réfléchissent avant d'écrire comptent leur réflexion dans
-    // la sortie : sans limite explicite, celle par défaut s'y épuise et la
-    // réponse arrive vide. 16 000 jetons : le plus bas des maxima des modèles
-    // essayés (GLM-5.3).
-    max_tokens: 16000,
-    reasoning_effort: REFLEXION,
-    stream: true,
-    messages: [
-      { role: 'system', content: consigne },
-      { role: 'user', content: `Dossier d'audit :\n\n${dossier}` },
-    ],
-  }),
-})
-if (!r.ok) {
-  console.error(`Scaleway : ${r.status} ${(await r.text()).slice(0, 300)}`)
-  process.exit(1)
-}
-let avis = ''
-let reflexion = 0
-let arret = ''
-let reste = ''
-const decodeur = new TextDecoder()
-for await (const morceau of r.body) {
-  reste += decodeur.decode(morceau, { stream: true })
-  const lignes = reste.split('\n')
-  reste = lignes.pop()
-  for (const ligne of lignes) {
-    if (!ligne.startsWith('data:')) continue
-    const donnees = ligne.slice(5).trim()
-    if (!donnees || donnees === '[DONE]') continue
-    const choix = JSON.parse(donnees).choices?.[0]
-    avis += choix?.delta?.content || ''
-    reflexion += (choix?.delta?.reasoning_content || choix?.delta?.reasoning || '').length
-    arret = choix?.finish_reason || arret
+/** Un appel au modèle, en réception progressive. */
+async function appeler(systeme, dossier) {
+  const debut = Date.now()
+  const r = await fetch(ADRESSE, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${process.env.SCALEWAY_AUDIT_API_KEY || 'injectee-par-le-proxy'}`,
+    },
+    body: JSON.stringify({
+      model: MODELE,
+      temperature: 0.2,
+      // La réflexion compte dans la sortie : sans limite explicite, celle par
+      // défaut s'y épuise et la réponse arrive vide. 16 000 jetons : le maximum de GLM-5.3.
+      max_tokens: 16000,
+      reasoning_effort: REFLEXION,
+      stream: true,
+      messages: [
+        { role: 'system', content: systeme },
+        { role: 'user', content: `Dossier d'audit :\n\n${dossier}` },
+      ],
+    }),
+  })
+  if (!r.ok) throw new Error(`Scaleway : ${r.status} ${(await r.text()).slice(0, 300)}`)
+  let avis = ''
+  let reflexion = 0
+  let arret = ''
+  let reste = ''
+  const decodeur = new TextDecoder()
+  for await (const morceau of r.body) {
+    reste += decodeur.decode(morceau, { stream: true })
+    const lignes = reste.split('\n')
+    reste = lignes.pop()
+    for (const ligne of lignes) {
+      if (!ligne.startsWith('data:')) continue
+      const donnees = ligne.slice(5).trim()
+      if (!donnees || donnees === '[DONE]') continue
+      const choix = JSON.parse(donnees).choices?.[0]
+      avis += choix?.delta?.content || ''
+      reflexion += (choix?.delta?.reasoning_content || choix?.delta?.reasoning || '').length
+      arret = choix?.finish_reason || arret
+    }
   }
+  return { avis: avis.trim() || '(réponse vide)', reflexion, arret, duree: Math.round((Date.now() - debut) / 1000) }
 }
-avis = avis.trim() || '(réponse vide)'
-const duree = Math.round((Date.now() - debut) / 1000)
 
-// 4. Les citations, vérifiées : chaque constat doit citer une ligne réelle
-// d'un fichier du diff.
-const lignesDe = new Map()
-const nbLignes = (f) => {
-  if (!lignesDe.has(f)) lignesDe.set(f, existsSync(join(RACINE, f)) ? lire(f).split('\n').length : 0)
-  return lignesDe.get(f)
+/** Les citations de chaque constat, vérifiées contre les fichiers audités. */
+function verifier(avis, fichiers) {
+  const DEBUT = /^\s*\**(A?\d+)[.)]?\**[\s.]/
+  const constats = avis
+    .slice(Math.max(0, avis.indexOf('## Constats')))
+    .split('\n')
+    .reduce(
+      (liste, l) =>
+        DEBUT.test(l) ? [...liste, l] : liste.length ? [...liste.slice(0, -1), `${liste.at(-1)}\n${l}`] : liste,
+      []
+    )
+  const nbLignes = new Map()
+  const lignesDe = (f) => {
+    if (!nbLignes.has(f)) nbLignes.set(f, existsSync(join(RACINE, f)) ? lire(f).split('\n').length : 0)
+    return nbLignes.get(f)
+  }
+  /** Un chemin cité, ramené à un fichier audité (complet, sans `v2/`, ou nom seul s'il est unique). */
+  const fichierCite = (cite) => {
+    const c = fichiers.filter((f) => f === cite || f === `v2/${cite}` || f.endsWith(`/${cite}`))
+    return c.length === 1 ? c[0] : cite
+  }
+  return constats.map((c) => {
+    const numero = DEBUT.exec(c)[1]
+    const citations = [...c.matchAll(/`?((?:v2\/)?[\w./-]+\.\w+):(\d+)`?/g)].map((m) => ({
+      fichier: fichierCite(m[1]),
+      ligne: Number(m[2]),
+    }))
+    if (!citations.length) return `- ${numero} : **sans citation** (écarté d'office)`
+    const fausses = citations.filter(
+      (x) => !fichiers.includes(x.fichier) || x.ligne < 1 || x.ligne > lignesDe(x.fichier)
+    )
+    return fausses.length
+      ? `- ${numero} : **citation invalide** (${fausses.map((x) => `${x.fichier}:${x.ligne}`).join(', ')})`
+      : `- ${numero} : citations valides`
+  })
 }
-// Un constat commence par « A1 », « **A1** » ou « 1. » en début de ligne.
-const DEBUT = /^\s*\**(A?\d+)[.)]?\**[\s.]/
-const constats = avis
-  .slice(avis.indexOf('## Constats'))
-  .split('\n')
-  .reduce(
-    (liste, l) =>
-      DEBUT.test(l) ? [...liste, l] : liste.length ? [...liste.slice(0, -1), `${liste.at(-1)}\n${l}`] : liste,
-    []
+
+const dossierDe = (pieces) => {
+  const total = pieces.reduce((n, p) => n + p.texte.length, 0)
+  if (total > PLAFOND_SIGNES) throw new Error(`dossier trop gros (${total} signes) : découper`)
+  for (const p of pieces)
+    if (SECRET.test(p.texte)) throw new Error(`motif de secret repéré dans « ${p.titre} » : audit annulé`)
+  return { texte: pieces.map((p) => `===== ${p.titre} =====\n${p.texte}`).join('\n\n'), total }
+}
+const conso = (envoyes, r) =>
+  `${envoyes} signes envoyés, ${r.avis.length} reçus (et ${r.reflexion} de réflexion) ; réflexion \`${REFLEXION}\` ; ${r.duree} s ; arrêt : ${r.arret || 'inconnu'}`
+
+// --- Audit partiel -----------------------------------------------------------
+async function auditPartiel() {
+  const depuis = arg('depuis') || git('merge-base', 'HEAD', 'origin/main').trim()
+  const exclus = [':(exclude)v2/package-lock.json', ':(exclude)v2/LICENSE']
+  const fichiers = git('diff', '--name-only', `${depuis}..HEAD`, '--', 'v2/', ...exclus)
+    .split('\n')
+    .filter(Boolean)
+  if (!fichiers.length) return console.log(`Aucun changement dans v2/ depuis ${depuis} : rien à auditer.`)
+  const pieces = [
+    ...piecesCommunes(),
+    {
+      titre: `Diff de v2/ depuis ${depuis.slice(0, 7)}, lignes numérotées comme dans le fichier final`,
+      texte: diffNumerote(git('diff', '-U5', `${depuis}..HEAD`, '--', 'v2/', ...exclus)),
+    },
+  ]
+  const { texte, total } = dossierDe(pieces)
+  const systeme = consigne(
+    'le diff à auditer (les lignes retirées, commençant par « - », n’ont pas de numéro)',
+    GRILLE_PARTIELLE
   )
-/** Un chemin cité, ramené à un fichier du diff (chemin complet, sans `v2/`, ou nom seul s'il est unique). */
-const fichierCite = (cite) => {
-  const candidats = fichiers.filter((f) => f === cite || f === `v2/${cite}` || f.endsWith(`/${cite}`))
-  return candidats.length === 1 ? candidats[0] : cite
-}
-const verifications = constats.map((c) => {
-  const numero = DEBUT.exec(c)[1]
-  const citations = [...c.matchAll(/`?((?:v2\/)?[\w./-]+\.\w+):(\d+)`?/g)].map((m) => ({
-    fichier: fichierCite(m[1]),
-    ligne: Number(m[2]),
-  }))
-  if (!citations.length) return `- ${numero} : **sans citation** (écarté d'office)`
-  const fausses = citations.filter((x) => !fichiers.includes(x.fichier) || x.ligne < 1 || x.ligne > nbLignes(x.fichier))
-  return fausses.length
-    ? `- ${numero} : **citation invalide** (${fausses.map((x) => `${x.fichier}:${x.ligne}`).join(', ')} hors du diff ou au-delà du fichier)`
-    : `- ${numero} : citations valides`
-})
+  console.log(`Audit partiel : ${total} signes, ${fichiers.length} fichiers modifiés ; modèle ${MODELE}`)
+  if (ESSAI) return
+  const r = await appeler(systeme, texte)
+  const sortie = join(RACINE, 'docs/v2-revues', `${date}-audit-partiel-${MODELE}.md`)
+  mkdirSync(dirname(sortie), { recursive: true })
+  writeFileSync(
+    sortie,
+    `# Audit partiel avant fusion (${date})
 
-// 5. Le fichier d'audit. Règle 5 de CLAUDE.md : la consommation se dit en signes.
-mkdirSync(dirname(sortie), { recursive: true })
-writeFileSync(
-  sortie,
-  `# Audit partiel avant fusion (${date})
-
-- Auditeur : Scaleway, modèle \`${MODELE}\` ; consommation : ${total + consigne.length} signes envoyés, ${avis.length} reçus (et ${reflexion} de réflexion) ; réflexion \`${REFLEXION}\` ; ${duree} s ; arrêt : ${arret || 'inconnu'}
-- Diff audité : \`v2/\` de \`${DEPUIS.slice(0, 7)}\` à \`${git('rev-parse', '--short', 'HEAD').trim()}\` (${fichiers.length} fichiers)
+- Auditeur : Scaleway, modèle \`${MODELE}\` ; consommation : ${conso(total + systeme.length, r)}
+- Diff audité : \`v2/\` de \`${depuis.slice(0, 7)}\` à \`${commit}\` (${fichiers.length} fichiers)
 - Statut : avis reçu ; réponse de Claude à écrire ; arbitrage de Sylvain à venir.
 
 ## Avis de l'auditeur
 
-${avis}
+${r.avis}
 
 ## Citations vérifiées par le script
 
-${verifications.join('\n') || '(aucun constat numéroté reconnu)'}
+${verifier(r.avis, fichiers).join('\n') || '(aucun constat numéroté reconnu)'}
 
 ## Réponse de Claude
 
@@ -240,5 +277,94 @@ ${verifications.join('\n') || '(aucun constat numéroté reconnu)'}
 
 (À compléter.)
 `
-)
-console.log(`Audit écrit : ${sortie.replace(RACINE + '/', '')}`)
+  )
+  console.log(`Audit écrit : ${sortie.replace(RACINE + '/', '')}`)
+}
+
+// --- Audit complet -----------------------------------------------------------
+/** Les modules audités un à un : chacun tient dans un appel. */
+const MODULES = [
+  ['Domaine', ['v2/domaine/']],
+  ['Traductions', ['v2/i18n/']],
+  ['Adaptateurs Yjs et y/hub', ['v2/adaptateurs/yjs/', 'v2/adaptateurs/yhub/']],
+  ['Adaptateur BlockNote et extensions', ['v2/adaptateurs/blocknote/', 'v2/extensions/']],
+  ['Serveur et collaboration', ['v2/application/serveur/', 'v2/application/collab/']],
+  ['Client', ['v2/application/client/']],
+  ['Design', ['v2/design/']],
+  ['Exploitation', ['v2/exploitation/']],
+  [
+    'Garde-fous (lint, contrats statiques, configuration)',
+    ['v2/eslint.config.js', 'v2/contrats/statiques/', 'v2/package.json', 'v2/vite.config.js', 'v2/knip.json'],
+  ],
+]
+const SOURCE = /\.(m?js|jsx|json|css|sh|service|conf|html|md)$|Caddyfile/
+
+async function auditComplet() {
+  const outils = readdirSync(OUTILS)
+    .filter((f) => /\.(txt|md)$/.test(f))
+    .map((f) => ({ titre: `Résultat d'outil : ${f}`, texte: readFileSync(join(OUTILS, f), 'utf8') }))
+  const tests = suivis('v2/')
+    .filter((f) => /\/(tests|contrats)\/.*\.test\.m?js$/.test(f))
+    .map((f) => `${f}\n` + [...lire(f).matchAll(/^(?:test|t2)\('([^']+)'/gm)].map((m) => `  - ${m[1]}`).join('\n'))
+    .join('\n')
+  const sections = []
+  let envoyesTotal = 0
+  let recusTotal = 0
+  for (const [nom, chemins] of MODULES) {
+    const fichiers = chemins.flatMap((c) => suivis(c)).filter((f) => SOURCE.test(f) && !/package-lock|LISEZMOI/.test(f))
+    const pieces = [
+      ...piecesCommunes(),
+      ...outils,
+      { titre: 'Tests existants (fichier, puis titres)', texte: tests },
+      ...fichiers.map((f) => ({ titre: `${f} (lignes numérotées)`, texte: numerote(lire(f)) })),
+    ]
+    const { texte, total } = dossierDe(pieces)
+    const systeme = consigne(
+      `les résultats des outils déterministes, la liste des tests existants, et les sources du module « ${nom} »`,
+      GRILLE_COMPLETE
+    )
+    console.log(`${nom} : ${fichiers.length} fichiers, ${total} signes`)
+    if (ESSAI) continue
+    const r = await appeler(systeme, texte)
+    envoyesTotal += total + systeme.length
+    recusTotal += r.avis.length
+    sections.push(`## ${nom}
+
+- Fichiers : ${fichiers.map((f) => `\`${f}\``).join(', ')}
+- Consommation : ${conso(total + systeme.length, r)}
+
+### Avis de l'auditeur
+
+${r.avis.replace(/^## /gm, '#### ')}
+
+### Citations vérifiées par le script
+
+${verifier(r.avis, fichiers).join('\n') || '(aucun constat numéroté reconnu)'}
+
+### Réponse de Claude
+
+(À écrire.)
+`)
+  }
+  if (ESSAI) return
+  const sortie = join(RACINE, 'docs/v2-audits', `${date}-audit-complet.md`)
+  mkdirSync(dirname(sortie), { recursive: true })
+  writeFileSync(
+    sortie,
+    `# Audit complet de la v2 (${date})
+
+- Auditeur : Scaleway, modèle \`${MODELE}\`, réflexion \`${REFLEXION}\` ; consommation totale : ${envoyesTotal} signes envoyés, ${recusTotal} reçus
+- Code audité : \`v2/\` au commit \`${commit}\`, module par module
+- Outils déterministes : ${outils.map((o) => `\`${o.titre.replace("Résultat d'outil : ", '')}\``).join(', ')}
+- Statut : avis reçus ; réponses de Claude à écrire ; arbitrage de Sylvain à venir.
+
+${sections.join('\n')}
+## Arbitrage de Sylvain
+
+(À compléter.)
+`
+  )
+  console.log(`Audit écrit : ${sortie.replace(RACINE + '/', '')}`)
+}
+
+await (COMPLET ? auditComplet() : auditPartiel())
