@@ -38,7 +38,7 @@
     "lint": "eslint .",
     "format": "prettier --write",
     "format:check": "prettier --check .",
-    "test": "node --test \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\"",
+    "test": "node --test --test-concurrency=1 \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\" \"tests/services/*.test.js\"",
     "test:contrats": "node --test --test-concurrency=1 contrats/",
     "mesurer": "node exploitation/dev/mesurer.mjs",
     "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\""
