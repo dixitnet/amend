@@ -68,3 +68,29 @@ test('schéma du livre : blocs et styles retirés refusés avec un code, jamais 
   ])
     assert.throws(() => ecrireBlocs(blocs), { code: 'blocs-invalides' }, JSON.stringify(blocs))
 })
+
+test('note de bas de page : texte riche, aller-retour à l’identique, notes dans l’ordre du texte', async () => {
+  const { notesDuDocument } = await import('../../extensions/note/index.js')
+  const t = (text, styles = {}) => ({ type: 'text', text, styles })
+  const blocs = [
+    {
+      type: 'paragraph',
+      content: [
+        t('Appel'),
+        { type: 'note', content: [t('Voir '), t('Histoire des gares', { italic: true }), t(', p. 12.')] },
+        t(' suite'),
+        { type: 'note', content: [t('Seconde.')] },
+      ],
+    },
+    { type: 'bulletListItem', content: [t('Liste'), { type: 'note', content: [t('Troisième.')] }] },
+  ]
+  const relus = lireBlocs(ecrireBlocs(blocs))
+  const note = relus[0].content[1]
+  assert.equal(note.type, 'note')
+  assert.deepEqual(note.content, [t('Voir '), t('Histoire des gares', { italic: true }), t(', p. 12.')])
+  assert.deepEqual(
+    notesDuDocument(relus).map((n) => n.map((m) => m.texte).join('')),
+    ['Voir Histoire des gares, p. 12.', 'Seconde.', 'Troisième.'],
+  )
+  assert.equal(notesDuDocument(relus)[0][1].styles.italic, true)
+})

@@ -1,3 +1,3 @@
 {
-  "identiques": ["application.nom", "document.titre"]
+  "identiques": ["application.nom", "document.titre", "editeur.note.groupe", "document.notes"]
 }

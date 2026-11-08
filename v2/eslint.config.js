@@ -40,7 +40,9 @@ function imports({ permises = [], couches = [], css = false, cssDesign = false }
   ]
   if (cssDesign)
     patterns.push({
-      regex: '^\\.{1,2}/.*\\.css$',
+      // Seules les feuilles de design/feuilles/, dont chaque règle est un
+      // réglage décidé noté dans l'ADR 0008 (contrat statique).
+      regex: '^\\.{1,2}/(?!feuilles/[\\w-]+\\.css$).*\\.css$',
       message: 'feuille de style maison : Mantine et BlockNote tels quels, réglages décidés seulement (ADR 0008)',
     })
   if (couches.length)
