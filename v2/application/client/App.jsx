@@ -3,12 +3,14 @@
 // design ; tous les textes viennent de v2/i18n/.
 import { useEffect, useMemo, useState } from 'react'
 import { PageEdition, EcranMessage, EcranConnexion, themeEditeur, couleurAuteur } from '../../design/index.js'
-import { creerTraducteur, choisirLangue } from '../../i18n/index.js'
+import { creerTraducteur, choisirLangue, messageErreur } from '../../i18n/index.js'
+import { identifiantDocument } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 
 const t = creerTraducteur(choisirLangue(navigator.languages))
 document.documentElement.lang = t.langue
+document.title = t('application.nom')
 
 const lireJson = (r) => r.json().catch(() => ({}))
 
@@ -42,7 +44,7 @@ export function App() {
   }, [])
 
   if (etat.phase === 'chargement') return <EcranMessage texte={t('application.chargement')} />
-  if (etat.phase === 'erreur') return <EcranMessage texte={t('application.erreur', { code: etat.code })} />
+  if (etat.phase === 'erreur') return <EcranMessage texte={messageErreur(t, etat.code)} />
   if (etat.phase === 'connexion')
     return (
       <EcranConnexion
@@ -53,11 +55,12 @@ export function App() {
         surEntrer={entrer}
       />
     )
-  return <Document config={etat.config} personne={etat.personne} />
+  const doc = identifiantDocument(decodeURIComponent(location.hash.slice(1)) || 'essai')
+  if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
+  return <Document config={etat.config} personne={etat.personne} docId={doc.id} />
 }
 
-function Document({ config, personne }) {
-  const docId = decodeURIComponent(location.hash.slice(1)) || 'essai'
+function Document({ config, personne, docId }) {
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
     () => ouvrirDocument({ url: config.collaboration, docId, personne: moi }),

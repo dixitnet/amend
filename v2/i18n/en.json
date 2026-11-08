@@ -14,5 +14,14 @@
     "titre": "Document {id}",
     "participants": "{n, plural, =0 {Nobody else} one {# other person} other {# other people}} on this document",
     "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}"
+  },
+  "erreurs": {
+    "document-vide": "This document has no name.",
+    "document-trop-long": "This document name is too long (64 characters at most).",
+    "document-caracteres": "A document name may only contain unaccented letters and digits, hyphens and underscores.",
+    "nom-vide": "Enter a name.",
+    "nom-trop-long": "This name is too long (80 characters at most).",
+    "nom-caracteres": "This name contains invisible or control characters.",
+    "reseau": "The server is not responding. Check your connection."
   }
 }

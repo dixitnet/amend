@@ -49,3 +49,13 @@ export function creerTraducteur(langue = LANGUE_SOURCE) {
   t.langue = l
   return t
 }
+
+/** Le message d'un code d'erreur : `erreurs.<code>` s'il existe, sinon le
+ * message générique avec le code (les codes viennent du domaine et du serveur). */
+export function messageErreur(t, code) {
+  try {
+    return t(`erreurs.${code}`)
+  } catch {
+    return t('application.erreur', { code })
+  }
+}
