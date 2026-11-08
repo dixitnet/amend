@@ -11,7 +11,7 @@ Procédure : `docs/v2-procedure-tests.md`. Mistral étant suspendu, les scénari
 | T5 (Chromium) | `npm run test:pile` | 35 tests, tous verts (dont 13 de l'éditeur : typographie, schéma, notes) |
 | Mesure | `npm run mesurer` | 250 Mo au total avec un livre de 500 000 signes ouvert à deux (étape 2 : 257 Mo) ; ouverture du livre en 0,4 s |
 
-WebKit et Firefox : CI GitHub.
+WebKit et Firefox : CI GitHub. Dans Firefox, les trois tests qui fabriquent un événement de presse-papiers sont sautés (avec la raison) : Firefox ignore les données d'un tel événement fabriqué ; le vrai collage dans Firefox passe à la recette.
 
 ## Couverture des scénarios
 
@@ -35,6 +35,7 @@ Sur `v2.amend.ink` une fois déployé :
 2. Coller un passage d'un PDF ou d'un document Word (accents, guillemets droits).
 3. Insérer deux notes par « / », écrire dedans, sortir et rentrer avec les flèches, recharger.
 4. La même chose sur l'iPad (clavier à l'écran : guillemets, apostrophe).
+5. Si Firefox sert à quelqu'un : un collage (texte d'un PDF) et un copier-coller d'un passage avec sa note, dans Firefox.
 
 ## Constats, qualifiés
 

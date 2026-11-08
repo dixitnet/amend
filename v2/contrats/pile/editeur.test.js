@@ -3,7 +3,15 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, texte, attendre } from './outils.mjs'
+import {
+  lancerNavigateur,
+  docTest,
+  ouvrir as ouvrirSur,
+  attendreTexte,
+  texte,
+  attendre,
+  NAVIGATEUR,
+} from './outils.mjs'
 
 const I = '\u00A0' // espace insécable
 const F = '\u202F' // espace fine insécable
@@ -26,6 +34,14 @@ async function pageEcriture(nom) {
   const page = await ouvrir('Alice', docTest(nom))
   await page.click('.bn-editor')
   return page
+}
+
+/** Les tests du presse-papiers fabriquent l'événement de copie ou de collage.
+ * Firefox ignore les données d'un tel événement fabriqué (CI du 08/11/2026 :
+ * rien n'est collé, rien n'est copié) : limite de la méthode de test, pas de
+ * l'éditeur. Le vrai collage dans Firefox est dans la recette à la main. */
+const PRESSE_PAPIERS = {
+  skip: NAVIGATEUR === 'firefox' && 'Firefox ignore les données d’un événement de presse-papiers fabriqué',
 }
 
 /** Colle du contenu dans l'éditeur, comme le ferait le presse-papiers. */
@@ -70,7 +86,7 @@ test('frappe : un Retour arrière juste après rend ce qui a été tapé', async
   await page.context().close()
 })
 
-test('collage : texte brut et HTML typographiés et en NFC ; adresse d’un lien intacte', async () => {
+test('collage : texte brut et HTML typographiés et en NFC ; adresse d’un lien intacte', PRESSE_PAPIERS, async () => {
   const page = await pageEcriture('collage')
   await coller(page, { 'text/plain': 'Il a dit "oui" : été ...' })
   await attendreTexte(page, `Il a dit «${I}oui${I}»${I}: été …`)
@@ -99,7 +115,7 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
   await page.context().close()
 })
 
-test('schéma du livre : un HTML collé perd ce que le livre n’a pas, garde le reste', async () => {
+test('schéma du livre : un HTML collé perd ce que le livre n’a pas, garde le reste', PRESSE_PAPIERS, async () => {
   const page = await pageEcriture('collage-schema')
   await coller(page, {
     'text/html':
@@ -252,7 +268,7 @@ test('notes : les flèches entrent dans une note repliée et en sortent, dans le
   await page.context().close()
 })
 
-test('notes : un passage copié avec sa note se colle avec elle', async () => {
+test('notes : un passage copié avec sa note se colle avec elle', PRESSE_PAPIERS, async () => {
   const page = await pageEcriture('notes-copie')
   await page.keyboard.type('Phrase')
   await insererNote(page, 'Sa note.')
