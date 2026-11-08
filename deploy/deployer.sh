@@ -5,7 +5,7 @@
 #   ./deploy/deployer.sh --restart    idem, en redémarrant le service dans tous les cas (changement du .env)
 #
 # Le développement, les contrôles, les commits et la fusion dans main sont faits
-# par Claude sur la branche dev-claude, avec l'accord de Sylvain. Ce script ne
+# par Claude depuis sa branche de travail, avec l'accord de Sylvain. Ce script ne
 # fait que le déploiement : il ne commite, ne fusionne et ne pousse rien.
 # Le VPS se règle par AMEND_SSH (défaut : amend@92.243.27.71).
 set -euo pipefail
