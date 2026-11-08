@@ -246,7 +246,7 @@ test('droits : rôles et documents piégés refusés avec un code', async () => 
 })
 
 test('droits : un rôle inconnu dans la table vaut le plus restrictif', async () => {
-  const table = { rolesDe: () => ['administrateur'], existe: () => true }
+  const table = { rolesDe: () => ['administrateur'] }
   const s = creerServeur({ ...BASE, dev: true }, table)
   await new Promise((r) => s.listen(0, '127.0.0.1', r))
   serveurs.push(s)

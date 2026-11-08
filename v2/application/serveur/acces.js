@@ -6,7 +6,6 @@ export function creerTableAcces() {
   /** @type {Map<string, Map<string, string>>} document → (personne → rôle) */
   const documents = new Map()
   return {
-    existe: (docId) => documents.has(docId),
     /** Crée un document ; la personne qui le crée en est propriétaire. */
     creer(docId, idPersonne) {
       if (documents.has(docId)) return false

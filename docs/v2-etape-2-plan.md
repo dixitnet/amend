@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 2, « Droits »
 
-Statut : **arbitré** par Sylvain le 08/11/2026 (questions 1 à 5 ci-dessous) ; développement lancé le même jour. Mistral suspendu : la revue de clôture est faite par Claude (règles, § 6). Révisé le 08/11/2026 : la proposition à deux rôles (sans propriétaire) est retirée à la demande de Sylvain ; il peut y avoir plusieurs éditeurs, il faut donc un propriétaire qui gère leurs droits, crée et supprime le document.
+Statut : **arbitré** par Sylvain le 08/11/2026 (questions 1 à 5 ci-dessous) ; développement lancé le même jour, réalisé (rapport `docs/v2-tests/etape-2-rapport.md`, revue de clôture `docs/v2-revues/2026-11-08-etape-2-cloture.md`), clôture soumise à Sylvain. Mistral suspendu : la revue de clôture est faite par Claude (règles, § 6). Révisé le 08/11/2026 : la proposition à deux rôles (sans propriétaire) est retirée à la demande de Sylvain ; il peut y avoir plusieurs éditeurs, il faut donc un propriétaire qui gère leurs droits, crée et supprime le document.
 
 Références : `docs/v2-regles-developpement.md` (dont « Avant de proposer un développement ou un correctif »), `docs/v2-procedure-tests.md`, `v2/adr/`.
 
@@ -138,6 +138,8 @@ Questions ouvertes, à trancher quand les équipes seront au plan (rien ne les b
 - Historique visible à partir de la date d'accès (idée reprise de Docs) : étape 5, avec les versions.
 - Stockage des comptes, documents et accès ; invitations ; règles de gestion des accès ; transfert de propriété ; lien magique ; lien de partage éventuel : étape 6 (son ADR prévoit les équipes).
 - Équipes et dossiers partagés : étape à placer au plan quand le besoin sera daté.
+- Retrait d'un rôle pendant une connexion : couper les connexions ouvertes de la personne (y/hub ne redemande les droits qu'à la connexion) : étape 6.
+- Présence d'un correcteur (aujourd'hui invisible des autres, `awareness` en lecture seule) : étape 5.
 - Typographie (étape 4), NFC des exports (étape 7), limites en signes (étape 8).
 
 ## Arbitrage de Sylvain (08/11/2026)
