@@ -1,39 +1,47 @@
 # Audit partiel avant fusion (2026-11-08)
 
-- Auditeur : Scaleway, modèle `glm-5.3` ; consommation : 144767 signes envoyés, 3470 reçus (et 27224 de réflexion) ; réflexion `low` ; 35 s ; arrêt : stop
-- Diff audité : `v2/` de `bec9478` à `c5b1abf` (41 fichiers)
-- Statut : avis reçu ; réponse de Claude à écrire ; arbitrage de Sylvain à venir.
+- Auditeur : Scaleway, modèle `glm-5.3` ; consommation : 100715 signes envoyés, 3128 reçus (et 11766 de réflexion) ; réflexion `low` ; 18 s ; arrêt : stop
+- Diff audité : `v2/` de `8644c6a` à `9e88da4` (32 fichiers)
+- Statut : avis reçu ; réponse de Claude écrite ; arbitrage de Sylvain à venir (demande de fusion).
 
 ## Avis de l'auditeur
 
 ## Synthèse
-Lot cohérent et bien testé (typographie, notes, schéma, contrats statiques), respectant globalement les frontières et l'ADR 0008 révisé. Deux points structurants : l'adaptateur BlockNote importe les extensions (couche 3) alors que la règle des couches interdit de dépendre d'une couche supérieure, et la langue de l'interface est figée dans des mémos/dépendances qui ne la suivent pas. Le reste est de l'ordre de la question (durée de vie de l'annulation de frappe, types MIME, licence de la dépendance nouvelle).
+Diff de consolidation post-audit : fermeture de pannes (droits en échec, secret absent, erreurs 500), durcissement lint et systemd, tests de frontières du graphe. L'ensemble respecte les couches et les ADR ; je ne vois ni fondation importée hors adaptateur, ni texte en dur, ni valeur de design inventée. Les constats portent sur un sentinelle fragile côté client, deux points du gestionnaire d'erreurs du serveur que le diff laisse incertains, et une redondance de test.
 
 ## Constats
-1. **[important]**, grille 1, `v2/adaptateurs/blocknote/index.jsx:15` `v2/adaptateurs/blocknote/index.jsx:16` `v2/adaptateurs/blocknote/schema.js:12` — L'adaptateur (couche 2) importe les extensions typographie et note (couche 3) ; ADR 0002 et le tableau des couches posent qu'une couche ne dépend que des couches en dessous d'elle. L'assemblage (quelles extensions, avec quelle langue) relève de l'application (couche 5), qui les passerait à l'adaptateur ; ou une révision de règle/ADR si ce câblage est jugé inséparable de la façade. À proposer à Sylvain plutôt qu'à laisser en l'état.
-2. **[important]**, grille 6, `v2/application/client/App.jsx:118-123` `v2/adaptateurs/blocknote/index.jsx:47` — `libelles` est mémoïsé avec une liste de dépendances vide alors qu'il utilise `t` : si la langue d'interface change (?langue=), les libellés du menu « / » restent dans l'ancienne langue. De même, `langue` n'est pas dans les dépendances de `useCreateBlockNote` : les menus BlockNote ne suivraient pas non plus un changement de langue. Ajouter `t` (ou la langue) aux dépendances, et `langue` à celles de l'éditeur.
-3. **[question]**, grille 6, `v2/extensions/typographie/index.js:67-77` — `annulerRemplacement` annule le dernier remplacement enregistré par le greffon d règles de saisie ; selon la durée de vie de cet état (conservé ou non au fil des transactions ordinaires), un Retour arrière après avoir tapé d'autres caractères pourrait annuler un remplacement ancien au lieu d'effacer un signe. Les tests couvrent le cas immédiat mais pas « taper, écrire autre chose, puis effacer ». À vérifier par un test.
-4. **[question]**, grille 6, `v2/application/serveur/index.js:35-37` — Le type MIME `.svg` et `.json` disparaissent, `.woff` apparaît, sans justification visible dans le diff (inter.css référence du woff2, déjà présent). Si aucun actif ne l'exige, `.woff` est une entrée morte ; si un SVG est encore servi, il partira sans type. Préciser la raison ou retirer.
-5. **[question]**, grille 10, `v2/package.json:15` — Dépendance nouvelle `@handlewithcare/prosemirror-inputrules` (et `prosemirror-model`/`prosemirror-state` en direct) : l'ADR 0006 exige que chaque dépendance nouvelle ait une licence compatible, vérifiée en revue. La licence du paquet `@handlewithcare` n'est pas notée dans le diff ; à vérifier et consigner.
-6. **[mineur]**, grille 6, `v2/contrats/statiques/une-seule-copie-prosemirror.test.js:27` — La comparaison de versions ne gère que le préfixe `^` : une demande en `~`, en plage ou en version prépubliée (`1.4.4-rc.1`) donnerait un faux échec ou un faux succès. Simple à durcir si l'amont utilise ces formes.
+1. **[mineur]** Grille 6 (correction) — `v2/application/client/App.jsx:77`. En cas d'adresse illisible, on passe `'%'` à `identifiantDocument` en comptant sur le fait que le domaine refuse ce caractère : le couplage est implicite et silencieux (si le domaine acceptait un jour `%`, l'erreur disparaîtrait sans trace). Proposer un état d'erreur explicite (`{ phase: 'erreur', code: 'adresse-invalide' }`) ou une fonction du domaine « adresse lisible ? », plutôt qu'un sentinelle commenté.
+2. **[question]** Grille 6 — `v2/i18n/index.js:69`. `messageErreur` appelle `chercher(…)`, qui n'apparaît nulle part dans le diff ; s'il n'existe pas déjà dans les lignes non montrées du fichier, c'est une `ReferenceError` à la première erreur. À vérifier (les tests verts le laissent penser, mais le diff ne le montre pas).
+3. **[question]** Grille 6 — `v2/application/serveur/index.js:185`. Le gestionnaire d'erreurs journalise `url.pathname` ; si l'erreur vient du décodage de l'URL elle-même (`new URL` lancé dans le `try`), `url` est indéfini et le gestionnaire plante à son tour. À vérifier sur le code complet ; si c'est le cas, journaliser `req.url` plutôt que `url.pathname`.
+4. **[mineur]** Grille 6 — `v2/application/serveur/index.js:182-186`. Toute erreur portant un `code` autre que `requete-trop-grosse` / `requete-invalide` devient désormais un 500 `erreur-interne`. Si une route lance une erreur de domaine avec son code (contrôle de saisie, session…), elle changerait de statut et perdrait son code côté client. Vérifier qu'aucune route ne lance d'erreur codée attendue en 4xx ; sinon, lister explicitement les codes clients.
+5. **[mineur]** Grille 6 — `v2/application/collab/index.js:40-44`. `process.exit(0)` dans le `finally` masque un échec de `collab.fermer()` : arrêt « propre » même si la persistance y/hub n'a pas fini. Proposer de sortir avec un code non nul (et journaliser) quand `fermer` échoue.
+6. **[mineur]** Grille 7 — `v2/tests/unitaires/i18n.test.js:66-70` et `:72-75`. Deux tests couvrent désormais `messageErreur` avec les mêmes assertions (message dédié / message générique avec le code) : le second ajoute le cas `reseau`, mais le premier est redondant. Fusionner en un seul test.
+7. **[question]** Grille 10 (licences) — `v2/package.json:36`. Nouvelle dépendance de développement `knip` ; sa licence n'est pas visible dans le diff. Le contrat `contrats/statiques/licences.test.js` la couvre a priori, mais confirmer qu'elle y figure et qu'elle est compatible (ADR 0006).
 
 ## Points de grille sans remarque
-2 (API publique : seuls imports publics), 3, 4, 5, 7 (couverture bonne, y compris cas signalés par l'audit précédent), 8 (NFC au collage, échappements testés), 9 (catalogues complets, exceptions à jour, langue du document distincte de celle de l'interface).
+1, 2, 3, 4 (hors test redondant, point 6), 5 (fermeture des droits côté serveur, correcte), 8, 9.
 
 ## Citations vérifiées par le script
 
-(Numérotation « 1. » non reconnue par la première version du script, corrigée depuis ; citations vérifiées à la main par Claude : toutes valides.)
+- 1 : citations valides
+- 2 : citations valides
+- 3 : citations valides
+- 4 : citations valides
+- 5 : citations valides
+- 6 : citations valides
+- 7 : citations valides
 
 ## Réponse de Claude
 
-- **1 : juste, question pour Sylvain.** La règle dit « une couche ne dépend que des couches situées en dessous d'elle » (règles, l. 22). Or l'adaptateur BlockNote (2) importe les extensions (3), et les extensions (3) importent le domaine (4) ; le lint ne le vérifie pas. Écart introduit par Claude à l'étape 4, non corrigé avant décision : soit déplacer l'assemblage (schéma, extensions) dans l'application, soit réviser la règle. Voir la synthèse de l'essai.
-- **2 : faux.** `t` et `langue` sont fixés au chargement de la page (`App.jsx`, l. 14) et ne changent jamais sans rechargement.
-- **3 : faux.** L'état du greffon s'efface à toute transaction qui change le document ou la sélection (`@handlewithcare/prosemirror-inputrules`, `apply` : `tr.selectionSet || tr.docChanged ? null : prev`) : un Retour arrière après une autre frappe ne peut rien annuler.
-- **4 : faux.** Justifié dans le commit de la passe : `dist/` contient des polices `.woff` (Inter de BlockNote) et aucun `.svg` ni `.json`.
-- **5 : faux.** Licence MIT ; le contrat `licences.test.js` vérifie chaque dépendance.
-- **6 : juste, mineur.** La comparaison ne lit que `^` ; à durcir (échouer explicitement sur toute autre forme).
+- **1 : juste, corrigé.** L'adresse illisible porte désormais son code explicitement, sans passer un `%` au domaine.
+- **2 : faux.** `chercher` est défini plus haut dans `i18n/index.js` (l. 23).
+- **3 : juste, et plus grave qu'annoncé, corrigé.** L'analyse de l'adresse était hors du bloc protégé : une requête au chemin `//` laissait la requête sans réponse et, sous Node 24, un rejet non traité peut arrêter le processus. Test ajouté (« une adresse de requête illisible ») : 400, et le serveur répond toujours ; le journal utilise l'adresse brute.
+- **4 : faux.** Aucune route ne lance d'erreur à code en dehors de la lecture du corps (`requete-trop-grosse`, `requete-invalide`) ; les codes du domaine sont rendus, pas lancés.
+- **5 : juste, corrigé.** Un arrêt incomplet sort avec un code non nul et une trace.
+- **6 : juste, corrigé.** Test en double retiré.
+- **7 : faux.** knip est sous licence ISC, admise ; le contrat des licences est vert.
 
-Bilan : 6 constats, 2 justes (dont un écart d'architecture réel, important), 4 faux ; citations valides.
+Bilan : 7 constats, 4 justes (dont un défaut réel du serveur), 3 faux.
 
 ## Arbitrage de Sylvain
 

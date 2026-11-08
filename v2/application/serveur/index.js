@@ -167,9 +167,15 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces()) 
   if (!CONF.secret) throw new Error('secret de session absent')
   const routes = creerRoutes(CONF, table)
   return http.createServer(async (req, res) => {
-    const url = new URL(req.url, 'http://local')
-    const route = routes[`${req.method} ${url.pathname}`]
     try {
+      // L'analyse de l'adresse peut échouer (« // ») : dans le bloc protégé.
+      let url
+      try {
+        url = new URL(req.url, 'http://local')
+      } catch {
+        return json(res, 400, { code: 'requete-invalide' })
+      }
+      const route = routes[`${req.method} ${url.pathname}`]
       if (route) return await route(req, res, url)
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })
@@ -182,7 +188,7 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces()) 
       if (err.code === 'requete-invalide' || err instanceof SyntaxError)
         return json(res, 400, { code: 'requete-invalide' })
       // Le reste est une erreur à nous : 500, et une trace dans le journal du service.
-      console.error(`[serveur] ${req.method} ${url.pathname} :`, err)
+      console.error(`[serveur] ${req.method} ${req.url} :`, err)
       json(res, 500, { code: 'erreur-interne' })
     }
   })

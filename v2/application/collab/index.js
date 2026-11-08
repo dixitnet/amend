@@ -39,7 +39,10 @@ for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, async () => {
     try {
       await collab.fermer()
-    } finally {
       process.exit(0)
+    } catch (err) {
+      // Un arrêt qui n'a pas pu finir proprement doit se voir (code non nul, journal).
+      console.error('[collab] arrêt incomplet :', err)
+      process.exit(1)
     }
   })

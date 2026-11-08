@@ -74,7 +74,9 @@ export function App() {
         surEntrer={entrer}
       />
     )
-  const doc = identifiantDocument(nomDansAdresse() ?? '%' /* illisible : refusé par le domaine */)
+  const nom = nomDansAdresse()
+  // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
+  const doc = nom === null ? { ok: false, code: 'document-caracteres' } : identifiantDocument(nom)
   if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
   return <Document config={etat.config} personne={etat.personne} docId={doc.id} />
 }

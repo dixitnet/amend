@@ -1,6 +1,7 @@
 // T3 : le serveur, en processus (requêtes HTTP réelles, sans navigateur ni
 // service), rejoué sur les données piégées.
 import { test, before, after } from 'node:test'
+import http from 'node:http'
 import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -311,4 +312,22 @@ test('une erreur à nous : 500 et code erreur-interne, jamais le détail', async
   } finally {
     console.error = original
   }
+})
+
+test('une adresse de requête illisible (« // ») : 400, et le serveur continue de répondre', async () => {
+  // Audit partiel du 08/11/2026 (constat 3) : l'analyse de l'adresse était hors
+  // du bloc qui intercepte les erreurs ; sous Node 24, le rejet arrêtait le processus.
+  const base = new URL(dev)
+  const statut = (chemin) =>
+    new Promise((resolve, reject) => {
+      const req = http.request({ host: base.hostname, port: base.port, path: chemin }, (res) => {
+        res.resume()
+        resolve(res.statusCode)
+      })
+      req.on('error', reject)
+      req.end()
+    })
+  assert.equal(await statut('//'), 400)
+  assert.equal(await statut('//a:b@'), 400)
+  assert.equal((await fetch(`${dev}/api/config`)).status, 200, 'le serveur répond toujours')
 })
