@@ -6,11 +6,11 @@
       "raison": "cas nominal"
     },
     {
-      "texte": "été",
+      "texte": "e\u0301te\u0301",
       "raison": "NFD : doit devenir « été » en NFC"
     },
     {
-      "texte": "👩🏽‍💻",
+      "texte": "👩🏽\u200d💻",
       "raison": "emoji combiné (suite ZWJ)"
     },
     {
@@ -30,11 +30,11 @@
       "raison": "espaces seulement"
     },
     {
-      "texte": "́",
+      "texte": "\u0301",
       "raison": "signe combinant seul"
     },
     {
-      "texte": "Zoë​",
+      "texte": "Zoë\u200b",
       "raison": "espace sans chasse"
     }
   ],
@@ -44,7 +44,7 @@
       "raison": "cas nominal"
     },
     {
-      "texte": "été",
+      "texte": "e\u0301te\u0301",
       "raison": "NFD : même document que « été » ?"
     },
     {
@@ -114,11 +114,11 @@
       "raison": "emojis"
     },
     {
-      "texte": "été",
+      "texte": "e\u0301te\u0301",
       "raison": "NFD"
     },
     {
-      "texte": "‮egasseM",
+      "texte": "\u202eegasseM",
       "raison": "inversion de sens (RLO)"
     }
   ],
@@ -142,6 +142,56 @@
     {
       "texte": "autre=1; amend2_session=",
       "raison": "plusieurs cookies, le nôtre vide"
+    }
+  ],
+  "roles": [
+    {
+      "texte": "administrateur",
+      "raison": "rôle de Docs, absent d'amend.ink"
+    },
+    {
+      "texte": "Editeur",
+      "raison": "casse différente : pas un rôle"
+    },
+    {
+      "texte": "éditeur",
+      "raison": "libellé accentué au lieu du code"
+    },
+    {
+      "texte": " editeur",
+      "raison": "espace en tête"
+    },
+    {
+      "texte": "editeur\u200b",
+      "raison": "espace sans chasse ajoutée"
+    },
+    {
+      "texte": "e\u0301diteur",
+      "raison": "libellé en NFD"
+    },
+    {
+      "texte": "__proto__",
+      "raison": "clé héritée d'un objet"
+    },
+    {
+      "texte": "toString",
+      "raison": "méthode héritée d'un objet"
+    },
+    {
+      "texte": "constructor",
+      "raison": "propriété héritée d'un objet"
+    },
+    {
+      "texte": "",
+      "raison": "chaîne vide"
+    },
+    {
+      "texte": "proprietaire,editeur",
+      "raison": "deux rôles collés"
+    },
+    {
+      "texte": "editeur\u0000",
+      "raison": "caractère nul"
     }
   ]
 }
