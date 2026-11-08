@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 2, « Droits »
 
-Statut : **arbitré** par Sylvain le 08/11/2026 (questions 1 à 5 ci-dessous) ; développement à lancer sur son feu vert. Révisé le 08/11/2026 : la proposition à deux rôles (sans propriétaire) est retirée à la demande de Sylvain ; il peut y avoir plusieurs éditeurs, il faut donc un propriétaire qui gère leurs droits, crée et supprime le document.
+Statut : **arbitré** par Sylvain le 08/11/2026 (questions 1 à 5 ci-dessous) ; développement lancé le même jour. Mistral suspendu : la revue de clôture est faite par Claude (règles, § 6). Révisé le 08/11/2026 : la proposition à deux rôles (sans propriétaire) est retirée à la demande de Sylvain ; il peut y avoir plusieurs éditeurs, il faut donc un propriétaire qui gère leurs droits, crée et supprime le document.
 
 Références : `docs/v2-regles-developpement.md` (dont « Avant de proposer un développement ou un correctif »), `docs/v2-procedure-tests.md`, `v2/adr/`.
 
@@ -129,7 +129,8 @@ Questions ouvertes, à trancher quand les équipes seront au plan (rien ne les b
 
 1. Un correcteur (et un lecteur) ne peut pas modifier un document, quelle que soit la façon de s'y prendre (interface, WebSocket directe, session forgée).
 2. Les droits sont décidés à un seul endroit (le domaine, appelé par le serveur).
-3. Tests T1 à T5 verts ; revue de clôture traitée.
+3. Tests T0 à T5 verts ; revue de clôture (par Claude, Mistral étant suspendu) traitée.
+4. Aucun import d'un chemin interne d'une fondation (R2 de la revue d'ouverture) : contrat statique.
 
 ## Hors périmètre, noté pour plus tard
 

@@ -182,6 +182,8 @@ Lors d'une montée de version, un contrat qui casse dit **exactement** ce qui a 
 
 ## 6. La vérification par une autre IA
 
+**Suspendue depuis le 08/11/2026** (décision de Sylvain) : Mistral n'est plus sollicité, ni pour les revues ni pour les scénarios de test, jusqu'à nouvel ordre. En attendant, Claude passe lui-même la grille de revue ci-dessous à l'ouverture et à la clôture de chaque étape, et l'écrit dans `docs/v2-revues/` ; Sylvain arbitre comme avant.
+
 ### Pourquoi
 
 Claude écrit le code : un relecteur d'une **autre famille de modèles** a d'autres angles morts. Il vérifie le respect de l'architecture, que nous dérivons facilement par commodité, autant que le code lui-même.

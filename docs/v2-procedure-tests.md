@@ -20,6 +20,8 @@ T0 à T4 tournent dans `npm test` à chaque commit. T5 à chaque clôture d'éta
 
 ## Qui fait quoi
 
+**Mistral suspendu depuis le 08/11/2026** (Sylvain) : jusqu'à nouvel ordre, Claude propose seul les scénarios par couche et les données piégées, et vérifie lui-même la couverture à la clôture. Ce qui suit décrit le fonctionnement prévu à la reprise.
+
 - **Claude** écrit les tests, les lance dans sa session, ajoute ses propres scénarios à ceux de Mistral, rédige le rapport.
 - **Mistral** :
   1. à l'ouverture d'une étape, propose des **scénarios par couche**, du simple au difficile, et un **corpus de données piégées** (Unicode, très long, injections…) que les tests T1 à T3 rejouent ;
