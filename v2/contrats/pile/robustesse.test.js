@@ -121,8 +121,9 @@ test('adresse : un nom de document refusé affiche un message, un autre nom ouvr
   await attendreTexte(a, '')
   const refuse = await a.context().newPage()
   await refuse.goto(`${pile.url}/#e%CC%81te%CC%81`)
-  await refuse.waitForSelector('.ecran-simple [role=status]')
-  assert.match(await refuse.textContent('.ecran-simple [role=status]'), /lettres et chiffres sans accent/)
+  await refuse.waitForFunction(() =>
+    /lettres et chiffres sans accent/.test(document.querySelector('[role=status]')?.textContent || ''),
+  )
   await a.context().close()
 })
 

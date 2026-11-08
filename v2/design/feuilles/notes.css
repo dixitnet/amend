@@ -1,0 +1,29 @@
+/* Les notes de bas de page dans l'éditeur, affichage B (décision de Sylvain,
+   08/11/2026). Chaque règle porte la clé de son réglage, notée avec sa
+   décision dans l'ADR 0008 (contrat statique). Valeurs : celles de Mantine. */
+
+/* réglage : css.note.numerotation */
+.bn-editor {
+  counter-reset: note;
+}
+[data-note] {
+  counter-increment: note;
+}
+
+/* réglage : css.note.appel */
+[data-note]::before {
+  content: counter(note);
+  vertical-align: super;
+  font-size: var(--mantine-font-size-xs);
+}
+
+/* réglage : css.note.repliee */
+[data-note]:not([data-ouverte]) > [data-note-texte] {
+  display: none;
+}
+
+/* réglage : css.note.ouverte */
+[data-note][data-ouverte] > [data-note-texte] {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dimmed);
+}

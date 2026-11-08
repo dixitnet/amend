@@ -13,7 +13,10 @@ const FONDATIONS = {
   blocknote: '@blocknote/.*',
   y: '@y/.*',
   yjs13: 'yjs|y-prosemirror|y-protocols(/.*)?|y-websocket',
-  prosemirror: 'prosemirror-.*|@tiptap/.*',
+  prosemirror: '(?!(?:prosemirror-state|prosemirror-model)$)prosemirror-.*|@tiptap/.*',
+  // Ce qu'exigent les points d'extension publics de BlockNote (règle 1
+  // révisée le 08/11/2026) : permis aux seules extensions.
+  pointsExtension: 'prosemirror-state|prosemirror-model|@handlewithcare/prosemirror-inputrules',
   mantine: '@mantine/.*',
   lib0: 'lib0(/.*)?',
   icu: 'intl-messageformat|@formatjs/.*',
@@ -37,7 +40,9 @@ function imports({ permises = [], couches = [], css = false, cssDesign = false }
   ]
   if (cssDesign)
     patterns.push({
-      regex: '^\\.{1,2}/.*\\.css$',
+      // Seules les feuilles de design/feuilles/, dont chaque règle est un
+      // réglage décidé noté dans l'ADR 0008 (contrat statique).
+      regex: '^\\.{1,2}/(?!feuilles/[\\w-]+\\.css$).*\\.css$',
       message: 'feuille de style maison : Mantine et BlockNote tels quels, réglages décidés seulement (ADR 0008)',
     })
   if (couches.length)
@@ -155,7 +160,7 @@ export default [
     languageOptions: { globals: navigateur },
     rules: {
       'no-restricted-imports': imports({
-        permises: ['blocknote'],
+        permises: ['blocknote', 'pointsExtension'],
         couches: ['application', 'design', 'i18n', 'adaptateurs'],
         css: true,
       }),

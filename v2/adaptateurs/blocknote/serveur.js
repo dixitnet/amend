@@ -3,9 +3,10 @@
 import { BlockNoteEditor } from '@blocknote/core'
 import { yDocToBlocks, blocksToYDoc } from '@blocknote/core/y'
 import * as Y from '@y/y'
+import { schemaLivre } from './schema.js'
 
 let editeur = null
-const editeurSansVue = () => (editeur ??= BlockNoteEditor.create())
+const editeurSansVue = () => (editeur ??= BlockNoteEditor.create({ schema: schemaLivre }))
 
 /** Les blocs d'un document, depuis son état Yjs encodé. Un état illisible
  * lève une erreur de code `document-illisible`, jamais une erreur interne. */
@@ -21,9 +22,15 @@ export function lireBlocs(etat, racine = 'doc') {
   }
 }
 
-/** L'état Yjs encodé d'un document fait de ces blocs. */
+/** L'état Yjs encodé d'un document fait de ces blocs. Des blocs hors du
+ * schéma du livre lèvent une erreur de code `blocs-invalides`. */
 export function ecrireBlocs(blocs, racine = 'doc') {
-  const doc = blocksToYDoc(editeurSansVue(), blocs, racine)
+  let doc
+  try {
+    doc = blocksToYDoc(editeurSansVue(), blocs, racine)
+  } catch (cause) {
+    throw Object.assign(new Error('blocs invalides', { cause }), { code: 'blocs-invalides' })
+  }
   try {
     return Y.encodeStateAsUpdate(doc)
   } finally {

@@ -91,9 +91,9 @@ test('un texte piégé s’affiche comme du texte, jamais comme du code', () => 
     h(design.PageEdition, { titre: '<script>alert(1)</script>', etat: '<b>x</b>', participants: '&', editeur: null }),
   )
   assert.doesNotMatch(html, /<script>|<b>/)
-  assert.doesNotMatch(html, /page-edition__mention/, 'pas de mention sans texte')
+  assert.doesNotMatch(html, /Lecture seule/, 'pas de mention sans texte')
   const avec = rendre(h(design.PageEdition, { titre: 'x', mention: 'Lecture seule', editeur: null }))
-  assert.match(avec, /page-edition__mention[^>]*>[\s\S]*Lecture seule</)
+  assert.match(avec, />Lecture seule</)
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
@@ -104,4 +104,24 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
     assert.match(c, /^var\(--mantine-color-[a-z]+-filled\)$/)
     assert.doesNotMatch(c, /-(gray|dark)-/)
   }
+})
+
+test('liste des notes : rien sans note ; numérotée, styles rendus par leurs balises, texte échappé', () => {
+  assert.equal(rendre(h(design.ListeNotes, { titre: 'Notes', notes: [] })).includes('<ol'), false)
+  const html = rendre(
+    h(design.ListeNotes, {
+      titre: 'Notes',
+      notes: [
+        [
+          { texte: 'Voir ', styles: {} },
+          { texte: 'Titre', styles: { italic: true, bold: true } },
+        ],
+        [{ texte: '<script>x</script>', styles: {} }],
+      ],
+    }),
+  )
+  assert.match(html, /<ol/)
+  assert.match(html, /<strong><em>Titre<\/em><\/strong>|<em><strong>Titre<\/strong><\/em>/)
+  assert.doesNotMatch(html, /<script>/)
+  assert.equal((html.match(/<li/g) || []).length, 2)
 })

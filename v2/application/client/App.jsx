@@ -2,9 +2,9 @@
 // serveur, ouverture du document. Tout l'affichage est délégué à la couche
 // design ; tous les textes viennent de v2/i18n/.
 import { useEffect, useMemo, useState } from 'react'
-import { PageEdition, EcranMessage, EcranConnexion, couleurAuteur } from '../../design/index.js'
+import { PageEdition, EcranMessage, EcranConnexion, ListeNotes, couleurAuteur } from '../../design/index.js'
 import { creerTraducteur, choisirLangue, messageErreur, LANGUE_PSEUDO } from '../../i18n/index.js'
-import { identifiantDocument } from '../../domaine/index.js'
+import { identifiantDocument, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 
@@ -114,6 +114,13 @@ function Edition({ config, personne, docId, droits }) {
   )
   const [connexion, setConnexion] = useState('connexion')
   const [autres, setAutres] = useState(0)
+  const [notes, setNotes] = useState([])
+  const libelles = useMemo(
+    () => ({
+      note: { titre: t('editeur.note.titre'), aide: t('editeur.note.aide'), groupe: t('editeur.note.groupe') },
+    }),
+    [],
+  )
   useEffect(() => session.surEtat(setConnexion), [session])
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
@@ -124,13 +131,17 @@ function Edition({ config, personne, docId, droits }) {
       etat={t('document.etat', { etat: connexion })}
       participants={t('document.participants', { n: autres })}
       mention={modifiable ? null : t('document.lectureSeule')}
+      notes={<ListeNotes titre={t('document.notes')} notes={notes} />}
       editeur={
         <EditeurCollaboratif
           contexte={session.contexte}
           personne={moi}
           langue={t.langue}
+          langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
           nomAccessible={t('document.zoneEdition', { id: docId })}
           modifiable={modifiable}
+          libelles={libelles}
+          surNotes={setNotes}
         />
       }
     />

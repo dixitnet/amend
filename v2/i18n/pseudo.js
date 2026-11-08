@@ -33,7 +33,7 @@ function transformer(elements) {
   return elements
 }
 
-export function pseudoMessage(message) {
+function pseudoMessage(message) {
   return `⟦${printAST(transformer(parse(message)))}⟧`
 }
 

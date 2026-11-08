@@ -3,4 +3,5 @@
 export { CadreDesign } from './Cadre.jsx'
 export { PageEdition } from './composants/PageEdition.jsx'
 export { EcranMessage, EcranConnexion } from './composants/EcranSimple.jsx'
+export { ListeNotes } from './composants/ListeNotes.jsx'
 export { couleurAuteur } from './auteurs.js'

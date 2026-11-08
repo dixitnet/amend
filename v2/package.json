@@ -12,6 +12,7 @@
     "@blocknote/mantine": "0.57.0",
     "@blocknote/react": "0.57.0",
     "@formatjs/icu-messageformat-parser": "3.5.22",
+    "@handlewithcare/prosemirror-inputrules": "0.1.4",
     "@mantine/core": "9.7.5",
     "@mantine/hooks": "9.7.5",
     "@y/hub": "0.10.1",
@@ -21,6 +22,8 @@
     "@y/y": "14.0.0-rc.29",
     "intl-messageformat": "12.1.4",
     "lib0": "1.0.0-rc.36",
+    "prosemirror-model": "1.25.12",
+    "prosemirror-state": "1.4.4",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

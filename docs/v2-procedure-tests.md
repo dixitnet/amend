@@ -49,7 +49,7 @@ Traces : `docs/v2-tests/` (scénarios et classement, données piégées, rapport
 
 ## Ce qu'on fait d'un constat
 
-Un test qui échoue, une capture qui surprend, un avis de Mistral : avant toute proposition de correctif, le constat est **qualifié** selon les cinq vérifications des règles (`docs/v2-regles-developpement.md`, « Avant de proposer un développement ou un correctif ») : besoin établi, vrai défaut ou comportement voulu d'une fondation, bon moment, bon niveau, conséquences à terme. Il en sort une seule de ces suites :
+Un test qui échoue, une capture qui surprend, un avis de Mistral : avant toute proposition de correctif, le constat est **qualifié** selon les six vérifications des règles (`docs/v2-regles-developpement.md`, « Avant de proposer un développement ou un correctif ») : besoin établi, vrai défaut ou comportement voulu d’une fondation, bon moment, bon niveau, règle qui bloque la bonne solution, conséquences à terme. Il en sort une seule de ces suites :
 
 1. **défaut de notre code, de l'étape en cours** : un test qui échoue d'abord, puis le correctif au niveau le plus bas ;
 2. **défaut d'une fondation** : veille et signalement en amont ; contournement seulement s'il bloque, dans la couche prévue pour cela ;

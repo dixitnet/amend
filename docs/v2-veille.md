@@ -31,6 +31,7 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 | Fondation | Défaut | Contournement | Retrait |
 |---|---|---|---|
 | BlockNote 0.57.0 | l'option `fontFamily` du thème remplit `--bn-font-family`, mais aucune règle CSS ne l'utilise (`.bn-default-styles` écrit Inter en dur) | **sans objet depuis le 08/11/2026** : la v2 n'impose plus de police (ADR 0008 révisée, Mantine et BlockNote tels quels) ; contournement retiré | à signaler en amont si une police est un jour décidée |
+| `@handlewithcare/prosemirror-inputrules` 0.1.4 (dépendance de BlockNote 0.57) | `undoInputRule` réinsère le caractère tapé une seconde fois : le module insère d'abord le caractère, puis applique la règle, mais l'annulation défait la règle **et** réinsère le texte tapé (« l' » + Retour arrière donne « l'' ») ; BlockNote n'utilise pas cette commande | `extensions/typographie` défait seulement les étapes de la règle (`annulerRemplacement`) ; test T5 « Retour arrière » | à signaler en amont (décision de Sylvain) ; retirer notre annulation quand le module est corrigé |
 
 ## Correctifs temporaires de fondations en place
 

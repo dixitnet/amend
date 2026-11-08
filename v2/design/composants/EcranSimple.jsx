@@ -5,7 +5,7 @@ import { Container, Stack, Title, Text, TextInput, Button } from '@mantine/core'
 
 export function EcranMessage({ titre, texte }) {
   return (
-    <Container className="ecran-simple">
+    <Container>
       <Stack>
         {titre ? <Title order={1}>{titre}</Title> : null}
         <Text role="status">{texte}</Text>
@@ -21,7 +21,7 @@ export function EcranConnexion({ titre, explication, libelleNom, libelleBouton, 
     if (String(nom || '').trim()) surEntrer(String(nom).trim())
   }
   return (
-    <Container className="ecran-simple">
+    <Container>
       <Stack>
         <Title order={1}>{titre}</Title>
         <Text>{explication}</Text>

@@ -163,8 +163,8 @@ test('droits : un correcteur lit, ne peut pas écrire, et l’interface le lui d
   const doc = docTest('correcteur')
   const p = await ouvrir('Paule', doc)
   const c = await ouvrir('Carl', doc, { role: 'correcteur' })
-  assert.equal(await p.$('.page-edition__mention'), null, 'pas de mention pour la propriétaire')
-  assert.equal(await c.textContent('.page-edition__mention'), 'Lecture seule')
+  assert.equal(await p.getByText('Lecture seule').count(), 0, 'pas de mention pour la propriétaire')
+  assert.equal(await c.getByText('Lecture seule').count(), 1)
   assert.equal(await c.getAttribute('.bn-editor', 'contenteditable'), 'false')
 
   await p.click('.bn-editor')
@@ -200,7 +200,7 @@ test('droits : sans rôle, un document existant ne s’ouvre pas, avec un messag
   await intrus.fill('input[name=nom]', 'Intrus')
   await intrus.click('button[type=submit]')
   await intrus.waitForFunction(() =>
-    /n’existe pas, ou vous n’y avez pas accès/.test(document.querySelector('.ecran-simple [role=status]')?.textContent),
+    /n’existe pas, ou vous n’y avez pas accès/.test(document.querySelector('[role=status]')?.textContent),
   )
   assert.equal(await intrus.$('.bn-editor'), null)
   await ctx.close()

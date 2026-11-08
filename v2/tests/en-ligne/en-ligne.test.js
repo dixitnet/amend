@@ -129,7 +129,9 @@ sauf(
       return page
     }
     const lire = (p) =>
-      p.evaluate(() => document.querySelector('.bn-editor .bn-inline-content')?.textContent.replace(/⁠/g, '') ?? '')
+      p.evaluate(
+        () => document.querySelector('.bn-editor .bn-inline-content')?.textContent.replace(/\u2060/g, '') ?? '',
+      )
     const attendreTexte = async (p, attendu) => {
       for (const t0 = Date.now(); Date.now() - t0 < 15000; await attendre(200))
         if ((await lire(p)).startsWith(attendu)) return

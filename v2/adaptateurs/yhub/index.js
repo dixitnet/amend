@@ -20,7 +20,7 @@ const PERMISSIONS = {
   }),
 }
 
-export const ORGANISATION = 'amend'
+const ORGANISATION = 'amend'
 
 /**
  * @param {object} o
