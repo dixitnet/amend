@@ -88,12 +88,177 @@ test('route interne des droits : jeton exigé, comparé exactement', async () =>
   assert.equal((await fetch(url)).status, 403)
   assert.equal((await fetch(url, { headers: { 'x-amend-interne': 'faux' } })).status, 403)
   const r = await fetch(url, { headers: { 'x-amend-interne': BASE.jetonInterne } })
-  assert.deepEqual(await r.json(), { droit: 'ecriture' })
+  assert.equal(r.status, 200)
   const sansJeton = await demarrer({ jetonInterne: '' })
   assert.equal(
     (await fetch(`${sansJeton}/api/interne/droits?document=a&personne=b`, { headers: { 'x-amend-interne': '' } }))
       .status,
     403,
+  )
+})
+
+// Les droits : une personne crée un document, en devient propriétaire, donne
+// des rôles ; la route interne en tire ce que y/hub doit autoriser.
+const post = (base, chemin, cookie, corps) =>
+  fetch(`${base}${chemin}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
+    body: JSON.stringify(corps),
+  })
+const entrer = async (base, nom) => {
+  const r = await session(base, nom)
+  return { id: (await r.json()).id, cookie: r.headers.get('set-cookie').split(';')[0] }
+}
+const mesDroits = (base, cookie, document) =>
+  fetch(`${base}/api/droits?document=${encodeURIComponent(document)}`, { headers: cookie ? { cookie } : {} })
+const droitInterne = async (base, document, personne) => {
+  const r = await fetch(`${base}/api/interne/droits?document=${document}&personne=${personne}`, {
+    headers: { 'x-amend-interne': BASE.jetonInterne },
+  })
+  return (await r.json()).droit
+}
+let docNum = 0
+const nouveauDoc = () => `t3-droits-${++docNum}`
+
+test('droits : le créateur est propriétaire, une seule création par document', async () => {
+  const alice = await entrer(dev, 'Alice')
+  const doc = nouveauDoc()
+  const r = await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
+  assert.equal(r.status, 201)
+  assert.equal((await r.json()).role, 'proprietaire')
+  const bruno = await entrer(dev, 'Bruno')
+  assert.equal((await post(dev, '/api/dev/documents', bruno.cookie, { document: doc })).status, 409)
+  const miens = await mesDroits(dev, alice.cookie, doc)
+  assert.deepEqual(await miens.json(), {
+    role: 'proprietaire',
+    capacites: [
+      'lire',
+      'commenter',
+      'suggerer',
+      'ecrire',
+      'arbitrer',
+      'restaurer',
+      'inviter',
+      'supprimer',
+      'transferer',
+    ],
+  })
+  assert.equal(await droitInterne(dev, doc, alice.id), 'ecriture')
+})
+
+test('droits : sans rôle, rien ; document inconnu et document fermé se confondent', async () => {
+  const alice = await entrer(dev, 'Alice')
+  const bruno = await entrer(dev, 'Bruno')
+  const doc = nouveauDoc()
+  await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
+  const ferme = await mesDroits(dev, bruno.cookie, doc)
+  const inconnu = await mesDroits(dev, bruno.cookie, 'jamais-cree')
+  assert.equal(ferme.status, 404)
+  assert.equal(inconnu.status, 404)
+  assert.deepEqual(await ferme.json(), await inconnu.json())
+  assert.equal(await droitInterne(dev, doc, bruno.id), null)
+  assert.equal(await droitInterne(dev, 'jamais-cree', alice.id), null)
+  assert.equal((await mesDroits(dev, null, doc)).status, 401)
+})
+
+test('droits : chaque rôle donné, et ce que y/hub doit autoriser', async () => {
+  const alice = await entrer(dev, 'Alice')
+  const doc = nouveauDoc()
+  await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
+  const attendu = { lecteur: 'lecture', correcteur: 'lecture', editeur: 'ecriture' }
+  for (const [role, droit] of Object.entries(attendu)) {
+    const p = await entrer(dev, `Personne ${role}`)
+    assert.equal((await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: p.id, role })).status, 200)
+    assert.equal((await (await mesDroits(dev, p.cookie, doc)).json()).role, role)
+    assert.equal(await droitInterne(dev, doc, p.id), droit, role)
+  }
+})
+
+test('droits : un éditeur invite, y compris un éditeur ; un correcteur non', async () => {
+  const alice = await entrer(dev, 'Alice')
+  const edith = await entrer(dev, 'Édith')
+  const carl = await entrer(dev, 'Carl')
+  const doc = nouveauDoc()
+  await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
+  await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: edith.id, role: 'editeur' })
+  await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: carl.id, role: 'correcteur' })
+  const victor = await entrer(dev, 'Victor')
+  assert.equal(
+    (await post(dev, '/api/dev/acces', edith.cookie, { document: doc, personne: victor.id, role: 'editeur' })).status,
+    200,
+  )
+  const refus = await post(dev, '/api/dev/acces', carl.cookie, { document: doc, personne: victor.id, role: 'editeur' })
+  assert.equal(refus.status, 403)
+  assert.equal((await refus.json()).code, 'droit-insuffisant')
+  // Un éditeur retire un autre éditeur.
+  assert.equal(
+    (await post(dev, '/api/dev/acces', edith.cookie, { document: doc, personne: victor.id, role: null })).status,
+    200,
+  )
+  assert.equal(await droitInterne(dev, doc, victor.id), null)
+})
+
+test('droits : le propriétaire ne se nomme ni ne se touche par la route de développement', async () => {
+  const alice = await entrer(dev, 'Alice')
+  const edith = await entrer(dev, 'Édith')
+  const doc = nouveauDoc()
+  await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
+  await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: edith.id, role: 'editeur' })
+  const nommer = await post(dev, '/api/dev/acces', alice.cookie, {
+    document: doc,
+    personne: edith.id,
+    role: 'proprietaire',
+  })
+  assert.equal(nommer.status, 400)
+  for (const role of [null, 'lecteur'])
+    assert.equal(
+      (await post(dev, '/api/dev/acces', edith.cookie, { document: doc, personne: alice.id, role })).status,
+      409,
+      String(role),
+    )
+  assert.equal(await droitInterne(dev, doc, alice.id), 'ecriture')
+})
+
+test('droits : rôles et documents piégés refusés avec un code', async () => {
+  const alice = await entrer(dev, 'Alice')
+  const doc = nouveauDoc()
+  await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
+  for (const { texte, raison } of piegees.roles) {
+    const r = await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: 'dev-x', role: texte })
+    assert.equal(r.status, 400, raison)
+    assert.equal((await r.json()).code, 'role-invalide', raison)
+  }
+  for (const role of [undefined, 1, ['editeur'], { role: 'editeur' }])
+    assert.equal(
+      (await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: 'dev-x', role })).status,
+      400,
+    )
+  assert.equal((await post(dev, '/api/dev/acces', alice.cookie, { document: doc, role: 'lecteur' })).status, 400)
+  for (const { texte, raison } of piegees.identifiantsDeDocument) {
+    if (texte === 'doc1') continue
+    const r = await post(dev, '/api/dev/documents', alice.cookie, { document: texte })
+    assert.equal(r.status, 400, raison)
+    assert.match((await r.json()).code, /^document-/, raison)
+  }
+  for (const corps of [null, 'texte', [1]])
+    assert.equal((await post(dev, '/api/dev/documents', alice.cookie, corps)).status, 400, JSON.stringify(corps))
+  assert.equal((await post(dev, '/api/dev/documents', null, { document: 'sans-session' })).status, 401)
+})
+
+test('droits : un rôle inconnu dans la table vaut le plus restrictif', async () => {
+  const table = { rolesDe: () => ['administrateur'], existe: () => true }
+  const s = creerServeur({ ...BASE, dev: true }, table)
+  await new Promise((r) => s.listen(0, '127.0.0.1', r))
+  serveurs.push(s)
+  assert.equal(await droitInterne(`http://127.0.0.1:${s.address().port}`, 'doc', 'dev-a'), 'lecture')
+})
+
+test('hors développement : routes de création et de rôles fermées', async () => {
+  const cookie = `amend2_session=${creerJeton(BASE.secret, { id: 'dev-a', nom: 'A' })}`
+  assert.equal((await post(prod, '/api/dev/documents', cookie, { document: 'x' })).status, 404)
+  assert.equal(
+    (await post(prod, '/api/dev/acces', cookie, { document: 'x', personne: 'b', role: 'lecteur' })).status,
+    404,
   )
 })
 

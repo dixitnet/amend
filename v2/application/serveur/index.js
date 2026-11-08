@@ -7,7 +7,8 @@ import { readFile } from 'node:fs/promises'
 import { join, extname, normalize } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
-import { nomPersonne } from '../../domaine/index.js'
+import { creerTableAcces } from './acces.js'
+import { nomPersonne, identifiantDocument, ROLES, roleEffectif, capacites, acces } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
 export const confDepuisEnv = () => ({
@@ -51,12 +52,27 @@ async function lireCorps(req, max = 10_000) {
   return brut ? JSON.parse(brut) : {}
 }
 
-/** Étape 1 : toute personne connectée écrit dans tout document. Les vrais
- * droits (lecteur, correcteur, éditeur) arrivent à l'étape 3. */
-const droitsSur = (/* docId, idPersonne */) => 'ecriture'
+/** Les rôles qu'un développeur peut donner par la route de développement :
+ * tous sauf propriétaire (un seul, le créateur ; le transfert vient à l'étape 6). */
+const ROLES_DONNABLES = ROLES.filter((r) => r !== 'proprietaire')
 
-const creerRoutes = (CONF) => {
+const creerRoutes = (CONF, table = creerTableAcces()) => {
   const personneDe = (req) => lireJeton(CONF.secret, lireCookie(req.headers.cookie))
+  /** Le rôle effectif d'une personne sur un document : décidé par le domaine. */
+  const roleSur = (docId, idPersonne) => roleEffectif(table.rolesDe(docId, idPersonne))
+  const droitsDe = (role) => ({ role, capacites: capacites(role) })
+
+  /** Pour les routes qui visent un document : session, puis identifiant
+   * valide. Rend `null` après avoir répondu l'erreur. */
+  function documentVise(req, res, docBrut) {
+    const p = personneDe(req)
+    const doc = identifiantDocument(docBrut)
+    if (p && doc.ok) return { personne: p, docId: doc.id }
+    if (!p) json(res, 401, { code: 'session-absente' })
+    else json(res, 400, { code: doc.code })
+    return null
+  }
+
   return {
     'GET /api/config': (req, res) => json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev }),
     'GET /api/moi': (req, res) => {
@@ -80,13 +96,48 @@ const creerRoutes = (CONF) => {
         },
       )
     },
+    // Mes droits sur un document. Document inconnu et document sans accès se
+    // confondent (404) : on ne révèle pas qu'un document existe.
+    'GET /api/droits': async (req, res, url) => {
+      const v = documentVise(req, res, url.searchParams.get('document'))
+      if (!v) return
+      const role = roleSur(v.docId, v.personne.id)
+      return role ? json(res, 200, droitsDe(role)) : json(res, 404, { code: 'document-introuvable' })
+    },
+    // Développement seulement (étape 6 : création et invitations réelles).
+    'POST /api/dev/documents': async (req, res) => {
+      if (!CONF.dev) return json(res, 404, { code: 'introuvable' })
+      const v = documentVise(req, res, (await lireCorps(req)).document)
+      if (!v) return
+      if (!table.creer(v.docId, v.personne.id)) return json(res, 409, { code: 'document-existe' })
+      json(res, 201, droitsDe('proprietaire'))
+    },
+    // Donner (ou retirer, `role: null`) un rôle sur un document : réservé à qui
+    // peut inviter (domaine) ; le propriétaire n'est ni nommé ni touché ici.
+    'POST /api/dev/acces': async (req, res) => {
+      if (!CONF.dev) return json(res, 404, { code: 'introuvable' })
+      const corps = await lireCorps(req)
+      const v = documentVise(req, res, corps.document)
+      if (!v) return
+      const monRole = roleSur(v.docId, v.personne.id)
+      if (!monRole) return json(res, 404, { code: 'document-introuvable' })
+      if (!capacites(monRole).includes('inviter')) return json(res, 403, { code: 'droit-insuffisant' })
+      const { personne, role } = corps
+      if (typeof personne !== 'string' || !personne) return json(res, 400, { code: 'parametres-absents' })
+      if (role !== null && !ROLES_DONNABLES.includes(role)) return json(res, 400, { code: 'role-invalide' })
+      if (table.rolesDe(v.docId, personne).includes('proprietaire'))
+        return json(res, 409, { code: 'proprietaire-intouchable' })
+      if (role === null) table.retirer(v.docId, personne)
+      else table.donner(v.docId, personne, role)
+      json(res, 200, {})
+    },
     // Pour le processus de collaboration seulement (jeton interne).
     'GET /api/interne/droits': (req, res, url) => {
       if (!jetonValide(CONF.jetonInterne, req.headers['x-amend-interne'])) return json(res, 403, { code: 'interdit' })
       const docId = url.searchParams.get('document')
       const idPersonne = url.searchParams.get('personne')
       if (!docId || !idPersonne) return json(res, 400, { code: 'parametres-absents' })
-      json(res, 200, { droit: droitsSur(docId, idPersonne) })
+      json(res, 200, { droit: acces(capacites(roleSur(docId, idPersonne))) })
     },
   }
 }
@@ -107,9 +158,9 @@ async function servirFichier(CONF, res, chemin) {
   }
 }
 
-export function creerServeur(CONF = confDepuisEnv()) {
+export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces()) {
   if (!CONF.secret) throw new Error('secret de session absent')
-  const routes = creerRoutes(CONF)
+  const routes = creerRoutes(CONF, table)
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://local')
     const route = routes[`${req.method} ${url.pathname}`]

@@ -1,6 +1,7 @@
 // T2 : l'adaptateur y/hub et l'adaptateur Yjs, ensemble, contre Redis et
-// PostgreSQL réels, sans navigateur ni serveur d'amend.ink (identité et droits
-// simulés). Sans ces services, le fichier se déclare sauté, avec la raison.
+// PostgreSQL réels, sans navigateur ni serveur d'amend.ink. L'identité est
+// simulée ; les droits viennent du domaine, comme dans le serveur, à partir
+// d'un rôle simulé. Sans ces services, le fichier se déclare sauté, avec la raison.
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
@@ -10,6 +11,7 @@ import { preparerServices, POSTGRES, REDIS } from '../../exploitation/dev/pile.m
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { lireBlocs, texteDesBlocs } from '../../adaptateurs/blocknote/serveur.js'
+import { roleEffectif, capacites, acces } from '../../domaine/index.js'
 
 const PORT = 4511
 const ORIGINE = 'http://127.0.0.1:4300'
@@ -24,6 +26,10 @@ const joignable = (port) =>
 let collab
 let raisonSaut = null
 const appelsDroits = []
+/** Rôles simulés : `<rôle>-…` en tête de l'identifiant (`editeur-1`), sauf
+ * ceux fixés à la main dans `rolesFixes` ; `banni-…` n'a aucun rôle. */
+const rolesFixes = new Map()
+const roleSimule = (id) => (rolesFixes.has(id) ? rolesFixes.get(id) : /^(\w+)-/.exec(id)?.[1])
 before(async () => {
   try {
     preparerServices()
@@ -48,7 +54,8 @@ before(async () => {
     },
     droits: async (docId, id) => {
       appelsDroits.push({ docId, id })
-      return id.startsWith('lecteur') ? 'lecture' : id.startsWith('banni') ? null : 'ecriture'
+      const role = roleSimule(id)
+      return acces(capacites(roleEffectif(role === 'banni' ? [] : [role ?? 'editeur'])))
     },
   })
 })
@@ -117,6 +124,14 @@ function client(id, personne) {
     globalThis.WebSocket = NativeWS
   }
 }
+/** Le texte d'essai d'un état Yjs encodé. */
+function texteDuDoc(etat) {
+  const d = new Y.Doc()
+  Y.applyUpdate(d, etat)
+  const t = d.get('essai-t2', Y.Text).toString()
+  d.destroy()
+  return t
+}
 async function attendreQue(predicat, delai = 8000) {
   for (const t0 = Date.now(); Date.now() - t0 < delai; await attendre(50)) if (predicat()) return true
   return false
@@ -143,18 +158,44 @@ t2('deux clients de l’adaptateur Yjs convergent ; l’état et la présence se
   }
 })
 
-t2('un lecteur ne peut pas écrire : sa modification n’atteint pas les autres', async () => {
-  const id = docId('lecture')
-  const ecrivain = client(id, 'alice')
-  const lecteur = client(id, 'lecteur-1')
-  try {
-    await attendre(800)
-    lecteur.contexte.doc.get('essai-t2', Y.Text).insert(0, 'interdit')
-    ecrivain.contexte.doc.get('essai-t2', Y.Text).insert(0, 'permis')
-    await attendre(1500)
-    assert.equal(ecrivain.contexte.doc.get('essai-t2', Y.Text).toString(), 'permis')
-  } finally {
-    ecrivain.fermer()
-    lecteur.fermer()
-  }
+// Le cœur de l'étape 2 : le rôle décidé par le domaine, appliqué par y/hub,
+// quel que soit le client (ici un client Yjs qui écrit quand même).
+for (const [role, ecrit] of [
+  ['lecteur', false],
+  ['correcteur', false],
+  ['editeur', true],
+  ['proprietaire', true],
+])
+  t2(
+    `${role} : ${ecrit ? 'sa modification atteint les autres' : 'sa modification n’atteint pas les autres'}`,
+    async () => {
+      const id = docId(`role-${role}`)
+      const temoin = client(id, 'editeur-temoin')
+      const essai = client(id, `${role}-1`)
+      try {
+        await attendre(800)
+        essai.contexte.doc.get('essai-t2', Y.Text).insert(0, 'essai ')
+        temoin.contexte.doc.get('essai-t2', Y.Text).insert(0, 'témoin')
+        const attendu = ecrit ? (s) => s.length === 12 : (s) => s === 'témoin'
+        await attendre(1500)
+        const vu = temoin.contexte.doc.get('essai-t2', Y.Text).toString()
+        assert.ok(attendu(vu), `${role} : le témoin voit ${JSON.stringify(vu)}`)
+        // Et l'état relu côté serveur a sa frappe, ou ne l'a pas.
+        await attendre(500)
+        assert.equal(/essai/.test(texteDuDoc(await collab.lireEtat(id))), ecrit, `${role} : état du serveur`)
+      } finally {
+        temoin.fermer()
+        essai.fermer()
+      }
+    },
+  )
+
+t2('rôle retiré : la connexion suivante est refusée (les droits sont redemandés)', async () => {
+  const id = docId('retrait')
+  rolesFixes.set('edith', 'editeur')
+  assert.equal(await upgrade(id, { cookie: 'qui=edith' }), 101)
+  rolesFixes.set('edith', 'banni')
+  assert.equal(await upgrade(id, { cookie: 'qui=edith' }), 403)
+  rolesFixes.set('edith', 'correcteur')
+  assert.equal(await upgrade(id, { cookie: 'qui=edith' }), 101)
 })
