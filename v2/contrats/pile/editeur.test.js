@@ -251,3 +251,28 @@ test('notes : les flèches entrent dans une note repliée et en sortent, dans le
   assert.match(await texte(page), /^Avant!Note après$/)
   await page.context().close()
 })
+
+test('notes : un passage copié avec sa note se colle avec elle', async () => {
+  const page = await pageEcriture('notes-copie')
+  await page.keyboard.type('Phrase')
+  await insererNote(page, 'Sa note.')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.type(' finie.')
+  // Copier tout le paragraphe : on garde ce que l'éditeur met au presse-papiers.
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Shift+End')
+  await attendre(400) // ProseMirror lit la sélection du navigateur de façon asynchrone
+  const donnees = await page.evaluate(() => {
+    const dt = new DataTransfer()
+    document
+      .querySelector('.bn-editor')
+      .dispatchEvent(new ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }))
+    return Object.fromEntries(dt.types.map((type) => [type, dt.getData(type)]))
+  })
+  assert.ok(donnees['text/html'], 'du HTML est copié')
+  await page.keyboard.press('End')
+  await page.keyboard.press('Enter')
+  await coller(page, donnees)
+  await attendreNotes(page, ['Sa note.', 'Sa note.'])
+  await page.context().close()
+})
