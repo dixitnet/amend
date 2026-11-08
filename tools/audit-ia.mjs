@@ -1,7 +1,7 @@
 // Audit partiel du code de la v2 par une IA de Scaleway, avant une fusion dans
 // main (règles de la v2, § 6 ; décisions de Sylvain du 08/11/2026).
 //
-//   node tools/audit-ia.mjs --modele=<id Scaleway> [--depuis=<commit>] [--essai]
+//   node tools/audit-ia.mjs --modele=<id Scaleway> [--depuis=<commit>] [--reflexion=low] [--essai]
 //
 // Envoie le diff de v2/ depuis `--depuis` (par défaut : la base commune avec
 // origin/main), chaque ligne numérotée comme dans le fichier, avec les règles
@@ -20,6 +20,9 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..')
 const arg = (nom, defaut = null) => process.argv.find((a) => a.startsWith(`--${nom}=`))?.split('=')[1] ?? defaut
 const MODELE = arg('modele')
 const ESSAI = process.argv.includes('--essai')
+// Intensité de la réflexion (none, low, high, max) : au-delà de « low », la
+// réflexion de DeepSeek et de GLM épuise la sortie avant toute réponse (essai du 08/11).
+const REFLEXION = arg('reflexion', 'low')
 const PLAFOND_SIGNES = 400_000
 const ADRESSE = 'https://api.scaleway.ai/v1/chat/completions'
 
@@ -142,6 +145,7 @@ const r = await fetch(ADRESSE, {
     // réponse arrive vide. 16 000 jetons : le plus bas des maxima des modèles
     // essayés (GLM-5.3).
     max_tokens: 16000,
+    reasoning_effort: REFLEXION,
     stream: true,
     messages: [
       { role: 'system', content: consigne },
@@ -182,11 +186,25 @@ const nbLignes = (f) => {
   if (!lignesDe.has(f)) lignesDe.set(f, existsSync(join(RACINE, f)) ? lire(f).split('\n').length : 0)
   return lignesDe.get(f)
 }
-const constats = avis.split(/\n(?=\s*\**A\d+\b)/).filter((c) => /^\s*\**A\d+\b/.test(c))
+// Un constat commence par « A1 », « **A1** » ou « 1. » en début de ligne.
+const DEBUT = /^\s*\**(A?\d+)[.)]?\**[\s.]/
+const constats = avis
+  .slice(avis.indexOf('## Constats'))
+  .split('\n')
+  .reduce(
+    (liste, l) =>
+      DEBUT.test(l) ? [...liste, l] : liste.length ? [...liste.slice(0, -1), `${liste.at(-1)}\n${l}`] : liste,
+    []
+  )
+/** Un chemin cité, ramené à un fichier du diff (chemin complet, sans `v2/`, ou nom seul s'il est unique). */
+const fichierCite = (cite) => {
+  const candidats = fichiers.filter((f) => f === cite || f === `v2/${cite}` || f.endsWith(`/${cite}`))
+  return candidats.length === 1 ? candidats[0] : cite
+}
 const verifications = constats.map((c) => {
-  const numero = /A\d+/.exec(c)[0]
+  const numero = DEBUT.exec(c)[1]
   const citations = [...c.matchAll(/`?((?:v2\/)?[\w./-]+\.\w+):(\d+)`?/g)].map((m) => ({
-    fichier: m[1].startsWith('v2/') ? m[1] : `v2/${m[1]}`,
+    fichier: fichierCite(m[1]),
     ligne: Number(m[2]),
   }))
   if (!citations.length) return `- ${numero} : **sans citation** (écarté d'office)`
@@ -202,7 +220,7 @@ writeFileSync(
   sortie,
   `# Audit partiel avant fusion (${date})
 
-- Auditeur : Scaleway, modèle \`${MODELE}\` ; consommation : ${total + consigne.length} signes envoyés, ${avis.length} reçus (et ${reflexion} de réflexion) ; ${duree} s ; arrêt : ${arret || 'inconnu'}
+- Auditeur : Scaleway, modèle \`${MODELE}\` ; consommation : ${total + consigne.length} signes envoyés, ${avis.length} reçus (et ${reflexion} de réflexion) ; réflexion \`${REFLEXION}\` ; ${duree} s ; arrêt : ${arret || 'inconnu'}
 - Diff audité : \`v2/\` de \`${DEPUIS.slice(0, 7)}\` à \`${git('rev-parse', '--short', 'HEAD').trim()}\` (${fichiers.length} fichiers)
 - Statut : avis reçu ; réponse de Claude à écrire ; arbitrage de Sylvain à venir.
 
