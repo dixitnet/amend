@@ -339,15 +339,15 @@ Résultat attendu : Le document s'ouvre (le préfixe `/api/` est vérifié avant
 - T5.1 : deux onglets d'une même personne qui partagent leur identité : voulu.
 - T2.4 (cent niveaux d'imbrication), T2.5 (trames WebSocket malformées, gérées par le navigateur et par y/hub), T4.1, T4.2, T4.4, T4.5, T6.2, T6.5 : sans entrée d'utilisateur réaliste ou hors de notre code.
 
-**Scénarios des droits, proposés par Claude** (de la couche la plus basse à la plus haute) :
+**Scénarios des droits, proposés par Claude** (de la couche la plus basse à la plus haute ; révisés le 08/11/2026 pour les quatre rôles arbitrés) :
 
 | Couche | Scénario |
 |---|---|
-| T1 | chaque rôle et ses capacités ; rôle inconnu → lecteur ; aucun rôle → rien ; la traduction des capacités en accès (`ecriture`, `lecture`, rien) ; un correcteur n'écrit pas tant que la suggestion n'existe pas |
-| T3 | route des droits : rôle connu, inconnu, absent, document inconnu ; route d'attribution des rôles fermée hors développement ; la personne qui ouvre un document la première en devient éditrice, les suivantes non |
-| T2 | y/hub, avec les rôles décidés par le serveur : écriture refusée à un lecteur et à un correcteur, acceptée à un éditeur ; retrait du rôle d'une personne connectée (les droits sont redemandés à la connexion suivante) |
-| T5 | un éditeur et un lecteur sur le même document : la frappe du lecteur n'arrive pas chez l'éditeur, et le lecteur voit un état « lecture seule » traduit |
+| T1 | chaque rôle (lecteur, correcteur, éditeur, propriétaire) et ses capacités ; ordre des rôles ; rôle effectif = le plus fort d'une liste (liste vide, rôle inconnu dans la liste) ; rôle inconnu → lecteur ; aucun rôle → rien ; traduction des capacités en accès (`ecriture`, `lecture`, rien) ; un correcteur n'écrit pas tant que la suggestion n'existe pas |
+| T3 | route des droits : chaque rôle, rôle inconnu, absent, document inconnu ; route d'attribution des rôles fermée hors développement ; la personne qui crée un document en devient propriétaire, les suivantes non |
+| T2 | y/hub, avec les rôles décidés par le serveur : écriture refusée à un lecteur et à un correcteur, acceptée à un éditeur et au propriétaire ; retrait du rôle d'une personne connectée (les droits sont redemandés à la connexion suivante) |
+| T5 | un propriétaire et un correcteur sur le même document : la frappe du correcteur n'arrive pas chez le propriétaire, et le correcteur voit un état « lecture seule » traduit |
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+08/11/2026 : rôles arbitrés (plan, « Arbitrage de Sylvain ») ; scénarios des droits révisés en conséquence.

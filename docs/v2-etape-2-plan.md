@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 2, « Droits »
 
-Statut : **ouverture** (08/11/2026), soumis à la revue de Mistral et à l'arbitrage de Sylvain. Rien n'est développé avant. Révisé le 08/11/2026 : la proposition à deux rôles (sans propriétaire) est retirée à la demande de Sylvain ; il peut y avoir plusieurs éditeurs, il faut donc un propriétaire qui gère leurs droits, crée et supprime le document.
+Statut : **arbitré** par Sylvain le 08/11/2026 (questions 1 à 5 ci-dessous) ; développement à lancer sur son feu vert. Révisé le 08/11/2026 : la proposition à deux rôles (sans propriétaire) est retirée à la demande de Sylvain ; il peut y avoir plusieurs éditeurs, il faut donc un propriétaire qui gère leurs droits, crée et supprime le document.
 
 Références : `docs/v2-regles-developpement.md` (dont « Avant de proposer un développement ou un correctif »), `docs/v2-procedure-tests.md`, `v2/adr/`.
 
@@ -83,7 +83,7 @@ lecteur < correcteur < éditeur < propriétaire. Les éditeurs invitent, y compr
 |---|---|---|---|---|
 | **lecteur** | lire | voir | à trancher à l'étape 5 (lecture seule ou `comment`) | quitter |
 | **correcteur** | lire | voir, écrire | `comment` | quitter |
-| **éditeur** | lire, écrire ; historique, retour arrière | voir, écrire ; accepter, rejeter | `editor` | inviter (tous rôles sauf propriétaire), changer un rôle, retirer un accès, sauf celui du propriétaire ; quitter |
+| **éditeur** | lire, écrire ; historique, retour arrière | voir, écrire ; accepter, rejeter | `editor` | inviter (tous rôles sauf propriétaire), changer le rôle de n'importe qui et retirer n'importe quel accès, sauf ceux du propriétaire ; quitter |
 | **propriétaire** | comme l'éditeur | comme l'éditeur | `editor` | comme l'éditeur ; supprimer et restaurer le document ; transférer la propriété (il devient alors éditeur) ; ne peut pas quitter sans transférer |
 
 Créer un document : toute personne connectée ; elle en devient propriétaire. Pas d'administrateur ; pas de lien de partage (la page publiée couvre la lecture publique), à rouvrir à l'étape 6 si besoin.
@@ -139,10 +139,10 @@ Questions ouvertes, à trancher quand les équipes seront au plan (rien ne les b
 - Équipes et dossiers partagés : étape à placer au plan quand le besoin sera daté.
 - Typographie (étape 4), NFC des exports (étape 7), limites en signes (étape 8).
 
-## Questions pour Sylvain
+## Arbitrage de Sylvain (08/11/2026)
 
-1. Fusionner les étapes 2 et 3 en « Droits », et renvoyer typographie, NFC des exports et limites en signes aux étapes qui s'en servent ?
-2. ~~Rôles~~ : arbitré le 08/11/2026 (quatre rôles, les éditeurs invitent, un propriétaire transmissible).
-3. Un éditeur peut-il retirer un autre éditeur, ou seulement ceux qu'il a invités ? (Proposition : tout accès sauf celui du propriétaire, comme en v1.)
-4. Équipes : d'accord pour que le propriétaire d'un document puisse être, plus tard, une équipe (modèle Google), et pour que l'ADR de stockage de l'étape 6 le prévoie ?
-5. En attendant la suggestion (étape 5), un correcteur ne peut que lire (y/hub le garantit) : d'accord ?
+1. Étapes 2 et 3 fusionnées en « Droits » ; typographie (étape 4), NFC des exports (étape 7) et limites en signes (étape 8) écrites à l'étape qui s'en sert : **oui**.
+2. Quatre rôles, lecteur, correcteur, éditeur, propriétaire ; les éditeurs invitent, y compris d'autres éditeurs ; le propriétaire est un éditeur qui a en plus la vie et la mort du document et le transfert de propriété.
+3. Un éditeur peut retirer **n'importe quel** autre accès, sauf celui du propriétaire.
+4. Le propriétaire d'un document pourra être, plus tard, une équipe ; l'ADR de stockage de l'étape 6 le prévoit : **oui**.
+5. Jusqu'à l'étape 5, un correcteur ne peut que lire : **oui**.
