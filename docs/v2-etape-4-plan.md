@@ -98,3 +98,15 @@ Proposition : renoncer aux trois et les inscrire au registre (`docs/v2-renonceme
 4. Tout document est en français d'ici l'étape 6 ; l'extension reçoit la langue en paramètre.
 5. Renoncements n° 5, 6 et 7 inscrits au registre.
 6. Proposer en amont (BlockNote) les notes et la typographie : oui, le moment venu, chaque envoi soumis à Sylvain avant.
+
+## Avancement (08/11/2026)
+
+- Lot 1, domaine : `domaine/typographie.js` (cinq règles, collage et frappe ; la frappe ne regarde que les trois derniers caractères et le mot en cours, pour protéger une adresse en cours de frappe) ; T1.
+- Lot 2, règle 1 révisée appliquée : dépendances exactes, lint, contrat d'une seule copie.
+- Lot 3, extension de typographie et schéma du livre : frappe par le module de règles de saisie de BlockNote ; Retour arrière par notre propre annulation (celle du module réinsère le caractère tapé une seconde fois : défaut amont, veille) ; collage typographié et en NFC ; titres repliables retirés avec les listes repliables ; langue du document distincte de celle de l'interface. T2 et T5.
+- Limite constatée : « :) » tapé reçoit une espace insécable avant « : » (rien ne dit, à la frappe, qu'une parenthèse suivra) ; un Retour arrière rend le « : » tapé. Le collage, lui, laisse « :) » intact.
+- Essai des notes (brouillon, hors dépôt) : le modèle a fonctionne (texte riche dans la note, modification au clavier, insertion d'une note avant les autres, numérotation calculée à l'affichage par un compteur CSS, jamais stockée). Trois affichages soumis à Sylvain en captures :
+  - **A. dans le texte** : la note visible à son appel ; le plus simple, rien à ouvrir ; lourd quand les notes sont nombreuses ;
+  - **B. appel seul** : la note s'ouvre quand le curseur y entre, et une liste des notes en fin de document (lecture) ; lecture du texte la plus propre ; un peu de code en plus (ouverture, liste) ;
+  - **C. en marge** : la note dans la marge droite, à hauteur de son appel ; demande de la largeur (Mac oui, iPad en portrait non : il faudrait A ou B en repli) ; des notes rapprochées se chevauchent.
+
