@@ -69,10 +69,10 @@ test('schéma du livre : blocs et styles retirés refusés avec un code, jamais 
     assert.throws(() => ecrireBlocs(blocs), { code: 'blocs-invalides' }, JSON.stringify(blocs))
 })
 
-test('texte brut : cellules de tableau comprises', () => {
+test('texte brut : liens et cellules de tableau compris', () => {
   const t = (text) => ({ type: 'text', text, styles: {} })
   const blocs = [
-    { type: 'paragraph', content: [t('Appel fin')] },
+    { type: 'paragraph', content: [t('Appel '), { type: 'link', href: 'https://exemple.fr', content: [t('fin')] }] },
     { type: 'table', content: { type: 'tableContent', rows: [{ cells: [[t('A1')], [t('B1')]] }] } },
   ]
   assert.equal(texteDesBlocs(lireBlocs(ecrireBlocs(blocs))), 'Appel fin\nA1\tB1')
