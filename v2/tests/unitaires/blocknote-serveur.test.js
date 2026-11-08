@@ -94,3 +94,24 @@ test('note de bas de page : texte riche, aller-retour à l’identique, notes da
   )
   assert.equal(notesDuDocument(relus)[0][1].styles.italic, true)
 })
+
+test('note de bas de page dans une cellule de tableau : relue et listée', async () => {
+  // Constat A2 de l'audit partiel (Qwen 3.5, 08/11/2026) : cas non couvert.
+  const { notesDuDocument } = await import('../../extensions/note/index.js')
+  const t = (text) => ({ type: 'text', text, styles: {} })
+  const blocs = [
+    { type: 'paragraph', content: [t('Avant'), { type: 'note', content: [t('Première.')] }] },
+    {
+      type: 'table',
+      content: {
+        type: 'tableContent',
+        rows: [{ cells: [[t('A'), { type: 'note', content: [t('Dans la cellule.')] }], [t('B')]] }],
+      },
+    },
+  ]
+  const relus = lireBlocs(ecrireBlocs(blocs))
+  assert.deepEqual(
+    notesDuDocument(relus).map((n) => n.map((m) => m.texte).join('')),
+    ['Première.', 'Dans la cellule.'],
+  )
+})

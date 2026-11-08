@@ -137,6 +137,11 @@ const r = await fetch(ADRESSE, {
   body: JSON.stringify({
     model: MODELE,
     temperature: 0.2,
+    // Les modèles qui réfléchissent avant d'écrire comptent leur réflexion dans
+    // la sortie : sans limite explicite, celle par défaut s'y épuise et la
+    // réponse arrive vide. 16 000 jetons : le plus bas des maxima des modèles
+    // essayés (GLM-5.3).
+    max_tokens: 16000,
     stream: true,
     messages: [
       { role: 'system', content: consigne },
@@ -149,6 +154,8 @@ if (!r.ok) {
   process.exit(1)
 }
 let avis = ''
+let reflexion = 0
+let arret = ''
 let reste = ''
 const decodeur = new TextDecoder()
 for await (const morceau of r.body) {
@@ -159,7 +166,10 @@ for await (const morceau of r.body) {
     if (!ligne.startsWith('data:')) continue
     const donnees = ligne.slice(5).trim()
     if (!donnees || donnees === '[DONE]') continue
-    avis += JSON.parse(donnees).choices?.[0]?.delta?.content || ''
+    const choix = JSON.parse(donnees).choices?.[0]
+    avis += choix?.delta?.content || ''
+    reflexion += (choix?.delta?.reasoning_content || choix?.delta?.reasoning || '').length
+    arret = choix?.finish_reason || arret
   }
 }
 avis = avis.trim() || '(réponse vide)'
@@ -192,7 +202,7 @@ writeFileSync(
   sortie,
   `# Audit partiel avant fusion (${date})
 
-- Auditeur : Scaleway, modèle \`${MODELE}\` ; consommation : ${total + consigne.length} signes envoyés, ${avis.length} reçus ; ${duree} s
+- Auditeur : Scaleway, modèle \`${MODELE}\` ; consommation : ${total + consigne.length} signes envoyés, ${avis.length} reçus (et ${reflexion} de réflexion) ; ${duree} s ; arrêt : ${arret || 'inconnu'}
 - Diff audité : \`v2/\` de \`${DEPUIS.slice(0, 7)}\` à \`${git('rev-parse', '--short', 'HEAD').trim()}\` (${fichiers.length} fichiers)
 - Statut : avis reçu ; réponse de Claude à écrire ; arbitrage de Sylvain à venir.
 
