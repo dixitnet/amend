@@ -11,7 +11,7 @@ import { creerTableAcces } from './acces.js'
 import { nomPersonne, identifiantDocument, ROLES, roleEffectif, capacites, acces } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
-export const confDepuisEnv = () => ({
+const confDepuisEnv = () => ({
   port: Number(process.env.V2_PORT || 4300),
   secret: process.env.V2_SECRET || randomBytes(32).toString('hex'),
   jetonInterne: process.env.V2_JETON_INTERNE || '',
@@ -33,9 +33,8 @@ const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript',
   '.css': 'text/css',
-  '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
-  '.json': 'application/json',
+  '.woff': 'font/woff',
 }
 
 function json(res, statut, corps, entetes = {}) {

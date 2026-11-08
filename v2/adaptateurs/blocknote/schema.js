@@ -13,7 +13,7 @@ import {
 const { paragraph, quote, bulletListItem, numberedListItem, divider, table, image } = defaultBlockSpecs
 const { bold, italic, underline, strike } = defaultStyleSpecs
 
-export const BLOCS_DU_LIVRE = {
+const BLOCS_DU_LIVRE = {
   paragraph,
   // Sans titres repliables : comme les listes repliables, retirés (n° 8).
   heading: createHeadingBlockSpec({ levels: [1, 2, 3], allowToggleHeadings: false }),
@@ -24,7 +24,7 @@ export const BLOCS_DU_LIVRE = {
   table,
   image,
 }
-export const STYLES_DU_LIVRE = { bold, italic, underline, strike }
+const STYLES_DU_LIVRE = { bold, italic, underline, strike }
 
 export const schemaLivre = BlockNoteSchema.create({
   blockSpecs: BLOCS_DU_LIVRE,

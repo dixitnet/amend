@@ -91,9 +91,9 @@ test('un texte piégé s’affiche comme du texte, jamais comme du code', () => 
     h(design.PageEdition, { titre: '<script>alert(1)</script>', etat: '<b>x</b>', participants: '&', editeur: null }),
   )
   assert.doesNotMatch(html, /<script>|<b>/)
-  assert.doesNotMatch(html, /page-edition__mention/, 'pas de mention sans texte')
+  assert.doesNotMatch(html, /Lecture seule/, 'pas de mention sans texte')
   const avec = rendre(h(design.PageEdition, { titre: 'x', mention: 'Lecture seule', editeur: null }))
-  assert.match(avec, /page-edition__mention[^>]*>[\s\S]*Lecture seule</)
+  assert.match(avec, />Lecture seule</)
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 

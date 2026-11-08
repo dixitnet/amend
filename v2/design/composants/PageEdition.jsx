@@ -7,11 +7,11 @@ import { Container, Stack, Group, Title, Text, Badge } from '@mantine/core'
 
 export function PageEdition({ titre, etat, participants, mention, editeur }) {
   return (
-    <Container className="page-edition">
+    <Container>
       <Stack component="header">
         <Group>
           <Title order={1}>{titre}</Title>
-          {mention ? <Badge className="page-edition__mention">{mention}</Badge> : null}
+          {mention ? <Badge>{mention}</Badge> : null}
           <Text role="status">{etat}</Text>
         </Group>
         <Text>{participants}</Text>

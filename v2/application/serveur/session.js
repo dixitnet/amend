@@ -25,10 +25,10 @@ export function lireJeton(secret, jeton) {
   }
 }
 
-export function lireCookie(entete, nom = NOM_COOKIE) {
+export function lireCookie(entete) {
   for (const morceau of String(entete || '').split(';')) {
     const [k, ...v] = morceau.trim().split('=')
-    if (k === nom) return v.join('=')
+    if (k === NOM_COOKIE) return v.join('=')
   }
   return null
 }

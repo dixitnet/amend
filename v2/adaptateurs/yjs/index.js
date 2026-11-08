@@ -6,7 +6,7 @@ import * as Y from '@y/y'
 import { WebsocketProvider } from '@y/websocket'
 
 /** Nom du type racine qui porte le texte (le même pour tous les documents). */
-export const RACINE_TEXTE = 'doc'
+const RACINE_TEXTE = 'doc'
 
 const ETATS = { connected: 'connecte', connecting: 'connexion', disconnected: 'deconnecte' }
 

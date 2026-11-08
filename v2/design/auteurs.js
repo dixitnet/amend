@@ -5,7 +5,7 @@
 // mode clair ou sombre.
 import { DEFAULT_THEME } from '@mantine/core'
 
-export const COULEURS_AUTEURS = Object.keys(DEFAULT_THEME.colors).filter((n) => n !== 'gray' && n !== 'dark')
+const COULEURS_AUTEURS = Object.keys(DEFAULT_THEME.colors).filter((n) => n !== 'gray' && n !== 'dark')
 
 export function couleurAuteur(id) {
   let h = 0

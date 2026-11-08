@@ -1,7 +1,7 @@
 // Le nom affiché d'une personne (couche domaine) : en NFC, sans espaces en
 // trop, sans caractère invisible ni de contrôle, 80 signes au plus. Les
 // emojis composés (avec liant sans chasse) restent permis.
-export const LONGUEUR_MAX_NOM = 80
+const LONGUEUR_MAX_NOM = 80
 
 // Contrôles, espace sans chasse, marques et isolats de sens d'écriture.
 const INVISIBLES = /[\p{Cc}\u200B\u200E\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u

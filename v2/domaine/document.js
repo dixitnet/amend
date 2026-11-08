@@ -4,7 +4,7 @@
 // documents auront des identifiants générés (étape 6) ; un accent, une espace
 // ou un emoji sont refusés plutôt que de produire deux documents pour un même
 // nom (NFC et NFD s'encodent différemment).
-export const LONGUEUR_MAX_IDENTIFIANT = 64
+const LONGUEUR_MAX_IDENTIFIANT = 64
 
 /** @returns {{ ok: true, id: string } | { ok: false, code: string }} */
 export function identifiantDocument(brut) {
