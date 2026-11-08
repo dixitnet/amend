@@ -95,3 +95,18 @@ Invitations, comptes, stockage définitif des accès (étape 6) ; exports des su
 5. Correcteur et lecteur publient leur présence, sans droit d'écrire.
 6. Renoncements : règle D2, couleurs stockées, cartes appariées (registre, n° 9 à 11).
 
+
+## Essais du lot 0 (08/11/2026)
+
+Page d'essai locale (deux postes, chacun avec son document principal et son document de suggestions, reliés comme par y/hub), BlockNote 0.57 tel quel, avec le schéma du livre, la typographie et les notes.
+
+Ce qui marche :
+1. Le mode suggestion : ce que tape le correcteur reste dans le document de suggestions ; le principal ne change pas avant l'acceptation ; « tout accepter » et « tout refuser » donnent le bon résultat chez les deux postes.
+2. Les notes en mode suggestion (risque 2) : insérer une note et écrire dedans fait une suggestion ; l'accepter la porte dans le principal, la refuser la retire.
+
+Ce qui ne marche pas :
+3. **Typographie en mode suggestion (risque 1)** : nos règles ne s'appliquent pas (guillemets droits, pas d'espace fine), avec l'erreur « Applying a mismatched transaction ». C'est un **défaut amont** : les remplacements de BlockNote lui-même (« # » → titre, « - » → liste) échouent de la même façon. Cause : le module de règles de saisie envoie deux transactions de suite, la seconde préparée sur un état que la synchronisation du mode suggestion a déjà changé. Une variante de notre extension qui fait le remplacement **en une seule transaction** fonctionne en mode suggestion (« monde !» donne une seule suggestion propre, avec l'espace fine, dans le texte comme dans une note). Noté dans la veille.
+4. **Ancre des commentaires du correcteur** : quand le correcteur (mode suggestion) commente un passage, le fil est créé mais **aucune marque n'est posée dans le texte** (le commentaire n'est rattaché à rien) ; pour l'éditeur, la marque est posée. La marque d'un commentaire vit dans le texte du document principal, où le correcteur n'écrit pas.
+5. **Correction du plan** : Docs n'utilise pas `RESTYjsThreadStore`. Son magasin de fils est le sien (routes de son serveur pour les fils et les commentaires), et **la marque est posée par le navigateur**, dans le texte ; une personne qui ne peut pas modifier le document n'a pas d'interface de commentaire. Docs ne résout donc pas le cas de notre correcteur.
+
+Questions posées à Sylvain : voir le journal (08/11/2026).
