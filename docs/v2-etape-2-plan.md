@@ -23,9 +23,44 @@ Que chaque personne n'ait, sur chaque document, que les droits de son rôle, dé
 
 ## Ce qui est établi, et ce qui ne l'est pas
 
-- **Établi** (décisions de produit, v1 et ADR 0001) : trois rôles, éditeur, correcteur, lecteur ; le serveur décide, y/hub applique ; un rôle inconnu vaut le plus restrictif ; aucun rôle, aucun accès.
+- **Établi** (décisions de produit, v1 et ADR 0001) : le serveur décide, y/hub applique ; un rôle inconnu vaut le plus restrictif ; aucun rôle, aucun accès. Les rôles eux-mêmes : voir « Ce que les briques font déjà » (proposition : éditeur et correcteur, le lecteur abandonné).
 - **Pas encore utilisable** à cette étape : la suggestion (étape 5) et les commentaires (étape 5). Tant qu'ils n'existent pas, un correcteur et un lecteur ont les mêmes droits effectifs : **lire**. Les capacités `suggerer` et `commenter` sont déclarées dans le domaine (elles définissent les rôles) mais ne sont branchées sur rien avant l'étape 5.
 - **Pas établi** : où et comment sont enregistrés les comptes, les documents et les accès (base, fichiers…). C'est l'objet de l'étape 6, avec son ADR. À cette étape, la table des accès est **provisoire, en mémoire**, alimentée par une route de développement ; elle est remplacée à l'étape 6 sans changer l'interface que le serveur offre à y/hub.
+
+## Ce que les briques font déjà, et nos écarts
+
+Demande de Sylvain (08/11/2026) : faire le moins de spécifique possible, quitte à abandonner un rôle (le lecteur, par exemple).
+
+### Ce qui est déjà intégré
+
+| Brique | Ce qu'elle sait faire, sans code de notre part |
+|---|---|
+| **y/hub** | Permissions par **document et par branche** (`{org, docid, branch}`), chacune décidée par notre serveur à la connexion : contenu (`ydoc` : lire, écrire), présence (`awareness` : voir, publier), historique (à partir d'une date, retour arrière, versions nommées), suppression, routes (WebSocket, lecture REST). Il applique lui-même : une écriture sans le droit n'est pas acceptée. |
+| **BlockNote** | Éditeur modifiable ou en **lecture seule** ; **mode suggestion** (voir ou écrire les suggestions, accepter, rejeter), branché sur un document de suggestions distinct ; **commentaires** avec deux rôles natifs : `comment` (créer un fil, répondre, résoudre, réagir, modifier ses propres commentaires) et `editor` (en plus : supprimer un fil, supprimer le commentaire d'un autre). |
+| **Docs** (référence, pas une dépendance) | Cinq rôles (lecteur, commentateur, éditeur, administrateur, propriétaire), traduits exactement en permissions de y/hub ; c'est la preuve que ce découpage tient en production. |
+
+Conséquence clé : **le correcteur n'a besoin d'aucune vérification de notre part**. Il lit la branche principale et écrit dans la branche (ou le document) de suggestions : y/hub refuse le reste. La règle « le correcteur ne touche pas au texte accepté », qui demandait en v1 une analyse du texte côté serveur, devient une ligne de permissions.
+
+### Proposition : deux rôles, tous deux natifs
+
+| Rôle | Branche principale (y/hub) | Suggestions (y/hub) | Commentaires (BlockNote) | Éditeur (BlockNote) | Propre à amend.ink |
+|---|---|---|---|---|---|
+| **éditeur** | lire, écrire ; historique, retour arrière | lire, écrire ; accepter, rejeter | `editor` | modifiable ; mode suggestion au choix | inviter, gérer les accès, supprimer le document |
+| **correcteur** | lire | lire, écrire | `comment` | mode suggestion imposé | — |
+
+- **Le lecteur est abandonné** (proposition de Sylvain) : pas de rôle sans contribution. Lire un texte fini relève de la page publiée ; relire en commentant relève du correcteur. Si un besoin de « commentateur seul » apparaît, BlockNote et y/hub le savent déjà faire (lecture seule plus rôle `comment`) : on le rouvrira sans code nouveau.
+- **Pas d'administrateur ni de propriétaire distincts** (Docs en a) : l'éditeur gère les accès. À rouvrir seulement si un besoin réel apparaît (plusieurs éditeurs qui ne doivent pas pouvoir s'exclure).
+
+### Nos écarts, c'est-à-dire ce qui reste à écrire
+
+1. **La table rôle → permissions** : une vingtaine de lignes dans le domaine, et sa traduction dans l'adaptateur y/hub (qui existe). C'est le seul code de droits.
+2. **Inviter et gérer les accès** : aucune brique ne le fait (y/hub ne connaît ni comptes ni invitations). Étape 6.
+3. **Où vivent les commentaires du correcteur**, qui ne peut pas écrire dans la branche principale : deux voies natives de BlockNote, à choisir à l'étape 5 : les fils écrits par notre serveur (`RESTYjsThreadStore`, la voie de Docs), ou stockés avec les suggestions. Aucun code de contrôle dans les deux cas.
+4. **Imposer le mode suggestion au correcteur dans l'interface** : un réglage de l'éditeur ; la garantie, elle, vient de y/hub.
+
+### Conséquence pour cette étape
+
+Tant que les suggestions n'existent pas (étape 5), le correcteur ne peut que lire, et y/hub le garantit déjà. L'étape « Droits » se réduit donc à : la table des deux rôles (domaine), la réponse du serveur à y/hub selon ce rôle, et les tests qui prouvent qu'un correcteur ne peut pas écrire. Les permissions de la branche de suggestions et des commentaires seront ajoutées à la table à l'étape 5, quand elles auront un usage.
 
 ## Contenu, en lots d'une couche
 
@@ -54,4 +89,5 @@ Que chaque personne n'ait, sur chaque document, que les droits de son rôle, dé
 ## Questions pour Sylvain
 
 1. Fusionner les étapes 2 et 3 en « Droits », et renvoyer typographie, NFC des exports et limites en signes aux étapes qui s'en servent ?
-2. En attendant la suggestion (étape 5), un correcteur a les droits d'un lecteur : d'accord ?
+2. Deux rôles natifs, éditeur et correcteur, et **abandon du lecteur** (renoncement à inscrire au registre) ; pas d'administrateur ni de propriétaire distincts ?
+3. En attendant la suggestion (étape 5), un correcteur ne peut que lire (y/hub le garantit) : d'accord ?
