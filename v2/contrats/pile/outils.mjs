@@ -1,0 +1,58 @@
+// Gestes communs des tests T5 (pile complète dans un navigateur).
+// Le moteur se choisit par NAVIGATEUR=chromium|webkit|firefox (chromium par défaut).
+import assert from 'node:assert/strict'
+import * as playwright from 'playwright'
+
+export const NAVIGATEUR = process.env.NAVIGATEUR || 'chromium'
+export const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
+export const lancerNavigateur = () => playwright[NAVIGATEUR].launch()
+export const docTest = (nom) => `t5-${nom}-${Date.now().toString(36)}`
+
+/** Une personne connectée sur un document, prête à écrire. */
+export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR' } = {}) {
+  const ctx = await nav.newContext({ locale })
+  const page = await ctx.newPage()
+  await page.goto(`${base}/#${docId}`)
+  await page.waitForSelector('input[name=nom], .bn-editor')
+  if (await page.$('input[name=nom]')) {
+    await page.fill('input[name=nom]', nom)
+    await page.click('button[type=submit]')
+  }
+  await page.waitForSelector('.bn-editor')
+  await attendreEtat(page, 'Synchronisé')
+  return page
+}
+
+export const etat = (page) => page.evaluate(() => document.querySelector('[role=status]')?.textContent)
+export async function attendreEtat(page, attendu, delai = 20000) {
+  await page.waitForFunction((a) => document.querySelector('[role=status]')?.textContent === a, attendu, {
+    timeout: delai,
+  })
+}
+
+/** Le texte des blocs, un par ligne, sans les étiquettes des curseurs distants. */
+export const texte = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('.bn-editor .bn-inline-content')]
+      .map((el) => {
+        const copie = el.cloneNode(true)
+        copie.querySelectorAll('.ProseMirror-widget').forEach((c) => c.remove())
+        return copie.textContent.replace(/⁠/g, '')
+      })
+      .filter((l, i, tout) => l || i < tout.length - 1)
+      .join('\n'),
+  )
+export async function attendreTexte(page, attendu, delai = 10000) {
+  for (const t0 = Date.now(); Date.now() - t0 < delai; await attendre(100)) if ((await texte(page)) === attendu) return
+  assert.equal(await texte(page), attendu)
+}
+
+export async function session(base, nom) {
+  const r = await fetch(`${base}/api/dev/session`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ nom }),
+  })
+  assert.equal(r.status, 200)
+  return r.headers.get('set-cookie').split(';')[0]
+}

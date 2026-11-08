@@ -33,7 +33,7 @@ const MODELE = arg('modele', 'mistral-large-latest')
 const ESSAI = process.argv.includes('--essai')
 const PLAFOND_SIGNES = 400_000
 
-if (!ETAPE || !['ouverture', 'cloture'].includes(PHASE)) {
+if (!ETAPE || !['ouverture', 'cloture', 'scenarios', 'captures'].includes(PHASE)) {
   console.error(
     'Usage : node tools/revue-ia.mjs --etape=N --phase=ouverture|cloture [--depuis=<commit>] [--modele=…] [--essai]'
   )
@@ -64,14 +64,52 @@ const lire = (f) => {
 // 1. Les pièces.
 const pieces = []
 const ajouter = (titre, texte) => pieces.push({ titre, texte })
-for (const f of ['docs/v2-regles-developpement.md', 'docs/v2-renoncements.md', 'docs/v2-veille.md']) ajouter(f, lire(f))
-for (const f of suivis('v2/adr/*.md')) ajouter(f, lire(f))
-const plan = PLAN || `docs/v2-etape-${ETAPE}-plan.md`
-if (!existsSync(join(RACINE, plan))) throw new Error(`plan absent : ${plan}`)
-ajouter(plan, lire(plan))
+const images = []
+if (PHASE === 'captures') {
+  // Les captures (exploitation/dev/captures.mjs) et ce qui règle l'apparence.
+  const dossierCaptures = join(RACINE, 'v2/.captures', `etape-${ETAPE}`)
+  if (!existsSync(join(dossierCaptures, 'LISTE.txt')))
+    throw new Error(`captures absentes : lancer node exploitation/dev/captures.mjs --etape=${ETAPE} dans v2/`)
+  const liste = readFileSync(join(dossierCaptures, 'LISTE.txt'), 'utf8')
+  ajouter('Liste des captures, dans l’ordre des images', liste)
+  for (const ligne of liste.trim().split('\n')) {
+    const fichier = ligne.split(' : ')[0]
+    images.push({ nom: fichier, donnees: readFileSync(join(dossierCaptures, fichier)).toString('base64') })
+  }
+  for (const f of [
+    'v2/design/jetons.css',
+    'v2/design/styles.css',
+    'v2/design/theme.js',
+    'v2/design/composants/PageEdition.jsx',
+    'v2/design/composants/EcranSimple.jsx',
+  ])
+    ajouter(f, lire(f))
+}
+if (PHASE !== 'captures') {
+  for (const f of ['docs/v2-regles-developpement.md', 'docs/v2-renoncements.md', 'docs/v2-veille.md'])
+    ajouter(f, lire(f))
+  for (const f of suivis('v2/adr/*.md')) ajouter(f, lire(f))
+  const plan = PLAN || `docs/v2-etape-${ETAPE}-plan.md`
+  if (!existsSync(join(RACINE, plan))) throw new Error(`plan absent : ${plan}`)
+  ajouter(plan, lire(plan))
+}
 const arbo = suivis('v2/').filter((f) => !f.startsWith('v2/adr/'))
-ajouter('Arborescence de v2/ (fichiers suivis)', arbo.length ? arbo.join('\n') : '(vide)')
-if (existsSync(join(RACINE, 'v2/package.json'))) ajouter('v2/package.json', lire('v2/package.json'))
+if (PHASE !== 'captures') {
+  ajouter('Arborescence de v2/ (fichiers suivis)', arbo.length ? arbo.join('\n') : '(vide)')
+  if (existsSync(join(RACINE, 'v2/package.json'))) ajouter('v2/package.json', lire('v2/package.json'))
+}
+if (PHASE === 'scenarios') {
+  ajouter('docs/v2-procedure-tests.md', lire('docs/v2-procedure-tests.md'))
+  ajouter('docs/v2-mise-en-ligne.md', lire('docs/v2-mise-en-ligne.md'))
+  const sources = arbo.filter(
+    (f) => /\.(m?js|jsx|css|json|sh|service|conf)$|Caddyfile/.test(f) && !/package-lock|\/tests\/|\/contrats\//.test(f)
+  )
+  for (const f of sources) ajouter(f, lire(f))
+  const titres = arbo
+    .filter((f) => /\/(tests|contrats)\/.*\.test\.m?js$/.test(f))
+    .map((f) => `${f}\n` + [...lire(f).matchAll(/^test\('([^']+)'/gm)].map((m) => `  - ${m[1]}`).join('\n'))
+  ajouter('Tests existants (fichier, puis titres)', titres.join('\n'))
+}
 if (PHASE === 'cloture') {
   const diff = git('diff', `${DEPUIS}..HEAD`, '--', 'v2/', ':(exclude)v2/package-lock.json', ':(exclude)v2/LICENSE')
   ajouter(`Diff de v2/ depuis ${DEPUIS}`, diff || '(aucun changement)')
@@ -82,8 +120,9 @@ const SECRET = /(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE 
 for (const p of pieces)
   if (SECRET.test(p.texte)) throw new Error(`motif de secret repéré dans « ${p.titre} » : revue annulée`)
 
-// 2. La consigne : la grille du § 6 des règles.
-const consigne = `Tu es relecteur (${SUJET}) pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2). Un autre modèle (Claude) écrit le code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
+// 2. La consigne : la grille du § 6 des règles (revues) ou la recherche de
+// scénarios adverses (docs/v2-procedure-tests.md).
+const consigneRevue = `Tu es relecteur (${SUJET}) pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2). Un autre modèle (Claude) écrit le code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
 
 Phase : ${PHASE === 'ouverture' ? `OUVERTURE de l'étape ${ETAPE} — tu relis le PLAN avant tout développement` : `CLÔTURE de l'étape ${ETAPE} — tu relis l'architecture ET le code produit (diff fourni)`}.
 
@@ -108,15 +147,54 @@ Une liste numérotée R1, R2, … Pour chaque constat : **[bloquant | important 
 ## Points de grille sans remarque
 (les numéros)`
 
+const consigneScenarios = `Tu es testeur adverse pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs, en cours de reconstruction (v2) à partir de zéro. Un autre modèle (Claude) écrit le code et les tests ; ton rôle est de trouver ce qui peut casser. Réponds en français.
+
+Étape ${ETAPE}. Tu reçois les règles (avec le découpage en couches), le plan, la procédure de test, le code source et la liste des tests existants. Ne t'appuie que sur ce code : pas de suppositions tirées d'autres logiciels.
+
+On veut des tests **légers et automatiques**, organisés **couche par couche**, qui se **complexifient progressivement**, pour détecter les défauts le plus tôt et le plus bas possible :
+- T1 domaine et traductions : fonctions pures, sans réseau ni navigateur ;
+- T2 adaptateurs pris isolément : Yjs (deux documents en mémoire), BlockNote (éditeur sans navigateur), y/hub (contre Redis et PostgreSQL locaux, client sans navigateur) ;
+- T3 serveur applicatif : requêtes HTTP en processus (routes, codes, cookies) ;
+- T4 design : rendu des composants, clair et sombre, français, anglais et pseudo-langue ;
+- T5 pile complète dans un navigateur automatisé (Chromium, WebKit, Firefox) ;
+- T6 en ligne (v2.amend.ink, derrière un mot de passe).
+Pour chaque couche, va du cas nominal au cas limite. Un défaut doit être attrapé à la couche la plus basse possible : ne propose un test T5 ou T6 que si rien de plus bas ne peut l'attraper.
+
+Format de réponse, strictement :
+## Scénarios par couche
+Pour chaque couche (T1 à T6), une liste numérotée (T1.1, T1.2, …), du plus simple au plus difficile, cinq au plus par couche. Pour chaque scénario : **[grave | moyen | faible]**, le titre, l'élément du code visé (fichier, fonction), les entrées, le résultat attendu. Pas de scénario sans élément précis du dossier ; pas de doublon avec les tests existants.
+## Données piégées
+Un bloc de code JSON : un objet dont chaque clé est un usage (\"noms\", \"identifiantsDeDocument\", \"textes\", \"cookies\"…) et chaque valeur une liste de chaînes difficiles (Unicode combinant, NFD, emoji, très long, caractères de contrôle, injections), chacune avec la raison en commentaire dans une liste parallèle \"raisons\".`
+
+const consigneCaptures = `Tu es relecteur de design pour amend.ink, un éditeur de texte collaboratif pour auteurs et éditeurs (livres, essais), en cours de reconstruction (v2). Réponds en français.
+
+Tu reçois des captures d'écran (dans l'ordre de la liste fournie : écran, langue, thème, taille), les jetons de design et les styles. La pseudo-langue « pseudo » accentue, allonge d'environ 40 % et encadre chaque texte de ⟦ ⟧ : un texte sans ⟦ ⟧ dans une capture en pseudo-langue est resté en dur ; un crochet manquant signale un texte coupé.
+
+Grille : 1. lisibilité et hiérarchie (titres, texte du livre, informations) ; 2. contraste, en clair et en sombre ; 3. débordements, coupures, chevauchements, surtout en pseudo-langue et sur téléphone ; 4. textes non traduits (pseudo-langue) ; 5. cohérence de l'alignement et des espacements entre l'en-tête et la zone d'écriture ; 6. adéquation à un usage d'auteur (confort de lecture d'un long texte) ; 7. accessibilité visible (taille, focus, zones cliquables).
+
+Ne juge que ce que tu vois. Format, strictement :
+## Synthèse
+(3 à 5 lignes)
+## Constats
+Une liste numérotée V1, V2, … : **[important | mineur | question]**, la ou les captures concernées (nom de fichier), le point de grille, ce que tu vois, et une proposition qui passe par les jetons ou les styles (jamais par le code technique).
+## Points de grille sans remarque
+(les numéros)`
+
+const consigne = PHASE === 'scenarios' ? consigneScenarios : PHASE === 'captures' ? consigneCaptures : consigneRevue
+
 const dossier = pieces.map((p) => `===== ${p.titre} =====\n${p.texte}`).join('\n\n')
 const date = new Date().toISOString().slice(0, 10)
-const sortie = join(RACINE, 'docs/v2-revues', `${date}-etape-${ETAPE}-${PHASE}.md`)
+const sortie =
+  PHASE === 'scenarios' || PHASE === 'captures'
+    ? join(RACINE, 'docs/v2-tests', `etape-${ETAPE}-${PHASE}.md`)
+    : join(RACINE, 'docs/v2-revues', `${date}-etape-${ETAPE}-${PHASE}.md`)
 
 console.log(`Dossier : ${pieces.length} pièces, ${total} signes ; modèle ${MODELE}`)
 for (const p of pieces) console.log(`  - ${p.titre} (${p.texte.length} signes)`)
 if (ESSAI) process.exit(0)
 
-// 3. L'appel.
+// 3. L'appel, en réception progressive : une longue réponse produite d'un bloc
+// était coupée par un intermédiaire (502) ; le flux garde la connexion active.
 const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
   method: 'POST',
   headers: {
@@ -126,9 +204,18 @@ const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
   body: JSON.stringify({
     model: MODELE,
     temperature: 0.2,
+    stream: true,
     messages: [
       { role: 'system', content: consigne },
-      { role: 'user', content: `Dossier de revue :\n\n${dossier}` },
+      {
+        role: 'user',
+        content: images.length
+          ? [
+              { type: 'text', text: `Dossier de revue :\n\n${dossier}` },
+              ...images.map((i) => ({ type: 'image_url', image_url: `data:image/png;base64,${i.donnees}` })),
+            ]
+          : `Dossier de revue :\n\n${dossier}`,
+      },
     ],
   }),
 })
@@ -136,28 +223,46 @@ if (!r.ok) {
   console.error(`Mistral : ${r.status} ${(await r.text()).slice(0, 300)}`)
   process.exit(1)
 }
-const j = await r.json()
-const avis = j.choices?.[0]?.message?.content || '(réponse vide)'
-const usage = j.usage ? `${j.usage.prompt_tokens} jetons en entrée, ${j.usage.completion_tokens} en sortie` : 'inconnu'
+let avis = ''
+let modeleServi = MODELE
+let reste = ''
+const decodeur = new TextDecoder()
+for await (const morceau of r.body) {
+  reste += decodeur.decode(morceau, { stream: true })
+  const lignes = reste.split('\n')
+  reste = lignes.pop()
+  for (const ligne of lignes) {
+    if (!ligne.startsWith('data:')) continue
+    const donnees = ligne.slice(5).trim()
+    if (!donnees || donnees === '[DONE]') continue
+    const evt = JSON.parse(donnees)
+    modeleServi = evt.model || modeleServi
+    avis += evt.choices?.[0]?.delta?.content || ''
+  }
+}
+if (!avis.trim()) avis = '(réponse vide)'
+const j = { model: modeleServi }
+// Règle 5 de CLAUDE.md : la consommation d'IA se dit en signes.
+const usage = `${total + consigne.length} signes envoyés${images.length ? ` et ${images.length} images` : ''}, ${avis.length} reçus`
 
 // 4. Le fichier de revue.
 mkdirSync(dirname(sortie), { recursive: true })
 writeFileSync(
   sortie,
-  `# Revue ${PHASE === 'ouverture' ? 'd’ouverture' : 'de clôture'} de l’étape ${ETAPE} (${date})
+  `# ${PHASE === 'scenarios' ? 'Scénarios adverses' : PHASE === 'captures' ? 'Captures jugées' : PHASE === 'ouverture' ? 'Revue d’ouverture' : 'Revue de clôture'} de l’étape ${ETAPE} (${date})
 
 - Relecteur : Mistral, modèle \`${j.model || MODELE}\` ; consommation : ${usage}
 - Pièces : ${pieces.map((p) => `\`${p.titre}\``).join(', ')}
 - Commit relu : \`${git('rev-parse', '--short', 'HEAD').trim()}\`${PHASE === 'cloture' ? ` (depuis \`${DEPUIS}\`)` : ''}
 - Statut : avis reçu ; réponse de Claude à écrire ; arbitrage de Sylvain à venir.
 
-## Avis du relecteur
+## ${PHASE === 'scenarios' ? 'Proposition de Mistral' : 'Avis du relecteur'}
 
 ${avis.trim()}
 
-## Réponse de Claude
+## ${PHASE === 'scenarios' ? 'Classement par Claude' : 'Réponse de Claude'}
 
-(Pour chaque constat : *corrigé*, *contesté* avec l'argument, ou *reporté* avec la suite prévue.)
+${PHASE === 'scenarios' ? '(Pour chaque scénario : *automatique* avec le test qui le couvre, *à la main* avec sa ligne de recette, ou *écarté* avec la raison.)' : '(Pour chaque constat : *corrigé*, *contesté* avec l’argument, ou *reporté* avec la suite prévue.)'}
 
 ## Arbitrage de Sylvain
 

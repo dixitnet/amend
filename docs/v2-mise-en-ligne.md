@@ -48,6 +48,15 @@ Prérequis : l'étape 1 et ce lot sont dans `main` (accord de Sylvain).
 
 Retour arrière : `sudo systemctl disable --now amend-v2 amend-v2-collab`, retirer le bloc Caddy et recharger. La v1 n'est pas touchée.
 
-## Tests depuis l'environnement de Claude
+## Ce que Claude peut vérifier, et ce qu'il ne peut pas
 
-Une fois en ligne, Claude peut rejouer les parcours de bout en bout contre `v2.amend.ink` (deux navigateurs, persistance, langue) si le mot de passe Caddy est enregistré comme secret de l'environnement pour cet hôte (formulaire sécurisé). Aucune action sur le VPS lui-même.
+Constaté le 08/11/2026, une fois en ligne :
+
+- **Vérifiable depuis l'environnement de Claude** (le mot de passe Caddy y est enregistré comme secret, injecté par le proxy) : refus sans mot de passe (401 sur les pages, l'API et la WebSocket), en-tête HSTS, configuration servie (`/api/config` annonce `wss://v2.amend.ink/…`), connexion de développement.
+- **Non vérifiable depuis cet environnement** : le proxy de l'environnement ne laisse passer **ni les WebSocket**, ni les ports autres que 80 et 443. La collaboration en direct et la fermeture du port 4400 se vérifient donc depuis le Mac ou un navigateur ordinaire (contrôles ci-dessous).
+
+Contrôles à faire depuis le Mac :
+
+1. Le port 4400 est fermé : `nc -vz -w 5 92.243.27.71 4400` doit échouer (alors que `nc -vz -w 5 92.243.27.71 443` réussit).
+2. La collaboration : `https://v2.amend.ink/#essai` dans deux fenêtres (ou un ordinateur et un téléphone) ; la frappe de l'une apparaît dans l'autre, l'indicateur affiche « Synchronisé », et le texte est retrouvé après rechargement.
+3. La mémoire, après la séance : `mesurer.sh` sur le VPS.

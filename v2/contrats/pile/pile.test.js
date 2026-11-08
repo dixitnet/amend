@@ -3,66 +3,31 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { createRequire } from 'node:module'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import { lireBlocs, texteDesBlocs } from '../../adaptateurs/blocknote/serveur.js'
+import {
+  attendre,
+  lancerNavigateur,
+  docTest,
+  ouvrir as ouvrirSur,
+  attendreTexte,
+  session as sessionSur,
+} from './outils.mjs'
 
-const { chromium } = createRequire(import.meta.url)('playwright')
-const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
-const docTest = (nom) => `contrat-${nom}-${Date.now().toString(36)}`
 let pile, nav
+const ouvrir = (nom, docId, o) => ouvrirSur(nav, pile.url, nom, docId, o)
+const session = (nom) => sessionSur(pile.url, nom)
 
 before(async () => {
   preparerServices()
   construireClient()
   pile = await demarrerPile({ delaiPersistance: 500 })
-  nav = await chromium.launch()
+  nav = await lancerNavigateur()
 })
 after(async () => {
   await nav?.close()
   await pile?.arreter()
 })
-
-async function session(nom) {
-  const r = await fetch(`${pile.url}/api/dev/session`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ nom }),
-  })
-  assert.equal(r.status, 200)
-  return r.headers.get('set-cookie').split(';')[0]
-}
-
-async function ouvrir(nom, docId) {
-  const ctx = await nav.newContext({ locale: 'fr-FR' })
-  const page = await ctx.newPage()
-  await page.goto(`${pile.url}/#${docId}`)
-  await page.fill('input[name=nom]', nom)
-  await page.click('button[type=submit]')
-  await page.waitForSelector('.bn-editor')
-  await page.waitForFunction(() => document.querySelector('[role=status]')?.textContent === 'Synchronisé')
-  return page
-}
-/** Le texte des blocs, un par ligne, sans les étiquettes des curseurs distants. */
-const texte = (page) =>
-  page.evaluate(() =>
-    [...document.querySelectorAll('.bn-editor .bn-inline-content')]
-      .map((el) => {
-        const copie = el.cloneNode(true)
-        copie.querySelectorAll('.ProseMirror-widget').forEach((c) => c.remove())
-        return copie.textContent.replace(/\u2060/g, '')
-      })
-      .filter((l, i, tout) => l || i < tout.length - 1)
-      .join('\n'),
-  )
-async function attendreTexte(page, attendu, delai = 8000) {
-  const t0 = Date.now()
-  while (Date.now() - t0 < delai) {
-    if ((await texte(page)) === attendu) return
-    await attendre(100)
-  }
-  assert.equal(await texte(page), attendu)
-}
 
 /** Ouverture d'un WebSocket vers y/hub, sans navigateur : le code HTTP de la réponse. */
 function upgrade(docId, cookie) {

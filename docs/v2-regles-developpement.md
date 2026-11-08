@@ -66,6 +66,18 @@ v2/
 3. **Le domaine n'importe aucune fondation** ni aucun module de l'application. Il reçoit des données simples et rend des données simples.
 4. **Ces règles sont vérifiées par la machine**, dans `npm run lint` (règles de frontières entre dossiers, avec un outil du type `eslint-plugin-boundaries` ou `dependency-cruiser`, à choisir). Une violation bloque le lot.
 
+### Avant de proposer un développement ou un correctif
+
+Ajouté le 08/11/2026, après une proposition précipitée (un lot de design pour un « défaut » qui était le comportement voulu de BlockNote, à une étape où l'on travaille sur les couches basses). Aucune proposition de développement, même petite, sans être passée par ces cinq vérifications, écrites dans la proposition :
+
+1. **Le besoin est-il établi ?** Reproduit ou mesuré, pas supposé d'après une impression ou une capture. Un besoin qui dépend d'une décision de produit encore ouverte (garder les poignées de bloc, les formats d'écran, une règle éditoriale) n'est **pas stabilisé** : on pose la question, on ne développe pas.
+2. **Est-ce vraiment un défaut ?** Distinguer : un défaut de notre code ; le comportement voulu d'une fondation (lire sa documentation avant de le qualifier de défaut) ; un défaut d'une fondation (veille, et signalement en amont plutôt que contournement) ; une question de produit (pour Sylvain).
+3. **Est-ce le bon moment ?** Le plan des étapes (§ 8) dit quand chaque sujet se traite. Un sujet d'une étape à venir est **noté** dans le plan de cette étape, pas développé maintenant, même s'il paraît simple.
+4. **Quel est le bon niveau ?** La couche la plus basse qui règle la cause, pas le symptôme : une règle du domaine plutôt qu'une vérification dans un écran ; la configuration d'une fondation plutôt qu'un contournement ; rien du tout si le comportement est voulu. Un correctif qui touche plusieurs couches est le signe qu'on traite un symptôme.
+5. **Quelles conséquences à terme ?** Ce que le correctif fige ou empêche plus tard (montée de version d'une fondation, étape suivante, format S, traductions), et ce qu'il faudra défaire. À coût égal, la solution qui laisse le plus de choix ouverts ; à défaut de pouvoir trancher, attendre.
+
+**Sobriété** : le plus petit changement qui règle la cause, au bon niveau ; pas de développement spécifique pour un cas isolé ; pas d'option « au cas où ». Une proposition qui ne passe pas ces vérifications devient une **question** ou une **note** dans le plan d'une étape, jamais un lot.
+
 ### Un lot = une couche
 
 5. **Un lot de développement ne touche qu'une couche**, plus au besoin l'adaptateur qui la relie à une fondation. Si un besoin oblige à toucher trois couches, c'est qu'il est mal découpé ou mal placé : on le redécoupe.
@@ -111,6 +123,7 @@ v2/
 19. **Les extensions** (couche 3) qui dessinent quelque chose, par exemple l'appel de note, posent des classes et des attributs de rôle ; leur apparence est définie dans `v2/design/`.
 20. **Un lot de design ne touche que `v2/design/`** (et des catalogues de textes au besoin), **un lot technique ne touche pas à `v2/design/`**. Changer l'apparence d'amend.ink ne doit demander aucune modification de la logique, et inversement. C'est vérifié par le lint (frontières entre dossiers, interdiction de `style` et de valeurs de couleur ou de taille dans le code technique).
 21. **Les rendus imprimés** (PDF Typst, Word, page publiée) ont aussi leur couche de design : les modèles de mise en page et les profils sont séparés du code qui parcourt le document.
+21 bis. **Formats d'écran visés** (décision de Sylvain, 08/11/2026) : **L** (Mac) et **M** (iPad, en portrait et en paysage). Le format **S** (iPhone) fera l'objet d'un développement spécifique plus tard, avec des compromis fonctionnels forts ; on ne conçoit ni ne teste pour lui d'ici là.
 22. **Accessibilité** : elle relève des deux couches. La présentation garantit contrastes, tailles et focus visibles ; la technique garantit sémantique, rôles ARIA et navigation au clavier.
 
 ### Traductions : anticipées dès le premier écran
@@ -207,6 +220,8 @@ Entre deux étapes, chaque lot suit les contrôles ordinaires : `format:check`, 
 6. Les revues sont commitées : elles forment l'historique des raisons.
 
 ### Mistral et les tests
+
+Procédure complète (niveaux de test, cycle d'une étape, rôles de Claude, de Mistral et de Sylvain) : `docs/v2-procedure-tests.md`.
 
 Ce qui est utile, au-delà des revues d'architecture et de code :
 

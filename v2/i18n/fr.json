@@ -13,6 +13,16 @@
   "document": {
     "titre": "Document {id}",
     "participants": "{n, plural, =0 {Personne d’autre} one {# autre personne} other {# autres personnes}} sur ce document",
-    "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}"
+    "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
+    "zoneEdition": "Texte du document {id}"
+  },
+  "erreurs": {
+    "document-vide": "Ce document n’a pas de nom.",
+    "document-trop-long": "Le nom de ce document est trop long (64 signes au plus).",
+    "document-caracteres": "Le nom d’un document ne peut contenir que des lettres et chiffres sans accent, des tirets et des tirets bas.",
+    "nom-vide": "Indiquez un nom.",
+    "nom-trop-long": "Ce nom est trop long (80 signes au plus).",
+    "nom-caracteres": "Ce nom contient des caractères invisibles ou de contrôle.",
+    "reseau": "Le serveur ne répond pas. Vérifiez la connexion."
   }
 }
