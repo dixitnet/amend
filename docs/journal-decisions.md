@@ -303,3 +303,8 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 - 08/11/2026, audit complet (`docs/v2-audits/2026-11-08-audit-complet.md`, GLM-5.3, 9 modules, ~75 constats dont ~40 % justes) : décision de Sylvain, corriger les importants et les mineurs, sauvegarde de la base v2 reportée à la mise en ligne avec de vrais textes, fusion avec le lot. Corrections faites (100 tests rapides, 35 sur la pile).
 - 08/11/2026 : lot « audit et corrections » fusionné dans `main` avec l'accord de Sylvain (CI verte sur trois moteurs).
 - 08/11/2026, décisions de Sylvain (étape 4) : pas de raccourci clavier pour insérer une note (menu « / » seulement) ; apparence des notes confirmée telle quelle (valeurs de Mantine). Étape 5 « Relecture » ouverte.
+
+## 33. v2, étape 5 « Relecture » : ouverture et arbitrage (08/11/2026)
+
+- Plan `docs/v2-etape-5-plan.md` : suggestions dans une branche y/hub (montage de Docs), commentaires et historique de BlockNote. Décisions de Sylvain : commentaires écrits par notre serveur (droits vérifiés côté serveur) ; le lecteur ne commente pas ; tout le monde a accès à tout l'historique, retour à une version réservé à l'éditeur et au propriétaire ; accepter et refuser choisis sur captures ; présence publiée par tous ; renoncements n° 9 à 11 (règle D2, couleurs stockées, cartes appariées).
+

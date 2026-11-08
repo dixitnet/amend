@@ -1,7 +1,7 @@
 # Revue d'ouverture de l'étape 5, « Relecture » (2026-11-08)
 
 - Relecteur : Claude ; grille du § 6 des règles appliquée au plan `docs/v2-etape-5-plan.md`.
-- Statut : revue écrite ; arbitrage de Sylvain à venir.
+- Statut : revue écrite ; arbitré par Sylvain le 08/11/2026.
 
 ## Grille
 
@@ -17,4 +17,4 @@
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+08/11/2026 : voir « Arbitrage » dans `docs/v2-etape-5-plan.md`.

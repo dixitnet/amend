@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 5, « Relecture »
 
-Statut : **ouverture** (08/11/2026), soumis à l'arbitrage de Sylvain. Rien n'est développé avant. Revue d'ouverture par Claude (grille des règles, § 6) ; scénarios de test par Claude (`docs/v2-tests/etape-5-scenarios.md`).
+Statut : **arbitré** par Sylvain le 08/11/2026 (voir « Arbitrage » en fin de plan) ; développement lancé. Revue d'ouverture par Claude (grille des règles, § 6) ; scénarios de test par Claude (`docs/v2-tests/etape-5-scenarios.md`).
 
 Références : `docs/v2-regles-developpement.md`, `docs/v2-etape-2-plan.md` (rôles), `v2/adr/0003-blocknote.md`, `v2/adr/0004-yhub.md`.
 
@@ -85,3 +85,13 @@ Aujourd'hui, un correcteur ou un lecteur ne publie pas sa présence (curseur, «
 ## Hors périmètre
 
 Invitations, comptes, stockage définitif des accès (étape 6) ; exports des suggestions et des commentaires (étape 7) ; Margo comme auteur de suggestions (étape 8) ; sauvegarde de la base v2 (mise en ligne avec de vrais textes).
+
+## Arbitrage de Sylvain (08/11/2026)
+
+1. Commentaires **écrits par notre serveur** (`RESTYjsThreadStore`, droits vérifiés côté serveur).
+2. Le lecteur **ne commente pas** : il lit seulement.
+3. **Plus simple : tout le monde a accès à tout l'historique** (pas de date d'accès à enregistrer) ; nommer une version et y revenir restent à l'éditeur et au propriétaire (`restaurer`).
+4. Accepter et refuser : essai de deux ou trois dispositions en captures, Sylvain choisit.
+5. Correcteur et lecteur publient leur présence, sans droit d'écrire.
+6. Renoncements : règle D2, couleurs stockées, cartes appariées (registre, n° 9 à 11).
+
