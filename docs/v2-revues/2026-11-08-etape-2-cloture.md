@@ -2,7 +2,7 @@
 
 - Relecteur : **Claude** (Mistral suspendu depuis le 08/11/2026, règles de la v2, § 6) ; grille de revue du § 6 appliquée au diff de l'étape.
 - Diff relu : `662ccdb..` (branche `claude/determined-edison-rybime`), 23 fichiers de `v2/`.
-- Statut : revue écrite ; arbitrage de Sylvain à venir.
+- Statut : revue écrite ; arbitré par Sylvain le 08/11/2026.
 
 ## Grille
 
@@ -30,4 +30,4 @@
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+08/11/2026 : étape close, fusion dans `main`.

@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 2, « Droits »
 
-Statut : **arbitré** par Sylvain le 08/11/2026 (questions 1 à 5 ci-dessous) ; développement lancé le même jour, réalisé (rapport `docs/v2-tests/etape-2-rapport.md`, revue de clôture `docs/v2-revues/2026-11-08-etape-2-cloture.md`), clôture soumise à Sylvain. Mistral suspendu : la revue de clôture est faite par Claude (règles, § 6). Révisé le 08/11/2026 : la proposition à deux rôles (sans propriétaire) est retirée à la demande de Sylvain ; il peut y avoir plusieurs éditeurs, il faut donc un propriétaire qui gère leurs droits, crée et supprime le document.
+Statut : **arbitré** par Sylvain le 08/11/2026 (questions 1 à 5 ci-dessous) ; développement lancé le même jour, réalisé (rapport `docs/v2-tests/etape-2-rapport.md`, revue de clôture `docs/v2-revues/2026-11-08-etape-2-cloture.md`), close par Sylvain le 08/11/2026 et fusionnée dans `main`. Mistral suspendu : la revue de clôture est faite par Claude (règles, § 6). Révisé le 08/11/2026 : la proposition à deux rôles (sans propriétaire) est retirée à la demande de Sylvain ; il peut y avoir plusieurs éditeurs, il faut donc un propriétaire qui gère leurs droits, crée et supprime le document.
 
 Références : `docs/v2-regles-developpement.md` (dont « Avant de proposer un développement ou un correctif »), `docs/v2-procedure-tests.md`, `v2/adr/`.
 
