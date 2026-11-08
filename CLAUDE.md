@@ -74,6 +74,7 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
   3. Un lot = une couche (plus l'adaptateur concerné). Ordre de préférence : renoncer, configurer, étendre, coder chez nous, et seulement en dernier recours corriger une fondation.
   4. Renoncer plutôt que contourner : registre `docs/v2-renoncements.md`. Veille de l'amont : `docs/v2-veille.md`. Décisions : `v2/adr/`.
   5. Pas de migration des documents de la v1.
+  6. **Avant de proposer un développement ou un correctif**, vérifier et écrire : le besoin est-il établi (reproduit, mesuré, décision de produit prise) ? est-ce un défaut de notre code, le comportement voulu d'une fondation, un défaut amont ou une question de produit ? est-ce le bon moment (étape du plan) ? quel est le niveau le plus bas qui règle la cause ? quelles conséquences à terme ? Sobriété : le plus petit changement au bon niveau, pas de développement spécifique sur un besoin non stabilisé. Sinon : une question ou une note dans le plan d'une étape, pas un lot.
 - Code dans `v2/` (ce dépôt), sous AGPL-3.0. La v1 et la v2 ne s'importent pas l'une l'autre.
 - Relecture par une autre IA (Mistral, clé dédiée) **aux étapes** de la reconstruction (ouverture et clôture), pas à chaque lot ; réponses point par point dans `docs/v2-revues/`, Sylvain arbitre.
 - Connexion par lien magique (pas d'OIDC). Développement et essais dans l'environnement en nuage de Claude (Valkey, PostgreSQL) ; pas de préproduction sur le Mac.

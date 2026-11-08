@@ -66,6 +66,18 @@ v2/
 3. **Le domaine n'importe aucune fondation** ni aucun module de l'application. Il reçoit des données simples et rend des données simples.
 4. **Ces règles sont vérifiées par la machine**, dans `npm run lint` (règles de frontières entre dossiers, avec un outil du type `eslint-plugin-boundaries` ou `dependency-cruiser`, à choisir). Une violation bloque le lot.
 
+### Avant de proposer un développement ou un correctif
+
+Ajouté le 08/11/2026, après une proposition précipitée (un lot de design pour un « défaut » qui était le comportement voulu de BlockNote, à une étape où l'on travaille sur les couches basses). Aucune proposition de développement, même petite, sans être passée par ces cinq vérifications, écrites dans la proposition :
+
+1. **Le besoin est-il établi ?** Reproduit ou mesuré, pas supposé d'après une impression ou une capture. Un besoin qui dépend d'une décision de produit encore ouverte (garder les poignées de bloc, les formats d'écran, une règle éditoriale) n'est **pas stabilisé** : on pose la question, on ne développe pas.
+2. **Est-ce vraiment un défaut ?** Distinguer : un défaut de notre code ; le comportement voulu d'une fondation (lire sa documentation avant de le qualifier de défaut) ; un défaut d'une fondation (veille, et signalement en amont plutôt que contournement) ; une question de produit (pour Sylvain).
+3. **Est-ce le bon moment ?** Le plan des étapes (§ 8) dit quand chaque sujet se traite. Un sujet d'une étape à venir est **noté** dans le plan de cette étape, pas développé maintenant, même s'il paraît simple.
+4. **Quel est le bon niveau ?** La couche la plus basse qui règle la cause, pas le symptôme : une règle du domaine plutôt qu'une vérification dans un écran ; la configuration d'une fondation plutôt qu'un contournement ; rien du tout si le comportement est voulu. Un correctif qui touche plusieurs couches est le signe qu'on traite un symptôme.
+5. **Quelles conséquences à terme ?** Ce que le correctif fige ou empêche plus tard (montée de version d'une fondation, étape suivante, format S, traductions), et ce qu'il faudra défaire. À coût égal, la solution qui laisse le plus de choix ouverts ; à défaut de pouvoir trancher, attendre.
+
+**Sobriété** : le plus petit changement qui règle la cause, au bon niveau ; pas de développement spécifique pour un cas isolé ; pas d'option « au cas où ». Une proposition qui ne passe pas ces vérifications devient une **question** ou une **note** dans le plan d'une étape, jamais un lot.
+
 ### Un lot = une couche
 
 5. **Un lot de développement ne touche qu'une couche**, plus au besoin l'adaptateur qui la relie à une fondation. Si un besoin oblige à toucher trois couches, c'est qu'il est mal découpé ou mal placé : on le redécoupe.
