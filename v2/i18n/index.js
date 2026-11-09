@@ -35,7 +35,7 @@ export function choisirLangue(preferences = []) {
   return LANGUE_SOURCE
 }
 
-/** Un traducteur pour une langue : `t('document.participants', { n: 2 })`. */
+/** Un traducteur pour une langue : `t('suggestions.titre', { n: 2 })`. */
 export function creerTraducteur(langue = LANGUE_SOURCE) {
   // « pseudo » : langue de contrôle, jamais proposée aux personnes (règle 31).
   if (langue === LANGUE_PSEUDO)

@@ -4,23 +4,33 @@
 // v2/i18n/.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  PageEdition,
   EcranMessage,
   EcranConnexion,
   EcranCourriel,
   ListeDocuments,
   PanneauPartage,
   PanneauSuggestions,
-  BoutonBascule,
   Bouton,
   Choix,
   couleurAuteur,
+  Coquille,
+  ColonneTexte,
+  Bandeau,
+  VoletPlanDocuments,
+  NavigationListe,
+  VoletRelecture,
+  TexteDeVolet,
+  AlerteHorsLigne,
+  Fenetre,
+  FenetreSaisie,
+  useFormat,
 } from '../../design/index.js'
 import { creerTraducteur, choisirLangue, messageErreur, libelleDuRole, LANGUE_PSEUDO } from '../../i18n/index.js'
 import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 import { serviceCommentaires, nomsDe } from './commentaires.js'
+import { useVolets } from './volets.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
 // essais et les captures), sinon celle du navigateur.
@@ -116,11 +126,61 @@ export function App() {
     )
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
-  if (visee.liste) return <MesDocuments onglet={visee.liste} dossier={visee.dossier ?? null} />
+  if (visee.liste) return <MesDocuments personne={etat.personne} onglet={visee.liste} dossier={visee.dossier ?? null} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
   const doc = identifiantDocument(visee.document)
   if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
   return <Document key={doc.id} config={etat.config} personne={etat.personne} docId={doc.id} />
+}
+
+/** La marque en tête du volet gauche : vers Mes documents. */
+const marque = () => ({ nom: t('application.nom'), href: '#' })
+
+/** Le compte, dans le bandeau : se déconnecter (ici ou partout). */
+function compteDe(personne) {
+  const sortir = (partout) => async () => {
+    await envoyerJson('POST', partout ? '/api/deconnexion-partout' : '/api/deconnexion').catch(() => {})
+    location.reload()
+  }
+  return {
+    libelle: t('interface.compte'),
+    nom: personne.nom,
+    courriel: personne.courriel,
+    actions: [
+      { cle: 'ici', libelle: t('documents.deconnexion'), surClic: sortir(false) },
+      { cle: 'partout', libelle: t('documents.deconnexionPartout'), surClic: sortir(true) },
+    ],
+  }
+}
+
+/** Le bouton du volet gauche, dans le bandeau. */
+const boutonGauche = (volets) => ({
+  libelle: t('interface.voletGauche'),
+  ouvert: volets.gauche,
+  surClic: volets.basculerGauche,
+})
+
+/** La fenêtre de saisie d'un nom (dossier) : `{ titre, valeur?, valider }` ou null. */
+function useSaisie() {
+  const [saisie, setSaisie] = useState(null)
+  const fenetre = (
+    <FenetreSaisie
+      key={saisie ? saisie.titre + (saisie.valeur ?? '') : 'fermee'}
+      ouverte={!!saisie}
+      titre={saisie?.titre}
+      libelle={t('documents.nomDuDossier')}
+      valeur={saisie?.valeur}
+      libelleValider={t('interface.valider')}
+      libelleAnnuler={t('interface.annuler')}
+      surValider={async (v) => {
+        const f = saisie.valider
+        setSaisie(null)
+        await f(v)
+      }}
+      surFermer={() => setSaisie(null)}
+    />
+  )
+  return [fenetre, setSaisie]
 }
 
 /** La connexion : un lien par courriel (le document visé l'accompagne, pour
@@ -177,7 +237,10 @@ function cheminDe(dossiers, id) {
 
 /** Les documents, comme sur un serveur de fichiers (étape 6c) : Mes documents,
  * avec mes dossiers (rangement personnel), et Partagé avec moi. */
-function MesDocuments({ onglet, dossier }) {
+function MesDocuments({ personne, onglet, dossier }) {
+  const { etroit } = useFormat()
+  const volets = useVolets(etroit)
+  const [fenetreSaisie, demanderNom] = useSaisie()
   const [donnees, setDonnees] = useState(null)
   const [erreur, setErreur] = useState(null)
   const [message, setMessage] = useState(null)
@@ -219,22 +282,46 @@ function MesDocuments({ onglet, dossier }) {
         .map((d) => ({ value: d.id, label: nomDuChemin(d.id) }))
         .sort((a, b) => a.label.localeCompare(b.label, t.langue)),
     )
-  const commun = {
-    nomApplication: t('application.nom'),
-    titre: onglet === 'partages' ? t('documents.partagesAvecMoi') : t('documents.mesDocuments'),
-    actions: <Deconnexion />,
-    onglets: [
-      { value: 'mes', label: t('documents.mesDocuments') },
-      { value: 'partages', label: t('documents.partagesAvecMoi') },
-    ],
-    onglet,
-    surOnglet: (o) => (location.hash = o === 'partages' ? '#/partages' : '#'),
-    libelleChemin: t('documents.chemin'),
-    message,
-  }
+  const commun = { libelleChemin: t('documents.chemin'), message }
+  const nouveauDocument = agir(async () => {
+    location.hash = (await envoyerJson('POST', '/api/documents', { dossier: onglet === 'mes' ? dossier : null })).id
+  })
+  /** La coquille de la liste : bandeau, navigation, et la liste elle-même. */
+  const coquille = (liste) => (
+    <Coquille
+      gaucheOuvert={volets.gauche}
+      libelleRedimension={t('interface.largeurVolet')}
+      bandeau={
+        <Bandeau
+          voletGauche={boutonGauche(volets)}
+          titre={onglet === 'partages' ? t('documents.partagesAvecMoi') : t('documents.mesDocuments')}
+          compte={compteDe(personne)}
+        />
+      }
+      voletGauche={
+        <NavigationListe
+          marque={marque()}
+          nouveau={{ libelle: t('documents.nouveau'), surClic: nouveauDocument }}
+          entrees={[
+            { cle: 'mes', libelle: t('documents.mesDocuments'), picto: 'moi', href: '#', actif: onglet === 'mes' },
+            {
+              cle: 'partages',
+              libelle: t('documents.partagesAvecMoi'),
+              picto: 'partages',
+              href: '#/partages',
+              actif: onglet === 'partages',
+            },
+          ]}
+        />
+      }
+    >
+      {liste}
+      {fenetreSaisie}
+    </Coquille>
+  )
 
   if (onglet === 'partages')
-    return (
+    return coquille(
       <ListeDocuments
         {...commun}
         colonnes={[t('documents.colonneNom'), t('documents.colonneRole'), t('documents.colonnePartage')]}
@@ -266,7 +353,7 @@ function MesDocuments({ onglet, dossier }) {
             ),
           }))}
         vide={t('documents.videPartages')}
-      />
+      />,
     )
 
   /** Les sous-dossiers d'un dossier (pour ne pas y déplacer celui-ci). */
@@ -282,10 +369,13 @@ function MesDocuments({ onglet, dossier }) {
         <>
           <Bouton
             libelle={t('documents.renommer')}
-            surClic={agir(async () => {
-              const nom = window.prompt(t('documents.nomDuDossier'), d.nom)
-              if (nom !== null) await envoyerJson('PUT', `/api/dossiers/${d.id}`, { nom })
-            })}
+            surClic={() =>
+              demanderNom({
+                titre: t('documents.renommer'),
+                valeur: d.nom,
+                valider: (nom) => agir(() => envoyerJson('PUT', `/api/dossiers/${d.id}`, { nom }))(),
+              })
+            }
           />
           <Choix
             libelle={t('documents.deplacer', { nom: d.nom })}
@@ -325,43 +415,23 @@ function MesDocuments({ onglet, dossier }) {
         />
       ) : null,
     }))
-  const nouveauDocument = agir(async () => {
-    location.hash = (await envoyerJson('POST', '/api/documents', { dossier })).id
-  })
-  const nouveauDossier = agir(async () => {
-    const nom = window.prompt(t('documents.nomDuDossier'))
-    if (nom !== null) await envoyerJson('POST', '/api/dossiers', { nom, parent: dossier })
-  })
-  return (
+  const nouveauDossier = () =>
+    demanderNom({
+      titre: t('documents.nouveauDossier'),
+      valider: (nom) => agir(() => envoyerJson('POST', '/api/dossiers', { nom, parent: dossier }))(),
+    })
+  return coquille(
     <ListeDocuments
       {...commun}
       chemin={[
         { cle: 'racine', libelle: t('documents.mesDocuments'), href: '#' },
         ...cheminDe(dossiers, dossier).map((d) => ({ cle: d.id, libelle: d.nom, href: adresseDossier(d.id) })),
       ]}
-      boutons={
-        <>
-          <Bouton libelle={t('documents.nouveau')} surClic={nouveauDocument} />
-          <Bouton libelle={t('documents.nouveauDossier')} surClic={nouveauDossier} />
-        </>
-      }
+      boutons={<Bouton libelle={t('documents.nouveauDossier')} surClic={nouveauDossier} />}
       colonnes={[t('documents.colonneNom'), t('documents.colonneRole'), t('documents.colonneDate')]}
       lignes={[...lignesDossiers, ...lignesDocuments]}
       vide={dossier ? t('documents.videDossier') : t('documents.vide')}
-    />
-  )
-}
-
-function Deconnexion() {
-  const sortir = (partout) => async () => {
-    await envoyerJson('POST', partout ? '/api/deconnexion-partout' : '/api/deconnexion').catch(() => {})
-    location.reload()
-  }
-  return (
-    <>
-      <Bouton libelle={t('documents.deconnexion')} surClic={sortir(false)} />
-      <Bouton libelle={t('documents.deconnexionPartout')} surClic={sortir(true)} />
-    </>
+    />,
   )
 }
 
@@ -392,6 +462,7 @@ function Partage({ docId }) {
   const options = (roles) => roles.map((r) => ({ value: r, label: nomDuRole(r) }))
   return (
     <PanneauPartage
+      enFenetre
       titre={t('partage.titre')}
       libelles={{
         courriel: t('partage.courriel'),
@@ -472,6 +543,40 @@ function Document({ config, personne, docId }) {
   return <Edition config={config} personne={personne} docId={docId} droits={droits} />
 }
 
+/** Le volet « Documents » : mes dossiers et documents, puis ceux partagés avec moi. */
+function arbreDocuments(donnees, docId) {
+  if (!donnees) return []
+  const { dossiers, documents } = donnees
+  const entreeDoc = (d) => ({
+    cle: d.id,
+    nom: d.titre || t('documents.sansTitre'),
+    href: `#${encodeURIComponent(d.id)}`,
+    actif: d.id === docId,
+  })
+  // Les dossiers qui mènent au document ouvert sont ouverts.
+  const courant = documents.find((d) => d.id === docId && d.section === 'mes-documents')
+  const ouverts = new Set()
+  for (
+    let id = courant?.dossier ?? null;
+    id && !ouverts.has(id);
+    id = dossiers.find((x) => x.id === id)?.parent ?? null
+  )
+    ouverts.add(id)
+  const dans = (parent) => [
+    ...dossiers
+      .filter((d) => (d.parent ?? null) === parent)
+      .map((d) => ({ cle: d.id, nom: d.nom, dossier: true, ouvert: ouverts.has(d.id), enfants: dans(d.id) })),
+    ...documents.filter((d) => d.section === 'mes-documents' && (d.dossier ?? null) === parent).map(entreeDoc),
+  ]
+  const partages = documents.filter((d) => d.section === 'partage').map(entreeDoc)
+  return [
+    ...dans(null),
+    ...(partages.length
+      ? [{ cle: 'partages', nom: t('documents.partagesAvecMoi'), dossier: true, ouvert: true, enfants: partages }]
+      : []),
+  ]
+}
+
 function Edition({ config, personne, docId, droits }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
@@ -492,12 +597,24 @@ function Edition({ config, personne, docId, droits }) {
     () => (caps.includes('commenter') ? { service: serviceCommentaires(docId), capacites: caps } : null),
     [caps, docId],
   )
+  const { etroit, tactile } = useFormat()
+  const volets = useVolets(etroit)
   const [connexion, setConnexion] = useState('connexion')
-  const [autres, setAutres] = useState(0)
+  const aEteConnecte = useRef(false)
+  if (connexion === 'connecte') aEteConnecte.current = true
+  const [autres, setAutres] = useState([])
   const [suggestions, setSuggestions] = useState(null)
+  const [plan, setPlan] = useState(null)
+  const [saisie, setSaisie] = useState(null)
   const [noms, setNoms] = useState({})
   const [historique, setHistorique] = useState(false)
   const [partage, setPartage] = useState(false)
+  const [documents, setDocuments] = useState(null)
+  useEffect(() => {
+    envoyerJson('GET', '/api/documents')
+      .then(setDocuments)
+      .catch(() => setDocuments(null))
+  }, [docId])
   const supprimer = async () => {
     if (!window.confirm(t('document.confirmerSuppression'))) return
     try {
@@ -510,6 +627,14 @@ function Edition({ config, personne, docId, droits }) {
   useEffect(() => session.surEtat(setConnexion), [session])
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
+  // Le volet droit s'ouvre d'office, une fois, quand des suggestions attendent (5b).
+  const ouvertDOffice = useRef(false)
+  useEffect(() => {
+    if (!ouvertDOffice.current && suggestions?.liste.length) {
+      ouvertDOffice.current = true
+      volets.ouvrirDroite()
+    }
+  }, [suggestions])
   // Les noms des auteurs des suggestions, demandés une fois chacun.
   const demandes = useRef(new Set())
   useEffect(() => {
@@ -528,49 +653,102 @@ function Edition({ config, personne, docId, droits }) {
     if (s.type === 'suppression') return t('suggestions.suppression', v)
     return t('suggestions.remplacement', v)
   }
+  const titre = documents?.documents.find((d) => d.id === docId)?.titre || t('document.titre', { id: docId })
+  const actions = [
+    {
+      cle: 'lien',
+      libelle: t('interface.copierLien'),
+      picto: 'lien',
+      surClic: () => navigator.clipboard?.writeText(`${location.origin}/#${encodeURIComponent(docId)}`),
+    },
+    ...(caps.includes('inviter')
+      ? [{ cle: 'partager', libelle: t('document.partager'), picto: 'partager', surClic: () => setPartage(true) }]
+      : []),
+    {
+      cle: 'historique',
+      libelle: t('document.historique'),
+      picto: 'historique',
+      surClic: () => setHistorique((h) => !h),
+    },
+    ...(caps.includes('supprimer')
+      ? [{ cle: 'supprimer', libelle: t('document.supprimer'), picto: 'supprimer', separe: true, surClic: supprimer }]
+      : []),
+  ]
+  // Le lecteur ne voit pas les suggestions : pas de volet droit pour lui.
+  const avecVoletDroit = mode !== 'lire'
+  const modifications = suggestions ? (
+    <PanneauSuggestions
+      titre={t('suggestions.titre', { n: suggestions.liste.length })}
+      lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
+      libelles={{
+        accepter: t('suggestions.accepter'),
+        refuser: t('suggestions.refuser'),
+        toutAccepter: t('suggestions.toutAccepter'),
+        toutRefuser: t('suggestions.toutRefuser'),
+      }}
+      surAccepter={(i) => suggestions.accepter(suggestions.liste[i])}
+      surRefuser={(i) => suggestions.refuser(suggestions.liste[i])}
+      surToutAccepter={suggestions.toutAccepter}
+      surToutRefuser={suggestions.toutRefuser}
+    />
+  ) : (
+    <TexteDeVolet texte={t('interface.modificationsCorrecteur')} />
+  )
   return (
-    <PageEdition
-      nomApplication={t('application.nom')}
-      titre={t('document.titre', { id: docId })}
-      etat={t('document.etat', { etat: connexion })}
-      participants={t('document.participants', { n: autres })}
-      actions={
-        <>
-          <Bouton libelle={t('document.mesDocuments')} surClic={() => (location.hash = '')} />
-          <BoutonBascule
-            libelle={t('document.historique')}
-            actif={historique}
-            surBasculer={() => setHistorique((h) => !h)}
+    <Coquille
+      connexion={connexion}
+      gaucheOuvert={volets.gauche}
+      droiteOuvert={volets.droite}
+      libelleRedimension={t('interface.largeurVolet')}
+      alerte={
+        aEteConnecte.current && connexion !== 'connecte' ? <AlerteHorsLigne texte={t('interface.horsLigne')} /> : null
+      }
+      bandeau={
+        <Bandeau
+          voletGauche={boutonGauche(volets)}
+          titre={titre}
+          mention={{ ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]}
+          terminer={saisie?.enModification ? { libelle: t('interface.terminer'), surClic: saisie.terminer } : null}
+          presence={{ libelle: t('interface.presence'), personnes: autres }}
+          partager={
+            caps.includes('inviter') ? { libelle: t('document.partager'), surClic: () => setPartage(true) } : null
+          }
+          actions={{ libelle: t('interface.autresActions'), elements: actions }}
+          compte={compteDe(personne)}
+          voletDroit={
+            avecVoletDroit
+              ? {
+                  libelle: t('interface.voletDroit'),
+                  nombre: suggestions?.liste.length ?? 0,
+                  ouvert: volets.droite,
+                  surClic: volets.basculerDroite,
+                }
+              : null
+          }
+        />
+      }
+      voletGauche={
+        <VoletPlanDocuments
+          marque={marque()}
+          onglets={{ plan: t('interface.plan'), documents: t('interface.documents') }}
+          plan={(plan?.titres ?? []).map((x) => ({ ...x, actif: x.cle === plan.courant }))}
+          surTitre={(cle) => plan?.allerA(cle)}
+          videPlan={t('interface.planVide')}
+          documents={arbreDocuments(documents, docId)}
+        />
+      }
+      voletDroit={
+        avecVoletDroit ? (
+          <VoletRelecture
+            titre={t('interface.relecture')}
+            onglets={{ modifications: t('interface.modifications'), margo: t('interface.margo') }}
+            modifications={modifications}
+            margo={<TexteDeVolet texte={t('interface.margoBientot')} />}
           />
-          {caps.includes('inviter') ? (
-            <BoutonBascule libelle={t('document.partager')} actif={partage} surBasculer={() => setPartage((p) => !p)} />
-          ) : null}
-          {caps.includes('supprimer') ? <Bouton libelle={t('document.supprimer')} surClic={supprimer} /> : null}
-        </>
+        ) : null
       }
-      mention={{ ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]}
-      cote={
-        <>
-          {partage ? <Partage docId={docId} /> : null}
-          {suggestions ? (
-            <PanneauSuggestions
-              titre={t('suggestions.titre', { n: suggestions.liste.length })}
-              lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
-              libelles={{
-                accepter: t('suggestions.accepter'),
-                refuser: t('suggestions.refuser'),
-                toutAccepter: t('suggestions.toutAccepter'),
-                toutRefuser: t('suggestions.toutRefuser'),
-              }}
-              surAccepter={(i) => suggestions.accepter(suggestions.liste[i])}
-              surRefuser={(i) => suggestions.refuser(suggestions.liste[i])}
-              surToutAccepter={suggestions.toutAccepter}
-              surToutRefuser={suggestions.toutRefuser}
-            />
-          ) : null}
-        </>
-      }
-      editeur={
+    >
+      <ColonneTexte>
         <EditeurCollaboratif
           contexte={session.contexte}
           personne={moi}
@@ -584,8 +762,22 @@ function Edition({ config, personne, docId, droits }) {
           historique={historique}
           peutRestaurer={caps.includes('restaurer')}
           surFermerHistorique={() => setHistorique(false)}
+          surPlan={setPlan}
+          lectureDabord={tactile}
+          tactile={tactile}
+          surSaisie={setSaisie}
         />
-      }
-    />
+      </ColonneTexte>
+      {caps.includes('inviter') ? (
+        <Fenetre
+          ouverte={partage}
+          titre={t('partage.titre')}
+          libelleFermer={t('interface.fermer')}
+          surFermer={() => setPartage(false)}
+        >
+          {partage ? <Partage docId={docId} /> : null}
+        </Fenetre>
+      ) : null}
+    </Coquille>
   )
 }

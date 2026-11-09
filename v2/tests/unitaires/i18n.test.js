@@ -36,10 +36,10 @@ test('le nom « amend.ink » ne se traduit jamais (règle 24)', () => {
 
 test('le pluriel et les paramètres nommés passent par ICU', () => {
   const t = creerTraducteur('fr')
-  assert.equal(t('document.participants', { n: 0 }), 'Personne d’autre sur ce document')
-  assert.equal(t('document.participants', { n: 1 }), '1 autre personne sur ce document')
-  assert.equal(t('document.participants', { n: 2 }), '2 autres personnes sur ce document')
-  assert.equal(creerTraducteur('en')('document.participants', { n: 2 }), '2 other people on this document')
+  assert.equal(t('suggestions.titre', { n: 0 }), 'Aucune suggestion')
+  assert.equal(t('suggestions.titre', { n: 1 }), '1 suggestion')
+  assert.equal(t('suggestions.titre', { n: 2 }), '2 suggestions')
+  assert.equal(creerTraducteur('en')('suggestions.titre', { n: 2 }), '2 suggestions')
 })
 
 test('langue : préférences, repli sur le français', () => {
@@ -54,12 +54,12 @@ test('le nom amend.ink ne se traduit pas', () => {
 })
 
 test('une clé absente d’une langue retombe sur le français', () => {
-  const sauve = CATALOGUES.en.document.participants
-  delete CATALOGUES.en.document.participants
+  const sauve = CATALOGUES.en.suggestions.titre
+  delete CATALOGUES.en.suggestions.titre
   try {
-    assert.equal(creerTraducteur('en')('document.participants', { n: 2 }), '2 autres personnes sur ce document')
+    assert.equal(creerTraducteur('en')('suggestions.titre', { n: 0 }), 'Aucune suggestion')
   } finally {
-    CATALOGUES.en.document.participants = sauve
+    CATALOGUES.en.suggestions.titre = sauve
   }
 })
 

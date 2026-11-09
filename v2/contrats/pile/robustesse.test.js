@@ -43,26 +43,24 @@ async function texteCoteServeur(docId) {
   return texteDesBlocs(lireBlocs(Buffer.from((await r.json()).doc, 'base64')))
 }
 
-test('y/hub arrêté puis relancé : l’interface ne dit plus « Synchronisé », puis le redit, et la frappe faite entre-temps arrive', async () => {
+test('y/hub arrêté puis relancé : l’alerte hors ligne paraît, puis disparaît, et la frappe faite entre-temps arrive', async () => {
   const doc = docTest('coupure')
   const a = await ouvrir('Alice', doc)
   const b = await ouvrir('Bruno', doc)
   await pile.arreterCollab()
   try {
-    // Le client passe un instant par « Hors ligne », puis retente sans fin :
-    // « Connexion… ». Les deux disent la perte de synchronisation.
-    await a.waitForFunction(
-      () => ['Hors ligne', 'Connexion…'].includes(document.querySelector('[role=status]')?.textContent),
-      null,
-      { timeout: 15000 },
-    )
+    // Le client passe par « déconnecté », puis retente sans fin
+    // (« connexion ») : dans les deux cas, l'alerte hors ligne (ADR 0008,
+    // point ouvert 3, réglé à l'étape 6b).
+    await a.getByText('Hors ligne : vos modifications sont gardées').waitFor({ timeout: 15000 })
     await a.click('.bn-editor')
     await a.keyboard.type('Écrit pendant la coupure.')
   } finally {
     // Relancé même si une vérification échoue : les tests suivants en ont besoin.
     await pile.relancerCollab()
   }
-  await attendreEtat(a, 'Synchronisé', 20000)
+  await attendreEtat(a, 'connecte', 20000)
+  assert.equal(await a.getByText('Hors ligne : vos modifications sont gardées').count(), 0, 'l’alerte disparaît')
   await attendreTexte(b, 'Écrit pendant la coupure.', 15000)
   await a.context().close()
   await b.context().close()
@@ -80,7 +78,7 @@ test('y/hub tué net en pleine frappe : rien n’est perdu après reconnexion', 
   } finally {
     await pile.relancerCollab()
   }
-  await attendreEtat(a, 'Synchronisé', 20000)
+  await attendreEtat(a, 'connecte', 20000)
   await a.keyboard.type('Après.')
   const attendu = 'Avant. Pendant. Après.'
   let lu = ''
@@ -117,7 +115,7 @@ test('adresse : un nom de document refusé affiche un message, un autre nom ouvr
   await attendre(500)
   await a.evaluate(() => (location.hash = '#autre-document'))
   await a.waitForFunction(() => /autre-document/.test(document.querySelector('h1')?.textContent || ''))
-  await attendreEtat(a, 'Synchronisé')
+  await attendreEtat(a, 'connecte')
   await attendreTexte(a, '')
   const refuse = await a.context().newPage()
   await refuse.goto(`${pile.url}/#e%CC%81te%CC%81`)
@@ -144,7 +142,7 @@ test('accessibilité (axe-core) : aucun défaut sérieux sur l’écran de conne
   await p.fill('input[name=nom]', 'Alice')
   await p.click('button[type=submit]')
   await p.waitForSelector('.bn-editor')
-  await attendreEtat(p, 'Synchronisé')
+  await attendreEtat(p, 'connecte')
   assert.deepEqual(await violations(p), [], 'page d’un document')
   await ctx.close()
 })

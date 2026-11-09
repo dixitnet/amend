@@ -63,10 +63,19 @@ export function ouvrirDocument({ url, api, docId, personne, suggestions = false 
       rappel(fournisseur.wsconnected ? 'connecte' : 'connexion')
       return () => fournisseur.off('status', f)
     },
-    /** Rappelé avec le nombre d'autres personnes présentes sur le document. */
+    /** Rappelé avec les autres personnes présentes sur le document
+     * (`[{ cle, nom }]`, une fois chacune même ouverte deux fois), d'après
+     * la présence que publie l'éditeur (nom de la personne). */
     surParticipants(rappel) {
       const aw = fournisseur.awareness
-      const f = () => rappel(Math.max(0, aw.getStates().size - 1))
+      const f = () => {
+        const vues = new Map()
+        for (const [client, etat] of aw.getStates()) {
+          const nom = etat?.user?.name
+          if (client !== aw.clientID && nom && !vues.has(nom)) vues.set(nom, { cle: String(client), nom })
+        }
+        rappel([...vues.values()])
+      }
       aw.on('change', f)
       f()
       return () => aw.off('change', f)

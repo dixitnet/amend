@@ -71,23 +71,6 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
   }
 })
 
-test('page d’édition : tous ses textes s’affichent, dans chaque langue, avec les bons rôles', () => {
-  for (const l of LANGUES) {
-    const t = creerTraducteur(l)
-    const textes = {
-      titre: t('document.titre', { id: 'essai' }),
-      etat: t('document.etat', { etat: 'connecte' }),
-      participants: t('document.participants', { n: 2 }),
-    }
-    const html = rendre(h(design.PageEdition, { ...textes, editeur: h('div', { id: 'editeur' }) }))
-    for (const [nom, texte] of Object.entries(textes)) assert.ok(html.includes(echapper(texte)), `${l} : ${nom}`)
-    assert.match(html, /<main[ >]/, 'le contenu principal garde son repère')
-    assert.doesNotMatch(html, /role="document"/)
-    assert.match(html, /role="status"/)
-    assert.match(html, /id="editeur"/, 'l’éditeur reçu en emplacement est rendu')
-  }
-})
-
 test('écran de connexion : champ étiqueté, bouton, textes de chaque langue', () => {
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -114,12 +97,11 @@ test('écran de connexion : champ étiqueté, bouton, textes de chaque langue', 
 })
 
 test('un texte piégé s’affiche comme du texte, jamais comme du code', () => {
-  const html = rendre(
-    h(design.PageEdition, { titre: '<script>alert(1)</script>', etat: '<b>x</b>', participants: '&', editeur: null }),
-  )
-  assert.doesNotMatch(html, /<script>|<b>/)
+  const voletGauche = { libelle: 'Plan', surClic: () => {} }
+  const html = rendre(h(design.Bandeau, { voletGauche, titre: '<script>alert(1)</script>' }))
+  assert.doesNotMatch(html, /<script>/)
   assert.doesNotMatch(html, /Lecture seule/, 'pas de mention sans texte')
-  const avec = rendre(h(design.PageEdition, { titre: 'x', mention: 'Lecture seule', editeur: null }))
+  const avec = rendre(h(design.Bandeau, { voletGauche, titre: 'x', mention: 'Lecture seule' }))
   assert.match(avec, />Lecture seule</)
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
@@ -133,16 +115,14 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
   }
 })
 
-test('la marque (picto décoratif et nom) en haut de page et sur l’écran de connexion', () => {
-  const page = rendre(h(design.PageEdition, { nomApplication: 'amend.ink', titre: 'x', editeur: null }))
-  assert.match(page, /<header[\s\S]*class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink[\s\S]*<h1/)
+test('la marque (picto décoratif et nom) en tête du volet et sur l’écran de connexion', () => {
+  const volet = rendre(coquilleDocument(creerTraducteur('fr')))
+  assert.match(volet, /<a[^>]*href="#"[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/a>/)
   const connexion = rendre(
     h(design.EcranConnexion, { nomApplication: 'amend.ink', titre: 'Connexion', surEntrer: () => {} }),
   )
   assert.match(connexion, /<h1[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/h1>/)
   assert.match(connexion, /<h2[^>]*>Connexion<\/h2>/, 'le titre de l’écran passe au niveau 2 sous la marque')
-  const sans = rendre(h(design.PageEdition, { titre: 'x', editeur: null }))
-  assert.doesNotMatch(sans, /amend-picto/, 'sans nom, pas de marque')
 })
 
 test('l’icône de l’onglet reprend le dessin de référence, qui ne contient que du dessin', async () => {

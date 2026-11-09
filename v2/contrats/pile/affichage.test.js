@@ -34,7 +34,10 @@ const problemes = (page, pseudo) =>
     const largeur = document.documentElement.clientWidth
     if (document.documentElement.scrollWidth > largeur + 1)
       p.push(`défilement horizontal (${document.documentElement.scrollWidth} > ${largeur})`)
-    const interface_ = [...document.querySelectorAll('body *')].filter((el) => !el.closest('.bn-container'))
+    // Un volet replié est inactif (`inert`) : il peut rester hors de l'écran.
+    const interface_ = [...document.querySelectorAll('body *')].filter(
+      (el) => !el.closest('.bn-container') && !el.closest('[inert]'),
+    )
     for (const el of interface_) {
       const r = el.getBoundingClientRect()
       if (r.width && (r.right > largeur + 1 || r.left < -1))
@@ -66,7 +69,7 @@ for (const [taille, viewport] of Object.entries(TAILLES))
       await page.fill('input[name=nom]', 'Camille Dupré')
       await page.click('button[type=submit]')
       await page.waitForSelector('.bn-editor')
-      await page.waitForFunction(() => /⟦Sy/.test(document.querySelector('[role=status]')?.textContent || ''))
+      await attendreEtat(page, 'connecte')
       assert.deepEqual(await problemes(page, true), [], 'page du document')
       await ctx.close()
     })
@@ -80,7 +83,7 @@ test('français et anglais, iPad en portrait : aucun débordement', async () => 
     await page.fill('input[name=nom]', 'Camille Dupré')
     await page.click('button[type=submit]')
     await page.waitForSelector('.bn-editor')
-    if (langue === 'fr') await attendreEtat(page, 'Synchronisé')
+    if (langue === 'fr') await attendreEtat(page, 'connecte')
     assert.deepEqual(await problemes(page, false), [], langue)
     await ctx.close()
   }
