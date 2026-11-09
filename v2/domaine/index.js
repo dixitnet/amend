@@ -7,7 +7,6 @@ export {
   DUREE_INVITATION_MS,
   DUREE_LIEN_CONNEXION_MS,
   DUREE_SESSION_MS,
-  ROLES_DU_LIEN,
   rolesDonnables,
   refusAcces,
   invitationValable,

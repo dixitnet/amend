@@ -36,6 +36,8 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     auteur: 'Carla',
     avant: 'loin',
     apres: 'à l’écart',
+    titre: 'La gare',
+    role: 'correcteur',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -47,7 +49,7 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
   const fr = creerTraducteur('fr')
   const ps = creerTraducteur('pseudo')
   for (const cle of cles(CATALOGUES[LANGUE_SOURCE]).filter((c) => !c.includes('participants') && !c.includes('etat'))) {
-    const valeurs = { id: 'x', code: 'y', n: 2, auteur: 'A', avant: 'b', apres: 'c' }
+    const valeurs = { id: 'x', code: 'y', n: 2, auteur: 'A', avant: 'b', apres: 'c', titre: 'T', role: 'r' }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
     assert.ok(p.length >= fr(cle, valeurs).length * 1.3, cle)

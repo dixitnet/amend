@@ -33,7 +33,14 @@
     "courriel-invalide": "This email address is not valid.",
     "droit-insuffisant": "You are not allowed to do this on this document.",
     "role-invalide": "This role does not exist.",
-    "dernier-proprietaire": "A document always keeps at least one owner."
+    "dernier-proprietaire": "A document always keeps at least one owner.",
+    "trop-de-liens": "Too many links requested: try again in fifteen minutes.",
+    "titre-invalide": "This title is not valid.",
+    "origine-refusee": "Request refused: it does not come from amend.ink.",
+    "collaboration-indisponible": "The collaboration service is not responding. Try again.",
+    "commentaires-indisponibles": "Comments are unavailable for now.",
+    "introuvable": "Not found.",
+    "requete-invalide": "Invalid request."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -45,5 +52,32 @@
     "refuser": "Reject",
     "toutAccepter": "Accept all",
     "toutRefuser": "Reject all"
+  },
+  "roles": {
+    "lecteur": "reader",
+    "correcteur": "proofreader",
+    "editeur": "editor",
+    "proprietaire": "owner"
+  },
+  "courriel": {
+    "copier": "If the link does not open, copy this address into your browser:",
+    "apres": "This email was sent by amend.ink. If you were not expecting it, ignore it.",
+    "quelquun": "Someone",
+    "sansTitre": "Untitled document",
+    "connexion": {
+      "sujet": "Your amend.ink sign-in link",
+      "intro": "Here is your link to sign in to amend.ink. It works once and for 15 minutes.",
+      "lien": "Sign in to amend.ink"
+    },
+    "invitation": {
+      "sujet": "{auteur} invites you to amend.ink",
+      "intro": "{auteur} invites you to the document “{titre}” as {role}. The link is valid for 7 days.",
+      "lien": "Open the document"
+    },
+    "acces": {
+      "sujet": "{auteur} shared a document with you",
+      "intro": "{auteur} gave you access to the document “{titre}” as {role}.",
+      "lien": "Open the document"
+    }
   }
 }

@@ -12,7 +12,8 @@ const ORGANISATION = 'amend'
  * @param {{ url: string, jeton: string }} o  url : la racine de l'API (…/collaboration)
  */
 export function clientCollaboration({ url, jeton }) {
-  const adresse = (docId) => `${url}/ydoc/v1/${ORGANISATION}/${encodeURIComponent(docId)}?branch=main`
+  const adresse = (docId, branche = 'main') =>
+    `${url}/ydoc/v1/${ORGANISATION}/${encodeURIComponent(docId)}?branch=${branche}`
   const entetes = { 'x-amend-interne': jeton }
   async function appel(docId, options) {
     const r = await fetch(adresse(docId), {
@@ -24,6 +25,19 @@ export function clientCollaboration({ url, jeton }) {
     return encodage.decodeAny(new Uint8Array(await r.arrayBuffer()))
   }
   return {
+    /** Efface un document dans y/hub, texte et suggestions, définitivement. */
+    async supprimerDocument(docId) {
+      for (const branche of ['main', 'suggestions']) {
+        const r = await fetch(`${adresse(docId, branche)}&hard=true`, {
+          method: 'DELETE',
+          headers: entetes,
+          signal: AbortSignal.timeout(5000),
+        })
+        // 404 : jamais écrit dans cette branche, rien à effacer.
+        if (!r.ok && r.status !== 404)
+          throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
+      }
+    },
     /** L'état encodé du texte principal. */
     lireTexte: async (docId) => (await appel(docId)).doc,
     /** Écrit une modification du texte, attribuée à `pour` (en plus du serveur). */

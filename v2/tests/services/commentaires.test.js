@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import net from 'node:net'
 import { preparerServices, POSTGRES, REDIS } from '../../exploitation/dev/pile.mjs'
 import { creerServeur } from '../../application/serveur/index.js'
-import { creerTableAcces } from '../../application/serveur/acces.js'
+import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
@@ -24,7 +24,7 @@ let raisonSaut = null
 let depot, serveur, base, collab, interne
 const JETON = 'jeton-interne-de-test'
 const PORT_COLLAB = 4512
-const table = creerTableAcces()
+let comptes
 const DOC = `t3-comm-${Date.now().toString(36)}`
 const cookies = {}
 
@@ -40,6 +40,7 @@ before(async () => {
     return
   }
   depot = await ouvrirCommentaires(POSTGRES)
+  comptes = await ouvrirComptes(POSTGRES)
   serveur = creerServeur(
     {
       secret: 's'.repeat(32),
@@ -49,8 +50,7 @@ before(async () => {
       statique: '/nulle-part',
       dev: true,
     },
-    table,
-    depot,
+    { comptes, commentaires: depot },
   )
   await new Promise((r) => serveur.listen(0, '127.0.0.1', r))
   base = `http://127.0.0.1:${serveur.address().port}`
@@ -65,7 +65,8 @@ before(async () => {
       const r = await fetch(`${base}/api/moi`, { headers: { cookie } })
       return r.ok ? r.json() : null
     },
-    droits: async (docId, id, branche) => accesBranche(capacites(roleEffectif(table.rolesDe(docId, id))), branche),
+    droits: async (docId, id, branche) =>
+      accesBranche(capacites(roleEffectif(await comptes.rolesDe(docId, id))), branche),
   })
   interne = clientCollaboration({ url: `http://127.0.0.1:${PORT_COLLAB}/collaboration`, jeton: JETON })
   for (const nom of ['Paule', 'Edith', 'Carla', 'Cyril', 'Lucie', 'Xavier']) {
@@ -76,17 +77,18 @@ before(async () => {
     })
     cookies[nom] = { id: (await r.json()).id, cookie: r.headers.get('set-cookie').split(';')[0] }
   }
-  table.creer(DOC, cookies.Paule.id)
-  table.donner(DOC, cookies.Edith.id, 'editeur')
-  table.donner(DOC, cookies.Carla.id, 'correcteur')
-  table.donner(DOC, cookies.Cyril.id, 'correcteur')
-  table.donner(DOC, cookies.Lucie.id, 'lecteur')
+  await comptes.creerDocument(DOC, cookies.Paule.id)
+  await comptes.donnerAcces(DOC, cookies.Edith.id, 'editeur')
+  await comptes.donnerAcces(DOC, cookies.Carla.id, 'correcteur')
+  await comptes.donnerAcces(DOC, cookies.Cyril.id, 'correcteur')
+  await comptes.donnerAcces(DOC, cookies.Lucie.id, 'lecteur')
 })
 after(async () => {
   await collab?.fermer()
   serveur?.closeAllConnections?.()
   serveur?.close()
   await depot?.fermer()
+  await comptes?.fermer()
 })
 
 const t3 = (nom, f) => test(nom, (t) => (raisonSaut ? t.skip(raisonSaut) : f(t)))
@@ -215,7 +217,7 @@ t3('requêtes piégées : codes, jamais d’erreur interne', async () => {
   )
   // Un fil d'un autre document ne s'atteint pas par celui-ci.
   const autre = `t3-autre-${Date.now().toString(36)}`
-  table.creer(autre, cookies.Carla.id)
+  await comptes.creerDocument(autre, cookies.Carla.id)
   assert.equal((await appel('Carla', 'DELETE', `/${fil.id}`, undefined, autre)).statut, 404)
 })
 
@@ -276,8 +278,7 @@ t3('ancre : sans accès de notre serveur à y/hub, 503 ; un jeton faux ne lit ri
   await assert.rejects(faux.lireTexte(DOC), { code: 'collaboration-indisponible' })
   const sansCollab = creerServeur(
     { secret: 's'.repeat(32), jetonInterne: '', collaboration: 'ws://x', statique: '/x', dev: true },
-    table,
-    depot,
+    { comptes, commentaires: depot },
   )
   await new Promise((r) => sansCollab.listen(0, '127.0.0.1', r))
   try {

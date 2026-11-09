@@ -10,7 +10,7 @@ export const DUREE_LIEN_CONNEXION_MS = 15 * 60 * 1000
 export const DUREE_SESSION_MS = 30 * 24 * 60 * 60 * 1000
 
 /** Les rôles qu'un lien de partage peut donner (comme Docs : lecteur, commentateur, éditeur). */
-export const ROLES_DU_LIEN = Object.freeze(['lecteur', 'correcteur', 'editeur'])
+const ROLES_DU_LIEN = Object.freeze(['lecteur', 'correcteur', 'editeur'])
 
 /** Les rôles qu'une personne peut donner : qui invite donne lecteur,
  * correcteur, éditeur ; seul un propriétaire nomme un propriétaire. */
