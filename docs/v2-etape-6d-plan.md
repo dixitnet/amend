@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 6d, « Dossiers d'équipe »
 
-Statut : **à arbitrer** (09/11/2026). Aucun développement avant le « go » de Sylvain.
+Statut : **arbitré** le 09/11/2026 (voir « Arbitrage » en fin de plan) ; développement sur « go ».
 
 Références :
 - `docs/v2-etude-dossiers-equipes.md` (modèle du serveur de fichiers d'entreprise, arbitré) ;
@@ -85,3 +85,13 @@ Proposition : **1** ; le 2 plus tard si le besoin se présente (les dossiers d'�
 ## Hors périmètre
 
 Structures (maisons d'édition) et facturation ; équipes séparées des dossiers ; sous-dossiers réservés ; corbeille ; partage d'un dossier.
+
+## Arbitrage de Sylvain (09/11/2026)
+
+« 1.1, 2.1, 3 un onglet par équipe, 4.1, 5.1 »
+
+- 1.1 : un seul rôle par membre, pour tout le dossier d'équipe.
+- 2.1 : on ajoute un membre comme on partage un document (courriel, rôle, invitation de 7 jours).
+- **3 : un onglet par équipe**, à côté de Mes documents et de Partagé avec moi (pas d'onglet « Équipes » qui les regroupe). Un bouton « Nouvelle équipe » en crée une. Avec beaucoup d'équipes, la rangée d'onglets s'allongera : le design (6b) en décidera la présentation.
+- 4.1 : en entrant dans l'équipe, les propriétaires d'un document en deviennent éditeurs ; les autres accès restent.
+- 5.1 : un document sorti de l'équipe va dans Mes documents du gestionnaire, qui en devient propriétaire.
