@@ -33,11 +33,17 @@ function permissions(a) {
 
 const ORGANISATION = 'amend'
 
-/** L'identité de notre serveur auprès de y/hub (jeton interne) : il ne fait
- * que lire et écrire le texte principal, pour poser l'ancre d'un commentaire
- * de correcteur (étape 5). */
+/** L'identité de notre serveur auprès de y/hub (jeton interne) : il lit et
+ * écrit le texte principal, pour poser l'ancre d'un commentaire de correcteur
+ * (étape 5), et efface un document supprimé par son propriétaire (étape 6a). */
 const SERVEUR = 'amend-serveur'
-const PERMISSIONS_SERVEUR = createDocumentPermissions({ ydoc: '-ru-', endpoint: { ydoc: '-ru-' } })
+const PERMISSIONS_SERVEUR = createDocumentPermissions({
+  ydoc: '-ru-',
+  delete: ['hard'],
+  endpoint: { ydoc: '-rud' },
+})
+// Sur la branche des suggestions, effacer seulement (document supprimé).
+const PERMISSIONS_SERVEUR_SUGGESTIONS = createDocumentPermissions({ delete: ['hard'], endpoint: { ydoc: '---d' } })
 
 function jetonValide(attendu, recu) {
   const a = Buffer.from(String(attendu || ''))
@@ -81,7 +87,8 @@ export async function demarrerCollaboration({
     authorize: createAuthorize({
       document: async (docRef, personne) => {
         if (!personne || docRef.org !== ORGANISATION || !OUVERTES.has(docRef.branch)) return null
-        if (personne.interne === true) return docRef.branch === 'main' ? PERMISSIONS_SERVEUR : null
+        if (personne.interne === true)
+          return docRef.branch === 'main' ? PERMISSIONS_SERVEUR : PERMISSIONS_SERVEUR_SUGGESTIONS
         // Une demande de droits qui échoue (serveur lent ou absent) vaut refus.
         const accorde = await droits(docRef.docid, personne.userid, docRef.branch).catch(() => null)
         return accorde ? permissions(accorde) : null

@@ -5,10 +5,17 @@
     "erreur": "An error occurred: {code}."
   },
   "connexion": {
-    "titre": "Development sign-in",
-    "explication": "Development version: pick a name, no email or password needed.",
-    "nom": "Your name",
-    "bouton": "Enter"
+    "titre": "Sign in",
+    "explication": "Enter your email address: you will receive a link to sign in, without a password.",
+    "courriel": "Email address",
+    "envoyer": "Get a link",
+    "envoye": "If this address has access to amend.ink, a link has just been sent to it. It is valid for 15 minutes.",
+    "dev": {
+      "titre": "Development sign-in",
+      "explication": "Development version: choose a name, no email or password.",
+      "nom": "Your name",
+      "bouton": "Enter"
+    }
   },
   "document": {
     "titre": "Document {id}",
@@ -17,7 +24,11 @@
     "zoneEdition": "Text of document {id}",
     "lectureSeule": "Read only",
     "modeSuggestion": "Suggesting",
-    "historique": "History"
+    "historique": "History",
+    "mesDocuments": "My documents",
+    "partager": "Share",
+    "supprimer": "Delete",
+    "confirmerSuppression": "Delete this document for everyone, permanently?"
   },
   "erreurs": {
     "document-vide": "This document has no name.",
@@ -27,7 +38,21 @@
     "nom-trop-long": "This name is too long (80 characters at most).",
     "nom-caracteres": "This name contains invisible or control characters.",
     "reseau": "The server is not responding. Check your connection.",
-    "document-introuvable": "This document does not exist, or you do not have access to it."
+    "document-introuvable": "This document does not exist, or you do not have access to it.",
+    "courriel-vide": "Enter an email address.",
+    "courriel-trop-long": "This email address is too long.",
+    "courriel-invalide": "This email address is not valid.",
+    "droit-insuffisant": "You are not allowed to do this on this document.",
+    "role-invalide": "This role does not exist.",
+    "dernier-proprietaire": "A document always keeps at least one owner.",
+    "trop-de-liens": "Too many links requested: try again in fifteen minutes.",
+    "titre-invalide": "This title is not valid.",
+    "origine-refusee": "Request refused: it does not come from amend.ink.",
+    "collaboration-indisponible": "The collaboration service is not responding. Try again.",
+    "commentaires-indisponibles": "Comments are unavailable for now.",
+    "introuvable": "Not found.",
+    "requete-invalide": "Invalid request.",
+    "lien-invalide": "This sign-in link is no longer valid: ask for a new one."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -39,5 +64,67 @@
     "refuser": "Reject",
     "toutAccepter": "Accept all",
     "toutRefuser": "Reject all"
+  },
+  "roles": {
+    "lecteur": "reader",
+    "correcteur": "proofreader",
+    "editeur": "editor",
+    "proprietaire": "owner"
+  },
+  "courriel": {
+    "copier": "If the link does not open, copy this address into your browser:",
+    "apres": "This email was sent by amend.ink. If you were not expecting it, ignore it.",
+    "quelquun": "Someone",
+    "sansTitre": "Untitled document",
+    "connexion": {
+      "sujet": "Your amend.ink sign-in link",
+      "intro": "Here is your link to sign in to amend.ink. It works once and for 15 minutes.",
+      "lien": "Sign in to amend.ink"
+    },
+    "invitation": {
+      "sujet": "{auteur} invites you to amend.ink",
+      "intro": "{auteur} invites you to the document “{titre}” as {role}. The link is valid for 7 days.",
+      "lien": "Open the document"
+    },
+    "acces": {
+      "sujet": "{auteur} shared a document with you",
+      "intro": "{auteur} gave you access to the document “{titre}” as {role}.",
+      "lien": "Open the document"
+    }
+  },
+  "nom": {
+    "titre": "Your name",
+    "explication": "What name should others see in shared documents?",
+    "nom": "Your name",
+    "bouton": "Continue"
+  },
+  "documents": {
+    "titre": "My documents",
+    "nouveau": "New document",
+    "tous": "All",
+    "miens": "Created by me",
+    "partages": "Shared with me",
+    "colonneTitre": "Title",
+    "colonneRole": "My role",
+    "colonneDate": "Created",
+    "vide": "No documents yet.",
+    "sansTitre": "Untitled",
+    "deconnexion": "Sign out",
+    "deconnexionPartout": "Sign out all my devices"
+  },
+  "partage": {
+    "titre": "Sharing",
+    "courriel": "Email address",
+    "role": "Role",
+    "inviter": "Invite",
+    "retirer": "Remove",
+    "annuler": "Cancel the invitation",
+    "roleDe": "Role of {nom}",
+    "lien": "Access by link",
+    "lienFerme": "Nobody (link closed)",
+    "adresseDuLien": "Address to share",
+    "invite": "{courriel}, invited as {role}",
+    "invitationEnvoyee": "Invitation sent to {courriel}.",
+    "accesDonne": "{courriel} now has access."
   }
 }

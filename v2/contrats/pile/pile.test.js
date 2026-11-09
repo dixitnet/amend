@@ -13,7 +13,6 @@ import {
   attendreTexte,
   attendreEtat,
   donnerRole,
-  oublierDocuments,
   session as sessionSur,
 } from './outils.mjs'
 
@@ -117,9 +116,8 @@ test('contrats 2 et 4 : le document se lit côté serveur, et survit au redémar
   // Redémarrage du serveur et de y/hub, après écriture dans PostgreSQL.
   await attendre(2500)
   await pile.redemarrer()
-  // La table des accès est en mémoire jusqu'à l'étape 6 : perdue au redémarrage,
-  // le document est recréé par la première personne qui l'ouvre (en développement).
-  oublierDocuments()
+  // Les accès sont en base depuis l'étape 6a : ils survivent aussi ; la
+  // propriétaire donne un rôle à Bruno après le redémarrage.
   const b = await ouvrir('Bruno', doc)
   await attendreTexte(b, 'Texte à garder\nDeuxième paragraphe')
   await b.context().close()

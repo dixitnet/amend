@@ -13,8 +13,6 @@ export const docTest = (nom) => `t5-${nom}-${Date.now().toString(36)}`
  * développement), puis donne un rôle aux suivantes. */
 const proprietaires = new Map()
 const cle = (base, docId) => `${base} ${docId}`
-/** À appeler quand la table des accès (en mémoire) a été perdue : redémarrage. */
-export const oublierDocuments = () => proprietaires.clear()
 
 /** Le propriétaire d'un document donne `role` (ou retire, `null`) à `nom`. */
 export async function donnerRole(base, docId, nom, role) {

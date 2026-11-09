@@ -1,5 +1,5 @@
-// T3 : le serveur, en processus (requêtes HTTP réelles, sans navigateur ni
-// service), rejoué sur les données piégées.
+// T3 : le serveur, en processus (requêtes HTTP réelles, sans navigateur),
+// contre le dépôt des comptes dans PostgreSQL, rejoué sur les données piégées.
 import { test, before, after } from 'node:test'
 import http from 'node:http'
 import assert from 'node:assert/strict'
@@ -8,24 +8,32 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { creerServeur } from '../../application/serveur/index.js'
 import { creerJeton } from '../../application/serveur/session.js'
+import { preparerServices, POSTGRES } from '../../exploitation/dev/pile.mjs'
+import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import piegees from '../donnees/piegees.json' with { type: 'json' }
 
 const statique = mkdtempSync(join(tmpdir(), 'v2-statique-'))
 writeFileSync(join(statique, 'index.html'), '<!doctype html><title>index</title>')
 const BASE = { secret: 's'.repeat(32), jetonInterne: 'jeton-interne-de-test', collaboration: 'ws://x', statique }
 const serveurs = []
-async function demarrer(conf) {
-  const s = creerServeur({ ...BASE, ...conf })
+let comptes
+async function demarrer(conf, services = {}) {
+  const s = creerServeur({ ...BASE, ...conf }, { comptes, ...services })
   await new Promise((r) => s.listen(0, '127.0.0.1', r))
   serveurs.push(s)
   return `http://127.0.0.1:${s.address().port}`
 }
 let dev, prod
 before(async () => {
+  preparerServices()
+  comptes = await ouvrirComptes(POSTGRES)
   dev = await demarrer({ dev: true })
   prod = await demarrer({ dev: false, cookieSecure: true })
 })
-after(() => serveurs.forEach((s) => s.close()))
+after(async () => {
+  serveurs.forEach((s) => s.close())
+  await comptes?.fermer()
+})
 
 const session = (base, nom) =>
   fetch(`${base}/api/dev/session`, {
@@ -63,12 +71,26 @@ test('hors développement : route de session fermée ; cookie Secure en ligne', 
 
 test('cookies piégés, jeton modifié ou signé ailleurs : 401', async () => {
   for (const { texte, raison } of piegees.cookies) assert.equal((await moi(dev, texte)).status, 401, raison)
-  const bon = creerJeton(BASE.secret, { id: 'dev-a', nom: 'A' })
+  const a = await entrer(dev, 'A')
+  const bon = creerJeton(BASE.secret, { id: a.id, nom: 'A' })
   const [corps, signature] = bon.split('.')
   const autreCorps = Buffer.from(JSON.stringify({ id: 'dev-b', nom: 'B' })).toString('base64url')
   assert.equal((await moi(dev, `amend2_session=${autreCorps}.${signature}`)).status, 401, 'contenu modifié')
   assert.equal((await moi(dev, `amend2_session=${creerJeton('autre-secret', { id: 'x', nom: 'x' })}`)).status, 401)
   assert.equal((await moi(dev, `amend2_session=${corps}.${signature}`)).status, 200, 'le bon jeton passe')
+  const inconnu = creerJeton(BASE.secret, { id: '00000000-0000-4000-8000-000000000000', nom: 'Z' })
+  assert.equal((await moi(dev, `amend2_session=${inconnu}`)).status, 401, 'personne inconnue')
+})
+
+test('session : plus de 30 jours, ou émise avant « déconnecter partout » : refusée', async () => {
+  const a = await entrer(dev, 'Ancienne')
+  const vieux = creerJeton(BASE.secret, { id: a.id, nom: 'A' }, Date.now() - 31 * 24 * 3600 * 1000)
+  assert.equal((await moi(dev, `amend2_session=${vieux}`)).status, 401)
+  const futur = creerJeton(BASE.secret, { id: a.id, nom: 'A' }, Date.now() + 3600 * 1000)
+  assert.equal((await moi(dev, `amend2_session=${futur}`)).status, 401)
+  assert.equal((await moi(dev, a.cookie)).status, 200)
+  assert.equal((await post(dev, '/api/deconnexion-partout', a.cookie, {})).status, 200)
+  assert.equal((await moi(dev, a.cookie)).status, 401, 'session d’avant refusée')
 })
 
 test('requêtes malformées : codes, jamais de plantage', async () => {
@@ -126,7 +148,7 @@ const accesInterne = async (base, document, personne, branche) => {
 const droitInterne = async (base, document, personne, branche = 'main') =>
   (await accesInterne(base, document, personne, branche))?.texte ?? null
 let docNum = 0
-const nouveauDoc = () => `t3-droits-${++docNum}`
+const nouveauDoc = () => `t3-droits-${Date.now().toString(36)}-${++docNum}`
 
 test('droits : le créateur est propriétaire, une seule création par document', async () => {
   const alice = await entrer(dev, 'Alice')
@@ -218,39 +240,56 @@ test('droits : un éditeur invite, y compris un éditeur ; un correcteur non', a
   assert.equal(await droitInterne(dev, doc, victor.id), null)
 })
 
-test('droits : le propriétaire ne se nomme ni ne se touche par la route de développement', async () => {
+test('droits : plusieurs propriétaires, jamais aucun ; seul un propriétaire touche aux propriétaires', async () => {
   const alice = await entrer(dev, 'Alice')
   const edith = await entrer(dev, 'Édith')
+  const bruno = await entrer(dev, 'Bruno')
   const doc = nouveauDoc()
   await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
   await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: edith.id, role: 'editeur' })
-  const nommer = await post(dev, '/api/dev/acces', alice.cookie, {
-    document: doc,
-    personne: edith.id,
-    role: 'proprietaire',
-  })
-  assert.equal(nommer.status, 400)
+  // L'éditrice ne nomme pas de propriétaire, ne touche pas à celui qui l'est.
+  assert.equal(
+    (await post(dev, '/api/dev/acces', edith.cookie, { document: doc, personne: bruno.id, role: 'proprietaire' }))
+      .status,
+    403,
+  )
   for (const role of [null, 'lecteur'])
     assert.equal(
       (await post(dev, '/api/dev/acces', edith.cookie, { document: doc, personne: alice.id, role })).status,
-      409,
+      403,
       String(role),
     )
+  // Le dernier propriétaire ne se retire pas ; avec un second, si.
+  assert.equal(
+    (await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: alice.id, role: null })).status,
+    409,
+  )
+  assert.equal(
+    (await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: edith.id, role: 'proprietaire' }))
+      .status,
+    200,
+  )
+  assert.equal(
+    (await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: alice.id, role: 'editeur' })).status,
+    200,
+  )
+  assert.equal((await (await mesDroits(dev, edith.cookie, doc)).json()).role, 'proprietaire')
   assert.equal(await droitInterne(dev, doc, alice.id), 'ecriture')
 })
 
 test('droits : rôles et documents piégés refusés avec un code', async () => {
   const alice = await entrer(dev, 'Alice')
+  const xavier = await entrer(dev, 'Xavier')
   const doc = nouveauDoc()
   await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
   for (const { texte, raison } of piegees.roles) {
-    const r = await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: 'dev-x', role: texte })
+    const r = await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: xavier.id, role: texte })
     assert.equal(r.status, 400, raison)
     assert.equal((await r.json()).code, 'role-invalide', raison)
   }
   for (const role of [undefined, 1, ['editeur'], { role: 'editeur' }])
     assert.equal(
-      (await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: 'dev-x', role })).status,
+      (await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: xavier.id, role })).status,
       400,
     )
   assert.equal((await post(dev, '/api/dev/acces', alice.cookie, { document: doc, role: 'lecteur' })).status, 400)
@@ -266,8 +305,7 @@ test('droits : rôles et documents piégés refusés avec un code', async () => 
 })
 
 test('droits : un rôle inconnu dans la table vaut le plus restrictif', async () => {
-  const table = { rolesDe: () => ['administrateur'] }
-  const s = creerServeur({ ...BASE, dev: true }, table)
+  const s = creerServeur({ ...BASE, dev: true }, { comptes: { ...comptes, rolesDe: async () => ['administrateur'] } })
   await new Promise((r) => s.listen(0, '127.0.0.1', r))
   serveurs.push(s)
   assert.equal(await droitInterne(`http://127.0.0.1:${s.address().port}`, 'doc', 'dev-a'), 'lecture')
@@ -306,12 +344,13 @@ test('en ligne, un secret de session absent arrête le serveur ; en développeme
 })
 
 test('une erreur à nous : 500 et code erreur-interne, jamais le détail', async () => {
-  const table = {
-    rolesDe: () => {
-      throw new Error('panne simulée de la table des accès')
+  const enPanne = {
+    ...comptes,
+    rolesDe: async () => {
+      throw new Error('panne simulée du dépôt des accès')
     },
   }
-  const s = creerServeur({ ...BASE, dev: true }, table)
+  const s = creerServeur({ ...BASE, dev: true }, { comptes: enPanne })
   await new Promise((r) => s.listen(0, '127.0.0.1', r))
   serveurs.push(s)
   const erreurs = []

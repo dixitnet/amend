@@ -5,10 +5,17 @@
     "erreur": "Une erreur est survenue : {code}."
   },
   "connexion": {
-    "titre": "Connexion de développement",
-    "explication": "Version de développement : choisissez un nom, sans courriel ni mot de passe.",
-    "nom": "Votre nom",
-    "bouton": "Entrer"
+    "titre": "Connexion",
+    "explication": "Indiquez votre adresse de courriel : vous recevrez un lien pour entrer, sans mot de passe.",
+    "courriel": "Adresse de courriel",
+    "envoyer": "Recevoir un lien",
+    "envoye": "Si cette adresse a accès à amend.ink, un lien vient de lui être envoyé. Il vaut 15 minutes.",
+    "dev": {
+      "titre": "Connexion de développement",
+      "explication": "Version de développement : choisissez un nom, sans courriel ni mot de passe.",
+      "nom": "Votre nom",
+      "bouton": "Entrer"
+    }
   },
   "document": {
     "titre": "Document {id}",
@@ -17,7 +24,11 @@
     "zoneEdition": "Texte du document {id}",
     "lectureSeule": "Lecture seule",
     "modeSuggestion": "Mode suggestion",
-    "historique": "Historique"
+    "historique": "Historique",
+    "mesDocuments": "Mes documents",
+    "partager": "Partager",
+    "supprimer": "Supprimer",
+    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement ?"
   },
   "erreurs": {
     "document-vide": "Ce document n’a pas de nom.",
@@ -27,7 +38,21 @@
     "nom-trop-long": "Ce nom est trop long (80 signes au plus).",
     "nom-caracteres": "Ce nom contient des caractères invisibles ou de contrôle.",
     "reseau": "Le serveur ne répond pas. Vérifiez la connexion.",
-    "document-introuvable": "Ce document n’existe pas, ou vous n’y avez pas accès."
+    "document-introuvable": "Ce document n’existe pas, ou vous n’y avez pas accès.",
+    "courriel-vide": "Indiquez une adresse de courriel.",
+    "courriel-trop-long": "Cette adresse de courriel est trop longue.",
+    "courriel-invalide": "Cette adresse de courriel n’est pas valide.",
+    "droit-insuffisant": "Vous n’avez pas le droit de faire cela sur ce document.",
+    "role-invalide": "Ce rôle n’existe pas.",
+    "dernier-proprietaire": "Un document garde toujours au moins un propriétaire.",
+    "trop-de-liens": "Trop de liens demandés : réessayez dans un quart d’heure.",
+    "titre-invalide": "Ce titre n’est pas valide.",
+    "origine-refusee": "Requête refusée : elle ne vient pas d’amend.ink.",
+    "collaboration-indisponible": "Le service de collaboration ne répond pas. Réessayez.",
+    "commentaires-indisponibles": "Les commentaires sont indisponibles pour le moment.",
+    "introuvable": "Introuvable.",
+    "requete-invalide": "Requête invalide.",
+    "lien-invalide": "Ce lien de connexion n’est plus valable : demandez-en un nouveau."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -39,5 +64,67 @@
     "refuser": "Refuser",
     "toutAccepter": "Tout accepter",
     "toutRefuser": "Tout refuser"
+  },
+  "roles": {
+    "lecteur": "lecteur",
+    "correcteur": "correcteur",
+    "editeur": "éditeur",
+    "proprietaire": "propriétaire"
+  },
+  "courriel": {
+    "copier": "Si le lien ne s’ouvre pas, copiez cette adresse dans votre navigateur :",
+    "apres": "Ce courrier vous a été envoyé par amend.ink. Si vous ne l’attendiez pas, ignorez-le.",
+    "quelquun": "Quelqu’un",
+    "sansTitre": "Document sans titre",
+    "connexion": {
+      "sujet": "Votre lien de connexion à amend.ink",
+      "intro": "Voici votre lien pour entrer dans amend.ink. Il ne sert qu’une fois et vaut 15 minutes.",
+      "lien": "Entrer dans amend.ink"
+    },
+    "invitation": {
+      "sujet": "{auteur} vous invite sur amend.ink",
+      "intro": "{auteur} vous invite sur le document «\u00A0{titre}\u00A0», comme {role}. Le lien vaut 7 jours.",
+      "lien": "Ouvrir le document"
+    },
+    "acces": {
+      "sujet": "{auteur} a partagé un document avec vous",
+      "intro": "{auteur} vous a donné accès au document «\u00A0{titre}\u00A0», comme {role}.",
+      "lien": "Ouvrir le document"
+    }
+  },
+  "nom": {
+    "titre": "Votre nom",
+    "explication": "Comment vous appeler dans les documents partagés ?",
+    "nom": "Votre nom",
+    "bouton": "Continuer"
+  },
+  "documents": {
+    "titre": "Mes documents",
+    "nouveau": "Nouveau document",
+    "tous": "Tous",
+    "miens": "Créés par moi",
+    "partages": "Partagés avec moi",
+    "colonneTitre": "Titre",
+    "colonneRole": "Mon rôle",
+    "colonneDate": "Créé le",
+    "vide": "Aucun document pour l’instant.",
+    "sansTitre": "Sans titre",
+    "deconnexion": "Se déconnecter",
+    "deconnexionPartout": "Déconnecter tous mes appareils"
+  },
+  "partage": {
+    "titre": "Partage",
+    "courriel": "Adresse de courriel",
+    "role": "Rôle",
+    "inviter": "Inviter",
+    "retirer": "Retirer",
+    "annuler": "Annuler l’invitation",
+    "roleDe": "Rôle de {nom}",
+    "lien": "Accès par le lien",
+    "lienFerme": "Personne (lien fermé)",
+    "adresseDuLien": "Adresse à transmettre",
+    "invite": "{courriel}, invité comme {role}",
+    "invitationEnvoyee": "Invitation envoyée à {courriel}.",
+    "accesDonne": "{courriel} a maintenant accès."
   }
 }

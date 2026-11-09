@@ -36,6 +36,10 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     auteur: 'Carla',
     avant: 'loin',
     apres: 'à l’écart',
+    titre: 'La gare',
+    role: 'correcteur',
+    nom: 'Carla',
+    courriel: 'carla@exemple.fr',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -47,7 +51,18 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
   const fr = creerTraducteur('fr')
   const ps = creerTraducteur('pseudo')
   for (const cle of cles(CATALOGUES[LANGUE_SOURCE]).filter((c) => !c.includes('participants') && !c.includes('etat'))) {
-    const valeurs = { id: 'x', code: 'y', n: 2, auteur: 'A', avant: 'b', apres: 'c' }
+    const valeurs = {
+      id: 'x',
+      code: 'y',
+      n: 2,
+      auteur: 'A',
+      avant: 'b',
+      apres: 'c',
+      titre: 'T',
+      role: 'r',
+      nom: 'N',
+      courriel: 'c@d.fr',
+    }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
     assert.ok(p.length >= fr(cle, valeurs).length * 1.3, cle)
@@ -76,14 +91,14 @@ test('écran de connexion : champ étiqueté, bouton, textes de chaque langue', 
     const t = creerTraducteur(l)
     const html = rendre(
       h(design.EcranConnexion, {
-        titre: t('connexion.titre'),
-        explication: t('connexion.explication'),
-        libelleNom: t('connexion.nom'),
-        libelleBouton: t('connexion.bouton'),
+        titre: t('connexion.dev.titre'),
+        explication: t('connexion.dev.explication'),
+        libelleNom: t('connexion.dev.nom'),
+        libelleBouton: t('connexion.dev.bouton'),
         surEntrer: () => {},
       }),
     )
-    for (const cle of ['connexion.titre', 'connexion.explication', 'connexion.nom', 'connexion.bouton'])
+    for (const cle of ['connexion.dev.titre', 'connexion.dev.explication', 'connexion.dev.nom', 'connexion.dev.bouton'])
       assert.ok(html.includes(echapper(t(cle))), `${l} : ${cle}`)
     const pour = /<label[^>]*for="([^"]+)"/.exec(html)?.[1]
     assert.ok(pour, 'une étiquette désigne un champ')

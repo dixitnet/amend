@@ -39,8 +39,8 @@ const metaValide = (m) => m === undefined || m === null || (typeof m === 'object
 
 /**
  * @param {object} o
- * @param {(req: any) => { id: string } | null} o.personneDe
- * @param {(docId: string, idPersonne: string) => string | null} o.roleSur
+ * @param {(req: any) => Promise<{ id: string } | null>} o.personneDe
+ * @param {(docId: string, idPersonne: string) => Promise<string | null>} o.roleSur
  * @param {any} o.depot  le dépôt des commentaires (adaptateur PostgreSQL), ou null
  * @param {(res: any, statut: number, corps: any) => void} o.json
  * @param {(req: any, max?: number) => Promise<any>} o.lireCorps
@@ -58,14 +58,14 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
   return async function traiter(req, res, url) {
     const m = /^\/api\/documents\/([^/]+)\/fils(?:\/(.*))?$/.exec(url.pathname)
     if (!m) return false
-    const p = personneDe(req)
+    const p = await personneDe(req)
     if (!p) return (json(res, 401, { code: 'session-absente' }), true)
     const segments = [m[1], ...(m[2] ?? '').split('/').filter(Boolean)].map(decoder)
     if (segments.includes(null)) return (json(res, 400, { code: 'requete-invalide' }), true)
     const doc = identifiantDocument(segments[0])
     if (!doc.ok) return (json(res, 400, { code: doc.code }), true)
     const docId = doc.id
-    const role = roleSur(docId, p.id)
+    const role = await roleSur(docId, p.id)
     // Document inconnu et document sans accès se confondent : 404.
     if (!role) return (json(res, 404, { code: 'document-introuvable' }), true)
     const caps = capacites(role)
