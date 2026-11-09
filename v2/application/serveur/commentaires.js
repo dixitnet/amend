@@ -16,7 +16,14 @@
 //   DELETE /api/documents/:doc/fils/:fil/commentaires/:c
 //   POST   /api/documents/:doc/fils/:fil/commentaires/:c/reactions        { emoji }
 //   DELETE /api/documents/:doc/fils/:fil/commentaires/:c/reactions/:emoji
+//   POST   /api/documents/:doc/fils/:fil/ancre               { debut, fin, citation }
+//
+// L'ancre : qui peut écrire le texte la pose dans son navigateur (comme Docs) ;
+// pour le correcteur, qui ne le peut pas, le serveur la pose (Sylvain, étape
+// 5, 2b) : il lit le texte principal dans y/hub, y ajoute la marque du fil,
+// et y écrit la modification, attribuée au correcteur.
 import { identifiantDocument, capacites, peutCommenter } from '../../domaine/index.js'
+import { ancreCommentaire } from '../../adaptateurs/blocknote/serveur.js'
 
 const MAX_CORPS = 64_000
 const corpsValide = (corps) => Array.isArray(corps) && corps.length > 0 && JSON.stringify(corps).length <= MAX_CORPS
@@ -38,8 +45,10 @@ const metaValide = (m) => m === undefined || m === null || (typeof m === 'object
  * @param {any} o.depot  le dépôt des commentaires (adaptateur PostgreSQL), ou null
  * @param {(res: any, statut: number, corps: any) => void} o.json
  * @param {(req: any, max?: number) => Promise<any>} o.lireCorps
+ * @param {{ lireTexte: (docId: string) => Promise<Uint8Array>, ecrireTexte: (docId: string, mise: Uint8Array, pour: string) => Promise<any> } | null} [o.collaboration]
+ *   l'accès de notre serveur au texte (y/hub), pour poser les ancres
  */
-export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps }) {
+export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps, collaboration = null }) {
   /** Les abonnés au flux d'un document. */
   const abonnes = new Map()
   function prevenir(docId) {
@@ -112,6 +121,25 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps 
       if (!peut('resoudre', createur)) return refus()
       await depot.resoudre(fil, sous === 'resoudre', p.id)
       return fait()
+    }
+    // /fils/:fil/ancre : l'auteur du fil seulement.
+    if (sous === 'ancre' && !idC) {
+      if (methode !== 'POST') return (json(res, 405, { code: 'methode-refusee' }), true)
+      if (!peut('creer') || !peut('modifier', createur)) return refus()
+      if (!collaboration) return (json(res, 503, { code: 'collaboration-indisponible' }), true)
+      const { debut, fin, citation } = await lireCorps(req)
+      let r
+      try {
+        r = ancreCommentaire(await collaboration.lireTexte(docId), { debut, fin, citation, fil })
+        if (r.code === 'ok') await collaboration.ecrireTexte(docId, r.mise, p.id)
+      } catch (err) {
+        if (err.code === 'collaboration-indisponible' || err.name === 'TimeoutError' || err.name === 'TypeError')
+          return (json(res, 503, { code: 'collaboration-indisponible' }), true)
+        throw err
+      }
+      if (r.code === 'ancre-invalide') return (json(res, 400, { code: r.code }), true)
+      if (r.code !== 'ok') return (json(res, 409, { code: r.code }), true)
+      return (json(res, 200, {}), true)
     }
     if (sous !== 'commentaires') return introuvable()
     // /fils/:fil/commentaires

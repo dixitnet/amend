@@ -3,6 +3,8 @@
 // connexion, il demande à l'application qui est la personne (`identifier`) et
 // ce qu'elle peut faire (`droits`), comme l'adaptateur de Docs.
 import { createYHub, createAuthPlugin, createAuthorize, createDocumentPermissions, apiError } from '@y/hub'
+import * as encodage from 'lib0/buffer'
+import { timingSafeEqual } from 'node:crypto'
 import { BRANCHES } from '../../domaine/index.js'
 
 /** Les branches ouvertes (domaine) : le texte et les suggestions ; toute autre est refusée. */
@@ -32,6 +34,18 @@ function permissions(a) {
 
 const ORGANISATION = 'amend'
 
+/** L'identité de notre serveur auprès de y/hub (jeton interne) : il ne fait
+ * que lire et écrire le texte principal, pour poser l'ancre d'un commentaire
+ * de correcteur (étape 5). */
+const SERVEUR = 'amend-serveur'
+const PERMISSIONS_SERVEUR = createDocumentPermissions({ ydoc: '-ru-', endpoint: { ydoc: '-ru-' } })
+
+function jetonValide(attendu, recu) {
+  const a = Buffer.from(String(attendu || ''))
+  const b = Buffer.from(String(recu || ''))
+  return a.length > 0 && a.length === b.length && timingSafeEqual(a, b)
+}
+
 /**
  * @param {object} o
  * @param {number} o.port
@@ -42,6 +56,7 @@ const ORGANISATION = 'amend'
  * @param {(docId: string, idPersonne: string, branche: string) => Promise<{ texte: 'ecriture' | 'lecture', presence: boolean, restaurer: boolean } | null>} o.droits
  *   ce que le domaine accorde à la personne sur cette branche du document
  * @param {number} [o.delaiPersistance] ms avant qu'une modification soit écrite dans PostgreSQL
+ * @param {string} [o.jetonInterne] le jeton de notre serveur ; vide : il n'a pas d'accès
  */
 export async function demarrerCollaboration({
   port,
@@ -51,11 +66,14 @@ export async function demarrerCollaboration({
   identifier,
   droits,
   delaiPersistance = 2000,
+  jetonInterne = '',
 }) {
   const auth = createAuthPlugin({
     authenticate(req) {
       // Les en-têtes de la requête se lisent avant toute attente (uWebSockets).
       const cookie = req.getHeader('cookie') || ''
+      if (jetonValide(jetonInterne, req.getHeader('x-amend-interne')))
+        return Promise.resolve({ userid: SERVEUR, interne: true })
       return identifier(cookie).then((personne) => {
         if (typeof personne?.id !== 'string' || !personne.id) throw apiError(401, 'session absente')
         return { userid: personne.id }
@@ -64,6 +82,7 @@ export async function demarrerCollaboration({
     authorize: createAuthorize({
       document: async (docRef, personne) => {
         if (!personne || docRef.org !== ORGANISATION || !OUVERTES.has(docRef.branch)) return null
+        if (personne.interne === true) return docRef.branch === 'main' ? PERMISSIONS_SERVEUR : null
         // Une demande de droits qui échoue (serveur lent ou absent) vaut refus.
         const accorde = await droits(docRef.docid, personne.userid, docRef.branch).catch(() => null)
         return accorde ? permissions(accorde) : null
@@ -91,5 +110,36 @@ export async function demarrerCollaboration({
       return d.gcDoc
     },
     fermer: () => yhub.destroy({ drainMs: 2000 }),
+  }
+}
+
+/**
+ * Le client de notre serveur vers y/hub (jeton interne) : lire le texte
+ * principal d'un document, et y écrire une modification attribuée à une
+ * personne (l'ancre d'un commentaire, pour le correcteur qui l'a demandée).
+ * @param {{ url: string, jeton: string }} o  url : la racine de l'API (…/collaboration)
+ */
+export function clientCollaboration({ url, jeton }) {
+  const adresse = (docId) => `${url}/ydoc/v1/${ORGANISATION}/${encodeURIComponent(docId)}?branch=main`
+  const entetes = { 'x-amend-interne': jeton }
+  async function appel(docId, options) {
+    const r = await fetch(adresse(docId), {
+      ...options,
+      headers: { ...entetes, ...options?.headers },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!r.ok) throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
+    return encodage.decodeAny(new Uint8Array(await r.arrayBuffer()))
+  }
+  return {
+    /** L'état encodé du texte principal. */
+    lireTexte: async (docId) => (await appel(docId)).doc,
+    /** Écrit une modification du texte, attribuée à `pour` (en plus du serveur). */
+    ecrireTexte: (docId, mise, pour) =>
+      appel(docId, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: encodage.encodeAny({ update: mise, customAttributions: [{ k: 'pour', v: pour }] }),
+      }),
   }
 }

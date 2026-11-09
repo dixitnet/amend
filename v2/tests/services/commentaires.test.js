@@ -5,10 +5,13 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
-import { preparerServices, POSTGRES } from '../../exploitation/dev/pile.mjs'
+import { preparerServices, POSTGRES, REDIS } from '../../exploitation/dev/pile.mjs'
 import { creerServeur } from '../../application/serveur/index.js'
 import { creerTableAcces } from '../../application/serveur/acces.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
+import { demarrerCollaboration, clientCollaboration } from '../../adaptateurs/yhub/index.js'
+import { ecrireBlocs, texteDesBlocs, lireBlocs } from '../../adaptateurs/blocknote/serveur.js'
+import { roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
 
 const joignable = (port) =>
   new Promise((r) => {
@@ -17,7 +20,9 @@ const joignable = (port) =>
     s.on('error', () => r(false))
   })
 let raisonSaut = null
-let depot, serveur, base
+let depot, serveur, base, collab, interne
+const JETON = 'jeton-interne-de-test'
+const PORT_COLLAB = 4512
 const table = creerTableAcces()
 const DOC = `t3-comm-${Date.now().toString(36)}`
 const cookies = {}
@@ -35,12 +40,33 @@ before(async () => {
   }
   depot = await ouvrirCommentaires(POSTGRES)
   serveur = creerServeur(
-    { secret: 's'.repeat(32), jetonInterne: 'j', collaboration: 'ws://x', statique: '/nulle-part', dev: true },
+    {
+      secret: 's'.repeat(32),
+      jetonInterne: JETON,
+      collaboration: 'ws://x',
+      collaborationApi: `http://127.0.0.1:${PORT_COLLAB}/collaboration`,
+      statique: '/nulle-part',
+      dev: true,
+    },
     table,
     depot,
   )
   await new Promise((r) => serveur.listen(0, '127.0.0.1', r))
   base = `http://127.0.0.1:${serveur.address().port}`
+  collab = await demarrerCollaboration({
+    port: PORT_COLLAB,
+    redis: REDIS,
+    postgres: POSTGRES,
+    origines: [],
+    delaiPersistance: 300,
+    jetonInterne: JETON,
+    identifier: async (cookie) => {
+      const r = await fetch(`${base}/api/moi`, { headers: { cookie } })
+      return r.ok ? r.json() : null
+    },
+    droits: async (docId, id, branche) => accesBranche(capacites(roleEffectif(table.rolesDe(docId, id))), branche),
+  })
+  interne = clientCollaboration({ url: `http://127.0.0.1:${PORT_COLLAB}/collaboration`, jeton: JETON })
   for (const nom of ['Paule', 'Edith', 'Carla', 'Cyril', 'Lucie', 'Xavier']) {
     const r = await fetch(`${base}/api/dev/session`, {
       method: 'POST',
@@ -56,6 +82,7 @@ before(async () => {
   table.donner(DOC, cookies.Lucie.id, 'lecteur')
 })
 after(async () => {
+  await collab?.fermer()
   serveur?.closeAllConnections?.()
   serveur?.close()
   await depot?.fermer()
@@ -211,4 +238,60 @@ t3('flux d’événements : un navigateur abonné est prévenu de chaque changem
     (await fetch(`${base}/api/documents/${DOC}/fils/evenements`, { headers: { cookie: cookies.Lucie.cookie } })).status,
     403,
   )
+})
+
+t3('ancre : le serveur la pose pour le correcteur, dans le texte principal, sans le changer', async () => {
+  // Le texte, écrit par le serveur lui-même (comme le ferait un éditeur).
+  await interne.ecrireTexte(
+    DOC,
+    ecrireBlocs([{ id: 'b1', type: 'paragraph', content: 'Il faisait nuit sur la ville.' }]),
+    cookies.Paule.id,
+  )
+  const fil = (await appel('Carla', 'POST', '', { corps: corps('Pourquoi « nuit » ?') })).corps
+  const ancre = { debut: { blocId: 'b1', decalage: 11 }, fin: { blocId: 'b1', decalage: 15 }, citation: 'nuit' }
+  assert.equal((await appel('Cyril', 'POST', `/${fil.id}/ancre`, ancre)).statut, 403, 'pas l’auteur du fil')
+  assert.equal((await appel('Lucie', 'POST', `/${fil.id}/ancre`, ancre)).statut, 403, 'le lecteur')
+  assert.equal(
+    (await appel('Carla', 'POST', `/${fil.id}/ancre`, { ...ancre, citation: 'jour' })).statut,
+    409,
+    'passage périmé',
+  )
+  assert.equal((await appel('Carla', 'POST', `/${fil.id}/ancre`, { ...ancre, debut: 'x' })).statut, 400)
+  assert.equal((await appel('Carla', 'POST', `/${fil.id}/ancre`, ancre)).statut, 200)
+  let marque = null
+  for (const t0 = Date.now(); !marque && Date.now() - t0 < 5000; await new Promise((r) => setTimeout(r, 100))) {
+    const etat = await interne.lireTexte(DOC)
+    const Y = await import('@y/y')
+    const d = new Y.Doc()
+    Y.applyUpdate(d, etat)
+    if (JSON.stringify(d.get('doc').toDeltaDeep()).includes(fil.id)) marque = etat
+  }
+  assert.ok(marque, 'la marque du fil est dans le texte de y/hub')
+  assert.equal(texteDesBlocs(lireBlocs(marque)), 'Il faisait nuit sur la ville.', 'le texte est inchangé')
+})
+
+t3('ancre : sans accès de notre serveur à y/hub, 503 ; un jeton faux ne lit rien', async () => {
+  const faux = clientCollaboration({ url: `http://127.0.0.1:${PORT_COLLAB}/collaboration`, jeton: 'faux' })
+  await assert.rejects(faux.lireTexte(DOC), { code: 'collaboration-indisponible' })
+  const sansCollab = creerServeur(
+    { secret: 's'.repeat(32), jetonInterne: '', collaboration: 'ws://x', statique: '/x', dev: true },
+    table,
+    depot,
+  )
+  await new Promise((r) => sansCollab.listen(0, '127.0.0.1', r))
+  try {
+    const fil = (await appel('Carla', 'POST', '', { corps: corps('x') })).corps
+    const r = await fetch(`http://127.0.0.1:${sansCollab.address().port}/api/documents/${DOC}/fils/${fil.id}/ancre`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: cookies.Carla.cookie },
+      body: JSON.stringify({
+        debut: { blocId: 'b1', decalage: 0 },
+        fin: { blocId: 'b1', decalage: 2 },
+        citation: 'Il',
+      }),
+    })
+    assert.equal(r.status, 503)
+  } finally {
+    sansCollab.close()
+  }
 })

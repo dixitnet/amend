@@ -84,3 +84,87 @@ test('contrat : le schéma du livre a la marque « link » dont la typographie p
   const { schemaLivre } = await import('../../adaptateurs/blocknote/schema.js')
   assert.ok(BlockNoteEditor.create({ schema: schemaLivre }).pmSchema.marks.link)
 })
+
+/** Les passages marqués d'un fil, dans l'ordre du texte. */
+async function passagesMarques(etat) {
+  const Y = await import('@y/y')
+  const { ynodeToPmnode } = await import('@y/prosemirror')
+  const { blockNoteTransformer } = await import('@blocknote/core/y')
+  const { BlockNoteEditor } = await import('@blocknote/core')
+  const { CommentsExtension, DefaultThreadStoreAuth } = await import('@blocknote/core/comments')
+  const { YjsThreadStore } = await import('@blocknote/core/y')
+  const { schemaLivre } = await import('../../adaptateurs/blocknote/schema.js')
+  const schema = BlockNoteEditor.create({
+    schema: schemaLivre,
+    extensions: [
+      CommentsExtension({
+        threadStore: new YjsThreadStore('t', new Y.Doc().get('f'), new DefaultThreadStoreAuth('t', 'comment')),
+        resolveUsers: async () => [],
+      }),
+    ],
+  }).pmSchema
+  const doc = new Y.Doc()
+  Y.applyUpdate(doc, etat)
+  const passages = []
+  ynodeToPmnode(doc.get('doc'), schema, { transformer: blockNoteTransformer }).descendants((n) => {
+    const m = n.isText && n.marks.find((x) => x.type.name === 'comment')
+    if (m) passages.push([m.attrs.threadId, n.text])
+  })
+  return passages
+}
+
+test('ancre d’un commentaire : posée sur le passage, sans toucher au texte ni aux styles', async () => {
+  const { ancreCommentaire } = await import('../../adaptateurs/blocknote/serveur.js')
+  const Y = await import('@y/y')
+  const t = (text, styles = {}) => ({ type: 'text', text, styles })
+  const etat = ecrireBlocs([
+    { id: 'b1', type: 'paragraph', content: [t('Il faisait nuit sur la ville.')] },
+    { id: 'b2', type: 'paragraph', content: [t('Second '), t('paragraphe', { italic: true })] },
+  ])
+  const r = ancreCommentaire(etat, {
+    debut: { blocId: 'b1', decalage: 3 },
+    fin: { blocId: 'b1', decalage: 15 },
+    citation: 'faisait nuit',
+    fil: 'f1',
+  })
+  assert.equal(r.code, 'ok')
+  const doc = new Y.Doc()
+  Y.applyUpdate(doc, etat)
+  Y.applyUpdate(doc, r.mise)
+  let apres = Y.encodeStateAsUpdate(doc)
+  const r2 = ancreCommentaire(apres, {
+    debut: { blocId: 'b1', decalage: 23 },
+    fin: { blocId: 'b2', decalage: 12 },
+    citation: 'ville.\nSecond parag',
+    fil: 'f2',
+  })
+  assert.equal(r2.code, 'ok')
+  Y.applyUpdate(doc, r2.mise)
+  apres = Y.encodeStateAsUpdate(doc)
+  assert.deepEqual(await passagesMarques(apres), [
+    ['f1', 'faisait nuit'],
+    ['f2', 'ville.'],
+    ['f2', 'Second '],
+    ['f2', 'parag'],
+  ])
+  assert.equal(texteDesBlocs(lireBlocs(apres)), 'Il faisait nuit sur la ville.\nSecond paragraphe')
+  assert.equal(lireBlocs(apres)[1].content[1].styles.italic, true)
+})
+
+test('ancre d’un commentaire : refusée avec un code (vide, périmée, bloc absent, données piégées)', async () => {
+  const { ancreCommentaire } = await import('../../adaptateurs/blocknote/serveur.js')
+  const etat = ecrireBlocs([{ id: 'b1', type: 'paragraph', content: 'Il faisait nuit.' }])
+  const p = (blocId, decalage) => ({ blocId, decalage })
+  const cas = [
+    [{ debut: p('b1', 3), fin: p('b1', 3), citation: '', fil: 'f' }, 'ancre-vide'],
+    [{ debut: p('b1', 3), fin: p('b1', 10), citation: 'autre', fil: 'f' }, 'ancre-perimee'],
+    [{ debut: p('b1', 3), fin: p('b1', 999), citation: 'x', fil: 'f' }, 'ancre-perimee'],
+    [{ debut: p('zz', 0), fin: p('zz', 1), citation: 'I', fil: 'f' }, 'bloc-introuvable'],
+    [{ debut: p('b1', -1), fin: p('b1', 2), citation: 'Il', fil: 'f' }, 'ancre-invalide'],
+    [{ debut: p('b1', 0), fin: p('b1', 2), citation: 'Il' }, 'ancre-invalide'],
+    [null, 'ancre-invalide'],
+    [{ debut: p('__proto__', 0), fin: p('b1', 2), citation: 'Il', fil: 'f' }, 'bloc-introuvable'],
+  ]
+  for (const [ancre, code] of cas) assert.equal(ancreCommentaire(etat, ancre).code, code, JSON.stringify(ancre))
+  assert.throws(() => ancreCommentaire(new Uint8Array([1, 2, 3]), cas[1][0]), { code: 'document-illisible' })
+})

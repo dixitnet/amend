@@ -10,6 +10,7 @@ import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerTableAcces } from './acces.js'
 import { creerCommentaires } from './commentaires.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
+import { clientCollaboration } from '../../adaptateurs/yhub/index.js'
 import { nomPersonne, identifiantDocument, ROLES, roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
@@ -23,6 +24,8 @@ const confDepuisEnv = () => ({
   // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
   cookieSecure: process.env.V2_COOKIE_SECURE === '1',
   collaboration: process.env.V2_COLLAB_URL || 'ws://127.0.0.1:4400/collaboration/ws/v1/amend',
+  // L'API de y/hub, pour notre serveur seulement (ancres des commentaires).
+  collaborationApi: process.env.V2_COLLAB_API || 'http://127.0.0.1:4400/collaboration',
   statique: process.env.V2_STATIQUE || join(import.meta.dirname, '../../dist'),
   postgres: process.env.V2_POSTGRES || 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub',
 })
@@ -181,6 +184,10 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces(), 
     depot,
     json,
     lireCorps,
+    collaboration:
+      CONF.collaborationApi && CONF.jetonInterne
+        ? clientCollaboration({ url: CONF.collaborationApi, jeton: CONF.jetonInterne })
+        : null,
   })
   return http.createServer(async (req, res) => {
     try {

@@ -34,7 +34,7 @@ async function droits(docId, idPersonne, branche) {
   )
 }
 
-const collab = await demarrerCollaboration({ ...CONF, identifier, droits })
+const collab = await demarrerCollaboration({ ...CONF, identifier, droits, jetonInterne: CONF.jetonInterne })
 console.log(`[collab] ws://127.0.0.1:${CONF.port}${collab.cheminWebSocket}/<document>`)
 
 for (const signal of ['SIGINT', 'SIGTERM'])
