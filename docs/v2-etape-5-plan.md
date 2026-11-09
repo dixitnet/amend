@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 5, « Relecture »
 
-Statut : **arbitré** par Sylvain le 08/11/2026 (voir « Arbitrage » en fin de plan) ; développement lancé. Revue d'ouverture par Claude (grille des règles, § 6) ; scénarios de test par Claude (`docs/v2-tests/etape-5-scenarios.md`).
+Statut : **close** le 09/11/2026 (fusion dans `main`, revue de clôture `docs/v2-revues/2026-11-09-etape-5-cloture.md`) ; arbitrée par Sylvain le 08/11/2026. Revue d'ouverture par Claude (grille des règles, § 6) ; scénarios de test par Claude (`docs/v2-tests/etape-5-scenarios.md`).
 
 Références : `docs/v2-regles-developpement.md`, `docs/v2-etape-2-plan.md` (rôles), `v2/adr/0003-blocknote.md`, `v2/adr/0004-yhub.md`.
 

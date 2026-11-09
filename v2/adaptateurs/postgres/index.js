@@ -138,6 +138,8 @@ export async function ouvrirCommentaires(url) {
         else await t`update amend.fils set modifie_le = now() where id = ${fil}`
       })
     },
+    /** Efface tous les fils d'un document (document supprimé). */
+    supprimerFilsDuDocument: (document) => sql`delete from amend.fils where document = ${document}`.then(() => {}),
     supprimerFil: (id) => sql`delete from amend.fils where id = ${id}`.then(() => {}),
     async resoudre(id, resolu, par) {
       await sql`update amend.fils set resolu = ${resolu}, resolu_le = now(), resolu_par = ${resolu ? par : null}, modifie_le = now() where id = ${id}`
