@@ -75,6 +75,7 @@ export function App() {
   if (etat.phase === 'connexion')
     return (
       <EcranConnexion
+        nomApplication={t('application.nom')}
         titre={t('connexion.titre')}
         explication={t('connexion.explication')}
         libelleNom={t('connexion.nom')}
@@ -176,6 +177,7 @@ function Edition({ config, personne, docId, droits }) {
   }
   return (
     <PageEdition
+      nomApplication={t('application.nom')}
       titre={t('document.titre', { id: docId })}
       etat={t('document.etat', { etat: connexion })}
       participants={t('document.participants', { n: autres })}
