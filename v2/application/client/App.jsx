@@ -9,6 +9,7 @@ import {
   EcranConnexion,
   EcranCourriel,
   ListeDocuments,
+  PageAdministration,
   PanneauPartage,
   PanneauSuggestions,
   BoutonBascule,
@@ -42,7 +43,8 @@ const lireJson = (r) => r.json().catch(() => ({}))
 
 /** Ce que vise l'adresse : `#` vide, mes documents ; `#/dossiers/id`, l'un
  * de mes dossiers ; `#/partages`, Partagé avec moi ; `#/equipes/id` et
- * `#/equipes/id/dossiers/id`, une équipe et ses dossiers ; `#!code`, un message ;
+ * `#/equipes/id/dossiers/id`, une équipe et ses dossiers ; `#/admin`, le
+ * back-office (administrateurs de l'instance) ; `#!code`, un message ;
  * `#id`, un document (jamais de `/` dans son identifiant) ; `null` si
  * l'adresse est mal encodée (`#%`). */
 function viseeDansAdresse() {
@@ -54,6 +56,7 @@ function viseeDansAdresse() {
   }
   if (!h) return { liste: 'mes', dossier: null }
   if (h === '/partages') return { liste: 'partages' }
+  if (h === '/admin') return { admin: true }
   if (h.startsWith('/dossiers/')) return { liste: 'mes', dossier: h.slice('/dossiers/'.length) }
   const e = h.match(/^\/equipes\/([^/]+)(?:\/dossiers\/([^/]+))?$/)
   if (e) return { liste: `equipe:${e[1]}`, dossier: e[2] ?? null }
@@ -126,7 +129,9 @@ export function App() {
     )
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
-  if (visee.liste) return <MesDocuments onglet={visee.liste} dossier={visee.dossier ?? null} />
+  if (visee.admin) return <Administration />
+  if (visee.liste)
+    return <MesDocuments onglet={visee.liste} dossier={visee.dossier ?? null} admin={etat.personne.admin === true} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
   const doc = identifiantDocument(visee.document)
   if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
@@ -193,7 +198,7 @@ function cheminDe(dossiers, id) {
 
 /** Les documents, comme sur un serveur de fichiers : Mes documents (avec mes
  * dossiers, étape 6c), Partagé avec moi, et un onglet par équipe (6d). */
-function MesDocuments({ onglet, dossier }) {
+function MesDocuments({ onglet, dossier, admin }) {
   const equipe = onglet.startsWith(VERS_EQUIPE) ? onglet.slice(VERS_EQUIPE.length) : null
   const [donnees, setDonnees] = useState(null)
   const [vueEquipe, setVueEquipe] = useState(null)
@@ -240,6 +245,7 @@ function MesDocuments({ onglet, dossier }) {
     actions: (
       <>
         <Bouton libelle={t('documents.nouvelleEquipe')} surClic={nouvelleEquipe} />
+        {admin ? <Bouton libelle={t('admin.titre')} surClic={() => (location.hash = '#/admin')} /> : null}
         <Deconnexion />
       </>
     ),
@@ -503,6 +509,51 @@ function Membres({ vue, surChangement }) {
       surRetirerInvitation={agir((courriel) =>
         envoyerJson('DELETE', `${base}/invitations/${encodeURIComponent(courriel)}`),
       )}
+    />
+  )
+}
+
+/** Le back-office de l'instance (administrateurs) : la rubrique Système pour
+ * commencer (version 2.NNN, serveur, nombres) ; le serveur refuse les autres. */
+function Administration() {
+  const [systeme, setSysteme] = useState(null)
+  const [erreur, setErreur] = useState(null)
+  useEffect(() => {
+    envoyerJson('GET', '/api/admin/systeme')
+      .then(setSysteme)
+      .catch((e) => setErreur(e.code || 'reseau'))
+  }, [])
+  if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
+  if (!systeme) return <EcranMessage texte={t('application.chargement')} />
+  const date = new Intl.DateTimeFormat(t.langue, { dateStyle: 'medium', timeStyle: 'short' })
+  const nombre = new Intl.NumberFormat(t.langue)
+  const mo = new Intl.NumberFormat(t.langue, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 0 })
+  const { version: v, comptes: c } = systeme
+  return (
+    <PageAdministration
+      nomApplication={t('application.nom')}
+      titre={t('admin.titre')}
+      actions={<Bouton libelle={t('document.mesDocuments')} surClic={() => (location.hash = '#')} />}
+      rubriques={[
+        {
+          titre: t('admin.systeme'),
+          lignes: [
+            {
+              libelle: t('admin.version'),
+              valeur: v.numero
+                ? t('admin.versionValeur', { numero: v.numero, commit: v.commit, date: date.format(v.date) })
+                : t('admin.versionInconnue'),
+            },
+            { libelle: t('admin.demarrage'), valeur: date.format(systeme.demarrage) },
+            { libelle: t('admin.memoire'), valeur: mo.format(systeme.memoire / 1e6) },
+            { libelle: t('admin.node'), valeur: systeme.node },
+            { libelle: t('admin.personnes'), valeur: nombre.format(c.personnes) },
+            { libelle: t('admin.essai'), valeur: nombre.format(c.essai) },
+            { libelle: t('admin.documents'), valeur: nombre.format(c.documents) },
+            { libelle: t('admin.equipes'), valeur: nombre.format(c.equipes) },
+          ],
+        },
+      ]}
     />
   )
 }

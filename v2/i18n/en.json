@@ -59,7 +59,8 @@
     "dernier-gestionnaire": "A team always keeps at least one manager.",
     "deplacement-impossible": "A document cannot go straight from one team to another: move it to My documents first.",
     "equipe-introuvable": "This team does not exist, or you are not a member.",
-    "equipe-non-vide": "This team is not empty: move or delete its documents and folders first."
+    "equipe-non-vide": "This team is not empty: move or delete its documents and folders first.",
+    "reserve-administrateur": "Reserved for the administrators of this instance."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -171,5 +172,19 @@
     "invite": "{courriel}, invited as {role}",
     "invitationEnvoyee": "Invitation sent to {courriel}.",
     "accesDonne": "{courriel} now has access."
+  },
+  "admin": {
+    "titre": "Administration",
+    "systeme": "System",
+    "version": "Version",
+    "versionValeur": "{numero} ({commit}, of {date})",
+    "versionInconnue": "unknown (outside a git repository)",
+    "demarrage": "Server started on",
+    "memoire": "Server memory",
+    "node": "Node",
+    "personnes": "Accounts",
+    "essai": "Test and development accounts",
+    "documents": "Documents",
+    "equipes": "Teams"
   }
 }

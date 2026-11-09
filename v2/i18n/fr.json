@@ -59,7 +59,8 @@
     "dernier-gestionnaire": "Une équipe garde toujours au moins un gestionnaire.",
     "deplacement-impossible": "Un document ne passe pas directement d’une équipe à une autre : sortez-le d’abord dans Mes documents.",
     "equipe-introuvable": "Cette équipe n’existe pas, ou vous n’en êtes pas membre.",
-    "equipe-non-vide": "Cette équipe n’est pas vide : déplacez ou supprimez d’abord ses documents et ses dossiers."
+    "equipe-non-vide": "Cette équipe n’est pas vide : déplacez ou supprimez d’abord ses documents et ses dossiers.",
+    "reserve-administrateur": "Réservé aux administrateurs de l’instance."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -171,5 +172,19 @@
     "invite": "{courriel}, invité comme {role}",
     "invitationEnvoyee": "Invitation envoyée à {courriel}.",
     "accesDonne": "{courriel} a maintenant accès."
+  },
+  "admin": {
+    "titre": "Administration",
+    "systeme": "Système",
+    "version": "Version",
+    "versionValeur": "{numero} ({commit}, du {date})",
+    "versionInconnue": "inconnue (hors d’un dépôt git)",
+    "demarrage": "Serveur démarré le",
+    "memoire": "Mémoire du serveur",
+    "node": "Node",
+    "personnes": "Comptes",
+    "essai": "Comptes d’essai et de développement",
+    "documents": "Documents",
+    "equipes": "Équipes"
   }
 }
