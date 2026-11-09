@@ -1,0 +1,238 @@
+// Adaptateur PostgreSQL (couche 2) : le dépôt des comptes et du partage
+// (étape 6a), sur le modèle de Docs (`User`, `Document`, `DocumentAccess`,
+// `Invitation`, `LinkTrace`). Aucune règle ici : qui peut faire quoi est
+// décidé par le domaine, avant l'appel. Schéma `amend`, dans la base de y/hub.
+//  - un accès est donné à une personne OU à une équipe (contrainte de Docs) ;
+//    pas d'interface d'équipe à cette étape ;
+//  - les jetons de connexion ne sont gardés que par leur empreinte.
+import postgres from 'postgres'
+import { createHash, randomBytes } from 'node:crypto'
+
+const SCHEMA = `
+create schema if not exists amend;
+create table if not exists amend.personnes (
+  id uuid primary key default gen_random_uuid(),
+  courriel text not null unique,
+  nom text,
+  cree_le timestamptz not null default now(),
+  sessions_valides_depuis timestamptz not null default to_timestamp(0)
+);
+create table if not exists amend.documents (
+  id text primary key,
+  titre text,
+  cree_par uuid references amend.personnes (id) on delete set null,
+  cree_le timestamptz not null default now(),
+  role_lien text
+);
+create table if not exists amend.acces (
+  id bigserial primary key,
+  document text not null references amend.documents (id) on delete cascade,
+  personne uuid references amend.personnes (id) on delete cascade,
+  equipe text not null default '',
+  role text not null,
+  cree_le timestamptz not null default now(),
+  constraint acces_personne_ou_equipe check ((personne is not null and equipe = '') or (personne is null and equipe <> ''))
+);
+create unique index if not exists acces_document_personne on amend.acces (document, personne) where personne is not null;
+create unique index if not exists acces_document_equipe on amend.acces (document, equipe) where equipe <> '';
+create table if not exists amend.invitations (
+  document text not null references amend.documents (id) on delete cascade,
+  courriel text not null,
+  role text not null,
+  auteur uuid references amend.personnes (id) on delete set null,
+  cree_le timestamptz not null default now(),
+  primary key (document, courriel)
+);
+create table if not exists amend.passages_par_lien (
+  document text not null references amend.documents (id) on delete cascade,
+  personne uuid not null references amend.personnes (id) on delete cascade,
+  cree_le timestamptz not null default now(),
+  primary key (document, personne)
+);
+create table if not exists amend.jetons_connexion (
+  empreinte text primary key,
+  courriel text not null,
+  document text,
+  expire_le timestamptz not null,
+  utilise_le timestamptz,
+  cree_le timestamptz not null default now()
+);
+create index if not exists jetons_courriel on amend.jetons_connexion (courriel, cree_le);
+`
+
+const empreinte = (jeton) => createHash('sha256').update(jeton).digest('hex')
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const estUuid = (id) => typeof id === 'string' && UUID.test(id)
+
+/** Ouvre le dépôt ; crée le schéma s'il manque. */
+export async function ouvrirComptes(url) {
+  const sql = postgres(url, { max: 4, onnotice: () => {} })
+  await sql.unsafe(SCHEMA)
+  const personneDe = (p) => (p ? { id: p.id, courriel: p.courriel, nom: p.nom } : null)
+
+  return {
+    // --- Personnes ---
+    async personneParCourriel(courriel) {
+      const [p] = await sql`select * from amend.personnes where courriel = ${courriel}`
+      return personneDe(p)
+    },
+    async personne(id) {
+      if (!estUuid(id)) return null
+      const [p] = await sql`select * from amend.personnes where id = ${id}`
+      return personneDe(p)
+    },
+    /** La personne de cette adresse, créée si besoin. */
+    async personneOuNouvelle(courriel) {
+      const [p] = await sql`
+        insert into amend.personnes (courriel) values (${courriel})
+        on conflict (courriel) do update set courriel = excluded.courriel
+        returning *`
+      return personneDe(p)
+    },
+    definirNom: (id, nom) => sql`update amend.personnes set nom = ${nom} where id = ${id}`.then(() => {}),
+    /** Les noms d'une liste de personnes (identifiants inconnus omis). */
+    async noms(ids) {
+      const valides = ids.filter(estUuid)
+      if (!valides.length) return []
+      return (await sql`select id, nom, courriel from amend.personnes where id = any(${valides}::uuid[])`).map(
+        personneDe,
+      )
+    },
+    /** « Déconnecter partout » : toute session ouverte avant maintenant est refusée. */
+    revoquerSessions: (id) =>
+      sql`update amend.personnes set sessions_valides_depuis = now() where id = ${id}`.then(() => {}),
+    async sessionsValidesDepuis(id) {
+      if (!estUuid(id)) return null
+      const [p] = await sql`select sessions_valides_depuis from amend.personnes where id = ${id}`
+      return p ? p.sessions_valides_depuis.getTime() : null
+    },
+
+    // --- Documents ---
+    /** Crée un document, dont `proprietaire` est propriétaire. */
+    async creerDocument(id, proprietaire, titre = null) {
+      await sql.begin(async (t) => {
+        await t`insert into amend.documents (id, titre, cree_par) values (${id}, ${titre}, ${proprietaire})`
+        await t`insert into amend.acces (document, personne, role) values (${id}, ${proprietaire}, 'proprietaire')`
+      })
+    },
+    async document(id) {
+      const [d] = await sql`select * from amend.documents where id = ${id}`
+      return d
+        ? { id: d.id, titre: d.titre, creePar: d.cree_par, creeLe: d.cree_le.getTime(), roleLien: d.role_lien }
+        : null
+    },
+    /** Efface le document et tout ce qui s'y rattache ici (accès, invitations, passages). */
+    supprimerDocument: (id) => sql`delete from amend.documents where id = ${id}`.then(() => {}),
+    definirRoleLien: (id, role) => sql`update amend.documents set role_lien = ${role} where id = ${id}`.then(() => {}),
+    /** Les documents d'une personne : ceux où elle a un accès, et ceux ouverts par un lien encore ouvert. */
+    async documentsDe(personne) {
+      const lignes = await sql`
+        select d.id, d.titre, d.cree_par, d.cree_le, d.role_lien, a.role
+        from amend.documents d
+        left join amend.acces a on a.document = d.id and a.personne = ${personne}
+        left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
+        where a.id is not null or (l.personne is not null and d.role_lien is not null)
+        order by d.cree_le desc`
+      return lignes.map((d) => ({
+        id: d.id,
+        titre: d.titre,
+        creeParMoi: d.cree_par === personne,
+        creeLe: d.cree_le.getTime(),
+        roles: [d.role, d.role_lien].filter(Boolean),
+      }))
+    },
+
+    // --- Accès ---
+    /** Les rôles d'une personne sur un document (son accès, et le lien si elle est passée par lui). */
+    async rolesDe(document, personne) {
+      if (!estUuid(personne)) return []
+      const [r] = await sql`
+        select a.role, case when l.personne is not null then d.role_lien end as lien
+        from amend.documents d
+        left join amend.acces a on a.document = d.id and a.personne = ${personne}
+        left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
+        where d.id = ${document}`
+      return r ? [r.role, r.lien].filter(Boolean) : []
+    },
+    /** Le rôle donné en propre (hors lien), ou null. */
+    async acces(document, personne) {
+      const [a] = await sql`select role from amend.acces where document = ${document} and personne = ${personne}`
+      return a?.role ?? null
+    },
+    async accesDuDocument(document) {
+      return (
+        await sql`
+        select a.personne, a.equipe, a.role, p.courriel, p.nom from amend.acces a
+        left join amend.personnes p on p.id = a.personne
+        where a.document = ${document} order by a.cree_le`
+      ).map((a) => ({ personne: a.personne, equipe: a.equipe || null, role: a.role, courriel: a.courriel, nom: a.nom }))
+    },
+    async proprietaires(document) {
+      const [{ n }] =
+        await sql`select count(*)::int as n from amend.acces where document = ${document} and role = 'proprietaire'`
+      return n
+    },
+    donnerAcces: (document, personne, role) =>
+      sql`insert into amend.acces (document, personne, role) values (${document}, ${personne}, ${role})
+          on conflict (document, personne) where personne is not null do update set role = excluded.role`.then(
+        () => {},
+      ),
+    retirerAcces: (document, personne) =>
+      sql`delete from amend.acces where document = ${document} and personne = ${personne}`.then(() => {}),
+    noterPassageParLien: (document, personne) =>
+      sql`insert into amend.passages_par_lien (document, personne) values (${document}, ${personne}) on conflict do nothing`.then(
+        () => {},
+      ),
+
+    // --- Invitations ---
+    inviter: (document, courriel, role, auteur) =>
+      sql`insert into amend.invitations (document, courriel, role, auteur) values (${document}, ${courriel}, ${role}, ${auteur})
+          on conflict (document, courriel) do update set role = excluded.role, auteur = excluded.auteur, cree_le = now()`.then(
+        () => {},
+      ),
+    async invitationsDe(courriel) {
+      return (await sql`select document, role, cree_le from amend.invitations where courriel = ${courriel}`).map(
+        (i) => ({
+          document: i.document,
+          role: i.role,
+          creeLe: i.cree_le.getTime(),
+        }),
+      )
+    },
+    async invitationsDuDocument(document) {
+      return (
+        await sql`select courriel, role, cree_le from amend.invitations where document = ${document} order by cree_le`
+      ).map((i) => ({
+        courriel: i.courriel,
+        role: i.role,
+        creeLe: i.cree_le.getTime(),
+      }))
+    },
+    retirerInvitation: (document, courriel) =>
+      sql`delete from amend.invitations where document = ${document} and courriel = ${courriel}`.then(() => {}),
+
+    // --- Jetons de connexion ---
+    /** Un jeton à usage unique ; rend sa forme en clair (pour le courrier). */
+    async creerJeton(courriel, document, dureeMs) {
+      const jeton = randomBytes(32).toString('base64url')
+      await sql`insert into amend.jetons_connexion (empreinte, courriel, document, expire_le)
+                values (${empreinte(jeton)}, ${courriel}, ${document}, ${new Date(Date.now() + dureeMs)})`
+      return jeton
+    },
+    /** Consomme un jeton : `{ courriel, document }` s'il est valable et neuf, sinon null. */
+    async consommerJeton(jeton) {
+      if (typeof jeton !== 'string' || !jeton || jeton.length > 100) return null
+      const [j] = await sql`
+        update amend.jetons_connexion set utilise_le = now()
+        where empreinte = ${empreinte(jeton)} and utilise_le is null and expire_le > now()
+        returning courriel, document`
+      return j ? { courriel: j.courriel, document: j.document } : null
+    },
+    async jetonsRecents(courriel, depuisMs) {
+      const [{ n }] =
+        await sql`select count(*)::int as n from amend.jetons_connexion where courriel = ${courriel} and cree_le > ${new Date(Date.now() - depuisMs)}`
+      return n
+    },
+    fermer: () => sql.end({ timeout: 5 }),
+  }
+}

@@ -175,6 +175,16 @@ export default [
     },
   },
   {
+    files: ['adaptateurs/courrier/**'],
+    rules: {
+      'no-restricted-imports': imports({
+        couches: ['application', 'design', 'i18n', 'extensions', 'yjs', 'blocknote', 'yhub', 'postgres'],
+        css: true,
+      }),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
+    },
+  },
+  {
     files: ['adaptateurs/postgres/**'],
     rules: {
       'no-restricted-imports': imports({
