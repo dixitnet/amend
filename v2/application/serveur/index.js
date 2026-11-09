@@ -190,7 +190,7 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
         return json(res, refus === 'droit-insuffisant' ? 403 : refus === 'dernier-proprietaire' ? 409 : 400, {
           code: refus,
         })
-      if ((await comptes.modifierAcces(v.docId, personne, role)) === 'dernier-proprietaire')
+      if ((await comptes.modifierAcces(v.docId, personne, role, v.personne.id)) === 'dernier-proprietaire')
         return json(res, 409, { code: 'dernier-proprietaire' })
       json(res, 200, {})
     },

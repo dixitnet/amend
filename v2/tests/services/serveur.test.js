@@ -171,6 +171,7 @@ test('droits : le créateur est propriétaire, une seule création par document'
       'inviter',
       'supprimer',
       'transferer',
+      'ranger',
     ],
   })
   assert.equal(await droitInterne(dev, doc, alice.id), 'ecriture')

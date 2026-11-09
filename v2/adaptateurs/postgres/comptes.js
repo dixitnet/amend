@@ -4,7 +4,10 @@
 // décidé par le domaine, avant l'appel. Schéma `amend`, dans la base de y/hub.
 //  - un accès est donné à une personne OU à une équipe (contrainte de Docs) ;
 //    pas d'interface d'équipe à cette étape ;
-//  - les jetons de connexion ne sont gardés que par leur empreinte.
+//  - les jetons de connexion ne sont gardés que par leur empreinte ;
+//  - étape 6c : un document est rangé dans « Mes documents » d'une personne
+//    (`emplacement`, d'abord son créateur), éventuellement dans l'un de ses
+//    dossiers ; un dossier de Mes documents est un rangement personnel.
 import postgres from 'postgres'
 import { createHash, randomBytes } from 'node:crypto'
 
@@ -49,6 +52,25 @@ create table if not exists amend.passages_par_lien (
   cree_le timestamptz not null default now(),
   primary key (document, personne)
 );
+create table if not exists amend.dossiers (
+  id uuid primary key default gen_random_uuid(),
+  nom text not null,
+  parent uuid references amend.dossiers (id) on delete cascade,
+  personne uuid not null references amend.personnes (id) on delete cascade,
+  cree_le timestamptz not null default now()
+);
+create index if not exists dossiers_personne on amend.dossiers (personne);
+do $$ begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'amend' and table_name = 'documents' and column_name = 'emplacement') then
+    alter table amend.documents
+      add column emplacement uuid references amend.personnes (id) on delete set null,
+      add column dossier uuid references amend.dossiers (id) on delete set null;
+    update amend.documents set emplacement = cree_par;
+  end if;
+end $$;
+create index if not exists documents_emplacement on amend.documents (emplacement);
+alter table amend.acces add column if not exists auteur uuid references amend.personnes (id) on delete set null;
 create table if not exists amend.jetons_connexion (
   empreinte text primary key,
   courriel text not null,
@@ -108,28 +130,45 @@ export async function ouvrirComptes(url) {
     },
 
     // --- Documents ---
-    /** Crée un document, dont `proprietaire` est propriétaire. */
-    async creerDocument(id, proprietaire, titre = null) {
+    /** Crée un document, dont `proprietaire` est propriétaire, rangé dans
+     * ses documents (dans `dossier`, ou à la racine). */
+    async creerDocument(id, proprietaire, titre = null, dossier = null) {
       await sql.begin(async (t) => {
-        await t`insert into amend.documents (id, titre, cree_par) values (${id}, ${titre}, ${proprietaire})`
+        await t`insert into amend.documents (id, titre, cree_par, emplacement, dossier)
+                values (${id}, ${titre}, ${proprietaire}, ${proprietaire}, ${dossier})`
         await t`insert into amend.acces (document, personne, role) values (${id}, ${proprietaire}, 'proprietaire')`
       })
     },
     async document(id) {
       const [d] = await sql`select * from amend.documents where id = ${id}`
       return d
-        ? { id: d.id, titre: d.titre, creePar: d.cree_par, creeLe: d.cree_le.getTime(), roleLien: d.role_lien }
+        ? {
+            id: d.id,
+            titre: d.titre,
+            creePar: d.cree_par,
+            creeLe: d.cree_le.getTime(),
+            roleLien: d.role_lien,
+            emplacement: d.emplacement,
+            dossier: d.dossier,
+          }
         : null
     },
     /** Efface le document et tout ce qui s'y rattache ici (accès, invitations, passages). */
     supprimerDocument: (id) => sql`delete from amend.documents where id = ${id}`.then(() => {}),
     definirRoleLien: (id, role) => sql`update amend.documents set role_lien = ${role} where id = ${id}`.then(() => {}),
-    /** Les documents d'une personne : ceux où elle a un accès, et ceux ouverts par un lien encore ouvert. */
+    /**
+     * Les documents d'une personne : ceux où elle a un accès, et ceux ouverts
+     * par un lien encore ouvert ; avec où chacun est rangé, et qui le lui a
+     * partagé et quand (pour « Partagé avec moi »).
+     */
     async documentsDe(personne) {
       const lignes = await sql`
-        select d.id, d.titre, d.cree_par, d.cree_le, d.role_lien, a.role
+        select d.id, d.titre, d.cree_par, d.cree_le, d.role_lien, d.emplacement, d.dossier,
+               a.role, a.cree_le as acces_le, p.nom as auteur_nom, p.courriel as auteur_courriel,
+               l.cree_le as lien_le
         from amend.documents d
         left join amend.acces a on a.document = d.id and a.personne = ${personne}
+        left join amend.personnes p on p.id = a.auteur
         left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
         where a.id is not null or (l.personne is not null and d.role_lien is not null)
         order by d.cree_le desc`
@@ -138,8 +177,44 @@ export async function ouvrirComptes(url) {
         titre: d.titre,
         creeParMoi: d.cree_par === personne,
         creeLe: d.cree_le.getTime(),
-        roles: [d.role, d.role_lien].filter(Boolean),
+        roles: [d.role, d.lien_le ? d.role_lien : null].filter(Boolean),
+        emplacement: d.emplacement,
+        dossier: d.dossier,
+        partagePar: d.auteur_nom || d.auteur_courriel ? { nom: d.auteur_nom, courriel: d.auteur_courriel } : null,
+        parLien: !d.role && Boolean(d.lien_le),
+        partageLe: (d.acces_le ?? d.lien_le).getTime(),
       }))
+    },
+    /** Range un document dans un dossier (`null` : à la racine de Mes documents). */
+    rangerDocument: (id, dossier) =>
+      sql`update amend.documents set dossier = ${dossier} where id = ${id}`.then(() => {}),
+
+    // --- Dossiers (rangement personnel, étape 6c) ---
+    async dossiersDe(personne) {
+      return (
+        await sql`select id, nom, parent from amend.dossiers where personne = ${personne} order by nom, cree_le`
+      ).map((d) => ({ id: d.id, nom: d.nom, parent: d.parent }))
+    },
+    async dossier(id) {
+      if (!estUuid(id)) return null
+      const [d] = await sql`select id, nom, parent, personne from amend.dossiers where id = ${id}`
+      return d ? { id: d.id, nom: d.nom, parent: d.parent, personne: d.personne } : null
+    },
+    async creerDossier(personne, nom, parent = null) {
+      const [d] =
+        await sql`insert into amend.dossiers (personne, nom, parent) values (${personne}, ${nom}, ${parent}) returning id`
+      return d.id
+    },
+    renommerDossier: (id, nom) => sql`update amend.dossiers set nom = ${nom} where id = ${id}`.then(() => {}),
+    deplacerDossier: (id, parent) => sql`update amend.dossiers set parent = ${parent} where id = ${id}`.then(() => {}),
+    /** Supprime un dossier s'il est vide (ni dossier ni document) ; rend `true` si c'est fait. */
+    async supprimerDossierVide(id) {
+      const r = await sql`
+        delete from amend.dossiers d where d.id = ${id}
+          and not exists (select 1 from amend.dossiers e where e.parent = d.id)
+          and not exists (select 1 from amend.documents o where o.dossier = d.id)
+        returning d.id`
+      return r.length > 0
     },
 
     // --- Accès ---
@@ -172,8 +247,9 @@ export async function ouvrirComptes(url) {
         await sql`select count(*)::int as n from amend.acces where document = ${document} and role = 'proprietaire'`
       return n
     },
-    donnerAcces: (document, personne, role) =>
-      sql`insert into amend.acces (document, personne, role) values (${document}, ${personne}, ${role})
+    /** Donne un rôle (`auteur` : qui le donne, montré dans « Partagé avec moi »). */
+    donnerAcces: (document, personne, role, auteur = null) =>
+      sql`insert into amend.acces (document, personne, role, auteur) values (${document}, ${personne}, ${role}, ${auteur})
           on conflict (document, personne) where personne is not null do update set role = excluded.role`.then(
         () => {},
       ),
@@ -182,7 +258,7 @@ export async function ouvrirComptes(url) {
      * transaction, sans jamais laisser le document sans propriétaire ; rend
      * `'dernier-proprietaire'` si c'était le cas, sinon `null`.
      */
-    async modifierAcces(document, personne, role) {
+    async modifierAcces(document, personne, role, auteur = null) {
       return sql.begin(async (t) => {
         const proprietaires =
           await t`select personne from amend.acces where document = ${document} and role = 'proprietaire' for update`
@@ -190,7 +266,7 @@ export async function ouvrirComptes(url) {
         if (etaitProprietaire && role !== 'proprietaire' && proprietaires.length <= 1) return 'dernier-proprietaire'
         if (role === null) await t`delete from amend.acces where document = ${document} and personne = ${personne}`
         else
-          await t`insert into amend.acces (document, personne, role) values (${document}, ${personne}, ${role})
+          await t`insert into amend.acces (document, personne, role, auteur) values (${document}, ${personne}, ${role}, ${auteur})
                   on conflict (document, personne) where personne is not null do update set role = excluded.role`
         return null
       })
@@ -201,6 +277,8 @@ export async function ouvrirComptes(url) {
       sql`insert into amend.passages_par_lien (document, personne) values (${document}, ${personne}) on conflict do nothing`.then(
         () => {},
       ),
+    retirerPassageParLien: (document, personne) =>
+      sql`delete from amend.passages_par_lien where document = ${document} and personne = ${personne}`.then(() => {}),
 
     // --- Invitations ---
     inviter: (document, courriel, role, auteur) =>
@@ -209,13 +287,14 @@ export async function ouvrirComptes(url) {
         () => {},
       ),
     async invitationsDe(courriel) {
-      return (await sql`select document, role, cree_le from amend.invitations where courriel = ${courriel}`).map(
-        (i) => ({
-          document: i.document,
-          role: i.role,
-          creeLe: i.cree_le.getTime(),
-        }),
-      )
+      return (
+        await sql`select document, role, auteur, cree_le from amend.invitations where courriel = ${courriel}`
+      ).map((i) => ({
+        document: i.document,
+        role: i.role,
+        auteur: i.auteur,
+        creeLe: i.cree_le.getTime(),
+      }))
     },
     async invitationsDuDocument(document) {
       return (
