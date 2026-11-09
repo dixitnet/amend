@@ -16,12 +16,13 @@ export const ROLES = Object.freeze(['lecteur', 'correcteur', 'editeur', 'proprie
  * - `supprimer` le document (tout de suite, sans corbeille pour le moment),
  *   `transferer` : nommer un propriétaire, ou changer ou retirer celui d'un
  *   autre ; au propriétaire seul. Il peut y avoir plusieurs propriétaires,
- *   jamais aucun (Sylvain, étape 6a, 09/11/2026). */
+ *   jamais aucun (Sylvain, étape 6a, 09/11/2026).
+ * - `ranger` le document dans ses dossiers (étape 6c), au propriétaire. */
 const AJOUTS = {
   lecteur: ['lire'],
   correcteur: ['commenter', 'suggerer'],
   editeur: ['ecrire', 'arbitrer', 'restaurer', 'inviter'],
-  proprietaire: ['supprimer', 'transferer'],
+  proprietaire: ['supprimer', 'transferer', 'ranger'],
 }
 
 const CAPACITES = Object.fromEntries(
