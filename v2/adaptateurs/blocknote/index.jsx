@@ -8,7 +8,7 @@
 //  - `lire` : lecture seule (lecteur), sans les suggestions.
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   useCreateBlockNote,
   FormattingToolbar,
@@ -25,6 +25,7 @@ import { boutonsGardes } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
+import { titresDe, titreCourant, allerAuTitre, modifierAuPoint, lireSeulement } from './plan.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 
 function Palette() {
@@ -41,6 +42,12 @@ function Palette() {
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
+ * @param {(plan: { titres: ReturnType<typeof titresDe>, courant: string | null, allerA: (cle: string) => void }) => void} [p.surPlan]
+ *   rappelé avec les titres du document et le titre courant ; doit être stable
+ * @param {boolean} [p.lectureDabord]  ouvrir en lecture, passer en modification au point touché (format M)
+ * @param {boolean} [p.tactile]  écran tactile : aller à un titre sans donner le focus
+ * @param {(saisie: { enModification: boolean, terminer: () => void }) => void} [p.surSaisie]
+ *   rappelé quand on passe de la lecture à la modification et inversement ; doit être stable
  */
 export function EditeurCollaboratif({
   contexte,
@@ -55,6 +62,10 @@ export function EditeurCollaboratif({
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
+  surPlan,
+  lectureDabord = false,
+  tactile = false,
+  surSaisie,
 }) {
   const suggerer = mode === 'suggerer'
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
@@ -144,10 +155,61 @@ export function EditeurCollaboratif({
     }
   }, [editeur, afficheur, suggerer, surSuggestions])
 
+  // Le plan : les titres à chaque modification, le titre courant au défilement.
+  useEffect(() => {
+    if (!surPlan) return
+    let precedent = ''
+    let attente
+    const signaler = () => {
+      const titres = titresDe(editeur.document)
+      const courant = titreCourant(editeur.domElement, titres)
+      const empreinte = JSON.stringify([titres, courant])
+      if (empreinte === precedent) return
+      precedent = empreinte
+      surPlan({ titres, courant, allerA: (cle) => allerAuTitre(editeur, cle, { focaliser: !tactile }) })
+    }
+    const auDefilement = () => {
+      clearTimeout(attente)
+      attente = setTimeout(signaler, 200)
+    }
+    signaler()
+    const arreter = editeur.onChange(signaler)
+    window.addEventListener('scroll', auDefilement, { passive: true })
+    return () => {
+      arreter()
+      clearTimeout(attente)
+      window.removeEventListener('scroll', auDefilement)
+      surPlan(null)
+    }
+  }, [editeur, surPlan, tactile])
+
+  // La lecture d'abord (format M) : l'éditeur s'ouvre en lecture ; un appui
+  // sur le texte le passe en modification au point touché.
+  const peutEcrire = mode !== 'lire' && !historique
+  const [enModification, setEnModification] = useState(!lectureDabord)
+  useEffect(() => setEnModification(!lectureDabord), [lectureDabord, editeur])
+  const terminer = useCallback(() => {
+    lireSeulement(editeur)
+    setEnModification(false)
+  }, [editeur])
+  useEffect(() => {
+    if (lectureDabord && peutEcrire) surSaisie?.({ enModification, terminer })
+    else surSaisie?.(null)
+  }, [lectureDabord, peutEcrire, enModification, terminer, surSaisie])
+  const auToucher =
+    lectureDabord && peutEcrire && !enModification
+      ? (e) => {
+          modifierAuPoint(editeur, e.clientX, e.clientY)
+          setEnModification(true)
+        }
+      : undefined
+
   return (
-    <BlockNoteView editor={editeur} editable={mode !== 'lire' && !historique} formattingToolbar={false}>
-      <FormattingToolbarController formattingToolbar={Palette} />
-      {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
-    </BlockNoteView>
+    <div onClick={auToucher}>
+      <BlockNoteView editor={editeur} editable={peutEcrire && enModification} formattingToolbar={false}>
+        <FormattingToolbarController formattingToolbar={Palette} />
+        {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
+      </BlockNoteView>
+    </div>
   )
 }
