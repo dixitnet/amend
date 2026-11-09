@@ -164,6 +164,11 @@ test('équipe : membres gérés par le gestionnaire seul ; jamais aucun gestionn
   const seul = await appel('PUT', `/api/equipes/${eq.id}/membres/${gaelle.id}`, { ...g, corps: { role: 'editeur' } })
   assert.deepEqual([seul.statut, seul.json.code], [409, 'dernier-gestionnaire'])
   assert.equal((await appel('DELETE', `/api/equipes/${eq.id}/moi`, g)).statut, 409)
+  const parPost = await appel('POST', `/api/equipes/${eq.id}/membres`, {
+    ...g,
+    corps: { courriel: gaelle.courriel, role: 'lecteur' },
+  })
+  assert.deepEqual([parPost.statut, parPost.json.code], [409, 'dernier-gestionnaire'], 'même statut par POST')
   await appel('PUT', `/api/equipes/${eq.id}/membres/${marc.id}`, { ...g, corps: { role: 'proprietaire' } })
   assert.equal((await appel('DELETE', `/api/equipes/${eq.id}/moi`, g)).statut, 200, 'un autre gestionnaire reste')
   assert.equal((await appel('GET', `/api/equipes/${eq.id}`, g)).statut, 404)
@@ -206,6 +211,22 @@ test('déplacer : un document entre dans l’équipe (ses propriétaires devienn
   assert.equal(await droit(gaelle, doc.id), 'editeur', 'son accès propre reste')
   const vueM = (await appel('GET', '/api/documents', { cookie: marc.cookie })).json
   assert.equal(vueM.documents.find((d) => d.id === doc.id).section, 'mes-documents')
+  // Entrer directement dans un dossier de l'équipe.
+  const { json: dossier } = await appel('POST', '/api/dossiers', {
+    cookie: marc.cookie,
+    corps: { nom: 'Romans', equipe: eq.id },
+  })
+  const dansDossier = await appel('PUT', `/api/documents/${doc.id}/dossier`, {
+    cookie: marc.cookie,
+    corps: { equipe: eq.id, dossier: dossier.id },
+  })
+  assert.equal(dansDossier.statut, 200)
+  const vueEq = (await appel('GET', `/api/equipes/${eq.id}`, { cookie: marc.cookie })).json
+  assert.equal(vueEq.documents.find((d) => d.id === doc.id).dossier, dossier.id)
+  await appel('PUT', `/api/documents/${doc.id}/dossier`, {
+    cookie: marc.cookie,
+    corps: { equipe: null, dossier: null },
+  })
   // D'une équipe à une autre : non.
   const { json: eq2 } = await appel('POST', '/api/equipes', { cookie: marc.cookie, corps: { nom: 'Autre' } })
   await appel('PUT', `/api/documents/${doc.id}/dossier`, { cookie: marc.cookie, corps: { equipe: eq.id } })

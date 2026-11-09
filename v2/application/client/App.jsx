@@ -16,7 +16,14 @@ import {
   Choix,
   couleurAuteur,
 } from '../../design/index.js'
-import { creerTraducteur, choisirLangue, messageErreur, libelleDuRole, LANGUE_PSEUDO } from '../../i18n/index.js'
+import {
+  creerTraducteur,
+  choisirLangue,
+  messageErreur,
+  libelleDuRole,
+  libelleDuRoleEquipe,
+  LANGUE_PSEUDO,
+} from '../../i18n/index.js'
 import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
@@ -165,8 +172,7 @@ function Connexion({ config, visee, surEntrerEnDev }) {
 }
 
 const nomDuRole = (role) => libelleDuRole(t, role)
-/** Dans une équipe, le rôle `proprietaire` s'affiche « gestionnaire » (étape 6d). */
-const nomDuRoleEquipe = (role) => (role === 'proprietaire' ? t('roles.gestionnaire') : nomDuRole(role))
+const nomDuRoleEquipe = (role) => libelleDuRoleEquipe(t, role)
 
 /** Valeurs spéciales des listes de déplacement (jamais un identifiant). */
 const RACINE = 'racine'
@@ -370,7 +376,7 @@ function MesDocuments({ onglet, dossier }) {
         cle: d.id,
         nom: titreDe(d),
         href: `#${encodeURIComponent(d.id)}`,
-        cellules: [nomDuRole(d.role), date.format(d.creeLe)],
+        cellules: [equipe ? nomDuRoleEquipe(d.role) : nomDuRole(d.role), date.format(d.creeLe)],
         actions: peutDeplacer ? (
           <Choix
             libelle={t('documents.deplacer', { nom: titreDe(d) })}

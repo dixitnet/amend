@@ -58,7 +58,7 @@ import {
   DUREE_INVITATION_MS,
   DUREE_LIEN_CONNEXION_MS,
 } from '../../domaine/index.js'
-import { creerTraducteur, libelleDuRole } from '../../i18n/index.js'
+import { creerTraducteur, libelleDuRole, libelleDuRoleEquipe } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
 
 /** Le code montré quand un lien de connexion a servi ou expiré. */
@@ -103,14 +103,16 @@ export function creerComptes({
 }) {
   const t = creerTraducteur('fr') // langue des courriers : celle des documents d'ici l'étape 6b
   const nomDuRole = (role) => libelleDuRole(t, role)
-  /** Dans une équipe, le rôle `proprietaire` s'appelle « gestionnaire ». */
-  const nomDuRoleEquipe = (role) => (role === 'proprietaire' ? t('roles.gestionnaire') : nomDuRole(role))
+  const nomDuRoleEquipe = (role) => libelleDuRoleEquipe(t, role)
   const courrierSimple = (intro, libelleLien, lien) =>
     (({ texte, html }) => ({ texte, html }))(
       courrierAvecLien({ intro, libelleLien, lien, copier: t('courriel.copier'), apres: t('courriel.apres') }),
     )
   const ok = (res, corps = {}, statut = 200) => (json(res, statut, corps), true)
   const err = (res, statut, code) => (json(res, statut, { code }), true)
+  /** Le statut HTTP d'un refus du domaine (les mêmes partout, audit du 09/11/2026). */
+  const statutDuRefus = (code) =>
+    code === 'droit-insuffisant' ? 403 : code === 'dernier-gestionnaire' || code === 'dernier-proprietaire' ? 409 : 400
 
   async function envoyerLien(courriel, document, { dureeMs, sujet, intro, libelleLien }) {
     const jeton = await comptes.creerJeton(courriel, document, dureeMs)
@@ -126,7 +128,7 @@ export function creerComptes({
   }
 
   /** Les routes des équipes (étape 6d) ; `p` est connecté. */
-  async function equipes(req, res, p, segments, membre, dossierDe) {
+  async function equipes(req, res, p, segments, membre) {
     const methode = req.method
     if (!segments.length) {
       if (methode !== 'POST') return err(res, 405, 'methode-refusee')
@@ -184,8 +186,7 @@ export function creerComptes({
       const actuel = invite ? await comptes.roleMembre(equipe.id, invite.id) : null
       const nouveau = corps.role ?? null
       const refus = refusMembre(moi.caps, actuel, nouveau, await comptes.gestionnaires(equipe.id))
-      if (refus || nouveau === null)
-        return err(res, refus === 'droit-insuffisant' ? 403 : 400, refus ?? 'role-invalide')
+      if (refus || nouveau === null) return err(res, statutDuRefus(refus), refus ?? 'role-invalide')
       const vars = { auteur: p.nom || t('courriel.quelquun'), equipe: equipe.nom, role: nomDuRoleEquipe(nouveau) }
       if (invite) {
         if ((await comptes.modifierMembre(equipe.id, invite.id, nouveau, p.id)) === 'dernier-gestionnaire')
@@ -216,8 +217,8 @@ export function creerComptes({
       const nouveau = methode === 'DELETE' ? null : ((await lireCorps(req)).role ?? undefined)
       if (nouveau === undefined) return err(res, 400, 'role-invalide')
       const refus = refusMembre(moi.caps, actuel, nouveau, await comptes.gestionnaires(equipe.id))
-      if (refus) return err(res, refus === 'droit-insuffisant' ? 403 : refus === 'role-invalide' ? 400 : 409, refus)
-      if ((await comptes.modifierMembre(equipe.id, cible, nouveau)) === 'dernier-gestionnaire')
+      if (refus) return err(res, statutDuRefus(refus), refus)
+      if ((await comptes.modifierMembre(equipe.id, cible, nouveau, p.id)) === 'dernier-gestionnaire')
         return err(res, 409, 'dernier-gestionnaire')
       return ok(res)
     }
@@ -376,7 +377,7 @@ export function creerComptes({
     }
 
     // --- Équipes (dossiers d'équipe, étape 6d) ---
-    if (racine === 'equipes') return equipes(req, res, p, segments, membre, dossierDe)
+    if (racine === 'equipes') return equipes(req, res, p, segments, membre)
 
     // --- Mes documents et Partagé avec moi (et la liste de mes équipes) ---
     if (!segments.length) {
