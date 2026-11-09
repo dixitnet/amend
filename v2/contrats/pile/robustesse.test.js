@@ -117,7 +117,7 @@ test('adresse : un nom de document refusé affiche un message, un autre nom ouvr
   await attendre(500)
   await a.evaluate(() => (location.hash = '#autre-document'))
   // Le titre affiché est celui du document (« Sans titre ») : on attend que
-  // l'autre document, vide, remplace le premier.
+  // l'autre document, vide, remplace le premier (égalité stricte du texte).
   await attendreTexte(a, '')
   await attendreEtat(a, 'Synchronisé')
   await attendreTexte(a, '')

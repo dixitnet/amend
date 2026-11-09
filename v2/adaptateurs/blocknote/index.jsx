@@ -188,17 +188,31 @@ export function EditeurCollaboratif({
     editeur.prosemirrorView?.dom.blur()
     setEnModification(false)
   }
-  if (controle) controle.current = { terminer }
+  useEffect(() => {
+    if (controle) controle.current = { terminer }
+  })
   const commencer = (evenement) => {
     if (!appui || editeur.isEditable) return
     editeur.isEditable = true
-    const vue = editeur.prosemirrorView
-    const point = vue.posAtCoords({ left: evenement.clientX, top: evenement.clientY })
-    // `Selection.near`, par la classe de la sélection en cours : ProseMirror
-    // n'est importé que par ses points d'extension publics (règle 1).
-    const Selection = vue.state.selection.constructor
-    if (point) vue.dispatch(vue.state.tr.setSelection(Selection.near(vue.state.doc.resolve(point.pos))))
-    vue.focus()
+    editeur.prosemirrorView?.focus()
+    // Le curseur à l'endroit touché : par la sélection du navigateur, que
+    // l'éditeur relit (sans importer ProseMirror hors de ses points
+    // d'extension, règle 1 ; audit du 09/11/2026).
+    const plage = document.caretPositionFromPoint
+      ? (() => {
+          const p = document.caretPositionFromPoint(evenement.clientX, evenement.clientY)
+          if (!p) return null
+          const r = document.createRange()
+          r.setStart(p.offsetNode, p.offset)
+          return r
+        })()
+      : document.caretRangeFromPoint?.(evenement.clientX, evenement.clientY)
+    if (plage && editeur.domElement?.contains(plage.startContainer)) {
+      plage.collapse(true)
+      const s = window.getSelection()
+      s.removeAllRanges()
+      s.addRange(plage)
+    }
     setEnModification(true)
   }
   // Retour en lecture quand le clavier se ferme : la zone visible
@@ -213,7 +227,7 @@ export function EditeurCollaboratif({
     }
     zone.addEventListener('resize', surRedimension)
     return () => zone.removeEventListener('resize', surRedimension)
-  })
+  }, [enModification])
 
   const vue = (
     <BlockNoteView editor={editeur} editable={appui ? false : mode !== 'lire' && !historique} formattingToolbar={false}>

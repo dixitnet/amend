@@ -821,7 +821,10 @@ function Edition({ config, personne, docId, droits }) {
             cle: 'lien',
             libelle: t('telephone.copierLien'),
             icone: 'lien',
-            surClic: () => navigator.clipboard?.writeText(location.href),
+            surClic: () =>
+              Promise.resolve(navigator.clipboard?.writeText(location.href) ?? Promise.reject(new Error()))
+                .then(() => window.alert(t('telephone.lienCopie')))
+                .catch(() => window.alert(t('telephone.lienNonCopie', { lien: location.href }))),
           },
           ...(caps.includes('inviter')
             ? [{ cle: 'partager', libelle: t('document.partager'), icone: 'partager', surClic: () => setPartage(true) }]
@@ -853,7 +856,7 @@ function Edition({ config, personne, docId, droits }) {
               contenu: (
                 <ListeLiens
                   liens={[
-                    { cle: 'tous', libelle: t('telephone.tousLesDocuments'), href: '#', actif: false },
+                    { cle: 'tous', libelle: t('document.mesDocuments'), href: '#', actif: false },
                     ...(documents ?? []).map((d) => ({
                       cle: d.id,
                       libelle: d.titre || t('documents.sansTitre'),

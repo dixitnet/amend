@@ -37,12 +37,18 @@ test('format S : bandeau, lecture à l’ouverture, un appui pour modifier, « T
   await p.getByRole('button', { name: 'Terminer' }).waitFor()
   await p.keyboard.type('Écrit sur téléphone.')
   await attendreTexte(p, 'Écrit sur téléphone.')
+  // Un second appui, au milieu du texte : le curseur va à l'endroit touché.
+  await p.getByRole('button', { name: 'Terminer' }).click()
+  const boite = await p.locator('.bn-inline-content').first().boundingBox()
+  await p.mouse.click(boite.x + 3, boite.y + boite.height / 2)
+  await p.keyboard.type('X')
+  await attendreTexte(p, 'XÉcrit sur téléphone.')
   await p.getByRole('button', { name: 'Terminer' }).click()
   assert.equal(await modifiable(p), false, '« Terminer » revient en lecture')
   await p.getByRole('button', { name: 'Terminer' }).waitFor({ state: 'detached' })
   await attendre(1500)
   await p.reload()
-  await attendreTexte(p, 'Écrit sur téléphone.')
+  await attendreTexte(p, 'XÉcrit sur téléphone.')
   await p.context().close()
 })
 
@@ -54,6 +60,11 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
   await p.keyboard.press('Enter')
   await p.keyboard.type('Du texte.')
   await p.getByRole('button', { name: 'Terminer' }).click()
+  // Titres réduits comme Docs à 560 px et moins (réglage css.telephone.titres) : 1,6 rem au niveau 1.
+  const taille = await p.evaluate(
+    () => getComputedStyle(document.querySelector("[data-content-type='heading'] .bn-inline-content")).fontSize,
+  )
+  assert.equal(taille, '25.6px')
   await p.getByRole('button', { name: 'Plan et documents' }).click()
   const titre = p.getByRole('dialog').getByRole('button', { name: 'Chapitre un' })
   await titre.waitFor()

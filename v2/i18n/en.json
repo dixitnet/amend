@@ -197,7 +197,8 @@
     "documents": "Documents",
     "modifications": "Changes",
     "copierLien": "Copy link",
-    "tousLesDocuments": "All documents",
-    "planVide": "No heading in this document."
+    "planVide": "No heading in this document.",
+    "lienCopie": "Link copied.",
+    "lienNonCopie": "The link could not be copied: {lien}"
   }
 }

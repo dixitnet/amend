@@ -1,7 +1,6 @@
 {
   "identiques": [
     "application.nom",
-    "document.titre",
     "admin.titre",
     "admin.version",
     "admin.node",

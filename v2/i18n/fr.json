@@ -197,7 +197,8 @@
     "documents": "Documents",
     "modifications": "Modifications",
     "copierLien": "Copier le lien",
-    "tousLesDocuments": "Tous les documents",
-    "planVide": "Aucun titre dans ce document."
+    "planVide": "Aucun titre dans ce document.",
+    "lienCopie": "Lien copié.",
+    "lienNonCopie": "Le lien n’a pas pu être copié : {lien}"
   }
 }
