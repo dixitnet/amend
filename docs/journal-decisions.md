@@ -332,3 +332,4 @@ Document de reprise pour Claude Code. Établi le 26/10/2026 à partir de l'histo
 
 - Première version de l'étude (`docs/v2-etude-dossiers-equipes.md`) : Docs (arbre de sous-documents, équipes sans interface), Dropbox, Drive, Notion.
 - Décision de Sylvain : **pour les dossiers et les équipes, oublier la référence à Docs** (écart à la règle 11) ; viser le comportement d'un partage de fichiers sur un serveur d'entreprise : « Mes documents », « Partagé avec moi », dossiers d'équipe. Étude reprise sur ce modèle (Microsoft, Google, Dropbox, Nextcloud), propositions à arbitrer.
+- Arbitrage (Sylvain) : propositions acceptées sauf 8 (pas de sous-dossier réservé) et 9 (hors de l'équipe, on ne partage qu'un document) ; « au plus simple ». Lots : 6c dossiers personnels et Partagé avec moi, 6d dossiers d'équipe.

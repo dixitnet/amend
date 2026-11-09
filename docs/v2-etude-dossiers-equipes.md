@@ -1,6 +1,6 @@
 # amend.ink v2 : étude « dossiers et équipes »
 
-Statut : **étude, à arbitrer** (09/11/2026, seconde version). Aucun développement avant les réponses de Sylvain.
+Statut : **arbitré** par Sylvain le 09/11/2026 (voir « Arbitrage » en fin de document).
 
 ## Demande
 
@@ -211,3 +211,12 @@ Lues le 09/11/2026 :
   - nextcloud.com/blog/nextcloud-16-implements-access-control-lists-to-replace-classic-file-servers/
 - **Notion :** notion.com/help/intro-to-teamspaces.
 - **Serveur Windows** : décrit d'après l'usage courant (dossiers personnels, partages, droits par groupes, héritage coupé), sans page lue.
+
+## Arbitrage de Sylvain (09/11/2026)
+
+« 8 : non, 9 : partage que d'un doc. Sinon ok. Faire au plus simple. »
+
+- **8 : non.** Pas de sous-dossier réservé : dans un dossier d'équipe, on ne fait qu'ajouter des droits ; pour restreindre, on crée un autre dossier d'équipe. Le lot 6e disparaît, ainsi que le drapeau `reserve`.
+- **9 : on ne partage qu'un document** hors de l'équipe, pas un sous-dossier.
+- Toutes les autres propositions sont acceptées : 1, 2, 3, 4, 5, 6, 7, 10, 11, 12 et 13 (sans 6e).
+- Consigne générale : **au plus simple**.
