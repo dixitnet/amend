@@ -37,6 +37,8 @@ const C = REGLAGES.coquille
 /**
  * La coquille : bandeau en haut, volet gauche redimensionnable, texte, volet
  * droit. `voletDroit` absent : pas de volet droit (écran de la liste).
+ * Un volet replié est inactif (`inert`, comme Docs) : ni clavier ni lecteur
+ * d'écran n'y entrent.
  * `connexion` : l'état de la connexion, en attribut seulement (rien n'est
  * affiché hors ligne mis à part, comme Docs).
  */
@@ -66,8 +68,8 @@ export function Coquille({
       }
     >
       <AppShell.Header>{bandeau}</AppShell.Header>
-      <AppShell.Navbar>{voletGauche}</AppShell.Navbar>
-      {voletDroit ? <AppShell.Aside>{voletDroit}</AppShell.Aside> : null}
+      <AppShell.Navbar inert={!gaucheOuvert}>{voletGauche}</AppShell.Navbar>
+      {voletDroit ? <AppShell.Aside inert={!droiteOuvert}>{voletDroit}</AppShell.Aside> : null}
       <AppShell.Main>
         {alerte}
         {children}
@@ -136,7 +138,7 @@ export function Bandeau({ voletGauche, titre, mention, terminer, presence, parta
         <Menu>
           <Menu.Target>
             <UnstyledButton aria-label={compte.libelle}>
-              <Avatar name={compte.nom} />
+              <Avatar />
             </UnstyledButton>
           </Menu.Target>
           <Menu.Dropdown>
@@ -206,6 +208,7 @@ export function VoletPlanDocuments({ marque, onglets, plan, surTitre, videPlan, 
               plan.map((t) => (
                 <NavLink
                   key={t.cle}
+                  component="button"
                   label={t.libelle}
                   active={t.actif}
                   data-niveau={t.niveau}

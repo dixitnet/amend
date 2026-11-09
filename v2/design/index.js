@@ -1,10 +1,8 @@
 // La couche design (couche 6) : ce que l'application peut afficher. Mantine
 // tel quel ; les seuls réglages permis sont ceux décidés (reglages.js).
 export { CadreDesign } from './Cadre.jsx'
-export { PageEdition } from './composants/PageEdition.jsx'
 export { EcranMessage, EcranConnexion } from './composants/EcranSimple.jsx'
 export { PanneauSuggestions } from './composants/PanneauSuggestions.jsx'
-export { BoutonBascule } from './composants/BoutonBascule.jsx'
 export { Bouton } from './composants/Bouton.jsx'
 export { Choix } from './composants/Choix.jsx'
 export { EcranCourriel } from './composants/EcranCourriel.jsx'
