@@ -13,10 +13,11 @@ import {
   PanneauSuggestions,
   BoutonBascule,
   Bouton,
+  Choix,
   couleurAuteur,
 } from '../../design/index.js'
 import { creerTraducteur, choisirLangue, messageErreur, libelleDuRole, LANGUE_PSEUDO } from '../../i18n/index.js'
-import { identifiantDocument, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
+import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 import { serviceCommentaires, nomsDe } from './commentaires.js'
@@ -32,8 +33,10 @@ document.title = t('application.nom')
 
 const lireJson = (r) => r.json().catch(() => ({}))
 
-/** Ce que vise l'adresse : `#` vide, mes documents ; `#!code`, un message ;
- * `#id`, un document ; `null` si l'adresse est mal encodée (`#%`). */
+/** Ce que vise l'adresse : `#` vide, mes documents ; `#/dossiers/id`, l'un
+ * de mes dossiers ; `#/partages`, Partagé avec moi ; `#!code`, un message ;
+ * `#id`, un document (jamais de `/` dans son identifiant) ; `null` si
+ * l'adresse est mal encodée (`#%`). */
 function viseeDansAdresse() {
   let h
   try {
@@ -41,7 +44,9 @@ function viseeDansAdresse() {
   } catch {
     return null
   }
-  if (!h) return { liste: true }
+  if (!h) return { liste: 'mes', dossier: null }
+  if (h === '/partages') return { liste: 'partages' }
+  if (h.startsWith('/dossiers/')) return { liste: 'mes', dossier: h.slice('/dossiers/'.length) }
   if (h.startsWith('!')) return { message: h.slice(1) }
   return { document: h }
 }
@@ -111,7 +116,7 @@ export function App() {
     )
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
-  if (visee.liste) return <MesDocuments />
+  if (visee.liste) return <MesDocuments onglet={visee.liste} dossier={visee.dossier ?? null} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
   const doc = identifiantDocument(visee.document)
   if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
@@ -158,53 +163,189 @@ function Connexion({ config, visee, surEntrerEnDev }) {
 
 const nomDuRole = (role) => libelleDuRole(t, role)
 
-/** Mes documents : tous, créés par moi, partagés avec moi ; en créer un. */
-function MesDocuments() {
-  const [documents, setDocuments] = useState(null)
-  const [filtre, setFiltre] = useState('tous')
+/** La racine de Mes documents dans une liste de choix (une valeur non vide). */
+const RACINE = 'racine'
+const adresseDossier = (id) => (id ? `#/dossiers/${encodeURIComponent(id)}` : '#')
+
+/** Le chemin d'un dossier, de la racine à lui (`[]` pour la racine). */
+function cheminDe(dossiers, id) {
+  const parId = new Map(dossiers.map((d) => [d.id, d]))
+  const chemin = []
+  for (let d = parId.get(id); d && !chemin.includes(d); d = parId.get(d.parent)) chemin.unshift(d)
+  return chemin
+}
+
+/** Les documents, comme sur un serveur de fichiers (étape 6c) : Mes documents,
+ * avec mes dossiers (rangement personnel), et Partagé avec moi. */
+function MesDocuments({ onglet, dossier }) {
+  const [donnees, setDonnees] = useState(null)
   const [erreur, setErreur] = useState(null)
-  useEffect(() => {
+  const [message, setMessage] = useState(null)
+  const recharger = () =>
     envoyerJson('GET', '/api/documents')
-      .then(setDocuments)
+      .then(setDonnees)
       .catch((e) => setErreur(e.code || 'reseau'))
+  useEffect(() => {
+    recharger()
   }, [])
+  useEffect(() => setMessage(null), [onglet, dossier])
   if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
-  if (!documents) return <EcranMessage texte={t('application.chargement')} />
+  if (!donnees) return <EcranMessage texte={t('application.chargement')} />
+  const { dossiers, documents } = donnees
+  if (dossier && !dossiers.some((d) => d.id === dossier))
+    return <EcranMessage texte={messageErreur(t, 'dossier-introuvable')} />
   const date = new Intl.DateTimeFormat(t.langue, { dateStyle: 'medium' })
-  const visibles = documents.filter((d) => filtre === 'tous' || (filtre === 'miens') === d.creeParMoi)
-  const nouveau = async () => {
+  const agir = (f) => async () => {
     try {
-      location.hash = (await envoyerJson('POST', '/api/documents', {})).id
+      await f()
+      setMessage(null)
     } catch (e) {
-      setErreur(e.code || 'reseau')
+      setMessage(messageErreur(t, e.code || 'reseau'))
     }
+    recharger()
   }
+  const titreDe = (d) => d.titre || t('documents.sansTitre')
+  const nomDuChemin = (id) =>
+    id
+      ? [t('documents.mesDocuments'), ...cheminDe(dossiers, id).map((d) => d.nom)].join(' / ')
+      : t('documents.mesDocuments')
+  /** Où l'on peut mettre quelque chose : la racine et mes dossiers, sauf `exclus`. */
+  const destinations = (exclus = () => false) =>
+    [{ value: RACINE, label: nomDuChemin(null) }].concat(
+      dossiers
+        .filter((d) => !exclus(d))
+        .map((d) => ({ value: d.id, label: nomDuChemin(d.id) }))
+        .sort((a, b) => a.label.localeCompare(b.label, t.langue)),
+    )
+  const commun = {
+    nomApplication: t('application.nom'),
+    titre: t('documents.titre'),
+    actions: <Deconnexion />,
+    onglets: [
+      { value: 'mes', label: t('documents.mesDocuments') },
+      { value: 'partages', label: t('documents.partagesAvecMoi') },
+    ],
+    onglet,
+    surOnglet: (o) => (location.hash = o === 'partages' ? '#/partages' : '#'),
+    libelleChemin: t('documents.chemin'),
+    message,
+  }
+
+  if (onglet === 'partages')
+    return (
+      <ListeDocuments
+        {...commun}
+        colonnes={[t('documents.colonneNom'), t('documents.colonneRole'), t('documents.colonnePartage')]}
+        lignes={documents
+          .filter((d) => d.section === 'partage')
+          .map((d) => ({
+            cle: d.id,
+            nom: titreDe(d),
+            href: `#${encodeURIComponent(d.id)}`,
+            cellules: [
+              nomDuRole(d.role),
+              d.parLien
+                ? t('documents.parLien', { date: date.format(d.partageLe) })
+                : d.partagePar
+                  ? t('documents.partagePar', {
+                      nom: d.partagePar.nom || d.partagePar.courriel,
+                      date: date.format(d.partageLe),
+                    })
+                  : t('documents.partageLe', { date: date.format(d.partageLe) }),
+            ],
+            actions: (
+              <Bouton
+                libelle={t('documents.meRetirer')}
+                surClic={agir(async () => {
+                  if (window.confirm(t('documents.confirmerRetrait')))
+                    await envoyerJson('DELETE', `/api/documents/${encodeURIComponent(d.id)}/moi`)
+                })}
+              />
+            ),
+          }))}
+        vide={t('documents.videPartages')}
+      />
+    )
+
+  /** Les sous-dossiers d'un dossier (pour ne pas y déplacer celui-ci). */
+  const dansLeSousArbre = (racine) => (d) => d.id === racine || cheminDe(dossiers, d.id).some((p) => p.id === racine)
+  const lignesDossiers = dossiers
+    .filter((d) => d.parent === dossier)
+    .map((d) => ({
+      cle: d.id,
+      nom: d.nom,
+      href: adresseDossier(d.id),
+      cellules: [t('documents.dossier'), ''],
+      actions: (
+        <>
+          <Bouton
+            libelle={t('documents.renommer')}
+            surClic={agir(async () => {
+              const nom = window.prompt(t('documents.nomDuDossier'), d.nom)
+              if (nom !== null) await envoyerJson('PUT', `/api/dossiers/${d.id}`, { nom })
+            })}
+          />
+          <Choix
+            libelle={t('documents.deplacer', { nom: d.nom })}
+            options={destinations(dansLeSousArbre(d.id))}
+            surChoix={(v) =>
+              agir(() => envoyerJson('PUT', `/api/dossiers/${d.id}`, { parent: v === RACINE ? null : v }))()
+            }
+          />
+          <Bouton
+            libelle={t('documents.supprimer')}
+            surClic={agir(async () => {
+              if (window.confirm(t('documents.confirmerSuppressionDossier', { nom: d.nom })))
+                await envoyerJson('DELETE', `/api/dossiers/${d.id}`)
+            })}
+          />
+        </>
+      ),
+    }))
+  const lignesDocuments = documents
+    .filter((d) => d.section === 'mes-documents' && (d.dossier ?? null) === dossier)
+    .map((d) => ({
+      cle: d.id,
+      nom: titreDe(d),
+      href: `#${encodeURIComponent(d.id)}`,
+      cellules: [nomDuRole(d.role), date.format(d.creeLe)],
+      actions: capacites(d.role).includes('ranger') ? (
+        <Choix
+          libelle={t('documents.deplacer', { nom: titreDe(d) })}
+          options={destinations()}
+          surChoix={(v) =>
+            agir(() =>
+              envoyerJson('PUT', `/api/documents/${encodeURIComponent(d.id)}/dossier`, {
+                dossier: v === RACINE ? null : v,
+              }),
+            )()
+          }
+        />
+      ) : null,
+    }))
+  const nouveauDocument = agir(async () => {
+    location.hash = (await envoyerJson('POST', '/api/documents', { dossier })).id
+  })
+  const nouveauDossier = agir(async () => {
+    const nom = window.prompt(t('documents.nomDuDossier'))
+    if (nom !== null) await envoyerJson('POST', '/api/dossiers', { nom, parent: dossier })
+  })
   return (
     <ListeDocuments
-      nomApplication={t('application.nom')}
-      titre={t('documents.titre')}
-      libelleNouveau={t('documents.nouveau')}
-      filtres={[
-        { value: 'tous', label: t('documents.tous') },
-        { value: 'miens', label: t('documents.miens') },
-        { value: 'partages', label: t('documents.partages') },
+      {...commun}
+      chemin={[
+        { cle: 'racine', libelle: t('documents.mesDocuments'), href: '#' },
+        ...cheminDe(dossiers, dossier).map((d) => ({ cle: d.id, libelle: d.nom, href: adresseDossier(d.id) })),
       ]}
-      filtre={filtre}
-      colonnes={{
-        titre: t('documents.colonneTitre'),
-        role: t('documents.colonneRole'),
-        date: t('documents.colonneDate'),
-      }}
-      documents={visibles.map((d) => ({
-        id: d.id,
-        titre: d.titre || t('documents.sansTitre'),
-        role: nomDuRole(d.role),
-        date: date.format(d.creeLe),
-      }))}
-      vide={t('documents.vide')}
-      actions={<Deconnexion />}
-      surFiltre={setFiltre}
-      surNouveau={nouveau}
+      boutons={
+        <>
+          <Bouton libelle={t('documents.nouveau')} surClic={nouveauDocument} />
+          <Bouton libelle={t('documents.nouveauDossier')} surClic={nouveauDossier} />
+        </>
+      }
+      colonnes={[t('documents.colonneNom'), t('documents.colonneRole'), t('documents.colonneDate')]}
+      lignes={[...lignesDossiers, ...lignesDocuments]}
+      vide={dossier ? t('documents.videDossier') : t('documents.vide')}
     />
   )
 }
