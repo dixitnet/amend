@@ -118,6 +118,8 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'heading',
     'heading_2',
     'heading_3',
+    'heading_4',
+    'heading_5',
     'quote',
     'bullet_list',
     'numbered_list',
@@ -126,8 +128,9 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'divider',
   ])
     assert.ok(tout.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
+  // Titres 1 à 5 (Sylvain, 09/11/2026, journal des décisions) : le niveau 6 reste exclu.
   for (const cle of [
-    'heading_4',
+    'heading_6',
     'toggle_heading',
     'check_list',
     'toggle_list',
