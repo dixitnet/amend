@@ -5,6 +5,9 @@
 export const REGLAGES = {
   // Le fournisseur Mantine (MantineProvider).
   fournisseur: { defaultColorScheme: 'auto' },
-  // Le thème Mantine (createTheme) : vide, Mantine par défaut.
-  theme: {},
+  // Le thème Mantine (createTheme) : Mantine par défaut, sauf ce qui suit.
+  theme: {
+    // Boutons à icône discrets (bandeau du format S, maquette validée le 09/11/2026).
+    components: { ActionIcon: { defaultProps: { variant: 'subtle' } } },
+  },
 }

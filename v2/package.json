@@ -15,6 +15,7 @@
     "@handlewithcare/prosemirror-inputrules": "0.1.4",
     "@mantine/core": "9.7.5",
     "@mantine/hooks": "9.7.5",
+    "@tabler/icons-react": "3.51.0",
     "@y/hub": "0.10.1",
     "@y/prosemirror": "2.0.0-15",
     "@y/protocols": "1.0.6-rc.1",
