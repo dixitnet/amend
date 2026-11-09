@@ -13,10 +13,12 @@ export const DUREE_SESSION_MS = 30 * 24 * 60 * 60 * 1000
 const ROLES_DU_LIEN = Object.freeze(['lecteur', 'correcteur', 'editeur'])
 
 /** Les rôles qu'une personne peut donner : qui invite donne lecteur,
- * correcteur, éditeur ; seul un propriétaire nomme un propriétaire. */
-export function rolesDonnables(caps) {
+ * correcteur, éditeur ; seul un propriétaire nomme un propriétaire. Un
+ * document d'équipe appartient à l'équipe : on n'y nomme pas de
+ * propriétaire (étape 6d). */
+export function rolesDonnables(caps, { dansEquipe = false } = {}) {
   if (!caps.includes('inviter')) return []
-  return caps.includes('transferer') ? [...ROLES] : ROLES.filter((r) => r !== 'proprietaire')
+  return caps.includes('transferer') && !dansEquipe ? [...ROLES] : ROLES.filter((r) => r !== 'proprietaire')
 }
 
 /**
