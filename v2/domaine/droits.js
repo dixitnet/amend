@@ -13,8 +13,10 @@ export const ROLES = Object.freeze(['lecteur', 'correcteur', 'editeur', 'proprie
  * - `arbitrer` : accepter ou rejeter une suggestion ; `restaurer` : revenir à
  *   une version ; `inviter` : donner un rôle (sauf propriétaire), changer ou
  *   retirer un accès (sauf celui du propriétaire).
- * - `supprimer` (et restaurer de la corbeille), `transferer` la propriété :
- *   la vie et la mort du document, au propriétaire seul. */
+ * - `supprimer` le document (tout de suite, sans corbeille pour le moment),
+ *   `transferer` : nommer un propriétaire, ou changer ou retirer celui d'un
+ *   autre ; au propriétaire seul. Il peut y avoir plusieurs propriétaires,
+ *   jamais aucun (Sylvain, étape 6a, 09/11/2026). */
 const AJOUTS = {
   lecteur: ['lire'],
   correcteur: ['commenter', 'suggerer'],

@@ -27,7 +27,13 @@
     "nom-trop-long": "This name is too long (80 characters at most).",
     "nom-caracteres": "This name contains invisible or control characters.",
     "reseau": "The server is not responding. Check your connection.",
-    "document-introuvable": "This document does not exist, or you do not have access to it."
+    "document-introuvable": "This document does not exist, or you do not have access to it.",
+    "courriel-vide": "Enter an email address.",
+    "courriel-trop-long": "This email address is too long.",
+    "courriel-invalide": "This email address is not valid.",
+    "droit-insuffisant": "You are not allowed to do this on this document.",
+    "role-invalide": "This role does not exist.",
+    "dernier-proprietaire": "A document always keeps at least one owner."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",

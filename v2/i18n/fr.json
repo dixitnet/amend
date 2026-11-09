@@ -27,7 +27,13 @@
     "nom-trop-long": "Ce nom est trop long (80 signes au plus).",
     "nom-caracteres": "Ce nom contient des caractères invisibles ou de contrôle.",
     "reseau": "Le serveur ne répond pas. Vérifiez la connexion.",
-    "document-introuvable": "Ce document n’existe pas, ou vous n’y avez pas accès."
+    "document-introuvable": "Ce document n’existe pas, ou vous n’y avez pas accès.",
+    "courriel-vide": "Indiquez une adresse de courriel.",
+    "courriel-trop-long": "Cette adresse de courriel est trop longue.",
+    "courriel-invalide": "Cette adresse de courriel n’est pas valide.",
+    "droit-insuffisant": "Vous n’avez pas le droit de faire cela sur ce document.",
+    "role-invalide": "Ce rôle n’existe pas.",
+    "dernier-proprietaire": "Un document garde toujours au moins un propriétaire."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
