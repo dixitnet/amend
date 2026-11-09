@@ -115,3 +115,22 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
     assert.doesNotMatch(c, /-(gray|dark)-/)
   }
 })
+
+test('la marque (picto décoratif et nom) en haut de page et sur l’écran de connexion', () => {
+  const page = rendre(h(design.PageEdition, { nomApplication: 'amend.ink', titre: 'x', editeur: null }))
+  assert.match(page, /<header[\s\S]*class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink[\s\S]*<h1/)
+  const connexion = rendre(
+    h(design.EcranConnexion, { nomApplication: 'amend.ink', titre: 'Connexion', surEntrer: () => {} }),
+  )
+  assert.match(connexion, /<h1[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/h1>/)
+  assert.match(connexion, /<h2[^>]*>Connexion<\/h2>/, 'le titre de l’écran passe au niveau 2 sous la marque')
+  const sans = rendre(h(design.PageEdition, { titre: 'x', editeur: null }))
+  assert.doesNotMatch(sans, /amend-picto/, 'sans nom, pas de marque')
+})
+
+test('les icônes de l’onglet et de l’iPad reprennent le dessin de référence', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const lire = (f) => readFile(`${V2}design/picto/${f}`, 'utf8')
+  const reference = await lire('amend-ink.svg')
+  assert.equal((await lire('favicon.svg')).replace('#2f9e44', 'currentColor'), reference)
+})
