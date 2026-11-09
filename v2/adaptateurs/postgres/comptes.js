@@ -7,7 +7,10 @@
 //  - les jetons de connexion ne sont gardés que par leur empreinte ;
 //  - étape 6c : un document est rangé dans « Mes documents » d'une personne
 //    (`emplacement`, d'abord son créateur), éventuellement dans l'un de ses
-//    dossiers ; un dossier de Mes documents est un rangement personnel.
+//    dossiers ; un dossier de Mes documents est un rangement personnel ;
+//  - étape 6d : une équipe (dossier d'équipe) a des membres, chacun avec un
+//    rôle pour tout le dossier ; un document ou un dossier appartient à une
+//    personne (`emplacement`, `personne`) ou à une équipe (`equipe`).
 import postgres from 'postgres'
 import { createHash, randomBytes } from 'node:crypto'
 
@@ -71,6 +74,40 @@ do $$ begin
 end $$;
 create index if not exists documents_emplacement on amend.documents (emplacement);
 alter table amend.acces add column if not exists auteur uuid references amend.personnes (id) on delete set null;
+create table if not exists amend.equipes (
+  id uuid primary key default gen_random_uuid(),
+  nom text not null,
+  cree_le timestamptz not null default now()
+);
+create table if not exists amend.membres (
+  equipe uuid not null references amend.equipes (id) on delete cascade,
+  personne uuid not null references amend.personnes (id) on delete cascade,
+  role text not null,
+  auteur uuid references amend.personnes (id) on delete set null,
+  cree_le timestamptz not null default now(),
+  primary key (equipe, personne)
+);
+create index if not exists membres_personne on amend.membres (personne);
+create table if not exists amend.invitations_equipe (
+  equipe uuid not null references amend.equipes (id) on delete cascade,
+  courriel text not null,
+  role text not null,
+  auteur uuid references amend.personnes (id) on delete set null,
+  cree_le timestamptz not null default now(),
+  primary key (equipe, courriel)
+);
+do $$ begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'amend' and table_name = 'documents' and column_name = 'equipe') then
+    alter table amend.documents add column equipe uuid references amend.equipes (id) on delete restrict;
+    alter table amend.dossiers add column equipe uuid references amend.equipes (id) on delete cascade;
+    alter table amend.dossiers alter column personne drop not null;
+    alter table amend.dossiers add constraint dossiers_personne_ou_equipe
+      check ((personne is not null) <> (equipe is not null));
+  end if;
+end $$;
+create index if not exists documents_equipe on amend.documents (equipe);
+create index if not exists dossiers_equipe on amend.dossiers (equipe);
 create table if not exists amend.jetons_connexion (
   empreinte text primary key,
   courriel text not null,
@@ -150,6 +187,7 @@ export async function ouvrirComptes(url) {
             roleLien: d.role_lien,
             emplacement: d.emplacement,
             dossier: d.dossier,
+            equipe: d.equipe,
           }
         : null
     },
@@ -163,11 +201,12 @@ export async function ouvrirComptes(url) {
      */
     async documentsDe(personne) {
       const lignes = await sql`
-        select d.id, d.titre, d.cree_par, d.cree_le, d.role_lien, d.emplacement, d.dossier,
+        select d.id, d.titre, d.cree_par, d.cree_le, d.role_lien, d.emplacement, d.dossier, d.equipe,
                a.role, a.cree_le as acces_le, p.nom as auteur_nom, p.courriel as auteur_courriel,
-               l.cree_le as lien_le
+               l.cree_le as lien_le, m.role as role_membre
         from amend.documents d
         left join amend.acces a on a.document = d.id and a.personne = ${personne}
+        left join amend.membres m on m.equipe = d.equipe and m.personne = ${personne}
         left join amend.personnes p on p.id = a.auteur
         left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
         where a.id is not null or (l.personne is not null and d.role_lien is not null)
@@ -177,9 +216,10 @@ export async function ouvrirComptes(url) {
         titre: d.titre,
         creeParMoi: d.cree_par === personne,
         creeLe: d.cree_le.getTime(),
-        roles: [d.role, d.lien_le ? d.role_lien : null].filter(Boolean),
+        roles: [d.role, d.lien_le ? d.role_lien : null, d.role_membre].filter(Boolean),
         emplacement: d.emplacement,
         dossier: d.dossier,
+        equipe: d.equipe,
         partagePar: d.auteur_nom || d.auteur_courriel ? { nom: d.auteur_nom, courriel: d.auteur_courriel } : null,
         parLien: !d.role && Boolean(d.lien_le),
         partageLe: (d.acces_le ?? d.lien_le).getTime(),
@@ -190,19 +230,22 @@ export async function ouvrirComptes(url) {
       sql`update amend.documents set dossier = ${dossier} where id = ${id}`.then(() => {}),
 
     // --- Dossiers (rangement personnel, étape 6c) ---
-    async dossiersDe(personne) {
-      return (
-        await sql`select id, nom, parent from amend.dossiers where personne = ${personne} order by nom, cree_le`
-      ).map((d) => ({ id: d.id, nom: d.nom, parent: d.parent }))
+    /** Les dossiers d'un espace : ceux d'une personne (Mes documents), ou d'une équipe. */
+    async dossiersDe(personne, equipe = null) {
+      const lignes = equipe
+        ? await sql`select id, nom, parent from amend.dossiers where equipe = ${equipe} order by nom, cree_le`
+        : await sql`select id, nom, parent from amend.dossiers where personne = ${personne} order by nom, cree_le`
+      return lignes.map((d) => ({ id: d.id, nom: d.nom, parent: d.parent }))
     },
     async dossier(id) {
       if (!estUuid(id)) return null
-      const [d] = await sql`select id, nom, parent, personne from amend.dossiers where id = ${id}`
-      return d ? { id: d.id, nom: d.nom, parent: d.parent, personne: d.personne } : null
+      const [d] = await sql`select id, nom, parent, personne, equipe from amend.dossiers where id = ${id}`
+      return d ? { id: d.id, nom: d.nom, parent: d.parent, personne: d.personne, equipe: d.equipe } : null
     },
-    async creerDossier(personne, nom, parent = null) {
-      const [d] =
-        await sql`insert into amend.dossiers (personne, nom, parent) values (${personne}, ${nom}, ${parent}) returning id`
+    /** Crée un dossier dans Mes documents de `personne`, ou dans l'équipe `equipe`. */
+    async creerDossier(personne, nom, parent = null, equipe = null) {
+      const [d] = await sql`insert into amend.dossiers (personne, nom, parent, equipe)
+        values (${equipe ? null : personne}, ${nom}, ${parent}, ${equipe}) returning id`
       return d.id
     },
     renommerDossier: (id, nom) => sql`update amend.dossiers set nom = ${nom} where id = ${id}`.then(() => {}),
@@ -211,9 +254,11 @@ export async function ouvrirComptes(url) {
      * reçoit les dossiers de la personne, verrouillés ; deux déplacements
      * simultanés ne créent pas de boucle. Rend le code de refus, ou `null`.
      */
-    async deplacerDossier(personne, id, parent, refus) {
+    async deplacerDossier(personne, id, parent, refus, equipe = null) {
       return sql.begin(async (t) => {
-        const dossiers = await t`select id, parent from amend.dossiers where personne = ${personne} for update`
+        const dossiers = equipe
+          ? await t`select id, parent from amend.dossiers where equipe = ${equipe} for update`
+          : await t`select id, parent from amend.dossiers where personne = ${personne} for update`
         const code = refus(dossiers.map((d) => ({ id: d.id, parent: d.parent })))
         if (code) return code
         await t`update amend.dossiers set parent = ${parent} where id = ${id}`
@@ -230,17 +275,144 @@ export async function ouvrirComptes(url) {
       return r.length > 0
     },
 
+    // --- Équipes (dossiers d'équipe, étape 6d) ---
+    /** Crée une équipe, dont `personne` est gestionnaire (rôle `proprietaire`). */
+    async creerEquipe(nom, personne) {
+      return sql.begin(async (t) => {
+        const [e] = await t`insert into amend.equipes (nom) values (${nom}) returning id`
+        await t`insert into amend.membres (equipe, personne, role) values (${e.id}, ${personne}, 'proprietaire')`
+        return e.id
+      })
+    },
+    async equipe(id) {
+      if (!estUuid(id)) return null
+      const [e] = await sql`select id, nom from amend.equipes where id = ${id}`
+      return e ? { id: e.id, nom: e.nom } : null
+    },
+    renommerEquipe: (id, nom) => sql`update amend.equipes set nom = ${nom} where id = ${id}`.then(() => {}),
+    /** Supprime une équipe sans document ni dossier ; rend `true` si c'est fait. */
+    async supprimerEquipeVide(id) {
+      const r = await sql`
+        delete from amend.equipes e where e.id = ${id}
+          and not exists (select 1 from amend.documents d where d.equipe = e.id)
+          and not exists (select 1 from amend.dossiers o where o.equipe = e.id)
+        returning e.id`
+      return r.length > 0
+    },
+    /** Les équipes d'une personne, avec son rôle. */
+    async equipesDe(personne) {
+      return (
+        await sql`select e.id, e.nom, m.role from amend.membres m join amend.equipes e on e.id = m.equipe
+                  where m.personne = ${personne} order by e.nom, e.cree_le`
+      ).map((e) => ({ id: e.id, nom: e.nom, role: e.role }))
+    },
+    /** Le rôle de membre d'une personne, ou null. */
+    async roleMembre(equipe, personne) {
+      if (!estUuid(equipe) || !estUuid(personne)) return null
+      const [m] = await sql`select role from amend.membres where equipe = ${equipe} and personne = ${personne}`
+      return m?.role ?? null
+    },
+    async membresDe(equipe) {
+      return (
+        await sql`select m.personne, m.role, p.nom, p.courriel from amend.membres m
+                  join amend.personnes p on p.id = m.personne where m.equipe = ${equipe} order by m.cree_le`
+      ).map((m) => ({ personne: m.personne, role: m.role, nom: m.nom, courriel: m.courriel }))
+    },
+    async gestionnaires(equipe) {
+      const [{ n }] =
+        await sql`select count(*)::int as n from amend.membres where equipe = ${equipe} and role = 'proprietaire'`
+      return n
+    },
+    /**
+     * Donne, change ou retire (`role === null`) le rôle d'un membre, en
+     * transaction, sans jamais laisser l'équipe sans gestionnaire ; rend
+     * `'dernier-gestionnaire'` si c'était le cas, sinon `null`.
+     */
+    async modifierMembre(equipe, personne, role, auteur = null) {
+      return sql.begin(async (t) => {
+        const gestionnaires =
+          await t`select personne from amend.membres where equipe = ${equipe} and role = 'proprietaire' for update`
+        const etait = gestionnaires.some((g) => g.personne === personne)
+        if (etait && role !== 'proprietaire' && gestionnaires.length <= 1) return 'dernier-gestionnaire'
+        if (role === null) await t`delete from amend.membres where equipe = ${equipe} and personne = ${personne}`
+        else
+          await t`insert into amend.membres (equipe, personne, role, auteur) values (${equipe}, ${personne}, ${role}, ${auteur})
+                  on conflict (equipe, personne) do update set role = excluded.role`
+        return null
+      })
+    },
+    /** Le contenu d'une équipe vu par un membre : dossiers et documents, avec ses rôles. */
+    async documentsDeLEquipe(equipe, personne) {
+      return (
+        await sql`
+        select d.id, d.titre, d.cree_le, d.dossier, p.nom as createur, a.role, m.role as role_membre,
+               case when l.personne is not null then d.role_lien end as lien
+        from amend.documents d
+        join amend.membres m on m.equipe = d.equipe and m.personne = ${personne}
+        left join amend.personnes p on p.id = d.cree_par
+        left join amend.acces a on a.document = d.id and a.personne = ${personne}
+        left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
+        where d.equipe = ${equipe}
+        order by d.cree_le desc`
+      ).map((d) => ({
+        id: d.id,
+        titre: d.titre,
+        creeLe: d.cree_le.getTime(),
+        dossier: d.dossier,
+        createur: d.createur,
+        roles: [d.role, d.lien, d.role_membre].filter(Boolean),
+      }))
+    },
+    /** Crée un document dans une équipe (elle en est propriétaire ; pas d'accès propre). */
+    async creerDocumentEquipe(id, equipe, createur, titre = null, dossier = null) {
+      await sql`insert into amend.documents (id, titre, cree_par, equipe, dossier)
+                values (${id}, ${titre}, ${createur}, ${equipe}, ${dossier})`
+    },
+    /** Un document entre dans une équipe : ses propriétaires en deviennent éditeurs (arbitrage 4.1). */
+    async entrerDansEquipe(document, equipe, dossier = null) {
+      await sql.begin(async (t) => {
+        await t`update amend.acces set role = 'editeur' where document = ${document} and role = 'proprietaire'`
+        await t`update amend.documents set equipe = ${equipe}, emplacement = null, dossier = ${dossier} where id = ${document}`
+      })
+    },
+    /** Un document sort de son équipe vers Mes documents de `personne`, qui en devient propriétaire (5.1). */
+    async sortirDeLEquipe(document, personne, dossier = null) {
+      await sql.begin(async (t) => {
+        await t`update amend.documents set equipe = null, emplacement = ${personne}, dossier = ${dossier} where id = ${document}`
+        await t`insert into amend.acces (document, personne, role) values (${document}, ${personne}, 'proprietaire')
+                on conflict (document, personne) where personne is not null do update set role = 'proprietaire'`
+      })
+    },
+    inviterMembre: (equipe, courriel, role, auteur) =>
+      sql`insert into amend.invitations_equipe (equipe, courriel, role, auteur) values (${equipe}, ${courriel}, ${role}, ${auteur})
+          on conflict (equipe, courriel) do update set role = excluded.role, auteur = excluded.auteur, cree_le = now()`.then(
+        () => {},
+      ),
+    async invitationsEquipeDe(courriel) {
+      return (
+        await sql`select equipe, role, auteur, cree_le from amend.invitations_equipe where courriel = ${courriel}`
+      ).map((i) => ({ equipe: i.equipe, role: i.role, auteur: i.auteur, creeLe: i.cree_le.getTime() }))
+    },
+    async invitationsDeLEquipe(equipe) {
+      return (
+        await sql`select courriel, role, cree_le from amend.invitations_equipe where equipe = ${equipe} order by cree_le`
+      ).map((i) => ({ courriel: i.courriel, role: i.role, creeLe: i.cree_le.getTime() }))
+    },
+    retirerInvitationEquipe: (equipe, courriel) =>
+      sql`delete from amend.invitations_equipe where equipe = ${equipe} and courriel = ${courriel}`.then(() => {}),
+
     // --- Accès ---
     /** Les rôles d'une personne sur un document (son accès, et le lien si elle est passée par lui). */
     async rolesDe(document, personne) {
       if (!estUuid(personne)) return []
       const [r] = await sql`
-        select a.role, case when l.personne is not null then d.role_lien end as lien
+        select a.role, case when l.personne is not null then d.role_lien end as lien, m.role as membre
         from amend.documents d
         left join amend.acces a on a.document = d.id and a.personne = ${personne}
+        left join amend.membres m on m.equipe = d.equipe and m.personne = ${personne}
         left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
         where d.id = ${document}`
-      return r ? [r.role, r.lien].filter(Boolean) : []
+      return r ? [r.role, r.lien, r.membre].filter(Boolean) : []
     },
     /** Le rôle donné en propre (hors lien), ou null. */
     async acces(document, personne) {
