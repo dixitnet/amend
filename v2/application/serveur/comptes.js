@@ -210,16 +210,16 @@ export function creerComptes({
         return (await comptes.supprimerDossierVide(id)) ? ok(res) : err(res, 409, 'dossier-non-vide')
       if (methode !== 'PUT') return err(res, 405, 'methode-refusee')
       const corps = await lireCorps(req)
-      if (corps.nom !== undefined) {
-        const n = nomDossier(corps.nom)
-        if (!n.ok) return err(res, 400, n.code)
-        await comptes.renommerDossier(id, n.nom)
-      }
+      // Tout est vérifié avant de rien changer (audit, 09/11/2026).
+      const n = corps.nom === undefined ? null : nomDossier(corps.nom)
+      if (n && !n.ok) return err(res, 400, n.code)
       if (corps.parent !== undefined) {
-        const refus = refusDeplacementDossier(await comptes.dossiersDe(p.id), id, corps.parent)
+        const refus = await comptes.deplacerDossier(p.id, id, corps.parent, (dossiers) =>
+          refusDeplacementDossier(dossiers, id, corps.parent),
+        )
         if (refus) return err(res, refus === 'dossier-introuvable' ? 404 : 409, refus)
-        await comptes.deplacerDossier(id, corps.parent)
       }
+      if (n) await comptes.renommerDossier(id, n.nom)
       return ok(res)
     }
 

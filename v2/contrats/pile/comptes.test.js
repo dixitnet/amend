@@ -97,7 +97,7 @@ test('suppression : le propriétaire supprime ; le document disparaît de la lis
   const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
   p.once('dialog', (d) => d.accept())
   await p.getByRole('button', { name: 'Supprimer' }).click()
-  await p.getByRole('heading', { name: 'Tous les documents' }).waitFor()
+  await p.getByRole('heading', { name: 'Mes documents' }).waitFor()
   assert.equal(await p.locator(`a[href="#${docId}"]`).count(), 0)
   await p.context().close()
 })

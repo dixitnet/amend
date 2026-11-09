@@ -206,7 +206,20 @@ export async function ouvrirComptes(url) {
       return d.id
     },
     renommerDossier: (id, nom) => sql`update amend.dossiers set nom = ${nom} where id = ${id}`.then(() => {}),
-    deplacerDossier: (id, parent) => sql`update amend.dossiers set parent = ${parent} where id = ${id}`.then(() => {}),
+    /**
+     * Déplace un dossier, en transaction : `refus` (la règle du domaine)
+     * reçoit les dossiers de la personne, verrouillés ; deux déplacements
+     * simultanés ne créent pas de boucle. Rend le code de refus, ou `null`.
+     */
+    async deplacerDossier(personne, id, parent, refus) {
+      return sql.begin(async (t) => {
+        const dossiers = await t`select id, parent from amend.dossiers where personne = ${personne} for update`
+        const code = refus(dossiers.map((d) => ({ id: d.id, parent: d.parent })))
+        if (code) return code
+        await t`update amend.dossiers set parent = ${parent} where id = ${id}`
+        return null
+      })
+    },
     /** Supprime un dossier s'il est vide (ni dossier ni document) ; rend `true` si c'est fait. */
     async supprimerDossierVide(id) {
       const r = await sql`
@@ -250,9 +263,8 @@ export async function ouvrirComptes(url) {
     /** Donne un rôle (`auteur` : qui le donne, montré dans « Partagé avec moi »). */
     donnerAcces: (document, personne, role, auteur = null) =>
       sql`insert into amend.acces (document, personne, role, auteur) values (${document}, ${personne}, ${role}, ${auteur})
-          on conflict (document, personne) where personne is not null do update set role = excluded.role`.then(
-        () => {},
-      ),
+          on conflict (document, personne) where personne is not null
+          do update set role = excluded.role, auteur = coalesce(excluded.auteur, amend.acces.auteur)`.then(() => {}),
     /**
      * Change (ou retire : `role === null`) l'accès d'une personne, en
      * transaction, sans jamais laisser le document sans propriétaire ; rend
@@ -267,7 +279,15 @@ export async function ouvrirComptes(url) {
         if (role === null) await t`delete from amend.acces where document = ${document} and personne = ${personne}`
         else
           await t`insert into amend.acces (document, personne, role, auteur) values (${document}, ${personne}, ${role}, ${auteur})
-                  on conflict (document, personne) where personne is not null do update set role = excluded.role`
+                  on conflict (document, personne) where personne is not null
+          do update set role = excluded.role, auteur = coalesce(excluded.auteur, amend.acces.auteur)`
+        // Un document est rangé chez l'un de ses propriétaires : s'il cesse de
+        // l'être, le document passe à la racine de Mes documents d'un autre.
+        if (etaitProprietaire && role !== 'proprietaire')
+          await t`update amend.documents set dossier = null, emplacement = (
+                    select personne from amend.acces where document = ${document} and role = 'proprietaire'
+                    order by cree_le limit 1)
+                  where id = ${document} and emplacement = ${personne}`
         return null
       })
     },

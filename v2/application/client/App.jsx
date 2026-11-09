@@ -219,7 +219,7 @@ function MesDocuments({ onglet, dossier }) {
     )
   const commun = {
     nomApplication: t('application.nom'),
-    titre: t('documents.titre'),
+    titre: onglet === 'partages' ? t('documents.partagesAvecMoi') : t('documents.mesDocuments'),
     actions: <Deconnexion />,
     onglets: [
       { value: 'mes', label: t('documents.mesDocuments') },

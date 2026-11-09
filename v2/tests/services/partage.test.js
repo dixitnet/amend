@@ -212,6 +212,40 @@ test('partagé avec moi : qui me l’a partagé ; me retirer, sauf le dernier pr
   assert.deepEqual([dernier.statut, dernier.json.code], [409, 'dernier-proprietaire'])
 })
 
+test('un propriétaire qui part : le document passe dans Mes documents d’un autre propriétaire', async () => {
+  const paule = await personne('Paule')
+  const edith = await personne('Edith')
+  const { json: dossier } = await appel('POST', '/api/dossiers', { cookie: paule.cookie, corps: { nom: 'P' } })
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: { dossier: dossier.id } })
+  await appel('POST', '/api/dev/acces', {
+    cookie: paule.cookie,
+    corps: { document: doc.id, personne: edith.id, role: 'proprietaire' },
+  })
+  const vu = async (qui) =>
+    (await appel('GET', '/api/documents', { cookie: qui.cookie })).json.documents.find((d) => d.id === doc.id)
+  assert.equal((await vu(edith)).section, 'partage')
+  assert.equal((await vu(edith)).partagePar.nom, 'Paule')
+  assert.equal((await appel('DELETE', `/api/documents/${doc.id}/moi`, { cookie: paule.cookie })).statut, 200)
+  assert.deepEqual([(await vu(edith)).section, (await vu(edith)).dossier], ['mes-documents', null])
+  assert.equal(await vu(paule), undefined)
+  // Le dossier de Paule est vide : il se supprime.
+  assert.equal((await appel('DELETE', `/api/dossiers/${dossier.id}`, { cookie: paule.cookie })).statut, 200)
+})
+
+test('déplacer un dossier : un nom valide mais un parent refusé ne change rien', async () => {
+  const paule = await personne('Paule')
+  const c = { cookie: paule.cookie }
+  const { json: a } = await appel('POST', '/api/dossiers', { ...c, corps: { nom: 'A' } })
+  const { json: b } = await appel('POST', '/api/dossiers', { ...c, corps: { nom: 'B', parent: a.id } })
+  const r = await appel('PUT', `/api/dossiers/${a.id}`, { ...c, corps: { nom: 'Nouveau', parent: b.id } })
+  assert.equal(r.statut, 409)
+  const vue = (await appel('GET', '/api/documents', c)).json.dossiers
+  assert.deepEqual(
+    vue.find((d) => d.id === a.id),
+    { id: a.id, nom: 'A', parent: null },
+  )
+})
+
 test('plusieurs propriétaires : seul un propriétaire en nomme ; le dernier ne part pas', async () => {
   const paule = await personne('Paule')
   const edith = await personne('Edith')
