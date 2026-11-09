@@ -144,7 +144,7 @@ export function Bandeau({ voletGauche, titre, mention, terminer, presence, parta
           <Menu.Dropdown>
             <Menu.Label>{compte.courriel || compte.nom}</Menu.Label>
             {compte.actions.map((a) => (
-              <Menu.Item key={a.cle} leftSection={<PictoDe role="deconnexion" />} onClick={a.surClic}>
+              <Menu.Item key={a.cle} leftSection={<PictoDe role={a.picto} />} onClick={a.surClic}>
                 {a.libelle}
               </Menu.Item>
             ))}

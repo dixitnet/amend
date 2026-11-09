@@ -77,3 +77,7 @@ export const libelleDuRole = (t, role) =>
     editeur: t('roles.editeur'),
     proprietaire: t('roles.proprietaire'),
   })[role] ?? role
+
+/** Dans une équipe, le rôle `proprietaire` s'appelle « gestionnaire » (étape 6d). */
+export const libelleDuRoleEquipe = (t, role) =>
+  role === 'proprietaire' ? t('roles.gestionnaire') : libelleDuRole(t, role)

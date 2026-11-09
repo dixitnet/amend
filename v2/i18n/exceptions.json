@@ -1,1 +1,11 @@
-{ "identiques": ["application.nom", "document.titre", "interface.documents"] }
+{
+  "identiques": [
+    "application.nom",
+    "document.titre",
+    "admin.titre",
+    "admin.version",
+    "admin.node",
+    "admin.documents",
+    "interface.documents"
+  ]
+}

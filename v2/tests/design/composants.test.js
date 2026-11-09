@@ -41,6 +41,9 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     nom: 'Carla',
     courriel: 'carla@exemple.fr',
     date: '9 nov. 2026',
+    equipe: 'Éditions',
+    numero: '2.023',
+    commit: 'abc1234',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -64,6 +67,9 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       nom: 'N',
       courriel: 'c@d.fr',
       date: 'D',
+      equipe: 'E',
+      numero: '2',
+      commit: 'c',
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)

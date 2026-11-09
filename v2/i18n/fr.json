@@ -23,6 +23,7 @@
     "lectureSeule": "Lecture seule",
     "modeSuggestion": "Mode suggestion",
     "historique": "Historique",
+    "mesDocuments": "Mes documents",
     "partager": "Partager",
     "supprimer": "Supprimer",
     "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement ?"
@@ -52,7 +53,12 @@
     "lien-invalide": "Ce lien de connexion n’est plus valable : demandez-en un nouveau.",
     "dossier-introuvable": "Ce dossier n’existe pas, ou il n’est pas à vous.",
     "deplacement-circulaire": "Un dossier ne peut pas aller dans lui-même ni dans l’un de ses sous-dossiers.",
-    "dossier-non-vide": "Ce dossier n’est pas vide : déplacez ou supprimez d’abord ce qu’il contient."
+    "dossier-non-vide": "Ce dossier n’est pas vide : déplacez ou supprimez d’abord ce qu’il contient.",
+    "dernier-gestionnaire": "Une équipe garde toujours au moins un gestionnaire.",
+    "deplacement-impossible": "Un document ne passe pas directement d’une équipe à une autre : sortez-le d’abord dans Mes documents.",
+    "equipe-introuvable": "Cette équipe n’existe pas, ou vous n’en êtes pas membre.",
+    "equipe-non-vide": "Cette équipe n’est pas vide : déplacez ou supprimez d’abord ses documents et ses dossiers.",
+    "reserve-administrateur": "Réservé aux administrateurs de l’instance."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -69,7 +75,8 @@
     "lecteur": "lecteur",
     "correcteur": "correcteur",
     "editeur": "éditeur",
-    "proprietaire": "propriétaire"
+    "proprietaire": "propriétaire",
+    "gestionnaire": "gestionnaire"
   },
   "courriel": {
     "copier": "Si le lien ne s’ouvre pas, copiez cette adresse dans votre navigateur :",
@@ -90,6 +97,18 @@
       "sujet": "{auteur} a partagé un document avec vous",
       "intro": "{auteur} vous a donné accès au document «\u00A0{titre}\u00A0», comme {role}.",
       "lien": "Ouvrir le document"
+    },
+    "equipe": {
+      "acces": {
+        "sujet": "{auteur} vous a ajouté à l’équipe « {equipe} »",
+        "intro": "{auteur} vous a ajouté à l’équipe « {equipe} » sur amend.ink, comme {role}.",
+        "lien": "Ouvrir l’équipe"
+      },
+      "invitation": {
+        "sujet": "{auteur} vous invite dans une équipe sur amend.ink",
+        "intro": "{auteur} vous invite dans l’équipe « {equipe} », comme {role}. Le lien vaut 7 jours.",
+        "lien": "Rejoindre l’équipe"
+      }
     }
   },
   "nom": {
@@ -105,7 +124,6 @@
     "vide": "Aucun document pour l’instant.",
     "sansTitre": "Sans titre",
     "deconnexion": "Se déconnecter",
-    "deconnexionPartout": "Déconnecter tous mes appareils",
     "mesDocuments": "Mes documents",
     "partagesAvecMoi": "Partagé avec moi",
     "nouveauDossier": "Nouveau dossier",
@@ -124,7 +142,19 @@
     "videDossier": "Ce dossier est vide.",
     "videPartages": "Personne ne vous a encore partagé de document.",
     "chemin": "Emplacement",
-    "partageLe": "le {date}"
+    "partageLe": "le {date}",
+    "nouvelleEquipe": "Nouvelle équipe",
+    "nomEquipe": "Nom de l’équipe",
+    "renommerEquipe": "Renommer l’équipe",
+    "supprimerEquipe": "Supprimer l’équipe",
+    "confirmerSuppressionEquipe": "Supprimer l’équipe « {nom} » ?",
+    "quitterEquipe": "Quitter l’équipe",
+    "confirmerDepart": "Vous n’aurez plus accès aux documents de l’équipe « {nom} ». Continuer ?",
+    "membres": "Membres",
+    "equipeDestination": "Équipe « {nom} »",
+    "confirmerEntree": "« {titre} » appartiendra à l’équipe « {equipe} » : ses membres y auront accès, et ses propriétaires en deviendront éditeurs. Continuer ?",
+    "confirmerSortie": "« {titre} » ira dans Mes documents et vous en serez propriétaire ; les membres de l’équipe sans accès propre le perdront. Continuer ?",
+    "videEquipe": "Cette équipe n’a pas encore de document."
   },
   "partage": {
     "titre": "Partage",
@@ -140,6 +170,20 @@
     "invite": "{courriel}, invité comme {role}",
     "invitationEnvoyee": "Invitation envoyée à {courriel}.",
     "accesDonne": "{courriel} a maintenant accès."
+  },
+  "admin": {
+    "titre": "Administration",
+    "systeme": "Système",
+    "version": "Version",
+    "versionValeur": "{numero} ({commit}, du {date})",
+    "versionInconnue": "inconnue (hors d’un dépôt git)",
+    "demarrage": "Serveur démarré le",
+    "memoire": "Mémoire du serveur",
+    "node": "Node",
+    "personnes": "Comptes",
+    "essai": "Comptes d’essai et de développement",
+    "documents": "Documents",
+    "equipes": "Équipes"
   },
   "interface": {
     "voletGauche": "Plan et documents",

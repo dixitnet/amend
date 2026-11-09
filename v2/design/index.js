@@ -3,10 +3,12 @@
 export { CadreDesign } from './Cadre.jsx'
 export { EcranMessage, EcranConnexion } from './composants/EcranSimple.jsx'
 export { PanneauSuggestions } from './composants/PanneauSuggestions.jsx'
+export { BoutonBascule } from './composants/BoutonBascule.jsx'
 export { Bouton } from './composants/Bouton.jsx'
 export { Choix } from './composants/Choix.jsx'
 export { EcranCourriel } from './composants/EcranCourriel.jsx'
 export { ListeDocuments } from './composants/ListeDocuments.jsx'
+export { PageAdministration } from './composants/PageAdministration.jsx'
 export { PanneauPartage } from './composants/PanneauPartage.jsx'
 export { couleurAuteur } from './auteurs.js'
 export {

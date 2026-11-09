@@ -18,9 +18,11 @@ import {
   IconWand,
   IconUser,
   IconUsers,
+  IconUsersGroup,
   IconPlus,
   IconLogout,
   IconWifiOff,
+  IconSettings,
 } from '@tabler/icons-react'
 
 const PICTOS = {
@@ -40,9 +42,11 @@ const PICTOS = {
   margo: IconWand,
   moi: IconUser,
   partages: IconUsers,
+  equipe: IconUsersGroup,
   nouveau: IconPlus,
   deconnexion: IconLogout,
   horsLigne: IconWifiOff,
+  administration: IconSettings,
 }
 
 /** Le picto d'un rôle, ou rien si le rôle est inconnu. */

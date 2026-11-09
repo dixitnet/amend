@@ -6,6 +6,7 @@ import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { join, extname, normalize, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerComptes } from './comptes.js'
 import { creerCommentaires } from './commentaires.js'
@@ -14,6 +15,9 @@ import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import {
+  listeAdministrateurs,
+  estAdministrateur,
+  numeroDeVersion,
   nomPersonne,
   identifiantDocument,
   roleEffectif,
@@ -30,6 +34,11 @@ const confDepuisEnv = () => ({
   // (sinon les sessions sauteraient à chaque redémarrage, sans alerte).
   secret: process.env.V2_SECRET || (process.env.V2_DEV === '1' ? randomBytes(32).toString('hex') : ''),
   jetonInterne: process.env.V2_JETON_INTERNE || '',
+  // Comptes d'essai de Claude (09/11/2026) : la clé ouvre /api/essai/session,
+  // et seulement pour des comptes en @essai.amend.invalid ; vide : fermé.
+  jetonEssai: process.env.V2_JETON_ESSAI || '',
+  // Les administrateurs de l'instance (back-office) : des adresses séparées par des virgules.
+  administrateurs: process.env.V2_ADMINS || '',
   dev: process.env.V2_DEV === '1',
   // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
   cookieSecure: process.env.V2_COOKIE_SECURE === '1',
@@ -48,6 +57,10 @@ const confDepuisEnv = () => ({
     process.env.V2_POSTGRES ||
     (process.env.V2_DEV === '1' ? 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub' : ''),
 })
+
+/** Les comptes d'essai de Claude (adresses qui ne reçoivent jamais de courrier). */
+const DOMAINE_ESSAI = 'essai.amend.invalid'
+const LONGUEUR_MIN_CLE_ESSAI = 32
 
 /** Comparaison à temps constant du jeton interne. */
 function jetonValide(attendu, recu) {
@@ -97,7 +110,35 @@ function creerIdentite(CONF, comptes) {
   return { personneDe, cookieDeSession, cookieEfface: `${NOM_COOKIE}=; ${attributs}; Max-Age=0` }
 }
 
+/** La version en service, lue au démarrage (la v2 redémarre à chaque
+ * déploiement) : le commit (vérification des déploiements de l'extérieur),
+ * le numéro 2.NNN (fusions dans main qui touchent v2/) et la date du commit,
+ * pour le back-office. Tout à `null` hors d'un dépôt git. */
+const VERSION = (() => {
+  const git = (...a) =>
+    execFileSync('git', a, {
+      cwd: new URL('.', import.meta.url),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  try {
+    const racine = git('rev-parse', '--show-toplevel')
+    return {
+      commit: git('rev-parse', '--short=7', 'HEAD'),
+      numero: numeroDeVersion(Number(git('-C', racine, 'rev-list', '--count', '--first-parent', 'HEAD', '--', 'v2'))),
+      date: Date.parse(git('log', '-1', '--format=%cI')) || null,
+    }
+  } catch {
+    return { commit: null, numero: null, date: null }
+  }
+})()
+const DEMARRAGE = Date.now()
+
 const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) => {
+  const administrateurs = listeAdministrateurs(CONF.administrateurs)
+  /** Une personne connectée est-elle administratrice de l'instance ? (son adresse, en base) */
+  const administrateur = async (p) =>
+    administrateurs.size > 0 && estAdministrateur((await comptes.personne(p.id))?.courriel, administrateurs)
   /** Le rôle effectif d'une personne sur un document : décidé par le domaine. */
   const roleSur = async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne))
   const droitsDe = (role) => ({ role, capacites: capacites(role) })
@@ -114,7 +155,8 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
   }
 
   return {
-    'GET /api/config': (req, res) => json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev }),
+    'GET /api/config': (req, res) =>
+      json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev, version: VERSION.commit }),
     // Les noms d'une liste de personnes (`?id=a&id=b`), pour une personne
     // connectée ; un identifiant inconnu revient sans nom.
     'GET /api/personnes': async (req, res, url) => {
@@ -129,7 +171,21 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
     },
     'GET /api/moi': async (req, res) => {
       const p = await personneDe(req)
-      return p ? json(res, 200, p) : json(res, 401, { code: 'session-absente' })
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      return json(res, 200, { ...p, admin: await administrateur(p) })
+    },
+    // Back-office, rubrique Système : réservé aux administrateurs de l'instance.
+    'GET /api/admin/systeme': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      json(res, 200, {
+        version: VERSION,
+        demarrage: DEMARRAGE,
+        memoire: process.memoryUsage().rss,
+        node: process.version,
+        comptes: await comptes.statistiques(),
+      })
     },
     // Développement seulement : les courriers gardés en mémoire (sans clé
     // Mailgun), pour les essais et les tests de bout en bout.
@@ -147,6 +203,23 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
       const p = await comptes.personneOuNouvelle(courriel)
       await comptes.definirNom(p.id, r.nom)
       json(res, 200, { id: p.id, nom: r.nom }, { 'set-cookie': cookieDeSession({ id: p.id, nom: r.nom }) })
+    },
+    // Comptes d'essai de Claude, en ligne sans V2_DEV (Sylvain, 09/11/2026) :
+    // une personne par nom, seulement en @essai.amend.invalid (jamais un vrai
+    // compte, jamais de courrier), sur présentation de la clé d'essai (au
+    // moins 32 signes, comparée à temps constant). Sans clé, la route n'existe pas.
+    'POST /api/essai/session': async (req, res) => {
+      const cle = String(CONF.jetonEssai || '')
+      if (cle.length < LONGUEUR_MIN_CLE_ESSAI || !jetonValide(cle, req.headers['x-amend-essai-token']))
+        return json(res, 404, { code: 'introuvable' })
+      const { nom } = await lireCorps(req)
+      const r = nomPersonne(nom)
+      if (!r.ok) return json(res, 400, { code: r.code })
+      const courriel = `${Buffer.from(r.nom.toLowerCase()).toString('hex')}@${DOMAINE_ESSAI}`
+      const p = await comptes.personneOuNouvelle(courriel)
+      await comptes.definirNom(p.id, r.nom)
+      console.log(`[essai] session d'essai pour « ${r.nom} »`)
+      json(res, 200, { id: p.id, nom: r.nom, courriel }, { 'set-cookie': cookieDeSession({ id: p.id, nom: r.nom }) })
     },
     // Mes droits sur un document. Document inconnu et document sans accès se
     // confondent (404) : on ne révèle pas qu'un document existe. Une personne

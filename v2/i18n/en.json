@@ -23,6 +23,7 @@
     "lectureSeule": "Read only",
     "modeSuggestion": "Suggesting",
     "historique": "History",
+    "mesDocuments": "My documents",
     "partager": "Share",
     "supprimer": "Delete",
     "confirmerSuppression": "Delete this document for everyone, permanently?"
@@ -52,7 +53,12 @@
     "lien-invalide": "This sign-in link is no longer valid: ask for a new one.",
     "dossier-introuvable": "This folder does not exist, or it is not yours.",
     "deplacement-circulaire": "A folder cannot go into itself or into one of its subfolders.",
-    "dossier-non-vide": "This folder is not empty: move or delete its contents first."
+    "dossier-non-vide": "This folder is not empty: move or delete its contents first.",
+    "dernier-gestionnaire": "A team always keeps at least one manager.",
+    "deplacement-impossible": "A document cannot go straight from one team to another: move it to My documents first.",
+    "equipe-introuvable": "This team does not exist, or you are not a member.",
+    "equipe-non-vide": "This team is not empty: move or delete its documents and folders first.",
+    "reserve-administrateur": "Reserved for the administrators of this instance."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -69,7 +75,8 @@
     "lecteur": "reader",
     "correcteur": "proofreader",
     "editeur": "editor",
-    "proprietaire": "owner"
+    "proprietaire": "owner",
+    "gestionnaire": "manager"
   },
   "courriel": {
     "copier": "If the link does not open, copy this address into your browser:",
@@ -90,6 +97,18 @@
       "sujet": "{auteur} shared a document with you",
       "intro": "{auteur} gave you access to the document “{titre}” as {role}.",
       "lien": "Open the document"
+    },
+    "equipe": {
+      "acces": {
+        "sujet": "{auteur} added you to the team “{equipe}”",
+        "intro": "{auteur} added you to the team “{equipe}” on amend.ink, as {role}.",
+        "lien": "Open the team"
+      },
+      "invitation": {
+        "sujet": "{auteur} invites you to a team on amend.ink",
+        "intro": "{auteur} invites you to the team “{equipe}”, as {role}. The link is valid for 7 days.",
+        "lien": "Join the team"
+      }
     }
   },
   "nom": {
@@ -105,7 +124,6 @@
     "vide": "No documents yet.",
     "sansTitre": "Untitled",
     "deconnexion": "Sign out",
-    "deconnexionPartout": "Sign out all my devices",
     "mesDocuments": "My documents",
     "partagesAvecMoi": "Shared with me",
     "nouveauDossier": "New folder",
@@ -124,7 +142,19 @@
     "videDossier": "This folder is empty.",
     "videPartages": "Nobody has shared a document with you yet.",
     "chemin": "Location",
-    "partageLe": "on {date}"
+    "partageLe": "on {date}",
+    "nouvelleEquipe": "New team",
+    "nomEquipe": "Team name",
+    "renommerEquipe": "Rename the team",
+    "supprimerEquipe": "Delete the team",
+    "confirmerSuppressionEquipe": "Delete the team “{nom}”?",
+    "quitterEquipe": "Leave the team",
+    "confirmerDepart": "You will lose access to the documents of the team “{nom}”. Continue?",
+    "membres": "Members",
+    "equipeDestination": "Team “{nom}”",
+    "confirmerEntree": "“{titre}” will belong to the team “{equipe}”: its members will have access, and its owners will become editors. Continue?",
+    "confirmerSortie": "“{titre}” will go to My documents and you will own it; team members without their own access will lose it. Continue?",
+    "videEquipe": "This team has no document yet."
   },
   "partage": {
     "titre": "Sharing",
@@ -140,6 +170,20 @@
     "invite": "{courriel}, invited as {role}",
     "invitationEnvoyee": "Invitation sent to {courriel}.",
     "accesDonne": "{courriel} now has access."
+  },
+  "admin": {
+    "titre": "Administration",
+    "systeme": "System",
+    "version": "Version",
+    "versionValeur": "{numero} ({commit}, of {date})",
+    "versionInconnue": "unknown (outside a git repository)",
+    "demarrage": "Server started on",
+    "memoire": "Server memory",
+    "node": "Node",
+    "personnes": "Accounts",
+    "essai": "Test and development accounts",
+    "documents": "Documents",
+    "equipes": "Teams"
   },
   "interface": {
     "voletGauche": "Outline and documents",
