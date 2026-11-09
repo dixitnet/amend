@@ -16,3 +16,4 @@ export {
 } from './partage.js'
 export { nomDossier, refusDeplacementDossier, sectionDuDocument, refusRetrait } from './dossiers.js'
 export { refusMembre, refusDepart, peutModifierEquipe, peutGererEquipe, deplacementDocument } from './equipes.js'
+export { listeAdministrateurs, estAdministrateur, numeroDeVersion } from './administration.js'
