@@ -80,7 +80,7 @@ Aujourd'hui, un correcteur ou un lecteur ne publie pas sa présence (curseur, «
 2. L'éditeur accepte ou refuse chaque suggestion, ou toutes ; le résultat survit au rechargement et converge à plusieurs.
 3. Les commentaires respectent les rôles, vérifiés côté serveur (si option a).
 4. L'historique montre les modifications à partir de la date d'accès ; l'éditeur revient à une version.
-5. La campagne de saisie de la v1 est rejouée ; tests T0 à T5 verts ; audit partiel avant la fusion.
+5. ~~La campagne de saisie de la v1 est rejouée~~ **réécrit le 09/11/2026** (Sylvain : « questionner tout ce qui vient de la v1 ; reconstruire de zéro et piocher quelques bonnes idées ») : la **campagne v2** (`exploitation/campagne/invariants.mjs` : gestes réels, invariants indépendants de l'affichage) et les **scénarios de relecture** (`contrats/pile/relecture.test.js`) au vert ; tests T0 à T5 verts ; audit partiel avant la fusion.
 
 ## Hors périmètre
 
@@ -194,4 +194,5 @@ Choix de Sylvain (08/11/2026) : **C**, le panneau à côté du texte, un remplac
   | ouverture du livre par une seconde personne | 0,39 s | 1,03 s | +0,6 s |
 
   Le serveur avait d'abord pris 66 Mo au repos (BlockNote et y/hub chargés pour l'ancre) : BlockNote n'est plus chargé qu'à la première ancre, et le client de y/hub est dans un fichier à part (`adaptateurs/yhub/client.js`). La collaboration paie la seconde branche par document et les fils de calcul de y/hub (lecture des auteurs) : ici jusqu'à 3 fils (processeurs moins un), environ 25 à 30 Mo chacun ; sur le VPS (1 processeur), un seul. L'ouverture plus lente vient de la seconde branche (le texte y est recopié à la première ouverture). À remesurer sur le VPS de la mise en ligne d'essai.
+- **Campagne (09/11/2026)** : la matrice de la v1, transposée telle quelle (266 cas), n'a relevé **aucune perte de texte** et donné « tout refuser » et « tout accepter » justes dans tous les cas ; ses échecs portaient sur des critères de présentation de la v1 (« une seule carte par remplacement », « barré puis ajout côte à côte », comme Google Docs). Décisions de Sylvain : ne garder de la v1 que des idées (l'oracle « tout accepter = geste sans suggestion », les invariants, la variété des gestes) ; campagne v2 resserrée (90 cas) ; **le panneau garde le découpage de Yjs** (9b : « beau » → « blanc » s'y lit « ajoute « lanc », supprime « eau » », le « b » commun restant ; signalé dans la veille) ; **Annuler (Ctrl+Z) en mode suggestion : plus tard** (à vérifier à une étape ultérieure, noté).
 

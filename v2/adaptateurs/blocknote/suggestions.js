@@ -56,16 +56,13 @@ export function suivreAuteurs(editeur, contexte, afficheurInitial, suggerer, del
   }
 }
 
-/** Écart maximal (en caractères inchangés) entre deux morceaux d'une même
- * proposition : Yjs garde les lettres communes à l'ancien et au nouveau texte
- * (« beau » → « blanc » s'affiche « b », puis « eau » barré et « lanc » ajouté). */
-const ECART = 3
-
 /**
- * Les suggestions du document, dans l'ordre du texte, une par proposition :
- * les morceaux d'un même auteur, dans un même bloc, séparés par au plus
- * ECART caractères inchangés, font une seule ligne ; une suppression et un
- * ajout réunis font un remplacement (campagne du 09/11/2026).
+ * Les suggestions du document, dans l'ordre du texte, telles que Yjs les
+ * découpe (Sylvain, 09/11/2026 : on garde ce découpage) : les morceaux d'un
+ * même auteur qui se touchent, dans un même bloc, font une ligne ; une
+ * suppression et un ajout réunis font un remplacement. Yjs garde les lettres
+ * communes à l'ancien et au nouveau texte (« beau » → « blanc » : « b » reste,
+ * « eau » barré, « lanc » ajouté) : veille.
  * @returns {Array<{ type: 'ajout' | 'suppression' | 'remplacement', auteur: string | null, avant: string, apres: string, debut: number, fin: number }>}
  */
 export function listeDesSuggestions(editeur) {
@@ -84,11 +81,11 @@ export function listeDesSuggestions(editeur) {
         fin: pos + n.nodeSize,
       })
     })
-    // Les propositions : morceaux voisins d'un même auteur, dans un même bloc.
+    // Les lignes : morceaux qui se touchent, d'un même auteur, dans un même bloc.
     const groupes = []
     for (const m of morceaux) {
       const g = groupes[groupes.length - 1]
-      if (g && g.auteur === m.auteur && g.bloc === m.bloc && m.debut - g.fin <= ECART) g.fin = m.fin
+      if (g && g.auteur === m.auteur && g.bloc === m.bloc && m.debut === g.fin) g.fin = m.fin
       else groupes.push({ auteur: m.auteur, bloc: m.bloc, debut: m.debut, fin: m.fin })
     }
     // Le texte avant et après chaque proposition.
