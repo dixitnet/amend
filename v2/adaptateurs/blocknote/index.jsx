@@ -9,17 +9,27 @@
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
 import { useEffect, useMemo, useState } from 'react'
-import { useCreateBlockNote } from '@blocknote/react'
+import {
+  useCreateBlockNote,
+  FormattingToolbar,
+  FormattingToolbarController,
+  getFormattingToolbarItems,
+} from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import { VersioningSidebar } from '@blocknote/react/versioning'
 import { withCollaboration } from '@blocknote/core/y'
 import { CommentsExtension } from '@blocknote/core/comments'
 import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
+import { boutonsGardes } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
+
+function Palette() {
+  return <FormattingToolbar>{boutonsGardes(getFormattingToolbarItems())}</FormattingToolbar>
+}
 
 /**
  * @param {object} p
@@ -135,7 +145,8 @@ export function EditeurCollaboratif({
   }, [editeur, afficheur, suggerer, surSuggestions])
 
   return (
-    <BlockNoteView editor={editeur} editable={mode !== 'lire' && !historique}>
+    <BlockNoteView editor={editeur} editable={mode !== 'lire' && !historique} formattingToolbar={false}>
+      <FormattingToolbarController formattingToolbar={Palette} />
       {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
     </BlockNoteView>
   )

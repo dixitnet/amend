@@ -20,13 +20,15 @@ La première version de cette décision posait nos propres jetons (variables CSS
 
 ## Réglages décidés
 
-| Réglage                          | Valeur                                      | Décision                                                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fournisseur.defaultColorScheme` | `'auto'` : clair ou sombre selon le système | Procédure de test validée par Sylvain le 08/11/2026 (`docs/v2-procedure-tests.md` : « clair et sombre ») ; c'est aussi le comportement de base de l'éditeur BlockNote. Confirmé par Sylvain le 08/11/2026. |
+| Réglage                          | Valeur                                      | Décision                                                                                                                                                                                                                     |
+| -------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fournisseur.defaultColorScheme` | `'auto'` : clair ou sombre selon le système | Procédure de test validée par Sylvain le 08/11/2026 (`docs/v2-procedure-tests.md` : « clair et sombre ») ; c'est aussi le comportement de base de l'éditeur BlockNote. Confirmé par Sylvain le 08/11/2026.                   |
+| `css.editeur.poignees`           | poignées de bloc masquées (`.bn-side-menu`) | Sylvain, 09/11/2026 (maquette téléphone) : on n'utilise pas les blocs ; décision générale, tous formats d'écran. Le menu « / » reste. Réversible : retirer la règle de `design/feuilles/editeur.css` et cette ligne.         |
+| `css.editeur.marges`             | marges latérales de l'éditeur : 10 px       | Sylvain, 09/11/2026 : l'espace des poignées revient au texte ; 10 px de chaque côté, la valeur de Docs en lecture seule sur téléphone (`doc-editor/styles.tsx`, écrans de 560 px et moins). Remplace les 54 px de BlockNote. |
 
 Feuilles de style : la règle « aucune feuille maison » est révisée le 08/11/2026 (Sylvain, étape 4) : `design/feuilles/` peut contenir des feuilles dont chaque règle porte la clé d'un réglage de cette table (`/* réglage : css.… */`) ; le contrat le vérifie.
 
-Les quatre réglages des notes de bas de page (`css.note.numerotation`, `css.note.appel`, `css.note.repliee`, `css.note.ouverte`, affichage B, décisions de Sylvain du 08/11/2026) sont sortis de la table avec le retrait des notes, le 08/11/2026 (décision de Sylvain) ; ils sont archivés dans `docs/v2-archives/notes-2026-11-08/`. `design/feuilles/` est vide en attendant.
+Les quatre réglages des notes de bas de page (`css.note.numerotation`, `css.note.appel`, `css.note.repliee`, `css.note.ouverte`, affichage B, décisions de Sylvain du 08/11/2026) sont sortis de la table avec le retrait des notes, le 08/11/2026 (décision de Sylvain) ; ils sont archivés dans `docs/v2-archives/notes-2026-11-08/`. `design/feuilles/` est restée vide jusqu'au 09/11/2026 ; elle contient depuis `editeur.css` (poignées de bloc et marges de l'éditeur).
 
 Les couleurs des personnes (curseurs, présence) sont prises dans la palette de Mantine (`design/auteurs.js`), sans valeur nouvelle ; le gris et le noir en sont exclus pour ne pas se confondre avec le texte (confirmé par Sylvain le 08/11/2026).
 
