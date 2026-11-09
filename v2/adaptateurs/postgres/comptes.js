@@ -177,6 +177,24 @@ export async function ouvrirComptes(url) {
           on conflict (document, personne) where personne is not null do update set role = excluded.role`.then(
         () => {},
       ),
+    /**
+     * Change (ou retire : `role === null`) l'accès d'une personne, en
+     * transaction, sans jamais laisser le document sans propriétaire ; rend
+     * `'dernier-proprietaire'` si c'était le cas, sinon `null`.
+     */
+    async modifierAcces(document, personne, role) {
+      return sql.begin(async (t) => {
+        const proprietaires =
+          await t`select personne from amend.acces where document = ${document} and role = 'proprietaire' for update`
+        const etaitProprietaire = proprietaires.some((p) => p.personne === personne)
+        if (etaitProprietaire && role !== 'proprietaire' && proprietaires.length <= 1) return 'dernier-proprietaire'
+        if (role === null) await t`delete from amend.acces where document = ${document} and personne = ${personne}`
+        else
+          await t`insert into amend.acces (document, personne, role) values (${document}, ${personne}, ${role})
+                  on conflict (document, personne) where personne is not null do update set role = excluded.role`
+        return null
+      })
+    },
     retirerAcces: (document, personne) =>
       sql`delete from amend.acces where document = ${document} and personne = ${personne}`.then(() => {}),
     noterPassageParLien: (document, personne) =>

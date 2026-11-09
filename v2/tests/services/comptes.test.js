@@ -134,3 +134,14 @@ test('courrier : un seul lien, texte échappé ; sans clé, gardé en mémoire',
   await courrier.envoyer({ a: 'z@y.fr', sujet: 'S', texte: 'T', html: 'H' })
   assert.equal(courrier.envoyes.length, 1)
 })
+
+t3('deux retraits simultanés de propriétaires : il en reste toujours un', async () => {
+  const a = await depot.personneOuNouvelle(adresse('a'))
+  const b = await depot.personneOuNouvelle(adresse('b'))
+  const id = randomUUID()
+  await depot.creerDocument(id, a.id)
+  await depot.donnerAcces(id, b.id, 'proprietaire')
+  const r = await Promise.all([depot.modifierAcces(id, a.id, null), depot.modifierAcces(id, b.id, null)])
+  assert.deepEqual(r.sort(), ['dernier-proprietaire', null].sort())
+  assert.equal(await depot.proprietaires(id), 1)
+})

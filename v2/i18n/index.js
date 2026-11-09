@@ -68,3 +68,12 @@ export function messageErreur(t, code) {
   const cle = `erreurs.${code}`
   return chercher(CATALOGUES[LANGUE_SOURCE], cle) === undefined ? t('application.erreur', { code }) : t(cle)
 }
+
+/** Le libellé d'un rôle (code du domaine) ; un code inconnu revient tel quel. */
+export const libelleDuRole = (t, role) =>
+  ({
+    lecteur: t('roles.lecteur'),
+    correcteur: t('roles.correcteur'),
+    editeur: t('roles.editeur'),
+    proprietaire: t('roles.proprietaire'),
+  })[role] ?? role

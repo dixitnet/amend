@@ -3,7 +3,7 @@
 // `message` (facultatif) : ce qui s'est passé (lien envoyé, erreur).
 import { Container, Stack, Title, Text, TextInput, Button } from '@mantine/core'
 
-export function EcranCourriel({ titre, explication, libelleCourriel, libelleBouton, message, surEnvoyer, enPlus }) {
+export function EcranCourriel({ titre, explication, libelleCourriel, libelleBouton, message, surEnvoyer }) {
   const soumettre = (e) => {
     e.preventDefault()
     const courriel = String(new FormData(e.currentTarget).get('courriel') || '').trim()
@@ -21,7 +21,6 @@ export function EcranCourriel({ titre, explication, libelleCourriel, libelleBout
           </Stack>
         </form>
         {message ? <Text role="status">{message}</Text> : null}
-        {enPlus}
       </Stack>
     </Container>
   )

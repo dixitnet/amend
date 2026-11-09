@@ -33,7 +33,7 @@ import {
   DUREE_INVITATION_MS,
   DUREE_LIEN_CONNEXION_MS,
 } from '../../domaine/index.js'
-import { creerTraducteur } from '../../i18n/index.js'
+import { creerTraducteur, libelleDuRole } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
 
 /** Le code montré quand un lien de connexion a servi ou expiré. */
@@ -77,13 +77,7 @@ export function creerComptes({
   cookieEfface,
 }) {
   const t = creerTraducteur('fr') // langue des courriers : celle des documents d'ici l'étape 6b
-  const nomDuRole = (role) =>
-    ({
-      lecteur: t('roles.lecteur'),
-      correcteur: t('roles.correcteur'),
-      editeur: t('roles.editeur'),
-      proprietaire: t('roles.proprietaire'),
-    })[role]
+  const nomDuRole = (role) => libelleDuRole(t, role)
   const ok = (res, corps = {}, statut = 200) => (json(res, statut, corps), true)
   const err = (res, statut, code) => (json(res, statut, { code }), true)
 
@@ -213,9 +207,15 @@ export function creerComptes({
     if (!sous) {
       if (methode !== 'DELETE') return err(res, 405, 'methode-refusee')
       if (!caps.includes('supprimer')) return err(res, 403, 'droit-insuffisant')
-      if (collaboration) await collaboration.supprimerDocument(docId)
-      await commentaires?.supprimerFilsDuDocument(docId)
+      // D'abord la base (le document disparaît pour tous), puis le contenu dans
+      // y/hub : un échec de y/hub laisse un contenu inaccessible, pas un document
+      // listé mais vidé (audit, 09/11/2026).
       await comptes.supprimerDocument(docId)
+      await commentaires?.supprimerFilsDuDocument(docId)
+      if (collaboration)
+        await collaboration
+          .supprimerDocument(docId)
+          .catch((e) => console.error(`[serveur] suppression dans y/hub de ${docId} :`, e))
       return ok(res)
     }
     if (!caps.includes('inviter')) return err(res, 403, 'droit-insuffisant')
@@ -278,8 +278,10 @@ export function creerComptes({
       const refus = refusAcces(caps, actuel, nouveau, await comptes.proprietaires(docId))
       if (refus)
         return err(res, refus === 'droit-insuffisant' ? 403 : refus === 'dernier-proprietaire' ? 409 : 400, refus)
-      if (nouveau === null) await comptes.retirerAcces(docId, cible)
-      else await comptes.donnerAcces(docId, cible, nouveau)
+      // La règle est vérifiée ici (domaine), puis de nouveau dans la base, en
+      // transaction : deux retraits simultanés ne laissent pas un document sans propriétaire.
+      if ((await comptes.modifierAcces(docId, cible, nouveau)) === 'dernier-proprietaire')
+        return err(res, 409, 'dernier-proprietaire')
       return ok(res)
     }
     if (sous === 'invitations' && cible && methode === 'DELETE') {

@@ -190,8 +190,8 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
         return json(res, refus === 'droit-insuffisant' ? 403 : refus === 'dernier-proprietaire' ? 409 : 400, {
           code: refus,
         })
-      if (role === null) await comptes.retirerAcces(v.docId, personne)
-      else await comptes.donnerAcces(v.docId, personne, role)
+      if ((await comptes.modifierAcces(v.docId, personne, role)) === 'dernier-proprietaire')
+        return json(res, 409, { code: 'dernier-proprietaire' })
       json(res, 200, {})
     },
     // Pour le processus de collaboration seulement (jeton interne).
@@ -295,10 +295,11 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       // En développement, les routes de y/hub sur la même adresse que la page,
       // comme Caddy en ligne (les cookies de session les accompagnent).
       if (CONF.dev && url.pathname.startsWith('/collaboration/')) return relayer(CONF, req, res)
-      const route = routes[`${req.method} ${url.pathname}`]
-      if (route) return await route(req, res, url)
+      // Avant toute route : une requête qui modifie et vient d'ailleurs est refusée (audit, 09/11/2026).
       if (url.pathname.startsWith('/api/') && !origineAdmise(CONF, req))
         return json(res, 403, { code: 'origine-refusee' })
+      const route = routes[`${req.method} ${url.pathname}`]
+      if (route) return await route(req, res, url)
       if (await commentaires(req, res, url)) return
       if (await partage(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))

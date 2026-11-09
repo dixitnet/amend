@@ -15,7 +15,7 @@ import {
   Bouton,
   couleurAuteur,
 } from '../../design/index.js'
-import { creerTraducteur, choisirLangue, messageErreur, LANGUE_PSEUDO } from '../../i18n/index.js'
+import { creerTraducteur, choisirLangue, messageErreur, libelleDuRole, LANGUE_PSEUDO } from '../../i18n/index.js'
 import { identifiantDocument, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
@@ -153,13 +153,7 @@ function Connexion({ config, visee, surEntrerEnDev }) {
   )
 }
 
-const nomDuRole = (role) =>
-  ({
-    lecteur: t('roles.lecteur'),
-    correcteur: t('roles.correcteur'),
-    editeur: t('roles.editeur'),
-    proprietaire: t('roles.proprietaire'),
-  })[role] ?? role
+const nomDuRole = (role) => libelleDuRole(t, role)
 
 /** Mes documents : tous, créés par moi, partagés avec moi ; en créer un. */
 function MesDocuments() {
