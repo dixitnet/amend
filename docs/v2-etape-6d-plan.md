@@ -95,3 +95,32 @@ Structures (maisons d'édition) et facturation ; équipes séparées des dossier
 - **3 : un onglet par équipe**, à côté de Mes documents et de Partagé avec moi (pas d'onglet « Équipes » qui les regroupe). Un bouton « Nouvelle équipe » en crée une. Avec beaucoup d'équipes, la rangée d'onglets s'allongera : le design (6b) en décidera la présentation.
 - 4.1 : en entrant dans l'équipe, les propriétaires d'un document en deviennent éditeurs ; les autres accès restent.
 - 5.1 : un document sorti de l'équipe va dans Mes documents du gestionnaire, qui en devient propriétaire.
+
+## Avancement (09/11/2026)
+
+- **Domaine** (`domaine/equipes.js`) :
+  - membres gérés par le gestionnaire, jamais aucun gestionnaire ;
+  - partir, sauf le dernier gestionnaire ;
+  - qui modifie les dossiers de l'équipe : un éditeur au moins ;
+  - déplacements (ranger, entrer, sortir ; d'une équipe à une autre : non) ;
+  - section « équipe » ;
+  - pas de propriétaire nommé sur un document d'équipe.
+- **PostgreSQL** :
+  - nouvelles tables `amend.equipes`, `amend.membres`, `amend.invitations_equipe` ;
+  - une colonne `equipe` sur les documents et les dossiers (un dossier appartient à une personne ou à une équipe) ;
+  - le rôle de membre compte dans le rôle effectif, donc aussi pour y/hub et les commentaires.
+- **Serveur** :
+  - routes des équipes (créer, voir, renommer, supprimer vide, partir, membres, invitations) ;
+  - courriers d'ajout et d'invitation ;
+  - invitations d'équipe converties à la connexion ;
+  - dossiers et documents dans une équipe ;
+  - déplacements.
+- **Écrans** :
+  - un onglet par équipe et un bouton « Nouvelle équipe » ;
+  - dans l'équipe, la même navigation que dans Mes documents ;
+  - pour le gestionnaire : membres (le panneau du partage, sans lien), renommer, supprimer ;
+  - pour tous : quitter l'équipe ;
+  - déplacer vers une équipe ou en sortir, après confirmation ;
+  - **un seul bouton « Se déconnecter »** (Sylvain, 09/11/2026 ; la route « déconnecter partout » reste au serveur).
+- **Confirmation simplifiée** : la boîte de dialogue dit ce qui change (les membres auront accès, les propriétaires deviennent éditeurs ; les membres sans accès propre le perdront), sans la liste nominative des personnes.
+- **Tests** : 170 rapides (dont 5 sur les équipes contre PostgreSQL), 41 sur la pile (dont un parcours d'équipe : création, document qui entre, invitation par courriel, onglet de la correctrice).
