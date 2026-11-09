@@ -28,7 +28,7 @@ La première version de cette décision posait nos propres jetons (variables CSS
 
 Feuilles de style : la règle « aucune feuille maison » est révisée le 08/11/2026 (Sylvain, étape 4) : `design/feuilles/` peut contenir des feuilles dont chaque règle porte la clé d'un réglage de cette table (`/* réglage : css.… */`) ; le contrat le vérifie.
 
-Picto d'amend.ink (`design/picto/amend-ink.svg`) : une feuille d'amandier au trait dont la tige, taillée comme une plume, trace un trait d'encre (variante « 3h, monochrome », recadrée, choisie par Sylvain le 08/11/2026). Il n'a pas de couleur à lui : `currentColor`, il prend celle du texte de Mantine là où il est placé. Son emploi (bouton, onglet du navigateur, icône d'application) et sa taille dans un bouton restent à décider.
+Picto d'amend.ink (`design/picto/amend-ink.svg`) : une feuille d'amandier au trait dont la tige, taillée comme une plume, trace un trait d'encre (variante « 3h, monochrome », recadrée, choisie par Sylvain le 08/11/2026). Il n'a pas de couleur à lui : `currentColor`, il prend celle du texte de Mantine là où il est placé. Le dessin lui-même (tracés, épaisseurs de trait, cadrage du `viewBox`) fait partie de la décision : le fichier est la référence, on n'en change aucune valeur sans nouvelle décision. Son emploi reste à décider (point ouvert 4).
 
 Les quatre réglages des notes de bas de page (`css.note.numerotation`, `css.note.appel`, `css.note.repliee`, `css.note.ouverte`, affichage B, décisions de Sylvain du 08/11/2026) sont sortis de la table avec le retrait des notes, le 08/11/2026 (décision de Sylvain) ; ils sont archivés dans `docs/v2-archives/notes-2026-11-08/`. `design/feuilles/` est restée vide jusqu'au 09/11/2026 ; elle contient depuis `editeur.css` (poignées de bloc et marges de l'éditeur).
 
@@ -39,6 +39,7 @@ Les couleurs des personnes (curseurs, présence) sont prises dans la palette de 
 1. **Contraste du bleu par défaut de Mantine** (bouton principal, badge : texte blanc sur `blue.6`, 3,56:1, sous le minimum WCAG AA de 4,5:1). Décision de Sylvain le 08/11/2026 : ne rien régler pour l'instant, traiter avec le travail sur l'interface ; options relevées : nuance plus foncée (`primaryShade` 8 : 5,02:1) ou texte noir (contraste automatique : 5,90:1). Seuls ces deux éléments sont exclus du contrôle de contraste du test d'accessibilité (`contrats/pile/robustesse.test.js`, `CONTRASTE_EN_ATTENTE`) ; un test de suivi échoue quand le défaut disparaît, pour rappeler de retirer l'exclusion.
 2. **Haut de page** : Mantine sans réglage laisse le titre collé au haut de l'écran. À traiter avec le travail sur l'interface.
 3. **État hors ligne** : quand y/hub est coupé, l'interface finit sur « Connexion… » et non « Hors ligne ». À traiter avec le travail sur l'interface.
+4. **Emploi du picto** (`design/picto/amend-ink.svg`) : onglet du navigateur (il lui faut alors une couleur), bouton, icône d'application, et sa taille dans un bouton. Premier emploi à prévoir avec le travail sur l'interface.
 
 ## Options écartées
 
