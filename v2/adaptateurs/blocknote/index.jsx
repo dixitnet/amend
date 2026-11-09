@@ -15,20 +15,11 @@ import { BlockNoteView } from '@blocknote/mantine'
 import { withCollaboration } from '@blocknote/core/y'
 import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
+import { boutonsGardes } from './palette.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 
-// La palette flottante de BlockNote, moins les boutons d'alignement (décision
-// de Sylvain du 09/11/2026, tous formats d'écran). Même procédé que Docs, qui
-// filtre les boutons de la palette par leur clé. Pour les remettre : vider
-// cette liste.
-const BOUTONS_RETIRES = ['textAlignLeftButton', 'textAlignCenterButton', 'textAlignRightButton']
-
 function Palette() {
-  return (
-    <FormattingToolbar>
-      {getFormattingToolbarItems().filter((bouton) => !BOUTONS_RETIRES.includes(bouton.key))}
-    </FormattingToolbar>
-  )
+  return <FormattingToolbar>{boutonsGardes(getFormattingToolbarItems())}</FormattingToolbar>
 }
 
 export function EditeurCollaboratif({ contexte, personne, langue, langueDocument, nomAccessible, modifiable = true }) {

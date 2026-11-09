@@ -43,7 +43,7 @@ Docs n'a pas de mode lecture pour qui peut modifier : la lecture seule n'y exist
 ## Éditeur (décisions générales, formats S, M et L)
 
 - **Poignées de bloc masquées**, et leur place rendue au texte : **10 px de marge** de chaque côté (`v2/design/feuilles/editeur.css`, réglages `css.editeur.poignees` et `css.editeur.marges`). Docs : 10 px sur téléphone en lecture seule.
-- **Palette flottante sans alignement** (gauche, centre, droite) : `BOUTONS_RETIRES` dans `v2/adaptateurs/blocknote/index.jsx`. Docs garde l'alignement.
+- **Palette flottante sans alignement** (gauche, centre, droite) : `BOUTONS_RETIRES` dans `v2/adaptateurs/blocknote/palette.js`. Docs garde l'alignement.
 - **Titres de niveau 1 à 5** dans le schéma. Docs limite le choix à 3 niveaux dans sa palette.
 - Sur téléphone, la palette tient alors dans la largeur : type de bloc, gras, italique, souligné, barré, retrait, lien.
 

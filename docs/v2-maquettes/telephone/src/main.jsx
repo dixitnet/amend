@@ -25,6 +25,7 @@ import { fr } from '@blocknote/core/locales'
 // Le schéma du livre de la v2 (v2/adaptateurs/blocknote/schema.js), importé tel quel :
 // la palette flottante et le menu « / » n'offrent que ce qu'il garde.
 import { schemaLivre } from '../../../../v2/adaptateurs/blocknote/schema.js'
+import { boutonsGardes } from '../../../../v2/adaptateurs/blocknote/palette.js'
 import {
   IconListTree, IconPencilCheck, IconDots, IconLink, IconShare,
   IconDownload, IconPrinter, IconCopy, IconTrash,
@@ -90,11 +91,10 @@ function useModification(editeur) {
 }
 
 // La palette de la v2 (v2/adaptateurs/blocknote/index.jsx) : sans alignement.
-const BOUTONS_RETIRES = ['textAlignLeftButton', 'textAlignCenterButton', 'textAlignRightButton']
 function Palette() {
   return (
     <FormattingToolbar>
-      {getFormattingToolbarItems().filter((bouton) => !BOUTONS_RETIRES.includes(bouton.key))}
+      {boutonsGardes(getFormattingToolbarItems())}
     </FormattingToolbar>
   )
 }
