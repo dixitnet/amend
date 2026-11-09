@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 6a, « Comptes et partage »
 
-Statut : **ouverture** (09/11/2026), questions à Sylvain ; aucun développement avant son arbitrage.
+Statut : **arbitré** par Sylvain le 09/11/2026 (voir « Arbitrage » en fin de plan) ; développement lancé.
 
 Références : `docs/v2-regles-developpement.md` (§ 3, vérification n° 0 « comment Docs le fait-il ? »), `docs/v2-etape-2-plan.md` (rôles, arbitrage), `v2/adr/0005-connexion.md` (lien magique), `v2/adr/0004-yhub.md`.
 
@@ -50,7 +50,7 @@ Proposition : **1** (décision déjà prise ; l'écart avec Docs est assumé et 
 
 Comme Docs : une invitation (adresse, rôle, auteur) **valable 7 jours**, convertie en accès à la première connexion. Le courrier d'invitation contient **directement un lien de connexion** vers le document (un seul clic pour entrer), comme les invitations nominatives de la v1. Une adresse qui a déjà un compte reçoit l'accès tout de suite et un courrier qui le lui dit.
 
-### 4. Corbeille
+### 4. Corbeille (arbitré : pas de corbeille pour le moment, suppression immédiate par le propriétaire)
 
 Comme Docs : le propriétaire seul met à la corbeille et restaure ; **30 jours** pour restaurer ; une liste « corbeille » ; au-delà, **suppression définitive** du document (texte, commentaires, historique dans y/hub), faite par une tâche quotidienne (Docs ne l'a pas dans le code lu ; à nous).
 
@@ -91,3 +91,16 @@ Session de 30 jours (v1), « déconnecter partout », vérification de l'origine
 ## Hors périmètre
 
 Interface et design (6b) ; dossiers, arborescence, favoris ; accès par lien (si 6.1) ; interface des équipes ; suppression du compte ; exports (étape 7) ; IA (étape 8).
+
+## Arbitrage de Sylvain (09/11/2026)
+
+1. **1a** : service fermé ; reçoit un lien de connexion une adresse déjà connue, invitée, ou arrivée par le lien de partage d'un document (voir 6).
+2. **2b** : **plusieurs propriétaires**, comme Docs (révise l'étape 2, « un seul propriétaire transférable ») : seul un propriétaire nomme un propriétaire ; le dernier propriétaire d'un document ne peut pas être retiré ; transmettre la propriété, c'est nommer un autre propriétaire puis se retirer.
+3. **ok** : invitation de 7 jours, convertie en accès à la première connexion ; le courrier contient le lien de connexion vers le document ; une adresse connue reçoit l'accès tout de suite et un courrier.
+4. **Suppression par le propriétaire seul, sans délai** pour le moment : pas de corbeille ; le document est effacé tout de suite (texte, suggestions, historique, commentaires, accès).
+5. **ok**, mais **les dossiers doivent venir vite**.
+6. **6b** : l'accès par lien **maintenant**, mais suivre le lien impose de **créer un compte par une adresse vérifiée** (lien de connexion par courriel) ; **aucune connexion anonyme** pour le moment. Les identifiants des documents deviennent aléatoires (comme Docs), le lien ne se devine pas.
+7. **ok** : accès pour une personne ou une équipe, sans interface d'équipe.
+8. **ok**.
+
+**À suivre** (demande de Sylvain) : des propositions de gestion d'équipe, liées aux dossiers, après l'étude de plusieurs applications, en cherchant quelque chose de proche du partage de fichiers de Dropbox.
