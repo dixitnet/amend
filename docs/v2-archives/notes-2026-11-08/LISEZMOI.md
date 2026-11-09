@@ -27,3 +27,5 @@ Le parcours d'utilisateur du 08/11/2026 (`docs/v2-tests/2026-11-08-notes-defauts
 - Partir d'une version **drastiquement simplifiée** (souhait de Sylvain), par exemple sans texte riche ni repli dans le texte, et la décider avant de coder.
 - Rejouer d'abord le parcours d'utilisateur du rapport de défauts (Entrée, collage, souris, note vide, retour arrière), pas seulement les tests de l'étape 4 qui ne les voyaient pas.
 - Vérifier la typographie à côté d'un contenu en ligne (le collage traitait la note comme un objet : `typographierFragment`).
+- **Piste (08/11/2026, question de Sylvain)** : reprendre le montage des commentaires de BlockNote et de Docs : un **appel** dans le texte (un élément en ligne sans contenu, qui ne porte que l'identifiant de la note), et le **texte de la note à part**, modifié dans une petite fenêtre comme un fil de commentaire. Mais le texte des notes reste **dans le document Yjs** (une table des notes à côté du texte), pas dans la base : il fait partie du livre (historique, suggestions, exports). Vérifier d'abord comment Docs traite les notes, s'il en a.
+

@@ -22,8 +22,10 @@
     "@y/y": "14.0.0-rc.29",
     "intl-messageformat": "12.1.4",
     "lib0": "1.0.0-rc.36",
+    "postgres": "3.4.9",
     "prosemirror-model": "1.25.12",
     "prosemirror-state": "1.4.4",
+    "prosemirror-transform": "1.12.5",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

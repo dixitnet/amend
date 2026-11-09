@@ -80,7 +80,7 @@ Aujourd'hui, un correcteur ou un lecteur ne publie pas sa présence (curseur, «
 2. L'éditeur accepte ou refuse chaque suggestion, ou toutes ; le résultat survit au rechargement et converge à plusieurs.
 3. Les commentaires respectent les rôles, vérifiés côté serveur (si option a).
 4. L'historique montre les modifications à partir de la date d'accès ; l'éditeur revient à une version.
-5. La campagne de saisie de la v1 est rejouée ; tests T0 à T5 verts ; audit partiel avant la fusion.
+5. ~~La campagne de saisie de la v1 est rejouée~~ **réécrit le 09/11/2026** (Sylvain : « questionner tout ce qui vient de la v1 ; reconstruire de zéro et piocher quelques bonnes idées ») : la **campagne v2** (`exploitation/campagne/invariants.mjs` : gestes réels, invariants indépendants de l'affichage) et les **scénarios de relecture** (`contrats/pile/relecture.test.js`) au vert ; tests T0 à T5 verts ; audit partiel avant la fusion.
 
 ## Hors périmètre
 
@@ -113,3 +113,86 @@ Réponses de Sylvain (08/11/2026) :
 - typographie : **le correcteur n'a pas la typographie à la frappe** tant que BlockNote n'a pas corrigé le défaut (option 2) ; la variante en une transaction n'est pas retenue ;
 - ancre des commentaires : **le serveur pose la marque** dans le texte principal (option 1 ; dans l'option 2, le commentaire n'aurait été lié à aucun bloc), après un essai de faisabilité ;
 - avant de poursuivre l'étape, **les notes de bas de page sont retirées** et archivées (`docs/v2-archives/notes-2026-11-08/`).
+
+## Ce que fait Docs (lu dans son code, branche `main`, 08/11/2026)
+
+Docs est passé de Hocuspocus à **y/hub** (version 6.0.0, `src/yhub-server/`) : son montage est le modèle direct du nôtre.
+
+1. **Rôles** (`src/backend/core/choices.py`, `models.py`) : lecteur, **commentateur** (« peut lire et commenter »), éditeur, administrateur, propriétaire. Le commentateur a `comment` mais ni `update` ni `partial_update`.
+2. **Permissions y/hub** (`src/yhub-server/src/permissions.ts`, `server.ts`) : écriture (`ydoc`, `ws` en `-ru-`) seulement avec `update` ; sinon lecture (`-r--`). **Seule la branche `main`** est ouverte (toute autre est refusée). **Présence** : celui qui ne peut pas écrire **reçoit la présence sans publier la sienne** (correctif de sécurité de la 6.0.0, « stop read-only users from sharing their cursor ») ; c'est un écart voulu par rapport au défaut de y/hub. **Historique** : à partir de la date d'accès (`accessSince`), retour à une version pour l'éditeur seulement.
+3. **Commentaires** : Docs n'utilise ni `YjsThreadStore` ni `RESTYjsThreadStore`, mais **son propre magasin** (`DocsThreadStore`, dérivé de `ThreadStore`) : les fils et les commentaires sont dans **sa base de données** (modèles `Thread`, `Comment`, routes `documents/{id}/threads/…`, droits vérifiés par le serveur : `CommentPermission`, auteur seul pour modifier, modération par l'administrateur et le propriétaire). Seule l'**ancre** est dans le texte : la marque `comment` posée **par le navigateur** (`setMark`). Le serveur n'écrit jamais dans le document Yjs pour un commentaire.
+4. **Le commentateur ne peut pas commenter dans l'interface** : sans `partial_update`, il reçoit l'éditeur en lecture seule (`BlockNoteReader`), sans bulle de saisie ni fil. Son rôle n'a d'effet que sur l'API. Docs ne résout donc pas l'ancre d'un commentaire posé sans droit d'écrire.
+5. **Pas de mode suggestion** dans Docs (ni extension, ni branche).
+
+Conséquences pour cette étape : questions posées à Sylvain le 08/11/2026 (journal). L'essai de l'ancre posée par le serveur est arrêté à mi-chemin (partie serveur concluante, partie navigateur non faite) en attendant ses réponses.
+
+### Réponses de Sylvain (08/11/2026)
+
+1. **a** : fils et commentaires dans **notre base** (PostgreSQL), avec notre propre magasin de fils côté navigateur, comme Docs (`DocsThreadStore`) ; droits vérifiés par le serveur. Remplace la réponse 1 de l'arbitrage (`RESTYjsThreadStore`).
+2. **b** : écart assumé avec Docs, **le serveur pose l'ancre** du commentaire d'un correcteur dans le texte principal (essai en cours) ; l'éditeur et le propriétaire la posent dans leur navigateur, comme Docs.
+3. **a** : comme Docs, le correcteur et le lecteur **ne publient pas leur présence** (ils voient celle des autres). Remplace la réponse 5 de l'arbitrage.
+4. **a** : décision gardée, tout le monde voit tout l'historique.
+
+À vérifier à la conception : Docs prévient les autres navigateurs d'un nouveau commentaire par la présence (« commentsPing ») ; un correcteur sans présence publiée ne le peut pas. Piste : l'ancre posée par le serveur est une modification du document, qui suffit à prévenir les autres.
+
+### Essai de l'ancre posée par le serveur (08/11/2026) : concluant
+
+Montage essayé (page d'essai, deux postes) :
+- **Navigateur du correcteur** : la sélection est traduite en coordonnées du texte principal (identifiant du bloc et décalage, sans compter les insertions suggérées), plus le **passage cité**.
+- **Serveur** : il relit le document principal (`ynodeToPmnode` de `@y/prosemirror` avec le transformateur de BlockNote), pose la marque `comment` avec ProseMirror, et en déduit la modification Yjs (différence des deltas, `lib0/delta`). Au lot 1, cette modification partira vers y/hub (`PATCH /ydoc`, identité du serveur).
+
+Résultats :
+1. Une insertion suggérée avant le mot et une suppression suggérée après : la marque tombe sur le bon mot, chez le correcteur et chez l'éditeur, sans apparaître comme une suggestion ; elle tient après « tout accepter ».
+2. Sélection sur deux paragraphes : marque posée ; texte en italique : la marque s'y ajoute sans abîmer le style ; deux ancres : 252 octets de mise à jour.
+3. Sélection faite seulement de texte suggéré : **refusée** (`ancre-vide`), rien dans le texte principal pour l'accrocher.
+4. Texte principal modifié entre la sélection et la pose : **détecté** (`ancre-perimee`, le passage cité ne correspond plus) ; le navigateur recalcule et renvoie.
+5. Bloc absent du texte principal (bloc entièrement suggéré) : `bloc-introuvable`.
+6. Défaut d'affichage mineur : un texte suggéré inséré juste au bord du passage commenté peut s'afficher dans le surlignage du commentaire.
+
+Paquets nouveaux pour le serveur : `@y/prosemirror` (déjà là), `prosemirror-transform` et `lib0/delta` (dépendances de BlockNote, dans ses versions), à placer dans l'adaptateur BlockNote côté serveur ; le contrat d'une seule copie s'étend à `prosemirror-transform`.
+
+### Accepter et refuser : essai de trois dispositions (08/11/2026)
+
+Ni Docs (pas de suggestions) ni les exemples de BlockNote (aucun bouton : seulement les fonctions) n'en proposent. Trois dispositions essayées avec les composants de Mantine sans réglage, la correctrice tapant au clavier (remplacement, ajout, suppression), avec « Tout accepter » et « Tout refuser » en tête dans les trois :
+
+- **A. Boutons dans l'info-bulle** qui s'ouvre au survol d'une suggestion : **ne marche pas tel quel**, l'info-bulle de BlockNote disparaît quand la souris la rejoint ; il faudrait la retenir, du code en plus.
+- **B. Petite barre au-dessus de la suggestion** où se trouve le curseur (auteur, Accepter, Refuser) : marche ; sa place doit être réglée pour ne pas couvrir le texte ni l'info-bulle.
+- **C. Panneau à côté du texte**, une ligne par suggestion (« Carla supprime « loin du centre » », Accepter, Refuser) : marche, le plus lisible ; un remplacement y fait deux lignes (suppression puis ajout), qu'on peut réunir en « remplace … par … ».
+
+Captures envoyées à Sylvain ; choix à venir.
+
+Choix de Sylvain (08/11/2026) : **C**, le panneau à côté du texte, un remplacement sur une seule ligne (« remplace … par … ») ; « avance ».
+
+## Avancement du développement
+
+- **Lot 1a, domaine** (`domaine/droits.js`) : `accesBranche(capacités, branche)` (texte en écriture ou en lecture, présence, restaurer ; branches `main` et `suggestions` seulement ; **le lecteur ne voit pas les suggestions**, choix de Claude par défaut, comme le lecteur de Docs qui n'a que le texte) ; `peutCommenter` (modèle de Docs : commenter à partir du correcteur ; modifier le sien seulement ; supprimer et résoudre : le sien, ou tout fil pour qui peut arbitrer).
+- **Lot 1b, y/hub et serveur** : permissions par branche calculées depuis le domaine (adaptateur y/hub, comme `permissions.ts` de Docs) ; la route interne des droits prend la branche ; présence publiée seulement par qui écrit le texte ; historique entier pour tous, versions et retour arrière pour qui peut restaurer. Tests de service sur y/hub réel (accès par branche et par rôle, présence).
+- **Lot 1c, commentaires côté serveur** : dépôt dans PostgreSQL (`adaptateurs/postgres/`, schéma `amend` dans la base de y/hub, une seule base à installer d'ici l'étape 6), routes sur le modèle de Docs (`application/serveur/commentaires.js`), droits vérifiés par le domaine à chaque requête, flux d'événements pour prévenir les navigateurs (Docs passe par la présence, que le correcteur ne publie plus). Tests contre PostgreSQL.
+- **Ancre posée par le serveur : en attente d'une révision de la règle 1** (question à Sylvain, 08/11/2026). Le serveur doit lire le texte dans y/hub et y écrire la marque : l'adaptateur BlockNote (côté serveur) a besoin de `prosemirror-transform` et de `lib0/delta`, l'adaptateur y/hub de `lib0` (l'encodage des requêtes de y/hub). Proposition : les permettre à ces deux adaptateurs seulement, dans les versions qu'embarquent BlockNote et y/hub (une seule copie, contrat étendu), comme la révision de l'étape 4 pour les extensions.
+- **Règle 1, seconde révision** (Sylvain, 09/11/2026, « ok pour 1 ») : `prosemirror-transform` et `lib0` permis à la partie serveur de l'adaptateur BlockNote, `lib0` à l'adaptateur y/hub ; contrat d'une seule copie étendu.
+- **Ancre posée par le serveur** : `ancreCommentaire` (adaptateur BlockNote, côté serveur), identité interne de notre serveur auprès de y/hub (lire et écrire le texte principal seulement, jeton interne), client `clientCollaboration` (adaptateur y/hub), route `POST …/fils/:fil/ancre` (l'auteur du fil seulement ; passage périmé : 409 ; y/hub injoignable : 503). Modification attribuée au correcteur (`pour`). Testé de bout en bout contre y/hub et PostgreSQL.
+- **Lot 2, navigateur** :
+  - adaptateur Yjs : second document sur la branche `suggestions` (sans présence) pour qui peut proposer ; lecture des auteurs des suggestions dans y/hub (`changeset`, `attributions`, en JSON) ;
+  - adaptateur BlockNote : trois modes (`ecrire` : écrit et voit les suggestions ; `suggerer` : tout est suggestion, sans typographie à la frappe ; `lire`) ; **auteurs des suggestions** : y/hub les enregistre mais ne les envoie pas en direct, on les redemande 1,5 s après chaque changement des suggestions et l'affichage est reconstruit avec eux (`configureYProsemirror`, commande publique de `@y/prosemirror`) ; cache des réponses de y/hub ramené à 1 s ; liste des suggestions pour le panneau (un remplacement fait une ligne) ; magasin de fils sur nos routes (`MagasinFils`, comme `DocsThreadStore`), ancre demandée au serveur pour le correcteur ;
+  - serveur : noms des personnes connues (`GET /api/personnes`), en mémoire jusqu'à l'étape 6 ;
+  - écran : mention « Mode suggestion » pour le correcteur, panneau pour qui peut arbitrer, textes traduits.
+  - Parcours réel vérifié sur la pile : la correctrice propose, l'éditrice voit « Carla ajoute « … » », accepte, le texte converge ; la correctrice commente un mot, l'ancre posée par le serveur se voit chez les deux ; l'éditrice ne voit pas la correctrice (présence).
+- **Réglage de design à décider** : le panneau des suggestions est sous le texte, faute de réglage pour le placer à côté (comme sur la capture C).
+- Reste du lot 2 : l'historique (`YHubVersioningExtension`, panneau de BlockNote), la mesure de mémoire (risque 3).
+- **Présence, révisée par Sylvain (09/11/2026)** : « le correcteur est visible : affiché comme présent + curseur visible au même titre que l'éditeur. Mais pas le lecteur. » Le correcteur publie sa présence sur le texte principal (écart avec Docs, qui ne montre que qui peut modifier) ; le lecteur reste invisible. Vérifié dans le navigateur : l'éditrice et la correctrice se voient (présence et curseur) ; la lectrice voit « 2 autres personnes » sans être vue. Limite : la lectrice ne voit pas les curseurs, placés dans le document des suggestions qu'elle n'a pas.
+- Confirmé par Sylvain (09/11/2026) : le lecteur ne voit pas les suggestions ; le panneau reste sous le texte pour le moment.
+- **Historique** : écart avec Docs, signalé. Docs a écrit sa propre liste de versions sur les routes de y/hub (activité regroupée par minute, retour arrière), sans versions nommées ; BlockNote fournit le même service tout fait (`YVersioningExtension` et `createYHubVersionStorage`, panneau `VersioningSidebar`), avec les versions nommées décidées par Sylvain : moins de code à nous. Créer, nommer, supprimer une version et y revenir sont retirés du stockage pour qui ne peut pas restaurer (le panneau ne les propose pas ; y/hub refuse de toute façon). Pendant l'historique, l'éditeur montre le texte seul (exigence de BlockNote) ; le panneau ne s'affiche qu'une fois l'historique ouvert. En développement, notre serveur relaie les routes de y/hub sur l'adresse de la page, comme Caddy en ligne (le client de BlockNote n'envoie pas les cookies à une autre origine).
+- **Limite constatée** : après un retour au « Début du document » (document Yjs vidé jusqu'à sa structure), la première suggestion qui recrée la structure s'affiche mal chez l'éditeur (données justes, rechargement de la page suffisant) ; à suivre (amont probable), cas rare.
+- **Tests de la pile** : `contrats/pile/relecture.test.js` (accepter avec l'auteur, nouveau paragraphe du correcteur, tout refuser, commentaire ancré par le serveur, présence, historique selon le rôle). Une fausse alerte de « corruption » venait du script de test (Fin puis Entrée sans laisser ProseMirror lire la sélection, piège déjà noté) : la reconstruction de l'affichage est sûre, y compris chez le correcteur.
+- **Mémoire (risque 3), mesurée le 09/11/2026** (`npm run mesurer`, PSS en Mo, machine de Claude à 4 processeurs) :
+
+  | | avant (08/11) | après | écart |
+  |---|---|---|---|
+  | serveur, au repos | 26 | 31 | +5 (dépôt des commentaires) |
+  | collaboration, 2 documents ouverts | 112 | 194 | +82 |
+  | collaboration, livre ouvert par une seconde personne | 160 | 235 | +75 |
+  | ouverture du livre par une seconde personne | 0,39 s | 1,03 s | +0,6 s |
+
+  Le serveur avait d'abord pris 66 Mo au repos (BlockNote et y/hub chargés pour l'ancre) : BlockNote n'est plus chargé qu'à la première ancre, et le client de y/hub est dans un fichier à part (`adaptateurs/yhub/client.js`). La collaboration paie la seconde branche par document et les fils de calcul de y/hub (lecture des auteurs) : ici jusqu'à 3 fils (processeurs moins un), environ 25 à 30 Mo chacun ; sur le VPS (1 processeur), un seul. L'ouverture plus lente vient de la seconde branche (le texte y est recopié à la première ouverture). À remesurer sur le VPS de la mise en ligne d'essai.
+- **Campagne (09/11/2026)** : la matrice de la v1, transposée telle quelle (266 cas), n'a relevé **aucune perte de texte** et donné « tout refuser » et « tout accepter » justes dans tous les cas ; ses échecs portaient sur des critères de présentation de la v1 (« une seule carte par remplacement », « barré puis ajout côte à côte », comme Google Docs). Décisions de Sylvain : ne garder de la v1 que des idées (l'oracle « tout accepter = geste sans suggestion », les invariants, la variété des gestes) ; campagne v2 resserrée (90 cas) ; **le panneau garde le découpage de Yjs** (9b : « beau » → « blanc » s'y lit « ajoute « lanc », supprime « eau » », le « b » commun restant ; signalé dans la veille) ; **Annuler (Ctrl+Z) en mode suggestion : plus tard** (à vérifier à une étape ultérieure, noté).
+

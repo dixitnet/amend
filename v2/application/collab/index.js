@@ -27,12 +27,14 @@ async function demander(url, entetes) {
 
 const identifier = async (cookie) => (cookie ? demander(`${CONF.serveur}/api/moi`, { cookie }) : null)
 
-async function droits(docId, idPersonne) {
-  const url = `${CONF.serveur}/api/interne/droits?document=${encodeURIComponent(docId)}&personne=${encodeURIComponent(idPersonne)}`
-  return (await demander(url, { 'x-amend-interne': CONF.jetonInterne }))?.droit ?? null
+async function droits(docId, idPersonne, branche) {
+  const q = new URLSearchParams({ document: docId, personne: idPersonne, branche })
+  return (
+    (await demander(`${CONF.serveur}/api/interne/droits?${q}`, { 'x-amend-interne': CONF.jetonInterne }))?.acces ?? null
+  )
 }
 
-const collab = await demarrerCollaboration({ ...CONF, identifier, droits })
+const collab = await demarrerCollaboration({ ...CONF, identifier, droits, jetonInterne: CONF.jetonInterne })
 console.log(`[collab] ws://127.0.0.1:${CONF.port}${collab.cheminWebSocket}/<document>`)
 
 for (const signal of ['SIGINT', 'SIGTERM'])

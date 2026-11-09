@@ -13,7 +13,11 @@ const FONDATIONS = {
   blocknote: '@blocknote/.*',
   y: '@y/.*',
   yjs13: 'yjs|y-prosemirror|y-protocols(/.*)?|y-websocket',
-  prosemirror: '(?!(?:prosemirror-state|prosemirror-model)$)prosemirror-.*|@tiptap/.*',
+  prosemirror: '(?!(?:prosemirror-state|prosemirror-model|prosemirror-transform)$)prosemirror-.*|@tiptap/.*',
+  // Ce qu'exige la pose d'une ancre de commentaire par le serveur (règle 1,
+  // seconde révision, 09/11/2026) : permis à la partie serveur de
+  // l'adaptateur BlockNote seulement.
+  transformation: 'prosemirror-transform',
   // Ce qu'exigent les points d'extension publics de BlockNote (règle 1
   // révisée le 08/11/2026) : permis aux seules extensions.
   pointsExtension: 'prosemirror-state|prosemirror-model|@handlewithcare/prosemirror-inputrules',
@@ -150,11 +154,32 @@ export default [
     },
   },
   {
+    files: ['adaptateurs/blocknote/serveur.js'],
+    rules: {
+      'no-restricted-imports': imports({
+        permises: ['blocknote', 'y', 'transformation', 'lib0'],
+        couches: ['application', 'design', 'i18n', 'yjs', 'yhub'],
+        css: true,
+      }),
+    },
+  },
+  {
     files: ['adaptateurs/yhub/**'],
     rules: {
       'no-restricted-imports': imports({
-        permises: ['y'],
+        permises: ['y', 'lib0'],
         couches: ['application', 'design', 'i18n', 'extensions', 'yjs', 'blocknote'],
+        css: true,
+      }),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
+    },
+  },
+  {
+    files: ['adaptateurs/postgres/**'],
+    rules: {
+      'no-restricted-imports': imports({
+        permises: ['serveur'],
+        couches: ['application', 'design', 'i18n', 'extensions', 'yjs', 'blocknote', 'yhub'],
         css: true,
       }),
       'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
