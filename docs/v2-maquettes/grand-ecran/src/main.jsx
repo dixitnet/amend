@@ -437,7 +437,7 @@ function Maquette({ v, setV }) {
 
 function Racine() {
   const [v, setV] = useState({
-    ecran: 'document', barre: 'bandeau', titre: 'barre', colonne: '868', saisie: 'auto', bleu: 'defaut', reseau: 'en-ligne',
+    ecran: 'document', barre: 'bandeau', titre: 'barre', colonne: '720', saisie: 'auto', bleu: 'nuance8', reseau: 'en-ligne',
   })
   const theme = createTheme({
     ...REGLAGES.theme,

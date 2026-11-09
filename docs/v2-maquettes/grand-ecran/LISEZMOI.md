@@ -12,7 +12,9 @@ Publiée comme page claude.ai privée : https://claude.ai/artifact/9yb3tcEUBhhcz
 - Sur écran tactile (`pointer: coarse`, l'iPad), lecture d'abord comme le format S ; modification directe sur le Mac (9).
 - Écran « Mes documents » avec « Mes documents / Partagé avec moi » dans le volet gauche (10).
 
-Le panneau « Variantes » (en bas à gauche, hors interface) compare les points encore ouverts : barre du haut (bandeau fixe ou barre flottante de Docs), titre du document (dans la barre ou au-dessus du texte), largeur du texte (720, 868, 960 px), lecture ou modification, bleu des boutons (Mantine, nuance 8, texte noir), état hors ligne.
+Choix de Sylvain (09/11/2026), affichés par défaut : bandeau fixe, titre dans le bandeau, texte de 720 px, bleu en nuance 8. Spécification : `docs/v2-formats-M-L.md`.
+
+Le panneau « Variantes » (en bas à gauche, hors interface) garde les autres options pour comparaison : barre flottante de Docs, titre au-dessus du texte, largeurs de 868 et 960 px, lecture ou modification forcée, bleu de Mantine ou texte noir, état hors ligne.
 
 ## Ce qu'elle reprend de la v2
 
