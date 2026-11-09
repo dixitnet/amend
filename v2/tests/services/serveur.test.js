@@ -408,7 +408,7 @@ test('comptes d’essai : seulement avec la clé (assez longue), seulement en @e
       headers: { 'content-type': 'application/json', ...entetes },
       body: JSON.stringify({ nom: 'Essai A' }),
     })
-  assert.equal((await essai(enLigne)).status, 404, 'sans clé, la route n’existe pas')
+  assert.equal((await essai(enLigne)).status, 404, 'sans jeton fourni, la route n’existe pas')
   assert.equal((await essai(enLigne, { 'x-amend-essai-token': 'f'.repeat(40) })).status, 404)
   assert.equal((await essai(courte, { 'x-amend-essai-token': 'court' })).status, 404, 'clé trop courte : fermé')
   assert.equal((await essai(prod, { 'x-amend-essai-token': CLE })).status, 404, 'sans clé configurée : fermé')
