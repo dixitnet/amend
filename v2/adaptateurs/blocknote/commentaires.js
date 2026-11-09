@@ -93,9 +93,17 @@ export class MagasinFils extends ThreadStore {
     this.rappels = new Set()
     this.arreter = null
     if (ancreParLeServeur)
+      // Un fil qu'on n'a pas pu ancrer (sélection hors d'un bloc, passage
+      // changé entre-temps) est retiré : pas de fil rattaché à rien.
       this.addThreadToDocument = async ({ threadId, editor }) => {
-        const ancre = ancreDeLaSelection(editor)
-        if (ancre) await service.ancrer(threadId, ancre)
+        try {
+          const ancre = ancreDeLaSelection(editor)
+          if (!ancre) throw Object.assign(new Error('ancre impossible'), { code: 'ancre-invalide' })
+          await service.ancrer(threadId, ancre)
+        } catch (err) {
+          await this.apres(service.supprimerFil(threadId)).catch(() => {})
+          throw err
+        }
       }
   }
   async recharger() {

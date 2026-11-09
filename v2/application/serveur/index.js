@@ -27,7 +27,10 @@ const confDepuisEnv = () => ({
   // L'API de y/hub, pour notre serveur seulement (ancres des commentaires).
   collaborationApi: process.env.V2_COLLAB_API || 'http://127.0.0.1:4400/collaboration',
   statique: process.env.V2_STATIQUE || join(import.meta.dirname, '../../dist'),
-  postgres: process.env.V2_POSTGRES || 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub',
+  // En ligne, pas de repli : l'absence de la base doit arrêter le serveur.
+  postgres:
+    process.env.V2_POSTGRES ||
+    (process.env.V2_DEV === '1' ? 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub' : ''),
 })
 
 /** Comparaison à temps constant du jeton interne. */
@@ -66,15 +69,20 @@ async function lireCorps(req, max = 10_000) {
  * tous sauf propriétaire (un seul, le créateur ; le transfert vient à l'étape 6). */
 const ROLES_DONNABLES = ROLES.filter((r) => r !== 'proprietaire')
 
-const creerRoutes = (CONF, table) => {
-  // Les noms des personnes connues, pour afficher les auteurs (suggestions,
-  // commentaires) : en mémoire jusqu'aux comptes de l'étape 6.
+/** La personne d'une requête (session), et les noms des personnes connues,
+ * pour afficher les auteurs (suggestions, commentaires) : en mémoire jusqu'aux
+ * comptes de l'étape 6. Une seule lecture de session pour toutes les routes. */
+function creerIdentite(CONF) {
   const noms = new Map()
   const personneDe = (req) => {
     const p = lireJeton(CONF.secret, lireCookie(req.headers.cookie))
     if (p) noms.set(p.id, p.nom)
     return p
   }
+  return { noms, personneDe }
+}
+
+const creerRoutes = (CONF, table, { noms, personneDe }) => {
   /** Le rôle effectif d'une personne sur un document : décidé par le domaine. */
   const roleSur = (docId, idPersonne) => roleEffectif(table.rolesDe(docId, idPersonne))
   const droitsDe = (role) => ({ role, capacites: capacites(role) })
@@ -209,9 +217,10 @@ async function servirFichier(CONF, res, chemin) {
  */
 export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces(), depot = null) {
   if (!CONF.secret) throw new Error('secret de session absent')
-  const routes = creerRoutes(CONF, table)
+  const identite = creerIdentite(CONF)
+  const routes = creerRoutes(CONF, table, identite)
   const commentaires = creerCommentaires({
-    personneDe: (req) => lireJeton(CONF.secret, lireCookie(req.headers.cookie)),
+    personneDe: identite.personneDe,
     roleSur: (docId, idPersonne) => roleEffectif(table.rolesDe(docId, idPersonne)),
     depot,
     json,
@@ -255,6 +264,7 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces(), 
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const CONF = confDepuisEnv()
+  if (!CONF.postgres) throw new Error('base PostgreSQL absente (V2_POSTGRES)')
   const depot = await ouvrirCommentaires(CONF.postgres)
   creerServeur(CONF, creerTableAcces(), depot).listen(CONF.port, '127.0.0.1', () =>
     console.log(`[serveur] http://127.0.0.1:${CONF.port}`),

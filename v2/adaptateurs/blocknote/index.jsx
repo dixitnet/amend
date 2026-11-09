@@ -85,7 +85,7 @@ export function EditeurCollaboratif({
         ...(afficheur ? { suggestionDoc: contexte.suggestions.doc, renderer: afficheur } : null),
       },
     }),
-    [contexte, langueDocument, afficheur, magasin, peutRestaurer],
+    [contexte, langue, langueDocument, suggerer, afficheur, magasin, peutRestaurer],
   )
 
   // Le mode des suggestions, puis les auteurs tenus à jour. Pendant

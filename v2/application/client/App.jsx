@@ -1,7 +1,7 @@
 // L'écran d'un document (couche application technique) : état, appels au
 // serveur, ouverture du document. Tout l'affichage est délégué à la couche
 // design ; tous les textes viennent de v2/i18n/.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PageEdition,
   EcranMessage,
@@ -157,8 +157,12 @@ function Edition({ config, personne, docId, droits }) {
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
   // Les noms des auteurs des suggestions, demandés une fois chacun.
+  const demandes = useRef(new Set())
   useEffect(() => {
-    const manquants = [...new Set((suggestions?.liste ?? []).map((s) => s.auteur))].filter((id) => id && !(id in noms))
+    const manquants = [...new Set((suggestions?.liste ?? []).map((s) => s.auteur))].filter(
+      (id) => id && !(id in noms) && !demandes.current.has(id),
+    )
+    manquants.forEach((id) => demandes.current.add(id))
     if (manquants.length)
       nomsDe(manquants).then((l) => setNoms((n) => ({ ...n, ...Object.fromEntries(l.map((p) => [p.id, p.username])) })))
   }, [suggestions, noms])
