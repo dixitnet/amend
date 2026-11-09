@@ -86,15 +86,18 @@ test('requêtes malformées : codes, jamais de plantage', async () => {
 })
 
 test('route interne des droits : jeton exigé, comparé exactement', async () => {
-  const url = `${dev}/api/interne/droits?document=essai&personne=dev-a`
+  const url = `${dev}/api/interne/droits?document=essai&personne=dev-a&branche=main`
   assert.equal((await fetch(url)).status, 403)
   assert.equal((await fetch(url, { headers: { 'x-amend-interne': 'faux' } })).status, 403)
   const r = await fetch(url, { headers: { 'x-amend-interne': BASE.jetonInterne } })
   assert.equal(r.status, 200)
   const sansJeton = await demarrer({ jetonInterne: '' })
   assert.equal(
-    (await fetch(`${sansJeton}/api/interne/droits?document=a&personne=b`, { headers: { 'x-amend-interne': '' } }))
-      .status,
+    (
+      await fetch(`${sansJeton}/api/interne/droits?document=a&personne=b&branche=main`, {
+        headers: { 'x-amend-interne': '' },
+      })
+    ).status,
     403,
   )
 })
@@ -113,12 +116,15 @@ const entrer = async (base, nom) => {
 }
 const mesDroits = (base, cookie, document) =>
   fetch(`${base}/api/droits?document=${encodeURIComponent(document)}`, { headers: cookie ? { cookie } : {} })
-const droitInterne = async (base, document, personne) => {
-  const r = await fetch(`${base}/api/interne/droits?document=${document}&personne=${personne}`, {
+const accesInterne = async (base, document, personne, branche) => {
+  const r = await fetch(`${base}/api/interne/droits?document=${document}&personne=${personne}&branche=${branche}`, {
     headers: { 'x-amend-interne': BASE.jetonInterne },
   })
-  return (await r.json()).droit
+  return (await r.json()).acces
 }
+/** Ce que y/hub doit autoriser sur le texte (branche principale). */
+const droitInterne = async (base, document, personne, branche = 'main') =>
+  (await accesInterne(base, document, personne, branche))?.texte ?? null
 let docNum = 0
 const nouveauDoc = () => `t3-droits-${++docNum}`
 
@@ -167,13 +173,25 @@ test('droits : chaque rôle donné, et ce que y/hub doit autoriser', async () =>
   const alice = await entrer(dev, 'Alice')
   const doc = nouveauDoc()
   await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
-  const attendu = { lecteur: 'lecture', correcteur: 'lecture', editeur: 'ecriture' }
-  for (const [role, droit] of Object.entries(attendu)) {
+  // [texte, suggestions] : le lecteur ne voit pas les suggestions (étape 5).
+  const attendu = { lecteur: ['lecture', null], correcteur: ['lecture', 'ecriture'], editeur: ['ecriture', 'ecriture'] }
+  for (const [role, [texte, suggestions]] of Object.entries(attendu)) {
     const p = await entrer(dev, `Personne ${role}`)
     assert.equal((await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: p.id, role })).status, 200)
     assert.equal((await (await mesDroits(dev, p.cookie, doc)).json()).role, role)
-    assert.equal(await droitInterne(dev, doc, p.id), droit, role)
+    assert.equal(await droitInterne(dev, doc, p.id), texte, role)
+    assert.equal(await droitInterne(dev, doc, p.id, 'suggestions'), suggestions, role)
+    assert.equal(await droitInterne(dev, doc, p.id, 'autre'), null, role)
   }
+  const proprio = await accesInterne(dev, doc, alice.id, 'main')
+  assert.deepEqual(proprio, { texte: 'ecriture', presence: true, restaurer: true })
+})
+
+test('route interne : la branche est obligatoire', async () => {
+  const r = await fetch(`${dev}/api/interne/droits?document=a&personne=b`, {
+    headers: { 'x-amend-interne': BASE.jetonInterne },
+  })
+  assert.equal(r.status, 400)
 })
 
 test('droits : un éditeur invite, y compris un éditeur ; un correcteur non', async () => {
@@ -300,9 +318,12 @@ test('une erreur à nous : 500 et code erreur-interne, jamais le détail', async
   const original = console.error
   console.error = (...a) => erreurs.push(a.join(' '))
   try {
-    const r = await fetch(`http://127.0.0.1:${s.address().port}/api/interne/droits?document=d&personne=p`, {
-      headers: { 'x-amend-interne': BASE.jetonInterne },
-    })
+    const r = await fetch(
+      `http://127.0.0.1:${s.address().port}/api/interne/droits?document=d&personne=p&branche=main`,
+      {
+        headers: { 'x-amend-interne': BASE.jetonInterne },
+      },
+    )
     assert.equal(r.status, 500)
     assert.deepEqual(await r.json(), { code: 'erreur-interne' })
     assert.ok(

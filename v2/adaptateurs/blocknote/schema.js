@@ -9,15 +9,15 @@ import {
   defaultStyleSpecs,
   createHeadingBlockSpec,
 } from '@blocknote/core'
-import { specNote, TYPE_NOTE } from '../../extensions/note/index.js'
 
 const { paragraph, quote, bulletListItem, numberedListItem, divider, table, image } = defaultBlockSpecs
 const { bold, italic, underline, strike } = defaultStyleSpecs
 
 const BLOCS_DU_LIVRE = {
   paragraph,
-  // Sans titres repliables : comme les listes repliables, retirés (n° 8).
-  heading: createHeadingBlockSpec({ levels: [1, 2, 3], allowToggleHeadings: false }),
+  // Titres 1 à 5 (niveaux 4 et 5 remis par Sylvain le 09/11/2026), sans
+  // titres repliables : comme les listes repliables, retirés (n° 8).
+  heading: createHeadingBlockSpec({ levels: [1, 2, 3, 4, 5], allowToggleHeadings: false }),
   quote,
   bulletListItem,
   numberedListItem,
@@ -29,6 +29,6 @@ const STYLES_DU_LIVRE = { bold, italic, underline, strike }
 
 export const schemaLivre = BlockNoteSchema.create({
   blockSpecs: BLOCS_DU_LIVRE,
-  inlineContentSpecs: { ...defaultInlineContentSpecs, [TYPE_NOTE]: specNote },
+  inlineContentSpecs: defaultInlineContentSpecs,
   styleSpecs: STYLES_DU_LIVRE,
 })

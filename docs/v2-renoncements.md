@@ -11,6 +11,9 @@ Règle 9 de `docs/v2-regles-developpement.md` : chaque fonction ou principe de l
 | 5 | 08/11/2026 | Table des matières comme bloc du texte | produite à l'export (Typst) et dans le volet « Plan » ; un bloc à tenir à jour dans le texte est du code à nous (décision de Sylvain, étape 4) | un besoin d'édition qui exige la table dans le texte même |
 | 6 | 08/11/2026 | Styles de paragraphe personnalisés | les blocs de BlockNote suffisent au livre (décision de Sylvain, étape 4) | un besoin éditorial que les blocs ne couvrent pas |
 | 7 | 08/11/2026 | Colonnes à l'écran | les colonnes restent un réglage d'export (décision de Sylvain, étape 4) | — |
+| 9 | 08/11/2026 | Règle D2 de la v1 (une correctrice ne fait pas disparaître la proposition d'une autre personne) | dans BlockNote, effacer la suggestion d'un autre la supprime ; la faire respecter demanderait d'analyser chaque modification côté serveur (décision de Sylvain, étape 5) | des pertes de propositions constatées en relecture réelle |
+| 10 | 08/11/2026 | Couleurs d'auteur enregistrées (v1) | BlockNote calcule une couleur par personne (décision de Sylvain, étape 5) | — |
+| 11 | 08/11/2026 | Cartes appariées de la v1 (affichage des modifications) | l'affichage des suggestions de BlockNote les remplace (décision de Sylvain, étape 5) | un besoin de lecture que l'affichage de BlockNote ne couvre pas |
 | 8 | 08/11/2026 | Blocs et styles audio, vidéo, fichier, bloc de code, liste à cocher, liste repliable, code, couleur du texte et du fond | sans équivalent dans le livre ni ses exports (décision de Sylvain, étape 4) | un usage éditorial réel (édition scientifique : code) |
 
 Renoncements à examiner, étape par étape : voir le tableau du § 8 des règles.

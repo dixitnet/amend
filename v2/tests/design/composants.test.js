@@ -28,7 +28,15 @@ const rendre = (el) => renderToStaticMarkup(h(design.CadreDesign, null, el))
 const echapper = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 test('chaque message de chaque langue se formate (pseudo-langue comprise)', () => {
-  const exemple = { id: 'essai', n: 2, etat: 'connecte', code: 'test' }
+  const exemple = {
+    id: 'essai',
+    n: 2,
+    etat: 'connecte',
+    code: 'test',
+    auteur: 'Carla',
+    avant: 'loin',
+    apres: 'à l’écart',
+  }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
     for (const cle of cles(CATALOGUES[LANGUE_SOURCE])) assert.ok(t(cle, exemple).length > 0, `${l}:${cle}`)
@@ -39,9 +47,10 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
   const fr = creerTraducteur('fr')
   const ps = creerTraducteur('pseudo')
   for (const cle of cles(CATALOGUES[LANGUE_SOURCE]).filter((c) => !c.includes('participants') && !c.includes('etat'))) {
-    const p = ps(cle, { id: 'x', code: 'y' })
+    const valeurs = { id: 'x', code: 'y', n: 2, auteur: 'A', avant: 'b', apres: 'c' }
+    const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
-    assert.ok(p.length >= fr(cle, { id: 'x', code: 'y' }).length * 1.3, cle)
+    assert.ok(p.length >= fr(cle, valeurs).length * 1.3, cle)
   }
 })
 
@@ -105,24 +114,4 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
     assert.match(c, /^var\(--mantine-color-[a-z]+-filled\)$/)
     assert.doesNotMatch(c, /-(gray|dark)-/)
   }
-})
-
-test('liste des notes : rien sans note ; numérotée, styles rendus par leurs balises, texte échappé', () => {
-  assert.equal(rendre(h(design.ListeNotes, { titre: 'Notes', notes: [] })).includes('<ol'), false)
-  const html = rendre(
-    h(design.ListeNotes, {
-      titre: 'Notes',
-      notes: [
-        [
-          { texte: 'Voir ', styles: {} },
-          { texte: 'Titre', styles: { italic: true, bold: true } },
-        ],
-        [{ texte: '<script>x</script>', styles: {} }],
-      ],
-    }),
-  )
-  assert.match(html, /<ol/)
-  assert.match(html, /<strong><em>Titre<\/em><\/strong>|<em><strong>Titre<\/strong><\/em>/)
-  assert.doesNotMatch(html, /<script>/)
-  assert.equal((html.match(/<li/g) || []).length, 2)
 })

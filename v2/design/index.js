@@ -3,5 +3,6 @@
 export { CadreDesign } from './Cadre.jsx'
 export { PageEdition } from './composants/PageEdition.jsx'
 export { EcranMessage, EcranConnexion } from './composants/EcranSimple.jsx'
-export { ListeNotes } from './composants/ListeNotes.jsx'
+export { PanneauSuggestions } from './composants/PanneauSuggestions.jsx'
+export { BoutonBascule } from './composants/BoutonBascule.jsx'
 export { couleurAuteur } from './auteurs.js'

@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 4, « Éditeur »
 
-Statut : **arbitré** par Sylvain le 08/11/2026 (« ok » sur les six questions ; voir « Arbitrage » en fin de plan) ; développement lancé. Mistral étant suspendu, la revue d'ouverture est faite par Claude (`docs/v2-revues/2026-11-08-etape-4-ouverture.md`), et les scénarios de test aussi (`docs/v2-tests/etape-4-scenarios.md`).
+Statut : **arbitré** par Sylvain le 08/11/2026 (« ok » sur les six questions ; voir « Arbitrage » en fin de plan) ; développement lancé. **Notes de bas de page retirées le 08/11/2026** (décision de Sylvain, après le parcours d'utilisateur `docs/v2-tests/2026-11-08-notes-defauts.md`) : archive et conditions de reprise dans `docs/v2-archives/notes-2026-11-08/`. Mistral étant suspendu, la revue d'ouverture est faite par Claude (`docs/v2-revues/2026-11-08-etape-4-ouverture.md`), et les scénarios de test aussi (`docs/v2-tests/etape-4-scenarios.md`).
 
 Références : `docs/v2-regles-developpement.md` (§ 3 « Avant de proposer », § 8), `docs/v2-procedure-tests.md`, `v2/adr/0003-blocknote.md`, `v2/adr/0008-design.md`.
 

@@ -1,0 +1,14 @@
+/* Feuille de l'éditeur : réglages décidés par Sylvain le 09/11/2026 (ADR 0008).
+   On n'utilise pas les blocs : les poignées sont masquées et leur espace revient
+   au texte. Pour revenir aux valeurs de BlockNote, supprimer cette feuille et son
+   import dans Cadre.jsx. */
+
+/* réglage : css.editeur.poignees */
+.bn-container .bn-side-menu {
+  display: none;
+}
+
+/* réglage : css.editeur.marges */
+.bn-container .bn-editor {
+  padding-inline: 10px;
+}
