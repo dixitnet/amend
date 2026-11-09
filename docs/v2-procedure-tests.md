@@ -28,7 +28,7 @@ T0 à T4 tournent dans `npm test` à chaque commit. T5 à chaque clôture d'éta
   2. à la clôture, vérifie la **couverture** : chaque scénario retenu a-t-il son test ?
 
   Son jugement des captures d'écran s'est révélé peu fiable (`docs/v2-tests/etape-1-captures.md`) : l'affichage est vérifié par des contrôles programmés (pseudo-langue, débordements, éléments hors de l'écran), et Claude relit lui-même les captures.
-- **GitHub Actions** fait tourner sans personne : T0 à T5 à chaque envoi, sur trois moteurs ; T6 chaque nuit et à la demande (le mot de passe est un secret du dépôt).
+- **GitHub Actions** fait tourner sans personne : T0 à T5 à chaque envoi, sur trois moteurs ; T6 chaque nuit, à la demande et après chaque fusion dans `main`, une fois que `v2.amend.ink` sert le commit fusionné (`version` de `/api/config`, attente de 15 minutes au plus ; le mot de passe est un secret du dépôt).
 - **Sylvain** arbitre ; la recette à la main se réduit à ce qu'aucune machine ne fait : un vrai clavier français, un vrai iPad.
 
 ## Le Mac et Chrome de Sylvain
