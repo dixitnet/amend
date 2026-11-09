@@ -833,8 +833,11 @@ function Edition({ config, personne, docId, droits }) {
   const volets = useVolets(etroit)
   const [fenetreSaisie, demanderNom] = useSaisie()
   const [connexion, setConnexion] = useState('connexion')
-  const aEteConnecte = useRef(false)
-  if (connexion === 'connecte') aEteConnecte.current = true
+  // Hors ligne : seulement après avoir été connecté une fois (pas à l'ouverture).
+  const [aEteConnecte, setAEteConnecte] = useState(false)
+  useEffect(() => {
+    if (connexion === 'connecte') setAEteConnecte(true)
+  }, [connexion])
   const [autres, setAutres] = useState([])
   const [suggestions, setSuggestions] = useState(null)
   const [plan, setPlan] = useState({ titres: [], courant: null, allerA: () => {} })
@@ -1082,9 +1085,7 @@ function Edition({ config, personne, docId, droits }) {
       gaucheOuvert={volets.gauche}
       droiteOuvert={volets.droite}
       libelleRedimension={t('interface.largeurVolet')}
-      alerte={
-        aEteConnecte.current && connexion !== 'connecte' ? <AlerteHorsLigne texte={t('interface.horsLigne')} /> : null
-      }
+      alerte={aEteConnecte && connexion !== 'connecte' ? <AlerteHorsLigne texte={t('interface.horsLigne')} /> : null}
       bandeau={
         <Bandeau
           voletGauche={boutonGauche(volets)}

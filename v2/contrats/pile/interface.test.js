@@ -48,6 +48,14 @@ test('plan : les titres du document dans le volet, et aller à un titre', async 
     () => getSelection().anchorNode?.parentElement?.closest('[data-content-type]')?.textContent ?? '',
   )
   assert.equal(ou, 'Première partie', 'le curseur est dans le titre choisi')
+  // Tout en bas, sous le dernier titre : le plan désigne le dernier titre passé.
+  for (let i = 0; i < 40; i++) await p.keyboard.press('Enter')
+  await p.keyboard.type('Bas de page.')
+  await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  const courant = p.getByRole('button', { name: 'Un détail' })
+  for (const t0 = Date.now(); Date.now() - t0 < 3000 && !(await courant.getAttribute('data-active'));)
+    await attendre(100)
+  assert.ok(await courant.getAttribute('data-active'), 'le dernier titre passé est le titre courant')
   await p.context().close()
 })
 

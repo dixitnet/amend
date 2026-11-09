@@ -32,21 +32,18 @@ export function titresDe(blocs) {
   return titres
 }
 
-/** Le haut de la zone visible : sous le bandeau fixe de la page, s'il y en a un
- * (un titre caché dessous n'est ni courant, ni la cible d'un défilement). */
-function hautVisible() {
-  const bandeau = document.querySelector('body header')
-  return bandeau && getComputedStyle(bandeau).position === 'fixed' ? bandeau.getBoundingClientRect().bottom : 0
-}
+/** La marge d'ancrage d'un bloc (`scroll-margin-top`, posée par la couche
+ * design sous un bandeau fixe) : un titre caché dessous n'est pas courant. */
+const marge = (el) => parseFloat(getComputedStyle(el).scrollMarginTop) || 0
 
-/** Le premier titre encore visible en haut de l'écran (comme Docs), sinon le premier. */
+/** Le premier titre encore visible en haut de l'écran (comme Docs) ; si tous
+ * sont passés, le dernier (écart avec Docs, qui revient au premier). */
 export function titreCourant(racine, titres) {
-  const haut = hautVisible()
   for (const t of titres) {
     const el = racine?.querySelector(`[data-id="${CSS.escape(t.cle)}"]`)
-    if (el && el.getBoundingClientRect().top >= haut) return t.cle
+    if (el && el.getBoundingClientRect().top >= marge(el)) return t.cle
   }
-  return titres[0]?.cle ?? null
+  return titres.at(-1)?.cle ?? null
 }
 
 /**
@@ -56,6 +53,8 @@ export function titreCourant(racine, titres) {
 export function allerAuTitre(editeur, cle, { focaliser }) {
   if (focaliser) editeur.focus()
   editeur.setTextCursorPosition(cle, 'end')
-  const el = editeur.domElement?.querySelector(`[data-id="${CSS.escape(cle)}"]`)
-  if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - hautVisible(), behavior: 'smooth' })
+  // Le défilement respecte la marge d'ancrage du bloc (sous le bandeau).
+  editeur.domElement
+    ?.querySelector(`[data-id="${CSS.escape(cle)}"]`)
+    ?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }

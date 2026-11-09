@@ -53,3 +53,8 @@
 .mantine-AppShell-main > .mantine-Container-root {
   padding-block: var(--mantine-spacing-md);
 }
+
+/* réglage : css.coquille.ancres */
+.bn-block-outer {
+  scroll-margin-top: var(--app-shell-header-offset, 0rem);
+}
