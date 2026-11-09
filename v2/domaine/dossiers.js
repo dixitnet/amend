@@ -37,12 +37,17 @@ export function refusDeplacementDossier(dossiers, id, parent) {
   return null
 }
 
-/** Où une personne voit un document : dans « Mes documents » s'il est rangé
- * chez elle, sinon dans « Partagé avec moi ». */
-export const sectionDuDocument = (emplacement, moi) => (emplacement === moi ? 'mes-documents' : 'partage')
-
-/** Ranger un document dans ses dossiers : son propriétaire, s'il est rangé chez lui. */
-export const peutRanger = (caps, emplacement, moi) => emplacement === moi && caps.includes('ranger')
+/** Où une personne voit un document : dans l'onglet de son équipe s'il
+ * appartient à une équipe dont elle est membre (étape 6d), dans « Mes
+ * documents » s'il est rangé chez elle, sinon dans « Partagé avec moi ».
+ * @param {{ emplacement: string | null, equipe?: string | null }} document
+ * @param {string} moi
+ * @param {ReadonlySet<string>} [mesEquipes]
+ */
+export function sectionDuDocument({ emplacement, equipe = null }, moi, mesEquipes = new Set()) {
+  if (equipe && mesEquipes.has(equipe)) return 'equipe'
+  return emplacement === moi ? 'mes-documents' : 'partage'
+}
 
 /**
  * Se retirer d'un document (renoncer à son accès) : toujours permis, sauf au

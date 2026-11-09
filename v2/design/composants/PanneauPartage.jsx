@@ -1,6 +1,7 @@
 // Composant de présentation : le partage d'un document (comme le partage de
 // Docs) : inviter par courriel avec un rôle, les accès et leurs rôles, les
-// invitations en attente, le lien de partage. Mantine sans réglage ; textes
+// invitations en attente, le lien de partage (facultatif : les membres d'une
+// équipe n'en ont pas, étape 6d). Mantine sans réglage ; textes
 // traduits ; les gestes remontent par les fonctions de rappel.
 import { Stack, Group, Title, Text, TextInput, Select, Button } from '@mantine/core'
 
@@ -58,7 +59,9 @@ export function PanneauPartage({
           </Group>
         ))}
       </Stack>
-      <Select label={libelles.lien} data={rolesDuLien} value={lien} allowDeselect={false} onChange={surChangerLien} />
+      {rolesDuLien ? (
+        <Select label={libelles.lien} data={rolesDuLien} value={lien} allowDeselect={false} onChange={surChangerLien} />
+      ) : null}
       {adresseDuLien ? <TextInput label={libelles.adresseDuLien} value={adresseDuLien} readOnly /> : null}
     </Stack>
   )

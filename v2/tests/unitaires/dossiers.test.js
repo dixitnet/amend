@@ -1,14 +1,7 @@
 // T1 : les règles des dossiers (domaine/dossiers.js), étape 6c.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  capacites,
-  nomDossier,
-  refusDeplacementDossier,
-  sectionDuDocument,
-  peutRanger,
-  refusRetrait,
-} from '../../domaine/index.js'
+import { nomDossier, refusDeplacementDossier, sectionDuDocument, refusRetrait } from '../../domaine/index.js'
 
 test('nom de dossier : NFC, sans espaces autour, non vide, 80 signes au plus', () => {
   assert.deepEqual(nomDossier('  Essais  '), { ok: true, nom: 'Essais' })
@@ -43,16 +36,12 @@ test('déplacer un dossier : une boucle déjà en base ne fait pas tourner sans 
   assert.equal(refusDeplacementDossier(d, 'x', 'a'), null)
 })
 
-test('section : Mes documents s’il est rangé chez moi, sinon Partagé avec moi', () => {
-  assert.equal(sectionDuDocument('moi', 'moi'), 'mes-documents')
-  assert.equal(sectionDuDocument('autre', 'moi'), 'partage')
-  assert.equal(sectionDuDocument(null, 'moi'), 'partage')
-})
-
-test('ranger : le propriétaire, s’il est rangé chez lui', () => {
-  assert.ok(peutRanger(capacites('proprietaire'), 'moi', 'moi'))
-  assert.ok(!peutRanger(capacites('proprietaire'), 'autre', 'moi'), 'un copropriétaire le voit dans Partagé avec moi')
-  assert.ok(!peutRanger(capacites('editeur'), 'moi', 'moi'))
+test('section : son équipe si j’en suis membre, Mes documents s’il est rangé chez moi, sinon Partagé avec moi', () => {
+  assert.equal(sectionDuDocument({ emplacement: 'moi' }, 'moi'), 'mes-documents')
+  assert.equal(sectionDuDocument({ emplacement: 'autre' }, 'moi'), 'partage')
+  assert.equal(sectionDuDocument({ emplacement: null }, 'moi'), 'partage')
+  assert.equal(sectionDuDocument({ emplacement: null, equipe: 'e' }, 'moi', new Set(['e'])), 'equipe')
+  assert.equal(sectionDuDocument({ emplacement: null, equipe: 'e' }, 'moi', new Set()), 'partage', 'hors de l’équipe')
 })
 
 test('se retirer : toujours, sauf le dernier propriétaire', () => {

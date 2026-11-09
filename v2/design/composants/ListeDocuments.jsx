@@ -1,6 +1,7 @@
 // Composant de présentation : la liste des documents, sur le modèle du
 // serveur de fichiers (étape 6c) : des onglets (Mes documents, Partagé avec
-// moi), un chemin de dossiers, des boutons, un tableau de lignes (dossiers et
+// moi, une par équipe), un chemin de dossiers, des boutons, un panneau
+// facultatif (les membres d'une équipe), un tableau de lignes (dossiers et
 // documents, chacun un lien) avec leurs actions. Mantine sans réglage ;
 // textes traduits ; les gestes remontent par les fonctions de rappel.
 import { Container, Stack, Group, Title, Text, SegmentedControl, Table, Anchor, Breadcrumbs } from '@mantine/core'
@@ -11,7 +12,7 @@ import { Marque } from './Picto.jsx'
  *   nomApplication?: string, titre: string, actions?: any,
  *   onglets: Array<{ value: string, label: string }>, onglet: string, surOnglet: (o: string) => void,
  *   libelleChemin: string, chemin?: Array<{ cle: string, libelle: string, href: string }>,
- *   boutons?: any, message?: string | null,
+ *   boutons?: any, panneau?: any, message?: string | null,
  *   colonnes: string[], lignes: Array<{ cle: string, nom: string, href: string, cellules: string[], actions?: any }>,
  *   vide: string,
  * }} p
@@ -26,6 +27,7 @@ export function ListeDocuments({
   libelleChemin,
   chemin,
   boutons,
+  panneau,
   message,
   colonnes,
   lignes,
@@ -54,6 +56,7 @@ export function ListeDocuments({
           </Breadcrumbs>
         ) : null}
         {boutons ? <Group>{boutons}</Group> : null}
+        {panneau}
         {message ? <Text role="status">{message}</Text> : null}
         {lignes.length ? (
           <Table>
