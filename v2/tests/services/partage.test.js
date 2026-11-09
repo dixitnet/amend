@@ -126,12 +126,124 @@ test('mes documents : créés par moi et partagés avec moi, avec mon rôle', as
     corps: { document: d1.id, personne: bruno.id, role: 'lecteur' },
   })
   const liste = await appel('GET', '/api/documents', { cookie: bruno.cookie })
-  const vu = liste.json.find((d) => d.id === d1.id)
+  const vu = liste.json.documents.find((d) => d.id === d1.id)
   assert.deepEqual(
-    { titre: vu.titre, role: vu.role, creeParMoi: vu.creeParMoi },
-    { titre: 'Un', role: 'lecteur', creeParMoi: false },
+    { titre: vu.titre, role: vu.role, section: vu.section },
+    { titre: 'Un', role: 'lecteur', section: 'partage' },
+  )
+  const chezPaule = (await appel('GET', '/api/documents', { cookie: paule.cookie })).json.documents
+  assert.deepEqual(
+    chezPaule.filter((d) => d.id === d1.id).map((d) => [d.section, d.dossier]),
+    [['mes-documents', null]],
   )
   assert.equal((await appel('GET', '/api/documents')).statut, 401)
+})
+
+test('dossiers : créer, ranger un document, renommer, déplacer sans boucle, supprimer seulement vide', async () => {
+  const paule = await personne('Paule')
+  const bruno = await personne('Bruno')
+  const c = { cookie: paule.cookie }
+  const { json: livres } = await appel('POST', '/api/dossiers', { ...c, corps: { nom: '  Livres ' } })
+  const { json: essais } = await appel('POST', '/api/dossiers', { ...c, corps: { nom: 'Essais', parent: livres.id } })
+  assert.equal((await appel('POST', '/api/dossiers', { ...c, corps: { nom: '' } })).json.code, 'nom-vide')
+  const autre = await appel('POST', '/api/dossiers', { cookie: bruno.cookie, corps: { nom: 'X', parent: livres.id } })
+  assert.equal(autre.statut, 404, 'pas dans le dossier d’un autre')
+  const { json: doc } = await appel('POST', '/api/documents', { ...c, corps: { titre: 'Gare', dossier: essais.id } })
+  let vue = (await appel('GET', '/api/documents', c)).json
+  const miens = (l) => l.filter((d) => [livres.id, essais.id].includes(d.id))
+  assert.deepEqual(
+    miens(vue.dossiers).map((d) => [d.nom, d.parent]),
+    [
+      ['Essais', livres.id],
+      ['Livres', null],
+    ],
+  )
+  assert.equal(vue.documents.find((d) => d.id === doc.id).dossier, essais.id)
+  // Ranger : le propriétaire seul ; un dossier à lui.
+  await appel('PUT', `/api/documents/${doc.id}/dossier`, { ...c, corps: { dossier: livres.id } })
+  vue = (await appel('GET', '/api/documents', c)).json
+  assert.equal(vue.documents.find((d) => d.id === doc.id).dossier, livres.id)
+  await appel('POST', '/api/dev/acces', { ...c, corps: { document: doc.id, personne: bruno.id, role: 'editeur' } })
+  const range = (qui, dossier) =>
+    appel('PUT', `/api/documents/${doc.id}/dossier`, { cookie: qui.cookie, corps: { dossier } })
+  assert.equal((await range(bruno, null)).statut, 403)
+  const { json: aBruno } = await appel('POST', '/api/dossiers', { cookie: bruno.cookie, corps: { nom: 'B' } })
+  assert.equal((await range(paule, aBruno.id)).statut, 404)
+  // Renommer, déplacer.
+  await appel('PUT', `/api/dossiers/${essais.id}`, { ...c, corps: { nom: 'Récits' } })
+  const boucle = await appel('PUT', `/api/dossiers/${livres.id}`, { ...c, corps: { parent: essais.id } })
+  assert.deepEqual([boucle.statut, boucle.json.code], [409, 'deplacement-circulaire'])
+  assert.equal((await appel('PUT', `/api/dossiers/${essais.id}`, { ...c, corps: { parent: null } })).statut, 200)
+  vue = (await appel('GET', '/api/documents', c)).json
+  assert.deepEqual(
+    vue.dossiers.find((d) => d.id === essais.id),
+    { id: essais.id, nom: 'Récits', parent: null },
+  )
+  assert.equal(
+    (await appel('PUT', `/api/dossiers/${essais.id}`, { cookie: bruno.cookie, corps: { nom: 'Z' } })).statut,
+    404,
+  )
+  // Supprimer : seulement vide.
+  const plein = await appel('DELETE', `/api/dossiers/${livres.id}`, c)
+  assert.deepEqual([plein.statut, plein.json.code], [409, 'dossier-non-vide'])
+  await range(paule, null)
+  assert.equal((await appel('DELETE', `/api/dossiers/${livres.id}`, c)).statut, 200)
+  assert.equal((await appel('DELETE', `/api/dossiers/${essais.id}`, c)).statut, 200)
+  assert.deepEqual(miens((await appel('GET', '/api/documents', c)).json.dossiers), [])
+})
+
+test('partagé avec moi : qui me l’a partagé ; me retirer, sauf le dernier propriétaire', async () => {
+  const paule = await personne('Paule')
+  const a = adresse('lea')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: { titre: 'Note' } })
+  await appel('POST', `/api/documents/${doc.id}/acces`, {
+    cookie: paule.cookie,
+    corps: { courriel: a, role: 'lecteur' },
+  })
+  const lea = { cookie: (await suivre(dernierLien(a))).cookie }
+  const vu = (await appel('GET', '/api/documents', lea)).json.documents.find((d) => d.id === doc.id)
+  assert.equal(vu.section, 'partage')
+  assert.equal(vu.partagePar.nom, 'Paule', 'l’auteur de l’invitation, gardé à la connexion')
+  assert.equal(vu.parLien, false)
+  assert.ok(Number.isFinite(vu.partageLe))
+  assert.equal((await appel('DELETE', `/api/documents/${doc.id}/moi`, lea)).statut, 200)
+  assert.ok(!(await appel('GET', '/api/documents', lea)).json.documents.some((d) => d.id === doc.id))
+  const dernier = await appel('DELETE', `/api/documents/${doc.id}/moi`, { cookie: paule.cookie })
+  assert.deepEqual([dernier.statut, dernier.json.code], [409, 'dernier-proprietaire'])
+})
+
+test('un propriétaire qui part : le document passe dans Mes documents d’un autre propriétaire', async () => {
+  const paule = await personne('Paule')
+  const edith = await personne('Edith')
+  const { json: dossier } = await appel('POST', '/api/dossiers', { cookie: paule.cookie, corps: { nom: 'P' } })
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: { dossier: dossier.id } })
+  await appel('POST', '/api/dev/acces', {
+    cookie: paule.cookie,
+    corps: { document: doc.id, personne: edith.id, role: 'proprietaire' },
+  })
+  const vu = async (qui) =>
+    (await appel('GET', '/api/documents', { cookie: qui.cookie })).json.documents.find((d) => d.id === doc.id)
+  assert.equal((await vu(edith)).section, 'partage')
+  assert.equal((await vu(edith)).partagePar.nom, 'Paule')
+  assert.equal((await appel('DELETE', `/api/documents/${doc.id}/moi`, { cookie: paule.cookie })).statut, 200)
+  assert.deepEqual([(await vu(edith)).section, (await vu(edith)).dossier], ['mes-documents', null])
+  assert.equal(await vu(paule), undefined)
+  // Le dossier de Paule est vide : il se supprime.
+  assert.equal((await appel('DELETE', `/api/dossiers/${dossier.id}`, { cookie: paule.cookie })).statut, 200)
+})
+
+test('déplacer un dossier : un nom valide mais un parent refusé ne change rien', async () => {
+  const paule = await personne('Paule')
+  const c = { cookie: paule.cookie }
+  const { json: a } = await appel('POST', '/api/dossiers', { ...c, corps: { nom: 'A' } })
+  const { json: b } = await appel('POST', '/api/dossiers', { ...c, corps: { nom: 'B', parent: a.id } })
+  const r = await appel('PUT', `/api/dossiers/${a.id}`, { ...c, corps: { nom: 'Nouveau', parent: b.id } })
+  assert.equal(r.statut, 409)
+  const vue = (await appel('GET', '/api/documents', c)).json.dossiers
+  assert.deepEqual(
+    vue.find((d) => d.id === a.id),
+    { id: a.id, nom: 'A', parent: null },
+  )
 })
 
 test('plusieurs propriétaires : seul un propriétaire en nomme ; le dernier ne part pas', async () => {

@@ -52,7 +52,10 @@
     "commentaires-indisponibles": "Les commentaires sont indisponibles pour le moment.",
     "introuvable": "Introuvable.",
     "requete-invalide": "Requête invalide.",
-    "lien-invalide": "Ce lien de connexion n’est plus valable : demandez-en un nouveau."
+    "lien-invalide": "Ce lien de connexion n’est plus valable : demandez-en un nouveau.",
+    "dossier-introuvable": "Ce dossier n’existe pas, ou il n’est pas à vous.",
+    "deplacement-circulaire": "Un dossier ne peut pas aller dans lui-même ni dans l’un de ses sous-dossiers.",
+    "dossier-non-vide": "Ce dossier n’est pas vide : déplacez ou supprimez d’abord ce qu’il contient."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -99,18 +102,32 @@
     "bouton": "Continuer"
   },
   "documents": {
-    "titre": "Mes documents",
     "nouveau": "Nouveau document",
-    "tous": "Tous",
-    "miens": "Créés par moi",
-    "partages": "Partagés avec moi",
-    "colonneTitre": "Titre",
     "colonneRole": "Mon rôle",
     "colonneDate": "Créé le",
     "vide": "Aucun document pour l’instant.",
     "sansTitre": "Sans titre",
     "deconnexion": "Se déconnecter",
-    "deconnexionPartout": "Déconnecter tous mes appareils"
+    "deconnexionPartout": "Déconnecter tous mes appareils",
+    "mesDocuments": "Mes documents",
+    "partagesAvecMoi": "Partagé avec moi",
+    "nouveauDossier": "Nouveau dossier",
+    "nomDuDossier": "Nom du dossier",
+    "colonneNom": "Nom",
+    "colonnePartage": "Partagé",
+    "dossier": "Dossier",
+    "renommer": "Renommer",
+    "deplacer": "Déplacer {nom}",
+    "supprimer": "Supprimer",
+    "meRetirer": "Me retirer",
+    "confirmerRetrait": "Vous n’aurez plus accès à ce document. Continuer ?",
+    "confirmerSuppressionDossier": "Supprimer le dossier « {nom} » ?",
+    "partagePar": "par {nom}, le {date}",
+    "parLien": "par le lien de partage, le {date}",
+    "videDossier": "Ce dossier est vide.",
+    "videPartages": "Personne ne vous a encore partagé de document.",
+    "chemin": "Emplacement",
+    "partageLe": "le {date}"
   },
   "partage": {
     "titre": "Partage",

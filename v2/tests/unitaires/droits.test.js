@@ -24,7 +24,7 @@ test('chaque rôle a les capacités du précédent, et les siennes', () => {
     'restaurer',
     'inviter',
   ])
-  assert.deepEqual(capacites('proprietaire'), [...capacites('editeur'), 'supprimer', 'transferer'])
+  assert.deepEqual(capacites('proprietaire'), [...capacites('editeur'), 'supprimer', 'transferer', 'ranger'])
   for (let i = 1; i < ROLES.length; i++)
     for (const c of capacites(ROLES[i - 1])) assert.ok(capacites(ROLES[i]).includes(c), `${ROLES[i]} : ${c}`)
 })

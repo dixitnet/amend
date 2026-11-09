@@ -14,3 +14,4 @@ export {
   peutRecevoirLienDeConnexion,
   adresseCourriel,
 } from './partage.js'
+export { nomDossier, refusDeplacementDossier, sectionDuDocument, peutRanger, refusRetrait } from './dossiers.js'

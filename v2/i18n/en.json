@@ -52,7 +52,10 @@
     "commentaires-indisponibles": "Comments are unavailable for now.",
     "introuvable": "Not found.",
     "requete-invalide": "Invalid request.",
-    "lien-invalide": "This sign-in link is no longer valid: ask for a new one."
+    "lien-invalide": "This sign-in link is no longer valid: ask for a new one.",
+    "dossier-introuvable": "This folder does not exist, or it is not yours.",
+    "deplacement-circulaire": "A folder cannot go into itself or into one of its subfolders.",
+    "dossier-non-vide": "This folder is not empty: move or delete its contents first."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -99,18 +102,32 @@
     "bouton": "Continue"
   },
   "documents": {
-    "titre": "My documents",
     "nouveau": "New document",
-    "tous": "All",
-    "miens": "Created by me",
-    "partages": "Shared with me",
-    "colonneTitre": "Title",
     "colonneRole": "My role",
     "colonneDate": "Created",
     "vide": "No documents yet.",
     "sansTitre": "Untitled",
     "deconnexion": "Sign out",
-    "deconnexionPartout": "Sign out all my devices"
+    "deconnexionPartout": "Sign out all my devices",
+    "mesDocuments": "My documents",
+    "partagesAvecMoi": "Shared with me",
+    "nouveauDossier": "New folder",
+    "nomDuDossier": "Folder name",
+    "colonneNom": "Name",
+    "colonnePartage": "Shared",
+    "dossier": "Folder",
+    "renommer": "Rename",
+    "deplacer": "Move {nom}",
+    "supprimer": "Delete",
+    "meRetirer": "Remove me",
+    "confirmerRetrait": "You will lose access to this document. Continue?",
+    "confirmerSuppressionDossier": "Delete the folder “{nom}”?",
+    "partagePar": "by {nom}, on {date}",
+    "parLien": "through the sharing link, on {date}",
+    "videDossier": "This folder is empty.",
+    "videPartages": "Nobody has shared a document with you yet.",
+    "chemin": "Location",
+    "partageLe": "on {date}"
   },
   "partage": {
     "titre": "Sharing",

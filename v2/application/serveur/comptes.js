@@ -9,9 +9,14 @@
 //   POST   /api/deconnexion
 //   POST   /api/deconnexion-partout
 //   PUT    /api/moi                          { nom }
-//   GET    /api/documents                    mes documents
-//   POST   /api/documents                    { titre? }  nouveau document (je suis propriétaire)
+//   GET    /api/documents                    { dossiers, documents } : Mes documents et Partagé avec moi
+//   POST   /api/documents                    { titre?, dossier? }  nouveau document (je suis propriétaire)
 //   DELETE /api/documents/:doc               le propriétaire seul, tout de suite
+//   PUT    /api/documents/:doc/dossier       { dossier }  le ranger (null : racine de Mes documents)
+//   DELETE /api/documents/:doc/moi           me retirer du document (Partagé avec moi)
+//   POST   /api/dossiers                     { nom, parent? }  (étape 6c : rangement personnel)
+//   PUT    /api/dossiers/:id                 { nom?, parent? }
+//   DELETE /api/dossiers/:id                 seulement vide
 //   GET    /api/documents/:doc/acces         accès, invitations, lien (qui invite)
 //   POST   /api/documents/:doc/acces         { courriel, role }  donner ou inviter
 //   PUT    /api/documents/:doc/acces/:id     { role }
@@ -30,6 +35,11 @@ import {
   roleDuLienValide,
   peutRecevoirLienDeConnexion,
   adresseCourriel,
+  nomDossier,
+  refusDeplacementDossier,
+  sectionDuDocument,
+  peutRanger,
+  refusRetrait,
   DUREE_INVITATION_MS,
   DUREE_LIEN_CONNEXION_MS,
 } from '../../domaine/index.js'
@@ -95,7 +105,9 @@ export function creerComptes({
   }
 
   return async function traiter(req, res, url) {
-    const m = url.pathname.match(/^\/api\/(connexion|deconnexion|deconnexion-partout|moi|documents)(?:\/(.*))?$/)
+    const m = url.pathname.match(
+      /^\/api\/(connexion|deconnexion|deconnexion-partout|moi|documents|dossiers)(?:\/(.*))?$/,
+    )
     if (!m) return false
     const [, racine, reste] = m
     const segments = (reste ?? '').split('/').filter(Boolean).map(decoder)
@@ -138,7 +150,7 @@ export function creerComptes({
       const p = await comptes.personneOuNouvelle(j.courriel)
       // Les invitations valables deviennent des accès (comme Docs, à la connexion).
       for (const i of await comptes.invitationsDe(j.courriel)) {
-        if (invitationValable(i.creeLe)) await comptes.donnerAcces(i.document, p.id, i.role)
+        if (invitationValable(i.creeLe)) await comptes.donnerAcces(i.document, p.id, i.role, i.auteur)
         await comptes.retirerInvitation(i.document, j.courriel)
       }
       if (j.document && (await comptes.document(j.document))?.roleLien)
@@ -173,27 +185,74 @@ export function creerComptes({
       )
     }
 
-    // --- Mes documents ---
+    /** Un dossier à moi (ou la racine, `null`), sinon `undefined`. */
+    const monDossier = async (id) => {
+      if (id === null || id === undefined) return null
+      const d = await comptes.dossier(id)
+      return d && d.personne === p.id ? d.id : undefined
+    }
+
+    // --- Mes dossiers (rangement personnel, étape 6c) ---
+    if (racine === 'dossiers') {
+      if (!segments.length) {
+        if (methode !== 'POST') return err(res, 405, 'methode-refusee')
+        const corps = await lireCorps(req)
+        const n = nomDossier(corps.nom)
+        if (!n.ok) return err(res, 400, n.code)
+        const parent = await monDossier(corps.parent)
+        if (parent === undefined) return err(res, 404, 'dossier-introuvable')
+        return ok(res, { id: await comptes.creerDossier(p.id, n.nom, parent) }, 201)
+      }
+      if (segments.length > 1) return err(res, 404, 'introuvable')
+      const id = await monDossier(segments[0])
+      if (!id) return err(res, 404, 'dossier-introuvable')
+      if (methode === 'DELETE')
+        return (await comptes.supprimerDossierVide(id)) ? ok(res) : err(res, 409, 'dossier-non-vide')
+      if (methode !== 'PUT') return err(res, 405, 'methode-refusee')
+      const corps = await lireCorps(req)
+      // Tout est vérifié avant de rien changer (audit, 09/11/2026).
+      const n = corps.nom === undefined ? null : nomDossier(corps.nom)
+      if (n && !n.ok) return err(res, 400, n.code)
+      if (corps.parent !== undefined) {
+        const refus = await comptes.deplacerDossier(p.id, id, corps.parent, (dossiers) =>
+          refusDeplacementDossier(dossiers, id, corps.parent),
+        )
+        if (refus) return err(res, refus === 'dossier-introuvable' ? 404 : 409, refus)
+      }
+      if (n) await comptes.renommerDossier(id, n.nom)
+      return ok(res)
+    }
+
+    // --- Mes documents et Partagé avec moi ---
     if (!segments.length) {
       if (methode === 'GET')
-        return ok(
-          res,
-          (await comptes.documentsDe(p.id)).map((d) => ({
-            id: d.id,
-            titre: d.titre,
-            creeParMoi: d.creeParMoi,
-            creeLe: d.creeLe,
-            role: roleEffectif(d.roles),
-          })),
-        )
+        return ok(res, {
+          dossiers: await comptes.dossiersDe(p.id),
+          documents: (await comptes.documentsDe(p.id)).map((d) => {
+            const section = sectionDuDocument(d.emplacement, p.id)
+            return {
+              id: d.id,
+              titre: d.titre,
+              creeLe: d.creeLe,
+              role: roleEffectif(d.roles),
+              section,
+              ...(section === 'mes-documents'
+                ? { dossier: d.dossier }
+                : { partagePar: d.partagePar, parLien: d.parLien, partageLe: d.partageLe }),
+            }
+          }),
+        })
       if (methode !== 'POST') return err(res, 405, 'methode-refusee')
-      const { titre } = await lireCorps(req)
+      const { titre, dossier } = await lireCorps(req)
       if (titre !== undefined && titre !== null && (typeof titre !== 'string' || titre.length > 200))
         return err(res, 400, 'titre-invalide')
+      const rangement = await monDossier(dossier)
+      if (rangement === undefined) return err(res, 404, 'dossier-introuvable')
       const id = randomUUID()
-      await comptes.creerDocument(id, p.id, titre?.normalize('NFC').trim() || null)
+      await comptes.creerDocument(id, p.id, titre?.normalize('NFC').trim() || null, rangement)
       return ok(res, { id }, 201)
     }
+    if (racine !== 'documents') return err(res, 404, 'introuvable')
 
     const d = identifiantDocument(segments[0])
     if (!d.ok) return err(res, 400, d.code)
@@ -216,6 +275,25 @@ export function creerComptes({
         await collaboration
           .supprimerDocument(docId)
           .catch((e) => console.error(`[serveur] suppression dans y/hub de ${docId} :`, e))
+      return ok(res)
+    }
+    // PUT /api/documents/:doc/dossier : le propriétaire le range dans ses dossiers.
+    if (sous === 'dossier' && !cible && methode === 'PUT') {
+      const doc = await comptes.document(docId)
+      if (!peutRanger(caps, doc.emplacement, p.id)) return err(res, 403, 'droit-insuffisant')
+      const rangement = await monDossier((await lireCorps(req)).dossier)
+      if (rangement === undefined) return err(res, 404, 'dossier-introuvable')
+      await comptes.rangerDocument(docId, rangement)
+      return ok(res)
+    }
+    // DELETE /api/documents/:doc/moi : je me retire (jamais le dernier propriétaire).
+    if (sous === 'moi' && !cible && methode === 'DELETE') {
+      const actuel = await comptes.acces(docId, p.id)
+      const refus = refusRetrait(actuel, await comptes.proprietaires(docId))
+      if (refus) return err(res, 409, refus)
+      if (actuel && (await comptes.modifierAcces(docId, p.id, null)) === 'dernier-proprietaire')
+        return err(res, 409, 'dernier-proprietaire')
+      await comptes.retirerPassageParLien(docId, p.id)
       return ok(res)
     }
     if (!caps.includes('inviter')) return err(res, 403, 'droit-insuffisant')
@@ -245,7 +323,7 @@ export function creerComptes({
         role: nomDuRole(corps.role),
       }
       if (invite) {
-        await comptes.donnerAcces(docId, invite.id, corps.role)
+        await comptes.donnerAcces(docId, invite.id, corps.role, p.id)
         await courrier.envoyer({
           a: a.courriel,
           sujet: t('courriel.acces.sujet', vars),

@@ -1,6 +1,7 @@
 // T5 : comptes et partage dans un vrai navigateur (étape 6a) : créer un
 // document, inviter une adresse nouvelle, entrer d'un clic par le courrier,
-// choisir son nom, arriver avec le bon rôle ; lien de partage ; suppression.
+// choisir son nom, arriver avec le bon rôle ; lien de partage ; suppression ;
+// dossiers personnels et Partagé avec moi (étape 6c).
 // Les courriers sont lus par la route de développement (pas de clé Mailgun).
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -98,5 +99,73 @@ test('suppression : le propriétaire supprime ; le document disparaît de la lis
   await p.getByRole('button', { name: 'Supprimer' }).click()
   await p.getByRole('heading', { name: 'Mes documents' }).waitFor()
   assert.equal(await p.locator(`a[href="#${docId}"]`).count(), 0)
+  await p.context().close()
+})
+
+test('dossiers : créer, y créer un document, le déplacer à la racine, supprimer le dossier vide', async () => {
+  const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
+  await p.goto(`${pile.url}/#`)
+  const nom = `Livres ${randomUUID().slice(0, 4)}`
+  p.once('dialog', (d) => d.accept(nom))
+  await p.getByRole('button', { name: 'Nouveau dossier' }).click()
+  await p.getByRole('link', { name: nom }).click()
+  await p.getByText('Ce dossier est vide.').waitFor()
+  assert.match(new URL(p.url()).hash, /^#\/dossiers\//)
+  const adresseDossier = p.url()
+  await p.getByRole('button', { name: 'Nouveau document' }).click()
+  await p.waitForSelector('.bn-editor')
+  const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
+  await p.goto(adresseDossier)
+  await p.locator(`a[href="#${docId}"]`).waitFor()
+  // À la racine, il n'y est pas ; on l'y déplace.
+  await p.getByRole('navigation', { name: 'Emplacement' }).getByRole('link', { name: 'Mes documents' }).click()
+  await p
+    .getByRole('row')
+    .filter({ has: p.getByRole('link', { name: nom }) })
+    .waitFor()
+  assert.equal(await p.locator(`a[href="#${docId}"]`).count(), 0)
+  await p.goto(adresseDossier)
+  await p.getByLabel('Déplacer Sans titre').first().click()
+  await p.getByRole('option', { name: 'Mes documents', exact: true }).click()
+  await p.getByText('Ce dossier est vide.').waitFor()
+  await p.goto(`${pile.url}/#`)
+  await p.locator(`a[href="#${docId}"]`).waitFor()
+  const ligne = p.getByRole('row').filter({ has: p.getByRole('link', { name: nom }) })
+  p.once('dialog', (d) => d.accept())
+  await ligne.getByRole('button', { name: 'Supprimer' }).click()
+  for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(100))
+    if (!(await p.getByRole('link', { name: nom }).count())) break
+  assert.equal(await p.getByRole('link', { name: nom }).count(), 0)
+  await p.context().close()
+})
+
+test('partagé avec moi : le document, qui l’a partagé ; je m’en retire', async () => {
+  const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
+  await p.goto(`${pile.url}/#`)
+  await p.getByRole('button', { name: 'Nouveau document' }).click()
+  await p.waitForSelector('.bn-editor')
+  const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
+  const b = await ouvrirSur(nav, pile.url, 'Bruno', `t5-attente-${Date.now().toString(36)}`)
+  const bruno = await b.evaluate(() => fetch('/api/moi').then((r) => r.json()))
+  const r = await p.evaluate(
+    ([document, personne]) =>
+      fetch('/api/dev/acces', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ document, personne, role: 'lecteur' }),
+      }).then((x) => x.status),
+    [docId, bruno.id],
+  )
+  assert.equal(r, 200)
+  await b.goto(`${pile.url}/#/partages`)
+  const ligne = b.getByRole('row').filter({ has: b.locator(`a[href="#${docId}"]`) })
+  await ligne.waitFor()
+  assert.match(await ligne.innerText(), /lecteur/)
+  b.once('dialog', (d) => d.accept())
+  await ligne.getByRole('button', { name: 'Me retirer' }).click()
+  for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(100))
+    if (!(await b.locator(`a[href="#${docId}"]`).count())) break
+  assert.equal(await b.locator(`a[href="#${docId}"]`).count(), 0)
+  await b.context().close()
   await p.context().close()
 })
