@@ -233,7 +233,8 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
         await comptes.noterPassageParLien(v.docId, v.personne.id)
         role = await roleSur(v.docId, v.personne.id)
       }
-      return role ? json(res, 200, droitsDe(role)) : json(res, 404, { code: 'document-introuvable' })
+      if (!role) return json(res, 404, { code: 'document-introuvable' })
+      json(res, 200, { ...droitsDe(role), titre: (await comptes.document(v.docId))?.titre ?? null })
     },
     // Développement seulement : un document au nom choisi (adresses lisibles des essais).
     'POST /api/dev/documents': async (req, res) => {

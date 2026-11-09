@@ -20,3 +20,16 @@ export function identifiantDocument(brut) {
  * typographie, et plus tard les exports et Margo ; elle n'est pas la langue
  * de l'interface. */
 export const LANGUE_DOCUMENT_PAR_DEFAUT = 'fr'
+
+const LONGUEUR_MAX_TITRE = 200
+
+/** Le titre d'un document (format S : modifiable, dans le bandeau ; Sylvain,
+ * 09/11/2026) : NFC, sans espaces en trop ; vide ou absent → `null` (« Sans
+ * titre ») ; 200 signes au plus. */
+export function titreDocument(brut) {
+  if (brut === undefined || brut === null) return { ok: true, titre: null }
+  if (typeof brut !== 'string') return { ok: false, code: 'titre-invalide' }
+  const titre = brut.normalize('NFC').replace(/\s+/g, ' ').trim()
+  if ([...titre].length > LONGUEUR_MAX_TITRE) return { ok: false, code: 'titre-invalide' }
+  return { ok: true, titre: titre || null }
+}
