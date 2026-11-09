@@ -177,9 +177,13 @@ test('point ouvert : le contraste du bouton Mantine par défaut est toujours en 
   const p = await ctx.newPage()
   await p.goto(`${pile.url}/#${docTest('axe-attente')}`)
   await p.waitForSelector('input[name=nom]')
-  assert.deepEqual(
-    await violations(p, { avecEnAttente: true }),
-    ['color-contrast (1)'],
+  // Le même défaut (bouton bleu par défaut), quel que soit le nombre de
+  // boutons de l'écran (deux depuis l'étape 6a : développement et courriel).
+  const v = await violations(p, { avecEnAttente: true })
+  assert.equal(v.length, 1, `une seule règle en défaut : ${v.join(', ')}`)
+  assert.match(
+    v[0],
+    /^color-contrast \(\d+\)$/,
     'si ce test échoue parce que le défaut a disparu : retirer CONTRASTE_EN_ATTENTE et le point ouvert de l’ADR 0008',
   )
   await ctx.close()

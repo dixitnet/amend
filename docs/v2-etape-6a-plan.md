@@ -104,3 +104,12 @@ Interface et design (6b) ; dossiers, arborescence, favoris ; accès par lien (si
 8. **ok**.
 
 **À suivre** (demande de Sylvain) : des propositions de gestion d'équipe, liées aux dossiers, après l'étude de plusieurs applications, en cherchant quelque chose de proche du partage de fichiers de Dropbox.
+
+## Avancement (09/11/2026)
+
+- **Lot 1, domaine** (`domaine/partage.js`) : rôles donnables, plusieurs propriétaires mais jamais aucun, invitations de 7 jours, rôle du lien, service fermé, adresses de courriel.
+- **Lot 2, adaptateurs** : dépôt des comptes dans PostgreSQL (`adaptateurs/postgres/comptes.js` : personnes, documents, accès personne ou équipe, invitations, passages par lien, jetons de connexion gardés par empreinte) ; courrier Mailgun (`adaptateurs/courrier/`), un seul lien, sans mise en forme (design en 6b) ; sans clé, courriers gardés en mémoire et écrits dans le journal.
+- **Lot 3, serveur** (`application/serveur/comptes.js`, `index.js`) : lien magique (15 minutes, usage unique, 5 par quart d'heure et par adresse ; même réponse que l'adresse soit admise ou non), sessions de 30 jours et « déconnecter partout », documents à identifiant aléatoire, accès et invitations, lien de partage (une personne connectée qui a l'adresse gagne le rôle du lien), suppression immédiate jusque dans y/hub et les commentaires, contrôle d'origine des requêtes qui modifient. Nouvelle variable `V2_ADRESSE` (installation et déploiement).
+- **Lot 4, écrans** : connexion par courriel (et, en développement, par un simple nom), nom demandé à la première connexion, mes documents (filtre, création), partage (inviter, rôles, invitations, lien), suppression par le propriétaire ; composants de design Mantine sans réglage, dans un lot à part.
+- **Tests** : 144 rapides (dont le serveur, les commentaires et le partage contre PostgreSQL), 38 sur la pile (dont 3 parcours de comptes : invitation d'une adresse nouvelle jusqu'au rôle, lien de partage, suppression).
+

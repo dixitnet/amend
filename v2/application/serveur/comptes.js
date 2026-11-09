@@ -36,6 +36,9 @@ import {
 import { creerTraducteur } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
 
+/** Le code montré quand un lien de connexion a servi ou expiré. */
+const LIEN_INVALIDE = 'lien-invalide'
+
 /** Liens de connexion envoyés au plus, par adresse, dans la fenêtre. */
 const LIENS_MAX = 5
 const FENETRE_LIENS_MS = 15 * 60 * 1000
@@ -135,7 +138,7 @@ export function creerComptes({
     if (racine === 'connexion' && segments.length === 1 && methode === 'GET') {
       const j = await comptes.consommerJeton(segments[0])
       if (!j) {
-        res.writeHead(303, { location: '/#!lien-invalide', 'cache-control': 'no-store' })
+        res.writeHead(303, { location: `/#!${LIEN_INVALIDE}`, 'cache-control': 'no-store' })
         return (res.end(), true)
       }
       const p = await comptes.personneOuNouvelle(j.courriel)

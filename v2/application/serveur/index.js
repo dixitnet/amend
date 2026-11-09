@@ -97,7 +97,7 @@ function creerIdentite(CONF, comptes) {
   return { personneDe, cookieDeSession, cookieEfface: `${NOM_COOKIE}=; ${attributs}; Max-Age=0` }
 }
 
-const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }) => {
+const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) => {
   /** Le rôle effectif d'une personne sur un document : décidé par le domaine. */
   const roleSur = async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne))
   const droitsDe = (role) => ({ role, capacites: capacites(role) })
@@ -130,6 +130,12 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }) => {
     'GET /api/moi': async (req, res) => {
       const p = await personneDe(req)
       return p ? json(res, 200, p) : json(res, 401, { code: 'session-absente' })
+    },
+    // Développement seulement : les courriers gardés en mémoire (sans clé
+    // Mailgun), pour les essais et les tests de bout en bout.
+    'GET /api/dev/courriers': (req, res) => {
+      if (!CONF.dev) return json(res, 404, { code: 'introuvable' })
+      json(res, 200, courrier.envoyes ?? [])
     },
     // Développement seulement : une personne par nom, sans courriel.
     'POST /api/dev/session': async (req, res) => {
@@ -256,7 +262,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       ? clientCollaboration({ url: CONF.collaborationApi, jeton: CONF.jetonInterne })
       : null)
   const identite = creerIdentite(CONF, comptes)
-  const routes = creerRoutes(CONF, comptes, identite)
+  const routes = creerRoutes(CONF, comptes, identite, courrier)
   const commentaires = creerCommentaires({
     personneDe: identite.personneDe,
     roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),

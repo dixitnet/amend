@@ -5,10 +5,17 @@
     "erreur": "Une erreur est survenue : {code}."
   },
   "connexion": {
-    "titre": "Connexion de développement",
-    "explication": "Version de développement : choisissez un nom, sans courriel ni mot de passe.",
-    "nom": "Votre nom",
-    "bouton": "Entrer"
+    "titre": "Connexion",
+    "explication": "Indiquez votre adresse de courriel : vous recevrez un lien pour entrer, sans mot de passe.",
+    "courriel": "Adresse de courriel",
+    "envoyer": "Recevoir un lien",
+    "envoye": "Si cette adresse a accès à amend.ink, un lien vient de lui être envoyé. Il vaut 15 minutes.",
+    "dev": {
+      "titre": "Connexion de développement",
+      "explication": "Version de développement : choisissez un nom, sans courriel ni mot de passe.",
+      "nom": "Votre nom",
+      "bouton": "Entrer"
+    }
   },
   "document": {
     "titre": "Document {id}",
@@ -17,7 +24,11 @@
     "zoneEdition": "Texte du document {id}",
     "lectureSeule": "Lecture seule",
     "modeSuggestion": "Mode suggestion",
-    "historique": "Historique"
+    "historique": "Historique",
+    "mesDocuments": "Mes documents",
+    "partager": "Partager",
+    "supprimer": "Supprimer",
+    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement ?"
   },
   "erreurs": {
     "document-vide": "Ce document n’a pas de nom.",
@@ -40,7 +51,8 @@
     "collaboration-indisponible": "Le service de collaboration ne répond pas. Réessayez.",
     "commentaires-indisponibles": "Les commentaires sont indisponibles pour le moment.",
     "introuvable": "Introuvable.",
-    "requete-invalide": "Requête invalide."
+    "requete-invalide": "Requête invalide.",
+    "lien-invalide": "Ce lien de connexion n’est plus valable : demandez-en un nouveau."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -79,5 +91,40 @@
       "intro": "{auteur} vous a donné accès au document «\u00A0{titre}\u00A0», comme {role}.",
       "lien": "Ouvrir le document"
     }
+  },
+  "nom": {
+    "titre": "Votre nom",
+    "explication": "Comment vous appeler dans les documents partagés ?",
+    "nom": "Votre nom",
+    "bouton": "Continuer"
+  },
+  "documents": {
+    "titre": "Mes documents",
+    "nouveau": "Nouveau document",
+    "tous": "Tous",
+    "miens": "Créés par moi",
+    "partages": "Partagés avec moi",
+    "colonneTitre": "Titre",
+    "colonneRole": "Mon rôle",
+    "colonneDate": "Créé le",
+    "vide": "Aucun document pour l’instant.",
+    "sansTitre": "Sans titre",
+    "deconnexion": "Se déconnecter",
+    "deconnexionPartout": "Déconnecter tous mes appareils"
+  },
+  "partage": {
+    "titre": "Partage",
+    "courriel": "Adresse de courriel",
+    "role": "Rôle",
+    "inviter": "Inviter",
+    "retirer": "Retirer",
+    "annuler": "Annuler l’invitation",
+    "roleDe": "Rôle de {nom}",
+    "lien": "Accès par le lien",
+    "lienFerme": "Personne (lien fermé)",
+    "adresseDuLien": "Adresse à transmettre",
+    "invite": "{courriel}, invité comme {role}",
+    "invitationEnvoyee": "Invitation envoyée à {courriel}.",
+    "accesDonne": "{courriel} a maintenant accès."
   }
 }

@@ -5,10 +5,17 @@
     "erreur": "An error occurred: {code}."
   },
   "connexion": {
-    "titre": "Development sign-in",
-    "explication": "Development version: pick a name, no email or password needed.",
-    "nom": "Your name",
-    "bouton": "Enter"
+    "titre": "Sign in",
+    "explication": "Enter your email address: you will receive a link to sign in, without a password.",
+    "courriel": "Email address",
+    "envoyer": "Get a link",
+    "envoye": "If this address has access to amend.ink, a link has just been sent to it. It is valid for 15 minutes.",
+    "dev": {
+      "titre": "Development sign-in",
+      "explication": "Development version: choose a name, no email or password.",
+      "nom": "Your name",
+      "bouton": "Enter"
+    }
   },
   "document": {
     "titre": "Document {id}",
@@ -17,7 +24,11 @@
     "zoneEdition": "Text of document {id}",
     "lectureSeule": "Read only",
     "modeSuggestion": "Suggesting",
-    "historique": "History"
+    "historique": "History",
+    "mesDocuments": "My documents",
+    "partager": "Share",
+    "supprimer": "Delete",
+    "confirmerSuppression": "Delete this document for everyone, permanently?"
   },
   "erreurs": {
     "document-vide": "This document has no name.",
@@ -40,7 +51,8 @@
     "collaboration-indisponible": "The collaboration service is not responding. Try again.",
     "commentaires-indisponibles": "Comments are unavailable for now.",
     "introuvable": "Not found.",
-    "requete-invalide": "Invalid request."
+    "requete-invalide": "Invalid request.",
+    "lien-invalide": "This sign-in link is no longer valid: ask for a new one."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -79,5 +91,40 @@
       "intro": "{auteur} gave you access to the document “{titre}” as {role}.",
       "lien": "Open the document"
     }
+  },
+  "nom": {
+    "titre": "Your name",
+    "explication": "What name should others see in shared documents?",
+    "nom": "Your name",
+    "bouton": "Continue"
+  },
+  "documents": {
+    "titre": "My documents",
+    "nouveau": "New document",
+    "tous": "All",
+    "miens": "Created by me",
+    "partages": "Shared with me",
+    "colonneTitre": "Title",
+    "colonneRole": "My role",
+    "colonneDate": "Created",
+    "vide": "No documents yet.",
+    "sansTitre": "Untitled",
+    "deconnexion": "Sign out",
+    "deconnexionPartout": "Sign out all my devices"
+  },
+  "partage": {
+    "titre": "Sharing",
+    "courriel": "Email address",
+    "role": "Role",
+    "inviter": "Invite",
+    "retirer": "Remove",
+    "annuler": "Cancel the invitation",
+    "roleDe": "Role of {nom}",
+    "lien": "Access by link",
+    "lienFerme": "Nobody (link closed)",
+    "adresseDuLien": "Address to share",
+    "invite": "{courriel}, invited as {role}",
+    "invitationEnvoyee": "Invitation sent to {courriel}.",
+    "accesDonne": "{courriel} now has access."
   }
 }

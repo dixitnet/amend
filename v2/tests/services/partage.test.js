@@ -44,9 +44,9 @@ async function appel(methode, chemin, { cookie, corps, entetes = {} } = {}) {
   const texte = await r.text()
   let json = null
   try {
-    json = texte ? JSON.parse(texte) : null
+    if (texte) json = JSON.parse(texte)
   } catch {
-    json = null
+    // une réponse qui n'est pas du JSON (redirection) : json reste null
   }
   return { statut: r.status, json, entetes: r.headers }
 }
