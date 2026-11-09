@@ -1,0 +1,10 @@
+[Unit]
+Description=amend.ink : regarde main toutes les 3 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=3min
+Persistent=false
+
+[Install]
+WantedBy=timers.target

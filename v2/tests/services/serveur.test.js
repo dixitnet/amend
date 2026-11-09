@@ -392,3 +392,8 @@ test('une adresse de requête illisible (« // ») : 400, et le serveur continue
   assert.equal(await statut('//a:b@'), 400)
   assert.equal((await fetch(`${dev}/api/config`)).status, 200, 'le serveur répond toujours')
 })
+
+test('config : la version en service (le commit, ou null hors d’un dépôt git), pour vérifier un déploiement', async () => {
+  const { version } = await (await fetch(`${dev}/api/config`)).json()
+  assert.ok(version === null || /^[0-9a-f]{7}$/.test(version), String(version))
+})

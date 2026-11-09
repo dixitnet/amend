@@ -1,0 +1,12 @@
+[Unit]
+Description=amend.ink : déploiement automatique de main (v1 puis v2)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=amend
+WorkingDirectory=/opt/amend/app
+ExecStart=/bin/bash /opt/amend/app/deploy/auto/maj.sh
+Nice=10
+TimeoutStartSec=20min

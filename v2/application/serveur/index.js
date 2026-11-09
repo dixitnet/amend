@@ -6,6 +6,7 @@ import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { join, extname, normalize, sep } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerComptes } from './comptes.js'
 import { creerCommentaires } from './commentaires.js'
@@ -97,6 +98,21 @@ function creerIdentite(CONF, comptes) {
   return { personneDe, cookieDeSession, cookieEfface: `${NOM_COOKIE}=; ${attributs}; Max-Age=0` }
 }
 
+/** Le commit en service, lu au démarrage (la v2 redémarre à chaque
+ * déploiement) : il permet de vérifier de l'extérieur ce qui est en ligne
+ * (déploiement automatique, 09/11/2026). `null` hors d'un dépôt git. */
+const VERSION = (() => {
+  try {
+    return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
+      cwd: new URL('.', import.meta.url),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return null
+  }
+})()
+
 const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) => {
   /** Le rôle effectif d'une personne sur un document : décidé par le domaine. */
   const roleSur = async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne))
@@ -114,7 +130,8 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
   }
 
   return {
-    'GET /api/config': (req, res) => json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev }),
+    'GET /api/config': (req, res) =>
+      json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev, version: VERSION }),
     // Les noms d'une liste de personnes (`?id=a&id=b`), pour une personne
     // connectée ; un identifiant inconnu revient sans nom.
     'GET /api/personnes': async (req, res, url) => {
