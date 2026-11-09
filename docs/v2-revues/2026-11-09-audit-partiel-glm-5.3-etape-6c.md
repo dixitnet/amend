@@ -2,7 +2,7 @@
 
 - Auditeur : Scaleway, modèle `glm-5.3` ; consommation : 131650 signes envoyés, 2884 reçus (et 10992 de réflexion) ; réflexion `low` ; 37 s ; arrêt : stop
 - Diff audité : `v2/` de `50df8c4` à `b6915e1` (18 fichiers)
-- Statut : avis reçu ; réponse de Claude écrite ; arbitrage de Sylvain à venir (constat 5).
+- Statut : avis reçu ; réponse de Claude écrite ; arbitré.
 
 ## Avis de l'auditeur
 
@@ -42,4 +42,4 @@ Lot cohérent (étape 6c : dossiers personnels, « Partagé avec moi », retrait
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+09/11/2026 : « ok » (réponses acceptées ; constat 5 : boîtes de dialogue natives gardées jusqu'aux écrans de 6b) ; accord de fusion de l'étape 6c.

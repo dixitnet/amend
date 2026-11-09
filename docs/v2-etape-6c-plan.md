@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 6c, « Dossiers personnels et Partagé avec moi »
 
-Statut : **lancé** le 09/11/2026 (« go » de Sylvain), d'après l'étude arbitrée `docs/v2-etude-dossiers-equipes.md`.
+Statut : **fusionné** le 09/11/2026 ; **lancé** le 09/11/2026 (« go » de Sylvain), d'après l'étude arbitrée `docs/v2-etude-dossiers-equipes.md`.
 
 ## Ce qui est décidé
 
