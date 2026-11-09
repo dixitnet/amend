@@ -45,7 +45,7 @@ Prérequis : l'étape 1 et ce lot sont dans `main` (accord de Sylvain).
 6. Essai : `https://v2.amend.ink/#essai`, mot de passe, puis un nom.
 7. **Contrôle extérieur** (Claude, depuis son environnement) : `v2.amend.ink` refuse sans mot de passe, et le port 4400 du VPS ne répond pas depuis Internet.
 8. **VPS (SSH)** : `bash /opt/amend/app/v2/exploitation/prod/mesurer.sh` après une séance d'essai (mémoire actuelle et **pointe** de chaque service).
-9. **Courriers** (étape 6a ; mis en place le 09/11/2026), **VPS (SSH)** : `sudo bash /opt/amend/app/v2/exploitation/prod/courrier.sh`. Le script recopie la clé et le domaine Mailgun de la v1 dans `/opt/amend/v2.env`, sans les afficher, puis redémarre la v2. Sans eux, les courriers restent en mémoire, lisibles à `/api/dev/courriers`.
+9. **Courriers** (étape 6a ; mis en place le 09/11/2026), depuis le **Mac** : `./deploy/deployer.sh --courrier` (ou, sur le VPS : `sudo bash /opt/amend/app/v2/exploitation/prod/courrier.sh`). Le script recopie la clé et le domaine Mailgun de la v1 dans `/opt/amend/v2.env`, sans les afficher, puis redémarre la v2. Sans eux, les courriers restent en mémoire, lisibles à `/api/dev/courriers`.
 
 Retour arrière : `sudo systemctl disable --now amend-v2 amend-v2-collab`, retirer le bloc Caddy et recharger. La v1 n'est pas touchée.
 
