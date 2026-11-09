@@ -9,7 +9,8 @@ import { preparerServices, POSTGRES, REDIS } from '../../exploitation/dev/pile.m
 import { creerServeur } from '../../application/serveur/index.js'
 import { creerTableAcces } from '../../application/serveur/acces.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
-import { demarrerCollaboration, clientCollaboration } from '../../adaptateurs/yhub/index.js'
+import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
+import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { ecrireBlocs, texteDesBlocs, lireBlocs } from '../../adaptateurs/blocknote/serveur.js'
 import { roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
 

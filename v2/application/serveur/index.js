@@ -10,7 +10,7 @@ import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerTableAcces } from './acces.js'
 import { creerCommentaires } from './commentaires.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
-import { clientCollaboration } from '../../adaptateurs/yhub/index.js'
+import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { nomPersonne, identifiantDocument, ROLES, roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */

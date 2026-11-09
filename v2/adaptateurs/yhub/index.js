@@ -3,7 +3,6 @@
 // connexion, il demande à l'application qui est la personne (`identifier`) et
 // ce qu'elle peut faire (`droits`), comme l'adaptateur de Docs.
 import { createYHub, createAuthPlugin, createAuthorize, createDocumentPermissions, apiError } from '@y/hub'
-import * as encodage from 'lib0/buffer'
 import { timingSafeEqual } from 'node:crypto'
 import { BRANCHES } from '../../domaine/index.js'
 
@@ -112,36 +111,5 @@ export async function demarrerCollaboration({
       return d.gcDoc
     },
     fermer: () => yhub.destroy({ drainMs: 2000 }),
-  }
-}
-
-/**
- * Le client de notre serveur vers y/hub (jeton interne) : lire le texte
- * principal d'un document, et y écrire une modification attribuée à une
- * personne (l'ancre d'un commentaire, pour le correcteur qui l'a demandée).
- * @param {{ url: string, jeton: string }} o  url : la racine de l'API (…/collaboration)
- */
-export function clientCollaboration({ url, jeton }) {
-  const adresse = (docId) => `${url}/ydoc/v1/${ORGANISATION}/${encodeURIComponent(docId)}?branch=main`
-  const entetes = { 'x-amend-interne': jeton }
-  async function appel(docId, options) {
-    const r = await fetch(adresse(docId), {
-      ...options,
-      headers: { ...entetes, ...options?.headers },
-      signal: AbortSignal.timeout(5000),
-    })
-    if (!r.ok) throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
-    return encodage.decodeAny(new Uint8Array(await r.arrayBuffer()))
-  }
-  return {
-    /** L'état encodé du texte principal. */
-    lireTexte: async (docId) => (await appel(docId)).doc,
-    /** Écrit une modification du texte, attribuée à `pour` (en plus du serveur). */
-    ecrireTexte: (docId, mise, pour) =>
-      appel(docId, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/octet-stream' },
-        body: encodage.encodeAny({ update: mise, customAttributions: [{ k: 'pour', v: pour }] }),
-      }),
   }
 }

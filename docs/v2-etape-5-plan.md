@@ -184,4 +184,14 @@ Choix de Sylvain (08/11/2026) : **C**, le panneau à côté du texte, un remplac
 - **Historique** : écart avec Docs, signalé. Docs a écrit sa propre liste de versions sur les routes de y/hub (activité regroupée par minute, retour arrière), sans versions nommées ; BlockNote fournit le même service tout fait (`YVersioningExtension` et `createYHubVersionStorage`, panneau `VersioningSidebar`), avec les versions nommées décidées par Sylvain : moins de code à nous. Créer, nommer, supprimer une version et y revenir sont retirés du stockage pour qui ne peut pas restaurer (le panneau ne les propose pas ; y/hub refuse de toute façon). Pendant l'historique, l'éditeur montre le texte seul (exigence de BlockNote) ; le panneau ne s'affiche qu'une fois l'historique ouvert. En développement, notre serveur relaie les routes de y/hub sur l'adresse de la page, comme Caddy en ligne (le client de BlockNote n'envoie pas les cookies à une autre origine).
 - **Limite constatée** : après un retour au « Début du document » (document Yjs vidé jusqu'à sa structure), la première suggestion qui recrée la structure s'affiche mal chez l'éditeur (données justes, rechargement de la page suffisant) ; à suivre (amont probable), cas rare.
 - **Tests de la pile** : `contrats/pile/relecture.test.js` (accepter avec l'auteur, nouveau paragraphe du correcteur, tout refuser, commentaire ancré par le serveur, présence, historique selon le rôle). Une fausse alerte de « corruption » venait du script de test (Fin puis Entrée sans laisser ProseMirror lire la sélection, piège déjà noté) : la reconstruction de l'affichage est sûre, y compris chez le correcteur.
+- **Mémoire (risque 3), mesurée le 09/11/2026** (`npm run mesurer`, PSS en Mo, machine de Claude à 4 processeurs) :
+
+  | | avant (08/11) | après | écart |
+  |---|---|---|---|
+  | serveur, au repos | 26 | 31 | +5 (dépôt des commentaires) |
+  | collaboration, 2 documents ouverts | 112 | 194 | +82 |
+  | collaboration, livre ouvert par une seconde personne | 160 | 235 | +75 |
+  | ouverture du livre par une seconde personne | 0,39 s | 1,03 s | +0,6 s |
+
+  Le serveur avait d'abord pris 66 Mo au repos (BlockNote et y/hub chargés pour l'ancre) : BlockNote n'est plus chargé qu'à la première ancre, et le client de y/hub est dans un fichier à part (`adaptateurs/yhub/client.js`). La collaboration paie la seconde branche par document et les fils de calcul de y/hub (lecture des auteurs) : ici jusqu'à 3 fils (processeurs moins un), environ 25 à 30 Mo chacun ; sur le VPS (1 processeur), un seul. L'ouverture plus lente vient de la seconde branche (le texte y est recopié à la première ouverture). À remesurer sur le VPS de la mise en ligne d'essai.
 

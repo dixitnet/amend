@@ -23,7 +23,6 @@
 // 5, 2b) : il lit le texte principal dans y/hub, y ajoute la marque du fil,
 // et y écrit la modification, attribuée au correcteur.
 import { identifiantDocument, capacites, peutCommenter } from '../../domaine/index.js'
-import { ancreCommentaire } from '../../adaptateurs/blocknote/serveur.js'
 
 const MAX_CORPS = 64_000
 const corpsValide = (corps) => Array.isArray(corps) && corps.length > 0 && JSON.stringify(corps).length <= MAX_CORPS
@@ -130,6 +129,9 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
       const { debut, fin, citation } = await lireCorps(req)
       let r
       try {
+        // Chargé à la première ancre seulement : BlockNote pèse ~65 Mo de mémoire
+        // (mesure du 09/11/2026), inutiles au serveur tant que personne n'en pose.
+        const { ancreCommentaire } = await import('../../adaptateurs/blocknote/serveur.js')
         r = ancreCommentaire(await collaboration.lireTexte(docId), { debut, fin, citation, fil })
         if (r.code === 'ok') await collaboration.ecrireTexte(docId, r.mise, p.id)
       } catch (err) {
