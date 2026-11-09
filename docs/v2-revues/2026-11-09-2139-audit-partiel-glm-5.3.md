@@ -63,4 +63,4 @@ Contrôles après correction : v2 (format, lint, knip, 181 tests rapides, 44 sur
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+- 09/11/2026 : réglage `css.editeur.palettes` confirmé (constat 7). Fusion : pas encore.
