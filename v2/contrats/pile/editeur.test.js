@@ -118,7 +118,6 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'heading',
     'heading_2',
     'heading_3',
-    // Titres 4 et 5 remis par Sylvain (09/11/2026, journal).
     'heading_4',
     'heading_5',
     'quote',
@@ -128,7 +127,8 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'image',
     'divider',
   ])
-    assert.ok(tout.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
+    assert.ok(titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
+  // Titres 1 à 5 (Sylvain, 09/11/2026, journal des décisions) : le niveau 6 reste exclu.
   for (const cle of [
     'heading_6',
     'toggle_heading',
@@ -139,7 +139,7 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'audio',
     'file',
   ])
-    assert.ok(!tout.includes(libelle(cle)), `${cle} (${libelle(cle)}) absent : ${tout}`)
+    assert.ok(!titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) absent : ${tout}`)
   await page.context().close()
 })
 
