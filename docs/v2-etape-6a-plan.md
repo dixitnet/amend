@@ -103,7 +103,7 @@ Interface et design (6b) ; dossiers, arborescence, favoris ; accès par lien (si
 7. **ok** : accès pour une personne ou une équipe, sans interface d'équipe.
 8. **ok**.
 
-**À suivre** (demande de Sylvain) : des propositions de gestion d'équipe, liées aux dossiers, après l'étude de plusieurs applications, en cherchant quelque chose de proche du partage de fichiers de Dropbox.
+**À suivre** (demande de Sylvain) : des propositions de gestion d'équipe, liées aux dossiers, après l'étude de plusieurs applications, en cherchant quelque chose de proche du partage de fichiers de Dropbox. Étude : `docs/v2-etude-dossiers-equipes.md`.
 
 ## Avancement (09/11/2026)
 
