@@ -56,42 +56,56 @@ export function suivreAuteurs(editeur, contexte, afficheurInitial, suggerer, del
   }
 }
 
+/** Écart maximal (en caractères inchangés) entre deux morceaux d'une même
+ * proposition : Yjs garde les lettres communes à l'ancien et au nouveau texte
+ * (« beau » → « blanc » s'affiche « b », puis « eau » barré et « lanc » ajouté). */
+const ECART = 3
+
 /**
- * Les suggestions du document, dans l'ordre du texte : plages contiguës
- * d'ajout ou de suppression d'un même auteur ; une suppression suivie d'un
- * ajout du même auteur fait un remplacement.
+ * Les suggestions du document, dans l'ordre du texte, une par proposition :
+ * les morceaux d'un même auteur, dans un même bloc, séparés par au plus
+ * ECART caractères inchangés, font une seule ligne ; une suppression et un
+ * ajout réunis font un remplacement (campagne du 09/11/2026).
  * @returns {Array<{ type: 'ajout' | 'suppression' | 'remplacement', auteur: string | null, avant: string, apres: string, debut: number, fin: number }>}
  */
 export function listeDesSuggestions(editeur) {
   return editeur.transact((tr) => {
-    const plages = []
+    // Les morceaux : texte marqué, avec son bloc.
+    const morceaux = []
     tr.doc.descendants((n, pos) => {
       if (!n.isText) return
       const m = n.marks.find((x) => x.type.name === INSERTION || x.type.name === SUPPRESSION)
       if (!m) return
-      const type = m.type.name === INSERTION ? 'ajout' : 'suppression'
-      const auteur = m.attrs.userIds?.[0] ?? null
-      const der = plages[plages.length - 1]
-      if (der && der.fin === pos && der.type === type && der.auteur === auteur) {
-        der.fin = pos + n.nodeSize
-        der.texte += n.text
-      } else plages.push({ type, auteur, debut: pos, fin: pos + n.nodeSize, texte: n.text })
+      morceaux.push({
+        type: m.type.name === INSERTION ? 'ajout' : 'suppression',
+        auteur: m.attrs.userIds?.[0] ?? null,
+        bloc: tr.doc.resolve(pos).start(),
+        debut: pos,
+        fin: pos + n.nodeSize,
+      })
     })
-    const liste = []
-    for (const p of plages) {
-      const der = liste[liste.length - 1]
-      if (der && der.type === 'suppression' && p.type === 'ajout' && der.fin === p.debut && der.auteur === p.auteur)
-        Object.assign(der, { type: 'remplacement', apres: p.texte, fin: p.fin })
-      else
-        liste.push({
-          type: p.type,
-          auteur: p.auteur,
-          avant: p.type === 'suppression' ? p.texte : '',
-          apres: p.type === 'ajout' ? p.texte : '',
-          debut: p.debut,
-          fin: p.fin,
-        })
+    // Les propositions : morceaux voisins d'un même auteur, dans un même bloc.
+    const groupes = []
+    for (const m of morceaux) {
+      const g = groupes[groupes.length - 1]
+      if (g && g.auteur === m.auteur && g.bloc === m.bloc && m.debut - g.fin <= ECART) g.fin = m.fin
+      else groupes.push({ auteur: m.auteur, bloc: m.bloc, debut: m.debut, fin: m.fin })
     }
-    return liste
+    // Le texte avant et après chaque proposition.
+    return groupes.map((g) => {
+      let avant = ''
+      let apres = ''
+      const types = new Set()
+      tr.doc.nodesBetween(g.debut, g.fin, (n, pos) => {
+        if (!n.isText) return
+        const t = n.text.slice(Math.max(0, g.debut - pos), g.fin - pos)
+        const m = n.marks.find((x) => x.type.name === INSERTION || x.type.name === SUPPRESSION)
+        if (m?.type.name === INSERTION) ((apres += t), types.add('ajout'))
+        else if (m?.type.name === SUPPRESSION) ((avant += t), types.add('suppression'))
+        else ((avant += t), (apres += t))
+      })
+      const type = types.size === 2 ? 'remplacement' : [...types][0]
+      return { type, auteur: g.auteur, avant, apres, debut: g.debut, fin: g.fin }
+    })
   })
 }
