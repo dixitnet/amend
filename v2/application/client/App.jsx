@@ -33,6 +33,7 @@ import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT } from '../.
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 import { serviceCommentaires, nomsDe } from './commentaires.js'
+import { exporterDocument } from './exports.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
 // essais et les captures), sinon celle du navigateur.
@@ -796,6 +797,12 @@ function Edition({ config, personne, docId, droits }) {
     />
   )
   const titreAffiche = titre || t('documents.sansTitre')
+  // Exports Markdown et PDF du texte de base (étape 7), préparés dans le
+  // navigateur comme chez Docs.
+  const exporter = (format) =>
+    exporterDocument(controle, format, { titre: titreAffiche, langue: LANGUE_DOCUMENT_PAR_DEFAUT }).catch((e) =>
+      window.alert(e?.code === 'modele-impossible' ? messageErreur(t, e.code) : t('document.exportEchoue')),
+    )
   const peutRenommer = caps.includes('ecrire')
 
   // Format S (téléphone) : la maquette validée (docs/v2-format-S.md). Comme
@@ -913,6 +920,8 @@ function Edition({ config, personne, docId, droits }) {
           {caps.includes('inviter') ? (
             <BoutonBascule libelle={t('document.partager')} actif={partage} surBasculer={() => setPartage((p) => !p)} />
           ) : null}
+          <Bouton libelle={t('document.exporterMarkdown')} surClic={() => exporter('markdown')} />
+          <Bouton libelle={t('document.exporterPdf')} surClic={() => exporter('pdf')} />
           {caps.includes('supprimer') ? <Bouton libelle={t('document.supprimer')} surClic={supprimer} /> : null}
         </>
       }

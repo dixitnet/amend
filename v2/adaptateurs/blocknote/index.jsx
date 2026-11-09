@@ -25,6 +25,7 @@ import { boutonsGardes } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
+import { blocsDuTexte, versMarkdown, versTypst, compilerPdf } from './export.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 
 function Palette() {
@@ -43,8 +44,10 @@ function Palette() {
  * @param {() => void} [p.surFermerHistorique]
  * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
  *   sur le texte passe en modification (curseur à l'endroit touché)
- * @param {{ current: { terminer: () => void } | null }} [p.controle]  reçoit
- *   `terminer()` (bouton « Terminer » du bandeau)
+ * @param {{ current: { terminer: () => void, exporter: Function } | null }} [p.controle]  reçoit
+ *   `terminer()` (bouton « Terminer » du bandeau) et `exporter(format, options)` :
+ *   le texte de base (sans les suggestions en cours) en `'markdown'` (une
+ *   chaîne) ou en `'pdf'` (des octets), options `{ modele, polices, titre, langue }`
  * @param {(enModification: boolean) => void} [p.surModification]
  * @param {(plan: { titres: Array<{ id: string, niveau: number, texte: string }>, allerA: (id: string) => void }) => void} [p.surPlan]
  *   rappelé avec les titres du document à chaque changement ; doit être stable
@@ -188,8 +191,14 @@ export function EditeurCollaboratif({
     editeur.prosemirrorView?.dom.blur()
     setEnModification(false)
   }
+  const exporter = async (format, { modele, polices, titre, langue } = {}) => {
+    const blocs = blocsDuTexte(editeur, contexte.fragment)
+    if (format === 'markdown') return versMarkdown(editeur, blocs)
+    const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre, langue })
+    return compilerPdf(source, { fichiers, polices })
+  }
   useEffect(() => {
-    if (controle) controle.current = { terminer }
+    if (controle) controle.current = { terminer, exporter }
   })
   const commencer = (evenement) => {
     if (!appui || editeur.isEditable) return

@@ -11,6 +11,8 @@
     "@blocknote/core": "0.57.0",
     "@blocknote/mantine": "0.57.0",
     "@blocknote/react": "0.57.0",
+    "@blocknote/xl-typst-compiler": "0.57.0",
+    "@blocknote/xl-typst-exporter": "0.57.0",
     "@formatjs/icu-messageformat-parser": "3.5.22",
     "@handlewithcare/prosemirror-inputrules": "0.1.4",
     "@mantine/core": "9.7.5",

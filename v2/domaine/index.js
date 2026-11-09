@@ -1,5 +1,5 @@
 // Le domaine d'amend.ink (couche 4) : règles en JavaScript pur, sans dépendance.
-export { identifiantDocument, titreDocument, LANGUE_DOCUMENT_PAR_DEFAUT } from './document.js'
+export { identifiantDocument, titreDocument, nomDeFichier, LANGUE_DOCUMENT_PAR_DEFAUT } from './document.js'
 export { nomPersonne } from './personne.js'
 export { ROLES, BRANCHES, roleEffectif, capacites, accesBranche, peutCommenter } from './droits.js'
 export { typographier, saisie, ESPACE_INSECABLE, ESPACE_FINE } from './typographie.js'
@@ -17,3 +17,5 @@ export {
 export { nomDossier, refusDeplacementDossier, sectionDuDocument, refusRetrait } from './dossiers.js'
 export { refusMembre, refusDepart, peutModifierEquipe, peutGererEquipe, deplacementDocument } from './equipes.js'
 export { listeAdministrateurs, estAdministrateur, numeroDeVersion } from './administration.js'
+export { nfc } from './propre.js'
+export { gabaritTypst, grille, chaineTypst } from './miseEnPage.js'
