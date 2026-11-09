@@ -1,8 +1,8 @@
 #!/bin/bash
-# Déploiement manuel d'une mise à jour sur le serveur de production
-# (VPS, /opt/amend/app, service systemd « amend »). À lancer sur demande
-# explicite uniquement, jamais automatiquement — voir la section 11 du guide
-# de production (claude/serveur-production-collabtext.md).
+# Déploiement d'une mise à jour sur le serveur de production (VPS,
+# /opt/amend/app, service systemd « amend »). Depuis le 09/11/2026 (Sylvain),
+# il est lancé automatiquement après chaque fusion dans main par
+# deploy/auto/maj.sh (minuteur amend-maj) ; il reste utilisable à la main.
 #
 #   ./deploy.sh              déploie, redémarre si server/ ou shared/ ont changé
 #   ./deploy.sh --restart    redémarre dans tous les cas (changement du .env)

@@ -1,5 +1,7 @@
 #!/bin/bash
-# Mise en production, à lancer depuis le Mac (n'importe quel dossier du dépôt) :
+# Mise en production manuelle depuis le Mac, en secours : depuis le 09/11/2026,
+# le VPS se déploie seul après chaque fusion dans main (deploy/auto/).
+# Depuis le Mac (n'importe quel dossier du dépôt) :
 #
 #   ./deploy/deployer.sh              déploie origin/main sur le VPS : la v1, puis la v2
 #   ./deploy/deployer.sh --restart    idem, en redémarrant la v1 dans tous les cas (changement du .env)

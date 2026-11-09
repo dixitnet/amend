@@ -105,6 +105,8 @@ test('requêtes malformées : codes, jamais de plantage', async () => {
   assert.equal((await gros.json()).code, 'requete-trop-grosse')
   assert.equal((await fetch(`${dev}/api/inconnue`)).status, 404)
   assert.equal((await fetch(`${dev}/api/config`, { method: 'DELETE' })).status, 405)
+  // La version en service (le commit), pour vérifier un déploiement de l'extérieur.
+  assert.match((await (await fetch(`${dev}/api/config`)).json()).version, /^[0-9a-f]{7}$/)
 })
 
 test('route interne des droits : jeton exigé, comparé exactement', async () => {
