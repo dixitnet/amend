@@ -15,7 +15,9 @@
     "participants": "{n, plural, =0 {Nobody else} one {# other person} other {# other people}} on this document",
     "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
-    "lectureSeule": "Read only"
+    "lectureSeule": "Read only",
+    "modeSuggestion": "Suggesting",
+    "historique": "History"
   },
   "erreurs": {
     "document-vide": "This document has no name.",
@@ -26,5 +28,16 @@
     "nom-caracteres": "This name contains invisible or control characters.",
     "reseau": "The server is not responding. Check your connection.",
     "document-introuvable": "This document does not exist, or you do not have access to it."
+  },
+  "suggestions": {
+    "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
+    "ajout": "{auteur} adds “{apres}”",
+    "suppression": "{auteur} deletes “{avant}”",
+    "remplacement": "{auteur} replaces “{avant}” with “{apres}”",
+    "auteurInconnu": "Someone",
+    "accepter": "Accept",
+    "refuser": "Reject",
+    "toutAccepter": "Accept all",
+    "toutRefuser": "Reject all"
   }
 }

@@ -8,5 +8,5 @@
     "contrats/**/*.test.js"
   ],
   "project": ["**/*.{js,mjs,jsx}"],
-  "ignoreDependencies": ["axe-core", "lib0"]
+  "ignoreDependencies": ["axe-core"]
 }

@@ -11,7 +11,6 @@ import {
   docTest,
   ouvrir as ouvrirSur,
   attendreTexte,
-  texte,
   attendreEtat,
   donnerRole,
   oublierDocuments,
@@ -159,34 +158,34 @@ test('l’interface suit la langue du navigateur', async () => {
   await ctx.close()
 })
 
-test('droits : un correcteur lit, ne peut pas écrire, et l’interface le lui dit', async () => {
+test('droits : un correcteur ne fait que proposer, et l’interface le lui dit', async () => {
   const doc = docTest('correcteur')
   const p = await ouvrir('Paule', doc)
   const c = await ouvrir('Carl', doc, { role: 'correcteur' })
-  assert.equal(await p.getByText('Lecture seule').count(), 0, 'pas de mention pour la propriétaire')
-  assert.equal(await c.getByText('Lecture seule').count(), 1)
-  assert.equal(await c.getAttribute('.bn-editor', 'contenteditable'), 'false')
+  assert.equal(await p.getByText('Mode suggestion').count(), 0, 'pas de mention pour la propriétaire')
+  assert.equal(await c.getByText('Mode suggestion').count(), 1)
 
   await p.click('.bn-editor')
   await p.keyboard.type('Texte de Paule.')
   await attendreTexte(c, 'Texte de Paule.')
 
-  // Le correcteur tape quand même : l'interface ne bouge pas.
-  await c.click('.bn-inline-content')
-  await c.keyboard.type(' Ajout interdit.')
-  assert.equal(await texte(c), 'Texte de Paule.')
-
-  // Et s'il force l'éditeur (outils de développement), y/hub refuse l'écriture :
-  // rien n'arrive chez la propriétaire ni au rechargement.
-  await c.evaluate(() => document.querySelector('.bn-editor').setAttribute('contenteditable', 'true'))
+  // Le correcteur tape : c'est une suggestion, le texte principal ne bouge pas,
+  // ni chez la propriétaire, ni dans y/hub (relu côté serveur).
   await c.click('.bn-inline-content')
   await c.keyboard.press('End')
-  await c.keyboard.type(' Forcé.')
+  await c.keyboard.type(' Ajout.')
   await attendre(2000)
-  assert.equal(await texte(p), 'Texte de Paule.')
+  assert.ok(await c.$('.bn-editor ins'), 'chez lui, sa frappe est marquée comme suggestion')
+  const principal = await p.evaluate(() => {
+    const copie = document.querySelector('.bn-editor .bn-inline-content').cloneNode(true)
+    copie.querySelectorAll('ins, .ProseMirror-widget').forEach((e) => e.remove())
+    return copie.textContent
+  })
+  assert.equal(principal, 'Texte de Paule.')
   await c.reload()
   await attendreEtat(c, 'Synchronisé')
-  await attendreTexte(c, 'Texte de Paule.')
+  await attendre(1500)
+  assert.ok(await c.$('.bn-editor ins'), 'la suggestion survit au rechargement')
   await p.context().close()
   await c.context().close()
 })

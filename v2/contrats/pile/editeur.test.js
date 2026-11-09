@@ -157,7 +157,7 @@ test('schéma du livre : un HTML collé perd ce que le livre n’a pas, garde le
   await page.context().close()
 })
 
-test('lecture seule : la typographie n’ouvre aucune écriture au correcteur', async () => {
+test('correcteur : sa frappe et son collage restent des suggestions ; le texte principal ne change pas', async () => {
   const doc = docTest('typo-correcteur')
   const p = await ouvrir('Paule', doc)
   await p.click('.bn-editor')
@@ -168,8 +168,15 @@ test('lecture seule : la typographie n’ouvre aucune écriture au correcteur', 
   await c.keyboard.press('End')
   await c.keyboard.type(' "ajout" ?')
   await coller(c, { 'text/plain': 'collé "ici"' })
-  await attendre(1000)
-  assert.equal(await texte(p), 'Texte.')
+  await attendre(1500)
+  // Chez l'éditrice : le texte principal, plus les suggestions marquées comme telles.
+  const principal = await p.evaluate(() => {
+    const copie = document.querySelector('.bn-editor .bn-inline-content').cloneNode(true)
+    copie.querySelectorAll('ins, .ProseMirror-widget').forEach((e) => e.remove())
+    return copie.textContent
+  })
+  assert.equal(principal, 'Texte.')
+  assert.ok(await p.$('.bn-editor ins'), 'la proposition se voit, en suggestion')
   await p.context().close()
   await c.context().close()
 })

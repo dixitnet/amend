@@ -28,7 +28,15 @@ const rendre = (el) => renderToStaticMarkup(h(design.CadreDesign, null, el))
 const echapper = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 test('chaque message de chaque langue se formate (pseudo-langue comprise)', () => {
-  const exemple = { id: 'essai', n: 2, etat: 'connecte', code: 'test' }
+  const exemple = {
+    id: 'essai',
+    n: 2,
+    etat: 'connecte',
+    code: 'test',
+    auteur: 'Carla',
+    avant: 'loin',
+    apres: 'à l’écart',
+  }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
     for (const cle of cles(CATALOGUES[LANGUE_SOURCE])) assert.ok(t(cle, exemple).length > 0, `${l}:${cle}`)
@@ -39,9 +47,10 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
   const fr = creerTraducteur('fr')
   const ps = creerTraducteur('pseudo')
   for (const cle of cles(CATALOGUES[LANGUE_SOURCE]).filter((c) => !c.includes('participants') && !c.includes('etat'))) {
-    const p = ps(cle, { id: 'x', code: 'y' })
+    const valeurs = { id: 'x', code: 'y', n: 2, auteur: 'A', avant: 'b', apres: 'c' }
+    const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
-    assert.ok(p.length >= fr(cle, { id: 'x', code: 'y' }).length * 1.3, cle)
+    assert.ok(p.length >= fr(cle, valeurs).length * 1.3, cle)
   }
 })
 
