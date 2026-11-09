@@ -55,6 +55,14 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
   6. aucune autre action sur la production : pas de `ssh`, pas de compte administrateur.
 - Un refus « cookie refusé » ou 401/403 veut dire qu'il faut renouveler le cookie (Sylvain : fenêtre privée connectée avec le compte de test, outils de développement → Application → Cookies → `collabtext_session`, puis réglages de l'environnement ; fermer la fenêtre sans se déconnecter).
 
+## Tester la v2 en ligne (comptes d'essai de Claude)
+
+- `https://v2.amend.ink` est derrière le mot de passe de Caddy ; le proxy de l'environnement l'ajoute seul.
+- Depuis le 09/11/2026, il n'y a plus d'entrée par un simple nom (`V2_DEV` retiré). Claude entre par `POST /api/essai/session { nom }` : la clé d'essai (`X-Amend-Essai-Token`) est ajoutée par le proxy, et Claude ne la voit jamais. Cette route n'ouvre que des comptes en `@essai.amend.invalid` (« TEST Claude A », « TEST Claude B »…), qui ne reçoivent jamais de courrier.
+- Pour mettre un compte d'essai dans une équipe ou partager avec lui, on utilise son adresse en `@essai.amend.invalid`. Jamais d'invitation vers une vraie adresse.
+- Claude nettoie ce qu'il crée.
+- WebSocket : bloqués par le proxy, donc pas d'essai d'écriture en direct en ligne.
+
 ## Architecture (repères)
 
 - `client/` : Vite + ProseMirror + Yjs (y-prosemirror). `client/src/` : schéma (`schema.js`), suivi des modifications (`trackChanges.js`, marques `ins.tracked-insertion` / `del.tracked-deletion`), barre d'outils (`barreOutils.js`), exports (`exportVariante.js`, `exportCommun.js`, `typstExport.js`, `docxExport.js`, `publicationExport.js`), typographie (`typographie.js`).

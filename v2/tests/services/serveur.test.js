@@ -397,3 +397,33 @@ test('config : la version en service (le commit, ou null hors d’un dépôt git
   const { version } = await (await fetch(`${dev}/api/config`)).json()
   assert.ok(version === null || /^[0-9a-f]{7}$/.test(version), String(version))
 })
+
+test('comptes d’essai : seulement avec la clé (assez longue), seulement en @essai.amend.invalid', async () => {
+  const CLE = 'e'.repeat(40)
+  const enLigne = await demarrer({ dev: false, jetonEssai: CLE })
+  const courte = await demarrer({ dev: false, jetonEssai: 'court' })
+  const essai = (base, entetes = {}) =>
+    fetch(`${base}/api/essai/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...entetes },
+      body: JSON.stringify({ nom: 'Essai A' }),
+    })
+  assert.equal((await essai(enLigne)).status, 404, 'sans jeton fourni, la route n’existe pas')
+  assert.equal((await essai(enLigne, { 'x-amend-essai-token': 'f'.repeat(40) })).status, 404)
+  assert.equal((await essai(courte, { 'x-amend-essai-token': 'court' })).status, 404, 'clé trop courte : fermé')
+  assert.equal((await essai(prod, { 'x-amend-essai-token': CLE })).status, 404, 'sans clé configurée : fermé')
+  const r = await essai(enLigne, { 'x-amend-essai-token': CLE })
+  assert.equal(r.status, 200)
+  const corps = await r.json()
+  assert.match(corps.courriel, /@essai\.amend\.invalid$/)
+  const cookie = r.headers.get('set-cookie').split(';')[0]
+  const moi = await (await fetch(`${enLigne}/api/moi`, { headers: { cookie } })).json()
+  assert.equal(moi.nom, 'Essai A')
+  // L'entrée par un simple nom reste fermée hors développement.
+  const dev = await fetch(`${enLigne}/api/dev/session`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ nom: 'X' }),
+  })
+  assert.equal(dev.status, 404)
+})

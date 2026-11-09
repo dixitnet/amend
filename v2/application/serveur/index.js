@@ -31,6 +31,9 @@ const confDepuisEnv = () => ({
   // (sinon les sessions sauteraient à chaque redémarrage, sans alerte).
   secret: process.env.V2_SECRET || (process.env.V2_DEV === '1' ? randomBytes(32).toString('hex') : ''),
   jetonInterne: process.env.V2_JETON_INTERNE || '',
+  // Comptes d'essai de Claude (09/11/2026) : la clé ouvre /api/essai/session,
+  // et seulement pour des comptes en @essai.amend.invalid ; vide : fermé.
+  jetonEssai: process.env.V2_JETON_ESSAI || '',
   dev: process.env.V2_DEV === '1',
   // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
   cookieSecure: process.env.V2_COOKIE_SECURE === '1',
@@ -49,6 +52,10 @@ const confDepuisEnv = () => ({
     process.env.V2_POSTGRES ||
     (process.env.V2_DEV === '1' ? 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub' : ''),
 })
+
+/** Les comptes d'essai de Claude (adresses qui ne reçoivent jamais de courrier). */
+const DOMAINE_ESSAI = 'essai.amend.invalid'
+const LONGUEUR_MIN_CLE_ESSAI = 32
 
 /** Comparaison à temps constant du jeton interne. */
 function jetonValide(attendu, recu) {
@@ -164,6 +171,23 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
       const p = await comptes.personneOuNouvelle(courriel)
       await comptes.definirNom(p.id, r.nom)
       json(res, 200, { id: p.id, nom: r.nom }, { 'set-cookie': cookieDeSession({ id: p.id, nom: r.nom }) })
+    },
+    // Comptes d'essai de Claude, en ligne sans V2_DEV (Sylvain, 09/11/2026) :
+    // une personne par nom, seulement en @essai.amend.invalid (jamais un vrai
+    // compte, jamais de courrier), sur présentation de la clé d'essai (au
+    // moins 32 signes, comparée à temps constant). Sans clé, la route n'existe pas.
+    'POST /api/essai/session': async (req, res) => {
+      const cle = String(CONF.jetonEssai || '')
+      if (cle.length < LONGUEUR_MIN_CLE_ESSAI || !jetonValide(cle, req.headers['x-amend-essai-token']))
+        return json(res, 404, { code: 'introuvable' })
+      const { nom } = await lireCorps(req)
+      const r = nomPersonne(nom)
+      if (!r.ok) return json(res, 400, { code: r.code })
+      const courriel = `${Buffer.from(r.nom.toLowerCase()).toString('hex')}@${DOMAINE_ESSAI}`
+      const p = await comptes.personneOuNouvelle(courriel)
+      await comptes.definirNom(p.id, r.nom)
+      console.log(`[essai] session d'essai pour « ${r.nom} »`)
+      json(res, 200, { id: p.id, nom: r.nom, courriel }, { 'set-cookie': cookieDeSession({ id: p.id, nom: r.nom }) })
     },
     // Mes droits sur un document. Document inconnu et document sans accès se
     // confondent (404) : on ne révèle pas qu'un document existe. Une personne

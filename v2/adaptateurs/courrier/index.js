@@ -34,6 +34,13 @@ export function creerCourrier({ cle, domaine, expediteur }) {
     envoyes,
     /** @param {{ a: string, sujet: string, texte: string, html: string }} m */
     async envoyer(m) {
+      // Une adresse en .invalid (comptes de développement et d'essai) ne reçoit
+      // jamais rien, même avec une clé : rien ne part vers Mailgun.
+      if (/\.invalid$/i.test(String(m.a).trim())) {
+        envoyes.push(m)
+        console.log(`[courrier] (non envoyé : adresse d'essai) : ${m.sujet}`)
+        return
+      }
       if (!cle || !domaine) {
         envoyes.push(m)
         console.log(`[courrier] (non envoyé) à ${m.a} : ${m.sujet}\n${m.texte}`)
