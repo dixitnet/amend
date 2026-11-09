@@ -153,7 +153,7 @@ test('l’interface suit la langue du navigateur', async () => {
   const page = await ctx.newPage()
   await page.goto(pile.url)
   await page.waitForSelector('input[name=nom]')
-  assert.equal(await page.textContent('h1'), 'Development sign-in')
+  assert.equal(await page.textContent('h2'), 'Development sign-in')
   assert.equal(await page.getAttribute('html', 'lang'), 'en')
   await ctx.close()
 })

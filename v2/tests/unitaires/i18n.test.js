@@ -30,6 +30,10 @@ test('aucun texte d’attente, aucune recopie du français hors exceptions', () 
     }
 })
 
+test('le nom « amend.ink » ne se traduit jamais (règle 24)', () => {
+  for (const l of LANGUES) assert.equal(valeur(CATALOGUES[l], 'application.nom'), 'amend.ink', l)
+})
+
 test('le pluriel et les paramètres nommés passent par ICU', () => {
   const t = creerTraducteur('fr')
   assert.equal(t('document.participants', { n: 0 }), 'Personne d’autre sur ce document')
