@@ -32,11 +32,19 @@ export function titresDe(blocs) {
   return titres
 }
 
+/** Le haut de la zone visible : sous le bandeau fixe de la page, s'il y en a un
+ * (un titre caché dessous n'est ni courant, ni la cible d'un défilement). */
+function hautVisible() {
+  const bandeau = document.querySelector('body header')
+  return bandeau && getComputedStyle(bandeau).position === 'fixed' ? bandeau.getBoundingClientRect().bottom : 0
+}
+
 /** Le premier titre encore visible en haut de l'écran (comme Docs), sinon le premier. */
 export function titreCourant(racine, titres) {
+  const haut = hautVisible()
   for (const t of titres) {
     const el = racine?.querySelector(`[data-id="${CSS.escape(t.cle)}"]`)
-    if (el && el.getBoundingClientRect().top > 0) return t.cle
+    if (el && el.getBoundingClientRect().top >= haut) return t.cle
   }
   return titres[0]?.cle ?? null
 }
@@ -48,16 +56,18 @@ export function titreCourant(racine, titres) {
 export function allerAuTitre(editeur, cle, { focaliser }) {
   if (focaliser) editeur.focus()
   editeur.setTextCursorPosition(cle, 'end')
-  editeur.domElement
-    ?.querySelector(`[data-id="${CSS.escape(cle)}"]`)
-    ?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  const el = editeur.domElement?.querySelector(`[data-id="${CSS.escape(cle)}"]`)
+  if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - hautVisible(), behavior: 'smooth' })
 }
 
 /**
  * Passer de la lecture à la modification au point touché, dans le geste
  * même (sinon un écran tactile n'ouvre pas le clavier) : l'éditeur devient
  * modifiable, prend le focus, et le curseur est posé par la sélection du
- * navigateur à l'endroit touché (ProseMirror la reprend).
+ * navigateur à l'endroit touché (ProseMirror la reprend). L'écriture directe
+ * de `isEditable` précède la propriété `editable` de BlockNoteView, que
+ * l'appelant met à jour dans le même geste (état React) : les deux disent
+ * alors la même chose au rendu suivant.
  */
 export function modifierAuPoint(editeur, x, y) {
   editeur.isEditable = true

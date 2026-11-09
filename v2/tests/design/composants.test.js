@@ -144,30 +144,6 @@ test('l’icône de l’onglet reprend le dessin de référence, qui ne contient
 
 // Étape 6b : la coquille des formats M et L (docs/v2-formats-M-L.md).
 const rien = () => {}
-// Les textes de l'interface n'entrent au catalogue qu'avec l'application qui
-// s'en sert (lot « Application » de l'étape 6b) : ici, en clair.
-const INTERFACE = {
-  voletGauche: 'Plan et documents',
-  voletDroit: 'Modifications et Margo (IA)',
-  autresActions: 'Autres actions',
-  compte: 'Mon compte',
-  presence: 'Personnes sur ce document',
-  terminer: 'Terminer',
-  plan: 'Plan',
-  documents: 'Documents',
-  planVide: 'Ce document n’a pas encore de titre.',
-  relecture: 'Relecture',
-  modifications: 'Modifications',
-  margo: 'Margo (IA)',
-  margoBientot: 'Margo arrive bientôt ici.',
-  horsLigne: 'Hors ligne : vos modifications sont gardées et partiront au retour de la connexion.',
-  largeurVolet: 'Largeur du volet',
-  copierLien: 'Copier le lien',
-  fermer: 'Fermer',
-  valider: 'Valider',
-  annuler: 'Annuler',
-}
-const I = (cle) => INTERFACE[cle.slice('interface.'.length)]
 function coquilleDocument(t, { droite = true } = {}) {
   return h(
     design.Coquille,
@@ -175,38 +151,38 @@ function coquilleDocument(t, { droite = true } = {}) {
       connexion: 'connecte',
       gaucheOuvert: true,
       droiteOuvert: droite,
-      libelleRedimension: I('interface.largeurVolet'),
-      alerte: h(design.AlerteHorsLigne, { texte: I('interface.horsLigne') }),
+      libelleRedimension: t('interface.largeurVolet'),
+      alerte: h(design.AlerteHorsLigne, { texte: t('interface.horsLigne') }),
       bandeau: h(design.Bandeau, {
-        voletGauche: { libelle: I('interface.voletGauche'), ouvert: true, surClic: rien },
+        voletGauche: { libelle: t('interface.voletGauche'), ouvert: true, surClic: rien },
         titre: 'La gare',
         mention: t('document.modeSuggestion'),
-        terminer: { libelle: I('interface.terminer'), surClic: rien },
-        presence: { libelle: I('interface.presence'), personnes: [{ cle: 'c', nom: 'Claire Martin' }] },
+        terminer: { libelle: t('interface.terminer'), surClic: rien },
+        presence: { libelle: t('interface.presence'), personnes: [{ cle: 'c', nom: 'Claire Martin' }] },
         partager: { libelle: t('document.partager'), surClic: rien },
         actions: {
-          libelle: I('interface.autresActions'),
-          elements: [{ cle: 'lien', libelle: I('interface.copierLien'), picto: 'lien', surClic: rien }],
+          libelle: t('interface.autresActions'),
+          elements: [{ cle: 'lien', libelle: t('interface.copierLien'), picto: 'lien', surClic: rien }],
         },
-        compte: { libelle: I('interface.compte'), nom: 'Sylvain', courriel: 's@exemple.fr', actions: [] },
-        voletDroit: { libelle: I('interface.voletDroit'), nombre: 3, ouvert: droite, surClic: rien },
+        compte: { libelle: t('interface.compte'), nom: 'Sylvain', courriel: 's@exemple.fr', actions: [] },
+        voletDroit: { libelle: t('interface.voletDroit'), nombre: 3, ouvert: droite, surClic: rien },
       }),
       voletGauche: h(design.VoletPlanDocuments, {
         marque: { nom: 'amend.ink', href: '#' },
-        onglets: { plan: I('interface.plan'), documents: I('interface.documents') },
+        onglets: { plan: t('interface.plan'), documents: t('interface.documents') },
         plan: [
           { cle: 'a', niveau: 2, libelle: '1. La fin de l’étalement', actif: true },
           { cle: 'b', niveau: 3, libelle: 'La chronotopie' },
         ],
         surTitre: rien,
-        videPlan: I('interface.planVide'),
+        videPlan: t('interface.planVide'),
         documents: [{ cle: 'd', nom: 'Réparons la ville', href: '#/d', actif: true }],
       }),
       voletDroit: h(design.VoletRelecture, {
-        titre: I('interface.relecture'),
-        onglets: { modifications: I('interface.modifications'), margo: I('interface.margo') },
+        titre: t('interface.relecture'),
+        onglets: { modifications: t('interface.modifications'), margo: t('interface.margo') },
         modifications: h('div', { id: 'suggestions' }),
-        margo: h(design.TexteDeVolet, { texte: I('interface.margoBientot') }),
+        margo: h(design.TexteDeVolet, { texte: t('interface.margoBientot') }),
       }),
     },
     h(design.ColonneTexte, null, h('div', { id: 'editeur' })),
@@ -231,7 +207,7 @@ test('coquille d’un document : bandeau, volets, alerte et texte, dans chaque l
       'interface.margo',
       'interface.horsLigne',
     ])
-      assert.ok(html.includes(echapper(I(cle))), `${l} : ${cle}`)
+      assert.ok(html.includes(echapper(t(cle))), `${l} : ${cle}`)
     assert.match(html, /<header[\s\S]*<h1[^>]*>La gare<\/h1>/, 'le titre du document est dans le bandeau')
     assert.match(html, /<nav[\s\S]*amend-picto/, 'le volet gauche porte la marque')
     assert.match(html, /<aside/, 'volet droit')
@@ -251,11 +227,11 @@ test('coquille de la liste : sans volet droit ; navigation et nouveau document',
       design.Coquille,
       {
         gaucheOuvert: true,
-        libelleRedimension: I('interface.largeurVolet'),
+        libelleRedimension: t('interface.largeurVolet'),
         bandeau: h(design.Bandeau, {
-          voletGauche: { libelle: I('interface.voletGauche'), ouvert: true, surClic: rien },
+          voletGauche: { libelle: t('interface.voletGauche'), ouvert: true, surClic: rien },
           titre: t('documents.mesDocuments'),
-          compte: { libelle: I('interface.compte'), nom: 'Sylvain', actions: [] },
+          compte: { libelle: t('interface.compte'), nom: 'Sylvain', actions: [] },
         }),
         voletGauche: h(design.NavigationListe, {
           marque: { nom: 'amend.ink', href: '#' },
@@ -284,5 +260,4 @@ test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rie
     }),
   )
   assert.doesNotMatch(html, /<script>|<b>/)
-  assert.ok(I('interface.fermer'))
 })

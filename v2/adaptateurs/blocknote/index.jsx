@@ -101,7 +101,8 @@ export function EditeurCollaboratif({
       collaboration: {
         fragment: contexte.fragment,
         provider: contexte.fournisseur,
-        user: { name: personne.nom, color: personne.couleur },
+        // L'identifiant de la personne : la présence compte les personnes, pas les noms.
+        user: { name: personne.nom, color: personne.couleur, id: personne.id },
         resolveUsers: nomsDe,
         ...(afficheur ? { suggestionDoc: contexte.suggestions.doc, renderer: afficheur } : null),
       },
