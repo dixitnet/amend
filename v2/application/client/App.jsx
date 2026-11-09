@@ -101,6 +101,7 @@ export function App() {
   if (etat.phase === 'nom')
     return (
       <EcranConnexion
+        nomApplication={t('application.nom')}
         titre={t('nom.titre')}
         explication={t('nom.explication')}
         libelleNom={t('nom.nom')}
@@ -131,6 +132,7 @@ function Connexion({ config, visee, surEntrerEnDev }) {
   }
   const dev = config.dev ? (
     <EcranConnexion
+      nomApplication={t('application.nom')}
       titre={t('connexion.dev.titre')}
       explication={t('connexion.dev.explication')}
       libelleNom={t('connexion.dev.nom')}
@@ -142,6 +144,7 @@ function Connexion({ config, visee, surEntrerEnDev }) {
     <>
       {dev}
       <EcranCourriel
+        nomApplication={config.dev ? null : t('application.nom')}
         titre={t('connexion.titre')}
         explication={t('connexion.explication')}
         libelleCourriel={t('connexion.courriel')}
@@ -178,6 +181,7 @@ function MesDocuments() {
   }
   return (
     <ListeDocuments
+      nomApplication={t('application.nom')}
       titre={t('documents.titre')}
       libelleNouveau={t('documents.nouveau')}
       filtres={[
@@ -383,6 +387,7 @@ function Edition({ config, personne, docId, droits }) {
   }
   return (
     <PageEdition
+      nomApplication={t('application.nom')}
       titre={t('document.titre', { id: docId })}
       etat={t('document.etat', { etat: connexion })}
       participants={t('document.participants', { n: autres })}

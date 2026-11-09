@@ -2,13 +2,15 @@
 // moi, partagés avec moi) et la création d'un document. Mantine sans réglage ;
 // textes traduits ; chaque document est un lien vers son adresse.
 import { Container, Stack, Group, Title, Text, Button, SegmentedControl, Table, Anchor } from '@mantine/core'
+import { Marque } from './Picto.jsx'
 
 /**
  * @param {{ titre: string, libelleNouveau: string, filtres: Array<{ value: string, label: string }>, filtre: string,
  *   colonnes: { titre: string, role: string, date: string }, documents: Array<{ id: string, titre: string, role: string, date: string }>,
- *   vide: string, actions?: any, surFiltre: (f: string) => void, surNouveau: () => void }} p
+ *   vide: string, actions?: any, nomApplication?: string, surFiltre: (f: string) => void, surNouveau: () => void }} p
  */
 export function ListeDocuments({
+  nomApplication,
   titre,
   libelleNouveau,
   filtres,
@@ -23,6 +25,11 @@ export function ListeDocuments({
   return (
     <Container>
       <Stack>
+        {nomApplication ? (
+          <Text component="div">
+            <Marque nom={nomApplication} />
+          </Text>
+        ) : null}
         <Group>
           <Title order={1}>{titre}</Title>
           <Button onClick={surNouveau}>{libelleNouveau}</Button>

@@ -130,3 +130,26 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
     assert.doesNotMatch(c, /-(gray|dark)-/)
   }
 })
+
+test('la marque (picto décoratif et nom) en haut de page et sur l’écran de connexion', () => {
+  const page = rendre(h(design.PageEdition, { nomApplication: 'amend.ink', titre: 'x', editeur: null }))
+  assert.match(page, /<header[\s\S]*class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink[\s\S]*<h1/)
+  const connexion = rendre(
+    h(design.EcranConnexion, { nomApplication: 'amend.ink', titre: 'Connexion', surEntrer: () => {} }),
+  )
+  assert.match(connexion, /<h1[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/h1>/)
+  assert.match(connexion, /<h2[^>]*>Connexion<\/h2>/, 'le titre de l’écran passe au niveau 2 sous la marque')
+  const sans = rendre(h(design.PageEdition, { titre: 'x', editeur: null }))
+  assert.doesNotMatch(sans, /amend-picto/, 'sans nom, pas de marque')
+})
+
+test('l’icône de l’onglet reprend le dessin de référence, qui ne contient que du dessin', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const lire = (f) => readFile(`${V2}design/picto/${f}`, 'utf8')
+  const reference = await lire('amend-ink.svg')
+  assert.equal((await lire('favicon.svg')).replace('#2f9e44', 'currentColor'), reference)
+  // Le picto est injecté tel quel dans la page (Picto.jsx) : ni script, ni
+  // attribut d'événement, ni contenu étranger, ni lien.
+  assert.doesNotMatch(reference, /<script|<foreignObject|\son\w+=|href=|<style/i)
+  // apple-touch-icon.png (binaire, rendu par Chromium) n'est pas contrôlé ici.
+})

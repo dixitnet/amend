@@ -118,6 +118,9 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'heading',
     'heading_2',
     'heading_3',
+    // Titres 4 et 5 remis par Sylvain (09/11/2026, journal).
+    'heading_4',
+    'heading_5',
     'quote',
     'bullet_list',
     'numbered_list',
@@ -127,7 +130,7 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
   ])
     assert.ok(tout.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
   for (const cle of [
-    'heading_4',
+    'heading_6',
     'toggle_heading',
     'check_list',
     'toggle_list',
