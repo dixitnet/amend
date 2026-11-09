@@ -18,7 +18,6 @@
     }
   },
   "document": {
-    "titre": "Document {id}",
     "participants": "{n, plural, =0 {Nobody else} one {# other person} other {# other people}} on this document",
     "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
@@ -28,7 +27,9 @@
     "mesDocuments": "My documents",
     "partager": "Share",
     "supprimer": "Delete",
-    "confirmerSuppression": "Delete this document for everyone, permanently?"
+    "confirmerSuppression": "Delete this document for everyone, permanently?",
+    "renommer": "Rename",
+    "nomDuDocument": "Document title"
   },
   "erreurs": {
     "document-vide": "This document has no name.",
@@ -186,5 +187,17 @@
     "essai": "Test and development accounts",
     "documents": "Documents",
     "equipes": "Teams"
+  },
+  "telephone": {
+    "planEtDocuments": "Outline and documents",
+    "relecture": "Review",
+    "autresActions": "More actions",
+    "terminer": "Done",
+    "plan": "Outline",
+    "documents": "Documents",
+    "modifications": "Changes",
+    "copierLien": "Copy link",
+    "tousLesDocuments": "All documents",
+    "planVide": "No heading in this document."
   }
 }

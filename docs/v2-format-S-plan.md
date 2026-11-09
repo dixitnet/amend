@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'implémentation du format S (téléphone)
 
-Statut : **à arbitrer** (09/11/2026). Sylvain a demandé l'implémentation : cela lève le renoncement n° 4 (« format S plus tard »). Le développement commence après les réponses aux questions.
+Statut : **arbitré** (« ok pour tout », Sylvain, 09/11/2026) et **développé**. L'implémentation lève le renoncement n° 4 (« format S plus tard »).
 
 Références :
 - `docs/v2-format-S.md` (maquette validée, ce que fait Docs) ;
@@ -74,3 +74,23 @@ Proposition : **1**, sur ta décision des valeurs.
 2. Design : bandeau, tiroirs, menu « … », listes empilées, feuille du format S (lots `v2/design/` seuls).
 3. Application : bascule selon la largeur, passage lecture et modification (appui, « Terminer », fermeture du clavier), contenu des volets (plan, documents, modifications).
 4. Tests sur la pile en largeur de téléphone (Chromium émulant un iPhone), audit partiel, puis essai sur ton vrai téléphone.
+
+## Avancement (09/11/2026)
+
+- **Seuil** : `useFormatS()` (`v2/design/formats.js`), sous le seuil `sm` de Mantine (48 em, 768 px), le même que Docs (`MOBILE_BREAKPOINT`).
+- **Icônes** : `@tabler/icons-react` 3.51.0, comme la maquette, permis à la seule couche design (lint).
+- **Écran du document** (`PageEditionS`) :
+  - bandeau fixe : plan et documents, titre, « Terminer » en modification, menu « … », relecture tout à droite ;
+  - ouverture en lecture ; un appui sur le texte passe en modification ; retour par « Terminer » ou à la fermeture du clavier ;
+  - volet gauche : Plan (titres du document, un appui y mène) et Documents ;
+  - volet droit : Modifications, pour qui accepte ou refuse les suggestions ;
+  - menu « … » : Copier le lien, Partager, Mes documents, Supprimer. Pas d'historique, **comme Docs sur téléphone** (`DocToolBox.tsx`) ; écart avec la première version du plan, qui le mettait dans le menu ;
+  - partage en plein écran.
+- **Titre modifiable** (4.1), dans tous les formats : `PUT /api/documents/:doc/titre`, pour qui écrit le texte ; un appui sur le titre du bandeau en format S, un bouton « Renommer » en L et M ; le titre remplace « Document <identifiant> ».
+- **Listes en format S** : fiches empilées au lieu du tableau, liste déroulante au lieu des onglets.
+- **Taille des titres** (6.1) : valeurs de Docs à 560 px et moins.
+- **Réglages** (ADR 0008) : `theme.components.ActionIcon.defaultProps.variant`, `css.telephone.bandeau`, `css.telephone.plan` et `css.telephone.titres`.
+- **Tests** : `contrats/pile/telephone.test.js`, Chromium à la taille d'un iPhone, 3 parcours ; 177 tests rapides.
+- **Reste à faire** :
+  - essai sur un vrai téléphone, par Sylvain, en particulier la fermeture du clavier, qui n'a pas été essayée en vrai ;
+  - Margo, Exporter, Dupliquer et Imprimer, chacun à son étape.

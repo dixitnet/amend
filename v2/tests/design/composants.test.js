@@ -81,7 +81,7 @@ test('page d’édition : tous ses textes s’affichent, dans chaque langue, ave
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
     const textes = {
-      titre: t('document.titre', { id: 'essai' }),
+      titre: t('documents.sansTitre'),
       etat: t('document.etat', { etat: 'connecte' }),
       participants: t('document.participants', { n: 2 }),
     }
