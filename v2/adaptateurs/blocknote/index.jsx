@@ -41,6 +41,13 @@ function Palette() {
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
+ * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
+ *   sur le texte passe en modification (curseur à l'endroit touché)
+ * @param {{ current: { terminer: () => void } | null }} [p.controle]  reçoit
+ *   `terminer()` (bouton « Terminer » du bandeau)
+ * @param {(enModification: boolean) => void} [p.surModification]
+ * @param {(plan: { titres: Array<{ id: string, niveau: number, texte: string }>, allerA: (id: string) => void }) => void} [p.surPlan]
+ *   rappelé avec les titres du document à chaque changement ; doit être stable
  */
 export function EditeurCollaboratif({
   contexte,
@@ -55,6 +62,10 @@ export function EditeurCollaboratif({
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
+  lectureAuDepart = false,
+  controle,
+  surModification,
+  surPlan,
 }) {
   const suggerer = mode === 'suggerer'
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
@@ -144,10 +155,85 @@ export function EditeurCollaboratif({
     }
   }, [editeur, afficheur, suggerer, surSuggestions])
 
-  return (
-    <BlockNoteView editor={editeur} editable={mode !== 'lire' && !historique} formattingToolbar={false}>
+  // Le plan : les titres du document, tenus à jour (volet gauche du format S).
+  useEffect(() => {
+    if (!surPlan) return
+    const allerA = (id) =>
+      editeur.domElement?.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'start' })
+    const signaler = () =>
+      surPlan({
+        titres: editeur.document
+          .filter((b) => b.type === 'heading')
+          .map((b) => ({
+            id: b.id,
+            niveau: b.props.level,
+            texte: (b.content ?? []).map((c) => c.text ?? '').join(''),
+          })),
+        allerA,
+      })
+    signaler()
+    return editeur.onChange(signaler)
+  }, [editeur, surPlan])
+
+  // Format S : lecture à l'ouverture, modification d'un appui sur le texte.
+  // Tout se fait dans le geste même (sinon le téléphone n'ouvre pas le
+  // clavier) ; la propriété `editable` de BlockNoteView reste à `false` et l'on
+  // bascule l'éditeur directement (maquette validée, docs/v2-format-S.md).
+  const appui = lectureAuDepart && mode !== 'lire' && !historique
+  const [enModification, setEnModification] = useState(false)
+  useEffect(() => surModification?.(enModification), [enModification, surModification])
+  const terminer = () => {
+    if (!editeur.isEditable) return
+    editeur.isEditable = false
+    editeur.prosemirrorView?.dom.blur()
+    setEnModification(false)
+  }
+  useEffect(() => {
+    if (controle) controle.current = { terminer }
+  })
+  const commencer = (evenement) => {
+    if (!appui || editeur.isEditable) return
+    editeur.isEditable = true
+    editeur.prosemirrorView?.focus()
+    // Le curseur à l'endroit touché : par la sélection du navigateur, que
+    // l'éditeur relit (sans importer ProseMirror hors de ses points
+    // d'extension, règle 1 ; audit du 09/11/2026).
+    const plage = document.caretPositionFromPoint
+      ? (() => {
+          const p = document.caretPositionFromPoint(evenement.clientX, evenement.clientY)
+          if (!p) return null
+          const r = document.createRange()
+          r.setStart(p.offsetNode, p.offset)
+          return r
+        })()
+      : document.caretRangeFromPoint?.(evenement.clientX, evenement.clientY)
+    if (plage && editeur.domElement?.contains(plage.startContainer)) {
+      plage.collapse(true)
+      const s = window.getSelection()
+      s.removeAllRanges()
+      s.addRange(plage)
+    }
+    setEnModification(true)
+  }
+  // Retour en lecture quand le clavier se ferme : la zone visible
+  // (visualViewport) retrouve sa hauteur après avoir rétréci.
+  useEffect(() => {
+    const zone = window.visualViewport
+    if (!zone || !enModification) return
+    let clavierOuvert = false
+    const surRedimension = () => {
+      if (zone.height < window.innerHeight * 0.8) clavierOuvert = true
+      else if (clavierOuvert) terminer()
+    }
+    zone.addEventListener('resize', surRedimension)
+    return () => zone.removeEventListener('resize', surRedimension)
+  }, [enModification])
+
+  const vue = (
+    <BlockNoteView editor={editeur} editable={appui ? false : mode !== 'lire' && !historique} formattingToolbar={false}>
       <FormattingToolbarController formattingToolbar={Palette} />
       {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
     </BlockNoteView>
   )
+  return appui ? <div onClick={commencer}>{vue}</div> : vue
 }

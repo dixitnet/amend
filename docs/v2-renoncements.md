@@ -6,7 +6,7 @@ Règle 9 de `docs/v2-regles-developpement.md` : chaque fonction ou principe de l
 |---|---|---|---|---|
 | 1 | 07/11/2026 | Migration des documents de la v1 | décision de Sylvain : la v2 démarre avec des documents neufs | — |
 | 2 | 07/11/2026 | Fork de Docs, et OIDC | rythme de l'amont, exploitation lourde (ADR 0001, 0005) | organisations clientes dotées d'un fournisseur d'identité |
-| 4 | 08/11/2026 | Format S (iPhone) dans les premières étapes | le design vise L (Mac) et M (iPad) ; un développement spécifique au téléphone viendra plus tard, avec des compromis fonctionnels forts (décision de Sylvain) | l'étape dédiée au format S |
+| 4 | 08/11/2026 | Format S (iPhone) dans les premières étapes | le design vise L (Mac) et M (iPad) ; un développement spécifique au téléphone viendra plus tard, avec des compromis fonctionnels forts (décision de Sylvain) | **levé le 09/11/2026** : implémentation demandée par Sylvain (`docs/v2-format-S-plan.md`) |
 | 3 | 07/11/2026 | Structures composées du schéma v1 (citation de plusieurs paragraphes, liste à paragraphes multiples) | modèle par blocs de BlockNote (ADR 0003) | BlockNote qui offrirait des conteneurs |
 | 5 | 08/11/2026 | Table des matières comme bloc du texte | produite à l'export (Typst) et dans le volet « Plan » ; un bloc à tenir à jour dans le texte est du code à nous (décision de Sylvain, étape 4) | un besoin d'édition qui exige la table dans le texte même |
 | 6 | 08/11/2026 | Styles de paragraphe personnalisés | les blocs de BlockNote suffisent au livre (décision de Sylvain, étape 4) | un besoin éditorial que les blocs ne couvrent pas |

@@ -18,7 +18,6 @@
     }
   },
   "document": {
-    "titre": "Document {id}",
     "participants": "{n, plural, =0 {Personne d’autre} one {# autre personne} other {# autres personnes}} sur ce document",
     "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
     "zoneEdition": "Texte du document {id}",
@@ -28,7 +27,9 @@
     "mesDocuments": "Mes documents",
     "partager": "Partager",
     "supprimer": "Supprimer",
-    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement ?"
+    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement ?",
+    "renommer": "Renommer",
+    "nomDuDocument": "Titre du document"
   },
   "erreurs": {
     "document-vide": "Ce document n’a pas de nom.",
@@ -186,5 +187,18 @@
     "essai": "Comptes d’essai et de développement",
     "documents": "Documents",
     "equipes": "Équipes"
+  },
+  "telephone": {
+    "planEtDocuments": "Plan et documents",
+    "relecture": "Relecture",
+    "autresActions": "Autres actions",
+    "terminer": "Terminer",
+    "plan": "Plan",
+    "documents": "Documents",
+    "modifications": "Modifications",
+    "copierLien": "Copier le lien",
+    "planVide": "Aucun titre dans ce document.",
+    "lienCopie": "Lien copié.",
+    "lienNonCopie": "Le lien n’a pas pu être copié : {lien}"
   }
 }

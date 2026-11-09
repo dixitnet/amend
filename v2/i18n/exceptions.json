@@ -1,3 +1,10 @@
 {
-  "identiques": ["application.nom", "document.titre", "admin.titre", "admin.version", "admin.node", "admin.documents"]
+  "identiques": [
+    "application.nom",
+    "admin.titre",
+    "admin.version",
+    "admin.node",
+    "admin.documents",
+    "telephone.documents"
+  ]
 }

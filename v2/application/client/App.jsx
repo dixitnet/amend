@@ -12,6 +12,10 @@ import {
   PageAdministration,
   PanneauPartage,
   PanneauSuggestions,
+  PageEditionS,
+  PlanDocument,
+  ListeLiens,
+  useFormatS,
   BoutonBascule,
   Bouton,
   Choix,
@@ -701,6 +705,29 @@ function Edition({ config, personne, docId, droits }) {
   const [noms, setNoms] = useState({})
   const [historique, setHistorique] = useState(false)
   const [partage, setPartage] = useState(false)
+  const [titre, setTitre] = useState(droits.titre ?? null)
+  const formatS = useFormatS()
+  const [volet, setVolet] = useState(null)
+  const [enModification, setEnModification] = useState(false)
+  const [plan, setPlan] = useState({ titres: [], allerA: () => {} })
+  const [documents, setDocuments] = useState(null)
+  const controle = useRef(null)
+  const renommer = async () => {
+    const nom = window.prompt(t('document.nomDuDocument'), titre ?? '')
+    if (nom === null) return
+    try {
+      setTitre((await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/titre`, { titre: nom })).titre)
+    } catch (e) {
+      window.alert(messageErreur(t, e.code || 'reseau'))
+    }
+  }
+  // Format S : la liste des documents du volet gauche, chargée à son ouverture.
+  useEffect(() => {
+    if (volet !== 'gauche') return
+    envoyerJson('GET', '/api/documents')
+      .then((d) => setDocuments(d.documents))
+      .catch(() => setDocuments([]))
+  }, [volet])
   const supprimer = async () => {
     if (!window.confirm(t('document.confirmerSuppression'))) return
     try {
@@ -731,15 +758,153 @@ function Edition({ config, personne, docId, droits }) {
     if (s.type === 'suppression') return t('suggestions.suppression', v)
     return t('suggestions.remplacement', v)
   }
+  const mention = { ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
+  const panneauSuggestions = suggestions ? (
+    <PanneauSuggestions
+      titre={t('suggestions.titre', { n: suggestions.liste.length })}
+      lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
+      libelles={{
+        accepter: t('suggestions.accepter'),
+        refuser: t('suggestions.refuser'),
+        toutAccepter: t('suggestions.toutAccepter'),
+        toutRefuser: t('suggestions.toutRefuser'),
+      }}
+      surAccepter={(i) => suggestions.accepter(suggestions.liste[i])}
+      surRefuser={(i) => suggestions.refuser(suggestions.liste[i])}
+      surToutAccepter={suggestions.toutAccepter}
+      surToutRefuser={suggestions.toutRefuser}
+    />
+  ) : null
+  const editeur = (
+    <EditeurCollaboratif
+      contexte={session.contexte}
+      personne={moi}
+      langue={t.langue}
+      langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
+      nomAccessible={t('document.zoneEdition', { id: docId })}
+      mode={mode}
+      nomsDe={nomsDe}
+      commentaires={commentaires}
+      surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+      historique={historique && !formatS}
+      peutRestaurer={caps.includes('restaurer')}
+      surFermerHistorique={() => setHistorique(false)}
+      lectureAuDepart={formatS}
+      controle={controle}
+      surModification={setEnModification}
+      surPlan={formatS ? setPlan : undefined}
+    />
+  )
+  const titreAffiche = titre || t('documents.sansTitre')
+  const peutRenommer = caps.includes('ecrire')
+
+  // Format S (téléphone) : la maquette validée (docs/v2-format-S.md). Comme
+  // Docs sur téléphone, pas d'historique dans le menu.
+  if (formatS)
+    return (
+      <PageEditionS
+        titre={titreAffiche}
+        surTitre={peutRenommer ? renommer : undefined}
+        libelles={{
+          gauche: t('telephone.planEtDocuments'),
+          droite: t('telephone.relecture'),
+          actions: t('telephone.autresActions'),
+          terminer: t('telephone.terminer'),
+          titre: t('document.renommer'),
+        }}
+        etat={t('document.etat', { etat: connexion })}
+        mention={mention}
+        enModification={enModification}
+        surTerminer={() => controle.current?.terminer()}
+        menu={[
+          {
+            cle: 'lien',
+            libelle: t('telephone.copierLien'),
+            icone: 'lien',
+            surClic: () =>
+              Promise.resolve(navigator.clipboard?.writeText(location.href) ?? Promise.reject(new Error()))
+                .then(() => window.alert(t('telephone.lienCopie')))
+                .catch(() => window.alert(t('telephone.lienNonCopie', { lien: location.href }))),
+          },
+          ...(caps.includes('inviter')
+            ? [{ cle: 'partager', libelle: t('document.partager'), icone: 'partager', surClic: () => setPartage(true) }]
+            : []),
+          { cle: 'liste', libelle: t('document.mesDocuments'), icone: 'retour', surClic: () => (location.hash = '') },
+          ...(caps.includes('supprimer')
+            ? [{ cle: 'supprimer', libelle: t('document.supprimer'), icone: 'supprimer', surClic: supprimer }]
+            : []),
+        ]}
+        voletGauche={{
+          titre: titreAffiche,
+          onglets: [
+            {
+              cle: 'plan',
+              libelle: t('telephone.plan'),
+              icone: 'plan',
+              contenu: (
+                <PlanDocument
+                  titres={plan.titres}
+                  vide={t('telephone.planVide')}
+                  surChoix={(id) => (setVolet(null), plan.allerA(id))}
+                />
+              ),
+            },
+            {
+              cle: 'documents',
+              libelle: t('telephone.documents'),
+              icone: 'documents',
+              contenu: (
+                <ListeLiens
+                  liens={[
+                    { cle: 'tous', libelle: t('document.mesDocuments'), href: '#', actif: false },
+                    ...(documents ?? []).map((d) => ({
+                      cle: d.id,
+                      libelle: d.titre || t('documents.sansTitre'),
+                      href: `#${encodeURIComponent(d.id)}`,
+                      actif: d.id === docId,
+                    })),
+                  ]}
+                />
+              ),
+            },
+          ],
+        }}
+        voletDroit={
+          panneauSuggestions
+            ? {
+                titre: t('telephone.relecture'),
+                onglets: [
+                  {
+                    cle: 'modifications',
+                    libelle: t('telephone.modifications'),
+                    icone: 'modifications',
+                    contenu: panneauSuggestions,
+                  },
+                ],
+              }
+            : null
+        }
+        volet={volet}
+        surVolet={setVolet}
+        panneau={
+          partage
+            ? { titre: t('partage.titre'), contenu: <Partage docId={docId} />, surFermer: () => setPartage(false) }
+            : null
+        }
+        editeur={editeur}
+      />
+    )
+
   return (
     <PageEdition
       nomApplication={t('application.nom')}
-      titre={t('document.titre', { id: docId })}
+      titre={titreAffiche}
       etat={t('document.etat', { etat: connexion })}
       participants={t('document.participants', { n: autres })}
       actions={
         <>
           <Bouton libelle={t('document.mesDocuments')} surClic={() => (location.hash = '')} />
+          {peutRenommer ? <Bouton libelle={t('document.renommer')} surClic={renommer} /> : null}
           <BoutonBascule
             libelle={t('document.historique')}
             actif={historique}
@@ -751,44 +916,14 @@ function Edition({ config, personne, docId, droits }) {
           {caps.includes('supprimer') ? <Bouton libelle={t('document.supprimer')} surClic={supprimer} /> : null}
         </>
       }
-      mention={{ ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]}
+      mention={mention}
       cote={
         <>
           {partage ? <Partage docId={docId} /> : null}
-          {suggestions ? (
-            <PanneauSuggestions
-              titre={t('suggestions.titre', { n: suggestions.liste.length })}
-              lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
-              libelles={{
-                accepter: t('suggestions.accepter'),
-                refuser: t('suggestions.refuser'),
-                toutAccepter: t('suggestions.toutAccepter'),
-                toutRefuser: t('suggestions.toutRefuser'),
-              }}
-              surAccepter={(i) => suggestions.accepter(suggestions.liste[i])}
-              surRefuser={(i) => suggestions.refuser(suggestions.liste[i])}
-              surToutAccepter={suggestions.toutAccepter}
-              surToutRefuser={suggestions.toutRefuser}
-            />
-          ) : null}
+          {panneauSuggestions}
         </>
       }
-      editeur={
-        <EditeurCollaboratif
-          contexte={session.contexte}
-          personne={moi}
-          langue={t.langue}
-          langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
-          nomAccessible={t('document.zoneEdition', { id: docId })}
-          mode={mode}
-          nomsDe={nomsDe}
-          commentaires={commentaires}
-          surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
-          historique={historique}
-          peutRestaurer={caps.includes('restaurer')}
-          surFermerHistorique={() => setHistorique(false)}
-        />
-      }
+      editeur={editeur}
     />
   )
 }

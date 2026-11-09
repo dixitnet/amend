@@ -32,9 +32,9 @@ export async function donnerRole(base, docId, nom, role) {
 
 /** Une personne connectée sur un document ; le créateur en est propriétaire,
  * les suivantes reçoivent `role` (éditeur par défaut). */
-export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR', role = 'editeur' } = {}) {
+export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR', role = 'editeur', contexte = {} } = {}) {
   if (proprietaires.has(cle(base, docId))) await donnerRole(base, docId, nom, role)
-  const ctx = await nav.newContext({ locale })
+  const ctx = await nav.newContext({ locale, ...contexte })
   const page = await ctx.newPage()
   await page.goto(`${base}/#${docId}`)
   await page.waitForSelector('input[name=nom], .bn-editor')

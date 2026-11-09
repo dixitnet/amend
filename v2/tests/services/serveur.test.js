@@ -173,6 +173,7 @@ test('droits : le créateur est propriétaire, une seule création par document'
       'transferer',
       'ranger',
     ],
+    titre: null,
   })
   assert.equal(await droitInterne(dev, doc, alice.id), 'ecriture')
 })
@@ -448,4 +449,25 @@ test('back-office : réservé aux administrateurs de l’instance ; jamais un co
   // Sans liste, personne n'est administrateur.
   const sans = await demarrer({ dev: false })
   assert.equal((await fetch(`${sans}/api/admin/systeme`, { headers: { cookie: cookie(admin) } })).status, 403)
+})
+
+test('titre : qui écrit renomme le document (NFC, espaces réduits, vide : sans titre) ; un lecteur non', async () => {
+  const alice = await entrer(dev, 'Alice')
+  const doc = nouveauDoc()
+  await post(dev, '/api/dev/documents', alice.cookie, { document: doc })
+  const renommer = (cookie, titre) =>
+    fetch(`${dev}/api/documents/${doc}/titre`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ titre }),
+    })
+  const r = await renommer(alice.cookie, '  Re\u0301parons   la ville  ')
+  assert.deepEqual(await r.json(), { titre: 'Réparons la ville' })
+  assert.equal((await (await mesDroits(dev, alice.cookie, doc)).json()).titre, 'Réparons la ville')
+  assert.deepEqual(await (await renommer(alice.cookie, '   ')).json(), { titre: null })
+  assert.equal((await renommer(alice.cookie, 'x'.repeat(201))).status, 400)
+  assert.equal((await renommer(alice.cookie, 42)).status, 400)
+  const bruno = await entrer(dev, 'Bruno')
+  await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: bruno.id, role: 'lecteur' })
+  assert.equal((await renommer(bruno.cookie, 'Pirate')).status, 403)
 })
