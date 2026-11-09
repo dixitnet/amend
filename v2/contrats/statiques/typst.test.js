@@ -14,11 +14,13 @@ import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
 import { MODELES_LIVRE } from '../../design/livre.js'
 
 const modele = MODELES_LIVRE.find((m) => m.id === 'tat-poche')
-const editeur = BlockNoteEditor.create({ schema: schemaLivre })
+// Un éditeur neuf à chaque test : le livre n'y est inséré qu'une fois.
+const nouvelEditeur = () => BlockNoteEditor.create({ schema: schemaLivre })
 const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
 const paragraphe = 'Au cours du XXIe siècle fut achevée la révolution qui avait commencé avec la bombe d’Hiroshima.'
 const BLOCS = [
   { type: 'heading', props: { level: 1 }, content: [texte('Petit conte immoral')] },
+  { type: 'paragraph', content: [] },
   {
     type: 'paragraph',
     content: [texte('« Le second [conte] est '), texte('parfaitement', { italic: true }), texte(' immoral. »')],
@@ -33,13 +35,19 @@ const BLOCS = [
   { type: 'paragraph', content: [] },
   { type: 'paragraph', content: [texte('Fin # $ * _ \\ " ` < > @ [ ] — é')] },
 ]
-const blocs = () => editeur.insertBlocks(BLOCS, editeur.document[0], 'before') && editeur.document
+function livre() {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, BLOCS)
+  return { editeur, blocs: editeur.document }
+}
 
 const polices = () => modele.polices.map((url) => new Uint8Array(readFileSync(fileURLToPath(url))))
 const wasm = () => readFileSync(createRequire(import.meta.url).resolve('@blocknote/xl-typst-compiler/wasm'))
 
 test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans blanc à eux', async () => {
-  const { source } = await versTypst(editeur, blocs(), modele, { titre: 'Essai', langue: 'fr' })
+  const { editeur, blocs } = livre()
+  const { source } = await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr' })
+  assert.equal(source.match(/#heading\(level: 1\)/g).length, 1, 'le livre une seule fois')
   assert.match(source, /^#set document\(title: "Essai"\)/)
   assert.match(source, /#set text\(font: \("EB Garamond",\), size: 10\.5pt, lang: "fr"/)
   assert.match(source, /#heading\(level: 1\)\[#"Petit conte immoral"\]/)
@@ -57,7 +65,8 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
 })
 
 test('le compilateur Typst de BlockNote en fait un PDF au format du modèle, police incorporée', async () => {
-  const { source, fichiers } = await versTypst(editeur, blocs(), modele, { titre: 'Essai', langue: 'fr' })
+  const { editeur, blocs } = livre()
+  const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr' })
   const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
   const brut = Buffer.from(pdf).toString('latin1')
   assert.ok(brut.startsWith('%PDF-'))

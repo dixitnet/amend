@@ -16,7 +16,8 @@ const octets = (url) => fetch(url).then((r) => (r.ok ? r.arrayBuffer() : Promise
  */
 export async function exporterDocument(controle, format, { titre, langue }) {
   const exporter = controle.current?.exporter
-  if (!exporter) return
+  // L'éditeur n'est pas encore prêt : c'est un échec, dit comme les autres.
+  if (!exporter) throw Object.assign(new Error('éditeur pas prêt'), { code: 'export-impossible' })
   let contenu
   if (format === 'pdf') {
     // Le premier modèle de livre, tant qu'il n'y a pas de choix du modèle.

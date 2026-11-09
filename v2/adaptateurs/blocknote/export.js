@@ -29,16 +29,15 @@ const LISTES = { bulletListItem: 'list', numberedListItem: 'enum' }
  * @param {object} editeur  un éditeur BlockNote (pour son schéma)
  * @param {Array} blocs
  * @param {object} modele  modèle de mise en page (domaine, `gabaritTypst`)
- * @param {{ titre?: string, langue?: string, recupererFichier?: (url: string) => Promise<Blob> }} [options]
- *   `recupererFichier` va chercher une image ; une image introuvable est
- *   omise plutôt que de faire échouer l'export
+ * @param {{ titre?: string, langue?: string }} [document]  une image
+ *   introuvable est omise plutôt que de faire échouer l'export
  * @returns {Promise<{ source: string, fichiers: Map<string, Uint8Array> }>}
  */
-export async function versTypst(editeur, blocs, modele, { titre, langue, recupererFichier } = {}) {
+export async function versTypst(editeur, blocs, modele, { titre, langue } = {}) {
   const exportateur = new TypstExporter(editeur.schema, typstDefaultSchemaMappings, {
     fontFamily: modele.police,
     fontSize: modele.grille.corps,
-    resolveFileUrl: recupererFichier ?? ((url) => fetch(url).then((r) => r.blob())),
+    resolveFileUrl: (url) => fetch(url).then((r) => r.blob()),
   })
   const corps = await parcourir(exportateur, blocs)
   return {
@@ -67,6 +66,9 @@ async function parcourir(exportateur, blocs) {
       continue
     }
     const texte = enLigne(b)
+    // Un paragraphe vide est sauté sans compter : le premier paragraphe écrit
+    // après un titre de chapitre reste « le premier ».
+    if (b.type === 'paragraph' && !texte && !b.children?.length) continue
     if (b.type === 'paragraph') {
       // Un paragraphe vide n'ajoute pas de blanc : la grille ne bouge pas.
       if (texte) {
