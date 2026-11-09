@@ -105,8 +105,6 @@ test('requêtes malformées : codes, jamais de plantage', async () => {
   assert.equal((await gros.json()).code, 'requete-trop-grosse')
   assert.equal((await fetch(`${dev}/api/inconnue`)).status, 404)
   assert.equal((await fetch(`${dev}/api/config`, { method: 'DELETE' })).status, 405)
-  // La version en service (le commit), pour vérifier un déploiement de l'extérieur.
-  assert.match((await (await fetch(`${dev}/api/config`)).json()).version, /^[0-9a-f]{7}$/)
 })
 
 test('route interne des droits : jeton exigé, comparé exactement', async () => {
@@ -393,4 +391,9 @@ test('une adresse de requête illisible (« // ») : 400, et le serveur continue
   assert.equal(await statut('//'), 400)
   assert.equal(await statut('//a:b@'), 400)
   assert.equal((await fetch(`${dev}/api/config`)).status, 200, 'le serveur répond toujours')
+})
+
+test('config : la version en service (le commit, ou null hors d’un dépôt git), pour vérifier un déploiement', async () => {
+  const { version } = await (await fetch(`${dev}/api/config`)).json()
+  assert.ok(version === null || /^[0-9a-f]{7}$/.test(version), String(version))
 })
