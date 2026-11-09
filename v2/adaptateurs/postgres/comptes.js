@@ -525,8 +525,8 @@ export async function ouvrirComptes(url) {
     /** Les nombres du back-office (les comptes d'essai et de développement, en .invalid, à part). */
     async statistiques() {
       const [r] = await sql`select
-        (select count(*)::int from amend.personnes where courriel not like '%.invalid') as personnes,
-        (select count(*)::int from amend.personnes where courriel like '%.invalid') as essai,
+        (select count(*)::int from amend.personnes where lower(courriel) not like '%.invalid') as personnes,
+        (select count(*)::int from amend.personnes where lower(courriel) like '%.invalid') as essai,
         (select count(*)::int from amend.documents) as documents,
         (select count(*)::int from amend.equipes) as equipes`
       return { personnes: r.personnes, essai: r.essai, documents: r.documents, equipes: r.equipes }
