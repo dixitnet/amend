@@ -212,19 +212,23 @@ t2(
   },
 )
 
-t2('présence : comme dans Docs, le correcteur et le lecteur voient les autres sans se montrer', async () => {
+t2('présence : le correcteur se montre comme l’éditeur ; le lecteur voit sans être vu', async () => {
   const id = docId('presence')
   const e = client(id, 'editeur-p')
   let autresVusParE = -1
   e.surParticipants((n) => (autresVusParE = n))
   const c = client(id, 'correcteur-p')
   const l = client(id, 'lecteur-p')
-  let autresVusParC = -1
-  c.surParticipants((n) => (autresVusParC = n))
+  let autresVusParL = -1
+  l.surParticipants((n) => (autresVusParL = n))
   try {
-    assert.ok(await attendreQue(() => autresVusParC === 1), `le correcteur voit l’éditeur (${autresVusParC})`)
+    assert.ok(
+      await attendreQue(() => autresVusParL === 2),
+      `le lecteur voit l’éditeur et le correcteur (${autresVusParL})`,
+    )
+    assert.ok(await attendreQue(() => autresVusParE === 1), `l’éditeur voit le correcteur (${autresVusParE})`)
     await attendre(1500)
-    assert.equal(autresVusParE, 0, 'l’éditeur ne voit ni le correcteur ni le lecteur')
+    assert.equal(autresVusParE, 1, 'l’éditeur ne voit pas le lecteur')
   } finally {
     e.fermer()
     c.fermer()

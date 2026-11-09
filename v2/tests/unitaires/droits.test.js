@@ -58,15 +58,14 @@ test('aucune autre branche', () => {
     assert.equal(accesBranche(capacites('proprietaire'), b), null, String(b))
 })
 
-test('présence publiée et retour à une version : seulement qui écrit le texte (comme Docs)', () => {
-  for (const role of ['lecteur', 'correcteur']) {
-    assert.equal(accesBranche(capacites(role), 'main').presence, false, role)
-    assert.equal(accesBranche(capacites(role), 'main').restaurer, false, role)
-  }
-  for (const role of ['editeur', 'proprietaire']) {
+test('présence : le correcteur se montre comme l’éditeur, le lecteur reste invisible ; retour à une version : qui écrit le texte', () => {
+  assert.equal(accesBranche(capacites('lecteur'), 'main').presence, false)
+  for (const role of ['correcteur', 'editeur', 'proprietaire'])
     assert.equal(accesBranche(capacites(role), 'main').presence, true, role)
+  for (const role of ['lecteur', 'correcteur'])
+    assert.equal(accesBranche(capacites(role), 'main').restaurer, false, role)
+  for (const role of ['editeur', 'proprietaire'])
     assert.equal(accesBranche(capacites(role), 'main').restaurer, true, role)
-  }
   for (const role of ['correcteur', 'editeur', 'proprietaire']) {
     assert.equal(accesBranche(capacites(role), 'suggestions').presence, false, role)
     assert.equal(accesBranche(capacites(role), 'suggestions').restaurer, false, role)

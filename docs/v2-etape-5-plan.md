@@ -179,4 +179,6 @@ Choix de Sylvain (08/11/2026) : **C**, le panneau à côté du texte, un remplac
   - Parcours réel vérifié sur la pile : la correctrice propose, l'éditrice voit « Carla ajoute « … » », accepte, le texte converge ; la correctrice commente un mot, l'ancre posée par le serveur se voit chez les deux ; l'éditrice ne voit pas la correctrice (présence).
 - **Réglage de design à décider** : le panneau des suggestions est sous le texte, faute de réglage pour le placer à côté (comme sur la capture C).
 - Reste du lot 2 : l'historique (`YHubVersioningExtension`, panneau de BlockNote), la mesure de mémoire (risque 3).
+- **Présence, révisée par Sylvain (09/11/2026)** : « le correcteur est visible : affiché comme présent + curseur visible au même titre que l'éditeur. Mais pas le lecteur. » Le correcteur publie sa présence sur le texte principal (écart avec Docs, qui ne montre que qui peut modifier) ; le lecteur reste invisible. Vérifié dans le navigateur : l'éditrice et la correctrice se voient (présence et curseur) ; la lectrice voit « 2 autres personnes » sans être vue. Limite : la lectrice ne voit pas les curseurs, placés dans le document des suggestions qu'elle n'a pas.
+- Confirmé par Sylvain (09/11/2026) : le lecteur ne voit pas les suggestions ; le panneau reste sous le texte pour le moment.
 

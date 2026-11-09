@@ -58,8 +58,9 @@ export const BRANCHES = Object.freeze(['main', 'suggestions'])
  * document, selon ses capacités (montage de Docs, étape 5) ; `null` : aucun
  * accès.
  * - `texte` : `ecriture` ou `lecture` ;
- * - `presence` : publier sa présence (curseur, « personnes sur ce document ») ;
- *   comme dans Docs, seulement si l'on peut modifier le texte ;
+ * - `presence` : publier sa présence (curseur, « personnes sur ce document ») :
+ *   le correcteur se montre comme l'éditeur, le lecteur reste invisible
+ *   (Sylvain, 09/11/2026 ; Docs ne montre que qui peut modifier le texte) ;
  * - `restaurer` : nommer une version et revenir à une version.
  * Le correcteur lit le texte et écrit dans les suggestions ; l'éditeur écrit
  * dans les deux (il accepte et refuse) ; le lecteur lit le texte seul, sans
@@ -69,7 +70,7 @@ export const BRANCHES = Object.freeze(['main', 'suggestions'])
 export function accesBranche(caps, branche) {
   if (branche === 'main') {
     if (caps.includes('ecrire')) return { texte: 'ecriture', presence: true, restaurer: caps.includes('restaurer') }
-    if (caps.includes('lire')) return { texte: 'lecture', presence: false, restaurer: false }
+    if (caps.includes('lire')) return { texte: 'lecture', presence: caps.includes('commenter'), restaurer: false }
     return null
   }
   if (branche === 'suggestions' && caps.includes('suggerer'))
