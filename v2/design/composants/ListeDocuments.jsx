@@ -1,26 +1,35 @@
-// Composant de présentation : mes documents, avec un filtre (tous, créés par
-// moi, partagés avec moi) et la création d'un document. Mantine sans réglage ;
-// textes traduits ; chaque document est un lien vers son adresse.
-import { Container, Stack, Group, Title, Text, Button, SegmentedControl, Table, Anchor } from '@mantine/core'
+// Composant de présentation : la liste des documents, sur le modèle du
+// serveur de fichiers (étape 6c) : des onglets (Mes documents, Partagé avec
+// moi), un chemin de dossiers, des boutons, un tableau de lignes (dossiers et
+// documents, chacun un lien) avec leurs actions. Mantine sans réglage ;
+// textes traduits ; les gestes remontent par les fonctions de rappel.
+import { Container, Stack, Group, Title, Text, SegmentedControl, Table, Anchor, Breadcrumbs } from '@mantine/core'
 import { Marque } from './Picto.jsx'
 
 /**
- * @param {{ titre: string, libelleNouveau: string, filtres: Array<{ value: string, label: string }>, filtre: string,
- *   colonnes: { titre: string, role: string, date: string }, documents: Array<{ id: string, titre: string, role: string, date: string }>,
- *   vide: string, actions?: any, nomApplication?: string, surFiltre: (f: string) => void, surNouveau: () => void }} p
+ * @param {{
+ *   nomApplication?: string, titre: string, actions?: any,
+ *   onglets: Array<{ value: string, label: string }>, onglet: string, surOnglet: (o: string) => void,
+ *   libelleChemin: string, chemin?: Array<{ cle: string, libelle: string, href: string }>,
+ *   boutons?: any, message?: string | null,
+ *   colonnes: string[], lignes: Array<{ cle: string, nom: string, href: string, cellules: string[], actions?: any }>,
+ *   vide: string,
+ * }} p
  */
 export function ListeDocuments({
   nomApplication,
   titre,
-  libelleNouveau,
-  filtres,
-  filtre,
-  colonnes,
-  documents,
-  vide,
   actions,
-  surFiltre,
-  surNouveau,
+  onglets,
+  onglet,
+  surOnglet,
+  libelleChemin,
+  chemin,
+  boutons,
+  message,
+  colonnes,
+  lignes,
+  vide,
 }) {
   return (
     <Container>
@@ -32,27 +41,42 @@ export function ListeDocuments({
         ) : null}
         <Group>
           <Title order={1}>{titre}</Title>
-          <Button onClick={surNouveau}>{libelleNouveau}</Button>
           {actions}
         </Group>
-        <SegmentedControl data={filtres} value={filtre} onChange={surFiltre} />
-        {documents.length ? (
+        <SegmentedControl data={onglets} value={onglet} onChange={surOnglet} />
+        {chemin?.length ? (
+          <Breadcrumbs component="nav" aria-label={libelleChemin}>
+            {chemin.map((c) => (
+              <Anchor key={c.cle} href={c.href}>
+                {c.libelle}
+              </Anchor>
+            ))}
+          </Breadcrumbs>
+        ) : null}
+        {boutons ? <Group>{boutons}</Group> : null}
+        {message ? <Text role="status">{message}</Text> : null}
+        {lignes.length ? (
           <Table>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>{colonnes.titre}</Table.Th>
-                <Table.Th>{colonnes.role}</Table.Th>
-                <Table.Th>{colonnes.date}</Table.Th>
+                {colonnes.map((c, i) => (
+                  <Table.Th key={i}>{c}</Table.Th>
+                ))}
+                <Table.Th />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {documents.map((d) => (
-                <Table.Tr key={d.id}>
+              {lignes.map((l) => (
+                <Table.Tr key={l.cle}>
                   <Table.Td>
-                    <Anchor href={`#${encodeURIComponent(d.id)}`}>{d.titre}</Anchor>
+                    <Anchor href={l.href}>{l.nom}</Anchor>
                   </Table.Td>
-                  <Table.Td>{d.role}</Table.Td>
-                  <Table.Td>{d.date}</Table.Td>
+                  {l.cellules.map((c, i) => (
+                    <Table.Td key={i}>{c}</Table.Td>
+                  ))}
+                  <Table.Td>
+                    <Group>{l.actions}</Group>
+                  </Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>
