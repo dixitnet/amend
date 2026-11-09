@@ -2,11 +2,12 @@
 // serveur, ouverture du document. Tout l'affichage est délégué à la couche
 // design ; tous les textes viennent de v2/i18n/.
 import { useEffect, useMemo, useState } from 'react'
-import { PageEdition, EcranMessage, EcranConnexion, couleurAuteur } from '../../design/index.js'
+import { PageEdition, EcranMessage, EcranConnexion, PanneauSuggestions, couleurAuteur } from '../../design/index.js'
 import { creerTraducteur, choisirLangue, messageErreur, LANGUE_PSEUDO } from '../../i18n/index.js'
 import { identifiantDocument, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
+import { serviceCommentaires, nomsDe } from './commentaires.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
 // essais et les captures), sinon celle du navigateur.
@@ -122,24 +123,62 @@ function Document({ config, personne, docId }) {
 
 function Edition({ config, personne, docId, droits }) {
   // L'interface suit les capacités, jamais le nom du rôle.
-  const modifiable = droits.capacites.includes('ecrire')
+  const caps = droits.capacites
+  const mode = caps.includes('ecrire') ? 'ecrire' : caps.includes('suggerer') ? 'suggerer' : 'lire'
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
-    () => ouvrirDocument({ url: config.collaboration, docId, personne: moi }),
-    [config, docId, moi],
+    () => ouvrirDocument({ url: config.collaboration, docId, personne: moi, suggestions: mode !== 'lire' }),
+    [config, docId, moi, mode],
+  )
+  const commentaires = useMemo(
+    () => (caps.includes('commenter') ? { service: serviceCommentaires(docId), capacites: caps } : null),
+    [caps, docId],
   )
   const [connexion, setConnexion] = useState('connexion')
   const [autres, setAutres] = useState(0)
+  const [suggestions, setSuggestions] = useState(null)
+  const [noms, setNoms] = useState({})
   useEffect(() => session.surEtat(setConnexion), [session])
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
+  // Les noms des auteurs des suggestions, demandés une fois chacun.
+  useEffect(() => {
+    const manquants = [...new Set((suggestions?.liste ?? []).map((s) => s.auteur))].filter((id) => id && !(id in noms))
+    if (manquants.length)
+      nomsDe(manquants).then((l) => setNoms((n) => ({ ...n, ...Object.fromEntries(l.map((p) => [p.id, p.username])) })))
+  }, [suggestions, noms])
 
+  const ligne = (s) => {
+    const auteur = noms[s.auteur] ?? t('suggestions.auteurInconnu')
+    const v = { auteur, avant: s.avant.trim(), apres: s.apres.trim() }
+    if (s.type === 'ajout') return t('suggestions.ajout', v)
+    if (s.type === 'suppression') return t('suggestions.suppression', v)
+    return t('suggestions.remplacement', v)
+  }
   return (
     <PageEdition
       titre={t('document.titre', { id: docId })}
       etat={t('document.etat', { etat: connexion })}
       participants={t('document.participants', { n: autres })}
-      mention={modifiable ? null : t('document.lectureSeule')}
+      mention={{ ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]}
+      cote={
+        suggestions ? (
+          <PanneauSuggestions
+            titre={t('suggestions.titre', { n: suggestions.liste.length })}
+            lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
+            libelles={{
+              accepter: t('suggestions.accepter'),
+              refuser: t('suggestions.refuser'),
+              toutAccepter: t('suggestions.toutAccepter'),
+              toutRefuser: t('suggestions.toutRefuser'),
+            }}
+            surAccepter={(i) => suggestions.accepter(suggestions.liste[i])}
+            surRefuser={(i) => suggestions.refuser(suggestions.liste[i])}
+            surToutAccepter={suggestions.toutAccepter}
+            surToutRefuser={suggestions.toutRefuser}
+          />
+        ) : null
+      }
       editeur={
         <EditeurCollaboratif
           contexte={session.contexte}
@@ -147,7 +186,10 @@ function Edition({ config, personne, docId, droits }) {
           langue={t.langue}
           langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
           nomAccessible={t('document.zoneEdition', { id: docId })}
-          modifiable={modifiable}
+          mode={mode}
+          nomsDe={nomsDe}
+          commentaires={commentaires}
+          surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
         />
       }
     />

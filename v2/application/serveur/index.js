@@ -67,7 +67,14 @@ async function lireCorps(req, max = 10_000) {
 const ROLES_DONNABLES = ROLES.filter((r) => r !== 'proprietaire')
 
 const creerRoutes = (CONF, table) => {
-  const personneDe = (req) => lireJeton(CONF.secret, lireCookie(req.headers.cookie))
+  // Les noms des personnes connues, pour afficher les auteurs (suggestions,
+  // commentaires) : en mémoire jusqu'aux comptes de l'étape 6.
+  const noms = new Map()
+  const personneDe = (req) => {
+    const p = lireJeton(CONF.secret, lireCookie(req.headers.cookie))
+    if (p) noms.set(p.id, p.nom)
+    return p
+  }
   /** Le rôle effectif d'une personne sur un document : décidé par le domaine. */
   const roleSur = (docId, idPersonne) => roleEffectif(table.rolesDe(docId, idPersonne))
   const droitsDe = (role) => ({ role, capacites: capacites(role) })
@@ -85,6 +92,17 @@ const creerRoutes = (CONF, table) => {
 
   return {
     'GET /api/config': (req, res) => json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev }),
+    // Les noms d'une liste de personnes (`?id=a&id=b`), pour une personne
+    // connectée ; un identifiant inconnu revient sans nom.
+    'GET /api/personnes': (req, res, url) => {
+      if (!personneDe(req)) return json(res, 401, { code: 'session-absente' })
+      const ids = url.searchParams.getAll('id').slice(0, 100)
+      json(
+        res,
+        200,
+        ids.map((id) => ({ id, nom: noms.get(id) ?? null })),
+      )
+    },
     'GET /api/moi': (req, res) => {
       const p = personneDe(req)
       return p ? json(res, 200, p) : json(res, 401, { code: 'session-absente' })
@@ -97,6 +115,7 @@ const creerRoutes = (CONF, table) => {
       const propre = r.nom
       const id = `dev-${Buffer.from(propre.toLowerCase()).toString('base64url')}`
       const jeton = creerJeton(CONF.secret, { id, nom: propre })
+      noms.set(id, propre)
       json(
         res,
         200,

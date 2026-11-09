@@ -90,7 +90,9 @@ export async function demarrerCollaboration({
     }),
   })
   const yhub = await createYHub({
-    redis: { url: redis, prefix: 'amend-v2', taskDebounce: delaiPersistance, minMessageLifetime: 60000 },
+    // Réponses de l'API gardées 1 s (5 par défaut) : les navigateurs redemandent
+    // les auteurs des suggestions après chaque changement (étape 5).
+    redis: { url: redis, prefix: 'amend-v2', taskDebounce: delaiPersistance, minMessageLifetime: 60000, cacheTtl: 1 },
     postgres,
     persistence: [],
     worker: { taskConcurrency: 2 },
