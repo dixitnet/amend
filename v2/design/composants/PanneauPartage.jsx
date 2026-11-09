@@ -1,11 +1,13 @@
 // Composant de présentation : le partage d'un document (comme le partage de
 // Docs) : inviter par courriel avec un rôle, les accès et leurs rôles, les
 // invitations en attente, le lien de partage. Mantine sans réglage ; textes
-// traduits ; les gestes remontent par les fonctions de rappel.
+// traduits ; les gestes remontent par les fonctions de rappel. `enFenetre` :
+// dans une fenêtre qui porte déjà le titre (formats M et L).
 import { Stack, Group, Title, Text, TextInput, Select, Button } from '@mantine/core'
 
 export function PanneauPartage({
   titre,
+  enFenetre,
   libelles,
   roles,
   rolesDuLien,
@@ -28,7 +30,7 @@ export function PanneauPartage({
   }
   return (
     <Stack component="section" aria-label={titre}>
-      <Title order={2}>{titre}</Title>
+      {enFenetre ? null : <Title order={2}>{titre}</Title>}
       <form onSubmit={soumettre}>
         <Group>
           <TextInput name="courriel" type="email" label={libelles.courriel} required />

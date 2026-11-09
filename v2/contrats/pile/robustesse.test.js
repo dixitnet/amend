@@ -127,29 +127,12 @@ test('adresse : un nom de document refusé affiche un message, un autre nom ouvr
   await a.context().close()
 })
 
-/** Point ouvert, décidé par Sylvain le 08/11/2026 (ADR 0008, « Points
- * ouverts ») : le bouton et le badge de Mantine par défaut (blanc sur bleu,
- * 3,56:1) sont sous le contraste minimal ; à traiter avec le travail sur
- * l'interface. Seuls ces deux éléments sont exclus, et seulement du contrôle
- * de contraste ; tout autre défaut fait échouer le test. */
-const CONTRASTE_EN_ATTENTE = /mantine-(Button|Badge)-label/
-
-async function violations(page, { avecEnAttente = false } = {}) {
+async function violations(page) {
   await page.addScriptTag({ content: AXE })
   const r = await page.evaluate(
     async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations,
   )
-  return r
-    .filter((v) => ['serious', 'critical'].includes(v.impact))
-    .map((v) => ({
-      ...v,
-      nodes:
-        v.id === 'color-contrast' && !avecEnAttente
-          ? v.nodes.filter((n) => !CONTRASTE_EN_ATTENTE.test(n.html))
-          : v.nodes,
-    }))
-    .filter((v) => v.nodes.length)
-    .map((v) => `${v.id} (${v.nodes.length})`)
+  return r.filter((v) => ['serious', 'critical'].includes(v.impact)).map((v) => `${v.id} (${v.nodes.length})`)
 }
 
 test('accessibilité (axe-core) : aucun défaut sérieux sur l’écran de connexion et sur la page d’un document', async () => {
@@ -170,21 +153,4 @@ test('les secrets n’apparaissent jamais dans les journaux', () => {
   const j = pile.journaux()
   assert.ok(!j.includes(pile.secrets.jetonInterne), 'jeton interne')
   assert.ok(!j.includes(pile.secrets.secret), 'secret de session')
-})
-
-test('point ouvert : le contraste du bouton Mantine par défaut est toujours en défaut (retirer l’exclusion quand il sera réglé)', async () => {
-  const ctx = await nav.newContext({ locale: 'fr-FR' })
-  const p = await ctx.newPage()
-  await p.goto(`${pile.url}/#${docTest('axe-attente')}`)
-  await p.waitForSelector('input[name=nom]')
-  // Le même défaut (bouton bleu par défaut), quel que soit le nombre de
-  // boutons de l'écran (deux depuis l'étape 6a : développement et courriel).
-  const v = await violations(p, { avecEnAttente: true })
-  assert.equal(v.length, 1, `une seule règle en défaut : ${v.join(', ')}`)
-  assert.match(
-    v[0],
-    /^color-contrast \(\d+\)$/,
-    'si ce test échoue parce que le défaut a disparu : retirer CONTRASTE_EN_ATTENTE et le point ouvert de l’ADR 0008',
-  )
-  await ctx.close()
 })

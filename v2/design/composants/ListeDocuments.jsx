@@ -2,14 +2,15 @@
 // serveur de fichiers (étape 6c) : des onglets (Mes documents, Partagé avec
 // moi), un chemin de dossiers, des boutons, un tableau de lignes (dossiers et
 // documents, chacun un lien) avec leurs actions. Mantine sans réglage ;
-// textes traduits ; les gestes remontent par les fonctions de rappel.
+// textes traduits ; les gestes remontent par les fonctions de rappel. Titre et
+// onglets facultatifs : dans la coquille, le bandeau et le volet les portent.
 import { Container, Stack, Group, Title, Text, SegmentedControl, Table, Anchor, Breadcrumbs } from '@mantine/core'
 import { Marque } from './Picto.jsx'
 
 /**
  * @param {{
- *   nomApplication?: string, titre: string, actions?: any,
- *   onglets: Array<{ value: string, label: string }>, onglet: string, surOnglet: (o: string) => void,
+ *   nomApplication?: string, titre?: string, actions?: any,
+ *   onglets?: Array<{ value: string, label: string }>, onglet?: string, surOnglet?: (o: string) => void,
  *   libelleChemin: string, chemin?: Array<{ cle: string, libelle: string, href: string }>,
  *   boutons?: any, message?: string | null,
  *   colonnes: string[], lignes: Array<{ cle: string, nom: string, href: string, cellules: string[], actions?: any }>,
@@ -39,11 +40,13 @@ export function ListeDocuments({
             <Marque nom={nomApplication} />
           </Text>
         ) : null}
-        <Group>
-          <Title order={1}>{titre}</Title>
-          {actions}
-        </Group>
-        <SegmentedControl data={onglets} value={onglet} onChange={surOnglet} />
+        {titre ? (
+          <Group>
+            <Title order={1}>{titre}</Title>
+            {actions}
+          </Group>
+        ) : null}
+        {onglets ? <SegmentedControl data={onglets} value={onglet} onChange={surOnglet} /> : null}
         {chemin?.length ? (
           <Breadcrumbs component="nav" aria-label={libelleChemin}>
             {chemin.map((c) => (

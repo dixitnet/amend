@@ -155,3 +155,144 @@ test('l’icône de l’onglet reprend le dessin de référence, qui ne contient
   assert.doesNotMatch(reference, /<script|<foreignObject|\son\w+=|href=|<style/i)
   // apple-touch-icon.png (binaire, rendu par Chromium) n'est pas contrôlé ici.
 })
+
+// Étape 6b : la coquille des formats M et L (docs/v2-formats-M-L.md).
+const rien = () => {}
+// Les textes de l'interface n'entrent au catalogue qu'avec l'application qui
+// s'en sert (lot « Application » de l'étape 6b) : ici, en clair.
+const INTERFACE = {
+  voletGauche: 'Plan et documents',
+  voletDroit: 'Modifications et Margo (IA)',
+  autresActions: 'Autres actions',
+  compte: 'Mon compte',
+  presence: 'Personnes sur ce document',
+  terminer: 'Terminer',
+  plan: 'Plan',
+  documents: 'Documents',
+  planVide: 'Ce document n’a pas encore de titre.',
+  relecture: 'Relecture',
+  modifications: 'Modifications',
+  margo: 'Margo (IA)',
+  margoBientot: 'Margo arrive bientôt ici.',
+  horsLigne: 'Hors ligne : vos modifications sont gardées et partiront au retour de la connexion.',
+  largeurVolet: 'Largeur du volet',
+  copierLien: 'Copier le lien',
+  fermer: 'Fermer',
+  valider: 'Valider',
+  annuler: 'Annuler',
+}
+const I = (cle) => INTERFACE[cle.slice('interface.'.length)]
+function coquilleDocument(t, { droite = true } = {}) {
+  return h(
+    design.Coquille,
+    {
+      gaucheOuvert: true,
+      droiteOuvert: droite,
+      libelleRedimension: I('interface.largeurVolet'),
+      alerte: h(design.AlerteHorsLigne, { texte: I('interface.horsLigne') }),
+      bandeau: h(design.Bandeau, {
+        voletGauche: { libelle: I('interface.voletGauche'), ouvert: true, surClic: rien },
+        titre: 'La gare',
+        terminer: { libelle: I('interface.terminer'), surClic: rien },
+        presence: { libelle: I('interface.presence'), personnes: [{ cle: 'c', nom: 'Claire Martin' }] },
+        partager: { libelle: t('document.partager'), surClic: rien },
+        actions: {
+          libelle: I('interface.autresActions'),
+          elements: [{ cle: 'lien', libelle: I('interface.copierLien'), picto: 'lien', surClic: rien }],
+        },
+        compte: { libelle: I('interface.compte'), nom: 'Sylvain', courriel: 's@exemple.fr', actions: [] },
+        voletDroit: { libelle: I('interface.voletDroit'), nombre: 3, ouvert: droite, surClic: rien },
+      }),
+      voletGauche: h(design.VoletPlanDocuments, {
+        marque: { nom: 'amend.ink', href: '#' },
+        onglets: { plan: I('interface.plan'), documents: I('interface.documents') },
+        plan: [
+          { cle: 'a', niveau: 2, libelle: '1. La fin de l’étalement', actif: true },
+          { cle: 'b', niveau: 3, libelle: 'La chronotopie' },
+        ],
+        surTitre: rien,
+        videPlan: I('interface.planVide'),
+        documents: [{ cle: 'd', nom: 'Réparons la ville', href: '#/d', actif: true }],
+      }),
+      voletDroit: h(design.VoletRelecture, {
+        titre: I('interface.relecture'),
+        onglets: { modifications: I('interface.modifications'), margo: I('interface.margo') },
+        modifications: h('div', { id: 'suggestions' }),
+        margo: h(design.TexteDeVolet, { texte: I('interface.margoBientot') }),
+      }),
+    },
+    h(design.ColonneTexte, null, h('div', { id: 'editeur' })),
+  )
+}
+
+test('coquille d’un document : bandeau, volets, alerte et texte, dans chaque langue', () => {
+  for (const l of LANGUES) {
+    const t = creerTraducteur(l)
+    const html = rendre(coquilleDocument(t))
+    for (const cle of ['document.partager']) assert.ok(html.includes(echapper(t(cle))), `${l} : ${cle}`)
+    for (const cle of [
+      'interface.voletGauche',
+      'interface.terminer',
+      'interface.autresActions',
+      'interface.compte',
+      'interface.voletDroit',
+      'interface.plan',
+      'interface.documents',
+      'interface.relecture',
+      'interface.modifications',
+      'interface.margo',
+      'interface.horsLigne',
+    ])
+      assert.ok(html.includes(echapper(I(cle))), `${l} : ${cle}`)
+    assert.match(html, /<header[\s\S]*<h1[^>]*>La gare<\/h1>/, 'le titre du document est dans le bandeau')
+    assert.match(html, /<nav[\s\S]*amend-picto/, 'le volet gauche porte la marque')
+    assert.match(html, /<aside/, 'volet droit')
+    assert.match(html, /<main[\s\S]*id="editeur"/, 'le texte est dans le contenu principal')
+    assert.match(html, /data-niveau="3"/, 'le niveau du titre passe au design')
+    assert.match(html, /role="status"/, 'l’alerte hors ligne est annoncée')
+    assert.match(html, />3</, 'le nombre de suggestions sur le bouton du volet droit')
+  }
+})
+
+test('coquille de la liste : sans volet droit ; navigation et nouveau document', () => {
+  const t = creerTraducteur('fr')
+  const html = rendre(
+    h(
+      design.Coquille,
+      {
+        gaucheOuvert: true,
+        libelleRedimension: I('interface.largeurVolet'),
+        bandeau: h(design.Bandeau, {
+          voletGauche: { libelle: I('interface.voletGauche'), ouvert: true, surClic: rien },
+          titre: t('documents.mesDocuments'),
+          compte: { libelle: I('interface.compte'), nom: 'Sylvain', actions: [] },
+        }),
+        voletGauche: h(design.NavigationListe, {
+          marque: { nom: 'amend.ink', href: '#' },
+          nouveau: { libelle: t('documents.nouveau'), surClic: rien },
+          entrees: [
+            { cle: 'moi', libelle: t('documents.mesDocuments'), picto: 'moi', href: '#', actif: true },
+            { cle: 'p', libelle: t('documents.partagesAvecMoi'), picto: 'partages', href: '#/partages' },
+          ],
+        }),
+      },
+      h(design.ListeDocuments, { colonnes: [], lignes: [], vide: t('documents.vide') }),
+    ),
+  )
+  assert.doesNotMatch(html, /<aside/)
+  for (const cle of ['documents.nouveau', 'documents.partagesAvecMoi', 'documents.vide'])
+    assert.ok(html.includes(echapper(t(cle))), cle)
+  assert.doesNotMatch(html, /mantine-SegmentedControl/, 'sans onglets dans la page : ils sont dans le volet')
+})
+
+test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rien', () => {
+  const html = rendre(
+    h(design.Bandeau, {
+      voletGauche: { libelle: '<b>x</b>', surClic: rien },
+      titre: '<script>alert(1)</script>',
+      actions: { libelle: 'a', elements: [{ cle: 'x', libelle: 'y', picto: 'inconnu', surClic: rien }] },
+    }),
+  )
+  assert.doesNotMatch(html, /<script>|<b>/)
+  assert.ok(I('interface.fermer'))
+})

@@ -8,6 +8,7 @@ import '@blocknote/mantine/style.css'
 // Nos réglages décidés (ADR 0008), après les feuilles des fondations.
 import './feuilles/editeur.css'
 import './feuilles/picto.css'
+import './feuilles/coquille.css'
 import { MantineProvider, createTheme } from '@mantine/core'
 import { REGLAGES } from './reglages.js'
 

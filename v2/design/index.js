@@ -11,3 +11,16 @@ export { EcranCourriel } from './composants/EcranCourriel.jsx'
 export { ListeDocuments } from './composants/ListeDocuments.jsx'
 export { PanneauPartage } from './composants/PanneauPartage.jsx'
 export { couleurAuteur } from './auteurs.js'
+export {
+  Coquille,
+  ColonneTexte,
+  Bandeau,
+  VoletPlanDocuments,
+  NavigationListe,
+  VoletRelecture,
+  TexteDeVolet,
+  AlerteHorsLigne,
+  Fenetre,
+  FenetreSaisie,
+} from './composants/Coquille.jsx'
+export { useFormat } from './format.js'

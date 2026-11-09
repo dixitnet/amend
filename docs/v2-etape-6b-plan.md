@@ -42,3 +42,14 @@ Format S ; contenu de l'onglet Margo et IA (étape 8) ; exports et impression (�
 1. Ordre des lots : le design d'abord.
 2. Valeurs non décidées de la maquette (hauteur du bandeau, taille des pictos, pastille du nombre de suggestions) : valeurs par défaut de Mantine, montrées sur captures au lot de design.
 3. Onglet Margo (IA) présent, vide jusqu'à l'étape 8.
+
+## Avancement
+
+- **Lot 1, design (09/11/2026)** :
+  - interface en vert foncé (`theme.colors.vert`, `primaryColor`, `primaryShade: 9`) ; le contrôle de contraste n'exclut plus rien (`CONTRASTE_EN_ATTENTE` retiré, pile verte) ;
+  - Tabler en dépendance, réservé au design par le lint ; pictos désignés par un nom de rôle (`design/pictos.jsx`) ;
+  - composants : `Coquille` (AppShell, volet gauche redimensionnable de 300 à 450 px), `Bandeau`, `VoletPlanDocuments`, `NavigationListe`, `VoletRelecture`, `TexteDeVolet`, `ColonneTexte`, `AlerteHorsLigne`, `Fenetre`, `FenetreSaisie` ; `useFormat` (étroit, tactile) ; `ListeDocuments` (titre et onglets facultatifs) et `PanneauPartage` (`enFenetre`) adaptés sans rien casser ;
+  - réglages notés dans l'ADR 0008, dont deux à confirmer sur captures : hauteur du bandeau (60 px, exemples de Mantine) et pastille du nombre de suggestions (16 px) ;
+  - tests de rendu (T4) des nouveaux composants. L'application ne s'en sert pas encore : lot 3.
+- **Textes à ajouter au catalogue au lot 3** (fr ; en préparé) : Plan et documents, Modifications et Margo (IA), Autres actions, Mon compte, Personnes sur ce document, Terminer, Plan, Documents, Ce document n’a pas encore de titre, Relecture, Modifications, Margo (IA), Margo arrive bientôt ici, Hors ligne : vos modifications sont gardées et partiront au retour de la connexion, Largeur du volet, Copier le lien, Fermer, Valider, Annuler. Le test de cohérence refuse une clé que le code n'emploie pas : elles entrent avec l'application.
+- **À revoir au lot 3** : le panneau des suggestions (titre de niveau 2 et boutons pleins) est serré dans un volet de 300 px.

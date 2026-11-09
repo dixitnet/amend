@@ -22,6 +22,8 @@ const FONDATIONS = {
   // révisée le 08/11/2026) : permis aux seules extensions.
   pointsExtension: 'prosemirror-state|prosemirror-model|@handlewithcare/prosemirror-inputrules',
   mantine: '@mantine/.*',
+  // Les pictos de l'interface (ADR 0008) : réservés au design.
+  tabler: '@tabler/.*',
   lib0: 'lib0(/.*)?',
   icu: 'intl-messageformat|@formatjs/.*',
   serveur: 'uws|postgres|redis',
@@ -225,7 +227,7 @@ export default [
     languageOptions: { globals: navigateur },
     rules: {
       'no-restricted-imports': imports({
-        permises: ['mantine'],
+        permises: ['mantine', 'tabler'],
         couches: ['application', 'adaptateurs', 'extensions', 'domaine', 'i18n'],
         cssDesign: true,
       }),
