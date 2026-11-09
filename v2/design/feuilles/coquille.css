@@ -4,14 +4,14 @@
    feuille et son import dans Cadre.jsx. */
 
 /* réglage : css.coquille.bandeau */
-.amend-bandeau {
+.amend-coquille-bandeau {
   display: flex;
   align-items: center;
   gap: var(--mantine-spacing-xs);
   height: 100%;
   padding-inline: var(--mantine-spacing-xs);
 }
-.amend-bandeau-titre {
+.amend-coquille-titre {
   flex: 1;
   min-width: 0;
   margin: 0;
@@ -22,16 +22,16 @@
 }
 
 /* réglage : css.coquille.volets */
-.amend-volet-tete,
-.amend-volet-corps,
-.amend-volet-vide {
+.amend-coquille-volet-tete,
+.amend-coquille-volet-corps,
+.amend-coquille-volet-vide {
   padding: var(--mantine-spacing-sm);
 }
-.amend-volet-tete h2 {
+.amend-coquille-volet-tete h2 {
   margin: 0;
   font-weight: 500;
 }
-.amend-volet-bouton {
+.amend-coquille-volet-bouton {
   width: 100%;
 }
 

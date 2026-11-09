@@ -52,6 +52,6 @@
     "test:contrats": "node --test --test-concurrency=1 contrats/",
     "mesurer": "node exploitation/dev/mesurer.mjs",
     "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\"",
-    "test:en-ligne": "node --test --test-concurrency=1 --test-timeout=180000 \"tests/en-ligne/*.test.js\""
+    "test:en-ligne": "NODE_USE_ENV_PROXY=1 node --test --test-concurrency=1 --test-timeout=180000 \"tests/en-ligne/*.test.js\""
   }
 }

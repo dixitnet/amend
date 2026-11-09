@@ -8,7 +8,7 @@
 //  - `lire` : lecture seule (lecteur), sans les suggestions.
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   useCreateBlockNote,
   FormattingToolbar,
@@ -25,7 +25,7 @@ import { boutonsGardes } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
-import { titresDe, titreCourant, allerAuTitre, modifierAuPoint, lireSeulement } from './plan.js'
+import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 
 function Palette() {
@@ -42,12 +42,15 @@ function Palette() {
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
- * @param {(plan: { titres: ReturnType<typeof titresDe>, courant: string | null, allerA: (cle: string) => void }) => void} [p.surPlan]
- *   rappelé avec les titres du document et le titre courant ; doit être stable
- * @param {boolean} [p.lectureDabord]  ouvrir en lecture, passer en modification au point touché (format M)
- * @param {boolean} [p.tactile]  écran tactile : aller à un titre sans donner le focus
- * @param {(saisie: { enModification: boolean, terminer: () => void }) => void} [p.surSaisie]
- *   rappelé quand on passe de la lecture à la modification et inversement ; doit être stable
+ * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
+ *   sur le texte passe en modification (curseur à l'endroit touché)
+ * @param {{ current: { terminer: () => void } | null }} [p.controle]  reçoit
+ *   `terminer()` (bouton « Terminer » du bandeau)
+ * @param {(enModification: boolean) => void} [p.surModification]
+ * @param {(plan: { titres: Array<{ id: string, niveau: number, texte: string }>, courant: string | null, allerA: (id: string) => void }) => void} [p.surPlan]
+ *   rappelé avec les titres du document (enfants compris) et le titre courant
+ *   (le premier visible sous le bandeau, comme Docs), à chaque changement et
+ *   au défilement ; doit être stable
  */
 export function EditeurCollaboratif({
   contexte,
@@ -62,10 +65,10 @@ export function EditeurCollaboratif({
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
+  lectureAuDepart = false,
+  controle,
+  surModification,
   surPlan,
-  lectureDabord = false,
-  tactile = false,
-  surSaisie,
 }) {
   const suggerer = mode === 'suggerer'
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
@@ -156,18 +159,25 @@ export function EditeurCollaboratif({
     }
   }, [editeur, afficheur, suggerer, surSuggestions])
 
-  // Le plan : les titres à chaque modification, le titre courant au défilement.
+  // Le plan : les titres du document, tenus à jour (volet « Plan » des trois
+  // formats), et le titre courant au défilement. Aller à un titre y met le
+  // curseur ; le focus seulement hors lecture à l'ouverture (le clavier d'un
+  // écran tactile s'ouvrirait).
   useEffect(() => {
     if (!surPlan) return
     let precedent = ''
     let attente
+    const allerA = (id) => allerAuTitre(editeur, id, { focaliser: !lectureAuDepart })
     const signaler = () => {
-      const titres = titresDe(editeur.document)
-      const courant = titreCourant(editeur.domElement, titres)
+      const titres = titresDe(editeur.document).map((x) => ({ id: x.cle, niveau: x.niveau, texte: x.libelle }))
+      const courant = titreCourant(
+        editeur.domElement,
+        titres.map((x) => ({ cle: x.id })),
+      )
       const empreinte = JSON.stringify([titres, courant])
       if (empreinte === precedent) return
       precedent = empreinte
-      surPlan({ titres, courant, allerA: (cle) => allerAuTitre(editeur, cle, { focaliser: !tactile }) })
+      surPlan({ titres, courant, allerA })
     }
     const auDefilement = () => {
       clearTimeout(attente)
@@ -180,37 +190,68 @@ export function EditeurCollaboratif({
       arreter()
       clearTimeout(attente)
       window.removeEventListener('scroll', auDefilement)
-      surPlan(null)
     }
-  }, [editeur, surPlan, tactile])
+  }, [editeur, surPlan, lectureAuDepart])
 
-  // La lecture d'abord (format M) : l'éditeur s'ouvre en lecture ; un appui
-  // sur le texte le passe en modification au point touché.
-  const peutEcrire = mode !== 'lire' && !historique
-  const [enModification, setEnModification] = useState(!lectureDabord)
-  useEffect(() => setEnModification(!lectureDabord), [lectureDabord, editeur])
-  const terminer = useCallback(() => {
-    lireSeulement(editeur)
+  // Format S : lecture à l'ouverture, modification d'un appui sur le texte.
+  // Tout se fait dans le geste même (sinon le téléphone n'ouvre pas le
+  // clavier) ; la propriété `editable` de BlockNoteView reste à `false` et l'on
+  // bascule l'éditeur directement (maquette validée, docs/v2-format-S.md).
+  const appui = lectureAuDepart && mode !== 'lire' && !historique
+  const [enModification, setEnModification] = useState(false)
+  useEffect(() => surModification?.(enModification), [enModification, surModification])
+  const terminer = () => {
+    if (!editeur.isEditable) return
+    editeur.isEditable = false
+    editeur.prosemirrorView?.dom.blur()
     setEnModification(false)
-  }, [editeur])
+  }
   useEffect(() => {
-    if (lectureDabord && peutEcrire) surSaisie?.({ enModification, terminer })
-    else surSaisie?.(null)
-  }, [lectureDabord, peutEcrire, enModification, terminer, surSaisie])
-  const auToucher =
-    lectureDabord && peutEcrire && !enModification
-      ? (e) => {
-          modifierAuPoint(editeur, e.clientX, e.clientY)
-          setEnModification(true)
-        }
-      : undefined
+    if (controle) controle.current = { terminer }
+  })
+  const commencer = (evenement) => {
+    if (!appui || editeur.isEditable) return
+    editeur.isEditable = true
+    editeur.prosemirrorView?.focus()
+    // Le curseur à l'endroit touché : par la sélection du navigateur, que
+    // l'éditeur relit (sans importer ProseMirror hors de ses points
+    // d'extension, règle 1 ; audit du 09/11/2026).
+    const plage = document.caretPositionFromPoint
+      ? (() => {
+          const p = document.caretPositionFromPoint(evenement.clientX, evenement.clientY)
+          if (!p) return null
+          const r = document.createRange()
+          r.setStart(p.offsetNode, p.offset)
+          return r
+        })()
+      : document.caretRangeFromPoint?.(evenement.clientX, evenement.clientY)
+    if (plage && editeur.domElement?.contains(plage.startContainer)) {
+      plage.collapse(true)
+      const s = window.getSelection()
+      s.removeAllRanges()
+      s.addRange(plage)
+    }
+    setEnModification(true)
+  }
+  // Retour en lecture quand le clavier se ferme : la zone visible
+  // (visualViewport) retrouve sa hauteur après avoir rétréci.
+  useEffect(() => {
+    const zone = window.visualViewport
+    if (!zone || !enModification) return
+    let clavierOuvert = false
+    const surRedimension = () => {
+      if (zone.height < window.innerHeight * 0.8) clavierOuvert = true
+      else if (clavierOuvert) terminer()
+    }
+    zone.addEventListener('resize', surRedimension)
+    return () => zone.removeEventListener('resize', surRedimension)
+  }, [enModification])
 
-  return (
-    <div onClick={auToucher}>
-      <BlockNoteView editor={editeur} editable={peutEcrire && enModification} formattingToolbar={false}>
-        <FormattingToolbarController formattingToolbar={Palette} />
-        {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
-      </BlockNoteView>
-    </div>
+  const vue = (
+    <BlockNoteView editor={editeur} editable={appui ? false : mode !== 'lire' && !historique} formattingToolbar={false}>
+      <FormattingToolbarController formattingToolbar={Palette} />
+      {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
+    </BlockNoteView>
   )
+  return appui ? <div onClick={commencer}>{vue}</div> : vue
 }

@@ -18,7 +18,7 @@
     }
   },
   "document": {
-    "titre": "Document {id}",
+    "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
     "lectureSeule": "Read only",
     "modeSuggestion": "Suggesting",
@@ -26,7 +26,9 @@
     "mesDocuments": "My documents",
     "partager": "Share",
     "supprimer": "Delete",
-    "confirmerSuppression": "Delete this document for everyone, permanently?"
+    "confirmerSuppression": "Delete this document for everyone, permanently?",
+    "renommer": "Rename",
+    "nomDuDocument": "Document title"
   },
   "erreurs": {
     "document-vide": "This document has no name.",
@@ -185,24 +187,28 @@
     "documents": "Documents",
     "equipes": "Teams"
   },
-  "interface": {
-    "voletGauche": "Outline and documents",
-    "voletDroit": "Changes and Margo (AI)",
+  "telephone": {
+    "planEtDocuments": "Outline and documents",
+    "relecture": "Review",
     "autresActions": "More actions",
-    "compte": "My account",
-    "presence": "People on this document",
     "terminer": "Done",
     "plan": "Outline",
     "documents": "Documents",
-    "planVide": "This document has no headings yet.",
-    "relecture": "Review",
     "modifications": "Changes",
+    "copierLien": "Copy link",
+    "planVide": "No heading in this document.",
+    "lienCopie": "Link copied.",
+    "lienNonCopie": "The link could not be copied: {lien}"
+  },
+  "interface": {
+    "voletDroit": "Changes and Margo (AI)",
+    "compte": "My account",
+    "presence": "People on this document",
     "modificationsCorrecteur": "Your suggestions go to the document’s editors, who accept or reject them.",
     "margo": "Margo (AI)",
     "margoBientot": "Margo is coming here soon.",
     "horsLigne": "Offline: your changes are kept and will be sent when the connection is back.",
     "largeurVolet": "Panel width",
-    "copierLien": "Copy link",
     "fermer": "Close",
     "valider": "OK",
     "annuler": "Cancel"

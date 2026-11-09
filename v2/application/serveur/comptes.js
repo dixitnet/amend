@@ -12,6 +12,7 @@
 //   GET    /api/documents                    { dossiers, documents } : Mes documents et Partagé avec moi
 //   POST   /api/documents                    { titre?, dossier? }  nouveau document (je suis propriétaire)
 //   DELETE /api/documents/:doc               le propriétaire seul, tout de suite
+//   PUT    /api/documents/:doc/titre         { titre }  (qui écrit ; null : sans titre)
 //   PUT    /api/documents/:doc/dossier       { dossier }  le ranger (null : racine de Mes documents)
 //   DELETE /api/documents/:doc/moi           me retirer du document (Partagé avec moi)
 //   POST   /api/dossiers                     { nom, parent? }  (étape 6c : rangement personnel)
@@ -36,6 +37,7 @@
 import { randomUUID } from 'node:crypto'
 import {
   identifiantDocument,
+  titreDocument,
   nomPersonne,
   capacites,
   roleEffectif,
@@ -406,14 +408,14 @@ export function creerComptes({
       }
       if (methode !== 'POST') return err(res, 405, 'methode-refusee')
       const { titre, dossier, equipe: brute } = await lireCorps(req)
-      if (titre !== undefined && titre !== null && (typeof titre !== 'string' || titre.length > 200))
-        return err(res, 400, 'titre-invalide')
+      const t1 = titreDocument(titre)
+      if (!t1.ok) return err(res, 400, t1.code)
       const equipe = equipeVisee(brute)
       if (equipe && !peutModifierEquipe((await membre(equipe)).caps)) return err(res, 403, 'droit-insuffisant')
       const rangement = await dossierDe(dossier, equipe)
       if (rangement === undefined) return err(res, 404, 'dossier-introuvable')
       const id = randomUUID()
-      const leTitre = titre?.normalize('NFC').trim() || null
+      const leTitre = t1.titre
       if (equipe) await comptes.creerDocumentEquipe(id, equipe, p.id, leTitre, rangement)
       else await comptes.creerDocument(id, p.id, leTitre, rangement)
       return ok(res, { id }, 201)
@@ -442,6 +444,14 @@ export function creerComptes({
           .supprimerDocument(docId)
           .catch((e) => console.error(`[serveur] suppression dans y/hub de ${docId} :`, e))
       return ok(res)
+    }
+    // PUT /api/documents/:doc/titre { titre } : qui écrit le texte renomme le document.
+    if (sous === 'titre' && !cible && methode === 'PUT') {
+      if (!caps.includes('ecrire')) return err(res, 403, 'droit-insuffisant')
+      const r = titreDocument((await lireCorps(req)).titre)
+      if (!r.ok) return err(res, 400, r.code)
+      await comptes.renommerDocument(docId, r.titre)
+      return ok(res, { titre: r.titre })
     }
     // PUT /api/documents/:doc/dossier { dossier, equipe? } : le ranger, le
     // faire entrer dans une équipe, ou l'en sortir (domaine : deplacementDocument).

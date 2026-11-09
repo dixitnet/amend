@@ -1,0 +1,51 @@
+/* Feuille du format S (téléphone, vertical) : réglages décidés par Sylvain
+   (maquette validée le 09/11/2026, docs/v2-format-S.md ; plan du format S,
+   arbitré le 09/11/2026). Le seuil est celui de Mantine (sm, 48 em, 768 px),
+   le même que Docs (MOBILE_BREAKPOINT = 768). Pour revenir en arrière,
+   supprimer cette feuille, son import dans Cadre.jsx et les lignes de l'ADR. */
+
+/* réglage : css.telephone.bandeau */
+.amend-bandeau {
+  position: sticky;
+  top: env(safe-area-inset-top, 0);
+  z-index: var(--mantine-z-index-app);
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-xs);
+  background: var(--mantine-color-body);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+.amend-bandeau-titre {
+  flex: 1;
+  min-width: 0;
+}
+
+/* réglage : css.telephone.plan */
+.amend-plan-niveau-2 {
+  padding-inline-start: var(--mantine-spacing-md);
+}
+.amend-plan-niveau-3,
+.amend-plan-niveau-4,
+.amend-plan-niveau-5 {
+  padding-inline-start: var(--mantine-spacing-xl);
+}
+
+/* réglage : css.telephone.titres */
+@media (width <= 35em) {
+  .bn-container [data-content-type='heading'] {
+    --level: 1.6rem;
+  }
+  .bn-container [data-content-type='heading'][data-level='2'] {
+    --level: 1.35rem;
+  }
+  .bn-container [data-content-type='heading'][data-level='3'] {
+    --level: 1.2rem;
+  }
+  .bn-container [data-content-type='heading'][data-level='4'] {
+    --level: 1.125rem;
+  }
+  .bn-container [data-content-type='heading'][data-level='5'] {
+    --level: 1rem;
+  }
+}

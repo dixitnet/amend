@@ -18,7 +18,7 @@
     }
   },
   "document": {
-    "titre": "Document {id}",
+    "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
     "zoneEdition": "Texte du document {id}",
     "lectureSeule": "Lecture seule",
     "modeSuggestion": "Mode suggestion",
@@ -26,7 +26,9 @@
     "mesDocuments": "Mes documents",
     "partager": "Partager",
     "supprimer": "Supprimer",
-    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement ?"
+    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement ?",
+    "renommer": "Renommer",
+    "nomDuDocument": "Titre du document"
   },
   "erreurs": {
     "document-vide": "Ce document n’a pas de nom.",
@@ -185,24 +187,28 @@
     "documents": "Documents",
     "equipes": "Équipes"
   },
-  "interface": {
-    "voletGauche": "Plan et documents",
-    "voletDroit": "Modifications et Margo (IA)",
+  "telephone": {
+    "planEtDocuments": "Plan et documents",
+    "relecture": "Relecture",
     "autresActions": "Autres actions",
-    "compte": "Mon compte",
-    "presence": "Personnes sur ce document",
     "terminer": "Terminer",
     "plan": "Plan",
     "documents": "Documents",
-    "planVide": "Ce document n’a pas encore de titre.",
-    "relecture": "Relecture",
     "modifications": "Modifications",
+    "copierLien": "Copier le lien",
+    "planVide": "Aucun titre dans ce document.",
+    "lienCopie": "Lien copié.",
+    "lienNonCopie": "Le lien n’a pas pu être copié : {lien}"
+  },
+  "interface": {
+    "voletDroit": "Modifications et Margo (IA)",
+    "compte": "Mon compte",
+    "presence": "Personnes sur ce document",
     "modificationsCorrecteur": "Vos suggestions sont proposées aux éditeurs du document, qui les acceptent ou les refusent.",
     "margo": "Margo (IA)",
     "margoBientot": "Margo arrive bientôt ici.",
     "horsLigne": "Hors ligne : vos modifications sont gardées et partiront au retour de la connexion.",
     "largeurVolet": "Largeur du volet",
-    "copierLien": "Copier le lien",
     "fermer": "Fermer",
     "valider": "Valider",
     "annuler": "Annuler"

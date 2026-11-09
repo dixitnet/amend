@@ -26,6 +26,10 @@ import {
   Fenetre,
   FenetreSaisie,
   useFormat,
+  PageEditionS,
+  PlanDocument,
+  ListeLiens,
+  useFormatS,
 } from '../../design/index.js'
 import {
   creerTraducteur,
@@ -180,7 +184,7 @@ function compteDe(personne) {
 
 /** Le bouton du volet gauche, dans le bandeau. */
 const boutonGauche = (volets) => ({
-  libelle: t('interface.voletGauche'),
+  libelle: t('telephone.planEtDocuments'),
   ouvert: volets.gauche,
   surClic: volets.basculerGauche,
 })
@@ -825,23 +829,45 @@ function Edition({ config, personne, docId, droits }) {
     [caps, docId],
   )
   const { etroit, tactile } = useFormat()
+  const formatS = useFormatS()
   const volets = useVolets(etroit)
+  const [fenetreSaisie, demanderNom] = useSaisie()
   const [connexion, setConnexion] = useState('connexion')
   const aEteConnecte = useRef(false)
   if (connexion === 'connecte') aEteConnecte.current = true
   const [autres, setAutres] = useState([])
   const [suggestions, setSuggestions] = useState(null)
-  const [plan, setPlan] = useState(null)
-  const [saisie, setSaisie] = useState(null)
+  const [plan, setPlan] = useState({ titres: [], courant: null, allerA: () => {} })
+  const [titre, setTitre] = useState(droits.titre ?? null)
+  const [volet, setVolet] = useState(null)
+  const [enModification, setEnModification] = useState(false)
+  const controle = useRef(null)
   const [noms, setNoms] = useState({})
   const [historique, setHistorique] = useState(false)
   const [partage, setPartage] = useState(false)
+  // La liste des documents (volet « Documents ») : à l'ouverture en L et M ;
+  // en S, à l'ouverture du volet gauche.
   const [documents, setDocuments] = useState(null)
   useEffect(() => {
+    if (formatS && volet !== 'gauche') return
     envoyerJson('GET', '/api/documents')
       .then(setDocuments)
       .catch(() => setDocuments(null))
-  }, [docId])
+  }, [docId, formatS, volet])
+  const enregistrerTitre = async (nom) => {
+    try {
+      setTitre((await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/titre`, { titre: nom })).titre)
+    } catch (e) {
+      window.alert(messageErreur(t, e.code || 'reseau'))
+    }
+  }
+  const renommer = () =>
+    demanderNom({
+      titre: t('document.renommer'),
+      libelle: t('document.nomDuDocument'),
+      valeur: titre ?? '',
+      valider: enregistrerTitre,
+    })
   const supprimer = async () => {
     if (!window.confirm(t('document.confirmerSuppression'))) return
     try {
@@ -880,16 +906,21 @@ function Edition({ config, personne, docId, droits }) {
     if (s.type === 'suppression') return t('suggestions.suppression', v)
     return t('suggestions.remplacement', v)
   }
-  const titre = documents?.documents.find((d) => d.id === docId)?.titre || t('document.titre', { id: docId })
+  const titreAffiche = titre || t('documents.sansTitre')
+  const peutRenommer = caps.includes('ecrire')
+  const mention = { ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
   const actions = [
     {
       cle: 'lien',
-      libelle: t('interface.copierLien'),
+      libelle: t('telephone.copierLien'),
       picto: 'lien',
       surClic: () => navigator.clipboard?.writeText(`${location.origin}/#${encodeURIComponent(docId)}`),
     },
     ...(caps.includes('inviter')
       ? [{ cle: 'partager', libelle: t('document.partager'), picto: 'partager', surClic: () => setPartage(true) }]
+      : []),
+    ...(peutRenommer
+      ? [{ cle: 'renommer', libelle: t('document.renommer'), picto: 'renommer', surClic: renommer }]
       : []),
     {
       cle: 'historique',
@@ -921,6 +952,130 @@ function Edition({ config, personne, docId, droits }) {
   ) : (
     <TexteDeVolet texte={t('interface.modificationsCorrecteur')} />
   )
+  const editeur = (
+    <EditeurCollaboratif
+      contexte={session.contexte}
+      personne={moi}
+      langue={t.langue}
+      langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
+      nomAccessible={t('document.zoneEdition', { id: docId })}
+      mode={mode}
+      nomsDe={nomsDe}
+      commentaires={commentaires}
+      surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+      historique={historique && !formatS}
+      peutRestaurer={caps.includes('restaurer')}
+      surFermerHistorique={() => setHistorique(false)}
+      lectureAuDepart={formatS || tactile}
+      controle={controle}
+      surModification={setEnModification}
+      surPlan={setPlan}
+    />
+  )
+
+  // Format S (téléphone) : la maquette validée (docs/v2-format-S.md). Comme
+  // Docs sur téléphone, pas d'historique dans le menu.
+  if (formatS)
+    return (
+      <PageEditionS
+        titre={titreAffiche}
+        surTitre={peutRenommer ? renommer : undefined}
+        libelles={{
+          gauche: t('telephone.planEtDocuments'),
+          droite: t('telephone.relecture'),
+          actions: t('telephone.autresActions'),
+          terminer: t('telephone.terminer'),
+          titre: t('document.renommer'),
+        }}
+        etat={t('document.etat', { etat: connexion })}
+        connexion={connexion}
+        mention={mention}
+        enModification={enModification}
+        surTerminer={() => controle.current?.terminer()}
+        menu={[
+          {
+            cle: 'lien',
+            libelle: t('telephone.copierLien'),
+            icone: 'lien',
+            surClic: () =>
+              Promise.resolve(navigator.clipboard?.writeText(location.href) ?? Promise.reject(new Error()))
+                .then(() => window.alert(t('telephone.lienCopie')))
+                .catch(() => window.alert(t('telephone.lienNonCopie', { lien: location.href }))),
+          },
+          ...(caps.includes('inviter')
+            ? [{ cle: 'partager', libelle: t('document.partager'), icone: 'partager', surClic: () => setPartage(true) }]
+            : []),
+          { cle: 'liste', libelle: t('document.mesDocuments'), icone: 'retour', surClic: () => (location.hash = '') },
+          ...(caps.includes('supprimer')
+            ? [{ cle: 'supprimer', libelle: t('document.supprimer'), icone: 'supprimer', surClic: supprimer }]
+            : []),
+        ]}
+        voletGauche={{
+          titre: titreAffiche,
+          onglets: [
+            {
+              cle: 'plan',
+              libelle: t('telephone.plan'),
+              icone: 'plan',
+              contenu: (
+                <PlanDocument
+                  titres={plan.titres}
+                  vide={t('telephone.planVide')}
+                  surChoix={(id) => (setVolet(null), plan.allerA(id))}
+                />
+              ),
+            },
+            {
+              cle: 'documents',
+              libelle: t('telephone.documents'),
+              icone: 'documents',
+              contenu: (
+                <ListeLiens
+                  liens={[
+                    { cle: 'tous', libelle: t('document.mesDocuments'), href: '#', actif: false },
+                    ...(documents?.documents ?? []).map((d) => ({
+                      cle: d.id,
+                      libelle: d.titre || t('documents.sansTitre'),
+                      href: `#${encodeURIComponent(d.id)}`,
+                      actif: d.id === docId,
+                    })),
+                  ]}
+                />
+              ),
+            },
+          ],
+        }}
+        voletDroit={
+          suggestions
+            ? {
+                titre: t('telephone.relecture'),
+                onglets: [
+                  {
+                    cle: 'modifications',
+                    libelle: t('telephone.modifications'),
+                    icone: 'modifications',
+                    contenu: modifications,
+                  },
+                ],
+              }
+            : null
+        }
+        volet={volet}
+        surVolet={setVolet}
+        panneau={
+          partage
+            ? { titre: t('partage.titre'), contenu: <Partage docId={docId} />, surFermer: () => setPartage(false) }
+            : null
+        }
+        editeur={
+          <>
+            {editeur}
+            {fenetreSaisie}
+          </>
+        }
+      />
+    )
+
   return (
     <Coquille
       connexion={connexion}
@@ -933,14 +1088,16 @@ function Edition({ config, personne, docId, droits }) {
       bandeau={
         <Bandeau
           voletGauche={boutonGauche(volets)}
-          titre={titre}
-          mention={{ ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]}
-          terminer={saisie?.enModification ? { libelle: t('interface.terminer'), surClic: saisie.terminer } : null}
+          titre={titreAffiche}
+          mention={mention}
+          terminer={
+            enModification ? { libelle: t('telephone.terminer'), surClic: () => controle.current?.terminer() } : null
+          }
           presence={{ libelle: t('interface.presence'), personnes: autres }}
           partager={
             caps.includes('inviter') ? { libelle: t('document.partager'), surClic: () => setPartage(true) } : null
           }
-          actions={{ libelle: t('interface.autresActions'), elements: actions }}
+          actions={{ libelle: t('telephone.autresActions'), elements: actions }}
           compte={compteDe(personne)}
           voletDroit={
             avecVoletDroit
@@ -957,44 +1114,31 @@ function Edition({ config, personne, docId, droits }) {
       voletGauche={
         <VoletPlanDocuments
           marque={marque()}
-          onglets={{ plan: t('interface.plan'), documents: t('interface.documents') }}
-          plan={(plan?.titres ?? []).map((x) => ({ ...x, actif: x.cle === plan.courant }))}
-          surTitre={(cle) => plan?.allerA(cle)}
-          videPlan={t('interface.planVide')}
+          onglets={{ plan: t('telephone.plan'), documents: t('telephone.documents') }}
+          plan={plan.titres.map((x) => ({
+            cle: x.id,
+            niveau: x.niveau,
+            libelle: x.texte,
+            actif: x.id === plan.courant,
+          }))}
+          surTitre={(cle) => plan.allerA(cle)}
+          videPlan={t('telephone.planVide')}
           documents={arbreDocuments(documents, docId)}
         />
       }
       voletDroit={
         avecVoletDroit ? (
           <VoletRelecture
-            titre={t('interface.relecture')}
-            onglets={{ modifications: t('interface.modifications'), margo: t('interface.margo') }}
+            titre={t('telephone.relecture')}
+            onglets={{ modifications: t('telephone.modifications'), margo: t('interface.margo') }}
             modifications={modifications}
             margo={<TexteDeVolet texte={t('interface.margoBientot')} />}
           />
         ) : null
       }
     >
-      <ColonneTexte>
-        <EditeurCollaboratif
-          contexte={session.contexte}
-          personne={moi}
-          langue={t.langue}
-          langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
-          nomAccessible={t('document.zoneEdition', { id: docId })}
-          mode={mode}
-          nomsDe={nomsDe}
-          commentaires={commentaires}
-          surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
-          historique={historique}
-          peutRestaurer={caps.includes('restaurer')}
-          surFermerHistorique={() => setHistorique(false)}
-          surPlan={setPlan}
-          lectureDabord={tactile}
-          tactile={tactile}
-          surSaisie={setSaisie}
-        />
-      </ColonneTexte>
+      <ColonneTexte>{editeur}</ColonneTexte>
+      {fenetreSaisie}
       {caps.includes('inviter') ? (
         <Fenetre
           ouverte={partage}

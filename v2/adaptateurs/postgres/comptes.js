@@ -194,6 +194,7 @@ export async function ouvrirComptes(url) {
     /** Efface le document et tout ce qui s'y rattache ici (accès, invitations, passages). */
     supprimerDocument: (id) => sql`delete from amend.documents where id = ${id}`.then(() => {}),
     definirRoleLien: (id, role) => sql`update amend.documents set role_lien = ${role} where id = ${id}`.then(() => {}),
+    renommerDocument: (id, titre) => sql`update amend.documents set titre = ${titre} where id = ${id}`.then(() => {}),
     /**
      * Les documents d'une personne : ceux où elle a un accès, et ceux ouverts
      * par un lien encore ouvert ; avec où chacun est rangé, et qui le lui a

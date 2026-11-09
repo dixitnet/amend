@@ -1,6 +1,6 @@
 # amend.ink v2 : format S (téléphone, vertical)
 
-État au 09/11/2026 : **maquette visuelle validée par Sylvain**, pas encore développée dans la v2 (le format S reste hors des premières étapes, renoncement n° 4). Maquette : `docs/v2-maquettes/telephone/`, publiée sur https://claude.ai/artifact/1Up7ViVTDpskEYqe58mHy5 . Décisions : `docs/journal-decisions.md`, § 35.
+État au 09/11/2026 : **maquette visuelle validée par Sylvain**, puis **développée dans la v2** (plan arbitré : `docs/v2-format-S-plan.md`). Maquette : `docs/v2-maquettes/telephone/`, publiée sur https://claude.ai/artifact/1Up7ViVTDpskEYqe58mHy5 . Décisions : `docs/journal-decisions.md`, § 35.
 
 Règle de départ : regarder d'abord comment procède Docs (règle permanente n° 11). Chaque point ci-dessous dit ce que fait Docs.
 
@@ -49,6 +49,6 @@ Docs n'a pas de mode lecture pour qui peut modifier : la lecture seule n'y exist
 
 ## Points ouverts
 
-1. Icônes : Tabler n'est pas encore une dépendance de la v2 (à décider avec le travail sur l'interface).
-2. Taille des titres sur téléphone : Docs les réduit ; pas encore traité.
+1. Icônes : Tabler ajouté à la v2 (plan du format S, 2.1).
+2. Taille des titres sur téléphone : réduite comme Docs (plan du format S, 6.1 ; `css.telephone.titres`).
 3. Fermeture du clavier : vérifiée en simulation seulement, à essayer sur un vrai téléphone.

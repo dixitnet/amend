@@ -4,9 +4,23 @@
 // facultatif (les membres d'une équipe), un tableau de lignes (dossiers et
 // documents, chacun un lien) avec leurs actions. Mantine sans réglage ;
 // textes traduits ; les gestes remontent par les fonctions de rappel. Titre et
-// onglets facultatifs : dans la coquille, le bandeau et le volet les portent.
-import { Container, Stack, Group, Title, Text, SegmentedControl, Table, Anchor, Breadcrumbs } from '@mantine/core'
+// onglets facultatifs : dans la coquille des formats M et L, le bandeau et le
+// volet gauche les portent.
+import {
+  Container,
+  Stack,
+  Group,
+  Title,
+  Text,
+  SegmentedControl,
+  NativeSelect,
+  Table,
+  Anchor,
+  Breadcrumbs,
+  Paper,
+} from '@mantine/core'
 import { Marque } from './Picto.jsx'
+import { useFormatS } from '../formats.js'
 
 /**
  * @param {{
@@ -34,6 +48,7 @@ export function ListeDocuments({
   lignes,
   vide,
 }) {
+  const formatS = useFormatS()
   return (
     <Container>
       <Stack>
@@ -48,7 +63,12 @@ export function ListeDocuments({
             {actions}
           </Group>
         ) : null}
-        {onglets ? <SegmentedControl data={onglets} value={onglet} onChange={surOnglet} /> : null}
+        {/* Format S : les onglets ne tiennent pas en largeur ; une liste déroulante (plan du format S, 5.1). */}
+        {!onglets ? null : formatS ? (
+          <NativeSelect data={onglets} value={onglet} onChange={(e) => surOnglet(e.currentTarget.value)} />
+        ) : (
+          <SegmentedControl data={onglets} value={onglet} onChange={surOnglet} />
+        )}
         {chemin?.length ? (
           <Breadcrumbs component="nav" aria-label={libelleChemin}>
             {chemin.map((c) => (
@@ -61,7 +81,17 @@ export function ListeDocuments({
         {boutons ? <Group>{boutons}</Group> : null}
         {panneau}
         {message ? <Text role="status">{message}</Text> : null}
-        {lignes.length ? (
+        {lignes.length && formatS ? (
+          <Stack>
+            {lignes.map((l) => (
+              <Paper key={l.cle} component="article">
+                <Anchor href={l.href}>{l.nom}</Anchor>
+                <Text>{l.cellules.filter(Boolean).join(' · ')}</Text>
+                {l.actions ? <Group>{l.actions}</Group> : null}
+              </Paper>
+            ))}
+          </Stack>
+        ) : lignes.length ? (
           <Table>
             <Table.Thead>
               <Table.Tr>

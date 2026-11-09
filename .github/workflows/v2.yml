@@ -4,7 +4,7 @@
 #   - pile complète (T5) sur trois moteurs : Chromium, WebKit (Safari), Firefox ;
 #   - en ligne (T6) contre v2.amend.ink chaque nuit, à la demande, et après
 #     chaque envoi sur main, une fois le commit en ligne (WebSocket et ports compris, ce que la session de
-#     Claude ne peut pas faire). Secrets du dépôt : V2_IDENTIFIANT, V2_MOT_DE_PASSE.
+#     Claude ne peut pas faire). Secret du dépôt : V2_JETON_ESSAI (clé d'essai, 09/11/2026).
 name: v2
 
 on:
@@ -120,9 +120,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Vérifier que les secrets sont posés
-        run: test -n "$V2_MOT_DE_PASSE" || { echo "::error::secret V2_MOT_DE_PASSE absent (Settings, Secrets and variables, Actions)"; exit 1; }
+        run: test -n "$V2_JETON_ESSAI" || { echo "::error::secret V2_JETON_ESSAI absent (Settings, Secrets and variables, Actions)"; exit 1; }
         env:
-          V2_MOT_DE_PASSE: ${{ secrets.V2_MOT_DE_PASSE }}
+          V2_JETON_ESSAI: ${{ secrets.V2_JETON_ESSAI }}
       # Après une fusion, le VPS déploie main seul (deploy/auto/, minuteur de
       # 3 minutes, v1 puis v2) : sans cette attente, T6 tombe sur le
       # redémarrage de la v2 (502). On attend que la v2 serve le commit poussé,
@@ -132,19 +132,14 @@ jobs:
         run: |
           attendu="${GITHUB_SHA:0:7}"
           for i in $(seq 1 60); do
-            version=$(curl -fsS --max-time 10 -u "${V2_IDENTIFIANT:-sylvain}:$V2_MOT_DE_PASSE" \
-              https://v2.amend.ink/api/config 2>/dev/null | sed -n 's/.*"version":"\([0-9a-f]*\)".*/\1/p' || true)
+            version=$(curl -fsS --max-time 10 https://v2.amend.ink/api/config 2>/dev/null | sed -n 's/.*"version":"\([0-9a-f]*\)".*/\1/p' || true)
             if [ "$version" = "$attendu" ]; then echo "v2.amend.ink sert $attendu"; exit 0; fi
             echo "en ligne : ${version:-indisponible}, attendu : $attendu (essai $i/60)"
             sleep 15
           done
           echo "::error::v2.amend.ink ne sert pas $attendu au bout de 15 minutes (journalctl -u amend-maj sur le VPS)"
           exit 1
-        env:
-          V2_IDENTIFIANT: ${{ secrets.V2_IDENTIFIANT }}
-          V2_MOT_DE_PASSE: ${{ secrets.V2_MOT_DE_PASSE }}
       - name: T6 (v2.amend.ink)
         run: npm run test:en-ligne
         env:
-          V2_IDENTIFIANT: ${{ secrets.V2_IDENTIFIANT }}
-          V2_MOT_DE_PASSE: ${{ secrets.V2_MOT_DE_PASSE }}
+          V2_JETON_ESSAI: ${{ secrets.V2_JETON_ESSAI }}

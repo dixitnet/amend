@@ -9,6 +9,7 @@ import '@blocknote/mantine/style.css'
 import './feuilles/editeur.css'
 import './feuilles/picto.css'
 import './feuilles/coquille.css'
+import './feuilles/telephone.css'
 import { MantineProvider, createTheme } from '@mantine/core'
 import { REGLAGES } from './reglages.js'
 

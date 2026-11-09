@@ -64,7 +64,7 @@ test('une clé absente d’une langue retombe sur le français', () => {
 })
 
 test('un paramètre manquant lève une erreur explicite (défaut vu tôt, pas un texte incomplet)', () => {
-  assert.throws(() => creerTraducteur('fr')('document.titre', {}), /"id" was not provided/)
+  assert.throws(() => creerTraducteur('fr')('document.zoneEdition', {}), /"id" was not provided/)
 })
 
 test('messageErreur : message dédié, ou message générique avec le code', () => {

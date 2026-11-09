@@ -13,7 +13,7 @@ const ouvrir = (nom, docId, o) => ouvrirSur(nav, pile.url, nom, docId, o)
 before(async () => {
   preparerServices()
   construireClient()
-  pile = await demarrerPile({ port: 4380, portCollab: 4480 })
+  pile = await demarrerPile({ port: 4386, portCollab: 4486 })
   nav = await lancerNavigateur()
 })
 after(async () => {

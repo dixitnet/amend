@@ -24,3 +24,5 @@ export {
   FenetreSaisie,
 } from './composants/Coquille.jsx'
 export { useFormat } from './format.js'
+export { PageEditionS, PlanDocument, ListeLiens } from './composants/PageEditionS.jsx'
+export { useFormatS } from './formats.js'

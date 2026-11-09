@@ -23,6 +23,7 @@ import {
   IconLogout,
   IconWifiOff,
   IconSettings,
+  IconPencil,
 } from '@tabler/icons-react'
 
 const PICTOS = {
@@ -47,6 +48,7 @@ const PICTOS = {
   deconnexion: IconLogout,
   horsLigne: IconWifiOff,
   administration: IconSettings,
+  renommer: IconPencil,
 }
 
 /** Le picto d'un rôle, ou rien si le rôle est inconnu. */

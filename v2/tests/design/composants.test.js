@@ -44,6 +44,7 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     equipe: 'Éditions',
     numero: '2.023',
     commit: 'abc1234',
+    lien: 'https://v2.amend.ink/#x',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -70,6 +71,7 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       equipe: 'E',
       numero: '2',
       commit: 'c',
+      lien: 'L',
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
@@ -154,33 +156,33 @@ function coquilleDocument(t, { droite = true } = {}) {
       libelleRedimension: t('interface.largeurVolet'),
       alerte: h(design.AlerteHorsLigne, { texte: t('interface.horsLigne') }),
       bandeau: h(design.Bandeau, {
-        voletGauche: { libelle: t('interface.voletGauche'), ouvert: true, surClic: rien },
+        voletGauche: { libelle: t('telephone.planEtDocuments'), ouvert: true, surClic: rien },
         titre: 'La gare',
         mention: t('document.modeSuggestion'),
-        terminer: { libelle: t('interface.terminer'), surClic: rien },
+        terminer: { libelle: t('telephone.terminer'), surClic: rien },
         presence: { libelle: t('interface.presence'), personnes: [{ cle: 'c', nom: 'Claire Martin' }] },
         partager: { libelle: t('document.partager'), surClic: rien },
         actions: {
-          libelle: t('interface.autresActions'),
-          elements: [{ cle: 'lien', libelle: t('interface.copierLien'), picto: 'lien', surClic: rien }],
+          libelle: t('telephone.autresActions'),
+          elements: [{ cle: 'lien', libelle: t('telephone.copierLien'), picto: 'lien', surClic: rien }],
         },
         compte: { libelle: t('interface.compte'), nom: 'Sylvain', courriel: 's@exemple.fr', actions: [] },
         voletDroit: { libelle: t('interface.voletDroit'), nombre: 3, ouvert: droite, surClic: rien },
       }),
       voletGauche: h(design.VoletPlanDocuments, {
         marque: { nom: 'amend.ink', href: '#' },
-        onglets: { plan: t('interface.plan'), documents: t('interface.documents') },
+        onglets: { plan: t('telephone.plan'), documents: t('telephone.documents') },
         plan: [
           { cle: 'a', niveau: 2, libelle: '1. La fin de l’étalement', actif: true },
           { cle: 'b', niveau: 3, libelle: 'La chronotopie' },
         ],
         surTitre: rien,
-        videPlan: t('interface.planVide'),
+        videPlan: t('telephone.planVide'),
         documents: [{ cle: 'd', nom: 'Réparons la ville', href: '#/d', actif: true }],
       }),
       voletDroit: h(design.VoletRelecture, {
-        titre: t('interface.relecture'),
-        onglets: { modifications: t('interface.modifications'), margo: t('interface.margo') },
+        titre: t('telephone.relecture'),
+        onglets: { modifications: t('telephone.modifications'), margo: t('interface.margo') },
         modifications: h('div', { id: 'suggestions' }),
         margo: h(design.TexteDeVolet, { texte: t('interface.margoBientot') }),
       }),
@@ -195,15 +197,15 @@ test('coquille d’un document : bandeau, volets, alerte et texte, dans chaque l
     const html = rendre(coquilleDocument(t))
     for (const cle of ['document.partager']) assert.ok(html.includes(echapper(t(cle))), `${l} : ${cle}`)
     for (const cle of [
-      'interface.voletGauche',
-      'interface.terminer',
-      'interface.autresActions',
+      'telephone.planEtDocuments',
+      'telephone.terminer',
+      'telephone.autresActions',
       'interface.compte',
       'interface.voletDroit',
-      'interface.plan',
-      'interface.documents',
-      'interface.relecture',
-      'interface.modifications',
+      'telephone.plan',
+      'telephone.documents',
+      'telephone.relecture',
+      'telephone.modifications',
       'interface.margo',
       'interface.horsLigne',
     ])
@@ -229,7 +231,7 @@ test('coquille de la liste : sans volet droit ; navigation et nouveau document',
         gaucheOuvert: true,
         libelleRedimension: t('interface.largeurVolet'),
         bandeau: h(design.Bandeau, {
-          voletGauche: { libelle: t('interface.voletGauche'), ouvert: true, surClic: rien },
+          voletGauche: { libelle: t('telephone.planEtDocuments'), ouvert: true, surClic: rien },
           titre: t('documents.mesDocuments'),
           compte: { libelle: t('interface.compte'), nom: 'Sylvain', actions: [] },
         }),

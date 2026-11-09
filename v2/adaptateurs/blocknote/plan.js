@@ -1,5 +1,5 @@
 // Adaptateur BlockNote (couche 2) : le plan du document (volet « Plan » des
-// formats M et L) et la lecture d'abord (format M, comme le format S).
+// formats S, M et L).
 //
 // Plan, comme le sommaire de Docs (`useHeadingStore.tsx`, `Heading.tsx`,
 // `TableContentSideBar.tsx`) : les titres du document, tenus à jour à chaque
@@ -58,29 +58,4 @@ export function allerAuTitre(editeur, cle, { focaliser }) {
   editeur.setTextCursorPosition(cle, 'end')
   const el = editeur.domElement?.querySelector(`[data-id="${CSS.escape(cle)}"]`)
   if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - hautVisible(), behavior: 'smooth' })
-}
-
-/**
- * Passer de la lecture à la modification au point touché, dans le geste
- * même (sinon un écran tactile n'ouvre pas le clavier) : l'éditeur devient
- * modifiable, prend le focus, et le curseur est posé par la sélection du
- * navigateur à l'endroit touché (ProseMirror la reprend). L'écriture directe
- * de `isEditable` précède la propriété `editable` de BlockNoteView, que
- * l'appelant met à jour dans le même geste (état React) : les deux disent
- * alors la même chose au rendu suivant.
- */
-export function modifierAuPoint(editeur, x, y) {
-  editeur.isEditable = true
-  editeur.focus()
-  const point = document.caretPositionFromPoint?.(x, y)
-  const plage = point ? null : document.caretRangeFromPoint?.(x, y)
-  const noeud = point?.offsetNode ?? plage?.startContainer
-  const decalage = point?.offset ?? plage?.startOffset
-  if (noeud && editeur.domElement?.contains(noeud)) window.getSelection()?.collapse(noeud, decalage)
-}
-
-/** Repasser en lecture. */
-export function lireSeulement(editeur) {
-  editeur.isEditable = false
-  editeur.domElement?.blur()
 }

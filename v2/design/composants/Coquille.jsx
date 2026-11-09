@@ -88,11 +88,11 @@ export const ColonneTexte = ({ children }) => <Container>{children}</Container>
  */
 export function Bandeau({ voletGauche, titre, mention, terminer, presence, partager, actions, compte, voletDroit }) {
   return (
-    <div className="amend-bandeau">
+    <div className="amend-coquille-bandeau">
       <ActionIcon aria-label={voletGauche.libelle} aria-expanded={voletGauche.ouvert} onClick={voletGauche.surClic}>
         <PictoDe role="plan" />
       </ActionIcon>
-      <Text component="h1" className="amend-bandeau-titre">
+      <Text component="h1" className="amend-coquille-titre">
         {titre}
       </Text>
       {mention ? <Badge>{mention}</Badge> : null}
@@ -165,7 +165,7 @@ export function Bandeau({ voletGauche, titre, mention, terminer, presence, parta
 /** La marque en tête d'un volet : picto et nom, lien vers la liste. */
 const MarqueDeVolet = ({ marque }) => (
   <AppShell.Section>
-    <div className="amend-volet-tete">
+    <div className="amend-coquille-volet-tete">
       <Anchor href={marque.href}>
         <Marque nom={marque.nom} />
       </Anchor>
@@ -216,7 +216,7 @@ export function VoletPlanDocuments({ marque, onglets, plan, surTitre, videPlan, 
                 />
               ))
             ) : (
-              <Text className="amend-volet-vide">{videPlan}</Text>
+              <Text className="amend-coquille-volet-vide">{videPlan}</Text>
             )}
           </Tabs.Panel>
           <Tabs.Panel value="documents">
@@ -236,8 +236,12 @@ export function NavigationListe({ marque, nouveau, entrees }) {
     <>
       <MarqueDeVolet marque={marque} />
       <AppShell.Section>
-        <div className="amend-volet-tete">
-          <Button className="amend-volet-bouton" leftSection={<PictoDe role="nouveau" />} onClick={nouveau.surClic}>
+        <div className="amend-coquille-volet-tete">
+          <Button
+            className="amend-coquille-volet-bouton"
+            leftSection={<PictoDe role="nouveau" />}
+            onClick={nouveau.surClic}
+          >
             {nouveau.libelle}
           </Button>
         </div>
@@ -263,7 +267,7 @@ export function VoletRelecture({ titre, onglets, modifications, margo }) {
   return (
     <>
       <AppShell.Section>
-        <div className="amend-volet-tete">
+        <div className="amend-coquille-volet-tete">
           <Text component="h2">{titre}</Text>
         </div>
       </AppShell.Section>
@@ -278,10 +282,10 @@ export function VoletRelecture({ titre, onglets, modifications, margo }) {
             </Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="modifications">
-            <div className="amend-volet-corps">{modifications}</div>
+            <div className="amend-coquille-volet-corps">{modifications}</div>
           </Tabs.Panel>
           <Tabs.Panel value="margo">
-            <div className="amend-volet-corps">{margo}</div>
+            <div className="amend-coquille-volet-corps">{margo}</div>
           </Tabs.Panel>
         </Tabs>
       </AppShell.Section>

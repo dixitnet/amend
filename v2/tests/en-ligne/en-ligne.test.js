@@ -1,9 +1,11 @@
-// T6 : la v2 en ligne (v2.amend.ink, derrière le mot de passe de Caddy).
+// T6 : la v2 en ligne (v2.amend.ink), depuis le 09/11/2026 sans mot de passe
+// de Caddy ni entrée de développement : service fermé (lien par courriel), et
+// comptes d'essai ouverts par la clé d'essai, seulement en @essai.amend.invalid.
 //   npm run test:en-ligne
-// Identifiants : V2_IDENTIFIANT et V2_MOT_DE_PASSE (secrets du dépôt dans
-// GitHub). Dans la session de Claude, le proxy ajoute lui-même le mot de passe
-// mais ne laisse passer ni WebSocket ni port autre que 80 et 443 : ces tests-là
-// s'y déclarent sautés, avec la raison.
+// Clé : V2_JETON_ESSAI (secret du dépôt dans GitHub). Dans la session de Claude,
+// le proxy ajoute lui-même la clé à toute requête vers v2.amend.ink, et ne
+// laisse passer ni WebSocket ni port autre que 80 et 443 : ces tests-là s'y
+// déclarent sautés, avec la raison.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
@@ -12,15 +14,16 @@ import dns from 'node:dns/promises'
 import * as playwright from 'playwright'
 
 const BASE = (process.env.V2_BASE || 'https://v2.amend.ink').replace(/\/$/, '')
-const MDP = process.env.V2_MOT_DE_PASSE
-const IDENT = process.env.V2_IDENTIFIANT || 'sylvain'
+const CLE = process.env.V2_JETON_ESSAI
 const DERRIERE_PROXY = !!(process.env.HTTPS_PROXY || process.env.https_proxy)
-const AUTH = MDP ? { authorization: `Basic ${Buffer.from(`${IDENT}:${MDP}`).toString('base64')}` } : {}
+/** L'en-tête de la clé d'essai : donné ici en CI ; ajouté par le proxy dans la session de Claude. */
+const ESSAI = CLE ? { 'x-amend-essai-token': CLE } : {}
+const AVEC_CLE = !!CLE || DERRIERE_PROXY
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
 const sauf = (condition, raison, nom, f) => test(nom, (t) => (condition ? t.skip(raison) : f(t)))
 
-/** Code HTTP d'une ouverture de WebSocket, sans mot de passe (fetch refuse l'en-tête Upgrade). */
-function upgradeSansMotDePasse(chemin) {
+/** Code HTTP d'une ouverture de WebSocket sans session (fetch refuse l'en-tête Upgrade). */
+function upgradeSansSession(chemin) {
   return new Promise((resolve, reject) => {
     const req = https.request(`${BASE}${chemin}`, {
       headers: {
@@ -37,36 +40,78 @@ function upgradeSansMotDePasse(chemin) {
   })
 }
 
+/** Une session d'essai : rend le cookie et l'adresse en @essai.amend.invalid. */
+async function sessionEssai(nom) {
+  const r = await fetch(`${BASE}/api/essai/session`, {
+    method: 'POST',
+    headers: { ...ESSAI, 'content-type': 'application/json' },
+    body: JSON.stringify({ nom }),
+  })
+  assert.equal(r.status, 200, `session d'essai pour ${nom}`)
+  const { courriel } = await r.json()
+  return { cookie: r.headers.get('set-cookie').split(';')[0], entete: r.headers.get('set-cookie'), courriel }
+}
+
+test('sans mot de passe : page, configuration (dev fermé), HSTS, noindex', async () => {
+  const r = await fetch(`${BASE}/`)
+  assert.equal(r.status, 200)
+  assert.match(r.headers.get('strict-transport-security') || '', /max-age=\d+/)
+  assert.match(r.headers.get('x-robots-tag') || '', /noindex/)
+  const conf = await (await fetch(`${BASE}/api/config`)).json()
+  assert.equal(conf.collaboration, `${BASE.replace(/^https/, 'wss')}/collaboration/ws/v1/amend`)
+  assert.equal(conf.dev, false)
+})
+
+test('entrée de développement fermée ; rien sans session', async () => {
+  const dev = await fetch(`${BASE}/api/dev/session`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ nom: 'X' }),
+  })
+  assert.equal(dev.status, 404)
+  assert.equal((await fetch(`${BASE}/api/dev/courriers`)).status, 404)
+  assert.equal((await fetch(`${BASE}/api/documents`)).status, 401)
+  assert.equal((await fetch(`${BASE}/api/admin/systeme`)).status, 401)
+})
+
 sauf(
-  !MDP,
-  'sans V2_MOT_DE_PASSE (le proxy de la session ajoute le mot de passe à tout)',
-  'sans mot de passe : 401 partout, WebSocket comprise',
+  DERRIERE_PROXY,
+  'le proxy de la session ajoute la clé d’essai à toute requête',
+  'sans clé d’essai, la route d’essai n’existe pas',
   async () => {
-    for (const chemin of ['/', '/api/config']) assert.equal((await fetch(`${BASE}${chemin}`)).status, 401, chemin)
-    assert.equal(await upgradeSansMotDePasse('/collaboration/ws/v1/amend/essai'), 401, 'WebSocket')
+    const r = await fetch(`${BASE}/api/essai/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-amend-essai-token': 'f'.repeat(64) },
+      body: JSON.stringify({ nom: 'X' }),
+    })
+    assert.equal(r.status, 404)
   },
 )
 
-test('avec le mot de passe : page, configuration, HSTS', async () => {
-  const r = await fetch(`${BASE}/`, { headers: AUTH })
-  assert.equal(r.status, 200)
-  assert.match(r.headers.get('strict-transport-security') || '', /max-age=\d+/)
-  const conf = await (await fetch(`${BASE}/api/config`, { headers: AUTH })).json()
-  assert.equal(conf.collaboration, `${BASE.replace(/^https/, 'wss')}/collaboration/ws/v1/amend`)
-})
+sauf(
+  DERRIERE_PROXY,
+  'le proxy de la session ne laisse pas passer les WebSocket',
+  'WebSocket sans session : refusée',
+  async () => {
+    assert.notEqual(await upgradeSansSession('/collaboration/ws/v1/amend/essai'), 101)
+  },
+)
 
-test('session : cookie HttpOnly, SameSite et Secure', async () => {
-  const r = await fetch(`${BASE}/api/dev/session`, {
-    method: 'POST',
-    headers: { ...AUTH, 'content-type': 'application/json' },
-    body: JSON.stringify({ nom: 'Vérif en ligne' }),
-  })
-  assert.equal(r.status, 200)
-  const c = r.headers.get('set-cookie')
-  assert.match(c, /HttpOnly/)
-  assert.match(c, /SameSite=Lax/)
-  assert.match(c, /; Secure/)
-})
+sauf(
+  !AVEC_CLE,
+  'sans V2_JETON_ESSAI',
+  'session d’essai : cookie HttpOnly, SameSite et Secure ; jamais administratrice',
+  async () => {
+    const s = await sessionEssai('TEST en ligne')
+    assert.match(s.courriel, /@essai\.amend\.invalid$/)
+    assert.match(s.entete, /HttpOnly/)
+    assert.match(s.entete, /SameSite=Lax/)
+    assert.match(s.entete, /; Secure/)
+    const moi = await (await fetch(`${BASE}/api/moi`, { headers: { cookie: s.cookie } })).json()
+    assert.equal(moi.admin, false)
+    assert.equal((await fetch(`${BASE}/api/admin/systeme`, { headers: { cookie: s.cookie } })).status, 403)
+  },
+)
 
 sauf(
   DERRIERE_PROXY,
@@ -87,45 +132,41 @@ sauf(
 )
 
 sauf(
-  DERRIERE_PROXY,
-  'le proxy de la session ne laisse pas passer les WebSocket',
+  DERRIERE_PROXY || !CLE,
+  DERRIERE_PROXY ? 'le proxy de la session ne laisse pas passer les WebSocket' : 'sans V2_JETON_ESSAI',
   'parcours : deux navigateurs convergent, le texte survit au rechargement',
   async () => {
     const nav = await playwright[process.env.NAVIGATEUR || 'chromium'].launch()
-    const doc = `verif-${Date.now().toString(36)}`
-    // La première personne crée le document et en est propriétaire ; elle
-    // donne ensuite le rôle d'éditeur aux suivantes.
-    let proprietaire = null
-    const post = (chemin, cookie, corps) =>
+    const a = await sessionEssai('TEST en ligne A')
+    const b = await sessionEssai('TEST en ligne B')
+    const appel = (methode, chemin, cookie, corps) =>
       fetch(`${BASE}${chemin}`, {
-        method: 'POST',
-        headers: { ...AUTH, 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
-        body: JSON.stringify(corps),
+        method: methode,
+        headers: { 'content-type': 'application/json', cookie },
+        body: corps === undefined ? undefined : JSON.stringify(corps),
       })
-    const ouvrir = async (nom) => {
-      if (proprietaire) {
-        const { id } = await (await post('/api/dev/session', null, { nom })).json()
-        const r = await post('/api/dev/acces', proprietaire, { document: doc, personne: id, role: 'editeur' })
-        assert.equal(r.status, 200, `rôle d'éditeur pour ${nom}`)
-      }
-      const ctx = await nav.newContext({
-        locale: 'fr-FR',
-        httpCredentials: MDP ? { username: IDENT, password: MDP } : undefined,
-      })
+    // A crée le document (« TEST — … ») et donne le rôle d'éditeur à B, par son
+    // adresse d'essai (aucun courrier ne part vers une adresse .invalid).
+    const { id: doc } = await (await appel('POST', '/api/documents', a.cookie, { titre: 'TEST — T6 en ligne' })).json()
+    const partage = await appel('POST', `/api/documents/${doc}/acces`, a.cookie, {
+      courriel: b.courriel,
+      role: 'editeur',
+    })
+    assert.equal(partage.status, 200, 'rôle d’éditeur pour B')
+    const ouvrir = async (s) => {
+      const ctx = await nav.newContext({ locale: 'fr-FR' })
+      const [nom, valeur] = s.cookie.split(/=(.*)/s)
+      await ctx.addCookies([{ name: nom, value: valeur, url: BASE, secure: true, httpOnly: true }])
       const page = await ctx.newPage()
       await page.goto(`${BASE}/#${doc}`)
-      await page.waitForSelector('input[name=nom], .bn-editor')
-      if (await page.$('input[name=nom]')) {
-        await page.fill('input[name=nom]', nom)
-        await page.click('button[type=submit]')
-      }
-      await page.waitForFunction(() => document.querySelector('[role=status]')?.textContent === 'Synchronisé', null, {
-        timeout: 30000,
-      })
-      if (!proprietaire) {
-        const c = (await ctx.cookies(BASE)).find((x) => x.name === 'amend2_session')
-        proprietaire = `${c.name}=${c.value}`
-      }
+      // L'état de la connexion, en attribut de la coquille (formats M et L).
+      await page.waitForFunction(
+        () => document.querySelector('[data-connexion]')?.dataset.connexion === 'connecte',
+        null,
+        {
+          timeout: 30000,
+        },
+      )
       return page
     }
     const lire = (p) =>
@@ -138,16 +179,17 @@ sauf(
       assert.equal(await lire(p), attendu)
     }
     try {
-      const a = await ouvrir('Vérif A')
-      const b = await ouvrir('Vérif B')
-      await a.click('.bn-editor')
-      await a.keyboard.type('Écrit en ligne.')
-      await attendreTexte(b, 'Écrit en ligne.')
+      const pa = await ouvrir(a)
+      const pb = await ouvrir(b)
+      await pa.click('.bn-editor')
+      await pa.keyboard.type('Écrit en ligne.')
+      await attendreTexte(pb, 'Écrit en ligne.')
       await attendre(8000) // délai d'écriture en base en ligne : 5 s
-      const c = await ouvrir('Vérif C')
-      await attendreTexte(c, 'Écrit en ligne.')
+      await pb.reload()
+      await attendreTexte(pb, 'Écrit en ligne.')
     } finally {
       await nav.close()
+      await appel('DELETE', `/api/documents/${doc}`, a.cookie)
     }
   },
 )
