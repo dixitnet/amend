@@ -57,7 +57,11 @@ const lire = (f) => {
 }
 const SECRET = /(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|collabtext_session=)/
 const suivis = (motif) => git('ls-files', '--', motif).split('\n').filter(Boolean)
-const date = new Date().toISOString().slice(0, 10)
+// Date et heure (UTC) dans le nom du fichier : deux audits du même jour ne
+// s'écrasent pas ; l'écriture refuse en plus un fichier existant (flag 'wx').
+const maintenant = new Date().toISOString()
+const date = maintenant.slice(0, 10)
+const horodatage = `${date}-${maintenant.slice(11, 16).replace(':', '')}`
 const commit = git('rev-parse', '--short', 'HEAD').trim()
 
 /** Les pièces communes : règles, renoncements, décisions. */
@@ -256,7 +260,7 @@ async function auditPartiel() {
   console.log(`Audit partiel : ${total} signes, ${fichiers.length} fichiers modifiés ; modèle ${MODELE}`)
   if (ESSAI) return
   const r = await appeler(systeme, texte)
-  const sortie = join(RACINE, 'docs/v2-revues', `${date}-audit-partiel-${MODELE}.md`)
+  const sortie = join(RACINE, 'docs/v2-revues', `${horodatage}-audit-partiel-${MODELE}.md`)
   mkdirSync(dirname(sortie), { recursive: true })
   writeFileSync(
     sortie,
@@ -281,7 +285,8 @@ ${verifier(r.avis, fichiers).join('\n') || '(aucun constat numéroté reconnu)'}
 ## Arbitrage de Sylvain
 
 (À compléter.)
-`
+`,
+    { flag: 'wx' }
   )
   console.log(`Audit écrit : ${sortie.replace(RACINE + '/', '')}`)
 }
@@ -352,7 +357,7 @@ ${verifier(r.avis, fichiers).join('\n') || '(aucun constat numéroté reconnu)'}
 `)
   }
   if (ESSAI) return
-  const sortie = join(RACINE, 'docs/v2-audits', `${date}-audit-complet.md`)
+  const sortie = join(RACINE, 'docs/v2-audits', `${horodatage}-audit-complet.md`)
   mkdirSync(dirname(sortie), { recursive: true })
   writeFileSync(
     sortie,
@@ -367,7 +372,8 @@ ${sections.join('\n')}
 ## Arbitrage de Sylvain
 
 (À compléter.)
-`
+`,
+    { flag: 'wx' }
   )
   console.log(`Audit écrit : ${sortie.replace(RACINE + '/', '')}`)
 }
