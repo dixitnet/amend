@@ -15,6 +15,9 @@ import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import {
+  listeAdministrateurs,
+  estAdministrateur,
+  numeroDeVersion,
   nomPersonne,
   identifiantDocument,
   roleEffectif,
@@ -34,6 +37,8 @@ const confDepuisEnv = () => ({
   // Comptes d'essai de Claude (09/11/2026) : la clé ouvre /api/essai/session,
   // et seulement pour des comptes en @essai.amend.invalid ; vide : fermé.
   jetonEssai: process.env.V2_JETON_ESSAI || '',
+  // Les administrateurs de l'instance (back-office) : des adresses séparées par des virgules.
+  administrateurs: process.env.V2_ADMINS || '',
   dev: process.env.V2_DEV === '1',
   // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
   cookieSecure: process.env.V2_COOKIE_SECURE === '1',
@@ -105,22 +110,35 @@ function creerIdentite(CONF, comptes) {
   return { personneDe, cookieDeSession, cookieEfface: `${NOM_COOKIE}=; ${attributs}; Max-Age=0` }
 }
 
-/** Le commit en service, lu au démarrage (la v2 redémarre à chaque
- * déploiement) : il permet de vérifier de l'extérieur ce qui est en ligne
- * (déploiement automatique, 09/11/2026). `null` hors d'un dépôt git. */
+/** La version en service, lue au démarrage (la v2 redémarre à chaque
+ * déploiement) : le commit (vérification des déploiements de l'extérieur),
+ * le numéro 2.NNN (fusions dans main qui touchent v2/) et la date du commit,
+ * pour le back-office. Tout à `null` hors d'un dépôt git. */
 const VERSION = (() => {
-  try {
-    return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
+  const git = (...a) =>
+    execFileSync('git', a, {
       cwd: new URL('.', import.meta.url),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim()
+  try {
+    const racine = git('rev-parse', '--show-toplevel')
+    return {
+      commit: git('rev-parse', '--short=7', 'HEAD'),
+      numero: numeroDeVersion(Number(git('-C', racine, 'rev-list', '--count', '--first-parent', 'HEAD', '--', 'v2'))),
+      date: Date.parse(git('log', '-1', '--format=%cI')) || null,
+    }
   } catch {
-    return null
+    return { commit: null, numero: null, date: null }
   }
 })()
+const DEMARRAGE = Date.now()
 
 const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) => {
+  const administrateurs = listeAdministrateurs(CONF.administrateurs)
+  /** Une personne connectée est-elle administratrice de l'instance ? (son adresse, en base) */
+  const administrateur = async (p) =>
+    administrateurs.size > 0 && estAdministrateur((await comptes.personne(p.id))?.courriel, administrateurs)
   /** Le rôle effectif d'une personne sur un document : décidé par le domaine. */
   const roleSur = async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne))
   const droitsDe = (role) => ({ role, capacites: capacites(role) })
@@ -138,7 +156,7 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
 
   return {
     'GET /api/config': (req, res) =>
-      json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev, version: VERSION }),
+      json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev, version: VERSION.commit }),
     // Les noms d'une liste de personnes (`?id=a&id=b`), pour une personne
     // connectée ; un identifiant inconnu revient sans nom.
     'GET /api/personnes': async (req, res, url) => {
@@ -153,7 +171,21 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
     },
     'GET /api/moi': async (req, res) => {
       const p = await personneDe(req)
-      return p ? json(res, 200, p) : json(res, 401, { code: 'session-absente' })
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      return json(res, 200, { ...p, admin: await administrateur(p) })
+    },
+    // Back-office, rubrique Système : réservé aux administrateurs de l'instance.
+    'GET /api/admin/systeme': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      json(res, 200, {
+        version: VERSION,
+        demarrage: DEMARRAGE,
+        memoire: process.memoryUsage().rss,
+        node: process.version,
+        comptes: await comptes.statistiques(),
+      })
     },
     // Développement seulement : les courriers gardés en mémoire (sans clé
     // Mailgun), pour les essais et les tests de bout en bout.

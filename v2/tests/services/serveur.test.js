@@ -427,3 +427,25 @@ test('comptes d’essai : seulement avec la clé (assez longue), seulement en @e
   })
   assert.equal(dev.status, 404)
 })
+
+test('back-office : réservé aux administrateurs de l’instance ; jamais un compte d’essai', async () => {
+  const adresse = `admin-${Date.now().toString(36)}@exemple.fr`
+  const base = await demarrer({ dev: false, administrateurs: `autre@exemple.fr, ${adresse.toUpperCase()}` })
+  const admin = await comptes.personneOuNouvelle(adresse)
+  const simple = await comptes.personneOuNouvelle(`simple-${Date.now().toString(36)}@exemple.fr`)
+  const cookie = (p) => `amend2_session=${creerJeton(BASE.secret, { id: p.id, nom: 'N' })}`
+  const moi = async (p) => (await (await fetch(`${base}/api/moi`, { headers: { cookie: cookie(p) } })).json()).admin
+  assert.equal(await moi(admin), true)
+  assert.equal(await moi(simple), false)
+  assert.equal((await fetch(`${base}/api/admin/systeme`)).status, 401)
+  assert.equal((await fetch(`${base}/api/admin/systeme`, { headers: { cookie: cookie(simple) } })).status, 403)
+  const r = await fetch(`${base}/api/admin/systeme`, { headers: { cookie: cookie(admin) } })
+  assert.equal(r.status, 200)
+  const s = await r.json()
+  assert.ok(s.version.numero === null || /^2\.\d{3,}$/.test(s.version.numero), String(s.version.numero))
+  assert.ok(s.comptes.personnes >= 2 && Number.isInteger(s.comptes.essai) && Number.isInteger(s.comptes.equipes))
+  assert.ok(s.memoire > 0 && s.demarrage <= Date.now())
+  // Sans liste, personne n'est administrateur.
+  const sans = await demarrer({ dev: false })
+  assert.equal((await fetch(`${sans}/api/admin/systeme`, { headers: { cookie: cookie(admin) } })).status, 403)
+})
