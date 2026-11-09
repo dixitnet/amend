@@ -147,6 +147,9 @@ test('partagé avec moi : le document, qui l’a partagé ; je m’en retire', a
   const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
   const b = await ouvrirSur(nav, pile.url, 'Bruno', `t5-attente-${Date.now().toString(36)}`)
   const bruno = await b.evaluate(() => fetch('/api/moi').then((r) => r.json()))
+  // Bruno est déjà sur la liste quand le partage arrive : changer d'onglet suffit.
+  await b.goto(`${pile.url}/#`)
+  await b.getByRole('heading', { name: 'Mes documents' }).waitFor()
   const r = await p.evaluate(
     ([document, personne]) =>
       fetch('/api/dev/acces', {
@@ -157,7 +160,7 @@ test('partagé avec moi : le document, qui l’a partagé ; je m’en retire', a
     [docId, bruno.id],
   )
   assert.equal(r, 200)
-  await b.goto(`${pile.url}/#/partages`)
+  await b.getByText('Partagé avec moi', { exact: true }).first().click()
   const ligne = b.getByRole('row').filter({ has: b.locator(`a[href="#${docId}"]`) })
   await ligne.waitFor()
   assert.match(await ligne.innerText(), /lecteur/)
