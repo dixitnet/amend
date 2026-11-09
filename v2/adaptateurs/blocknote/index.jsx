@@ -8,15 +8,17 @@
 //  - `lire` : lecture seule (lecteur), sans les suggestions.
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
+import { VersioningSidebar } from '@blocknote/react/versioning'
 import { withCollaboration } from '@blocknote/core/y'
 import { CommentsExtension } from '@blocknote/core/comments'
 import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
+import { extensionHistorique } from './historique.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 
 /**
@@ -26,6 +28,9 @@ import { extensionTypographie } from '../../extensions/typographie/index.js'
  * @param {{ service: object, capacites: readonly string[] } | null} [p.commentaires]
  * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, accepter: Function, refuser: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
  *   rappelé avec les suggestions à chaque changement (pour qui peut arbitrer) ; doit être stable
+ * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
+ * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
+ * @param {() => void} [p.surFermerHistorique]
  */
 export function EditeurCollaboratif({
   contexte,
@@ -37,6 +42,9 @@ export function EditeurCollaboratif({
   nomsDe,
   commentaires = null,
   surSuggestions,
+  historique = false,
+  peutRestaurer = false,
+  surFermerHistorique,
 }) {
   const suggerer = mode === 'suggerer'
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
@@ -64,6 +72,7 @@ export function EditeurCollaboratif({
       extensions: [
         ...(suggerer ? [] : [extensionTypographie({ langue: langueDocument })]),
         ...(magasin ? [CommentsExtension({ threadStore: magasin, resolveUsers: nomsDe })] : []),
+        extensionHistorique(contexte, peutRestaurer, dictionnaire(langue).versioning.before_restore),
       ],
       dictionary: dictionnaire(langue),
       // La zone d'édition doit avoir un nom pour les lecteurs d'écran (axe-core).
@@ -76,17 +85,35 @@ export function EditeurCollaboratif({
         ...(afficheur ? { suggestionDoc: contexte.suggestions.doc, renderer: afficheur } : null),
       },
     }),
-    [contexte, langueDocument, afficheur, magasin],
+    [contexte, langueDocument, afficheur, magasin, peutRestaurer],
   )
 
-  // Le mode des suggestions, puis les auteurs tenus à jour.
+  // Le mode des suggestions, puis les auteurs tenus à jour. Pendant
+  // l'historique, l'éditeur montre le texte seul : l'historique de BlockNote
+  // demande une liaison sans affichage des suggestions.
+  // L'afficheur reste branché sur les deux documents tant qu'on ne le détruit pas.
+  useEffect(() => () => afficheur?.destroy(), [afficheur])
+
+  // Le panneau ne s'affiche qu'une fois l'historique ouvert (les effets d'un
+  // composant enfant passent avant ceux de l'éditeur).
+  const [historiqueOuvert, setHistoriqueOuvert] = useState(false)
   useEffect(() => {
+    const versions = editeur.getExtension('versioning')
+    if (historique) {
+      afficheur && editeur.getExtension('suggestions').disableSuggestions()
+      versions.open()
+      setHistoriqueOuvert(true)
+      return () => {
+        setHistoriqueOuvert(false)
+        versions.close()
+      }
+    }
     if (!afficheur) return
     const ext = editeur.getExtension('suggestions')
     if (suggerer) ext.enableSuggestions()
     else ext.viewSuggestions()
     return suivreAuteurs(editeur, contexte, afficheur, suggerer)
-  }, [editeur, contexte, afficheur, suggerer])
+  }, [editeur, contexte, afficheur, suggerer, historique])
 
   // La liste des suggestions, pour qui peut les accepter ou les refuser.
   useEffect(() => {
@@ -107,5 +134,9 @@ export function EditeurCollaboratif({
     }
   }, [editeur, afficheur, suggerer, surSuggestions])
 
-  return <BlockNoteView editor={editeur} editable={mode !== 'lire'} />
+  return (
+    <BlockNoteView editor={editeur} editable={mode !== 'lire' && !historique}>
+      {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
+    </BlockNoteView>
+  )
 }

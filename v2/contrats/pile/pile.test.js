@@ -11,7 +11,6 @@ import {
   docTest,
   ouvrir as ouvrirSur,
   attendreTexte,
-  texte,
   attendreEtat,
   donnerRole,
   oublierDocuments,

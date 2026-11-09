@@ -2,7 +2,14 @@
 // serveur, ouverture du document. Tout l'affichage est délégué à la couche
 // design ; tous les textes viennent de v2/i18n/.
 import { useEffect, useMemo, useState } from 'react'
-import { PageEdition, EcranMessage, EcranConnexion, PanneauSuggestions, couleurAuteur } from '../../design/index.js'
+import {
+  PageEdition,
+  EcranMessage,
+  EcranConnexion,
+  PanneauSuggestions,
+  BoutonBascule,
+  couleurAuteur,
+} from '../../design/index.js'
 import { creerTraducteur, choisirLangue, messageErreur, LANGUE_PSEUDO } from '../../i18n/index.js'
 import { identifiantDocument, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
@@ -127,7 +134,14 @@ function Edition({ config, personne, docId, droits }) {
   const mode = caps.includes('ecrire') ? 'ecrire' : caps.includes('suggerer') ? 'suggerer' : 'lire'
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
-    () => ouvrirDocument({ url: config.collaboration, docId, personne: moi, suggestions: mode !== 'lire' }),
+    () =>
+      ouvrirDocument({
+        url: config.collaboration,
+        api: `${location.origin}/collaboration`,
+        docId,
+        personne: moi,
+        suggestions: mode !== 'lire',
+      }),
     [config, docId, moi, mode],
   )
   const commentaires = useMemo(
@@ -138,6 +152,7 @@ function Edition({ config, personne, docId, droits }) {
   const [autres, setAutres] = useState(0)
   const [suggestions, setSuggestions] = useState(null)
   const [noms, setNoms] = useState({})
+  const [historique, setHistorique] = useState(false)
   useEffect(() => session.surEtat(setConnexion), [session])
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
@@ -160,6 +175,13 @@ function Edition({ config, personne, docId, droits }) {
       titre={t('document.titre', { id: docId })}
       etat={t('document.etat', { etat: connexion })}
       participants={t('document.participants', { n: autres })}
+      actions={
+        <BoutonBascule
+          libelle={t('document.historique')}
+          actif={historique}
+          surBasculer={() => setHistorique((h) => !h)}
+        />
+      }
       mention={{ ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]}
       cote={
         suggestions ? (
@@ -190,6 +212,9 @@ function Edition({ config, personne, docId, droits }) {
           nomsDe={nomsDe}
           commentaires={commentaires}
           surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+          historique={historique}
+          peutRestaurer={caps.includes('restaurer')}
+          surFermerHistorique={() => setHistorique(false)}
         />
       }
     />

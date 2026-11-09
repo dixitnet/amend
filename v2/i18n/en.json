@@ -16,7 +16,8 @@
     "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
     "lectureSeule": "Read only",
-    "modeSuggestion": "Suggesting"
+    "modeSuggestion": "Suggesting",
+    "historique": "History"
   },
   "erreurs": {
     "document-vide": "This document has no name.",

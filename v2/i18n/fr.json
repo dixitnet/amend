@@ -16,7 +16,8 @@
     "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
     "zoneEdition": "Texte du document {id}",
     "lectureSeule": "Lecture seule",
-    "modeSuggestion": "Mode suggestion"
+    "modeSuggestion": "Mode suggestion",
+    "historique": "Historique"
   },
   "erreurs": {
     "document-vide": "Ce document n’a pas de nom.",

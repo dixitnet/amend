@@ -13,13 +13,14 @@ const ETATS = { connected: 'connecte', connecting: 'connexion', disconnected: 'd
 /** Les auteurs des suggestions, tels que y/hub les a enregistrés (il les
  * garde, mais ne les envoie pas en direct) : à redemander après chaque
  * changement. `null` si y/hub ne répond pas. */
-async function auteursDesSuggestions(url, docId) {
-  const api = url.replace(/^ws/, 'http').replace(/\/ws\/v1\/([^/]+)$/, '/changeset/v1/$1')
+async function auteursDesSuggestions(api, docId) {
   try {
-    const r = await fetch(`${api}/${encodeURIComponent(docId)}?branch=suggestions&attributions=true`, {
-      credentials: 'include',
-      headers: { accept: 'application/json' },
-    })
+    const r = await fetch(
+      `${api}/changeset/v1/amend/${encodeURIComponent(docId)}?branch=suggestions&attributions=true`,
+      {
+        headers: { accept: 'application/json' },
+      },
+    )
     if (!r.ok) return null
     const { attributions } = await r.json()
     return Y.decodeContentMap(Uint8Array.from(atob(attributions), (c) => c.charCodeAt(0)))
@@ -29,11 +30,12 @@ async function auteursDesSuggestions(url, docId) {
 }
 
 /**
- * @param {{ url: string, docId: string, personne: { id: string, nom: string, couleur: string }, suggestions?: boolean }} o
+ * @param {{ url: string, api: string, docId: string, personne: { id: string, nom: string, couleur: string }, suggestions?: boolean }} o
  *   url : adresse WebSocket de la collaboration, sans le nom du document ;
+ *   api : les routes de y/hub, sur l'adresse de la page (…/collaboration) ;
  *   suggestions : ouvrir aussi la branche des suggestions (correcteur, éditeur)
  */
-export function ouvrirDocument({ url, docId, personne, suggestions = false }) {
+export function ouvrirDocument({ url, api, docId, personne, suggestions = false }) {
   const doc = new Y.Doc()
   const fournisseur = new WebsocketProvider(url, docId, doc, { disableBc: true })
   fournisseur.awareness.setLocalStateField('user', { name: personne.nom, color: personne.couleur, id: personne.id })
@@ -49,12 +51,12 @@ export function ouvrirDocument({ url, docId, personne, suggestions = false }) {
       doc: docS,
       fragment: docS.get(RACINE_TEXTE),
       fournisseur: fournisseurS,
-      auteurs: () => auteursDesSuggestions(url, docId),
+      auteurs: () => auteursDesSuggestions(api, docId),
     }
   }
   return {
     /** Pour l'adaptateur de l'éditeur, et lui seul. */
-    contexte: { doc, fragment: doc.get(RACINE_TEXTE), fournisseur, suggestions: sugg },
+    contexte: { doc, fragment: doc.get(RACINE_TEXTE), fournisseur, suggestions: sugg, api, docId },
     surEtat(rappel) {
       const f = ({ status }) => rappel(ETATS[status] || 'deconnecte')
       fournisseur.on('status', f)

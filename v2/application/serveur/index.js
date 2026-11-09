@@ -172,6 +172,19 @@ const creerRoutes = (CONF, table) => {
   }
 }
 
+/** Relaie une requête HTTP vers y/hub (développement seulement). */
+function relayer(CONF, req, res) {
+  const cible = new URL(req.url, CONF.collaborationApi.replace(/\/collaboration$/, '/'))
+  return new Promise((fini) => {
+    const amont = http.request(cible, { method: req.method, headers: req.headers }, (rep) => {
+      res.writeHead(rep.statusCode, rep.headers)
+      rep.pipe(res).on('finish', fini)
+    })
+    amont.on('error', () => (json(res, 502, { code: 'collaboration-indisponible' }), fini()))
+    req.pipe(amont)
+  })
+}
+
 async function servirFichier(CONF, res, chemin) {
   const relatif = normalize(chemin).replace(/^(\.\.[/\\])+/, '')
   const fichier = join(CONF.statique, relatif === '/' ? 'index.html' : relatif)
@@ -217,6 +230,9 @@ export function creerServeur(CONF = confDepuisEnv(), table = creerTableAcces(), 
       } catch {
         return json(res, 400, { code: 'requete-invalide' })
       }
+      // En développement, les routes de y/hub sur la même adresse que la page,
+      // comme Caddy en ligne (les cookies de session les accompagnent).
+      if (CONF.dev && url.pathname.startsWith('/collaboration/')) return relayer(CONF, req, res)
       const route = routes[`${req.method} ${url.pathname}`]
       if (route) return await route(req, res, url)
       if (await commentaires(req, res, url)) return
