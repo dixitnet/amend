@@ -185,10 +185,12 @@ function MesDocuments({ onglet, dossier }) {
     envoyerJson('GET', '/api/documents')
       .then(setDonnees)
       .catch((e) => setErreur(e.code || 'reseau'))
+  // Rechargée à chaque changement d'onglet ou de dossier : un document
+  // partagé entre-temps apparaît (essai sur v2.amend.ink, 09/11/2026).
   useEffect(() => {
+    setMessage(null)
     recharger()
-  }, [])
-  useEffect(() => setMessage(null), [onglet, dossier])
+  }, [onglet, dossier])
   if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
   if (!donnees) return <EcranMessage texte={t('application.chargement')} />
   const { dossiers, documents } = donnees
