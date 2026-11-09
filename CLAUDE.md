@@ -57,7 +57,7 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 
 ## Tester la v2 en ligne (comptes d'essai de Claude)
 
-- `https://v2.amend.ink` est derrière le mot de passe de Caddy ; le proxy de l'environnement l'ajoute seul.
+- `https://v2.amend.ink` n'a plus de mot de passe Caddy depuis le 09/11/2026 : service fermé, entrée par lien envoyé par courriel. Un seul secret par site dans l'environnement de Claude : celui de v2.amend.ink est la clé d'essai.
 - Depuis le 09/11/2026, il n'y a plus d'entrée par un simple nom (`V2_DEV` retiré). Claude entre par `POST /api/essai/session { nom }` : la clé d'essai (`X-Amend-Essai-Token`) est ajoutée par le proxy, et Claude ne la voit jamais. Cette route n'ouvre que des comptes en `@essai.amend.invalid` (« TEST Claude A », « TEST Claude B »…), qui ne reçoivent jamais de courrier.
 - Pour mettre un compte d'essai dans une équipe ou partager avec lui, on utilise son adresse en `@essai.amend.invalid`. Jamais d'invitation vers une vraie adresse.
 - Claude nettoie ce qu'il crée.
