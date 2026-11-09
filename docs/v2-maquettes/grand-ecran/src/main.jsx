@@ -14,7 +14,7 @@ import { StrictMode, useState, useEffect, useRef } from 'react'
 import { TextSelection } from 'prosemirror-state'
 import { createRoot } from 'react-dom/client'
 import {
-  MantineProvider, createTheme, AppShell, useAppShellResize, useMantineTheme,
+  MantineProvider, createTheme, DEFAULT_THEME, AppShell, useAppShellResize, useMantineTheme,
   Group, Menu, Text, Title, ActionIcon, Box, Tabs, NavLink, Button, Stack, Paper, Badge,
   Textarea, Divider, Indicator, Alert, Affix, Popover, SegmentedControl, ScrollArea,
   Table, Breadcrumbs, Anchor, UnstyledButton, Avatar, Tooltip, Modal, TextInput, Select,
@@ -364,7 +364,7 @@ function Variantes({ v, setV }) {
             {champ('titre', '3. Titre du document', [{ value: 'barre', label: 'Dans la barre' }, { value: 'texte', label: 'Au-dessus du texte' }])}
             {champ('colonne', '8. Largeur du texte', [{ value: '720', label: '720 px' }, { value: '868', label: '868 px (Docs)' }, { value: '960', label: '960 px' }])}
             {champ('saisie', '9. Lecture ou modification', [{ value: 'auto', label: 'Selon l’appareil' }, { value: 'lecture', label: 'Lecture d’abord' }, { value: 'directe', label: 'Directe' }])}
-            {champ('bleu', '11. Bleu des boutons', [{ value: 'defaut', label: 'Mantine' }, { value: 'nuance8', label: 'Nuance 8' }, { value: 'noir', label: 'Texte noir' }])}
+            {champ('bleu', 'Couleur de l’interface', [{ value: 'nuance8', label: 'Bleu 8' }, { value: 'vert8', label: 'Vert 8' }, { value: 'vert9', label: 'Vert 9' }, { value: 'teal9', label: 'Vert bleuté 9' }, { value: 'vertA', label: 'Vert foncé' }])}
             {champ('reseau', '11. Connexion', [{ value: 'en-ligne', label: 'En ligne' }, { value: 'hors-ligne', label: 'Hors ligne' }])}
           </Stack>
         </Popover.Dropdown>
@@ -500,12 +500,16 @@ function Maquette({ v, setV }) {
 
 function Racine() {
   const [v, setV] = useState({
-    ecran: 'document', barre: 'bandeau', titre: 'barre', colonne: '720', saisie: 'auto', bleu: 'nuance8', reseau: 'en-ligne',
+    ecran: 'document', barre: 'bandeau', titre: 'barre', colonne: '720', saisie: 'auto', bleu: 'vertA', reseau: 'en-ligne',
   })
   const theme = createTheme({
     ...REGLAGES.theme,
     ...(v.bleu === 'nuance8' ? { primaryShade: 8 } : {}),
-    ...(v.bleu === 'noir' ? { autoContrast: true } : {}),
+    ...(v.bleu === 'vert8' ? { primaryColor: 'green', primaryShade: 8, autoContrast: true } : {}),
+    ...(v.bleu === 'vert9' ? { primaryColor: 'green', primaryShade: 9 } : {}),
+    ...(v.bleu === 'teal9' ? { primaryColor: 'teal', primaryShade: 9 } : {}),
+    // Vert de Mantine dont la 10e nuance est assombrie (#237032) : texte blanc 6,1:1.
+    ...(v.bleu === 'vertA' ? { colors: { vert: [...DEFAULT_THEME.colors.green.slice(0, 9), '#237032'] }, primaryColor: 'vert', primaryShade: 9 } : {}),
   })
   return (
     <MantineProvider theme={theme} {...REGLAGES.fournisseur}>

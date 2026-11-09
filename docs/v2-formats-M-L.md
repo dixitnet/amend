@@ -72,7 +72,11 @@ Sur l'écran de la liste, le volet porte « Nouveau document », **Mes documents
 
 ## Points ouverts de l'ADR 0008, réglés (11)
 
-1. **Bleu des boutons** : nuance 8 de la palette (`primaryShade: 8`, contraste de 5,02:1). Le contrôle de contraste reprend alors le bouton et le badge (`CONTRASTE_EN_ATTENTE` à retirer).
+1. **Couleur de l'interface : le vert**, celui du picto (Sylvain, 09/11/2026), et non plus le bleu de Mantine (nuance 8 choisie un moment). **Valeur en attente de décision.** Mesures (axe, clair et sombre) :
+   - le vert du picto (`green.8`, #2f9e44) suffit pour le picto (3,45:1 sur blanc, au-dessus des 3:1 demandés pour un élément graphique), pas pour du texte : texte blanc sur un bouton vert 3,45:1, au-dessous des 4,5:1 ;
+   - aucune nuance du vert de Mantine ne porte un texte blanc à 4,5:1 (`green.9` : 4,37:1), et ses variantes légères (entrée active du plan, badges, bouton « Accepter » : texte `green.9` sur `green.1`) donnent 3,8:1 quelle que soit la nuance choisie ;
+   - proposition de Claude, **« vert foncé »** : le vert de Mantine dont la dernière nuance est assombrie (#237032), couleur principale à cette nuance. Texte blanc 6,1:1, variantes légères 5,3:1 ; tous les contrôles de contraste passent, comme avec le bleu 8. Le picto garde `green.8`, de la même palette.
+   Le contrôle de contraste reprend alors le bouton et le badge (`CONTRASTE_EN_ATTENTE` à retirer).
 2. **Haut de page** : le bandeau règle le titre collé au haut de l'écran.
 3. **Hors ligne** : une alerte de Mantine sous le bandeau (variante `light`, couleur `orange`, picto `IconWifiOff`), comme `AlertOffline` de Docs. Le texte de la maquette est à reprendre dans le catalogue.
 4. **Tabler** (`@tabler/icons-react`) devient une dépendance de la v2, importée par la seule couche de design.
@@ -83,7 +87,7 @@ Au lot de design, chacun avec sa décision :
 
 | Réglage | Valeur | Décision |
 |---|---|---|
-| `theme.primaryShade` | 8 | Sylvain, 09/11/2026 (11) |
+| `theme.colors`, `theme.primaryColor`, `theme.primaryShade` | vert de Mantine, dernière nuance #237032 ; couleur principale à cette nuance | en attente (proposition « vert foncé ») |
 | volet gauche | 300 px, redimensionnable de 300 à 450 px | Sylvain, 09/11/2026 (4), valeurs de Docs |
 | volet droit | 300 px | Sylvain, 09/11/2026 (accord sur la maquette), valeur de Docs |
 | colonne du texte | 720 px (`Container` `sm` de Mantine) | Sylvain, 09/11/2026 (8) |

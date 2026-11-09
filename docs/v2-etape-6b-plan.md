@@ -4,7 +4,7 @@ Statut : **arbitré** le 09/11/2026 (Sylvain : ordre des lots, design d'abord ; 
 
 ## Ce qui est décidé
 
-Voir la spécification : `AppShell` de Mantine, bandeau fixe avec le titre, la présence, « Partager », le menu « … », le compte et le volet droit ; volet gauche « Plan / Documents » redimensionnable ; volet droit « Modifications » ouvert d'office quand des suggestions attendent ; un seul volet à la fois sous `md` ; lecture d'abord sur écran tactile ; texte de 720 px ; bleu en nuance 8 ; alerte hors ligne ; partage dans une fenêtre ; onglet Margo présent et vide jusqu'à l'étape 8.
+Voir la spécification : `AppShell` de Mantine, bandeau fixe avec le titre, la présence, « Partager », le menu « … », le compte et le volet droit ; volet gauche « Plan / Documents » redimensionnable ; volet droit « Modifications » ouvert d'office quand des suggestions attendent ; un seul volet à la fois sous `md` ; lecture d'abord sur écran tactile ; texte de 720 px ; interface en vert (valeur en attente de décision) ; alerte hors ligne ; partage dans une fenêtre ; onglet Margo présent et vide jusqu'à l'étape 8.
 
 ## Ce que fait Docs
 
@@ -16,7 +16,7 @@ Un lot par couche (règle 3), design et technique séparés (règle 20). Ordre p
 
 1. **Design** (`v2/design/` seulement, plus le contrat de contraste) :
    - Tabler (`@tabler/icons-react`) ajouté aux dépendances, importé par le design seul (ADR 0008 complétée, contrat des licences) ;
-   - réglages dans `reglages.js` et la table de l'ADR 0008 : `primaryShade: 8`, largeurs des volets, colonne de 720 px, alerte hors ligne ; retrait de `CONTRASTE_EN_ATTENTE` ;
+   - réglages dans `reglages.js` et la table de l'ADR 0008 : couleur principale verte, largeurs des volets, colonne de 720 px, alerte hors ligne ; retrait de `CONTRASTE_EN_ATTENTE` ;
    - composants de présentation : la coquille (`AppShell` : bandeau, volets, texte), le bandeau, la présence, le menu du document, le menu du compte, le volet « Plan / Documents », le volet « Modifications / Margo (IA) » (onglet Margo vide jusqu'à l'étape 8), la navigation de la liste, l'alerte hors ligne, la fenêtre de partage (contenu de `PanneauPartage`), une fenêtre de saisie d'un nom (remplace les boîtes du navigateur de 6c) ;
    - le format d'écran exposé par le design (seuil `md` et pointeur tactile), pour que l'application n'importe pas Mantine ;
    - tests de rendu sans navigateur (T4).
