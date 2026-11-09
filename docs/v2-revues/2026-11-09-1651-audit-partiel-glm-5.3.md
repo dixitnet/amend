@@ -2,7 +2,7 @@
 
 - Auditeur : Scaleway, modèle `glm-5.3` ; consommation : 167783 signes envoyés, 3492 reçus (et 23854 de réflexion) ; réflexion `low` ; 57 s ; arrêt : stop
 - Diff audité : `v2/` de `ea11227` à `74f9de7` (16 fichiers)
-- Statut : avis reçu ; réponse de Claude écrite ; arbitrage de Sylvain à venir.
+- Statut : avis reçu ; réponse de Claude écrite ; fusion acceptée par Sylvain (09/11/2026).
 
 ## Avis de l'auditeur
 

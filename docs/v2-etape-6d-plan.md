@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 6d, « Dossiers d'équipe »
 
-Statut : **arbitré** le 09/11/2026 (voir « Arbitrage » en fin de plan) ; développement sur « go ».
+Statut : **fusionné** le 09/11/2026 (arbitrage en fin de plan).
 
 Références :
 - `docs/v2-etude-dossiers-equipes.md` (modèle du serveur de fichiers d'entreprise, arbitré) ;
