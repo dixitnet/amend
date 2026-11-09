@@ -85,6 +85,8 @@ v2/
 
 Ajouté le 08/11/2026, après une proposition précipitée (un lot de design pour un « défaut » qui était le comportement voulu de BlockNote, à une étape où l'on travaille sur les couches basses). Aucune proposition de développement, même petite, sans être passée par ces six vérifications, écrites dans la proposition :
 
+**D'abord : comment fait Docs ?** (Sylvain, 09/11/2026, règle permanente n° 11 de `CLAUDE.md`.) Avant les six vérifications, regarder comment procède Docs (La Suite numérique, https://github.com/suitenumerique/docs), dans son code ou à l'usage, et l'écrire dans la proposition, y compris quand Docs ne fait rien de comparable. On s'en écarte seulement sur décision de Sylvain.
+
 1. **Le besoin est-il établi ?** Reproduit ou mesuré, pas supposé d'après une impression ou une capture. Un besoin qui dépend d'une décision de produit encore ouverte (garder les poignées de bloc, les formats d'écran, une règle éditoriale) n'est **pas stabilisé** : on pose la question, on ne développe pas.
 2. **Est-ce vraiment un défaut ?** Distinguer : un défaut de notre code ; le comportement voulu d'une fondation (lire sa documentation avant de le qualifier de défaut) ; un défaut d'une fondation (veille, et signalement en amont plutôt que contournement) ; une question de produit (pour Sylvain).
 3. **Est-ce le bon moment ?** Le plan des étapes (§ 8) dit quand chaque sujet se traite. Un sujet d'une étape à venir est **noté** dans le plan de cette étape, pas développé maintenant, même s'il paraît simple.

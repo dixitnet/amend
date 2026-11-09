@@ -16,6 +16,7 @@ Le propriétaire du projet est Sylvain Grisot (sylvain.grisot@dixit.net). On tra
 8. **Claude n'agit pas sur le VPS de production** (pas de `ssh`) et ne déploie pas. Il donne les commandes à coller, en précisant si le bloc est pour **le terminal du Mac** ou pour **le VPS (SSH)**. Tout bloc destiné au Mac commence par `cd ~/Documents/collabtext-test/collabtext`. Le Mac ne sert plus au développement, seulement à des tests de préproduction ponctuels et au déploiement.
 9. **À la fin de chaque lot de développement**, sans qu'il ait à le demander : dire ce qui a été commité et poussé sur la branche de travail, donner le bloc Mac de **préproduction** (récupérer la branche et la tester), demander l'accord de fusion dans `main`, puis, une fois fusionné, donner le bloc de **déploiement** (`./deploy/deployer.sh`, avec `--restart` si le `.env` a changé) et, si besoin, la partie VPS séparée.
 10. Peu d'emojis dans les messages.
+11. **Regarder d'abord Docs.** Avant tout développement (interface, comportement de l'éditeur, téléphone compris), regarder comment procède Docs, l'éditeur de l'État français (La Suite numérique, https://github.com/suitenumerique/docs, construit lui aussi sur BlockNote), dans son code ou à l'usage, et dire ce qu'on a trouvé avant de proposer. On s'en écarte seulement sur décision de Sylvain, notée dans `docs/journal-decisions.md`.
 
 ## Dépôt et environnements
 
