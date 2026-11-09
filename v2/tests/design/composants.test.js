@@ -128,9 +128,13 @@ test('la marque (picto décoratif et nom) en haut de page et sur l’écran de c
   assert.doesNotMatch(sans, /amend-picto/, 'sans nom, pas de marque')
 })
 
-test('les icônes de l’onglet et de l’iPad reprennent le dessin de référence', async () => {
+test('l’icône de l’onglet reprend le dessin de référence, qui ne contient que du dessin', async () => {
   const { readFile } = await import('node:fs/promises')
   const lire = (f) => readFile(`${V2}design/picto/${f}`, 'utf8')
   const reference = await lire('amend-ink.svg')
   assert.equal((await lire('favicon.svg')).replace('#2f9e44', 'currentColor'), reference)
+  // Le picto est injecté tel quel dans la page (Picto.jsx) : ni script, ni
+  // attribut d'événement, ni contenu étranger, ni lien.
+  assert.doesNotMatch(reference, /<script|<foreignObject|\son\w+=|href=|<style/i)
+  // apple-touch-icon.png (binaire, rendu par Chromium) n'est pas contrôlé ici.
 })
