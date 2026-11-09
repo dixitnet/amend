@@ -18,6 +18,7 @@ import {
   Avatar,
   Tooltip,
   Indicator,
+  Badge,
   Tabs,
   NavLink,
   ScrollArea,
@@ -36,8 +37,11 @@ const C = REGLAGES.coquille
 /**
  * La coquille : bandeau en haut, volet gauche redimensionnable, texte, volet
  * droit. `voletDroit` absent : pas de volet droit (écran de la liste).
+ * `connexion` : l'état de la connexion, en attribut seulement (rien n'est
+ * affiché hors ligne mis à part, comme Docs).
  */
 export function Coquille({
+  connexion,
   bandeau,
   voletGauche,
   voletDroit,
@@ -53,6 +57,7 @@ export function Coquille({
   const replie = (ouvert) => ({ desktop: !ouvert, mobile: !ouvert })
   return (
     <AppShell
+      data-connexion={connexion}
       resize={resize}
       header={{ height: C.bandeau }}
       navbar={{ width: C.voletGauche.largeur, breakpoint: C.pointDeRupture, collapsed: replie(gaucheOuvert) }}
@@ -75,10 +80,11 @@ export function Coquille({
 export const ColonneTexte = ({ children }) => <Container>{children}</Container>
 
 /**
- * Le bandeau : volet gauche, titre, puis (document) « Terminer », présence,
+ * Le bandeau : volet gauche, titre, mention du mode (« Mode suggestion »,
+ * « Lecture seule »), puis (document) « Terminer », présence,
  * « Partager », menu « … », compte, volet droit. Chaque élément est facultatif.
  */
-export function Bandeau({ voletGauche, titre, terminer, presence, partager, actions, compte, voletDroit }) {
+export function Bandeau({ voletGauche, titre, mention, terminer, presence, partager, actions, compte, voletDroit }) {
   return (
     <div className="amend-bandeau">
       <ActionIcon aria-label={voletGauche.libelle} aria-expanded={voletGauche.ouvert} onClick={voletGauche.surClic}>
@@ -87,6 +93,7 @@ export function Bandeau({ voletGauche, titre, terminer, presence, partager, acti
       <Text component="h1" className="amend-bandeau-titre">
         {titre}
       </Text>
+      {mention ? <Badge>{mention}</Badge> : null}
       {terminer ? (
         <Button {...REGLAGES.boutonSecondaire} onClick={terminer.surClic}>
           {terminer.libelle}
