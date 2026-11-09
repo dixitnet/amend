@@ -31,9 +31,13 @@ Fixe, une ligne, de gauche à droite :
 | Volet gauche | `IconListTree` | ouvre ou ferme « Plan / Documents » |
 | Titre du document | — | coupé par « … » s'il est trop long ; sur l'écran de la liste : « Mes documents » ou « Partagé avec moi » |
 | « Terminer » | — | M seulement, en modification : repasse en lecture |
-| « Partager » | `IconShare` | bouton visible, comme Docs (`DocShareButton`) |
-| Menu « … » | `IconDots` | Copier le lien, Partager, Exporter, Imprimer, Dupliquer, Historique, Supprimer |
+| Présence | — | les personnes dans le document (avatars de Mantine, nom au survol) |
+| « Partager » | `IconShare` | bouton visible, comme Docs (`DocShareButton`) ; ouvre la fenêtre de partage |
+| Menu « … » | `IconDots` | Copier le lien, Partager, Exporter, Imprimer, Dupliquer, Historique, Supprimer (chaque action à l'étape qui l'apporte : Exporter et Imprimer à l'étape 7) |
+| Compte | — | avatar de la personne ; menu : adresse, « Se déconnecter », « Déconnecter tous mes appareils » |
 | Volet droit, tout à droite | `IconPencilCheck` | ouvre ou ferme « Modifications / Margo (IA) » ; porte le nombre de suggestions en attente |
+
+Sur l'écran de la liste, le bandeau ne porte que le volet gauche, le titre et le compte.
 
 Le titre est dans le bandeau, plus dans le texte (3), comme en S. Docs le met au-dessus du texte, en grand (`DocHeader.tsx`) : écart décidé.
 
@@ -91,9 +95,9 @@ Valeurs de la maquette **non décidées**, à remplacer au lot de design par les
 
 Repris de Docs, non retenus (12, registre n° 12) : mode « Présenter », favoris, emoji du titre.
 
-## Questions restantes
+## Compte, présence, partage, Margo (réponses de Sylvain, 09/11/2026)
 
-1. **Compte** (« Se déconnecter », « Déconnecter tous mes appareils ») : en pied du volet gauche, comme Docs (`LeftPanelFooter.tsx`) ?
-2. **Présence** (qui est dans le document) et **état de la connexion** (« Synchronisé », « Connexion… ») : Docs n'affiche que l'état hors ligne. Garder seulement l'alerte hors ligne, et mettre la présence dans le bandeau, avant « Partager » ?
-3. **Partager** : le panneau de partage dans une fenêtre de Mantine (`Modal`), comme Docs ?
-4. **Onglet Margo (IA)** : absent jusqu'à l'étape 8 (IA), ou présent et vide ?
+1. **Compte** dans le bandeau. Docs le met en pied du volet gauche (`LeftPanelFooter.tsx`) : écart décidé.
+2. **État de la connexion** : seulement l'alerte hors ligne, comme Docs (plus de « Synchronisé » ni « Connexion… » affichés) ; **présence** dans le bandeau, avant « Partager ».
+3. **Partage** dans une fenêtre de Mantine (`Modal`), comme Docs ; contenu de `PanneauPartage`.
+4. **Onglet Margo (IA)** absent jusqu'à l'étape 8 ; le volet droit n'a d'ici là que les modifications (la maquette montre l'onglet, pour la cible).

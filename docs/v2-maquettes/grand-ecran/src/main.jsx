@@ -17,7 +17,7 @@ import {
   MantineProvider, createTheme, AppShell, useAppShellResize, useMantineTheme,
   Group, Menu, Text, Title, ActionIcon, Box, Tabs, NavLink, Button, Stack, Paper, Badge,
   Textarea, Divider, Indicator, Alert, Affix, Popover, SegmentedControl, ScrollArea,
-  Table, Breadcrumbs, Anchor, UnstyledButton,
+  Table, Breadcrumbs, Anchor, UnstyledButton, Avatar, Tooltip, Modal, TextInput, Select,
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import {
@@ -30,7 +30,7 @@ import { boutonsGardes } from '../../../../v2/adaptateurs/blocknote/palette.js'
 import {
   IconListTree, IconPencilCheck, IconDots, IconLink, IconShare, IconDownload, IconPrinter,
   IconCopy, IconTrash, IconFolder, IconFileText, IconFiles, IconWand, IconPlus, IconHistory,
-  IconWifiOff, IconAdjustments, IconUsers, IconUser,
+  IconWifiOff, IconAdjustments, IconUsers, IconUser, IconLogout,
 } from '@tabler/icons-react'
 
 const REGLAGES = { fournisseur: { defaultColorScheme: 'auto' }, theme: {} }
@@ -212,7 +212,7 @@ function VoletDroit() {
       <Tabs defaultValue="modifications">
         <Tabs.List grow>
           <Tabs.Tab value="modifications" leftSection={<IconPencilCheck size={18} />}>Modifications</Tabs.Tab>
-          <Tabs.Tab value="margo" leftSection={<IconWand size={18} />}>Margo (IA)</Tabs.Tab>
+          <Tabs.Tab value="margo" leftSection={<IconWand size={18} />}>Margo (IA)</Tabs.Tab>{/* absent jusqu'à l'étape 8 (Sylvain, 09/11/2026) */}
         </Tabs.List>
         <Tabs.Panel value="modifications">
           <Stack p="sm">
@@ -263,6 +263,65 @@ function MenuActions() {
         <Menu.Item color="red" leftSection={<IconTrash size={18} />}>Supprimer</Menu.Item>
       </Menu.Dropdown>
     </Menu>
+  )
+}
+
+
+// 2 : la présence (qui est dans le document), dans le bandeau avant « Partager ».
+function Presence() {
+  return (
+    <Tooltip.Group>
+      <Avatar.Group>
+        {[['Claire Martin', 'CM'], ['Jérôme Petit', 'JP']].map(([nom, init]) => (
+          <Tooltip key={nom} label={nom} withArrow>
+            <Avatar name={nom} color="initials" size="sm">{init}</Avatar>
+          </Tooltip>
+        ))}
+      </Avatar.Group>
+    </Tooltip.Group>
+  )
+}
+
+// 1 : le compte, dans le bandeau (décision de Sylvain), pas en pied du volet gauche.
+function MenuCompte() {
+  return (
+    <Menu position="bottom-end">
+      <Menu.Target>
+        <UnstyledButton aria-label="Mon compte">
+          <Avatar name="Sylvain Grisot" color="initials" size="sm" />
+        </UnstyledButton>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>sylvain@exemple.fr</Menu.Label>
+        <Menu.Item leftSection={<IconLogout size={18} />}>Se déconnecter</Menu.Item>
+        <Menu.Item leftSection={<IconLogout size={18} />}>Déconnecter tous mes appareils</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  )
+}
+
+// 3 : le partage dans une fenêtre de Mantine, comme Docs ; contenu repris de PanneauPartage (v2).
+function FenetrePartage({ ouverte, fermer }) {
+  const roles = ['Lecteur', 'Correcteur', 'Éditeur', 'Propriétaire']
+  return (
+    <Modal opened={ouverte} onClose={fermer} title="Partager « Réparons la ville ! »" size="lg">
+      <Stack>
+        <Group align="end" wrap="nowrap">
+          <TextInput label="Adresse électronique" placeholder="nom@exemple.fr" flex={1} />
+          <Select label="Rôle" data={roles.slice(0, 3)} defaultValue="Correcteur" allowDeselect={false} w={140} />
+          <Button>Inviter</Button>
+        </Group>
+        <Divider />
+        {[['Sylvain Grisot', 'Propriétaire'], ['Claire Martin', 'Éditeur'], ['Jérôme Petit', 'Correcteur']].map(([nom, role]) => (
+          <Group key={nom} justify="space-between" wrap="nowrap">
+            <Group gap="xs" wrap="nowrap"><Avatar name={nom} color="initials" size="sm" /><Text size="sm">{nom}</Text></Group>
+            <Select data={roles} defaultValue={role} allowDeselect={false} w={140} aria-label={`Rôle de ${nom}`} />
+          </Group>
+        ))}
+        <Divider />
+        <Select label="Accès par lien" data={['Aucun', 'Lecteur', 'Correcteur']} defaultValue="Aucun" allowDeselect={false} />
+      </Stack>
+    </Modal>
   )
 }
 
@@ -329,6 +388,7 @@ function Maquette({ v, setV }) {
   const bandeau = v.barre === 'bandeau'
   const titreEnHaut = v.titre === 'barre'
   const droiteOuverte = volets.droite && !liste
+  const [partage, setPartage] = useState(false)
 
   const terminerBouton = lectureDabord && enModification && !liste
     ? <Button variant="subtle" onClick={terminer}>Terminer</Button>
@@ -348,10 +408,12 @@ function Maquette({ v, setV }) {
             <BoutonGauche onClick={volets.basculerGauche} />
             <Text fw={500} truncate="end" flex={1}>{titreEnHaut || liste ? titreBarre : ''}</Text>
             {terminerBouton}
-            {liste ? null : (
+            {liste ? <MenuCompte /> : (
               <>
-                <Button variant="default" leftSection={<IconShare size={18} />}>Partager</Button>
+                <Presence />
+                <Button variant="default" leftSection={<IconShare size={18} />} onClick={() => setPartage(true)}>Partager</Button>
                 <MenuActions />
+                <MenuCompte />
                 <BoutonDroit onClick={volets.basculerDroite} />
               </>
             )}
@@ -359,6 +421,7 @@ function Maquette({ v, setV }) {
         </AppShell.Header>
       ) : null}
 
+      <FenetrePartage ouverte={partage} fermer={() => setPartage(false)} />
       <AppShell.Navbar>
         {liste ? <VoletGaucheListe /> : <VoletGaucheDocument versListe={() => setV({ ...v, ecran: 'liste' })} />}
       </AppShell.Navbar>
@@ -382,7 +445,7 @@ function Maquette({ v, setV }) {
             {liste ? null : (
               <Group gap="xs" wrap="nowrap">
                 {terminerBouton ? <Paper shadow="sm" radius="md" p={4}>{terminerBouton}</Paper> : null}
-                <Button variant="default" leftSection={<IconShare size={18} />}>Partager</Button>
+                <Button variant="default" leftSection={<IconShare size={18} />} onClick={() => setPartage(true)}>Partager</Button>
                 <Paper shadow="sm" radius="md" p={4}>
                   <Group gap={4} wrap="nowrap">
                     <BoutonDroit onClick={volets.basculerDroite} />
