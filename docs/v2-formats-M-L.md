@@ -100,4 +100,4 @@ Repris de Docs, non retenus (12, registre n° 12) : mode « Présenter », favor
 1. **Compte** dans le bandeau. Docs le met en pied du volet gauche (`LeftPanelFooter.tsx`) : écart décidé.
 2. **État de la connexion** : seulement l'alerte hors ligne, comme Docs (plus de « Synchronisé » ni « Connexion… » affichés) ; **présence** dans le bandeau, avant « Partager ».
 3. **Partage** dans une fenêtre de Mantine (`Modal`), comme Docs ; contenu de `PanneauPartage`.
-4. **Onglet Margo (IA)** absent jusqu'à l'étape 8 ; le volet droit n'a d'ici là que les modifications (la maquette montre l'onglet, pour la cible).
+4. **Onglet Margo (IA)** présent dès maintenant, **vide** jusqu'à l'étape 8 (Sylvain, 09/11/2026).
