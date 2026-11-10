@@ -1,6 +1,6 @@
 # amend.ink v2 : ce que l'amont dit de nos problèmes, et un plan qui anticipe ses évolutions (10/11/2026)
 
-Suite de `docs/v2-tests/synthese-2026-11-10.md` (P1 à P17). Recherche du 10/11/2026 dans les dépôts de BlockNote, Yjs, `@y/prosemirror`, y/hub, lib0 et Docs (tickets, PR, journaux des changements, code de `main`). **Rien n'est corrigé ici** ; les choix sont à faire par Sylvain.
+Suite de `docs/v2-tests/synthese-2026-11-10.md` (P1 à P24, essais à la main compris). Recherche du 10/11/2026 dans les dépôts de BlockNote, Yjs, `@y/prosemirror`, y/hub, lib0 et Docs (tickets, PR, journaux des changements, code de `main`). **Rien n'est corrigé ici** ; les choix sont à faire par Sylvain.
 
 ## 1. Ce qu'on a appris de l'amont
 
@@ -26,6 +26,8 @@ BlockNote 0.57.0 (30/10), `@y/prosemirror` 2.0.0-15 (11/10, préversion), `@y/y`
 | P5 | Suppression de paragraphe en suggestion | yjs/y-prosemirror#263 (refuser une suppression suggérée) | ouvert depuis le 08/06/2026 |
 | P7 | Mise en forme en suggestion | yjs/y-prosemirror#289, #241 (marques mal synchronisées) | ouverts ; voisins, pas notre cas exact |
 | P4, P11 | Coupure, fusion, paragraphe nouveau ; description sur plusieurs blocs | galerie d'exemples de BlockNote (« Broken merge… a flat document model would be needed ») ; `CAVEATS.md` (« optimal rendering will need schema-level collaboration ») | limites documentées, rien de prévu |
+| P18 | Document « empoisonné » : page blanche à chaque activation du suivi (`reading 'copy'` dans `readContent ← toDelta`) | aucun ticket trouvé (recherches dans y-prosemirror, BlockNote) ; l'erreur est dans le rendu attribué de Yjs 14 (`@y/y`) | à isoler sur le document témoin, puis à signaler |
+| P19, P20 | Suggestions perdues ou attribuées à tort (écran et serveur en désaccord ; texte direct devenu suggestion) | voisins : y-prosemirror#245 (P3), BlockNote#2989 (identifiants de suggestion « à retravailler ») | même famille que P3 et P6 |
 | P9 | Lettres entremêlées à la frappe simultanée au même endroit | rien en amont ; l'algorithme Fugue (Weidner, Kleppmann, 2025) traite ce cas, mais aucun projet de l'adopter dans Yjs | propriété de l'algorithme, rien de prévu |
 
 **B. Défauts amont non signalés (à signaler, sur décision)**
@@ -47,7 +49,10 @@ BlockNote 0.57.0 (30/10), `@y/prosemirror` 2.0.0-15 (11/10, préversion), `@y/y`
 | P14 | Revenir à une version | Docs passe par la fonction de retour arrière de y/hub (`rollback`), puis recharge les fils ; il ne restaure pas les fils, seulement leurs marques. |
 | P13 | Fils orphelins | état prévu par BlockNote (`orphan`) ; Docs ne fait pas mieux (supprime seulement les fils vides). |
 | P10 | « Quelqu'un » avant le nom | `resolveUsers` : chargement des noms, chez nous. |
-| P15 | Collage de texte brut | BlockNote, depuis mai 2026 : une fin de ligne donne un saut de ligne, deux donnent un paragraphe (choix voulu). Nous obtenons des lignes **sans aucun saut** : écart chez nous (collage ou typographie), à confirmer à la main. |
+| P15 | Collage de texte brut | **retiré** : un vrai collage marche (une fin de ligne donne un saut de ligne, deux un paragraphe, comme le veut BlockNote) ; l'écart venait du collage simulé. |
+| P21 | Restaurer une version perd des données | Docs : retour arrière de y/hub (`rollback`), qui ajoute un changement et garde l'historique ; confirmation ; éditeurs seulement. Chez nous : restauration immédiate, sans confirmation, état d'avant perdu. |
+| P23 | Historique peu fiable (instantanés rares, « Version actuelle » périmée) | réglage et branchement de nos instantanés (BlockNote 0.56 a refait l'historique, #3090) ; à comparer à Docs |
+| P22 | Clic en fin de ligne, curseur au premier paragraphe | aucun ticket trouvé ; à réduire chez nous (après bascule du suivi ou fermeture de l'historique : éditeur recréé ?) |
 | P16 | Retard d'une lectrice | y/hub a corrigé en 0.10.0 des reconnexions en boucle des lecteurs (signalées par Docs) ; à remesurer avant de conclure. |
 
 ## 2. Évolutions attendues, et ce qu'elles changeront
@@ -71,20 +76,21 @@ BlockNote 0.57.0 (30/10), `@y/prosemirror` 2.0.0-15 (11/10, préversion), `@y/y`
 
 ### Ce qui relève de nous et ne dépend pas de l'amont (lots, sur décision)
 
-4. **P2, droits à chaud** (bloquant) : reprendre le montage de Docs (appel de `recheckAuth` à chaque changement d'accès, arrêt sur 4401, relecture des droits). Outil déjà dans notre version ; c'est une question d'accès, à traiter avant tout invité réel.
-5. **P12, fils résolus** : afficher la liste latérale des fils de BlockNote avec le filtre « Ouverts / Résolus », comme Docs (lot de design pour l'apparence, technique pour le branchement).
-6. **P10, P15, P16** : petits écarts chez nous, à établir (P15 à confirmer à la main, P16 à remesurer).
-7. **P14, P13** : aligner la restauration de version sur Docs (retour arrière de y/hub, puis rechargement des fils) ; les fils orphelins restent, comme chez Docs.
+4. **P21, restauration sans perte** (bloquant) : confirmation, et retour arrière de y/hub qui garde l'état d'avant dans l'historique, comme Docs ; avec P23 (instantanés).
+5. **P2, droits à chaud** (bloquant) : reprendre le montage de Docs (appel de `recheckAuth` à chaque changement d'accès, arrêt sur 4401, relecture des droits). Outil déjà dans notre version ; c'est une question d'accès, à traiter avant tout invité réel.
+6. **P12, fils résolus** : afficher la liste latérale des fils de BlockNote avec le filtre « Ouverts / Résolus », comme Docs (lot de design pour l'apparence, technique pour le branchement).
+7. **P22, P10, P16, P24** : écarts chez nous, à établir (P22 d'abord : un curseur mal placé fausse le reste ; P16 à remesurer).
+8. **P14, P13** : aligner la restauration de version sur Docs (retour arrière de y/hub, puis rechargement des fils) ; les fils orphelins restent, comme chez Docs.
 
 ### Le mode suggestion : une décision de produit, vu l'état de l'amont
 
-P1, P3 à P8 et P11 viennent d'une fonction expérimentale en amont, que Docs n'a pas encore. Trois voies :
+P1, P3 à P8, P11, et les plus graves des essais à la main (P18 : un document qui ne peut plus passer en suivi ; P19 et P20 : des suggestions perdues ou attribuées à tort) viennent d'une fonction expérimentale en amont, que Docs n'a pas encore. Ce sont des problèmes d'**intégrité** : on ne peut plus se fier à ce que le panneau montre. Trois voies :
 
-8. **Garder le suivi tel quel et attendre l'amont** : on documente les limites pour les utilisateurs, on signale, on rejoue la campagne à chaque version. Aucun code de contournement.
-9. **Garder le suivi, avec les seuls contournements sûrs et réversibles, dans l'adaptateur** : celui de P1 est prêt (`correctif-suivi-en-attente.patch`) ; pour P3, un geste simple (par exemple quitter la suggestion avant d'écrire en direct) plutôt qu'une réécriture ; chaque contournement inscrit dans la veille avec sa condition de retrait.
-10. **Réduire le suivi à ce qui marche** en attendant l'amont : insertions, suppressions et remplacements dans un paragraphe (C1, B1 à B5 passent) ; pas de mise en forme ni de coupure de paragraphe en suggestion (P4, P5, P7) ; c'est aussi la première phase prévue par Docs. Au registre des renoncements, avec sa condition de levée.
+9. **Garder le suivi tel quel et attendre l'amont** : on documente les limites pour les utilisateurs, on signale, on rejoue la campagne à chaque version. Aucun code de contournement.
+10. **Garder le suivi, avec les seuls contournements sûrs et réversibles, dans l'adaptateur** : celui de P1 est prêt (`correctif-suivi-en-attente.patch`) ; pour P3, un geste simple (par exemple quitter la suggestion avant d'écrire en direct) plutôt qu'une réécriture ; chaque contournement inscrit dans la veille avec sa condition de retrait.
+11. **Réduire le suivi à ce qui marche** en attendant l'amont : insertions, suppressions et remplacements dans un paragraphe (C1, B1 à B5 passent) ; pas de mise en forme ni de coupure de paragraphe en suggestion (P4, P5, P7) ; c'est aussi la première phase prévue par Docs. Au registre des renoncements, avec sa condition de levée.
 
-Les voies 8 à 10 se combinent avec 1 à 7. Ce qu'il ne faut pas faire : corriger les fondations nous-mêmes (règle 3 de la v2), ou construire un mode suggestion à nous à côté de celui de BlockNote : l'amont et Docs vont vers un autre modèle (une copie par suggestion), et tout ce code serait à jeter.
+Au vu de P18 à P20, la voie 9 seule laisse des documents réels exposés à la perte ou à la corruption des suggestions. Les voies 9 à 11 se combinent avec 1 à 8. Ce qu'il ne faut pas faire : corriger les fondations nous-mêmes (règle 3 de la v2), ou construire un mode suggestion à nous à côté de celui de BlockNote : l'amont et Docs vont vers un autre modèle (une copie par suggestion), et tout ce code serait à jeter.
 
 ## Sources
 
