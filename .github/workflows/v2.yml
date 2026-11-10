@@ -83,6 +83,8 @@ jobs:
       # Dans un conteneur, les services se joignent par leur nom.
       V2_POSTGRES: postgres://amendv2:amendv2-dev@postgres:5432/amendv2_yhub
       V2_REDIS: redis://redis:6379
+      # Firefox refuse un HOME qui n'est pas à l'utilisateur (consigne de Playwright).
+      HOME: /root
     strategy:
       fail-fast: false
       matrix:
