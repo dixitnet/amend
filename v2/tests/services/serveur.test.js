@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test'
 import http from 'node:http'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { creerServeur } from '../../application/serveur/index.js'
@@ -14,6 +14,8 @@ import piegees from '../donnees/piegees.json' with { type: 'json' }
 
 const statique = mkdtempSync(join(tmpdir(), 'v2-statique-'))
 writeFileSync(join(statique, 'index.html'), '<!doctype html><title>index</title>')
+mkdirSync(join(statique, 'assets'))
+writeFileSync(join(statique, 'assets', 'compilateur-abc123.wasm'), Buffer.from([0, 97, 115, 109]))
 const BASE = { secret: 's'.repeat(32), jetonInterne: 'jeton-interne-de-test', collaboration: 'ws://x', statique }
 const serveurs = []
 let comptes
@@ -470,4 +472,19 @@ test('titre : qui écrit renomme le document (NFC, espaces réduits, vide : sans
   const bruno = await entrer(dev, 'Bruno')
   await post(dev, '/api/dev/acces', alice.cookie, { document: doc, personne: bruno.id, role: 'lecteur' })
   assert.equal((await renommer(bruno.cookie, 'Pirate')).status, 403)
+})
+
+test('fichiers : construits gardés un an (immutable), page revalidée ; bons types ; construit absent → 404', async () => {
+  const wasm = await fetch(`${prod}/assets/compilateur-abc123.wasm`)
+  assert.equal(wasm.status, 200)
+  assert.equal(wasm.headers.get('content-type'), 'application/wasm')
+  assert.equal(wasm.headers.get('cache-control'), 'public, max-age=31536000, immutable')
+  for (const chemin of ['/', '/index.html', '/une-page-inconnue']) {
+    const page = await fetch(`${prod}${chemin}`)
+    assert.equal(page.status, 200, chemin)
+    assert.equal(page.headers.get('cache-control'), 'no-cache', chemin)
+  }
+  const absent = await fetch(`${prod}/assets/ancien-chunk-xyz.js`)
+  assert.equal(absent.status, 404)
+  assert.equal((await absent.json()).code, 'introuvable')
 })
