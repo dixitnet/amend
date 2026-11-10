@@ -15,5 +15,6 @@ Règle 9 de `docs/v2-regles-developpement.md` : chaque fonction ou principe de l
 | 10 | 08/11/2026 | Couleurs d'auteur enregistrées (v1) | BlockNote calcule une couleur par personne (décision de Sylvain, étape 5) | — |
 | 11 | 08/11/2026 | Cartes appariées de la v1 (affichage des modifications) | l'affichage des suggestions de BlockNote les remplace (décision de Sylvain, étape 5) | un besoin de lecture que l'affichage de BlockNote ne couvre pas |
 | 8 | 08/11/2026 | Blocs et styles audio, vidéo, fichier, bloc de code, liste à cocher, liste repliable, code, couleur du texte et du fond | sans équivalent dans le livre ni ses exports (décision de Sylvain, étape 4) | un usage éditorial réel (édition scientifique : code) |
+| 12 | 09/11/2026 | Mode « Présenter », favoris et emoji du titre (fonctions de Docs) | hors du besoin d'un auteur ou d'un éditeur de livres ; sobriété (décision de Sylvain, étape 6b) | un usage réel qui les demande |
 
 Renoncements à examiner, étape par étape : voir le tableau du § 8 des règles.

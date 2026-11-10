@@ -3,7 +3,9 @@
 // moi, une par équipe), un chemin de dossiers, des boutons, un panneau
 // facultatif (les membres d'une équipe), un tableau de lignes (dossiers et
 // documents, chacun un lien) avec leurs actions. Mantine sans réglage ;
-// textes traduits ; les gestes remontent par les fonctions de rappel.
+// textes traduits ; les gestes remontent par les fonctions de rappel. Titre et
+// onglets facultatifs : dans la coquille des formats M et L, le bandeau et le
+// volet gauche les portent.
 import {
   Container,
   Stack,
@@ -22,8 +24,8 @@ import { useFormatS } from '../formats.js'
 
 /**
  * @param {{
- *   nomApplication?: string, titre: string, actions?: any,
- *   onglets: Array<{ value: string, label: string }>, onglet: string, surOnglet: (o: string) => void,
+ *   nomApplication?: string, titre?: string, actions?: any,
+ *   onglets?: Array<{ value: string, label: string }>, onglet?: string, surOnglet?: (o: string) => void,
  *   libelleChemin: string, chemin?: Array<{ cle: string, libelle: string, href: string }>,
  *   boutons?: any, panneau?: any, message?: string | null,
  *   colonnes: string[], lignes: Array<{ cle: string, nom: string, href: string, cellules: string[], actions?: any }>,
@@ -55,12 +57,14 @@ export function ListeDocuments({
             <Marque nom={nomApplication} />
           </Text>
         ) : null}
-        <Group>
-          <Title order={1}>{titre}</Title>
-          {actions}
-        </Group>
+        {titre ? (
+          <Group>
+            <Title order={1}>{titre}</Title>
+            {actions}
+          </Group>
+        ) : null}
         {/* Format S : les onglets ne tiennent pas en largeur ; une liste déroulante (plan du format S, 5.1). */}
-        {formatS ? (
+        {!onglets ? null : formatS ? (
           <NativeSelect data={onglets} value={onglet} onChange={(e) => surOnglet(e.currentTarget.value)} />
         ) : (
           <SegmentedControl data={onglets} value={onglet} onChange={surOnglet} />

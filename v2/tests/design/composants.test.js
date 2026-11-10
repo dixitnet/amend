@@ -79,23 +79,6 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
   }
 })
 
-test('page d’édition : tous ses textes s’affichent, dans chaque langue, avec les bons rôles', () => {
-  for (const l of LANGUES) {
-    const t = creerTraducteur(l)
-    const textes = {
-      titre: t('documents.sansTitre'),
-      etat: t('document.etat', { etat: 'connecte' }),
-      participants: t('document.participants', { n: 2 }),
-    }
-    const html = rendre(h(design.PageEdition, { ...textes, editeur: h('div', { id: 'editeur' }) }))
-    for (const [nom, texte] of Object.entries(textes)) assert.ok(html.includes(echapper(texte)), `${l} : ${nom}`)
-    assert.match(html, /<main[ >]/, 'le contenu principal garde son repère')
-    assert.doesNotMatch(html, /role="document"/)
-    assert.match(html, /role="status"/)
-    assert.match(html, /id="editeur"/, 'l’éditeur reçu en emplacement est rendu')
-  }
-})
-
 test('écran de connexion : champ étiqueté, bouton, textes de chaque langue', () => {
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -122,12 +105,11 @@ test('écran de connexion : champ étiqueté, bouton, textes de chaque langue', 
 })
 
 test('un texte piégé s’affiche comme du texte, jamais comme du code', () => {
-  const html = rendre(
-    h(design.PageEdition, { titre: '<script>alert(1)</script>', etat: '<b>x</b>', participants: '&', editeur: null }),
-  )
-  assert.doesNotMatch(html, /<script>|<b>/)
+  const voletGauche = { libelle: 'Plan', surClic: () => {} }
+  const html = rendre(h(design.Bandeau, { voletGauche, titre: '<script>alert(1)</script>' }))
+  assert.doesNotMatch(html, /<script>/)
   assert.doesNotMatch(html, /Lecture seule/, 'pas de mention sans texte')
-  const avec = rendre(h(design.PageEdition, { titre: 'x', mention: 'Lecture seule', editeur: null }))
+  const avec = rendre(h(design.Bandeau, { voletGauche, titre: 'x', mention: 'Lecture seule' }))
   assert.match(avec, />Lecture seule</)
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
@@ -141,16 +123,14 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
   }
 })
 
-test('la marque (picto décoratif et nom) en haut de page et sur l’écran de connexion', () => {
-  const page = rendre(h(design.PageEdition, { nomApplication: 'amend.ink', titre: 'x', editeur: null }))
-  assert.match(page, /<header[\s\S]*class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink[\s\S]*<h1/)
+test('la marque (picto décoratif et nom) en tête du volet et sur l’écran de connexion', () => {
+  const volet = rendre(coquilleDocument(creerTraducteur('fr')))
+  assert.match(volet, /<a[^>]*href="#"[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/a>/)
   const connexion = rendre(
     h(design.EcranConnexion, { nomApplication: 'amend.ink', titre: 'Connexion', surEntrer: () => {} }),
   )
   assert.match(connexion, /<h1[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/h1>/)
   assert.match(connexion, /<h2[^>]*>Connexion<\/h2>/, 'le titre de l’écran passe au niveau 2 sous la marque')
-  const sans = rendre(h(design.PageEdition, { titre: 'x', editeur: null }))
-  assert.doesNotMatch(sans, /amend-picto/, 'sans nom, pas de marque')
 })
 
 test('l’icône de l’onglet reprend le dessin de référence, qui ne contient que du dessin', async () => {
@@ -162,4 +142,124 @@ test('l’icône de l’onglet reprend le dessin de référence, qui ne contient
   // attribut d'événement, ni contenu étranger, ni lien.
   assert.doesNotMatch(reference, /<script|<foreignObject|\son\w+=|href=|<style/i)
   // apple-touch-icon.png (binaire, rendu par Chromium) n'est pas contrôlé ici.
+})
+
+// Étape 6b : la coquille des formats M et L (docs/v2-formats-M-L.md).
+const rien = () => {}
+function coquilleDocument(t, { droite = true } = {}) {
+  return h(
+    design.Coquille,
+    {
+      connexion: 'connecte',
+      gaucheOuvert: true,
+      droiteOuvert: droite,
+      libelleRedimension: t('interface.largeurVolet'),
+      alerte: h(design.AlerteHorsLigne, { texte: t('interface.horsLigne') }),
+      bandeau: h(design.Bandeau, {
+        voletGauche: { libelle: t('telephone.planEtDocuments'), ouvert: true, surClic: rien },
+        titre: 'La gare',
+        mention: t('document.modeSuggestion'),
+        terminer: { libelle: t('telephone.terminer'), surClic: rien },
+        presence: { libelle: t('interface.presence'), personnes: [{ cle: 'c', nom: 'Claire Martin' }] },
+        partager: { libelle: t('document.partager'), surClic: rien },
+        actions: {
+          libelle: t('telephone.autresActions'),
+          elements: [{ cle: 'lien', libelle: t('telephone.copierLien'), picto: 'lien', surClic: rien }],
+        },
+        compte: { libelle: t('interface.compte'), nom: 'Sylvain', courriel: 's@exemple.fr', actions: [] },
+        voletDroit: { libelle: t('interface.voletDroit'), nombre: 3, ouvert: droite, surClic: rien },
+      }),
+      voletGauche: h(design.VoletPlanDocuments, {
+        marque: { nom: 'amend.ink', href: '#' },
+        onglets: { plan: t('telephone.plan'), documents: t('telephone.documents') },
+        plan: [
+          { cle: 'a', niveau: 2, libelle: '1. La fin de l’étalement', actif: true },
+          { cle: 'b', niveau: 3, libelle: 'La chronotopie' },
+        ],
+        surTitre: rien,
+        videPlan: t('telephone.planVide'),
+        documents: [{ cle: 'd', nom: 'Réparons la ville', href: '#/d', actif: true }],
+      }),
+      voletDroit: h(design.VoletRelecture, {
+        titre: t('telephone.relecture'),
+        onglets: { modifications: t('telephone.modifications'), margo: t('interface.margo') },
+        modifications: h('div', { id: 'suggestions' }),
+        margo: h(design.TexteDeVolet, { texte: t('interface.margoBientot') }),
+      }),
+    },
+    h(design.ColonneTexte, null, h('div', { id: 'editeur' })),
+  )
+}
+
+test('coquille d’un document : bandeau, volets, alerte et texte, dans chaque langue', () => {
+  for (const l of LANGUES) {
+    const t = creerTraducteur(l)
+    const html = rendre(coquilleDocument(t))
+    for (const cle of ['document.partager']) assert.ok(html.includes(echapper(t(cle))), `${l} : ${cle}`)
+    for (const cle of [
+      'telephone.planEtDocuments',
+      'telephone.terminer',
+      'telephone.autresActions',
+      'interface.compte',
+      'interface.voletDroit',
+      'telephone.plan',
+      'telephone.documents',
+      'telephone.relecture',
+      'telephone.modifications',
+      'interface.margo',
+      'interface.horsLigne',
+    ])
+      assert.ok(html.includes(echapper(t(cle))), `${l} : ${cle}`)
+    assert.match(html, /<header[\s\S]*<h1[^>]*>La gare<\/h1>/, 'le titre du document est dans le bandeau')
+    assert.match(html, /<nav[\s\S]*amend-picto/, 'le volet gauche porte la marque')
+    assert.match(html, /<aside/, 'volet droit')
+    assert.match(html, /<main[\s\S]*id="editeur"/, 'le texte est dans le contenu principal')
+    assert.match(html, /data-niveau="3"/, 'le niveau du titre passe au design')
+    assert.match(html, /role="status"/, 'l’alerte hors ligne est annoncée')
+    assert.match(html, />3</, 'le nombre de suggestions sur le bouton du volet droit')
+    assert.ok(html.includes(echapper(t('document.modeSuggestion'))), `${l} : mention du mode`)
+    assert.match(html, /data-connexion="connecte"/, 'l’état de la connexion, en attribut')
+  }
+})
+
+test('coquille de la liste : sans volet droit ; navigation et nouveau document', () => {
+  const t = creerTraducteur('fr')
+  const html = rendre(
+    h(
+      design.Coquille,
+      {
+        gaucheOuvert: true,
+        libelleRedimension: t('interface.largeurVolet'),
+        bandeau: h(design.Bandeau, {
+          voletGauche: { libelle: t('telephone.planEtDocuments'), ouvert: true, surClic: rien },
+          titre: t('documents.mesDocuments'),
+          compte: { libelle: t('interface.compte'), nom: 'Sylvain', actions: [] },
+        }),
+        voletGauche: h(design.NavigationListe, {
+          marque: { nom: 'amend.ink', href: '#' },
+          nouveau: { libelle: t('documents.nouveau'), surClic: rien },
+          entrees: [
+            { cle: 'moi', libelle: t('documents.mesDocuments'), picto: 'moi', href: '#', actif: true },
+            { cle: 'p', libelle: t('documents.partagesAvecMoi'), picto: 'partages', href: '#/partages' },
+          ],
+        }),
+      },
+      h(design.ListeDocuments, { colonnes: [], lignes: [], vide: t('documents.vide') }),
+    ),
+  )
+  assert.doesNotMatch(html, /<aside/)
+  for (const cle of ['documents.nouveau', 'documents.partagesAvecMoi', 'documents.vide'])
+    assert.ok(html.includes(echapper(t(cle))), cle)
+  assert.doesNotMatch(html, /mantine-SegmentedControl/, 'sans onglets dans la page : ils sont dans le volet')
+})
+
+test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rien', () => {
+  const html = rendre(
+    h(design.Bandeau, {
+      voletGauche: { libelle: '<b>x</b>', surClic: rien },
+      titre: '<script>alert(1)</script>',
+      actions: { libelle: 'a', elements: [{ cle: 'x', libelle: 'y', picto: 'inconnu', surClic: rien }] },
+    }),
+  )
+  assert.doesNotMatch(html, /<script>|<b>/)
 })

@@ -113,16 +113,12 @@ test('commentaire du correcteur : l’ancre, posée par le serveur, se voit chez
 test('présence : l’éditrice voit le correcteur ; le lecteur voit sans être vu', async () => {
   const { doc, p, c, fermer } = await relecture('presence')
   const l = await ouvrir('Lucie', doc, { role: 'lecteur' })
+  // La présence, dans le bandeau : une pastille par autre personne.
   const participants = (page) =>
-    page.evaluate(
-      () =>
-        [...document.querySelectorAll('header *')].find(
-          (e) => e.children.length === 0 && /sur ce document/.test(e.textContent),
-        )?.textContent,
-    )
+    page.locator('[role=list][aria-label="Personnes sur ce document"] [role=listitem]').count()
   await attendre(1500)
-  assert.equal(await participants(p), '1 autre personne sur ce document')
-  assert.equal(await participants(l), '2 autres personnes sur ce document')
+  assert.equal(await participants(p), 1, 'l’éditrice voit le correcteur')
+  assert.equal(await participants(l), 2, 'le lecteur voit l’éditrice et le correcteur')
   await c.click('.bn-inline-content')
   await attendre(1000)
   assert.ok(await p.getByText('Carla', { exact: true }).count(), 'le curseur du correcteur, avec son nom')
@@ -134,7 +130,8 @@ test('historique : ouvert pour tous ; nommer une version seulement pour l’édi
   const { p, c, fermer } = await relecture('historique')
   await attendre(1500)
   for (const page of [p, c]) {
-    await page.getByRole('button', { name: 'Historique' }).click()
+    await page.getByRole('button', { name: 'Autres actions' }).click()
+    await page.getByRole('menuitem', { name: 'Historique' }).click()
     await page.getByText('Début du document').waitFor()
   }
   const boutonsEnTete = (page) =>

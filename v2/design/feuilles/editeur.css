@@ -12,3 +12,8 @@
 .bn-container .bn-editor {
   padding-inline: 10px;
 }
+
+/* réglage : css.editeur.palettes */
+.bn-root {
+  --bn-ui-base-z-index: var(--mantine-z-index-app);
+}

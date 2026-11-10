@@ -31,7 +31,8 @@ export async function donnerRole(base, docId, nom, role) {
 }
 
 /** Une personne connectée sur un document ; le créateur en est propriétaire,
- * les suivantes reçoivent `role` (éditeur par défaut). */
+ * les suivantes reçoivent `role` (éditeur par défaut). `contexte` : options
+ * du navigateur (taille, écran tactile). */
 export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR', role = 'editeur', contexte = {} } = {}) {
   if (proprietaires.has(cle(base, docId))) await donnerRole(base, docId, nom, role)
   const ctx = await nav.newContext({ locale, ...contexte })
@@ -47,12 +48,14 @@ export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR', role = '
     const c = (await ctx.cookies(base)).find((x) => x.name === 'amend2_session')
     proprietaires.set(cle(base, docId), `${c.name}=${c.value}`)
   }
-  await attendreEtat(page, 'Synchronisé')
+  await attendreEtat(page, 'connecte')
   return page
 }
 
+/** L'état de la connexion (`connecte`, `connexion`, `deconnecte`), porté en
+ * attribut par la coquille : rien n'est affiché, hors ligne mis à part. */
 export async function attendreEtat(page, attendu, delai = 20000) {
-  await page.waitForFunction((a) => document.querySelector('[role=status]')?.textContent === a, attendu, {
+  await page.waitForFunction((a) => document.querySelector('[data-connexion]')?.dataset.connexion === a, attendu, {
     timeout: delai,
   })
 }

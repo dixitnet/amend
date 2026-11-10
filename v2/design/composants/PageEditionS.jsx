@@ -58,7 +58,7 @@ function Volet({ volet, position, ouvert, surFermer }) {
  * @param {{
  *   titre: string, surTitre?: () => void,
  *   libelles: { gauche: string, droite: string, actions: string, terminer: string, titre: string },
- *   etat: string, mention?: string | null,
+ *   etat: string, connexion?: string, mention?: string | null,
  *   enModification: boolean, surTerminer: () => void,
  *   menu: Array<{ cle: string, libelle: string, icone: string, danger?: boolean, surClic: () => void }>,
  *   voletGauche: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> },
@@ -73,6 +73,7 @@ export function PageEditionS({
   surTitre,
   libelles,
   etat,
+  connexion,
   mention,
   enModification,
   surTerminer,
@@ -87,7 +88,7 @@ export function PageEditionS({
   const fermer = () => surVolet(null)
   return (
     <>
-      <header className="amend-bandeau">
+      <header className="amend-bandeau" data-connexion={connexion}>
         <ActionIcon aria-label={libelles.gauche} onClick={() => surVolet('gauche')}>
           <IconListTree aria-hidden="true" />
         </ActionIcon>

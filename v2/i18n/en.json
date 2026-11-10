@@ -18,7 +18,6 @@
     }
   },
   "document": {
-    "participants": "{n, plural, =0 {Nobody else} one {# other person} other {# other people}} on this document",
     "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
     "lectureSeule": "Read only",
@@ -200,5 +199,18 @@
     "planVide": "No heading in this document.",
     "lienCopie": "Link copied.",
     "lienNonCopie": "The link could not be copied: {lien}"
+  },
+  "interface": {
+    "voletDroit": "Changes and Margo (AI)",
+    "compte": "My account",
+    "presence": "People on this document",
+    "modificationsCorrecteur": "Your suggestions go to the document’s editors, who accept or reject them.",
+    "margo": "Margo (AI)",
+    "margoBientot": "Margo is coming here soon.",
+    "horsLigne": "Offline: your changes are kept and will be sent when the connection is back.",
+    "largeurVolet": "Panel width",
+    "fermer": "Close",
+    "valider": "OK",
+    "annuler": "Cancel"
   }
 }

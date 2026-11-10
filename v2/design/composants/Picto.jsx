@@ -4,7 +4,7 @@
 // et sa taille sont des réglages décidés (design/feuilles/picto.css).
 import dessin from '../picto/amend-ink.svg?raw'
 
-export function Picto() {
+function Picto() {
   return <span className="amend-picto" aria-hidden="true" dangerouslySetInnerHTML={{ __html: dessin }} />
 }
 

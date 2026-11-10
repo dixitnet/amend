@@ -25,6 +25,7 @@ import { boutonsGardes } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
+import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 
 function Palette() {
@@ -46,8 +47,10 @@ function Palette() {
  * @param {{ current: { terminer: () => void } | null }} [p.controle]  reçoit
  *   `terminer()` (bouton « Terminer » du bandeau)
  * @param {(enModification: boolean) => void} [p.surModification]
- * @param {(plan: { titres: Array<{ id: string, niveau: number, texte: string }>, allerA: (id: string) => void }) => void} [p.surPlan]
- *   rappelé avec les titres du document à chaque changement ; doit être stable
+ * @param {(plan: { titres: Array<{ id: string, niveau: number, texte: string }>, courant: string | null, allerA: (id: string) => void }) => void} [p.surPlan]
+ *   rappelé avec les titres du document (enfants compris) et le titre courant
+ *   (le premier visible sous le bandeau, comme Docs), à chaque changement et
+ *   au défilement ; doit être stable
  */
 export function EditeurCollaboratif({
   contexte,
@@ -101,7 +104,8 @@ export function EditeurCollaboratif({
       collaboration: {
         fragment: contexte.fragment,
         provider: contexte.fournisseur,
-        user: { name: personne.nom, color: personne.couleur },
+        // L'identifiant de la personne : la présence compte les personnes, pas les noms.
+        user: { name: personne.nom, color: personne.couleur, id: personne.id },
         resolveUsers: nomsDe,
         ...(afficheur ? { suggestionDoc: contexte.suggestions.doc, renderer: afficheur } : null),
       },
@@ -155,25 +159,39 @@ export function EditeurCollaboratif({
     }
   }, [editeur, afficheur, suggerer, surSuggestions])
 
-  // Le plan : les titres du document, tenus à jour (volet gauche du format S).
+  // Le plan : les titres du document, tenus à jour (volet « Plan » des trois
+  // formats), et le titre courant au défilement. Aller à un titre y met le
+  // curseur ; le focus seulement hors lecture à l'ouverture (le clavier d'un
+  // écran tactile s'ouvrirait).
   useEffect(() => {
     if (!surPlan) return
-    const allerA = (id) =>
-      editeur.domElement?.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'start' })
-    const signaler = () =>
-      surPlan({
-        titres: editeur.document
-          .filter((b) => b.type === 'heading')
-          .map((b) => ({
-            id: b.id,
-            niveau: b.props.level,
-            texte: (b.content ?? []).map((c) => c.text ?? '').join(''),
-          })),
-        allerA,
-      })
+    let precedent = ''
+    let attente
+    const allerA = (id) => allerAuTitre(editeur, id, { focaliser: !lectureAuDepart })
+    const signaler = () => {
+      const titres = titresDe(editeur.document).map((x) => ({ id: x.cle, niveau: x.niveau, texte: x.libelle }))
+      const courant = titreCourant(
+        editeur.domElement,
+        titres.map((x) => ({ cle: x.id })),
+      )
+      const empreinte = JSON.stringify([titres, courant])
+      if (empreinte === precedent) return
+      precedent = empreinte
+      surPlan({ titres, courant, allerA })
+    }
+    const auDefilement = () => {
+      clearTimeout(attente)
+      attente = setTimeout(signaler, 200)
+    }
     signaler()
-    return editeur.onChange(signaler)
-  }, [editeur, surPlan])
+    const arreter = editeur.onChange(signaler)
+    window.addEventListener('scroll', auDefilement, { passive: true })
+    return () => {
+      arreter()
+      clearTimeout(attente)
+      window.removeEventListener('scroll', auDefilement)
+    }
+  }, [editeur, surPlan, lectureAuDepart])
 
   // Format S : lecture à l'ouverture, modification d'un appui sur le texte.
   // Tout se fait dans le geste même (sinon le téléphone n'ouvre pas le

@@ -63,10 +63,23 @@ export function ouvrirDocument({ url, api, docId, personne, suggestions = false 
       rappel(fournisseur.wsconnected ? 'connecte' : 'connexion')
       return () => fournisseur.off('status', f)
     },
-    /** Rappelé avec le nombre d'autres personnes présentes sur le document. */
+    /** Rappelé avec les autres personnes présentes sur le document
+     * (`[{ cle, nom }]`, une fois chacune même ouverte deux fois, d'après
+     * l'identifiant de la personne que publie la présence). */
     surParticipants(rappel) {
       const aw = fournisseur.awareness
-      const f = () => rappel(Math.max(0, aw.getStates().size - 1))
+      const f = () => {
+        const vues = new Map()
+        const moi = aw.getLocalState()?.user?.id
+        for (const [client, etat] of aw.getStates()) {
+          const nom = etat?.user?.name
+          // Une personne ouverte deux fois compte une fois (même identifiant) ;
+          // deux personnes de même nom comptent deux fois.
+          const qui = etat?.user?.id ?? `client-${client}`
+          if (client !== aw.clientID && nom && qui !== moi && !vues.has(qui)) vues.set(qui, { cle: qui, nom })
+        }
+        rappel([...vues.values()])
+      }
       aw.on('change', f)
       f()
       return () => aw.off('change', f)

@@ -18,7 +18,6 @@
     }
   },
   "document": {
-    "participants": "{n, plural, =0 {Personne d’autre} one {# autre personne} other {# autres personnes}} sur ce document",
     "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
     "zoneEdition": "Texte du document {id}",
     "lectureSeule": "Lecture seule",
@@ -200,5 +199,18 @@
     "planVide": "Aucun titre dans ce document.",
     "lienCopie": "Lien copié.",
     "lienNonCopie": "Le lien n’a pas pu être copié : {lien}"
+  },
+  "interface": {
+    "voletDroit": "Modifications et Margo (IA)",
+    "compte": "Mon compte",
+    "presence": "Personnes sur ce document",
+    "modificationsCorrecteur": "Vos suggestions sont proposées aux éditeurs du document, qui les acceptent ou les refusent.",
+    "margo": "Margo (IA)",
+    "margoBientot": "Margo arrive bientôt ici.",
+    "horsLigne": "Hors ligne : vos modifications sont gardées et partiront au retour de la connexion.",
+    "largeurVolet": "Largeur du volet",
+    "fermer": "Fermer",
+    "valider": "Valider",
+    "annuler": "Annuler"
   }
 }
