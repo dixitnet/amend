@@ -24,6 +24,7 @@ import {
   IconWifiOff,
   IconSettings,
   IconPencil,
+  IconArrowBack,
 } from '@tabler/icons-react'
 
 const PICTOS = {
@@ -49,6 +50,7 @@ const PICTOS = {
   horsLigne: IconWifiOff,
   administration: IconSettings,
   renommer: IconPencil,
+  retour: IconArrowBack,
 }
 
 /** Le picto d'un rôle, ou rien si le rôle est inconnu. */

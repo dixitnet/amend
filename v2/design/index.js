@@ -22,7 +22,9 @@ export {
   AlerteHorsLigne,
   Fenetre,
   FenetreSaisie,
+  FenetreConfirmation,
 } from './composants/Coquille.jsx'
+export { montrerMessage } from './messages.js'
 export { useFormat } from './format.js'
 export { PageEditionS, PlanDocument, ListeLiens } from './composants/PageEditionS.jsx'
 export { useFormatS } from './formats.js'

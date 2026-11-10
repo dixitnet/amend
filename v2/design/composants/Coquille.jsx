@@ -208,11 +208,11 @@ function EntreeDocument({ e }) {
   )
 }
 
-/** Le volet gauche d'un document : onglets Plan et Documents. */
-export function VoletPlanDocuments({ marque, onglets, plan, surTitre, videPlan, documents }) {
+/** Le volet gauche d'un document : onglets Plan et Documents, sans marque en
+ * tête (Sylvain, 10/11/2026). */
+export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, documents }) {
   return (
     <>
-      <MarqueDeVolet marque={marque} />
       <AppShell.Section grow component={ScrollArea}>
         <Tabs defaultValue="plan">
           <Tabs.List grow>
@@ -282,18 +282,15 @@ export function NavigationListe({ marque, nouveau, entrees }) {
   )
 }
 
-/** Le volet droit : « Relecture », onglets Modifications et Margo (IA). */
+/** Le volet droit : onglets Modifications et Margo (IA). Le titre
+ * (« Relecture ») n'est plus affiché (Sylvain, 10/11/2026) : il nomme les
+ * onglets pour les lecteurs d'écran. */
 export function VoletRelecture({ titre, onglets, modifications, margo }) {
   return (
     <>
-      <AppShell.Section>
-        <div className="amend-coquille-volet-tete">
-          <Text component="h2">{titre}</Text>
-        </div>
-      </AppShell.Section>
       <AppShell.Section grow component={ScrollArea}>
         <Tabs defaultValue="modifications">
-          <Tabs.List grow>
+          <Tabs.List grow aria-label={titre}>
             <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
               {onglets.modifications}
             </Tabs.Tab>
@@ -331,6 +328,37 @@ export const Fenetre = ({ ouverte, titre, surFermer, libelleFermer, children }) 
 )
 
 /** Une fenêtre de saisie d'un nom (remplace la boîte du navigateur). */
+/**
+ * Une confirmation, comme celles de Docs (ModalRemoveDoc) : « Annuler »
+ * secondaire et pris par le focus ; l'action en rouge quand elle détruit.
+ */
+export function FenetreConfirmation({
+  ouverte,
+  titre,
+  texte,
+  libelleConfirmer,
+  libelleAnnuler,
+  danger,
+  surConfirmer,
+  surFermer,
+}) {
+  return (
+    <Modal opened={ouverte} onClose={surFermer} title={titre} withCloseButton={false}>
+      <Stack>
+        <Text>{texte}</Text>
+        <Group>
+          <Button {...REGLAGES.boutonSecondaire} onClick={surFermer} data-autofocus>
+            {libelleAnnuler}
+          </Button>
+          <Button {...(danger ? REGLAGES.boutonDanger : {})} onClick={surConfirmer}>
+            {libelleConfirmer}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}
+
 export function FenetreSaisie({
   ouverte,
   titre,

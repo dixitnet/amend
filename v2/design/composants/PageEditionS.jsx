@@ -5,31 +5,10 @@
 // panneau plein écran (le partage). Mantine et Tabler tels quels ; réglages
 // décidés dans design/feuilles/telephone.css (ADR 0008) ; textes traduits.
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
-import {
-  IconDots,
-  IconFiles,
-  IconLink,
-  IconListTree,
-  IconPencilCheck,
-  IconShare,
-  IconTrash,
-  IconArrowBack,
-} from '@tabler/icons-react'
+import { PictoDe } from '../pictos.jsx'
 
-/** Les icônes, par nom (l'application nomme, le design dessine). */
-const ICONES = {
-  plan: IconListTree,
-  documents: IconFiles,
-  modifications: IconPencilCheck,
-  lien: IconLink,
-  partager: IconShare,
-  supprimer: IconTrash,
-  retour: IconArrowBack,
-}
-const Icone = ({ nom }) => {
-  const C = ICONES[nom]
-  return C ? <C aria-hidden="true" /> : null
-}
+/** Les pictos, par rôle : la table commune (design/pictos.jsx ; audit du 10/11/2026). */
+const Icone = ({ nom }) => <PictoDe role={nom} />
 
 /** Un tiroir à onglets. */
 function Volet({ volet, position, ouvert, surFermer }) {
@@ -60,7 +39,7 @@ function Volet({ volet, position, ouvert, surFermer }) {
  *   libelles: { gauche: string, droite: string, actions: string, terminer: string, titre: string },
  *   etat: string, connexion?: string, mention?: string | null,
  *   enModification: boolean, surTerminer: () => void,
- *   menu: Array<{ cle: string, libelle: string, icone: string, danger?: boolean, surClic: () => void }>,
+ *   menu: Array<{ cle: string, libelle: string, icone: string, surClic: () => void }>,
  *   voletGauche: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> },
  *   voletDroit?: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> } | null,
  *   volet: 'gauche' | 'droite' | null, surVolet: (v: 'gauche' | 'droite' | null) => void,
@@ -90,7 +69,7 @@ export function PageEditionS({
     <>
       <header className="amend-bandeau" data-connexion={connexion}>
         <ActionIcon aria-label={libelles.gauche} onClick={() => surVolet('gauche')}>
-          <IconListTree aria-hidden="true" />
+          <PictoDe role="plan" />
         </ActionIcon>
         <div className="amend-bandeau-titre">
           {surTitre ? (
@@ -105,7 +84,7 @@ export function PageEditionS({
         <Menu>
           <Menu.Target>
             <ActionIcon aria-label={libelles.actions}>
-              <IconDots aria-hidden="true" />
+              <PictoDe role="autres" />
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
@@ -118,7 +97,7 @@ export function PageEditionS({
         </Menu>
         {voletDroit ? (
           <ActionIcon aria-label={libelles.droite} onClick={() => surVolet('droite')}>
-            <IconPencilCheck aria-hidden="true" />
+            <PictoDe role="modifications" />
           </ActionIcon>
         ) : null}
       </header>

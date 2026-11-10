@@ -51,13 +51,17 @@ export function PanneauPartage({
               allowDeselect={false}
               onChange={(r) => surChangerRole(a.cle, r)}
             />
-            <Button onClick={() => surRetirer(a.cle)}>{libelles.retirer}</Button>
+            <Button aria-label={libelles.retirerDe(a.nom)} onClick={() => surRetirer(a.cle)}>
+              {libelles.retirer}
+            </Button>
           </Group>
         ))}
         {invitations.map((i) => (
           <Group component="li" key={i.courriel}>
             <Text>{i.texte}</Text>
-            <Button onClick={() => surRetirerInvitation(i.courriel)}>{libelles.annuler}</Button>
+            <Button aria-label={libelles.annulerDe(i.courriel)} onClick={() => surRetirerInvitation(i.courriel)}>
+              {libelles.annuler}
+            </Button>
           </Group>
         ))}
       </Stack>

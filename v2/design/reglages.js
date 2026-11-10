@@ -61,6 +61,11 @@ export const REGLAGES = {
   },
   // Boutons secondaires (Partager, Annuler) : la variante « default » de Mantine.
   boutonSecondaire: { variant: 'default' },
+  // Le bouton d'une action qui détruit (supprimer, retirer) : rouge, comme Docs.
+  boutonDanger: { color: 'red' },
+  // Les messages passagers (notifications), comme les toasts de Docs : 3 s ;
+  // en rouge pour une erreur, sinon la couleur de l'interface.
+  messages: { duree: 3000, erreur: { color: 'red' } },
   // La pastille du nombre de suggestions : 10 px par défaut, trop petite pour un chiffre.
   nombreSuggestions: { size: 16 },
   // L'alerte hors ligne, comme AlertOffline de Docs.
