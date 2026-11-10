@@ -157,7 +157,7 @@ function separateurTypst(choix) {
   if (choix === 'asterisques') return marque('\\*  \\*  \\*')
   if (choix === 'asterisme') return marque('⁂')
   if (choix === 'blanc') return '#v(1.4em)\n\n'
-  return `#v(0.6em)\n#line(length: 100%, stroke: 0.5pt + ${GRIS_TRAITS})\n#v(0.6em)\n\n`
+  return `#v(0.6em)\n#line(length: 100%, stroke: 0.5pt + ${NOIR})\n#v(0.6em)\n\n`
 }
 
 /** Où le compilateur trouvera l'image. Une image du document lui-même : le nom
@@ -273,7 +273,7 @@ function tableauTypst(node) {
     lignes.push(cellules.join(', '))
   })
   if (!colonnes) return ''
-  return `#table(columns: ${colonnes}, stroke: 0.5pt + ${GRIS_TRAITS}, ${lignes.join(', ')})\n\n`
+  return `#table(columns: ${colonnes}, stroke: 0.5pt + ${NOIR}, ${lignes.join(', ')})\n\n`
 }
 
 /** Un nœud de bloc. Chaque type de bloc du modèle de style a sa fonction
@@ -359,20 +359,15 @@ function blocTypst(node, { sansRetrait = false } = {}) {
 
 // --- Le gabarit -----------------------------------------------------------
 
-/** Les couleurs du PDF, en CMJN (10/11/2026, Sylvain, consigne de
- * l'imprimeur) : « pour obtenir un noir profond sur un support papier, nous
- * conseillons de soutenir un noir 100 % avec 50 % de cyan, 40 % de magenta
- * et 40 % de jaune ». Typst écrivait jusque-là le noir en gris à profil ICC
- * (sGray) : une chaîne d'impression qui gère la couleur pouvait le convertir
- * en un noir tramé, qui sort gris. En CMJN, les valeurs vont telles quelles
- * à la presse. Les traits fins restent en noir seul : un trait en quatre
- * encres se repère mal. Séparateurs et tableaux à 41 % (l'ancien
- * `luma(150)`), filet des notes à 100 %. Les images gardent leurs couleurs
- * (RVB) : les convertir demanderait Ghostscript. */
-export const NOIR_TEXTE = 'cmyk(50%, 40%, 40%, 100%)'
-export const GRIS_TRAITS = 'cmyk(0%, 0%, 0%, 41%)'
-/** Le filet des notes : celui de Typst (30 %, 0,5 pt), en noir seul. */
-export const NOIR_TRAITS = 'cmyk(0%, 0%, 0%, 100%)'
+/** Les couleurs du PDF, en CMJN (10/11/2026, Sylvain) : texte et traits
+ * en noir seul, 0/0/0/100. Typst écrivait jusque-là le noir en gris à
+ * profil ICC (sGray) : une chaîne d'impression qui gère la couleur pouvait
+ * le convertir en un noir tramé, qui sort gris. En CMJN, la valeur va telle
+ * quelle à la presse. Le noir soutenu conseillé par l'imprimeur (50/40/40/100)
+ * a été écarté : en petit corps, un léger décalage des quatre encres borde
+ * les lettres de couleur. Les images gardent leurs couleurs (RVB) : les
+ * convertir demanderait Ghostscript. */
+export const NOIR = 'cmyk(0%, 0%, 0%, 100%)'
 
 const PT_PAR_MM = 72 / 25.4
 
@@ -456,7 +451,7 @@ export function regleNotes(corps, page = {}) {
   const texte = `font: (${f.typst.map(chaine).join(', ')}), size: ${taille}pt, weight: "regular", style: "normal"`
   const par = r.par.replace(/first-line-indent: \(.*\)$/, 'first-line-indent: 0pt')
   return `#set footnote.entry(indent: 0pt)
-#set footnote.entry(separator: line(length: 30% + 0pt, stroke: 0.5pt + ${NOIR_TRAITS}))
+#set footnote.entry(separator: line(length: 30% + 0pt, stroke: 0.5pt + ${NOIR}))
 #show footnote.entry: it => {
   set text(${texte})
   set par(${par})
@@ -639,7 +634,7 @@ function gabarit(style, titre) {
 // La langue décide des motifs de césure et de la forme des guillemets.
 // \`hyphenate\` vaut \`auto\` : les mots ne sont coupés que dans du texte
 // justifié — même règle que celle posée dans l'export navigateur.
-#set text(lang: ${chaine(langue(p.langue).id)}, font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt${p.cesure === false ? ', hyphenate: false' : ''}${p.veuvesOrphelines === false ? ', costs: (widow: 0%, orphan: 0%)' : ''}, fill: ${NOIR_TEXTE})
+#set text(lang: ${chaine(langue(p.langue).id)}, font: (${police(corps.font).typst.map(chaine).join(', ')}), size: ${corps.size}pt${p.cesure === false ? ', hyphenate: false' : ''}${p.veuvesOrphelines === false ? ', costs: (widow: 0%, orphan: 0%)' : ''}, fill: ${NOIR})
 #set par(justify: ${corps.align === 'justify'})
 // Les notes de bas de page (29/09/2026, reprises le 03/10) : voir regleNotes.
 ${regleNotes(corps, p)}
