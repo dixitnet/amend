@@ -172,6 +172,7 @@ test('droits : le créateur est propriétaire, une seule création par document'
       'arbitrer',
       'restaurer',
       'inviter',
+      'utiliserMargo',
       'supprimer',
       'transferer',
       'ranger',

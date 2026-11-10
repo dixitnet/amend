@@ -19,3 +19,12 @@ export { refusMembre, refusDepart, peutModifierEquipe, peutGererEquipe, deplacem
 export { listeAdministrateurs, estAdministrateur, numeroDeVersion } from './administration.js'
 export { nfc } from './propre.js'
 export { gabaritTypst, grille, chaineTypst } from './miseEnPage.js'
+export {
+  GARDE_FOUS_MARGO,
+  signes,
+  texteNumerote,
+  porteeMargo,
+  normaliser,
+  situerRemplacement,
+  suiviDesRefus,
+} from './margo.js'
