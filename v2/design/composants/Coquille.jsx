@@ -29,7 +29,7 @@ import {
   UnstyledButton,
   Switch,
 } from '@mantine/core'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { REGLAGES } from '../reglages.js'
 import { PictoDe } from '../pictos.jsx'
 import { Marque } from './Picto.jsx'
@@ -94,6 +94,8 @@ export const Etoile = ({ favori }) => (
  * ou sortie du champ enregistrent, Échap annule. Sans `renommer`, un titre. */
 function TitreModifiable({ titre, renommer }) {
   const [edition, setEdition] = useState(false)
+  // Entrée puis la perte du champ ne valident qu'une fois (audit du 10/11/2026).
+  const valide = useRef(false)
   if (!renommer)
     return (
       <Text component="h1" className="amend-coquille-titre">
@@ -102,6 +104,8 @@ function TitreModifiable({ titre, renommer }) {
     )
   if (edition) {
     const valider = (v) => {
+      if (valide.current) return
+      valide.current = true
       setEdition(false)
       if (v !== renommer.valeur) renommer.surValider(v)
     }
@@ -124,7 +128,7 @@ function TitreModifiable({ titre, renommer }) {
   return (
     <Text component="h1" className="amend-coquille-titre">
       {/* Le nom du bouton reste le titre affiché (axe : label-content-name-mismatch) ; « Renommer » en info-bulle. */}
-      <UnstyledButton title={renommer.libelle} onClick={() => setEdition(true)}>
+      <UnstyledButton title={renommer.libelle} onClick={() => ((valide.current = false), setEdition(true))}>
         {titre}
       </UnstyledButton>
     </Text>
