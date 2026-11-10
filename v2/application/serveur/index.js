@@ -75,7 +75,21 @@ const TYPES = {
   '.css': 'text/css',
   '.woff2': 'font/woff2',
   '.woff': 'font/woff',
+  // Le compilateur Typst des exports (WebAssembly) et les polices du livre :
+  // avec leur vrai type, Caddy les compresse et le navigateur compile le
+  // WebAssembly pendant le téléchargement.
+  '.wasm': 'application/wasm',
+  '.ttf': 'font/ttf',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
 }
+
+// Comme Docs (`conf/default.conf`) : les fichiers construits portent une
+// empreinte dans leur nom et ne changent jamais, le navigateur les garde ;
+// tout le reste (la page) est revalidé, pour charger la version en service.
+const ASSETS = '/assets/'
+const GARDER = 'public, max-age=31536000, immutable'
+const REVALIDER = 'no-cache'
 
 function json(res, statut, corps, entetes = {}) {
   res.writeHead(statut, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...entetes })
@@ -310,12 +324,17 @@ async function servirFichier(CONF, res, chemin) {
     return json(res, 404, { code: 'introuvable' })
   try {
     const contenu = await readFile(fichier)
-    res.writeHead(200, { 'content-type': TYPES[extname(fichier)] || 'application/octet-stream' })
+    res.writeHead(200, {
+      'content-type': TYPES[extname(fichier)] || 'application/octet-stream',
+      'cache-control': relatif.startsWith(ASSETS) ? GARDER : REVALIDER,
+    })
     res.end(contenu)
   } catch {
+    // Un fichier construit absent (version précédente) : 404, jamais la page.
+    if (relatif.startsWith(ASSETS)) return json(res, 404, { code: 'introuvable' })
     const index = await readFile(join(CONF.statique, 'index.html')).catch(() => null)
     if (!index) return json(res, 404, { code: 'introuvable' })
-    res.writeHead(200, { 'content-type': TYPES['.html'] })
+    res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': REVALIDER })
     res.end(index)
   }
 }
