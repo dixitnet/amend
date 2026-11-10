@@ -159,3 +159,41 @@ test('Scaleway : arguments illisibles, refus du filtre, erreur HTTP', async () =
   assert.equal((await c.tour({ resultats: [{ id: 'c', contenu: 'x' }] })).arret, 'refus')
   assert.equal(requetes[2].corps.messages.length, 4, 'les résultats refusés par la panne ne sont pas en double')
 })
+
+test('résultats et consigne du service dans le même tour : résultats d’abord, chez les deux fournisseurs', async () => {
+  const client = anthropicSimule([
+    { content: [{ type: 'tool_use', id: 't', name: 'lire', input: {} }], stop_reason: 'tool_use', usage: {} },
+    { content: [{ type: 'text', text: 'Bilan.' }], stop_reason: 'end_turn', usage: {} },
+  ])
+  const c = creerIA({ anthropic: client }).conversation({ modele: 'claude-haiku-5-5', consigne: 'c', outils: OUTILS })
+  await c.tour({ texte: 'a' })
+  await c.tour({ resultats: [{ id: 't', contenu: 'r' }], texte: 'Fais le bilan.' })
+  assert.deepEqual(
+    client.requetes[1].messages[2].content.map((b) => b.type),
+    ['tool_result', 'text'],
+  )
+  const { f, requetes } = fetchSimule([
+    {
+      corps: {
+        choices: [
+          {
+            finish_reason: 'tool_calls',
+            message: { tool_calls: [{ id: 'x', function: { name: 'lire', arguments: '{}' } }] },
+          },
+        ],
+      },
+    },
+    { corps: { choices: [{ finish_reason: 'stop', message: { content: 'Bilan.' } }] } },
+  ])
+  const c2 = creerIA({ cleScaleway: 'k', fetch: f }).conversation({
+    modele: MODELE_PAR_DEFAUT,
+    consigne: 'c',
+    outils: OUTILS,
+  })
+  await c2.tour({ texte: 'a' })
+  await c2.tour({ resultats: [{ id: 'x', contenu: 'r' }], texte: 'Fais le bilan.' })
+  assert.deepEqual(
+    requetes[1].corps.messages.slice(3).map((m) => m.role),
+    ['tool', 'user'],
+  )
+})

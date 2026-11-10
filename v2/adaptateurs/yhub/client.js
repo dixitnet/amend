@@ -15,8 +15,8 @@ export function clientCollaboration({ url, jeton }) {
   const adresse = (docId, branche = 'main') =>
     `${url}/ydoc/v1/${ORGANISATION}/${encodeURIComponent(docId)}?branch=${branche}`
   const entetes = { 'x-amend-interne': jeton }
-  async function appel(docId, options) {
-    const r = await fetch(adresse(docId), {
+  async function appel(docId, options, branche = 'main') {
+    const r = await fetch(adresse(docId, branche), {
       ...options,
       headers: { ...entetes, ...options?.headers },
       signal: AbortSignal.timeout(5000),
@@ -47,5 +47,20 @@ export function clientCollaboration({ url, jeton }) {
         headers: { 'content-type': 'application/octet-stream' },
         body: encodage.encodeAny({ update: mise, customAttributions: [{ k: 'pour', v: pour }] }),
       }),
+    /** Les suggestions en cours (état encodé), lues au nom de Margo ; une branche
+     * jamais écrite se lit vide. */
+    lireSuggestions: async (docId) =>
+      (await appel(docId, { headers: { 'x-amend-agent': 'margo' } }, 'suggestions')).doc,
+    /** Écrit une modification dans les suggestions, attribuée à Margo (étape 8). */
+    ecrireSuggestions: (docId, mise) =>
+      appel(
+        docId,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/octet-stream', 'x-amend-agent': 'margo' },
+          body: encodage.encodeAny({ update: mise }),
+        },
+        'suggestions',
+      ),
   }
 }

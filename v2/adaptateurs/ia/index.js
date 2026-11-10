@@ -50,9 +50,10 @@ export function creerIA({ cleAnthropic = '', cleScaleway = '', urlScaleway = URL
 
   /**
    * Une conversation avec un modèle. `outils` : `[{ nom, description, schema }]`
-   * (schéma JSON des paramètres). Chaque tour reçoit soit le texte de la
-   * personne (`{ texte }`), soit les résultats des outils demandés au tour
-   * précédent (`{ resultats: [{ id, contenu, erreur? }] }`), et rend :
+   * (schéma JSON des paramètres). Chaque tour reçoit le texte de la personne
+   * (`{ texte }`), ou les résultats des outils demandés au tour précédent
+   * (`{ resultats: [{ id, contenu, erreur? }] }`), ou les deux (une consigne
+   * du service après les résultats), et rend :
    * `{ texte, appels: [{ id, nom, entree }], arret, jetons: { entree, sortie, cacheLu } }`.
    * Une panne du fournisseur lève une erreur de code `ia-indisponible`.
    */
@@ -121,13 +122,14 @@ function conversationAnthropic(client, modele, m, consigne, outils, signal) {
 }
 
 function contenuUtilisateurAnthropic(entree) {
-  if (typeof entree?.texte === 'string') return [{ type: 'text', text: entree.texte }]
-  return (entree?.resultats ?? []).map((r) => ({
+  const resultats = (entree?.resultats ?? []).map((r) => ({
     type: 'tool_result',
     tool_use_id: r.id,
     content: String(r.contenu ?? ''),
     ...(r.erreur ? { is_error: true } : null),
   }))
+  // Les résultats d'abord (ils suivent les appels), puis le texte éventuel.
+  return typeof entree?.texte === 'string' ? [...resultats, { type: 'text', text: entree.texte }] : resultats
 }
 
 function arretAnthropic(raison, appels) {
@@ -145,14 +147,14 @@ function conversationScaleway(appeler, url, cle, modele, m, consigne, outils, si
   }))
   return {
     async tour(entree) {
-      const ajout =
-        typeof entree?.texte === 'string'
-          ? [{ role: 'user', content: entree.texte }]
-          : (entree?.resultats ?? []).map((r) => ({
-              role: 'tool',
-              tool_call_id: r.id,
-              content: String(r.contenu ?? ''),
-            }))
+      const ajout = [
+        ...(entree?.resultats ?? []).map((r) => ({
+          role: 'tool',
+          tool_call_id: r.id,
+          content: String(r.contenu ?? ''),
+        })),
+        ...(typeof entree?.texte === 'string' ? [{ role: 'user', content: entree.texte }] : []),
+      ]
       messages.push(...ajout)
       let r
       try {

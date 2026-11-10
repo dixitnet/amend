@@ -20,11 +20,13 @@ export { listeAdministrateurs, estAdministrateur, numeroDeVersion } from './admi
 export { nfc } from './propre.js'
 export { gabaritTypst, grille, chaineTypst } from './miseEnPage.js'
 export {
+  AUTEUR_MARGO,
   GARDE_FOUS_MARGO,
   signes,
   texteNumerote,
   porteeMargo,
   normaliser,
+  situerCitation,
   situerRemplacement,
   suiviDesRefus,
 } from './margo.js'

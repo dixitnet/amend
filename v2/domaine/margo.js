@@ -5,6 +5,10 @@
 // v2/i18n/consignes/ (règle 30) ; les droits dans droits.js (`utiliserMargo`).
 import { typographier } from './typographie.js'
 
+/** L'auteur des suggestions et des commentaires de Margo, pour y/hub et les
+ * fils (les personnes ont des identifiants UUID : pas de collision). */
+export const AUTEUR_MARGO = 'margo'
+
 /** Garde-fous d'une demande (repris de la v1, où ils ont fait leurs preuves :
  * server/garde-fous.js, `margoEtapes` et `margoRefusEnSerie`). */
 export const GARDE_FOUS_MARGO = Object.freeze({
@@ -66,27 +70,36 @@ function occurrences(texte, motif) {
 }
 
 /**
- * Où remplacer `avant` par `apres` dans le texte d'un bloc. Le passage doit y
- * être une fois exactement (aux espaces, apostrophes et tirets près). Le nouveau
- * texte est typographié selon les règles du document (étape 4).
- * @param {string} texte  le texte du bloc, tel qu'il se lit avec les suggestions en cours
- * @returns {{ ok: true, debut: number, fin: number, apres: string } | { ok: false, motif: 'vide' | 'introuvable' | 'ambigu' | 'identique' }
- * (un motif de refus pour Margo, pas un code d'erreur : la personne ne le voit pas)}
+ * Où se trouve un passage dans le texte d'un bloc : une fois exactement, aux
+ * espaces, apostrophes et tirets près, en NFC.
+ * @returns {{ ok: true, debut: number, fin: number } | { ok: false, motif: 'vide' | 'introuvable' | 'ambigu' }}
+ * (un motif de refus pour Margo, pas un code d'erreur : la personne ne le voit pas)
  */
-export function situerRemplacement(texte, avant, apres) {
-  const a = String(avant ?? '').normalize('NFC')
-  if (!a) return { ok: false, motif: 'vide' }
-  const t = String(texte ?? '').normalize('NFC')
-  const ou = occurrences(normaliser(t), normaliser(a))
+export function situerCitation(texte, citation) {
+  const c = String(citation ?? '').normalize('NFC')
+  if (!c) return { ok: false, motif: 'vide' }
+  const ou = occurrences(normaliser(String(texte ?? '').normalize('NFC')), normaliser(c))
   if (!ou.length) return { ok: false, motif: 'introuvable' }
   if (ou.length > 1) return { ok: false, motif: 'ambigu' }
-  const debut = ou[0]
-  const fin = debut + a.length
-  const nouveau = typographier(String(apres ?? '').normalize('NFC'), { avant: t.slice(0, debut) })
-  // Un remplacement qui ne change rien (ou seulement des espaces, apostrophes
-  // ou tirets équivalents) noierait la relecture (leçon de la v1).
-  if (normaliser(nouveau) === normaliser(t.slice(debut, fin))) return { ok: false, motif: 'identique' }
-  return { ok: true, debut, fin, apres: nouveau }
+  return { ok: true, debut: ou[0], fin: ou[0] + c.length }
+}
+
+/**
+ * Où remplacer `avant` par `apres` dans le texte d'un bloc (voir
+ * `situerCitation`). Le nouveau texte est typographié selon les règles du
+ * document (étape 4). Un remplacement qui ne change rien (ou seulement des
+ * espaces, apostrophes ou tirets équivalents) est refusé : il noierait la
+ * relecture (leçon de la v1).
+ * @param {string} texte  le texte du bloc, tel qu'il se lit avec les suggestions en cours
+ * @returns {{ ok: true, debut: number, fin: number, apres: string } | { ok: false, motif: 'vide' | 'introuvable' | 'ambigu' | 'identique' }}
+ */
+export function situerRemplacement(texte, avant, apres) {
+  const ou = situerCitation(texte, avant)
+  if (!ou.ok) return ou
+  const t = String(texte ?? '').normalize('NFC')
+  const nouveau = typographier(String(apres ?? '').normalize('NFC'), { avant: t.slice(0, ou.debut) })
+  if (normaliser(nouveau) === normaliser(t.slice(ou.debut, ou.fin))) return { ok: false, motif: 'identique' }
+  return { ok: true, debut: ou.debut, fin: ou.fin, apres: nouveau }
 }
 
 /**

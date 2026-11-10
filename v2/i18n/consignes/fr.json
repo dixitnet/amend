@@ -5,7 +5,12 @@
     "lire": "Lit des blocs du document, du numéro « de » au numéro « a » (inclus). Le texte se lit avec les suggestions en cours.",
     "chercher": "Cherche des passages dans tout le document ; rend les blocs qui les contiennent, avec leur numéro. Plusieurs textes en un appel.",
     "proposer": "Propose des corrections, en suggestions : pour chacune, le numéro du bloc, le passage exact à remplacer (« avant ») et le nouveau texte (« apres »). Rend, pour chacune, « posee » ou le motif du refus.",
-    "commenter": "Pose un commentaire sur un passage : le numéro du bloc, le passage exact (« citation ») et le texte du commentaire."
+    "commenter": "Pose un commentaire sur un passage : le numéro du bloc, le passage exact (« citation ») et le texte du commentaire.",
+    "suite": "(lecture arrêtée au bloc {dernier} pour rester courte ; la suite commence au bloc {suivant})",
+    "aucun": "aucun résultat",
+    "inconnu": "outil inconnu",
+    "parametres": "paramètres invalides : {attendu}",
+    "indisponible": "le document est momentanément illisible ; réessaie plus tard ou termine en faisant le bilan"
   },
   "service": {
     "refusEnSerie": "Consigne du service : tes {n} dernières écritures ont toutes été refusées. Ne réessaie pas : le texte est sans doute déjà conforme, ou le passage n’est pas celui que tu crois. Relis les motifs, puis passe à un autre passage ou termine en faisant le bilan. Si les refus continuent, la demande s’arrêtera.",
@@ -19,6 +24,15 @@
     "identique": "refusé : le nouveau texte est identique à l’ancien",
     "bloc": "refusé : ce numéro de bloc n’existe pas",
     "chevauche": "refusé : chevauche une autre correction du même appel",
-    "posee": "posée"
+    "posee": "posée",
+    "ancre": "refusé : le passage cité n’a pas pu être retrouvé dans le texte (il porte peut-être une suggestion en cours) ; cite un passage du texte sans suggestion",
+    "structure": "refusé : le passage touche autre chose que du texte"
+  },
+  "demande": {
+    "historique": "Échanges précédents de cette conversation :\n{echanges}",
+    "personne": "{prenom} : {texte}",
+    "margo": "Margo : {texte}",
+    "selection": "Passage sélectionné par la personne :\n{texte}",
+    "texte": "Demande de {prenom} : {texte}"
   }
 }
