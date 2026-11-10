@@ -89,3 +89,75 @@ test('titre : les espaces insécables restent, les blancs ordinaires sont resser
   assert.equal(titreDocument('  Le\u00A0titre\u202F:   une\t\nsuite ').titre, 'Le\u00A0titre\u202F: une suite')
   assert.equal(titreDocument('   ').titre, null)
 })
+
+// --- Modèles d'équipe : une base et des écarts bornés (ADR 0011) ---
+import { appliquerEcarts, modeleRetenu, peutChoisirModele, peutGererModeles, capacites } from '../../domaine/index.js'
+
+const REGLES = {
+  reglables: [
+    { cle: 'page.largeur', type: 'nombre', min: 80, max: 450 },
+    { cle: 'grille.corps', type: 'nombre', min: 5, max: 96 },
+    { cle: 'grille.lignes', type: 'entier', min: 1 },
+    { cle: 'marges.interieure', type: 'nombre', min: 0, max: 100 },
+    { cle: 'police', type: 'police' },
+    { cle: 'chapitre.bellePage', type: 'booleen' },
+  ],
+  polices: [
+    { famille: 'EB Garamond', fichiers: ['eb.ttf'] },
+    { famille: 'Autre', fichiers: ['a.ttf', 'b.ttf'] },
+  ],
+  largeurUtileMin: 40,
+}
+const BASE = { ...MODELE, polices: ['eb.ttf'] }
+
+test('modèle d’équipe : les écarts s’appliquent à une copie de la base, qui ne bouge pas', () => {
+  const r = appliquerEcarts(BASE, { 'page.largeur': 135, 'chapitre.bellePage': false, police: 'Autre' }, REGLES)
+  assert.equal(r.ok, true)
+  assert.equal(r.modele.page.largeur, 135)
+  assert.equal(r.modele.page.hauteur, 180, 'le reste vient de la base')
+  assert.equal(r.modele.chapitre.bellePage, false)
+  assert.equal(r.modele.chapitre.ligneTitre, 7)
+  assert.equal(r.modele.police, 'Autre')
+  assert.deepEqual(r.modele.polices, ['a.ttf', 'b.ttf'], 'les fichiers de la police viennent du catalogue')
+  assert.equal(BASE.page.largeur, 120)
+  assert.equal(BASE.chapitre.bellePage, true)
+})
+
+test('modèle d’équipe : un écart égal à la base n’est pas gardé (la base reste maîtresse)', () => {
+  const r = appliquerEcarts(BASE, { 'page.largeur': 120, 'grille.corps': 11 }, REGLES)
+  assert.deepEqual(r.ecarts, { 'grille.corps': 11 })
+  assert.deepEqual(appliquerEcarts(BASE, {}, REGLES).ecarts, {})
+})
+
+test('modèle d’équipe : réglage inconnu, hors bornes, de mauvais type, ou modèle impossible : refusés avec un code', () => {
+  const code = (ecarts) => {
+    const r = appliquerEcarts(BASE, ecarts, REGLES)
+    return r.ok ? 'ok' : [r.code, r.reglage ?? r.raison]
+  }
+  assert.deepEqual(code({ 'folio.bas': 10 }), ['reglage-inconnu', 'folio.bas'])
+  assert.deepEqual(code({ __proto__: null, 'page.largeur': 79 }), ['reglage-hors-bornes', 'page.largeur'])
+  assert.deepEqual(code({ 'page.largeur': '135' }), ['reglage-hors-bornes', 'page.largeur'])
+  assert.deepEqual(code({ 'page.largeur': Number.NaN }), ['reglage-hors-bornes', 'page.largeur'])
+  assert.deepEqual(code({ 'grille.lignes': 30.5 }), ['reglage-hors-bornes', 'grille.lignes'])
+  assert.deepEqual(code({ 'grille.lignes': 0 }), ['reglage-hors-bornes', 'grille.lignes'])
+  assert.deepEqual(code({ police: 'Comic Sans' }), ['reglage-hors-bornes', 'police'])
+  assert.deepEqual(code({ 'chapitre.bellePage': 'non' }), ['reglage-hors-bornes', 'chapitre.bellePage'])
+  assert.deepEqual(code({ 'grille.lignes': 45 }), ['modele-impossible', 'lignes'])
+  assert.deepEqual(code({ 'page.largeur': 80, 'marges.interieure': 30 }), ['modele-impossible', 'largeur'])
+  for (const pas of [null, [], 'x', 3]) assert.equal(appliquerEcarts(BASE, pas, REGLES).code, 'ecarts-invalides')
+})
+
+test('modèle retenu : celui du document s’il est permis, sinon le défaut de l’équipe, sinon le premier d’amend.ink', () => {
+  const permis = ['tat-poche', 'autre-maison', 'm-equipe']
+  assert.equal(modeleRetenu({ choisi: 'm-equipe', defautEquipe: 'autre-maison', permis }), 'm-equipe')
+  assert.equal(modeleRetenu({ choisi: 'supprime', defautEquipe: 'autre-maison', permis }), 'autre-maison')
+  assert.equal(modeleRetenu({ choisi: null, defautEquipe: 'supprime', permis }), 'tat-poche')
+  assert.equal(modeleRetenu({ permis }), 'tat-poche')
+})
+
+test('droits des modèles : le gestionnaire gère ceux de l’équipe ; qui écrit choisit celui du document', () => {
+  assert.equal(peutGererModeles(capacites('proprietaire')), true)
+  assert.equal(peutGererModeles(capacites('editeur')), false)
+  assert.equal(peutChoisirModele(capacites('editeur')), true)
+  assert.equal(peutChoisirModele(capacites('correcteur')), false)
+})
