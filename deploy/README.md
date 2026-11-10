@@ -2,8 +2,8 @@
 
 ## Déploiement automatique (depuis le 09/11/2026)
 
-- Le VPS regarde `main` toutes les 3 minutes (`deploy/auto/amend-maj.timer`, en tant qu'amend). À chaque nouveau commit, ou quand `/opt/amend/app/.env` ou `/opt/amend/v2.env` change, il lance `deploy/deploy.sh` (v1, `--restart` si le `.env` de la v1 a changé) puis `v2/exploitation/prod/deployer.sh`. Un même commit n'est tenté qu'une fois.
-- Journal : `journalctl -u amend-maj -n 50`. Version de la v2 en ligne : `version` dans `https://v2.amend.ink/api/config`.
+- Le VPS regarde `main` toutes les 3 minutes (`deploy/auto/amend-maj.timer`, en tant qu'amend). À chaque nouveau commit, ou quand `/opt/amend/app/.env` ou `/opt/amend/v2.env` change, il lance `deploy/deploy.sh` (v1, `--restart` si le `.env` de la v1 a changé) puis `v2/exploitation/prod/deployer.sh`, **seulement pour ce qui a changé** (10/11/2026) : la v1 si `client/`, `server/`, `shared/`, `deploy/deploy.sh` ou ses `package*.json` ont changé, la v2 si `v2/` ou `.github/workflows/v2.yml` ont changé ; une fusion de documentation ne fait qu'un `git pull`. Un même commit n'est tenté qu'une fois. Le service passe après les sites (`CPUWeight`, `IOWeight`, `MemoryHigh` de `amend-maj.service`) : après un changement de ce fichier, relancer l'installation (ci-dessous) ; le journal le rappelle (« ⚠ amend-maj.service a changé »).
+- Journal : `journalctl -u amend-maj -n 50`. Version de la v2 en ligne : `version` dans `https://v2.amend.ink/api/config` (le dernier commit de `main` qui a redéployé la v2).
 - Installation (une fois, root) : `cd /opt/amend/app && git pull --ff-only && sudo bash deploy/auto/installer.sh`. Elle ajoute `/etc/sudoers.d/amend-deploiement`, qui laisse amend redémarrer les trois services sans mot de passe, et rien d'autre.
 - Arrêt : `sudo systemctl disable --now amend-maj.timer` (le déploiement redevient manuel : `./deploy/deployer.sh` depuis le Mac).
 

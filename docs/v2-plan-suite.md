@@ -20,6 +20,11 @@ Sources : audit complet du 10/11/2026 (`docs/v2-audits/2026-11-10-0657-audit-com
 
 En ligne : v2.amend.ink, service fermé, ouvert à des invités réels depuis le 09/11.
 
+## 0. Déploiement (décidé le 10/11/2026, « 2 puis 1 »)
+
+- Fait : ne reconstruire que ce qui a changé ; le déploiement passe après les sites (`deploy/auto/`).
+- À faire ensuite : construire les clients v1 et v2 dans GitHub Actions ; le VPS télécharge le résultat, installe les seules dépendances du serveur et redémarre. Règle aussi le site vide pendant une construction (point 3 ci-dessous).
+
 ## A. Avant tout invité réel (exploitation, à faire d'abord)
 
 Ces trois lots sont petits, et ils comptent dès le premier texte réel déposé dans la v2.
