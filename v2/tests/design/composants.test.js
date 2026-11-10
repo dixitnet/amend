@@ -159,7 +159,7 @@ test('l’icône de l’onglet reprend le dessin de référence, qui ne contient
 
 // Étape 6b : la coquille des formats M et L (docs/v2-formats-M-L.md).
 const rien = () => {}
-function coquilleDocument(t, { droite = true } = {}) {
+function coquilleDocument(t, { droite = true, relecture = {} } = {}) {
   return h(
     design.Coquille,
     {
@@ -197,7 +197,8 @@ function coquilleDocument(t, { droite = true } = {}) {
         titre: t('telephone.relecture'),
         onglets: { modifications: t('telephone.modifications'), margo: t('interface.margo') },
         modifications: h('div', { id: 'suggestions' }),
-        margo: h(design.TexteDeVolet, { texte: t('interface.margoBientot') }),
+        margo: h('div', { id: 'margo' }),
+        ...relecture,
       }),
     },
     h(design.ColonneTexte, null, h('div', { id: 'editeur' })),
@@ -377,4 +378,13 @@ test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiq
   )
   assert.ok(vide.includes('Bonjour') && vide.includes('Sur tout le texte'))
   assert.doesNotMatch(vide, /role="status"|role="alert"|Nouvelle conversation/)
+})
+
+test('volet de relecture : onglet ouvert piloté (« Corriger » ouvre Margo) ; sans Margo, pas d’onglet Margo', () => {
+  const t = creerTraducteur('fr')
+  const pilote = rendre(coquilleDocument(t, { relecture: { actif: 'margo', surOnglet: rien } }))
+  assert.match(pilote, /role="tab"[^>]*aria-selected="true"[^>]*>[\s\S]*?Margo \(IA\)/)
+  const sans = rendre(coquilleDocument(t, { relecture: { margo: undefined } }))
+  assert.doesNotMatch(sans, /role="tab"[^>]*>[\s\S]{0,400}?Margo \(IA\)/)
+  assert.match(sans, /id="suggestions"/)
 })
