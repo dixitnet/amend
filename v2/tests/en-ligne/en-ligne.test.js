@@ -62,7 +62,7 @@ test('sans mot de passe : page, configuration (dev fermé), HSTS, noindex', asyn
   assert.equal(r.headers.get('x-content-type-options'), 'nosniff')
   const api = await fetch(`${BASE}/api/config`)
   assert.equal(api.headers.get('content-security-policy'), "default-src 'none'; frame-ancestors 'none'")
-  const conf = await (await fetch(`${BASE}/api/config`)).json()
+  const conf = await api.json()
   assert.equal(conf.collaboration, `${BASE.replace(/^https/, 'wss')}/collaboration/ws/v1/amend`)
   assert.equal(conf.dev, false)
 })

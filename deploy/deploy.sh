@@ -39,8 +39,9 @@ if [[ "$AVANT" == "$APRES" && "$FORCER" -eq 0 ]]; then
   exit 0
 fi
 
-# Remplacer un dossier servi d'un seul geste : le site ne sert jamais un client
-# à moitié écrit ni un dossier vide (audit du 10/11/2026).
+# Remplacer un dossier servi par deux renommages consécutifs : le site ne sert
+# jamais un client à moitié écrit, et le dossier ne manque que le temps de ces
+# deux renommages, au lieu de toute la construction (audit du 10/11/2026).
 basculer() {
   rm -rf "$1.ancien"
   if [[ -d "$1" ]]; then mv "$1" "$1.ancien"; fi
