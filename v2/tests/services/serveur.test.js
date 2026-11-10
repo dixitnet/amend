@@ -16,6 +16,7 @@ const statique = mkdtempSync(join(tmpdir(), 'v2-statique-'))
 writeFileSync(join(statique, 'index.html'), '<!doctype html><title>index</title>')
 mkdirSync(join(statique, 'assets'))
 writeFileSync(join(statique, 'assets', 'compilateur-abc123.wasm'), Buffer.from([0, 97, 115, 109]))
+for (const f of ['police-abc.ttf', 'picto-abc.svg', 'icone-abc.png']) writeFileSync(join(statique, 'assets', f), 'x')
 const BASE = { secret: 's'.repeat(32), jetonInterne: 'jeton-interne-de-test', collaboration: 'ws://x', statique }
 const serveurs = []
 let comptes
@@ -479,6 +480,12 @@ test('fichiers : construits gardés un an (immutable), page revalidée ; bons ty
   assert.equal(wasm.status, 200)
   assert.equal(wasm.headers.get('content-type'), 'application/wasm')
   assert.equal(wasm.headers.get('cache-control'), 'public, max-age=31536000, immutable')
+  for (const [f, type] of [
+    ['police-abc.ttf', 'font/ttf'],
+    ['picto-abc.svg', 'image/svg+xml'],
+    ['icone-abc.png', 'image/png'],
+  ])
+    assert.equal((await fetch(`${prod}/assets/${f}`)).headers.get('content-type'), type, f)
   for (const chemin of ['/', '/index.html', '/une-page-inconnue']) {
     const page = await fetch(`${prod}${chemin}`)
     assert.equal(page.status, 200, chemin)
