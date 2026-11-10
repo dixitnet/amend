@@ -55,19 +55,19 @@ function Entree({ e, libelleActions }) {
     <NavLink component="a" href={e.href} label={e.nom} leftSection={<PictoDe role={e.picto} />} active={e.actif} />
   )
   return (
-    <li>
+    <div>
       <Group {...REGLAGES.arbre.ligne}>
         {ligne}
         {menu}
       </Group>
       {e.enfants && ouvert ? (
-        <Stack component="ul" {...REGLAGES.arbre.enfants}>
+        <Stack {...REGLAGES.arbre.enfants}>
           {e.enfants.map((x) => (
             <Entree key={x.cle} e={x} libelleActions={libelleActions} />
           ))}
         </Stack>
       ) : null}
-    </li>
+    </div>
   )
 }
 
@@ -101,7 +101,7 @@ export function VoletDocuments({ recherche, boutons, entrees, vide, libelleActio
         ))}
       </Group>
       {entrees.length ? (
-        <Stack component="ul" {...REGLAGES.arbre.racine}>
+        <Stack {...REGLAGES.arbre.racine}>
           {entrees.map((e) => (
             <Entree key={e.cle} e={e} libelleActions={libelleActions} />
           ))}

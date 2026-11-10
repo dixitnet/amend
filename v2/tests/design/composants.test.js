@@ -267,7 +267,7 @@ test('volet « Documents » : recherche, création, arbre imbriqué, menu « …
   )
   assert.match(html, /type="search"/)
   assert.ok(html.includes(echapper(t('documents.nouveau'))))
-  assert.match(html, /<ul[\s\S]*<li[\s\S]*<ul[\s\S]*href="#d1"/, 'le document dans son dossier ouvert')
+  assert.match(html, /aria-expanded="true"[\s\S]*href="#d1"/, 'le document dans son dossier ouvert')
   assert.ok(
     html.includes(echapper(t('documents.actionsDe', { nom: 'La gare' }))),
     'le menu « … » porte le nom de l’entrée',
