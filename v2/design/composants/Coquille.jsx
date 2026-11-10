@@ -327,7 +327,6 @@ export const Fenetre = ({ ouverte, titre, surFermer, libelleFermer, children }) 
   </Modal>
 )
 
-/** Une fenêtre de saisie d'un nom (remplace la boîte du navigateur). */
 /**
  * Une confirmation, comme celles de Docs (ModalRemoveDoc) : « Annuler »
  * secondaire et pris par le focus ; l'action en rouge quand elle détruit.
@@ -359,6 +358,7 @@ export function FenetreConfirmation({
   )
 }
 
+/** Une fenêtre de saisie d'un nom (remplace la boîte du navigateur). */
 export function FenetreSaisie({
   ouverte,
   titre,
