@@ -139,8 +139,21 @@ Une liste numérotée A1, A2, … Pour chaque constat, sur une ligne d'en-tête 
 ## Points de grille sans remarque
 (les numéros)`
 
-/** Un appel au modèle, en réception progressive. */
+/** Un appel au modèle ; une connexion coupée en cours de réponse (10/11/2026) est retentée deux fois. */
 async function appeler(systeme, dossier) {
+  for (let essai = 1; ; essai++) {
+    try {
+      return await appelerUneFois(systeme, dossier)
+    } catch (e) {
+      if (essai >= 3 || String(e.message).startsWith('Scaleway :')) throw e
+      console.error(`Connexion coupée (${e.message}), nouvel essai ${essai + 1}/3`)
+      await new Promise((ok) => setTimeout(ok, 5000 * essai))
+    }
+  }
+}
+
+/** Un appel au modèle, en réception progressive. */
+async function appelerUneFois(systeme, dossier) {
   const debut = Date.now()
   const r = await fetch(ADRESSE, {
     method: 'POST',

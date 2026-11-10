@@ -8,5 +8,13 @@ Type=oneshot
 User=amend
 WorkingDirectory=/opt/amend/app
 ExecStart=/bin/bash /opt/amend/app/deploy/auto/maj.sh
+# Le déploiement passe après les sites (10/11/2026 : une construction de
+# 8 minutes saturait la machine de 1 Go et ralentissait v1 et v2). Au-delà de
+# MemoryHigh, c'est le déploiement qui est freiné et mis en swap, jamais tué ;
+# les services gardent la mémoire vive.
 Nice=10
-TimeoutStartSec=20min
+CPUWeight=20
+IOWeight=20
+IOSchedulingClass=idle
+MemoryHigh=450M
+TimeoutStartSec=30min

@@ -72,7 +72,7 @@ jobs:
     if: github.event_name != 'schedule'
     needs: rapides
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +100,15 @@ jobs:
           cache: npm
           cache-dependency-path: v2/package-lock.json
       - run: npm ci
-      - run: npx playwright install --with-deps ${{ matrix.navigateur }}
+      # Le miroir Ubuntu de GitHub est parfois très lent (WebKit, 10/11/2026 :
+      # 20 minutes d'installation, tâche coupée) : 10 minutes par essai, deux essais.
+      - name: Installer ${{ matrix.navigateur }}
+        run: |
+          for i in 1 2; do
+            timeout 600 npx playwright install --with-deps ${{ matrix.navigateur }} && exit 0
+            echo "::warning::installation de ${{ matrix.navigateur }} : essai $i échoué ou trop long"
+          done
+          exit 1
       - name: T5 (${{ matrix.navigateur }})
         run: npm run test:pile
         env:

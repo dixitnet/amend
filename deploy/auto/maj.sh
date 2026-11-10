@@ -26,10 +26,41 @@ read -r FAIT FAIT_ENV1 FAIT_ENV2 < "$ETAT" 2>/dev/null || { FAIT=""; FAIT_ENV1="
 
 echo "→ déploiement automatique de $(git log --oneline -1 "$CIBLE")"
 echo "$CIBLE $ENV1 $ENV2" > "$ETAT"
-OPTION=""
-[[ -n "$FAIT_ENV1" && "$ENV1" != "$FAIT_ENV1" ]] && OPTION="--restart"
-"$APP/deploy/deploy.sh" $OPTION
-bash "$APP/v2/exploitation/prod/deployer.sh"
+# Le service installé doit être celui du dépôt (limites de mémoire et de
+# disque, 10/11/2026) : seul root peut le remettre à jour.
+cmp -s "$APP/deploy/auto/amend-maj.service" /etc/systemd/system/amend-maj.service ||
+  echo "⚠ amend-maj.service a changé dans le dépôt : sudo bash deploy/auto/installer.sh (une fois)"
+
+# Ne reconstruire que ce qui a changé (10/11/2026 : chaque fusion construisait
+# v1 et v2 sur le VPS, plus de 8 minutes de machine saturée, les deux sites
+# ralentis). Sans commit précédent connu, tout est reconstruit.
+if [[ -n "$FAIT" ]] && git merge-base --is-ancestor "$FAIT" "$CIBLE" 2>/dev/null; then
+  CHANGE=$(git diff --name-only "$FAIT" "$CIBLE")
+else
+  CHANGE="(tout)"
+fi
+a_change() { [[ "$CHANGE" == "(tout)" ]] || grep -qE "$1" <<< "$CHANGE"; }
+# v1 : son code, ses dépendances, son script de livraison.
+V1=0 V2=0
+a_change '^(client|server|shared)/|^deploy/deploy\.sh$|^package(-lock)?\.json$' && V1=1
+[[ -n "$FAIT_ENV1" && "$ENV1" != "$FAIT_ENV1" ]] && V1=1
+# v2 : tout v2/, et le flux de tests qui attend la nouvelle version en ligne.
+a_change '^v2/|^\.github/workflows/v2\.yml$' && V2=1
+[[ -n "$FAIT_ENV2" && "$ENV2" != "$FAIT_ENV2" ]] && V2=1
+
+if [[ $V1 -eq 1 ]]; then
+  OPTION=""
+  [[ -n "$FAIT_ENV1" && "$ENV1" != "$FAIT_ENV1" ]] && OPTION="--restart"
+  "$APP/deploy/deploy.sh" $OPTION
+else
+  echo "→ v1 : rien à reconstruire (documentation, v2 ou tests seulement)"
+  git pull -q --ff-only
+fi
+if [[ $V2 -eq 1 ]]; then
+  bash "$APP/v2/exploitation/prod/deployer.sh"
+else
+  echo "→ v2 : rien à reconstruire"
+fi
 echo "✓ en ligne : $(git log --oneline -1)"
 }
 principal "$@"
