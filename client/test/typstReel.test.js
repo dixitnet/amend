@@ -251,15 +251,13 @@ function couleursDuPdf(pdf) {
   return ops
 }
 
-test('le texte sort en noir soutenu CMJN, les traits en noir seul (consigne de l’imprimeur)', { skip: SANS_TYPST }, async () => {
+test('texte et traits sortent en noir seul CMJN 0/0/0/100', { skip: SANS_TYPST }, async () => {
   const d = documentComplet(paragraphesTemoins())
   const ops = couleursDuPdf(await compiler(docToTypst(d, STYLE_SIMPLE, 'Couleurs')))
-  // 50 % de cyan s'écrit 128/255 = 0.5019608 : Typst passe par 8 bits.
-  assert.ok(ops.includes('0.5019608 0.4 0.4 1 k'), `noir soutenu absent : ${[...new Set(ops)].join(' | ')}`)
-  assert.ok(ops.includes('0 0 0 0.4117647 K'), 'traits fins absents ou pas en noir seul')
-  assert.ok(ops.includes('0 0 0 1 K'), 'filet des notes absent ou pas en noir seul')
-  const autres = ops.filter((o) => !/ [kK]$/.test(o))
-  assert.deepEqual([...new Set(autres)], [], 'une couleur hors CMJN (gris ou RVB à profil) reste dans le PDF')
+  assert.ok(ops.includes('0 0 0 1 k'), `texte pas en noir seul : ${[...new Set(ops)].join(' | ')}`)
+  assert.ok(ops.includes('0 0 0 1 K'), 'traits absents ou pas en noir seul')
+  const autres = ops.filter((o) => !['0 0 0 1 k', '0 0 0 1 K'].includes(o))
+  assert.deepEqual([...new Set(autres)], [], 'une autre couleur (gris, RVB à profil, quatre encres) reste dans le PDF')
 })
 
 test('la mise en page d’un livre compile', { skip: SANS_TYPST }, async () => {
