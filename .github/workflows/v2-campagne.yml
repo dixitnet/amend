@@ -38,7 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         navigateur: [chromium, webkit]
-        famille: [suivi, correcteurs, commentaires, editeur, roles, robustesse, historique]
+        famille: [suivi, correcteurs, commentaires, editeur, roles, robustesse, historique, complements]
     services:
       postgres:
         image: postgres:16
@@ -69,3 +69,38 @@ jobs:
         with:
           name: campagne-${{ matrix.famille }}-${{ matrix.navigateur }}
           path: v2/campagne-${{ matrix.famille }}-${{ matrix.navigateur }}.log
+
+  # Les mêmes scénarios contre v2.amend.ink (vrai serveur, vraies WebSocket),
+  # avec des comptes d'essai (@essai.amend.invalid) ; une famille à la fois
+  # pour ne pas charger le VPS (1 vCPU, partagé avec la v1).
+  en-ligne:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0
+      options: --ipc=host
+    env:
+      HOME: /root
+      V2_BASE: https://v2.amend.ink
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        famille: [complements, suivi, correcteurs, roles, commentaires, historique, editeur, robustesse]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+      - run: npm ci
+      - name: Scénarios ${{ matrix.famille }}, en ligne
+        run: node exploitation/campagne/scenarios-${{ matrix.famille }}.mjs --fois=2 | tee campagne-${{ matrix.famille }}-en-ligne.log
+        env:
+          V2_JETON_ESSAI: ${{ secrets.V2_JETON_ESSAI }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: campagne-${{ matrix.famille }}-en-ligne
+          path: v2/campagne-${{ matrix.famille }}-en-ligne.log
