@@ -1,4 +1,4 @@
-import{n as e,t}from"./polices-DQS8LwPX.js";import{_ as n,v as r,y as i}from"./index-DV50vuG1.js";import{n as a,r as o,t as s}from"./embarquement-CdtWg2qN.js";import{chargerVue as c,chiffre as l,date as u,duree as d,entete as f,esc as p,euros as m,nombre as h,octets as g}from"./adminCommun-FfoS0kpN.js";function _(){return`<h2>Images orphelines</h2>
+import{n as e,t}from"./polices-DQS8LwPX.js";import{_ as n,v as r,y as i}from"./index-CvO8UjLR.js";import{n as a,r as o,t as s}from"./embarquement-CdtWg2qN.js";import{chargerVue as c,chiffre as l,date as u,duree as d,entete as f,esc as p,euros as m,nombre as h,octets as g}from"./adminCommun-FfoS0kpN.js";function _(){return`<h2>Images orphelines</h2>
     <p class="bo-note">Une image supprimée du texte reste sur le disque, et compte dans la
     limite d'images de son propriétaire. Ce nettoyage retire celles que <strong>plus rien ne
     référence</strong> : ni le texte (y compris une suppression encore en attente de
