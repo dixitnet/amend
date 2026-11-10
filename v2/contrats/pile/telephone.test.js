@@ -62,12 +62,12 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
   await p.getByRole('button', { name: 'Terminer' }).click()
   // Titres réduits comme Docs à 560 px et moins (réglage css.telephone.titres) : 1,6 rem au niveau 1.
   // (mesurée une fois la transition de BlockNote finie : sinon 25,56 px).
-  // Firefox arrondit au 1/60 de pixel (25,5938 px) : comparaison à un dixième de pixel près.
+  // Firefox arrondit au 1/60 de pixel (25,5938 px) : comparaison à 0,05 px près.
   const taille = () =>
     p.evaluate(() =>
       parseFloat(getComputedStyle(document.querySelector("[data-content-type='heading'] .bn-inline-content")).fontSize),
     )
-  const juste = (t) => Math.abs(t - 25.6) < 0.1
+  const juste = (t) => Math.abs(t - 25.6) < 0.05
   for (const t0 = Date.now(); Date.now() - t0 < 3000 && !juste(await taille());) await attendre(100)
   const t = await taille()
   assert.ok(juste(t), `taille du titre : ${t} px, attendu 25,6 px`)
