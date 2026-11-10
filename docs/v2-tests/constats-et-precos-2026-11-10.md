@@ -1,5 +1,7 @@
 # amend.ink v2 : constats et préconisations, fin de la campagne de tests (10/11/2026)
 
+> **Révisé** : pas de restriction de fonction, c'est un prototype (Sylvain, 10/11/2026). Les préconisations 1 et 8 sont retirées. Tableau de référence : `tableau-problemes-2026-11-10.md`.
+
 Sources : campagne automatique (familles A à H, pile locale, Chromium et WebKit, trois fois chacune) ; essais à la main de Sylvain dans Chrome sur v2.amend.ink ; recherche dans l'amont (BlockNote, Yjs, `@y/prosemirror`, y/hub, Docs). Détails : `synthese-2026-11-10.md` (P1 à P24), `plan-amont-2026-11-10.md`, `bilan-scenarios-B-2026-11-10.md`.
 
 **Pas vérifié en ligne à plusieurs comptes** : la série en ligne (`v2-campagne`, job `en-ligne`, comptes d'essai) est prête mais restée en file d'attente dans GitHub le 10/11 au soir (quota d'Actions probable). Les constats à plusieurs viennent de la pile locale (même code).
