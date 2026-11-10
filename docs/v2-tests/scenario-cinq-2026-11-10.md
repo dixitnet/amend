@@ -30,6 +30,15 @@ Demande de Sylvain : « un test du fonctionnement de l'éditeur, des commentaire
 - **Ce qui le déclenche** : sans commentaire, pas de plantage ; avec un commentaire non résolu, pas de plantage ; avec un fil résolu, plantage quand la bascule suit de près la résolution (quelques secondes plus tard, plus de plantage dans l'essai court). Un correcteur qui ouvre ensuite le document, ou qui le recharge, ne plante pas dans les essais faits.
 - **Niveau** : une fondation (`@y/prosemirror` / `lib0`), sur ce que fait BlockNote quand un fil est résolu (il modifie la marque du commentaire dans le texte). À confirmer par un cas minimal hors d'amend.ink avant de le signaler en amont.
 
+## Les autres défauts relevés
+
+- **Accepter une à une la suggestion d'un éditeur** ne fait rien (« Tout accepter » marche) : déjà en veille, contourné par le scénario.
+- **Une insertion au milieu d'un paragraphe s'affiche en deux lignes dans le panneau, mal découpées** : Carla insère « Note de Carla. » au milieu d'une phrase ; le texte est juste, mais le panneau montre « Carla ajoute « Note de Ca » » et « Carla ajoute « la.r » ». Probablement le découpage des suggestions par Yjs (veille) ; à reproduire seul.
+
+## Ce que le scénario ne couvre pas
+
+Réponse au fil et résolution passées par l'API, pas par l'interface ; Chromium et format L seulement ; frappe de robot (pas d'écriture simultanée au même endroit) ; historique et retour à une version non essayés.
+
 ## Ce qui a été corrigé en chemin
 
-Rien dans l'application : les premiers écarts venaient du script (la touche Fin va au bout de la ligne affichée, pas du paragraphe ; le collage en texte brut ne fait pas de paragraphes), corrigés dans le script.
+Dans le script : la touche Fin va au bout de la ligne affichée, pas du paragraphe ; le collage en texte brut ne fait pas de paragraphes. (Le premier de ces écarts a fait apparaître le défaut d'affichage d'une insertion en milieu de phrase.)

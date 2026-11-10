@@ -1,0 +1,94 @@
+diff --git a/v2/adaptateurs/blocknote/index.jsx b/v2/adaptateurs/blocknote/index.jsx
+index aadd868..49a9ccf 100644
+--- a/v2/adaptateurs/blocknote/index.jsx
++++ b/v2/adaptateurs/blocknote/index.jsx
+@@ -8,7 +8,7 @@
+ //  - `lire` : lecture seule (lecteur), sans les suggestions.
+ // Aucune apparence ici : feuilles de style et thème relèvent de la couche
+ // design, dont le fournisseur Mantine entoure l'application.
+-import { useEffect, useMemo, useState } from 'react'
++import { useEffect, useMemo, useRef, useState } from 'react'
+ import {
+   useCreateBlockNote,
+   FormattingToolbar,
+@@ -75,9 +75,16 @@ export function EditeurCollaboratif({
+ }) {
+   const suggerer = mode === 'suggerer'
+   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
++  // L'éditeur n'est pas recréé quand le mode change (interrupteur du suivi) :
++  // le recréer en mode suggestion après la résolution d'un fil faisait planter
++  // l'affichage des suggestions (scénario à cinq, 10/11/2026). Le mode passe
++  // par l'extension des suggestions de BlockNote (effet plus bas).
++  const suggererDepart = useRef(suggerer)
++  const suggererMaintenant = useRef(suggerer)
++  suggererMaintenant.current = suggerer
+   const afficheur = useMemo(
+-    () => (avecSuggestions ? creerAfficheur(contexte, null, suggerer) : null),
+-    [contexte, avecSuggestions, suggerer],
++    () => (avecSuggestions ? creerAfficheur(contexte, null, suggererDepart.current) : null),
++    [contexte, avecSuggestions],
+   )
+   const magasin = useMemo(
+     () =>
+@@ -97,7 +104,7 @@ export function EditeurCollaboratif({
+       // Pas de typographie à la frappe en mode suggestion : défaut de BlockNote
+       // (veille ; Sylvain, 08/11/2026 : attendre sa correction).
+       extensions: [
+-        ...(suggerer ? [] : [extensionTypographie({ langue: langueDocument })]),
++        extensionTypographie({ langue: langueDocument, actif: () => !suggererMaintenant.current }),
+         ...(magasin ? [CommentsExtension({ threadStore: magasin, resolveUsers: nomsDe })] : []),
+         extensionHistorique(contexte, peutRestaurer, dictionnaire(langue).versioning.before_restore),
+       ],
+@@ -113,7 +120,7 @@ export function EditeurCollaboratif({
+         ...(afficheur ? { suggestionDoc: contexte.suggestions.doc, renderer: afficheur } : null),
+       },
+     }),
+-    [contexte, langue, langueDocument, suggerer, afficheur, magasin, peutRestaurer],
++    [contexte, langue, langueDocument, afficheur, magasin, peutRestaurer],
+   )
+ 
+   // Le mode des suggestions, puis les auteurs tenus à jour. Pendant
+diff --git a/v2/extensions/typographie/index.js b/v2/extensions/typographie/index.js
+index 83cc784..68dc74c 100644
+--- a/v2/extensions/typographie/index.js
++++ b/v2/extensions/typographie/index.js
+@@ -19,8 +19,9 @@ import { typographier, saisie } from '../../domaine/index.js'
+ const OBJET = '\uFFFC' // un nœud qui n'est pas du texte, dans le texte d'un bloc
+ 
+ /** La règle de frappe : un des signes concernés, juste tapé. */
+-function regleDeFrappe(langue) {
++function regleDeFrappe(langue, actif) {
+   return new InputRule(/['".;:!?]$/, (state, match, start, end) => {
++    if (!actif()) return null
+     const $debut = state.doc.resolve(start)
+     const avant = $debut.parent.textBetween(0, $debut.parentOffset, undefined, OBJET)
+     const r = saisie(avant, match[0], { langue })
+@@ -51,11 +52,11 @@ function typographierFragment(fragment, langue) {
+   return Fragment.fromArray(noeuds)
+ }
+ 
+-function collage(langue) {
++function collage(langue, actif) {
+   return new Plugin({
+     props: {
+       transformPasted: (slice) =>
+-        new Slice(typographierFragment(slice.content, langue), slice.openStart, slice.openEnd),
++        actif() ? new Slice(typographierFragment(slice.content, langue), slice.openStart, slice.openEnd) : slice,
+     },
+   })
+ }
+@@ -79,10 +80,12 @@ const annulerRemplacement = (regles) => (state, dispatch) => {
+ /** L'extension, pour la langue du document (`fr` : les règles s'appliquent ;
+  * toute autre langue : rien ne change). */
+ export const extensionTypographie = createExtension(({ options }) => {
+-  const regles = inputRules({ rules: [regleDeFrappe(options.langue)] })
++  // `actif` : éteinte sans recréer l'éditeur (mode suggestion ; 10/11/2026).
++  const actif = options.actif ?? (() => true)
++  const regles = inputRules({ rules: [regleDeFrappe(options.langue, actif)] })
+   return {
+     key: 'typographie',
+-    prosemirrorPlugins: [regles, collage(options.langue)],
++    prosemirrorPlugins: [regles, collage(options.langue, actif)],
+     keyboardShortcuts: {
+       Backspace: ({ editor }) => editor.exec(annulerRemplacement(regles)),
+     },
