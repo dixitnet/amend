@@ -20,6 +20,7 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 |---|---|---|
 | Mode suggestion de Docs | https://github.com/suitenumerique/docs/issues/2491 | rôle « peut suggérer » (notre correcteur) ; règles d'affichage |
 | Accepter une à une la suggestion d'un éditeur en suivi (10/11/2026) | à examiner : défaut de notre liste (positions) ou de BlockNote (`applySuggestion`) | « Tout accepter » marche, comme l'acceptation une à une des suggestions d'un correcteur ; cas minimal : `contrats/pile/relecture.test.js`, test de l'interrupteur |
+| Éditeur recréé en mode suggestion peu après la résolution d'un fil : plantage `[lib0/delta] diffing deletes unsupported` (10/11/2026) | à confirmer par un cas minimal, puis à signaler à `@y/prosemirror` | 4 essais sur 5 dans `v2/exploitation/campagne/scenario-cinq.mjs` ; rapport `docs/v2-tests/scenario-cinq-2026-11-10.md` |
 | Demande de modification et relecture | https://github.com/suitenumerique/docs/issues/2156 | même besoin |
 | Yjs 14, historique BlockNote, PDF par Typst dans Docs | https://github.com/suitenumerique/docs/pull/2895 | intégration de référence à suivre |
 | Modèle d'export PDF | https://github.com/suitenumerique/docs/issues/680 | mécanisme générique de modèle |
