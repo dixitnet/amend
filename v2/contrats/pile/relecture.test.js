@@ -47,7 +47,10 @@ test('suggestion : l’éditrice la voit avec son auteur, l’accepte ; le texte
   await attendre(300)
   await c.keyboard.type(' Ajout')
   await attendrePanneau(p, /Carla ajoute «\s?Ajout\s?»/)
-  await p.getByRole('button', { name: 'Accepter', exact: true }).first().click()
+  await p
+    .getByRole('button', { name: /^Accepter\s*:/ })
+    .first()
+    .click()
   await attendrePanneau(p, /Aucune suggestion/)
   await attendreTexte(c, 'Il faisait nuit sur la ville. Ajout')
   await p.reload()

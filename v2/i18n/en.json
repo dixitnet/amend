@@ -82,7 +82,9 @@
     "accepter": "Accept",
     "refuser": "Reject",
     "toutAccepter": "Accept all",
-    "toutRefuser": "Reject all"
+    "toutRefuser": "Reject all",
+    "accepterDe": "Accept: {texte}",
+    "refuserDe": "Reject: {texte}"
   },
   "roles": {
     "lecteur": "reader",
@@ -182,7 +184,9 @@
     "adresseDuLien": "Address to share",
     "invite": "{courriel}, invited as {role}",
     "invitationEnvoyee": "Invitation sent to {courriel}.",
-    "accesDonne": "{courriel} now has access."
+    "accesDonne": "{courriel} now has access.",
+    "retirerDe": "Remove {nom}",
+    "annulerDe": "Cancel the invitation of {courriel}"
   },
   "admin": {
     "titre": "Administration",
@@ -222,6 +226,7 @@
     "largeurVolet": "Panel width",
     "fermer": "Close",
     "valider": "OK",
-    "annuler": "Cancel"
+    "annuler": "Cancel",
+    "continuer": "Continue"
   }
 }

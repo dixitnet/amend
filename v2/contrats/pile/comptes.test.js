@@ -7,7 +7,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, ouvrir as ouvrirSur, attendre, attendreEtat } from './outils.mjs'
+import { lancerNavigateur, ouvrir as ouvrirSur, attendre, attendreEtat, confirmer } from './outils.mjs'
 
 let pile, nav
 before(async () => {
@@ -95,9 +95,9 @@ test('suppression : le propriétaire supprime ; le document disparaît de la lis
   await p.getByRole('button', { name: 'Nouveau document' }).click()
   await p.waitForSelector('.bn-editor')
   const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
-  p.once('dialog', (d) => d.accept())
   await p.getByRole('button', { name: 'Autres actions' }).click()
   await p.getByRole('menuitem', { name: 'Supprimer' }).click()
+  await confirmer(p)
   await p.getByRole('heading', { name: 'Mes documents' }).waitFor()
   assert.equal(await p.locator(`a[href="#${docId}"]`).count(), 0)
   await p.context().close()
@@ -133,8 +133,8 @@ test('dossiers : créer, y créer un document, le déplacer à la racine, suppri
   await p.goto(`${pile.url}/#`)
   await p.locator(`a[href="#${docId}"]`).waitFor()
   const ligne = p.getByRole('row').filter({ has: p.getByRole('link', { name: nom }) })
-  p.once('dialog', (d) => d.accept())
   await ligne.getByRole('button', { name: 'Supprimer' }).click()
+  await confirmer(p)
   for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(100))
     if (!(await p.getByRole('link', { name: nom }).count())) break
   assert.equal(await p.getByRole('link', { name: nom }).count(), 0)
@@ -166,8 +166,8 @@ test('partagé avec moi : le document, qui l’a partagé ; je m’en retire', a
   const ligne = b.getByRole('row').filter({ has: b.locator(`a[href="#${docId}"]`) })
   await ligne.waitFor()
   assert.match(await ligne.innerText(), /lecteur/)
-  b.once('dialog', (d) => d.accept())
   await ligne.getByRole('button', { name: 'Me retirer' }).click()
+  await confirmer(b)
   for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(100))
     if (!(await b.locator(`a[href="#${docId}"]`).count())) break
   assert.equal(await b.locator(`a[href="#${docId}"]`).count(), 0)
@@ -192,8 +192,8 @@ test('équipe : la créer, inviter un membre par courriel, il la trouve dans son
   const docId = decodeURIComponent(new URL(g.url()).hash.slice(1))
   await g.goto(`${pile.url}/#`)
   await g.getByLabel('Déplacer Sans titre').first().click()
-  g.once('dialog', (d) => d.accept())
-  await g.getByRole('option', { name: `Équipe « ${nom} »` }).click()
+  await g.getByRole('option', { name: `Équipe «\u00A0${nom}\u00A0»` }).click()
+  await confirmer(g)
   await g.locator(`a[href="#${docId}"]`).waitFor({ state: 'detached' })
   await g.goto(adresseEquipe)
   await g.locator(`a[href="#${docId}"]`).waitFor()

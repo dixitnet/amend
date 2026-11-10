@@ -25,6 +25,8 @@ import {
   AlerteHorsLigne,
   Fenetre,
   FenetreSaisie,
+  FenetreConfirmation,
+  montrerMessage,
   useFormat,
   PageEditionS,
   PlanDocument,
@@ -203,6 +205,31 @@ function useSaisie() {
   return [fenetre, setSaisie]
 }
 
+/** Une confirmation dans une fenêtre de Mantine, comme Docs (Sylvain,
+ * 10/11/2026) : `confirmer({ titre, texte, libelle, danger })` rend une
+ * promesse, vraie si la personne confirme. */
+function useConfirmation() {
+  const [demande, setDemande] = useState(null)
+  const repondre = (oui) => {
+    demande?.repondre(oui)
+    setDemande(null)
+  }
+  const fenetre = (
+    <FenetreConfirmation
+      ouverte={!!demande}
+      titre={demande?.titre}
+      texte={demande?.texte}
+      libelleConfirmer={demande?.libelle}
+      libelleAnnuler={t('interface.annuler')}
+      danger={demande?.danger}
+      surConfirmer={() => repondre(true)}
+      surFermer={() => repondre(false)}
+    />
+  )
+  const confirmer = (o) => new Promise((r) => setDemande({ ...o, repondre: r }))
+  return [fenetre, confirmer]
+}
+
 /** La connexion : un lien par courriel (le document visé l'accompagne, pour
  * l'accès par lien) ; en développement, aussi un simple nom. */
 function Connexion({ config, visee, surEntrerEnDev }) {
@@ -264,6 +291,7 @@ function cheminDe(dossiers, id) {
 /** Les documents, comme sur un serveur de fichiers : Mes documents (avec mes
  * dossiers, étape 6c), Partagé avec moi, et un onglet par équipe (6d). */
 function MesDocuments({ personne, onglet, dossier }) {
+  const [fenetreConfirmation, confirmer] = useConfirmation()
   const { etroit } = useFormat()
   const volets = useVolets(etroit)
   const [fenetreSaisie, demanderNom] = useSaisie()
@@ -364,6 +392,7 @@ function MesDocuments({ personne, onglet, dossier }) {
     >
       {liste}
       {fenetreSaisie}
+      {fenetreConfirmation}
     </Coquille>
   )
   const commun = { libelleChemin: t('documents.chemin'), message }
@@ -395,7 +424,14 @@ function MesDocuments({ personne, onglet, dossier }) {
               <Bouton
                 libelle={t('documents.meRetirer')}
                 surClic={agir(async () => {
-                  if (window.confirm(t('documents.confirmerRetrait')))
+                  if (
+                    await confirmer({
+                      titre: t('documents.meRetirer'),
+                      texte: t('documents.confirmerRetrait'),
+                      libelle: t('documents.meRetirer'),
+                      danger: true,
+                    })
+                  )
                     await envoyerJson('DELETE', `/api/documents/${encodeURIComponent(d.id)}/moi`)
                 })}
               />
@@ -435,12 +471,26 @@ function MesDocuments({ personne, onglet, dossier }) {
   const deplacerDocument = (d) => async (v) => {
     let cible = { equipe, dossier: v === RACINE ? null : v }
     if (v === SORTIR) {
-      if (!window.confirm(t('documents.confirmerSortie', { titre: titreDe(d) }))) return
+      if (
+        !(await confirmer({
+          titre: t('documents.deplacer', { nom: titreDe(d) }),
+          texte: t('documents.confirmerSortie', { titre: titreDe(d) }),
+          libelle: t('interface.continuer'),
+        }))
+      )
+        return
       cible = { equipe: null, dossier: null }
     } else if (v.startsWith(VERS_EQUIPE)) {
       const id = v.slice(VERS_EQUIPE.length)
       const nom = donnees.equipes.find((e) => e.id === id)?.nom ?? ''
-      if (!window.confirm(t('documents.confirmerEntree', { titre: titreDe(d), equipe: nom }))) return
+      if (
+        !(await confirmer({
+          titre: t('documents.deplacer', { nom: titreDe(d) }),
+          texte: t('documents.confirmerEntree', { titre: titreDe(d), equipe: nom }),
+          libelle: t('interface.continuer'),
+        }))
+      )
+        return
       cible = { equipe: id, dossier: null }
     }
     await agir(() => envoyerJson('PUT', `/api/documents/${encodeURIComponent(d.id)}/dossier`, cible))()
@@ -477,7 +527,14 @@ function MesDocuments({ personne, onglet, dossier }) {
           <Bouton
             libelle={t('documents.supprimer')}
             surClic={agir(async () => {
-              if (window.confirm(t('documents.confirmerSuppressionDossier', { nom: d.nom })))
+              if (
+                await confirmer({
+                  titre: t('documents.supprimer'),
+                  texte: t('documents.confirmerSuppressionDossier', { nom: d.nom }),
+                  libelle: t('documents.supprimer'),
+                  danger: true,
+                })
+              )
                 await envoyerJson('DELETE', `/api/dossiers/${d.id}`)
             })}
           />
@@ -529,7 +586,15 @@ function MesDocuments({ personne, onglet, dossier }) {
           <Bouton
             libelle={t('documents.supprimerEquipe')}
             surClic={agir(async () => {
-              if (!window.confirm(t('documents.confirmerSuppressionEquipe', { nom: vueEquipe.equipe.nom }))) return
+              if (
+                !(await confirmer({
+                  titre: t('documents.supprimerEquipe'),
+                  texte: t('documents.confirmerSuppressionEquipe', { nom: vueEquipe.equipe.nom }),
+                  libelle: t('documents.supprimerEquipe'),
+                  danger: true,
+                }))
+              )
+                return
               await envoyerJson('DELETE', baseEquipe)
               location.hash = '#'
             })}
@@ -539,7 +604,15 @@ function MesDocuments({ personne, onglet, dossier }) {
       <Bouton
         libelle={t('documents.quitterEquipe')}
         surClic={agir(async () => {
-          if (!window.confirm(t('documents.confirmerDepart', { nom: vueEquipe.equipe.nom }))) return
+          if (
+            !(await confirmer({
+              titre: t('documents.quitterEquipe'),
+              texte: t('documents.confirmerDepart', { nom: vueEquipe.equipe.nom }),
+              libelle: t('documents.quitterEquipe'),
+              danger: true,
+            }))
+          )
+            return
           await envoyerJson('DELETE', `${baseEquipe}/moi`)
           location.hash = '#'
         })}
@@ -596,6 +669,8 @@ function Membres({ vue, surChangement }) {
         retirer: t('partage.retirer'),
         annuler: t('partage.annuler'),
         roleDe: (nom) => t('partage.roleDe', { nom }),
+        retirerDe: (nom) => t('partage.retirerDe', { nom }),
+        annulerDe: (courriel) => t('partage.annulerDe', { courriel }),
       }}
       roles={options(vue.rolesDonnables)}
       acces={vue.membres.map((m) => ({
@@ -706,6 +781,8 @@ function Partage({ docId }) {
         lien: t('partage.lien'),
         adresseDuLien: t('partage.adresseDuLien'),
         roleDe: (nom) => t('partage.roleDe', { nom }),
+        retirerDe: (nom) => t('partage.retirerDe', { nom }),
+        annulerDe: (courriel) => t('partage.annulerDe', { courriel }),
       }}
       roles={options(donnees.rolesDonnables)}
       rolesDuLien={[
@@ -844,7 +921,10 @@ function Edition({ config, personne, docId, droits }) {
         ? {
             // Un commentaire qu'on n'a pas pu rattacher au texte : on dit pourquoi
             // (Sylvain, 10/11/2026, Q3 de l'audit) ; le texte saisi reste ouvert.
-            service: { ...serviceCommentaires(docId), surEchecAncre: (code) => window.alert(messageErreur(t, code)) },
+            service: {
+              ...serviceCommentaires(docId),
+              surEchecAncre: (code) => montrerMessage(messageErreur(t, code), { erreur: true }),
+            },
             capacites: caps,
           }
         : null,
@@ -854,6 +934,7 @@ function Edition({ config, personne, docId, droits }) {
   const formatS = useFormatS()
   const volets = useVolets(etroit)
   const [fenetreSaisie, demanderNom] = useSaisie()
+  const [fenetreConfirmation, confirmer] = useConfirmation()
   const [connexion, setConnexion] = useState('connexion')
   // Hors ligne : seulement après avoir été connecté une fois (pas à l'ouverture).
   const [aEteConnecte, setAEteConnecte] = useState(false)
@@ -883,7 +964,7 @@ function Edition({ config, personne, docId, droits }) {
     try {
       setTitre((await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/titre`, { titre: nom })).titre)
     } catch (e) {
-      window.alert(messageErreur(t, e.code || 'reseau'))
+      montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
     }
   }
   const renommer = () =>
@@ -894,12 +975,20 @@ function Edition({ config, personne, docId, droits }) {
       valider: enregistrerTitre,
     })
   const supprimer = async () => {
-    if (!window.confirm(t('document.confirmerSuppression'))) return
+    if (
+      !(await confirmer({
+        titre: t('document.supprimer'),
+        texte: t('document.confirmerSuppression'),
+        libelle: t('document.supprimer'),
+        danger: true,
+      }))
+    )
+      return
     try {
       await envoyerJson('DELETE', `/api/documents/${encodeURIComponent(docId)}`)
       location.hash = ''
     } catch (e) {
-      window.alert(messageErreur(t, e.code || 'reseau'))
+      montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
     }
   }
   useEffect(() => session.surEtat(setConnexion), [session])
@@ -943,7 +1032,9 @@ function Edition({ config, personne, docId, droits }) {
   // navigateur comme chez Docs.
   const exporter = (format) =>
     exporterDocument(controle, format, { titre: titreAffiche, langue: LANGUE_DOCUMENT_PAR_DEFAUT }).catch((e) =>
-      window.alert(e?.code === 'modele-impossible' ? messageErreur(t, e.code) : t('document.exportEchoue')),
+      montrerMessage(e?.code === 'modele-impossible' ? messageErreur(t, e.code) : t('document.exportEchoue'), {
+        erreur: true,
+      }),
     )
   const mention = { ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
   // « Copier le lien », le même dans tous les formats (audit du 10/11/2026) :
@@ -951,8 +1042,8 @@ function Edition({ config, personne, docId, droits }) {
   const lien = `${location.origin}/#${encodeURIComponent(docId)}`
   const copierLien = () =>
     Promise.resolve(navigator.clipboard?.writeText(lien) ?? Promise.reject(new Error('presse-papiers absent')))
-      .then(() => window.alert(t('telephone.lienCopie')))
-      .catch(() => window.alert(t('telephone.lienNonCopie', { lien })))
+      .then(() => montrerMessage(t('telephone.lienCopie')))
+      .catch(() => montrerMessage(t('telephone.lienNonCopie', { lien }), { erreur: true }))
   const actions = [
     ...(caps.includes('ecrire') && etroit
       ? [
@@ -1002,6 +1093,8 @@ function Edition({ config, personne, docId, droits }) {
       libelles={{
         accepter: t('suggestions.accepter'),
         refuser: t('suggestions.refuser'),
+        accepterDe: (texte) => t('suggestions.accepterDe', { texte }),
+        refuserDe: (texte) => t('suggestions.refuserDe', { texte }),
         toutAccepter: t('suggestions.toutAccepter'),
         toutRefuser: t('suggestions.toutRefuser'),
       }}
@@ -1144,6 +1237,7 @@ function Edition({ config, personne, docId, droits }) {
           <>
             {editeur}
             {fenetreSaisie}
+            {fenetreConfirmation}
           </>
         }
       />
@@ -1191,7 +1285,6 @@ function Edition({ config, personne, docId, droits }) {
       }
       voletGauche={
         <VoletPlanDocuments
-          marque={marque()}
           onglets={{ plan: t('telephone.plan'), documents: t('telephone.documents') }}
           plan={plan.titres.map((x) => ({
             cle: x.id,
@@ -1217,6 +1310,7 @@ function Edition({ config, personne, docId, droits }) {
     >
       <ColonneTexte>{editeur}</ColonneTexte>
       {fenetreSaisie}
+      {fenetreConfirmation}
       {caps.includes('inviter') ? (
         <Fenetre
           ouverte={partage}

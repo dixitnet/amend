@@ -86,3 +86,11 @@ export async function session(base, nom) {
   assert.equal(r.status, 200)
   return r.headers.get('set-cookie').split(';')[0]
 }
+
+/** Confirme la fenêtre de confirmation ouverte (comme Docs : « Annuler », puis l'action). */
+export async function confirmer(page) {
+  const fenetre = page.getByRole('dialog')
+  await fenetre.waitFor()
+  await fenetre.getByRole('button').last().click()
+  await fenetre.waitFor({ state: 'detached' })
+}

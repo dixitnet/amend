@@ -70,5 +70,16 @@ test('un paramètre manquant lève une erreur explicite (défaut vu tôt, pas un
 test('messageErreur : message dédié, ou message générique avec le code', () => {
   const t = creerTraducteur('fr')
   assert.equal(messageErreur(t, 'nom-vide'), 'Indiquez un nom.')
-  assert.equal(messageErreur(t, 'inconnu-42'), 'Une erreur est survenue : inconnu-42.')
+  assert.equal(messageErreur(t, 'inconnu-42'), 'Une erreur est survenue\u00A0: inconnu-42.')
+})
+
+test('typographie du catalogue français : insécable avant « : » et dans les guillemets, fine avant ; ! ? (Sylvain, 10/11/2026)', () => {
+  const fautes = []
+  for (const cle of cles(CATALOGUES.fr)) {
+    const v = valeur(CATALOGUES.fr, cle)
+    if (/ [:;!?]/.test(v)) fautes.push(`${cle} : espace ordinaire avant une ponctuation double`)
+    if (/\u00A0[;!?]/.test(v)) fautes.push(`${cle} : insécable au lieu d’une fine avant ; ! ?`)
+    if (/« | »/.test(v)) fautes.push(`${cle} : espace ordinaire dans des guillemets`)
+  }
+  assert.deepEqual(fautes, [])
 })
