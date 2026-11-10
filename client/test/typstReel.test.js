@@ -29,6 +29,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { inflateSync } from 'node:zlib'
 import { schema } from '../src/schema.js'
 import { docToTypst } from '../src/typstExport.js'
 import { fusionner } from '../../shared/style.js'
@@ -229,6 +230,36 @@ test('le document complet compile, sous le style par défaut et sous un style ch
   const d = documentComplet(paragraphesTemoins())
   await compiler(docToTypst(d, STYLE_SIMPLE, 'Titre "avec" #guillemets'))
   await compiler(docToTypst(d, STYLE_CHARGE, 'Document'))
+})
+
+/** Les opérateurs de couleur des flux de contenu d'un PDF (`0 0 0 1 k`,
+ * `/c0 cs`…), flux compressés compris. */
+function couleursDuPdf(pdf) {
+  const brut = pdf.toString('latin1')
+  const ops = []
+  for (const m of brut.matchAll(/stream\r?\n/g)) {
+    const debut = m.index + m[0].length
+    const fin = brut.indexOf('endstream', debut)
+    let flux
+    try {
+      flux = inflateSync(pdf.subarray(debut, fin)).toString('latin1')
+    } catch {
+      flux = brut.slice(debut, fin)
+    }
+    for (const o of flux.matchAll(/(?:^|\s)((?:[\d.]+ ){1,4}(?:rg|RG|g|G|k|K|scn|sc|SCN|SC)|\/\w+ (?:cs|CS))(?=\s)/g)) ops.push(o[1])
+  }
+  return ops
+}
+
+test('le texte sort en noir soutenu CMJN, les traits en noir seul (consigne de l’imprimeur)', { skip: SANS_TYPST }, async () => {
+  const d = documentComplet(paragraphesTemoins())
+  const ops = couleursDuPdf(await compiler(docToTypst(d, STYLE_SIMPLE, 'Couleurs')))
+  // 50 % de cyan s'écrit 128/255 = 0.5019608 : Typst passe par 8 bits.
+  assert.ok(ops.includes('0.5019608 0.4 0.4 1 k'), `noir soutenu absent : ${[...new Set(ops)].join(' | ')}`)
+  assert.ok(ops.includes('0 0 0 0.4117647 K'), 'traits fins absents ou pas en noir seul')
+  assert.ok(ops.includes('0 0 0 1 K'), 'filet des notes absent ou pas en noir seul')
+  const autres = ops.filter((o) => !/ [kK]$/.test(o))
+  assert.deepEqual([...new Set(autres)], [], 'une couleur hors CMJN (gris ou RVB à profil) reste dans le PDF')
 })
 
 test('la mise en page d’un livre compile', { skip: SANS_TYPST }, async () => {
