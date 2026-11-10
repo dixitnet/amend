@@ -6,11 +6,13 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const V2 = new URL('../..', import.meta.url).pathname
-const INTERDITS = /from\s+['"](yjs|y-prosemirror|y-protocols(\/.*)?|y-websocket|@blocknote\/core\/yjs)['"]/
+// Statiques (`from '…'`) et dynamiques (`import('…')`) : audit du 10/11/2026.
+const INTERDITS =
+  /(?:from\s+|\bimport\s*\(\s*)['"](yjs|y-prosemirror|y-protocols(\/.*)?|y-websocket|@blocknote\/core\/yjs)['"]/
 
 function fichiers(dossier) {
   return readdirSync(dossier).flatMap((nom) => {
-    if (['node_modules', 'dist', '.mesures'].includes(nom)) return []
+    if (['node_modules', 'dist', 'dist.neuf', '.mesures', '.captures'].includes(nom)) return []
     const chemin = join(dossier, nom)
     return statSync(chemin).isDirectory() ? fichiers(chemin) : /\.(m?js|jsx)$/.test(nom) ? [chemin] : []
   })

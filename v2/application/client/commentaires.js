@@ -1,7 +1,10 @@
 // Les appels aux routes des commentaires (couche application), pour le
 // magasin de fils de l'adaptateur BlockNote. Les codes d'erreur du serveur
 // remontent tels quels (`err.code`) ; aucun texte ici.
-async function appel(methode, chemin, corps) {
+
+/** Un appel JSON à nos routes ; une réponse en erreur lève avec son code.
+ * Le seul de l'application (App.jsx s'en sert aussi ; audit du 10/11/2026). */
+export async function appel(methode, chemin, corps) {
   const r = await fetch(chemin, {
     method: methode,
     headers: corps === undefined ? {} : { 'content-type': 'application/json' },

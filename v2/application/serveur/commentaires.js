@@ -37,6 +37,9 @@ function decoder(segment) {
 }
 const metaValide = (m) => m === undefined || m === null || (typeof m === 'object' && !Array.isArray(m))
 
+/** Le battement du flux des changements (audit du 10/11/2026). */
+const BATTEMENT_MS = 30_000
+
 /**
  * @param {object} o
  * @param {(req: any) => Promise<{ id: string } | null>} o.personneDe
@@ -97,7 +100,13 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
       res.write(': ouvert\n\n')
       if (!abonnes.has(docId)) abonnes.set(docId, new Set())
       abonnes.get(docId).add(res)
+      // Un battement toutes les 30 s : une connexion coupée sans prévenir (réseau
+      // du téléphone) se voit des deux côtés, et le navigateur se reconnecte
+      // (audit du 10/11/2026).
+      const battement = setInterval(() => res.write(': battement\n\n'), BATTEMENT_MS)
+      battement.unref?.()
       req.on('close', () => {
+        clearInterval(battement)
         abonnes.get(docId)?.delete(res)
         if (!abonnes.get(docId)?.size) abonnes.delete(docId)
       })
@@ -105,7 +114,9 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
     }
     const leFil = await depot.fil(docId, fil)
     if (!leFil) return introuvable()
-    const createur = { auteur: leFil.comments[0]?.userId }
+    // Le fil reste à qui l'a ouvert (auteur enregistré), même si son premier
+    // commentaire est supprimé (Sylvain, 10/11/2026, Q4).
+    const createur = { auteur: leFil.auteur }
 
     // /fils/:fil
     if (!sous) {

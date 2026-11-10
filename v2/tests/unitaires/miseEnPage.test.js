@@ -2,7 +2,7 @@
 // fichiers exportés (domaine/document.js).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { grille, gabaritTypst, chaineTypst, nomDeFichier } from '../../domaine/index.js'
+import { grille, gabaritTypst, chaineTypst, nomDeFichier, titreDocument } from '../../domaine/index.js'
 
 const MODELE = {
   page: { largeur: 120, hauteur: 180 },
@@ -74,4 +74,18 @@ test('le nom du fichier exporté', () => {
   assert.equal(nomDeFichier('  ', 'md'), 'document.md')
   assert.equal(nomDeFichier(null, 'pdf'), 'document.pdf')
   assert.equal(nomDeFichier('été', 'md'), 'été.md')
+})
+
+test('nom de fichier : 120 signes comptés en points de code, jamais un emoji coupé en deux (audit du 10/11/2026)', () => {
+  const nom = nomDeFichier('😀'.repeat(130), 'pdf')
+  assert.equal([...nom.replace(/\.pdf$/, '')].length, 120)
+  assert.ok(
+    !/[\uD800-\uDFFF](?![\uDC00-\uDFFF])/.test(nom.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')),
+    'aucune demi-paire',
+  )
+})
+
+test('titre : les espaces insécables restent, les blancs ordinaires sont resserrés (audit du 10/11/2026)', () => {
+  assert.equal(titreDocument('  Le\u00A0titre\u202F:   une\t\nsuite ').titre, 'Le\u00A0titre\u202F: une suite')
+  assert.equal(titreDocument('   ').titre, null)
 })

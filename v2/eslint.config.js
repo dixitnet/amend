@@ -66,14 +66,37 @@ function imports({ permises = [], couches = [], css = false, cssDesign = false }
   return ['error', { patterns }]
 }
 
+/** Les adaptateurs : aucun n'importe un autre (règle 2), y compris un adaptateur
+ * à venir ajouté à cette liste (audit du 10/11/2026). */
+const ADAPTATEURS = ['yjs', 'blocknote', 'yhub', 'courrier', 'postgres']
+const autresAdaptateurs = (soi) => ADAPTATEURS.filter((a) => a !== soi)
+/** Le même interdit pour les imports dynamiques (la fonction import), que
+ * no-restricted-imports ne voit pas. */
+const sansImportDynamique = (couches) => ({
+  selector: `ImportExpression > Literal[value=/(^|\\/)(${couches.join('|')})(\\/|$)/]`,
+  message: 'dépendance interdite entre couches, par un import dynamique (règles 1 à 3)',
+})
+
 const TEXTE_EN_DUR = [
   {
     selector: 'JSXText[value=/\\p{L}/u]',
     message: 'texte en dur : passer par v2/i18n/ (règle 23)',
   },
   {
-    selector: 'JSXAttribute[name.name=/^(title|alt|placeholder|aria-label|label)$/] > Literal',
+    selector:
+      'JSXAttribute[name.name=/^(title|alt|placeholder|aria-label|aria-roledescription|aria-valuetext|label)$/] > Literal',
     message: 'texte en dur dans un attribut : passer par v2/i18n/ (règle 23)',
+  },
+  // Un texte écrit dans une expression, entre les balises : {'Bonjour'},
+  // {ok ? 'Oui' : ''} (audit du 10/11/2026). Les attributs (clés, codes) n'en sont pas.
+  {
+    selector: ':matches(JSXElement, JSXFragment) > JSXExpressionContainer > Literal[value=/\\p{L}/u]',
+    message: 'texte en dur : passer par v2/i18n/ (règle 23)',
+  },
+  {
+    selector:
+      ':matches(JSXElement, JSXFragment) > JSXExpressionContainer > ConditionalExpression > Literal[value=/\\p{L}/u]',
+    message: 'texte en dur : passer par v2/i18n/ (règle 23)',
   },
 ]
 const STYLE_EN_DUR = { selector: "JSXAttribute[name.name='style']", message: 'style en dur (règle 17)' }
@@ -137,10 +160,10 @@ export default [
     rules: {
       'no-restricted-imports': imports({
         permises: ['y'],
-        couches: ['application', 'design', 'i18n', 'extensions', 'blocknote', 'yhub'],
+        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('yjs')],
         css: true,
       }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('yjs'))],
     },
   },
   {
@@ -149,10 +172,16 @@ export default [
     rules: {
       'no-restricted-imports': imports({
         permises: ['blocknote', 'y'],
-        couches: ['application', 'design', 'i18n', 'yjs', 'yhub'],
+        couches: ['application', 'design', 'i18n', ...autresAdaptateurs('blocknote')],
         css: true,
       }),
-      'no-restricted-syntax': ['error', STYLE_EN_DUR, ...TEXTE_EN_DUR, ...DESIGN_HORS_DESIGN],
+      'no-restricted-syntax': [
+        'error',
+        STYLE_EN_DUR,
+        ...TEXTE_EN_DUR,
+        ...DESIGN_HORS_DESIGN,
+        sansImportDynamique(autresAdaptateurs('blocknote')),
+      ],
     },
   },
   {
@@ -160,7 +189,7 @@ export default [
     rules: {
       'no-restricted-imports': imports({
         permises: ['blocknote', 'y', 'transformation', 'lib0'],
-        couches: ['application', 'design', 'i18n', 'yjs', 'yhub'],
+        couches: ['application', 'design', 'i18n', ...autresAdaptateurs('blocknote')],
         css: true,
       }),
     },
@@ -170,20 +199,20 @@ export default [
     rules: {
       'no-restricted-imports': imports({
         permises: ['y', 'lib0'],
-        couches: ['application', 'design', 'i18n', 'extensions', 'yjs', 'blocknote'],
+        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('yhub')],
         css: true,
       }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('yhub'))],
     },
   },
   {
     files: ['adaptateurs/courrier/**'],
     rules: {
       'no-restricted-imports': imports({
-        couches: ['application', 'design', 'i18n', 'extensions', 'yjs', 'blocknote', 'yhub', 'postgres'],
+        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('courrier')],
         css: true,
       }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('courrier'))],
     },
   },
   {
@@ -191,10 +220,10 @@ export default [
     rules: {
       'no-restricted-imports': imports({
         permises: ['serveur'],
-        couches: ['application', 'design', 'i18n', 'extensions', 'yjs', 'blocknote', 'yhub'],
+        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('postgres')],
         css: true,
       }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('postgres'))],
     },
   },
   // Couche 3 : les extensions se branchent sur BlockNote, et sur rien d'autre.

@@ -329,7 +329,11 @@ function relayer(CONF, req, res) {
       res.writeHead(rep.statusCode, rep.headers)
       rep.pipe(res).on('finish', fini)
     })
-    amont.on('error', () => (json(res, 502, { code: 'collaboration-indisponible' }), fini()))
+    // Une erreur après le début de la réponse ne peut plus devenir un 502 : on coupe.
+    amont.on(
+      'error',
+      () => (res.headersSent ? res.destroy() : json(res, 502, { code: 'collaboration-indisponible' }), fini()),
+    )
     req.pipe(amont)
   })
 }

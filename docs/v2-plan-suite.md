@@ -79,8 +79,8 @@ A (1, 2, 3) maintenant, puis B (4), puis D (8 à 10) pour clore l'étape 6, puis
 
 ## Questions pour Sylvain (issues de l'audit)
 
-- Q1. Un lecteur voit-il les commentaires ? Aujourd'hui non (modèle de Docs) ; cela n'a jamais été décidé explicitement.
-- Q2. Sur iPad avec un clavier, entrer en modification par la touche Entrée (la zone prend le focus) ? Aujourd'hui, seulement d'un appui.
-- Q3. Quand l'ancrage d'un commentaire échoue, afficher un message ? Le texte n'est pas perdu, mais rien ne dit pourquoi.
-- Q4. Un fil dont le premier commentaire est supprimé revient à l'auteur de la réponse suivante, qui peut alors le résoudre ou le supprimer : est-ce voulu ?
+- Q1. Un lecteur voit-il les commentaires ? **Non** (Sylvain, 10/11/2026) : on garde le modèle de Docs.
+- Q2. Sur iPad avec un clavier, entrer en modification par la touche Entrée ? **Non** (Sylvain, 10/11/2026) : seulement d'un appui ; renoncement n° 13.
+- Q3. Quand l'ancrage d'un commentaire échoue, afficher un message ? **Oui** (Sylvain, 10/11/2026) : à faire dans le lot 4.
+- Q4. Un fil dont le premier commentaire est supprimé revient à l'auteur de la réponse suivante : **non** (Sylvain, 10/11/2026) ; propositions dans la réponse de Claude du même jour (le fil reste à qui l'a ouvert, comme Docs).
 - Q5. Durée de HSTS : garder 7 jours, ou passer à un an une fois le site stable ?

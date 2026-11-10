@@ -87,3 +87,17 @@ test('frappe : un texte ancien non typographié n’empêche pas la frappe en co
   const r = saisie('ancien "texte" ... et puis ', '?')
   assert.deepEqual(r, { retirer: 1, ecrire: `${F}?` })
 })
+
+test('une adresse s’arrête avant la ponctuation de la phrase, qui reste typographiée (audit du 10/11/2026)', () => {
+  assert.equal(typographier('Voir www.site.fr... puis', { langue: 'fr' }), 'Voir www.site.fr… puis')
+  assert.equal(typographier('(voir https://ex.fr/a) ; fin', { langue: 'fr' }), '(voir https://ex.fr/a)\u202F; fin')
+  // L'adresse elle-même n'est pas touchée, ses points et ses « ? » compris.
+  assert.equal(typographier('www.a.fr/x?y=1 ok', { langue: 'fr' }), 'www.a.fr/x?y=1 ok')
+  const une = typographier('Voir www.site.fr... (https://ex.fr/a) ; fin', { langue: 'fr' })
+  assert.equal(typographier(une, { langue: 'fr' }), une, 'idempotente')
+})
+
+test('frappe : une adresse peut continuer après une ponctuation tapée (« ?b=1 »), rien n’y change', () => {
+  assert.equal(saisie('voir http://exemple.org/a', '?', { langue: 'fr' }), null)
+  assert.equal(saisie('voir www.site.fr', '.', { langue: 'fr' }), null)
+})

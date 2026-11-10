@@ -42,7 +42,7 @@ const rang = (role) => (estRole(role) ? ROLES.indexOf(role) : 0)
 export function roleEffectif(roles) {
   const presents = (Array.isArray(roles) ? roles : [roles]).filter((r) => r !== null && r !== undefined)
   if (!presents.length) return null
-  return ROLES[Math.max(...presents.map(rang))] ?? PLUS_RESTRICTIF
+  return ROLES[Math.max(...presents.map(rang))]
 }
 
 /** Les capacités d'un rôle ; rôle inconnu → celles du plus restrictif ;

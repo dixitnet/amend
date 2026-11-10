@@ -438,7 +438,11 @@ export function creerComptes({
       // y/hub : un échec de y/hub laisse un contenu inaccessible, pas un document
       // listé mais vidé (audit, 09/11/2026).
       await comptes.supprimerDocument(docId)
-      await commentaires?.supprimerFilsDuDocument(docId)
+      // Un échec des fils ne doit pas empêcher d'effacer le texte (audit du
+      // 10/11/2026) : les deux suppressions sont toujours tentées.
+      await commentaires
+        ?.supprimerFilsDuDocument(docId)
+        .catch((e) => console.error(`[serveur] suppression des fils de ${docId} :`, e))
       if (collaboration)
         await collaboration
           .supprimerDocument(docId)
