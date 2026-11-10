@@ -16,6 +16,8 @@
 import {
   AUTEUR_MARGO,
   GARDE_FOUS_MARGO,
+  MARGO_DEMANDE_MAX_SIGNES,
+  MARGO_HISTORIQUE_MAX_SIGNES,
   identifiantDocument,
   capacites,
   signes,
@@ -34,7 +36,6 @@ import { blocsATexteDe, suggererRemplacements, ancreCommentaire } from '../../ad
 const LECTURE_MAX_SIGNES = 40_000
 /** Résultats d'une recherche, par texte cherché. */
 const RECHERCHE_MAX = 20
-const DEMANDE_MAX_SIGNES = 4_000
 const HISTORIQUE_MAX = 40
 
 const SCHEMAS = {
@@ -129,7 +130,7 @@ export function creerMargo({
     const corps = await lireCorps(req, 200_000)
     const demande = typeof corps.demande === 'string' ? corps.demande.trim() : ''
     const corriger = corps.corriger === true
-    if ((!demande && !corriger) || signes(demande) > DEMANDE_MAX_SIGNES)
+    if ((!demande && !corriger) || signes(demande) > MARGO_DEMANDE_MAX_SIGNES)
       return (json(res, 400, { code: 'demande-invalide' }), true)
     if (!ia || !collaboration || !depot) return (json(res, 503, { code: 'margo-indisponible' }), true)
     if (!ia.disponible(modele)) return (json(res, 503, { code: 'margo-indisponible' }), true)
@@ -170,7 +171,15 @@ export function creerMargo({
       portee.type === 'selection'
         ? etat.blocs.slice(portee.de - 1, portee.a).reduce((n, b) => n + signes(b.texte), 0)
         : 0
-    const compte = { etapes: 0, signesLus: signesSelection, entree: 0, sortie: 0, cacheLu: 0 }
+    // Le premier message compte aussi : échanges précédents compris (A2).
+    const compte = {
+      etapes: 0,
+      signesDemande: signes(premier),
+      signesLus: signesSelection,
+      entree: 0,
+      sortie: 0,
+      cacheLu: 0,
+    }
     const debut = Date.now()
     let modeleEnCours = modele
     let arret = 'fin'
@@ -202,7 +211,7 @@ export function creerMargo({
           continue
         }
         if (tour.arret !== 'outils' || derniereEtape) {
-          if (!derniereEtape) arret = tour.arret === 'outils' ? 'fin' : tour.arret
+          if (!derniereEtape) arret = tour.arret
           break
         }
         const resultats = []
@@ -270,10 +279,16 @@ function porteeDeLaSelection(selection, blocs) {
  * le passage sélectionné, puis la demande. */
 function premierMessage({ prenom, demande, historique, portee, blocs }) {
   const parties = []
-  const echanges = (Array.isArray(historique) ? historique : [])
-    .slice(-HISTORIQUE_MAX)
-    .filter((e) => e && typeof e.texte === 'string' && (e.auteur === 'personne' || e.auteur === 'margo'))
-    .map((e) => consigne(e.auteur === 'margo' ? 'demande.margo' : 'demande.personne', { prenom, texte: e.texte }))
+  // Les échanges précédents, des plus récents aux plus anciens, tant qu'ils
+  // tiennent dans la borne en signes (audit du 10/11/2026, A2).
+  const echanges = []
+  let total = 0
+  for (const e of (Array.isArray(historique) ? historique : []).slice(-HISTORIQUE_MAX).reverse()) {
+    if (!e || typeof e.texte !== 'string' || (e.auteur !== 'personne' && e.auteur !== 'margo')) continue
+    total += signes(e.texte)
+    if (total > MARGO_HISTORIQUE_MAX_SIGNES) break
+    echanges.unshift(consigne(e.auteur === 'margo' ? 'demande.margo' : 'demande.personne', { prenom, texte: e.texte }))
+  }
   if (echanges.length) parties.push(consigne('demande.historique', { echanges: echanges.join('\n') }))
   if (portee.type === 'selection')
     parties.push(
@@ -400,7 +415,13 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
       await depot.supprimerFil(fil.id)
       return refuser('ancre')
     }
-    await collaboration.ecrireTexte(docId, ancre.mise, AUTEUR_MARGO)
+    try {
+      await collaboration.ecrireTexte(docId, ancre.mise, AUTEUR_MARGO)
+    } catch (err) {
+      // Pas de fil sans ancre (audit du 10/11/2026, A3).
+      await depot.supprimerFil(fil.id).catch(() => {})
+      throw err
+    }
     prevenirFils(docId)
     bilan.commentaires++
     return { contenu: consigne('refus.posee'), ecriture: true, acceptee: true }

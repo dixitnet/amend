@@ -39,7 +39,13 @@ import {
   libelleDuRoleEquipe,
   LANGUE_PSEUDO,
 } from '../../i18n/index.js'
-import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT, AUTEUR_MARGO } from '../../domaine/index.js'
+import {
+  identifiantDocument,
+  capacites,
+  LANGUE_DOCUMENT_PAR_DEFAUT,
+  AUTEUR_MARGO,
+  MARGO_DEMANDE_MAX_SIGNES,
+} from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 import { serviceCommentaires, nomsDe, appel } from './commentaires.js'
@@ -1343,7 +1349,7 @@ function Edition({ config, personne, docId, droits }) {
       }))}
       accueil={t('margo.accueil')}
       enCours={margo.enCours ? (MARGO_EN_COURS[margo.enCours] ?? MARGO_EN_COURS.reflexion)() : null}
-      erreur={margo.erreur ? messageErreur(t, margo.erreur) : null}
+      erreur={margo.erreur ? messageErreur(t, margo.erreur, { max: MARGO_DEMANDE_MAX_SIGNES }) : null}
       portee={selection ? t('margo.porteeSelection') : t('margo.porteeDocument')}
       saisie={{
         libelle: t('margo.saisie'),

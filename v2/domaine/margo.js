@@ -19,6 +19,12 @@ export const GARDE_FOUS_MARGO = Object.freeze({
   refusEnSerie: 5,
 })
 
+/** La demande d'une personne à Margo : au plus ce nombre de signes ; les
+ * échanges précédents renvoyés par le navigateur, au plus ce nombre (les plus
+ * récents d'abord ; audit du 10/11/2026, A2). Bornes techniques, pas des tarifs. */
+export const MARGO_DEMANDE_MAX_SIGNES = 4000
+export const MARGO_HISTORIQUE_MAX_SIGNES = 20000
+
 /** Les signes d'un texte, espaces compris (règle 5 de CLAUDE.md : la seule unité). */
 export const signes = (texte) => [...String(texte ?? '')].length
 
@@ -52,16 +58,18 @@ export function porteeMargo(brute, nombreDeBlocs) {
   return { type: 'document' }
 }
 
-/** Espaces insécables, apostrophes et tirets : Margo écrit rarement les mêmes
- * que le texte. Un signe pour un signe, pour que les positions trouvées sur le
- * texte normalisé valent pour l'original (v1, `normaliser`). */
-export function normaliser(s) {
-  return String(s ?? '')
-    .normalize('NFC')
+/** Espaces insécables, apostrophes et tirets : un signe pour un signe (v1),
+ * pour que les positions trouvées valent pour l'original. */
+const memesSignes = (s) =>
+  String(s ?? '')
     .replace(/[\u00a0\u202f\u2009\u2007]/g, ' ')
     .replace(/[\u2018\u2019\u02bc]/g, "'")
     .replace(/[\u2010-\u2015\u2212]/g, '-')
-}
+
+/** Pour comparer ou chercher (sans positions) : NFC, puis espaces,
+ * apostrophes et tirets ramenés à un seul signe ; Margo écrit rarement les
+ * mêmes que le texte. */
+export const normaliser = (s) => memesSignes(String(s ?? '').normalize('NFC'))
 
 function occurrences(texte, motif) {
   const r = []
@@ -71,32 +79,38 @@ function occurrences(texte, motif) {
 
 /**
  * Où se trouve un passage dans le texte d'un bloc : une fois exactement, aux
- * espaces, apostrophes et tirets près, en NFC.
+ * espaces, apostrophes et tirets près. Les positions valent pour le texte tel
+ * qu'il est reçu : un texte collé en NFD (décomposé) se cherche sous cette
+ * forme, sans le recomposer (audit du 10/11/2026, A1).
  * @returns {{ ok: true, debut: number, fin: number } | { ok: false, motif: 'vide' | 'introuvable' | 'ambigu' }}
  * (un motif de refus pour Margo, pas un code d'erreur : la personne ne le voit pas)
  */
 export function situerCitation(texte, citation) {
-  const c = String(citation ?? '').normalize('NFC')
+  const c = String(citation ?? '')
   if (!c) return { ok: false, motif: 'vide' }
-  const ou = occurrences(normaliser(String(texte ?? '').normalize('NFC')), normaliser(c))
-  if (!ou.length) return { ok: false, motif: 'introuvable' }
-  if (ou.length > 1) return { ok: false, motif: 'ambigu' }
-  return { ok: true, debut: ou[0], fin: ou[0] + c.length }
+  const t = memesSignes(texte)
+  const trouves = new Map()
+  for (const forme of new Set([c.normalize('NFC'), c.normalize('NFD'), c]))
+    for (const i of occurrences(t, memesSignes(forme)))
+      trouves.set(`${i}:${forme.length}`, { debut: i, fin: i + forme.length })
+  if (!trouves.size) return { ok: false, motif: 'introuvable' }
+  if (trouves.size > 1) return { ok: false, motif: 'ambigu' }
+  return { ok: true, ...[...trouves.values()][0] }
 }
 
 /**
  * Où remplacer `avant` par `apres` dans le texte d'un bloc (voir
- * `situerCitation`). Le nouveau texte est typographié selon les règles du
- * document (étape 4). Un remplacement qui ne change rien (ou seulement des
- * espaces, apostrophes ou tirets équivalents) est refusé : il noierait la
- * relecture (leçon de la v1).
+ * `situerCitation`). Le nouveau texte est en NFC et typographié selon les
+ * règles du document (étape 4). Un remplacement qui ne change rien (ou
+ * seulement des espaces, apostrophes ou tirets équivalents) est refusé : il
+ * noierait la relecture (leçon de la v1).
  * @param {string} texte  le texte du bloc, tel qu'il se lit avec les suggestions en cours
  * @returns {{ ok: true, debut: number, fin: number, apres: string } | { ok: false, motif: 'vide' | 'introuvable' | 'ambigu' | 'identique' }}
  */
 export function situerRemplacement(texte, avant, apres) {
   const ou = situerCitation(texte, avant)
   if (!ou.ok) return ou
-  const t = String(texte ?? '').normalize('NFC')
+  const t = String(texte ?? '')
   const nouveau = typographier(String(apres ?? '').normalize('NFC'), { avant: t.slice(0, ou.debut) })
   if (normaliser(nouveau) === normaliser(t.slice(ou.debut, ou.fin))) return { ok: false, motif: 'identique' }
   return { ok: true, debut: ou.debut, fin: ou.fin, apres: nouveau }

@@ -74,7 +74,7 @@
     "reserve-administrateur": "Réservé aux administrateurs de l’instance.",
     "margo-indisponible": "Margo est indisponible pour le moment.",
     "selection-absente": "Sélectionnez d’abord le passage à corriger.",
-    "demande-invalide": "Cette demande est vide, ou trop longue (4\u00A0000 signes au plus)."
+    "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus)."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",

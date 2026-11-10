@@ -348,3 +348,21 @@ test('essai réel avec DeepSeek (MARGO_ESSAI_REEL=1) : une faute corrigée en su
     s.close()
   }
 })
+
+t3('échanges précédents : bornés en signes, les plus récents gardés (audit A2)', async () => {
+  const doc = await nouveauDocument(LIVRE)
+  let premier = null
+  scenario = [(e) => ((premier = e.texte), { texte: 'Vu.' })]
+  const long = 'x'.repeat(15_000)
+  const historique = [
+    { auteur: 'personne', texte: `ANCIEN ${long}` },
+    { auteur: 'margo', texte: `RECENT ${long}` },
+    { auteur: 'personne', texte: 'DERNIER' },
+    { auteur: 'pirate', texte: 'IGNORE' },
+  ]
+  const r = await demander(doc, 'Paule', { demande: 'Suite', historique })
+  assert.equal(fin(r.evenements).arret, 'fin')
+  assert.match(premier, /RECENT/)
+  assert.match(premier, /DERNIER/)
+  assert.doesNotMatch(premier, /ANCIEN|IGNORE/)
+})

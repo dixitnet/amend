@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 8, « IA » (Margo)
 
-Statut : **arbitré par Sylvain le 10/11/2026** (A oui, B non, C fil, D non ; « alléger au max en termes d'interface et de dev » ; puis « ajoute un bouton Corriger dans la barre flottante, sinon ok » et « ajoute Fable aux modèles mobilisables »). Rien n'est développé. Revue d'ouverture faite le 10/11/2026 (GLM-5.3, `docs/v2-revues/2026-11-10-etape-8-ouverture.md`) : plan corrigé en conséquence ; questions arbitrées par Sylvain le même jour (« 1b, 2 ok, 3 non, reprends seulement le modèle qui a bien marché pour la v1 »). Avant le lot 1 : la vérification technique ci-dessous.
+Statut : **arbitré par Sylvain le 10/11/2026** (A oui, B non, C fil, D non ; « alléger au max en termes d'interface et de dev » ; puis « ajoute un bouton Corriger dans la barre flottante, sinon ok » et « ajoute Fable aux modèles mobilisables »). **Développé le 10/11/2026** (« et lance le dev », Sylvain), sur la branche `claude/clever-pascal-wa0gee`, pas encore fusionné : lots 1 à 4 ci-dessous, puis audit partiel (`docs/v2-revues/2026-11-10-2151-audit-partiel-glm-5.3.md`). Revue d'ouverture faite le 10/11/2026 (GLM-5.3, `docs/v2-revues/2026-11-10-etape-8-ouverture.md`) : plan corrigé en conséquence ; questions arbitrées par Sylvain le même jour (« 1b, 2 ok, 3 non, reprends seulement le modèle qui a bien marché pour la v1 »). Avant le lot 1 : la vérification technique ci-dessous.
 
 ## Ce que fait Docs (vérification n° 0)
 
@@ -83,3 +83,13 @@ Une couche par lot (règle 5 ; constat 3 de la revue d'ouverture) :
 5. **Design**, seulement si Sylvain veut régler quelque chose après l'avoir vu.
 
 Clôture (critère du § 8 des règles) : **banc Margo rejoué**, c'est-à-dire le texte et les consignes de `docs/banc-margo-montfaucon.md` passés dans la vraie boucle de la v2 sur un document d'essai, résultats notés ; puis revue de clôture.
+
+## Ce qui a été fait (10/11/2026)
+
+- Lot 1, adaptateur `ia/` : SDK officiel d'Anthropic (1.5.0) et API de Scaleway ; essai réel avec DeepSeek.
+- Lot 2, domaine : `utiliserMargo`, garde-fous, signes, recherche d'un passage, consignes en catalogue (`i18n/consignes/fr.json`).
+- Lot 3, serveur : route en flux, quatre outils, identité « margo » dans y/hub (branche des suggestions seulement), commentaires signés margo, repli, journal en nombres ; `exploitation/prod/margo.sh` pour les clés.
+- Lot 4, client : composant de design `PanneauMargo` (commits de design à part), onglet Margo, bouton « Corriger », format S.
+- Vérification avant le lot 1 : faite. Le serveur écrit une suggestion attribuée à « margo » (test de service), et la palette de BlockNote accepte notre bouton par son point d'extension public (`Components.FormattingToolbar.Button`, comme Docs).
+- Écart avec le point 15 : pas de `fallbacks` côté Anthropic ; le repli est celui du plan (le modèle par défaut reprend la demande).
+- Reste : le choix du modèle au back-office (étape 9) ; la clôture (banc Montfaucon rejoué, revue).

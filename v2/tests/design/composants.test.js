@@ -48,6 +48,7 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     texte: 'Carla ajoute « loin »',
     corrections: 3,
     commentaires: 1,
+    max: 4000,
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -78,6 +79,7 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       texte: 'X',
       corrections: 2,
       commentaires: 2,
+      max: 4000,
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)

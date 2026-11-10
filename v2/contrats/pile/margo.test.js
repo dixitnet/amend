@@ -87,6 +87,7 @@ test('essai réel (MARGO_ESSAI_REEL=1) : « Corriger » pose une suggestion sign
   } finally {
     console.log(await p.evaluate(() => document.querySelector('aside')?.innerText.replace(/\n+/g, ' / ')))
   }
-  assert.match(await ligne.first().innerText(), /Margo \(IA\)/)
+  // L'auteur et le contenu de la ligne (A10 de l'audit) : Margo ajoute le « s » manquant.
+  assert.match(await ligne.first().innerText(), /^Margo \(IA\) ajoute «\s?s\s?»$/)
   await p.context().close()
 })

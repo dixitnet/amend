@@ -197,3 +197,19 @@ test('résultats et consigne du service dans le même tour : résultats d’abor
     ['tool', 'user'],
   )
 })
+
+test('Scaleway : une réponse 200 illisible vaut ia-indisponible, sans trace dans l’historique (audit A4)', async () => {
+  const requetes = []
+  const reponses = [
+    { ok: true, status: 200, json: async () => JSON.parse('<html>') },
+    { ok: true, status: 200, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: 'ok' } }] }) },
+  ]
+  const f = async (url, init) => (requetes.push(JSON.parse(init.body)), reponses.shift())
+  const c = creerIA({ cleScaleway: 'k', fetch: f }).conversation({ modele: MODELE_PAR_DEFAUT, consigne: 'c' })
+  await assert.rejects(c.tour({ texte: 'a' }), { code: 'ia-indisponible' })
+  await c.tour({ texte: 'b' })
+  assert.deepEqual(
+    requetes[1].messages.map((m) => m.content),
+    ['c', 'b'],
+  )
+})

@@ -74,7 +74,7 @@
     "reserve-administrateur": "Reserved for the administrators of this instance.",
     "margo-indisponible": "Margo is unavailable at the moment.",
     "selection-absente": "Select the passage to correct first.",
-    "demande-invalide": "This request is empty, or too long (4,000 characters at most)."
+    "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most)."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",

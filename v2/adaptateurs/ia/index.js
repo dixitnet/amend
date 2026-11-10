@@ -174,11 +174,15 @@ function conversationScaleway(appeler, url, cle, modele, m, consigne, outils, si
         messages.splice(messages.length - ajout.length)
         throw erreur(signal?.aborted ? 'ia-annulee' : 'ia-indisponible', cause)
       }
-      if (!r.ok) {
+      let corps
+      try {
+        if (!r.ok) throw new Error(`Scaleway : ${r.status}`)
+        corps = await r.json()
+      } catch (cause) {
+        // Réponse en erreur ou illisible : le tour n'a pas eu lieu (audit du 10/11/2026, A4).
         messages.splice(messages.length - ajout.length)
-        throw erreur('ia-indisponible', new Error(`Scaleway : ${r.status}`))
+        throw erreur('ia-indisponible', cause)
       }
-      const corps = await r.json()
       const choix = corps.choices?.[0] ?? {}
       const message = choix.message ?? {}
       // La réflexion éventuelle (`reasoning_content`) n'est ni lue ni renvoyée.
