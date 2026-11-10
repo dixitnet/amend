@@ -16,6 +16,12 @@ import { Stack, Group, Text, Textarea, Button, Anchor, Loader } from '@mantine/c
  * @param {{ libelle: string, valeur: string, surChange: (v: string) => void, surEnvoi: () => void, envoyer: string, desactive: boolean }} p.saisie
  * @param {{ libelle: string, surClic: () => void } | null} p.nouvelle
  */
+/** Un texte avec ses retours à la ligne (les réponses de Margo sont en lignes). */
+const avecRetours = (texte) =>
+  String(texte)
+    .split('\n')
+    .flatMap((ligne, i) => (i ? [<br key={i} />, ligne] : [ligne]))
+
 export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee, saisie, nouvelle }) {
   const envoyer = (evenement) => {
     evenement.preventDefault()
@@ -35,7 +41,7 @@ export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee
                       {x.lien}
                     </Anchor>
                   ) : (
-                    <span key={i}>{x.texte}</span>
+                    <span key={i}>{avecRetours(x.texte)}</span>
                   ),
                 )}
               </Text>

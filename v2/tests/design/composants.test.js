@@ -332,7 +332,10 @@ test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiq
         {
           cle: '2',
           etiquette: 'Margo (IA)',
-          morceaux: [{ texte: 'Corrigé dans ' }, { lien: '[2]', libelle: 'Aller au bloc 2', surClic: rien }],
+          morceaux: [
+            { texte: 'Deux corrections :\n- dans ' },
+            { lien: '[2]', libelle: 'Aller au bloc 2', surClic: rien },
+          ],
           bilan: '1 correction, aucun commentaire',
         },
       ],
@@ -356,6 +359,7 @@ test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiq
   assert.ok(html.includes('Corrige &lt;b&gt;'), 'le texte de la personne reste du texte')
   assert.match(html, /<button[^>]*aria-label="Aller au bloc 2"[^>]*>\[2\]<\/button>/)
   assert.ok(html.includes('1 correction, aucun commentaire'))
+  assert.match(html, /Deux corrections :<br\/>- dans /, 'les retours à la ligne de Margo sont gardés')
   assert.match(html, /role="status"[\s\S]*Margo travaille…/)
   assert.match(html, /role="alert"[^>]*>Erreur réseau/)
   assert.match(html, /<label[^>]*>Votre demande/)
