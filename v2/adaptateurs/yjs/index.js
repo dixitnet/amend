@@ -17,9 +17,9 @@ async function auteursDesSuggestions(api, docId) {
   try {
     const r = await fetch(
       `${api}/changeset/v1/amend/${encodeURIComponent(docId)}?branch=suggestions&attributions=true`,
-      {
-        headers: { accept: 'application/json' },
-      },
+      // Un délai, comme les autres appels à y/hub (adaptateurs/yhub/client.js) :
+      // une réponse qui ne vient pas ne laisse pas la demande en suspens (audit du 10/11/2026).
+      { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000) },
     )
     if (!r.ok) return null
     const { attributions } = await r.json()

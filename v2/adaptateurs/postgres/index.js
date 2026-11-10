@@ -39,11 +39,15 @@ create table if not exists amend.reactions (
 );
 `
 
-/** Un fil et ses commentaires, dans la forme des fils de BlockNote (`ThreadData`). */
+/** Un fil et ses commentaires, dans la forme des fils de BlockNote (`ThreadData`),
+ * plus `auteur` : qui l'a ouvert, enregistré à sa création. Le fil lui reste,
+ * même si son premier commentaire est supprimé (comme le `creator` de Docs ;
+ * Sylvain, 10/11/2026, question Q4 de l'audit). */
 function enFil(f, commentaires, reactions) {
   return {
     type: 'thread',
     id: f.id,
+    auteur: f.auteur,
     createdAt: f.cree_le.toISOString(),
     updatedAt: f.modifie_le.toISOString(),
     resolved: f.resolu,

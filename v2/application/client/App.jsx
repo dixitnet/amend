@@ -42,7 +42,7 @@ import {
 import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
-import { serviceCommentaires, nomsDe } from './commentaires.js'
+import { serviceCommentaires, nomsDe, appel } from './commentaires.js'
 import { useVolets } from './volets.js'
 import { exporterDocument } from './exports.js'
 
@@ -80,17 +80,7 @@ function viseeDansAdresse() {
   return { document: h }
 }
 
-const envoyerJson = async (methode, chemin, corps) => {
-  const r = await fetch(chemin, {
-    method: methode,
-    headers: corps === undefined ? {} : { 'content-type': 'application/json' },
-    body: corps === undefined ? undefined : JSON.stringify(corps),
-  })
-  const donnees = await lireJson(r)
-  if (!r.ok)
-    throw Object.assign(new Error(donnees.code || `http-${r.status}`), { code: donnees.code || `http-${r.status}` })
-  return donnees
-}
+const envoyerJson = appel
 
 export function App() {
   const [etat, setEtat] = useState({ phase: 'chargement' })
@@ -282,11 +272,21 @@ function MesDocuments({ personne, onglet, dossier }) {
   const [vueEquipe, setVueEquipe] = useState(null)
   const [erreur, setErreur] = useState(null)
   const [message, setMessage] = useState(null)
+  const messageEnAttente = useRef(null)
   const [membres, setMembres] = useState(false)
   const recharger = async () => {
     try {
       const d = await envoyerJson('GET', '/api/documents')
-      const e = equipe ? await envoyerJson('GET', `/api/equipes/${encodeURIComponent(equipe)}`) : null
+      // Une équipe qu'on ne peut plus ouvrir (supprimée, accès retiré) : retour à
+      // Mes documents, navigation comprise, avec le message (audit du 10/11/2026).
+      const e = equipe
+        ? await envoyerJson('GET', `/api/equipes/${encodeURIComponent(equipe)}`).catch((err) => {
+            messageEnAttente.current = messageErreur(t, err.code || 'reseau')
+            location.hash = '#'
+            return null
+          })
+        : null
+      if (equipe && !e) return
       setDonnees(d)
       setVueEquipe(e)
       setErreur(null)
@@ -297,7 +297,8 @@ function MesDocuments({ personne, onglet, dossier }) {
   // Rechargée à chaque changement d'onglet ou de dossier : un document
   // partagé entre-temps apparaît (essai sur v2.amend.ink, 09/11/2026).
   useEffect(() => {
-    setMessage(null)
+    setMessage(messageEnAttente.current)
+    messageEnAttente.current = null
     recharger()
   }, [onglet, dossier])
   if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
@@ -826,7 +827,15 @@ function Edition({ config, personne, docId, droits }) {
     [config, docId, moi, mode],
   )
   const commentaires = useMemo(
-    () => (caps.includes('commenter') ? { service: serviceCommentaires(docId), capacites: caps } : null),
+    () =>
+      caps.includes('commenter')
+        ? {
+            // Un commentaire qu'on n'a pas pu rattacher au texte : on dit pourquoi
+            // (Sylvain, 10/11/2026, Q3 de l'audit) ; le texte saisi reste ouvert.
+            service: { ...serviceCommentaires(docId), surEchecAncre: (code) => window.alert(messageErreur(t, code)) },
+            capacites: caps,
+          }
+        : null,
     [caps, docId],
   )
   const { etroit, tactile } = useFormat()
@@ -899,8 +908,14 @@ function Edition({ config, personne, docId, droits }) {
       (id) => id && !(id in noms) && !demandes.current.has(id),
     )
     manquants.forEach((id) => demandes.current.add(id))
+    // Un nom introuvable (serveur injoignable) n'est pas retenu : « auteur
+    // inconnu » s'affiche, et le nom sera redemandé (audit du 10/11/2026).
     if (manquants.length)
-      nomsDe(manquants).then((l) => setNoms((n) => ({ ...n, ...Object.fromEntries(l.map((p) => [p.id, p.username])) })))
+      nomsDe(manquants).then((l) => {
+        const trouves = l.filter((p) => p.username !== p.id)
+        for (const id of manquants) if (!trouves.some((p) => p.id === id)) demandes.current.delete(id)
+        setNoms((n) => ({ ...n, ...Object.fromEntries(trouves.map((p) => [p.id, p.username])) }))
+      })
   }, [suggestions, noms])
 
   const ligne = (s) => {
@@ -919,12 +934,19 @@ function Edition({ config, personne, docId, droits }) {
       window.alert(e?.code === 'modele-impossible' ? messageErreur(t, e.code) : t('document.exportEchoue')),
     )
   const mention = { ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
+  // « Copier le lien », le même dans tous les formats (audit du 10/11/2026) :
+  // le lien du document, un retour, et le lien à recopier si le presse-papiers refuse.
+  const lien = `${location.origin}/#${encodeURIComponent(docId)}`
+  const copierLien = () =>
+    Promise.resolve(navigator.clipboard?.writeText(lien) ?? Promise.reject(new Error('presse-papiers absent')))
+      .then(() => window.alert(t('telephone.lienCopie')))
+      .catch(() => window.alert(t('telephone.lienNonCopie', { lien })))
   const actions = [
     {
       cle: 'lien',
       libelle: t('telephone.copierLien'),
       picto: 'lien',
-      surClic: () => navigator.clipboard?.writeText(`${location.origin}/#${encodeURIComponent(docId)}`),
+      surClic: copierLien,
     },
     ...(caps.includes('inviter')
       ? [{ cle: 'partager', libelle: t('document.partager'), picto: 'partager', surClic: () => setPartage(true) }]
@@ -1014,10 +1036,7 @@ function Edition({ config, personne, docId, droits }) {
             cle: 'lien',
             libelle: t('telephone.copierLien'),
             icone: 'lien',
-            surClic: () =>
-              Promise.resolve(navigator.clipboard?.writeText(location.href) ?? Promise.reject(new Error()))
-                .then(() => window.alert(t('telephone.lienCopie')))
-                .catch(() => window.alert(t('telephone.lienNonCopie', { lien: location.href }))),
+            surClic: copierLien,
           },
           ...(caps.includes('inviter')
             ? [{ cle: 'partager', libelle: t('document.partager'), icone: 'partager', surClic: () => setPartage(true) }]
@@ -1050,12 +1069,17 @@ function Edition({ config, personne, docId, droits }) {
                 <ListeLiens
                   liens={[
                     { cle: 'tous', libelle: t('document.mesDocuments'), href: '#', actif: false },
-                    ...(documents?.documents ?? []).map((d) => ({
-                      cle: d.id,
-                      libelle: d.titre || t('documents.sansTitre'),
-                      href: `#${encodeURIComponent(d.id)}`,
-                      actif: d.id === docId,
-                    })),
+                    // Les documents partagés ne se mêlent pas aux siens (audit du
+                    // 10/11/2026) : un lien vers « Partagé avec moi », comme en L et M.
+                    { cle: 'partages', libelle: t('documents.partagesAvecMoi'), href: '#/partages', actif: false },
+                    ...(documents?.documents ?? [])
+                      .filter((d) => d.section === 'mes-documents')
+                      .map((d) => ({
+                        cle: d.id,
+                        libelle: d.titre || t('documents.sansTitre'),
+                        href: `#${encodeURIComponent(d.id)}`,
+                        actif: d.id === docId,
+                      })),
                   ]}
                 />
               ),

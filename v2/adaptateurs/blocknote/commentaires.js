@@ -55,9 +55,10 @@ class AutorisationsFils extends ThreadStoreAuth {
   canAddComment = () => this.peut('repondre')
   canUpdateComment = (c) => this.peut('modifier', { auteur: c.userId })
   canDeleteComment = (c) => this.peut('supprimer', { auteur: c.userId })
-  canDeleteThread = (f) => this.peut('supprimer', { auteur: f.comments[0]?.userId })
-  canResolveThread = (f) => this.peut('resoudre', { auteur: f.comments[0]?.userId })
-  canUnresolveThread = (f) => this.peut('resoudre', { auteur: f.comments[0]?.userId })
+  // L'auteur du fil, enregistré à sa création (Sylvain, 10/11/2026, Q4).
+  canDeleteThread = (f) => this.peut('supprimer', { auteur: f.auteur })
+  canResolveThread = (f) => this.peut('resoudre', { auteur: f.auteur })
+  canUnresolveThread = (f) => this.peut('resoudre', { auteur: f.auteur })
   canAddReaction = () => this.peut('reagir')
   canDeleteReaction = () => this.peut('reagir')
 }
@@ -80,7 +81,8 @@ const enDates = (f) => ({
  *   `creer(corps, metadonnees)`, `repondre(fil, corps)`, `modifier(fil, c, corps)`,
  *   `supprimer(fil, c)`, `supprimerFil(fil)`, `resoudre(fil)`, `rouvrir(fil)`,
  *   `reagir(fil, c, emoji)`, `retirerReaction(fil, c, emoji)`, `ancrer(fil, ancre)`,
- *   `abonner(rappel) → arrêter`
+ *   `abonner(rappel) → arrêter`, et `surEchecAncre(code)`, facultatif : un fil
+ *   n'a pas pu être rattaché au texte
  * @param {readonly string[]} caps  les capacités de la personne
  * @param {string} idPersonne
  * @param {boolean} ancreParLeServeur  vrai pour qui ne peut pas écrire le texte (correcteur)
@@ -102,6 +104,8 @@ export class MagasinFils extends ThreadStore {
           await service.ancrer(threadId, ancre)
         } catch (err) {
           await this.apres(service.supprimerFil(threadId)).catch(() => {})
+          // L'application dit pourquoi (un code, jamais une phrase ici).
+          service.surEchecAncre?.(err.code || 'reseau')
           throw err
         }
       }

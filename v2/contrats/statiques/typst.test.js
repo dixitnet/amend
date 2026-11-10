@@ -84,3 +84,37 @@ test('une source Typst fautive donne une erreur de code export-pdf-echoue', asyn
     code: 'export-pdf-echoue',
   })
 })
+
+test('un tableau, une image et une image introuvable : le PDF se compile quand même (audit du 10/11/2026)', async () => {
+  const { default: http } = await import('node:http')
+  // Une image PNG d'un pixel, servie par un faux serveur ; une autre adresse est morte.
+  const PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+  )
+  const serveur = http.createServer((req, res) => {
+    if (req.url === '/image.png') return res.writeHead(200, { 'content-type': 'image/png' }).end(PNG)
+    res.writeHead(404).end()
+  })
+  await new Promise((r) => serveur.listen(0, '127.0.0.1', r))
+  const adresse = `http://127.0.0.1:${serveur.address().port}`
+  try {
+    const editeur = nouvelEditeur()
+    editeur.replaceBlocks(editeur.document, [
+      { type: 'paragraph', content: [texte('Avant le tableau.')] },
+      { type: 'table', content: { type: 'tableContent', rows: [{ cells: ['a', 'b'] }, { cells: ['c', 'd'] }] } },
+      { type: 'image', props: { url: `${adresse}/image.png`, caption: 'Une image' } },
+      { type: 'image', props: { url: `${adresse}/morte.png` } },
+      { type: 'paragraph', content: [texte('Après les images.')] },
+    ])
+    const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+    assert.match(source, /#"a"\], \[#"b"\]/, 'le tableau est exporté')
+    assert.match(source, /caption: \[#"Une image"\]/, 'l’image valide est exportée')
+    assert.doesNotMatch(source, /morte\.png/, 'l’image introuvable est omise')
+    assert.match(source, /#"Après les images\."/, 'la suite du texte est là')
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+    assert.equal(Buffer.from(pdf.slice(0, 5)).toString(), '%PDF-')
+  } finally {
+    serveur.close()
+  }
+})

@@ -41,7 +41,7 @@ for (const paquet of PAQUETS)
     )
   })
 
-test('lib0 : une seule copie, en version exacte, celle que BlockNote et y/hub demandent', () => {
+test('lib0 : une seule copie, en version exacte, celle que demande BlockNote (y/hub, qui accepte une fourchette, a donc la même)', () => {
   const copies = Object.keys(verrou).filter((c) => c === 'node_modules/lib0' || c.endsWith('/node_modules/lib0'))
   assert.deepEqual(copies, ['node_modules/lib0'], 'une seule copie installée')
   const installee = verrou['node_modules/lib0'].version

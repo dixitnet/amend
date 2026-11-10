@@ -47,7 +47,10 @@ export async function versTypst(editeur, blocs, modele, { titre, langue } = {}) 
 }
 
 async function parcourir(exportateur, blocs) {
-  const enLigne = (b) => exportateur.transformInlineContent(b.content ?? []).join('')
+  // Seuls les blocs de texte ont un contenu en ligne : un tableau a le sien
+  // (`tableContent`), une image aucun (audit du 10/11/2026 : un tableau faisait
+  // échouer tout l'export).
+  const enLigne = (b) => (Array.isArray(b.content) ? exportateur.transformInlineContent(b.content).join('') : '')
   const sortie = []
   let precedent = null
   for (let i = 0; i < blocs.length; i++) {
@@ -82,9 +85,16 @@ async function parcourir(exportateur, blocs) {
     else {
       // Tableaux et images : la correspondance de BlockNote, hors grille.
       try {
-        sortie.push(await exportateur.mapBlock(b, 0, 0, []))
+        const typst = await exportateur.mapBlock(b, 0, 0, [])
+        // Une image introuvable (adresse morte, accès refusé) devient chez
+        // BlockNote un fichier vide, que Typst refuse : le bloc est omis, et
+        // le reste du livre s'exporte (audit du 10/11/2026). Le fichier vide,
+        // que rien ne référence plus, ne gêne pas la compilation.
+        const fichiers = exportateur.assetFiles
+        const vide = [...typst.matchAll(/image\("([^"]+)"/g)].some((m) => !fichiers.get(m[1])?.length)
+        if (!vide) sortie.push(typst)
       } catch {
-        // Une image introuvable (adresse morte, accès refusé) est omise.
+        // Un bloc que BlockNote ne sait pas exporter est omis de même.
       }
     }
     sortie.push(...(await parcourir(exportateur, b.children ?? [])))

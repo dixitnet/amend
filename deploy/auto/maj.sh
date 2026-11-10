@@ -69,7 +69,8 @@ echo "$CIBLE $ENV1 $ENV2" > "$ETAT"
 # Le service installé doit être celui du dépôt (limites de mémoire et de
 # disque, 10/11/2026) : seul root peut le remettre à jour.
 for u in deploy/auto/amend-maj.service deploy/auto/amend-maj.timer \
-  v2/exploitation/prod/amend-v2-sauvegarde.service v2/exploitation/prod/amend-v2-sauvegarde.timer; do
+  v2/exploitation/prod/amend-v2-sauvegarde.service v2/exploitation/prod/amend-v2-sauvegarde.timer \
+  v2/exploitation/prod/amend-v2.service; do
   cmp -s "$APP/$u" "/etc/systemd/system/$(basename "$u")" ||
     echo "⚠ $(basename "$u") a changé dans le dépôt : sudo bash deploy/auto/installer.sh (une fois)"
 done

@@ -29,7 +29,12 @@ const LONGUEUR_MAX_TITRE = 200
 export function titreDocument(brut) {
   if (brut === undefined || brut === null) return { ok: true, titre: null }
   if (typeof brut !== 'string') return { ok: false, code: 'titre-invalide' }
-  const titre = brut.normalize('NFC').replace(/\s+/g, ' ').trim()
+  // Les espaces insécables (typographie française) restent : seuls les blancs
+  // ordinaires sont resserrés (audit du 10/11/2026).
+  const titre = brut
+    .normalize('NFC')
+    .replace(/[^\S\u00A0\u202F]+/g, ' ')
+    .trim()
   if ([...titre].length > LONGUEUR_MAX_TITRE) return { ok: false, code: 'titre-invalide' }
   return { ok: true, titre: titre || null }
 }
@@ -42,6 +47,7 @@ export function nomDeFichier(titre, extension) {
     .replace(/[\\/:*?"<>|\p{Cc}]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 120)
-  return `${base || 'document'}.${extension}`
+  // 120 signes au plus, comptés en points de code : un emoji n'est jamais coupé en deux.
+  const court = [...base].slice(0, 120).join('').trim()
+  return `${court || 'document'}.${extension}`
 }

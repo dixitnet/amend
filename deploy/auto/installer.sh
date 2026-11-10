@@ -30,6 +30,9 @@ install -m 644 "$ICI/amend-maj.timer" /etc/systemd/system/amend-maj.timer
 V2PROD="$ICI/../../v2/exploitation/prod"
 install -m 644 "$V2PROD/amend-v2-sauvegarde.service" /etc/systemd/system/amend-v2-sauvegarde.service
 install -m 644 "$V2PROD/amend-v2-sauvegarde.timer" /etc/systemd/system/amend-v2-sauvegarde.timer
+# Le service du serveur de la v2 (dépendance à PostgreSQL, 10/11/2026) : pris en
+# compte à son prochain redémarrage, que fait chaque déploiement de la v2.
+install -m 644 "$V2PROD/amend-v2.service" /etc/systemd/system/amend-v2.service
 systemctl daemon-reload
 systemctl enable --now amend-maj.timer amend-v2-sauvegarde.timer
 

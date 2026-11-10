@@ -31,9 +31,15 @@ export function suivreAuteurs(editeur, contexte, afficheurInitial, suggerer, del
   let minuterie = null
   let arrete = false
   const fragment = contexte.suggestions.fragment
-  async function rafraichir() {
+  async function rafraichir(essai = 0) {
     const attributions = await contexte.suggestions.auteurs()
-    if (arrete || !attributions) return
+    if (arrete) return
+    // y/hub n'a pas répondu : un nouvel essai, plus tard, sans attendre le
+    // prochain changement (audit du 10/11/2026).
+    if (!attributions) {
+      if (essai === 0) minuterie = setTimeout(() => rafraichir(1).catch(() => {}), delai * 4)
+      return
+    }
     const nouveau = creerAfficheur(contexte, attributions, suggerer)
     editeur.exec(configureYProsemirror({ ytype: fragment, renderer: nouveau }))
     if (afficheur !== afficheurInitial) afficheur.destroy()

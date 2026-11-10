@@ -50,3 +50,11 @@ test('se retirer : toujours, sauf le dernier propriétaire', () => {
   assert.equal(refusRetrait('proprietaire', 2), null)
   assert.equal(refusRetrait('proprietaire', 1), 'dernier-proprietaire')
 })
+
+test('nom de dossier ou d’équipe : les règles d’un nom de personne (audit du 10/11/2026)', () => {
+  assert.equal(nomDossier('a\u202Eb').code, 'nom-caracteres', 'inversion du sens d’écriture')
+  assert.equal(nomDossier('a\u200Bb').code, 'nom-caracteres', 'espace sans chasse')
+  assert.equal(nomDossier('Les\n  essais').nom, 'Les essais')
+  assert.equal(nomDossier('é'.repeat(80)).ok, true, '80 signes comptés en points de code')
+  assert.equal(nomDossier('😀'.repeat(81)).code, 'nom-trop-long')
+})

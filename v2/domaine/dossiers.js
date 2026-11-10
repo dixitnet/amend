@@ -4,15 +4,15 @@
 // d'équipe (6d). On ne partage que des documents : un dossier de Mes
 // documents est un rangement personnel. Des codes, jamais des phrases.
 
-const LONGUEUR_MAX_NOM = 80
+import { nomPersonne } from './personne.js'
 
-/** Le nom d'un dossier : NFC, sans espaces autour, non vide, 80 signes au plus (comme un nom de personne). */
+/** Le nom d'un dossier ou d'une équipe : les mêmes règles qu'un nom de personne
+ * (NFC, espaces resserrés, aucun caractère invisible ni de sens d'écriture,
+ * 80 signes au plus) ; un nom d'équipe est vu des autres membres et repris dans
+ * l'objet d'un courriel (audit du 10/11/2026). */
 export function nomDossier(brut) {
   if (typeof brut !== 'string') return { ok: false, code: 'nom-vide' }
-  const nom = brut.normalize('NFC').trim()
-  if (!nom) return { ok: false, code: 'nom-vide' }
-  if (nom.length > LONGUEUR_MAX_NOM) return { ok: false, code: 'nom-trop-long' }
-  return { ok: true, nom }
+  return nomPersonne(brut)
 }
 
 /**

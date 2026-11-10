@@ -297,3 +297,31 @@ t3('ancre : sans accès de notre serveur à y/hub, 503 ; un jeton faux ne lit ri
     sansCollab.close()
   }
 })
+
+t3('supprimer un fil : son auteur oui, un autre correcteur non ; une autre méthode : 405', async () => {
+  const fil = (await appel('Carla', 'POST', '', { corps: corps('À supprimer.') })).corps
+  assert.equal((await appel('Cyril', 'DELETE', `/${fil.id}`)).statut, 403)
+  assert.equal((await appel('Carla', 'PUT', `/${fil.id}`, {})).statut, 405)
+  assert.equal((await appel('Carla', 'DELETE', `/${fil.id}`)).statut, 200)
+  const liste = (await appel('Paule', 'GET', '')).corps
+  assert.ok(!liste.some((f) => f.id === fil.id), 'le fil a disparu')
+})
+
+t3(
+  'le fil reste à qui l’a ouvert, même si son premier commentaire est supprimé (comme Docs ; Q4, 10/11/2026)',
+  async () => {
+    const fil = (await appel('Carla', 'POST', '', { corps: corps('Première remarque.') })).corps
+    assert.equal(fil.auteur, cookies.Carla.id, 'l’auteur du fil est rendu')
+    await appel('Cyril', 'POST', `/${fil.id}/commentaires`, { corps: corps('Une réponse.') })
+    assert.equal((await appel('Carla', 'DELETE', `/${fil.id}/commentaires/${fil.comments[0].id}`)).statut, 200)
+    const apres = (await appel('Paule', 'GET', '')).corps.find((f) => f.id === fil.id)
+    assert.equal(apres.comments[0].userId, cookies.Cyril.id, 'la réponse est maintenant le premier commentaire')
+    assert.equal(apres.auteur, cookies.Carla.id, 'le fil est toujours à Carla')
+    assert.equal(
+      (await appel('Cyril', 'POST', `/${fil.id}/resoudre`)).statut,
+      403,
+      'l’auteur de la réponse ne gagne rien',
+    )
+    assert.equal((await appel('Carla', 'POST', `/${fil.id}/resoudre`)).statut, 200)
+  },
+)

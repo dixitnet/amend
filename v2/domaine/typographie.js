@@ -20,7 +20,10 @@
 export const ESPACE_INSECABLE = '\u00A0'
 export const ESPACE_FINE = '\u202F'
 
-const PROTEGE = /(?:https?:\/\/|www\.)[^\s<>«»]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+/giu
+// Une adresse s'arrête avant la ponctuation de phrase qui la suit (« voir
+// www.site.fr... ») : celle-ci reste typographiée (audit du 10/11/2026). Les
+// guillemets et parenthèses finales restent à l'adresse (« ?y="z" »).
+const PROTEGE = /(?:https?:\/\/|www\.)[^\s<>«»]*[^\s<>«».,;:!?…]|[\w.+-]+@[\w-]+(?:\.[\w-]+)+/giu
 // Ce qui suit un signe double pour qu'il soit de la ponctuation, et non un
 // « != », un « ?param », un « :) ». Après ! et ?, une parenthèse fermante est normale.
 const SUITE = '(?=[\\s\\u00A0\\u202F»”"’…!?.,;:\\]]|$)'
@@ -100,7 +103,10 @@ export function typographier(texte, { langue = 'fr', avant = '' } = {}) {
 
 /** Au plus combien de caractères avant le curseur une frappe peut changer. */
 const PORTEE_SAISIE = 3
-const ZONE_PROTEGEE = new RegExp(`^(?:${PROTEGE.source})$`, 'iu')
+// En cours de frappe, l'adresse peut continuer après une ponctuation (« ?b=1 ») :
+// le mot entier, ponctuation finale comprise, est protégé.
+const PROTEGE_EN_FRAPPE = /(?:https?:\/\/|www\.)[^\s<>«»]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+/iu
+const ZONE_PROTEGEE = new RegExp(`^(?:${PROTEGE_EN_FRAPPE.source})$`, 'iu')
 
 /**
  * Ce que la frappe d'un caractère doit changer.
