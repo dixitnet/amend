@@ -166,3 +166,11 @@ test('aucun texte en dur dans un rendu', async () => {
   await refuse('design/X.jsx', 'export const X = () => <button aria-label="Fermer" />', /texte en dur/)
   await accepte('design/X.jsx', 'export const X = ({ texte }) => <p>{texte}</p>')
 })
+
+test('le SDK d’Anthropic ne s’importe que dans l’adaptateur IA (étape 8)', async () => {
+  const imp = "import Anthropic from '@anthropic-ai/sdk'\nexport const x = Anthropic"
+  await accepte('adaptateurs/ia/x.js', imp)
+  await refuse('application/serveur/x.js', imp, /fondation importée/)
+  await refuse('adaptateurs/yhub/x.js', imp, /fondation importée/)
+  await refuse('adaptateurs/ia/x.js', "import { x } from '../yhub/index.js'\nexport const y = x", /couches/)
+})
