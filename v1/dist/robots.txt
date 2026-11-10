@@ -1,0 +1,7 @@
+# amend.ink — les robots d'indexation sont les bienvenus sur la page
+# d'accueil et les pages légales. Le reste (interface, API, connecteurs)
+# n'a rien à indexer : les documents ne sont lisibles que sur invitation.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /mcp/
