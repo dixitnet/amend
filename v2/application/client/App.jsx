@@ -1097,9 +1097,9 @@ function Edition({ config, personne, docId, droits }) {
   const [noms, setNoms] = useState({})
   const [historique, setHistorique] = useState(false)
   const [partage, setPartage] = useState(false)
-  // Le volet « Documents » : chargé à l'ouverture en L et M ; en S, à
-  // l'ouverture du volet gauche.
-  const voletDocs = useVoletDocuments(docId, { actif: !formatS || volet === 'gauche' })
+  // Le volet « Documents », chargé à l'ouverture dans tous les formats : l'étoile
+  // du bandeau en dépend (audit du 10/11/2026).
+  const voletDocs = useVoletDocuments(docId)
   // Le dernier document ouvert, pour la prochaine ouverture (Sylvain, 10/11/2026).
   useEffect(() => noterDernier(docId), [docId])
   const enregistrerTitre = async (nom) => {

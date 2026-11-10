@@ -225,3 +225,17 @@ test('équipe (volet) : la créer, y faire entrer un document, inviter une corre
   await ctx.close()
   await g.context().close()
 })
+
+test('favoris : l’étoile du bandeau met le document dans le groupe « Favoris » du volet, et l’en retire', async () => {
+  const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
+  const docId = await nouveauDocument(p)
+  await p.getByRole('button', { name: 'Ajouter aux favoris' }).click()
+  await p.getByRole('button', { name: 'Retirer des favoris' }).waitFor()
+  const volet = await voletDocuments(p)
+  const favoris = volet.locator('li', { has: p.getByRole('button', { name: 'Favoris', exact: true }) }).last()
+  await favoris.locator(`a[href="#${docId}"]`).waitFor()
+  await p.getByRole('button', { name: 'Retirer des favoris' }).click()
+  await p.getByRole('button', { name: 'Ajouter aux favoris' }).waitFor()
+  await volet.getByRole('button', { name: 'Favoris', exact: true }).waitFor({ state: 'detached' })
+  await p.context().close()
+})
