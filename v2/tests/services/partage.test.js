@@ -361,3 +361,23 @@ test('mon nom : changé, et la session le suit', async () => {
   assert.equal((await appel('GET', '/api/moi', { cookie })).json.nom, 'Nouveau')
   assert.equal((await appel('PUT', '/api/moi', { cookie, corps: { nom: '' } })).statut, 400)
 })
+
+test('favoris (comme Docs) : chacun les siens ; ni sans accès, ni par une autre méthode', async () => {
+  const p = await personne('Paule')
+  const x = await personne('Xavier')
+  const doc = (await appel('POST', '/api/documents', { cookie: p.cookie, corps: {} })).json.id
+  const favori = async (qui) =>
+    (await appel('GET', '/api/documents', { cookie: qui.cookie })).json.documents.find((d) => d.id === doc)?.favori
+  assert.equal(await favori(p), false)
+  assert.equal((await appel('PUT', `/api/documents/${doc}/favori`, { cookie: p.cookie })).statut, 200)
+  assert.equal(await favori(p), true)
+  assert.equal(
+    (await appel('PUT', `/api/documents/${doc}/favori`, { cookie: p.cookie })).statut,
+    200,
+    'deux fois : sans erreur',
+  )
+  assert.equal((await appel('PUT', `/api/documents/${doc}/favori`, { cookie: x.cookie })).statut, 404, 'sans accès')
+  assert.equal((await appel('POST', `/api/documents/${doc}/favori`, { cookie: p.cookie })).statut, 405)
+  assert.equal((await appel('DELETE', `/api/documents/${doc}/favori`, { cookie: p.cookie })).statut, 200)
+  assert.equal(await favori(p), false)
+})

@@ -6,6 +6,7 @@
 // décidés dans design/feuilles/telephone.css (ADR 0008) ; textes traduits.
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
+import { Etoile } from './Coquille.jsx'
 
 /** Les pictos, par rôle : la table commune (design/pictos.jsx ; audit du 10/11/2026). */
 const Icone = ({ nom }) => <PictoDe role={nom} />
@@ -36,6 +37,7 @@ function Volet({ volet, position, ouvert, surFermer }) {
 /**
  * @param {{
  *   titre: string, surTitre?: () => void,
+ *   favori?: { actif: boolean, libelle: string, surBasculer: () => void },
  *   libelles: { gauche: string, droite: string, actions: string, terminer: string, titre: string },
  *   etat: string, connexion?: string, mention?: string | null,
  *   enModification: boolean, surTerminer: () => void,
@@ -50,6 +52,7 @@ function Volet({ volet, position, ouvert, surFermer }) {
 export function PageEditionS({
   titre,
   surTitre,
+  favori,
   libelles,
   etat,
   connexion,
@@ -71,6 +74,7 @@ export function PageEditionS({
         <ActionIcon aria-label={libelles.gauche} onClick={() => surVolet('gauche')}>
           <PictoDe role="plan" />
         </ActionIcon>
+        {favori ? <Etoile favori={favori} /> : null}
         <div className="amend-bandeau-titre">
           {surTitre ? (
             <UnstyledButton onClick={surTitre} aria-label={libelles.titre}>
@@ -131,9 +135,4 @@ export function PlanDocument({ titres, vide, surChoix }) {
       onClick={() => surChoix(t.id)}
     />
   ))
-}
-
-/** Une liste de liens (les documents, dans le volet gauche). */
-export function ListeLiens({ liens }) {
-  return liens.map((l) => <NavLink key={l.cle} component="a" href={l.href} label={l.libelle} active={l.actif} />)
 }

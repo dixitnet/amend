@@ -7,30 +7,27 @@ import {
   EcranMessage,
   EcranConnexion,
   EcranCourriel,
-  ListeDocuments,
   PageAdministration,
   PanneauPartage,
   PanneauSuggestions,
-  BoutonBascule,
   Bouton,
-  Choix,
   couleurAuteur,
   Coquille,
   ColonneTexte,
   Bandeau,
   VoletPlanDocuments,
-  NavigationListe,
   VoletRelecture,
   TexteDeVolet,
   AlerteHorsLigne,
   Fenetre,
   FenetreSaisie,
   FenetreConfirmation,
+  FenetreChoix,
+  VoletDocuments,
   montrerMessage,
   useFormat,
   PageEditionS,
   PlanDocument,
-  ListeLiens,
   useFormatS,
 } from '../../design/index.js'
 import {
@@ -138,15 +135,12 @@ export function App() {
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
   if (visee.admin) return <Administration />
-  if (visee.liste) return <MesDocuments personne={etat.personne} onglet={visee.liste} dossier={visee.dossier ?? null} />
+  if (visee.liste) return <Accueil personne={etat.personne} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
   const doc = identifiantDocument(visee.document)
   if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
   return <Document key={doc.id} config={etat.config} personne={etat.personne} docId={doc.id} />
 }
-
-/** La marque en tête du volet gauche : vers Mes documents. */
-const marque = () => ({ nom: t('application.nom'), href: '#' })
 
 /** Le compte, dans le bandeau : l'administration (administrateurs de
  * l'instance) et un seul « Se déconnecter » (Sylvain, 09/11/2026). */
@@ -282,10 +276,6 @@ const nomDuRoleEquipe = (role) => libelleDuRoleEquipe(t, role)
 const RACINE = 'racine'
 const SORTIR = 'sortir'
 const VERS_EQUIPE = 'equipe:'
-/** L'adresse d'un espace (Mes documents, ou une équipe) et d'un de ses dossiers. */
-const adresseEspace = (equipe, dossier = null) =>
-  (equipe ? `#/equipes/${encodeURIComponent(equipe)}` : '#') +
-  (dossier ? `/dossiers/${encodeURIComponent(dossier)}` : '')
 
 /** Le chemin d'un dossier, de la racine à lui (`[]` pour la racine). */
 function cheminDe(dossiers, id) {
@@ -295,362 +285,34 @@ function cheminDe(dossiers, id) {
   return chemin
 }
 
-/** Les documents, comme sur un serveur de fichiers : Mes documents (avec mes
- * dossiers, étape 6c), Partagé avec moi, et un onglet par équipe (6d). */
-function MesDocuments({ personne, onglet, dossier }) {
-  const [fenetreConfirmation, confirmer] = useConfirmation()
+/** À l'ouverture, et aux anciennes adresses de la page « Mes documents »
+ * (supprimée le 10/11/2026, Sylvain) : le dernier document ouvert dans ce
+ * navigateur, sinon le plus récent ; sans document, la coquille et le volet
+ * « Documents ». */
+function Accueil({ personne }) {
+  const voletDocs = useVoletDocuments(null)
   const { etroit } = useFormat()
   const volets = useVolets(etroit)
-  const [fenetreSaisie, demanderNom] = useSaisie()
-  const equipe = onglet.startsWith(VERS_EQUIPE) ? onglet.slice(VERS_EQUIPE.length) : null
-  const [donnees, setDonnees] = useState(null)
-  const [vueEquipe, setVueEquipe] = useState(null)
-  const [erreur, setErreur] = useState(null)
-  const [message, setMessage] = useState(null)
-  const messageEnAttente = useRef(null)
-  const [membres, setMembres] = useState(false)
-  const recharger = async () => {
-    try {
-      const d = await envoyerJson('GET', '/api/documents')
-      // Une équipe qu'on ne peut plus ouvrir (supprimée, accès retiré) : retour à
-      // Mes documents, navigation comprise, avec le message (audit du 10/11/2026).
-      const e = equipe
-        ? await envoyerJson('GET', `/api/equipes/${encodeURIComponent(equipe)}`).catch((err) => {
-            messageEnAttente.current = messageErreur(t, err.code || 'reseau')
-            location.hash = '#'
-            return null
-          })
-        : null
-      if (equipe && !e) return
-      setDonnees(d)
-      setVueEquipe(e)
-      setErreur(null)
-    } catch (e) {
-      setErreur(e.code || 'reseau')
-    }
-  }
-  // Rechargée à chaque changement d'onglet ou de dossier : un document
-  // partagé entre-temps apparaît (essai sur v2.amend.ink, 09/11/2026).
+  const { donnees, tous } = voletDocs
+  const ids = tous.map((d) => d.id)
+  const dernier = lireDernier()
+  const cible = ids.includes(dernier) ? dernier : [...tous].sort((a, b) => b.creeLe - a.creeLe)[0]?.id
   useEffect(() => {
-    setMessage(messageEnAttente.current)
-    messageEnAttente.current = null
-    recharger()
-  }, [onglet, dossier])
-  if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
-  if (!donnees || (equipe && vueEquipe?.equipe.id !== equipe))
-    return <EcranMessage texte={t('application.chargement')} />
-  const date = new Intl.DateTimeFormat(t.langue, { dateStyle: 'medium' })
-  const agir = (f) => async () => {
-    try {
-      await f()
-      setMessage(null)
-    } catch (e) {
-      setMessage(messageErreur(t, e.code || 'reseau'))
-    }
-    recharger()
-  }
-  const titreDe = (d) => d.titre || t('documents.sansTitre')
-  const nouvelleEquipe = () =>
-    demanderNom({
-      titre: t('documents.nouvelleEquipe'),
-      libelle: t('documents.nomEquipe'),
-      valider: (nom) =>
-        agir(async () => {
-          location.hash = adresseEspace((await envoyerJson('POST', '/api/equipes', { nom })).id)
-        })(),
-    })
-  // Où « Nouveau document » (volet gauche) crée : l'espace et le dossier où
-  // l'on est, s'il est modifiable ; sinon la racine de Mes documents.
-  let lieuNouveau = { dossier: null, equipe: null }
-  /** La coquille de la liste : bandeau, navigation (espaces), et la liste. */
-  const coquille = (titre, liste) => (
+    if (donnees && cible) location.replace(`#${encodeURIComponent(cible)}`)
+  }, [donnees, cible])
+  if (!donnees || cible) return <EcranMessage texte={t('application.chargement')} />
+  return (
     <Coquille
       gaucheOuvert={volets.gauche}
       libelleRedimension={t('interface.largeurVolet')}
-      bandeau={<Bandeau voletGauche={boutonGauche(volets)} titre={titre} compte={compteDe(personne)} />}
-      voletGauche={
-        <NavigationListe
-          marque={marque()}
-          nouveau={{
-            libelle: t('documents.nouveau'),
-            surClic: agir(async () => {
-              location.hash = (await envoyerJson('POST', '/api/documents', lieuNouveau)).id
-            }),
-          }}
-          entrees={[
-            { cle: 'mes', libelle: t('documents.mesDocuments'), picto: 'moi', href: '#', actif: onglet === 'mes' },
-            {
-              cle: 'partages',
-              libelle: t('documents.partagesAvecMoi'),
-              picto: 'partages',
-              href: '#/partages',
-              actif: onglet === 'partages',
-            },
-            ...donnees.equipes.map((e) => ({
-              cle: e.id,
-              libelle: e.nom,
-              picto: 'equipe',
-              href: adresseEspace(e.id),
-              actif: onglet === `${VERS_EQUIPE}${e.id}`,
-            })),
-          ]}
-        />
-      }
+      bandeau={<Bandeau voletGauche={boutonGauche(volets)} titre={t('application.nom')} compte={compteDe(personne)} />}
+      voletGauche={voletDocs.contenu}
     >
-      {liste}
-      {fenetreSaisie}
-      {fenetreConfirmation}
+      <TexteDeVolet texte={t('documents.aucun')} />
     </Coquille>
-  )
-  const commun = { libelleChemin: t('documents.chemin'), message }
-
-  if (onglet === 'partages')
-    return coquille(
-      t('documents.partagesAvecMoi'),
-      <ListeDocuments
-        {...commun}
-        colonnes={[t('documents.colonneNom'), t('documents.colonneRole'), t('documents.colonnePartage')]}
-        lignes={donnees.documents
-          .filter((d) => d.section === 'partage')
-          .map((d) => ({
-            cle: d.id,
-            nom: titreDe(d),
-            href: `#${encodeURIComponent(d.id)}`,
-            cellules: [
-              nomDuRole(d.role),
-              d.parLien
-                ? t('documents.parLien', { date: date.format(d.partageLe) })
-                : d.partagePar
-                  ? t('documents.partagePar', {
-                      nom: d.partagePar.nom || d.partagePar.courriel,
-                      date: date.format(d.partageLe),
-                    })
-                  : t('documents.partageLe', { date: date.format(d.partageLe) }),
-            ],
-            actions: (
-              <Bouton
-                libelle={t('documents.meRetirer')}
-                surClic={agir(async () => {
-                  if (
-                    await confirmer({
-                      titre: t('documents.meRetirer'),
-                      texte: t('documents.confirmerRetrait'),
-                      libelle: t('documents.meRetirer'),
-                      danger: true,
-                    })
-                  )
-                    await envoyerJson('DELETE', `/api/documents/${encodeURIComponent(d.id)}/moi`)
-                })}
-              />
-            ),
-          }))}
-        vide={t('documents.videPartages')}
-      />,
-    )
-
-  // Un espace : Mes documents, ou une équipe.
-  const capsEquipe = equipe ? capacites(vueEquipe.equipe.role) : null
-  const modifiable = equipe ? capsEquipe.includes('ecrire') : true
-  const gestionnaire = equipe ? capsEquipe.includes('transferer') : false
-  const nomEspace = equipe ? vueEquipe.equipe.nom : t('documents.mesDocuments')
-  const dossiers = equipe ? vueEquipe.dossiers : donnees.dossiers
-  const documents = equipe ? vueEquipe.documents : donnees.documents.filter((d) => d.section === 'mes-documents')
-  if (dossier && !dossiers.some((d) => d.id === dossier))
-    return <EcranMessage texte={messageErreur(t, 'dossier-introuvable')} />
-  const nomDuChemin = (id) => [nomEspace, ...cheminDe(dossiers, id).map((d) => d.nom)].join(' / ')
-  /** Les dossiers de l'espace où l'on peut mettre quelque chose, sauf `exclus`. */
-  const destinations = (exclus = () => false) =>
-    [{ value: RACINE, label: nomEspace }].concat(
-      dossiers
-        .filter((d) => !exclus(d))
-        .map((d) => ({ value: d.id, label: nomDuChemin(d.id) }))
-        .sort((a, b) => a.label.localeCompare(b.label, t.langue)),
-    )
-  /** Hors de l'espace : vers une de mes équipes (depuis Mes documents), ou
-   * vers Mes documents (depuis une équipe, pour son gestionnaire). */
-  const ailleurs = equipe
-    ? gestionnaire
-      ? [{ value: SORTIR, label: t('documents.mesDocuments') }]
-      : []
-    : donnees.equipes
-        .filter((e) => capacites(e.role).includes('ecrire'))
-        .map((e) => ({ value: `${VERS_EQUIPE}${e.id}`, label: t('documents.equipeDestination', { nom: e.nom }) }))
-  const deplacerDocument = (d) => async (v) => {
-    let cible = { equipe, dossier: v === RACINE ? null : v }
-    if (v === SORTIR) {
-      if (
-        !(await confirmer({
-          titre: t('documents.deplacer', { nom: titreDe(d) }),
-          texte: t('documents.confirmerSortie', { titre: titreDe(d) }),
-          libelle: t('interface.continuer'),
-        }))
-      )
-        return
-      cible = { equipe: null, dossier: null }
-    } else if (v.startsWith(VERS_EQUIPE)) {
-      const id = v.slice(VERS_EQUIPE.length)
-      const nom = donnees.equipes.find((e) => e.id === id)?.nom ?? ''
-      if (
-        !(await confirmer({
-          titre: t('documents.deplacer', { nom: titreDe(d) }),
-          texte: t('documents.confirmerEntree', { titre: titreDe(d), equipe: nom }),
-          libelle: t('interface.continuer'),
-        }))
-      )
-        return
-      cible = { equipe: id, dossier: null }
-    }
-    await agir(() => envoyerJson('PUT', `/api/documents/${encodeURIComponent(d.id)}/dossier`, cible))()
-  }
-  /** Les sous-dossiers d'un dossier (pour ne pas y déplacer celui-ci). */
-  const dansLeSousArbre = (racine) => (d) => d.id === racine || cheminDe(dossiers, d.id).some((p) => p.id === racine)
-  const lignesDossiers = dossiers
-    .filter((d) => d.parent === dossier)
-    .map((d) => ({
-      cle: d.id,
-      nom: d.nom,
-      href: adresseEspace(equipe, d.id),
-      cellules: [t('documents.dossier'), ''],
-      actions: modifiable ? (
-        <>
-          <Bouton
-            libelle={t('documents.renommer')}
-            surClic={() =>
-              demanderNom({
-                titre: t('documents.renommer'),
-                libelle: t('documents.nomDuDossier'),
-                valeur: d.nom,
-                valider: (nom) => agir(() => envoyerJson('PUT', `/api/dossiers/${d.id}`, { nom }))(),
-              })
-            }
-          />
-          <Choix
-            libelle={t('documents.deplacer', { nom: d.nom })}
-            options={destinations(dansLeSousArbre(d.id))}
-            surChoix={(v) =>
-              agir(() => envoyerJson('PUT', `/api/dossiers/${d.id}`, { parent: v === RACINE ? null : v }))()
-            }
-          />
-          <Bouton
-            libelle={t('documents.supprimer')}
-            surClic={agir(async () => {
-              if (
-                await confirmer({
-                  titre: t('documents.supprimer'),
-                  texte: t('documents.confirmerSuppressionDossier', { nom: d.nom }),
-                  libelle: t('documents.supprimer'),
-                  danger: true,
-                })
-              )
-                await envoyerJson('DELETE', `/api/dossiers/${d.id}`)
-            })}
-          />
-        </>
-      ) : null,
-    }))
-  const lignesDocuments = documents
-    .filter((d) => (d.dossier ?? null) === dossier)
-    .map((d) => {
-      const peutDeplacer = equipe ? modifiable : capacites(d.role).includes('ranger')
-      return {
-        cle: d.id,
-        nom: titreDe(d),
-        href: `#${encodeURIComponent(d.id)}`,
-        cellules: [equipe ? nomDuRoleEquipe(d.role) : nomDuRole(d.role), date.format(d.creeLe)],
-        actions: peutDeplacer ? (
-          <Choix
-            libelle={t('documents.deplacer', { nom: titreDe(d) })}
-            options={[...destinations(), ...ailleurs]}
-            surChoix={deplacerDocument(d)}
-          />
-        ) : null,
-      }
-    })
-  if (modifiable) lieuNouveau = { dossier, equipe }
-  const nouveauDossier = () =>
-    demanderNom({
-      titre: t('documents.nouveauDossier'),
-      libelle: t('documents.nomDuDossier'),
-      valider: (nom) => agir(() => envoyerJson('POST', '/api/dossiers', { nom, parent: dossier, equipe }))(),
-    })
-  const baseEquipe = equipe ? `/api/equipes/${encodeURIComponent(equipe)}` : null
-  const boutonsEquipe = equipe ? (
-    <>
-      {gestionnaire ? (
-        <>
-          <BoutonBascule libelle={t('documents.membres')} actif={membres} surBasculer={() => setMembres((m) => !m)} />
-          <Bouton
-            libelle={t('documents.renommerEquipe')}
-            surClic={() =>
-              demanderNom({
-                titre: t('documents.renommerEquipe'),
-                libelle: t('documents.nomEquipe'),
-                valeur: vueEquipe.equipe.nom,
-                valider: (nom) => agir(() => envoyerJson('PUT', baseEquipe, { nom }))(),
-              })
-            }
-          />
-          <Bouton
-            libelle={t('documents.supprimerEquipe')}
-            surClic={agir(async () => {
-              if (
-                !(await confirmer({
-                  titre: t('documents.supprimerEquipe'),
-                  texte: t('documents.confirmerSuppressionEquipe', { nom: vueEquipe.equipe.nom }),
-                  libelle: t('documents.supprimerEquipe'),
-                  danger: true,
-                }))
-              )
-                return
-              await envoyerJson('DELETE', baseEquipe)
-              location.hash = '#'
-            })}
-          />
-        </>
-      ) : null}
-      <Bouton
-        libelle={t('documents.quitterEquipe')}
-        surClic={agir(async () => {
-          if (
-            !(await confirmer({
-              titre: t('documents.quitterEquipe'),
-              texte: t('documents.confirmerDepart', { nom: vueEquipe.equipe.nom }),
-              libelle: t('documents.quitterEquipe'),
-              danger: true,
-            }))
-          )
-            return
-          await envoyerJson('DELETE', `${baseEquipe}/moi`)
-          location.hash = '#'
-        })}
-      />
-    </>
-  ) : null
-  return coquille(
-    nomEspace,
-    <ListeDocuments
-      {...commun}
-      chemin={[
-        { cle: 'racine', libelle: nomEspace, href: adresseEspace(equipe) },
-        ...cheminDe(dossiers, dossier).map((d) => ({ cle: d.id, libelle: d.nom, href: adresseEspace(equipe, d.id) })),
-      ]}
-      boutons={
-        <>
-          {modifiable ? <Bouton libelle={t('documents.nouveauDossier')} surClic={nouveauDossier} /> : null}
-          {equipe ? null : <Bouton libelle={t('documents.nouvelleEquipe')} surClic={nouvelleEquipe} />}
-          {boutonsEquipe}
-        </>
-      }
-      panneau={equipe && gestionnaire && membres ? <Membres vue={vueEquipe} surChangement={recharger} /> : null}
-      colonnes={[t('documents.colonneNom'), t('documents.colonneRole'), t('documents.colonneDate')]}
-      lignes={[...lignesDossiers, ...lignesDocuments]}
-      vide={dossier ? t('documents.videDossier') : equipe ? t('documents.videEquipe') : t('documents.vide')}
-    />,
   )
 }
 
-/** Les membres d'une équipe et ses invitations, pour son gestionnaire (6d) :
- * le panneau du partage, sans lien. */
 function Membres({ vue, surChangement }) {
   const [message, setMessage] = useState(null)
   const base = `/api/equipes/${encodeURIComponent(vue.equipe.id)}`
@@ -861,37 +523,514 @@ function Document({ config, personne, docId }) {
 }
 
 /** Le volet « Documents » : mes dossiers et documents, puis ceux partagés avec moi. */
-function arbreDocuments(donnees, docId) {
-  if (!donnees) return []
-  const { dossiers, documents } = donnees
+/** Le dernier document ouvert dans ce navigateur (une commodité, perdue sans
+ * conséquence : on retombe sur le plus récent). */
+const CLE_DERNIER = 'amend.dernierDocument'
+function lireDernier() {
+  try {
+    return localStorage.getItem(CLE_DERNIER)
+  } catch {
+    return null
+  }
+}
+function noterDernier(id) {
+  try {
+    localStorage.setItem(CLE_DERNIER, id)
+  } catch {
+    // stockage refusé (navigation privée) : sans conséquence
+  }
+}
+/** Pour la recherche : sans casse ni accents. */
+const sansAccents = (s) =>
+  String(s ?? '')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+
+/**
+ * Le volet « Documents », qui remplace la page « Mes documents » (Sylvain,
+ * 10/11/2026 ; écart avec Docs) : l'arbre (Favoris, Mes documents et ses
+ * dossiers, une entrée par équipe, Partagé avec moi), la recherche par titre,
+ * la création, et les actions de chaque entrée. Rend le contenu de l'onglet,
+ * ses fenêtres, et les favoris (pour l'étoile du bandeau).
+ */
+function useVoletDocuments(docId, { actif = true } = {}) {
+  const [donnees, setDonnees] = useState(null)
+  const [equipes, setEquipes] = useState({})
+  const [recherche, setRecherche] = useState('')
+  const [fenetreSaisie, demanderNom] = useSaisie()
+  const [fenetreConfirmation, confirmer] = useConfirmation()
+  const [choix, setChoix] = useState(null)
+  const [membresDe, setMembresDe] = useState(null)
+  const [partageDe, setPartageDe] = useState(null)
+  const recharger = async () => {
+    try {
+      const d = await envoyerJson('GET', '/api/documents')
+      const vues = await Promise.all(
+        d.equipes.map((e) => envoyerJson('GET', `/api/equipes/${encodeURIComponent(e.id)}`).catch(() => null)),
+      )
+      setDonnees(d)
+      setEquipes(Object.fromEntries(vues.filter(Boolean).map((v) => [v.equipe.id, v])))
+    } catch (e) {
+      montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+    }
+  }
+  useEffect(() => {
+    if (actif) recharger()
+  }, [docId, actif])
+  const agir = (f) => async () => {
+    try {
+      await f()
+    } catch (e) {
+      montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+    }
+    recharger()
+  }
+  const titreDe = (d) => d.titre || t('documents.sansTitre')
+  const tous = donnees
+    ? [
+        ...donnees.documents.map((d) => ({ ...d, equipe: null })),
+        ...Object.values(equipes).flatMap((v) =>
+          v.documents.map((d) => ({ ...d, section: 'equipe', equipe: v.equipe.id })),
+        ),
+      ]
+    : []
+  const estFavori = (id) => tous.find((d) => d.id === id)?.favori ?? false
+  const basculerFavori = (id) =>
+    agir(() => envoyerJson(estFavori(id) ? 'DELETE' : 'PUT', `/api/documents/${encodeURIComponent(id)}/favori`))()
+
+  // Un espace : Mes documents (`null`) ou une équipe.
+  const dossiersDe = (equipe) => (equipe ? (equipes[equipe]?.dossiers ?? []) : (donnees?.dossiers ?? []))
+  const modifiable = (equipe) => (equipe ? capacites(equipes[equipe]?.equipe.role).includes('ecrire') : true)
+  const gestionnaire = (equipe) => capacites(equipes[equipe]?.equipe.role).includes('transferer')
+  const nomEspace = (equipe) => (equipe ? (equipes[equipe]?.equipe.nom ?? '') : t('documents.mesDocuments'))
+  const nomDuChemin = (equipe, id) =>
+    [nomEspace(equipe), ...cheminDe(dossiersDe(equipe), id).map((d) => d.nom)].join(' / ')
+  const destinations = (equipe, exclus = () => false) =>
+    [{ value: RACINE, label: nomEspace(equipe) }].concat(
+      dossiersDe(equipe)
+        .filter((d) => !exclus(d))
+        .map((d) => ({ value: d.id, label: nomDuChemin(equipe, d.id) }))
+        .sort((a, b) => a.label.localeCompare(b.label, t.langue)),
+    )
+  const choisir = (titre, options, valider) => setChoix({ titre, options, valider, cle: `${titre}-${Date.now()}` })
+
+  const creerDocument = (lieu) =>
+    agir(async () => {
+      location.hash = (await envoyerJson('POST', '/api/documents', lieu)).id
+    })()
+  const creerDossier = (equipe, parent = null) =>
+    demanderNom({
+      titre: t('documents.nouveauDossier'),
+      libelle: t('documents.nomDuDossier'),
+      valider: (nom) => agir(() => envoyerJson('POST', '/api/dossiers', { nom, parent, equipe }))(),
+    })
+  const creerEquipe = () =>
+    demanderNom({
+      titre: t('documents.nouvelleEquipe'),
+      libelle: t('documents.nomEquipe'),
+      valider: (nom) => agir(() => envoyerJson('POST', '/api/equipes', { nom }))(),
+    })
+  // « Nouveau document » : à côté du document ouvert, si l'on peut y écrire ;
+  // sinon à la racine de Mes documents.
+  const courant = tous.find((d) => d.id === docId)
+  const lieuCourant =
+    courant && courant.section !== 'partage' && modifiable(courant.equipe)
+      ? { equipe: courant.equipe, dossier: courant.dossier ?? null }
+      : { equipe: null, dossier: null }
+
+  const deplacerDocument = (d) => {
+    const equipe = d.equipe
+    const ailleurs = equipe
+      ? gestionnaire(equipe)
+        ? [{ value: SORTIR, label: t('documents.mesDocuments') }]
+        : []
+      : (donnees?.equipes ?? [])
+          .filter((e) => capacites(e.role).includes('ecrire'))
+          .map((e) => ({ value: `${VERS_EQUIPE}${e.id}`, label: t('documents.equipeDestination', { nom: e.nom }) }))
+    choisir(t('documents.deplacer', { nom: titreDe(d) }), [...destinations(equipe), ...ailleurs], async (v) => {
+      let cible = { equipe, dossier: v === RACINE ? null : v }
+      if (v === SORTIR) {
+        const ok = await confirmer({
+          titre: t('documents.deplacer', { nom: titreDe(d) }),
+          texte: t('documents.confirmerSortie', { titre: titreDe(d) }),
+          libelle: t('interface.continuer'),
+        })
+        if (!ok) return
+        cible = { equipe: null, dossier: null }
+      } else if (v.startsWith(VERS_EQUIPE)) {
+        const id = v.slice(VERS_EQUIPE.length)
+        const nom = donnees.equipes.find((e) => e.id === id)?.nom ?? ''
+        const ok = await confirmer({
+          titre: t('documents.deplacer', { nom: titreDe(d) }),
+          texte: t('documents.confirmerEntree', { titre: titreDe(d), equipe: nom }),
+          libelle: t('interface.continuer'),
+        })
+        if (!ok) return
+        cible = { equipe: id, dossier: null }
+      }
+      await agir(() => envoyerJson('PUT', `/api/documents/${encodeURIComponent(d.id)}/dossier`, cible))()
+    })
+  }
+
+  /** Les actions d'un document, selon mes capacités sur lui. */
+  const actionsDocument = (d) => {
+    const caps = capacites(d.role)
+    const id = encodeURIComponent(d.id)
+    const peutDeplacer = d.section === 'partage' ? false : d.equipe ? modifiable(d.equipe) : caps.includes('ranger')
+    return [
+      {
+        cle: 'favori',
+        libelle: d.favori ? t('documents.retirerFavori') : t('documents.ajouterFavori'),
+        picto: d.favori ? 'favoriActif' : 'favori',
+        surClic: () => basculerFavori(d.id),
+      },
+      ...(caps.includes('ecrire')
+        ? [
+            {
+              cle: 'renommer',
+              libelle: t('documents.renommer'),
+              picto: 'renommer',
+              surClic: () =>
+                demanderNom({
+                  titre: t('documents.renommer'),
+                  libelle: t('document.nomDuDocument'),
+                  valeur: d.titre ?? '',
+                  valider: (titre) => agir(() => envoyerJson('PUT', `/api/documents/${id}/titre`, { titre }))(),
+                }),
+            },
+          ]
+        : []),
+      ...(peutDeplacer
+        ? [
+            {
+              cle: 'deplacer',
+              libelle: t('documents.deplacerVers'),
+              picto: 'dossier',
+              surClic: () => deplacerDocument(d),
+            },
+          ]
+        : []),
+      ...(caps.includes('inviter')
+        ? [{ cle: 'partager', libelle: t('document.partager'), picto: 'partager', surClic: () => setPartageDe(d.id) }]
+        : []),
+      ...(d.section === 'partage'
+        ? [
+            {
+              cle: 'retrait',
+              libelle: t('documents.meRetirer'),
+              picto: 'deconnexion',
+              danger: true,
+              surClic: agir(async () => {
+                const ok = await confirmer({
+                  titre: t('documents.meRetirer'),
+                  texte: t('documents.confirmerRetrait'),
+                  libelle: t('documents.meRetirer'),
+                  danger: true,
+                })
+                if (!ok) return
+                await envoyerJson('DELETE', `/api/documents/${id}/moi`)
+                if (d.id === docId) location.hash = '#'
+              }),
+            },
+          ]
+        : []),
+      ...(caps.includes('supprimer')
+        ? [
+            {
+              cle: 'supprimer',
+              libelle: t('documents.supprimer'),
+              picto: 'supprimer',
+              danger: true,
+              surClic: agir(async () => {
+                const ok = await confirmer({
+                  titre: t('document.supprimer'),
+                  texte: t('document.confirmerSuppression'),
+                  libelle: t('document.supprimer'),
+                  danger: true,
+                })
+                if (!ok) return
+                await envoyerJson('DELETE', `/api/documents/${id}`)
+                if (d.id === docId) location.hash = '#'
+              }),
+            },
+          ]
+        : []),
+    ]
+  }
   const entreeDoc = (d) => ({
-    cle: d.id,
-    nom: d.titre || t('documents.sansTitre'),
+    cle: `${d.section}-${d.id}`,
+    nom: titreDe(d),
+    picto: 'document',
     href: `#${encodeURIComponent(d.id)}`,
     actif: d.id === docId,
+    actions: actionsDocument(d),
   })
-  // Les dossiers qui mènent au document ouvert sont ouverts.
-  const courant = documents.find((d) => d.id === docId && d.section === 'mes-documents')
-  const ouverts = new Set()
-  for (
-    let id = courant?.dossier ?? null;
-    id && !ouverts.has(id);
-    id = dossiers.find((x) => x.id === id)?.parent ?? null
+
+  /** Les actions d'un dossier d'un espace. */
+  const actionsDossier = (equipe, x) => {
+    if (!modifiable(equipe)) return []
+    const dossiers = dossiersDe(equipe)
+    const dansLeSousArbre = (d) => d.id === x.id || cheminDe(dossiers, d.id).some((p) => p.id === x.id)
+    return [
+      {
+        cle: 'nouveau',
+        libelle: t('documents.nouveau'),
+        picto: 'nouveau',
+        surClic: () => creerDocument({ equipe, dossier: x.id }),
+      },
+      {
+        cle: 'dossier',
+        libelle: t('documents.nouveauDossier'),
+        picto: 'dossier',
+        surClic: () => creerDossier(equipe, x.id),
+      },
+      {
+        cle: 'renommer',
+        libelle: t('documents.renommer'),
+        picto: 'renommer',
+        surClic: () =>
+          demanderNom({
+            titre: t('documents.renommer'),
+            libelle: t('documents.nomDuDossier'),
+            valeur: x.nom,
+            valider: (nom) => agir(() => envoyerJson('PUT', `/api/dossiers/${x.id}`, { nom }))(),
+          }),
+      },
+      {
+        cle: 'deplacer',
+        libelle: t('documents.deplacerVers'),
+        picto: 'dossier',
+        surClic: () =>
+          choisir(t('documents.deplacer', { nom: x.nom }), destinations(equipe, dansLeSousArbre), (v) =>
+            agir(() => envoyerJson('PUT', `/api/dossiers/${x.id}`, { parent: v === RACINE ? null : v }))(),
+          ),
+      },
+      {
+        cle: 'supprimer',
+        libelle: t('documents.supprimer'),
+        picto: 'supprimer',
+        danger: true,
+        surClic: agir(async () => {
+          const ok = await confirmer({
+            titre: t('documents.supprimer'),
+            texte: t('documents.confirmerSuppressionDossier', { nom: x.nom }),
+            libelle: t('documents.supprimer'),
+            danger: true,
+          })
+          if (ok) await envoyerJson('DELETE', `/api/dossiers/${x.id}`)
+        }),
+      },
+    ]
+  }
+  /** L'arbre d'un espace ; les dossiers qui mènent au document ouvert sont ouverts. */
+  const arbreEspace = (equipe, documents) => {
+    const dossiers = dossiersDe(equipe)
+    const ouverts = new Set()
+    const ici = documents.find((d) => d.id === docId)
+    for (let id = ici?.dossier ?? null; id && !ouverts.has(id); id = dossiers.find((x) => x.id === id)?.parent ?? null)
+      ouverts.add(id)
+    const dans = (parent) => [
+      ...dossiers
+        .filter((d) => (d.parent ?? null) === parent)
+        .map((d) => ({
+          cle: d.id,
+          nom: d.nom,
+          picto: 'dossier',
+          ouvert: ouverts.has(d.id),
+          enfants: dans(d.id),
+          actions: actionsDossier(equipe, d),
+        })),
+      ...documents.filter((d) => (d.dossier ?? null) === parent).map(entreeDoc),
+    ]
+    return { enfants: dans(null), ouvert: Boolean(ici) }
+  }
+  /** Les actions d'une équipe. */
+  const actionsEquipe = (v) => {
+    const id = v.equipe.id
+    const base = `/api/equipes/${encodeURIComponent(id)}`
+    return [
+      ...(modifiable(id)
+        ? [
+            {
+              cle: 'nouveau',
+              libelle: t('documents.nouveau'),
+              picto: 'nouveau',
+              surClic: () => creerDocument({ equipe: id, dossier: null }),
+            },
+            {
+              cle: 'dossier',
+              libelle: t('documents.nouveauDossier'),
+              picto: 'dossier',
+              surClic: () => creerDossier(id),
+            },
+          ]
+        : []),
+      ...(gestionnaire(id)
+        ? [
+            { cle: 'membres', libelle: t('documents.membres'), picto: 'equipe', surClic: () => setMembresDe(id) },
+            {
+              cle: 'renommer',
+              libelle: t('documents.renommerEquipe'),
+              picto: 'renommer',
+              surClic: () =>
+                demanderNom({
+                  titre: t('documents.renommerEquipe'),
+                  libelle: t('documents.nomEquipe'),
+                  valeur: v.equipe.nom,
+                  valider: (nom) => agir(() => envoyerJson('PUT', base, { nom }))(),
+                }),
+            },
+            {
+              cle: 'supprimer',
+              libelle: t('documents.supprimerEquipe'),
+              picto: 'supprimer',
+              danger: true,
+              surClic: agir(async () => {
+                const ok = await confirmer({
+                  titre: t('documents.supprimerEquipe'),
+                  texte: t('documents.confirmerSuppressionEquipe', { nom: v.equipe.nom }),
+                  libelle: t('documents.supprimerEquipe'),
+                  danger: true,
+                })
+                if (ok) await envoyerJson('DELETE', base)
+              }),
+            },
+          ]
+        : []),
+      {
+        cle: 'quitter',
+        libelle: t('documents.quitterEquipe'),
+        picto: 'deconnexion',
+        danger: true,
+        surClic: agir(async () => {
+          const ok = await confirmer({
+            titre: t('documents.quitterEquipe'),
+            texte: t('documents.confirmerDepart', { nom: v.equipe.nom }),
+            libelle: t('documents.quitterEquipe'),
+            danger: true,
+          })
+          if (ok) await envoyerJson('DELETE', `${base}/moi`)
+        }),
+      },
+    ]
+  }
+
+  let entrees = []
+  if (donnees && recherche.trim()) {
+    const q = sansAccents(recherche.trim())
+    entrees = tous.filter((d) => sansAccents(titreDe(d)).includes(q)).map(entreeDoc)
+  } else if (donnees) {
+    const favoris = tous.filter((d) => d.favori)
+    const mes = arbreEspace(
+      null,
+      donnees.documents.filter((d) => d.section === 'mes-documents'),
+    )
+    const partages = donnees.documents.filter((d) => d.section === 'partage')
+    entrees = [
+      ...(favoris.length
+        ? [
+            {
+              cle: 'favoris',
+              nom: t('documents.favoris'),
+              picto: 'favoriActif',
+              ouvert: true,
+              enfants: favoris.map((d) => ({ ...entreeDoc(d), cle: `favori-${d.id}` })),
+            },
+          ]
+        : []),
+      { cle: 'mes', nom: t('documents.mesDocuments'), picto: 'moi', ouvert: true, enfants: mes.enfants },
+      ...Object.values(equipes)
+        .sort((a, b) => a.equipe.nom.localeCompare(b.equipe.nom, t.langue))
+        .map((v) => {
+          const a = arbreEspace(
+            v.equipe.id,
+            tous.filter((d) => d.equipe === v.equipe.id),
+          )
+          return {
+            cle: `equipe-${v.equipe.id}`,
+            nom: v.equipe.nom,
+            picto: 'equipe',
+            ouvert: a.ouvert,
+            enfants: a.enfants,
+            actions: actionsEquipe(v),
+          }
+        }),
+      ...(partages.length
+        ? [
+            {
+              cle: 'partages',
+              nom: t('documents.partagesAvecMoi'),
+              picto: 'partages',
+              ouvert: partages.some((d) => d.id === docId),
+              enfants: partages.map(entreeDoc),
+            },
+          ]
+        : []),
+    ]
+  }
+
+  const contenu = (
+    <>
+      <VoletDocuments
+        recherche={{ libelle: t('documents.rechercher'), valeur: recherche, surChange: setRecherche }}
+        boutons={[
+          {
+            cle: 'nouveau',
+            libelle: t('documents.nouveau'),
+            picto: 'nouveau',
+            surClic: () => creerDocument(lieuCourant),
+          },
+          {
+            cle: 'dossier',
+            libelle: t('documents.nouveauDossier'),
+            picto: 'dossier',
+            surClic: () => creerDossier(null),
+          },
+          { cle: 'equipe', libelle: t('documents.nouvelleEquipe'), picto: 'equipe', surClic: creerEquipe },
+        ]}
+        entrees={entrees}
+        vide={
+          donnees ? (recherche.trim() ? t('documents.rienTrouve') : t('documents.aucun')) : t('application.chargement')
+        }
+        libelleActions={(nom) => t('documents.actionsDe', { nom })}
+      />
+      {fenetreSaisie}
+      {fenetreConfirmation}
+      <FenetreChoix
+        key={choix?.cle ?? 'fermee'}
+        ouverte={!!choix}
+        titre={choix?.titre}
+        libelle={t('documents.destination')}
+        options={choix?.options ?? []}
+        libelleValider={t('interface.valider')}
+        libelleAnnuler={t('interface.annuler')}
+        surValider={(v) => {
+          const f = choix.valider
+          setChoix(null)
+          f(v)
+        }}
+        surFermer={() => setChoix(null)}
+      />
+      <Fenetre
+        ouverte={!!membresDe && !!equipes[membresDe]}
+        titre={t('documents.membres')}
+        surFermer={() => setMembresDe(null)}
+        libelleFermer={t('interface.fermer')}
+      >
+        {membresDe && equipes[membresDe] ? <Membres vue={equipes[membresDe]} surChangement={recharger} /> : null}
+      </Fenetre>
+      <Fenetre
+        ouverte={!!partageDe}
+        titre={t('partage.titre')}
+        surFermer={() => setPartageDe(null)}
+        libelleFermer={t('interface.fermer')}
+      >
+        {partageDe ? <Partage docId={partageDe} /> : null}
+      </Fenetre>
+    </>
   )
-    ouverts.add(id)
-  const dans = (parent) => [
-    ...dossiers
-      .filter((d) => (d.parent ?? null) === parent)
-      .map((d) => ({ cle: d.id, nom: d.nom, dossier: true, ouvert: ouverts.has(d.id), enfants: dans(d.id) })),
-    ...documents.filter((d) => d.section === 'mes-documents' && (d.dossier ?? null) === parent).map(entreeDoc),
-  ]
-  const partages = documents.filter((d) => d.section === 'partage').map(entreeDoc)
-  return [
-    ...dans(null),
-    ...(partages.length
-      ? [{ cle: 'partages', nom: t('documents.partagesAvecMoi'), dossier: true, ouvert: true, enfants: partages }]
-      : []),
-  ]
+  return { contenu, donnees, tous, estFavori, basculerFavori, recharger }
 }
 
 function Edition({ config, personne, docId, droits }) {
@@ -958,18 +1097,15 @@ function Edition({ config, personne, docId, droits }) {
   const [noms, setNoms] = useState({})
   const [historique, setHistorique] = useState(false)
   const [partage, setPartage] = useState(false)
-  // La liste des documents (volet « Documents ») : à l'ouverture en L et M ;
-  // en S, à l'ouverture du volet gauche.
-  const [documents, setDocuments] = useState(null)
-  useEffect(() => {
-    if (formatS && volet !== 'gauche') return
-    envoyerJson('GET', '/api/documents')
-      .then(setDocuments)
-      .catch(() => setDocuments(null))
-  }, [docId, formatS, volet])
+  // Le volet « Documents », chargé à l'ouverture dans tous les formats : l'étoile
+  // du bandeau en dépend (audit du 10/11/2026).
+  const voletDocs = useVoletDocuments(docId)
+  // Le dernier document ouvert, pour la prochaine ouverture (Sylvain, 10/11/2026).
+  useEffect(() => noterDernier(docId), [docId])
   const enregistrerTitre = async (nom) => {
     try {
       setTitre((await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/titre`, { titre: nom })).titre)
+      voletDocs.recharger()
     } catch (e) {
       montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
     }
@@ -1034,6 +1170,18 @@ function Edition({ config, personne, docId, droits }) {
     return t('suggestions.remplacement', v)
   }
   const titreAffiche = titre || t('documents.sansTitre')
+  // Le titre du document est le nom de l'onglet du navigateur (Sylvain, 10/11/2026).
+  useEffect(() => {
+    document.title = `${titreAffiche} – ${t('application.nom')}`
+    return () => {
+      document.title = t('application.nom')
+    }
+  }, [titreAffiche])
+  const favori = {
+    actif: voletDocs.estFavori(docId),
+    libelle: voletDocs.estFavori(docId) ? t('documents.retirerFavori') : t('documents.ajouterFavori'),
+    surBasculer: () => voletDocs.basculerFavori(docId),
+  }
   const peutRenommer = caps.includes('ecrire')
   // Exports Markdown et PDF du texte de base (étape 7), préparés dans le
   // navigateur comme chez Docs.
@@ -1071,9 +1219,7 @@ function Edition({ config, personne, docId, droits }) {
     ...(caps.includes('inviter')
       ? [{ cle: 'partager', libelle: t('document.partager'), picto: 'partager', surClic: () => setPartage(true) }]
       : []),
-    ...(peutRenommer
-      ? [{ cle: 'renommer', libelle: t('document.renommer'), picto: 'renommer', surClic: renommer }]
-      : []),
+    // (« Renommer » : en L et M, d'un clic sur le titre du bandeau ; Sylvain, 10/11/2026.)
     {
       cle: 'historique',
       libelle: t('document.historique'),
@@ -1141,6 +1287,7 @@ function Edition({ config, personne, docId, droits }) {
       <PageEditionS
         titre={titreAffiche}
         surTitre={peutRenommer ? renommer : undefined}
+        favori={favori}
         libelles={{
           gauche: t('telephone.planEtDocuments'),
           droite: t('telephone.relecture'),
@@ -1197,24 +1344,7 @@ function Edition({ config, personne, docId, droits }) {
               cle: 'documents',
               libelle: t('telephone.documents'),
               icone: 'documents',
-              contenu: (
-                <ListeLiens
-                  liens={[
-                    { cle: 'tous', libelle: t('document.mesDocuments'), href: '#', actif: false },
-                    // Les documents partagés ne se mêlent pas aux siens (audit du
-                    // 10/11/2026) : un lien vers « Partagé avec moi », comme en L et M.
-                    { cle: 'partages', libelle: t('documents.partagesAvecMoi'), href: '#/partages', actif: false },
-                    ...(documents?.documents ?? [])
-                      .filter((d) => d.section === 'mes-documents')
-                      .map((d) => ({
-                        cle: d.id,
-                        libelle: d.titre || t('documents.sansTitre'),
-                        href: `#${encodeURIComponent(d.id)}`,
-                        actif: d.id === docId,
-                      })),
-                  ]}
-                />
-              ),
+              contenu: voletDocs.contenu,
             },
           ],
         }}
@@ -1261,6 +1391,12 @@ function Edition({ config, personne, docId, droits }) {
         <Bandeau
           voletGauche={boutonGauche(volets)}
           titre={titreAffiche}
+          favori={favori}
+          renommer={
+            peutRenommer
+              ? { libelle: t('document.renommer'), valeur: titre ?? '', surValider: enregistrerTitre }
+              : undefined
+          }
           mention={mention}
           // L : dans le bandeau, comme la v1 ; M (iPad) : dans le menu « … »,
           // comme au téléphone, le bandeau étant trop étroit (10/11/2026).
@@ -1301,7 +1437,7 @@ function Edition({ config, personne, docId, droits }) {
           }))}
           surTitre={(cle) => plan.allerA(cle)}
           videPlan={t('telephone.planVide')}
-          documents={arbreDocuments(documents, docId)}
+          documents={voletDocs.contenu}
         />
       }
       voletDroit={

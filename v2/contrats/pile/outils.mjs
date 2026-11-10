@@ -94,3 +94,33 @@ export async function confirmer(page) {
   await fenetre.getByRole('button').last().click()
   await fenetre.waitFor({ state: 'detached' })
 }
+
+/** L'onglet « Documents » du volet gauche (formats L et M) : son contenu. */
+export async function voletDocuments(page) {
+  await page.getByRole('tab', { name: 'Documents' }).click()
+  const panneau = page.getByRole('tabpanel', { name: 'Documents' })
+  await panneau.getByRole('searchbox').waitFor()
+  return panneau
+}
+
+/** « Nouveau document » du volet : rend l'identifiant du document créé. */
+export async function nouveauDocument(page) {
+  const avant = page.url()
+  await (await voletDocuments(page)).getByRole('button', { name: 'Nouveau document' }).click()
+  await page.waitForFunction((a) => location.href !== a, avant)
+  await page.waitForSelector('.bn-editor')
+  return decodeURIComponent(new URL(page.url()).hash.slice(1))
+}
+
+/** Ouvre le menu « … » de l'entrée qui mène au document `id`, ou de l'entrée nommée `nom` (dossier, équipe). */
+export async function menuDe(page, { id, nom }) {
+  const panneau = await voletDocuments(page)
+  const ligne = id
+    ? panneau.locator(`div:has(> div > a[href="#${id}"])`).first()
+    : panneau.locator('div:has(> div > button)', { has: page.getByRole('button', { name: nom, exact: true }) }).last()
+  await ligne
+    .locator('> div')
+    .first()
+    .getByRole('button', { name: /^Actions sur/ })
+    .click()
+}

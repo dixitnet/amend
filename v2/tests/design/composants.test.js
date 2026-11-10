@@ -136,7 +136,7 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
   }
 })
 
-test('la marque (picto décoratif et nom) en tête du volet de la liste et sur l’écran de connexion ; plus dans un document', () => {
+test('la marque (picto décoratif et nom) sur l’écran de connexion ; plus en tête des volets d’un document', () => {
   const t = creerTraducteur('fr')
   assert.doesNotMatch(rendre(coquilleDocument(t)), /amend\.ink<\/a>/, 'ni marque en tête du volet d’un document')
   const connexion = rendre(
@@ -235,40 +235,76 @@ test('coquille d’un document : bandeau, volets, alerte et texte, dans chaque l
   }
 })
 
-test('coquille de la liste : sans volet droit ; navigation et nouveau document', () => {
+test('volet « Documents » : recherche, création, arbre imbriqué, menu « … » nommé par entrée', () => {
   const t = creerTraducteur('fr')
+  const action = (cle, libelle) => ({ cle, libelle, picto: 'renommer', surClic: rien })
   const html = rendre(
-    h(
-      design.Coquille,
-      {
-        gaucheOuvert: true,
-        libelleRedimension: t('interface.largeurVolet'),
-        bandeau: h(design.Bandeau, {
-          voletGauche: { libelle: t('telephone.planEtDocuments'), ouvert: true, surClic: rien },
-          titre: t('documents.mesDocuments'),
-          compte: { libelle: t('interface.compte'), nom: 'Sylvain', actions: [] },
-        }),
-        voletGauche: h(design.NavigationListe, {
-          marque: { nom: 'amend.ink', href: '#' },
-          nouveau: { libelle: t('documents.nouveau'), surClic: rien },
-          entrees: [
-            { cle: 'moi', libelle: t('documents.mesDocuments'), picto: 'moi', href: '#', actif: true },
-            { cle: 'p', libelle: t('documents.partagesAvecMoi'), picto: 'partages', href: '#/partages' },
+    h(design.VoletDocuments, {
+      recherche: { libelle: t('documents.rechercher'), valeur: '', surChange: rien },
+      boutons: [{ cle: 'n', libelle: t('documents.nouveau'), picto: 'nouveau', surClic: rien }],
+      entrees: [
+        {
+          cle: 'mes',
+          nom: t('documents.mesDocuments'),
+          picto: 'moi',
+          ouvert: true,
+          enfants: [
+            {
+              cle: 'd1',
+              nom: 'La gare',
+              picto: 'document',
+              href: '#d1',
+              actif: true,
+              actions: [action('r', 'Renommer')],
+            },
           ],
-        }),
-      },
-      h(design.ListeDocuments, { colonnes: [], lignes: [], vide: t('documents.vide') }),
-    ),
+        },
+        { cle: 'p', nom: t('documents.partagesAvecMoi'), picto: 'partages', enfants: [] },
+      ],
+      vide: t('documents.aucun'),
+      libelleActions: (nom) => t('documents.actionsDe', { nom }),
+    }),
   )
-  assert.doesNotMatch(html, /<aside/)
+  assert.match(html, /type="search"/)
+  assert.ok(html.includes(echapper(t('documents.nouveau'))))
+  assert.match(html, /aria-expanded="true"[\s\S]*href="#d1"/, 'le document dans son dossier ouvert')
+  assert.ok(
+    html.includes(echapper(t('documents.actionsDe', { nom: 'La gare' }))),
+    'le menu « … » porte le nom de l’entrée',
+  )
+  assert.match(html, /aria-expanded="false"[\s\S]*Partagé avec moi/, 'un espace fermé')
+  const vide = rendre(
+    h(design.VoletDocuments, {
+      recherche: { libelle: 'r', valeur: '', surChange: rien },
+      boutons: [],
+      entrees: [],
+      vide: t('documents.aucun'),
+      libelleActions: () => '',
+    }),
+  )
+  assert.ok(vide.includes(echapper(t('documents.aucun'))))
+})
+
+test('bandeau d’un document : l’étoile des favoris et le titre qui se renomme d’un clic', () => {
+  const voletGauche = { libelle: 'Plan', surClic: rien }
+  const html = rendre(
+    h(design.Bandeau, {
+      voletGauche,
+      titre: 'La gare',
+      favori: { actif: true, libelle: 'Retirer des favoris', surBasculer: rien },
+      renommer: { libelle: 'Renommer', valeur: 'La gare', surValider: rien },
+    }),
+  )
   assert.match(
     html,
-    /<a[^>]*href="#"[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/a>/,
-    'la marque en tête du volet de la liste',
+    /aria-label="Retirer des favoris"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*aria-label="Retirer des favoris"/,
   )
-  for (const cle of ['documents.nouveau', 'documents.partagesAvecMoi', 'documents.vide'])
-    assert.ok(html.includes(echapper(t(cle))), cle)
-  assert.doesNotMatch(html, /mantine-SegmentedControl/, 'sans onglets dans la page : ils sont dans le volet')
+  assert.match(html, /<h1[^>]*><button[^>]*title="Renommer"[^>]*>La gare<\/button><\/h1>/)
+  assert.doesNotMatch(
+    rendre(h(design.Bandeau, { voletGauche, titre: 'x' })),
+    /aria-pressed/,
+    'sans étoile hors document',
+  )
 })
 
 test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rien', () => {

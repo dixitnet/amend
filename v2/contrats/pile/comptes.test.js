@@ -7,7 +7,16 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, ouvrir as ouvrirSur, attendre, attendreEtat, confirmer } from './outils.mjs'
+import {
+  lancerNavigateur,
+  ouvrir as ouvrirSur,
+  attendre,
+  attendreEtat,
+  confirmer,
+  voletDocuments,
+  nouveauDocument,
+  menuDe,
+} from './outils.mjs'
 
 let pile, nav
 before(async () => {
@@ -33,10 +42,7 @@ async function lienPour(adresse) {
 
 test('créer un document, inviter une adresse nouvelle : elle entre d’un clic, choisit son nom, arrive en correctrice', async () => {
   const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
-  await p.goto(`${pile.url}/#`)
-  await p.getByRole('button', { name: 'Nouveau document' }).click()
-  await p.waitForSelector('.bn-editor')
-  const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
+  const docId = await nouveauDocument(p)
   assert.match(docId, /^[0-9a-f-]{36}$/, 'identifiant aléatoire')
   await p.getByRole('button', { name: 'Partager' }).click()
   const adresse = `carla-${randomUUID().slice(0, 8)}@exemple.fr`
@@ -64,10 +70,7 @@ test('créer un document, inviter une adresse nouvelle : elle entre d’un clic,
 
 test('lien de partage : une personne connectée qui a l’adresse entre comme lectrice ; lien fermé, plus rien', async () => {
   const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
-  await p.goto(`${pile.url}/#`)
-  await p.getByRole('button', { name: 'Nouveau document' }).click()
-  await p.waitForSelector('.bn-editor')
-  const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
+  const docId = await nouveauDocument(p)
   await p.getByRole('button', { name: 'Partager' }).click()
   await p.getByLabel('Accès par le lien', { exact: true }).first().click()
   await p.getByRole('option', { name: 'lecteur' }).click()
@@ -89,12 +92,9 @@ test('lien de partage : une personne connectée qui a l’adresse entre comme le
   await p.context().close()
 })
 
-test('suppression : le propriétaire supprime ; le document disparaît de la liste', async () => {
+test('suppression : le propriétaire supprime ; le document disparaît du volet', async () => {
   const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
-  await p.goto(`${pile.url}/#`)
-  await p.getByRole('button', { name: 'Nouveau document' }).click()
-  await p.waitForSelector('.bn-editor')
-  const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
+  const docId = await nouveauDocument(p)
   // « Annuler » : rien ne se passe (10/11/2026).
   await p.getByRole('button', { name: 'Autres actions' }).click()
   await p.getByRole('menuitem', { name: 'Supprimer' }).click()
@@ -104,60 +104,56 @@ test('suppression : le propriétaire supprime ; le document disparaît de la lis
   await p.getByRole('button', { name: 'Autres actions' }).click()
   await p.getByRole('menuitem', { name: 'Supprimer' }).click()
   await confirmer(p)
-  await p.getByRole('heading', { name: 'Mes documents' }).waitFor()
-  assert.equal(await p.locator(`a[href="#${docId}"]`).count(), 0)
+  // Plus de page « Mes documents » : l'accueil ouvre un autre document.
+  await p.waitForFunction((d) => location.hash && decodeURIComponent(location.hash.slice(1)) !== d, docId)
+  await p.waitForSelector('.bn-editor')
+  const volet = await voletDocuments(p)
+  await volet.getByRole('button', { name: 'Mes documents' }).waitFor()
+  assert.equal(await volet.locator(`a[href="#${docId}"]`).count(), 0)
   await p.context().close()
 })
 
-test('dossiers : créer, y créer un document, le déplacer à la racine, supprimer le dossier vide', async () => {
+test('dossiers (volet) : créer, y créer un document, le déplacer à la racine, supprimer le dossier vide', async () => {
   const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
-  await p.goto(`${pile.url}/#`)
   const nom = `Livres ${randomUUID().slice(0, 4)}`
-  await p.getByRole('button', { name: 'Nouveau dossier' }).click()
+  await (await voletDocuments(p)).getByRole('button', { name: 'Nouveau dossier' }).click()
   await p.getByRole('textbox', { name: 'Nom du dossier' }).fill(nom)
   await p.getByRole('button', { name: 'Valider' }).click()
-  await p.getByRole('link', { name: nom }).click()
-  await p.getByText('Ce dossier est vide.').waitFor()
-  assert.match(new URL(p.url()).hash, /^#\/dossiers\//)
-  const adresseDossier = p.url()
-  await p.getByRole('button', { name: 'Nouveau document' }).click()
+  await (await voletDocuments(p)).getByRole('button', { name: nom, exact: true }).waitFor()
+  // Un document dans le dossier, par son menu.
+  await menuDe(p, { nom })
+  const avant = p.url()
+  await p.getByRole('menuitem', { name: 'Nouveau document' }).click()
+  await p.waitForFunction((a) => location.href !== a, avant)
   await p.waitForSelector('.bn-editor')
   const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
-  await p.goto(adresseDossier)
-  await p.locator(`a[href="#${docId}"]`).waitFor()
-  // À la racine, il n'y est pas ; on l'y déplace.
-  await p.getByRole('navigation', { name: 'Emplacement' }).getByRole('link', { name: 'Mes documents' }).click()
-  await p
-    .getByRole('row')
-    .filter({ has: p.getByRole('link', { name: nom }) })
-    .waitFor()
-  assert.equal(await p.locator(`a[href="#${docId}"]`).count(), 0)
-  await p.goto(adresseDossier)
-  await p.getByLabel('Déplacer Sans titre').first().click()
+  const dossier = (await voletDocuments(p))
+    .locator('div:has(> div > button)', { has: p.getByRole('button', { name: nom, exact: true }) })
+    .last()
+  await dossier.locator(`a[href="#${docId}"]`).waitFor()
+  // Déplacé à la racine de Mes documents.
+  await menuDe(p, { id: docId })
+  await p.getByRole('menuitem', { name: 'Déplacer…' }).click()
+  await p.getByRole('dialog').getByLabel('Destination').click()
   await p.getByRole('option', { name: 'Mes documents', exact: true }).click()
-  await p.getByText('Ce dossier est vide.').waitFor()
-  await p.goto(`${pile.url}/#`)
-  await p.locator(`a[href="#${docId}"]`).waitFor()
-  const ligne = p.getByRole('row').filter({ has: p.getByRole('link', { name: nom }) })
-  await ligne.getByRole('button', { name: 'Supprimer' }).click()
-  await confirmer(p)
+  await p.getByRole('dialog').getByRole('button', { name: 'Valider' }).click()
   for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(100))
-    if (!(await p.getByRole('link', { name: nom }).count())) break
-  assert.equal(await p.getByRole('link', { name: nom }).count(), 0)
+    if (!(await dossier.locator(`a[href="#${docId}"]`).count())) break
+  assert.equal(await dossier.locator(`a[href="#${docId}"]`).count(), 0, 'plus dans le dossier')
+  await (await voletDocuments(p)).locator(`a[href="#${docId}"]`).first().waitFor()
+  // Le dossier vide se supprime.
+  await menuDe(p, { nom })
+  await p.getByRole('menuitem', { name: 'Supprimer' }).click()
+  await confirmer(p)
+  await (await voletDocuments(p)).getByRole('button', { name: nom, exact: true }).waitFor({ state: 'detached' })
   await p.context().close()
 })
 
-test('partagé avec moi : le document, qui l’a partagé ; je m’en retire', async () => {
+test('partagé avec moi (volet) : le document apparaît ; je m’en retire', async () => {
   const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
-  await p.goto(`${pile.url}/#`)
-  await p.getByRole('button', { name: 'Nouveau document' }).click()
-  await p.waitForSelector('.bn-editor')
-  const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
+  const docId = await nouveauDocument(p)
   const b = await ouvrirSur(nav, pile.url, 'Bruno', `t5-attente-${Date.now().toString(36)}`)
   const bruno = await b.evaluate(() => fetch('/api/moi').then((r) => r.json()))
-  // Bruno est déjà sur la liste quand le partage arrive : changer d'onglet suffit.
-  await b.goto(`${pile.url}/#`)
-  await b.getByRole('heading', { name: 'Mes documents' }).waitFor()
   const r = await p.evaluate(
     ([document, personne]) =>
       fetch('/api/dev/acces', {
@@ -168,43 +164,43 @@ test('partagé avec moi : le document, qui l’a partagé ; je m’en retire', a
     [docId, bruno.id],
   )
   assert.equal(r, 200)
-  await b.getByText('Partagé avec moi', { exact: true }).first().click()
-  const ligne = b.getByRole('row').filter({ has: b.locator(`a[href="#${docId}"]`) })
-  await ligne.waitFor()
-  assert.match(await ligne.innerText(), /lecteur/)
-  await ligne.getByRole('button', { name: 'Me retirer' }).click()
+  await b.reload()
+  await b.waitForSelector('.bn-editor')
+  const volet = await voletDocuments(b)
+  await volet.getByRole('button', { name: 'Partagé avec moi' }).click()
+  await volet.locator(`a[href="#${docId}"]`).waitFor()
+  await menuDe(b, { id: docId })
+  await b.getByRole('menuitem', { name: 'Me retirer' }).click()
   await confirmer(b)
-  for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(100))
-    if (!(await b.locator(`a[href="#${docId}"]`).count())) break
-  assert.equal(await b.locator(`a[href="#${docId}"]`).count(), 0)
+  await volet.locator(`a[href="#${docId}"]`).waitFor({ state: 'detached' })
   await b.context().close()
   await p.context().close()
 })
 
-test('équipe : la créer, inviter un membre par courriel, il la trouve dans son onglet ; y faire entrer un document', async () => {
+test('équipe (volet) : la créer, y faire entrer un document, inviter une correctrice, qui arrive sur ce document', async () => {
   const g = await ouvrirSur(nav, pile.url, 'Gaëlle', `t5-attente-${Date.now().toString(36)}`)
-  await g.goto(`${pile.url}/#`)
   const nom = `Éditions ${randomUUID().slice(0, 4)}`
-  await g.getByRole('button', { name: 'Nouvelle équipe' }).click()
+  await (await voletDocuments(g)).getByRole('button', { name: 'Nouvelle équipe' }).click()
   await g.getByRole('textbox', { name: 'Nom de l’équipe' }).fill(nom)
   await g.getByRole('button', { name: 'Valider' }).click()
-  await g.getByRole('heading', { name: nom }).waitFor()
-  assert.match(new URL(g.url()).hash, /^#\/equipes\//)
-  const adresseEquipe = g.url()
+  await (await voletDocuments(g)).getByRole('button', { name: nom, exact: true }).waitFor()
   // Un document de Mes documents entre dans l'équipe.
-  await g.goto(`${pile.url}/#`)
-  await g.getByRole('button', { name: 'Nouveau document' }).click()
-  await g.waitForSelector('.bn-editor')
-  const docId = decodeURIComponent(new URL(g.url()).hash.slice(1))
-  await g.goto(`${pile.url}/#`)
-  await g.getByLabel('Déplacer Sans titre').first().click()
-  await g.getByRole('option', { name: `Équipe «\u00A0${nom}\u00A0»` }).click()
+  const docId = await nouveauDocument(g)
+  await menuDe(g, { id: docId })
+  await g.getByRole('menuitem', { name: 'Déplacer…' }).click()
+  await g.getByRole('dialog').getByLabel('Destination').click()
+  await g.getByRole('option', { name: new RegExp(`Équipe\\s+«\\s*${nom}\\s*»`) }).click()
+  await g.getByRole('dialog').getByRole('button', { name: 'Valider' }).click()
   await confirmer(g)
-  await g.locator(`a[href="#${docId}"]`).waitFor({ state: 'detached' })
-  await g.goto(adresseEquipe)
-  await g.locator(`a[href="#${docId}"]`).waitFor()
-  // Inviter une adresse nouvelle comme correctrice.
-  await g.getByRole('button', { name: 'Membres' }).click()
+  const boutonEquipe = (await voletDocuments(g)).getByRole('button', { name: nom, exact: true })
+  if ((await boutonEquipe.getAttribute('aria-expanded')) !== 'true') await boutonEquipe.click()
+  const equipe = (await voletDocuments(g))
+    .locator('div:has(> div > button)', { has: g.getByRole('button', { name: nom, exact: true }) })
+    .last()
+  await equipe.locator(`a[href="#${docId}"]`).waitFor()
+  // Inviter une adresse nouvelle comme correctrice, depuis la fenêtre des membres.
+  await menuDe(g, { nom })
+  await g.getByRole('menuitem', { name: 'Membres' }).click()
   const adresse = `carla-${randomUUID().slice(0, 8)}@exemple.fr`
   await g.getByLabel('Adresse de courriel').fill(adresse)
   await g.getByLabel('Rôle', { exact: true }).first().click()
@@ -217,12 +213,32 @@ test('équipe : la créer, inviter un membre par courriel, il la trouve dans son
   await c.goto(`${pile.url}${await lienPour(adresse)}`)
   await c.getByLabel('Votre nom').fill('Carla')
   await c.getByRole('button', { name: 'Continuer' }).click()
-  await c.getByText(nom, { exact: true }).first().click()
-  await c.getByRole('heading', { name: nom }).waitFor()
-  const ligne = c.getByRole('row').filter({ has: c.locator(`a[href="#${docId}"]`) })
-  assert.match(await ligne.innerText(), /correcteur/)
-  // « Nouveau document » (volet gauche) crée alors dans Mes documents.
-  assert.equal(await c.getByRole('button', { name: 'Nouveau dossier' }).count(), 0, 'une correctrice ne crée rien ici')
+  // Son seul document : celui de l'équipe, qui s'ouvre, en correctrice.
+  await c.waitForFunction((d) => decodeURIComponent(location.hash.slice(1)) === d, docId)
+  await c.getByText('Mode suggestion').waitFor()
+  await menuDe(c, { nom })
+  assert.equal(
+    await c.getByRole('menuitem', { name: 'Nouveau dossier' }).count(),
+    0,
+    'une correctrice ne crée rien ici',
+  )
   await ctx.close()
   await g.context().close()
+})
+
+test('favoris : l’étoile du bandeau met le document dans le groupe « Favoris » du volet, et l’en retire', async () => {
+  const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
+  const docId = await nouveauDocument(p)
+  await p.getByRole('button', { name: 'Ajouter aux favoris' }).click()
+  await p.getByRole('button', { name: 'Retirer des favoris' }).waitFor()
+  const volet = await voletDocuments(p)
+  const favoris = volet
+    .locator('div:has(> div > button)', { has: p.getByRole('button', { name: 'Favoris', exact: true }) })
+    .last()
+  await favoris.locator(`a[href="#${docId}"]`).waitFor()
+  await p.getByRole('button', { name: 'Retirer des favoris' }).click()
+  await p.getByRole('button', { name: 'Ajouter aux favoris' }).waitFor()
+  // (D'autres favoris de Paule peuvent rester : la base de développement est commune aux essais.)
+  await favoris.locator(`a[href="#${docId}"]`).waitFor({ state: 'detached' })
+  await p.context().close()
 })
