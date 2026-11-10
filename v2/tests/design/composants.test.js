@@ -114,6 +114,17 @@ test('un texte piégé s’affiche comme du texte, jamais comme du code', () => 
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
+test('bandeau : l’interrupteur du suivi des modifications, seulement s’il est demandé, dans son état', () => {
+  const voletGauche = { libelle: 'Plan', surClic: () => {} }
+  assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /role="switch"/)
+  const suivi = (actif) => ({ libelle: 'Suivi des modifications', actif, surChange: () => {} })
+  const arrete = rendre(h(design.Bandeau, { voletGauche, titre: 'x', suivi: suivi(false) }))
+  assert.match(arrete, /role="switch"/)
+  assert.match(arrete, /Suivi des modifications/)
+  assert.doesNotMatch(arrete, /checked=""/)
+  assert.match(rendre(h(design.Bandeau, { voletGauche, titre: 'x', suivi: suivi(true) })), /checked=""/)
+})
+
 test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni noire', () => {
   for (const id of ['alice', 'bruno', 'dev-xyz', '', '👩🏽\u200D💻']) {
     const c = design.couleurAuteur(id)

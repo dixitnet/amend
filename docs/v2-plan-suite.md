@@ -43,7 +43,7 @@ Ces trois lots sont petits, et ils comptent dès le premier texte réel déposé
 6. **Noms accessibles par ligne** des boutons Accepter, Refuser, Retirer ; une seule table de pictos.
 7. **Typographie du catalogue français** : espaces insécables avant « : » et dans les guillemets, fines avant ; ! ?, avec un test qui les exige.
 
-## D. Clore l'étape 6
+## D. Clore l'étape 6 (fait le 10/11/2026 : `docs/v2-revues/2026-11-10-etape-6-cloture.md` ; langue du document : renoncement n° 14)
 
 8. **Langue du document** : propriété enregistrée avec le document, choisie par ses éditeurs (règle 28), qui règle la typographie à la frappe, les exports et, plus tard, Margo. Par défaut le français. Proposé : un choix dans la fenêtre « Renommer » ou un menu du bandeau, à montrer d'abord ; regarder d'abord dans le code de Docs s'il enregistre une langue par document, et comment, avant de proposer l'interface.
 9. **Catalogue anglais préparé et pseudo-langue** passés sur tous les parcours de la pile (critère de sortie de l'étape 6).

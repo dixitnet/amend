@@ -813,7 +813,18 @@ function arbreDocuments(donnees, docId) {
 function Edition({ config, personne, docId, droits }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
-  const mode = caps.includes('ecrire') ? 'ecrire' : caps.includes('suggerer') ? 'suggerer' : 'lire'
+  // Le suivi des modifications : un interrupteur pour qui écrit, arrêté à
+  // l'ouverture ; le correcteur est toujours en suivi (Sylvain, 10/11/2026,
+  // comme l'interrupteur de la v1).
+  const [suivi, setSuivi] = useState(false)
+  const mode = caps.includes('ecrire')
+    ? suivi
+      ? 'suggerer'
+      : 'ecrire'
+    : caps.includes('suggerer')
+      ? 'suggerer'
+      : 'lire'
+  const avecSuggestions = caps.includes('suggerer')
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
     () =>
@@ -822,9 +833,10 @@ function Edition({ config, personne, docId, droits }) {
         api: `${location.origin}/collaboration`,
         docId,
         personne: moi,
-        suggestions: mode !== 'lire',
+        suggestions: avecSuggestions,
       }),
-    [config, docId, moi, mode],
+    // Basculer le suivi ne rouvre pas la connexion : seul l'éditeur change de mode.
+    [config, docId, moi, avecSuggestions],
   )
   const commentaires = useMemo(
     () =>
@@ -942,6 +954,16 @@ function Edition({ config, personne, docId, droits }) {
       .then(() => window.alert(t('telephone.lienCopie')))
       .catch(() => window.alert(t('telephone.lienNonCopie', { lien })))
   const actions = [
+    ...(caps.includes('ecrire') && etroit
+      ? [
+          {
+            cle: 'suivi',
+            libelle: suivi ? t('document.arreterSuivi') : t('document.activerSuivi'),
+            picto: 'modifications',
+            surClic: () => setSuivi((s) => !s),
+          },
+        ]
+      : []),
     {
       cle: 'lien',
       libelle: t('telephone.copierLien'),
@@ -1038,6 +1060,16 @@ function Edition({ config, personne, docId, droits }) {
             icone: 'lien',
             surClic: copierLien,
           },
+          ...(caps.includes('ecrire')
+            ? [
+                {
+                  cle: 'suivi',
+                  libelle: suivi ? t('document.arreterSuivi') : t('document.activerSuivi'),
+                  icone: 'modifications',
+                  surClic: () => setSuivi((s) => !s),
+                },
+              ]
+            : []),
           ...(caps.includes('inviter')
             ? [{ cle: 'partager', libelle: t('document.partager'), icone: 'partager', surClic: () => setPartage(true) }]
             : []),
@@ -1129,6 +1161,13 @@ function Edition({ config, personne, docId, droits }) {
           voletGauche={boutonGauche(volets)}
           titre={titreAffiche}
           mention={mention}
+          // L : dans le bandeau, comme la v1 ; M (iPad) : dans le menu « … »,
+          // comme au téléphone, le bandeau étant trop étroit (10/11/2026).
+          suivi={
+            caps.includes('ecrire') && !etroit
+              ? { libelle: t('document.suiviModifications'), actif: suivi, surChange: setSuivi }
+              : null
+          }
           terminer={
             enModification ? { libelle: t('telephone.terminer'), surClic: () => controle.current?.terminer() } : null
           }
