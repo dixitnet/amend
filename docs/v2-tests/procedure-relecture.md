@@ -4,8 +4,8 @@ Statut : **proposée** le 10/11/2026 (Sylvain : « une procédure de test compl�
 
 ## Comment
 
-- Chaque scénario est un script de la campagne (`v2/exploitation/campagne/`), joué sur la pile complète locale : plusieurs navigateurs, un par personne, comme les tests T5. Chaque étape vérifie le texte **chez chacun**, le panneau des suggestions, les ancres, et relève toute erreur de la page (écran blanc, erreur de console).
-- Chaque scénario est joué **cinq fois** (les défauts de synchronisation ne se montrent pas à chaque fois) et dans **Chromium, Firefox et WebKit** ; les formats M et S pour ceux qui touchent l'interface.
+- Chaque famille est un script de la campagne (`v2/exploitation/campagne/scenarios-<famille>.mjs` : `editeur` A, `suivi` B, `correcteurs` C, `commentaires` D, `roles` E, `robustesse` F, `historique` G ; outils communs dans `commun.mjs`), joué sur la pile complète locale : plusieurs navigateurs, un par personne, comme les tests T5. Chaque étape vérifie le texte **chez chacun**, le panneau des suggestions, les ancres, et relève toute erreur de la page (écran blanc, erreur de console).
+- Chaque scénario est joué **trois fois** (les défauts de synchronisation ne se montrent pas à chaque fois), dans **Chromium et WebKit** (en local et dans GitHub, flux `v2-campagne`) ; Firefox laissé de côté (Sylvain, 10/11/2026). Les formats M et S restent à faire.
 - Le bilan : un tableau par scénario (passé, échoué, fréquence), chaque défaut décrit avec sa reproduction minimale, son niveau (notre code ou une fondation) et sa gravité. Les corrections viennent après, sur décision.
 
 ## Scénarios
