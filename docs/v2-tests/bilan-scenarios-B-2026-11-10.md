@@ -2,33 +2,35 @@
 
 Procédure : `docs/v2-tests/procedure-relecture.md`. Script : `v2/exploitation/campagne/scenarios-suivi.mjs` (pile complète, quatre navigateurs : Paule propriétaire, Edith éditrice, Carla correctrice, Lucie lectrice ; Lucie ne voit que le texte principal, c'est par elle qu'on lit ce qui est vraiment dans le document). Chaque cas est joué trois fois, sur un document neuf.
 
-Séries : Chromium en local (3 fois) ; Chromium, WebKit et Firefox dans GitHub (flux `v2-campagne`, exécution 42865129106, commit cfc479d, 3 fois chacun). Aucune correction faite.
+Séries : Chromium en local (3 fois) ; Chromium et WebKit dans GitHub (flux `v2-campagne`, exécution 42865129106, commit cfc479d, 3 fois chacun). Aucune correction faite.
+
+Firefox est laissé de côté (Sylvain, 10/11/2026) : sa première série n'a pas pu coller le texte de départ (défaut du script, corrigé depuis), elle ne dit rien de l'application.
 
 ## Résultats
 
-| Cas | Chromium (local) | Chromium (CI) | WebKit (CI) | Firefox (CI) |
-|---|---|---|---|---|
-| B1 accepter une à une sa propre suggestion | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B1 refuser une à une sa propre suggestion | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B1 « Tout accepter » sa propre suggestion | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B10 une autre éditrice accepte une à une | 3/3 | 3/3 | 3/3 | FIREFOX |
-| **B2 bascules rapides, une lettre entre chaque** | **0/3** | **0/3** | **0/3** | FIREFOX |
-| **B2 bascules espacées d'une seconde** | **0/3** | **0/3** | **0/3** | FIREFOX |
-| B2 activer puis arrêter sans rien taper, puis taper | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B2 témoin (jamais de suivi) | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B2 suggestion, arrêt, frappe ailleurs | 3/3 (anomalie, voir D4) | 3/3 (id.) | 3/3 (id.) | FIREFOX |
-| **B2 suggestion, arrêt, frappe juste après** | **0/3** | **0/3** | **0/3** | FIREFOX |
-| B3 supprimer un mot, accepter une à une | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B3 remplacer un mot | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B3 suppression à cheval sur deux paragraphes | 3/3 (panneau faux, D6) | 3/3 (id.) | 3/3 (id.) | FIREFOX |
-| B4 insertions au début, au milieu, à la fin | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B4 couper (Entrée) puis fusionner | 3/3 (panneau faux, D6) | 3/3 (id.) | 3/3 (id.) | FIREFOX |
-| B5 Annuler en suivi, puis après l'arrêt | 3/3 | 3/3 | 3/3 | FIREFOX |
-| **B6 gras en suivi** | **0/3** | **0/3** | **0/3** | FIREFOX |
-| B7 basculer pendant que Carla écrit | 3/3 | 3/3 | 3/3 | FIREFOX |
-| **B7 basculer juste après la résolution d'un fil** | **0/3** | **0/3** | **2 plantages sur 3** | FIREFOX |
-| B8 deux éditeurs au même paragraphe (suivi / direct) | 3/3 | 3/3 | 3/3 | FIREFOX |
-| B9 recharger en suivi | 3/3 | 3/3 | 3/3 | FIREFOX |
+| Cas | Chromium (local) | Chromium (CI) | WebKit (CI) |
+|---|---|---|---|
+| B1 accepter une à une sa propre suggestion | 3/3 | 3/3 | 3/3 |
+| B1 refuser une à une sa propre suggestion | 3/3 | 3/3 | 3/3 |
+| B1 « Tout accepter » sa propre suggestion | 3/3 | 3/3 | 3/3 |
+| B10 une autre éditrice accepte une à une | 3/3 | 3/3 | 3/3 |
+| **B2 bascules rapides, une lettre entre chaque** | **0/3** | **0/3** | **0/3** |
+| **B2 bascules espacées d'une seconde** | **0/3** | **0/3** | **0/3** |
+| B2 activer puis arrêter sans rien taper, puis taper | 3/3 | 3/3 | 3/3 |
+| B2 témoin (jamais de suivi) | 3/3 | 3/3 | 3/3 |
+| B2 suggestion, arrêt, frappe ailleurs | 3/3 (anomalie, voir D4) | 3/3 (id.) | 3/3 (id.) |
+| **B2 suggestion, arrêt, frappe juste après** | **0/3** | **0/3** | **0/3** |
+| B3 supprimer un mot, accepter une à une | 3/3 | 3/3 | 3/3 |
+| B3 remplacer un mot | 3/3 | 3/3 | 3/3 |
+| B3 suppression à cheval sur deux paragraphes | 3/3 (panneau faux, D6) | 3/3 (id.) | 3/3 (id.) |
+| B4 insertions au début, au milieu, à la fin | 3/3 | 3/3 | 3/3 |
+| B4 couper (Entrée) puis fusionner | 3/3 (panneau faux, D6) | 3/3 (id.) | 3/3 (id.) |
+| B5 Annuler en suivi, puis après l'arrêt | 3/3 | 3/3 | 3/3 |
+| **B6 gras en suivi** | **0/3** | **0/3** | **0/3** |
+| B7 basculer pendant que Carla écrit | 3/3 | 3/3 | 3/3 |
+| **B7 basculer juste après la résolution d'un fil** | **0/3** | **0/3** | **2 plantages sur 3** |
+| B8 deux éditeurs au même paragraphe (suivi / direct) | 3/3 | 3/3 | 3/3 |
+| B9 recharger en suivi | 3/3 | 3/3 | 3/3 |
 
 Les résultats ne dépendent pas du navigateur (sauf la fréquence du plantage B7) : les défauts sont dans la logique commune, pas dans un moteur.
 
@@ -84,7 +86,7 @@ Gravité : **bloquant** (perte de travail ou écran inutilisable), **majeur** (l
 
 ## Ce que ce bilan ne couvre pas
 
-Familles A, C, D, E, F, G de la procédure (pas encore écrites) ; formats M et S ; Safari réel ; frappe humaine (le robot tape vite et régulièrement).
+Familles A, C, D, E, F, G de la procédure (pas encore écrites) ; Firefox ; formats M et S ; Safari réel ; frappe humaine (le robot tape vite et régulièrement).
 
 ## Proposition d'ordre de correction (à décider)
 
