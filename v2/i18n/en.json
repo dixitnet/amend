@@ -32,9 +32,13 @@
     "exporterMarkdown": "Export as Markdown",
     "exporterPdf": "Export as PDF",
     "exportEchoue": "The export failed. Please try again in a moment.",
-    "suiviModifications": "Track changes",
-    "activerSuivi": "Turn on track changes",
-    "arreterSuivi": "Turn off track changes"
+    "modes": "Editing mode",
+    "modeEcrire": "Edit",
+    "modeSuggerer": "Suggest",
+    "modeRelire": "Review",
+    "passerEcrire": "Edit directly",
+    "passerSuggerer": "Suggest changes",
+    "passerRelire": "Review suggestions"
   },
   "erreurs": {
     "modele-impossible": "This layout model is impossible: its lines or its page number do not fit on the page.",
@@ -84,7 +88,10 @@
     "toutAccepter": "Accept all",
     "toutRefuser": "Reject all",
     "accepterDe": "Accept: {texte}",
-    "refuserDe": "Reject: {texte}"
+    "refuserDe": "Reject: {texte}",
+    "enCours": "Pending suggestions",
+    "enAttente": "Suggestions are waiting: switch to review to accept or reject them.",
+    "relire": "Review suggestions"
   },
   "roles": {
     "lecteur": "reader",

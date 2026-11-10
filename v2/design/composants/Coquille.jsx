@@ -27,7 +27,7 @@ import {
   Modal,
   TextInput,
   UnstyledButton,
-  Switch,
+  SegmentedControl,
 } from '@mantine/core'
 import { useRef, useState } from 'react'
 import { REGLAGES } from '../reglages.js'
@@ -137,8 +137,9 @@ function TitreModifiable({ titre, renommer }) {
 
 /**
  * Le bandeau : volet gauche, étoile des favoris, titre (modifiable d’un clic), mention du mode (« Mode suggestion »,
- * « Lecture seule »), puis (document) l'interrupteur du suivi des
- * modifications, « Terminer », présence, « Partager », menu « … », compte,
+ * « Lecture seule »), puis (document) le choix du mode d'un éditeur
+ * (Modifier, Suggérer, Relire, comme l'exemple de BlockNote), « Terminer »,
+ * présence, « Partager », menu « … », compte,
  * volet droit. Le volet gauche est toujours là ; le reste est facultatif.
  */
 export function Bandeau({
@@ -147,7 +148,7 @@ export function Bandeau({
   renommer,
   favori,
   mention,
-  suivi,
+  modes,
   terminer,
   presence,
   partager,
@@ -163,11 +164,12 @@ export function Bandeau({
       {favori ? <Etoile favori={favori} /> : null}
       <TitreModifiable titre={titre} renommer={renommer} />
       {mention ? <Badge>{mention}</Badge> : null}
-      {suivi ? (
-        <Switch
-          label={suivi.libelle}
-          checked={suivi.actif}
-          onChange={(e) => suivi.surChange(e.currentTarget.checked)}
+      {modes ? (
+        <SegmentedControl
+          aria-label={modes.libelle}
+          value={modes.valeur}
+          data={modes.options.map((o) => ({ value: o.valeur, label: o.libelle }))}
+          onChange={modes.surChange}
         />
       ) : null}
       {terminer ? (

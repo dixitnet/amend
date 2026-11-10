@@ -1,10 +1,18 @@
 // Adaptateur BlockNote (couche 2) : l'éditeur collaboratif, lié au document
 // ouvert par l'adaptateur Yjs, avec le schéma du livre et nos extensions. Il
 // reçoit la langue de l'interface (menus de l'éditeur), la langue du document
-// (typographie), la personne, et ce qu'elle fait du texte :
-//  - `ecrire` : elle écrit le texte et voit les suggestions (éditeur) ;
-//  - `suggerer` : tout ce qu'elle tape est une suggestion (correcteur ; y/hub
-//    le garantit, la branche principale lui est fermée) ;
+// (typographie), la personne, et ce qu'elle fait du texte. Les trois modes
+// d'un éditeur sont ceux de l'exemple de BlockNote
+// (`07-collaboration/12-multi-doc-versioning`), un seul éditeur et un seul
+// afficheur des suggestions, le mode changeant par l'extension des
+// suggestions, sans rien recréer :
+//  - `ecrire` : elle écrit le texte, sans voir les suggestions
+//    (`disableSuggestions`) ;
+//  - `suggerer` : tout ce qu'elle tape est une suggestion (`enableSuggestions` ;
+//    pour un correcteur, y/hub le garantit, la branche principale lui est fermée) ;
+//  - `relire` : elle voit les suggestions et les accepte ou les refuse, sans
+//    écrire (`viewSuggestions`) : écrire par-dessus des suggestions affichées
+//    les prolonge (y-prosemirror#245) ;
 //  - `lire` : lecture seule (lecteur), sans les suggestions.
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
@@ -35,11 +43,12 @@ function Palette() {
 
 /**
  * @param {object} p
- * @param {'ecrire' | 'suggerer' | 'lire'} p.mode
+ * @param {'ecrire' | 'suggerer' | 'relire' | 'lire'} p.mode
  * @param {(ids: string[]) => Promise<Array<{ id: string, username: string, avatarUrl: string }>>} p.nomsDe
  * @param {{ service: object, capacites: readonly string[] } | null} [p.commentaires]
- * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, accepter: Function, refuser: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
- *   rappelé avec les suggestions à chaque changement (pour qui peut arbitrer) ; doit être stable
+ * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, enAttente: boolean, accepter: Function, refuser: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
+ *   rappelé avec les suggestions à chaque changement (pour qui peut arbitrer) ; la liste
+ *   n'est remplie qu'en relecture, `enAttente` dit dans tous les modes s'il y en a ; doit être stable
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
@@ -73,17 +82,14 @@ export function EditeurCollaboratif({
   surModification,
   surPlan,
 }) {
-  const suggerer = mode === 'suggerer'
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
-  // L'éditeur n'est pas recréé quand le mode change (interrupteur du suivi) :
-  // le recréer en mode suggestion après la résolution d'un fil faisait planter
-  // l'affichage des suggestions (scénario à cinq, 10/11/2026). Le mode passe
-  // par l'extension des suggestions de BlockNote (effet plus bas).
-  const suggererDepart = useRef(suggerer)
-  const suggererMaintenant = useRef(suggerer)
-  suggererMaintenant.current = suggerer
+  // Le mode du moment, lu par la typographie sans recréer l'éditeur.
+  const modeMaintenant = useRef(mode)
+  modeMaintenant.current = mode
+  // Un afficheur, créé une fois (le mode du départ seulement) ; le mode passe
+  // ensuite par l'extension (effet plus bas), sans le recréer.
   const afficheur = useMemo(
-    () => (avecSuggestions ? creerAfficheur(contexte, suggererDepart.current) : null),
+    () => (avecSuggestions ? creerAfficheur(contexte, mode === 'suggerer') : null),
     [contexte, avecSuggestions],
   )
   const magasin = useMemo(
@@ -101,10 +107,11 @@ export function EditeurCollaboratif({
   const editeur = useCreateBlockNote(
     withCollaboration({
       schema: schemaLivre,
-      // Pas de typographie à la frappe en mode suggestion : défaut de BlockNote
-      // (veille ; Sylvain, 08/11/2026 : attendre sa correction).
+      // La typographie à la frappe en mode Modifier seulement : en suggestion,
+      // les règles de saisie échouent (défaut de BlockNote, veille ; Sylvain,
+      // 08/11/2026 : attendre sa correction).
       extensions: [
-        extensionTypographie({ langue: langueDocument, actif: () => !suggererMaintenant.current }),
+        extensionTypographie({ langue: langueDocument, actif: () => modeMaintenant.current === 'ecrire' }),
         ...(magasin ? [CommentsExtension({ threadStore: magasin, resolveUsers: nomsDe })] : []),
         extensionHistorique(contexte, peutRestaurer, dictionnaire(langue).versioning.before_restore),
       ],
@@ -145,17 +152,20 @@ export function EditeurCollaboratif({
     }
     if (!afficheur) return
     const ext = editeur.getExtension('suggestions')
-    if (suggerer) ext.enableSuggestions()
-    else ext.viewSuggestions()
-  }, [editeur, afficheur, suggerer, historique])
+    if (mode === 'suggerer') ext.enableSuggestions()
+    else if (mode === 'relire') ext.viewSuggestions()
+    else ext.disableSuggestions()
+  }, [editeur, afficheur, mode, historique])
 
   // Les auteurs des suggestions, lus à côté de l'afficheur, pour le panneau.
   const [auteurs, setAuteurs] = useState(null)
   useEffect(() => (afficheur ? suivreAuteurs(contexte, setAuteurs) : undefined), [contexte, afficheur])
 
-  // La liste des suggestions, pour qui peut les accepter ou les refuser.
+  // La liste des suggestions, pour qui peut les accepter ou les refuser : en
+  // relecture seulement (l'éditeur les montre alors) ; dans les autres modes,
+  // seulement s'il y en a, d'après l'afficheur.
   useEffect(() => {
-    if (!afficheur || !surSuggestions || suggerer) return
+    if (!afficheur || !surSuggestions) return
     const ext = editeur.getExtension('suggestions')
     const actions = {
       accepter: (s) => ext.applySuggestion(s.plage.debut, s.plage.fin),
@@ -163,14 +173,30 @@ export function EditeurCollaboratif({
       toutAccepter: () => ext.applyAllSuggestions(),
       toutRefuser: () => ext.revertAllSuggestions(),
     }
-    const signaler = () => surSuggestions({ liste: listeDesSuggestions(editeur, auteurs), ...actions })
+    const relire = mode === 'relire'
+    const signaler = () =>
+      surSuggestions({
+        liste: relire ? listeDesSuggestions(editeur, auteurs) : [],
+        enAttente: !afficheur.attributed.isEmpty(),
+        ...actions,
+      })
     signaler()
     const arreter = editeur.onChange(signaler)
+    // Hors relecture, l'éditeur ne montre pas les suggestions : leurs changements
+    // arrivent par le document des suggestions.
+    let minuterie = null
+    const surChangement = () => {
+      clearTimeout(minuterie)
+      minuterie = setTimeout(signaler, 300)
+    }
+    contexte.suggestions.doc.on('update', surChangement)
     return () => {
       arreter()
+      clearTimeout(minuterie)
+      contexte.suggestions.doc.off('update', surChangement)
       surSuggestions(null)
     }
-  }, [editeur, afficheur, suggerer, surSuggestions, auteurs])
+  }, [editeur, contexte, afficheur, mode, surSuggestions, auteurs])
 
   // Le plan : les titres du document, tenus à jour (volet « Plan » des trois
   // formats), et le titre courant au défilement. Aller à un titre y met le
@@ -210,7 +236,8 @@ export function EditeurCollaboratif({
   // Tout se fait dans le geste même (sinon le téléphone n'ouvre pas le
   // clavier) ; la propriété `editable` de BlockNoteView reste à `false` et l'on
   // bascule l'éditeur directement (maquette validée, docs/v2-format-S.md).
-  const appui = lectureAuDepart && mode !== 'lire' && !historique
+  const ecrit = mode !== 'lire' && mode !== 'relire'
+  const appui = lectureAuDepart && ecrit && !historique
   const [enModification, setEnModification] = useState(false)
   useEffect(() => surModification?.(enModification), [enModification, surModification])
   const terminer = () => {
@@ -267,7 +294,7 @@ export function EditeurCollaboratif({
   }, [enModification])
 
   const vue = (
-    <BlockNoteView editor={editeur} editable={appui ? false : mode !== 'lire' && !historique} formattingToolbar={false}>
+    <BlockNoteView editor={editeur} editable={appui ? false : ecrit && !historique} formattingToolbar={false}>
       <FormattingToolbarController formattingToolbar={Palette} />
       {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
     </BlockNoteView>

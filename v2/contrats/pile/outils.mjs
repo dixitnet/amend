@@ -124,3 +124,23 @@ export async function menuDe(page, { id, nom }) {
     .getByRole('button', { name: /^Actions sur/ })
     .click()
 }
+
+/** Le mode d'un éditeur (« Modifier », « Suggérer », « Relire ») : le sélecteur du bandeau (formats L). */
+export const selecteurDeMode = (page) => page.getByRole('radiogroup', { name: 'Mode d’édition' })
+export async function choisirMode(page, libelle) {
+  const choix = selecteurDeMode(page).getByText(libelle, { exact: true })
+  await choix.click()
+  await page.waitForFunction(
+    (l) =>
+      [...document.querySelectorAll('input[type=radio]')].some((i) => i.checked && i.labels?.[0]?.textContent === l),
+    libelle,
+  )
+  await attendre(300)
+}
+/** Le mode coché du sélecteur, ou `null` sans sélecteur. */
+export const modeChoisi = (page) =>
+  page.evaluate(
+    () =>
+      [...document.querySelectorAll('[aria-label="Mode d’édition"] input[type=radio]')].find((i) => i.checked)
+        ?.labels?.[0]?.textContent ?? null,
+  )
