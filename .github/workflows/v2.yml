@@ -73,6 +73,18 @@ jobs:
     needs: rapides
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # L'image officielle de Playwright, à la version de package.json : navigateurs
+    # et bibliothèques système déjà installés, plus d'apt sur le miroir Ubuntu de
+    # GitHub, trop lent certains jours (WebKit coupé deux fois le 10/11/2026).
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0
+      options: --ipc=host
+    env:
+      # Dans un conteneur, les services se joignent par leur nom.
+      V2_POSTGRES: postgres://amendv2:amendv2-dev@postgres:5432/amendv2_yhub
+      V2_REDIS: redis://redis:6379
+      # Firefox refuse un HOME qui n'est pas à l'utilisateur (consigne de Playwright).
+      HOME: /root
     strategy:
       fail-fast: false
       matrix:
@@ -100,15 +112,6 @@ jobs:
           cache: npm
           cache-dependency-path: v2/package-lock.json
       - run: npm ci
-      # Le miroir Ubuntu de GitHub est parfois très lent (WebKit, 10/11/2026 :
-      # 20 minutes d'installation, tâche coupée) : 10 minutes par essai, deux essais.
-      - name: Installer ${{ matrix.navigateur }}
-        run: |
-          for i in 1 2; do
-            timeout 600 npx playwright install --with-deps ${{ matrix.navigateur }} && exit 0
-            echo "::warning::installation de ${{ matrix.navigateur }} : essai $i échoué ou trop long"
-          done
-          exit 1
       - name: T5 (${{ matrix.navigateur }})
         run: npm run test:pile
         env:
