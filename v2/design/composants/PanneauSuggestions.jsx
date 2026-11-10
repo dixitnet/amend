@@ -28,8 +28,13 @@ export function PanneauSuggestions({
           <Stack component="li" key={l.cle}>
             <Text>{l.texte}</Text>
             <Group>
-              <Button onClick={() => surAccepter(i)}>{libelles.accepter}</Button>
-              <Button onClick={() => surRefuser(i)}>{libelles.refuser}</Button>
+              {/* Un nom par ligne pour les lecteurs d'écran (audit du 10/11/2026). */}
+              <Button aria-label={libelles.accepterDe(l.texte)} onClick={() => surAccepter(i)}>
+                {libelles.accepter}
+              </Button>
+              <Button aria-label={libelles.refuserDe(l.texte)} onClick={() => surRefuser(i)}>
+                {libelles.refuser}
+              </Button>
             </Group>
           </Stack>
         ))}

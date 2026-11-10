@@ -45,6 +45,7 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     numero: '2.023',
     commit: 'abc1234',
     lien: 'https://v2.amend.ink/#x',
+    texte: 'Carla ajoute « loin »',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -72,6 +73,7 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       numero: '2',
       commit: 'c',
       lien: 'L',
+      texte: 'X',
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
@@ -134,9 +136,9 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
   }
 })
 
-test('la marque (picto décoratif et nom) en tête du volet et sur l’écran de connexion', () => {
-  const volet = rendre(coquilleDocument(creerTraducteur('fr')))
-  assert.match(volet, /<a[^>]*href="#"[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/a>/)
+test('la marque (picto décoratif et nom) en tête du volet de la liste et sur l’écran de connexion ; plus dans un document', () => {
+  const t = creerTraducteur('fr')
+  assert.doesNotMatch(rendre(coquilleDocument(t)), /amend\.ink<\/a>/, 'ni marque en tête du volet d’un document')
   const connexion = rendre(
     h(design.EcranConnexion, { nomApplication: 'amend.ink', titre: 'Connexion', surEntrer: () => {} }),
   )
@@ -222,7 +224,7 @@ test('coquille d’un document : bandeau, volets, alerte et texte, dans chaque l
     ])
       assert.ok(html.includes(echapper(t(cle))), `${l} : ${cle}`)
     assert.match(html, /<header[\s\S]*<h1[^>]*>La gare<\/h1>/, 'le titre du document est dans le bandeau')
-    assert.match(html, /<nav[\s\S]*amend-picto/, 'le volet gauche porte la marque')
+    assert.doesNotMatch(html, /<nav[\s\S]*amend-picto/, 'plus de marque en tête du volet gauche (10/11/2026)')
     assert.match(html, /<aside/, 'volet droit')
     assert.match(html, /<main[\s\S]*id="editeur"/, 'le texte est dans le contenu principal')
     assert.match(html, /data-niveau="3"/, 'le niveau du titre passe au design')
@@ -259,6 +261,11 @@ test('coquille de la liste : sans volet droit ; navigation et nouveau document',
     ),
   )
   assert.doesNotMatch(html, /<aside/)
+  assert.match(
+    html,
+    /<a[^>]*href="#"[^>]*><span class="amend-picto" aria-hidden="true"><svg[\s\S]*amend\.ink<\/a>/,
+    'la marque en tête du volet de la liste',
+  )
   for (const cle of ['documents.nouveau', 'documents.partagesAvecMoi', 'documents.vide'])
     assert.ok(html.includes(echapper(t(cle))), cle)
   assert.doesNotMatch(html, /mantine-SegmentedControl/, 'sans onglets dans la page : ils sont dans le volet')
