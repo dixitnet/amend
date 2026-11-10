@@ -71,7 +71,10 @@
     "deplacement-impossible": "A document cannot go straight from one team to another: move it to My documents first.",
     "equipe-introuvable": "This team does not exist, or you are not a member.",
     "equipe-non-vide": "This team is not empty: move or delete its documents and folders first.",
-    "reserve-administrateur": "Reserved for the administrators of this instance."
+    "reserve-administrateur": "Reserved for the administrators of this instance.",
+    "margo-indisponible": "Margo is unavailable at the moment.",
+    "selection-absente": "Select the passage to correct first.",
+    "demande-invalide": "This request is empty, or too long (4,000 characters at most)."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -217,12 +220,39 @@
     "presence": "People on this document",
     "modificationsCorrecteur": "Your suggestions go to the document’s editors, who accept or reject them.",
     "margo": "Margo (AI)",
-    "margoBientot": "Margo is coming here soon.",
     "horsLigne": "Offline: your changes are kept and will be sent when the connection is back.",
     "largeurVolet": "Panel width",
     "fermer": "Close",
     "valider": "OK",
     "annuler": "Cancel",
     "continuer": "Continue"
+  },
+  "margo": {
+    "accueil": "Ask Margo to proofread, correct or comment on the text. Corrections arrive as suggestions, in Changes, to accept or reject.",
+    "vous": "You",
+    "corriger": "Correct",
+    "demandeCorriger": "Correct the selection",
+    "porteeSelection": "On the selection",
+    "porteeDocument": "On the whole text",
+    "saisie": "Your request",
+    "envoyer": "Send",
+    "nouvelle": "New conversation",
+    "allerAuBloc": "Go to block {n}",
+    "enCours": {
+      "reflexion": "Margo is thinking…",
+      "lire": "Margo is reading the text…",
+      "chercher": "Margo is searching the text…",
+      "proposer": "Margo is proposing corrections…",
+      "commenter": "Margo is commenting…",
+      "repli": "The model declined this request. Margo is resuming it with another model…"
+    },
+    "bilan": "{corrections, plural, =0 {No corrections} one {# correction} other {# corrections}}, {commentaires, plural, =0 {no comments} one {# comment} other {# comments}}.",
+    "arret": {
+      "etapes": "Request stopped: too many steps. Try again on a shorter passage.",
+      "refusEnSerie": "Request stopped: too many rejected proposals in a row.",
+      "longueur": "Answer cut off: it was too long.",
+      "refus": "The model declined this request.",
+      "erreur": "Margo could not finish the request. What was posted stays in Changes."
+    }
   }
 }

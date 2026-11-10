@@ -10,6 +10,7 @@ import {
   PageAdministration,
   PanneauPartage,
   PanneauSuggestions,
+  PanneauMargo,
   Bouton,
   couleurAuteur,
   Coquille,
@@ -38,12 +39,13 @@ import {
   libelleDuRoleEquipe,
   LANGUE_PSEUDO,
 } from '../../i18n/index.js'
-import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
+import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT, AUTEUR_MARGO } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 import { serviceCommentaires, nomsDe, appel } from './commentaires.js'
 import { useVolets } from './volets.js'
 import { exporterDocument } from './exports.js'
+import { useMargo } from './margo.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
 // essais et les captures), sinon celle du navigateur.
@@ -55,6 +57,44 @@ document.documentElement.lang = t.langue
 document.title = t('application.nom')
 
 const lireJson = (r) => r.json().catch(() => ({}))
+
+/** Les noms des personnes, et celui de Margo (le serveur rend un code). */
+const nomsAvecMargo = (ids) =>
+  nomsDe(ids).then((l) => l.map((p) => (p.id === AUTEUR_MARGO ? { ...p, username: t('interface.margo') } : p)))
+
+/** Ce que fait Margo pendant une demande (événements du serveur). */
+const MARGO_EN_COURS = {
+  reflexion: () => t('margo.enCours.reflexion'),
+  lire: () => t('margo.enCours.lire'),
+  chercher: () => t('margo.enCours.chercher'),
+  proposer: () => t('margo.enCours.proposer'),
+  commenter: () => t('margo.enCours.commenter'),
+  repli: () => t('margo.enCours.repli'),
+}
+/** Pourquoi une demande s'est arrêtée avant la fin (codes du serveur). */
+const MARGO_ARRET = {
+  etapes: () => t('margo.arret.etapes'),
+  'refus-en-serie': () => t('margo.arret.refusEnSerie'),
+  longueur: () => t('margo.arret.longueur'),
+  refus: () => t('margo.arret.refus'),
+  erreur: () => t('margo.arret.erreur'),
+}
+
+/** Le texte d'une réponse de Margo en morceaux : texte, et liens vers les
+ * blocs qu'elle cite ([12]) ; les marques de gras du Markdown sont retirées. */
+function morceauxDeMargo(m, allerAuBloc) {
+  return String(m.texte)
+    .replace(/\*\*|__/g, '')
+    .split(/(\[\d+\])/)
+    .filter(Boolean)
+    .map((x) => {
+      const n = /^\[(\d+)\]$/.exec(x)?.[1]
+      const id = n ? m.blocs?.[n] : null
+      return id
+        ? { lien: x, libelle: t('margo.allerAuBloc', { n: Number(n) }), surClic: () => allerAuBloc(id) }
+        : { texte: x }
+    })
+}
 
 /** Ce que vise l'adresse : `#` vide, mes documents ; `#/dossiers/id`, l'un
  * de mes dossiers ; `#/partages`, Partagé avec moi ; `#/equipes/id` et
@@ -1095,6 +1135,12 @@ function Edition({ config, personne, docId, droits }) {
   const [enModification, setEnModification] = useState(false)
   const controle = useRef(null)
   const [noms, setNoms] = useState({})
+  // Margo (étape 8) : l'onglet du volet droit et le bouton « Corriger ».
+  const peutMargo = caps.includes('utiliserMargo')
+  const margo = useMargo(docId)
+  const [selection, setSelection] = useState(null)
+  const [demandeMargo, setDemandeMargo] = useState('')
+  const [ongletRelecture, setOngletRelecture] = useState('modifications')
   const [historique, setHistorique] = useState(false)
   const [partage, setPartage] = useState(false)
   // Le volet « Documents », chargé à l'ouverture dans tous les formats : l'étoile
@@ -1155,7 +1201,7 @@ function Edition({ config, personne, docId, droits }) {
     // Un nom introuvable (serveur injoignable) n'est pas retenu : « auteur
     // inconnu » s'affiche, et le nom sera redemandé (audit du 10/11/2026).
     if (manquants.length)
-      nomsDe(manquants).then((l) => {
+      nomsAvecMargo(manquants).then((l) => {
         const trouves = l.filter((p) => p.username !== p.id)
         for (const id of manquants) if (!trouves.some((p) => p.id === id)) demandes.current.delete(id)
         setNoms((n) => ({ ...n, ...Object.fromEntries(trouves.map((p) => [p.id, p.username])) }))
@@ -1259,6 +1305,57 @@ function Edition({ config, personne, docId, droits }) {
   ) : (
     <TexteDeVolet texte={t('interface.modificationsCorrecteur')} />
   )
+  const { demander: demanderMargo } = margo
+  // Le geste de « Corriger » change à chaque rendu ; le bouton, lui, reste le
+  // même (la palette de l'éditeur ne se reconstruit pas).
+  const surCorriger = useRef(null)
+  surCorriger.current = (choisie) => {
+    setOngletRelecture('margo')
+    if (formatS) setVolet('droite')
+    else volets.ouvrirDroite()
+    demanderMargo({ corriger: true, selection: choisie })
+  }
+  const corriger = useMemo(
+    () => (peutMargo ? { libelle: t('margo.corriger'), surClic: (choisie) => surCorriger.current(choisie) } : null),
+    [peutMargo],
+  )
+  const allerAuBloc = (id) => {
+    if (formatS) setVolet(null)
+    controle.current?.allerAuBloc(id)
+  }
+  const envoyerMargo = () => {
+    const demande = demandeMargo.trim()
+    if (!demande) return
+    setDemandeMargo('')
+    demanderMargo({ demande, selection })
+  }
+  const panneauMargo = peutMargo ? (
+    <PanneauMargo
+      titre={t('interface.margo')}
+      messages={margo.fil.map((m) => ({
+        cle: m.cle,
+        etiquette: m.auteur === 'margo' ? t('interface.margo') : t('margo.vous'),
+        morceaux:
+          m.auteur === 'margo'
+            ? morceauxDeMargo(m, allerAuBloc)
+            : [{ texte: m.corriger ? t('margo.demandeCorriger') : m.texte }],
+        bilan: m.bilan ? [t('margo.bilan', m.bilan), MARGO_ARRET[m.bilan.arret]?.()].filter(Boolean).join(' ') : null,
+      }))}
+      accueil={t('margo.accueil')}
+      enCours={margo.enCours ? (MARGO_EN_COURS[margo.enCours] ?? MARGO_EN_COURS.reflexion)() : null}
+      erreur={margo.erreur ? messageErreur(t, margo.erreur) : null}
+      portee={selection ? t('margo.porteeSelection') : t('margo.porteeDocument')}
+      saisie={{
+        libelle: t('margo.saisie'),
+        valeur: demandeMargo,
+        surChange: setDemandeMargo,
+        surEnvoi: envoyerMargo,
+        envoyer: t('margo.envoyer'),
+        desactive: Boolean(margo.enCours) || !demandeMargo.trim(),
+      }}
+      nouvelle={margo.fil.length ? { libelle: t('margo.nouvelle'), surClic: margo.nouvelle } : null}
+    />
+  ) : null
   const editeur = (
     <EditeurCollaboratif
       contexte={session.contexte}
@@ -1267,7 +1364,7 @@ function Edition({ config, personne, docId, droits }) {
       langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
       nomAccessible={t('document.zoneEdition', { id: docId })}
       mode={mode}
-      nomsDe={nomsDe}
+      nomsDe={nomsAvecMargo}
       commentaires={commentaires}
       surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
       historique={historique && !formatS}
@@ -1277,6 +1374,8 @@ function Edition({ config, personne, docId, droits }) {
       controle={controle}
       surModification={setEnModification}
       surPlan={setPlan}
+      corriger={corriger}
+      surSelection={peutMargo ? setSelection : undefined}
     />
   )
 
@@ -1349,7 +1448,7 @@ function Edition({ config, personne, docId, droits }) {
           ],
         }}
         voletDroit={
-          suggestions
+          suggestions || peutMargo
             ? {
                 titre: t('telephone.relecture'),
                 onglets: [
@@ -1359,7 +1458,12 @@ function Edition({ config, personne, docId, droits }) {
                     icone: 'modifications',
                     contenu: modifications,
                   },
+                  ...(peutMargo
+                    ? [{ cle: 'margo', libelle: t('interface.margo'), icone: 'margo', contenu: panneauMargo }]
+                    : []),
                 ],
+                actif: ongletRelecture,
+                surOnglet: setOngletRelecture,
               }
             : null
         }
@@ -1446,7 +1550,9 @@ function Edition({ config, personne, docId, droits }) {
             titre={t('telephone.relecture')}
             onglets={{ modifications: t('telephone.modifications'), margo: t('interface.margo') }}
             modifications={modifications}
-            margo={<TexteDeVolet texte={t('interface.margoBientot')} />}
+            margo={panneauMargo}
+            actif={ongletRelecture}
+            surOnglet={setOngletRelecture}
           />
         ) : null
       }

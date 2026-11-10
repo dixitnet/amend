@@ -46,6 +46,8 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     commit: 'abc1234',
     lien: 'https://v2.amend.ink/#x',
     texte: 'Carla ajoute « loin »',
+    corrections: 3,
+    commentaires: 1,
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -74,6 +76,8 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       commit: 'c',
       lien: 'L',
       texte: 'X',
+      corrections: 2,
+      commentaires: 2,
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
