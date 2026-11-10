@@ -1,7 +1,7 @@
 # Revue d'ouverture de l'étape 8, « IA » (Margo) (2026-11-10)
 
 - Relecteur : **GLM-5.3** (Scaleway), réflexion `low`, sur le plan `docs/v2-etape-8-plan.md`, avec les règles de la v2 et le registre des renoncements. Envoyé : environ 45 500 signes ; reçu : environ 2 600 jetons (dont 1 100 de réflexion).
-- Réponses de Claude, point par point, à la suite de l'avis. Plan corrigé le même jour. Sylvain arbitre les questions Q1 à Q3.
+- Réponses de Claude, point par point, à la suite de l'avis. Plan corrigé le même jour. Questions Q1 à Q3 arbitrées par Sylvain le même jour (voir la fin).
 
 ## Avis de GLM-5.3 (tel que reçu)
 
@@ -51,3 +51,11 @@ Le plan est fidèle aux leçons de la v1 (un seul moteur, serveur, suggestions c
 - **Q1.** Fable 5.2 : (a) mobilisable seulement pour des essais, tant que la conservation de 30 jours n'est pas tranchée ; ou (b) mobilisable sans réserve. Repli en cas de refus : le modèle par défaut de Margo.
 - **Q2.** Découpage en cinq lots (adaptateur, domaine, serveur, client, design) au lieu de trois : d'accord ?
 - **Q3.** Je vérifie et note les conditions de conservation de Scaleway (documentation publique) avant le lot 3 ?
+
+## Arbitrage de Sylvain (10/11/2026)
+
+« 1b, 2 ok, 3 non, reprends seulement le modèle qui a bien marché pour la v1 » :
+
+- Q1 : Fable 5.2 mobilisable sans réserve ; repli sur le modèle par défaut de Margo.
+- Q2 : cinq lots, un par couche.
+- Q3 : pas de vérification des conditions de Scaleway ; chez Scaleway, seul DeepSeek V4.1 Flash est repris (GLM-5.3 retiré de la liste), modèle par défaut de Margo comme dans la v1.

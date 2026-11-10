@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 8, « IA » (Margo)
 
-Statut : **arbitré par Sylvain le 10/11/2026** (A oui, B non, C fil, D non ; « alléger au max en termes d'interface et de dev » ; puis « ajoute un bouton Corriger dans la barre flottante, sinon ok » et « ajoute Fable aux modèles mobilisables »). Rien n'est développé. Revue d'ouverture faite le 10/11/2026 (GLM-5.3, `docs/v2-revues/2026-11-10-etape-8-ouverture.md`) : plan corrigé en conséquence ; trois questions restent à Sylvain. Avant le lot 1 : la vérification technique ci-dessous.
+Statut : **arbitré par Sylvain le 10/11/2026** (A oui, B non, C fil, D non ; « alléger au max en termes d'interface et de dev » ; puis « ajoute un bouton Corriger dans la barre flottante, sinon ok » et « ajoute Fable aux modèles mobilisables »). Rien n'est développé. Revue d'ouverture faite le 10/11/2026 (GLM-5.3, `docs/v2-revues/2026-11-10-etape-8-ouverture.md`) : plan corrigé en conséquence ; questions arbitrées par Sylvain le même jour (« 1b, 2 ok, 3 non, reprends seulement le modèle qui a bien marché pour la v1 »). Avant le lot 1 : la vérification technique ci-dessous.
 
 ## Ce que fait Docs (vérification n° 0)
 
@@ -47,18 +47,16 @@ Pourquoi on y renonce (renoncement à inscrire) :
 9. **Un seul modèle pour Margo** (pas de profils). Aux lots 1 à 3, il est lu dans la configuration du serveur ; son choix au back-office vient avec la rubrique IA du back-office (étape 9).
 10. **Modèles mobilisables** au départ :
     - Anthropic : Sonnet 5.5 (`claude-sonnet-5-5`), Haiku 5.5 (`claude-haiku-5-5`), **Fable 5.2 (`claude-fable-5-2`)** ;
-    - Scaleway : DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`, en production pour Margo dans la v1 depuis le 04/11/2026), GLM-5.3.
+    - Scaleway : DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`) seulement, le modèle qui a bien marché pour Margo dans la v1 (en production depuis le 04/11/2026) ; **modèle par défaut de Margo**.
 
-    Fable 5.2, à noter avant de l'activer :
+    Fable 5.2, **mobilisable sans réserve** (Sylvain, 10/11/2026) ; à savoir :
     - le plus capable des modèles d'Anthropic ; contexte d'1 M jetons, sortie jusqu'à 128 K ;
     - **cher** : 8 $ / 40 $ par million de jetons (entrée / sortie), soit quatre fois Sonnet 5.5 ; lecture du cache à 0,20 $ ;
     - la réflexion ne se coupe pas (la v1 l'envoie désactivée pour les corrections : refusé par Fable) ; on règle seulement l'effort (`low` à `max`) ;
     - pas d'outil imposé (`tool_choice` `any` ou `tool` refusé) : seulement `auto` ;
     - un refus de sécurité possible (`stop_reason: refusal`) : à traiter, avec un modèle de repli déclaré ;
-    - **conservation de 30 jours exigée chez Anthropic** : incompatible avec l'objectif « vos textes ne sont pas conservés » (journal, § 24). À réserver aux essais, ou à un choix explicite, tant que la question n'est pas tranchée (question Q1 de la revue d'ouverture).
-    - Modèle de repli en cas de refus : le modèle de Margo par défaut (question Q1).
-
-    Conservation chez Scaleway : à vérifier et noter au même titre ; le journal (§ 24) demande un engagement écrit du fournisseur avant toute promesse (question Q3).
+    - **conservation de 30 jours exigée chez Anthropic** : incompatible avec l'objectif « vos textes ne sont pas conservés » (journal, § 24). Sylvain l'accepte (Q1, réponse b) ; la formulation d'accueil du § 24 ne pourra donc pas être employée tant que Fable est proposé.
+    - modèle de repli en cas de refus : le modèle de Margo par défaut.
 11. **Attribution** : les suggestions signent « Margo (IA) », posées par le serveur. La signature par personne et par demande attend un besoin constaté.
 12. **Droits** : capacité `utiliserMargo`, éditeurs seulement (Sylvain, 10/11/2026 : pas le correcteur).
 13. **Signes** : comptés et journalisés côté serveur ; rien d'affiché dans le panneau ; une limite ne bloque que si elle existe (message par code) ; seuils fixés sur les journaux réels.
