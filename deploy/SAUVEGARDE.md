@@ -29,6 +29,18 @@ qui pousse, donc elle détient une session Proton. Les parades sont au §8.4.
 
 ---
 
+**La base de la v2** (10/11/2026) : `v2/exploitation/prod/sauvegarder.sh`,
+lancé à 3 h 05 par `amend-v2-sauvegarde.timer`, dépose `data/v2/amendv2.dump`
+(`pg_dump`, format personnalisé). Elle part donc avec `data/` vers le NAS et
+vers Proton, sans rien d'autre à régler ; ce sont eux qui gardent les jours
+précédents. Essai de restauration (dans une base à part, sans toucher à la
+v2) : `sudo bash /opt/amend/app/v2/exploitation/prod/restaurer.sh --essai`.
+Restauration réelle : le même script sans `--essai` (v2 arrêtée le temps de
+la restauration, confirmation demandée). Valkey n'est pas sauvegardé : il ne
+garde que quelques secondes de flux, déjà écrits dans la base.
+
+---
+
 ## 1. Sur la machine de sauvegarde (le NAS)
 
 ```bash

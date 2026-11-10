@@ -91,6 +91,23 @@ const ASSETS = '/assets/'
 const GARDER = 'public, max-age=31536000, immutable'
 const REVALIDER = 'no-cache'
 
+// En-têtes de sécurité, comme Docs (10/11/2026) : la page ne s'affiche dans
+// le cadre d'aucun autre site (`X-Frame-Options DENY` de son `default.conf`),
+// le type annoncé fait foi et l'adresse ne part pas vers d'autres sites (valeurs
+// par défaut de Django) ; les réponses de l'API n'autorisent rien
+// (`default-src 'none'`, sa politique de contenu). La page elle-même n'a pas de
+// politique de contenu, comme celle de Docs.
+const SECURITE = {
+  'x-frame-options': 'DENY',
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'same-origin',
+}
+const SECURITE_API = "default-src 'none'; frame-ancestors 'none'"
+function poserSecurite(req, res) {
+  for (const [nom, valeur] of Object.entries(SECURITE)) res.setHeader(nom, valeur)
+  if (req.url?.startsWith('/api/')) res.setHeader('content-security-policy', SECURITE_API)
+}
+
 function json(res, statut, corps, entetes = {}) {
   res.writeHead(statut, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...entetes })
   res.end(JSON.stringify(corps))
@@ -377,6 +394,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     cookieEfface: identite.cookieEfface,
   })
   return http.createServer(async (req, res) => {
+    poserSecurite(req, res)
     try {
       // L'analyse de l'adresse peut échouer (« // ») : dans le bloc protégé.
       let url

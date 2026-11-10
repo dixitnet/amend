@@ -495,3 +495,15 @@ test('fichiers : construits gardés un an (immutable), page revalidée ; bons ty
   assert.equal(absent.status, 404)
   assert.equal((await absent.json()).code, 'introuvable')
 })
+
+test('en-têtes de sécurité, comme Docs : jamais dans le cadre d’un autre site ; l’API n’autorise rien', async () => {
+  for (const chemin of ['/', '/assets/compilateur-abc123.wasm', '/api/config', '/api/moi', '/api/inconnue']) {
+    const r = await fetch(`${prod}${chemin}`)
+    assert.equal(r.headers.get('x-frame-options'), 'DENY', chemin)
+    assert.equal(r.headers.get('x-content-type-options'), 'nosniff', chemin)
+    assert.equal(r.headers.get('referrer-policy'), 'same-origin', chemin)
+    const politique = r.headers.get('content-security-policy')
+    if (chemin.startsWith('/api/')) assert.equal(politique, "default-src 'none'; frame-ancestors 'none'", chemin)
+    else assert.equal(politique, null, `la page n’a pas de politique de contenu, comme celle de Docs (${chemin})`)
+  }
+})
