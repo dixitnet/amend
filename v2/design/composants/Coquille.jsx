@@ -27,6 +27,7 @@ import {
   Modal,
   TextInput,
   UnstyledButton,
+  Switch,
 } from '@mantine/core'
 import { REGLAGES } from '../reglages.js'
 import { PictoDe } from '../pictos.jsx'
@@ -83,10 +84,22 @@ export const ColonneTexte = ({ children }) => <Container>{children}</Container>
 
 /**
  * Le bandeau : volet gauche, titre, mention du mode (« Mode suggestion »,
- * « Lecture seule »), puis (document) « Terminer », présence,
- * « Partager », menu « … », compte, volet droit. Chaque élément est facultatif.
+ * « Lecture seule »), puis (document) l'interrupteur du suivi des
+ * modifications, « Terminer », présence, « Partager », menu « … », compte,
+ * volet droit. Le volet gauche est toujours là ; le reste est facultatif.
  */
-export function Bandeau({ voletGauche, titre, mention, terminer, presence, partager, actions, compte, voletDroit }) {
+export function Bandeau({
+  voletGauche,
+  titre,
+  mention,
+  suivi,
+  terminer,
+  presence,
+  partager,
+  actions,
+  compte,
+  voletDroit,
+}) {
   return (
     <div className="amend-coquille-bandeau">
       <ActionIcon aria-label={voletGauche.libelle} aria-expanded={voletGauche.ouvert} onClick={voletGauche.surClic}>
@@ -96,6 +109,13 @@ export function Bandeau({ voletGauche, titre, mention, terminer, presence, parta
         {titre}
       </Text>
       {mention ? <Badge>{mention}</Badge> : null}
+      {suivi ? (
+        <Switch
+          label={suivi.libelle}
+          checked={suivi.actif}
+          onChange={(e) => suivi.surChange(e.currentTarget.checked)}
+        />
+      ) : null}
       {terminer ? (
         <Button {...REGLAGES.boutonSecondaire} onClick={terminer.surClic}>
           {terminer.libelle}

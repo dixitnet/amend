@@ -31,7 +31,10 @@
     "nomDuDocument": "Document title",
     "exporterMarkdown": "Export as Markdown",
     "exporterPdf": "Export as PDF",
-    "exportEchoue": "The export failed. Please try again in a moment."
+    "exportEchoue": "The export failed. Please try again in a moment.",
+    "suiviModifications": "Track changes",
+    "activerSuivi": "Turn on track changes",
+    "arreterSuivi": "Turn off track changes"
   },
   "erreurs": {
     "modele-impossible": "This layout model is impossible: its lines or its page number do not fit on the page.",

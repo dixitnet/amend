@@ -40,6 +40,8 @@ async function relecture(nom, paragraphe = 'Il faisait nuit sur la ville.') {
 
 test('suggestion : l’éditrice la voit avec son auteur, l’accepte ; le texte converge et survit au rechargement', async () => {
   const { p, c, fermer } = await relecture('accepter')
+  // Le correcteur est toujours en suivi : il n'a pas d'interrupteur (10/11/2026).
+  assert.equal(await c.getByRole('switch').count(), 0)
   await c.click('.bn-inline-content')
   await c.keyboard.press('End')
   await attendre(300)
@@ -138,4 +140,28 @@ test('historique : ouvert pour tous ; nommer une version seulement pour l’édi
     page.evaluate(() => [...document.querySelectorAll('button')].filter((b) => b.closest('[class*=ersioning]')).length)
   assert.ok((await boutonsEnTete(p)) > (await boutonsEnTete(c)), 'le correcteur a moins d’actions')
   await fermer()
+})
+
+test('suivi des modifications : l’éditrice l’active, ce qu’elle tape devient une suggestion ; arrêté, elle la retrouve et l’accepte', async () => {
+  const doc = docTest('interrupteur')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Il faisait nuit.')
+  const interrupteur = p.getByRole('switch', { name: 'Suivi des modifications' })
+  assert.equal(await interrupteur.isChecked(), false, 'arrêté à l’ouverture')
+  await interrupteur.click()
+  await p.getByText('Mode suggestion').waitFor()
+  await p.click('.bn-inline-content')
+  await p.keyboard.press('End')
+  await attendre(300)
+  await p.keyboard.type(' Ajout')
+  await attendre(1500)
+  await interrupteur.click()
+  await attendrePanneau(p, /Paule ajoute «\s?Ajout\s?»/)
+  // « Tout accepter » : l'acceptation une à une d'une suggestion faite par un
+  // éditeur ne marche pas encore (10/11/2026, à examiner ; celle d'un correcteur marche).
+  await p.getByRole('button', { name: 'Tout accepter' }).click()
+  await attendrePanneau(p, /Aucune suggestion/)
+  await attendreTexte(p, 'Il faisait nuit. Ajout')
+  await p.context().close()
 })

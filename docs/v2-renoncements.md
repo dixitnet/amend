@@ -17,5 +17,6 @@ Règle 9 de `docs/v2-regles-developpement.md` : chaque fonction ou principe de l
 | 8 | 08/11/2026 | Blocs et styles audio, vidéo, fichier, bloc de code, liste à cocher, liste repliable, code, couleur du texte et du fond | sans équivalent dans le livre ni ses exports (décision de Sylvain, étape 4) | un usage éditorial réel (édition scientifique : code) |
 | 12 | 09/11/2026 | Mode « Présenter », favoris et emoji du titre (fonctions de Docs) | hors du besoin d'un auteur ou d'un éditeur de livres ; sobriété (décision de Sylvain, étape 6b) | un usage réel qui les demande |
 | 13 | 10/11/2026 | Entrer en modification au clavier sur iPad (touche Entrée), format M tactile | on entre en modification d'un appui, comme sur téléphone ; un clavier externe sur iPad est un usage marginal (décision de Sylvain, audit complet du 10/11/2026, question Q2) | des personnes qui travaillent sur iPad avec un clavier et s'en plaignent |
+| 14 | 10/11/2026 | Langue enregistrée par document (règle 28) | Docs n'en a pas (ses exports prennent la langue de l'interface) ; les textes visés sont en français ; tout document est en français (typographie, exports) (décision de Sylvain, clôture de l'étape 6) | un texte non français à éditer |
 
 Renoncements à examiner, étape par étape : voir le tableau du § 8 des règles.

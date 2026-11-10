@@ -19,6 +19,7 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 | Sujet | Lien | Ce qu'on en attend |
 |---|---|---|
 | Mode suggestion de Docs | https://github.com/suitenumerique/docs/issues/2491 | rôle « peut suggérer » (notre correcteur) ; règles d'affichage |
+| Accepter une à une la suggestion d'un éditeur en suivi (10/11/2026) | à examiner : défaut de notre liste (positions) ou de BlockNote (`applySuggestion`) | « Tout accepter » marche, comme l'acceptation une à une des suggestions d'un correcteur ; cas minimal : `contrats/pile/relecture.test.js`, test de l'interrupteur |
 | Demande de modification et relecture | https://github.com/suitenumerique/docs/issues/2156 | même besoin |
 | Yjs 14, historique BlockNote, PDF par Typst dans Docs | https://github.com/suitenumerique/docs/pull/2895 | intégration de référence à suivre |
 | Modèle d'export PDF | https://github.com/suitenumerique/docs/issues/680 | mécanisme générique de modèle |

@@ -42,6 +42,8 @@ const problemes = (page, pseudo) =>
       const r = el.getBoundingClientRect()
       if (r.width && (r.right > largeur + 1 || r.left < -1))
         p.push(`hors de l'écran : <${el.tagName.toLowerCase()} class="${el.className}">`)
+      // La piste d'un interrupteur de Mantine rogne son curseur par construction.
+      if (el.closest('.mantine-Switch-track')) continue
       if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'hidden')
         p.push(`texte coupé : ${el.className}`)
     }
@@ -117,3 +119,57 @@ test('le détecteur trouve bien un texte en dur et un débordement plantés expr
   )
   await ctx.close()
 })
+
+// Clôture de l'étape 6 (10/11/2026) : les autres écrans, en pseudo-langue, aux
+// formats L et S : listes, Partagé avec moi, une équipe, la fenêtre de partage,
+// le refus du back-office.
+for (const [taille, viewport] of Object.entries({
+  'L (Mac)': TAILLES['L (Mac)'],
+  'S (iPhone)': { width: 390, height: 844 },
+}))
+  test(`pseudo-langue, ${taille} : listes, équipe, partage et back-office sans texte en dur`, async () => {
+    const ctx = await nav.newContext({ viewport, locale: 'fr-FR' })
+    const page = await ctx.newPage()
+    const doc = docTest('affichage-ecrans')
+    await page.goto(`${pile.url}/?langue=pseudo#${doc}`)
+    await page.fill('input[name=nom]', 'Camille Dupré')
+    await page.click('button[type=submit]')
+    await page.waitForSelector('.bn-editor')
+    await attendreEtat(page, 'connecte')
+    const equipe = await page.evaluate(async () => {
+      const r = await fetch('/api/equipes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nom: 'Équipe d’essai' }),
+      })
+      return (await r.json()).id
+    })
+    for (const [ecran, adresse] of [
+      ['mes documents', '#'],
+      ['partagé avec moi', '#/partages'],
+      ['équipe', `#/equipes/${equipe}`],
+      ['back-office refusé', '#/admin'],
+    ]) {
+      await page.goto(`${pile.url}/?langue=pseudo${adresse}`)
+      // (Le réseau n'est jamais au repos : flux des commentaires, collaboration.)
+      await page.waitForTimeout(1200)
+      // Les noms saisis (document, équipe, personne) et les dates (Intl) ne sont
+      // pas des textes d'interface.
+      const p = (await problemes(page, true)).filter(
+        (x) => !/Équipe d’essai|Camille|⟦/.test(x) && !/« \d{1,2} \p{L}+\.? \d{4} »$/u.test(x),
+      )
+      assert.deepEqual(p, [], ecran)
+    }
+    if (taille.startsWith('L')) {
+      await page.goto(`${pile.url}/?langue=pseudo#${doc}`)
+      await page.waitForSelector('.bn-editor')
+      await page.locator('button:has(.tabler-icon-share)').first().click()
+      await page.getByRole('dialog').waitFor()
+      assert.deepEqual(
+        (await problemes(page, true)).filter((x) => !/Camille/.test(x)),
+        [],
+        'fenêtre de partage',
+      )
+    }
+    await ctx.close()
+  })
