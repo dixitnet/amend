@@ -1,6 +1,6 @@
 # amend.ink v2 : plan de l'étape 8, « IA » (Margo)
 
-Statut : **arbitré par Sylvain le 10/11/2026** (A oui, B non, C fil, D non ; « alléger au max en termes d'interface et de dev » ; puis « ajoute un bouton Corriger dans la barre flottante, sinon ok » et « ajoute Fable aux modèles mobilisables »). Rien n'est développé. Avant le lot 1 : revue d'ouverture (IA de Scaleway, règles de la v2, § 6) et la vérification technique ci-dessous.
+Statut : **arbitré par Sylvain le 10/11/2026** (A oui, B non, C fil, D non ; « alléger au max en termes d'interface et de dev » ; puis « ajoute un bouton Corriger dans la barre flottante, sinon ok » et « ajoute Fable aux modèles mobilisables »). Rien n'est développé. Revue d'ouverture faite le 10/11/2026 (GLM-5.3, `docs/v2-revues/2026-11-10-etape-8-ouverture.md`) : plan corrigé en conséquence ; trois questions restent à Sylvain. Avant le lot 1 : la vérification technique ci-dessous.
 
 ## Ce que fait Docs (vérification n° 0)
 
@@ -26,7 +26,7 @@ Pourquoi on y renonce (renoncement à inscrire) :
 1. Deux moteurs pour un même besoin (Corrections IA et Margo) : deux consignes, deux jeux de garde-fous, deux modèles à entretenir.
 2. Les actions nommées par un verbe marchent mieux qu'un champ libre pour corriger (13/10/2026).
 3. La boucle côté serveur, avec des outils, a permis de relire un livre entier.
-4. Les défauts venaient du contenu des réponses : remplacements « à l'identique », lots refusés sans motif, signature commune « Margo (IA) », coût sur un livre entier.
+4. Les défauts venaient surtout du contenu des réponses : remplacements « à l'identique », lots refusés sans motif, coût sur un livre entier. La signature commune « Margo (IA) » est une limite connue, acceptée par Sylvain sans développement (journal, § 22).
 5. Le choix du modèle au back-office, sans code, a tenu.
 
 ## Ce que fait l'étape
@@ -44,7 +44,7 @@ Pourquoi on y renonce (renoncement à inscrire) :
 ### Technique
 
 8. **Un seul moteur, sur le serveur** (écart avec Docs, voir plus haut), outils réécrits pour la v2 : `lire`, `chercher`, `proposer`, `commenter`. `retirer` et `modifications` attendent un besoin constaté.
-9. **Modèle choisi au back-office**, un seul pour Margo (pas de profils).
+9. **Un seul modèle pour Margo** (pas de profils). Aux lots 1 à 3, il est lu dans la configuration du serveur ; son choix au back-office vient avec la rubrique IA du back-office (étape 9).
 10. **Modèles mobilisables** au départ :
     - Anthropic : Sonnet 5.5 (`claude-sonnet-5-5`), Haiku 5.5 (`claude-haiku-5-5`), **Fable 5.2 (`claude-fable-5-2`)** ;
     - Scaleway : DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`, en production pour Margo dans la v1 depuis le 04/11/2026), GLM-5.3.
@@ -55,16 +55,19 @@ Pourquoi on y renonce (renoncement à inscrire) :
     - la réflexion ne se coupe pas (la v1 l'envoie désactivée pour les corrections : refusé par Fable) ; on règle seulement l'effort (`low` à `max`) ;
     - pas d'outil imposé (`tool_choice` `any` ou `tool` refusé) : seulement `auto` ;
     - un refus de sécurité possible (`stop_reason: refusal`) : à traiter, avec un modèle de repli déclaré ;
-    - **conservation de 30 jours exigée chez Anthropic** : incompatible avec l'objectif « vos textes ne sont pas conservés » (journal, § 24). À réserver aux essais, ou à un choix explicite, tant que la question n'est pas tranchée.
+    - **conservation de 30 jours exigée chez Anthropic** : incompatible avec l'objectif « vos textes ne sont pas conservés » (journal, § 24). À réserver aux essais, ou à un choix explicite, tant que la question n'est pas tranchée (question Q1 de la revue d'ouverture).
+    - Modèle de repli en cas de refus : le modèle de Margo par défaut (question Q1).
+
+    Conservation chez Scaleway : à vérifier et noter au même titre ; le journal (§ 24) demande un engagement écrit du fournisseur avant toute promesse (question Q3).
 11. **Attribution** : les suggestions signent « Margo (IA) », posées par le serveur. La signature par personne et par demande attend un besoin constaté.
 12. **Droits** : capacité `utiliserMargo`, éditeurs seulement (Sylvain, 10/11/2026 : pas le correcteur).
 13. **Signes** : comptés et journalisés côté serveur ; rien d'affiché dans le panneau ; une limite ne bloque que si elle existe (message par code) ; seuils fixés sur les journaux réels.
-14. **Consigne** : une seule, dans le catalogue par langue (règle 30), plus celle de « Corriger » ; garde-fous repris de la v1 dans le domaine : nombre d'étapes, coupe-circuit sur les refus en série.
+14. **Consigne** : une seule, plus celle de « Corriger », dans le catalogue des consignes, **en français seulement** (renoncement n° 14 : tout document est en français ; le catalogue reste prêt pour d'autres langues, règle 30) ; garde-fous repris de la v1 dans le domaine : nombre d'étapes, coupe-circuit sur les refus en série.
 15. **Adaptateur `ia/`** : Anthropic (SDK officiel) et Scaleway, rien d'autre au départ.
 
 ### Renoncements à inscrire (`docs/v2-renoncements.md`)
 
-`xl-ai` ; les demandes toutes faites autres que « Corriger » ; le banc d'essai ; le connecteur « Inviter Claude » (MCP). Les deux derniers peuvent revenir plus tard sur les mêmes outils si le besoin se confirme.
+`xl-ai` ; les demandes toutes faites autres que « Corriger » ; le banc d'essai **du back-office** (la page `#/admin/ia/banc` de la v1 ; le banc Montfaucon, lui, reste le critère de sortie) ; le connecteur « Inviter Claude » (MCP). Les deux derniers peuvent revenir plus tard sur les mêmes outils si le besoin se confirme.
 
 ## Vérification avant le lot 1
 
@@ -73,8 +76,12 @@ Pourquoi on y renonce (renoncement à inscrire) :
 
 ## Lots
 
-1. **Technique** : adaptateur `ia/`, domaine (capacité, garde-fous, signes), route serveur en flux, quatre outils, suggestions signées par le serveur ; essai sur un texte de test, sans interface.
-2. **Technique** : onglet Margo (fil, saisie, portée automatique, liens vers les blocs, bilan) et bouton « Corriger », composants de Mantine tels quels.
-3. **Design**, seulement si Sylvain veut régler quelque chose après l'avoir vu.
+Une couche par lot (règle 5 ; constat 3 de la revue d'ouverture) :
 
-Clôture : banc Margo rejoué (critère du § 8 des règles), revue de clôture.
+1. **Adaptateur `ia/`** : Anthropic et Scaleway, en flux, avec son contrat (appel d'outils, refus, comptage des jetons et des signes).
+2. **Domaine** : capacité `utiliserMargo`, garde-fous (étapes, refus en série), comptage en signes, consignes (catalogue français).
+3. **Serveur** : route en flux, quatre outils, suggestions signées par le serveur ; modèle lu dans la configuration ; essai sur un texte de test, sans interface.
+4. **Client** : onglet Margo (fil, saisie, portée automatique, liens vers les blocs, bilan) et bouton « Corriger » ; composants techniques sans style, l'apparence par `v2/design/` (composants de Mantine sans réglage nouveau) ; tous les textes dans `i18n/`, pluriels compris (« 3 corrections, 2 commentaires »), messages de limite rendus par code.
+5. **Design**, seulement si Sylvain veut régler quelque chose après l'avoir vu.
+
+Clôture (critère du § 8 des règles) : **banc Margo rejoué**, c'est-à-dire le texte et les consignes de `docs/banc-margo-montfaucon.md` passés dans la vraie boucle de la v2 sur un document d'essai, résultats notés ; puis revue de clôture.
