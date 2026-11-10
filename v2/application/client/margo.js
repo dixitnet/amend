@@ -33,7 +33,7 @@ const citations = (texte) => [...String(texte).matchAll(/\[(\d+)\]/g)].map((m) =
  * Lève une erreur de code (`droit-insuffisant`, `margo-indisponible`, `reseau`…)
  * si la demande n'aboutit pas.
  */
-export async function demanderMargo(docId, corps, surEvenement, signal) {
+async function demanderMargo(docId, corps, surEvenement, signal) {
   let r
   try {
     r = await fetch(`/api/documents/${encodeURIComponent(docId)}/margo`, {
