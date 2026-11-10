@@ -44,6 +44,7 @@ import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 import { serviceCommentaires, nomsDe } from './commentaires.js'
 import { useVolets } from './volets.js'
+import { exporterDocument } from './exports.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
 // essais et les captures), sinon celle du navigateur.
@@ -911,6 +912,12 @@ function Edition({ config, personne, docId, droits }) {
   }
   const titreAffiche = titre || t('documents.sansTitre')
   const peutRenommer = caps.includes('ecrire')
+  // Exports Markdown et PDF du texte de base (étape 7), préparés dans le
+  // navigateur comme chez Docs.
+  const exporter = (format) =>
+    exporterDocument(controle, format, { titre: titreAffiche, langue: LANGUE_DOCUMENT_PAR_DEFAUT }).catch((e) =>
+      window.alert(e?.code === 'modele-impossible' ? messageErreur(t, e.code) : t('document.exportEchoue')),
+    )
   const mention = { ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
   const actions = [
     {
@@ -931,6 +938,13 @@ function Edition({ config, personne, docId, droits }) {
       picto: 'historique',
       surClic: () => setHistorique((h) => !h),
     },
+    {
+      cle: 'exporterMarkdown',
+      libelle: t('document.exporterMarkdown'),
+      picto: 'exporter',
+      surClic: () => exporter('markdown'),
+    },
+    { cle: 'exporterPdf', libelle: t('document.exporterPdf'), picto: 'exporter', surClic: () => exporter('pdf') },
     ...(caps.includes('supprimer')
       ? [{ cle: 'supprimer', libelle: t('document.supprimer'), picto: 'supprimer', separe: true, surClic: supprimer }]
       : []),

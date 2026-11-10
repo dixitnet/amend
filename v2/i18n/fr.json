@@ -28,9 +28,13 @@
     "supprimer": "Supprimer",
     "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement ?",
     "renommer": "Renommer",
-    "nomDuDocument": "Titre du document"
+    "nomDuDocument": "Titre du document",
+    "exporterMarkdown": "Exporter en Markdown",
+    "exporterPdf": "Exporter en PDF",
+    "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant."
   },
   "erreurs": {
+    "modele-impossible": "Ce modèle de mise en page est impossible : ses lignes ou son folio ne tiennent pas dans la page.",
     "document-vide": "Ce document n’a pas de nom.",
     "document-trop-long": "Le nom de ce document est trop long (64 signes au plus).",
     "document-caracteres": "Le nom d’un document ne peut contenir que des lettres et chiffres sans accent, des tirets et des tirets bas.",

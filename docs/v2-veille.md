@@ -22,6 +22,7 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 | Demande de modification et relecture | https://github.com/suitenumerique/docs/issues/2156 | même besoin |
 | Yjs 14, historique BlockNote, PDF par Typst dans Docs | https://github.com/suitenumerique/docs/pull/2895 | intégration de référence à suivre |
 | Modèle d'export PDF | https://github.com/suitenumerique/docs/issues/680 | mécanisme générique de modèle |
+| Paquets Typst de BlockNote (`xl-typst-exporter`, `xl-typst-compiler`) | https://github.com/TypeCellOS/BlockNote | préambule non réglable (A4, Inter, blanc de 6,9 pt autour des blocs) : nous écrivons le parcours des blocs ; à revoir si BlockNote rend le préambule ou l'enveloppe des blocs réglables (étape 7) |
 | MCP dans Docs | https://github.com/suitenumerique/docs/issues/1183 | convergence avec « Inviter Claude » |
 | Défauts de saisie en mode suggestion (touche morte sur une sélection, Ctrl+Z, suggestion d'autrui effacée) | aucun ticket amont connu au 07/11/2026 | à signaler (décision de Sylvain) |
 | Remplacements à la frappe en mode suggestion (BlockNote 0.57, module `@handlewithcare/prosemirror-inputrules`) : « # » → titre, « - » → liste, et nos règles de typographie ne s'appliquent pas, erreur « Applying a mismatched transaction » (le module envoie deux transactions de suite, la seconde préparée sur un état que la synchronisation du mode suggestion a déjà changé) ; constaté à l'essai du 08/11/2026 (étape 5, lot 0) | aucun ticket amont connu | à signaler (décision de Sylvain) |

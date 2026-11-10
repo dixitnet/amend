@@ -26,3 +26,4 @@ export {
 export { useFormat } from './format.js'
 export { PageEditionS, PlanDocument, ListeLiens } from './composants/PageEditionS.jsx'
 export { useFormatS } from './formats.js'
+export { MODELES_LIVRE } from './livre.js'

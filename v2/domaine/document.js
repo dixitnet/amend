@@ -33,3 +33,15 @@ export function titreDocument(brut) {
   if ([...titre].length > LONGUEUR_MAX_TITRE) return { ok: false, code: 'titre-invalide' }
   return { ok: true, titre: titre || null }
 }
+
+/** Le nom du fichier d'un export : le titre, sans les signes que refusent
+ * les systèmes de fichiers, puis l'extension. Sans titre : `document`. */
+export function nomDeFichier(titre, extension) {
+  const base = String(titre ?? '')
+    .normalize('NFC')
+    .replace(/[\\/:*?"<>|\p{Cc}]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120)
+  return `${base || 'document'}.${extension}`
+}

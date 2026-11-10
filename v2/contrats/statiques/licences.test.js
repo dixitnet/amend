@@ -20,6 +20,7 @@ const COMPATIBLES = new Set([
   'Unlicense', // domaine public (postgres)
   '(MIT OR CC0-1.0)',
   'AGPL-3.0 OR PROPRIETARY', // y/hub, utilisé sous AGPL-3.0 (ADR 0004)
+  'GPL-3.0 OR PROPRIETARY', // paquets « xl- » de BlockNote (exports Typst, étape 7), utilisés sous GPL-3.0 (ADR 0006, décision 2 de Sylvain)
 ])
 
 function paquets(dossier) {
