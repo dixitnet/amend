@@ -62,12 +62,15 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
   await p.getByRole('button', { name: 'Terminer' }).click()
   // Titres réduits comme Docs à 560 px et moins (réglage css.telephone.titres) : 1,6 rem au niveau 1.
   // (mesurée une fois la transition de BlockNote finie : sinon 25,56 px).
+  // Firefox arrondit au 1/60 de pixel (25,5938 px) : comparaison à un dixième de pixel près.
   const taille = () =>
-    p.evaluate(
-      () => getComputedStyle(document.querySelector("[data-content-type='heading'] .bn-inline-content")).fontSize,
+    p.evaluate(() =>
+      parseFloat(getComputedStyle(document.querySelector("[data-content-type='heading'] .bn-inline-content")).fontSize),
     )
-  for (const t0 = Date.now(); Date.now() - t0 < 3000 && (await taille()) !== '25.6px';) await attendre(100)
-  assert.equal(await taille(), '25.6px')
+  const juste = (t) => Math.abs(t - 25.6) < 0.1
+  for (const t0 = Date.now(); Date.now() - t0 < 3000 && !juste(await taille());) await attendre(100)
+  const t = await taille()
+  assert.ok(juste(t), `taille du titre : ${t} px, attendu 25,6 px`)
   await p.getByRole('button', { name: 'Plan et documents' }).click()
   const titre = p.getByRole('dialog').getByRole('button', { name: 'Chapitre un' })
   await titre.waitFor()
