@@ -29,6 +29,7 @@ import {
   UnstyledButton,
   Switch,
 } from '@mantine/core'
+import { useState } from 'react'
 import { REGLAGES } from '../reglages.js'
 import { PictoDe } from '../pictos.jsx'
 import { Marque } from './Picto.jsx'
@@ -82,8 +83,56 @@ export function Coquille({
 /** La colonne du texte (Container de Mantine, réglage de taille). */
 export const ColonneTexte = ({ children }) => <Container>{children}</Container>
 
+/** L'étoile des favoris, devant le titre d'un document (Sylvain, 10/11/2026). */
+export const Etoile = ({ favori }) => (
+  <ActionIcon aria-label={favori.libelle} aria-pressed={favori.actif} onClick={favori.surBasculer}>
+    <PictoDe role={favori.actif ? 'favoriActif' : 'favori'} />
+  </ActionIcon>
+)
+
+/** Le titre du document, modifiable d'un clic (Sylvain, 10/11/2026) : Entrée
+ * ou sortie du champ enregistrent, Échap annule. Sans `renommer`, un titre. */
+function TitreModifiable({ titre, renommer }) {
+  const [edition, setEdition] = useState(false)
+  if (!renommer)
+    return (
+      <Text component="h1" className="amend-coquille-titre">
+        {titre}
+      </Text>
+    )
+  if (edition) {
+    const valider = (v) => {
+      setEdition(false)
+      if (v !== renommer.valeur) renommer.surValider(v)
+    }
+    return (
+      <form
+        className="amend-coquille-titre"
+        onSubmit={(e) => (e.preventDefault(), valider(new FormData(e.currentTarget).get('titre')))}
+      >
+        <TextInput
+          name="titre"
+          aria-label={renommer.libelle}
+          defaultValue={renommer.valeur}
+          autoFocus
+          onBlur={(e) => valider(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setEdition(false)}
+        />
+      </form>
+    )
+  }
+  return (
+    <Text component="h1" className="amend-coquille-titre">
+      {/* Le nom du bouton reste le titre affiché (axe : label-content-name-mismatch) ; « Renommer » en info-bulle. */}
+      <UnstyledButton title={renommer.libelle} onClick={() => setEdition(true)}>
+        {titre}
+      </UnstyledButton>
+    </Text>
+  )
+}
+
 /**
- * Le bandeau : volet gauche, titre, mention du mode (« Mode suggestion »,
+ * Le bandeau : volet gauche, étoile des favoris, titre (modifiable d’un clic), mention du mode (« Mode suggestion »,
  * « Lecture seule »), puis (document) l'interrupteur du suivi des
  * modifications, « Terminer », présence, « Partager », menu « … », compte,
  * volet droit. Le volet gauche est toujours là ; le reste est facultatif.
@@ -91,6 +140,8 @@ export const ColonneTexte = ({ children }) => <Container>{children}</Container>
 export function Bandeau({
   voletGauche,
   titre,
+  renommer,
+  favori,
   mention,
   suivi,
   terminer,
@@ -105,9 +156,8 @@ export function Bandeau({
       <ActionIcon aria-label={voletGauche.libelle} aria-expanded={voletGauche.ouvert} onClick={voletGauche.surClic}>
         <PictoDe role="plan" />
       </ActionIcon>
-      <Text component="h1" className="amend-coquille-titre">
-        {titre}
-      </Text>
+      {favori ? <Etoile favori={favori} /> : null}
+      <TitreModifiable titre={titre} renommer={renommer} />
       {mention ? <Badge>{mention}</Badge> : null}
       {suivi ? (
         <Switch
@@ -182,34 +232,8 @@ export function Bandeau({
   )
 }
 
-/** La marque en tête d'un volet : picto et nom, lien vers la liste. */
-const MarqueDeVolet = ({ marque }) => (
-  <AppShell.Section>
-    <div className="amend-coquille-volet-tete">
-      <Anchor href={marque.href}>
-        <Marque nom={marque.nom} />
-      </Anchor>
-    </div>
-  </AppShell.Section>
-)
-
-/** Une entrée de l'arbre des documents (dossier ouvert ou document). */
-function EntreeDocument({ e }) {
-  if (e.dossier)
-    return (
-      <NavLink label={e.nom} leftSection={<PictoDe role="dossier" />} defaultOpened={e.ouvert}>
-        {e.enfants?.map((x) => (
-          <EntreeDocument key={x.cle} e={x} />
-        ))}
-      </NavLink>
-    )
-  return (
-    <NavLink component="a" href={e.href} label={e.nom} leftSection={<PictoDe role="document" />} active={e.actif} />
-  )
-}
-
-/** Le volet gauche d'un document : onglets Plan et Documents, sans marque en
- * tête (Sylvain, 10/11/2026). */
+/** Le volet gauche d'un document : onglets Plan et Documents (le contenu de
+ * l'onglet Documents : VoletDocuments), sans marque en tête (Sylvain, 10/11/2026). */
 export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, documents }) {
   return (
     <>
@@ -239,44 +263,8 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
               <Text className="amend-coquille-volet-vide">{videPlan}</Text>
             )}
           </Tabs.Panel>
-          <Tabs.Panel value="documents">
-            {documents.map((e) => (
-              <EntreeDocument key={e.cle} e={e} />
-            ))}
-          </Tabs.Panel>
+          <Tabs.Panel value="documents">{documents}</Tabs.Panel>
         </Tabs>
-      </AppShell.Section>
-    </>
-  )
-}
-
-/** Le volet gauche de la liste : nouveau document, Mes documents, Partagé avec moi. */
-export function NavigationListe({ marque, nouveau, entrees }) {
-  return (
-    <>
-      <MarqueDeVolet marque={marque} />
-      <AppShell.Section>
-        <div className="amend-coquille-volet-tete">
-          <Button
-            className="amend-coquille-volet-bouton"
-            leftSection={<PictoDe role="nouveau" />}
-            onClick={nouveau.surClic}
-          >
-            {nouveau.libelle}
-          </Button>
-        </div>
-      </AppShell.Section>
-      <AppShell.Section grow component="nav">
-        {entrees.map((e) => (
-          <NavLink
-            key={e.cle}
-            component="a"
-            href={e.href}
-            label={e.libelle}
-            leftSection={<PictoDe role={e.picto} />}
-            active={e.actif}
-          />
-        ))}
       </AppShell.Section>
     </>
   )

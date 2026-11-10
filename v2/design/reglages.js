@@ -68,6 +68,14 @@ export const REGLAGES = {
   messages: { duree: 3000, erreur: { color: 'red' } },
   // La pastille du nombre de suggestions : 10 px par défaut, trop petite pour un chiffre.
   nombreSuggestions: { size: 16 },
+  // L'arbre du volet « Documents » : les valeurs des liens imbriqués de Mantine
+  // (NavLink : lignes jointives, enfants en retrait de `lg`), le menu « … » à
+  // côté de chaque ligne.
+  arbre: {
+    racine: { gap: 0 },
+    ligne: { wrap: 'nowrap', gap: 0 },
+    enfants: { gap: 0, pl: 'lg' },
+  },
   // L'alerte hors ligne, comme AlertOffline de Docs.
   alerteHorsLigne: { variant: 'light', color: 'orange' },
 }
