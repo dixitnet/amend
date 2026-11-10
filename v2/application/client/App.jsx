@@ -226,7 +226,14 @@ function useConfirmation() {
       surFermer={() => repondre(false)}
     />
   )
-  const confirmer = (o) => new Promise((r) => setDemande({ ...o, repondre: r }))
+  // Une nouvelle demande répond « non » à celle qui attendait encore (audit du 10/11/2026).
+  const confirmer = (o) =>
+    new Promise((r) =>
+      setDemande((avant) => {
+        avant?.repondre(false)
+        return { ...o, repondre: r }
+      }),
+    )
   return [fenetre, confirmer]
 }
 

@@ -87,7 +87,7 @@ export async function session(base, nom) {
   return r.headers.get('set-cookie').split(';')[0]
 }
 
-/** Confirme la fenêtre de confirmation ouverte (comme Docs : « Annuler », puis l'action). */
+/** Clique l'action de la fenêtre de confirmation ouverte : son dernier bouton (« Annuler » vient d'abord, comme dans Docs). */
 export async function confirmer(page) {
   const fenetre = page.getByRole('dialog')
   await fenetre.waitFor()

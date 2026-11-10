@@ -95,6 +95,12 @@ test('suppression : le propriétaire supprime ; le document disparaît de la lis
   await p.getByRole('button', { name: 'Nouveau document' }).click()
   await p.waitForSelector('.bn-editor')
   const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
+  // « Annuler » : rien ne se passe (10/11/2026).
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Supprimer' }).click()
+  await p.getByRole('dialog').getByRole('button', { name: 'Annuler' }).click()
+  await p.getByRole('dialog').waitFor({ state: 'detached' })
+  await p.waitForSelector('.bn-editor')
   await p.getByRole('button', { name: 'Autres actions' }).click()
   await p.getByRole('menuitem', { name: 'Supprimer' }).click()
   await confirmer(p)
