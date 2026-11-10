@@ -1,6 +1,6 @@
 # amend.ink v2 : le volet « Documents » à la place de la page « Mes documents »
 
-Statut : **proposé** le 10/11/2026, à arbitrer (réponse par numéros). Options 1 à 7 retenues par Sylvain le même jour (journal).
+Statut : **développé** le 10/11/2026 (« oui, lance » ; une seule fusion à la fin ; à l'ouverture, le plus récent). Ajouts du même jour : titre modifiable d'un clic, étoile des favoris, titre dans l'onglet du navigateur. Options 1 à 7 retenues par Sylvain le même jour (journal).
 
 ## Ce que fait Docs
 
@@ -14,7 +14,7 @@ Docs garde une page d'accueil : des filtres (Récents, Mes documents, Partagés 
 
 ## Les lots
 
-1. **Serveur** (petit) : `/api/documents` rend aussi les documents des équipes de la personne, avec leur équipe et leur dossier. Un test.
+1. **Serveur** : inutile pour les équipes (le volet lit chaque équipe par `/api/equipes/:id`, comme l'ancienne page) ; ajout des favoris (`PUT`/`DELETE /api/documents/:id/favori`, comme Docs).
 2. **Design** (dans `v2/design/`, Mantine tel quel) : l'onglet « Documents » complet :
    - en tête, un champ de recherche et deux boutons, « Nouveau document » et « Nouveau dossier » ;
    - l'arbre : Mes documents (dossiers), une entrée par équipe (ses dossiers), Partagé avec moi ;

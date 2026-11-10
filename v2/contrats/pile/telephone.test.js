@@ -97,7 +97,7 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
   await p.context().close()
 })
 
-test('format S : un lecteur ne passe pas en modification ; les listes sont empilées', async () => {
+test('format S : un lecteur ne passe pas en modification ; l’accueil ouvre le dernier document ; le volet « Documents »', async () => {
   const doc = docTest('s-lecteur')
   const p = await ouvrir('Paule', doc)
   const l = await ouvrir('Lucie', doc, { role: 'lecteur' })
@@ -105,11 +105,13 @@ test('format S : un lecteur ne passe pas en modification ; les listes sont empil
   assert.equal(await modifiable(l), false)
   assert.equal(await l.getByRole('button', { name: 'Terminer' }).count(), 0)
   assert.equal(await l.getByRole('button', { name: 'Renommer' }).count(), 0, 'un lecteur ne renomme pas')
+  // Plus de page « Mes documents » : l'accueil rouvre le dernier document.
   await p.goto(`${pile.url}/#`)
-  await p.getByRole('heading', { name: 'Mes documents' }).waitFor()
-  assert.equal(await p.getByRole('table').count(), 0, 'pas de tableau sur téléphone')
-  assert.ok((await p.locator('article').count()) > 0, 'des fiches empilées')
-  await p.getByRole('combobox').first().waitFor()
+  await p.waitForFunction((d) => decodeURIComponent(location.hash.slice(1)) === d, doc)
+  await p.getByRole('button', { name: 'Plan et documents' }).click()
+  await p.getByRole('dialog').getByRole('tab', { name: 'Documents' }).click()
+  await p.getByRole('dialog').getByRole('searchbox', { name: 'Rechercher un document' }).waitFor()
+  await p.getByRole('dialog').getByRole('button', { name: 'Nouveau document' }).waitFor()
   await l.context().close()
   await p.context().close()
 })

@@ -157,6 +157,7 @@ export function creerComptes({
             dossier: d.dossier,
             createur: d.createur,
             role: roleEffectif(d.roles),
+            favori: d.favori,
           })),
           membres: await comptes.membresDe(equipe.id),
           ...(gestionnaire
@@ -398,6 +399,7 @@ export function creerComptes({
                 creeLe: d.creeLe,
                 role: roleEffectif(d.roles),
                 section,
+                favori: d.favori,
                 ...(section === 'mes-documents'
                   ? { dossier: d.dossier }
                   : { partagePar: d.partagePar, parLien: d.parLien, partageLe: d.partageLe }),
@@ -478,6 +480,13 @@ export function creerComptes({
       if (decision.action === 'entrer') await comptes.entrerDansEquipe(docId, destination, rangement)
       else if (decision.action === 'sortir') await comptes.sortirDeLEquipe(docId, p.id, rangement)
       else await comptes.rangerDocument(docId, rangement)
+      return ok(res)
+    }
+    // PUT / DELETE /api/documents/:doc/favori : mes favoris (comme Docs,
+    // `favorite/`) ; quiconque lit le document (Sylvain, 10/11/2026).
+    if (sous === 'favori' && !cible) {
+      if (methode !== 'PUT' && methode !== 'DELETE') return err(res, 405, 'methode-refusee')
+      await comptes.favori(docId, p.id, methode === 'PUT')
       return ok(res)
     }
     // DELETE /api/documents/:doc/moi : je me retire (jamais le dernier propriétaire).

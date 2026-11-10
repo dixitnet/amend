@@ -5,6 +5,7 @@
     "admin.version",
     "admin.node",
     "admin.documents",
-    "telephone.documents"
+    "telephone.documents",
+    "documents.destination"
   ]
 }

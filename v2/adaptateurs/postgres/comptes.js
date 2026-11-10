@@ -108,6 +108,13 @@ do $$ begin
 end $$;
 create index if not exists documents_equipe on amend.documents (equipe);
 create index if not exists dossiers_equipe on amend.dossiers (equipe);
+-- Les favoris d'une personne (Sylvain, 10/11/2026 ; comme les favoris de Docs).
+create table if not exists amend.favoris (
+  personne uuid not null references amend.personnes (id) on delete cascade,
+  document text not null references amend.documents (id) on delete cascade,
+  cree_le timestamptz not null default now(),
+  primary key (personne, document)
+);
 create table if not exists amend.jetons_connexion (
   empreinte text primary key,
   courriel text not null,
@@ -204,8 +211,9 @@ export async function ouvrirComptes(url) {
       const lignes = await sql`
         select d.id, d.titre, d.cree_par, d.cree_le, d.role_lien, d.emplacement, d.dossier, d.equipe,
                a.role, a.cree_le as acces_le, p.nom as auteur_nom, p.courriel as auteur_courriel,
-               l.cree_le as lien_le, m.role as role_membre
+               l.cree_le as lien_le, m.role as role_membre, f.personne is not null as favori
         from amend.documents d
+        left join amend.favoris f on f.document = d.id and f.personne = ${personne}
         left join amend.acces a on a.document = d.id and a.personne = ${personne}
         left join amend.membres m on m.equipe = d.equipe and m.personne = ${personne}
         left join amend.personnes p on p.id = a.auteur
@@ -224,7 +232,14 @@ export async function ouvrirComptes(url) {
         partagePar: d.auteur_nom || d.auteur_courriel ? { nom: d.auteur_nom, courriel: d.auteur_courriel } : null,
         parLien: !d.role && Boolean(d.lien_le),
         partageLe: (d.acces_le ?? d.lien_le).getTime(),
+        favori: d.favori,
       }))
+    },
+    /** Met un document dans les favoris d'une personne, ou l'en retire. */
+    async favori(document, personne, actif) {
+      if (actif)
+        await sql`insert into amend.favoris (personne, document) values (${personne}, ${document}) on conflict do nothing`
+      else await sql`delete from amend.favoris where personne = ${personne} and document = ${document}`
     },
     /** Range un document dans un dossier (`null` : à la racine de Mes documents). */
     rangerDocument: (id, dossier) =>
@@ -347,9 +362,11 @@ export async function ouvrirComptes(url) {
       return (
         await sql`
         select d.id, d.titre, d.cree_le, d.dossier, p.nom as createur, a.role, m.role as role_membre,
-               case when l.personne is not null then d.role_lien end as lien
+               case when l.personne is not null then d.role_lien end as lien,
+               f.personne is not null as favori
         from amend.documents d
         join amend.membres m on m.equipe = d.equipe and m.personne = ${personne}
+        left join amend.favoris f on f.document = d.id and f.personne = ${personne}
         left join amend.personnes p on p.id = d.cree_par
         left join amend.acces a on a.document = d.id and a.personne = ${personne}
         left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
@@ -362,6 +379,7 @@ export async function ouvrirComptes(url) {
         dossier: d.dossier,
         createur: d.createur,
         roles: [d.role, d.lien, d.role_membre].filter(Boolean),
+        favori: d.favori,
       }))
     },
     /** Crée un document dans une équipe (elle en est propriétaire ; pas d'accès propre). */
