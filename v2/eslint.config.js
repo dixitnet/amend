@@ -22,8 +22,8 @@ const FONDATIONS = {
   // révisée le 08/11/2026) : permis aux seules extensions.
   pointsExtension: 'prosemirror-state|prosemirror-model|@handlewithcare/prosemirror-inputrules',
   mantine: '@mantine/.*',
-  // Les icônes de l'interface (format S, maquette validée ; plan du format S, 2.1).
-  tabler: '@tabler/icons-react',
+  // Les pictos de l'interface (ADR 0008) : réservés au design.
+  tabler: '@tabler/.*',
   lib0: 'lib0(/.*)?',
   icu: 'intl-messageformat|@formatjs/.*',
   serveur: 'uws|postgres|redis',

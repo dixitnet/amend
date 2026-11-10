@@ -146,7 +146,7 @@ t2('deux clients de l’adaptateur Yjs convergent ; l’état et la présence se
   const etatsA = []
   a.surEtat((e) => etatsA.push(e))
   let autresVusParA = 0
-  a.surParticipants((n) => (autresVusParA = n))
+  a.surParticipants((liste) => (autresVusParA = liste.length))
   try {
     assert.ok(await attendreQue(() => etatsA.includes('connecte')), `A connecté (états : ${etatsA})`)
     const texteDe = (s) => s.contexte.doc.get('essai-t2', Y.Text).toString()
@@ -216,11 +216,11 @@ t2('présence : le correcteur se montre comme l’éditeur ; le lecteur voit san
   const id = docId('presence')
   const e = client(id, 'editeur-p')
   let autresVusParE = -1
-  e.surParticipants((n) => (autresVusParE = n))
+  e.surParticipants((liste) => (autresVusParE = liste.length))
   const c = client(id, 'correcteur-p')
   const l = client(id, 'lecteur-p')
   let autresVusParL = -1
-  l.surParticipants((n) => (autresVusParL = n))
+  l.surParticipants((liste) => (autresVusParL = liste.length))
   try {
     assert.ok(
       await attendreQue(() => autresVusParL === 2),

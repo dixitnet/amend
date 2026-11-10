@@ -181,7 +181,7 @@ test('droits : un correcteur ne fait que proposer, et l’interface le lui dit',
   })
   assert.equal(principal, 'Texte de Paule.')
   await c.reload()
-  await attendreEtat(c, 'Synchronisé')
+  await attendreEtat(c, 'connecte')
   await attendre(1500)
   assert.ok(await c.$('.bn-editor ins'), 'la suggestion survit au rechargement')
   await p.context().close()

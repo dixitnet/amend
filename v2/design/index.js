@@ -1,7 +1,6 @@
 // La couche design (couche 6) : ce que l'application peut afficher. Mantine
 // tel quel ; les seuls réglages permis sont ceux décidés (reglages.js).
 export { CadreDesign } from './Cadre.jsx'
-export { PageEdition } from './composants/PageEdition.jsx'
 export { EcranMessage, EcranConnexion } from './composants/EcranSimple.jsx'
 export { PanneauSuggestions } from './composants/PanneauSuggestions.jsx'
 export { BoutonBascule } from './composants/BoutonBascule.jsx'
@@ -12,6 +11,19 @@ export { ListeDocuments } from './composants/ListeDocuments.jsx'
 export { PageAdministration } from './composants/PageAdministration.jsx'
 export { PanneauPartage } from './composants/PanneauPartage.jsx'
 export { couleurAuteur } from './auteurs.js'
+export {
+  Coquille,
+  ColonneTexte,
+  Bandeau,
+  VoletPlanDocuments,
+  NavigationListe,
+  VoletRelecture,
+  TexteDeVolet,
+  AlerteHorsLigne,
+  Fenetre,
+  FenetreSaisie,
+} from './composants/Coquille.jsx'
+export { useFormat } from './format.js'
 export { PageEditionS, PlanDocument, ListeLiens } from './composants/PageEditionS.jsx'
 export { useFormatS } from './formats.js'
 export { MODELES_LIVRE } from './livre.js'

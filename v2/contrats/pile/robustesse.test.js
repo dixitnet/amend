@@ -43,26 +43,24 @@ async function texteCoteServeur(docId) {
   return texteDesBlocs(lireBlocs(Buffer.from((await r.json()).doc, 'base64')))
 }
 
-test('y/hub arrêté puis relancé : l’interface ne dit plus « Synchronisé », puis le redit, et la frappe faite entre-temps arrive', async () => {
+test('y/hub arrêté puis relancé : l’alerte hors ligne paraît, puis disparaît, et la frappe faite entre-temps arrive', async () => {
   const doc = docTest('coupure')
   const a = await ouvrir('Alice', doc)
   const b = await ouvrir('Bruno', doc)
   await pile.arreterCollab()
   try {
-    // Le client passe un instant par « Hors ligne », puis retente sans fin :
-    // « Connexion… ». Les deux disent la perte de synchronisation.
-    await a.waitForFunction(
-      () => ['Hors ligne', 'Connexion…'].includes(document.querySelector('[role=status]')?.textContent),
-      null,
-      { timeout: 15000 },
-    )
+    // Le client passe par « déconnecté », puis retente sans fin
+    // (« connexion ») : dans les deux cas, l'alerte hors ligne (ADR 0008,
+    // point ouvert 3, réglé à l'étape 6b).
+    await a.getByText('Hors ligne : vos modifications sont gardées').waitFor({ timeout: 15000 })
     await a.click('.bn-editor')
     await a.keyboard.type('Écrit pendant la coupure.')
   } finally {
     // Relancé même si une vérification échoue : les tests suivants en ont besoin.
     await pile.relancerCollab()
   }
-  await attendreEtat(a, 'Synchronisé', 20000)
+  await attendreEtat(a, 'connecte', 20000)
+  assert.equal(await a.getByText('Hors ligne : vos modifications sont gardées').count(), 0, 'l’alerte disparaît')
   await attendreTexte(b, 'Écrit pendant la coupure.', 15000)
   await a.context().close()
   await b.context().close()
@@ -80,7 +78,7 @@ test('y/hub tué net en pleine frappe : rien n’est perdu après reconnexion', 
   } finally {
     await pile.relancerCollab()
   }
-  await attendreEtat(a, 'Synchronisé', 20000)
+  await attendreEtat(a, 'connecte', 20000)
   await a.keyboard.type('Après.')
   const attendu = 'Avant. Pendant. Après.'
   let lu = ''
@@ -119,7 +117,7 @@ test('adresse : un nom de document refusé affiche un message, un autre nom ouvr
   // Le titre affiché est celui du document (« Sans titre ») : on attend que
   // l'autre document, vide, remplace le premier (égalité stricte du texte).
   await attendreTexte(a, '')
-  await attendreEtat(a, 'Synchronisé')
+  await attendreEtat(a, 'connecte')
   await attendreTexte(a, '')
   const refuse = await a.context().newPage()
   await refuse.goto(`${pile.url}/#e%CC%81te%CC%81`)
@@ -129,29 +127,12 @@ test('adresse : un nom de document refusé affiche un message, un autre nom ouvr
   await a.context().close()
 })
 
-/** Point ouvert, décidé par Sylvain le 08/11/2026 (ADR 0008, « Points
- * ouverts ») : le bouton et le badge de Mantine par défaut (blanc sur bleu,
- * 3,56:1) sont sous le contraste minimal ; à traiter avec le travail sur
- * l'interface. Seuls ces deux éléments sont exclus, et seulement du contrôle
- * de contraste ; tout autre défaut fait échouer le test. */
-const CONTRASTE_EN_ATTENTE = /mantine-(Button|Badge)-label/
-
-async function violations(page, { avecEnAttente = false } = {}) {
+async function violations(page) {
   await page.addScriptTag({ content: AXE })
   const r = await page.evaluate(
     async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations,
   )
-  return r
-    .filter((v) => ['serious', 'critical'].includes(v.impact))
-    .map((v) => ({
-      ...v,
-      nodes:
-        v.id === 'color-contrast' && !avecEnAttente
-          ? v.nodes.filter((n) => !CONTRASTE_EN_ATTENTE.test(n.html))
-          : v.nodes,
-    }))
-    .filter((v) => v.nodes.length)
-    .map((v) => `${v.id} (${v.nodes.length})`)
+  return r.filter((v) => ['serious', 'critical'].includes(v.impact)).map((v) => `${v.id} (${v.nodes.length})`)
 }
 
 test('accessibilité (axe-core) : aucun défaut sérieux sur l’écran de connexion et sur la page d’un document', async () => {
@@ -163,7 +144,7 @@ test('accessibilité (axe-core) : aucun défaut sérieux sur l’écran de conne
   await p.fill('input[name=nom]', 'Alice')
   await p.click('button[type=submit]')
   await p.waitForSelector('.bn-editor')
-  await attendreEtat(p, 'Synchronisé')
+  await attendreEtat(p, 'connecte')
   assert.deepEqual(await violations(p), [], 'page d’un document')
   await ctx.close()
 })
@@ -172,21 +153,4 @@ test('les secrets n’apparaissent jamais dans les journaux', () => {
   const j = pile.journaux()
   assert.ok(!j.includes(pile.secrets.jetonInterne), 'jeton interne')
   assert.ok(!j.includes(pile.secrets.secret), 'secret de session')
-})
-
-test('point ouvert : le contraste du bouton Mantine par défaut est toujours en défaut (retirer l’exclusion quand il sera réglé)', async () => {
-  const ctx = await nav.newContext({ locale: 'fr-FR' })
-  const p = await ctx.newPage()
-  await p.goto(`${pile.url}/#${docTest('axe-attente')}`)
-  await p.waitForSelector('input[name=nom]')
-  // Le même défaut (bouton bleu par défaut), quel que soit le nombre de
-  // boutons de l'écran (deux depuis l'étape 6a : développement et courriel).
-  const v = await violations(p, { avecEnAttente: true })
-  assert.equal(v.length, 1, `une seule règle en défaut : ${v.join(', ')}`)
-  assert.match(
-    v[0],
-    /^color-contrast \(\d+\)$/,
-    'si ce test échoue parce que le défaut a disparu : retirer CONTRASTE_EN_ATTENTE et le point ouvert de l’ADR 0008',
-  )
-  await ctx.close()
 })

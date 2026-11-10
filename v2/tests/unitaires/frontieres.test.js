@@ -105,7 +105,7 @@ test('les couches ne se mélangent pas', async () => {
   )
   await refuse(
     'adaptateurs/blocknote/x.js',
-    "import { PageEdition } from '../../design/index.js'\nexport const x = PageEdition",
+    "import { Coquille } from '../../design/index.js'\nexport const x = Coquille",
     /couches/,
   )
 })

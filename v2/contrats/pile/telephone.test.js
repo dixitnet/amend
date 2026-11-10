@@ -61,10 +61,13 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
   await p.keyboard.type('Du texte.')
   await p.getByRole('button', { name: 'Terminer' }).click()
   // Titres réduits comme Docs à 560 px et moins (réglage css.telephone.titres) : 1,6 rem au niveau 1.
-  const taille = await p.evaluate(
-    () => getComputedStyle(document.querySelector("[data-content-type='heading'] .bn-inline-content")).fontSize,
-  )
-  assert.equal(taille, '25.6px')
+  // (mesurée une fois la transition de BlockNote finie : sinon 25,56 px).
+  const taille = () =>
+    p.evaluate(
+      () => getComputedStyle(document.querySelector("[data-content-type='heading'] .bn-inline-content")).fontSize,
+    )
+  for (const t0 = Date.now(); Date.now() - t0 < 3000 && (await taille()) !== '25.6px';) await attendre(100)
+  assert.equal(await taille(), '25.6px')
   await p.getByRole('button', { name: 'Plan et documents' }).click()
   const titre = p.getByRole('dialog').getByRole('button', { name: 'Chapitre un' })
   await titre.waitFor()
@@ -83,8 +86,10 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
   await p.keyboard.press('Escape')
   await p.getByRole('dialog', { name: 'Partage' }).waitFor({ state: 'detached' })
   // Le titre, dans le bandeau, se renomme d'un appui.
-  p.once('dialog', (d) => d.accept('Mon livre'))
+  // (fenêtre de saisie, comme en L et M, plutôt que la boîte du navigateur).
   await p.getByRole('button', { name: 'Renommer' }).click()
+  await p.getByRole('textbox', { name: 'Titre du document' }).fill('Mon livre')
+  await p.getByRole('button', { name: 'Valider' }).click()
   await p.getByRole('banner').getByText('Mon livre').waitFor()
   await p.context().close()
 })

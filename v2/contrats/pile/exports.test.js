@@ -25,7 +25,10 @@ after(async () => {
 async function telecharger(page, libelle) {
   const [fichier] = await Promise.all([
     page.waitForEvent('download', { timeout: 60000 }),
-    page.getByRole('button', { name: libelle }).click(),
+    page
+      .getByRole('button', { name: 'Autres actions' })
+      .click()
+      .then(() => page.getByRole('menuitem', { name: libelle }).click()),
   ])
   return { nom: fichier.suggestedFilename(), contenu: await readFile(await fichier.path()) }
 }

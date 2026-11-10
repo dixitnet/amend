@@ -24,7 +24,7 @@ Lu dans `suitenumerique/docs` (`src/frontend/apps/impress/src/features/docs/doc-
 4. **Le modèle « TàT - Poche »** (`design/reglages.js`, `livre.modeles`, ADR 0008) : 120 × 180 mm, marges 18 / 13 / 13 mm, EB Garamond 10,5 / 12,4 pt, 31 lignes, folio à 18 mm du bas, chapitre en belle page (titre à la 7e ligne, texte à la 12e), intertitres en italique avec une ligne blanche avant, alinéa 4,5 mm. Polices EB Garamond (licence OFL) dans `design/polices/`.
 5. **On exporte le texte de base**, lu dans le fragment Yjs, jamais les suggestions en cours (le correcteur exporte le texte accepté).
 6. **« Typst seul » pour l'imprimeur** : texte en noir pur (CMJN 0/0/0/100), polices incorporées, PDF/UA-1 quand le document s'y prête. Pas de PDF/X ni de Ghostscript tant qu'un imprimeur ne l'exige pas.
-7. Interface : deux boutons, « Exporter en Markdown » et « Exporter en PDF », dans l'en-tête de l'écran d'édition (formats L et M). Textes dans `i18n/`.
+7. Interface : deux entrées, « Exporter en Markdown » et « Exporter en PDF », dans le menu « Autres actions » de la coquille (formats M et L, picto « exporter » déjà décidé). Textes dans `i18n/`.
 
 ## Vérifications avant développement
 

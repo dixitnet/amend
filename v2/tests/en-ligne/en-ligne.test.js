@@ -159,9 +159,14 @@ sauf(
       await ctx.addCookies([{ name: nom, value: valeur, url: BASE, secure: true, httpOnly: true }])
       const page = await ctx.newPage()
       await page.goto(`${BASE}/#${doc}`)
-      await page.waitForFunction(() => document.querySelector('[role=status]')?.textContent === 'Synchronisé', null, {
-        timeout: 30000,
-      })
+      // L'état de la connexion, en attribut de la coquille (formats M et L).
+      await page.waitForFunction(
+        () => document.querySelector('[data-connexion]')?.dataset.connexion === 'connecte',
+        null,
+        {
+          timeout: 30000,
+        },
+      )
       return page
     }
     const lire = (p) =>
