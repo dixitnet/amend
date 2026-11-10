@@ -71,7 +71,10 @@
     "deplacement-impossible": "Un document ne passe pas directement d’une équipe à une autre\u00A0: sortez-le d’abord dans Mes documents.",
     "equipe-introuvable": "Cette équipe n’existe pas, ou vous n’en êtes pas membre.",
     "equipe-non-vide": "Cette équipe n’est pas vide\u00A0: déplacez ou supprimez d’abord ses documents et ses dossiers.",
-    "reserve-administrateur": "Réservé aux administrateurs de l’instance."
+    "reserve-administrateur": "Réservé aux administrateurs de l’instance.",
+    "margo-indisponible": "Margo est indisponible pour le moment.",
+    "selection-absente": "Sélectionnez d’abord le passage à corriger.",
+    "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus)."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -217,12 +220,39 @@
     "presence": "Personnes sur ce document",
     "modificationsCorrecteur": "Vos suggestions sont proposées aux éditeurs du document, qui les acceptent ou les refusent.",
     "margo": "Margo (IA)",
-    "margoBientot": "Margo arrive bientôt ici.",
     "horsLigne": "Hors ligne\u00A0: vos modifications sont gardées et partiront au retour de la connexion.",
     "largeurVolet": "Largeur du volet",
     "fermer": "Fermer",
     "valider": "Valider",
     "annuler": "Annuler",
     "continuer": "Continuer"
+  },
+  "margo": {
+    "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent en suggestions, dans Modifications, à accepter ou refuser.",
+    "vous": "Vous",
+    "corriger": "Corriger",
+    "demandeCorriger": "Corriger la sélection",
+    "porteeSelection": "Sur la sélection",
+    "porteeDocument": "Sur tout le texte",
+    "saisie": "Votre demande",
+    "envoyer": "Envoyer",
+    "nouvelle": "Nouvelle conversation",
+    "allerAuBloc": "Aller au bloc {n}",
+    "enCours": {
+      "reflexion": "Margo réfléchit…",
+      "lire": "Margo lit le texte…",
+      "chercher": "Margo cherche dans le texte…",
+      "proposer": "Margo propose des corrections…",
+      "commenter": "Margo commente…",
+      "repli": "Le modèle a refusé cette demande. Margo la reprend avec un autre modèle…"
+    },
+    "bilan": "{corrections, plural, =0 {Aucune correction} one {# correction} other {# corrections}}, {commentaires, plural, =0 {aucun commentaire} one {# commentaire} other {# commentaires}}.",
+    "arret": {
+      "etapes": "Demande arrêtée\u00A0: trop d’étapes. Relancez-la sur un passage plus court.",
+      "refusEnSerie": "Demande arrêtée\u00A0: trop de propositions refusées d’affilée.",
+      "longueur": "Réponse coupée\u00A0: elle était trop longue.",
+      "refus": "Le modèle a refusé cette demande.",
+      "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Modifications."
+    }
   }
 }

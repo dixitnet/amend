@@ -3,6 +3,7 @@
 export { CadreDesign } from './Cadre.jsx'
 export { EcranMessage, EcranConnexion } from './composants/EcranSimple.jsx'
 export { PanneauSuggestions } from './composants/PanneauSuggestions.jsx'
+export { PanneauMargo } from './composants/PanneauMargo.jsx'
 export { Bouton } from './composants/Bouton.jsx'
 export { EcranCourriel } from './composants/EcranCourriel.jsx'
 export { PageAdministration } from './composants/PageAdministration.jsx'

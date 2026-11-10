@@ -58,7 +58,7 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
   }
 
   /** Rend `true` si la requête a été traitée (même par une erreur). */
-  return async function traiter(req, res, url) {
+  async function traiter(req, res, url) {
     const m = /^\/api\/documents\/([^/]+)\/fils(?:\/(.*))?$/.exec(url.pathname)
     if (!m) return false
     const p = await personneDe(req)
@@ -199,4 +199,7 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
     }
     return (json(res, 405, { code: 'methode-refusee' }), true)
   }
+  // Le traitement des routes, avec de quoi prévenir les navigateurs d'un fil
+  // posé par Margo (étape 8).
+  return Object.assign(traiter, { prevenir })
 }

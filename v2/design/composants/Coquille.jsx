@@ -276,26 +276,33 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
 
 /** Le volet droit : onglets Modifications et Margo (IA). Le titre
  * (« Relecture ») n'est plus affiché (Sylvain, 10/11/2026) : il nomme les
- * onglets pour les lecteurs d'écran. */
-export function VoletRelecture({ titre, onglets, modifications, margo }) {
+ * onglets pour les lecteurs d'écran. L'onglet ouvert peut être piloté
+ * (`actif`, `surOnglet`) : « Corriger » ouvre Margo (étape 8). Sans `margo`,
+ * pas d'onglet Margo (le correcteur n'y a pas accès). */
+export function VoletRelecture({ titre, onglets, modifications, margo, actif, surOnglet }) {
+  const pilote = actif ? { value: actif, onChange: surOnglet } : { defaultValue: 'modifications' }
   return (
     <>
       <AppShell.Section grow component={ScrollArea}>
-        <Tabs defaultValue="modifications">
+        <Tabs {...pilote}>
           <Tabs.List grow aria-label={titre}>
             <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
               {onglets.modifications}
             </Tabs.Tab>
-            <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
-              {onglets.margo}
-            </Tabs.Tab>
+            {margo ? (
+              <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
+                {onglets.margo}
+              </Tabs.Tab>
+            ) : null}
           </Tabs.List>
           <Tabs.Panel value="modifications">
             <div className="amend-coquille-volet-corps">{modifications}</div>
           </Tabs.Panel>
-          <Tabs.Panel value="margo">
-            <div className="amend-coquille-volet-corps">{margo}</div>
-          </Tabs.Panel>
+          {margo ? (
+            <Tabs.Panel value="margo">
+              <div className="amend-coquille-volet-corps">{margo}</div>
+            </Tabs.Panel>
+          ) : null}
         </Tabs>
       </AppShell.Section>
     </>
