@@ -8,7 +8,7 @@
 //  - `lire` : lecture seule (lecteur), sans les suggestions.
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   useCreateBlockNote,
   FormattingToolbar,
@@ -75,9 +75,16 @@ export function EditeurCollaboratif({
 }) {
   const suggerer = mode === 'suggerer'
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
+  // L'éditeur n'est pas recréé quand le mode change (interrupteur du suivi) :
+  // le recréer en mode suggestion après la résolution d'un fil faisait planter
+  // l'affichage des suggestions (scénario à cinq, 10/11/2026). Le mode passe
+  // par l'extension des suggestions de BlockNote (effet plus bas).
+  const suggererDepart = useRef(suggerer)
+  const suggererMaintenant = useRef(suggerer)
+  suggererMaintenant.current = suggerer
   const afficheur = useMemo(
-    () => (avecSuggestions ? creerAfficheur(contexte, null, suggerer) : null),
-    [contexte, avecSuggestions, suggerer],
+    () => (avecSuggestions ? creerAfficheur(contexte, suggererDepart.current) : null),
+    [contexte, avecSuggestions],
   )
   const magasin = useMemo(
     () =>
@@ -97,7 +104,7 @@ export function EditeurCollaboratif({
       // Pas de typographie à la frappe en mode suggestion : défaut de BlockNote
       // (veille ; Sylvain, 08/11/2026 : attendre sa correction).
       extensions: [
-        ...(suggerer ? [] : [extensionTypographie({ langue: langueDocument })]),
+        extensionTypographie({ langue: langueDocument, actif: () => !suggererMaintenant.current }),
         ...(magasin ? [CommentsExtension({ threadStore: magasin, resolveUsers: nomsDe })] : []),
         extensionHistorique(contexte, peutRestaurer, dictionnaire(langue).versioning.before_restore),
       ],
@@ -113,7 +120,7 @@ export function EditeurCollaboratif({
         ...(afficheur ? { suggestionDoc: contexte.suggestions.doc, renderer: afficheur } : null),
       },
     }),
-    [contexte, langue, langueDocument, suggerer, afficheur, magasin, peutRestaurer],
+    [contexte, langue, langueDocument, afficheur, magasin, peutRestaurer],
   )
 
   // Le mode des suggestions, puis les auteurs tenus à jour. Pendant
@@ -140,27 +147,30 @@ export function EditeurCollaboratif({
     const ext = editeur.getExtension('suggestions')
     if (suggerer) ext.enableSuggestions()
     else ext.viewSuggestions()
-    return suivreAuteurs(editeur, contexte, afficheur, suggerer)
-  }, [editeur, contexte, afficheur, suggerer, historique])
+  }, [editeur, afficheur, suggerer, historique])
+
+  // Les auteurs des suggestions, lus à côté de l'afficheur, pour le panneau.
+  const [auteurs, setAuteurs] = useState(null)
+  useEffect(() => (afficheur ? suivreAuteurs(contexte, setAuteurs) : undefined), [contexte, afficheur])
 
   // La liste des suggestions, pour qui peut les accepter ou les refuser.
   useEffect(() => {
     if (!afficheur || !surSuggestions || suggerer) return
     const ext = editeur.getExtension('suggestions')
     const actions = {
-      accepter: (s) => ext.applySuggestion(s.debut, s.fin),
-      refuser: (s) => ext.revertSuggestion(s.debut, s.fin),
+      accepter: (s) => ext.applySuggestion(s.plage.debut, s.plage.fin),
+      refuser: (s) => ext.revertSuggestion(s.plage.debut, s.plage.fin),
       toutAccepter: () => ext.applyAllSuggestions(),
       toutRefuser: () => ext.revertAllSuggestions(),
     }
-    const signaler = () => surSuggestions({ liste: listeDesSuggestions(editeur), ...actions })
+    const signaler = () => surSuggestions({ liste: listeDesSuggestions(editeur, auteurs), ...actions })
     signaler()
     const arreter = editeur.onChange(signaler)
     return () => {
       arreter()
       surSuggestions(null)
     }
-  }, [editeur, afficheur, suggerer, surSuggestions])
+  }, [editeur, afficheur, suggerer, surSuggestions, auteurs])
 
   // Le plan : les titres du document, tenus à jour (volet « Plan » des trois
   // formats), et le titre courant au défilement. Aller à un titre y met le
