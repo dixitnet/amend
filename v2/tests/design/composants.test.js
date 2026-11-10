@@ -317,3 +317,64 @@ test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rie
   )
   assert.doesNotMatch(html, /<script>|<b>/)
 })
+
+test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiquetée ; accueil quand le fil est vide', () => {
+  const html = rendre(
+    h(design.PanneauMargo, {
+      titre: 'Margo (IA)',
+      messages: [
+        { cle: '1', etiquette: 'Vous', morceaux: [{ texte: 'Corrige <b>' }] },
+        {
+          cle: '2',
+          etiquette: 'Margo (IA)',
+          morceaux: [{ texte: 'Corrigé dans ' }, { lien: '[2]', libelle: 'Aller au bloc 2', surClic: rien }],
+          bilan: '1 correction, aucun commentaire',
+        },
+      ],
+      accueil: 'Bonjour',
+      enCours: 'Margo travaille…',
+      erreur: 'Erreur réseau',
+      portee: 'Sur la sélection',
+      saisie: {
+        libelle: 'Votre demande',
+        valeur: '',
+        surChange: rien,
+        surEnvoi: rien,
+        envoyer: 'Envoyer',
+        desactive: true,
+      },
+      nouvelle: { libelle: 'Nouvelle conversation', surClic: rien },
+    }),
+  )
+  assert.match(html, /<section[^>]*aria-label="Margo \(IA\)"/)
+  assert.match(html, /aria-live="polite"/)
+  assert.ok(html.includes('Corrige &lt;b&gt;'), 'le texte de la personne reste du texte')
+  assert.match(html, /<button[^>]*aria-label="Aller au bloc 2"[^>]*>\[2\]<\/button>/)
+  assert.ok(html.includes('1 correction, aucun commentaire'))
+  assert.match(html, /role="status"[\s\S]*Margo travaille…/)
+  assert.match(html, /role="alert"[^>]*>Erreur réseau/)
+  assert.match(html, /<label[^>]*>Votre demande/)
+  assert.match(html, /<button[^>]*type="submit"[^>]*disabled/)
+  assert.ok(html.includes('Nouvelle conversation'))
+  const vide = rendre(
+    h(design.PanneauMargo, {
+      titre: 'Margo',
+      messages: [],
+      accueil: 'Bonjour',
+      enCours: null,
+      erreur: null,
+      portee: 'Sur tout le texte',
+      saisie: {
+        libelle: 'Votre demande',
+        valeur: '',
+        surChange: rien,
+        surEnvoi: rien,
+        envoyer: 'Envoyer',
+        desactive: false,
+      },
+      nouvelle: null,
+    }),
+  )
+  assert.ok(vide.includes('Bonjour') && vide.includes('Sur tout le texte'))
+  assert.doesNotMatch(vide, /role="status"|role="alert"|Nouvelle conversation/)
+})
