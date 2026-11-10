@@ -10,7 +10,7 @@ Sources : campagne automatique (familles A à H, pile locale, Chromium et WebKit
 
 | | Constat | Preuve |
 |---|---|---|
-| C1 | **Accepter la suppression d'un paragraphe abîme le texte** : en suivi, double-clic sur un paragraphe puis Suppr ; le panneau ne montre qu'un « ajout » ; l'accepter laisse « Ligne A ⏎ XLigne C ⏎ Ligne C » dans le texte principal (paragraphe non supprimé, dernière ligne en double) | H11, 2/2 en local ; Sylvain : paragraphe barré orphelin (constat 6) |
+| C1 | **Accepter la suppression d'un paragraphe abîme le texte** : en suivi, double-clic sur un paragraphe puis Suppr ; le panneau ne montre qu'un « ajout » ; l'accepter laisse « Ligne A ⏎ XLigne C ⏎ Ligne C » dans le texte principal (paragraphe non supprimé, dernière ligne en double) | H11, 3/3 en local (Chromium) ; Sylvain : paragraphe barré orphelin (constat 6) |
 | C2 | **Un document peut ne plus jamais passer en suivi** (page blanche à chaque activation, `reading 'copy'` dans le rendu de Yjs 14) | Sylvain, document « Test Claude - verif v2 », à chaque rechargement ; recette non isolée (H11, H12 ne la reproduisent pas) |
 | C3 | **Écran blanc en activant le suivi juste après la résolution d'un fil** | B7, 3/3 Chromium, 3/3 WebKit |
 | C4 | **Les suggestions d'un éditeur disparaissent des panneaux** dès qu'il tape ailleurs : toujours affichées chez lui, plus listées nulle part, même après rechargement ; personne ne peut les arbitrer | H2, 3/3 ; B2 « ailleurs » 3/3 ; Sylvain (constat 2) |
