@@ -1,0 +1,69 @@
+# Construction des clients pour la production (10/11/2026, Sylvain : « ok pour
+# 0 ») : comme Docs, qui construit ses images dans sa CI et jamais sur ses
+# serveurs. À chaque envoi sur main, les clients de la v1 (client/dist) et de
+# la v2 (v2/dist) sont construits ici, puis déposés sur la branche
+# `livraison`, un commit par commit de main (fichier COMMIT). Le VPS
+# (deploy/auto/maj.sh) la récupère avec l'accès qu'il a déjà au dépôt, au lieu
+# de tout construire lui-même sur sa machine de 1 Go (8 min 30 de machine
+# saturée par fusion, les deux sites ralentis).
+name: livraison
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Une livraison à la fois, jamais interrompue : chaque commit de main a la sienne.
+concurrency:
+  group: livraison
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            v2/package-lock.json
+      - name: Client de la v1
+        working-directory: client
+        run: npm ci --no-audit --no-fund && npm run build
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Client de la v2
+        working-directory: v2
+        run: npm ci --no-audit --no-fund && npx vite build --logLevel warn
+      - name: Déposer sur la branche livraison
+        run: |
+          set -euo pipefail
+          SORTIE=$(mktemp -d)
+          mkdir -p "$SORTIE/v1" "$SORTIE/v2"
+          cp -r client/dist "$SORTIE/v1/dist"
+          cp -r v2/dist "$SORTIE/v2/dist"
+          echo "$GITHUB_SHA" > "$SORTIE/COMMIT"
+          git config user.name "amend.ink livraison"
+          git config user.email "livraison@amend.invalid"
+          # Une branche à part, sans le code : seulement ce que le VPS sert.
+          if git fetch -q --depth 1 origin livraison; then
+            git worktree add -q "$RUNNER_TEMP/livraison" FETCH_HEAD
+            git -C "$RUNNER_TEMP/livraison" checkout -q -B livraison
+          else
+            git worktree add -q --orphan -b livraison "$RUNNER_TEMP/livraison"
+          fi
+          cd "$RUNNER_TEMP/livraison"
+          git rm -rq --ignore-unmatch .
+          cp -r "$SORTIE"/. .
+          git add -A
+          git commit -q -m "Livraison de ${GITHUB_SHA:0:7}"
+          git push -q origin livraison
+          echo "livraison de ${GITHUB_SHA:0:7} déposée"

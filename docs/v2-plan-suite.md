@@ -23,15 +23,15 @@ En ligne : v2.amend.ink, service fermé, ouvert à des invités réels depuis le
 ## 0. Déploiement (décidé le 10/11/2026, « 2 puis 1 »)
 
 - Fait : ne reconstruire que ce qui a changé ; le déploiement passe après les sites (`deploy/auto/`).
-- À faire ensuite : construire les clients v1 et v2 dans GitHub Actions ; le VPS télécharge le résultat, installe les seules dépendances du serveur et redémarre. Règle aussi le site vide pendant une construction (point 3 ci-dessous).
+- Fait (« ok pour 0, 1 et 2 », 10/11/2026) : clients v1 et v2 construits dans GitHub Actions (flux `livraison`, branche `livraison`) ; le VPS en extrait les clients, n'installe que les dépendances du serveur quand elles changent, et bascule le client servi d'un seul geste (point 3 en partie).
 
 ## A. Avant tout invité réel (exploitation, à faire d'abord)
 
 Ces trois lots sont petits, et ils comptent dès le premier texte réel déposé dans la v2.
 
-1. **Sauvegarde de la base de la v2.** Un `pg_dump -Fc` nocturne déposé sous `/opt/amend/data/`, que le NAS emporte déjà chaque nuit avec la v1 ; un essai de restauration une fois, sur une base à part ; tout dans les scripts de `deploy/auto/` et `v2/exploitation/prod/`, rien à faire à la main. Valkey ne garde que quelques secondes de flux : rien à sauvegarder. Lève le report du 08/11.
-2. **En-têtes de sécurité** dans `Caddyfile.v2` : `X-Content-Type-Options: nosniff`, `Content-Security-Policy: frame-ancestors 'none'`, `Referrer-Policy`. Une politique de contenu complète viendra après lecture de ce que fait Docs (son montage Nginx). Durée de HSTS : 7 jours aujourd'hui, comme la v1 « pour commencer » ; à allonger sur décision.
-3. **Déploiement sans page vide** : construire le client dans un dossier provisoire puis basculer (aujourd'hui `dist/` est vidé avant la construction, et le reste si elle échoue) ; dépendance du service à PostgreSQL ; installation qui échoue si un pare-feu ouvre 4300 ou 4400.
+1. **Fait le 10/11/2026.** **Sauvegarde de la base de la v2.** Un `pg_dump -Fc` nocturne déposé sous `/opt/amend/data/`, que le NAS emporte déjà chaque nuit avec la v1 ; un essai de restauration une fois, sur une base à part ; tout dans les scripts de `deploy/auto/` et `v2/exploitation/prod/`, rien à faire à la main. Valkey ne garde que quelques secondes de flux : rien à sauvegarder. Lève le report du 08/11.
+2. **Fait le 10/11/2026, dans le serveur de la v2 plutôt que dans Caddy** (comme Docs les pose dans Django ; déployés seuls, testés en T4 et T6 ; `X-Frame-Options DENY`, `nosniff`, `Referrer-Policy: same-origin`, et `default-src 'none'` sur l'API, sans politique de contenu sur la page, comme Docs). Proposé à l'origine : **en-têtes de sécurité** dans `Caddyfile.v2` : `X-Content-Type-Options: nosniff`, `Content-Security-Policy: frame-ancestors 'none'`, `Referrer-Policy`. Une politique de contenu complète viendra après lecture de ce que fait Docs (son montage Nginx). Durée de HSTS : 7 jours aujourd'hui, comme la v1 « pour commencer » ; à allonger sur décision.
+3. **Déploiement sans page vide** : fait pour le client (bascule d'un seul geste, 10/11/2026) ; restent dépendance du service à PostgreSQL ; installation qui échoue si un pare-feu ouvre 4300 ou 4400.
 
 ## B. Correctifs de l'audit (un lot technique)
 

@@ -57,7 +57,12 @@ test('sans mot de passe : page, configuration (dev fermé), HSTS, noindex', asyn
   assert.equal(r.status, 200)
   assert.match(r.headers.get('strict-transport-security') || '', /max-age=\d+/)
   assert.match(r.headers.get('x-robots-tag') || '', /noindex/)
-  const conf = await (await fetch(`${BASE}/api/config`)).json()
+  // En-têtes de sécurité (10/11/2026), à travers Caddy.
+  assert.equal(r.headers.get('x-frame-options'), 'DENY')
+  assert.equal(r.headers.get('x-content-type-options'), 'nosniff')
+  const api = await fetch(`${BASE}/api/config`)
+  assert.equal(api.headers.get('content-security-policy'), "default-src 'none'; frame-ancestors 'none'")
+  const conf = await api.json()
   assert.equal(conf.collaboration, `${BASE.replace(/^https/, 'wss')}/collaboration/ws/v1/amend`)
   assert.equal(conf.dev, false)
 })

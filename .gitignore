@@ -1,5 +1,8 @@
 node_modules/
 client/dist/
+# Dossiers de bascule du déploiement (deploy/deploy.sh)
+client/dist.neuf/
+client/dist.ancien/
 data/
 .env
 *.log

@@ -39,11 +39,38 @@ if [[ "$AVANT" == "$APRES" && "$FORCER" -eq 0 ]]; then
   exit 0
 fi
 
-echo "→ dépendances du serveur (npm ci --omit=dev)"
-npm ci --omit=dev
+# Remplacer un dossier servi par deux renommages consécutifs : le site ne sert
+# jamais un client à moitié écrit, et le dossier ne manque que le temps de ces
+# deux renommages, au lieu de toute la construction (audit du 10/11/2026).
+basculer() {
+  rm -rf "$1.ancien"
+  if [[ -d "$1" ]]; then mv "$1" "$1.ancien"; fi
+  mv "$1.neuf" "$1"
+  rm -rf "$1.ancien"
+}
 
-echo "→ build du frontend"
-(cd client && npm ci && npm run build)
+if [[ "$FORCER" -eq 1 || ! -d node_modules ]] || ! git diff --quiet "$AVANT" "$APRES" -- package.json package-lock.json; then
+  echo "→ dépendances du serveur (npm ci --omit=dev)"
+  npm ci --omit=dev
+else
+  echo "→ dépendances du serveur inchangées"
+fi
+
+# Le client est construit par GitHub Actions (branche `livraison`, 10/11/2026) ;
+# deploy/auto/maj.sh donne la livraison de ce commit dans AMEND_LIVRAISON. À
+# défaut (lancement à la main, CI en panne), on le construit ici, comme avant.
+if [[ -n "${AMEND_LIVRAISON:-}" ]]; then
+  echo "→ client construit par GitHub Actions"
+  EXTRAIT=$(mktemp -d)
+  git archive "$AMEND_LIVRAISON" v1/dist | tar -x -C "$EXTRAIT"
+  rm -rf client/dist.neuf
+  mv "$EXTRAIT/v1/dist" client/dist.neuf
+  rm -rf "$EXTRAIT"
+else
+  echo "→ build du frontend (sur place)"
+  (cd client && npm ci && npm run build -- --outDir dist.neuf)
+fi
+basculer client/dist
 
 CHANGE=$(git diff --name-only "$AVANT" "$APRES" -- server shared package.json package-lock.json | head -20)
 if [[ "$FORCER" -eq 1 || -n "$CHANGE" ]]; then
