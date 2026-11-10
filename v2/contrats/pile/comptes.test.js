@@ -128,7 +128,7 @@ test('dossiers (volet) : créer, y créer un document, le déplacer à la racine
   await p.waitForSelector('.bn-editor')
   const docId = decodeURIComponent(new URL(p.url()).hash.slice(1))
   const dossier = (await voletDocuments(p))
-    .locator('li', { has: p.getByRole('button', { name: nom, exact: true }) })
+    .locator('div:has(> div > button)', { has: p.getByRole('button', { name: nom, exact: true }) })
     .last()
   await dossier.locator(`a[href="#${docId}"]`).waitFor()
   // Déplacé à la racine de Mes documents.
@@ -195,7 +195,7 @@ test('équipe (volet) : la créer, y faire entrer un document, inviter une corre
   const boutonEquipe = (await voletDocuments(g)).getByRole('button', { name: nom, exact: true })
   if ((await boutonEquipe.getAttribute('aria-expanded')) !== 'true') await boutonEquipe.click()
   const equipe = (await voletDocuments(g))
-    .locator('li', { has: g.getByRole('button', { name: nom, exact: true }) })
+    .locator('div:has(> div > button)', { has: g.getByRole('button', { name: nom, exact: true }) })
     .last()
   await equipe.locator(`a[href="#${docId}"]`).waitFor()
   // Inviter une adresse nouvelle comme correctrice, depuis la fenêtre des membres.
@@ -232,10 +232,13 @@ test('favoris : l’étoile du bandeau met le document dans le groupe « Favoris
   await p.getByRole('button', { name: 'Ajouter aux favoris' }).click()
   await p.getByRole('button', { name: 'Retirer des favoris' }).waitFor()
   const volet = await voletDocuments(p)
-  const favoris = volet.locator('li', { has: p.getByRole('button', { name: 'Favoris', exact: true }) }).last()
+  const favoris = volet
+    .locator('div:has(> div > button)', { has: p.getByRole('button', { name: 'Favoris', exact: true }) })
+    .last()
   await favoris.locator(`a[href="#${docId}"]`).waitFor()
   await p.getByRole('button', { name: 'Retirer des favoris' }).click()
   await p.getByRole('button', { name: 'Ajouter aux favoris' }).waitFor()
-  await volet.getByRole('button', { name: 'Favoris', exact: true }).waitFor({ state: 'detached' })
+  // (D'autres favoris de Paule peuvent rester : la base de développement est commune aux essais.)
+  await favoris.locator(`a[href="#${docId}"]`).waitFor({ state: 'detached' })
   await p.context().close()
 })

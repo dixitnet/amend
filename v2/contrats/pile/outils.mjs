@@ -116,10 +116,11 @@ export async function nouveauDocument(page) {
 export async function menuDe(page, { id, nom }) {
   const panneau = await voletDocuments(page)
   const ligne = id
-    ? panneau.locator(`li:has(> div a[href="#${id}"])`).first()
-    : panneau.locator('li', { has: page.getByRole('button', { name: nom, exact: true }) }).last()
+    ? panneau.locator(`div:has(> div > a[href="#${id}"])`).first()
+    : panneau.locator('div:has(> div > button)', { has: page.getByRole('button', { name: nom, exact: true }) }).last()
   await ligne
     .locator('> div')
+    .first()
     .getByRole('button', { name: /^Actions sur/ })
     .click()
 }
