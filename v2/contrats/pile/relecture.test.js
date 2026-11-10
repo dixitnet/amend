@@ -40,6 +40,8 @@ async function relecture(nom, paragraphe = 'Il faisait nuit sur la ville.') {
 
 test('suggestion : l’éditrice la voit avec son auteur, l’accepte ; le texte converge et survit au rechargement', async () => {
   const { p, c, fermer } = await relecture('accepter')
+  // Le correcteur est toujours en suivi : il n'a pas d'interrupteur (10/11/2026).
+  assert.equal(await c.getByRole('switch').count(), 0)
   await c.click('.bn-inline-content')
   await c.keyboard.press('End')
   await attendre(300)
