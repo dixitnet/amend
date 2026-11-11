@@ -105,3 +105,8 @@ test('remplacement : jamais deux espaces de suite dans le texte de Margo, la plu
   const r = situerRemplacement('forestiers\u00a0: 52 et 27', '27', 'x\u00a0 : 31  et\u202f\u00a0;')
   assert.equal(r.apres, 'x\u00a0: 31 et\u202f;')
 })
+
+test('signes compte en NFC : une lettre décomposée vaut un signe', () => {
+  assert.equal(signes('été'), 3)
+  assert.equal(signes('été'), 3)
+})

@@ -161,3 +161,32 @@ test('droits des modèles : le gestionnaire gère ceux de l’équipe ; qui écr
   assert.equal(peutChoisirModele(capacites('editeur')), true)
   assert.equal(peutChoisirModele(capacites('correcteur')), false)
 })
+
+test('un titre refuse les invisibles et les marques de sens d’écriture, mais garde les insécables', () => {
+  for (const c of ['\u200B', '\u200E', '\u202E', '\u2066', '\u00AD', '\u0000'])
+    assert.deepEqual(
+      titreDocument(`Le${c}titre`),
+      { ok: false, code: 'titre-invalide' },
+      `U+${c.codePointAt(0).toString(16)}`,
+    )
+  assert.equal(titreDocument('Le\u00A0titre\u202F!').ok, true)
+})
+
+test('la grille refuse une valeur non numérique avec le code modele-impossible', () => {
+  const avec = (chemin, valeur) => {
+    const m = structuredClone(MODELE)
+    const [a, b] = chemin.split('.')
+    m[a][b] = valeur
+    return m
+  }
+  for (const chemin of [
+    'page.hauteur',
+    'marges.haut',
+    'folio.bas',
+    'grille.corps',
+    'grille.interligne',
+    'grille.lignes',
+  ])
+    for (const valeur of [NaN, '12', undefined])
+      assert.throws(() => grille(avec(chemin, valeur)), { code: 'modele-impossible' }, `${chemin} = ${String(valeur)}`)
+})

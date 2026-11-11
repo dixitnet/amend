@@ -8,6 +8,7 @@ import {
   titreDeCopie,
   lieuDeLaCopie,
   trierDocuments,
+  ORDRES_TRI,
 } from '../../domaine/index.js'
 
 const JOUR = 24 * 3600 * 1000
@@ -64,4 +65,20 @@ test('tri : modifiés récemment, titre, créés récemment', () => {
   assert.equal(ids(trierDocuments(docs, 'titre')), 'bdac')
   assert.equal(ids(trierDocuments(docs, 'crees')), 'dbca')
   assert.equal(ids(docs), 'abcd', 'la liste reçue n’est pas modifiée')
+})
+
+test('titreDeCopie borne le résultat à 200 signes, même avec un gabarit très long', () => {
+  const r = titreDeCopie('Titre', (t) => `${'x'.repeat(250)}${t}`, 'Sans titre')
+  assert.equal([...r].length, 200)
+  const emoji = titreDeCopie('Titre', (t) => `${'😀'.repeat(250)}${t}`, 'Sans titre')
+  assert.equal([...emoji].length, 200)
+})
+
+test('trierDocuments : un ordre inconnu vaut le premier de ORDRES_TRI', () => {
+  const docs = [
+    { titre: 'A', creeLe: 1, modifieLe: 5 },
+    { titre: 'B', creeLe: 2, modifieLe: 9 },
+  ]
+  assert.deepEqual(trierDocuments(docs, 'inconnu'), trierDocuments(docs, ORDRES_TRI[0]))
+  assert.deepEqual(trierDocuments(docs, undefined), trierDocuments(docs, 'modifies'))
 })
