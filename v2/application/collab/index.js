@@ -3,6 +3,14 @@
 // backend. Un processus à part (ADR 0004).
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
 
+// Hors développement (`V2_DEV=1`), pas de repli : une réglage absent arrête le
+// processus au démarrage plutôt que d'ouvrir la collaboration sur de mauvaises valeurs.
+const DEV = process.env.V2_DEV === '1'
+if (!DEV) {
+  for (const nom of ['V2_POSTGRES', 'V2_JETON_INTERNE', 'V2_ORIGINES'])
+    if (!process.env[nom]?.trim()) throw new Error(`réglage absent (${nom})`)
+}
+
 const CONF = {
   port: Number(process.env.V2_COLLAB_PORT || 4400),
   redis: process.env.V2_REDIS || 'redis://127.0.0.1:6379',
@@ -56,6 +64,8 @@ console.log(`[collab] ws://127.0.0.1:${CONF.port}${collab.cheminWebSocket}/<docu
 
 for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, async () => {
+    // Garde-fou : si `fermer()` ne finit pas, le processus ne reste pas pendu.
+    setTimeout(() => process.exit(1), 10_000).unref()
     try {
       await collab.fermer()
       process.exit(0)

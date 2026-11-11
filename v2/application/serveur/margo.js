@@ -29,6 +29,7 @@ import {
   suiviDesRefus,
   typographier,
 } from '../../domaine/index.js'
+import { decoder } from './adresse.js'
 import { consigne } from '../../i18n/consignes.js'
 import { blocsATexteDe, suggererRemplacements, ancreCommentaire } from '../../adaptateurs/blocknote/serveur.js'
 
@@ -116,12 +117,8 @@ export function creerMargo({
     if (req.method !== 'POST') return (json(res, 405, { code: 'methode-refusee' }), true)
     const p = await personneDe(req)
     if (!p) return (json(res, 401, { code: 'session-absente' }), true)
-    let brut
-    try {
-      brut = decodeURIComponent(m[1])
-    } catch {
-      return (json(res, 400, { code: 'requete-invalide' }), true)
-    }
+    const brut = decoder(m[1])
+    if (brut === null) return (json(res, 400, { code: 'requete-invalide' }), true)
     const doc = identifiantDocument(brut)
     if (!doc.ok) return (json(res, 400, { code: doc.code }), true)
     const docId = doc.id

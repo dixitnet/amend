@@ -23,22 +23,18 @@
 // 5, 2b) : il lit le texte principal dans y/hub, y ajoute la marque du fil,
 // et y écrit la modification, attribuée au correcteur.
 import { identifiantDocument, capacites, peutCommenter } from '../../domaine/index.js'
+import { decoder } from './adresse.js'
 
 const MAX_CORPS = 64_000
 const corpsValide = (corps) => Array.isArray(corps) && corps.length > 0 && JSON.stringify(corps).length <= MAX_CORPS
 const emojiValide = (e) => typeof e === 'string' && e.length > 0 && e.length <= 16 && !/[\s<>]/.test(e)
-/** Un segment d'adresse décodé, ou `null` s'il est mal formé (« %E0 »). */
-function decoder(segment) {
-  try {
-    return decodeURIComponent(segment)
-  } catch {
-    return null
-  }
-}
 const metaValide = (m) => m === undefined || m === null || (typeof m === 'object' && !Array.isArray(m))
 
 /** Le battement du flux des changements (audit du 10/11/2026). */
 const BATTEMENT_MS = 30_000
+
+/** Flux d'événements ouverts au plus par personne, tous documents confondus. */
+export const FLUX_MAX_PAR_PERSONNE = 8
 
 /**
  * @param {object} o
@@ -53,6 +49,7 @@ const BATTEMENT_MS = 30_000
 export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps, collaboration = null }) {
   /** Les abonnés au flux d'un document. */
   const abonnes = new Map()
+  const fluxParPersonne = new Map()
   function prevenir(docId) {
     for (const res of abonnes.get(docId) ?? []) res.write('data: changement\n\n')
   }
@@ -96,6 +93,11 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
     // /fils/evenements
     if (fil === 'evenements' && !sous) {
       if (methode !== 'GET') return (json(res, 405, { code: 'methode-refusee' }), true)
+      // Plafond par personne, tous documents confondus (un onglet par document,
+      // quelques appareils : bien au-delà de l'usage normal).
+      if ((fluxParPersonne.get(p.id) ?? 0) >= FLUX_MAX_PAR_PERSONNE)
+        return (json(res, 429, { code: 'trop-de-flux' }), true)
+      fluxParPersonne.set(p.id, (fluxParPersonne.get(p.id) ?? 0) + 1)
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' })
       res.write(': ouvert\n\n')
       if (!abonnes.has(docId)) abonnes.set(docId, new Set())
@@ -107,6 +109,9 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
       battement.unref?.()
       req.on('close', () => {
         clearInterval(battement)
+        const n = (fluxParPersonne.get(p.id) ?? 1) - 1
+        if (n > 0) fluxParPersonne.set(p.id, n)
+        else fluxParPersonne.delete(p.id)
         abonnes.get(docId)?.delete(res)
         if (!abonnes.get(docId)?.size) abonnes.delete(docId)
       })
@@ -146,8 +151,11 @@ export function creerCommentaires({ personneDe, roleSur, depot, json, lireCorps,
         r = ancreCommentaire(await collaboration.lireTexte(docId), { debut, fin, citation, fil })
         if (r.code === 'ok') await collaboration.ecrireTexte(docId, r.mise, p.id)
       } catch (err) {
-        if (err.code === 'collaboration-indisponible' || err.name === 'TimeoutError' || err.name === 'TypeError')
+        if (err.code === 'collaboration-indisponible' || err.name === 'TimeoutError' || err.name === 'TypeError') {
+          // Une TypeError est peut-être un défaut de notre code : elle laisse une trace (sans le contenu du document).
+          if (err.name === 'TypeError') console.error(`[commentaires] ancre du fil ${fil} dans ${docId} :`, err)
           return (json(res, 503, { code: 'collaboration-indisponible' }), true)
+        }
         throw err
       }
       if (r.code === 'ancre-invalide') return (json(res, 400, { code: r.code }), true)
