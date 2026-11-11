@@ -85,6 +85,30 @@ function auteurDans(auteurs, vue, $pos, type) {
   return null
 }
 
+/** Les auteurs déjà trouvés, par table des auteurs puis par nœud de texte. */
+const dejaTrouves = new WeakMap()
+
+/**
+ * L'auteur d'un nœud de texte proposé. La recherche dans la table de y/hub
+ * coûte cher, et la liste est recalculée à chaque changement de l'éditeur :
+ * sur un livre de 500 suggestions, une phrase tapée par un correcteur mettait
+ * 14 s à s'afficher chez l'éditrice en relecture (mesure du 11/11/2026,
+ * `exploitation/dev/mesurer-relecture.mjs`). Un nœud de texte qui n'a pas
+ * changé garde son objet d'un état de l'éditeur au suivant : son auteur n'est
+ * cherché qu'une fois, tant que la table des auteurs est la même.
+ */
+function auteurDuNoeud(auteurs, vue, noeud, position, type) {
+  if (!auteurs || !vue) return null
+  let parNoeud = dejaTrouves.get(auteurs)
+  if (!parNoeud) dejaTrouves.set(auteurs, (parNoeud = new WeakMap()))
+  const connu = parNoeud.get(noeud)
+  if (connu) return connu
+  const auteur = auteurDans(auteurs, vue, position(), type)
+  // Un auteur introuvable n'est pas retenu : il sera cherché de nouveau.
+  if (auteur) parNoeud.set(noeud, auteur)
+  return auteur
+}
+
 /**
  * Les suggestions du document, dans l'ordre du texte, telles que Yjs les
  * découpe (Sylvain, 09/11/2026 : on garde ce découpage) : les morceaux d'un
@@ -109,7 +133,13 @@ export function listeDesSuggestions(editeur, auteurs = null) {
         type: m.type.name === INSERTION ? 'ajout' : 'suppression',
         auteur:
           m.attrs.userIds?.[0] ??
-          auteurDans(auteurs, vue, tr.doc.resolve(pos), m.type.name === INSERTION ? 'ajout' : 'suppression'),
+          auteurDuNoeud(
+            auteurs,
+            vue,
+            n,
+            () => tr.doc.resolve(pos),
+            m.type.name === INSERTION ? 'ajout' : 'suppression',
+          ),
         bloc: tr.doc.resolve(pos).start(),
         debut: pos,
         fin: pos + n.nodeSize,
