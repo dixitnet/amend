@@ -53,6 +53,11 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     mots: 2000,
     zoom: 150,
     liste: 'La gare, Le quai',
+    processus: 'Serveur',
+    min: '92 Mo',
+    dernier: '120 Mo',
+    methode: 'GET',
+    chemin: '/api/documents',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -88,6 +93,11 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       mots: 2,
       zoom: 50,
       liste: 'L',
+      processus: 'P',
+      min: 'm',
+      dernier: 'd',
+      methode: 'M',
+      chemin: 'C',
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
