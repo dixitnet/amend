@@ -541,3 +541,45 @@ test('images (comme Docs) : qui écrit ou suggère envoie ; qui lit voit ; le re
   await appel('DELETE', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })
   assert.equal(await comptes.image(doc.id, url.split('/').pop()), null)
 })
+
+test('supprimer son compte (règle de la v1) : aperçu, refus, puis documents confiés, quittés, supprimés ; commentaires gardés', async () => {
+  const marc = await personne(`Marc ${randomUUID().slice(0, 6)}`)
+  const eve = await personne('Ève')
+  const leo = await personne('Léo')
+  const courrielDeMarc = (await comptes.personne(marc.id)).courriel
+  const nouveau = async (titre) =>
+    (await appel('POST', '/api/documents', { cookie: marc.cookie, corps: { titre } })).json.id
+  const seul = await nouveau('Seul')
+  const confie = await nouveau('Confié')
+  const lu = await nouveau('Lu seulement')
+  const donner = (doc, personneId, role) =>
+    appel('POST', '/api/dev/acces', { cookie: marc.cookie, corps: { document: doc, personne: personneId, role } })
+  await donner(confie, leo.id, 'lecteur')
+  await donner(confie, eve.id, 'editeur')
+  await donner(lu, leo.id, 'correcteur')
+  await commentaires.creerFil(confie, marc.id, [{ type: 'paragraph', content: 'remarque' }])
+  // Aperçu : « Lu seulement » n'a qu'un correcteur : refus.
+  const apercu = (await appel('GET', '/api/moi/suppression', { cookie: marc.cookie })).json
+  const sorts = Object.fromEntries(apercu.documents.map((d) => [d.titre, [d.sort, d.aNom ?? null]]))
+  assert.deepEqual(sorts, { Seul: ['supprime', null], Confié: ['confie', 'Ève'], 'Lu seulement': ['refus', null] })
+  assert.equal(apercu.peut, false)
+  assert.equal(
+    (await appel('DELETE', '/api/moi', { cookie: marc.cookie, corps: { courriel: courrielDeMarc } })).statut,
+    409,
+  )
+  // Il confie lui-même le document au correcteur, puis confirme par son adresse.
+  await donner(lu, leo.id, 'proprietaire')
+  assert.equal(
+    (await appel('DELETE', '/api/moi', { cookie: marc.cookie, corps: { courriel: 'autre@x.fr' } })).statut,
+    400,
+  )
+  const r = await appel('DELETE', '/api/moi', { cookie: marc.cookie, corps: { courriel: courrielDeMarc } })
+  assert.equal(r.statut, 200)
+  assert.equal(await comptes.personne(marc.id), null)
+  assert.equal(await comptes.document(seul), null, 'le document qu’il portait seul est supprimé')
+  assert.deepEqual(await comptes.rolesDe(confie, eve.id), ['proprietaire'], 'confié à l’éditrice')
+  assert.equal((await comptes.document(confie)).emplacement, eve.id, 'rangé chez elle')
+  assert.deepEqual(await comptes.rolesDe(lu, leo.id), ['proprietaire'])
+  assert.equal((await commentaires.fils(confie)).length, 1, 'ses commentaires restent, sans son nom')
+  assert.equal((await appel('GET', '/api/documents', { cookie: marc.cookie })).statut, 401, 'sa session ne vaut plus')
+})

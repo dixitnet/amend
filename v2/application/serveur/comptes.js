@@ -9,6 +9,8 @@
 //   POST   /api/deconnexion
 //   POST   /api/deconnexion-partout
 //   PUT    /api/moi                          { nom }
+//   GET    /api/moi/suppression              aperçu : ce que deviendraient mes documents et équipes
+//   DELETE /api/moi                          { courriel }  supprimer mon compte (adresse en toutes lettres)
 //   GET    /api/documents                    { dossiers, documents } : Mes documents et Partagé avec moi
 //   POST   /api/documents                    { titre?, dossier? }  nouveau document (je suis propriétaire)
 //   DELETE /api/documents/:doc               à la corbeille (le propriétaire seul), 30 jours
@@ -74,6 +76,8 @@ import {
   dansLaCorbeille,
   joursRestants,
   titreDeCopie,
+  planSuppressionCompte,
+  confirmationSuppressionValide,
   lieuDeLaCopie,
   ROLES,
   DUREE_INVITATION_MS,
@@ -321,6 +325,23 @@ export function creerComptes({
     return ok(res, ecarts === undefined ? {} : { ecarts })
   }
 
+  /** Ce que deviendraient les documents et les équipes d'une personne si elle
+   * supprimait son compte (domaine : planSuppressionCompte). */
+  async function planDe(moi) {
+    const equipesDeMoi = await comptes.equipesDe(moi)
+    const plan = planSuppressionCompte({
+      moi,
+      documents: await comptes.documentsEnPropre(moi),
+      equipes: await Promise.all(
+        equipesDeMoi.map(async (e) => ({ id: e.id, nom: e.nom, membres: await comptes.membresDe(e.id) })),
+      ),
+    })
+    // Le nom (ou l'adresse) de qui recevra un document, pour l'aperçu.
+    const noms = new Map((await comptes.noms(plan.documents.map((d) => d.a).filter(Boolean))).map((x) => [x.id, x]))
+    for (const d of plan.documents) if (d.a) d.aNom = noms.get(d.a)?.nom || noms.get(d.a)?.courriel || null
+    return plan
+  }
+
   /** Efface pour de bon les documents restés plus de 30 jours dans la corbeille. */
   async function purger(maintenant = Date.now()) {
     for (const id of await comptes.corbeilleExpiree(maintenant - DUREE_CORBEILLE_MS)) await effacer(id)
@@ -405,6 +426,32 @@ export function creerComptes({
       return (json(res, 200, {}, { 'set-cookie': cookieEfface }), true)
     }
     if (!p) return err(res, 401, 'session-absente')
+
+    // --- Supprimer mon compte (lots du 11/11/2026, lot D ; règle de la v1) ---
+    if (racine === 'moi' && segments.length === 1 && segments[0] === 'suppression' && methode === 'GET')
+      return ok(res, await planDe(p.id))
+    if (racine === 'moi' && !segments.length && methode === 'DELETE') {
+      const courriel = (await comptes.personne(p.id))?.courriel
+      if (!confirmationSuppressionValide((await lireCorps(req)).courriel, courriel))
+        return err(res, 400, 'confirmation-invalide')
+      const plan = await planDe(p.id)
+      if (!plan.peut) return (json(res, 409, { code: 'suppression-refusee', ...plan }), true)
+      for (const d of plan.documents) {
+        if (d.sort === 'confie') await comptes.modifierAcces(d.id, d.a, 'proprietaire')
+        if (d.sort === 'supprime') await effacer(d.id)
+        else await comptes.modifierAcces(d.id, p.id, null)
+      }
+      for (const e of plan.equipes) {
+        if (e.sort === 'quitte') {
+          await comptes.modifierMembre(e.id, p.id, null)
+          continue
+        }
+        for (const id of await comptes.idsDocumentsDeLEquipe(e.id)) await effacer(id)
+        await comptes.supprimerEquipe(e.id)
+      }
+      await comptes.supprimerPersonne(p.id, courriel)
+      return (json(res, 200, {}, { 'set-cookie': cookieEfface }), true)
+    }
 
     // --- Mon nom ---
     if (racine === 'moi') {

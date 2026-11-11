@@ -393,6 +393,51 @@ export async function ouvrirComptes(url) {
         returning e.id`
       return r.length > 0
     },
+    // --- Suppression d'un compte (lots du 11/11/2026, lot D) ---
+    /** Les documents (hors équipes, corbeille comprise) où une personne a un
+     * accès en propre, avec tous leurs accès dans l'ordre où ils ont été donnés. */
+    async documentsEnPropre(personne) {
+      const lignes = await sql`
+        select d.id, d.titre, a.personne, a.role from amend.documents d
+        join amend.acces a on a.document = d.id
+        where d.equipe is null and exists (
+          select 1 from amend.acces m where m.document = d.id and m.personne = ${personne})
+        order by d.cree_le, a.cree_le, a.id`
+      const parId = new Map()
+      for (const l of lignes) {
+        if (!parId.has(l.id)) parId.set(l.id, { id: l.id, titre: l.titre, acces: [] })
+        parId.get(l.id).acces.push({ personne: l.personne, role: l.role })
+      }
+      return [...parId.values()]
+    },
+    /** Les documents d'une équipe, corbeille comprise. */
+    async idsDocumentsDeLEquipe(equipe) {
+      return (await sql`select id from amend.documents where equipe = ${equipe}`).map((d) => d.id)
+    },
+    /** Supprime une équipe dont les documents ont été effacés, avec ses dossiers. */
+    async supprimerEquipe(id) {
+      await sql.begin(async (t) => {
+        await t`delete from amend.dossiers where equipe = ${id}`
+        await t`delete from amend.equipes e where e.id = ${id}
+                and not exists (select 1 from amend.documents d where d.equipe = e.id)`
+      })
+    },
+    /** Efface une personne : ses accès, rôles, dossiers et favoris partent avec
+     * elle ; ses jetons et les invitations à son adresse aussi. Un document
+     * encore rangé chez elle passe chez son plus ancien propriétaire. */
+    async supprimerPersonne(id, courriel) {
+      await sql.begin(async (t) => {
+        await t`update amend.documents d set dossier = null, emplacement = (
+                  select a.personne from amend.acces a where a.document = d.id and a.role = 'proprietaire'
+                    and a.personne <> ${id} order by a.cree_le limit 1)
+                where d.emplacement = ${id}`
+        await t`delete from amend.jetons_connexion where courriel = ${courriel}`
+        await t`delete from amend.invitations where courriel = ${courriel}`
+        await t`delete from amend.invitations_equipe where courriel = ${courriel}`
+        await t`delete from amend.personnes where id = ${id}`
+      })
+    },
+
     /** Les équipes d'une personne, avec son rôle. */
     async equipesDe(personne) {
       return (

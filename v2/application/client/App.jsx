@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   EcranMessage,
+  EcranSuppressionCompte,
   EcranConnexion,
   EcranCourriel,
   PageAdministration,
@@ -131,6 +132,7 @@ function viseeDansAdresse() {
   if (!h) return { liste: 'mes', dossier: null }
   if (h === '/partages') return { liste: 'partages' }
   if (h === '/admin') return { admin: true }
+  if (h === '/compte') return { compte: true }
   if (h.startsWith('/dossiers/')) return { liste: 'mes', dossier: h.slice('/dossiers/'.length) }
   const e = h.match(/^\/equipes\/([^/]+)(?:\/dossiers\/([^/]+))?$/)
   if (e) return { liste: `equipe:${e[1]}`, dossier: e[2] ?? null }
@@ -194,6 +196,7 @@ export function App() {
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
   if (visee.admin) return <Administration />
+  if (visee.compte) return <SupprimerCompte />
   if (visee.liste) return <Accueil config={etat.config} personne={etat.personne} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
   const doc = identifiantDocument(visee.document)
@@ -236,8 +239,69 @@ function compteDe(personne, config) {
           ]
         : []),
       { cle: 'sortir', libelle: t('documents.deconnexion'), picto: 'deconnexion', surClic: sortir },
+      {
+        cle: 'supprimer',
+        libelle: t('compte.supprimer'),
+        picto: 'supprimer',
+        surClic: () => (location.hash = '#/compte'),
+      },
     ],
   }
+}
+
+/** Supprimer mon compte (lots du 11/11/2026, lot D ; règle de la v1) :
+ * l'aperçu du serveur, groupé, puis la confirmation par l'adresse. */
+function SupprimerCompte() {
+  const [plan, setPlan] = useState(null)
+  useEffect(() => {
+    envoyerJson('GET', '/api/moi/suppression')
+      .then(setPlan)
+      .catch((e) => montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true }))
+  }, [])
+  if (!plan) return <EcranMessage texte={t('application.chargement')} />
+  const liste = (xs) => new Intl.ListFormat(t.langue, { type: 'conjunction' }).format(xs)
+  const titre = (d) => d.titre || t('documents.sansTitre')
+  const docs = (sort) => plan.documents.filter((d) => d.sort === sort)
+  const equipes = (sort) => plan.equipes.filter((e) => e.sort === sort)
+  const groupes = [
+    { cle: 'supprime', titre: t('compte.supprimes'), elements: docs('supprime').map(titre) },
+    {
+      cle: 'confie',
+      titre: t('compte.confies'),
+      elements: docs('confie').map((d) => t('compte.confie', { titre: titre(d), nom: d.aNom ?? '' })),
+    },
+    { cle: 'quitte', titre: t('compte.quittes'), elements: docs('quitte').map(titre) },
+    { cle: 'equipesQuittees', titre: t('compte.equipesQuittees'), elements: equipes('quitte').map((e) => e.nom) },
+    {
+      cle: 'equipesSupprimees',
+      titre: t('compte.equipesSupprimees'),
+      elements: equipes('supprime').map((e) => e.nom),
+    },
+  ].filter((g) => g.elements.length)
+  const refus = [
+    docs('refus').length ? t('compte.refusDocuments', { liste: liste(docs('refus').map(titre)) }) : null,
+    equipes('refus').length ? t('compte.refusEquipes', { liste: liste(equipes('refus').map((e) => e.nom)) }) : null,
+  ].filter(Boolean)
+  return (
+    <EcranSuppressionCompte
+      titre={t('compte.supprimer')}
+      explication={groupes.length ? t('compte.explication') : t('compte.rien')}
+      groupes={groupes}
+      refus={refus.length ? refus.join(' ') : null}
+      libelleCourriel={t('compte.courriel')}
+      libelleBouton={t('compte.bouton')}
+      libelleRetour={t('compte.retour')}
+      surRetour={() => history.back()}
+      surConfirmer={async (courriel) => {
+        try {
+          await envoyerJson('DELETE', '/api/moi', { courriel })
+          location.replace('/')
+        } catch (e) {
+          montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+        }
+      }}
+    />
+  )
 }
 
 /** Le bouton du volet gauche, dans le bandeau. */
