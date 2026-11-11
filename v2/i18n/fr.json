@@ -93,8 +93,7 @@
     "accepterDe": "Accepter\u00A0: {texte}",
     "refuserDe": "Refuser\u00A0: {texte}",
     "enCours": "Suggestions en attente",
-    "enAttente": "Des suggestions attendent\u00A0: passez en relecture pour les accepter ou les refuser.",
-    "relire": "Relire les suggestions"
+    "enAttente": "Des suggestions attendent\u00A0: passez en relecture pour les accepter ou les refuser."
   },
   "roles": {
     "lecteur": "lecteur",

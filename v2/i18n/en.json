@@ -93,8 +93,7 @@
     "accepterDe": "Accept: {texte}",
     "refuserDe": "Reject: {texte}",
     "enCours": "Pending suggestions",
-    "enAttente": "Suggestions are waiting: switch to review to accept or reject them.",
-    "relire": "Review suggestions"
+    "enAttente": "Suggestions are waiting: switch to review to accept or reject them."
   },
   "roles": {
     "lecteur": "reader",

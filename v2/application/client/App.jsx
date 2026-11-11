@@ -1306,7 +1306,7 @@ function Edition({ config, personne, docId, droits }) {
         mode !== 'relire' && suggestions.enAttente
           ? {
               texte: t('suggestions.enAttente'),
-              bouton: t('suggestions.relire'),
+              bouton: t('document.passerRelire'),
               surClic: () => setModeEditeur('relire'),
             }
           : null

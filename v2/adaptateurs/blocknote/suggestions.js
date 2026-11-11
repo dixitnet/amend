@@ -28,7 +28,9 @@ export function creerAfficheur(contexte, suggerer) {
  * au départ, puis après chaque changement des suggestions. `rappel(auteurs)`
  * à chaque table reçue. Rend la fonction qui arrête.
  */
-// Le délai laisse passer la mise en cache des réponses de y/hub (1 s).
+// La première demande part tout de suite (les noms au plus tôt) ; ensuite, le
+// délai laisse passer la mise en cache des réponses de y/hub (1 s), qui
+// servirait sinon une table d'avant le changement.
 export function suivreAuteurs(contexte, rappel, delai = 1500) {
   let minuterie = null
   let arrete = false
