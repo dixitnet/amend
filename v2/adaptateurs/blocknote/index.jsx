@@ -43,13 +43,14 @@ import { withCollaboration } from '@blocknote/core/y'
 import { CommentsExtension } from '@blocknote/core/comments'
 import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
-import { boutonsGardes } from './palette.js'
+import { boutonsGardes, boutonsGardesEnSuggestion } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf } from './export.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
+import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 
 /** La sélection, en blocs : le premier et le dernier bloc à texte touchés
  * (`null` sans sélection étendue). Pour Margo (étape 8). */
@@ -88,10 +89,10 @@ function RestaurerApresConfirmation({ libelle, confirmer }) {
   )
 }
 
-function Palette({ corriger }) {
+function Palette({ corriger, suggerer }) {
   return (
     <FormattingToolbar>
-      {boutonsGardes(getFormattingToolbarItems())}
+      {(suggerer ? boutonsGardesEnSuggestion : boutonsGardes)(getFormattingToolbarItems())}
       {corriger ? <BoutonCorriger corriger={corriger} /> : null}
     </FormattingToolbar>
   )
@@ -110,6 +111,7 @@ function Palette({ corriger }) {
  * @param {() => void} [p.surFermerHistorique]
  * @param {{ element: HTMLElement | null, filtre: 'open' | 'resolved' | 'all' } | null} [p.fils]
  *   où placer la liste des fils de commentaires (onglet « Commentaires »), et son filtre
+ * @param {(code: string) => void} [p.surRefus]  un geste refusé en mode Suggérer (contournements, veille)
  * @param {() => Promise<boolean>} [p.confirmerRestauration]  demandée avant de revenir à une version
  * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
  *   sur le texte passe en modification (curseur à l'endroit touché)
@@ -141,6 +143,7 @@ export function EditeurCollaboratif({
   peutRestaurer = false,
   surFermerHistorique,
   confirmerRestauration,
+  surRefus,
   fils = null,
   lectureAuDepart = false,
   controle,
@@ -153,6 +156,8 @@ export function EditeurCollaboratif({
   // Le mode du moment, lu par la typographie sans recréer l'éditeur.
   const modeMaintenant = useRef(mode)
   modeMaintenant.current = mode
+  const surRefusDuSuivi = useRef(surRefus)
+  surRefusDuSuivi.current = surRefus
   // Un afficheur, créé une fois (le mode du départ seulement) ; le mode passe
   // ensuite par l'extension (effet plus bas), sans le recréer.
   const afficheur = useMemo(
@@ -180,6 +185,11 @@ export function EditeurCollaboratif({
       // 08/11/2026 : attendre sa correction).
       extensions: [
         extensionTypographie({ langue: langueDocument, actif: () => modeMaintenant.current === 'ecrire' }),
+        // Contournements temporaires du mode Suggérer (veille).
+        extensionLimitesDuSuivi({
+          actif: () => modeMaintenant.current === 'suggerer',
+          refuser: (code) => surRefusDuSuivi.current?.(code),
+        }),
         ...(magasin ? [CommentsExtension({ threadStore: magasin, resolveUsers: nomsDe })] : []),
         extensionHistorique(contexte, peutRestaurer, dictionnaire(langue).versioning.before_restore),
       ],
@@ -339,7 +349,10 @@ export function EditeurCollaboratif({
     signaler()
     return editeur.onSelectionChange(signaler)
   }, [editeur, surSelection])
-  const palette = useCallback((props) => <Palette {...props} corriger={corriger} />, [corriger])
+  const palette = useCallback(
+    (props) => <Palette {...props} corriger={corriger} suggerer={mode === 'suggerer'} />,
+    [corriger, mode],
+  )
   const commencer = (evenement) => {
     if (!appui || editeur.isEditable) return
     editeur.isEditable = true
@@ -387,6 +400,8 @@ export function EditeurCollaboratif({
       // le sélecteur ; Sylvain, 11/11/2026, écart avec Docs) ; les réactions
       // aux commentaires gardent le leur.
       emojiPicker={false}
+      // Pas de changement de type de bloc en Suggérer (contournement, veille).
+      slashMenu={mode !== 'suggerer'}
     >
       <FormattingToolbarController formattingToolbar={palette} />
       {/* La liste des fils (exemple 06-comments-with-sidebar de BlockNote, et

@@ -91,6 +91,12 @@
     "resolus": "Resolved",
     "tous": "All"
   },
+  "suivi": {
+    "aCheval": "In Suggest mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph, or switch to Edit.",
+    "miseEnForme": "In Suggest mode, formatting is not suggested (it could not be accepted). Switch to Edit to change it.",
+    "panne": "This document cannot be shown with its suggestions. Reload the page; if it happens again, report it.",
+    "panneRepli": "Showing suggestions failed on this document: back to Edit."
+  },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
     "ajout": "{auteur} adds “{apres}”",
@@ -103,6 +109,7 @@
     "toutRefuser": "Reject all",
     "accepterDe": "Accept: {texte}",
     "refuserDe": "Reject: {texte}",
+    "invisibles": "Some suggestions are not shown in the list (a paragraph deletion, for instance): “Accept all” and “Reject all” still handle them.",
     "enCours": "Pending suggestions",
     "enAttente": "Suggestions are waiting: switch to review to accept or reject them."
   },

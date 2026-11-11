@@ -2,7 +2,7 @@
 // l'écran d'un document et son partage ; état et appels au serveur. Tout
 // l'affichage est délégué à la couche design ; tous les textes viennent de
 // v2/i18n/.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState } from 'react'
 import {
   EcranMessage,
   EcranConnexion,
@@ -1092,6 +1092,25 @@ function useVoletDocuments(docId, { actif = true } = {}) {
   return { contenu, donnees, tous, estFavori, basculerFavori, recharger }
 }
 
+/**
+ * Filet de sécurité de l'éditeur (contournement, veille ; Sylvain, 11/11/2026) :
+ * si l'affichage des suggestions plante (document que Yjs ne sait plus rendre en
+ * suggestion), on ne laisse pas la page blanche ; `surErreur` décide de la suite.
+ */
+class FiletDeLEditeur extends Component {
+  state = { erreur: null }
+  static getDerivedStateFromError(erreur) {
+    return { erreur }
+  }
+  componentDidCatch(erreur) {
+    console.error('éditeur :', erreur)
+    this.props.surErreur?.(erreur)
+  }
+  render() {
+    return this.state.erreur ? this.props.repli : this.props.children
+  }
+}
+
 function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
@@ -1321,6 +1340,10 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   ]
   // Le lecteur ne voit pas les suggestions : pas de volet droit pour lui.
   const avecVoletDroit = mode !== 'lire'
+  // Contournement (veille) : l'afficheur dit qu'il reste des suggestions que la
+  // liste ne montre pas (une suppression de paragraphe, après un rechargement) ;
+  // « Tout accepter » et « Tout refuser » les traitent quand même.
+  const invisibles = mode === 'relire' && !!suggestions?.enAttente && suggestions.liste.length === 0
   const modifications = suggestions ? (
     <PanneauSuggestions
       titre={
@@ -1336,8 +1359,11 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
               bouton: t('document.passerRelire'),
               surClic: () => setModeEditeur('relire'),
             }
-          : null
+          : invisibles
+            ? { texte: t('suggestions.invisibles') }
+            : null
       }
+      actionsGlobales={invisibles}
       lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
       libelles={{
         accepter: t('suggestions.accepter'),
@@ -1421,35 +1447,52 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       cible={setCibleFils}
     />
   ) : null
+  // Un essai de plus de l'éditeur après une panne en Suggérer ou Relire (repli en Modifier).
+  const [essaiEditeur, setEssaiEditeur] = useState(0)
   const editeur = (
-    <EditeurCollaboratif
-      contexte={session.contexte}
-      personne={moi}
-      langue={t.langue}
-      langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
-      nomAccessible={t('document.zoneEdition', { id: docId })}
-      mode={mode}
-      nomsDe={nomsAvecMargo}
-      commentaires={commentaires}
-      surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
-      historique={historique && !formatS}
-      peutRestaurer={caps.includes('restaurer')}
-      surFermerHistorique={() => setHistorique(false)}
-      fils={commentaires ? { element: cibleFils, filtre: filtreFils } : null}
-      confirmerRestauration={() =>
-        confirmer({
-          titre: t('document.restaurerTitre'),
-          texte: t('document.restaurerTexte'),
-          libelle: t('document.restaurer'),
-        })
-      }
-      lectureAuDepart={formatS || tactile}
-      controle={controle}
-      surModification={setEnModification}
-      surPlan={setPlan}
-      corriger={corriger}
-      surSelection={peutMargo ? setSelection : undefined}
-    />
+    <FiletDeLEditeur
+      key={essaiEditeur}
+      repli={<TexteDeVolet texte={t('suivi.panne')} />}
+      surErreur={() => {
+        if (caps.includes('ecrire') && mode !== 'ecrire') {
+          setModeEditeur('ecrire')
+          setEssaiEditeur((n) => n + 1)
+          montrerMessage(t('suivi.panneRepli'), { erreur: true })
+        }
+      }}
+    >
+      <EditeurCollaboratif
+        contexte={session.contexte}
+        personne={moi}
+        langue={t.langue}
+        langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
+        nomAccessible={t('document.zoneEdition', { id: docId })}
+        mode={mode}
+        nomsDe={nomsAvecMargo}
+        commentaires={commentaires}
+        surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+        historique={historique && !formatS}
+        peutRestaurer={caps.includes('restaurer')}
+        surFermerHistorique={() => setHistorique(false)}
+        fils={commentaires ? { element: cibleFils, filtre: filtreFils } : null}
+        surRefus={(code) =>
+          montrerMessage(code === 'suggestion-a-cheval' ? t('suivi.aCheval') : t('suivi.miseEnForme'), { erreur: true })
+        }
+        confirmerRestauration={() =>
+          confirmer({
+            titre: t('document.restaurerTitre'),
+            texte: t('document.restaurerTexte'),
+            libelle: t('document.restaurer'),
+          })
+        }
+        lectureAuDepart={formatS || tactile}
+        controle={controle}
+        surModification={setEnModification}
+        surPlan={setPlan}
+        corriger={corriger}
+        surSelection={peutMargo ? setSelection : undefined}
+      />
+    </FiletDeLEditeur>
   )
 
   // Format S (téléphone) : la maquette validée (docs/v2-format-S.md). Comme

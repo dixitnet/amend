@@ -134,7 +134,14 @@ export function listeDesSuggestions(editeur, auteurs = null) {
       // refuse le bloc, pas seulement son texte, sans quoi rien ne change
       // (diagnostic du 10/11/2026, « Tout accepter » le faisait déjà).
       const $d = tr.doc.resolve(g.debut)
-      const entier = g.debut === $d.start() && g.fin === $d.end() && $d.depth > 1
+      // Seulement si le bloc lui-même est proposé (il porte la marque) : un
+      // paragraphe existant dont on supprime tout le texte reste au texte.
+      const proposee = (n) => n.marks.some((x) => x.type.name === INSERTION || x.type.name === SUPPRESSION)
+      const entier =
+        g.debut === $d.start() &&
+        g.fin === $d.end() &&
+        $d.depth > 1 &&
+        (proposee($d.parent) || proposee($d.node($d.depth - 1)))
       const plage = entier
         ? { debut: $d.before($d.depth - 1), fin: $d.after($d.depth - 1) }
         : { debut: g.debut, fin: g.fin }
