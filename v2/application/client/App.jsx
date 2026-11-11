@@ -425,7 +425,7 @@ function ModelesEquipe({ vue, confirmer, surChangement }) {
   }
   const modeles = vue.modeles ?? []
   const regle = modeles.find((m) => m.id === enReglage)
-  if (regle) {
+  if (regle && modeleMaison(regle.base)) {
     const depart = modeleMaison(regle.base)
     const calcul = depart ? appliquerEcarts(depart, regle.ecarts, REGLES_MODELES) : null
     const complet = calcul?.ok ? calcul.modele : depart
@@ -476,7 +476,12 @@ function ModelesEquipe({ vue, confirmer, surChangement }) {
       defaut={{
         options: groupesDeModeles(vue.equipe.nom, modeles),
         valeur: defaut,
-        surChange: (modele) => essayer(() => envoyerJson('PUT', `${base}/modele-defaut`, { modele })),
+        // Le premier modèle d'amend.ink, choisi par défaut, s'enregistre comme
+        // « aucun choix » : il suit le premier modèle si le design en change (audit du 11/11/2026).
+        surChange: (choix) =>
+          essayer(() =>
+            envoyerJson('PUT', `${base}/modele-defaut`, { modele: choix === MODELES_LIVRE[0].id ? null : choix }),
+          ),
       }}
       modeles={modeles.map((m) => ({
         cle: m.id,
@@ -487,7 +492,12 @@ function ModelesEquipe({ vue, confirmer, surChangement }) {
       bases={optionsMaison()}
       message={message}
       surCreer={(nom, depart) => essayer(() => envoyerJson('POST', `${base}/modeles`, { nom, base: depart }))}
-      surModifier={(id) => (setEnReglage(id), setMessage(null))}
+      // Un modèle dont la base a quitté le design ne se règle plus : on le dit (audit du 11/11/2026).
+      surModifier={(id) =>
+        modeleMaison(modeles.find((m) => m.id === id)?.base)
+          ? (setEnReglage(id), setMessage(null))
+          : setMessage(messageErreur(t, 'modele-introuvable'))
+      }
       surSupprimer={async (id) => {
         const m = modeles.find((x) => x.id === id)
         if (
@@ -533,12 +543,15 @@ function useExport({ docId, controle, titre }) {
     try {
       let leModele
       if (format === 'pdf') {
+        // Un modèle qu'on ne trouve plus se dit, sans repli silencieux (audit du 11/11/2026).
         const entree = liste?.modeles.find((m) => m.id === modele)
-        leModele = entree ? modeleComplet(entree) : undefined
-        if (retenir && liste?.peutChoisir && modele !== liste.choisi)
-          await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/modele`, { modele })
+        if (!entree) throw Object.assign(new Error('modele-introuvable'), { code: 'modele-introuvable' })
+        leModele = modeleComplet(entree)
       }
       await exporterDocument(controle, format, { titre, langue: LANGUE_DOCUMENT_PAR_DEFAUT, modele: leModele })
+      // Le modèle n'est retenu qu'une fois le fichier obtenu (audit du 11/11/2026).
+      if (format === 'pdf' && retenir && liste?.peutChoisir && modele !== liste.choisi)
+        await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/modele`, { modele })
       setOuverte(false)
     } catch (e) {
       const code = e?.code
