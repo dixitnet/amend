@@ -122,15 +122,45 @@ test('un texte piégé s’affiche comme du texte, jamais comme du code', () => 
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
-test('bandeau : l’interrupteur du suivi des modifications, seulement s’il est demandé, dans son état', () => {
+test('bandeau : le choix du mode (Modifier, Suggérer, Relire), seulement s’il est demandé, sur sa valeur', () => {
   const voletGauche = { libelle: 'Plan', surClic: () => {} }
-  assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /role="switch"/)
-  const suivi = (actif) => ({ libelle: 'Suivi des modifications', actif, surChange: () => {} })
-  const arrete = rendre(h(design.Bandeau, { voletGauche, titre: 'x', suivi: suivi(false) }))
-  assert.match(arrete, /role="switch"/)
-  assert.match(arrete, /Suivi des modifications/)
-  assert.doesNotMatch(arrete, /checked=""/)
-  assert.match(rendre(h(design.Bandeau, { voletGauche, titre: 'x', suivi: suivi(true) })), /checked=""/)
+  assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /type="radio"/)
+  const modes = (valeur) => ({
+    libelle: 'Mode',
+    valeur,
+    options: [
+      { valeur: 'ecrire', libelle: 'Modifier' },
+      { valeur: 'suggerer', libelle: 'Suggérer' },
+      { valeur: 'relire', libelle: 'Relire' },
+    ],
+    surChange: () => {},
+  })
+  const html = rendre(h(design.Bandeau, { voletGauche, titre: 'x', modes: modes('suggerer') }))
+  assert.equal(html.match(/type="radio"/g)?.length, 3)
+  for (const l of ['Modifier', 'Suggérer', 'Relire']) assert.ok(html.includes(l), l)
+  assert.match(html, /value="suggerer"[^>]*checked=""|checked=""[^>]*value="suggerer"/)
+})
+
+test('panneau des suggestions : hors relecture, une invitation à la place de la liste', () => {
+  const libelles = {
+    accepter: 'A',
+    refuser: 'R',
+    accepterDe: (x) => x,
+    refuserDe: (x) => x,
+    toutAccepter: 'TA',
+    toutRefuser: 'TR',
+  }
+  const html = rendre(
+    h(design.PanneauSuggestions, {
+      titre: 'Suggestions',
+      lignes: [],
+      libelles,
+      invitation: { texte: 'Des suggestions attendent.', bouton: 'Relire', surClic: () => {} },
+    }),
+  )
+  assert.match(html, /Des suggestions attendent\./)
+  assert.match(html, />Relire</)
+  assert.doesNotMatch(html, />TA</)
 })
 
 test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni noire', () => {

@@ -1,0 +1,106 @@
+# Campagnes de test de la v2 (docs/v2-tests/procedure-relecture.md), une par
+# famille de scénarios (A à G), sous Chromium et WebKit : des
+# scénarios qui relèvent ce qui se passe, sans faire échouer le flux ; le
+# relevé est dans le journal de chaque moteur et en artefact. Lancées à la
+# demande, ou quand un script de campagne change.
+name: v2-campagne
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['v2/exploitation/campagne/**', '.github/workflows/v2-campagne.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-campagne-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: v2
+
+jobs:
+  suivi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0
+      options: --ipc=host
+    env:
+      V2_SERVICES_EXTERNES: '1'
+      V2_POSTGRES: postgres://amendv2:amendv2-dev@postgres:5432/amendv2_yhub
+      V2_REDIS: redis://redis:6379
+      HOME: /root
+    strategy:
+      fail-fast: false
+      matrix:
+        navigateur: [chromium, webkit]
+        famille: [suivi, correcteurs, commentaires, editeur, roles, robustesse, historique, complements]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: amendv2
+          POSTGRES_PASSWORD: amendv2-dev
+          POSTGRES_DB: amendv2_yhub
+        options: >-
+          --health-cmd "pg_isready -U amendv2 -d amendv2_yhub" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+      - run: npm ci
+      - name: Scénarios ${{ matrix.famille }}, ${{ matrix.navigateur }}
+        run: node exploitation/campagne/scenarios-${{ matrix.famille }}.mjs --fois=3 | tee campagne-${{ matrix.famille }}-${{ matrix.navigateur }}.log
+        env:
+          NAVIGATEUR: ${{ matrix.navigateur }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: campagne-${{ matrix.famille }}-${{ matrix.navigateur }}
+          path: v2/campagne-${{ matrix.famille }}-${{ matrix.navigateur }}.log
+
+  # Les mêmes scénarios contre v2.amend.ink (vrai serveur, vraies WebSocket),
+  # avec des comptes d'essai (@essai.amend.invalid) ; une famille à la fois
+  # pour ne pas charger le VPS (1 vCPU, partagé avec la v1).
+  en-ligne:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0
+      options: --ipc=host
+    env:
+      HOME: /root
+      V2_BASE: https://v2.amend.ink
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        famille: [complements, suivi, correcteurs, roles, commentaires, historique, editeur, robustesse]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+      - run: npm ci
+      - name: Scénarios ${{ matrix.famille }}, en ligne
+        run: node exploitation/campagne/scenarios-${{ matrix.famille }}.mjs --fois=2 | tee campagne-${{ matrix.famille }}-en-ligne.log
+        env:
+          V2_JETON_ESSAI: ${{ secrets.V2_JETON_ESSAI }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: campagne-${{ matrix.famille }}-en-ligne
+          path: v2/campagne-${{ matrix.famille }}-en-ligne.log

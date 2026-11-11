@@ -73,6 +73,11 @@ Ouverture par une revue, puis, selon l'arbitrage du lot 1 :
 
 20. Conditions à fixer avec Sylvain : étapes 6 à 9 closes, sauvegarde éprouvée par une restauration, audit complet juste avant (règle du § 6), période d'essai réelle sur v2.amend.ink. Pas de migration des documents de la v1 (renoncement 1).
 
+## Défauts signalés, à traiter plus tard
+
+- Plan du document : le surlignage du titre en cours ne suit pas le clic sur un titre du plan (Sylvain, 10/11/2026 ; rien fait pour l'instant). Voir d'abord comment Docs le fait.
+- Suivi des modifications et commentaires : bilan des scénarios B, `docs/v2-tests/bilan-scenarios-B-2026-11-10.md` (corrections après décision).
+
 ## Ordre proposé
 
 A (1, 2, 3) maintenant, puis B (4), puis D (8 à 10) pour clore l'étape 6, puis E, F, G. C se glisse quand Sylvain a pris les décisions de design.

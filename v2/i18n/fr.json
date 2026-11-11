@@ -32,9 +32,13 @@
     "exporterMarkdown": "Exporter en Markdown",
     "exporterPdf": "Exporter en PDF",
     "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant.",
-    "suiviModifications": "Suivi des modifications",
-    "activerSuivi": "Activer le suivi des modifications",
-    "arreterSuivi": "Arrêter le suivi des modifications"
+    "modes": "Mode d’édition",
+    "modeEcrire": "Modifier",
+    "modeSuggerer": "Suggérer",
+    "modeRelire": "Relire",
+    "passerEcrire": "Modifier directement",
+    "passerSuggerer": "Suggérer des modifications",
+    "passerRelire": "Relire les suggestions"
   },
   "erreurs": {
     "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes ou son folio ne tiennent pas dans la page.",
@@ -87,7 +91,9 @@
     "toutAccepter": "Tout accepter",
     "toutRefuser": "Tout refuser",
     "accepterDe": "Accepter\u00A0: {texte}",
-    "refuserDe": "Refuser\u00A0: {texte}"
+    "refuserDe": "Refuser\u00A0: {texte}",
+    "enCours": "Suggestions en attente",
+    "enAttente": "Des suggestions attendent\u00A0: passez en relecture pour les accepter ou les refuser."
   },
   "roles": {
     "lecteur": "lecteur",
