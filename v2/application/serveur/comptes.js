@@ -424,6 +424,8 @@ export function creerComptes({
       const p = await comptes.personneOuNouvelle(j.courriel)
       // Les invitations valables deviennent des accès (comme Docs, à la connexion).
       for (const i of await comptes.invitationsDe(j.courriel)) {
+        // Le dépôt refuse de retirer son rôle au dernier propriétaire : une invitation
+        // plus ancienne ne peut pas abaisser le rôle de qui tient seul le document.
         if (invitationValable(i.creeLe)) await comptes.donnerAcces(i.document, p.id, i.role, i.auteur)
         await comptes.retirerInvitation(i.document, j.courriel)
       }
