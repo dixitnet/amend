@@ -8,10 +8,30 @@ import { courbeDeMemoire } from './suivi.js'
 /** La période du suivi (le serveur garde sept jours de relevés). */
 const SEPT_JOURS_MS = 7 * 24 * 3600 * 1000
 
-/** Le back-office de l'instance (administrateurs) : la rubrique Système
- * (version 2.NNN, serveur, nombres) et la rubrique IA (le modèle de Margo,
- * étape 8) ; le serveur refuse les autres. */
-export function Administration() {
+// Les noms des modèles d'interface et des couleurs (design/apparence.js).
+const NOMS_INTERFACES = {
+  atelier: () => t('admin.interfaces.atelier'),
+  origine: () => t('admin.interfaces.origine'),
+}
+const nomDuModeleInterface = (n) => NOMS_INTERFACES[n]?.() ?? n
+const NOMS_COULEURS = {
+  vermillon: () => t('admin.couleurs.vermillon'),
+  vert: () => t('admin.couleurs.vert'),
+  encre: () => t('admin.couleurs.encre'),
+  indigo: () => t('admin.couleurs.indigo'),
+  bleu: () => t('admin.couleurs.bleu'),
+  violet: () => t('admin.couleurs.violet'),
+  petrole: () => t('admin.couleurs.petrole'),
+  sepia: () => t('admin.couleurs.sepia'),
+}
+const nomDeLaCouleur = (n) => NOMS_COULEURS[n]?.() ?? n
+
+/** Le back-office de l'instance (administrateurs) : les rubriques Système
+ * (version 2.NNN, serveur, nombres), Apparence (modèle d'interface et couleur
+ * de l'instance, 11/11/2026) et IA (le modèle de Margo, étape 8) ; le serveur
+ * refuse les autres. `surApparence` : l'apparence choisie, appliquée tout de
+ * suite à l'écran. */
+export function Administration({ surApparence }) {
   const [systeme, setSysteme] = useState(null)
   const [ia, setIa] = useState(null)
   const [message, setMessage] = useState(null)
@@ -24,10 +44,15 @@ export function Administration() {
   const [suivi, setSuivi] = useState(null)
   const [erreurSuivi, setErreurSuivi] = useState(null)
   const [maintenant] = useState(() => Date.now())
+  const [apparence, setApparence] = useState(null)
+  const [erreurApparence, setErreurApparence] = useState(null)
   useEffect(() => {
     envoyerJson('GET', '/api/admin/suivi')
       .then(setSuivi)
       .catch((e) => setErreurSuivi(e.code || 'reseau'))
+    envoyerJson('GET', '/api/admin/apparence')
+      .then(setApparence)
+      .catch((e) => setErreurApparence(e.code || 'reseau'))
     envoyerJson('GET', '/api/admin/systeme')
       .then(setSysteme)
       .catch((e) => setErreur(e.code || 'reseau'))
@@ -36,7 +61,8 @@ export function Administration() {
       .catch((e) => setErreurIa(e.code || 'reseau'))
   }, [])
   if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
-  if (!systeme || (!ia && !erreurIa)) return <EcranMessage texte={t('application.chargement')} />
+  if (!systeme || (!ia && !erreurIa) || (!apparence && !erreurApparence))
+    return <EcranMessage texte={t('application.chargement')} />
   const date = new Intl.DateTimeFormat(t.langue, { dateStyle: 'medium', timeStyle: 'short' })
   const nombre = new Intl.NumberFormat(t.langue)
   const mo = new Intl.NumberFormat(t.langue, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 0 })
@@ -76,6 +102,30 @@ export function Administration() {
         () => (setIa((i) => ({ ...i, modele })), setMessage(t('admin.modeleEnregistre', { nom: nomDuModele(modele) }))),
       )
       .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+  // L'apparence s'applique tout de suite à l'écran, et à toute l'instance.
+  const choisirApparence = (champ) => (valeur) => {
+    const nouvelle = { ...apparence.apparence, [champ]: valeur }
+    envoyerJson('PUT', '/api/admin/apparence', nouvelle)
+      .then(() => {
+        setApparence((a) => ({ ...a, apparence: nouvelle }))
+        surApparence?.(nouvelle)
+        setMessage(t('admin.apparenceEnregistree'))
+      })
+      .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+  }
+  // `apparence` est nul quand la rubrique n'a pas pu se lire : la ligne
+  // affiche alors l'erreur, sans faire tomber la page.
+  const ligneApparence = (champ, libelle, noms, nomDe) =>
+    erreurApparence
+      ? { libelle, valeur: messageErreur(t, erreurApparence) }
+      : {
+          libelle,
+          choix: {
+            valeur: apparence.apparence[champ],
+            surChange: choisirApparence(champ),
+            options: noms.map((n) => ({ valeur: n, libelle: nomDe(n) })),
+          },
+        }
   return (
     <PageAdministration
       nomApplication={t('application.nom')}
@@ -99,6 +149,13 @@ export function Administration() {
             { libelle: t('admin.essai'), valeur: nombre.format(c.essai) },
             { libelle: t('admin.documents'), valeur: nombre.format(c.documents) },
             { libelle: t('admin.equipes'), valeur: nombre.format(c.equipes) },
+          ],
+        },
+        {
+          titre: t('admin.apparence'),
+          lignes: [
+            ligneApparence('modele', t('admin.modeleInterface'), apparence?.modeles ?? [], nomDuModeleInterface),
+            ligneApparence('couleur', t('admin.couleur'), apparence?.couleurs ?? [], nomDeLaCouleur),
           ],
         },
         {

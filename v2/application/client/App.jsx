@@ -39,7 +39,9 @@ function viseeDansAdresse() {
   return { document: h }
 }
 
-export function App() {
+/** `surApparence` : reçoit l'apparence de l'instance (`{ modele, couleur }`),
+ * lue dans la configuration ou choisie au back-office. */
+export function App({ surApparence }) {
   const [etat, setEtat] = useState({ phase: 'chargement' })
   const [visee, setVisee] = useState(viseeDansAdresse)
   useEffect(() => {
@@ -51,6 +53,7 @@ export function App() {
   async function charger() {
     try {
       const config = await lireJson(await fetch('/api/config'))
+      surApparence?.(config.apparence)
       const r = await fetch('/api/moi')
       if (r.status === 401) return setEtat({ phase: 'connexion', config })
       if (!r.ok) return setEtat({ phase: 'erreur', code: (await lireJson(r)).code || `http-${r.status}` })
@@ -111,7 +114,7 @@ export function App() {
     )
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
-  if (visee.admin) return <Administration />
+  if (visee.admin) return <Administration surApparence={surApparence} />
   if (visee.compte) return <SupprimerCompte />
   if (visee.liste) return <Accueil config={etat.config} personne={etat.personne} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.

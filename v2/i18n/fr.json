@@ -54,6 +54,7 @@
     "tableProfondeur": "Niveaux de titre"
   },
   "erreurs": {
+    "apparence-inconnue": "Ce modèle d’interface ou cette couleur n’existe pas.",
     "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes, son folio ou la largeur du texte ne tiennent pas dans la page.",
     "document-vide": "Ce document n’a pas de nom.",
     "document-trop-long": "Le nom de ce document est trop long (64 signes au plus).",
@@ -258,6 +259,24 @@
     "essai": "Comptes d’essai et de développement",
     "documents": "Documents",
     "equipes": "Équipes",
+    "apparence": "Apparence",
+    "modeleInterface": "Modèle d’interface",
+    "couleur": "Couleur",
+    "apparenceEnregistree": "Apparence enregistrée, pour toute l’instance.",
+    "interfaces": {
+      "atelier": "Atelier (page posée sur un plan de travail)",
+      "origine": "Origine (Mantine et BlockNote tels quels)"
+    },
+    "couleurs": {
+      "vermillon": "Vermillon",
+      "vert": "Vert foncé",
+      "encre": "Encre noire",
+      "indigo": "Bleu encre",
+      "bleu": "Bleu",
+      "violet": "Violet",
+      "petrole": "Pétrole",
+      "sepia": "Sépia"
+    },
     "ia": "IA (Margo)",
     "modeleMargo": "Modèle de Margo",
     "modeleSansCle": "{nom} (clé absente)",
@@ -268,7 +287,7 @@
     "memoireLegende": "{processus}\u00A0: de {min} à {max}\u202F; {dernier} au dernier relevé.",
     "processusServeur": "Serveur",
     "processusCollaboration": "Collaboration",
-    "memoireAucune": "Pas encore de relevé\u00A0: le premier arrive cinq minutes après le démarrage.",
+    "memoireAucune": "Pas encore de relevé\u00A0: le premier arrive dans la minute qui suit le démarrage.",
     "journal": "Journal des sept derniers jours",
     "journalVide": "Rien à signaler.",
     "journalErreur": "Erreur {code}\u00A0: {methode} {chemin}",

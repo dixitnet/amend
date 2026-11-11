@@ -18,6 +18,7 @@ import { creerImages } from './images.js'
 import { adresseSansSecret } from './adresse.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
+import { APPARENCE, apparenceRetenue } from '../../design/apparence.js'
 import {
   listeAdministrateurs,
   estAdministrateur,
@@ -191,6 +192,8 @@ const DEMARRAGE = Date.now()
 
 /** La clé du réglage du modèle de Margo (back-office). */
 const REGLAGE_MODELE = 'margo.modele'
+/** La clé du réglage de l'apparence de l'instance (back-office, 11/11/2026). */
+const REGLAGE_APPARENCE = 'apparence'
 
 const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, ia, collaboration = null) => {
   const administrateurs = listeAdministrateurs(CONF.administrateurs)
@@ -213,13 +216,23 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
   }
 
   return {
-    'GET /api/config': (req, res) =>
+    'GET /api/config': async (req, res) => {
+      // L'apparence de l'instance : un réglage illisible ne bloque pas
+      // l'application, qui prend l'apparence par défaut.
+      const apparence = apparenceRetenue(
+        await comptes.reglage(REGLAGE_APPARENCE).catch((err) => {
+          console.error('[config] réglage de l’apparence illisible :', err.code ?? err.message)
+          return null
+        }),
+      )
       json(res, 200, {
         collaboration: CONF.collaboration,
         dev: CONF.dev,
         version: VERSION.commit,
         aide: adresseAide(CONF.aide),
-      }),
+        apparence,
+      })
+    },
     // Les noms d'une liste de personnes (`?id=a&id=b`), pour une personne
     // connectée ; un identifiant inconnu revient sans nom.
     'GET /api/personnes': async (req, res, url) => {
@@ -259,6 +272,8 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
       const p = await personneDe(req)
       if (!p) return json(res, 401, { code: 'session-absente' })
       if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      // Sept jours à l'écran, pour la mémoire comme pour le journal (ses 200
+      // lignes les plus récentes) ; le journal est gardé 30 jours dans la base.
       const depuis = Date.now() - DUREE_MESURES_MS
       json(res, 200, { journal: await comptes.journal(depuis), mesures: await comptes.mesures(depuis) })
     },
@@ -287,6 +302,29 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
       await comptes.definirReglage(REGLAGE_MODELE, modele, p.id)
       console.log(`[admin] modèle de Margo : ${modele}`)
       json(res, 200, { modele })
+    },
+    // Back-office, rubrique Apparence (Sylvain, 11/11/2026) : le modèle
+    // d'interface et la couleur de l'instance, parmi ceux du design.
+    'GET /api/admin/apparence': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      json(res, 200, {
+        apparence: apparenceRetenue(await comptes.reglage(REGLAGE_APPARENCE)),
+        modeles: APPARENCE.modeles,
+        couleurs: APPARENCE.couleurs,
+      })
+    },
+    'PUT /api/admin/apparence': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      const { modele, couleur } = await lireCorps(req)
+      if (!APPARENCE.modeles.includes(modele) || !APPARENCE.couleurs.includes(couleur))
+        return json(res, 400, { code: 'apparence-inconnue' })
+      await comptes.definirReglage(REGLAGE_APPARENCE, { modele, couleur }, p.id)
+      console.log(`[admin] apparence : ${modele}, ${couleur}`)
+      json(res, 200, { apparence: { modele, couleur } })
     },
     // Développement seulement : les courriers gardés en mémoire (sans clé
     // Mailgun), pour les essais et les tests de bout en bout.

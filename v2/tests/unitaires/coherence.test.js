@@ -49,3 +49,14 @@ test('chaque modèle d’amend.ink et chaque réglage ouvert aux équipes a son 
   for (const m of REGLAGES.livre.modeles) assert.ok(existantes.has(`modeles.maison.${m.id}`), m.id)
   for (const r of REGLAGES.livre.reglables) assert.ok(existantes.has(`modeles.reglage.${r.cle}`), r.cle)
 })
+
+test('chaque modèle d’interface et chaque couleur de l’apparence ont leurs valeurs et leur nom dans le catalogue', async () => {
+  const { REGLAGES } = await import('../../design/reglages.js')
+  const existantes = new Set(cles(CATALOGUES[LANGUE_SOURCE]))
+  const { modeles, couleurs, parDefaut } = REGLAGES.apparence
+  for (const m of modeles) assert.ok(existantes.has(`admin.interfaces.${m}`), m)
+  for (const c of couleurs) assert.ok(existantes.has(`admin.couleurs.${c}`), c)
+  assert.deepEqual(Object.keys(REGLAGES.couleurs).sort(), [...couleurs].sort(), 'une palette par couleur proposée')
+  for (const c of couleurs) assert.equal(REGLAGES.couleurs[c].palette.length, 10, c)
+  assert.ok(modeles.includes(parDefaut.modele) && couleurs.includes(parDefaut.couleur))
+})

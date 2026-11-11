@@ -80,8 +80,11 @@ export function Coquille({
   )
 }
 
-/** La colonne du texte (Container de Mantine, réglage de taille). */
-export const ColonneTexte = ({ children }) => <Container>{children}</Container>
+/**
+ * La colonne du texte (Container de Mantine, réglage de taille). Marquée pour
+ * les feuilles des esthétiques (la page de l'esthétique « Atelier »).
+ */
+export const ColonneTexte = ({ children }) => <Container data-amend-colonne="">{children}</Container>
 
 /**
  * Le zoom du texte de l'éditeur (11/11/2026, comme la v1) : le palier choisi,

@@ -663,3 +663,45 @@ test('le jeton d’une connexion est masqué dans l’adresse journalisée', () 
   assert.equal(adresseSansSecret('/api/connexion/abcDEF123_-?x=1'), '/api/connexion/***?x=1')
   assert.equal(adresseSansSecret('/api/moi'), '/api/moi')
 })
+
+test('back-office, rubrique Apparence : le modèle d’interface et la couleur de l’instance, lus par tous dans la configuration', async (t) => {
+  const adresse = `admin-apparence-${Date.now().toString(36)}@exemple.fr`
+  const base = await demarrer({ dev: false, administrateurs: adresse })
+  const admin = await comptes.personneOuNouvelle(adresse)
+  const simple = await comptes.personneOuNouvelle(`simple-apparence-${Date.now().toString(36)}@exemple.fr`)
+  const cookie = (p) => `amend2_session=${creerJeton(BASE.secret, { id: p.id, nom: 'N' })}`
+  const sql = postgres(POSTGRES, { max: 1, onnotice: () => {} })
+  t.after(async () => {
+    // Le réglage est commun à toute la base : on le retire après l'essai.
+    await sql`delete from amend.reglages where cle = 'apparence'`
+    await sql.end()
+  })
+  await sql`delete from amend.reglages where cle = 'apparence'`
+  const lire = (p) => fetch(`${base}/api/admin/apparence`, p ? { headers: { cookie: cookie(p) } } : {})
+  const choisir = (p, corps) =>
+    fetch(`${base}/api/admin/apparence`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: cookie(p) },
+      body: JSON.stringify(corps),
+    })
+  const config = async () => (await (await fetch(`${base}/api/config`)).json()).apparence
+  assert.equal((await lire()).status, 401)
+  assert.equal((await lire(simple)).status, 403)
+  assert.equal((await choisir(simple, { modele: 'origine', couleur: 'vert' })).status, 403)
+  const avant = await (await lire(admin)).json()
+  assert.deepEqual(avant.apparence, { modele: 'atelier', couleur: 'vermillon' }, 'par défaut')
+  assert.deepEqual(avant.modeles, ['atelier', 'origine'])
+  assert.equal(avant.couleurs[0], 'vermillon')
+  assert.deepEqual(await config(), { modele: 'atelier', couleur: 'vermillon' }, 'sans session aussi')
+  for (const corps of [{ modele: 'inconnu', couleur: 'vert' }, { modele: 'origine', couleur: 'toString' }, {}]) {
+    const r = await choisir(admin, corps)
+    assert.equal(r.status, 400)
+    assert.deepEqual(await r.json(), { code: 'apparence-inconnue' })
+  }
+  assert.equal((await choisir(admin, { modele: 'origine', couleur: 'petrole' })).status, 200)
+  assert.deepEqual((await (await lire(admin)).json()).apparence, { modele: 'origine', couleur: 'petrole' })
+  assert.deepEqual(await config(), { modele: 'origine', couleur: 'petrole' })
+  // Une couleur retirée du design (montée de version) : celle par défaut, le modèle gardé.
+  await comptes.definirReglage('apparence', { modele: 'origine', couleur: 'retiree' }, admin.id)
+  assert.deepEqual(await config(), { modele: 'origine', couleur: 'vermillon' })
+})
