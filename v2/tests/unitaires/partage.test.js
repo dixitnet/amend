@@ -71,3 +71,9 @@ test('adresse de courriel : normalisée ; refusée avec un code', () => {
   for (const m of ['alice', 'alice@', '@exemple.fr', 'a b@c.fr', 'a@b', 'a@b.c', '<a@b.fr>', 'a@b.fr\nBcc:x@y.fr'])
     assert.equal(adresseCourriel(m).code, 'courriel-invalide', JSON.stringify(m))
 })
+
+test('une adresse refuse les points mal placés', () => {
+  for (const c of ['a..b@x.fr', '.a@x.fr', 'a.@x.fr', 'a@x..fr', 'a@.x.fr'])
+    assert.deepEqual(adresseCourriel(c), { ok: false, code: 'courriel-invalide' }, c)
+  assert.equal(adresseCourriel('a.b@x.fr').ok, true)
+})

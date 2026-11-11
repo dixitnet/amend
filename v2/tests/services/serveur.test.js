@@ -3,12 +3,14 @@
 import postgres from 'postgres'
 import { test, before, after } from 'node:test'
 import http from 'node:http'
+import { spawnSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { creerServeur } from '../../application/serveur/index.js'
 import { creerJeton } from '../../application/serveur/session.js'
+import { adresseSansSecret } from '../../application/serveur/adresse.js'
 import { preparerServices, POSTGRES } from '../../exploitation/dev/pile.mjs'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import piegees from '../donnees/piegees.json' with { type: 'json' }
@@ -564,4 +566,47 @@ test('en-têtes de sécurité, comme Docs : jamais dans le cadre d’un autre si
     if (chemin.startsWith('/api/')) assert.equal(politique, "default-src 'none'; frame-ancestors 'none'", chemin)
     else assert.equal(politique, null, `la page n’a pas de politique de contenu, comme celle de Docs (${chemin})`)
   }
+})
+
+test('un corps JSON coupé au milieu d’un caractère multi-octets arrive intact', async () => {
+  const cookie = (await entrer(dev, 'Zoé')).cookie
+  const corps = Buffer.from(JSON.stringify({ nom: 'Étienne Hélène' }))
+  const coupe = corps.indexOf(0xc3) + 1 // entre les deux octets du premier « É »
+  const url = new URL(`${dev}/api/moi`)
+  const reponse = await new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        host: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method: 'PUT',
+        headers: { cookie, 'content-type': 'application/json', 'content-length': corps.length },
+      },
+      (res) => {
+        let brut = ''
+        res.setEncoding('utf8')
+        res.on('data', (d) => (brut += d))
+        res.on('end', () => resolve({ statut: res.statusCode, corps: JSON.parse(brut) }))
+      },
+    )
+    req.on('error', reject)
+    req.write(corps.subarray(0, coupe))
+    setTimeout(() => req.end(corps.subarray(coupe)), 50)
+  })
+  assert.equal(reponse.statut, 200)
+  assert.equal(reponse.corps.nom, 'Étienne Hélène')
+})
+
+test('la collaboration hors développement refuse de démarrer sans ses réglages', () => {
+  const r = spawnSync(process.execPath, [join(import.meta.dirname, '../../application/collab/index.js')], {
+    env: { PATH: process.env.PATH },
+    encoding: 'utf8',
+  })
+  assert.notEqual(r.status, 0)
+  assert.match(r.stderr, /réglage absent \(V2_/)
+})
+
+test('le jeton d’une connexion est masqué dans l’adresse journalisée', () => {
+  assert.equal(adresseSansSecret('/api/connexion/abcDEF123_-?x=1'), '/api/connexion/***?x=1')
+  assert.equal(adresseSansSecret('/api/moi'), '/api/moi')
 })

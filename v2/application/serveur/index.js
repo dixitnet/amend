@@ -15,6 +15,7 @@ import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 import { creerImages } from './images.js'
+import { adresseSansSecret } from './adresse.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
 import {
@@ -126,11 +127,16 @@ function json(res, statut, corps, entetes = {}) {
 }
 
 async function lireCorps(req, max = 10_000) {
-  let brut = ''
+  // Les paquets sont accumulés tels quels, bornés en octets, puis décodés d'un
+  // seul bloc : un caractère multi-octets coupé entre deux paquets reste entier.
+  const morceaux = []
+  let taille = 0
   for await (const morceau of req) {
-    brut += morceau
-    if (brut.length > max) throw Object.assign(new Error('trop gros'), { code: 'requete-trop-grosse' })
+    taille += morceau.length
+    if (taille > max) throw Object.assign(new Error('trop gros'), { code: 'requete-trop-grosse' })
+    morceaux.push(morceau)
   }
+  const brut = Buffer.concat(morceaux).toString('utf8')
   const corps = brut ? JSON.parse(brut) : {}
   if (!corps || typeof corps !== 'object' || Array.isArray(corps))
     throw Object.assign(new Error('corps invalide'), { code: 'requete-invalide' })
@@ -523,7 +529,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       if (err.code === 'requete-invalide' || err instanceof SyntaxError)
         return json(res, 400, { code: 'requete-invalide' })
       // Le reste est une erreur à nous : 500, et une trace dans le journal du service.
-      console.error(`[serveur] ${req.method} ${req.url} :`, err)
+      console.error(`[serveur] ${req.method} ${adresseSansSecret(req.url)} :`, err)
       json(res, 500, { code: 'erreur-interne' })
     }
   })

@@ -2,6 +2,30 @@
 // magasin de fils de l'adaptateur BlockNote. Les codes d'erreur du serveur
 // remontent tels quels (`err.code`) ; aucun texte ici.
 
+const CLE_RECHARGE = 'amend2.session.rechargee'
+
+/** Session expirée en cours d'usage : on recharge la page, le chargement
+ * initial montre alors l'écran de connexion. Une seule fois, tant que la
+ * session n'est pas revenue (drapeau effacé quand /api/moi répond 200,
+ * voir `sessionRetrouvee`). Sans stockage, pas de garde-fou : pas de rechargement. */
+function rechargerSiSessionExpiree() {
+  try {
+    if (sessionStorage.getItem(CLE_RECHARGE)) return
+    sessionStorage.setItem(CLE_RECHARGE, '1')
+  } catch {
+    return
+  }
+  location.reload()
+}
+/** À appeler quand `/api/moi` répond 200. */
+export function sessionRetrouvee() {
+  try {
+    sessionStorage.removeItem(CLE_RECHARGE)
+  } catch {
+    // Stockage refusé : rien à effacer.
+  }
+}
+
 /** Un appel JSON à nos routes ; une réponse en erreur lève avec son code.
  * Le seul de l'application (App.jsx s'en sert aussi ; audit du 10/11/2026). */
 export async function appel(methode, chemin, corps) {
@@ -11,6 +35,7 @@ export async function appel(methode, chemin, corps) {
     body: corps === undefined ? undefined : JSON.stringify(corps),
   })
   const donnees = await r.json().catch(() => ({}))
+  if (r.status === 401 && chemin !== '/api/moi' && chemin !== '/api/connexion') rechargerSiSessionExpiree()
   if (!r.ok)
     throw Object.assign(new Error(donnees.code || `http-${r.status}`), { code: donnees.code || `http-${r.status}` })
   return donnees

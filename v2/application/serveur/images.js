@@ -15,6 +15,7 @@ import {
   nomImageValide,
   IMAGE_MAX_OCTETS,
 } from '../../domaine/index.js'
+import { decoder } from './adresse.js'
 
 /** Lit le corps brut, sans dépasser `max` octets (au-delà : `null`, et rien
  * de plus n'est gardé ; la connexion se ferme après la réponse). */
@@ -51,12 +52,8 @@ export function creerImages({ personneDe, roleSur, depot, json }) {
     const err = (statut, code) => (json(res, statut, { code }), true)
     const p = await personneDe(req)
     if (!p) return err(401, 'session-absente')
-    let brut
-    try {
-      brut = decodeURIComponent(m[1])
-    } catch {
-      return err(400, 'requete-invalide')
-    }
+    const brut = decoder(m[1])
+    if (brut === null) return err(400, 'requete-invalide')
     const d = identifiantDocument(brut)
     if (!d.ok) return err(400, d.code)
     const caps = capacites(await roleSur(d.id, p.id))

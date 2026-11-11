@@ -3,6 +3,7 @@
 // une proposition retrouve son passage, ce qui la fait refuser, et les
 // garde-fous d'une demande. Les consignes (textes pour le modèle) sont dans
 // v2/i18n/consignes/ (règle 30) ; les droits dans droits.js (`utiliserMargo`).
+import { nfc } from './propre.js'
 import { typographier } from './typographie.js'
 
 /** L'auteur des suggestions et des commentaires de Margo, pour y/hub et les
@@ -26,7 +27,7 @@ export const MARGO_DEMANDE_MAX_SIGNES = 4000
 export const MARGO_HISTORIQUE_MAX_SIGNES = 20000
 
 /** Les signes d'un texte, espaces compris (règle 5 de CLAUDE.md : la seule unité). */
-export const signes = (texte) => [...String(texte ?? '')].length
+export const signes = (texte) => [...nfc(String(texte ?? ''))].length
 
 /**
  * Le texte montré à Margo : un bloc par ligne, précédé de son numéro entre

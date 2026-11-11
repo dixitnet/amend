@@ -86,6 +86,7 @@ import {
 import { creerTraducteur, libelleDuRole, libelleDuRoleEquipe } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
 import { MODELES_LIVRE, REGLES_MODELES } from '../../design/livre.js'
+import { decoder } from './adresse.js'
 
 /** Les modèles de mise en page d'amend.ink (design), par identifiant. */
 const MAISON = new Map(MODELES_LIVRE.map((m) => [m.id, m]))
@@ -99,14 +100,6 @@ const LIEN_INVALIDE = 'lien-invalide'
 /** Liens de connexion envoyés au plus, par adresse, dans la fenêtre. */
 const LIENS_MAX = 5
 const FENETRE_LIENS_MS = 15 * 60 * 1000
-
-function decoder(segment) {
-  try {
-    return decodeURIComponent(segment)
-  } catch {
-    return null
-  }
-}
 
 /**
  * @param {object} o
@@ -460,7 +453,9 @@ export function creerComptes({
       for (const d of plan.documents) {
         if (d.sort === 'confie') await comptes.modifierAcces(d.id, d.a, 'proprietaire')
         if (d.sort === 'supprime') await effacer(d.id)
-        else await comptes.modifierAcces(d.id, p.id, null)
+        else if ((await comptes.modifierAcces(d.id, p.id, null)) === 'dernier-proprietaire')
+          // Le plan a vieilli entre-temps : on s'arrête là plutôt que de continuer à moitié.
+          return err(res, 409, 'suppression-refusee')
       }
       for (const e of plan.equipes) {
         if (e.sort === 'quitte') {

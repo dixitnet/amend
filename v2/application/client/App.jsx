@@ -63,7 +63,8 @@ import {
 } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
-import { serviceCommentaires, nomsDe, appel, envoyerImage } from './commentaires.js'
+import { serviceCommentaires, nomsDe, appel, envoyerImage, sessionRetrouvee } from './commentaires.js'
+import { nomsAdemander } from './nomsAuteurs.js'
 import { useVolets } from './volets.js'
 import { exporterDocument, modeleComplet, modeleMaison } from './exports.js'
 import { useMargo } from './margo.js'
@@ -158,7 +159,9 @@ export function App() {
       const r = await fetch('/api/moi')
       if (r.status === 401) return setEtat({ phase: 'connexion', config })
       if (!r.ok) return setEtat({ phase: 'erreur', code: (await lireJson(r)).code || `http-${r.status}` })
-      const personne = await r.json()
+      const personne = await lireJson(r)
+      if (!personne.id) return setEtat({ phase: 'erreur', code: `http-${r.status}` })
+      sessionRetrouvee()
       setEtat({ phase: personne.nom ? 'pret' : 'nom', config, personne })
     } catch {
       setEtat({ phase: 'erreur', code: 'reseau' })
@@ -217,7 +220,6 @@ function compteDe(personne, config) {
   return {
     libelle: t('interface.compte'),
     nom: personne.nom,
-    courriel: personne.courriel,
     actions: [
       ...(personne.admin === true
         ? [
@@ -429,7 +431,7 @@ function Accueil({ config, personne }) {
   const voletDocs = useVoletDocuments(null)
   const { etroit } = useFormat()
   const volets = useVolets(etroit)
-  const { donnees, tous } = voletDocs
+  const { donnees, erreur, tous } = voletDocs
   const ids = tous.map((d) => d.id)
   const dernier = lireDernier()
   // Sinon le dernier modifié (date donnée par y/hub, lots du 11/11/2026).
@@ -437,6 +439,7 @@ function Accueil({ config, personne }) {
   useEffect(() => {
     if (donnees && cible) location.replace(`#${encodeURIComponent(cible)}`)
   }, [donnees, cible])
+  if (erreur && !donnees) return <EcranMessage texte={messageErreur(t, erreur)} />
   if (!donnees || cible) return <EcranMessage texte={t('application.chargement')} />
   return (
     <Coquille
@@ -991,6 +994,7 @@ const sansAccents = (s) =>
  */
 function useVoletDocuments(docId, { actif = true } = {}) {
   const [donnees, setDonnees] = useState(null)
+  const [erreur, setErreur] = useState(null)
   const [equipes, setEquipes] = useState({})
   const [recherche, setRecherche] = useState('')
   const [tri, setTri] = useState(lireTri)
@@ -1004,6 +1008,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
   const recharger = async () => {
     try {
       const d = await envoyerJson('GET', '/api/documents')
+      setErreur(null)
       const vues = await Promise.all(
         d.equipes.map((e) => envoyerJson('GET', `/api/equipes/${encodeURIComponent(e.id)}`).catch(() => null)),
       )
@@ -1012,11 +1017,22 @@ function useVoletDocuments(docId, { actif = true } = {}) {
       setCorbeille((await envoyerJson('GET', '/api/corbeille').catch(() => null))?.documents ?? [])
     } catch (e) {
       montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+      setErreur(e.code || 'reseau')
     }
   }
   useEffect(() => {
     if (actif) recharger()
   }, [docId, actif])
+  // Sans données et en erreur : un seul nouvel essai, après 5 s.
+  const nouvelEssai = useRef(false)
+  useEffect(() => {
+    if (!erreur || donnees || nouvelEssai.current) return undefined
+    const minuteur = setTimeout(() => {
+      nouvelEssai.current = true
+      recharger()
+    }, 5000)
+    return () => clearTimeout(minuteur)
+  }, [erreur, donnees])
   const agir = (f) => async () => {
     try {
       await f()
@@ -1502,7 +1518,13 @@ function useVoletDocuments(docId, { actif = true } = {}) {
         }}
         entrees={entrees}
         vide={
-          donnees ? (recherche.trim() ? t('documents.rienTrouve') : t('documents.aucun')) : t('application.chargement')
+          donnees
+            ? recherche.trim()
+              ? t('documents.rienTrouve')
+              : t('documents.aucun')
+            : erreur
+              ? messageErreur(t, erreur)
+              : t('application.chargement')
         }
         libelleActions={(nom) => t('documents.actionsDe', { nom })}
       />
@@ -1551,7 +1573,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
       </Fenetre>
     </>
   )
-  return { contenu, donnees, tous, estFavori, basculerFavori, recharger, dupliquer }
+  return { contenu, donnees, erreur, tous, estFavori, basculerFavori, recharger, dupliquer }
 }
 
 /** Le zoom du texte de l'éditeur (Sylvain, 11/11/2026 : 50, 100, 150 %, comme
@@ -1737,18 +1759,21 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
     }
   }, [suggestions])
   // Les noms des auteurs des suggestions, demandés une fois chacun.
-  const demandes = useRef(new Set())
+  // Un nom introuvable (serveur injoignable) n'est pas retenu : « auteur
+  // inconnu » s'affiche, et il n'est redemandé qu'après un délai ; l'état ne
+  // change pas quand rien n'est trouvé, sinon l'effet reboucle (audit du 11/11/2026).
+  const essaisNoms = useRef(new Map())
   useEffect(() => {
-    const manquants = [...new Set((suggestions?.liste ?? []).map((s) => s.auteur))].filter(
-      (id) => id && !(id in noms) && !demandes.current.has(id),
+    const manquants = nomsAdemander(
+      (suggestions?.liste ?? []).map((s) => s.auteur),
+      noms,
+      essaisNoms.current,
+      Date.now(),
     )
-    manquants.forEach((id) => demandes.current.add(id))
-    // Un nom introuvable (serveur injoignable) n'est pas retenu : « auteur
-    // inconnu » s'affiche, et le nom sera redemandé (audit du 10/11/2026).
     if (manquants.length)
       nomsAvecMargo(manquants).then((l) => {
         const trouves = l.filter((p) => p.username !== p.id)
-        for (const id of manquants) if (!trouves.some((p) => p.id === id)) demandes.current.delete(id)
+        if (!trouves.length) return
         setNoms((n) => ({ ...n, ...Object.fromEntries(trouves.map((p) => [p.id, p.username])) }))
       })
   }, [suggestions, noms])
