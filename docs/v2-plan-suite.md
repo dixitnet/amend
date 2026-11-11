@@ -53,7 +53,7 @@ Ces trois lots sont petits, et ils comptent dès le premier texte réel déposé
 
 Ouverture par une revue, puis, selon l'arbitrage du lot 1 :
 
-Export PDF, modèles de mise en page et modèles d'équipe : architecture et plan proposés le 10/11/2026 dans `docs/v2-etape-7-modeles-plan.md` (reprend et précise les points 11 et 14 ; questions Q1 à Q10).
+Export PDF, modèles de mise en page et modèles d'équipe : architecture et plan proposés le 10/11/2026 dans `docs/v2-etape-7-modeles-plan.md` (reprend et précise les points 11 et 14 ; questions Q1 à Q10). **Arbitré et développé le 10-11/11/2026** : points 11 et 14 faits ; Word (12) reste pour plus tard (Q8).
 
 11. Fenêtre « Exporter » comme Docs (format, modèle).
 12. Export Word (`xl-docx-exporter` de BlockNote, comme Docs).

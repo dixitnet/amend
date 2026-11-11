@@ -1,6 +1,6 @@
 # amend.ink v2 : export PDF et modèles de documents, avec modèles d'équipe (étape 7, suite)
 
-Statut : **proposé** le 10/11/2026, à arbitrer par Sylvain (réponse par numéros, § 7). Rien n'est lancé.
+Statut : **arbitré** par Sylvain le 10/11/2026 (« 1-1, 2-1, 3-1, 4-1, 5-1, 6 tout, 7-1, 8-2, 9 oui, 10-2 go dev ») ; **lots 7.2 à 7.7 développés** d'un trait sur `claude/relaxed-newton-jmtxvp` (§ 8). Décision notée dans l'ADR 0011 et le journal (§ 40).
 
 Demande de Sylvain (10/11/2026) : « Export pdf et modèles de documents. Précise l'architecture et le plan de développement. Intègre une logique de modèles d'équipe. »
 
@@ -165,3 +165,22 @@ Proposition : **1** quand le besoin se présente, pas avant ; le 2 alourdit le v
 - **Q8. Word** : (1) après 7.4, avec le modèle appliqué à ce que Word sait faire (format, marges, police, corps, chapitre en nouvelle page) ; (2) plus tard. 
 - **Q9. Écart avec Docs et règle** : accord pour noter l'écart (modèles de mise en page et modèles d'équipe, que Docs a retirés) dans le journal, et pour l'ADR 0011 (§ 5) ?
 - **Q10. Ordre** : (1) 7.2 à 7.4 d'abord (fenêtre et choix entre modèles d'amend.ink), puis les équipes ; (2) tout d'un trait. Proposition : 1, et ce plan après la clôture de l'étape 6 et les correctifs déjà prévus (plan de la suite, § B et C).
+
+## 8. Ce qui est fait (10-11/11/2026)
+
+Selon l'arbitrage : modèles de mise en page et modèles d'équipe, sans « Dupliquer » ; base et écarts ; gestionnaire ; modèle enregistré avec le document ; suppression permise ; tous les réglages de Q6 ; pas d'aperçu ; Word plus tard ; tout d'un trait.
+
+- **Domaine** (`domaine/miseEnPage.js`, `domaine/equipes.js`) : `appliquerEcarts` (réglage inconnu, hors bornes ou de mauvais type, grille ou largeur utile impossibles : refusés avec un code ; un écart égal à la base n'est pas gardé), `valeurDuReglage`, `modeleRetenu`, `peutChoisirModele`, `peutGererModeles`.
+- **Design** : `livre.polices`, `livre.reglables`, `livre.largeurUtileMin` (ADR 0008) ; `PanneauExport`, `PanneauModeles`, `FormulaireModele` (`design/composants/Modeles.jsx`).
+- **Serveur et PostgreSQL** : table `amend.modeles`, colonnes `documents.modele` et `equipes.modele_defaut` ; routes `/api/equipes/:id/modeles`, `/api/equipes/:id/modele-defaut`, `/api/documents/:doc/modeles`, `/api/documents/:doc/modele` ; les modèles de l'équipe dans `GET /api/equipes/:id`.
+- **Client** : une entrée « Exporter… » dans le menu « … » (L, M et S, picto « exporter ») ouvre la fenêtre « Exporter » (format ; pour le PDF, modèle présélectionné et case « Retenir ce modèle pour le document » pour qui écrit ; bouton qui tourne pendant la compilation) ; « Modèles de mise en page » dans le menu d'une équipe, pour son gestionnaire (modèle par défaut, liste, création, réglage, suppression avec le nombre de documents touchés).
+- **Tests** : unitaires (domaine), services (`tests/services/modeles.test.js` : droits, contrôle des écarts, modèle retenu, correcteur extérieur, suppression, sortie de l'équipe), composants, pile (`contrats/pile/exports.test.js` : export Markdown et PDF par la fenêtre ; modèle d'équipe réglé à 135 mm par le gestionnaire, appliqué au PDF et retenu pour le document).
+
+### Limites connues
+
+1. Les bornes des réglages sont celles de la v1, à confirmer par Sylvain (journal, § 40).
+2. Le catalogue n'a qu'une police (EB Garamond) : le choix de la police est là, avec une seule entrée.
+3. Les nombres du formulaire s'écrivent avec un point décimal (`NumberInput` de Mantine tel quel) ; une virgule demanderait un réglage de design.
+4. Aucune vérification en direct dans le formulaire : une valeur refusée l'est à l'enregistrement, avec un message (pas d'aperçu, Q7).
+5. Les notes de bas de page manquent toujours (§ 5, point bloquant hors de ce plan).
+
