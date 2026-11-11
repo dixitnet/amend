@@ -247,7 +247,8 @@
     "fermer": "Close",
     "valider": "OK",
     "annuler": "Cancel",
-    "continuer": "Continue"
+    "continuer": "Continue",
+    "aide": "Help"
   },
   "export": {
     "titre": "Export",

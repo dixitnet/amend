@@ -23,7 +23,7 @@ export {
   peutGererModeles,
   deplacementDocument,
 } from './equipes.js'
-export { listeAdministrateurs, estAdministrateur, numeroDeVersion } from './administration.js'
+export { listeAdministrateurs, estAdministrateur, numeroDeVersion, adresseAide } from './administration.js'
 export { nfc } from './propre.js'
 export {
   gabaritTypst,
