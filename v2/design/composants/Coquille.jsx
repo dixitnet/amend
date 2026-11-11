@@ -313,7 +313,7 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
  * onglets pour les lecteurs d'écran. L'onglet ouvert peut être piloté
  * (`actif`, `surOnglet`) : « Corriger » ouvre Margo (étape 8). Sans `margo`,
  * pas d'onglet Margo (le correcteur n'y a pas accès). */
-export function VoletRelecture({ titre, onglets, modifications, margo, actif, surOnglet }) {
+export function VoletRelecture({ titre, onglets, modifications, commentaires, margo, actif, surOnglet }) {
   const pilote = actif ? { value: actif, onChange: surOnglet } : { defaultValue: 'modifications' }
   return (
     <>
@@ -323,6 +323,11 @@ export function VoletRelecture({ titre, onglets, modifications, margo, actif, su
             <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
               {onglets.modifications}
             </Tabs.Tab>
+            {commentaires ? (
+              <Tabs.Tab value="commentaires" leftSection={<PictoDe role="commentaires" />}>
+                {onglets.commentaires}
+              </Tabs.Tab>
+            ) : null}
             {margo ? (
               <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
                 {onglets.margo}
@@ -332,6 +337,11 @@ export function VoletRelecture({ titre, onglets, modifications, margo, actif, su
           <Tabs.Panel value="modifications">
             <div className="amend-coquille-volet-corps">{modifications}</div>
           </Tabs.Panel>
+          {commentaires ? (
+            <Tabs.Panel value="commentaires" keepMounted>
+              <div className="amend-coquille-volet-corps">{commentaires}</div>
+            </Tabs.Panel>
+          ) : null}
           {margo ? (
             <Tabs.Panel value="margo">
               <div className="amend-coquille-volet-corps">{margo}</div>
@@ -340,6 +350,25 @@ export function VoletRelecture({ titre, onglets, modifications, margo, actif, su
         </Tabs>
       </AppShell.Section>
     </>
+  )
+}
+
+/**
+ * La liste des fils de commentaires (comme Docs : un filtre « Ouverts »,
+ * « Résolus », puis la liste). La liste elle-même est celle de BlockNote,
+ * placée par l'éditeur dans l'élément que rend `cible` (rappel de référence).
+ */
+export function ListeDesFils({ filtre, cible }) {
+  return (
+    <Stack>
+      <SegmentedControl
+        aria-label={filtre.libelle}
+        value={filtre.valeur}
+        data={filtre.options.map((o) => ({ value: o.valeur, label: o.libelle }))}
+        onChange={filtre.surChange}
+      />
+      <div ref={cible} />
+    </Stack>
   )
 }
 

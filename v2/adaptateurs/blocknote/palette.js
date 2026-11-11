@@ -16,3 +16,21 @@ export function boutonsGardes(boutons, exposant = null) {
   const i = gardes.findIndex((b) => b.key === APRES_EXPOSANT)
   return i < 0 ? [...gardes, exposant] : [...gardes.slice(0, i + 1), exposant, ...gardes.slice(i + 1)]
 }
+
+// En mode Suggérer, pas de mise en forme (contournement temporaire, veille :
+// une suggestion de mise en forme n'est pas arbitrable ; Sylvain, 11/11/2026).
+export const BOUTONS_DE_FORME = [
+  'blockTypeSelect',
+  'boldStyleButton',
+  'italicStyleButton',
+  'underlineStyleButton',
+  'strikeStyleButton',
+  'colorStyleButton',
+  'nestBlockButton',
+  'unnestBlockButton',
+]
+
+/** Les boutons gardés en mode Suggérer. */
+export function boutonsGardesEnSuggestion(boutons) {
+  return boutonsGardes(boutons).filter((bouton) => !BOUTONS_DE_FORME.includes(bouton.key))
+}

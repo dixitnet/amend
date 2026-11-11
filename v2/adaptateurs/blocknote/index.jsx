@@ -29,15 +29,26 @@ import {
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
   getPageBreakReactSlashMenuItems,
+  RenderInPortalElement,
+  ThreadsSidebar,
 } from '@blocknote/react'
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core'
 import { BlockNoteView } from '@blocknote/mantine'
-import { VersioningSidebar } from '@blocknote/react/versioning'
+import {
+  VersioningSidebar,
+  VersionMenu,
+  VersionMenuItem,
+  NameVersionItem,
+  CompareWithVersionItem,
+  CompareSinceBeginningItem,
+  DeleteVersionItem,
+  useRestoreVersionAction,
+} from '@blocknote/react/versioning'
 import { withCollaboration } from '@blocknote/core/y'
 import { CommentsExtension } from '@blocknote/core/comments'
 import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
-import { boutonsGardes } from './palette.js'
+import { boutonsGardes, boutonsGardesEnSuggestion } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
@@ -45,6 +56,7 @@ import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
 import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
+import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 
 /** La sélection, en blocs : le premier et le dernier bloc à texte touchés
  * (`null` sans sélection étendue). Pour Margo (étape 8). */
@@ -102,13 +114,26 @@ function BoutonExposant({ exposant }) {
   )
 }
 
-function Palette({ corriger, exposant }) {
+/** « Restaurer », après confirmation (l'API de BlockNote le prévoit :
+ * `useRestoreVersionAction`, « custom items can request confirmation ») ;
+ * comme Docs, qui demande avant de restaurer. */
+function RestaurerApresConfirmation({ libelle, confirmer }) {
+  const action = useRestoreVersionAction()
+  if (!action.available) return null
+  return (
+    <VersionMenuItem onClick={() => void confirmer().then((oui) => oui && action.execute())}>{libelle}</VersionMenuItem>
+  )
+}
+
+function Palette({ corriger, suggerer, exposant }) {
   return (
     <FormattingToolbar>
-      {boutonsGardes(
-        getFormattingToolbarItems(),
-        exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null,
-      )}
+      {suggerer
+        ? boutonsGardesEnSuggestion(getFormattingToolbarItems())
+        : boutonsGardes(
+            getFormattingToolbarItems(),
+            exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null,
+          )}
       {corriger ? <BoutonCorriger corriger={corriger} /> : null}
     </FormattingToolbar>
   )
@@ -142,6 +167,10 @@ function itemsDuMenu(editeur, table) {
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
+ * @param {{ element: HTMLElement | null, filtre: 'open' | 'resolved' | 'all' } | null} [p.fils]
+ *   où placer la liste des fils de commentaires (onglet « Commentaires »), et son filtre
+ * @param {(code: string) => void} [p.surRefus]  un geste refusé en mode Suggérer (contournements, veille)
+ * @param {() => Promise<boolean>} [p.confirmerRestauration]  demandée avant de revenir à une version
  * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
  *   sur le texte passe en modification (curseur à l'endroit touché)
  * @param {{ current: { terminer: () => void, exporter: Function } | null }} [p.controle]  reçoit
@@ -176,6 +205,9 @@ export function EditeurCollaboratif({
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
+  confirmerRestauration,
+  surRefus,
+  fils = null,
   lectureAuDepart = false,
   controle,
   surModification,
@@ -189,6 +221,8 @@ export function EditeurCollaboratif({
   // Le mode du moment, lu par la typographie sans recréer l'éditeur.
   const modeMaintenant = useRef(mode)
   modeMaintenant.current = mode
+  const surRefusDuSuivi = useRef(surRefus)
+  surRefusDuSuivi.current = surRefus
   // Un afficheur, créé une fois (le mode du départ seulement) ; le mode passe
   // ensuite par l'extension (effet plus bas), sans le recréer.
   const afficheur = useMemo(
@@ -203,9 +237,10 @@ export function EditeurCollaboratif({
             commentaires.capacites,
             personne.id,
             !commentaires.capacites.includes('ecrire'),
+            langueDocument,
           )
         : null,
-    [commentaires, personne.id],
+    [commentaires, personne.id, langueDocument],
   )
   const editeur = useCreateBlockNote(
     withCollaboration({
@@ -217,6 +252,11 @@ export function EditeurCollaboratif({
       // 08/11/2026 : attendre sa correction).
       extensions: [
         extensionTypographie({ langue: langueDocument, actif: () => modeMaintenant.current === 'ecrire' }),
+        // Contournements temporaires du mode Suggérer (veille).
+        extensionLimitesDuSuivi({
+          actif: () => modeMaintenant.current === 'suggerer',
+          refuser: (code) => surRefusDuSuivi.current?.(code),
+        }),
         ...(magasin ? [CommentsExtension({ threadStore: magasin, resolveUsers: nomsDe })] : []),
         extensionHistorique(contexte, peutRestaurer, dictionnaire(langue).versioning.before_restore),
       ],
@@ -383,8 +423,8 @@ export function EditeurCollaboratif({
     return editeur.onSelectionChange(signaler)
   }, [editeur, surSelection])
   const palette = useCallback(
-    (props) => <Palette {...props} corriger={corriger} exposant={textes.exposant} />,
-    [corriger, textes.exposant],
+    (props) => <Palette {...props} corriger={corriger} suggerer={mode === 'suggerer'} exposant={textes.exposant} />,
+    [corriger, mode, textes.exposant],
   )
   const menu = useCallback(
     async (requete) => filterSuggestionItems(itemsDuMenu(editeur, textes.table), requete),
@@ -433,11 +473,42 @@ export function EditeurCollaboratif({
       editor={editeur}
       editable={appui ? false : ecrit && !historique}
       formattingToolbar={false}
+      // Pas d'émojis par « : » dans le texte d'un livre (« deux:points » ouvrait
+      // le sélecteur ; Sylvain, 11/11/2026, écart avec Docs) ; les réactions
+      // aux commentaires gardent le leur.
+      emojiPicker={false}
+      // Notre menu « / » (saut de page, table des matières) ; aucun en
+      // Suggérer : pas de changement de type de bloc (contournement, veille).
       slashMenu={false}
     >
       <FormattingToolbarController formattingToolbar={palette} />
-      <SuggestionMenuController triggerCharacter="/" getItems={menu} />
-      {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
+      {mode !== 'suggerer' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
+      {/* La liste des fils (exemple 06-comments-with-sidebar de BlockNote, et
+          Docs) : rendue dans l'éditeur (elle en a besoin), placée dans l'onglet. */}
+      {magasin && fils?.element ? (
+        <RenderInPortalElement target={fils.element}>
+          <ThreadsSidebar filter={fils.filtre} sort="position" />
+        </RenderInPortalElement>
+      ) : null}
+      {historique && historiqueOuvert ? (
+        <VersioningSidebar
+          onClose={surFermerHistorique}
+          snapshotMenu={
+            confirmerRestauration ? (
+              <VersionMenu>
+                <NameVersionItem />
+                <CompareWithVersionItem />
+                <CompareSinceBeginningItem />
+                <RestaurerApresConfirmation
+                  libelle={dictionnaire(langue).versioning.restore_menuitem}
+                  confirmer={confirmerRestauration}
+                />
+                <DeleteVersionItem />
+              </VersionMenu>
+            ) : undefined
+          }
+        />
+      ) : null}
     </BlockNoteView>
   )
   return appui ? <div onClick={commencer}>{vue}</div> : vue

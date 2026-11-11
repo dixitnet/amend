@@ -2,7 +2,7 @@
 // l'écran d'un document et son partage ; état et appels au serveur. Tout
 // l'affichage est délégué à la couche design ; tous les textes viennent de
 // v2/i18n/.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState } from 'react'
 import {
   EcranMessage,
   EcranSuppressionCompte,
@@ -21,6 +21,7 @@ import {
   Bandeau,
   VoletPlanDocuments,
   VoletRelecture,
+  ListeDesFils,
   TexteDeVolet,
   AlerteHorsLigne,
   Fenetre,
@@ -915,16 +916,28 @@ async function obtenirDroits(docId, dev) {
 
 function Document({ config, personne, docId }) {
   const [droits, setDroits] = useState(null)
+  // Relu quand le serveur ferme la connexion parce que les droits ont changé
+  // (comme Docs : relire les droits, puis rouvrir l'édition avec eux).
+  const [lecture, setLecture] = useState(0)
   useEffect(() => {
     let actif = true
     obtenirDroits(docId, config.dev).then((d) => actif && setDroits(d))
     return () => {
       actif = false
     }
-  }, [config, docId])
+  }, [config, docId, lecture])
   if (!droits) return <EcranMessage texte={t('application.chargement')} />
   if (droits.code) return <EcranMessage texte={messageErreur(t, droits.code)} />
-  return <Edition config={config} personne={personne} docId={docId} droits={droits} />
+  return (
+    <Edition
+      key={lecture}
+      config={config}
+      personne={personne}
+      docId={docId}
+      droits={droits}
+      surDroitsChanges={() => (setDroits(null), setLecture((n) => n + 1))}
+    />
+  )
 }
 
 /** Le volet « Documents » : mes dossiers et documents, puis ceux partagés avec moi. */
@@ -1571,7 +1584,26 @@ const TEXTES_EDITEUR = {
   },
 }
 
-function Edition({ config, personne, docId, droits }) {
+/**
+ * Filet de sécurité de l'éditeur (contournement, veille ; Sylvain, 11/11/2026) :
+ * si l'affichage des suggestions plante (document que Yjs ne sait plus rendre en
+ * suggestion), on ne laisse pas la page blanche ; `surErreur` décide de la suite.
+ */
+class FiletDeLEditeur extends Component {
+  state = { erreur: null }
+  static getDerivedStateFromError(erreur) {
+    return { erreur }
+  }
+  componentDidCatch(erreur) {
+    console.error('éditeur :', erreur)
+    this.props.surErreur?.(erreur)
+  }
+  render() {
+    return this.state.erreur ? this.props.repli : this.props.children
+  }
+}
+
+function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
   // Les trois modes d'un éditeur, comme l'exemple de BlockNote (Sylvain,
@@ -1627,6 +1659,9 @@ function Edition({ config, personne, docId, droits }) {
   }, [connexion])
   const [autres, setAutres] = useState([])
   const [suggestions, setSuggestions] = useState(null)
+  // L'onglet « Commentaires » : l'élément où l'éditeur place la liste des fils, et son filtre.
+  const [cibleFils, setCibleFils] = useState(null)
+  const [filtreFils, setFiltreFils] = useState('open')
   const [plan, setPlan] = useState({ titres: [], courant: null, allerA: () => {} })
   const [titre, setTitre] = useState(droits.titre ?? null)
   const [volet, setVolet] = useState(null)
@@ -1679,6 +1714,18 @@ function Edition({ config, personne, docId, droits }) {
     }
   }
   useEffect(() => session.surEtat(setConnexion), [session])
+  // Droits changés pendant que le document est ouvert : on les relit.
+  useEffect(
+    () =>
+      session.surFermeture((raison) => {
+        if (raison === 'droits') {
+          montrerMessage(t('document.droitsChanges'))
+          surDroitsChanges?.()
+        } else if (raison === 'supprime') location.hash = ''
+        else montrerMessage(t('document.connexionPerdue'), { erreur: true })
+      }),
+    [session, surDroitsChanges],
+  )
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
   // Le volet droit s'ouvre d'office, une fois, quand des suggestions attendent (5b).
@@ -1798,6 +1845,10 @@ function Edition({ config, personne, docId, droits }) {
   ]
   // Le lecteur ne voit pas les suggestions : pas de volet droit pour lui.
   const avecVoletDroit = mode !== 'lire'
+  // Contournement (veille) : l'afficheur dit qu'il reste des suggestions que la
+  // liste ne montre pas (une suppression de paragraphe, après un rechargement) ;
+  // « Tout accepter » et « Tout refuser » les traitent quand même.
+  const invisibles = mode === 'relire' && !!suggestions?.enAttente && suggestions.liste.length === 0
   const modifications = suggestions ? (
     <PanneauSuggestions
       titre={
@@ -1813,8 +1864,11 @@ function Edition({ config, personne, docId, droits }) {
               bouton: t('document.passerRelire'),
               surClic: () => setModeEditeur('relire'),
             }
-          : null
+          : invisibles
+            ? { texte: t('suggestions.invisibles') }
+            : null
       }
+      actionsGlobales={invisibles}
       lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
       libelles={{
         accepter: t('suggestions.accepter'),
@@ -1896,30 +1950,76 @@ function Edition({ config, personne, docId, droits }) {
       nouvelle={margo.fil.length ? { libelle: t('margo.nouvelle'), surClic: margo.nouvelle } : null}
     />
   ) : null
+  const listeFils = commentaires ? (
+    <ListeDesFils
+      filtre={{
+        libelle: t('commentaires.filtre'),
+        valeur: filtreFils,
+        options: [
+          { valeur: 'open', libelle: t('commentaires.ouverts') },
+          { valeur: 'resolved', libelle: t('commentaires.resolus') },
+          { valeur: 'all', libelle: t('commentaires.tous') },
+        ],
+        surChange: setFiltreFils,
+      }}
+      cible={setCibleFils}
+    />
+  ) : null
+  // Un essai de plus de l'éditeur après une panne en Suggérer ou Relire (repli en Modifier).
+  const [essaiEditeur, setEssaiEditeur] = useState(0)
   const editeur = (
     <ZoneZoom zoom={zoom}>
-      <EditeurCollaboratif
-        contexte={session.contexte}
-        personne={moi}
-        langue={t.langue}
-        langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
-        nomAccessible={t('document.zoneEdition', { id: docId })}
-        mode={mode}
-        nomsDe={nomsAvecMargo}
-        commentaires={commentaires}
-        surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
-        historique={historique && !formatS}
-        peutRestaurer={caps.includes('restaurer')}
-        surFermerHistorique={() => setHistorique(false)}
-        lectureAuDepart={formatS || tactile}
-        controle={controle}
-        surModification={setEnModification}
-        surPlan={setPlan}
-        corriger={corriger}
-        surSelection={peutMargo ? setSelection : undefined}
-        textes={TEXTES_EDITEUR}
-        televerser={televerser}
-      />
+      <FiletDeLEditeur
+        key={essaiEditeur}
+        repli={<TexteDeVolet texte={t('suivi.panne')} />}
+        surErreur={() => {
+          if (caps.includes('ecrire') && mode !== 'ecrire') {
+            setModeEditeur('ecrire')
+            setEssaiEditeur((n) => n + 1)
+            montrerMessage(t('suivi.panneRepli'), { erreur: true })
+          }
+        }}
+      >
+        <EditeurCollaboratif
+          contexte={session.contexte}
+          personne={moi}
+          langue={t.langue}
+          langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
+          nomAccessible={t('document.zoneEdition', { id: docId })}
+          mode={mode}
+          nomsDe={nomsAvecMargo}
+          commentaires={commentaires}
+          surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+          historique={historique && !formatS}
+          peutRestaurer={caps.includes('restaurer')}
+          surFermerHistorique={() => setHistorique(false)}
+          fils={commentaires ? { element: cibleFils, filtre: filtreFils } : null}
+          surRefus={(code) =>
+            montrerMessage(
+              { 'suggestion-a-cheval': t('suivi.aCheval'), 'suggestion-mise-en-forme': t('suivi.miseEnForme') }[code] ??
+                messageErreur(t, code),
+              {
+                erreur: true,
+              },
+            )
+          }
+          confirmerRestauration={() =>
+            confirmer({
+              titre: t('document.restaurerTitre'),
+              texte: t('document.restaurerTexte'),
+              libelle: t('document.restaurer'),
+            })
+          }
+          lectureAuDepart={formatS || tactile}
+          controle={controle}
+          surModification={setEnModification}
+          surPlan={setPlan}
+          corriger={corriger}
+          surSelection={peutMargo ? setSelection : undefined}
+          textes={TEXTES_EDITEUR}
+          televerser={televerser}
+        />
+      </FiletDeLEditeur>
     </ZoneZoom>
   )
 
@@ -2001,7 +2101,7 @@ function Edition({ config, personne, docId, droits }) {
           ],
         }}
         voletDroit={
-          suggestions || peutMargo
+          suggestions || peutMargo || listeFils
             ? {
                 titre: t('telephone.relecture'),
                 onglets: [
@@ -2011,6 +2111,16 @@ function Edition({ config, personne, docId, droits }) {
                     icone: 'modifications',
                     contenu: modifications,
                   },
+                  ...(listeFils
+                    ? [
+                        {
+                          cle: 'commentaires',
+                          libelle: t('commentaires.titre'),
+                          icone: 'commentaires',
+                          contenu: listeFils,
+                        },
+                      ]
+                    : []),
                   ...(peutMargo
                     ? [{ cle: 'margo', libelle: t('interface.margo'), icone: 'margo', contenu: panneauMargo }]
                     : []),
@@ -2112,8 +2222,13 @@ function Edition({ config, personne, docId, droits }) {
         avecVoletDroit ? (
           <VoletRelecture
             titre={t('telephone.relecture')}
-            onglets={{ modifications: t('telephone.modifications'), margo: t('interface.margo') }}
+            onglets={{
+              modifications: t('telephone.modifications'),
+              commentaires: t('commentaires.titre'),
+              margo: t('interface.margo'),
+            }}
             modifications={modifications}
+            commentaires={listeFils}
             margo={panneauMargo}
             actif={ongletRelecture}
             surOnglet={setOngletRelecture}

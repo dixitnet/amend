@@ -180,7 +180,7 @@ const DEMARRAGE = Date.now()
 /** La clé du réglage du modèle de Margo (back-office). */
 const REGLAGE_MODELE = 'margo.modele'
 
-const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, ia) => {
+const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, ia, collaboration = null) => {
   const administrateurs = listeAdministrateurs(CONF.administrateurs)
   /** Une personne connectée est-elle administratrice de l'instance ? (son adresse, en base) */
   const administrateur = async (p) =>
@@ -346,6 +346,8 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
         })
       if ((await comptes.modifierAcces(v.docId, personne, role, v.personne.id)) === 'dernier-proprietaire')
         return json(res, 409, { code: 'dernier-proprietaire' })
+      // Comme la route de partage : les connexions ouvertes revoient leurs droits.
+      await collaboration?.revoirAcces?.(v.docId, personne).catch((e) => console.error('revoir les accès :', e.message))
       json(res, 200, {})
     },
     // Pour le processus de collaboration seulement (jeton interne).
@@ -436,7 +438,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       : null)
   const identite = creerIdentite(CONF, comptes)
   const ia = services.ia ?? creerIA({ cleAnthropic: CONF.cleAnthropic, cleScaleway: CONF.cleScaleway })
-  const routes = creerRoutes(CONF, comptes, identite, courrier, ia)
+  const routes = creerRoutes(CONF, comptes, identite, courrier, ia, collaboration)
   const commentaires = creerCommentaires({
     personneDe: identite.personneDe,
     roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),

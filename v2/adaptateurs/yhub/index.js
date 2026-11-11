@@ -64,15 +64,34 @@ const restaurer = createApiEndpoint(RESTAURER, {
  * (étape 5) et remplir une copie (11/11/2026) ; il met un document à la
  * corbeille, l'en sort ou l'efface (étape 6a, corbeille du 11/11/2026). */
 const SERVEUR = 'amend-serveur'
+
+/**
+ * Les droits ont changé (accès donné, retiré, rôle changé) : chaque connexion
+ * ouverte du document les redemande (`recheckAuth`) et se ferme (code 4401)
+ * s'ils ne sont plus les mêmes ; le navigateur relit alors ses droits. Le
+ * montage de Docs (`src/yhub-server/src/api.ts`, `reset-connections`), réservé
+ * à notre serveur (aucun droit du navigateur ne nomme cette route).
+ */
+const REVOIR_ACCES = 'reset-connections'
+const revoirAcces = createApiEndpoint(REVOIR_ACCES, {
+  post: {
+    handler: async (req) => {
+      const personne = typeof req.query?.personne === 'string' && req.query.personne ? req.query.personne : null
+      await req.yhub.recheckAuth(req.docRef, { users: personne ? [personne] : null })
+      return { ok: true }
+    },
+  },
+})
 const PERMISSIONS_SERVEUR = createDocumentPermissions({
   ydoc: '-ru-',
   delete: ['soft', 'hard'],
-  endpoint: { ydoc: '-rud', [RESTAURER]: 'c---' },
+  endpoint: { ydoc: '-rud', [RESTAURER]: 'c---', [REVOIR_ACCES]: 'c---' },
 })
-// Sur la branche des suggestions : corbeille, restauration et effacement seulement.
+// Sur la branche des suggestions : corbeille, restauration et effacement, et
+// faire revoir les droits des connexions ouvertes.
 const PERMISSIONS_SERVEUR_SUGGESTIONS = createDocumentPermissions({
   delete: ['soft', 'hard'],
-  endpoint: { ydoc: '---d', [RESTAURER]: 'c---' },
+  endpoint: { ydoc: '---d', [RESTAURER]: 'c---', [REVOIR_ACCES]: 'c---' },
 })
 
 /** Margo, l'IA (étape 8) : notre serveur, au nom de Margo (jeton interne et
@@ -162,7 +181,7 @@ export async function demarrerCollaboration({
       port,
       auth,
       apiPrefix: 'collaboration',
-      api: [restaurer],
+      api: [restaurer, revoirAcces],
       cors: origines.length ? { origin: origines, credentials: true } : null,
     },
   })
