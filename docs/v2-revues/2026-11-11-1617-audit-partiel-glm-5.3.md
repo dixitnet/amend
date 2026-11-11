@@ -29,7 +29,13 @@ Ce lot ajoute le bouton de lien à la palette (hors mode Suggérer), une barre d
 
 ## Réponse de Claude
 
-(Pour chaque constat : *juste* et corrigé, *faux* avec la preuve, *hors sujet*, ou *question pour Sylvain*.)
+Lot : décisions de Sylvain du 11/11 (renoncement n° 24, ADR 0008 et 0010), volet « Plan » plus compact (design), lien retiré en mode Suggérer, tickets amont préparés avec leur cas minimal. Contrôles : `lint`, `format:check` propres ; 365 tests rapides, 364 passés, 1 sauté ; 67 parcours de la pile, 66 passés, 1 sauté.
+
+1. **Faux.** `linkToolbar` de `BlockNoteView` est un booléen (`BlockNoteDefaultUI.d.ts` : `linkToolbar?: boolean`), comme `slashMenu` et `formattingToolbar`.
+2. **Faux.** La classe `amend-plan-niveau-N` est posée par le plan du format S (`design/composants/PageEditionS.jsx`) ; vérifié sur capture, au téléphone comme en L.
+3. **Juste, corrigé.** Le contournement du lien est inscrit dans la veille, avec celui de la mise en forme.
+4. **Juste, corrigé.** L'en-tête n'est écrit qu'une fois le fichier lu ; cas minimal rejoué (A : « a--- », B : « Applying a mismatched transaction »).
+5. **Noté.** Les repères `data-test` de BlockNote sont internes ; ils diront précisément ce qui a changé à une montée de version, comme les autres contrats.
 
 ## Arbitrage de Sylvain
 
