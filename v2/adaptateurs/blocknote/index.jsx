@@ -167,9 +167,10 @@ export function EditeurCollaboratif({
             commentaires.capacites,
             personne.id,
             !commentaires.capacites.includes('ecrire'),
+            langueDocument,
           )
         : null,
-    [commentaires, personne.id],
+    [commentaires, personne.id, langueDocument],
   )
   const editeur = useCreateBlockNote(
     withCollaboration({

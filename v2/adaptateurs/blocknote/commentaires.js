@@ -9,7 +9,7 @@
 // peut pas, on envoie au serveur le passage en coordonnées du texte principal
 // (bloc, décalage sans les insertions suggérées, passage cité), et il la pose.
 import { ThreadStore, ThreadStoreAuth } from '@blocknote/core/comments'
-import { peutCommenter } from '../../domaine/index.js'
+import { peutCommenter, typographier } from '../../domaine/index.js'
 
 const SUGGERE = 'y-attributed-insert'
 
@@ -67,6 +67,27 @@ class AutorisationsFils extends ThreadStoreAuth {
 // tant que le nom de qui l'a résolu n'est pas chargé (`Thread`, « …but their data
 // could not be found »), au lieu d'attendre. Contournement (veille) : la ligne
 // « résolu par » ne s'affiche pas ; à retirer quand BlockNote attendra le nom.
+/**
+ * La typographie du document appliquée au message d'un commentaire, à l'envoi :
+ * l'éditeur des commentaires de BlockNote ne prend pas d'extension (pas de
+ * règle de frappe), on corrige donc le texte des blocs (domaine, `typographier`).
+ */
+function typographierCorps(blocs, langue) {
+  if (!Array.isArray(blocs)) return blocs
+  return blocs.map((b) => {
+    let avant = ''
+    const contenu = Array.isArray(b.content)
+      ? b.content.map((x) => {
+          if (x?.type !== 'text' || typeof x.text !== 'string') return x
+          const text = typographier(x.text, { langue, avant })
+          avant = text
+          return { ...x, text }
+        })
+      : b.content
+    return { ...b, content: contenu, children: typographierCorps(b.children, langue) }
+  })
+}
+
 const enDates = ({ resolvedBy, ...f }) => ({
   ...f,
   createdAt: new Date(f.createdAt),
@@ -90,10 +111,12 @@ const enDates = ({ resolvedBy, ...f }) => ({
  * @param {readonly string[]} caps  les capacités de la personne
  * @param {string} idPersonne
  * @param {boolean} ancreParLeServeur  vrai pour qui ne peut pas écrire le texte (correcteur)
+ * @param {string} [langue]  la langue du document (typographie des messages)
  */
 export class MagasinFils extends ThreadStore {
-  constructor(service, caps, idPersonne, ancreParLeServeur) {
+  constructor(service, caps, idPersonne, ancreParLeServeur, langue = 'fr') {
     super(new AutorisationsFils(caps, idPersonne))
+    this.langue = langue
     this.service = service
     this.fils = new Map()
     this.rappels = new Set()
@@ -147,13 +170,13 @@ export class MagasinFils extends ThreadStore {
     }
   }
   createThread = async ({ initialComment, metadata }) =>
-    enDates(await this.apres(this.service.creer(initialComment.body, metadata ?? null)))
+    enDates(await this.apres(this.service.creer(typographierCorps(initialComment.body, this.langue), metadata ?? null)))
   addComment = async ({ comment, threadId }) => {
-    const { id } = await this.apres(this.service.repondre(threadId, comment.body))
+    const { id } = await this.apres(this.service.repondre(threadId, typographierCorps(comment.body, this.langue)))
     return this.getThread(threadId).comments.find((c) => c.id === id)
   }
   updateComment = ({ comment, threadId, commentId }) =>
-    this.apres(this.service.modifier(threadId, commentId, comment.body)).then(() => {})
+    this.apres(this.service.modifier(threadId, commentId, typographierCorps(comment.body, this.langue))).then(() => {})
   deleteComment = ({ threadId, commentId }) => this.apres(this.service.supprimer(threadId, commentId)).then(() => {})
   deleteThread = ({ threadId }) => this.apres(this.service.supprimerFil(threadId)).then(() => {})
   resolveThread = ({ threadId }) => this.apres(this.service.resoudre(threadId)).then(() => {})
