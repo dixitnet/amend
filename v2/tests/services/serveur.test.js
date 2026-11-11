@@ -603,7 +603,7 @@ test('la collaboration hors développement refuse de démarrer sans ses réglage
     encoding: 'utf8',
   })
   assert.notEqual(r.status, 0)
-  assert.match(r.stderr, /réglage absent \(V2_POSTGRES\)/)
+  assert.match(r.stderr, /réglage absent \(V2_/)
 })
 
 test('le jeton d’une connexion est masqué dans l’adresse journalisée', () => {

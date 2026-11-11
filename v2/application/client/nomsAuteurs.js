@@ -1,5 +1,6 @@
 // Les noms des auteurs des suggestions (couche application) : quels
-// identifiants demander maintenant. Fonction pure, sans texte.
+// identifiants demander maintenant. Sans texte ni appel ; note les essais
+// dans la table que l'appelant conserve.
 
 /** Délai avant de redemander le nom d'un identifiant resté introuvable. */
 export const DELAI_NOM_INTROUVABLE_MS = 60_000
