@@ -7,6 +7,7 @@ import {
   texteNumerote,
   porteeMargo,
   situerRemplacement,
+  situerCitation,
   suiviDesRefus,
   ESPACE_FINE,
 } from '../../domaine/index.js'
@@ -91,4 +92,16 @@ test('consignes : en catalogue, avec paramètres ; une clé absente ne passe pas
   for (const code of ['vide', 'introuvable', 'ambigu', 'identique', 'bloc', 'chevauche', 'posee'])
     assert.ok(consigne(`refus.${code}`), code)
   assert.throws(() => consigne('absente'), /consigne absente/)
+})
+
+test('citation : NFD dans un texte NFC, et un passage présent deux fois sous deux formes reste ambigu (audit du 11/11/2026, 4)', () => {
+  const nfd = 'e\u0301te\u0301'
+  assert.deepEqual(situerCitation('Un été chaud', `Un ${nfd}`), { ok: true, debut: 0, fin: 6 })
+  assert.deepEqual(situerCitation(`été et ${nfd}`, 'été'), { ok: false, motif: 'ambigu' })
+  assert.deepEqual(situerCitation('L’été', "L'été"), { ok: true, debut: 0, fin: 5 })
+})
+
+test('remplacement : jamais deux espaces de suite dans le texte de Margo, la plus forte gardée (banc du 11/11/2026)', () => {
+  const r = situerRemplacement('forestiers\u00a0: 52 et 27', '27', 'x\u00a0 : 31  et\u202f\u00a0;')
+  assert.equal(r.apres, 'x\u00a0: 31 et\u202f;')
 })

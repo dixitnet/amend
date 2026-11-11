@@ -2,7 +2,7 @@
 
 - Auditeur : Scaleway, modèle `glm-5.3` ; consommation : 250431 signes envoyés, 5392 reçus (et 40513 de réflexion) ; réflexion `low` ; 50 s ; arrêt : stop
 - Diff audité : `v2/` de `bd671c5` à `2f1581e` (32 fichiers)
-- Statut : avis reçu ; réponse de Claude écrite (constats justes corrigés avant la demande de fusion) ; arbitrage de Sylvain à venir.
+- Statut : avis reçu ; réponse de Claude écrite (constats justes corrigés avant la demande de fusion) ; arbitré par Sylvain le 11/11/2026 (accord avec les réponses de Claude).
 
 ## Avis de l'auditeur
 
@@ -79,4 +79,4 @@ Le commentaire de `selectionEnBlocs` promet « `null` sans sélection étendue �
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+Accord avec les réponses de Claude (11/11/2026, revue de clôture de l'étape 8, Q1).

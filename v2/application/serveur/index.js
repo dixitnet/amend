@@ -173,7 +173,10 @@ const VERSION = (() => {
 })()
 const DEMARRAGE = Date.now()
 
-const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, collaboration = null) => {
+/** La clé du réglage du modèle de Margo (back-office). */
+const REGLAGE_MODELE = 'margo.modele'
+
+const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, ia, collaboration = null) => {
   const administrateurs = listeAdministrateurs(CONF.administrateurs)
   /** Une personne connectée est-elle administratrice de l'instance ? (son adresse, en base) */
   const administrateur = async (p) =>
@@ -228,6 +231,32 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, c
         node: process.version,
         comptes: await comptes.statistiques(),
       })
+    },
+    // Back-office, rubrique IA (étape 8, « backoffice simple », Sylvain,
+    // 11/11/2026) : le modèle de Margo, parmi ceux de l'adaptateur ; ceux dont
+    // le fournisseur n'a pas de clé ne se choisissent pas.
+    'GET /api/admin/ia': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      const choisi = await comptes.reglage(REGLAGE_MODELE)
+      json(res, 200, {
+        modele: typeof choisi === 'string' && MODELES[choisi] ? choisi : null,
+        defaut: MODELES[CONF.margoModele] ? CONF.margoModele : MODELE_PAR_DEFAUT,
+        modeles: Object.keys(MODELES).map((id) => ({ id, disponible: ia.disponible(id) })),
+      })
+    },
+    'PUT /api/admin/ia': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      const { modele } = await lireCorps(req)
+      if (typeof modele !== 'string' || !Object.hasOwn(MODELES, modele))
+        return json(res, 400, { code: 'modele-inconnu' })
+      if (!ia.disponible(modele)) return json(res, 409, { code: 'modele-sans-cle' })
+      await comptes.definirReglage(REGLAGE_MODELE, modele, p.id)
+      console.log(`[admin] modèle de Margo : ${modele}`)
+      json(res, 200, { modele })
     },
     // Développement seulement : les courriers gardés en mémoire (sans clé
     // Mailgun), pour les essais et les tests de bout en bout.
@@ -390,7 +419,8 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       ? clientCollaboration({ url: CONF.collaborationApi, jeton: CONF.jetonInterne })
       : null)
   const identite = creerIdentite(CONF, comptes)
-  const routes = creerRoutes(CONF, comptes, identite, courrier, collaboration)
+  const ia = services.ia ?? creerIA({ cleAnthropic: CONF.cleAnthropic, cleScaleway: CONF.cleScaleway })
+  const routes = creerRoutes(CONF, comptes, identite, courrier, ia, collaboration)
   const commentaires = creerCommentaires({
     personneDe: identite.personneDe,
     roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),
@@ -399,8 +429,18 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     lireCorps,
     collaboration,
   })
-  const ia = services.ia ?? creerIA({ cleAnthropic: CONF.cleAnthropic, cleScaleway: CONF.cleScaleway })
-  const modeleMargo = MODELES[CONF.margoModele] ? CONF.margoModele : MODELE_PAR_DEFAUT
+  // Le modèle de Margo : celui choisi au back-office, sinon celui de
+  // l'environnement, sinon le modèle par défaut (DeepSeek, comme la v1).
+  const modeleParDefaut = MODELES[CONF.margoModele] ? CONF.margoModele : MODELE_PAR_DEFAUT
+  const modeleMargo = async () => {
+    // Base injoignable : le modèle de l'environnement, et une trace au journal
+    // (audit du 11/11/2026, 5).
+    const choisi = await comptes.reglage(REGLAGE_MODELE).catch((err) => {
+      console.error('[margo] réglage du modèle illisible :', err.code ?? err.message)
+      return null
+    })
+    return typeof choisi === 'string' && MODELES[choisi] ? choisi : modeleParDefaut
+  }
   const margo = creerMargo({
     personneDe: identite.personneDe,
     roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),

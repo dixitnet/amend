@@ -23,5 +23,5 @@ Docs n'a pas de back-office à lui : il s'appuie sur l'administration de Django 
 
 1. **Personnes** : liste des comptes (adresse, nom, date de création, dernière connexion), et les administrateurs.
 2. **Journaux** : connexions, invitations, courriers envoyés ou refusés, erreurs. La v1 a ses journaux `events-*.jsonl` ; ce serait à reprendre de zéro.
-3. **IA (Margo)** : consommation en signes, quand l'IA arrivera dans la v2 (étape 8).
+3. **IA (Margo)** : **fait le 11/11/2026, version simple** (« backoffice (simple) », Sylvain) : le choix du modèle de Margo parmi ceux de l'adaptateur IA ; un modèle sans clé sur le serveur ne se choisit pas. Réglage en base (`amend.reglages`), qui l'emporte sur `V2_MARGO_MODELE` ; routes `GET` et `PUT /api/admin/ia`, réservées aux administrateurs. Docs règle son modèle par l'environnement (`AI_MODEL`), sans écran : écart demandé par Sylvain. La consommation en signes viendra sur les journaux (une ligne `[margo]` par demande, déjà écrite).
 4. **Gestes d'administration** : désactiver un compte, renvoyer un lien, admettre une adresse (service fermé). À n'ajouter que sur un besoin constaté (règle 4).

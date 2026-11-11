@@ -27,6 +27,12 @@
 //   PUT    /api/equipes/:id/membres/:id      { role }
 //   DELETE /api/equipes/:id/membres/:id
 //   DELETE /api/equipes/:id/invitations/:courriel
+//   POST   /api/equipes/:id/modeles          { nom, base }  modèle de mise en page (gestionnaire), étape 7
+//   PUT    /api/equipes/:id/modeles/:id      { nom?, ecarts? }
+//   DELETE /api/equipes/:id/modeles/:id      les documents qui l'avaient retombent sur le défaut
+//   PUT    /api/equipes/:id/modele-defaut    { modele }  (null : le premier d'amend.ink)
+//   GET    /api/documents/:doc/modeles       les modèles permis au document et celui retenu
+//   PUT    /api/documents/:doc/modele        { modele }  (qui écrit ; null : celui par défaut)
 // Dossiers et documents prennent un `equipe` facultatif (l'espace visé).
 //   GET    /api/documents/:doc/acces         accès, invitations, lien (qui invite)
 //   POST   /api/documents/:doc/acces         { courriel, role }  donner ou inviter
@@ -55,6 +61,10 @@ import {
   refusDepart,
   peutModifierEquipe,
   peutGererEquipe,
+  peutGererModeles,
+  peutChoisirModele,
+  appliquerEcarts,
+  modeleRetenu,
   deplacementDocument,
   ROLES,
   DUREE_INVITATION_MS,
@@ -62,6 +72,13 @@ import {
 } from '../../domaine/index.js'
 import { creerTraducteur, libelleDuRole, libelleDuRoleEquipe } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
+import { MODELES_LIVRE, REGLES_MODELES } from '../../design/livre.js'
+
+/** Les modèles de mise en page d'amend.ink (design), par identifiant. */
+const MAISON = new Map(MODELES_LIVRE.map((m) => [m.id, m]))
+const IDS_MAISON = MODELES_LIVRE.map((m) => m.id)
+/** Un modèle d'équipe tel que le client le reçoit (il calcule le modèle complet). */
+const modeleVu = (m) => ({ id: m.id, nom: m.nom, base: m.base, ecarts: m.ecarts })
 
 /** Le code montré quand un lien de connexion a servi ou expiré. */
 const LIEN_INVALIDE = 'lien-invalide'
@@ -175,6 +192,8 @@ export function creerComptes({
             favori: d.favori,
           })),
           membres: await comptes.membresDe(equipe.id),
+          modeles: await comptes.modelesDe(equipe.id),
+          modeleDefaut: equipe.modeleDefaut ?? null,
           ...(gestionnaire
             ? {
                 invitations: (await comptes.invitationsDeLEquipe(equipe.id)).filter((i) => invitationValable(i.creeLe)),
@@ -250,7 +269,49 @@ export function creerComptes({
       await comptes.retirerInvitationEquipe(equipe.id, cible)
       return ok(res)
     }
+    if (sous === 'modeles' || sous === 'modele-defaut') return modelesEquipe(req, res, p, equipe, moi, sous, cible)
     return err(res, 404, 'introuvable')
+  }
+
+  /** Les modèles de mise en page d'une équipe (étape 7, ADR 0011) : le
+   * gestionnaire les crée, les règle, les supprime et choisit le défaut. */
+  async function modelesEquipe(req, res, p, equipe, moi, sous, cible) {
+    const methode = req.method
+    if (!peutGererModeles(moi.caps)) return err(res, 403, 'droit-insuffisant')
+    /** Un modèle de cette équipe, ou un modèle d'amend.ink. */
+    const permis = async (id) => MAISON.has(id) || (await comptes.modele(id))?.equipe === equipe.id
+    if (sous === 'modele-defaut') {
+      if (cible || methode !== 'PUT') return err(res, 405, 'methode-refusee')
+      const { modele } = await lireCorps(req)
+      if (modele !== null && (typeof modele !== 'string' || !(await permis(modele))))
+        return err(res, 404, 'modele-introuvable')
+      await comptes.definirModeleDefaut(equipe.id, modele)
+      return ok(res)
+    }
+    if (!cible) {
+      if (methode !== 'POST') return err(res, 405, 'methode-refusee')
+      const corps = await lireCorps(req)
+      const n = nomDossier(corps.nom)
+      if (!n.ok) return err(res, 400, n.code)
+      if (!MAISON.has(corps.base)) return err(res, 400, 'modele-introuvable')
+      return ok(res, { id: await comptes.creerModele(equipe.id, n.nom, corps.base, {}, p.id) }, 201)
+    }
+    const modele = await comptes.modele(cible)
+    if (!modele || modele.equipe !== equipe.id) return err(res, 404, 'modele-introuvable')
+    if (methode === 'DELETE') return ok(res, { documents: await comptes.supprimerModele(modele.id) })
+    if (methode !== 'PUT') return err(res, 405, 'methode-refusee')
+    const corps = await lireCorps(req)
+    // Tout est vérifié avant de rien changer.
+    const n = corps.nom === undefined ? null : nomDossier(corps.nom)
+    if (n && !n.ok) return err(res, 400, n.code)
+    let ecarts
+    if (corps.ecarts !== undefined) {
+      const r = appliquerEcarts(MAISON.get(modele.base), corps.ecarts, REGLES_MODELES)
+      if (!r.ok) return (json(res, 400, { code: r.code, reglage: r.reglage ?? null, raison: r.raison ?? null }), true)
+      ecarts = r.ecarts
+    }
+    await comptes.modifierModele(modele.id, { nom: n?.nom, ecarts })
+    return ok(res, ecarts === undefined ? {} : { ecarts })
   }
 
   return async function traiter(req, res, url) {
@@ -521,6 +582,35 @@ export function creerComptes({
       await comptes.retirerPassageParLien(docId, p.id)
       await revoir(docId, p.id)
       return ok(res)
+    }
+    // Les modèles de mise en page du document (étape 7, ADR 0011) : ceux
+    // d'amend.ink et ceux de son équipe ; le modèle suit le document (un
+    // correcteur extérieur reçoit celui retenu, pas la liste de l'équipe).
+    if ((sous === 'modeles' && methode === 'GET') || (sous === 'modele' && methode === 'PUT')) {
+      if (cible) return err(res, 404, 'introuvable')
+      const doc = await comptes.document(docId)
+      const equipe = doc.equipe ? await comptes.equipe(doc.equipe) : null
+      const deLEquipe = equipe ? await comptes.modelesDe(equipe.id) : []
+      const permis = [...IDS_MAISON, ...deLEquipe.map((m) => m.id)]
+      if (sous === 'modele') {
+        if (!peutChoisirModele(caps)) return err(res, 403, 'droit-insuffisant')
+        const { modele } = await lireCorps(req)
+        if (modele !== null && !permis.includes(modele)) return err(res, 404, 'modele-introuvable')
+        await comptes.definirModeleDocument(docId, modele)
+        return ok(res)
+      }
+      const retenu = modeleRetenu({ choisi: doc.modele, defautEquipe: equipe?.modeleDefaut, permis })
+      const membre = equipe ? Boolean(await comptes.roleMembre(equipe.id, p.id)) : false
+      return ok(res, {
+        modeles: [
+          ...IDS_MAISON.map((id) => ({ id, maison: true })),
+          ...deLEquipe.filter((m) => membre || m.id === retenu).map(modeleVu),
+        ],
+        equipe: equipe ? equipe.nom : null,
+        choisi: doc.modele && permis.includes(doc.modele) ? doc.modele : null,
+        retenu,
+        peutChoisir: peutChoisirModele(caps),
+      })
     }
     if (!caps.includes('inviter')) return err(res, 403, 'droit-insuffisant')
 

@@ -14,7 +14,7 @@ Sources : audit complet du 10/11/2026 (`docs/v2-audits/2026-11-10-0657-audit-com
 | 5. Relecture | close (09/11) |
 | 6. Application | **lots faits** (6a comptes et partage, 6b interface M et L, 6c dossiers, 6d équipes, format S), **pas de revue de clôture** ; restent le catalogue anglais préparé, la pseudo-langue vérifiée sur tous les parcours, et la langue du document (renvoyée à l'étape 6 par l'étape 4, jamais reprise) |
 | 7. Exports | lot 1 fait (Markdown, PDF de livre « TàT - Poche ») ; suite à arbitrer |
-| 8. IA | à ouvrir |
+| 8. IA | **close (11/11)** : Margo (onglet, « Corriger », serveur, adaptateur IA), modèle au back-office ; `docs/v2-etape-8-plan.md` |
 | 9. Publication et back-office | back-office, lot 1 fait (rubrique Système) ; le reste à arbitrer |
 | Bascule de la v1 | pas planifiée |
 
@@ -52,6 +52,8 @@ Ces trois lots sont petits, et ils comptent dès le premier texte réel déposé
 ## E. Étape 7, suite (exports)
 
 Ouverture par une revue, puis, selon l'arbitrage du lot 1 :
+
+Export PDF, modèles de mise en page et modèles d'équipe : architecture et plan proposés le 10/11/2026 dans `docs/v2-etape-7-modeles-plan.md` (reprend et précise les points 11 et 14 ; questions Q1 à Q10). **Arbitré et développé le 10-11/11/2026** : points 11 et 14 faits ; Word (12) reste pour plus tard (Q8).
 
 11. Fenêtre « Exporter » comme Docs (format, modèle).
 12. Export Word (`xl-docx-exporter` de BlockNote, comme Docs).

@@ -124,6 +124,30 @@ create table if not exists amend.jetons_connexion (
   cree_le timestamptz not null default now()
 );
 create index if not exists jetons_courriel on amend.jetons_connexion (courriel, cree_le);
+-- Les modèles de mise en page des équipes (étape 7, ADR 0011) : un modèle
+-- d'amend.ink (\`base\`) et des écarts ; le modèle choisi pour un document et
+-- le modèle par défaut d'une équipe (identifiant d'un modèle d'amend.ink ou
+-- d'un modèle d'équipe).
+create table if not exists amend.modeles (
+  id uuid primary key default gen_random_uuid(),
+  equipe uuid not null references amend.equipes (id) on delete cascade,
+  nom text not null,
+  base text not null,
+  ecarts jsonb not null default '{}',
+  cree_par uuid references amend.personnes (id) on delete set null,
+  cree_le timestamptz not null default now(),
+  modifie_le timestamptz not null default now()
+);
+create index if not exists modeles_equipe on amend.modeles (equipe);
+alter table amend.documents add column if not exists modele text;
+alter table amend.equipes add column if not exists modele_defaut text;
+-- Les réglages de l'instance, choisis au back-office (le modèle de Margo, étape 8).
+create table if not exists amend.reglages (
+  cle text primary key,
+  valeur jsonb not null,
+  modifie_par uuid references amend.personnes (id) on delete set null,
+  modifie_le timestamptz not null default now()
+);
 `
 
 const empreinte = (jeton) => createHash('sha256').update(jeton).digest('hex')
@@ -195,6 +219,7 @@ export async function ouvrirComptes(url) {
             emplacement: d.emplacement,
             dossier: d.dossier,
             equipe: d.equipe,
+            modele: d.modele,
           }
         : null
     },
@@ -302,8 +327,8 @@ export async function ouvrirComptes(url) {
     },
     async equipe(id) {
       if (!estUuid(id)) return null
-      const [e] = await sql`select id, nom from amend.equipes where id = ${id}`
-      return e ? { id: e.id, nom: e.nom } : null
+      const [e] = await sql`select id, nom, modele_defaut from amend.equipes where id = ${id}`
+      return e ? { id: e.id, nom: e.nom, modeleDefaut: e.modele_defaut } : null
     },
     renommerEquipe: (id, nom) => sql`update amend.equipes set nom = ${nom} where id = ${id}`.then(() => {}),
     /** Supprime une équipe sans document ni dossier ; rend `true` si c'est fait. */
@@ -397,11 +422,64 @@ export async function ouvrirComptes(url) {
     /** Un document sort de son équipe vers Mes documents de `personne`, qui en devient propriétaire (5.1). */
     async sortirDeLEquipe(document, personne, dossier = null) {
       await sql.begin(async (t) => {
-        await t`update amend.documents set equipe = null, emplacement = ${personne}, dossier = ${dossier} where id = ${document}`
+        // Un modèle d'équipe ne suit pas le document hors de l'équipe (ADR 0011).
+        await t`update amend.documents set equipe = null, emplacement = ${personne}, dossier = ${dossier},
+                  modele = case when modele in (select id::text from amend.modeles where equipe = amend.documents.equipe)
+                                then null else modele end
+                where id = ${document}`
         await t`insert into amend.acces (document, personne, role) values (${document}, ${personne}, 'proprietaire')
                 on conflict (document, personne) where personne is not null do update set role = 'proprietaire'`
       })
     },
+    // --- Modèles de mise en page (étape 7, ADR 0011) ---
+    /** Les modèles d'une équipe, avec le nombre de documents qui les ont choisis. */
+    async modelesDe(equipe) {
+      return (
+        await sql`select m.id, m.nom, m.base, m.ecarts, m.modifie_le,
+                         (select count(*)::int from amend.documents d where d.equipe = m.equipe and d.modele = m.id::text) as documents
+                  from amend.modeles m where m.equipe = ${equipe} order by m.nom, m.cree_le`
+      ).map((m) => ({
+        id: m.id,
+        nom: m.nom,
+        base: m.base,
+        ecarts: m.ecarts,
+        modifieLe: m.modifie_le.getTime(),
+        documents: m.documents,
+      }))
+    },
+    async modele(id) {
+      if (!estUuid(id)) return null
+      const [m] = await sql`select id, equipe, nom, base, ecarts from amend.modeles where id = ${id}`
+      return m ? { id: m.id, equipe: m.equipe, nom: m.nom, base: m.base, ecarts: m.ecarts } : null
+    },
+    async creerModele(equipe, nom, base, ecarts, auteur) {
+      const [m] = await sql`insert into amend.modeles (equipe, nom, base, ecarts, cree_par)
+        values (${equipe}, ${nom}, ${base}, ${sql.json(ecarts)}, ${auteur}) returning id`
+      return m.id
+    },
+    /** Change le nom et (ou) les écarts d'un modèle (`undefined` : inchangé). */
+    async modifierModele(id, { nom, ecarts }) {
+      await sql`update amend.modeles set
+        nom = coalesce(${nom ?? null}, nom),
+        ecarts = coalesce(${ecarts === undefined ? null : sql.json(ecarts)}, ecarts),
+        modifie_le = now()
+        where id = ${id}`
+    },
+    /** Supprime un modèle : les documents qui l'avaient, et l'équipe s'il
+     * était son défaut, retombent sur le défaut ; rend le nombre de documents touchés. */
+    async supprimerModele(id) {
+      return sql.begin(async (t) => {
+        const touches = await t`update amend.documents set modele = null where modele = ${id} returning id`
+        await t`update amend.equipes set modele_defaut = null where modele_defaut = ${id}`
+        await t`delete from amend.modeles where id = ${id}`
+        return touches.length
+      })
+    },
+    definirModeleDefaut: (equipe, modele) =>
+      sql`update amend.equipes set modele_defaut = ${modele} where id = ${equipe}`.then(() => {}),
+    definirModeleDocument: (document, modele) =>
+      sql`update amend.documents set modele = ${modele} where id = ${document}`.then(() => {}),
+
     inviterMembre: (equipe, courriel, role, auteur) =>
       sql`insert into amend.invitations_equipe (equipe, courriel, role, auteur) values (${equipe}, ${courriel}, ${role}, ${auteur})
           on conflict (equipe, courriel) do update set role = excluded.role, auteur = excluded.auteur, cree_le = now()`.then(
@@ -549,6 +627,16 @@ export async function ouvrirComptes(url) {
         (select count(*)::int from amend.documents) as documents,
         (select count(*)::int from amend.equipes) as equipes`
       return { personnes: r.personnes, essai: r.essai, documents: r.documents, equipes: r.equipes }
+    },
+    // --- Réglages de l'instance (back-office) ---
+    /** La valeur d'un réglage, ou `null` s'il n'a jamais été choisi. */
+    async reglage(cle) {
+      const [r] = await sql`select valeur from amend.reglages where cle = ${cle}`
+      return r ? r.valeur : null
+    },
+    async definirReglage(cle, valeur, par) {
+      await sql`insert into amend.reglages (cle, valeur, modifie_par) values (${cle}, ${sql.json(valeur)}, ${estUuid(par) ? par : null})
+        on conflict (cle) do update set valeur = excluded.valeur, modifie_par = excluded.modifie_par, modifie_le = now()`
     },
     fermer: () => sql.end({ timeout: 5 }),
   }
