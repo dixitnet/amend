@@ -8,5 +8,6 @@
     "contrats/**/*.test.js"
   ],
   "project": ["**/*.{js,mjs,jsx}"],
-  "ignoreDependencies": ["axe-core"]
+  "ignoreDependencies": ["axe-core"],
+  "ignoreBinaries": ["psql"]
 }
