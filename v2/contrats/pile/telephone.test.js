@@ -82,7 +82,7 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
   const elements = await p.getByRole('menuitem').allInnerTexts()
   assert.deepEqual(
     elements.map((e) => e.trim()),
-    ['Copier le lien', 'Activer le suivi des modifications', 'Partager', 'Mes documents', 'Supprimer'],
+    ['Copier le lien', 'Activer le suivi des modifications', 'Partager', 'Exporter…', 'Mes documents', 'Supprimer'],
   )
   await p.getByRole('menuitem', { name: 'Partager' }).click()
   await p.getByRole('dialog', { name: 'Partage' }).getByLabel('Adresse de courriel').waitFor()
