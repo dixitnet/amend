@@ -94,7 +94,9 @@
     "image-vide": "This file is empty.",
     "image-trop-lourde": "This image is too large (5 MB at most).",
     "images-document-pleines": "This document has reached its image limit (100 MB).",
-    "image-type-refuse": "Only PNG and JPEG images are accepted."
+    "image-type-refuse": "Only PNG and JPEG images are accepted.",
+    "confirmation-invalide": "The address you typed is not your account’s.",
+    "suppression-refusee": "Your account cannot be deleted yet: see the documents or teams listed."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -340,5 +342,21 @@
       "refus": "The model declined this request.",
       "erreur": "Margo could not finish the request. What was posted stays in Changes."
     }
+  },
+  "compte": {
+    "supprimer": "Delete my account",
+    "explication": "Your account and your access to amend.ink will disappear. Your comments and suggestions stay in other people’s documents, without your name. Here is what will happen to your documents and teams:",
+    "rien": "You have no documents and no teams.",
+    "supprimes": "Deleted permanently (nobody else has access)",
+    "confies": "Handed over to an editor, who becomes the owner",
+    "confie": "“{titre}”, to {nom}",
+    "quittes": "You leave them (they stay with their other owners)",
+    "equipesQuittees": "Teams you leave",
+    "equipesSupprimees": "Teams deleted with their documents (you are the only member)",
+    "refusDocuments": "These documents have no other editor: first give the owner role to one of the people who have access: {liste}.",
+    "refusEquipes": "You are the last manager of these teams: first appoint another manager: {liste}.",
+    "courriel": "To confirm, type your account’s address",
+    "bouton": "Delete my account permanently",
+    "retour": "Cancel"
   }
 }

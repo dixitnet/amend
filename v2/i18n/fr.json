@@ -94,7 +94,9 @@
     "image-vide": "Ce fichier est vide.",
     "image-trop-lourde": "Cette image est trop lourde (5\u00A0Mo au plus).",
     "images-document-pleines": "Ce document a atteint sa limite d’images (100\u00A0Mo).",
-    "image-type-refuse": "Seules les images PNG et JPEG sont acceptées."
+    "image-type-refuse": "Seules les images PNG et JPEG sont acceptées.",
+    "confirmation-invalide": "L’adresse tapée n’est pas celle de votre compte.",
+    "suppression-refusee": "Votre compte ne peut pas encore être supprimé\u00A0: voyez les documents ou équipes indiqués."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -340,5 +342,21 @@
       "refus": "Le modèle a refusé cette demande.",
       "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Modifications."
     }
+  },
+  "compte": {
+    "supprimer": "Supprimer mon compte",
+    "explication": "Votre compte et votre accès à amend.ink disparaîtront. Vos commentaires et vos suggestions restent dans les documents des autres, sans votre nom. Voici ce que deviendront vos documents et vos équipes\u00A0:",
+    "rien": "Vous n’avez aucun document ni aucune équipe.",
+    "supprimes": "Supprimés définitivement (personne d’autre n’y a accès)",
+    "confies": "Confiés à un éditeur, qui en devient propriétaire",
+    "confie": "«\u00A0{titre}\u00A0», à {nom}",
+    "quittes": "Vous les quittez (ils restent à leurs autres propriétaires)",
+    "equipesQuittees": "Équipes que vous quittez",
+    "equipesSupprimees": "Équipes supprimées avec leurs documents (vous en êtes le seul membre)",
+    "refusDocuments": "Ces documents n’ont pas d’autre éditeur\u00A0: donnez d’abord le rôle de propriétaire à l’une des personnes qui y ont accès\u00A0: {liste}.",
+    "refusEquipes": "Vous êtes le dernier gestionnaire de ces équipes\u00A0: nommez d’abord un autre gestionnaire\u00A0: {liste}.",
+    "courriel": "Pour confirmer, tapez l’adresse de votre compte",
+    "bouton": "Supprimer mon compte définitivement",
+    "retour": "Annuler"
   }
 }

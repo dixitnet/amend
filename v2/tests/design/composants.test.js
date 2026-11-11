@@ -52,6 +52,7 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     signes: 12345,
     mots: 2000,
     zoom: 150,
+    liste: 'La gare, Le quai',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -86,6 +87,7 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       signes: 2,
       mots: 2,
       zoom: 50,
+      liste: 'L',
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
@@ -590,4 +592,30 @@ test('zone du zoom et nouveaux pictos (11/11/2026)', () => {
   assert.match(rendre(h(design.ZoneZoom, { zoom: 150 }, 'texte')), /data-amend-zoom="150"/)
   for (const role of ['exposant', 'tableDesMatieres', 'zoom', 'choisi'])
     assert.match(rendre(h(design.PictoDe, { role })), /<svg/, role)
+})
+
+test('supprimer son compte : ce que deviennent les documents, le refus, la confirmation par l’adresse', () => {
+  const t = creerTraducteur('fr')
+  const html = rendre(
+    h(design.EcranSuppressionCompte, {
+      titre: t('compte.supprimer'),
+      explication: t('compte.explication'),
+      groupes: [{ cle: 'supprime', titre: t('compte.supprimes'), elements: ['Brouillon'] }],
+      refus: t('compte.refusDocuments', { liste: 'Essai' }),
+      libelleCourriel: t('compte.courriel'),
+      libelleBouton: t('compte.bouton'),
+      libelleRetour: t('compte.retour'),
+      surRetour: rien,
+      surConfirmer: rien,
+    }),
+  )
+  assert.ok(html.includes(echapper(t('compte.supprimes'))))
+  assert.ok(html.includes('Brouillon'))
+  assert.match(html, /role="alert"/, 'le refus est annoncé')
+  assert.match(html, /type="email"/)
+  assert.match(
+    html,
+    /type="submit"[^>]*disabled|disabled[^>]*type="submit"/,
+    'bouton désactivé tant qu’il y a un refus',
+  )
 })
