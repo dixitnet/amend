@@ -3,6 +3,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import { REGLAGES } from '../../design/reglages.js'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import { lireBlocs, texteDesBlocs } from '../../adaptateurs/blocknote/serveur.js'
 import {
@@ -137,11 +138,15 @@ test('contrat 5 : l’éditeur est dans le fournisseur Mantine de l’applicatio
       // Les variables de Mantine sont posées par le fournisseur de l'application.
       variables: getComputedStyle(document.documentElement).getPropertyValue('--mantine-color-body').trim() !== '',
       police: getComputedStyle(document.querySelector('.bn-editor')).fontFamily,
+      esthetique: document.documentElement.dataset.amendEsthetique,
     }))
     assert.equal(lu.page, schema, 'le fournisseur Mantine suit le système')
     assert.equal(lu.editeur, schema, 'l’éditeur suit le même schéma')
     assert.ok(lu.variables, 'variables de Mantine présentes')
-    assert.match(lu.police, /Inter/, 'police de BlockNote telle quelle')
+    // L'esthétique de l'instance (ADR 0008) : « Atelier » pose sa police
+    // (réglage css.atelier.texte) ; sinon, celle de BlockNote telle quelle.
+    assert.equal(lu.esthetique, REGLAGES.esthetique)
+    assert.match(lu.police, REGLAGES.esthetique === 'atelier' ? /Source Serif 4/ : /Inter/)
     await ctx.close()
   }
 })

@@ -118,17 +118,18 @@ export const ESTHETIQUES = {
       defaultRadius: 'sm',
     },
     variables: {
-      light: { '--mantine-color-body': '#f0f1f3' },
-      dark: { '--mantine-color-body': '#141517' },
+      light: {},
+      dark: {},
     },
     feuille: `
       & .amend-page { width: min(816px, calc(100% - 64px)); box-sizing: border-box; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06); padding: 56px 48px 80px; margin-block: 32px; border-radius: 2px; }
-      &[data-mantine-color-scheme='dark'] .amend-page { background: #232427; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
-      &[data-mantine-color-scheme='dark'] .bn-root { --bn-colors-editor-background: #232427; }
+      &[data-mantine-color-scheme='dark'] .amend-page { background: var(--mantine-color-dark-6); box-shadow: var(--mantine-shadow-sm); }
+      & .bn-editor { background-color: transparent; color: var(--mantine-color-dark-7); }
+      &[data-mantine-color-scheme='dark'] .bn-editor { color: var(--mantine-color-dark-0); }
       & .amend-page .bn-default-styles { font-family: "Source Serif 4", Georgia, serif; font-size: 17px; }
       & .amend-page .bn-block-outer { line-height: 1.6; }
-      & .mantine-AppShell-navbar, & .mantine-AppShell-aside, & .mantine-AppShell-header { background: #fff; }
-      &[data-mantine-color-scheme='dark'] .mantine-AppShell-navbar, &[data-mantine-color-scheme='dark'] .mantine-AppShell-aside, &[data-mantine-color-scheme='dark'] .mantine-AppShell-header { background: #1b1c1e; }
+      & .mantine-AppShell-main { background: var(--mantine-color-gray-1); }
+      &[data-mantine-color-scheme='dark'] .mantine-AppShell-main { background: var(--mantine-color-dark-8); }
     `,
     page: true,
   },

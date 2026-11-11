@@ -1,7 +1,7 @@
 # Étude : évolutions du design et couche d'esthétiques (11/11/2026)
 
 - Demande de Sylvain (11/11/2026) : explorer des évolutions du design en s'appuyant sur les modèles de style des outils, sans contrainte de couleur ; auditer des applications de rédaction et professionnelles (hors développement de code) ; proposer plusieurs scénarios, discrets et minimalistes ; le design sera développé sur une couche dédiée, qui permettrait éventuellement de changer d'esthétique.
-- Statut : **proposition, rien n'est décidé.** Aucune valeur de cette étude n'entre dans `v2/design/reglages.js` sans décision (ADR 0008).
+- Statut : **décidé le 11/11/2026** (Sylvain) : « on garde 2 esthétiques pour le moment : 1. atelier + vermillon, et 2. l'interface par défaut. On bascule sur la 1, prévoir plus tard un choix dans le back, au niveau de l'instance. Attention : reprendre la version sombre de "atelier", elle ne marche pas. » Mise en œuvre : § 8. Les autres scénarios restent des propositions non retenues.
 - Maquette comparative (Mantine et BlockNote réels, aux versions de la v2) : https://claude.ai/artifact/JSAPMsHDUNiSmcfLtcHN8t ; source : `docs/v2-maquettes/esthetiques/`.
 
 ## 1. Comment Docs le fait (règle 11)
@@ -121,3 +121,12 @@ Comme Docs, et avec les seuls outils de Mantine :
 4. **Apparence du texte à l'écran** : la garder dans l'esthétique, ou la laisser suivre la police du modèle de mise en page du document (le texte s'afficherait en EB Garamond si le livre l'est). Idée à discuter : elle relie l'écran et l'export sans réglage de plus, mais une police de livre n'est pas toujours faite pour l'écran.
 5. **Silence comme mode** plutôt que comme esthétique (bouton « concentration » qui masque volets et bandeau) : à garder pour plus tard ou à écarter.
 6. **Lots, si feu vert** : (i) un lot de design « couche d'esthétiques » qui ne change rien de visible (l'actuelle devient l'esthétique par défaut), contrat et tests compris, plus la révision de l'ADR 0008 ; (ii) un lot de design par esthétique retenue, avec ses valeurs décidées ; (iii) seulement si 3 b ou c est retenu, un lot technique pour le choix (configuration ou préférence).
+
+## 8. Décision et mise en œuvre (11/11/2026)
+
+- Deux esthétiques dans `v2/design/reglages.js` : `atelier` (vermillon, celle de l'instance) et `origine` (le thème commun, vert foncé). Le choix au back-office, au niveau de l'instance, viendra dans un lot technique : `CadreDesign` accepte déjà une esthétique par sa propriété `esthetique` (absente : celle de l'instance).
+- Thème : le thème commun complété par celui de l'esthétique (`mergeThemeOverrides` de Mantine). Feuille : `v2/design/feuilles/esthetique-atelier.css`, règles limitées à `[data-amend-esthetique='atelier']`, attribut posé sur la racine par `CadreDesign`.
+- Police : Source Serif 4 servie par nous (`v2/design/polices/`, OFL), pour le texte de l'éditeur seulement ; l'interface reste en Inter.
+- Page posée : formats M et L seulement ; en S, la police et les couleurs, sans page.
+- **Sombre corrigé.** Défaut de la maquette : le texte de l'éditeur prenait la couleur du thème de BlockNote, qui ne suivait pas toujours celui de l'application (BlockNote redéfinit en outre les variables de Mantine dans son conteneur), d'où un texte gris foncé sur la page sombre. Désormais, fond de l'éditeur transparent et texte en couleurs fixes de la palette de Mantine (`dark.7` en clair, `dark.0` en sombre) ; plan de travail `dark.8`, page `dark.6`, volets `dark.7`.
+- Vermillon : nuance 7 (`#c9381f`), texte blanc dessus à 5,2:1. Il reste proche du rouge des suppressions et des actions qui détruisent (`red` de Mantine) : à regarder à l'usage.

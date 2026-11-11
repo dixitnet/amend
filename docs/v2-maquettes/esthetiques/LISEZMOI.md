@@ -15,7 +15,7 @@ Le bouton « Esthétiques » (en bas à gauche, hors interface) change :
 
 Chaque esthétique est écrite avec les seuls outils de style des fondations (`src/esthetiques.js`) : un objet de thème de Mantine (`createTheme`), le `cssVariablesResolver` de Mantine (fond, texte, filets en clair et en sombre), et une feuille limitée à `html[data-esthetique='…']` (variables `--bn-*` de BlockNote, quelques règles). C'est la forme proposée pour la future couche d'esthétiques.
 
-Toutes les valeurs sont des **propositions** de Claude, aucune n'est décidée (ADR 0008). Polices chargées depuis Google Fonts pour la maquette seulement (Literata, Source Serif 4, IBM Plex Mono, toutes sous licence OFL) ; dans l'application, elles seraient servies par nous.
+Retenue par Sylvain le 11/11/2026 : « 3. Atelier » en vermillon (sombre corrigé dans la maquette comme dans la v2 : texte de l'éditeur en couleurs fixes de la palette de Mantine). Les autres valeurs restent des propositions non retenues ; ce qui est décidé est dans `v2/design/reglages.js` et l'ADR 0008. Polices chargées depuis Google Fonts pour la maquette seulement (Literata, Source Serif 4, IBM Plex Mono, toutes sous licence OFL) ; dans l'application, elles seraient servies par nous.
 
 Adresse directe d'un état : `?esthetique=papier&accent=sepia&schema=dark&ecran=liste` (`capture` masque le panneau).
 

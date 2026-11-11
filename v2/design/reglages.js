@@ -23,6 +23,39 @@ export const REGLAGES = {
       ActionIcon: { defaultProps: { variant: 'subtle', size: 'lg' } },
     },
   },
+  // L'esthétique de l'instance (Sylvain, 11/11/2026 : « on garde 2
+  // esthétiques : atelier + vermillon, et l'interface par défaut ; on bascule
+  // sur la 1 » ; choix au back-office plus tard, au niveau de l'instance).
+  esthetique: 'atelier',
+  // Les esthétiques : chacune complète le thème commun ci-dessus (surcharges
+  // de createTheme) ; ses règles de feuille sont dans design/feuilles/,
+  // limitées à [data-amend-esthetique='…']. `origine` : le thème commun seul
+  // (vert foncé), sans feuille.
+  esthetiques: {
+    origine: { theme: {} },
+    atelier: {
+      theme: {
+        // Vermillon, « encre de correction » : nuance 7 pour l'interface
+        // (texte blanc dessus : 5,2:1), en clair et en sombre.
+        colors: {
+          vermillon: [
+            '#fff0ee',
+            '#ffdcd6',
+            '#fbb4a8',
+            '#f78a77',
+            '#f3654d',
+            '#f14e33',
+            '#e5442a',
+            '#c9381f',
+            '#b03018',
+            '#962611',
+          ],
+        },
+        primaryColor: 'vermillon',
+        primaryShade: 7,
+      },
+    },
+  },
   // Les modèles de mise en page des livres (design/reglagesLivre.js, sans
   // Mantine : le serveur les lit aussi, audit du 11/11/2026).
   livre: REGLAGES_LIVRE,

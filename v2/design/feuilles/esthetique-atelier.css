@@ -1,0 +1,65 @@
+/* Feuille de l'esthétique « Atelier » : décidée par Sylvain le 11/11/2026
+   (atelier + vermillon, docs/v2-etude-esthetiques-2026-11-11.md, ADR 0008).
+   Une page posée sur un plan de travail gris, le texte en Source Serif 4.
+   Chaque règle ne vaut que si la racine porte data-amend-esthetique='atelier'
+   (design/Cadre.jsx). Pour revenir à l'interface d'origine : `esthetique:
+   'origine'` dans reglages.js. Valeurs prises dans l'échelle de Mantine. */
+
+/* réglage : css.atelier.police */
+@font-face {
+  font-family: 'Source Serif 4';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('../polices/SourceSerif4-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Source Serif 4';
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('../polices/SourceSerif4-latin-Italic.woff2') format('woff2');
+}
+
+/* réglage : css.atelier.texte */
+[data-amend-esthetique='atelier'] .bn-default-styles {
+  font-family: 'Source Serif 4', Georgia, serif;
+}
+[data-amend-esthetique='atelier'] [data-amend-zoom='100'] .bn-default-styles {
+  font-size: 17px;
+}
+[data-amend-esthetique='atelier'] .bn-block-outer {
+  line-height: 1.6;
+}
+
+/* réglage : css.atelier.couleurs */
+[data-amend-esthetique='atelier'] .bn-editor {
+  background-color: transparent;
+  color: var(--mantine-color-dark-7);
+}
+[data-amend-esthetique='atelier'][data-mantine-color-scheme='dark'] .bn-editor {
+  color: var(--mantine-color-dark-0);
+}
+
+/* réglage : css.atelier.page */
+@media (min-width: 48em) {
+  [data-amend-esthetique='atelier'] .mantine-AppShell-main:has([data-amend-colonne]) {
+    background: var(--mantine-color-gray-1);
+  }
+  [data-amend-esthetique='atelier'][data-mantine-color-scheme='dark'] .mantine-AppShell-main:has([data-amend-colonne]) {
+    background: var(--mantine-color-dark-8);
+  }
+  [data-amend-esthetique='atelier'] [data-amend-colonne] {
+    width: calc(100% - 2 * var(--mantine-spacing-xl));
+    max-width: calc(var(--container-size) + 3 * var(--mantine-spacing-xl));
+    margin-block: var(--mantine-spacing-xl);
+    padding-inline: calc(1.5 * var(--mantine-spacing-xl));
+    padding-block: calc(1.75 * var(--mantine-spacing-xl)) calc(2.5 * var(--mantine-spacing-xl));
+    background: var(--mantine-color-white);
+    box-shadow: var(--mantine-shadow-sm);
+    border-radius: var(--mantine-radius-xs);
+  }
+  [data-amend-esthetique='atelier'][data-mantine-color-scheme='dark'] [data-amend-colonne] {
+    background: var(--mantine-color-dark-6);
+  }
+}

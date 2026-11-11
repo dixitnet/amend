@@ -11,15 +11,40 @@ import './feuilles/editeur.css'
 import './feuilles/picto.css'
 import './feuilles/coquille.css'
 import './feuilles/telephone.css'
-import { MantineProvider, createTheme } from '@mantine/core'
+import './feuilles/esthetique-atelier.css'
+import { useEffect } from 'react'
+import { MantineProvider, createTheme, mergeThemeOverrides } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { REGLAGES } from './reglages.js'
 
-const theme = createTheme(REGLAGES.theme)
+// Un thème Mantine par esthétique : le thème commun, complété par le sien.
+const THEMES = Object.fromEntries(
+  Object.entries(REGLAGES.esthetiques).map(([nom, e]) => [
+    nom,
+    createTheme(mergeThemeOverrides(REGLAGES.theme, e.theme)),
+  ]),
+)
 
-export function CadreDesign({ children }) {
+const connue = (nom) => (nom && THEMES[nom] ? nom : REGLAGES.esthetique)
+
+// L'esthétique est portée par la racine du document (comme le schéma clair ou
+// sombre de Mantine), pour les feuilles et pour ce qui s'ouvre hors de
+// l'application (fenêtres, menus). Posée dès le chargement, sans attendre le
+// premier rendu.
+const poser = (nom) => {
+  if (typeof document !== 'undefined') document.documentElement.dataset.amendEsthetique = nom
+}
+poser(REGLAGES.esthetique)
+
+/**
+ * `esthetique` : le nom d'une esthétique de REGLAGES.esthetiques ; absent ou
+ * inconnu, celle de l'instance (REGLAGES.esthetique).
+ */
+export function CadreDesign({ esthetique, children }) {
+  const nom = connue(esthetique)
+  useEffect(() => poser(nom), [nom])
   return (
-    <MantineProvider theme={theme} {...REGLAGES.fournisseur}>
+    <MantineProvider theme={THEMES[nom]} {...REGLAGES.fournisseur}>
       <Notifications />
       {children}
     </MantineProvider>
