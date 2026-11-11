@@ -403,6 +403,14 @@ test('config : la version en service (le commit, ou null hors d’un dépôt git
   assert.ok(version === null || /^[0-9a-f]{7}$/.test(version), String(version))
 })
 
+test('config : l’adresse de l’aide, seulement si elle est valable (V2_AIDE_URL)', async () => {
+  assert.equal((await (await fetch(`${dev}/api/config`)).json()).aide, null, 'sans réglage : pas d’aide')
+  const avec = await demarrer({ dev: false, aide: 'https://www.amend.ink/aide/' })
+  assert.equal((await (await fetch(`${avec}/api/config`)).json()).aide, 'https://www.amend.ink/aide/')
+  const mauvaise = await demarrer({ dev: false, aide: 'javascript:alert(1)' })
+  assert.equal((await (await fetch(`${mauvaise}/api/config`)).json()).aide, null)
+})
+
 test('comptes d’essai : seulement avec la clé (assez longue), seulement en @essai.amend.invalid', async () => {
   const CLE = 'e'.repeat(40)
   const enLigne = await demarrer({ dev: false, jetonEssai: CLE })

@@ -20,6 +20,7 @@ import {
   listeAdministrateurs,
   estAdministrateur,
   numeroDeVersion,
+  adresseAide,
   nomPersonne,
   identifiantDocument,
   roleEffectif,
@@ -42,6 +43,8 @@ const confDepuisEnv = () => ({
   jetonEssai: process.env.V2_JETON_ESSAI || '',
   // Les administrateurs de l'instance (back-office) : des adresses séparées par des virgules.
   administrateurs: process.env.V2_ADMINS || '',
+  // L'adresse de l'aide (pages statiques, lot du 11/11/2026) ; vide : pas d'entrée « Aide ».
+  aide: process.env.V2_AIDE_URL || '',
   dev: process.env.V2_DEV === '1',
   // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
   cookieSecure: process.env.V2_COOKIE_SECURE === '1',
@@ -195,7 +198,12 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
 
   return {
     'GET /api/config': (req, res) =>
-      json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev, version: VERSION.commit }),
+      json(res, 200, {
+        collaboration: CONF.collaboration,
+        dev: CONF.dev,
+        version: VERSION.commit,
+        aide: adresseAide(CONF.aide),
+      }),
     // Les noms d'une liste de personnes (`?id=a&id=b`), pour une personne
     // connectée ; un identifiant inconnu revient sans nom.
     'GET /api/personnes': async (req, res, url) => {

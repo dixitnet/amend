@@ -189,7 +189,7 @@ export function App() {
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
   if (visee.admin) return <Administration />
-  if (visee.liste) return <Accueil personne={etat.personne} />
+  if (visee.liste) return <Accueil config={etat.config} personne={etat.personne} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
   const doc = identifiantDocument(visee.document)
   if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
@@ -197,8 +197,10 @@ export function App() {
 }
 
 /** Le compte, dans le bandeau : l'administration (administrateurs de
- * l'instance) et un seul « Se déconnecter » (Sylvain, 09/11/2026). */
-function compteDe(personne) {
+ * l'instance), l'aide quand l'instance en a une (pages statiques, lot du
+ * 11/11/2026 ; comme le lien de documentation de Docs, `HelpMenu.tsx`) et un
+ * seul « Se déconnecter » (Sylvain, 09/11/2026). */
+function compteDe(personne, config) {
   const sortir = async () => {
     await envoyerJson('POST', '/api/deconnexion').catch(() => {})
     location.reload()
@@ -215,6 +217,16 @@ function compteDe(personne) {
               libelle: t('admin.titre'),
               picto: 'administration',
               surClic: () => (location.hash = '#/admin'),
+            },
+          ]
+        : []),
+      ...(config?.aide
+        ? [
+            {
+              cle: 'aide',
+              libelle: t('interface.aide'),
+              picto: 'aide',
+              surClic: () => window.open(config.aide, '_blank', 'noopener'),
             },
           ]
         : []),
@@ -343,7 +355,7 @@ function cheminDe(dossiers, id) {
  * (supprimée le 10/11/2026, Sylvain) : le dernier document ouvert dans ce
  * navigateur, sinon le plus récent ; sans document, la coquille et le volet
  * « Documents ». */
-function Accueil({ personne }) {
+function Accueil({ config, personne }) {
   const voletDocs = useVoletDocuments(null)
   const { etroit } = useFormat()
   const volets = useVolets(etroit)
@@ -359,7 +371,9 @@ function Accueil({ personne }) {
     <Coquille
       gaucheOuvert={volets.gauche}
       libelleRedimension={t('interface.largeurVolet')}
-      bandeau={<Bandeau voletGauche={boutonGauche(volets)} titre={t('application.nom')} compte={compteDe(personne)} />}
+      bandeau={
+        <Bandeau voletGauche={boutonGauche(volets)} titre={t('application.nom')} compte={compteDe(personne, config)} />
+      }
       voletGauche={voletDocs.contenu}
     >
       <TexteDeVolet texte={t('documents.aucun')} />
@@ -1779,7 +1793,7 @@ function Edition({ config, personne, docId, droits }) {
             caps.includes('inviter') ? { libelle: t('document.partager'), surClic: () => setPartage(true) } : null
           }
           actions={{ libelle: t('telephone.autresActions'), elements: actions }}
-          compte={compteDe(personne)}
+          compte={compteDe(personne, config)}
           voletDroit={
             avecVoletDroit
               ? {

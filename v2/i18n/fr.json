@@ -235,7 +235,8 @@
     "fermer": "Fermer",
     "valider": "Valider",
     "annuler": "Annuler",
-    "continuer": "Continuer"
+    "continuer": "Continuer",
+    "aide": "Aide"
   },
   "export": {
     "titre": "Exporter",
