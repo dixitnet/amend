@@ -360,6 +360,9 @@ export function creerComptes({
   /** Efface pour de bon les documents restés plus de 30 jours dans la corbeille. */
   async function purger(maintenant = Date.now()) {
     for (const id of await comptes.corbeilleExpiree(maintenant - DUREE_CORBEILLE_MS)) await effacer(id)
+    // Les jetons de connexion expirés ou utilisés et les invitations périmées
+    // (la durée d'une invitation est une règle du domaine ; audit du 11/11/2026).
+    await comptes.purgerPerimes(maintenant, { invitationsAvant: maintenant - DUREE_INVITATION_MS })
   }
 
   return Object.assign(traiter, { purger })
