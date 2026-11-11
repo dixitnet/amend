@@ -54,6 +54,7 @@
     "tableProfondeur": "Heading levels"
   },
   "erreurs": {
+    "apparence-inconnue": "This interface model or colour does not exist.",
     "modele-impossible": "This layout template is impossible: its lines, page number or text width do not fit on the page.",
     "document-vide": "This document has no name.",
     "document-trop-long": "This document name is too long (64 characters at most).",
@@ -256,6 +257,24 @@
     "essai": "Test and development accounts",
     "documents": "Documents",
     "equipes": "Teams",
+    "apparence": "Appearance",
+    "modeleInterface": "Interface model",
+    "couleur": "Colour",
+    "apparenceEnregistree": "Appearance saved for the whole instance.",
+    "interfaces": {
+      "atelier": "Workshop (page on a desk)",
+      "origine": "Original (Mantine and BlockNote as is)"
+    },
+    "couleurs": {
+      "vermillon": "Vermilion",
+      "vert": "Dark green",
+      "encre": "Black ink",
+      "indigo": "Ink blue",
+      "bleu": "Blue",
+      "violet": "Violet",
+      "petrole": "Petrol",
+      "sepia": "Sepia"
+    },
     "ia": "AI (Margo)",
     "modeleMargo": "Margo’s model",
     "modeleSansCle": "{nom} (no key)",

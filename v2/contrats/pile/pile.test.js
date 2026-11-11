@@ -138,15 +138,17 @@ test('contrat 5 : l’éditeur est dans le fournisseur Mantine de l’applicatio
       // Les variables de Mantine sont posées par le fournisseur de l'application.
       variables: getComputedStyle(document.documentElement).getPropertyValue('--mantine-color-body').trim() !== '',
       police: getComputedStyle(document.querySelector('.bn-editor')).fontFamily,
-      esthetique: document.documentElement.dataset.amendEsthetique,
+      interface: document.documentElement.dataset.amendInterface,
     }))
     assert.equal(lu.page, schema, 'le fournisseur Mantine suit le système')
     assert.equal(lu.editeur, schema, 'l’éditeur suit le même schéma')
     assert.ok(lu.variables, 'variables de Mantine présentes')
-    // L'esthétique de l'instance (ADR 0008) : « Atelier » pose sa police
-    // (réglage css.atelier.texte) ; sinon, celle de BlockNote telle quelle.
-    assert.equal(lu.esthetique, REGLAGES.esthetique)
-    assert.match(lu.police, REGLAGES.esthetique === 'atelier' ? /Source Serif 4/ : /Inter/)
+    // Le modèle d'interface par défaut (ADR 0008 ; aucun choix au
+    // back-office dans la pile) : « atelier » pose sa police (réglage
+    // css.atelier.texte) ; sinon, celle de BlockNote telle quelle.
+    const { modele } = REGLAGES.apparence.parDefaut
+    assert.equal(lu.interface, modele)
+    assert.match(lu.police, modele === 'atelier' ? /Source Serif 4/ : /Inter/)
     await ctx.close()
   }
 })

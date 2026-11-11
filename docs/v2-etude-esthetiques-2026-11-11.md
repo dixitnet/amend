@@ -130,3 +130,12 @@ Comme Docs, et avec les seuls outils de Mantine :
 - Page posée : formats M et L seulement ; en S, la police et les couleurs, sans page.
 - **Sombre corrigé.** Défaut de la maquette : le texte de l'éditeur prenait la couleur du thème de BlockNote, qui ne suivait pas toujours celui de l'application (BlockNote redéfinit en outre les variables de Mantine dans son conteneur), d'où un texte gris foncé sur la page sombre. Désormais, fond de l'éditeur transparent et texte en couleurs fixes de la palette de Mantine (`dark.7` en clair, `dark.0` en sombre) ; plan de travail `dark.8`, page `dark.6`, volets `dark.7`.
 - Vermillon : nuance 7 (`#c9381f`), texte blanc dessus à 5,2:1. Il reste proche du rouge des suppressions et des actions qui détruisent (`red` de Mantine) : à regarder à l'usage.
+
+## 9. Réglage au back-office (11/11/2026)
+
+- Demande de Sylvain : « lance la page de réglage du backoffice : modèle d'interface + couleur ».
+- **Docs** (règle 11) : thème choisi par variable d'environnement (`FRONTEND_THEME`), aucun écran. **Écart décidé par Sylvain** : amend.ink le choisit au back-office.
+- Rubrique « Apparence » du back-office (administrateurs de l'instance) : **modèle d'interface** (Atelier, Origine) et **couleur** (vermillon, vert foncé, encre noire, bleu encre, bleu, violet, pétrole, sépia : la liste de la maquette), indépendants l'un de l'autre. Le choix vaut pour toute l'instance, tout de suite pour l'administrateur, au prochain chargement pour les autres.
+- Mise en œuvre : réglage `apparence` dans la table `amend.reglages` (comme le modèle de Margo) ; `/api/config` le rend à tous (un nom inconnu, par exemple une couleur retirée du design, retombe sur la valeur par défaut) ; routes `GET` et `PUT /api/admin/apparence` ; `CadreDesign` reçoit `{ modele, couleur }`. Les noms sont dans `v2/design/apparence.js` (sans Mantine, lus par le serveur), les palettes dans `reglages.js` (`couleurs`).
+- Contraste : nuance principale de chaque couleur choisie pour qu'un texte blanc dessus passe 4,5:1 (encre en sombre : nuance claire avec un texte noir).
+- Limite connue : au premier chargement, l'apparence par défaut s'affiche le temps de lire la configuration ; si l'instance en a choisi une autre, l'écran de chargement peut changer de couleur.

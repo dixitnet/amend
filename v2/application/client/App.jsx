@@ -144,7 +144,9 @@ function viseeDansAdresse() {
 
 const envoyerJson = appel
 
-export function App() {
+/** `surApparence` : reçoit l'apparence de l'instance (`{ modele, couleur }`),
+ * lue dans la configuration ou choisie au back-office. */
+export function App({ surApparence }) {
   const [etat, setEtat] = useState({ phase: 'chargement' })
   const [visee, setVisee] = useState(viseeDansAdresse)
   useEffect(() => {
@@ -156,6 +158,7 @@ export function App() {
   async function charger() {
     try {
       const config = await lireJson(await fetch('/api/config'))
+      surApparence?.(config.apparence)
       const r = await fetch('/api/moi')
       if (r.status === 401) return setEtat({ phase: 'connexion', config })
       if (!r.ok) return setEtat({ phase: 'erreur', code: (await lireJson(r)).code || `http-${r.status}` })
@@ -199,7 +202,7 @@ export function App() {
     )
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
-  if (visee.admin) return <Administration />
+  if (visee.admin) return <Administration surApparence={surApparence} />
   if (visee.compte) return <SupprimerCompte />
   if (visee.liste) return <Accueil config={etat.config} personne={etat.personne} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
@@ -740,11 +743,28 @@ const NOMS_MODELES = {
   'claude-fable-5-2': () => t('admin.modeles.fable'),
 }
 const nomDuModele = (id) => NOMS_MODELES[id]?.() ?? id
+// Les noms des modèles d'interface et des couleurs (design/apparence.js).
+const NOMS_INTERFACES = {
+  atelier: () => t('admin.interfaces.atelier'),
+  origine: () => t('admin.interfaces.origine'),
+}
+const nomDuModeleInterface = (n) => NOMS_INTERFACES[n]?.() ?? n
+const NOMS_COULEURS = {
+  vermillon: () => t('admin.couleurs.vermillon'),
+  vert: () => t('admin.couleurs.vert'),
+  encre: () => t('admin.couleurs.encre'),
+  indigo: () => t('admin.couleurs.indigo'),
+  bleu: () => t('admin.couleurs.bleu'),
+  violet: () => t('admin.couleurs.violet'),
+  petrole: () => t('admin.couleurs.petrole'),
+  sepia: () => t('admin.couleurs.sepia'),
+}
+const nomDeLaCouleur = (n) => NOMS_COULEURS[n]?.() ?? n
 
 /** Le back-office de l'instance (administrateurs) : la rubrique Système
  * (version 2.NNN, serveur, nombres) et la rubrique IA (le modèle de Margo,
  * étape 8) ; le serveur refuse les autres. */
-function Administration() {
+function Administration({ surApparence }) {
   const [systeme, setSysteme] = useState(null)
   const [ia, setIa] = useState(null)
   const [message, setMessage] = useState(null)
@@ -752,7 +772,12 @@ function Administration() {
   // Deux chargements indépendants : une panne de la rubrique IA ne cache pas
   // la rubrique Système (audit du 11/11/2026, 3).
   const [erreurIa, setErreurIa] = useState(null)
+  const [apparence, setApparence] = useState(null)
+  const [erreurApparence, setErreurApparence] = useState(null)
   useEffect(() => {
+    envoyerJson('GET', '/api/admin/apparence')
+      .then(setApparence)
+      .catch((e) => setErreurApparence(e.code || 'reseau'))
     envoyerJson('GET', '/api/admin/systeme')
       .then(setSysteme)
       .catch((e) => setErreur(e.code || 'reseau'))
@@ -761,7 +786,8 @@ function Administration() {
       .catch((e) => setErreurIa(e.code || 'reseau'))
   }, [])
   if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
-  if (!systeme || (!ia && !erreurIa)) return <EcranMessage texte={t('application.chargement')} />
+  if (!systeme || (!ia && !erreurIa) || (!apparence && !erreurApparence))
+    return <EcranMessage texte={t('application.chargement')} />
   const date = new Intl.DateTimeFormat(t.langue, { dateStyle: 'medium', timeStyle: 'short' })
   const nombre = new Intl.NumberFormat(t.langue)
   const mo = new Intl.NumberFormat(t.langue, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 0 })
@@ -772,6 +798,28 @@ function Administration() {
         () => (setIa((i) => ({ ...i, modele })), setMessage(t('admin.modeleEnregistre', { nom: nomDuModele(modele) }))),
       )
       .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+  // L'apparence s'applique tout de suite à l'écran, et à toute l'instance.
+  const choisirApparence = (champ) => (valeur) => {
+    const nouvelle = { ...apparence.apparence, [champ]: valeur }
+    envoyerJson('PUT', '/api/admin/apparence', nouvelle)
+      .then(() => {
+        setApparence((a) => ({ ...a, apparence: nouvelle }))
+        surApparence?.(nouvelle)
+        setMessage(t('admin.apparenceEnregistree'))
+      })
+      .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+  }
+  const ligneApparence = (champ, libelle, noms, nomDe) =>
+    erreurApparence
+      ? { libelle, valeur: messageErreur(t, erreurApparence) }
+      : {
+          libelle,
+          choix: {
+            valeur: apparence.apparence[champ],
+            surChange: choisirApparence(champ),
+            options: noms.map((n) => ({ valeur: n, libelle: nomDe(n) })),
+          },
+        }
   return (
     <PageAdministration
       nomApplication={t('application.nom')}
@@ -795,6 +843,13 @@ function Administration() {
             { libelle: t('admin.essai'), valeur: nombre.format(c.essai) },
             { libelle: t('admin.documents'), valeur: nombre.format(c.documents) },
             { libelle: t('admin.equipes'), valeur: nombre.format(c.equipes) },
+          ],
+        },
+        {
+          titre: t('admin.apparence'),
+          lignes: [
+            ligneApparence('modele', t('admin.modeleInterface'), apparence?.modeles ?? [], nomDuModeleInterface),
+            ligneApparence('couleur', t('admin.couleur'), apparence?.couleurs ?? [], nomDeLaCouleur),
           ],
         },
         {
