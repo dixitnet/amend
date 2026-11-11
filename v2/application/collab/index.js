@@ -3,7 +3,7 @@
 // backend. Un processus à part (ADR 0004).
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
 
-// Hors développement (`V2_DEV=1`), pas de repli : une réglage absent arrête le
+// Hors développement (`V2_DEV=1`), pas de repli : un réglage absent arrête le
 // processus au démarrage plutôt que d'ouvrir la collaboration sur de mauvaises valeurs.
 const DEV = process.env.V2_DEV === '1'
 if (!DEV) {
