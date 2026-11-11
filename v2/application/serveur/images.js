@@ -16,7 +16,8 @@ import {
   IMAGE_MAX_OCTETS,
 } from '../../domaine/index.js'
 
-/** Lit le corps brut, sans dépasser `max` octets (au-delà : `null`). */
+/** Lit le corps brut, sans dépasser `max` octets (au-delà : `null`, et rien
+ * de plus n'est gardé ; la connexion se ferme après la réponse). */
 function lireOctets(req, max) {
   return new Promise((resolve, reject) => {
     const morceaux = []
@@ -24,6 +25,8 @@ function lireOctets(req, max) {
     req.on('data', (m) => {
       taille += m.length
       if (taille > max) {
+        morceaux.length = 0
+        req.removeAllListeners('data')
         req.pause()
         return resolve(null)
       }
@@ -78,7 +81,12 @@ export function creerImages({ personneDe, roleSur, depot, json }) {
     if (req.method !== 'POST') return err(405, 'methode-refusee')
     if (!caps.includes('ecrire') && !caps.includes('suggerer')) return err(403, 'droit-insuffisant')
     const octets = await lireOctets(req, IMAGE_MAX_OCTETS)
-    if (octets === null) return err(413, 'image-trop-lourde')
+    if (octets === null) {
+      // Le reste du corps n'est pas lu : la connexion se ferme une fois la réponse partie.
+      res.on('finish', () => req.destroy())
+      json(res, 413, { code: 'image-trop-lourde' }, { connection: 'close' })
+      return true
+    }
     const refus = refusImage(octets, await depot.poidsImages(d.id))
     if (refus) return err(refus === 'image-type-refuse' || refus === 'image-vide' ? 400 : 413, refus)
     const t = typeImage(octets)

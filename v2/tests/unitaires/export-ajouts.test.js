@@ -61,3 +61,33 @@ test('compteur : texte des blocs, cellules comprises, sans la table ni le saut d
   assert.deepEqual(textesDesBlocs(blocs), ['Ouverture', 'Au XIXe siècle.', 'Section', 'Trop profond', 'a b', 'c'])
   assert.deepEqual(compterBlocs(blocs), { signes: 9 + 15 + 7 + 12 + 3 + 1, mots: 1 + 3 + 1 + 2 + 2 + 1 })
 })
+
+test('exposant au Markdown : dans une cellule de tableau aussi ; une marque tapée dans le texte disparaît (audit du 11/11/2026)', () => {
+  const blocs = [
+    {
+      type: 'table',
+      content: {
+        type: 'tableContent',
+        rows: [
+          {
+            cells: [
+              {
+                type: 'tableCell',
+                content: [
+                  { type: 'text', text: 'XIX', styles: {} },
+                  { type: 'text', text: 'e', styles: { exposant: true } },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      children: [],
+    },
+    { type: 'paragraph', content: [{ type: 'text', text: 'abc', styles: {} }], children: [] },
+  ]
+  const prets = blocsPourMarkdown(blocs)
+  const cellule = prets[0].content.rows[0].cells[0].content
+  assert.equal(poserExposants(cellule.map((c) => c.text).join('')), 'XIX<sup>e</sup>')
+  assert.equal(prets[1].content[0].text, 'abc')
+})

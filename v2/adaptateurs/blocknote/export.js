@@ -27,16 +27,33 @@ export const blocsDuTexte = (editeur, fragment) => yfragmentToBlocks(editeur, fr
 const DEBUT_SUP = '\uE000'
 const FIN_SUP = '\uE001'
 
-/** Les textes en exposant, entourés des deux marques. */
+/** Un texte tapé qui contiendrait déjà ces marques les perd (audit du
+ * 11/11/2026) : elles ne viennent que de nous. */
+const sansMarques = (texte) => texte.replaceAll(DEBUT_SUP, '').replaceAll(FIN_SUP, '')
+
+/** Les textes en exposant, entourés des deux marques ; les cellules des
+ * tableaux aussi (audit du 11/11/2026). */
 function marquerExposants(contenu) {
+  if (contenu?.type === 'tableContent')
+    return {
+      ...contenu,
+      rows: (contenu.rows ?? []).map((r) => ({
+        ...r,
+        cells: (r.cells ?? []).map((c) =>
+          Array.isArray(c) ? marquerExposants(c) : { ...c, content: marquerExposants(c.content) },
+        ),
+      })),
+    }
   if (!Array.isArray(contenu)) return contenu
   return contenu.map((c) =>
-    c.type === 'text' && c.styles?.exposant
-      ? {
-          ...c,
-          text: DEBUT_SUP + c.text + FIN_SUP,
-          styles: Object.fromEntries(Object.entries(c.styles).filter(([cle]) => cle !== 'exposant')),
-        }
+    c.type === 'text'
+      ? c.styles?.exposant
+        ? {
+            ...c,
+            text: DEBUT_SUP + sansMarques(c.text) + FIN_SUP,
+            styles: Object.fromEntries(Object.entries(c.styles).filter(([cle]) => cle !== 'exposant')),
+          }
+        : { ...c, text: sansMarques(c.text) }
       : Array.isArray(c.content)
         ? { ...c, content: marquerExposants(c.content) }
         : c,

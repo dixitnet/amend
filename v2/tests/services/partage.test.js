@@ -388,6 +388,12 @@ test('corbeille : purge après 30 jours ; un dossier dont le seul document est �
   })
   await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })
   assert.equal((await appel('DELETE', `/api/dossiers/${dossier.id}`, { cookie: paule.cookie })).statut, 200)
+  // Le dossier effacé ne laisse pas de référence pendante (clé étrangère, audit du 11/11/2026).
+  assert.equal((await comptes.document(doc.id)).dossier, null)
+  // Une modification signalée pendant la corbeille ne change pas la date.
+  const avant = (await comptes.document(doc.id)).modifieLe
+  await comptes.noterModification(doc.id)
+  assert.equal((await comptes.document(doc.id)).modifieLe, avant)
   await serveur.purgerCorbeille(Date.now() + 29 * 24 * 3600 * 1000)
   assert.ok(await comptes.document(doc.id), 'gardé avant 30 jours')
   await serveur.purgerCorbeille(Date.now() + 31 * 24 * 3600 * 1000)
