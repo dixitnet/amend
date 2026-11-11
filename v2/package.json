@@ -52,9 +52,10 @@
     "lint": "eslint .",
     "format": "prettier --write",
     "format:check": "prettier --check .",
-    "test": "node --test --test-concurrency=1 \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\" \"tests/design/*.test.js\" \"tests/services/*.test.js\"",
+    "test": "node --test --test-concurrency=1 \"tests/unitaires/*.test.js\" \"contrats/statiques/*.test.js\" \"tests/design/*.test.js\" \"tests/services/*.test.js\"; r=$?; node exploitation/dev/nettoyer.mjs --discret; exit $r",
     "mesurer": "node exploitation/dev/mesurer.mjs",
-    "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\"",
+    "test:pile": "node --test --test-concurrency=1 --test-timeout=300000 \"contrats/pile/*.test.js\"; r=$?; node exploitation/dev/nettoyer.mjs --discret; exit $r",
+    "nettoyer": "node exploitation/dev/nettoyer.mjs",
     "test:en-ligne": "NODE_USE_ENV_PROXY=1 node --test --test-concurrency=1 --test-timeout=180000 \"tests/en-ligne/*.test.js\""
   }
 }
