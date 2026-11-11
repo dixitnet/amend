@@ -10,9 +10,11 @@ export { PageAdministration } from './composants/PageAdministration.jsx'
 export { PanneauPartage } from './composants/PanneauPartage.jsx'
 export { VoletDocuments, FenetreChoix } from './composants/VoletDocuments.jsx'
 export { couleurAuteur } from './auteurs.js'
+export { PictoDe } from './pictos.jsx'
 export {
   Coquille,
   ColonneTexte,
+  ZoneZoom,
   Bandeau,
   VoletPlanDocuments,
   VoletRelecture,

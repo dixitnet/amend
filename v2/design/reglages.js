@@ -53,6 +53,9 @@ export const REGLAGES = {
     ligne: { wrap: 'nowrap', gap: 0 },
     enfants: { gap: 0, pl: 'lg' },
   },
+  // Le zoom du texte de l'éditeur, en pour cent (Sylvain, 11/11/2026 : « 50,
+  // 100, 150 », dans le menu « … », comme le réglage de la v1).
+  zoom: { paliers: [50, 100, 150], parDefaut: 100 },
   // L'alerte hors ligne, comme AlertOffline de Docs.
   alerteHorsLigne: { variant: 'light', color: 'orange' },
 }

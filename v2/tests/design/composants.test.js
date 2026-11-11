@@ -531,3 +531,11 @@ test('volet de relecture : onglet ouvert piloté (« Corriger » ouvre Margo) ; 
   assert.doesNotMatch(sans, /role="tab"[^>]*>[\s\S]{0,400}?Margo \(IA\)/)
   assert.match(sans, /id="suggestions"/)
 })
+
+// Le menu « … » (titres de groupe, choix cochés, pied) ne s'ouvre qu'au
+// navigateur : vérifié dans la pile. Ici, la zone du zoom et les pictos.
+test('zone du zoom et nouveaux pictos (11/11/2026)', () => {
+  assert.match(rendre(h(design.ZoneZoom, { zoom: 150 }, 'texte')), /data-amend-zoom="150"/)
+  for (const role of ['exposant', 'tableDesMatieres', 'zoom', 'choisi'])
+    assert.match(rendre(h(design.PictoDe, { role })), /<svg/, role)
+})
