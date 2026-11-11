@@ -4,6 +4,8 @@
 // documents auront des identifiants générés (étape 6) ; un accent, une espace
 // ou un emoji sont refusés plutôt que de produire deux documents pour un même
 // nom (NFC et NFD s'encodent différemment).
+import { INVISIBLES } from './personne.js'
+
 const LONGUEUR_MAX_IDENTIFIANT = 64
 
 /** @returns {{ ok: true, id: string } | { ok: false, code: string }} */
@@ -35,6 +37,9 @@ export function titreDocument(brut) {
     .normalize('NFC')
     .replace(/[^\S\u00A0\u202F]+/g, ' ')
     .trim()
+  // Ni caractère de contrôle, ni invisible, ni marque de sens d'écriture
+  // (même contrôle que le nom d'une personne ; les insécables ne sont pas du lot).
+  if (INVISIBLES.test(titre)) return { ok: false, code: 'titre-invalide' }
   if ([...titre].length > LONGUEUR_MAX_TITRE) return { ok: false, code: 'titre-invalide' }
   return { ok: true, titre: titre || null }
 }

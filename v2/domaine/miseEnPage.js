@@ -51,6 +51,9 @@ export function chaineTypst(texte) {
  */
 export function grille(modele) {
   const { page, marges, grille: g, folio } = modele
+  // Une valeur non numérique (NaN, chaîne, absente) ferait passer du NaN dans le gabarit.
+  const mesures = [page?.hauteur, marges?.haut, folio?.bas, g?.corps, g?.interligne, g?.lignes]
+  if (!mesures.every(Number.isFinite)) throw impossible('valeur')
   const pas = g.interligne
   if (!(pas >= g.corps && g.lignes >= 1)) throw impossible('interligne')
   // n lignes tiennent dans la zone, n + 1 non : on laisse sous la dernière

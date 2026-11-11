@@ -65,5 +65,10 @@ export function adresseCourriel(brut) {
   if (c.length > LONGUEUR_MAX_COURRIEL) return { ok: false, code: 'courriel-trop-long' }
   if (!/^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[^\s@<>()[\]\\,;:".]{2,}$/u.test(c))
     return { ok: false, code: 'courriel-invalide' }
+  // Pas de point en tête ou en fin de la partie locale, ni de points consécutifs
+  // (partie locale ou domaine), ni de point en tête de domaine.
+  const [local, domaine] = c.split('@')
+  if (local.startsWith('.') || local.endsWith('.') || c.includes('..') || domaine.startsWith('.'))
+    return { ok: false, code: 'courriel-invalide' }
   return { ok: true, courriel: c }
 }

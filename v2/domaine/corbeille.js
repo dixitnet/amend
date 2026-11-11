@@ -31,7 +31,9 @@ export function titreDeCopie(titre, gabarit, sansTitre) {
   const complet = [...gabarit(base.join(''))]
   const exces = complet.length - LONGUEUR_MAX_TITRE
   if (exces <= 0) return complet.join('')
-  return gabarit(`${base.slice(0, Math.max(1, base.length - exces - 1)).join('')}…`)
+  const court = [...gabarit(`${base.slice(0, Math.max(1, base.length - exces - 1)).join('')}…`)]
+  // Un gabarit très long peut dépasser seul la borne : le résultat est borné, en points de code.
+  return court.slice(0, LONGUEUR_MAX_TITRE).join('')
 }
 
 /**
@@ -64,13 +66,15 @@ export const ORDRES_TRI = Object.freeze(['modifies', 'titre', 'crees'])
 export function trierDocuments(documents, ordre, langue = 'fr') {
   const recent = (a, b) => b.creeLe - a.creeLe
   const modifie = (d) => d.modifieLe ?? d.creeLe
+  // Un ordre inconnu vaut le premier de la liste (modifiés).
+  const ordreRetenu = ORDRES_TRI.includes(ordre) ? ordre : ORDRES_TRI[0]
   const comparer =
-    ordre === 'titre'
+    ordreRetenu === 'titre'
       ? (a, b) =>
           (a.titre ? 0 : 1) - (b.titre ? 0 : 1) ||
           (a.titre && b.titre ? a.titre.localeCompare(b.titre, langue, { sensitivity: 'base' }) : 0) ||
           recent(a, b)
-      : ordre === 'crees'
+      : ordreRetenu === 'crees'
         ? recent
         : (a, b) => modifie(b) - modifie(a) || recent(a, b)
   return [...documents].sort(comparer)
