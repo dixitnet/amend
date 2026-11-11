@@ -6,15 +6,20 @@ Chaque ticket est écrit en anglais, sur les versions installées le 11/11/2026,
 
 ## Où en est chaque ticket
 
-| N°    | Dépôt                                           | Sujet                                                                                                                                                                         | État         | Vérifié comment                                                                                                              |
-| ----- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1     | handlewithcarecollective/prosemirror-inputrules | `undoInputRule` réinsère le texte tapé                                                                                                                                        | **prêt**     | cas minimal sans BlockNote ni Yjs, rejoué dans Chromium : « a » puis « -- » donne « a— », l'annulation donne « a--- »        |
-| 2     | handlewithcarecollective/prosemirror-inputrules | « Applying a mismatched transaction » quand un greffon réagit dans sa vue (mode suggestion de BlockNote)                                                                      | **prêt**     | même cas minimal, avec un greffon qui marque le texte tapé depuis sa vue : l'erreur se produit, la règle n'est pas appliquée |
-| 3     | TypeCellOS/BlockNote                            | `getSuggestionAtSelection` cherche des marques qui n'existent pas                                                                                                             | **prêt**     | lecture du code livré (`@blocknote/core/dist/y.js`) : les autres fonctions de la même extension utilisent les bons noms      |
-| 4     | TypeCellOS/BlockNote                            | un fil résolu lève une erreur tant que le nom de qui l'a résolu n'est pas chargé                                                                                              | **prêt**     | lecture du code livré (`Comments.tsx`) : la ligne suivante prévoit déjà l'état « loading »                                   |
-| 5 à 8 | yjs/y-prosemirror                               | défauts du mode suggestion (suppression à cheval sur deux paragraphes, paragraphe supprimé invisible après rechargement, découpage des remplacements, mise en forme suggérée) | **en cours** | reproduction sur la démo publique de y-prosemirror, pour que les tickets ne dépendent ni de BlockNote ni de notre code       |
+| N°  | Dépôt                                           | Sujet                                                                                                    | État     | Vérifié comment                                                                                                              |
+| --- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 1   | handlewithcarecollective/prosemirror-inputrules | `undoInputRule` réinsère le texte tapé                                                                   | **prêt** | cas minimal sans BlockNote ni Yjs, rejoué dans Chromium : « a » puis « -- » donne « a— », l'annulation donne « a--- »        |
+| 2   | handlewithcarecollective/prosemirror-inputrules | « Applying a mismatched transaction » quand un greffon réagit dans sa vue (mode suggestion de BlockNote) | **prêt** | même cas minimal, avec un greffon qui marque le texte tapé depuis sa vue : l'erreur se produit, la règle n'est pas appliquée |
+| 3   | TypeCellOS/BlockNote                            | `getSuggestionAtSelection` cherche des marques qui n'existent pas                                        | **prêt** | lecture du code livré (`@blocknote/core/dist/y.js`) : les autres fonctions de la même extension utilisent les bons noms      |
+| 4   | TypeCellOS/BlockNote                            | un fil résolu lève une erreur tant que le nom de qui l'a résolu n'est pas chargé                         | **prêt** | lecture du code livré (`Comments.tsx`) : la ligne suivante prévoit déjà l'état « loading »                                   |
+| 5   | yjs/y-prosemirror                               | une mise en forme suggérée (gras) n'est pas marquée comme suggestion                                     | **prêt** | reproduit sur la démo publique de y-prosemirror (sources identiques à 2.0.0-15) ; captures                                   |
+| 6   | yjs/y-prosemirror                               | une touche morte sur une sélection, en mode suggestion, laisse le « ^ » dans le texte                    | **prêt** | reproduit sur la démo, par simulation de la composition (outils de Chromium), deux fois sur deux ; captures                  |
+| 7   | yjs/y-prosemirror                               | les remplacements sont découpés au caractère (question, pas un défaut)                                   | **prêt** | reproduit sur la démo ; captures                                                                                             |
 
 Non préparés, et pourquoi :
+
+- **Suppression qui franchit la fin d'un paragraphe** et **paragraphe entier supprimé invisible après rechargement** : **ne se reproduisent pas sur la démo de y-prosemirror** (le texte supprimé y est bien noté, et la suppression réapparaît après rechargement, dans les trois façons de supprimer essayées). Ils viendraient de BlockNote ou de notre montage : à reproduire d'abord avec l'exemple de collaboration de BlockNote avant tout ticket. Nos contournements restent.
+- **Ctrl+Z en mode suggestion** : la démo n'a pas d'annulation (pas de `yUndoPlugin`) : rien à reproduire là. **Frappe dans la suggestion d'une autre personne** : ne se reproduit pas sur la démo.
 
 - **Commentaire sur y-prosemirror#288** (« diffing deletes unsupported ») : notre déclencheur (la recréation de l'éditeur) a disparu avec le montage de l'exemple de BlockNote ; sans cas reproductible, un commentaire n'apporterait rien au mainteneur.
 - **Page blanche `reading 'copy'` (Yjs 14, rendu des contenus attribués)** : pas de cas minimal ; seul un document témoin le montre. À reprendre si le défaut revient.
@@ -245,6 +250,104 @@ Remove the `throw`: the `authorInfo` fallback to `"loading"` below already cover
 
 ---
 
-## 5 à 8. y-prosemirror : défauts du mode suggestion
+Les tickets 5 à 7 se reproduisent sur la démo publique de y-prosemirror, https://y-prosemirror-demo.netlify.app/ ; ses sources, lues dans la carte de son fichier construit, sont identiques octet pour octet à `@y/prosemirror` 2.0.0-15. Deux précautions, notées dans les tickets : attendre 3 à 6 s après une modification en mode Edit avant de lire l'état (sinon la suggestion n'est pas encore partie), et laisser environ 0,5 s entre une sélection au clavier et l'action suivante. Les captures sont dans `docs/v2-tickets-amont/`, à joindre aux tickets.
 
-En cours de reproduction sur la démo publique (https://y-prosemirror-demo.netlify.app/), au format des tickets existants du dépôt (« Go to the demo, type …, set suggestions to "Edit" … »). Complété dès que la reproduction est faite ; un défaut qui ne se reproduit pas sur la démo viendrait de BlockNote ou de notre montage, et ne doit pas être signalé à y-prosemirror.
+## 5. y-prosemirror : une mise en forme suggérée n'est pas marquée comme suggestion
+
+Déposer sur : https://github.com/yjs/y-prosemirror/issues/new (voisins fermés : #249, changement de type de bloc ; #241, ouvert, sur `updateYText` hors mode suggestion)
+
+**Titre** : V2 suggestions: a suggested formatting change (bold) is not shown as a suggestion
+
+Pièces jointes : `04-bold-unselected-edit.png`, `04-bold-view.png`
+
+**Corps** :
+
+```markdown
+**Describe the bug**
+In suggestion mode, making a word bold applies the bold in the suggestion layer, but nothing marks it as a suggestion: no attribution, no visual difference from bold text that is already accepted. Accept All does apply it, and Reject All removes it, so the change is recorded — it is just invisible as a suggestion, so a reviewer cannot see it, nor accept or reject it on its own.
+
+**To Reproduce**
+Steps to reproduce the behavior:
+
+1. Go to https://y-prosemirror-demo.netlify.app/
+2. Type "Le temps est beau"
+3. Set suggestions to "Edit"
+4. Select "est" (wait half a second after selecting), press Ctrl+B (or the B button)
+5. Click elsewhere to deselect; switch to "View"
+
+"est" is bold, with no insertion/deletion/format attribution (no attribution markup in the DOM). Set suggestions to "Off": "est" is not bold in the original document. "Accept All" makes it bold; "Reject All" removes the bold.
+
+**Expected behavior**
+The formatting change is shown as a suggestion (like `y-attributed-format` attributions), so it can be seen, accepted or rejected like an insertion or a deletion.
+
+**Environment**
+Public demo on 2026-11-11; its sources (from `dist/demo.js.map`) are identical to `@y/prosemirror` 2.0.0-15, with `@y/y` 14.0.0-rc.29. Chromium. Also observed through BlockNote 0.57.0.
+```
+
+---
+
+## 6. y-prosemirror : une touche morte sur une sélection laisse le « ^ »
+
+Déposer sur : https://github.com/yjs/y-prosemirror/issues/new (voisin fermé : #81, composition des langues asiatiques synchronisée avant `compositionend`)
+
+**Titre** : V2 suggestions: composing over a selection (dead key) leaves the dead-key character in the text
+
+Pièces jointes : `05a-edit-after.png`, `05a-off-after.png`
+
+**Corps** :
+
+```markdown
+**Describe the bug**
+In suggestion mode, typing an accented character with a dead key (e.g. `^` then `e` → `ê`, as on French keyboards) over a selected word leaves the dead-key character in the text: the suggestion reads `^ê` instead of `ê`. The event log shows a second `compositionstart` right after the first composition update, i.e. the DOM is replaced while the composition is in progress.
+
+**To Reproduce**
+Steps to reproduce the behavior:
+
+1. Go to https://y-prosemirror-demo.netlify.app/
+2. Type "Le the est beau"
+3. Set suggestions to "Edit"
+4. Select "the", wait half a second
+5. Type `ê` with a dead key: `^` then `e`
+
+Result: `Le ~~the~~ ^ê est beau` (the insertion is `^ê`). With suggestions "Off", the same steps give `Le ê est beau`. With suggestions "Edit" and no selection (collapsed cursor), the result is correct (`ê` inserted), although the second `compositionstart` still shows up.
+
+**Expected behavior**
+The insertion is `ê`, as without suggestions.
+
+**Environment**
+Public demo on 2026-11-11 (sources identical to `@y/prosemirror` 2.0.0-15, `@y/y` 14.0.0-rc.29). Chromium; the composition was driven through the Chrome DevTools Protocol (`Input.imeSetComposition` with `^`, then with `ê`, then `Input.insertText`), reproduced twice out of two. First noticed with a real French keyboard in BlockNote 0.57.0.
+```
+
+---
+
+## 7. y-prosemirror : les remplacements sont découpés au caractère (question)
+
+Déposer sur : https://github.com/yjs/y-prosemirror/issues/new — **à poser comme une question**, pas comme un défaut : le texte accepté est juste, c'est la présentation qui gêne la relecture d'un texte.
+
+**Titre** : V2 suggestions: replacing a word keeps the letters it shares with the new word out of the suggestion — intended?
+
+Pièces jointes : `03-type-after.png`, `03-paste-after.png`
+
+**Corps** :
+
+```markdown
+**Question**
+When a word is replaced in suggestion mode, the letters the old and new words have in common stay outside of the suggestion (character-level diff). Accept All and Reject All give the right text, but for proofreading (an editor reviewing a copy-editor's changes) the suggestion reads oddly, and accepting or rejecting part of it is not possible as a word-level replacement.
+
+**To Reproduce**
+
+1. Go to https://y-prosemirror-demo.netlify.app/
+2. Type "Le temps est beau"
+3. Set suggestions to "Edit"
+4. Select "beau", type "blanc"
+
+Result: `Le temps est b` + inserted `lanc` + deleted `eau` — the shared `b` stays unattributed, and the insertion comes before the deletion.
+
+Same with a paste: type "chat noir dort" and, on another line, "vert"; in "Edit", copy "vert", select "noir dort" and paste: the result is deleted `noir do` + inserted `ve` + unchanged `rt`.
+
+**Question**
+Is the character-level granularity intended for suggestions? Would a word-level (or "whole selection replaced") option be possible, so that replacing a selection is shown as one deletion followed by one insertion?
+
+**Environment**
+Public demo on 2026-11-11 (sources identical to `@y/prosemirror` 2.0.0-15, `@y/y` 14.0.0-rc.29). Chromium. Also seen through BlockNote 0.57.0.
+```
