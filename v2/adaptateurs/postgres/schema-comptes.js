@@ -168,4 +168,21 @@ create table if not exists amend.reglages (
   modifie_par uuid references amend.personnes (id) on delete set null,
   modifie_le timestamptz not null default now()
 );
+-- Le suivi de l'instance (back-office, 11/11/2026) : erreurs et refus
+-- inhabituels (un code et un détail court, jamais un mot d'un document), et
+-- la mémoire des processus relevée toutes les cinq minutes.
+create table if not exists amend.journal (
+  id bigserial primary key,
+  le timestamptz not null default now(),
+  type text not null,
+  code text not null,
+  detail jsonb
+);
+create index if not exists journal_le on amend.journal (le);
+create table if not exists amend.mesures (
+  le timestamptz not null default now(),
+  processus text not null,
+  memoire bigint not null
+);
+create index if not exists mesures_le on amend.mesures (le);
 `

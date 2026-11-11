@@ -15,8 +15,8 @@
 // Ce fichier assemble le dépôt : le schéma est dans `schema-comptes.js`, les
 // méthodes sont réparties par domaine dans `comptes-personnes.js`,
 // `comptes-documents.js`, `comptes-dossiers.js`, `comptes-equipes.js`,
-// `comptes-modeles.js`, `comptes-acces.js`, `comptes-jetons.js` et
-// `comptes-reglages.js`.
+// `comptes-modeles.js`, `comptes-acces.js`, `comptes-jetons.js`,
+// `comptes-reglages.js` et `comptes-suivi.js`.
 import { ouvrirBase } from './base.js'
 import { SCHEMA } from './schema-comptes.js'
 import { partiesPersonnes } from './comptes-personnes.js'
@@ -27,6 +27,7 @@ import { partiesModeles } from './comptes-modeles.js'
 import { partiesAcces } from './comptes-acces.js'
 import { partiesJetons } from './comptes-jetons.js'
 import { partiesReglages } from './comptes-reglages.js'
+import { partiesSuivi } from './comptes-suivi.js'
 
 /** Ouvre le dépôt ; crée le schéma s'il manque. */
 export async function ouvrirComptes(url) {
@@ -51,6 +52,7 @@ export async function ouvrirComptes(url) {
       partiesAcces(base, d),
       partiesJetons(base),
       partiesReglages(base),
+      partiesSuivi(base),
     )
     return d
   }
