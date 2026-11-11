@@ -3,7 +3,8 @@
 // Refuser, et « Tout accepter », « Tout refuser » en tête. Composants Mantine
 // sans réglage ; ses textes lui arrivent traduits, les gestes remontent par
 // les fonctions de rappel (l'indice de la ligne). Hors relecture, une
-// invitation (un texte et un bouton) remplace la liste.
+// invitation (un texte et un bouton) remplace la liste. `actionsGlobales` :
+// « Tout accepter », « Tout refuser » même sans ligne.
 import { Stack, Group, Title, Text, Button } from '@mantine/core'
 
 export function PanneauSuggestions({
@@ -15,6 +16,7 @@ export function PanneauSuggestions({
   surToutAccepter,
   surToutRefuser,
   invitation,
+  actionsGlobales = false,
 }) {
   return (
     <Stack component="section" aria-label={titre}>
@@ -29,7 +31,7 @@ export function PanneauSuggestions({
           ) : null}
         </>
       ) : null}
-      {lignes.length ? (
+      {lignes.length || actionsGlobales ? (
         <Group>
           <Button onClick={surToutAccepter}>{libelles.toutAccepter}</Button>
           <Button onClick={surToutRefuser}>{libelles.toutRefuser}</Button>
