@@ -9,9 +9,15 @@
 //   POST   /api/deconnexion
 //   POST   /api/deconnexion-partout
 //   PUT    /api/moi                          { nom }
+//   GET    /api/moi/suppression              aperçu : ce que deviendraient mes documents et équipes
+//   DELETE /api/moi                          { courriel }  supprimer mon compte (adresse en toutes lettres)
 //   GET    /api/documents                    { dossiers, documents } : Mes documents et Partagé avec moi
 //   POST   /api/documents                    { titre?, dossier? }  nouveau document (je suis propriétaire)
-//   DELETE /api/documents/:doc               le propriétaire seul, tout de suite
+//   DELETE /api/documents/:doc               à la corbeille (le propriétaire seul), 30 jours
+//   POST   /api/documents/:doc/copie         dupliquer (qui lit) : le texte seul, à côté de l'original
+//   GET    /api/corbeille                    les documents que je peux restaurer
+//   POST   /api/corbeille/:doc               le restaurer
+//   DELETE /api/corbeille/:doc               l'effacer définitivement
 //   PUT    /api/documents/:doc/titre         { titre }  (qui écrit ; null : sans titre)
 //   PUT    /api/documents/:doc/dossier       { dossier }  le ranger (null : racine de Mes documents)
 //   DELETE /api/documents/:doc/moi           me retirer du document (Partagé avec moi)
@@ -66,6 +72,13 @@ import {
   appliquerEcarts,
   modeleRetenu,
   deplacementDocument,
+  DUREE_CORBEILLE_MS,
+  dansLaCorbeille,
+  joursRestants,
+  titreDeCopie,
+  planSuppressionCompte,
+  confirmationSuppressionValide,
+  lieuDeLaCopie,
   ROLES,
   DUREE_INVITATION_MS,
   DUREE_LIEN_CONNEXION_MS,
@@ -156,10 +169,27 @@ export function creerComptes({
     await courrier.envoyer({ a: courriel, sujet, texte: m.texte, html: m.html })
   }
 
-  /** Le rôle effectif d'une personne sur un document, et ses capacités. */
-  async function roleSur(docId, idPersonne) {
-    const role = roleEffectif(await comptes.rolesDe(docId, idPersonne))
+  /** Le rôle effectif d'une personne sur un document, et ses capacités
+   * (aucun sur un document à la corbeille, sauf avec \`{ corbeille: true }\`). */
+  async function roleSur(docId, idPersonne, options) {
+    const role = roleEffectif(await comptes.rolesDe(docId, idPersonne, options))
     return { role, caps: capacites(role) }
+  }
+
+  /** Efface un document pour de bon : la base, les fils, puis le contenu dans
+   * y/hub. D'abord la base (le document disparaît pour tous) : un échec de
+   * y/hub laisse un contenu inaccessible, pas un document listé mais vidé
+   * (audit, 09/11/2026) ; un échec des fils n'empêche pas d'effacer le texte
+   * (audit du 10/11/2026). */
+  async function effacer(docId) {
+    await comptes.supprimerDocument(docId)
+    await commentaires
+      ?.supprimerFilsDuDocument(docId)
+      .catch((e) => console.error(`[serveur] suppression des fils de ${docId} :`, e))
+    if (collaboration)
+      await collaboration
+        .supprimerDocument(docId)
+        .catch((e) => console.error(`[serveur] suppression dans y/hub de ${docId} :`, e))
   }
 
   /** Les routes des équipes (étape 6d) ; `p` est connecté. */
@@ -187,6 +217,7 @@ export function creerComptes({
             id: d.id,
             titre: d.titre,
             creeLe: d.creeLe,
+            modifieLe: d.modifieLe,
             dossier: d.dossier,
             createur: d.createur,
             role: roleEffectif(d.roles),
@@ -315,9 +346,33 @@ export function creerComptes({
     return ok(res, ecarts === undefined ? {} : { ecarts })
   }
 
-  return async function traiter(req, res, url) {
+  /** Ce que deviendraient les documents et les équipes d'une personne si elle
+   * supprimait son compte (domaine : planSuppressionCompte). */
+  async function planDe(moi) {
+    const equipesDeMoi = await comptes.equipesDe(moi)
+    const plan = planSuppressionCompte({
+      moi,
+      documents: await comptes.documentsEnPropre(moi),
+      equipes: await Promise.all(
+        equipesDeMoi.map(async (e) => ({ id: e.id, nom: e.nom, membres: await comptes.membresDe(e.id) })),
+      ),
+    })
+    // Le nom (ou l'adresse) de qui recevra un document, pour l'aperçu.
+    const noms = new Map((await comptes.noms(plan.documents.map((d) => d.a).filter(Boolean))).map((x) => [x.id, x]))
+    for (const d of plan.documents) if (d.a) d.aNom = noms.get(d.a)?.nom || noms.get(d.a)?.courriel || null
+    return plan
+  }
+
+  /** Efface pour de bon les documents restés plus de 30 jours dans la corbeille. */
+  async function purger(maintenant = Date.now()) {
+    for (const id of await comptes.corbeilleExpiree(maintenant - DUREE_CORBEILLE_MS)) await effacer(id)
+  }
+
+  return Object.assign(traiter, { purger })
+
+  async function traiter(req, res, url) {
     const m = url.pathname.match(
-      /^\/api\/(connexion|deconnexion|deconnexion-partout|moi|documents|dossiers|equipes)(?:\/(.*))?$/,
+      /^\/api\/(connexion|deconnexion|deconnexion-partout|moi|documents|dossiers|equipes|corbeille)(?:\/(.*))?$/,
     )
     if (!m) return false
     const [, racine, reste] = m
@@ -393,6 +448,32 @@ export function creerComptes({
     }
     if (!p) return err(res, 401, 'session-absente')
 
+    // --- Supprimer mon compte (lots du 11/11/2026, lot D ; règle de la v1) ---
+    if (racine === 'moi' && segments.length === 1 && segments[0] === 'suppression' && methode === 'GET')
+      return ok(res, await planDe(p.id))
+    if (racine === 'moi' && !segments.length && methode === 'DELETE') {
+      const courriel = (await comptes.personne(p.id))?.courriel
+      if (!confirmationSuppressionValide((await lireCorps(req)).courriel, courriel))
+        return err(res, 400, 'confirmation-invalide')
+      const plan = await planDe(p.id)
+      if (!plan.peut) return (json(res, 409, { code: 'suppression-refusee', ...plan }), true)
+      for (const d of plan.documents) {
+        if (d.sort === 'confie') await comptes.modifierAcces(d.id, d.a, 'proprietaire')
+        if (d.sort === 'supprime') await effacer(d.id)
+        else await comptes.modifierAcces(d.id, p.id, null)
+      }
+      for (const e of plan.equipes) {
+        if (e.sort === 'quitte') {
+          await comptes.modifierMembre(e.id, p.id, null)
+          continue
+        }
+        for (const id of await comptes.idsDocumentsDeLEquipe(e.id)) await effacer(id)
+        await comptes.supprimerEquipe(e.id)
+      }
+      await comptes.supprimerPersonne(p.id, courriel)
+      return (json(res, 200, {}, { 'set-cookie': cookieEfface }), true)
+    }
+
     // --- Mon nom ---
     if (racine === 'moi') {
       if (segments.length || methode !== 'PUT') return false
@@ -464,6 +545,42 @@ export function creerComptes({
     // --- Équipes (dossiers d'équipe, étape 6d) ---
     if (racine === 'equipes') return equipes(req, res, p, segments, membre)
 
+    // --- Corbeille (lots du 11/11/2026, comme Docs : \`trashbin\`, \`restore\`) ---
+    if (racine === 'corbeille') {
+      if (!segments.length) {
+        if (methode !== 'GET') return err(res, 405, 'methode-refusee')
+        const maintenant = Date.now()
+        return ok(res, {
+          documents: (await comptes.corbeilleDe(p.id, maintenant - DUREE_CORBEILLE_MS)).map((d) => ({
+            id: d.id,
+            titre: d.titre,
+            equipe: d.equipe,
+            supprimeLe: d.supprimeLe,
+            joursRestants: joursRestants(d.supprimeLe, maintenant),
+          })),
+        })
+      }
+      if (segments.length > 1) return err(res, 404, 'introuvable')
+      const v = identifiantDocument(segments[0])
+      if (!v.ok) return err(res, 400, v.code)
+      const doc = await comptes.document(v.id)
+      const { caps: capsCorbeille } = await roleSur(v.id, p.id, { corbeille: true })
+      if (!doc || !dansLaCorbeille(doc.supprimeLe) || !capsCorbeille.includes('supprimer'))
+        return err(res, 404, 'document-introuvable')
+      if (methode === 'DELETE') return (await effacer(v.id), ok(res))
+      if (methode !== 'POST') return err(res, 405, 'methode-refusee')
+      // y/hub d'abord : s'il échoue, le document reste dans la corbeille, entier.
+      if (collaboration)
+        try {
+          await collaboration.restaurer(v.id)
+        } catch (e) {
+          console.error(`[serveur] restauration dans y/hub de ${v.id} :`, e)
+          return err(res, 502, 'collaboration-indisponible')
+        }
+      await comptes.mettreALaCorbeille(v.id, false)
+      return ok(res)
+    }
+
     // --- Mes documents et Partagé avec moi (et la liste de mes équipes) ---
     if (!segments.length) {
       if (methode === 'GET') {
@@ -479,6 +596,7 @@ export function creerComptes({
                 id: d.id,
                 titre: d.titre,
                 creeLe: d.creeLe,
+                modifieLe: d.modifieLe,
                 role: roleEffectif(d.roles),
                 section,
                 favori: d.favori,
@@ -514,24 +632,46 @@ export function creerComptes({
     const [, sous, cible, ...trop] = segments
     if (trop.length) return err(res, 404, 'introuvable')
 
-    // DELETE /api/documents/:doc : le propriétaire seul, tout de suite (pas de corbeille).
+    // DELETE /api/documents/:doc : à la corbeille, le propriétaire seul (comme
+    // Docs : suppression douce, 30 jours). D'abord la base (plus personne ne
+    // l'ouvre : le serveur refuse les droits), puis y/hub, qui déconnecte ceux
+    // qui l'ont ouvert ; son échec ne fait que retarder la déconnexion.
     if (!sous) {
       if (methode !== 'DELETE') return err(res, 405, 'methode-refusee')
       if (!caps.includes('supprimer')) return err(res, 403, 'droit-insuffisant')
-      // D'abord la base (le document disparaît pour tous), puis le contenu dans
-      // y/hub : un échec de y/hub laisse un contenu inaccessible, pas un document
-      // listé mais vidé (audit, 09/11/2026).
-      await comptes.supprimerDocument(docId)
-      // Un échec des fils ne doit pas empêcher d'effacer le texte (audit du
-      // 10/11/2026) : les deux suppressions sont toujours tentées.
-      await commentaires
-        ?.supprimerFilsDuDocument(docId)
-        .catch((e) => console.error(`[serveur] suppression des fils de ${docId} :`, e))
+      await comptes.mettreALaCorbeille(docId, true)
       if (collaboration)
         await collaboration
-          .supprimerDocument(docId)
-          .catch((e) => console.error(`[serveur] suppression dans y/hub de ${docId} :`, e))
+          .mettreALaCorbeille(docId)
+          .catch((e) => console.error(`[serveur] corbeille dans y/hub de ${docId} :`, e))
       return ok(res)
+    }
+    // POST /api/documents/:doc/copie : dupliquer (comme Docs, \`duplicate\` : qui
+    // lit le document) ; le texte seul, titré « … (copie) », rangé à côté de
+    // l'original si l'on peut y écrire (domaine : lieuDeLaCopie).
+    if (sous === 'copie' && !cible) {
+      if (methode !== 'POST') return err(res, 405, 'methode-refusee')
+      if (!collaboration) return err(res, 503, 'collaboration-indisponible')
+      const doc = await comptes.document(docId)
+      const ids = new Set((await comptes.equipesDe(p.id)).map((e) => e.id))
+      const section = sectionDuDocument({ ...doc, roles: [role] }, p.id, ids)
+      const lieu = lieuDeLaCopie(
+        { section, equipe: doc.equipe, dossier: doc.dossier },
+        doc.equipe ? peutModifierEquipe((await membre(doc.equipe)).caps) : false,
+      )
+      const titre = titreDeCopie(doc.titre, (x) => t('document.copie', { titre: x }), t('documents.sansTitre'))
+      const id = randomUUID()
+      if (lieu.equipe) await comptes.creerDocumentEquipe(id, lieu.equipe, p.id, titre, lieu.dossier)
+      else await comptes.creerDocument(id, p.id, titre, lieu.dossier)
+      try {
+        await collaboration.copierTexte(docId, id, p.id)
+      } catch (e) {
+        // Comme Docs : un échec défait toute la copie, rien n'est laissé à moitié.
+        console.error(`[serveur] copie de ${docId} :`, e)
+        await effacer(id)
+        return err(res, 502, 'collaboration-indisponible')
+      }
+      return ok(res, { id }, 201)
     }
     // PUT /api/documents/:doc/titre { titre } : qui écrit le texte renomme le document.
     if (sous === 'titre' && !cible && methode === 'PUT') {

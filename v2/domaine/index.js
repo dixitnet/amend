@@ -23,8 +23,9 @@ export {
   peutGererModeles,
   deplacementDocument,
 } from './equipes.js'
-export { listeAdministrateurs, estAdministrateur, numeroDeVersion } from './administration.js'
+export { listeAdministrateurs, estAdministrateur, numeroDeVersion, adresseAide } from './administration.js'
 export { nfc } from './propre.js'
+export { compter, PROFONDEURS_TABLE, PROFONDEUR_TABLE_PAR_DEFAUT, profondeurTable, entreesTable } from './compteur.js'
 export {
   gabaritTypst,
   grille,
@@ -47,3 +48,14 @@ export {
   situerRemplacement,
   suiviDesRefus,
 } from './margo.js'
+export {
+  DUREE_CORBEILLE_MS,
+  dansLaCorbeille,
+  joursRestants,
+  titreDeCopie,
+  lieuDeLaCopie,
+  ORDRES_TRI,
+  trierDocuments,
+} from './corbeille.js'
+export { IMAGE_MAX_OCTETS, IMAGES_DOCUMENT_MAX_OCTETS, typeImage, refusImage, nomImageValide } from './images.js'
+export { planSuppressionCompte, confirmationSuppressionValide } from './compte.js'

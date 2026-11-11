@@ -14,12 +14,14 @@ import { creerMargo } from './margo.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
+import { creerImages } from './images.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
 import {
   listeAdministrateurs,
   estAdministrateur,
   numeroDeVersion,
+  adresseAide,
   nomPersonne,
   identifiantDocument,
   roleEffectif,
@@ -42,6 +44,8 @@ const confDepuisEnv = () => ({
   jetonEssai: process.env.V2_JETON_ESSAI || '',
   // Les administrateurs de l'instance (back-office) : des adresses séparées par des virgules.
   administrateurs: process.env.V2_ADMINS || '',
+  // L'adresse de l'aide (pages statiques, lot du 11/11/2026) ; vide : pas d'entrée « Aide ».
+  aide: process.env.V2_AIDE_URL || '',
   dev: process.env.V2_DEV === '1',
   // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
   cookieSecure: process.env.V2_COOKIE_SECURE === '1',
@@ -198,7 +202,12 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
 
   return {
     'GET /api/config': (req, res) =>
-      json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev, version: VERSION.commit }),
+      json(res, 200, {
+        collaboration: CONF.collaboration,
+        dev: CONF.dev,
+        version: VERSION.commit,
+        aide: adresseAide(CONF.aide),
+      }),
     // Les noms d'une liste de personnes (`?id=a&id=b`), pour une personne
     // connectée ; un identifiant inconnu revient sans nom.
     'GET /api/personnes': async (req, res, url) => {
@@ -350,6 +359,15 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
       if (!docId || !idPersonne || !branche) return json(res, 400, { code: 'parametres-absents' })
       json(res, 200, { acces: accesBranche(capacites(await roleSur(docId, idPersonne)), branche) })
     },
+    // Le contenu d'un document a changé (y/hub, après un compactage ; comme
+    // \`content-updated\` de Docs) : la date de modification avance.
+    'POST /api/interne/modifie': async (req, res, url) => {
+      if (!jetonValide(CONF.jetonInterne, req.headers['x-amend-interne'])) return json(res, 403, { code: 'interdit' })
+      const doc = identifiantDocument(url.searchParams.get('document'))
+      if (!doc.ok) return json(res, 400, { code: doc.code })
+      await comptes.noterModification(doc.id)
+      json(res, 200, {})
+    },
   }
 }
 
@@ -454,6 +472,12 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     json,
     lireCorps,
   })
+  const images = creerImages({
+    personneDe: identite.personneDe,
+    roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),
+    depot: comptes,
+    json,
+  })
   const partage = creerComptes({
     CONF,
     comptes,
@@ -466,7 +490,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     cookieDeSession: identite.cookieDeSession,
     cookieEfface: identite.cookieEfface,
   })
-  return http.createServer(async (req, res) => {
+  const serveur = http.createServer(async (req, res) => {
     poserSecurite(req, res)
     try {
       // L'analyse de l'adresse peut échouer (« // ») : dans le bloc protégé.
@@ -486,6 +510,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       if (route) return await route(req, res, url)
       if (await commentaires(req, res, url)) return
       if (await margo(req, res, url)) return
+      if (await images(req, res, url)) return
       if (await partage(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })
@@ -502,6 +527,9 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       json(res, 500, { code: 'erreur-interne' })
     }
   })
+  /** Efface les documents restés plus de 30 jours dans la corbeille. */
+  serveur.purgerCorbeille = partage.purger
+  return serveur
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -512,7 +540,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     commentaires: await ouvrirCommentaires(CONF.postgres),
     courrier: creerCourrier({ cle: CONF.mailgunCle, domaine: CONF.mailgunDomaine, expediteur: CONF.expediteur }),
   }
-  creerServeur(CONF, services).listen(CONF.port, '127.0.0.1', () =>
-    console.log(`[serveur] http://127.0.0.1:${CONF.port}`),
-  )
+  const serveur = creerServeur(CONF, services)
+  serveur.listen(CONF.port, '127.0.0.1', () => console.log(`[serveur] http://127.0.0.1:${CONF.port}`))
+  // La corbeille se vide au démarrage, puis toutes les six heures.
+  const purger = () => serveur.purgerCorbeille().catch((e) => console.error('[serveur] corbeille :', e))
+  setTimeout(purger, 60_000).unref()
+  setInterval(purger, 6 * 3600 * 1000).unref()
 }

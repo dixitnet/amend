@@ -14,13 +14,109 @@
 // blocs sont lus dans le document Yjs, pas dans l'affichage de l'éditeur.
 import { yfragmentToBlocks } from '@blocknote/core/y'
 import { TypstExporter, typstDefaultSchemaMappings } from '@blocknote/xl-typst-exporter'
-import { gabaritTypst, nfc } from '../../domaine/index.js'
+import { gabaritTypst, nfc, compter, entreesTable, profondeurTable } from '../../domaine/index.js'
+import { TYPE_TABLE, texteEnLigne, titresDesBlocs } from '../../extensions/tableDesMatieres/index.js'
 
 /** Les blocs du texte de base, lus dans son fragment Yjs. */
 export const blocsDuTexte = (editeur, fragment) => yfragmentToBlocks(editeur, fragment)
 
+// L'exposant en Markdown : BlockNote passe par le HTML, dont la conversion
+// garde le texte d'un `<sup>` mais perd la balise ; il est donc marqué par
+// deux caractères à usage privé, que le Markdown n'échappe pas, puis remplacé
+// par `<sup>…</sup>` (le Markdown admet le HTML en ligne).
+const DEBUT_SUP = '\uE000'
+const FIN_SUP = '\uE001'
+
+/** Un texte tapé qui contiendrait déjà ces marques les perd (audit du
+ * 11/11/2026) : elles ne viennent que de nous. */
+const sansMarques = (texte) => texte.replaceAll(DEBUT_SUP, '').replaceAll(FIN_SUP, '')
+
+/** Les textes en exposant, entourés des deux marques ; les cellules des
+ * tableaux aussi (audit du 11/11/2026). */
+function marquerExposants(contenu) {
+  if (contenu?.type === 'tableContent')
+    return {
+      ...contenu,
+      rows: (contenu.rows ?? []).map((r) => ({
+        ...r,
+        cells: (r.cells ?? []).map((c) =>
+          Array.isArray(c) ? marquerExposants(c) : { ...c, content: marquerExposants(c.content) },
+        ),
+      })),
+    }
+  if (!Array.isArray(contenu)) return contenu
+  return contenu.map((c) =>
+    c.type === 'text'
+      ? c.styles?.exposant
+        ? {
+            ...c,
+            text: DEBUT_SUP + sansMarques(c.text) + FIN_SUP,
+            styles: Object.fromEntries(Object.entries(c.styles).filter(([cle]) => cle !== 'exposant')),
+          }
+        : { ...c, text: sansMarques(c.text) }
+      : Array.isArray(c.content)
+        ? { ...c, content: marquerExposants(c.content) }
+        : c,
+  )
+}
+
+/**
+ * Les blocs prêts pour le Markdown : une table des matières devient la liste
+ * des titres jusqu'à sa profondeur (après son titre, s'il est donné) ; un saut
+ * de page n'a pas d'équivalent et disparaît ; l'exposant est marqué.
+ * @param {Array} blocs
+ * @param {{ titreTable?: string }} [textes]
+ */
+export function blocsPourMarkdown(blocs, { titreTable } = {}) {
+  const titres = titresDesBlocs(blocs)
+  const preparer = (liste) =>
+    liste.flatMap((b) => {
+      if (b.type === 'pageBreak') return []
+      if (b.type === TYPE_TABLE)
+        return [
+          ...(titreTable ? [{ type: 'paragraph', content: [{ type: 'text', text: titreTable, styles: {} }] }] : []),
+          ...entreesTable(titres, b.props?.profondeur).map((e) => ({
+            type: 'bulletListItem',
+            content: [{ type: 'text', text: e.texte, styles: {} }],
+          })),
+        ]
+      return [{ ...b, content: marquerExposants(b.content), children: preparer(b.children ?? []) }]
+    })
+  return preparer(blocs)
+}
+
+/** Les marques d'exposant changées en `<sup>`. */
+export const poserExposants = (md) => md.replaceAll(DEBUT_SUP, '<sup>').replaceAll(FIN_SUP, '</sup>')
+
 /** Le document en Markdown, en forme composée (NFC). */
-export const versMarkdown = (editeur, blocs) => nfc(editeur.blocksToMarkdownLossy(blocs))
+export const versMarkdown = (editeur, blocs, textes) =>
+  nfc(poserExposants(editeur.blocksToMarkdownLossy(blocsPourMarkdown(blocs, textes))))
+
+/** Le texte de chaque bloc (texte en ligne, cellules des tableaux), enfants compris. */
+export function textesDesBlocs(blocs) {
+  const textes = []
+  for (const b of blocs ?? []) {
+    if (Array.isArray(b.content)) textes.push(texteEnLigne(b.content))
+    else if (b.content?.type === 'tableContent')
+      for (const rangee of b.content.rows ?? [])
+        for (const cellule of rangee.cells ?? [])
+          textes.push(texteEnLigne(Array.isArray(cellule) ? cellule : cellule.content))
+    textes.push(...textesDesBlocs(b.children))
+  }
+  return textes
+}
+
+/** Signes (espaces compris) et mots du texte de base (domaine, `compter`). */
+export const compterBlocs = (blocs) => compter(textesDesBlocs(blocs))
+
+/** Les correspondances Typst de BlockNote, plus l'exposant (`super` de Typst). */
+const CORRESPONDANCES = {
+  ...typstDefaultSchemaMappings,
+  styleMapping: {
+    ...typstDefaultSchemaMappings.styleMapping,
+    exposant: (actif) => (actif ? (e) => `super(${e})` : (e) => e),
+  },
+}
 
 const LISTES = { bulletListItem: 'list', numberedListItem: 'enum' }
 
@@ -34,7 +130,7 @@ const LISTES = { bulletListItem: 'list', numberedListItem: 'enum' }
  * @returns {Promise<{ source: string, fichiers: Map<string, Uint8Array> }>}
  */
 export async function versTypst(editeur, blocs, modele, { titre, langue } = {}) {
-  const exportateur = new TypstExporter(editeur.schema, typstDefaultSchemaMappings, {
+  const exportateur = new TypstExporter(editeur.schema, CORRESPONDANCES, {
     fontFamily: modele.police,
     fontSize: modele.grille.corps,
     resolveFileUrl: (url) => fetch(url).then((r) => r.blob()),
@@ -82,6 +178,10 @@ async function parcourir(exportateur, blocs) {
     } else if (b.type === 'heading') sortie.push(`#heading(level: ${b.props?.level ?? 1})[${texte}]`)
     else if (b.type === 'quote') sortie.push(`#quote(block: true)[${texte}]`)
     else if (b.type === 'divider') sortie.push('#amend-blanc')
+    else if (b.type === 'pageBreak') sortie.push('#pagebreak()')
+    // La table des matières de Typst, à la place du bloc, titre dans la
+    // langue du document (`lang` du gabarit).
+    else if (b.type === TYPE_TABLE) sortie.push(`#outline(depth: ${profondeurTable(b.props?.profondeur)})`)
     else {
       // Tableaux et images : la correspondance de BlockNote, hors grille.
       try {

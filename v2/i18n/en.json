@@ -26,7 +26,7 @@
     "mesDocuments": "My documents",
     "partager": "Share",
     "supprimer": "Delete",
-    "confirmerSuppression": "Delete this document for everyone, permanently?",
+    "confirmerSuppression": "Move this document to the trash? It will disappear for everyone; you can restore it for 30 days.",
     "renommer": "Rename",
     "nomDuDocument": "Document title",
     "exportEchoue": "The export failed. Please try again in a moment.",
@@ -42,7 +42,16 @@
     "passerEcrire": "Edit directly",
     "passerSuggerer": "Suggest changes",
     "passerRelire": "Review suggestions",
-    "exporter": "Export…"
+    "exporter": "Export…",
+    "copie": "{titre} (copy)",
+    "dupliquer": "Duplicate",
+    "compteur": "{signes, plural, one {# character} other {# characters}} including spaces, {mots, plural, one {# word} other {# words}}",
+    "zoom": "Text size",
+    "zoomPalier": "{zoom}%",
+    "exposant": "Superscript",
+    "tableDesMatieres": "Table of contents",
+    "tableDescription": "The document’s headings, down to the chosen level",
+    "tableProfondeur": "Heading levels"
   },
   "erreurs": {
     "modele-impossible": "This layout template is impossible: its lines, page number or text width do not fit on the page.",
@@ -87,6 +96,12 @@
     "margo-indisponible": "Margo is unavailable at the moment.",
     "selection-absente": "Select the passage to correct first.",
     "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most).",
+    "image-vide": "This file is empty.",
+    "image-trop-lourde": "This image is too large (5 MB at most).",
+    "images-document-pleines": "This document has reached its image limit (100 MB).",
+    "image-type-refuse": "Only PNG and JPEG images are accepted.",
+    "confirmation-invalide": "The address you typed is not your account’s.",
+    "suppression-refusee": "Your account cannot be deleted yet: see the documents or teams listed.",
     "modele-inconnu": "This model does not exist.",
     "modele-sans-cle": "This model has no key configured on this server."
   },
@@ -199,7 +214,17 @@
     "aucun": "No document yet. Create the first one with “New document”.",
     "rienTrouve": "No document has this title.",
     "destination": "Destination",
-    "modeles": "Layout templates"
+    "modeles": "Layout templates",
+    "dupliquer": "Duplicate",
+    "corbeille": "Trash",
+    "restaurer": "Restore",
+    "effacer": "Delete permanently",
+    "confirmerEffacement": "Delete “{titre}” permanently? It can no longer be restored.",
+    "joursRestants": "{n, plural, one {deleted in # day} other {deleted in # days}}",
+    "trier": "Sort documents",
+    "triModifies": "Recently modified",
+    "triTitre": "By title",
+    "triCrees": "Recently created"
   },
   "partage": {
     "titre": "Sharing",
@@ -266,7 +291,8 @@
     "fermer": "Close",
     "valider": "OK",
     "annuler": "Cancel",
-    "continuer": "Continue"
+    "continuer": "Continue",
+    "aide": "Help"
   },
   "export": {
     "titre": "Export",
@@ -347,5 +373,21 @@
       "refus": "The model declined this request.",
       "erreur": "Margo could not finish the request. What was posted stays in Changes."
     }
+  },
+  "compte": {
+    "supprimer": "Delete my account",
+    "explication": "Your account and your access to amend.ink will disappear. Your comments and suggestions stay in other people’s documents, without your name. Here is what will happen to your documents and teams:",
+    "rien": "You have no documents and no teams.",
+    "supprimes": "Deleted permanently (nobody else has access)",
+    "confies": "Handed over to an editor, who becomes the owner",
+    "confie": "“{titre}”, to {nom}",
+    "quittes": "You leave them (they stay with their other owners)",
+    "equipesQuittees": "Teams you leave",
+    "equipesSupprimees": "Teams deleted with their documents (you are the only member)",
+    "refusDocuments": "These documents have no other editor: first give the owner role to one of the people who have access: {liste}.",
+    "refusEquipes": "You are the last manager of these teams: first appoint another manager: {liste}.",
+    "courriel": "To confirm, type your account’s address",
+    "bouton": "Delete my account permanently",
+    "retour": "Cancel"
   }
 }

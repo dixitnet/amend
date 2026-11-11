@@ -26,7 +26,7 @@
     "mesDocuments": "Mes documents",
     "partager": "Partager",
     "supprimer": "Supprimer",
-    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement\u202F?",
+    "confirmerSuppression": "Mettre ce document à la corbeille\u202F? Il disparaîtra pour tout le monde\u202F; vous pourrez le restaurer pendant 30\u00A0jours.",
     "renommer": "Renommer",
     "nomDuDocument": "Titre du document",
     "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant.",
@@ -42,7 +42,16 @@
     "passerEcrire": "Modifier directement",
     "passerSuggerer": "Suggérer des modifications",
     "passerRelire": "Relire les suggestions",
-    "exporter": "Exporter…"
+    "exporter": "Exporter…",
+    "copie": "{titre} (copie)",
+    "dupliquer": "Dupliquer",
+    "compteur": "{signes, plural, one {# signe} other {# signes}} espaces compris, {mots, plural, one {# mot} other {# mots}}",
+    "zoom": "Taille du texte",
+    "zoomPalier": "{zoom}\u202F%",
+    "exposant": "Exposant",
+    "tableDesMatieres": "Table des matières",
+    "tableDescription": "Les titres du document, jusqu’au niveau choisi",
+    "tableProfondeur": "Niveaux de titre"
   },
   "erreurs": {
     "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes, son folio ou la largeur du texte ne tiennent pas dans la page.",
@@ -87,6 +96,12 @@
     "margo-indisponible": "Margo est indisponible pour le moment.",
     "selection-absente": "Sélectionnez d’abord le passage à corriger.",
     "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus).",
+    "image-vide": "Ce fichier est vide.",
+    "image-trop-lourde": "Cette image est trop lourde (5\u00A0Mo au plus).",
+    "images-document-pleines": "Ce document a atteint sa limite d’images (100\u00A0Mo).",
+    "image-type-refuse": "Seules les images PNG et JPEG sont acceptées.",
+    "confirmation-invalide": "L’adresse tapée n’est pas celle de votre compte.",
+    "suppression-refusee": "Votre compte ne peut pas encore être supprimé\u00A0: voyez les documents ou équipes indiqués.",
     "modele-inconnu": "Ce modèle n’existe pas.",
     "modele-sans-cle": "Ce modèle n’a pas de clé configurée sur ce serveur."
   },
@@ -199,7 +214,17 @@
     "aucun": "Aucun document pour l’instant. Créez le premier avec «\u00A0Nouveau document\u00A0».",
     "rienTrouve": "Aucun document ne porte ce titre.",
     "destination": "Destination",
-    "modeles": "Modèles de mise en page"
+    "modeles": "Modèles de mise en page",
+    "dupliquer": "Dupliquer",
+    "corbeille": "Corbeille",
+    "restaurer": "Restaurer",
+    "effacer": "Supprimer définitivement",
+    "confirmerEffacement": "Supprimer «\u00A0{titre}\u00A0» définitivement\u202F? Il ne pourra plus être restauré.",
+    "joursRestants": "{n, plural, one {effacé dans #\u00A0jour} other {effacé dans #\u00A0jours}}",
+    "trier": "Trier les documents",
+    "triModifies": "Modifiés récemment",
+    "triTitre": "Par titre",
+    "triCrees": "Créés récemment"
   },
   "partage": {
     "titre": "Partage",
@@ -266,7 +291,8 @@
     "fermer": "Fermer",
     "valider": "Valider",
     "annuler": "Annuler",
-    "continuer": "Continuer"
+    "continuer": "Continuer",
+    "aide": "Aide"
   },
   "export": {
     "titre": "Exporter",
@@ -347,5 +373,21 @@
       "refus": "Le modèle a refusé cette demande.",
       "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Modifications."
     }
+  },
+  "compte": {
+    "supprimer": "Supprimer mon compte",
+    "explication": "Votre compte et votre accès à amend.ink disparaîtront. Vos commentaires et vos suggestions restent dans les documents des autres, sans votre nom. Voici ce que deviendront vos documents et vos équipes\u00A0:",
+    "rien": "Vous n’avez aucun document ni aucune équipe.",
+    "supprimes": "Supprimés définitivement (personne d’autre n’y a accès)",
+    "confies": "Confiés à un éditeur, qui en devient propriétaire",
+    "confie": "«\u00A0{titre}\u00A0», à {nom}",
+    "quittes": "Vous les quittez (ils restent à leurs autres propriétaires)",
+    "equipesQuittees": "Équipes que vous quittez",
+    "equipesSupprimees": "Équipes supprimées avec leurs documents (vous en êtes le seul membre)",
+    "refusDocuments": "Ces documents n’ont pas d’autre éditeur\u00A0: donnez d’abord le rôle de propriétaire à l’une des personnes qui y ont accès\u00A0: {liste}.",
+    "refusEquipes": "Vous êtes le dernier gestionnaire de ces équipes\u00A0: nommez d’abord un autre gestionnaire\u00A0: {liste}.",
+    "courriel": "Pour confirmer, tapez l’adresse de votre compte",
+    "bouton": "Supprimer mon compte définitivement",
+    "retour": "Annuler"
   }
 }

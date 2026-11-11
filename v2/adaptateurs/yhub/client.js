@@ -24,6 +24,14 @@ export function clientCollaboration({ url, jeton }) {
     if (!r.ok) throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
     return encodage.decodeAny(new Uint8Array(await r.arrayBuffer()))
   }
+  /** Une requête sur les deux branches ; 404 : jamais écrite, rien à faire. */
+  async function surLesBranches(url, methode) {
+    for (const branche of ['main', 'suggestions']) {
+      const r = await fetch(url(branche), { method: methode, headers: entetes, signal: AbortSignal.timeout(5000) })
+      if (!r.ok && r.status !== 404)
+        throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
+    }
+  }
   return {
     /** Les droits sur le document ont changé (pour `personne`, ou pour tous) :
      * ses connexions ouvertes les redemandent, texte et suggestions. */
@@ -39,20 +47,25 @@ export function clientCollaboration({ url, jeton }) {
       }
     },
     /** Efface un document dans y/hub, texte et suggestions, définitivement. */
-    async supprimerDocument(docId) {
-      for (const branche of ['main', 'suggestions']) {
-        const r = await fetch(`${adresse(docId, branche)}&hard=true`, {
-          method: 'DELETE',
-          headers: entetes,
-          signal: AbortSignal.timeout(5000),
-        })
-        // 404 : jamais écrit dans cette branche, rien à effacer.
-        if (!r.ok && r.status !== 404)
-          throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
-      }
-    },
+    supprimerDocument: (docId) => surLesBranches((b) => `${adresse(docId, b)}&hard=true`, 'DELETE'),
+    /** Met un document à la corbeille : y/hub déconnecte ceux qui l'ont ouvert et
+     * le refuse ensuite ; le contenu est gardé (comme Docs, \`delete_ydoc\`). */
+    mettreALaCorbeille: (docId) => surLesBranches((b) => adresse(docId, b), 'DELETE'),
+    /** Sort un document de la corbeille (route \`restore-ydoc\`, comme Docs). */
+    restaurer: (docId) =>
+      surLesBranches((b) => `${url}/restore-ydoc/v1/${ORGANISATION}/${encodeURIComponent(docId)}?branch=${b}`, 'POST'),
     /** L'état encodé du texte principal. */
     lireTexte: async (docId) => (await appel(docId)).doc,
+    /** Écrit dans \`cible\` le texte principal de \`source\`, attribué à \`pour\`
+     * (dupliquer, comme Docs : le texte seul, ni suggestions ni historique). */
+    async copierTexte(source, cible, pour) {
+      const etat = (await appel(source)).doc
+      await appel(cible, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: encodage.encodeAny({ update: etat, customAttributions: [{ k: 'pour', v: pour }] }),
+      })
+    },
     /** Écrit une modification du texte, attribuée à `pour` (en plus du serveur). */
     ecrireTexte: (docId, mise, pour) =>
       appel(docId, {

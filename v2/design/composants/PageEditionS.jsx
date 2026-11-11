@@ -6,7 +6,7 @@
 // décidés dans design/feuilles/telephone.css (ADR 0008) ; textes traduits.
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
-import { Etoile } from './Coquille.jsx'
+import { Etoile, ElementsDeMenu } from './Coquille.jsx'
 
 /** Les pictos, par rôle : la table commune (design/pictos.jsx ; audit du 10/11/2026). */
 const Icone = ({ nom }) => <PictoDe role={nom} />
@@ -44,7 +44,8 @@ function Volet({ volet, position, ouvert, surFermer }) {
  *   libelles: { gauche: string, droite: string, actions: string, terminer: string, titre: string },
  *   etat: string, connexion?: string, mention?: string | null,
  *   enModification: boolean, surTerminer: () => void,
- *   menu: Array<{ cle: string, libelle: string, icone: string, surClic: () => void }>,
+ *   menu: Array<{ cle: string, libelle: string, icone?: string, titre?: boolean, coche?: boolean, surClic?: () => void }>,
+ *   piedMenu?: string, surOuvrirMenu?: () => void,
  *   voletGauche: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> },
  *   voletDroit?: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }>, actif?: string, surOnglet?: (cle: string) => void } | null,
  *   volet: 'gauche' | 'droite' | null, surVolet: (v: 'gauche' | 'droite' | null) => void,
@@ -63,6 +64,8 @@ export function PageEditionS({
   enModification,
   surTerminer,
   menu,
+  piedMenu,
+  surOuvrirMenu,
   voletGauche,
   voletDroit,
   volet,
@@ -88,18 +91,14 @@ export function PageEditionS({
           )}
         </div>
         {enModification ? <Button onClick={surTerminer}>{libelles.terminer}</Button> : null}
-        <Menu>
+        <Menu onOpen={surOuvrirMenu}>
           <Menu.Target>
             <ActionIcon aria-label={libelles.actions}>
               <PictoDe role="autres" />
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
-            {menu.map((m) => (
-              <Menu.Item key={m.cle} leftSection={<Icone nom={m.icone} />} onClick={m.surClic}>
-                {m.libelle}
-              </Menu.Item>
-            ))}
+            <ElementsDeMenu elements={menu} pied={piedMenu} champPicto="icone" />
           </Menu.Dropdown>
         </Menu>
         {voletDroit ? (

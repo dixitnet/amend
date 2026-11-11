@@ -41,3 +41,21 @@ test('lire le texte : un refus de y/hub remonte avec le code collaboration-indis
   reponses = [403]
   await assert.rejects(client.lireTexte('doc-d'), { code: 'collaboration-indisponible' })
 })
+
+test('corbeille : suppression douce des deux branches (sans hard), restauration par la route restore-ydoc', async () => {
+  recues.length = 0
+  reponses = [200, 404, 200, 200]
+  await client.mettreALaCorbeille('doc-e')
+  await client.restaurer('doc-e')
+  assert.deepEqual(
+    recues.map((r) => [r.methode, r.url.split('?')[0], /branch=(\w+)/.exec(r.url)[1], r.url.includes('hard')]),
+    [
+      ['DELETE', '/collaboration/ydoc/v1/amend/doc-e', 'main', false],
+      ['DELETE', '/collaboration/ydoc/v1/amend/doc-e', 'suggestions', false],
+      ['POST', '/collaboration/restore-ydoc/v1/amend/doc-e', 'main', false],
+      ['POST', '/collaboration/restore-ydoc/v1/amend/doc-e', 'suggestions', false],
+    ],
+  )
+  reponses = [409]
+  await assert.rejects(client.restaurer('doc-f'), { code: 'collaboration-indisponible' })
+})
