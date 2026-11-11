@@ -52,13 +52,26 @@ async function demanderMargo(docId, corps, surEvenement, signal) {
   const lecteur = r.body.getReader()
   const decodeur = new TextDecoder()
   let reste = ''
-  for (;;) {
-    const { value, done } = await lecteur.read()
-    reste += decodeur.decode(value ?? new Uint8Array(), { stream: !done })
-    const lignes = reste.split('\n')
-    reste = done ? '' : lignes.pop()
-    for (const l of lignes) if (l.trim()) surEvenement(JSON.parse(l))
-    if (done) return
+  try {
+    for (;;) {
+      const { value, done } = await lecteur.read()
+      reste += decodeur.decode(value ?? new Uint8Array(), { stream: !done })
+      const lignes = reste.split('\n')
+      reste = done ? '' : lignes.pop()
+      for (const l of lignes) {
+        if (!l.trim()) continue
+        let evenement
+        try {
+          evenement = JSON.parse(l)
+        } catch {
+          continue // une ligne illisible est ignorée
+        }
+        surEvenement(evenement)
+      }
+      if (done) return
+    }
+  } finally {
+    lecteur.cancel().catch(() => {})
   }
 }
 
