@@ -499,6 +499,9 @@ test('back-office, rubrique IA : le modèle de Margo, choisi par un administrate
   assert.deepEqual(await sansCle.json(), { code: 'modele-sans-cle' })
   assert.equal((await choisir(admin, 'claude-sonnet-5-5')).status, 200)
   assert.equal((await (await lire(admin)).json()).modele, 'claude-sonnet-5-5')
+  // Un modèle retiré de l'adaptateur (montée de version) : le réglage ne vaut plus rien.
+  await comptes.definirReglage('margo.modele', 'modele-retire', admin.id)
+  assert.equal((await (await lire(admin)).json()).modele, null)
 })
 
 test('titre : qui écrit renomme le document (NFC, espaces réduits, vide : sans titre) ; un lecteur non', async () => {

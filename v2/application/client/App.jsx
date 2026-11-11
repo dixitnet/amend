@@ -430,13 +430,19 @@ function Administration() {
   const [ia, setIa] = useState(null)
   const [message, setMessage] = useState(null)
   const [erreur, setErreur] = useState(null)
+  // Deux chargements indépendants : une panne de la rubrique IA ne cache pas
+  // la rubrique Système (audit du 11/11/2026, 3).
+  const [erreurIa, setErreurIa] = useState(null)
   useEffect(() => {
-    Promise.all([envoyerJson('GET', '/api/admin/systeme'), envoyerJson('GET', '/api/admin/ia')])
-      .then(([s, i]) => (setSysteme(s), setIa(i)))
+    envoyerJson('GET', '/api/admin/systeme')
+      .then(setSysteme)
       .catch((e) => setErreur(e.code || 'reseau'))
+    envoyerJson('GET', '/api/admin/ia')
+      .then(setIa)
+      .catch((e) => setErreurIa(e.code || 'reseau'))
   }, [])
   if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
-  if (!systeme || !ia) return <EcranMessage texte={t('application.chargement')} />
+  if (!systeme || (!ia && !erreurIa)) return <EcranMessage texte={t('application.chargement')} />
   const date = new Intl.DateTimeFormat(t.langue, { dateStyle: 'medium', timeStyle: 'short' })
   const nombre = new Intl.NumberFormat(t.langue)
   const mo = new Intl.NumberFormat(t.langue, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 0 })
@@ -475,18 +481,20 @@ function Administration() {
         {
           titre: t('admin.ia'),
           lignes: [
-            {
-              libelle: t('admin.modeleMargo'),
-              choix: {
-                valeur: ia.modele ?? ia.defaut,
-                surChange: choisirModele,
-                options: ia.modeles.map((m) => ({
-                  valeur: m.id,
-                  libelle: m.disponible ? nomDuModele(m.id) : t('admin.modeleSansCle', { nom: nomDuModele(m.id) }),
-                  desactive: !m.disponible,
-                })),
-              },
-            },
+            erreurIa
+              ? { libelle: t('admin.modeleMargo'), valeur: messageErreur(t, erreurIa) }
+              : {
+                  libelle: t('admin.modeleMargo'),
+                  choix: {
+                    valeur: ia.modele ?? ia.defaut,
+                    surChange: choisirModele,
+                    options: ia.modeles.map((m) => ({
+                      valeur: m.id,
+                      libelle: m.disponible ? nomDuModele(m.id) : t('admin.modeleSansCle', { nom: nomDuModele(m.id) }),
+                      desactive: !m.disponible,
+                    })),
+                  },
+                },
           ],
         },
       ]}

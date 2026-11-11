@@ -243,11 +243,7 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
       json(res, 200, {
         modele: typeof choisi === 'string' && MODELES[choisi] ? choisi : null,
         defaut: MODELES[CONF.margoModele] ? CONF.margoModele : MODELE_PAR_DEFAUT,
-        modeles: Object.entries(MODELES).map(([id, m]) => ({
-          id,
-          fournisseur: m.fournisseur,
-          disponible: ia.disponible(id),
-        })),
+        modeles: Object.keys(MODELES).map((id) => ({ id, disponible: ia.disponible(id) })),
       })
     },
     'PUT /api/admin/ia': async (req, res) => {
