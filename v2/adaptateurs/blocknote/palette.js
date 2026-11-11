@@ -5,7 +5,14 @@
 // BlockNote (une clé renommée en amont ne doit pas passer inaperçue).
 export const BOUTONS_RETIRES = ['textAlignLeftButton', 'textAlignCenterButton', 'textAlignRightButton']
 
-/** Les boutons de la palette que l'on garde. */
-export function boutonsGardes(boutons) {
-  return boutons.filter((bouton) => !BOUTONS_RETIRES.includes(bouton.key))
+/** Le bouton après lequel vient l'exposant (11/11/2026) : le barré, dernier des styles. */
+export const APRES_EXPOSANT = 'strikeStyleButton'
+
+/** Les boutons de la palette que l'on garde, avec, s'il est donné, le bouton
+ * de l'exposant après le barré (à la fin si le barré manque). */
+export function boutonsGardes(boutons, exposant = null) {
+  const gardes = boutons.filter((bouton) => !BOUTONS_RETIRES.includes(bouton.key))
+  if (!exposant) return gardes
+  const i = gardes.findIndex((b) => b.key === APRES_EXPOSANT)
+  return i < 0 ? [...gardes, exposant] : [...gardes.slice(0, i + 1), exposant, ...gardes.slice(i + 1)]
 }

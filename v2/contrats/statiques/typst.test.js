@@ -79,6 +79,23 @@ test('le compilateur Typst de BlockNote en fait un PDF au format du modèle, pol
   assert.match(brut, /EBGaramond/)
 })
 
+test('table des matières, saut de page et exposant : le PDF se compile (11/11/2026)', async () => {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'tableDesMatieres', props: { profondeur: 2 } },
+    { type: 'heading', props: { level: 1 }, content: [texte('Premier chapitre')] },
+    { type: 'paragraph', content: [texte('Au XIX'), texte('e', { exposant: true }), texte(' siècle.')] },
+    { type: 'pageBreak' },
+    { type: 'heading', props: { level: 2 }, content: [texte('Une section')] },
+  ])
+  const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+  const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+  const brut = Buffer.from(pdf).toString('latin1')
+  assert.ok(brut.startsWith('%PDF-'))
+  // Trois pages au moins : la table, le chapitre (belle page), le saut de page.
+  assert.ok([...brut.matchAll(/\/Type ?\/Page\b/g)].length >= 3)
+})
+
 test('une source Typst fautive donne une erreur de code export-pdf-echoue', async () => {
   await assert.rejects(compilerPdf('#fonction-inconnue()', { polices: polices(), wasm: wasm() }), {
     code: 'export-pdf-echoue',
