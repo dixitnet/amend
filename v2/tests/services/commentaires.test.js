@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import net from 'node:net'
 import { preparerServices, POSTGRES, REDIS } from '../../exploitation/dev/pile.mjs'
 import { creerServeur } from '../../application/serveur/index.js'
+import { FLUX_MAX_PAR_PERSONNE } from '../../application/serveur/commentaires.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
@@ -241,6 +242,33 @@ t3('flux d’événements : un navigateur abonné est prévenu de chaque changem
     (await fetch(`${base}/api/documents/${DOC}/fils/evenements`, { headers: { cookie: cookies.Lucie.cookie } })).status,
     403,
   )
+})
+
+t3('flux d’événements : au plus 8 ouverts par personne, la place revient à la fermeture', async () => {
+  const ouvrir = (ctrl) =>
+    fetch(`${base}/api/documents/${DOC}/fils/evenements`, {
+      headers: { cookie: cookies.Edith.cookie },
+      signal: ctrl.signal,
+    })
+  const flux = []
+  for (let i = 0; i < FLUX_MAX_PAR_PERSONNE; i++) {
+    const ctrl = new AbortController()
+    assert.equal((await ouvrir(ctrl)).status, 200)
+    flux.push(ctrl)
+  }
+  const trop = await ouvrir(new AbortController())
+  assert.equal(trop.status, 429)
+  assert.deepEqual(await trop.json(), { code: 'trop-de-flux' })
+  flux[0].abort()
+  let r
+  for (let i = 0; i < 20; i++) {
+    flux[0] = new AbortController()
+    r = await ouvrir(flux[0])
+    if (r.status === 200) break
+    await new Promise((ok) => setTimeout(ok, 50))
+  }
+  assert.equal(r.status, 200, 'la place libérée est rendue')
+  flux.forEach((c) => c.abort())
 })
 
 t3('ancre : le serveur la pose pour le correcteur, dans le texte principal, sans le changer', async () => {
