@@ -1,0 +1,54 @@
+// Les aides de l'écran d'édition : zoom mémorisé, textes des ajouts et filet de sécurité.
+import { Component } from 'react'
+import { PictoDe } from '../../design/index.js'
+import { REGLAGES } from '../../design/reglages.js'
+import { t } from './commun.js'
+
+/** Le zoom du texte de l'éditeur (Sylvain, 11/11/2026 : 50, 100, 150 %, comme
+ * la v1) : propre à ce navigateur, une commodité perdue sans conséquence. */
+const CLE_ZOOM = 'amend.zoom'
+export function lireZoom() {
+  try {
+    const z = Number(localStorage.getItem(CLE_ZOOM))
+    return REGLAGES.zoom.paliers.includes(z) ? z : REGLAGES.zoom.parDefaut
+  } catch {
+    return REGLAGES.zoom.parDefaut
+  }
+}
+export function noterZoom(z) {
+  try {
+    localStorage.setItem(CLE_ZOOM, String(z))
+  } catch {
+    // stockage refusé (navigation privée) : le zoom vaut pour cette page seulement
+  }
+}
+
+/** Les libellés et pictos des ajouts de l'éditeur (exposant, table des matières). */
+export const TEXTES_EDITEUR = {
+  exposant: { libelle: t('document.exposant'), picto: <PictoDe role="exposant" /> },
+  table: {
+    titre: t('document.tableDesMatieres'),
+    description: t('document.tableDescription'),
+    profondeur: t('document.tableProfondeur'),
+    picto: <PictoDe role="tableDesMatieres" />,
+  },
+}
+
+/**
+ * Filet de sécurité de l'éditeur (contournement, veille ; Sylvain, 11/11/2026) :
+ * si l'affichage des suggestions plante (document que Yjs ne sait plus rendre en
+ * suggestion), on ne laisse pas la page blanche ; `surErreur` décide de la suite.
+ */
+export class FiletDeLEditeur extends Component {
+  state = { erreur: null }
+  static getDerivedStateFromError(erreur) {
+    return { erreur }
+  }
+  componentDidCatch(erreur) {
+    console.error('éditeur :', erreur)
+    this.props.surErreur?.(erreur)
+  }
+  render() {
+    return this.state.erreur ? this.props.repli : this.props.children
+  }
+}
