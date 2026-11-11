@@ -124,7 +124,7 @@ Comme Docs, et avec les seuls outils de Mantine :
 
 ## 8. Décision et mise en œuvre (11/11/2026)
 
-- Deux esthétiques dans `v2/design/reglages.js` : `atelier` (vermillon, celle de l'instance) et `origine` (le thème commun, vert foncé). Le choix au back-office, au niveau de l'instance, viendra dans un lot technique : `CadreDesign` accepte déjà une esthétique par sa propriété `esthetique` (absente : celle de l'instance).
+- Deux esthétiques dans `v2/design/reglages.js` : `atelier` (vermillon, celle de l'instance) et `origine` (le thème commun, vert foncé). Le choix au back-office, au niveau de l'instance, viendra dans un lot technique ; d'ici là, `CadreDesign` lit le réglage `esthetique` (pas d'option anticipée, audit du 11/11/2026).
 - Thème : le thème commun complété par celui de l'esthétique (`mergeThemeOverrides` de Mantine). Feuille : `v2/design/feuilles/esthetique-atelier.css`, règles limitées à `[data-amend-esthetique='atelier']`, attribut posé sur la racine par `CadreDesign`.
 - Police : Source Serif 4 servie par nous (`v2/design/polices/`, OFL), pour le texte de l'éditeur seulement ; l'interface reste en Inter.
 - Page posée : formats M et L seulement ; en S, la police et les couleurs, sans page.

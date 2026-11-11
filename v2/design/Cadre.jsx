@@ -12,39 +12,24 @@ import './feuilles/picto.css'
 import './feuilles/coquille.css'
 import './feuilles/telephone.css'
 import './feuilles/esthetique-atelier.css'
-import { useEffect } from 'react'
 import { MantineProvider, createTheme, mergeThemeOverrides } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { REGLAGES } from './reglages.js'
 
-// Un thème Mantine par esthétique : le thème commun, complété par le sien.
-const THEMES = Object.fromEntries(
-  Object.entries(REGLAGES.esthetiques).map(([nom, e]) => [
-    nom,
-    createTheme(mergeThemeOverrides(REGLAGES.theme, e.theme)),
-  ]),
-)
-
-const connue = (nom) => (nom && THEMES[nom] ? nom : REGLAGES.esthetique)
+// L'esthétique de l'instance (REGLAGES.esthetique) : le thème commun, complété
+// par le sien. Le choix au back-office viendra avec son lot (ADR 0008).
+const ESTHETIQUE = REGLAGES.esthetique
+const theme = createTheme(mergeThemeOverrides(REGLAGES.theme, REGLAGES.esthetiques[ESTHETIQUE].theme))
 
 // L'esthétique est portée par la racine du document (comme le schéma clair ou
-// sombre de Mantine), pour les feuilles et pour ce qui s'ouvre hors de
-// l'application (fenêtres, menus). Posée dès le chargement, sans attendre le
-// premier rendu.
-const poser = (nom) => {
-  if (typeof document !== 'undefined') document.documentElement.dataset.amendEsthetique = nom
-}
-poser(REGLAGES.esthetique)
+// sombre de Mantine), pour les feuilles de design/feuilles/. Posée dès le
+// chargement, sans attendre le premier rendu ; pas de document lors du rendu
+// sans navigateur des tests du design (tests/design/).
+if (typeof document !== 'undefined') document.documentElement.dataset.amendEsthetique = ESTHETIQUE
 
-/**
- * `esthetique` : le nom d'une esthétique de REGLAGES.esthetiques ; absent ou
- * inconnu, celle de l'instance (REGLAGES.esthetique).
- */
-export function CadreDesign({ esthetique, children }) {
-  const nom = connue(esthetique)
-  useEffect(() => poser(nom), [nom])
+export function CadreDesign({ children }) {
   return (
-    <MantineProvider theme={THEMES[nom]} {...REGLAGES.fournisseur}>
+    <MantineProvider theme={theme} {...REGLAGES.fournisseur}>
       <Notifications />
       {children}
     </MantineProvider>
