@@ -6,6 +6,11 @@
     "admin.node",
     "admin.documents",
     "telephone.documents",
-    "documents.destination"
+    "documents.destination",
+    "export.format",
+    "export.pdf",
+    "export.markdown",
+    "export.groupeMaison",
+    "modeles.maison.tat-poche"
   ]
 }
