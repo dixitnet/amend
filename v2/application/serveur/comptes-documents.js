@@ -138,6 +138,9 @@ export function creerDocuments(ctx) {
       if (lieu.equipe) await comptes.creerDocumentEquipe(id, lieu.equipe, p.id, titre, lieu.dossier)
       else await comptes.creerDocument(id, p.id, titre, lieu.dossier)
       try {
+        // Comme Docs : la copie garde le droit de lire les images de sa source,
+        // sans que les fichiers soient recopiés.
+        await comptes.heriterImages(id, docId)
         await collaboration.copierTexte(docId, id, p.id)
       } catch (e) {
         // Comme Docs : un échec défait toute la copie, rien n'est laissé à moitié.
@@ -145,9 +148,6 @@ export function creerDocuments(ctx) {
         await effacer(id)
         return err(res, 502, 'collaboration-indisponible')
       }
-      // Comme Docs : la copie garde le droit de lire les images de sa source,
-      // sans que les fichiers soient recopiés.
-      await comptes.heriterImages(id, docId)
       return ok(res, { id }, 201)
     }
     // PUT /api/documents/:doc/titre { titre } : qui écrit le texte renomme le document.

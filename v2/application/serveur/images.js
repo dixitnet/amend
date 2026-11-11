@@ -64,13 +64,10 @@ export function creerImages({ personneDe, roleSur, depot, json }) {
       if (req.method !== 'GET') return err(405, 'methode-refusee')
       const image = nomImageValide(nom) ? await depot.image(d.id, nom) : null
       // Comme Docs (\`media-auth\`) : lit l'image qui lit un document qui la
-      // contient, celui où elle a été envoyée, celui qui la garde aujourd'hui,
-      // ou une copie qui en hérite (audit du 11/11/2026).
+      // contient : celui où elle a été envoyée, ou une copie qui en hérite (celle
+      // qui la garde après l'effacement de la source en est une ; audit du 11/11/2026).
       let permis = caps.includes('lire')
-      if (!permis && image) {
-        permis = await lit(image.document)
-        for (const h of permis ? [] : await depot.heritiersImages(d.id)) if ((permis = await lit(h))) break
-      }
+      if (!permis && image) for (const h of await depot.heritiersImages(d.id)) if ((permis = await lit(h))) break
       if (!permis) return err(404, 'document-introuvable')
       if (!image) return err(404, 'introuvable')
       // Un nom n'est jamais réutilisé : l'image ne change pas, le navigateur la garde.
