@@ -159,6 +159,13 @@ create table if not exists amend.images (
   cree_le timestamptz not null default now(),
   primary key (document, nom)
 );
+-- Les réglages de l'instance, choisis au back-office (le modèle de Margo, étape 8).
+create table if not exists amend.reglages (
+  cle text primary key,
+  valeur jsonb not null,
+  modifie_par uuid references amend.personnes (id) on delete set null,
+  modifie_le timestamptz not null default now()
+);
 `
 
 const empreinte = (jeton) => createHash('sha256').update(jeton).digest('hex')
@@ -728,6 +735,16 @@ export async function ouvrirComptes(url) {
         (select count(*)::int from amend.documents where supprime_le is null) as documents,
         (select count(*)::int from amend.equipes) as equipes`
       return { personnes: r.personnes, essai: r.essai, documents: r.documents, equipes: r.equipes }
+    },
+    // --- Réglages de l'instance (back-office) ---
+    /** La valeur d'un réglage, ou `null` s'il n'a jamais été choisi. */
+    async reglage(cle) {
+      const [r] = await sql`select valeur from amend.reglages where cle = ${cle}`
+      return r ? r.valeur : null
+    },
+    async definirReglage(cle, valeur, par) {
+      await sql`insert into amend.reglages (cle, valeur, modifie_par) values (${cle}, ${sql.json(valeur)}, ${estUuid(par) ? par : null})
+        on conflict (cle) do update set valeur = excluded.valeur, modifie_par = excluded.modifie_par, modifie_le = now()`
     },
     fermer: () => sql.end({ timeout: 5 }),
   }

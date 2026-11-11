@@ -96,7 +96,9 @@
     "images-document-pleines": "This document has reached its image limit (100 MB).",
     "image-type-refuse": "Only PNG and JPEG images are accepted.",
     "confirmation-invalide": "The address you typed is not your account’s.",
-    "suppression-refusee": "Your account cannot be deleted yet: see the documents or teams listed."
+    "suppression-refusee": "Your account cannot be deleted yet: see the documents or teams listed.",
+    "modele-inconnu": "This model does not exist.",
+    "modele-sans-cle": "This model has no key configured on this server."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -234,7 +236,17 @@
     "personnes": "Accounts",
     "essai": "Test and development accounts",
     "documents": "Documents",
-    "equipes": "Teams"
+    "equipes": "Teams",
+    "ia": "AI (Margo)",
+    "modeleMargo": "Margo’s model",
+    "modeleSansCle": "{nom} (no key)",
+    "modeleEnregistre": "Margo’s model saved: {nom}.",
+    "modeles": {
+      "deepseek": "DeepSeek V4.1 Flash (Scaleway, Paris)",
+      "sonnet": "Claude Sonnet 5.5 (Anthropic)",
+      "haiku": "Claude Haiku 5.5 (Anthropic)",
+      "fable": "Claude Fable 5.2 (Anthropic)"
+    }
   },
   "telephone": {
     "planEtDocuments": "Outline and documents",

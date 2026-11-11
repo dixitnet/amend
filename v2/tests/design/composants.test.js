@@ -619,3 +619,36 @@ test('supprimer son compte : ce que deviennent les documents, le refus, la confi
     'bouton désactivé tant qu’il y a un refus',
   )
 })
+
+test('back-office : une ligne peut porter un choix (modèle de Margo), étiqueté, options désactivables', () => {
+  const html = rendre(
+    h(design.PageAdministration, {
+      titre: 'Administration',
+      message: 'Enregistré.',
+      rubriques: [
+        {
+          titre: 'IA',
+          lignes: [
+            {
+              libelle: 'Modèle de Margo',
+              choix: {
+                valeur: 'b',
+                surChange: rien,
+                options: [
+                  { valeur: 'a', libelle: 'Modèle A', desactive: true },
+                  { valeur: 'b', libelle: 'Modèle B' },
+                ],
+              },
+            },
+            { libelle: 'Autre', valeur: 'valeur simple' },
+          ],
+        },
+      ],
+    }),
+  )
+  assert.match(html, /<select[^>]*aria-label="Modèle de Margo"/)
+  assert.match(html, /<option value="a" disabled="">Modèle A<\/option>/)
+  assert.match(html, /<option value="b" selected="">Modèle B<\/option>/)
+  assert.ok(html.includes('valeur simple'))
+  assert.match(html, /role="status"[^>]*>Enregistré\./)
+})

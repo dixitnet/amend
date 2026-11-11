@@ -92,4 +92,7 @@ Clôture (critère du § 8 des règles) : **banc Margo rejoué**, c'est-à-dire 
 - Lot 4, client : composant de design `PanneauMargo` (commits de design à part), onglet Margo, bouton « Corriger », format S.
 - Vérification avant le lot 1 : faite. Le serveur écrit une suggestion attribuée à « margo » (test de service), et la palette de BlockNote accepte notre bouton par son point d'extension public (`Components.FormattingToolbar.Button`, comme Docs).
 - Écart avec le point 15 : pas de `fallbacks` côté Anthropic ; le repli est celui du plan (le modèle par défaut reprend la demande).
-- Reste : le choix du modèle au back-office (étape 9) ; la clôture (banc Montfaucon rejoué, revue).
+- Le choix du modèle au back-office, prévu à l'étape 9, a été fait le 11/11/2026 sur demande de Sylvain (« backoffice (simple) ») : `docs/v2-back-office-plan.md`, rubrique IA.
+- Renoncements n° 16 à 19 inscrits au registre (11/11/2026 ; le n° 15 est celui des modèles de mise en page, étape 7).
+- Clôture : banc rejoué (`docs/v2-tests/etape-8-banc-montfaucon.md`), revue de clôture (`docs/v2-revues/2026-11-11-etape-8-cloture.md`) ; arbitrée par Sylvain le 11/11/2026 : **étape 8 close** (consigne renforcée et banc rejoué, 71 / 87 ; pas de lot de design ; clé d'Anthropic posée).
+- Le repli d'un modèle qui refuse n'a été essayé qu'avec un modèle simulé (pas de clé Anthropic dans l'environnement de Claude).

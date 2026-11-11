@@ -96,7 +96,9 @@
     "images-document-pleines": "Ce document a atteint sa limite d’images (100\u00A0Mo).",
     "image-type-refuse": "Seules les images PNG et JPEG sont acceptées.",
     "confirmation-invalide": "L’adresse tapée n’est pas celle de votre compte.",
-    "suppression-refusee": "Votre compte ne peut pas encore être supprimé\u00A0: voyez les documents ou équipes indiqués."
+    "suppression-refusee": "Votre compte ne peut pas encore être supprimé\u00A0: voyez les documents ou équipes indiqués.",
+    "modele-inconnu": "Ce modèle n’existe pas.",
+    "modele-sans-cle": "Ce modèle n’a pas de clé configurée sur ce serveur."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -234,7 +236,17 @@
     "personnes": "Comptes",
     "essai": "Comptes d’essai et de développement",
     "documents": "Documents",
-    "equipes": "Équipes"
+    "equipes": "Équipes",
+    "ia": "IA (Margo)",
+    "modeleMargo": "Modèle de Margo",
+    "modeleSansCle": "{nom} (clé absente)",
+    "modeleEnregistre": "Modèle de Margo enregistré\u00A0: {nom}.",
+    "modeles": {
+      "deepseek": "DeepSeek V4.1 Flash (Scaleway, Paris)",
+      "sonnet": "Claude Sonnet 5.5 (Anthropic)",
+      "haiku": "Claude Haiku 5.5 (Anthropic)",
+      "fable": "Claude Fable 5.2 (Anthropic)"
+    }
   },
   "telephone": {
     "planEtDocuments": "Plan et documents",
