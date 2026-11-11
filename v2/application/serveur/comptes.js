@@ -146,6 +146,10 @@ export function creerComptes({
    * (audit du 10/11/2026). */
   async function effacer(docId) {
     await comptes.supprimerDocument(docId)
+    await effacerContenu(docId)
+  }
+  /** Ce qui reste d'un document effacé de la base : ses fils et son texte dans y/hub. */
+  async function effacerContenu(docId) {
     await commentaires
       ?.supprimerFilsDuDocument(docId)
       .catch((e) => console.error(`[serveur] suppression des fils de ${docId} :`, e))
@@ -179,6 +183,7 @@ export function creerComptes({
     envoyerLien,
     roleSur,
     effacer,
+    effacerContenu,
     equipeVisee,
   }
   const connexion = creerConnexion(ctx)

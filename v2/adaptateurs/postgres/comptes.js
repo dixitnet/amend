@@ -38,18 +38,34 @@ export async function ouvrirComptes(url) {
     throw e
   }
 
-  const depot = {}
-  Object.assign(
-    depot,
-    partiesPersonnes(sql),
-    partiesDocuments(sql),
-    partiesDossiers(sql),
-    partiesEquipes(sql),
-    partiesModeles(sql),
-    partiesAcces(sql, depot),
-    partiesJetons(sql),
-    partiesReglages(sql),
-    { fermer: rendre },
-  )
+  /** Le dépôt, sur une réserve ou sur une transaction. */
+  const assembler = (base) => {
+    const d = {}
+    Object.assign(
+      d,
+      partiesPersonnes(base),
+      partiesDocuments(base),
+      partiesDossiers(base),
+      partiesEquipes(base),
+      partiesModeles(base),
+      partiesAcces(base, d),
+      partiesJetons(base),
+      partiesReglages(base),
+    )
+    return d
+  }
+  /** Une transaction vue comme une réserve : une méthode qui ouvre sa propre
+   * transaction (`begin`) y pose un point de reprise (`savepoint`) à la place. */
+  const commeReserve = (t) =>
+    new Proxy(t, { get: (o, cle) => (cle === 'begin' ? (f) => o.savepoint((s) => f(commeReserve(s))) : o[cle]) })
+
+  const depot = assembler(sql)
+  /**
+   * Plusieurs écritures en une seule transaction : `f` reçoit un dépôt dont
+   * toutes les méthodes écrivent dans la transaction ; une erreur levée par
+   * `f` défait tout (suppression d'un compte, audit du 11/11/2026).
+   */
+  depot.enTransaction = (f) => sql.begin((t) => f(assembler(commeReserve(t))))
+  depot.fermer = rendre
   return depot
 }
