@@ -41,6 +41,17 @@
   padding-inline-start: calc(var(--mantine-spacing-md) * 4);
 }
 
+/* réglage : css.plan.titres */
+.mantine-NavLink-root[data-niveau],
+.mantine-NavLink-root[class*='amend-plan-niveau-'] {
+  padding-block: calc(var(--mantine-spacing-xs) / 2);
+  line-height: var(--mantine-h1-line-height);
+}
+.mantine-NavLink-root[data-niveau='1'] .mantine-NavLink-label,
+.amend-plan-niveau-1 .mantine-NavLink-label {
+  font-weight: var(--mantine-font-weight-bold);
+}
+
 /* réglage : css.coquille.texte */
 .mantine-AppShell-main > .mantine-Container-root {
   padding-block: var(--mantine-spacing-md);

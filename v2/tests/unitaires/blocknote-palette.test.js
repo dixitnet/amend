@@ -3,7 +3,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { getFormattingToolbarItems } from '@blocknote/react'
-import { BOUTONS_RETIRES, APRES_EXPOSANT, boutonsGardes } from '../../adaptateurs/blocknote/palette.js'
+import {
+  BOUTONS_RETIRES,
+  APRES_EXPOSANT,
+  boutonsGardes,
+  boutonsGardesEnSuggestion,
+} from '../../adaptateurs/blocknote/palette.js'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 
 const cles = (boutons) => boutons.map((bouton) => bouton.key)
@@ -42,4 +47,14 @@ test('le schéma du livre a le saut de page, la table des matières et l’expos
   assert.deepEqual(schemaLivre.blockSpecs.tableDesMatieres.config.propSchema.profondeur.values, [1, 2, 3, 4, 5])
   assert.equal(schemaLivre.blockSpecs.tableDesMatieres.config.content, 'none')
   assert.equal(schemaLivre.styleSpecs.exposant.config.propSchema, 'boolean')
+})
+
+test('en mode Suggérer, ni mise en forme ni lien dans la palette ; le commentaire reste (11/11/2026)', () => {
+  const palette = cles(getFormattingToolbarItems())
+  const gardee = cles(boutonsGardesEnSuggestion(getFormattingToolbarItems()))
+  for (const cle of ['boldStyleButton', 'italicStyleButton', 'createLinkButton', 'blockTypeSelect']) {
+    assert.ok(palette.includes(cle), `clé inconnue de BlockNote : ${cle}`)
+    assert.ok(!gardee.includes(cle), cle)
+  }
+  assert.ok(gardee.includes('addCommentButton'), 'commenter reste possible')
 })

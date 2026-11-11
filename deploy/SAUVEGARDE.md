@@ -38,7 +38,7 @@ précédents. Juste après, le même script écrit `data/v2/export/` (11/11/2026
 `<id>.json` (blocs BlockNote) et `<id>.txt` (texte brut) par document, plus
 `index.json`. Elle part avec `data/` de la même façon ; son échec ne fait pas
 échouer la sauvegarde (le message est dans le journal `amend-v2-sauvegarde`).
-Limite connue : y/hub refuse de rendre le texte d'un document à la corbeille ;
+Limite connue, acceptée (renoncement n° 24, Sylvain, 11/11/2026) : y/hub refuse de rendre le texte d'un document à la corbeille ;
 l'index le note (`corbeille-non-exportee`), le texte reste dans le dump. Essai de restauration (dans une base à part, sans toucher à la
 v2) : `sudo bash /opt/amend/app/v2/exploitation/prod/restaurer.sh --essai`.
 Restauration réelle : le même script sans `--essai` (v2 arrêtée le temps de

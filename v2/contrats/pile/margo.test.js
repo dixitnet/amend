@@ -42,6 +42,12 @@ test('éditeur : onglet Margo et « Corriger » ; correcteur : ni l’un ni l’
   assert.equal(await boutonCorriger(p).count(), 1, 'le bouton est dans la palette de l’éditeur')
   await selectionner(c)
   assert.equal(await boutonCorriger(c).count(), 0, 'pas de « Corriger » pour le correcteur')
+  // Le correcteur est en Suggérer : ni lien ni gras dans sa palette ; l'éditrice
+  // les a (Sylvain, 11/11/2026 : « le bouton ajouter un lien est encore accessible »).
+  assert.equal(await c.locator('.bn-formatting-toolbar [data-test="createLink"]').count(), 0, 'pas de lien en Suggérer')
+  assert.equal(await c.locator('.bn-formatting-toolbar [data-test="bold"]').count(), 0, 'pas de gras en Suggérer')
+  assert.equal(await p.locator('.bn-formatting-toolbar [data-test="createLink"]').count(), 1, 'le lien pour l’éditrice')
+  assert.equal(await p.locator('.bn-formatting-toolbar [data-test="bold"]').count(), 1, 'le gras pour l’éditrice')
   // Le volet droit est ouvert d'office (suggestions) ou s'ouvre par le bouton du bandeau.
   const ouvrirVolet = async (page) => {
     if (!(await page.getByRole('tab', { name: 'Modifications' }).isVisible()))

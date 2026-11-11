@@ -27,5 +27,6 @@ Règle 9 de `docs/v2-regles-developpement.md` : chaque fonction ou principe de l
 | 21 | 11/11/2026 | Comparer deux versions mot à mot, et restaurer « en avant » en suivi (v1) | l'historique de BlockNote (aperçu, restauration directe) suffit ; Docs ne compare pas (décision de Sylvain, points 23 et 31) | — |
 | 22 | 11/11/2026 | Numéros de bloc dans la marge (v1) | décision de Sylvain, point 27 ; le zoom, lui, est repris | — |
 | 23 | 11/11/2026 | Fonctions de Docs ou d'autres applications non reprises : chapitres en sous-documents, recherche plein texte, import .docx, demande d'accès, objectifs d'écriture, mode présentation, encadrés, diagrammes, code, emoji, impression, exports ODT et HTML, copier en Markdown, antivirus | hors du besoin ou marginal (règle 4) (décision de Sylvain, points 34 à 37, 43, 46 à 48) | — |
+| 24 | 11/11/2026 | Exporter chaque nuit le texte des documents à la corbeille | y/hub refuse de lire un document à la corbeille ; les exporter demanderait de lire ses tables ou de restaurer chaque document la nuit. Le texte reste dans la sauvegarde de la base pendant les 30 jours de corbeille, et le document redevient exportable s'il est restauré (décision de Sylvain) | y/hub qui lirait un document à la corbeille par son API |
 
 Renoncements à examiner, étape par étape : voir le tableau du § 8 des règles.
