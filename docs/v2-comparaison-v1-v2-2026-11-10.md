@@ -219,3 +219,19 @@ Les numéros renvoient aux points ci-dessus. Chaque étape garde ses règles (re
 - **Q7.** Renoncements 26 à 31 : à inscrire au registre ?
 - **Q8.** Fonctions vues ailleurs (32 à 48) : les propositions vous conviennent-elles ?
 - **Q9.** L'ordre P1 à P8 : à garder, ou autre priorité ?
+
+## 6. Arbitrage de Sylvain (11/11/2026)
+
+« Lancer 1, 3, 4, 6, 8, vérifier que le 12 a été traité par ailleurs, 13, 14. Ajouter zoom. » Puis, point par point (maintenant, plus tard, jamais) :
+
+| Réponse | Points |
+|---|---|
+| **Maintenant** (lancés) | 1 images, 3 corbeille, 4 date de modification et tri, 6 table des matières dans le PDF, 8 compteur de signes et de mots, 13 suppression du compte, 14 accueil public et aide **en pages statiques** (sans compte, servies par Caddy), **zoom** (ajouté ; il était proposé au renoncement 27), 18 saut de page, 19 exposant, 20 dupliquer un document |
+| **Plus tard** | 2 notes de bas de page, 5 Word, 7 modèle par document (en fait déjà fait sur `main` : fenêtre « Exporter », ADR 0011), 11 volet des commentaires, 17 Markdown avec images et export au téléphone, 21 rechercher / remplacer, 22 parcours ‹ n / N ›, 24 export « en cours », 25 hors ligne, 26 éditeur de modèles (déjà tranché par le renoncement 15), 29 palette « Aide / avis » et liste d'attente, 32 mentions, 33 liens entre documents, 38 bibliographie, 39 formules, 40 ePub, 41 ICML, TEI, JATS |
+| **Jamais** | 10 essai de passage d'un livre de la v1 et import Markdown, 15 dialogue Margo et connecteur MCP, 16 back-office (personnes, invitations, consommation, journaux), 23 comparer deux versions, 27 numéros de bloc, 30 banc de Margo, 31 restauration « en avant », 34 chapitres en sous-documents, 35 recherche plein texte, 36 import .docx, 37 demande d'accès, 43 objectifs d'écriture, 46 et 47 autres fonctions de Docs (présentation, encadrés, diagrammes, code, emoji, impression, ODT, HTML, copier en Markdown), 48 antivirus |
+| **Traité ailleurs** | 9 Margo, corrections (étape 8, fusionnée sur `main` le 10-11/11) |
+| Déjà couverts | 28, 42, 44, 45 |
+
+Point 12, vérifié le 11/11/2026 :
+- **acceptation une à une** d'une suggestion : corrigée sur `main` par la reconstruction du suivi sur le montage de BlockNote (commit `ffad3e3` ; problème 6 du tableau `docs/v2-tests/tableau-problemes-2026-11-10.md`, « corrigé, C3 2/2 ») ;
+- **typographie en mode suggestion** : toujours coupée (`v2/adaptateurs/blocknote/index.jsx`, typographie active en mode Modifier seulement), conformément à la décision du 08/11 (attendre le correctif de BlockNote, BlockNote#2843 non intégrée, #3310 en cours). Le tableau propose de réessayer avec le nouveau montage : pas encore fait.
