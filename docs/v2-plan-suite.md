@@ -62,7 +62,7 @@ Ouverture par une revue, puis, selon l'arbitrage du lot 1 :
 
 ## F. Étape 8, IA (Margo)
 
-17. Ouverture : comment Docs branche l'IA (BlockNote AI) ; Margo comme auteur attribué des suggestions ; limites en signes ; MCP (le connecteur « Inviter Claude » de la v1). Plan d'étape à arbitrer avant tout lot. Les seuils se fixeront sur les journaux réels, pas sur des hypothèses.
+17. Ouverture : comment Docs branche l'IA (BlockNote AI) ; Margo comme auteur attribué des suggestions ; limites en signes ; MCP (le connecteur « Inviter Claude » de la v1). Plan d'étape à arbitrer avant tout lot. Les seuils se fixeront sur les journaux réels, pas sur des hypothèses. **Plan arbitré le 10/11/2026 : `docs/v2-etape-8-plan.md`** (onglet Margo allégé, bouton « Corriger », moteur sur le serveur, renoncement à `xl-ai`, Fable 5.2 parmi les modèles).
 
 ## G. Étape 9, publication et back-office
 

@@ -16,12 +16,15 @@
 //  - `lire` : lecture seule (lecteur), sans les suggestions.
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   useCreateBlockNote,
   FormattingToolbar,
   FormattingToolbarController,
   getFormattingToolbarItems,
+  useBlockNoteEditor,
+  useComponentsContext,
+  useSelectedBlocks,
 } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import { VersioningSidebar } from '@blocknote/react/versioning'
@@ -37,8 +40,39 @@ import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf } from './export.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 
-function Palette() {
-  return <FormattingToolbar>{boutonsGardes(getFormattingToolbarItems())}</FormattingToolbar>
+/** La sélection, en blocs : le premier et le dernier bloc à texte touchés
+ * (`null` sans sélection étendue). Pour Margo (étape 8). */
+function selectionEnBlocs(editeur) {
+  const blocs = (editeur.getSelection()?.blocks ?? []).filter((b) => Array.isArray(b.content))
+  return blocs.length ? { de: blocs[0].id, a: blocs[blocs.length - 1].id } : null
+}
+
+/** Le bouton « Corriger » de la palette, à la fin, comme le bouton IA de Docs
+ * (`AIToolbarButton`) : seulement quand le texte se modifie et qu'un bloc à
+ * texte est sélectionné. Il envoie la sélection, en blocs, à l'application. */
+function BoutonCorriger({ corriger }) {
+  const editeur = useBlockNoteEditor()
+  const Components = useComponentsContext()
+  const choisis = useSelectedBlocks(editeur)
+  if (!editeur.isEditable || !Components || !choisis.some((b) => Array.isArray(b.content))) return null
+  const surClic = () => {
+    const selection = selectionEnBlocs(editeur)
+    if (selection) corriger.surClic(selection)
+  }
+  return (
+    <Components.FormattingToolbar.Button mainTooltip={corriger.libelle} onClick={surClic}>
+      {corriger.libelle}
+    </Components.FormattingToolbar.Button>
+  )
+}
+
+function Palette({ corriger }) {
+  return (
+    <FormattingToolbar>
+      {boutonsGardes(getFormattingToolbarItems())}
+      {corriger ? <BoutonCorriger corriger={corriger} /> : null}
+    </FormattingToolbar>
+  )
 }
 
 /**
@@ -63,6 +97,10 @@ function Palette() {
  *   rappelé avec les titres du document (enfants compris) et le titre courant
  *   (le premier visible sous le bandeau, comme Docs), à chaque changement et
  *   au défilement ; doit être stable
+ * @param {{ libelle: string, surClic: (selection: { de: string, a: string }) => void } | null} [p.corriger]
+ *   le bouton « Corriger » de la palette (Margo, étape 8), ou rien
+ * @param {(selection: { de: string, a: string } | null) => void} [p.surSelection]
+ *   rappelé quand la sélection change, en blocs (Margo, étape 8) ; doit être stable
  */
 export function EditeurCollaboratif({
   contexte,
@@ -81,6 +119,8 @@ export function EditeurCollaboratif({
   controle,
   surModification,
   surPlan,
+  corriger = null,
+  surSelection,
 }) {
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
   // Le mode du moment, lu par la typographie sans recréer l'éditeur.
@@ -252,9 +292,26 @@ export function EditeurCollaboratif({
     const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre, langue })
     return compilerPdf(source, { fichiers, polices })
   }
+  // Aller à un bloc cité par Margo : le curseur, et le bloc sous le bandeau.
+  const allerAuBloc = (id) => allerAuTitre(editeur, id, { focaliser: !lectureAuDepart })
   useEffect(() => {
-    if (controle) controle.current = { terminer, exporter }
+    if (controle) controle.current = { terminer, exporter, allerAuBloc }
   })
+  // La sélection, en blocs, pour l'onglet Margo (« Sur la sélection »).
+  useEffect(() => {
+    if (!surSelection) return
+    let precedente = null
+    const signaler = () => {
+      const s = selectionEnBlocs(editeur)
+      const cle = s ? `${s.de} ${s.a}` : null
+      if (cle === precedente) return
+      precedente = cle
+      surSelection(s)
+    }
+    signaler()
+    return editeur.onSelectionChange(signaler)
+  }, [editeur, surSelection])
+  const palette = useCallback((props) => <Palette {...props} corriger={corriger} />, [corriger])
   const commencer = (evenement) => {
     if (!appui || editeur.isEditable) return
     editeur.isEditable = true
@@ -295,7 +352,7 @@ export function EditeurCollaboratif({
 
   const vue = (
     <BlockNoteView editor={editeur} editable={appui ? false : ecrit && !historique} formattingToolbar={false}>
-      <FormattingToolbarController formattingToolbar={Palette} />
+      <FormattingToolbarController formattingToolbar={palette} />
       {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
     </BlockNoteView>
   )

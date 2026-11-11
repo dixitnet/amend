@@ -46,6 +46,9 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     commit: 'abc1234',
     lien: 'https://v2.amend.ink/#x',
     texte: 'Carla ajoute « loin »',
+    corrections: 3,
+    commentaires: 1,
+    max: 4000,
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -74,6 +77,9 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       commit: 'c',
       lien: 'L',
       texte: 'X',
+      corrections: 2,
+      commentaires: 2,
+      max: 4000,
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
@@ -189,7 +195,7 @@ test('l’icône de l’onglet reprend le dessin de référence, qui ne contient
 
 // Étape 6b : la coquille des formats M et L (docs/v2-formats-M-L.md).
 const rien = () => {}
-function coquilleDocument(t, { droite = true } = {}) {
+function coquilleDocument(t, { droite = true, relecture = {} } = {}) {
   return h(
     design.Coquille,
     {
@@ -227,7 +233,8 @@ function coquilleDocument(t, { droite = true } = {}) {
         titre: t('telephone.relecture'),
         onglets: { modifications: t('telephone.modifications'), margo: t('interface.margo') },
         modifications: h('div', { id: 'suggestions' }),
-        margo: h(design.TexteDeVolet, { texte: t('interface.margoBientot') }),
+        margo: h('div', { id: 'margo' }),
+        ...relecture,
       }),
     },
     h(design.ColonneTexte, null, h('div', { id: 'editeur' })),
@@ -346,4 +353,78 @@ test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rie
     }),
   )
   assert.doesNotMatch(html, /<script>|<b>/)
+})
+
+test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiquetée ; accueil quand le fil est vide', () => {
+  const html = rendre(
+    h(design.PanneauMargo, {
+      titre: 'Margo (IA)',
+      messages: [
+        { cle: '1', etiquette: 'Vous', morceaux: [{ texte: 'Corrige <b>' }] },
+        {
+          cle: '2',
+          etiquette: 'Margo (IA)',
+          morceaux: [
+            { texte: 'Deux corrections :\n- dans ' },
+            { lien: '[2]', libelle: 'Aller au bloc 2', surClic: rien },
+          ],
+          bilan: '1 correction, aucun commentaire',
+        },
+      ],
+      accueil: 'Bonjour',
+      enCours: 'Margo travaille…',
+      erreur: 'Erreur réseau',
+      portee: 'Sur la sélection',
+      saisie: {
+        libelle: 'Votre demande',
+        valeur: '',
+        surChange: rien,
+        surEnvoi: rien,
+        envoyer: 'Envoyer',
+        desactive: true,
+      },
+      nouvelle: { libelle: 'Nouvelle conversation', surClic: rien },
+    }),
+  )
+  assert.match(html, /<section[^>]*aria-label="Margo \(IA\)"/)
+  assert.match(html, /aria-live="polite"/)
+  assert.ok(html.includes('Corrige &lt;b&gt;'), 'le texte de la personne reste du texte')
+  assert.match(html, /<button[^>]*aria-label="Aller au bloc 2"[^>]*>\[2\]<\/button>/)
+  assert.ok(html.includes('1 correction, aucun commentaire'))
+  assert.match(html, /Deux corrections :<br\/>- dans /, 'les retours à la ligne de Margo sont gardés')
+  assert.match(html, /role="status"[\s\S]*Margo travaille…/)
+  assert.match(html, /role="alert"[^>]*>Erreur réseau/)
+  assert.match(html, /<label[^>]*>Votre demande/)
+  assert.match(html, /<button[^>]*type="submit"[^>]*disabled/)
+  assert.ok(html.includes('Nouvelle conversation'))
+  const vide = rendre(
+    h(design.PanneauMargo, {
+      titre: 'Margo',
+      messages: [],
+      accueil: 'Bonjour',
+      enCours: null,
+      erreur: null,
+      portee: 'Sur tout le texte',
+      saisie: {
+        libelle: 'Votre demande',
+        valeur: '',
+        surChange: rien,
+        surEnvoi: rien,
+        envoyer: 'Envoyer',
+        desactive: false,
+      },
+      nouvelle: null,
+    }),
+  )
+  assert.ok(vide.includes('Bonjour') && vide.includes('Sur tout le texte'))
+  assert.doesNotMatch(vide, /role="status"|role="alert"|Nouvelle conversation/)
+})
+
+test('volet de relecture : onglet ouvert piloté (« Corriger » ouvre Margo) ; sans Margo, pas d’onglet Margo', () => {
+  const t = creerTraducteur('fr')
+  const pilote = rendre(coquilleDocument(t, { relecture: { actif: 'margo', surOnglet: rien } }))
+  assert.match(pilote, /role="tab"[^>]*aria-selected="true"[^>]*>[\s\S]*?Margo \(IA\)/)
+  const sans = rendre(coquilleDocument(t, { relecture: { margo: undefined } }))
+  assert.doesNotMatch(sans, /role="tab"[^>]*>[\s\S]{0,400}?Margo \(IA\)/)
+  assert.match(sans, /id="suggestions"/)
 })
