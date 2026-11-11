@@ -10,6 +10,11 @@
     "admin.modeles.deepseek",
     "admin.modeles.sonnet",
     "admin.modeles.haiku",
-    "admin.modeles.fable"
+    "admin.modeles.fable",
+    "export.format",
+    "export.pdf",
+    "export.markdown",
+    "export.groupeMaison",
+    "modeles.maison.tat-poche"
   ]
 }

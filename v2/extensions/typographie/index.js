@@ -19,8 +19,9 @@ import { typographier, saisie } from '../../domaine/index.js'
 const OBJET = '\uFFFC' // un nœud qui n'est pas du texte, dans le texte d'un bloc
 
 /** La règle de frappe : un des signes concernés, juste tapé. */
-function regleDeFrappe(langue) {
+function regleDeFrappe(langue, actif) {
   return new InputRule(/['".;:!?]$/, (state, match, start, end) => {
+    if (!actif()) return null
     const $debut = state.doc.resolve(start)
     const avant = $debut.parent.textBetween(0, $debut.parentOffset, undefined, OBJET)
     const r = saisie(avant, match[0], { langue })
@@ -51,11 +52,11 @@ function typographierFragment(fragment, langue) {
   return Fragment.fromArray(noeuds)
 }
 
-function collage(langue) {
+function collage(langue, actif) {
   return new Plugin({
     props: {
       transformPasted: (slice) =>
-        new Slice(typographierFragment(slice.content, langue), slice.openStart, slice.openEnd),
+        actif() ? new Slice(typographierFragment(slice.content, langue), slice.openStart, slice.openEnd) : slice,
     },
   })
 }
@@ -79,10 +80,12 @@ const annulerRemplacement = (regles) => (state, dispatch) => {
 /** L'extension, pour la langue du document (`fr` : les règles s'appliquent ;
  * toute autre langue : rien ne change). */
 export const extensionTypographie = createExtension(({ options }) => {
-  const regles = inputRules({ rules: [regleDeFrappe(options.langue)] })
+  // `actif` : éteinte sans recréer l'éditeur (mode suggestion ; 10/11/2026).
+  const actif = options.actif ?? (() => true)
+  const regles = inputRules({ rules: [regleDeFrappe(options.langue, actif)] })
   return {
     key: 'typographie',
-    prosemirrorPlugins: [regles, collage(options.langue)],
+    prosemirrorPlugins: [regles, collage(options.langue, actif)],
     keyboardShortcuts: {
       Backspace: ({ editor }) => editor.exec(annulerRemplacement(regles)),
     },

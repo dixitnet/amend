@@ -122,15 +122,45 @@ test('un texte piégé s’affiche comme du texte, jamais comme du code', () => 
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
-test('bandeau : l’interrupteur du suivi des modifications, seulement s’il est demandé, dans son état', () => {
+test('bandeau : le choix du mode (Modifier, Suggérer, Relire), seulement s’il est demandé, sur sa valeur', () => {
   const voletGauche = { libelle: 'Plan', surClic: () => {} }
-  assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /role="switch"/)
-  const suivi = (actif) => ({ libelle: 'Suivi des modifications', actif, surChange: () => {} })
-  const arrete = rendre(h(design.Bandeau, { voletGauche, titre: 'x', suivi: suivi(false) }))
-  assert.match(arrete, /role="switch"/)
-  assert.match(arrete, /Suivi des modifications/)
-  assert.doesNotMatch(arrete, /checked=""/)
-  assert.match(rendre(h(design.Bandeau, { voletGauche, titre: 'x', suivi: suivi(true) })), /checked=""/)
+  assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /type="radio"/)
+  const modes = (valeur) => ({
+    libelle: 'Mode',
+    valeur,
+    options: [
+      { valeur: 'ecrire', libelle: 'Modifier' },
+      { valeur: 'suggerer', libelle: 'Suggérer' },
+      { valeur: 'relire', libelle: 'Relire' },
+    ],
+    surChange: () => {},
+  })
+  const html = rendre(h(design.Bandeau, { voletGauche, titre: 'x', modes: modes('suggerer') }))
+  assert.equal(html.match(/type="radio"/g)?.length, 3)
+  for (const l of ['Modifier', 'Suggérer', 'Relire']) assert.ok(html.includes(l), l)
+  assert.match(html, /value="suggerer"[^>]*checked=""|checked=""[^>]*value="suggerer"/)
+})
+
+test('panneau des suggestions : hors relecture, une invitation à la place de la liste', () => {
+  const libelles = {
+    accepter: 'A',
+    refuser: 'R',
+    accepterDe: (x) => x,
+    refuserDe: (x) => x,
+    toutAccepter: 'TA',
+    toutRefuser: 'TR',
+  }
+  const html = rendre(
+    h(design.PanneauSuggestions, {
+      titre: 'Suggestions',
+      lignes: [],
+      libelles,
+      invitation: { texte: 'Des suggestions attendent.', bouton: 'Relire', surClic: () => {} },
+    }),
+  )
+  assert.match(html, /Des suggestions attendent\./)
+  assert.match(html, />Relire</)
+  assert.doesNotMatch(html, />TA</)
 })
 
 test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni noire', () => {
@@ -323,6 +353,109 @@ test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rie
     }),
   )
   assert.doesNotMatch(html, /<script>|<b>/)
+})
+
+test('export et modèles : la fenêtre « Exporter » (format, modèle, case « retenir »), la liste et le formulaire des modèles', () => {
+  const t = creerTraducteur('fr')
+  const libelles = {
+    format: t('export.format'),
+    modele: t('export.modele'),
+    retenir: t('export.retenir'),
+    exporter: t('export.exporter'),
+    annuler: t('interface.annuler'),
+  }
+  const formats = [
+    { value: 'pdf', label: t('export.pdf') },
+    { value: 'markdown', label: t('export.markdown') },
+  ]
+  const base = {
+    libelles,
+    formats,
+    surFormat: () => {},
+    surModele: () => {},
+    surExporter: () => {},
+    surAnnuler: () => {},
+  }
+  const pdf = rendre(
+    h(design.PanneauExport, {
+      ...base,
+      format: 'pdf',
+      modeles: [{ group: 'amend.ink', items: [{ value: 'tat-poche', label: 'TàT - Poche' }] }],
+      modele: 'tat-poche',
+      retenir: { coche: false, surChange: () => {} },
+      enCours: false,
+    }),
+  )
+  for (const cle of ['export.format', 'export.modele', 'export.retenir', 'export.exporter'])
+    assert.ok(pdf.includes(echapper(t(cle))), cle)
+  assert.match(pdf, /value="TàT - Poche"/)
+  const md = rendre(
+    h(design.PanneauExport, { ...base, format: 'markdown', modeles: null, retenir: null, enCours: true }),
+  )
+  assert.ok(!md.includes(echapper(t('export.modele'))), 'pas de modèle pour le Markdown')
+  assert.ok(!md.includes(echapper(t('export.retenir'))))
+  assert.match(md, /data-loading/, 'l’export en cours se voit sur le bouton')
+
+  const liste = rendre(
+    h(design.PanneauModeles, {
+      libelles: {
+        defaut: t('modeles.defaut'),
+        nom: t('modeles.nom'),
+        base: t('modeles.base'),
+        creer: t('modeles.creer'),
+        modifier: t('modeles.modifier'),
+        supprimer: t('modeles.supprimer'),
+        aucun: t('modeles.aucun'),
+        modifierDe: (nom) => t('modeles.modifierDe', { nom }),
+        supprimerDe: (nom) => t('modeles.supprimerDe', { nom }),
+      },
+      defaut: { options: [{ value: 'tat-poche', label: 'TàT - Poche' }], valeur: 'tat-poche', surChange: () => {} },
+      modeles: [{ cle: 'm1', nom: 'Essais', detail: 'TàT - Poche', parDefaut: t('modeles.parDefaut') }],
+      bases: [{ value: 'tat-poche', label: 'TàT - Poche' }],
+      surCreer: () => {},
+      surModifier: () => {},
+      surSupprimer: () => {},
+    }),
+  )
+  assert.ok(
+    liste.includes(echapper(t('modeles.modifierDe', { nom: 'Essais' }))),
+    'chaque bouton est nommé par sa ligne',
+  )
+  assert.ok(liste.includes(echapper(t('modeles.parDefaut'))))
+  assert.match(liste, /name="nom"/)
+
+  const formulaire = rendre(
+    h(design.FormulaireModele, {
+      libelles: { nom: t('modeles.nom'), enregistrer: t('modeles.enregistrer'), annuler: t('interface.annuler') },
+      nom: 'Essais',
+      champs: [
+        {
+          cle: 'page.largeur',
+          type: 'nombre',
+          libelle: t('modeles.reglage.page.largeur'),
+          valeur: 120,
+          min: 80,
+          max: 450,
+          pas: 0.5,
+        },
+        { cle: 'grille.lignes', type: 'entier', libelle: t('modeles.reglage.grille.lignes'), valeur: 31, min: 1 },
+        { cle: 'chapitre.bellePage', type: 'booleen', libelle: t('modeles.reglage.chapitre.bellePage'), valeur: true },
+        {
+          cle: 'police',
+          type: 'police',
+          libelle: t('modeles.reglage.police'),
+          valeur: 'EB Garamond',
+          options: [{ value: 'EB Garamond', label: 'EB Garamond' }],
+        },
+      ],
+      surEnregistrer: () => {},
+      surAnnuler: () => {},
+    }),
+  )
+  for (const cle of ['page.largeur', 'grille.lignes', 'chapitre.bellePage', 'police'])
+    assert.ok(formulaire.includes(echapper(t(`modeles.reglage.${cle}`))), cle)
+  assert.match(formulaire, /value="Essais"/)
+  assert.match(formulaire, /role="switch"[^>]*checked=""|checked=""[^>]*role="switch"/)
 })
 
 test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiquetée ; accueil quand le fil est vide', () => {

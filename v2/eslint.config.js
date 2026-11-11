@@ -279,7 +279,7 @@ export default [
   // Le seul fichier où une valeur de design est permise : les réglages
   // décidés par Sylvain, chacun noté dans l'ADR 0008 (contrat statique).
   {
-    files: ['design/reglages.js'],
+    files: ['design/reglages.js', 'design/reglagesLivre.js'],
     rules: { 'no-restricted-syntax': ['error', STYLE_EN_DUR, ...TEXTE_EN_DUR] },
   },
   // Les traductions : le format ICU et rien d'autre (ADR 0009).

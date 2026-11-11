@@ -33,7 +33,7 @@ L'étape ne peut pas être close en l'état : manquent l'arbitrage de Sylvain su
 
 1. **Juste.** Les deux audits partiels attendent l'arbitrage de Sylvain : question **Q1**. La fusion du 10/11 a été faite avec son accord, après lecture du compte rendu des constats.
 2. **Juste en partie.** Le présent document est la revue de clôture. La revue « de code de tout ce que l'étape a produit » est faite en deux audits partiels qui couvrent tout le diff de l'étape (`bd671c5` → `2f1581e`, puis `2f1581e` → fin) ; le second a été lancé à la suite de ce constat.
-3. **Juste, corrigé.** Renoncements n° 15 à 18 inscrits au registre, avec leur raison et ce qui ferait y revenir.
+3. **Juste, corrigé.** Renoncements n° 16 à 19 inscrits au registre (le n° 15 a été pris entre-temps par l’étape 7), avec leur raison et ce qui ferait y revenir.
 4. **Juste.** Les pistes du banc sont la question **Q2**. Si la consigne change, je rejoue le banc avant de clore.
 5. **Juste, noté.** La contrainte est écrite au journal des décisions (11/11/2026). Aucun texte de l'interface de la v2 ne promet aujourd'hui la non-conservation (aucune occurrence dans `v2/i18n/`).
 6. **Juste, corrigé.** Le plan de l'étape 8 et celui du back-office disent que la rubrique IA a été faite en avance, sur demande de Sylvain ; son code est couvert par le second audit partiel.
