@@ -29,15 +29,18 @@
     "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement\u202F?",
     "renommer": "Renommer",
     "nomDuDocument": "Titre du document",
-    "exporterMarkdown": "Exporter en Markdown",
-    "exporterPdf": "Exporter en PDF",
     "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant.",
-    "suiviModifications": "Suivi des modifications",
-    "activerSuivi": "Activer le suivi des modifications",
-    "arreterSuivi": "Arrêter le suivi des modifications"
+    "modes": "Mode d’édition",
+    "modeEcrire": "Modifier",
+    "modeSuggerer": "Suggérer",
+    "modeRelire": "Relire",
+    "passerEcrire": "Modifier directement",
+    "passerSuggerer": "Suggérer des modifications",
+    "passerRelire": "Relire les suggestions",
+    "exporter": "Exporter…"
   },
   "erreurs": {
-    "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes ou son folio ne tiennent pas dans la page.",
+    "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes, son folio ou la largeur du texte ne tiennent pas dans la page.",
     "document-vide": "Ce document n’a pas de nom.",
     "document-trop-long": "Le nom de ce document est trop long (64 signes au plus).",
     "document-caracteres": "Le nom d’un document ne peut contenir que des lettres et chiffres sans accent, des tirets et des tirets bas.",
@@ -71,7 +74,14 @@
     "deplacement-impossible": "Un document ne passe pas directement d’une équipe à une autre\u00A0: sortez-le d’abord dans Mes documents.",
     "equipe-introuvable": "Cette équipe n’existe pas, ou vous n’en êtes pas membre.",
     "equipe-non-vide": "Cette équipe n’est pas vide\u00A0: déplacez ou supprimez d’abord ses documents et ses dossiers.",
-    "reserve-administrateur": "Réservé aux administrateurs de l’instance."
+    "reserve-administrateur": "Réservé aux administrateurs de l’instance.",
+    "modele-introuvable": "Ce modèle n’existe pas, ou il n’est pas permis à ce document.",
+    "reglage-inconnu": "Ce réglage ne se change pas dans un modèle d’équipe.",
+    "reglage-hors-bornes": "Une valeur est hors des limites permises\u00A0: vérifiez les réglages.",
+    "ecarts-invalides": "Ces réglages ne sont pas valides.",
+    "margo-indisponible": "Margo est indisponible pour le moment.",
+    "selection-absente": "Sélectionnez d’abord le passage à corriger.",
+    "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus)."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -84,7 +94,9 @@
     "toutAccepter": "Tout accepter",
     "toutRefuser": "Tout refuser",
     "accepterDe": "Accepter\u00A0: {texte}",
-    "refuserDe": "Refuser\u00A0: {texte}"
+    "refuserDe": "Refuser\u00A0: {texte}",
+    "enCours": "Suggestions en attente",
+    "enAttente": "Des suggestions attendent\u00A0: passez en relecture pour les accepter ou les refuser."
   },
   "roles": {
     "lecteur": "lecteur",
@@ -165,7 +177,8 @@
     "deplacerVers": "Déplacer…",
     "aucun": "Aucun document pour l’instant. Créez le premier avec «\u00A0Nouveau document\u00A0».",
     "rienTrouve": "Aucun document ne porte ce titre.",
-    "destination": "Destination"
+    "destination": "Destination",
+    "modeles": "Modèles de mise en page"
   },
   "partage": {
     "titre": "Partage",
@@ -217,12 +230,91 @@
     "presence": "Personnes sur ce document",
     "modificationsCorrecteur": "Vos suggestions sont proposées aux éditeurs du document, qui les acceptent ou les refusent.",
     "margo": "Margo (IA)",
-    "margoBientot": "Margo arrive bientôt ici.",
     "horsLigne": "Hors ligne\u00A0: vos modifications sont gardées et partiront au retour de la connexion.",
     "largeurVolet": "Largeur du volet",
     "fermer": "Fermer",
     "valider": "Valider",
     "annuler": "Annuler",
     "continuer": "Continuer"
+  },
+  "export": {
+    "titre": "Exporter",
+    "format": "Format",
+    "modele": "Modèle de mise en page",
+    "retenir": "Retenir ce modèle pour le document",
+    "exporter": "Exporter",
+    "pdf": "PDF",
+    "markdown": "Markdown",
+    "groupeMaison": "amend.ink",
+    "groupeEquipe": "Équipe «\u00A0{equipe}\u00A0»"
+  },
+  "modeles": {
+    "titre": "Modèles de mise en page",
+    "defaut": "Modèle par défaut de l’équipe",
+    "nom": "Nom du modèle",
+    "base": "Modèle de départ",
+    "creer": "Créer",
+    "modifier": "Régler",
+    "supprimer": "Supprimer",
+    "aucun": "L’équipe n’a pas encore de modèle à elle.",
+    "modifierDe": "Régler «\u00A0{nom}\u00A0»",
+    "supprimerDe": "Supprimer «\u00A0{nom}\u00A0»",
+    "parDefaut": "Par défaut",
+    "enregistrer": "Enregistrer",
+    "enregistre": "Modèle enregistré.",
+    "detail": "D’après «\u00A0{titre}\u00A0» · {n, plural, =0 {aucun document} one {# document} other {# documents}}",
+    "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? {n, plural, =0 {Aucun document ne l’a choisi.} one {Le document qui l’avait choisi prendra le modèle par défaut de l’équipe.} other {Les # documents qui l’avaient choisi prendront le modèle par défaut de l’équipe.}}",
+    "reglage": {
+      "page": {
+        "largeur": "Largeur de la page (mm)",
+        "hauteur": "Hauteur de la page (mm)"
+      },
+      "marges": {
+        "haut": "Marge de tête (mm)",
+        "interieure": "Marge intérieure (mm)",
+        "exterieure": "Marge extérieure (mm)"
+      },
+      "grille": {
+        "corps": "Corps du texte (pt)",
+        "interligne": "Interligne (pt)",
+        "lignes": "Lignes par page"
+      },
+      "police": "Police",
+      "alinea": "Alinéa (mm)",
+      "chapitre": {
+        "bellePage": "Chapitres en belle page (page de droite)"
+      }
+    },
+    "maison": {
+      "tat-poche": "TàT - Poche"
+    }
+  },
+  "margo": {
+    "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent en suggestions, dans Modifications, à accepter ou refuser.",
+    "vous": "Vous",
+    "corriger": "Corriger",
+    "demandeCorriger": "Corriger la sélection",
+    "porteeSelection": "Sur la sélection",
+    "porteeDocument": "Sur tout le texte",
+    "saisie": "Votre demande",
+    "envoyer": "Envoyer",
+    "nouvelle": "Nouvelle conversation",
+    "allerAuBloc": "Aller au bloc {n}",
+    "enCours": {
+      "reflexion": "Margo réfléchit…",
+      "lire": "Margo lit le texte…",
+      "chercher": "Margo cherche dans le texte…",
+      "proposer": "Margo propose des corrections…",
+      "commenter": "Margo commente…",
+      "repli": "Le modèle a refusé cette demande. Margo la reprend avec un autre modèle…"
+    },
+    "bilan": "{corrections, plural, =0 {Aucune correction} one {# correction} other {# corrections}}, {commentaires, plural, =0 {aucun commentaire} one {# commentaire} other {# commentaires}}.",
+    "arret": {
+      "etapes": "Demande arrêtée\u00A0: trop d’étapes. Relancez-la sur un passage plus court.",
+      "refusEnSerie": "Demande arrêtée\u00A0: trop de propositions refusées d’affilée.",
+      "longueur": "Réponse coupée\u00A0: elle était trop longue.",
+      "refus": "Le modèle a refusé cette demande.",
+      "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Modifications."
+    }
   }
 }

@@ -166,7 +166,8 @@ for (const [taille, viewport] of Object.entries({
       await page.locator('button:has(.tabler-icon-share)').first().click()
       await page.getByRole('dialog').waitFor()
       assert.deepEqual(
-        (await problemes(page, true)).filter((x) => !/Camille/.test(x)),
+        // Le nom de l'équipe, saisi, paraît dans l'arbre du volet « Documents ».
+        (await problemes(page, true)).filter((x) => !/Camille|Équipe d’essai/.test(x)),
         [],
         'fenêtre de partage',
       )

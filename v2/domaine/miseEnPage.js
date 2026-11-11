@@ -145,3 +145,86 @@ export function gabaritTypst(modele, { titre, langue } = {}) {
   )
   return lignes.join('\n') + '\n'
 }
+
+// --- Modèles d'équipe (ADR 0011) -------------------------------------------
+//
+// Un modèle d'équipe dérive d'un modèle d'amend.ink : il n'enregistre que ses
+// écarts, pris dans une liste fermée de réglages bornés (décidée dans le
+// design et passée ici en paramètre). Le modèle complet est toujours calculé ;
+// une correction du modèle de base atteint donc les modèles qui en dérivent.
+
+const lire = (objet, cle) => cle.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), objet)
+function poser(objet, cle, valeur) {
+  const k = cle.split('.')
+  let o = objet
+  for (const p of k.slice(0, -1)) o = o[p] = { ...(o[p] ?? {}) }
+  o[k.at(-1)] = valeur
+}
+const refus = (code, reglage) => ({ ok: false, code, ...(reglage ? { reglage } : {}) })
+const estObjet = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
+
+/** Une valeur est-elle permise par la description d'un réglage ? */
+function valeurPermise(r, v, polices) {
+  if (r.type === 'booleen') return typeof v === 'boolean'
+  if (r.type === 'police') return typeof v === 'string' && polices.some((p) => p.famille === v)
+  if (r.type !== 'nombre' && r.type !== 'entier') return false
+  if (typeof v !== 'number' || !Number.isFinite(v)) return false
+  if (r.type === 'entier' && !Number.isInteger(v)) return false
+  return !(r.min !== undefined && v < r.min) && !(r.max !== undefined && v > r.max)
+}
+
+/**
+ * Le modèle complet d'une équipe : son modèle de base et ses écarts.
+ * @param {object} base  un modèle d'amend.ink (voir `gabaritTypst`)
+ * @param {Record<string, any>} ecarts  `{ 'page.largeur': 135, police: '…' }`
+ * @param {{ reglables: Array<{ cle: string, type: string, min?: number, max?: number }>,
+ *   polices: Array<{ famille: string, fichiers: string[] }>, largeurUtileMin?: number }} regles
+ * @returns {{ ok: true, modele: object, ecarts: object } | { ok: false, code: string, reglage?: string, raison?: string }}
+ *   codes : `ecarts-invalides`, `reglage-inconnu`, `reglage-hors-bornes`,
+ *   `modele-impossible` (la grille ne tient pas dans la page)
+ */
+export function appliquerEcarts(base, ecarts, { reglables, polices, largeurUtileMin = 0 }) {
+  if (!estObjet(ecarts)) return refus('ecarts-invalides')
+  const modele = structuredClone(base)
+  const retenus = {}
+  for (const [cle, valeur] of Object.entries(ecarts)) {
+    const r = reglables.find((x) => x.cle === cle)
+    if (!r) return refus('reglage-inconnu', cle)
+    if (!valeurPermise(r, valeur, polices)) return refus('reglage-hors-bornes', cle)
+    // Un écart égal à la base n'en est pas un : il n'est pas gardé, pour que
+    // la base reste maîtresse de ce réglage.
+    if (lire(base, cle) === valeur) continue
+    retenus[cle] = valeur
+    poser(modele, cle, valeur)
+    if (r.type === 'police') modele.polices = polices.find((p) => p.famille === valeur).fichiers
+  }
+  const utile = modele.page.largeur - modele.marges.interieure - modele.marges.exterieure
+  if (utile < largeurUtileMin) return { ...refus('modele-impossible'), raison: 'largeur' }
+  try {
+    grille(modele)
+  } catch (e) {
+    if (e.code !== 'modele-impossible') throw e
+    return { ...refus('modele-impossible'), raison: e.raison }
+  }
+  return { ok: true, modele, ecarts: retenus }
+}
+
+/** La valeur d'un réglage dans un modèle complet (pour le formulaire). */
+export const valeurDuReglage = (modele, cle) => lire(modele, cle)
+
+/**
+ * Le modèle retenu pour un document : celui choisi pour lui s'il lui est
+ * permis, sinon le modèle par défaut de son équipe s'il l'est, sinon le
+ * premier modèle d'amend.ink.
+ * @param {{ choisi?: string | null, defautEquipe?: string | null, permis: readonly string[] }} o
+ *   `permis` : les identifiants des modèles d'amend.ink, puis ceux de
+ *   l'équipe qui possède le document
+ * @returns {string}
+ */
+export function modeleRetenu({ choisi, defautEquipe, permis }) {
+  for (const id of [choisi, defautEquipe]) if (id && permis.includes(id)) return id
+  return permis[0]
+}
+
+/** Choisir le modèle d'un document (l'enregistrer avec lui) : qui l'écrit. */
+export const peutChoisirModele = (capsDocument) => capsDocument.includes('ecrire')

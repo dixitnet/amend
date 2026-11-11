@@ -10,10 +10,12 @@ import { execFileSync } from 'node:child_process'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerComptes } from './comptes.js'
 import { creerCommentaires } from './commentaires.js'
+import { creerMargo } from './margo.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
+import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
 import {
   listeAdministrateurs,
   estAdministrateur,
@@ -25,6 +27,7 @@ import {
   accesBranche,
   refusAcces,
   DUREE_SESSION_MS,
+  AUTEUR_MARGO,
 } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
@@ -53,6 +56,11 @@ const confDepuisEnv = () => ({
   mailgunCle: process.env.V2_MAILGUN_CLE || '',
   mailgunDomaine: process.env.V2_MAILGUN_DOMAINE || '',
   expediteur: process.env.V2_EXPEDITEUR || 'amend.ink <ne-pas-repondre@amend.ink>',
+  // Margo (étape 8) : le modèle, et les clés des fournisseurs ; sans clé, Margo
+  // répond « indisponible ». Le modèle par défaut est celui de la v1.
+  margoModele: process.env.V2_MARGO_MODELE || MODELE_PAR_DEFAUT,
+  cleAnthropic: process.env.V2_ANTHROPIC_CLE || '',
+  cleScaleway: process.env.V2_SCALEWAY_CLE || '',
   postgres:
     process.env.V2_POSTGRES ||
     (process.env.V2_DEV === '1' ? 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub' : ''),
@@ -194,10 +202,13 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
       if (!(await personneDe(req))) return json(res, 401, { code: 'session-absente' })
       const ids = url.searchParams.getAll('id').slice(0, 100)
       const connus = new Map((await comptes.noms(ids)).map((p) => [p.id, p.nom]))
+      // Margo n'est pas une personne : son nom se traduit dans l'interface.
       json(
         res,
         200,
-        ids.map((id) => ({ id, nom: connus.get(id) ?? null })),
+        ids.map((id) =>
+          id === AUTEUR_MARGO ? { id, nom: null, agent: 'margo' } : { id, nom: connus.get(id) ?? null },
+        ),
       )
     },
     'GET /api/moi': async (req, res) => {
@@ -362,8 +373,9 @@ async function servirFichier(CONF, res, chemin) {
 
 /**
  * @param {object} [CONF]
- * @param {{ comptes: any, commentaires?: any, courrier?: any, collaboration?: any }} services
- *   les dépôts (adaptateur PostgreSQL), le courrier, l'accès de notre serveur à y/hub ;
+ * @param {{ comptes: any, commentaires?: any, courrier?: any, collaboration?: any, ia?: any }} services
+ *   les dépôts (adaptateur PostgreSQL), le courrier, l'accès de notre serveur à y/hub,
+ *   l'IA de Margo ;
  *   sans dépôt des commentaires, leurs routes répondent 503
  */
 export function creerServeur(CONF = confDepuisEnv(), services = {}) {
@@ -384,6 +396,21 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     json,
     lireCorps,
     collaboration,
+  })
+  const ia = services.ia ?? creerIA({ cleAnthropic: CONF.cleAnthropic, cleScaleway: CONF.cleScaleway })
+  const modeleMargo = MODELES[CONF.margoModele] ? CONF.margoModele : MODELE_PAR_DEFAUT
+  const margo = creerMargo({
+    personneDe: identite.personneDe,
+    roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),
+    documentDe: (docId) => comptes.document(docId),
+    ia,
+    modele: modeleMargo,
+    modeleRepli: MODELE_PAR_DEFAUT,
+    collaboration,
+    depot: depotCommentaires,
+    prevenirFils: commentaires.prevenir,
+    json,
+    lireCorps,
   })
   const partage = creerComptes({
     CONF,
@@ -416,6 +443,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       const route = routes[`${req.method} ${url.pathname}`]
       if (route) return await route(req, res, url)
       if (await commentaires(req, res, url)) return
+      if (await margo(req, res, url)) return
       if (await partage(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })

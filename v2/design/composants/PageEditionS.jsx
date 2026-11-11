@@ -11,12 +11,15 @@ import { Etoile } from './Coquille.jsx'
 /** Les pictos, par rôle : la table commune (design/pictos.jsx ; audit du 10/11/2026). */
 const Icone = ({ nom }) => <PictoDe role={nom} />
 
-/** Un tiroir à onglets. */
+/** Un tiroir à onglets ; l'onglet ouvert peut être piloté (`actif`, `surOnglet`). */
 function Volet({ volet, position, ouvert, surFermer }) {
   if (!volet) return null
+  const pilote = volet.actif
+    ? { value: volet.actif, onChange: volet.surOnglet }
+    : { defaultValue: volet.onglets[0]?.cle }
   return (
     <Drawer opened={ouvert} onClose={surFermer} position={position} title={volet.titre}>
-      <Tabs defaultValue={volet.onglets[0]?.cle}>
+      <Tabs {...pilote}>
         <Tabs.List grow>
           {volet.onglets.map((o) => (
             <Tabs.Tab key={o.cle} value={o.cle} leftSection={<Icone nom={o.icone} />}>
@@ -43,7 +46,7 @@ function Volet({ volet, position, ouvert, surFermer }) {
  *   enModification: boolean, surTerminer: () => void,
  *   menu: Array<{ cle: string, libelle: string, icone: string, surClic: () => void }>,
  *   voletGauche: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> },
- *   voletDroit?: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> } | null,
+ *   voletDroit?: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }>, actif?: string, surOnglet?: (cle: string) => void } | null,
  *   volet: 'gauche' | 'droite' | null, surVolet: (v: 'gauche' | 'droite' | null) => void,
  *   panneau?: { titre: string, contenu: any, surFermer: () => void } | null,
  *   editeur: any,

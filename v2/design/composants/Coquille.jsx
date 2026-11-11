@@ -27,7 +27,7 @@ import {
   Modal,
   TextInput,
   UnstyledButton,
-  Switch,
+  SegmentedControl,
 } from '@mantine/core'
 import { useRef, useState } from 'react'
 import { REGLAGES } from '../reglages.js'
@@ -137,8 +137,9 @@ function TitreModifiable({ titre, renommer }) {
 
 /**
  * Le bandeau : volet gauche, étoile des favoris, titre (modifiable d’un clic), mention du mode (« Mode suggestion »,
- * « Lecture seule »), puis (document) l'interrupteur du suivi des
- * modifications, « Terminer », présence, « Partager », menu « … », compte,
+ * « Lecture seule »), puis (document) le choix du mode d'un éditeur
+ * (Modifier, Suggérer, Relire, comme l'exemple de BlockNote), « Terminer »,
+ * présence, « Partager », menu « … », compte,
  * volet droit. Le volet gauche est toujours là ; le reste est facultatif.
  */
 export function Bandeau({
@@ -147,7 +148,7 @@ export function Bandeau({
   renommer,
   favori,
   mention,
-  suivi,
+  modes,
   terminer,
   presence,
   partager,
@@ -163,11 +164,12 @@ export function Bandeau({
       {favori ? <Etoile favori={favori} /> : null}
       <TitreModifiable titre={titre} renommer={renommer} />
       {mention ? <Badge>{mention}</Badge> : null}
-      {suivi ? (
-        <Switch
-          label={suivi.libelle}
-          checked={suivi.actif}
-          onChange={(e) => suivi.surChange(e.currentTarget.checked)}
+      {modes ? (
+        <SegmentedControl
+          aria-label={modes.libelle}
+          value={modes.valeur}
+          data={modes.options.map((o) => ({ value: o.valeur, label: o.libelle }))}
+          onChange={modes.surChange}
         />
       ) : null}
       {terminer ? (
@@ -276,26 +278,33 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
 
 /** Le volet droit : onglets Modifications et Margo (IA). Le titre
  * (« Relecture ») n'est plus affiché (Sylvain, 10/11/2026) : il nomme les
- * onglets pour les lecteurs d'écran. */
-export function VoletRelecture({ titre, onglets, modifications, margo }) {
+ * onglets pour les lecteurs d'écran. L'onglet ouvert peut être piloté
+ * (`actif`, `surOnglet`) : « Corriger » ouvre Margo (étape 8). Sans `margo`,
+ * pas d'onglet Margo (le correcteur n'y a pas accès). */
+export function VoletRelecture({ titre, onglets, modifications, margo, actif, surOnglet }) {
+  const pilote = actif ? { value: actif, onChange: surOnglet } : { defaultValue: 'modifications' }
   return (
     <>
       <AppShell.Section grow component={ScrollArea}>
-        <Tabs defaultValue="modifications">
+        <Tabs {...pilote}>
           <Tabs.List grow aria-label={titre}>
             <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
               {onglets.modifications}
             </Tabs.Tab>
-            <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
-              {onglets.margo}
-            </Tabs.Tab>
+            {margo ? (
+              <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
+                {onglets.margo}
+              </Tabs.Tab>
+            ) : null}
           </Tabs.List>
           <Tabs.Panel value="modifications">
             <div className="amend-coquille-volet-corps">{modifications}</div>
           </Tabs.Panel>
-          <Tabs.Panel value="margo">
-            <div className="amend-coquille-volet-corps">{margo}</div>
-          </Tabs.Panel>
+          {margo ? (
+            <Tabs.Panel value="margo">
+              <div className="amend-coquille-volet-corps">{margo}</div>
+            </Tabs.Panel>
+          ) : null}
         </Tabs>
       </AppShell.Section>
     </>

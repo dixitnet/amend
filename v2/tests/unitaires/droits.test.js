@@ -23,6 +23,7 @@ test('chaque rôle a les capacités du précédent, et les siennes', () => {
     'arbitrer',
     'restaurer',
     'inviter',
+    'utiliserMargo',
   ])
   assert.deepEqual(capacites('proprietaire'), [...capacites('editeur'), 'supprimer', 'transferer', 'ranger'])
   for (let i = 1; i < ROLES.length; i++)
@@ -142,4 +143,9 @@ test('les capacités rendues ne se modifient pas', () => {
   assert.throws(() => capacites('lecteur').push('ecrire'))
   assert.throws(() => capacites(null).push('lire'))
   assert.deepEqual(capacites('lecteur'), ['lire'])
+})
+
+test('Margo (étape 8) : aux éditeurs et au-dessus, jamais au correcteur ni au lecteur', () => {
+  for (const role of ['editeur', 'proprietaire']) assert.ok(capacites(role).includes('utiliserMargo'), role)
+  for (const role of ['lecteur', 'correcteur']) assert.ok(!capacites(role).includes('utiliserMargo'), role)
 })

@@ -4,7 +4,16 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, texte, attendre } from './outils.mjs'
+import {
+  lancerNavigateur,
+  docTest,
+  ouvrir as ouvrirSur,
+  attendreTexte,
+  texte,
+  attendre,
+  choisirMode,
+  modeChoisi,
+} from './outils.mjs'
 
 let pile, nav
 const ouvrir = (nom, docId, o) => ouvrirSur(nav, pile.url, nom, docId, o)
@@ -23,7 +32,9 @@ after(async () => {
 /** Le panneau des suggestions, en une ligne. */
 const panneau = (page) =>
   page.evaluate(() => document.querySelector('section[aria-label]')?.innerText.replace(/\n+/g, ' / ') ?? '')
+/** Le panneau d'une éditrice, en relecture (le seul mode où il liste les suggestions). */
 async function attendrePanneau(page, motif, delai = 10000) {
+  if ((await modeChoisi(page)) && (await modeChoisi(page)) !== 'Relire') await choisirMode(page, 'Relire')
   for (const t0 = Date.now(); Date.now() - t0 < delai; await attendre(200)) if (motif.test(await panneau(page))) return
   assert.match(await panneau(page), motif)
 }
@@ -68,9 +79,10 @@ test('suggestion : un nouveau paragraphe du correcteur reste intact chez les deu
   await c.keyboard.press('Enter')
   await c.keyboard.type('Nouveau paragraphe.')
   await attendre(3500)
+  // L'éditrice voit la proposition en relecture (en Modifier, le texte seul).
+  await attendrePanneau(p, /Carla ajoute «\s?Nouveau paragraphe\.\s?»/)
   await attendreTexte(p, 'Premier paragraphe.\nNouveau paragraphe.')
   await attendreTexte(c, 'Premier paragraphe.\nNouveau paragraphe.')
-  await attendrePanneau(p, /Carla ajoute «\s?Nouveau paragraphe\.\s?»/)
   await fermer()
 })
 
@@ -145,25 +157,29 @@ test('historique : ouvert pour tous ; nommer une version seulement pour l’édi
   await fermer()
 })
 
-test('suivi des modifications : l’éditrice l’active, ce qu’elle tape devient une suggestion ; arrêté, elle la retrouve et l’accepte', async () => {
-  const doc = docTest('interrupteur')
+test('trois modes : l’éditrice suggère, sa frappe devient une suggestion ; en relecture, elle la retrouve et l’accepte', async () => {
+  const doc = docTest('modes')
   const p = await ouvrir('Paule', doc)
   await p.click('.bn-editor')
   await p.keyboard.type('Il faisait nuit.')
-  const interrupteur = p.getByRole('switch', { name: 'Suivi des modifications' })
-  assert.equal(await interrupteur.isChecked(), false, 'arrêté à l’ouverture')
-  await interrupteur.click()
-  await p.getByText('Mode suggestion').waitFor()
+  assert.equal(await modeChoisi(p), 'Modifier', 'Modifier à l’ouverture')
+  await choisirMode(p, 'Suggérer')
   await p.click('.bn-inline-content')
   await p.keyboard.press('End')
   await attendre(300)
   await p.keyboard.type(' Ajout')
   await attendre(1500)
-  await interrupteur.click()
+  await choisirMode(p, 'Modifier')
+  // En Modifier, la suggestion n'est pas dans le texte, et le panneau invite à relire.
+  await attendreTexte(p, 'Il faisait nuit.')
+  await p.getByText('Des suggestions attendent').waitFor()
   await attendrePanneau(p, /Paule ajoute «\s?Ajout\s?»/)
-  // « Tout accepter » : l'acceptation une à une d'une suggestion faite par un
-  // éditeur ne marche pas encore (10/11/2026, à examiner ; celle d'un correcteur marche).
-  await p.getByRole('button', { name: 'Tout accepter' }).click()
+  assert.equal(await p.locator('.bn-editor [contenteditable=true]').count(), 0, 'pas de frappe en relecture')
+  await p
+    .locator('section[aria-label] li')
+    .first()
+    .getByRole('button', { name: /^Accepter\s*:/ })
+    .click()
   await attendrePanneau(p, /Aucune suggestion/)
   await attendreTexte(p, 'Il faisait nuit. Ajout')
   await p.context().close()

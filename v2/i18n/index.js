@@ -62,11 +62,11 @@ function traducteur(l, catalogue, locale) {
 
 /** Le message d'un code d'erreur : `erreurs.<code>` s'il existe, sinon le
  * message générique avec le code (les codes viennent du domaine et du serveur). */
-export function messageErreur(t, code) {
+export function messageErreur(t, code, valeurs = {}) {
   // Seule une clé absente renvoie au message générique : un message mal formé
   // doit se voir, pas se cacher derrière lui.
   const cle = `erreurs.${code}`
-  return chercher(CATALOGUES[LANGUE_SOURCE], cle) === undefined ? t('application.erreur', { code }) : t(cle)
+  return chercher(CATALOGUES[LANGUE_SOURCE], cle) === undefined ? t('application.erreur', { code }) : t(cle, valeurs)
 }
 
 /** Le libellé d'un rôle (code du domaine) ; un code inconnu revient tel quel. */

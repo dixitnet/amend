@@ -15,7 +15,35 @@ export {
   adresseCourriel,
 } from './partage.js'
 export { nomDossier, refusDeplacementDossier, sectionDuDocument, refusRetrait } from './dossiers.js'
-export { refusMembre, refusDepart, peutModifierEquipe, peutGererEquipe, deplacementDocument } from './equipes.js'
+export {
+  refusMembre,
+  refusDepart,
+  peutModifierEquipe,
+  peutGererEquipe,
+  peutGererModeles,
+  deplacementDocument,
+} from './equipes.js'
 export { listeAdministrateurs, estAdministrateur, numeroDeVersion } from './administration.js'
 export { nfc } from './propre.js'
-export { gabaritTypst, grille, chaineTypst } from './miseEnPage.js'
+export {
+  gabaritTypst,
+  grille,
+  chaineTypst,
+  appliquerEcarts,
+  valeurDuReglage,
+  modeleRetenu,
+  peutChoisirModele,
+} from './miseEnPage.js'
+export {
+  AUTEUR_MARGO,
+  GARDE_FOUS_MARGO,
+  MARGO_DEMANDE_MAX_SIGNES,
+  MARGO_HISTORIQUE_MAX_SIGNES,
+  signes,
+  texteNumerote,
+  porteeMargo,
+  normaliser,
+  situerCitation,
+  situerRemplacement,
+  suiviDesRefus,
+} from './margo.js'

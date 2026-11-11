@@ -4,7 +4,7 @@
 // ce qu'elle peut faire (`droits`), comme l'adaptateur de Docs.
 import { createYHub, createAuthPlugin, createAuthorize, createDocumentPermissions, apiError } from '@y/hub'
 import { timingSafeEqual } from 'node:crypto'
-import { BRANCHES } from '../../domaine/index.js'
+import { BRANCHES, AUTEUR_MARGO } from '../../domaine/index.js'
 
 /** Les branches ouvertes (domaine) : le texte et les suggestions ; toute autre est refusée. */
 const OUVERTES = new Set(BRANCHES)
@@ -45,6 +45,13 @@ const PERMISSIONS_SERVEUR = createDocumentPermissions({
 // Sur la branche des suggestions, effacer seulement (document supprimé).
 const PERMISSIONS_SERVEUR_SUGGESTIONS = createDocumentPermissions({ delete: ['hard'], endpoint: { ydoc: '---d' } })
 
+/** Margo, l'IA (étape 8) : notre serveur, au nom de Margo (jeton interne et
+ * en-tête `x-amend-agent: margo`). Elle lit le texte et écrit dans les
+ * suggestions seulement, comme un correcteur : ses propositions y sont
+ * attribuées à « margo ». Ses commentaires s'ancrent par l'identité du serveur. */
+const PERMISSIONS_MARGO_TEXTE = createDocumentPermissions({ ydoc: '-r--', endpoint: { ydoc: '-r--' } })
+const PERMISSIONS_MARGO_SUGGESTIONS = createDocumentPermissions({ ydoc: '-ru-', endpoint: { ydoc: '-ru-' } })
+
 function jetonValide(attendu, recu) {
   const a = Buffer.from(String(attendu || ''))
   const b = Buffer.from(String(recu || ''))
@@ -78,7 +85,11 @@ export async function demarrerCollaboration({
       // Les en-têtes de la requête se lisent avant toute attente (uWebSockets).
       const cookie = req.getHeader('cookie') || ''
       if (jetonValide(jetonInterne, req.getHeader('x-amend-interne')))
-        return Promise.resolve({ userid: SERVEUR, interne: true })
+        return Promise.resolve(
+          req.getHeader('x-amend-agent') === AUTEUR_MARGO
+            ? { userid: AUTEUR_MARGO, interne: true, agent: true }
+            : { userid: SERVEUR, interne: true },
+        )
       return identifier(cookie).then((personne) => {
         if (typeof personne?.id !== 'string' || !personne.id) throw apiError(401, 'session absente')
         return { userid: personne.id }
@@ -87,6 +98,8 @@ export async function demarrerCollaboration({
     authorize: createAuthorize({
       document: async (docRef, personne) => {
         if (!personne || docRef.org !== ORGANISATION || !OUVERTES.has(docRef.branch)) return null
+        if (personne.interne === true && personne.agent === true)
+          return docRef.branch === 'main' ? PERMISSIONS_MARGO_TEXTE : PERMISSIONS_MARGO_SUGGESTIONS
         if (personne.interne === true)
           return docRef.branch === 'main' ? PERMISSIONS_SERVEUR : PERMISSIONS_SERVEUR_SUGGESTIONS
         // Une demande de droits qui échoue (serveur lent ou absent) vaut refus.
