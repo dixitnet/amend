@@ -90,6 +90,9 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
       'Exporter…',
       'Dupliquer',
       'Mes documents',
+      '50\u202F%',
+      '100\u202F%',
+      '150\u202F%',
       'Supprimer',
     ],
   )
