@@ -373,7 +373,15 @@ export function EditeurCollaboratif({
   }, [enModification])
 
   const vue = (
-    <BlockNoteView editor={editeur} editable={appui ? false : ecrit && !historique} formattingToolbar={false}>
+    <BlockNoteView
+      editor={editeur}
+      editable={appui ? false : ecrit && !historique}
+      formattingToolbar={false}
+      // Pas d'émojis par « : » dans le texte d'un livre (« deux:points » ouvrait
+      // le sélecteur ; Sylvain, 11/11/2026, écart avec Docs) ; les réactions
+      // aux commentaires gardent le leur.
+      emojiPicker={false}
+    >
       <FormattingToolbarController formattingToolbar={palette} />
       {historique && historiqueOuvert ? (
         <VersioningSidebar
