@@ -74,7 +74,9 @@
     "reserve-administrateur": "Réservé aux administrateurs de l’instance.",
     "margo-indisponible": "Margo est indisponible pour le moment.",
     "selection-absente": "Sélectionnez d’abord le passage à corriger.",
-    "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus)."
+    "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus).",
+    "modele-inconnu": "Ce modèle n’existe pas.",
+    "modele-sans-cle": "Ce modèle n’a pas de clé configurée sur ce serveur."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -199,7 +201,17 @@
     "personnes": "Comptes",
     "essai": "Comptes d’essai et de développement",
     "documents": "Documents",
-    "equipes": "Équipes"
+    "equipes": "Équipes",
+    "ia": "IA (Margo)",
+    "modeleMargo": "Modèle de Margo",
+    "modeleSansCle": "{nom} (clé absente)",
+    "modeleEnregistre": "Modèle de Margo enregistré\u00A0: {nom}.",
+    "modeles": {
+      "deepseek": "DeepSeek V4.1 Flash (Scaleway, Paris)",
+      "sonnet": "Claude Sonnet 5.5 (Anthropic)",
+      "haiku": "Claude Haiku 5.5 (Anthropic)",
+      "fable": "Claude Fable 5.2 (Anthropic)"
+    }
   },
   "telephone": {
     "planEtDocuments": "Plan et documents",

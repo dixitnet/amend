@@ -86,7 +86,8 @@ const pourMargo = (b) => ({ n: b.n, texte: b.texte, titre: b.type === 'heading' 
  * @param {(docId: string, idPersonne: string) => Promise<string | null>} o.roleSur
  * @param {(docId: string) => Promise<{ titre?: string | null } | null>} o.documentDe
  * @param {any} o.ia             l'adaptateur IA (`creerIA`)
- * @param {string} o.modele      le modèle de Margo
+ * @param {string | (() => Promise<string>)} o.modele  le modèle de Margo (lu à chaque demande :
+ *   le back-office peut le changer)
  * @param {string} o.modeleRepli le modèle qui reprend quand un autre refuse
  * @param {any} o.collaboration  l'accès de notre serveur à y/hub
  * @param {any} o.depot          le dépôt des commentaires
@@ -100,7 +101,7 @@ export function creerMargo({
   roleSur,
   documentDe,
   ia,
-  modele,
+  modele: modeleDeMargo,
   modeleRepli,
   collaboration,
   depot,
@@ -133,6 +134,7 @@ export function creerMargo({
     if ((!demande && !corriger) || signes(demande) > MARGO_DEMANDE_MAX_SIGNES)
       return (json(res, 400, { code: 'demande-invalide' }), true)
     if (!ia || !collaboration || !depot) return (json(res, 503, { code: 'margo-indisponible' }), true)
+    const modele = typeof modeleDeMargo === 'function' ? await modeleDeMargo() : modeleDeMargo
     if (!ia.disponible(modele)) return (json(res, 503, { code: 'margo-indisponible' }), true)
 
     let etat
