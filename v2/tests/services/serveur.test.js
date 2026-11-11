@@ -466,6 +466,59 @@ test('back-office : réservé aux administrateurs de l’instance ; jamais un co
   assert.equal((await fetch(`${sans}/api/admin/systeme`, { headers: { cookie: cookie(admin) } })).status, 403)
 })
 
+test('back-office, suivi : erreurs et refus inhabituels au journal, mémoire des processus relevée ; réservé aux administrateurs', async () => {
+  const adresse = `admin-suivi-${Date.now().toString(36)}@exemple.fr`
+  const JETON = 'jeton-interne-du-suivi'
+  const base = await demarrer({
+    dev: false,
+    administrateurs: adresse,
+    jetonInterne: JETON,
+    adresse: 'https://ici.example',
+  })
+  const admin = await comptes.personneOuNouvelle(adresse)
+  const simple = await comptes.personneOuNouvelle(`simple-suivi-${Date.now().toString(36)}@exemple.fr`)
+  const cookie = (p) => `amend2_session=${creerJeton(BASE.secret, { id: p.id, nom: 'N' })}`
+  assert.equal((await fetch(`${base}/api/admin/suivi`)).status, 401)
+  assert.equal((await fetch(`${base}/api/admin/suivi`, { headers: { cookie: cookie(simple) } })).status, 403)
+  // Un refus inhabituel (requête venue d'un autre site) et un refus ordinaire (404).
+  const marque = `suivi-${Date.now().toString(36)}`
+  const ailleurs = await fetch(`${base}/api/${marque}`, {
+    method: 'POST',
+    headers: { origin: 'https://ailleurs.example' },
+  })
+  assert.equal(ailleurs.status, 403)
+  assert.equal((await fetch(`${base}/api/${marque}-ordinaire`, { headers: { cookie: cookie(simple) } })).status, 404)
+  // La mémoire de la collaboration, relevée avec le jeton interne seulement.
+  const mesure = (jeton, corps) =>
+    fetch(`${base}/api/interne/mesure`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-amend-interne': jeton },
+      body: JSON.stringify(corps),
+    })
+  assert.equal((await mesure('faux', { processus: 'collaboration', memoire: 1000 })).status, 403)
+  assert.equal((await mesure(JETON, { processus: 'autre', memoire: 1000 })).status, 400)
+  assert.equal((await mesure(JETON, { processus: 'collaboration', memoire: 123_456_789 })).status, 200)
+  await new Promise((r) => setTimeout(r, 200))
+  const r = await fetch(`${base}/api/admin/suivi`, { headers: { cookie: cookie(admin) } })
+  assert.equal(r.status, 200)
+  const suivi = await r.json()
+  const note = suivi.journal.find((j) => j.detail?.chemin === `/api/${marque}`)
+  assert.deepEqual(
+    { type: note?.type, code: note?.code, detail: note?.detail },
+    { type: 'refus', code: 'origine-refusee', detail: { methode: 'POST', chemin: `/api/${marque}` } },
+  )
+  assert.equal(
+    suivi.journal.some((j) => j.detail?.chemin === `/api/${marque}-ordinaire`),
+    false,
+    'un refus ordinaire n’est pas noté',
+  )
+  assert.ok(suivi.mesures.some((m) => m.processus === 'collaboration' && m.memoire === 123_456_789))
+  // La purge efface ce qui dépasse les durées du domaine.
+  await comptes.purgerSuivi({ journalAvant: Date.now() + 1000, mesuresAvant: Date.now() + 1000 })
+  const apres = await (await fetch(`${base}/api/admin/suivi`, { headers: { cookie: cookie(admin) } })).json()
+  assert.deepEqual([apres.journal.length, apres.mesures.length], [0, 0])
+})
+
 test('back-office, rubrique IA : le modèle de Margo, choisi par un administrateur, parmi ceux qui ont une clé', async (t) => {
   const adresse = `admin-ia-${Date.now().toString(36)}@exemple.fr`
   const ia = { disponible: (m) => m !== 'claude-fable-5-2', conversation: () => ({ tour: async () => ({}) }) }

@@ -2,6 +2,7 @@
 // notre serveur pour l'identité et les droits, comme Docs le branche sur son
 // backend. Un processus à part (ADR 0004).
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
+import { PAS_MESURE_MS } from '../../domaine/index.js'
 
 // Hors développement (`V2_DEV=1`), pas de repli : un réglage absent arrête le
 // processus au démarrage plutôt que d'ouvrir la collaboration sur de mauvaises valeurs.
@@ -53,6 +54,16 @@ function surModification(docId) {
   }).catch(() => {})
 }
 
+/** La mémoire de ce processus, relevée pour le back-office (sans attendre, au mieux). */
+function releverMemoire() {
+  fetch(`${CONF.serveur}/api/interne/mesure`, {
+    method: 'POST',
+    headers: { 'x-amend-interne': CONF.jetonInterne, 'content-type': 'application/json' },
+    body: JSON.stringify({ processus: 'collaboration', memoire: process.memoryUsage().rss }),
+    signal: AbortSignal.timeout(CONF.delaiServeur),
+  }).catch(() => {})
+}
+
 const collab = await demarrerCollaboration({
   ...CONF,
   identifier,
@@ -61,6 +72,8 @@ const collab = await demarrerCollaboration({
   jetonInterne: CONF.jetonInterne,
 })
 console.log(`[collab] ws://127.0.0.1:${CONF.port}${collab.cheminWebSocket}/<document>`)
+setTimeout(releverMemoire, 30_000).unref()
+setInterval(releverMemoire, PAS_MESURE_MS).unref()
 
 for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, async () => {
