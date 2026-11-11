@@ -19,8 +19,11 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 | Sujet | Lien | Ce qu'on en attend |
 |---|---|---|
 | Mode suggestion de Docs | https://github.com/suitenumerique/docs/issues/2491 | rôle « peut suggérer » (notre correcteur) ; règles d'affichage |
-| Accepter une à une la suggestion d'un éditeur en suivi (10/11/2026) | à examiner : défaut de notre liste (positions) ou de BlockNote (`applySuggestion`) | « Tout accepter » marche, comme l'acceptation une à une des suggestions d'un correcteur ; cas minimal : `contrats/pile/relecture.test.js`, test de l'interrupteur |
-| Éditeur recréé en mode suggestion peu après la résolution d'un fil : plantage `[lib0/delta] diffing deletes unsupported` (10/11/2026) | à confirmer par un cas minimal, puis à signaler à `@y/prosemirror` | 4 essais sur 5 dans `v2/exploitation/campagne/scenario-cinq.mjs` ; rapport `docs/v2-tests/scenario-cinq-2026-11-10.md` |
+| Plantage `[lib0/delta] diffing deletes unsupported` (10/11/2026) | https://github.com/yjs/y-prosemirror/issues/288 (ouvert) | déclenché chez nous par la recréation de l'éditeur ; **disparu avec le montage de l'exemple de BlockNote** (11/11/2026) ; ajouter notre déclencheur au ticket (décision de Sylvain) |
+| La frappe au contact d'une suggestion la prolonge | https://github.com/yjs/y-prosemirror/issues/245 (jalon M2, reporté) | évité par les trois modes (on n'écrit pas en relecture) ; à revoir si l'amont le corrige |
+| Suppression d'un paragraphe entier suggérée : invisible quand l'afficheur part d'un état neuf (rechargement, passage en relecture après coup) (11/11/2026) | aucun ticket ; voisin y-prosemirror#263 | scénarios H21, H22 (`v2/exploitation/campagne/scenarios-complements.mjs`) ; à signaler (décision de Sylvain) |
+| En suivi, une suppression qui franchit la fin d'un paragraphe est enregistrée comme une fusion, le texte supprimé n'est pas noté (10/11/2026) | voisins : galerie de BlockNote (« Broken merge »), y-prosemirror#263 | H11, H20 ; à signaler |
+| Connexions en lecture seule de y/hub 0.10.1 : des morceaux tapés en même temps par deux éditeurs n'arrivent pas, même après rechargement ; le serveur a tout (10/11/2026) | aucun ticket ; la version suivante de y/hub refait la synchronisation des lecteurs | H18, H19 ; à reprendre à la prochaine version |
 | Demande de modification et relecture | https://github.com/suitenumerique/docs/issues/2156 | même besoin |
 | Yjs 14, historique BlockNote, PDF par Typst dans Docs | https://github.com/suitenumerique/docs/pull/2895 | intégration de référence à suivre |
 | Modèle d'export PDF | https://github.com/suitenumerique/docs/issues/680 | mécanisme générique de modèle |

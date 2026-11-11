@@ -34,6 +34,22 @@ Prototype : pas de restriction de fonction (Sylvain, 10/11/2026). Sources : `con
 | 21 | Clic en fin de ligne, curseur au premier paragraphe | non reproduit (H4 à H6, 9/9 corrects) | — | — | reproduire avec Sylvain |
 | 22 | `getSuggestionAtSelection` cherche des marques inexistantes | noms périmés | BlockNote | non | signaler |
 
+## Après la reconstruction (11/11/2026)
+
+Montage de l'exemple de BlockNote, trois modes (Modifier, Suggérer, Relire), auteurs lus à part, historique par 5 minutes (`docs/journal-decisions.md`, 10/11/2026). Campagne rejouée en local (Chromium, 2 fois chaque famille) :
+
+| # | État |
+|---|---|
+| 3 écran blanc après résolution d'un fil | **corrigé** (B7 2/2) |
+| 4, 9 suggestions qui sortent du panneau | **corrigé** (H2, H13, H15 2/2) |
+| 5 frappe qui prolonge une suggestion | **évité par les modes** : on n'écrit plus par-dessus des suggestions affichées ; en Modifier, la frappe collée à une suggestion va dans le texte (B2 « juste après » 2/2) |
+| 6 paragraphe proposé qu'Accepter ignorait | **corrigé** (C3 2/2) |
+| 16 « Quelqu'un » | **corrigé** pour les ajouts et remplacements ; reste pour certaines suppressions (auteur des contenus supprimés pas retrouvé) |
+| 7 suppression d'un paragraphe entier par un correcteur | **fondation, établi** : visible si l'éditrice est en relecture au moment où elle arrive (H21), **perdue de l'affichage après un rechargement** ou si l'éditrice était en Modifier (H22, C3) : l'afficheur ne la retrouve pas en partant d'un état neuf ; « Tout accepter » l'applique quand même. À signaler à `@y/prosemirror` |
+| 8 lectrice en retard | non reproduit dans cette série (H9, H18, H19 2/2) ; à surveiller |
+| 1, 15, 17, 18 | inchangés (fondations) |
+| 10, 11, 12, 13, 14 (commentaires), 19 | inchangés (lots suivants) ; 12 : le regroupement par 5 minutes ne se voit pas dans un essai de 2 minutes (H8) |
+
 ## Ce que ça change
 
 - **Notre montage du suivi explique une grande partie des défauts** : 3 (écran blanc), 4 et 9 (suggestions perdues), 6 et 7 (paragraphes non arbitrables), 16 (« Quelqu'un »), et peut-être 2 et 15. Deux écarts au montage de BlockNote en sont la cause : la recréation de l'éditeur à chaque bascule, et la reconstruction de l'afficheur avec les auteurs de y/hub.
