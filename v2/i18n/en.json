@@ -84,6 +84,13 @@
     "selection-absente": "Select the passage to correct first.",
     "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most)."
   },
+  "commentaires": {
+    "titre": "Comments",
+    "filtre": "Threads to show",
+    "ouverts": "Open",
+    "resolus": "Resolved",
+    "tous": "All"
+  },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
     "ajout": "{auteur} adds “{apres}”",

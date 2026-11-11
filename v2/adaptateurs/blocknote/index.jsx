@@ -25,6 +25,8 @@ import {
   useBlockNoteEditor,
   useComponentsContext,
   useSelectedBlocks,
+  RenderInPortalElement,
+  ThreadsSidebar,
 } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import {
@@ -106,6 +108,8 @@ function Palette({ corriger }) {
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
+ * @param {{ element: HTMLElement | null, filtre: 'open' | 'resolved' | 'all' } | null} [p.fils]
+ *   où placer la liste des fils de commentaires (onglet « Commentaires »), et son filtre
  * @param {() => Promise<boolean>} [p.confirmerRestauration]  demandée avant de revenir à une version
  * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
  *   sur le texte passe en modification (curseur à l'endroit touché)
@@ -137,6 +141,7 @@ export function EditeurCollaboratif({
   peutRestaurer = false,
   surFermerHistorique,
   confirmerRestauration,
+  fils = null,
   lectureAuDepart = false,
   controle,
   surModification,
@@ -383,6 +388,13 @@ export function EditeurCollaboratif({
       emojiPicker={false}
     >
       <FormattingToolbarController formattingToolbar={palette} />
+      {/* La liste des fils (exemple 06-comments-with-sidebar de BlockNote, et
+          Docs) : rendue dans l'éditeur (elle en a besoin), placée dans l'onglet. */}
+      {magasin && fils?.element ? (
+        <RenderInPortalElement target={fils.element}>
+          <ThreadsSidebar filter={fils.filtre} sort="position" />
+        </RenderInPortalElement>
+      ) : null}
       {historique && historiqueOuvert ? (
         <VersioningSidebar
           onClose={surFermerHistorique}

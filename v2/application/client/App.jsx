@@ -18,6 +18,7 @@ import {
   Bandeau,
   VoletPlanDocuments,
   VoletRelecture,
+  ListeDesFils,
   TexteDeVolet,
   AlerteHorsLigne,
   Fenetre,
@@ -1141,6 +1142,9 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   }, [connexion])
   const [autres, setAutres] = useState([])
   const [suggestions, setSuggestions] = useState(null)
+  // L'onglet « Commentaires » : l'élément où l'éditeur place la liste des fils, et son filtre.
+  const [cibleFils, setCibleFils] = useState(null)
+  const [filtreFils, setFiltreFils] = useState('open')
   const [plan, setPlan] = useState({ titres: [], courant: null, allerA: () => {} })
   const [titre, setTitre] = useState(droits.titre ?? null)
   const [volet, setVolet] = useState(null)
@@ -1402,6 +1406,21 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       nouvelle={margo.fil.length ? { libelle: t('margo.nouvelle'), surClic: margo.nouvelle } : null}
     />
   ) : null
+  const listeFils = commentaires ? (
+    <ListeDesFils
+      filtre={{
+        libelle: t('commentaires.filtre'),
+        valeur: filtreFils,
+        options: [
+          { valeur: 'open', libelle: t('commentaires.ouverts') },
+          { valeur: 'resolved', libelle: t('commentaires.resolus') },
+          { valeur: 'all', libelle: t('commentaires.tous') },
+        ],
+        surChange: setFiltreFils,
+      }}
+      cible={setCibleFils}
+    />
+  ) : null
   const editeur = (
     <EditeurCollaboratif
       contexte={session.contexte}
@@ -1416,6 +1435,7 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       historique={historique && !formatS}
       peutRestaurer={caps.includes('restaurer')}
       surFermerHistorique={() => setHistorique(false)}
+      fils={commentaires ? { element: cibleFils, filtre: filtreFils } : null}
       confirmerRestauration={() =>
         confirmer({
           titre: t('document.restaurerTitre'),
@@ -1492,7 +1512,7 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           ],
         }}
         voletDroit={
-          suggestions || peutMargo
+          suggestions || peutMargo || listeFils
             ? {
                 titre: t('telephone.relecture'),
                 onglets: [
@@ -1502,6 +1522,16 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
                     icone: 'modifications',
                     contenu: modifications,
                   },
+                  ...(listeFils
+                    ? [
+                        {
+                          cle: 'commentaires',
+                          libelle: t('commentaires.titre'),
+                          icone: 'commentaires',
+                          contenu: listeFils,
+                        },
+                      ]
+                    : []),
                   ...(peutMargo
                     ? [{ cle: 'margo', libelle: t('interface.margo'), icone: 'margo', contenu: panneauMargo }]
                     : []),
@@ -1597,8 +1627,13 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         avecVoletDroit ? (
           <VoletRelecture
             titre={t('telephone.relecture')}
-            onglets={{ modifications: t('telephone.modifications'), margo: t('interface.margo') }}
+            onglets={{
+              modifications: t('telephone.modifications'),
+              commentaires: t('commentaires.titre'),
+              margo: t('interface.margo'),
+            }}
             modifications={modifications}
+            commentaires={listeFils}
             margo={panneauMargo}
             actif={ongletRelecture}
             surOnglet={setOngletRelecture}

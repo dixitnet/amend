@@ -63,7 +63,11 @@ class AutorisationsFils extends ThreadStoreAuth {
   canDeleteReaction = () => this.peut('reagir')
 }
 
-const enDates = (f) => ({
+// Sans `resolvedBy` : BlockNote 0.57 lève une erreur en affichant un fil résolu
+// tant que le nom de qui l'a résolu n'est pas chargé (`Thread`, « …but their data
+// could not be found »), au lieu d'attendre. Contournement (veille) : la ligne
+// « résolu par » ne s'affiche pas ; à retirer quand BlockNote attendra le nom.
+const enDates = ({ resolvedBy, ...f }) => ({
   ...f,
   createdAt: new Date(f.createdAt),
   updatedAt: new Date(f.updatedAt),

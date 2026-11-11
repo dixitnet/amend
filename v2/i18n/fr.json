@@ -84,6 +84,13 @@
     "selection-absente": "Sélectionnez d’abord le passage à corriger.",
     "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus)."
   },
+  "commentaires": {
+    "titre": "Commentaires",
+    "filtre": "Fils à afficher",
+    "ouverts": "Ouverts",
+    "resolus": "Résolus",
+    "tous": "Tous"
+  },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
     "ajout": "{auteur} ajoute «\u00A0{apres}\u00A0»",
