@@ -3,6 +3,7 @@
 // dernier test, qui appelle DeepSeek chez Scaleway quand la clé est là
 // (MARGO_ESSAI_REEL=1). Sans services, le fichier se déclare sauté.
 import { test, before, after } from 'node:test'
+import postgres from 'postgres'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 import * as Y from '@y/y'
@@ -306,6 +307,23 @@ t3('refus en série : avertie au cinquième, arrêtée au dixième sur un bilan 
   assert.match(entrees[5].texte, /tes 5 dernières écritures/)
   assert.match(entrees[10].texte, /la demande s’arrête/)
   assert.equal(entrees.length, 11, 'un dernier tour pour le bilan, puis plus rien')
+})
+
+t3('le modèle choisi au back-office s’impose à celui de l’environnement', async (t) => {
+  const sql = postgres(POSTGRES, { max: 1, onnotice: () => {} })
+  t.after(async () => {
+    await sql`delete from amend.reglages where cle = 'margo.modele'`
+    await sql.end()
+  })
+  await comptes.definirReglage('margo.modele', 'claude-sonnet-5-5', cookies.Paule.id)
+  const doc = await nouveauDocument(LIVRE)
+  scenario = [() => ({ texte: 'Oui.' })]
+  const avant = requetes.length
+  await demander(doc, 'Paule', { demande: 'Bonjour' })
+  assert.deepEqual(
+    requetes.slice(avant).map((q) => q.modele),
+    ['claude-sonnet-5-5'],
+  )
 })
 
 t3('le modèle refuse : le modèle par défaut reprend la demande', async () => {

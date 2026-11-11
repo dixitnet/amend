@@ -1,5 +1,6 @@
 // T3 : le serveur, en processus (requêtes HTTP réelles, sans navigateur),
 // contre le dépôt des comptes dans PostgreSQL, rejoué sur les données piégées.
+import postgres from 'postgres'
 import { test, before, after } from 'node:test'
 import http from 'node:http'
 import assert from 'node:assert/strict'
@@ -453,6 +454,54 @@ test('back-office : réservé aux administrateurs de l’instance ; jamais un co
   // Sans liste, personne n'est administrateur.
   const sans = await demarrer({ dev: false })
   assert.equal((await fetch(`${sans}/api/admin/systeme`, { headers: { cookie: cookie(admin) } })).status, 403)
+})
+
+test('back-office, rubrique IA : le modèle de Margo, choisi par un administrateur, parmi ceux qui ont une clé', async (t) => {
+  const adresse = `admin-ia-${Date.now().toString(36)}@exemple.fr`
+  const ia = { disponible: (m) => m !== 'claude-fable-5-2', conversation: () => ({ tour: async () => ({}) }) }
+  const base = await demarrer({ dev: false, administrateurs: adresse, margoModele: 'deepseek-v4.1-flash-1017' }, { ia })
+  const admin = await comptes.personneOuNouvelle(adresse)
+  const simple = await comptes.personneOuNouvelle(`simple-ia-${Date.now().toString(36)}@exemple.fr`)
+  const cookie = (p) => `amend2_session=${creerJeton(BASE.secret, { id: p.id, nom: 'N' })}`
+  const sql = postgres(POSTGRES, { max: 1, onnotice: () => {} })
+  t.after(async () => {
+    // Le réglage est commun à toute la base : on le retire après l'essai.
+    await sql`delete from amend.reglages where cle = 'margo.modele'`
+    await sql.end()
+  })
+  await sql`delete from amend.reglages where cle = 'margo.modele'`
+  const lire = (p) => fetch(`${base}/api/admin/ia`, p ? { headers: { cookie: cookie(p) } } : {})
+  const choisir = (p, modele) =>
+    fetch(`${base}/api/admin/ia`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: cookie(p) },
+      body: JSON.stringify({ modele }),
+    })
+  assert.equal((await lire()).status, 401)
+  assert.equal((await lire(simple)).status, 403)
+  assert.equal((await choisir(simple, 'claude-sonnet-5-5')).status, 403)
+  const avant = await (await lire(admin)).json()
+  assert.equal(avant.modele, null, 'jamais choisi')
+  assert.equal(avant.defaut, 'deepseek-v4.1-flash-1017')
+  assert.deepEqual(
+    avant.modeles.map((m) => [m.id, m.disponible]),
+    [
+      ['deepseek-v4.1-flash-1017', true],
+      ['claude-sonnet-5-5', true],
+      ['claude-haiku-5-5', true],
+      ['claude-fable-5-2', false],
+    ],
+  )
+  assert.deepEqual(await (await choisir(admin, 'inconnu')).json(), { code: 'modele-inconnu' })
+  assert.deepEqual(await (await choisir(admin, 'toString')).json(), { code: 'modele-inconnu' })
+  const sansCle = await choisir(admin, 'claude-fable-5-2')
+  assert.equal(sansCle.status, 409)
+  assert.deepEqual(await sansCle.json(), { code: 'modele-sans-cle' })
+  assert.equal((await choisir(admin, 'claude-sonnet-5-5')).status, 200)
+  assert.equal((await (await lire(admin)).json()).modele, 'claude-sonnet-5-5')
+  // Un modèle retiré de l'adaptateur (montée de version) : le réglage ne vaut plus rien.
+  await comptes.definirReglage('margo.modele', 'modele-retire', admin.id)
+  assert.equal((await (await lire(admin)).json()).modele, null)
 })
 
 test('titre : qui écrit renomme le document (NFC, espaces réduits, vide : sans titre) ; un lecteur non', async () => {
