@@ -15,6 +15,8 @@ import {
   couleurAuteur,
   Coquille,
   ColonneTexte,
+  ZoneZoom,
+  PictoDe,
   Bandeau,
   VoletPlanDocuments,
   VoletRelecture,
@@ -36,6 +38,7 @@ import {
   REGLES_MODELES,
   MODELES_LIVRE,
 } from '../../design/index.js'
+import { REGLAGES } from '../../design/reglages.js'
 import {
   creerTraducteur,
   choisirLangue,
@@ -1331,6 +1334,36 @@ function useVoletDocuments(docId, { actif = true } = {}) {
   return { contenu, donnees, tous, estFavori, basculerFavori, recharger }
 }
 
+/** Le zoom du texte de l'éditeur (Sylvain, 11/11/2026 : 50, 100, 150 %, comme
+ * la v1) : propre à ce navigateur, une commodité perdue sans conséquence. */
+const CLE_ZOOM = 'amend.zoom'
+function lireZoom() {
+  try {
+    const z = Number(localStorage.getItem(CLE_ZOOM))
+    return REGLAGES.zoom.paliers.includes(z) ? z : REGLAGES.zoom.parDefaut
+  } catch {
+    return REGLAGES.zoom.parDefaut
+  }
+}
+function noterZoom(z) {
+  try {
+    localStorage.setItem(CLE_ZOOM, String(z))
+  } catch {
+    // stockage refusé (navigation privée) : le zoom vaut pour cette page seulement
+  }
+}
+
+/** Les libellés et pictos des ajouts de l'éditeur (exposant, table des matières). */
+const TEXTES_EDITEUR = {
+  exposant: { libelle: t('document.exposant'), picto: <PictoDe role="exposant" /> },
+  table: {
+    titre: t('document.tableDesMatieres'),
+    description: t('document.tableDescription'),
+    profondeur: t('document.tableProfondeur'),
+    picto: <PictoDe role="tableDesMatieres" />,
+  },
+}
+
 function Edition({ config, personne, docId, droits }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
@@ -1338,6 +1371,12 @@ function Edition({ config, personne, docId, droits }) {
   // 10/11/2026) : Modifier à l'ouverture, Suggérer, Relire ; le correcteur
   // suggère toujours, le lecteur lit.
   const [modeEditeur, setModeEditeur] = useState('ecrire')
+  const [zoom, setZoom] = useState(lireZoom)
+  const choisirZoom = (z) => (setZoom(z), noterZoom(z))
+  // Le compteur du menu « … », calculé à son ouverture, comme le menu de Docs.
+  const [compteur, setCompteur] = useState(null)
+  const compterAuMenu = () => setCompteur(controle.current?.compter?.() ?? null)
+  const piedMenu = compteur ? t('document.compteur', compteur) : undefined
   const mode = caps.includes('ecrire') ? modeEditeur : caps.includes('suggerer') ? 'suggerer' : 'lire'
   const avecSuggestions = caps.includes('suggerer')
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
@@ -1510,6 +1549,16 @@ function Edition({ config, personne, docId, droits }) {
     Promise.resolve(navigator.clipboard?.writeText(lien) ?? Promise.reject(new Error('presse-papiers absent')))
       .then(() => montrerMessage(t('telephone.lienCopie')))
       .catch(() => montrerMessage(t('telephone.lienNonCopie', { lien }), { erreur: true }))
+  // Le zoom du texte, dans le menu « … » des trois formats : un choix parmi les paliers.
+  const elementsZoom = [
+    { cle: 'zoom', libelle: t('document.zoom'), titre: true, separe: true },
+    ...REGLAGES.zoom.paliers.map((z) => ({
+      cle: `zoom-${z}`,
+      libelle: t('document.zoomPalier', { zoom: z }),
+      coche: z === zoom,
+      surClic: () => choisirZoom(z),
+    })),
+  ]
   const actions = [
     ...(etroit ? autresModes('picto') : []),
     {
@@ -1529,6 +1578,7 @@ function Edition({ config, personne, docId, droits }) {
       surClic: () => setHistorique((h) => !h),
     },
     { cle: 'exporter', libelle: t('document.exporter'), picto: 'exporter', surClic: ouvrirExport },
+    ...elementsZoom,
     ...(caps.includes('supprimer')
       ? [{ cle: 'supprimer', libelle: t('document.supprimer'), picto: 'supprimer', separe: true, surClic: supprimer }]
       : []),
@@ -1621,26 +1671,29 @@ function Edition({ config, personne, docId, droits }) {
     />
   ) : null
   const editeur = (
-    <EditeurCollaboratif
-      contexte={session.contexte}
-      personne={moi}
-      langue={t.langue}
-      langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
-      nomAccessible={t('document.zoneEdition', { id: docId })}
-      mode={mode}
-      nomsDe={nomsAvecMargo}
-      commentaires={commentaires}
-      surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
-      historique={historique && !formatS}
-      peutRestaurer={caps.includes('restaurer')}
-      surFermerHistorique={() => setHistorique(false)}
-      lectureAuDepart={formatS || tactile}
-      controle={controle}
-      surModification={setEnModification}
-      surPlan={setPlan}
-      corriger={corriger}
-      surSelection={peutMargo ? setSelection : undefined}
-    />
+    <ZoneZoom zoom={zoom}>
+      <EditeurCollaboratif
+        contexte={session.contexte}
+        personne={moi}
+        langue={t.langue}
+        langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
+        nomAccessible={t('document.zoneEdition', { id: docId })}
+        mode={mode}
+        nomsDe={nomsAvecMargo}
+        commentaires={commentaires}
+        surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+        historique={historique && !formatS}
+        peutRestaurer={caps.includes('restaurer')}
+        surFermerHistorique={() => setHistorique(false)}
+        lectureAuDepart={formatS || tactile}
+        controle={controle}
+        surModification={setEnModification}
+        surPlan={setPlan}
+        corriger={corriger}
+        surSelection={peutMargo ? setSelection : undefined}
+        textes={TEXTES_EDITEUR}
+      />
+    </ZoneZoom>
   )
 
   // Format S (téléphone) : la maquette validée (docs/v2-format-S.md). Comme
@@ -1676,10 +1729,21 @@ function Edition({ config, personne, docId, droits }) {
             : []),
           { cle: 'exporter', libelle: t('document.exporter'), icone: 'exporter', surClic: ouvrirExport },
           { cle: 'liste', libelle: t('document.mesDocuments'), icone: 'retour', surClic: () => (location.hash = '') },
+          ...elementsZoom,
           ...(caps.includes('supprimer')
-            ? [{ cle: 'supprimer', libelle: t('document.supprimer'), icone: 'supprimer', surClic: supprimer }]
+            ? [
+                {
+                  cle: 'supprimer',
+                  libelle: t('document.supprimer'),
+                  icone: 'supprimer',
+                  separe: true,
+                  surClic: supprimer,
+                },
+              ]
             : []),
         ]}
+        piedMenu={piedMenu}
+        surOuvrirMenu={compterAuMenu}
         voletGauche={{
           titre: titreAffiche,
           onglets: [
@@ -1778,7 +1842,12 @@ function Edition({ config, personne, docId, droits }) {
           partager={
             caps.includes('inviter') ? { libelle: t('document.partager'), surClic: () => setPartage(true) } : null
           }
-          actions={{ libelle: t('telephone.autresActions'), elements: actions }}
+          actions={{
+            libelle: t('telephone.autresActions'),
+            elements: actions,
+            pied: piedMenu,
+            surOuvrir: compterAuMenu,
+          }}
           compte={compteDe(personne)}
           voletDroit={
             avecVoletDroit
