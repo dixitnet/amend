@@ -100,3 +100,8 @@ test('citation : NFD dans un texte NFC, et un passage présent deux fois sous de
   assert.deepEqual(situerCitation(`été et ${nfd}`, 'été'), { ok: false, motif: 'ambigu' })
   assert.deepEqual(situerCitation('L’été', "L'été"), { ok: true, debut: 0, fin: 5 })
 })
+
+test('remplacement : jamais deux espaces de suite dans le texte de Margo, la plus forte gardée (banc du 11/11/2026)', () => {
+  const r = situerRemplacement('forestiers\u00a0: 52 et 27', '27', 'x\u00a0 : 31  et\u202f\u00a0;')
+  assert.equal(r.apres, 'x\u00a0: 31 et\u202f;')
+})

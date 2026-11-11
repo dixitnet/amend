@@ -2,7 +2,7 @@
 
 - Auditeur : Scaleway, modèle `glm-5.3` ; consommation : 139313 signes envoyés, 4009 reçus (et 10978 de réflexion) ; réflexion `low` ; 21 s ; arrêt : stop
 - Diff audité : `v2/` de `2f1581e` à `f28896f` (17 fichiers)
-- Statut : avis reçu ; réponse de Claude écrite ; arbitrage de Sylvain à venir.
+- Statut : avis reçu ; réponse de Claude écrite ; arbitré par Sylvain le 11/11/2026 (accord avec les réponses de Claude).
 
 ## Avis de l'auditeur
 
@@ -51,4 +51,4 @@ Audit complémentaire de la clôture : le code ajouté après le premier audit p
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+Accord avec les réponses de Claude (11/11/2026, revue de clôture de l'étape 8, Q1).

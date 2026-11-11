@@ -111,7 +111,13 @@ export function situerRemplacement(texte, avant, apres) {
   const ou = situerCitation(texte, avant)
   if (!ou.ok) return ou
   const t = String(texte ?? '')
-  const nouveau = typographier(String(apres ?? '').normalize('NFC'), { avant: t.slice(0, ou.debut) })
+  // Jamais deux espaces de suite dans un texte de Margo ; d'une suite mêlée,
+  // on garde la plus forte (fine, puis insécable) : banc du 11/11/2026, où
+  // Margo écrivait une insécable suivie d'une espace avant « : ».
+  const resserre = String(apres ?? '')
+    .normalize('NFC')
+    .replace(/[ \u00a0\u202f]{2,}/g, (m) => (m.includes('\u202f') ? '\u202f' : m.includes('\u00a0') ? '\u00a0' : ' '))
+  const nouveau = typographier(resserre, { avant: t.slice(0, ou.debut) })
   if (normaliser(nouveau) === normaliser(t.slice(ou.debut, ou.fin))) return { ok: false, motif: 'identique' }
   return { ok: true, debut: ou.debut, fin: ou.fin, apres: nouveau }
 }

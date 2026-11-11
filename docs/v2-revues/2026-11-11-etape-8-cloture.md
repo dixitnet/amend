@@ -2,7 +2,7 @@
 
 - Relecteur : **GLM-5.3** (Scaleway), réflexion `low`, sur le dossier de clôture : plan de l'étape, liste des commits, banc Montfaucon rejoué (`docs/v2-tests/etape-8-banc-montfaucon.md`), audit partiel du 10/11 et ses réponses, plan du back-office, règles et registre des renoncements. Envoyé : environ 64 000 signes ; reçu : environ 2 000 jetons.
 - Le code ajouté après le premier audit partiel a eu son propre audit : `docs/v2-revues/2026-11-11-0626-audit-partiel-glm-5.3.md`.
-- Réponses de Claude point par point à la suite. Statut : **à arbitrer par Sylvain** (questions Q1 à Q5 à la fin).
+- Réponses de Claude point par point à la suite. Statut : **arbitré par Sylvain le 11/11/2026 ; étape 8 close.**
 
 ## Avis de GLM-5.3 (tel que reçu)
 
@@ -48,3 +48,13 @@ L'étape ne peut pas être close en l'état : manquent l'arbitrage de Sylvain su
 - **Q3.** Lot 5 (design de l'onglet Margo) : à faire après l'avoir vu, ou abandonné ?
 - **Q4.** Clé d'Anthropic dans la v2 (`margo.sh` la recopie si elle est dans le `.env` de la v1) : la prévoir, pour essayer Sonnet et Fable et leur repli ?
 - **Q5.** Avec ces réponses : clore l'étape 8 ?
+
+## Arbitrage de Sylvain (11/11/2026)
+
+« 1 oui, 2 1, 3 ok, 4 fait, 5 ok » :
+
+- Q1 : accord avec les réponses de Claude aux deux audits partiels.
+- Q2 : piste 1. Consigne renforcée, banc rejoué : 71 / 87 au lieu de 54 / 87 (`docs/v2-tests/etape-8-banc-montfaucon.md`).
+- Q3 : l'onglet Margo convient tel quel ; pas de lot de design.
+- Q4 : clé d'Anthropic posée dans la v2 par Sylvain. Sonnet 5.5 et Fable 5.2 se choisissent au back-office ; ils n'ont pas été essayés par Claude (pas de clé dans son environnement).
+- Q5 : étape 8 close.
