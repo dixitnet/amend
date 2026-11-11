@@ -32,6 +32,10 @@ export const peutModifierEquipe = (capsMembre) => capsMembre.includes('ecrire')
 /** Renommer ou supprimer (vide) une équipe, gérer ses membres : le gestionnaire. */
 export const peutGererEquipe = (capsMembre) => capsMembre.includes('transferer')
 
+/** Créer, modifier, supprimer les modèles de mise en page de l'équipe et
+ * choisir son modèle par défaut : le gestionnaire (Sylvain, 10/11/2026, Q3). */
+export const peutGererModeles = (capsMembre) => peutGererEquipe(capsMembre)
+
 /**
  * Déplacer un document vers un espace (Mes documents : `null`, ou une
  * équipe). Rend `{ action }` (`ranger`, `entrer`, `sortir`) ou `{ code }`.

@@ -29,8 +29,6 @@
     "confirmerSuppression": "Delete this document for everyone, permanently?",
     "renommer": "Rename",
     "nomDuDocument": "Document title",
-    "exporterMarkdown": "Export as Markdown",
-    "exporterPdf": "Export as PDF",
     "exportEchoue": "The export failed. Please try again in a moment.",
     "modes": "Editing mode",
     "modeEcrire": "Edit",
@@ -38,10 +36,11 @@
     "modeRelire": "Review",
     "passerEcrire": "Edit directly",
     "passerSuggerer": "Suggest changes",
-    "passerRelire": "Review suggestions"
+    "passerRelire": "Review suggestions",
+    "exporter": "Export…"
   },
   "erreurs": {
-    "modele-impossible": "This layout model is impossible: its lines or its page number do not fit on the page.",
+    "modele-impossible": "This layout template is impossible: its lines, page number or text width do not fit on the page.",
     "document-vide": "This document has no name.",
     "document-trop-long": "This document name is too long (64 characters at most).",
     "document-caracteres": "A document name may only contain unaccented letters and digits, hyphens and underscores.",
@@ -76,6 +75,10 @@
     "equipe-introuvable": "This team does not exist, or you are not a member.",
     "equipe-non-vide": "This team is not empty: move or delete its documents and folders first.",
     "reserve-administrateur": "Reserved for the administrators of this instance.",
+    "modele-introuvable": "This template does not exist, or is not allowed for this document.",
+    "reglage-inconnu": "This setting cannot be changed in a team template.",
+    "reglage-hors-bornes": "A value is outside the allowed limits: check the settings.",
+    "ecarts-invalides": "These settings are not valid.",
     "margo-indisponible": "Margo is unavailable at the moment.",
     "selection-absente": "Select the passage to correct first.",
     "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most)."
@@ -174,7 +177,8 @@
     "deplacerVers": "Move…",
     "aucun": "No document yet. Create the first one with “New document”.",
     "rienTrouve": "No document has this title.",
-    "destination": "Destination"
+    "destination": "Destination",
+    "modeles": "Layout templates"
   },
   "partage": {
     "titre": "Sharing",
@@ -232,6 +236,58 @@
     "valider": "OK",
     "annuler": "Cancel",
     "continuer": "Continue"
+  },
+  "export": {
+    "titre": "Export",
+    "format": "Format",
+    "modele": "Layout template",
+    "retenir": "Keep this template for the document",
+    "exporter": "Export",
+    "pdf": "PDF",
+    "markdown": "Markdown",
+    "groupeMaison": "amend.ink",
+    "groupeEquipe": "Team “{equipe}”"
+  },
+  "modeles": {
+    "titre": "Layout templates",
+    "defaut": "Team default template",
+    "nom": "Template name",
+    "base": "Based on",
+    "creer": "Create",
+    "modifier": "Adjust",
+    "supprimer": "Delete",
+    "aucun": "The team has no template of its own yet.",
+    "modifierDe": "Adjust “{nom}”",
+    "supprimerDe": "Delete “{nom}”",
+    "parDefaut": "Default",
+    "enregistrer": "Save",
+    "enregistre": "Template saved.",
+    "detail": "Based on “{titre}” · {n, plural, =0 {no document} one {# document} other {# documents}}",
+    "confirmerSuppression": "Delete the template “{nom}”? {n, plural, =0 {No document uses it.} one {The document that used it will take the team default template.} other {The # documents that used it will take the team default template.}}",
+    "reglage": {
+      "page": {
+        "largeur": "Page width (mm)",
+        "hauteur": "Page height (mm)"
+      },
+      "marges": {
+        "haut": "Top margin (mm)",
+        "interieure": "Inside margin (mm)",
+        "exterieure": "Outside margin (mm)"
+      },
+      "grille": {
+        "corps": "Text size (pt)",
+        "interligne": "Line spacing (pt)",
+        "lignes": "Lines per page"
+      },
+      "police": "Font",
+      "alinea": "Paragraph indent (mm)",
+      "chapitre": {
+        "bellePage": "Chapters start on a right-hand page"
+      }
+    },
+    "maison": {
+      "tat-poche": "TàT - Poche"
+    }
   },
   "margo": {
     "accueil": "Ask Margo to proofread, correct or comment on the text. Corrections arrive as suggestions, in Changes, to accept or reject.",

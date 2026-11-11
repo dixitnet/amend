@@ -42,3 +42,10 @@ test('chaque code d’erreur du domaine a son message', () => {
     for (const m of s.matchAll(/code: '([a-z-]+)'/g))
       assert.ok(existantes.has(`erreurs.${m[1]}`), `${f} : le code « ${m[1]} » n’a pas de message`)
 })
+
+test('chaque modèle d’amend.ink et chaque réglage ouvert aux équipes a son nom dans le catalogue', async () => {
+  const { REGLAGES } = await import('../../design/reglages.js')
+  const existantes = new Set(cles(CATALOGUES[LANGUE_SOURCE]))
+  for (const m of REGLAGES.livre.modeles) assert.ok(existantes.has(`modeles.maison.${m.id}`), m.id)
+  for (const r of REGLAGES.livre.reglables) assert.ok(existantes.has(`modeles.reglage.${r.cle}`), r.cle)
+})
