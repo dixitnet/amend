@@ -22,6 +22,7 @@ cd "$APP"
 # ne change jamais le code de sortie de ce script.
 VEILLER="$APP/v2/exploitation/prod/veiller.sh"
 ALERTER="$APP/v2/exploitation/prod/alerter.sh"
+ESSAYER="$APP/v2/exploitation/prod/essayer.sh"
 trap '[[ -f "$VEILLER" ]] && bash "$VEILLER" || true' EXIT
 git fetch -q origin main
 CIBLE=$(git rev-parse origin/main)
@@ -119,6 +120,9 @@ else
 fi
 if [[ $V2 -eq 1 ]]; then
   lancer v2 bash "$APP/v2/exploitation/prod/deployer.sh"
+  # Essai en ligne (tests/en-ligne, comptes d'essai) : une alerte par courriel
+  # s'il échoue, sans jamais faire échouer ce déploiement ni revenir en arrière.
+  [[ -f "$ESSAYER" ]] && { bash "$ESSAYER" || true; }
 else
   echo "→ v2 : rien à reconstruire"
 fi
