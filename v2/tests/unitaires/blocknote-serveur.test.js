@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as Y from '@y/y'
-import { lireBlocs, ecrireBlocs, texteDesBlocs } from '../../adaptateurs/blocknote/serveur.js'
+import { lireBlocs, ecrireBlocs, texteDesBlocs, blocsATexteDe } from '../../adaptateurs/blocknote/serveur.js'
 import piegees from '../donnees/piegees.json' with { type: 'json' }
 
 test('aller-retour : un paragraphe écrit est relu à l’identique', () => {
@@ -76,6 +76,33 @@ test('texte brut : liens et cellules de tableau compris', () => {
     { type: 'table', content: { type: 'tableContent', rows: [{ cells: [[t('A1')], [t('B1')]] }] } },
   ]
   assert.equal(texteDesBlocs(lireBlocs(ecrireBlocs(blocs))), 'Appel fin\nA1\tB1')
+})
+
+test('tableau réel : le texte des cellules est gardé par texteDesBlocs, mais Margo (blocsATexteDe) ne le voit pas', () => {
+  const t = (text, styles = {}) => ({ type: 'text', text, styles })
+  const etat = ecrireBlocs([
+    { id: 'avant', type: 'paragraph', content: [t('Avant')] },
+    {
+      id: 'tab',
+      type: 'table',
+      content: {
+        type: 'tableContent',
+        rows: [{ cells: [[t('A1')], [t('B1')]] }, { cells: [[t('A2 '), t('gras', { bold: true })], [t('B2')]] }],
+      },
+    },
+    { id: 'apres', type: 'paragraph', content: [t('Après')] },
+  ])
+  const blocs = lireBlocs(etat)
+  // Relu, chaque cellule est un objet `tableCell` dont le texte est dans `content`.
+  assert.equal(blocs[1].content.rows[1].cells[0].type, 'tableCell')
+  assert.equal(texteDesBlocs(blocs), 'Avant\nA1\tB1\nA2 gras\tB2\nAprès')
+  // Comportement actuel (à signaler) : le texte donné à Margo saute les tableaux, dont aucune
+  // cellule n'est donc relue ni corrigée (serveur.js, blocsATexte : seul un bloc dont le
+  // premier enfant est un bloc de texte compte).
+  assert.deepEqual(blocsATexteDe(etat), [
+    { id: 'avant', type: 'paragraph', niveau: null, texte: 'Avant' },
+    { id: 'apres', type: 'paragraph', niveau: null, texte: 'Après' },
+  ])
 })
 
 test('contrat : le schéma du livre a la marque « link » dont la typographie protège les adresses', async () => {

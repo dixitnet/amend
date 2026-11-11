@@ -73,7 +73,7 @@ test('graphe des dépendances (règles, § 2) : chaque arête permise passe, cha
   // Permis.
   await accepte('adaptateurs/blocknote/x.js', imp('../../extensions/typographie/index.js'))
   await accepte('adaptateurs/blocknote/x.js', imp('../../domaine/index.js'))
-  await accepte('extensions/x.js', imp('../domaine/index.js'))
+  await accepte('extensions/x/index.js', imp('../../domaine/index.js'))
   await accepte('application/client/x.js', imp('../../design/index.js'))
   await accepte('application/client/x.js', imp('../../extensions/typographie/index.js'))
   // Interdit : seul l'adaptateur BlockNote branche les extensions (de BlockNote).
@@ -173,4 +173,63 @@ test('le SDK d’Anthropic ne s’importe que dans l’adaptateur IA (étape 8)'
   await refuse('application/serveur/x.js', imp, /fondation importée/)
   await refuse('adaptateurs/yhub/x.js', imp, /fondation importée/)
   await refuse('adaptateurs/ia/x.js', "import { x } from '../yhub/index.js'\nexport const y = x", /couches/)
+})
+
+test('import dynamique : chaque couche se voit refuser ce que import … from lui refuse (audit du 11/11/2026)', async () => {
+  const dyn = (chemin) => `export const x = () => import('${chemin}')`
+  // Une fondation chargée hors de son adaptateur.
+  await refuse('application/serveur/x.js', dyn('@y/hub'), /fondation importée/)
+  await refuse('application/client/x.js', dyn('@blocknote/core'), /fondation importée/)
+  await refuse('extensions/x/index.js', dyn('@y/y'), /fondation importée/)
+  await refuse('extensions/x/index.js', dyn('prosemirror-view'), /fondation importée/)
+  await refuse('design/x.js', dyn('@blocknote/core'), /fondation importée/)
+  await refuse('i18n/x.js', dyn('@mantine/core'), /fondation importée/)
+  await refuse('adaptateurs/yjs/x.js', dyn('@blocknote/core'), /fondation importée/)
+  await refuse('adaptateurs/yhub/x.js', dyn('yjs'), /fondation importée/)
+  // Une couche atteinte par un import dynamique.
+  await refuse('extensions/x/index.js', dyn('../../adaptateurs/blocknote/index.jsx'), /couches/)
+  await refuse('design/x.js', dyn('../application/client/App.jsx'), /couches/)
+  await refuse('i18n/x.js', dyn('../design/index.js'), /couches/)
+  await refuse('domaine/x.js', dyn('../extensions/typographie/index.js'), /couches|ne dépend de rien/)
+  await refuse('domaine/x.js', dyn('node:fs'), /le domaine ne dépend de rien/)
+  await refuse('adaptateurs/blocknote/x.js', dyn('../../application/client/App.jsx'), /couches/)
+  await refuse('adaptateurs/blocknote/serveur.js', dyn('../yhub/index.js'), /couches/)
+  await refuse('adaptateurs/courrier/x.js', dyn('../ia/index.js'), /couches/)
+  // Une feuille de style hors du design.
+  await refuse('application/client/x.js', dyn('./joli.css'), /feuille de style/)
+  await refuse('extensions/x/index.js', dyn('./joli.css'), /feuille de style/)
+  // Permis : un adaptateur charge sa fondation, l'application charge un adaptateur.
+  await accepte('adaptateurs/blocknote/x.js', dyn('@blocknote/xl-typst-compiler'))
+  await accepte('adaptateurs/yjs/x.js', dyn('@y/y'))
+  await accepte('application/serveur/x.js', dyn('../../adaptateurs/blocknote/serveur.js'))
+  await accepte('application/client/x.js', dyn('../../design/index.js'))
+  await accepte('design/x.js', dyn('@mantine/core'))
+  await accepte('domaine/x.js', dyn('./y.js'))
+})
+
+test('les sous-chemins de Yjs 13 sont interceptés comme le paquet', async () => {
+  for (const chemin of ['yjs/dist/yjs.mjs', 'y-prosemirror/src/plugins/sync-plugin.js', 'y-websocket/bin/utils']) {
+    await refuse('application/client/x.js', `import x from '${chemin}'\nexport const y = x`, /fondation importée/)
+    await refuse('adaptateurs/yjs/x.js', `import x from '${chemin}'\nexport const y = x`, /fondation importée/)
+  }
+  // Un fichier voisin qui porte un nom proche n'est pas le paquet.
+  await accepte('application/client/x.js', "import x from './yjs-voisin.js'\nexport const y = x")
+})
+
+test('une extension n’en importe pas une autre', async () => {
+  const imp = (chemin) => `import { x } from '${chemin}'\nexport const y = x`
+  await refuse(
+    'extensions/exposant/index.js',
+    imp('../typographie/index.js'),
+    /une extension n’en importe pas une autre/,
+  )
+  await refuse('extensions/exposant/index.js', imp('../../extensions/typographie/index.js'), /couches/)
+  await refuse(
+    'extensions/exposant/index.js',
+    "export const x = () => import('../typographie/index.js')",
+    /une extension n’en importe pas une autre/,
+  )
+  // Ses propres fichiers et le domaine restent permis.
+  await accepte('extensions/exposant/index.js', imp('./aide.js'))
+  await accepte('extensions/exposant/index.js', imp('../../domaine/index.js'))
 })

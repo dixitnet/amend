@@ -191,6 +191,29 @@ t3('réactions : chacun les siennes, regroupées par emoji', async () => {
   assert.deepEqual(r[0].userIds, [cookies.Edith.id])
 })
 
+t3('méthode refusée (405, méthode-refusee) sur un commentaire et sur ses réactions', async () => {
+  const fil = (await appel('Carla', 'POST', '', { corps: corps('Cible 405.') })).corps
+  const c = fil.comments[0].id
+  const emoji = encodeURIComponent('👍')
+  for (const [methode, chemin] of [
+    ['POST', `/${fil.id}/commentaires/${c}`],
+    ['GET', `/${fil.id}/commentaires/${c}`],
+    ['PATCH', `/${fil.id}/commentaires/${c}`],
+    ['PUT', `/${fil.id}/commentaires/${c}/reactions`],
+    ['DELETE', `/${fil.id}/commentaires/${c}/reactions`],
+    ['GET', `/${fil.id}/commentaires/${c}/reactions`],
+    ['POST', `/${fil.id}/commentaires/${c}/reactions/${emoji}`],
+    ['PUT', `/${fil.id}/commentaires/${c}/reactions/${emoji}`],
+  ]) {
+    const r = await appel('Cyril', methode, chemin, methode === 'POST' || methode === 'PUT' ? {} : undefined)
+    assert.deepEqual([r.statut, r.corps?.code], [405, 'methode-refusee'], `${methode} ${chemin}`)
+  }
+  // Rien n'a été modifié par ces essais.
+  const relu = (await appel('Carla', 'GET', '')).corps.find((f) => f.id === fil.id)
+  assert.equal(relu.comments.length, 1)
+  assert.deepEqual(relu.comments[0].reactions, [])
+})
+
 t3('requêtes piégées : codes, jamais d’erreur interne', async () => {
   const fil = (await appel('Carla', 'POST', '', { corps: corps('Cible.') })).corps
   for (const mauvais of [

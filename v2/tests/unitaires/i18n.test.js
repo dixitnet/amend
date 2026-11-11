@@ -9,6 +9,8 @@ import {
   creerTraducteur,
   choisirLangue,
   messageErreur,
+  libelleDuRole,
+  libelleDuRoleEquipe,
 } from '../../i18n/index.js'
 import exceptions from '../../i18n/exceptions.json' with { type: 'json' }
 
@@ -82,4 +84,15 @@ test('typographie du catalogue français : insécable avant « : » et dans les 
     if (/« | »/.test(v)) fautes.push(`${cle} : espace ordinaire dans des guillemets`)
   }
   assert.deepEqual(fautes, [])
+})
+
+test('rôles : dans une équipe, « propriétaire » se dit « gestionnaire » (étape 6d) ; ailleurs, le mot du rôle', () => {
+  const fr = creerTraducteur('fr')
+  const en = creerTraducteur('en')
+  assert.equal(libelleDuRoleEquipe(fr, 'proprietaire'), 'gestionnaire')
+  assert.equal(libelleDuRoleEquipe(en, 'proprietaire'), 'manager')
+  assert.equal(libelleDuRole(fr, 'proprietaire'), 'propriétaire', 'hors équipe, le rôle garde son nom')
+  for (const role of ['lecteur', 'correcteur', 'editeur'])
+    assert.equal(libelleDuRoleEquipe(fr, role), libelleDuRole(fr, role), role)
+  assert.equal(libelleDuRoleEquipe(fr, 'inconnu'), 'inconnu', 'un code inconnu revient tel quel')
 })
