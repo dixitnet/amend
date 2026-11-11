@@ -11,7 +11,7 @@
 //  - étape 6d : une équipe (dossier d'équipe) a des membres, chacun avec un
 //    rôle pour tout le dossier ; un document ou un dossier appartient à une
 //    personne (`emplacement`, `personne`) ou à une équipe (`equipe`).
-import postgres from 'postgres'
+import { ouvrirBase, estUuid } from './base.js'
 import { createHash, randomBytes } from 'node:crypto'
 
 const SCHEMA = `
@@ -169,16 +169,19 @@ create table if not exists amend.reglages (
 `
 
 const empreinte = (jeton) => createHash('sha256').update(jeton).digest('hex')
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-const estUuid = (id) => typeof id === 'string' && UUID.test(id)
 
 /** Ouvre le dépôt ; crée le schéma s'il manque. */
 export async function ouvrirComptes(url) {
-  const sql = postgres(url, { max: 4, onnotice: () => {} })
-  await sql.unsafe(SCHEMA)
+  const { sql, rendre } = ouvrirBase(url)
+  try {
+    await sql.unsafe(SCHEMA)
+  } catch (e) {
+    await rendre()
+    throw e
+  }
   const personneDe = (p) => (p ? { id: p.id, courriel: p.courriel, nom: p.nom } : null)
 
-  return {
+  const depot = {
     // --- Personnes ---
     async personneParCourriel(courriel) {
       const [p] = await sql`select * from amend.personnes where courriel = ${courriel}`
@@ -637,11 +640,10 @@ export async function ouvrirComptes(url) {
         await sql`select count(*)::int as n from amend.acces where document = ${document} and role = 'proprietaire'`
       return n
     },
-    /** Donne un rôle (`auteur` : qui le donne, montré dans « Partagé avec moi »). */
-    donnerAcces: (document, personne, role, auteur = null) =>
-      sql`insert into amend.acces (document, personne, role, auteur) values (${document}, ${personne}, ${role}, ${auteur})
-          on conflict (document, personne) where personne is not null
-          do update set role = excluded.role, auteur = coalesce(excluded.auteur, amend.acces.auteur)`.then(() => {}),
+    /** Donne un rôle (`auteur` : qui le donne, montré dans « Partagé avec moi »),
+     * avec la même garde que `modifierAcces` (jamais sans propriétaire) : rend
+     * `'dernier-proprietaire'` ou `null`. */
+    donnerAcces: (document, personne, role, auteur = null) => depot.modifierAcces(document, personne, role, auteur),
     /**
      * Change (ou retire : `role === null`) l'accès d'une personne, en
      * transaction, sans jamais laisser le document sans propriétaire ; rend
@@ -668,8 +670,6 @@ export async function ouvrirComptes(url) {
         return null
       })
     },
-    retirerAcces: (document, personne) =>
-      sql`delete from amend.acces where document = ${document} and personne = ${personne}`.then(() => {}),
     noterPassageParLien: (document, personne) =>
       sql`insert into amend.passages_par_lien (document, personne) values (${document}, ${personne}) on conflict do nothing`.then(
         () => {},
@@ -722,6 +722,26 @@ export async function ouvrirComptes(url) {
         returning courriel, document`
       return j ? { courriel: j.courriel, document: j.document } : null
     },
+    /**
+     * Efface ce qui ne sert plus : les jetons de connexion expirés ou utilisés
+     * depuis plus de 24 h, et les invitations (documents et équipes) créées
+     * avant `invitationsAvant` (la durée d'une invitation est une règle du
+     * domaine : l'appelant donne la date limite). Rend les nombres effacés.
+     * @param {number} [maintenant]  ms
+     * @param {{ invitationsAvant: number }} limites  ms
+     * @returns {Promise<{ jetons: number, invitations: number }>}
+     */
+    async purgerPerimes(maintenant = Date.now(), { invitationsAvant }) {
+      const limiteJetons = new Date(maintenant - 24 * 3600 * 1000)
+      const limiteInvitations = new Date(invitationsAvant)
+      return sql.begin(async (t) => {
+        const jetons = await t`delete from amend.jetons_connexion
+          where expire_le < ${limiteJetons} or utilise_le < ${limiteJetons}`
+        const docs = await t`delete from amend.invitations where cree_le < ${limiteInvitations}`
+        const equipes = await t`delete from amend.invitations_equipe where cree_le < ${limiteInvitations}`
+        return { jetons: jetons.count, invitations: docs.count + equipes.count }
+      })
+    },
     async jetonsRecents(courriel, depuisMs) {
       const [{ n }] =
         await sql`select count(*)::int as n from amend.jetons_connexion where courriel = ${courriel} and cree_le > ${new Date(Date.now() - depuisMs)}`
@@ -746,6 +766,7 @@ export async function ouvrirComptes(url) {
       await sql`insert into amend.reglages (cle, valeur, modifie_par) values (${cle}, ${sql.json(valeur)}, ${estUuid(par) ? par : null})
         on conflict (cle) do update set valeur = excluded.valeur, modifie_par = excluded.modifie_par, modifie_le = now()`
     },
-    fermer: () => sql.end({ timeout: 5 }),
+    fermer: rendre,
   }
+  return depot
 }

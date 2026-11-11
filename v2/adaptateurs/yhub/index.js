@@ -116,6 +116,8 @@ function jetonValide(attendu, recu) {
  * @param {(cookie: string) => Promise<{ id: string } | null>} o.identifier
  * @param {(docId: string, idPersonne: string, branche: string) => Promise<{ texte: 'ecriture' | 'lecture', presence: boolean, restaurer: boolean } | null>} o.droits
  *   ce que le domaine accorde à la personne sur cette branche du document
+ * @param {number} [o.connexionsPostgres] connexions de y/hub à PostgreSQL (6 par
+ *   défaut : la base en accepte un nombre limité, que l'application se partage)
  * @param {number} [o.delaiPersistance] ms avant qu'une modification soit écrite dans PostgreSQL
  * @param {string} [o.jetonInterne] le jeton de notre serveur ; vide : il n'a pas d'accès
  * @param {(docId: string) => void} [o.surModification] appelée quand le contenu
@@ -128,6 +130,7 @@ export async function demarrerCollaboration({
   origines,
   identifier,
   droits,
+  connexionsPostgres = 6,
   delaiPersistance = 2000,
   jetonInterne = '',
   surModification = () => {},
@@ -165,6 +168,7 @@ export async function demarrerCollaboration({
     // les auteurs des suggestions après chaque changement (étape 5).
     redis: { url: redis, prefix: 'amend-v2', taskDebounce: delaiPersistance, minMessageLifetime: 60000, cacheTtl: 1 },
     postgres,
+    postgresOptions: { max: connexionsPostgres },
     persistence: [],
     // Comme Docs (\`docUpdate\`, \`src/yhub-server/src/server.ts\`) : un compactage
     // qui trouve du neuf prévient le serveur, sans l'attendre. Écart : la branche
@@ -188,11 +192,6 @@ export async function demarrerCollaboration({
   return {
     /** Chemin WebSocket d'un document : `${base}/${docId}`. */
     cheminWebSocket: `/collaboration/ws/v1/${ORGANISATION}`,
-    /** L'état encodé d'un document (lecture côté serveur). */
-    async lireEtat(docId) {
-      const d = await yhub.getDoc({ org: ORGANISATION, docid: docId, branch: 'main' }, { gc: true })
-      return d.gcDoc
-    },
     fermer: () => yhub.destroy({ drainMs: 2000 }),
   }
 }

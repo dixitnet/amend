@@ -120,6 +120,18 @@ const CORRESPONDANCES = {
 
 const LISTES = { bulletListItem: 'list', numberedListItem: 'enum' }
 
+/** Le fichier d'une image : vide si la réponse est en erreur, si le réseau
+ * échoue ou si 15 s ne suffisent pas ; le bloc de l'image est alors omis
+ * (voir `parcourir`) au lieu de bloquer ou de faire échouer l'export. */
+export async function chargerFichier(url) {
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) })
+    return r.ok ? await r.blob() : new Blob([])
+  } catch {
+    return new Blob([])
+  }
+}
+
 /**
  * La source Typst d'un livre : le gabarit du modèle, puis le corps.
  * @param {object} editeur  un éditeur BlockNote (pour son schéma)
@@ -133,7 +145,7 @@ export async function versTypst(editeur, blocs, modele, { titre, langue } = {}) 
   const exportateur = new TypstExporter(editeur.schema, CORRESPONDANCES, {
     fontFamily: modele.police,
     fontSize: modele.grille.corps,
-    resolveFileUrl: (url) => fetch(url).then((r) => r.blob()),
+    resolveFileUrl: chargerFichier,
   })
   const corps = await parcourir(exportateur, blocs)
   return {

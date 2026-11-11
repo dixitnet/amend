@@ -108,3 +108,21 @@ test('liste des suggestions : deux ajouts d’un même auteur qui se touchent fo
   assert.deepEqual([liste[0].auteur, liste[0].apres], [null, 'chatchien'])
   assert.deepEqual(listeDesSuggestions(monter('Aucune suggestion', [])), [])
 })
+
+test('y/hub qui échoue (rejet) : même unique nouvel essai que pour une réponse nulle', async () => {
+  let demandes = 0
+  const contexte = {
+    suggestions: {
+      fragment: null,
+      auteurs: async () => {
+        demandes++
+        throw new Error('y/hub : 500')
+      },
+      doc: { on: () => {}, off: () => {} },
+    },
+  }
+  const arreter = suivreAuteurs(contexte, () => assert.fail('rien à transmettre sans auteurs'), 5)
+  await attendre(80)
+  assert.equal(demandes, 2, 'la demande du départ, puis un seul nouvel essai')
+  arreter()
+})

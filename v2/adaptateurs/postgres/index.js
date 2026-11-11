@@ -4,7 +4,7 @@
 // seule l'ancre d'un fil est dans le texte. Ici, aucune règle : qui peut faire
 // quoi est décidé par le domaine, avant l'appel. Schéma `amend`, dans la base
 // de y/hub (une seule base à installer jusqu'à l'étape 6).
-import postgres from 'postgres'
+import { ouvrirBase, estUuid } from './base.js'
 
 const SCHEMA = `
 create schema if not exists amend;
@@ -77,13 +77,15 @@ function enFil(f, commentaires, reactions) {
   }
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-const estId = (id) => typeof id === 'string' && UUID.test(id)
-
 /** Ouvre le dépôt ; crée le schéma s'il manque. */
 export async function ouvrirCommentaires(url) {
-  const sql = postgres(url, { max: 4, onnotice: () => {} })
-  await sql.unsafe(SCHEMA)
+  const { sql, rendre } = ouvrirBase(url)
+  try {
+    await sql.unsafe(SCHEMA)
+  } catch (e) {
+    await rendre()
+    throw e
+  }
 
   async function fils(document, seul = null) {
     const fs = seul
@@ -103,12 +105,12 @@ export async function ouvrirCommentaires(url) {
     fils: (document) => fils(document),
     /** Un fil d'un document, ou `null`. */
     async fil(document, id) {
-      if (!estId(id)) return null
+      if (!estUuid(id)) return null
       return (await fils(document, id))[0] ?? null
     },
     /** Un commentaire d'un fil d'un document (son auteur), ou `null`. */
     async commentaire(document, fil, id) {
-      if (!estId(fil) || !estId(id)) return null
+      if (!estUuid(fil) || !estUuid(id)) return null
       const [c] = await sql`
         select c.id, c.auteur from amend.commentaires c join amend.fils f on f.id = c.fil
         where c.id = ${id} and c.fil = ${fil} and f.document = ${document}`
@@ -146,7 +148,7 @@ export async function ouvrirCommentaires(url) {
     supprimerFilsDuDocument: (document) => sql`delete from amend.fils where document = ${document}`.then(() => {}),
     supprimerFil: (id) => sql`delete from amend.fils where id = ${id}`.then(() => {}),
     async resoudre(id, resolu, par) {
-      await sql`update amend.fils set resolu = ${resolu}, resolu_le = now(), resolu_par = ${resolu ? par : null}, modifie_le = now() where id = ${id}`
+      await sql`update amend.fils set resolu = ${resolu}, resolu_le = ${resolu ? sql`now()` : null}, resolu_par = ${resolu ? par : null}, modifie_le = now() where id = ${id}`
     },
     async reagir(commentaire, auteur, emoji) {
       await sql`insert into amend.reactions (commentaire, auteur, emoji) values (${commentaire}, ${auteur}, ${emoji}) on conflict do nothing`
@@ -154,6 +156,6 @@ export async function ouvrirCommentaires(url) {
     async retirerReaction(commentaire, auteur, emoji) {
       await sql`delete from amend.reactions where commentaire = ${commentaire} and auteur = ${auteur} and emoji = ${emoji}`
     },
-    fermer: () => sql.end({ timeout: 5 }),
+    fermer: rendre,
   }
 }

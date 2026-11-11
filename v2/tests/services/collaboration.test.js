@@ -11,7 +11,6 @@ import { preparerServices, POSTGRES, REDIS } from '../../exploitation/dev/pile.m
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
-import { lireBlocs, texteDesBlocs } from '../../adaptateurs/blocknote/serveur.js'
 import { roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
 
 const PORT = 4511
@@ -108,7 +107,8 @@ t2('origine étrangère refusée, origine admise acceptée', async () => {
 })
 
 t2('un document jamais écrit se lit vide, sans erreur', async () => {
-  assert.equal(texteDesBlocs(lireBlocs(await collab.lireEtat(docId('vide')))), '')
+  const serveur = clientCollaboration({ url: `http://127.0.0.1:${PORT}/collaboration`, jeton: JETON })
+  assert.equal(texteDuDoc(await serveur.lireTexte(docId('vide'))), '')
 })
 
 /** Un client Node.js ouvert par l'adaptateur Yjs, avec l'identité simulée
@@ -189,7 +189,8 @@ for (const [role, ecrit] of [
         assert.ok(attendu(vu), `${role} : le témoin voit ${JSON.stringify(vu)}`)
         // Et l'état relu côté serveur a sa frappe, ou ne l'a pas.
         await attendre(500)
-        assert.equal(/essai/.test(texteDuDoc(await collab.lireEtat(id))), ecrit, `${role} : état du serveur`)
+        const serveur = clientCollaboration({ url: `http://127.0.0.1:${PORT}/collaboration`, jeton: JETON })
+        assert.equal(/essai/.test(texteDuDoc(await serveur.lireTexte(id))), ecrit, `${role} : état du serveur`)
       } finally {
         temoin.fermer()
         essai.fermer()

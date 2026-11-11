@@ -4,14 +4,17 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import * as encodage from 'lib0/buffer'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 
 let reponses = []
+/** Les corps des réponses, dans l'ordre (aucun : corps vide). */
+let corps = []
 const recues = []
 const faux = http.createServer((req, res) => {
   recues.push({ methode: req.method, url: req.url, jeton: req.headers['x-amend-interne'] })
   res.writeHead(reponses.shift() ?? 200)
-  res.end()
+  res.end(corps.shift())
 })
 await new Promise((r) => faux.listen(0, '127.0.0.1', r))
 after(() => faux.close())
@@ -58,4 +61,40 @@ test('corbeille : suppression douce des deux branches (sans hard), restauration 
   )
   reponses = [409]
   await assert.rejects(client.restaurer('doc-f'), { code: 'collaboration-indisponible' })
+})
+
+test('revoir les accès : les deux branches sont tentées même si la première échoue, puis l’erreur remonte', async () => {
+  recues.length = 0
+  reponses = [500, 200]
+  await assert.rejects(client.revoirAcces('doc-g', 'p1'), { code: 'collaboration-indisponible' })
+  assert.deepEqual(
+    recues.map((r) => [r.methode, /branch=(\w+)/.exec(r.url)[1]]),
+    [
+      ['POST', 'main'],
+      ['POST', 'suggestions'],
+    ],
+  )
+  reponses = [200, 503]
+  await assert.rejects(client.revoirAcces('doc-g'), { code: 'collaboration-indisponible' })
+  reponses = [200, 200]
+  await client.revoirAcces('doc-g')
+})
+
+test('lire : une réponse illisible, ou sans état, lève collaboration-indisponible ; un état vide se lit', async () => {
+  reponses = [200]
+  corps = [Buffer.from([255, 255, 255, 255])]
+  await assert.rejects(client.lireTexte('doc-h'), { code: 'collaboration-indisponible' })
+  reponses = [200]
+  corps = [Buffer.from(encodage.encodeAny({ autre: 1 }))]
+  await assert.rejects(client.lireSuggestions('doc-h'), { code: 'collaboration-indisponible' })
+  reponses = [200]
+  corps = [Buffer.from(encodage.encodeAny({ doc: 'pas des octets' }))]
+  await assert.rejects(client.lireTexte('doc-h'), { code: 'collaboration-indisponible' })
+  reponses = [200]
+  corps = [Buffer.from(encodage.encodeAny({}))]
+  await assert.rejects(client.copierTexte('doc-h', 'doc-i', 'p1'), { code: 'collaboration-indisponible' })
+  reponses = [200]
+  corps = [Buffer.from(encodage.encodeAny({ doc: new Uint8Array(2) }))]
+  assert.equal((await client.lireSuggestions('doc-j')).byteLength, 2)
+  corps = []
 })
