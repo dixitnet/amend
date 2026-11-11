@@ -30,9 +30,13 @@
     "renommer": "Rename",
     "nomDuDocument": "Document title",
     "exportEchoue": "The export failed. Please try again in a moment.",
-    "suiviModifications": "Track changes",
-    "activerSuivi": "Turn on track changes",
-    "arreterSuivi": "Turn off track changes",
+    "modes": "Editing mode",
+    "modeEcrire": "Edit",
+    "modeSuggerer": "Suggest",
+    "modeRelire": "Review",
+    "passerEcrire": "Edit directly",
+    "passerSuggerer": "Suggest changes",
+    "passerRelire": "Review suggestions",
     "exporter": "Export…"
   },
   "erreurs": {
@@ -90,7 +94,9 @@
     "toutAccepter": "Accept all",
     "toutRefuser": "Reject all",
     "accepterDe": "Accept: {texte}",
-    "refuserDe": "Reject: {texte}"
+    "refuserDe": "Reject: {texte}",
+    "enCours": "Pending suggestions",
+    "enAttente": "Suggestions are waiting: switch to review to accept or reject them."
   },
   "roles": {
     "lecteur": "reader",

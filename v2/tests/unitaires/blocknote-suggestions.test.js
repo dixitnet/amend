@@ -17,8 +17,7 @@ test('y/hub muet : un seul nouvel essai, puis on attend le prochain changement',
       doc: { on: (_, f) => ecouteurs.add(f), off: (_, f) => ecouteurs.delete(f) },
     },
   }
-  const editeur = { exec: () => assert.fail('rien à afficher sans auteurs') }
-  const arreter = suivreAuteurs(editeur, contexte, { destroy() {} }, () => {}, 5)
+  const arreter = suivreAuteurs(contexte, () => assert.fail('rien à transmettre sans auteurs'), 5)
   await attendre(80)
   assert.equal(demandes, 2, 'la demande du départ, puis un seul nouvel essai')
   for (const f of ecouteurs) f(null, 'quelqu’un')

@@ -12,6 +12,7 @@ import {
   texte,
   attendre,
   NAVIGATEUR,
+  choisirMode,
 } from './outils.mjs'
 
 const I = '\u00A0' // espace insécable
@@ -172,7 +173,8 @@ test('correcteur : sa frappe et son collage restent des suggestions ; le texte p
   await c.keyboard.type(' "ajout" ?')
   await coller(c, { 'text/plain': 'collé "ici"' })
   await attendre(1500)
-  // Chez l'éditrice : le texte principal, plus les suggestions marquées comme telles.
+  // Chez l'éditrice, en relecture : le texte principal, plus les suggestions marquées comme telles.
+  await choisirMode(p, 'Relire')
   const principal = await p.evaluate(() => {
     const copie = document.querySelector('.bn-editor .bn-inline-content').cloneNode(true)
     copie.querySelectorAll('ins, .ProseMirror-widget').forEach((e) => e.remove())

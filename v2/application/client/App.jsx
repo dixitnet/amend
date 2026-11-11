@@ -1334,17 +1334,11 @@ function useVoletDocuments(docId, { actif = true } = {}) {
 function Edition({ config, personne, docId, droits }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
-  // Le suivi des modifications : un interrupteur pour qui écrit, arrêté à
-  // l'ouverture ; le correcteur est toujours en suivi (Sylvain, 10/11/2026,
-  // comme l'interrupteur de la v1).
-  const [suivi, setSuivi] = useState(false)
-  const mode = caps.includes('ecrire')
-    ? suivi
-      ? 'suggerer'
-      : 'ecrire'
-    : caps.includes('suggerer')
-      ? 'suggerer'
-      : 'lire'
+  // Les trois modes d'un éditeur, comme l'exemple de BlockNote (Sylvain,
+  // 10/11/2026) : Modifier à l'ouverture, Suggérer, Relire ; le correcteur
+  // suggère toujours, le lecteur lit.
+  const [modeEditeur, setModeEditeur] = useState('ecrire')
+  const mode = caps.includes('ecrire') ? modeEditeur : caps.includes('suggerer') ? 'suggerer' : 'lire'
   const avecSuggestions = caps.includes('suggerer')
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
@@ -1356,7 +1350,7 @@ function Edition({ config, personne, docId, droits }) {
         personne: moi,
         suggestions: avecSuggestions,
       }),
-    // Basculer le suivi ne rouvre pas la connexion : seul l'éditeur change de mode.
+    // Changer de mode ne rouvre pas la connexion : seul l'éditeur change de mode.
     [config, docId, moi, avecSuggestions],
   )
   const commentaires = useMemo(
@@ -1444,7 +1438,7 @@ function Edition({ config, personne, docId, droits }) {
   // Le volet droit s'ouvre d'office, une fois, quand des suggestions attendent (5b).
   const ouvertDOffice = useRef(false)
   useEffect(() => {
-    if (!ouvertDOffice.current && suggestions?.liste.length) {
+    if (!ouvertDOffice.current && (suggestions?.liste.length || suggestions?.enAttente)) {
       ouvertDOffice.current = true
       volets.ouvrirDroite()
     }
@@ -1490,7 +1484,25 @@ function Edition({ config, personne, docId, droits }) {
   // Exports Markdown et PDF du texte de base (étape 7), préparés dans le
   // navigateur comme chez Docs, depuis la fenêtre « Exporter ».
   const [fenetreExport, ouvrirExport] = useExport({ docId, controle, titre: titreAffiche })
-  const mention = { ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
+  // La mention du mode, pour qui n'a pas le choix (l'éditeur voit le sélecteur).
+  const mention = caps.includes('ecrire')
+    ? null
+    : { suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
+  const MODES = [
+    ['ecrire', t('document.modeEcrire'), t('document.passerEcrire')],
+    ['suggerer', t('document.modeSuggerer'), t('document.passerSuggerer')],
+    ['relire', t('document.modeRelire'), t('document.passerRelire')],
+  ]
+  // Dans les menus (formats M et S) : passer à l'un des deux autres modes.
+  const autresModes = (champ) =>
+    caps.includes('ecrire')
+      ? MODES.filter(([m]) => m !== modeEditeur).map(([m, , passer]) => ({
+          cle: `mode-${m}`,
+          libelle: passer,
+          [champ]: 'modifications',
+          surClic: () => setModeEditeur(m),
+        }))
+      : []
   // « Copier le lien », le même dans tous les formats (audit du 10/11/2026) :
   // le lien du document, un retour, et le lien à recopier si le presse-papiers refuse.
   const lien = `${location.origin}/#${encodeURIComponent(docId)}`
@@ -1499,16 +1511,7 @@ function Edition({ config, personne, docId, droits }) {
       .then(() => montrerMessage(t('telephone.lienCopie')))
       .catch(() => montrerMessage(t('telephone.lienNonCopie', { lien }), { erreur: true }))
   const actions = [
-    ...(caps.includes('ecrire') && etroit
-      ? [
-          {
-            cle: 'suivi',
-            libelle: suivi ? t('document.arreterSuivi') : t('document.activerSuivi'),
-            picto: 'modifications',
-            surClic: () => setSuivi((s) => !s),
-          },
-        ]
-      : []),
+    ...(etroit ? autresModes('picto') : []),
     {
       cle: 'lien',
       libelle: t('telephone.copierLien'),
@@ -1534,7 +1537,21 @@ function Edition({ config, personne, docId, droits }) {
   const avecVoletDroit = mode !== 'lire'
   const modifications = suggestions ? (
     <PanneauSuggestions
-      titre={t('suggestions.titre', { n: suggestions.liste.length })}
+      titre={
+        mode === 'relire' || !suggestions.enAttente
+          ? t('suggestions.titre', { n: suggestions.liste.length })
+          : t('suggestions.enCours')
+      }
+      // Hors relecture, l'éditeur ne voit pas les suggestions : une invitation à relire.
+      invitation={
+        mode !== 'relire' && suggestions.enAttente
+          ? {
+              texte: t('suggestions.enAttente'),
+              bouton: t('document.passerRelire'),
+              surClic: () => setModeEditeur('relire'),
+            }
+          : null
+      }
       lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
       libelles={{
         accepter: t('suggestions.accepter'),
@@ -1653,16 +1670,7 @@ function Edition({ config, personne, docId, droits }) {
             icone: 'lien',
             surClic: copierLien,
           },
-          ...(caps.includes('ecrire')
-            ? [
-                {
-                  cle: 'suivi',
-                  libelle: suivi ? t('document.arreterSuivi') : t('document.activerSuivi'),
-                  icone: 'modifications',
-                  surClic: () => setSuivi((s) => !s),
-                },
-              ]
-            : []),
+          ...autresModes('icone'),
           ...(caps.includes('inviter')
             ? [{ cle: 'partager', libelle: t('document.partager'), icone: 'partager', surClic: () => setPartage(true) }]
             : []),
@@ -1753,9 +1761,14 @@ function Edition({ config, personne, docId, droits }) {
           mention={mention}
           // L : dans le bandeau, comme la v1 ; M (iPad) : dans le menu « … »,
           // comme au téléphone, le bandeau étant trop étroit (10/11/2026).
-          suivi={
+          modes={
             caps.includes('ecrire') && !etroit
-              ? { libelle: t('document.suiviModifications'), actif: suivi, surChange: setSuivi }
+              ? {
+                  libelle: t('document.modes'),
+                  valeur: modeEditeur,
+                  options: MODES.map(([m, libelle]) => ({ valeur: m, libelle })),
+                  surChange: setModeEditeur,
+                }
               : null
           }
           terminer={
