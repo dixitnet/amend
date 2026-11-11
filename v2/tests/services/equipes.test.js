@@ -55,13 +55,14 @@ const dernierLien = (a) => {
   const m = [...courrier.envoyes].reverse().find((x) => x.a === a)
   return m ? new URL(m.texte.match(/https:\/\/\S+/)[0]).pathname : null
 }
-/** Suit un lien de connexion : rend le cookie de session et la redirection. */
+/** Suit un lien de connexion, comme la page (POST) : rend le cookie de session et le document visé. */
 async function suivre(chemin) {
-  const r = await appel('GET', chemin)
+  const r = await appel('POST', chemin)
   return {
     statut: r.statut,
     cookie: r.entetes.get('set-cookie')?.split(';')[0] ?? null,
-    vers: r.entetes.get('location'),
+    document: r.json?.document ?? null,
+    code: r.json?.code ?? null,
   }
 }
 /** Une personne connectée par la route de développement. */

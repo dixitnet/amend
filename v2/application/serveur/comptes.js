@@ -5,7 +5,8 @@
 // dépôt (adaptateur PostgreSQL) garde les données ; réponses en codes.
 //
 //   POST   /api/connexion                    { courriel, document? }  lien par courriel
-//   GET    /api/connexion/:jeton             ouvre la session, puis le document
+//   GET    /api/connexion/:jeton             le lien du courrier : renvoie à la page, sans rien consommer
+//   POST   /api/connexion/:jeton             ouvre la session (la page l'envoie) → { document }
 //   POST   /api/deconnexion
 //   POST   /api/deconnexion-partout
 //   PUT    /api/moi                          { nom }
@@ -403,12 +404,20 @@ export function creerComptes({
         })
       return ok(res)
     }
+    // Le lien du courrier ne consomme rien : une passerelle de messagerie qui le
+    // visite avant la personne ne le brûle pas. Il renvoie à la page, qui envoie
+    // le jeton par POST (comme la v1, `/api/auth/verify` ; audit du 11/11/2026).
     if (racine === 'connexion' && segments.length === 1 && methode === 'GET') {
+      res.writeHead(303, {
+        location: `/#/connexion/${encodeURIComponent(segments[0])}`,
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+      })
+      return (res.end(), true)
+    }
+    if (racine === 'connexion' && segments.length === 1 && methode === 'POST') {
       const j = await comptes.consommerJeton(segments[0])
-      if (!j) {
-        res.writeHead(303, { location: `/#!${LIEN_INVALIDE}`, 'cache-control': 'no-store' })
-        return (res.end(), true)
-      }
+      if (!j) return err(res, 400, LIEN_INVALIDE)
       const p = await comptes.personneOuNouvelle(j.courriel)
       // Les invitations valables deviennent des accès (comme Docs, à la connexion).
       for (const i of await comptes.invitationsDe(j.courriel)) {
@@ -423,12 +432,15 @@ export function creerComptes({
       }
       if (j.document && (await comptes.document(j.document))?.roleLien)
         await comptes.noterPassageParLien(j.document, p.id)
-      res.writeHead(303, {
-        location: j.document ? `/#${encodeURIComponent(j.document)}` : '/',
-        'set-cookie': cookieDeSession({ id: p.id, nom: p.nom ?? '' }),
-        'cache-control': 'no-store',
-      })
-      return (res.end(), true)
+      return (
+        json(
+          res,
+          200,
+          { document: j.document ?? null },
+          { 'set-cookie': cookieDeSession({ id: p.id, nom: p.nom ?? '' }) },
+        ),
+        true
+      )
     }
     const p = await personneDe(req)
     if (racine === 'deconnexion' || racine === 'deconnexion-partout') {

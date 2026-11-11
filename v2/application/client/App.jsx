@@ -122,6 +122,7 @@ function morceauxDeMargo(m, allerAuBloc) {
  * de mes dossiers ; `#/partages`, Partagé avec moi ; `#/equipes/id` et
  * `#/equipes/id/dossiers/id`, une équipe et ses dossiers ; `#/admin`, le
  * back-office (administrateurs de l'instance) ; `#!code`, un message ;
+ * `#/connexion/jeton`, un lien de connexion reçu par courriel ;
  * `#id`, un document (jamais de `/` dans son identifiant) ; `null` si
  * l'adresse est mal encodée (`#%`). */
 function viseeDansAdresse() {
@@ -135,6 +136,8 @@ function viseeDansAdresse() {
   if (h === '/partages') return { liste: 'partages' }
   if (h === '/admin') return { admin: true }
   if (h === '/compte') return { compte: true }
+  const c = h.match(/^\/connexion\/([A-Za-z0-9_-]+)$/)
+  if (c) return { connexion: c[1] }
   if (h.startsWith('/dossiers/')) return { liste: 'mes', dossier: h.slice('/dossiers/'.length) }
   const e = h.match(/^\/equipes\/([^/]+)(?:\/dossiers\/([^/]+))?$/)
   if (e) return { liste: `equipe:${e[1]}`, dossier: e[2] ?? null }
@@ -179,8 +182,25 @@ export function App() {
   const entrerEnDev = essayer(async (nom) => (await envoyerJson('POST', '/api/dev/session', { nom }), charger()))
   const nommer = essayer(async (nom) => (await envoyerJson('PUT', '/api/moi', { nom }), charger()))
 
+  /** Un lien de connexion : la page envoie le jeton (le lien du courrier ne
+   * consomme rien, une passerelle qui le visite ne le brûle pas), puis ouvre
+   * le document visé. */
+  async function entrerParLien(jeton) {
+    try {
+      const r = await fetch(`/api/connexion/${encodeURIComponent(jeton)}`, { method: 'POST' })
+      const corps = await lireJson(r)
+      if (!r.ok) return setEtat({ phase: 'erreur', code: corps.code || `http-${r.status}` })
+      location.replace(corps.document ? `#${encodeURIComponent(corps.document)}` : '#')
+      await charger()
+    } catch {
+      setEtat({ phase: 'erreur', code: 'reseau' })
+    }
+  }
+
   useEffect(() => {
-    charger()
+    const v = viseeDansAdresse()
+    if (v?.connexion) entrerParLien(v.connexion)
+    else charger()
   }, [])
 
   if (etat.phase === 'chargement') return <EcranMessage texte={t('application.chargement')} />

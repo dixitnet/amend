@@ -72,13 +72,14 @@ const dernierLien = (a) => {
   const m = [...courrier.envoyes].reverse().find((x) => x.a === a)
   return m ? new URL(m.texte.match(/https:\/\/\S+/)[0]).pathname : null
 }
-/** Suit un lien de connexion : rend le cookie de session et la redirection. */
+/** Suit un lien de connexion, comme la page (POST) : rend le cookie de session et le document visé. */
 async function suivre(chemin) {
-  const r = await appel('GET', chemin)
+  const r = await appel('POST', chemin)
   return {
     statut: r.statut,
     cookie: r.entetes.get('set-cookie')?.split(';')[0] ?? null,
-    vers: r.entetes.get('location'),
+    document: r.json?.document ?? null,
+    code: r.json?.code ?? null,
   }
 }
 /** Une personne connectée par la route de développement. */
@@ -108,12 +109,18 @@ test('invitation d’une adresse nouvelle : courrier, un clic, accès au bon rô
   assert.match(m.sujet, /Paule/)
   assert.match(m.texte, /La gare/)
   assert.equal((m.html.match(/<a /g) || []).length, 1, 'un seul lien')
+  // Le lien du courrier, visité tel quel (une passerelle de messagerie, un
+  // aperçu), ne consomme rien : il renvoie à la page, sans ouvrir de session.
+  const visite = await appel('GET', dernierLien(a))
+  assert.equal(visite.statut, 303)
+  assert.match(visite.entetes.get('location'), /^\/#\/connexion\/[A-Za-z0-9_-]+$/)
+  assert.equal(visite.entetes.get('set-cookie'), null, 'aucune session à la simple visite')
   const s = await suivre(dernierLien(a))
-  assert.equal(s.statut, 303)
-  assert.equal(s.vers, `/#${doc.id}`)
+  assert.equal(s.statut, 200)
+  assert.equal(s.document, doc.id)
   const droits = await appel('GET', `/api/droits?document=${doc.id}`, { cookie: s.cookie })
   assert.equal(droits.json.role, 'correcteur')
-  assert.equal((await suivre(dernierLien(a))).vers, '/#!lien-invalide', 'déjà utilisé')
+  assert.equal((await suivre(dernierLien(a))).code, 'lien-invalide', 'déjà utilisé')
   // L'adresse connue reçoit désormais un lien de connexion.
   await appel('POST', '/api/connexion', { corps: { courriel: a } })
   assert.ok(dernierLien(a))
@@ -324,7 +331,7 @@ test('lien de partage : une personne connectée qui a le lien gagne son rôle ; 
   const a = adresse('nouvelle')
   await appel('POST', '/api/connexion', { corps: { courriel: a, document: doc.id } })
   const s = await suivre(dernierLien(a))
-  assert.equal(s.vers, `/#${doc.id}`)
+  assert.equal(s.document, doc.id)
   assert.equal((await appel('GET', `/api/droits?document=${doc.id}`, { cookie: s.cookie })).json.role, 'correcteur')
   // Sans session, rien (pas de connexion anonyme).
   assert.equal((await appel('GET', `/api/droits?document=${doc.id}`)).statut, 401)
