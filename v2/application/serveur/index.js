@@ -14,6 +14,7 @@ import { creerMargo } from './margo.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
+import { creerImages } from './images.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
 import {
@@ -429,6 +430,12 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     json,
     lireCorps,
   })
+  const images = creerImages({
+    personneDe: identite.personneDe,
+    roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),
+    depot: comptes,
+    json,
+  })
   const partage = creerComptes({
     CONF,
     comptes,
@@ -461,6 +468,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       if (route) return await route(req, res, url)
       if (await commentaires(req, res, url)) return
       if (await margo(req, res, url)) return
+      if (await images(req, res, url)) return
       if (await partage(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })

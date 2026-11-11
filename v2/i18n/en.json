@@ -90,7 +90,11 @@
     "ecarts-invalides": "These settings are not valid.",
     "margo-indisponible": "Margo is unavailable at the moment.",
     "selection-absente": "Select the passage to correct first.",
-    "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most)."
+    "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most).",
+    "image-vide": "This file is empty.",
+    "image-trop-lourde": "This image is too large (5 MB at most).",
+    "images-document-pleines": "This document has reached its image limit (100 MB).",
+    "image-type-refuse": "Only PNG and JPEG images are accepted."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",

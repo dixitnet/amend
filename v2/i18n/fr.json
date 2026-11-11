@@ -90,7 +90,11 @@
     "ecarts-invalides": "Ces réglages ne sont pas valides.",
     "margo-indisponible": "Margo est indisponible pour le moment.",
     "selection-absente": "Sélectionnez d’abord le passage à corriger.",
-    "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus)."
+    "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus).",
+    "image-vide": "Ce fichier est vide.",
+    "image-trop-lourde": "Cette image est trop lourde (5\u00A0Mo au plus).",
+    "images-document-pleines": "Ce document a atteint sa limite d’images (100\u00A0Mo).",
+    "image-type-refuse": "Seules les images PNG et JPEG sont acceptées."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",

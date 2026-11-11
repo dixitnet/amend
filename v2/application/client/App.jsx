@@ -61,7 +61,7 @@ import {
 } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
-import { serviceCommentaires, nomsDe, appel } from './commentaires.js'
+import { serviceCommentaires, nomsDe, appel, envoyerImage } from './commentaires.js'
 import { useVolets } from './volets.js'
 import { exporterDocument, modeleComplet, modeleMaison } from './exports.js'
 import { useMargo } from './margo.js'
@@ -1734,6 +1734,19 @@ function Edition({ config, personne, docId, droits }) {
     else volets.ouvrirDroite()
     demanderMargo({ corriger: true, selection: choisie })
   }
+  // Envoyer une image (comme Docs) : qui écrit ou suggère ; un refus se dit.
+  const peutEnvoyer = caps.includes('ecrire') || caps.includes('suggerer')
+  const televerser = useMemo(
+    () =>
+      peutEnvoyer
+        ? (fichier) =>
+            envoyerImage(docId, fichier).catch((e) => {
+              montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+              throw e
+            })
+        : undefined,
+    [docId, peutEnvoyer],
+  )
   const corriger = useMemo(
     () => (peutMargo ? { libelle: t('margo.corriger'), surClic: (choisie) => surCorriger.current(choisie) } : null),
     [peutMargo],
@@ -1797,6 +1810,7 @@ function Edition({ config, personne, docId, droits }) {
         corriger={corriger}
         surSelection={peutMargo ? setSelection : undefined}
         textes={TEXTES_EDITEUR}
+        televerser={televerser}
       />
     </ZoneZoom>
   )

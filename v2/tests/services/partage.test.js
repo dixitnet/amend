@@ -496,3 +496,48 @@ test('favoris (comme Docs) : chacun les siens ; ni sans accès, ni par une autre
   assert.equal((await appel('DELETE', `/api/documents/${doc}/favori`, { cookie: p.cookie })).statut, 200)
   assert.equal(await favori(p), false)
 })
+
+test('images (comme Docs) : qui écrit ou suggère envoie ; qui lit voit ; le reste est refusé ; elles partent avec le document', async () => {
+  const paule = await personne('Paule')
+  const luc = await personne('Luc')
+  const zoe = await personne('Zoé')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: {} })
+  await appel('POST', '/api/dev/acces', {
+    cookie: paule.cookie,
+    corps: { document: doc.id, personne: luc.id, role: 'lecteur' },
+  })
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
+  const envoyer = (cookie, corps) =>
+    fetch(`${base}/api/documents/${doc.id}/images`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/octet-stream' },
+      body: corps,
+    })
+  const r = await envoyer(paule.cookie, png)
+  assert.equal(r.status, 201)
+  const { url } = await r.json()
+  assert.match(url, new RegExp(`^/api/documents/${doc.id}/images/[0-9a-f]{32}\\.png$`))
+  // Lire : qui lit le document ; le type vient des octets, jamais du navigateur.
+  const lue = await fetch(`${base}${url}`, { headers: { cookie: luc.cookie } })
+  assert.equal(lue.status, 200)
+  assert.equal(lue.headers.get('content-type'), 'image/png')
+  assert.deepEqual(Buffer.from(await lue.arrayBuffer()), png)
+  assert.equal((await fetch(`${base}${url}`, { headers: { cookie: zoe.cookie } })).status, 404)
+  assert.equal((await fetch(`${base}${url}`)).status, 401)
+  // Envoyer : ni le lecteur, ni un type inconnu (SVG), ni une image trop lourde.
+  assert.equal((await envoyer(luc.cookie, png)).status, 403)
+  const svg = await envoyer(paule.cookie, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'))
+  assert.deepEqual([svg.status, (await svg.json()).code], [400, 'image-type-refuse'])
+  const lourde = Buffer.alloc(5 * 1024 * 1024 + 1)
+  png.copy(lourde)
+  const trop = await envoyer(paule.cookie, lourde)
+  assert.deepEqual([trop.status, (await trop.json()).code], [413, 'image-trop-lourde'])
+  assert.equal(
+    (await fetch(`${base}/api/documents/${doc.id}/images/..%2Fx.png`, { headers: { cookie: paule.cookie } })).status,
+    404,
+  )
+  // Le document effacé emporte ses images.
+  await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })
+  await appel('DELETE', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })
+  assert.equal(await comptes.image(doc.id, url.split('/').pop()), null)
+})

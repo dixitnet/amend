@@ -160,6 +160,8 @@ function itemsDuMenu(editeur, table) {
  *   rappelé quand la sélection change, en blocs (Margo, étape 8) ; doit être stable
  * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, picto: any } }} [p.textes]
  *   libellés et pictos de nos ajouts (exposant, table des matières), donnés par l'application
+ * @param {(fichier: File) => Promise<string>} [p.televerser] envoie une image et rend son
+ *   adresse (\`uploadFile\` de BlockNote, comme Docs) ; absent : pas d'envoi de fichier
  */
 export function EditeurCollaboratif({
   contexte,
@@ -181,6 +183,7 @@ export function EditeurCollaboratif({
   corriger = null,
   surSelection,
   textes = {},
+  televerser,
 }) {
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
   // Le mode du moment, lu par la typographie sans recréer l'éditeur.
@@ -207,6 +210,8 @@ export function EditeurCollaboratif({
   const editeur = useCreateBlockNote(
     withCollaboration({
       schema: schemaLivre,
+      // Envoyer une image (choisie, collée ou déposée), comme Docs.
+      ...(televerser ? { uploadFile: televerser } : {}),
       // La typographie à la frappe en mode Modifier seulement : en suggestion,
       // les règles de saisie échouent (défaut de BlockNote, veille ; Sylvain,
       // 08/11/2026 : attendre sa correction).

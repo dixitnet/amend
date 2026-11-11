@@ -149,6 +149,29 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
   await page.context().close()
 })
 
+test('image (comme Docs) : envoyée depuis le bloc Image, gardée par le serveur, affichée', async () => {
+  const page = await pageEcriture('image')
+  await page.keyboard.type('/')
+  await page.waitForSelector('.bn-suggestion-menu')
+  await page.locator('.bn-suggestion-menu-item', { hasText: fr.slash_menu.image.title }).first().click()
+  // Le panneau du bloc : l'onglet d'envoi n'existe que si l'éditeur sait envoyer.
+  const fichier = page.locator('.bn-panel input[type=file], input[type=file]').first()
+  await fichier.waitFor({ state: 'attached' })
+  // Un PNG de 1 × 1 pixel.
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  )
+  await fichier.setInputFiles({ name: 'point.png', mimeType: 'image/png', buffer: png })
+  const img = page.locator('.bn-editor img[src*="/images/"]')
+  await img.waitFor()
+  const src = await img.getAttribute('src')
+  assert.match(src, /\/api\/documents\/[^/]+\/images\/[0-9a-f]{32}\.png$/)
+  const r = await page.evaluate(async (u) => (await fetch(u)).status, src)
+  assert.equal(r, 200, 'le serveur rend l’image à qui lit le document')
+  await page.context().close()
+})
+
 test('schéma du livre : un HTML collé perd ce que le livre n’a pas, garde le reste', PRESSE_PAPIERS, async () => {
   const page = await pageEcriture('collage-schema')
   await coller(page, {

@@ -146,6 +146,19 @@ alter table amend.equipes add column if not exists modele_defaut text;
 alter table amend.documents add column if not exists modifie_le timestamptz;
 alter table amend.documents add column if not exists supprime_le timestamptz;
 create index if not exists documents_supprime on amend.documents (supprime_le) where supprime_le is not null;
+-- Les images d'un document (lots du 11/11/2026, lot B ; Docs les met dans un
+-- stockage objet) : dans la base, que la sauvegarde de la nuit emporte ; elles
+-- partent avec le document.
+create table if not exists amend.images (
+  document text not null references amend.documents (id) on delete cascade,
+  nom text not null,
+  type text not null,
+  octets bytea not null,
+  taille integer not null,
+  cree_par uuid references amend.personnes (id) on delete set null,
+  cree_le timestamptz not null default now(),
+  primary key (document, nom)
+);
 `
 
 const empreinte = (jeton) => createHash('sha256').update(jeton).digest('hex')
@@ -222,6 +235,20 @@ export async function ouvrirComptes(url) {
             supprimeLe: d.supprime_le ? d.supprime_le.getTime() : null,
           }
         : null
+    },
+    /** Garde une image d'un document. */
+    garderImage: (document, nom, type, octets, personne) =>
+      sql`insert into amend.images (document, nom, type, octets, taille, cree_par)
+          values (${document}, ${nom}, ${type}, ${octets}, ${octets.length}, ${personne})`.then(() => {}),
+    /** Une image d'un document (\`{ type, octets }\`), ou \`null\`. */
+    async image(document, nom) {
+      const [i] = await sql`select type, octets from amend.images where document = ${document} and nom = ${nom}`
+      return i ? { type: i.type, octets: i.octets } : null
+    },
+    /** Le poids de toutes les images d'un document, en octets. */
+    async poidsImages(document) {
+      const [r] = await sql`select coalesce(sum(taille), 0)::bigint as n from amend.images where document = ${document}`
+      return Number(r.n)
     },
     /** Note que le contenu d'un document a changé (y/hub, comme \`content-updated\` de Docs). */
     noterModification: (id) =>

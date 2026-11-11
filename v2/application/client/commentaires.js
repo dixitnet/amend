@@ -16,6 +16,20 @@ export async function appel(methode, chemin, corps) {
   return donnees
 }
 
+/** Envoie une image d'un document (lots du 11/11/2026, lot B) ; rend son
+ * adresse ; une réponse en erreur lève avec son code, comme \`appel\`. */
+export async function envoyerImage(docId, fichier) {
+  const r = await fetch(`/api/documents/${encodeURIComponent(docId)}/images`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: fichier,
+  })
+  const donnees = await r.json().catch(() => ({}))
+  if (!r.ok)
+    throw Object.assign(new Error(donnees.code || `http-${r.status}`), { code: donnees.code || `http-${r.status}` })
+  return donnees.url
+}
+
 /** Le service des commentaires d'un document. */
 export function serviceCommentaires(docId) {
   const base = `/api/documents/${encodeURIComponent(docId)}/fils`
