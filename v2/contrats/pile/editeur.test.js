@@ -3,6 +3,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { fr } from '@blocknote/core/locales'
+import { creerTraducteur } from '../../i18n/index.js'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import {
   lancerNavigateur,
@@ -127,8 +128,12 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'table',
     'image',
     'divider',
+    // Saut de page de BlockNote, comme Docs (11/11/2026).
+    'page_break',
   ])
     assert.ok(titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
+  // La table des matières (11/11/2026), libellé de notre catalogue.
+  assert.ok(titres.includes(creerTraducteur('fr')('document.tableDesMatieres')), `table des matières : ${tout}`)
   // Titres 1 à 5 (Sylvain, 09/11/2026, journal des décisions) : le niveau 6 reste exclu.
   for (const cle of [
     'heading_6',

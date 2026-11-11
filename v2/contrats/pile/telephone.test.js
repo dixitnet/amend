@@ -88,6 +88,7 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
       'Relire les suggestions',
       'Partager',
       'Exporter…',
+      'Dupliquer',
       'Mes documents',
       'Supprimer',
     ],

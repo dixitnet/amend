@@ -39,7 +39,14 @@
     "passerRelire": "Review suggestions",
     "exporter": "Export…",
     "copie": "{titre} (copy)",
-    "dupliquer": "Duplicate"
+    "dupliquer": "Duplicate",
+    "compteur": "{signes, plural, one {# character} other {# characters}} including spaces, {mots, plural, one {# word} other {# words}}",
+    "zoom": "Text size",
+    "zoomPalier": "{zoom}%",
+    "exposant": "Superscript",
+    "tableDesMatieres": "Table of contents",
+    "tableDescription": "The document’s headings, down to the chosen level",
+    "tableProfondeur": "Heading levels"
   },
   "erreurs": {
     "modele-impossible": "This layout template is impossible: its lines, page number or text width do not fit on the page.",

@@ -83,6 +83,43 @@ export function Coquille({
 /** La colonne du texte (Container de Mantine, réglage de taille). */
 export const ColonneTexte = ({ children }) => <Container>{children}</Container>
 
+/**
+ * Le zoom du texte de l'éditeur (11/11/2026, comme la v1) : le palier choisi,
+ * en pour cent (REGLAGES.zoom), que la feuille de l'éditeur applique au texte
+ * seul (réglage css.editeur.zoom). Dans tous les formats.
+ */
+export const ZoneZoom = ({ zoom, children }) => <div data-amend-zoom={zoom}>{children}</div>
+
+/**
+ * Les éléments d'un menu « … » : une action ; un titre de groupe (`titre`) ;
+ * un choix parmi plusieurs (`coche` : vrai pour celui retenu, coche à gauche).
+ * `pied` : un texte en bas du menu, comme le nombre de mots du menu de Docs.
+ */
+export function ElementsDeMenu({ elements, pied, champPicto = 'picto' }) {
+  return (
+    <>
+      {elements.map((a) => [
+        a.separe ? <Menu.Divider key={`${a.cle}-sep`} /> : null,
+        a.titre ? (
+          <Menu.Label key={a.cle}>{a.libelle}</Menu.Label>
+        ) : (
+          <Menu.Item
+            key={a.cle}
+            leftSection={
+              a.coche === undefined ? <PictoDe role={a[champPicto]} /> : a.coche ? <PictoDe role="choisi" /> : null
+            }
+            {...(a.coche === undefined ? {} : { role: 'menuitemradio', 'aria-checked': a.coche })}
+            onClick={a.surClic}
+          >
+            {a.libelle}
+          </Menu.Item>
+        ),
+      ])}
+      {pied ? [<Menu.Divider key="pied-sep" />, <Menu.Label key="pied">{pied}</Menu.Label>] : null}
+    </>
+  )
+}
+
 /** L'étoile des favoris, devant le titre d'un document (Sylvain, 10/11/2026). */
 export const Etoile = ({ favori }) => (
   <ActionIcon aria-label={favori.libelle} aria-pressed={favori.actif} onClick={favori.surBasculer}>
@@ -194,19 +231,14 @@ export function Bandeau({
         </Button>
       ) : null}
       {actions?.elements.length ? (
-        <Menu>
+        <Menu onOpen={actions.surOuvrir}>
           <Menu.Target>
             <ActionIcon aria-label={actions.libelle}>
               <PictoDe role="autres" />
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
-            {actions.elements.map((a) => [
-              a.separe ? <Menu.Divider key={`${a.cle}-sep`} /> : null,
-              <Menu.Item key={a.cle} leftSection={<PictoDe role={a.picto} />} onClick={a.surClic}>
-                {a.libelle}
-              </Menu.Item>,
-            ])}
+            <ElementsDeMenu elements={actions.elements} pied={actions.pied} />
           </Menu.Dropdown>
         </Menu>
       ) : null}

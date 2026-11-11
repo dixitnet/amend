@@ -39,7 +39,14 @@
     "passerRelire": "Relire les suggestions",
     "exporter": "Exporter…",
     "copie": "{titre} (copie)",
-    "dupliquer": "Dupliquer"
+    "dupliquer": "Dupliquer",
+    "compteur": "{signes, plural, one {# signe} other {# signes}} espaces compris, {mots, plural, one {# mot} other {# mots}}",
+    "zoom": "Taille du texte",
+    "zoomPalier": "{zoom}\u202F%",
+    "exposant": "Exposant",
+    "tableDesMatieres": "Table des matières",
+    "tableDescription": "Les titres du document, jusqu’au niveau choisi",
+    "tableProfondeur": "Niveaux de titre"
   },
   "erreurs": {
     "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes, son folio ou la largeur du texte ne tiennent pas dans la page.",

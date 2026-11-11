@@ -2,13 +2,19 @@
 // qu'amend.ink garde de BlockNote (décision de Sylvain, étape 4 ; ce qui est
 // retiré est au registre des renoncements, n° 8). Partagé par l'éditeur et
 // par le serveur, pour qu'un document se lise partout avec le même schéma.
+// Ajouts du 11/11/2026 (comparaison v1 / v2, points 6, 18 et 19) : le saut de
+// page de BlockNote (`withPageBreak`, comme Docs), le bloc « Table des
+// matières » et le style « exposant » (nos extensions).
 import {
   BlockNoteSchema,
   defaultBlockSpecs,
   defaultInlineContentSpecs,
   defaultStyleSpecs,
   createHeadingBlockSpec,
+  withPageBreak,
 } from '@blocknote/core'
+import { blocTableDesMatieres } from '../../extensions/tableDesMatieres/index.js'
+import { styleExposant } from '../../extensions/exposant/index.js'
 
 const { paragraph, quote, bulletListItem, numberedListItem, divider, table, image } = defaultBlockSpecs
 const { bold, italic, underline, strike } = defaultStyleSpecs
@@ -24,11 +30,14 @@ const BLOCS_DU_LIVRE = {
   divider,
   table,
   image,
+  tableDesMatieres: blocTableDesMatieres(),
 }
-const STYLES_DU_LIVRE = { bold, italic, underline, strike }
+const STYLES_DU_LIVRE = { bold, italic, underline, strike, exposant: styleExposant }
 
-export const schemaLivre = BlockNoteSchema.create({
-  blockSpecs: BLOCS_DU_LIVRE,
-  inlineContentSpecs: defaultInlineContentSpecs,
-  styleSpecs: STYLES_DU_LIVRE,
-})
+export const schemaLivre = withPageBreak(
+  BlockNoteSchema.create({
+    blockSpecs: BLOCS_DU_LIVRE,
+    inlineContentSpecs: defaultInlineContentSpecs,
+    styleSpecs: STYLES_DU_LIVRE,
+  }),
+)

@@ -29,6 +29,10 @@ import {
   IconStarFilled,
   IconRestore,
   IconHelp,
+  IconSuperscript,
+  IconListDetails,
+  IconTextSize,
+  IconCheck,
 } from '@tabler/icons-react'
 
 const PICTOS = {
@@ -60,6 +64,11 @@ const PICTOS = {
   corbeille: IconTrash,
   restaurer: IconRestore,
   aide: IconHelp,
+  // 11/11/2026 (comparaison v1 / v2, points 19, 6, zoom) : dessins proposés, à confirmer.
+  exposant: IconSuperscript,
+  tableDesMatieres: IconListDetails,
+  zoom: IconTextSize,
+  choisi: IconCheck,
 }
 
 /** Le picto d'un rôle, ou rien si le rôle est inconnu. */

@@ -49,6 +49,9 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     corrections: 3,
     commentaires: 1,
     max: 4000,
+    signes: 12345,
+    mots: 2000,
+    zoom: 150,
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -80,6 +83,9 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       corrections: 2,
       commentaires: 2,
       max: 4000,
+      signes: 2,
+      mots: 2,
+      zoom: 50,
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
@@ -576,4 +582,12 @@ test('volet de relecture : onglet ouvert piloté (« Corriger » ouvre Margo) ; 
   const sans = rendre(coquilleDocument(t, { relecture: { margo: undefined } }))
   assert.doesNotMatch(sans, /role="tab"[^>]*>[\s\S]{0,400}?Margo \(IA\)/)
   assert.match(sans, /id="suggestions"/)
+})
+
+// Le menu « … » (titres de groupe, choix cochés, pied) ne s'ouvre qu'au
+// navigateur : vérifié dans la pile. Ici, la zone du zoom et les pictos.
+test('zone du zoom et nouveaux pictos (11/11/2026)', () => {
+  assert.match(rendre(h(design.ZoneZoom, { zoom: 150 }, 'texte')), /data-amend-zoom="150"/)
+  for (const role of ['exposant', 'tableDesMatieres', 'zoom', 'choisi'])
+    assert.match(rendre(h(design.PictoDe, { role })), /<svg/, role)
 })

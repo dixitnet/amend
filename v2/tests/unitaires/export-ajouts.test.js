@@ -1,0 +1,63 @@
+// Les ajouts du 11/11/2026 aux exports (comparaison v1 / v2, points 6, 8, 18
+// et 19) : table des matières, saut de page et exposant, en Typst et en
+// Markdown ; le compteur du texte de base.
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { BlockNoteEditor } from '@blocknote/core'
+import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
+import {
+  versTypst,
+  blocsPourMarkdown,
+  poserExposants,
+  textesDesBlocs,
+  compterBlocs,
+} from '../../adaptateurs/blocknote/export.js'
+import { MODELES_LIVRE } from '../../design/livre.js'
+
+const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
+const modele = MODELES_LIVRE.find((m) => m.id === 'tat-poche')
+
+function document() {
+  const editeur = BlockNoteEditor.create({ schema: schemaLivre })
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'heading', props: { level: 1 }, content: [texte('Ouverture')] },
+    { type: 'tableDesMatieres', props: { profondeur: 3 } },
+    { type: 'paragraph', content: [texte('Au XIX'), texte('e', { exposant: true }), texte(' siècle.')] },
+    { type: 'pageBreak' },
+    { type: 'heading', props: { level: 2 }, content: [texte('Section')] },
+    { type: 'heading', props: { level: 4 }, content: [texte('Trop profond')] },
+    { type: 'table', content: { type: 'tableContent', rows: [{ cells: ['a b', 'c'] }] } },
+  ])
+  return { editeur, blocs: editeur.document }
+}
+
+test('Typst : la table à sa place et à sa profondeur, le saut de page, l’exposant', async () => {
+  const { editeur, blocs } = document()
+  const { source } = await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr' })
+  const corps = source.slice(source.indexOf('#heading(level: 1)'))
+  assert.ok(corps.indexOf('#outline(depth: 3)') > corps.indexOf('Ouverture'))
+  assert.ok(corps.indexOf('#outline(depth: 3)') < corps.indexOf('siècle'))
+  assert.match(corps, /#"Au XIX"#super\("e"\)#" siècle\."/)
+  assert.match(corps, /#pagebreak\(\)\n\n#heading\(level: 2\)/)
+})
+
+test('Markdown : la table devient la liste de ses titres ; plus de saut de page ; exposant marqué', () => {
+  const { blocs } = document()
+  const prets = blocsPourMarkdown(blocs, { titreTable: 'Table des matières' })
+  const types = prets.map((b) => b.type)
+  assert.ok(!types.includes('pageBreak') && !types.includes('tableDesMatieres'))
+  const liste = prets.filter((b) => b.type === 'bulletListItem').map((b) => b.content[0].text)
+  assert.deepEqual(liste, ['Ouverture', 'Section'])
+  assert.equal(prets[1].content[0].text, 'Table des matières')
+  const para = prets.find((b) => b.type === 'paragraph' && b.content.length === 3)
+  assert.equal(poserExposants(para.content.map((c) => c.text).join('')), 'Au XIX<sup>e</sup> siècle.')
+  assert.ok(!('exposant' in para.content[1].styles))
+  // Sans titre donné, la liste seule.
+  assert.equal(blocsPourMarkdown(blocs)[1].type, 'bulletListItem')
+})
+
+test('compteur : texte des blocs, cellules comprises, sans la table ni le saut de page', () => {
+  const { blocs } = document()
+  assert.deepEqual(textesDesBlocs(blocs), ['Ouverture', 'Au XIXe siècle.', 'Section', 'Trop profond', 'a b', 'c'])
+  assert.deepEqual(compterBlocs(blocs), { signes: 9 + 15 + 7 + 12 + 3 + 1, mots: 1 + 3 + 1 + 2 + 2 + 1 })
+})
