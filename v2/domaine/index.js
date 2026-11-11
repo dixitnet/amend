@@ -56,3 +56,4 @@ export {
   ORDRES_TRI,
   trierDocuments,
 } from './corbeille.js'
+export { IMAGE_MAX_OCTETS, IMAGES_DOCUMENT_MAX_OCTETS, typeImage, refusImage, nomImageValide } from './images.js'
