@@ -32,7 +32,7 @@ export const TEXTES_EDITEUR = {
     description: t('document.tableDescription'),
     profondeur: t('document.tableProfondeur'),
     // Les options du choix de la profondeur, en clair (« Niveaux 1 à 3 »).
-    niveaux: PROFONDEURS_TABLE.map((n) => t('document.tableNiveaux', { n })),
+    niveaux: Object.fromEntries(PROFONDEURS_TABLE.map((n) => [n, t('document.tableNiveaux', { n })])),
     picto: <PictoDe role="tableDesMatieres" />,
   },
 }

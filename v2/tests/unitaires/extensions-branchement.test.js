@@ -145,7 +145,7 @@ function rendreTable({ editable = true, profondeur = 2, dictionary = {} } = {}) 
 }
 
 test('table des matières : titre, choix de profondeur et liste jusqu’à cette profondeur', () => {
-  const niveaux = ['N1', 'N1-2', 'N1-3', 'N1-4', 'N1-5']
+  const niveaux = { 1: 'N1', 2: 'N1-2', 3: 'N1-3', 4: 'N1-4', 5: 'N1-5' }
   const { nav, titreDom, reglage, legende, choix, liste } = rendreTable({
     dictionary: { amend: { table: { titre: 'Sommaire', profondeur: 'Profondeur', niveaux } } },
   })

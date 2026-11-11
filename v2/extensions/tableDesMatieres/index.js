@@ -62,7 +62,7 @@ export const blocTableDesMatieres = createBlockSpec(
       for (const n of PROFONDEURS_TABLE) {
         const option = document.createElement('option')
         option.value = String(n)
-        option.textContent = textes.niveaux?.[n - 1] ?? String(n)
+        option.textContent = textes.niveaux?.[n] ?? String(n)
         option.selected = n === profondeur
         choix.append(option)
       }

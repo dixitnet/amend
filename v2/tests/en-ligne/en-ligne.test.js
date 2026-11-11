@@ -125,7 +125,9 @@ sauf(
 // Depuis le VPS lui-même (essai après déploiement, essayer.sh), le pare-feu ne
 // filtre pas le trafic de la machine vers sa propre adresse : y/hub, qui écoute
 // sur toutes les interfaces, y paraît ouvert. Ce contrôle n'a de sens que de
-// l'extérieur (fausse alerte du 11/11/2026).
+// l'extérieur (fausse alerte du 11/11/2026) : il se joue quand la suite est
+// lancée depuis le Mac ; à la main, du Mac : `nc -vz -w 5 v2.amend.ink 4400`
+// (de même 4300, 5432, 6379) doit échouer.
 const DEPUIS_LE_SERVEUR = process.env.V2_DEPUIS_LE_SERVEUR === '1'
 
 sauf(
