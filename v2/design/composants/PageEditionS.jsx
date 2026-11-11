@@ -77,7 +77,7 @@ export function PageEditionS({
   return (
     <>
       <header className="amend-bandeau" data-connexion={connexion}>
-        <ActionIcon aria-label={libelles.gauche} onClick={() => surVolet('gauche')}>
+        <ActionIcon aria-label={libelles.gauche} aria-expanded={volet === 'gauche'} onClick={() => surVolet('gauche')}>
           <PictoDe role="plan" />
         </ActionIcon>
         {favori ? <Etoile favori={favori} /> : null}
@@ -102,7 +102,11 @@ export function PageEditionS({
           </Menu.Dropdown>
         </Menu>
         {voletDroit ? (
-          <ActionIcon aria-label={libelles.droite} onClick={() => surVolet('droite')}>
+          <ActionIcon
+            aria-label={libelles.droite}
+            aria-expanded={volet === 'droite'}
+            onClick={() => surVolet('droite')}
+          >
             <PictoDe role="modifications" />
           </ActionIcon>
         ) : null}
