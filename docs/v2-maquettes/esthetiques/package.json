@@ -1,0 +1,27 @@
+{
+  "name": "amend-ink-maquette-esthetiques",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "description": "Maquette des esthétiques de la v2 — voir LISEZMOI.md",
+  "scripts": {
+    "build": "vite build && node assembler.mjs"
+  },
+  "dependencies": {
+    "@blocknote/core": "0.57.0",
+    "@blocknote/mantine": "0.57.0",
+    "@blocknote/react": "0.57.0",
+    "@mantine/core": "9.7.5",
+    "@mantine/hooks": "9.7.5",
+    "@tabler/icons-react": "3.51.0",
+    "prosemirror-model": "1.25.12",
+    "prosemirror-state": "1.4.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.2.1",
+    "vite": "8.3.6"
+  }
+}

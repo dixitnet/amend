@@ -4,23 +4,76 @@
 // vérifie. Sans décision, rien ici : Mantine et BlockNote tels quels.
 import { DEFAULT_THEME } from '@mantine/core'
 import { REGLAGES_LIVRE } from './reglagesLivre.js'
+import { APPARENCE } from './apparence.js'
 
 export const REGLAGES = {
   // Le fournisseur Mantine (MantineProvider).
   fournisseur: { defaultColorScheme: 'auto' },
   // Le thème Mantine (createTheme).
   theme: {
-    // Le vert de Mantine, dernière nuance assombrie : le vert du picto
-    // (nuance 8) reste dans la palette, et un texte blanc sur la nuance 9
-    // passe le contraste (6,1:1).
-    colors: { vert: [...DEFAULT_THEME.colors.green.slice(0, 9), '#237032'] },
-    primaryColor: 'vert',
-    primaryShade: 9,
+    // La couleur principale vient de l'apparence (`couleurs` ci-dessous).
     components: {
       // La colonne du texte, et de toute page en Container : taille sm (720 px).
       Container: { defaultProps: { size: 'sm' } },
       // Les boutons à picto du bandeau et des volets : discrets.
       ActionIcon: { defaultProps: { variant: 'subtle', size: 'lg' } },
+    },
+  },
+  // L'apparence de l'instance, choisie au back-office (Sylvain, 11/11/2026 :
+  // « page de réglage du backoffice : modèle d'interface + couleur ») : les
+  // noms permis et l'apparence par défaut (design/apparence.js, sans Mantine :
+  // le serveur les lit aussi). Le modèle d'interface « atelier » a sa feuille
+  // (feuilles/interface-atelier.css) ; « origine » n'en a pas.
+  apparence: APPARENCE,
+  // Les couleurs proposées (maquette des esthétiques du 11/11/2026) : une
+  // palette de 10 nuances et la nuance principale, choisie pour qu'un texte
+  // blanc dessus passe le contraste (4,5:1 au moins).
+  couleurs: {
+    // Vermillon, « encre de correction » : nuance 7 (5,2:1).
+    vermillon: {
+      palette: [
+        '#fff0ee',
+        '#ffdcd6',
+        '#fbb4a8',
+        '#f78a77',
+        '#f3654d',
+        '#f14e33',
+        '#e5442a',
+        '#c9381f',
+        '#b03018',
+        '#962611',
+      ],
+      nuance: 7,
+    },
+    // Le vert de Mantine, dernière nuance assombrie : le vert du picto
+    // (nuance 8) reste dans la palette ; nuance 9 (6,1:1).
+    vert: { palette: [...DEFAULT_THEME.colors.green.slice(0, 9), '#237032'], nuance: 9 },
+    // Encre noire (`dark` de Mantine) : nuance 8 en clair (16,5:1) ; en sombre,
+    // la nuance 0 avec un texte noir (12,7:1, contraste automatique de Mantine).
+    encre: { palette: DEFAULT_THEME.colors.dark, nuance: { light: 8, dark: 0 }, contrasteAuto: true },
+    // Bleu encre (`indigo`), nuance 8 (5,7:1).
+    indigo: { palette: DEFAULT_THEME.colors.indigo, nuance: 8 },
+    // Bleu (`blue`), nuance 8 (5,0:1).
+    bleu: { palette: DEFAULT_THEME.colors.blue, nuance: 8 },
+    // Violet (`violet`), nuance 7 (5,6:1).
+    violet: { palette: DEFAULT_THEME.colors.violet, nuance: 7 },
+    // Pétrole (`cyan`), nuance 9 (5,6:1).
+    petrole: { palette: DEFAULT_THEME.colors.cyan, nuance: 9 },
+    // Sépia, nuance 8 (7,0:1).
+    sepia: {
+      palette: [
+        '#f8f3ee',
+        '#ece3da',
+        '#d9c5b1',
+        '#c6a686',
+        '#b68b62',
+        '#ac7a4b',
+        '#a7713f',
+        '#925f31',
+        '#7c4f27',
+        '#66401e',
+      ],
+      nuance: 8,
     },
   },
   // Les modèles de mise en page des livres (design/reglagesLivre.js, sans
