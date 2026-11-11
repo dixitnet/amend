@@ -126,7 +126,7 @@ export async function menuDe(page, { id, nom }) {
 }
 
 /** Le mode d'un éditeur (« Modifier », « Suggérer », « Relire ») : le sélecteur du bandeau (formats L). */
-export const selecteurDeMode = (page) => page.getByRole('radiogroup', { name: 'Mode d’édition' })
+const selecteurDeMode = (page) => page.getByRole('radiogroup', { name: 'Mode d’édition' })
 export async function choisirMode(page, libelle) {
   const choix = selecteurDeMode(page).getByText(libelle, { exact: true })
   await choix.click()

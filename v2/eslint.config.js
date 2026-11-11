@@ -12,7 +12,8 @@ import globals from 'globals'
 const FONDATIONS = {
   blocknote: '@blocknote/.*',
   y: '@y/.*',
-  yjs13: 'yjs|y-prosemirror|y-protocols(/.*)?|y-websocket',
+  // Les sous-chemins aussi (`yjs/dist/…`) : le paquet, ou le paquet suivi d'une barre.
+  yjs13: '(yjs|y-prosemirror|y-protocols|y-websocket)(/.*)?',
   prosemirror: '(?!(?:prosemirror-state|prosemirror-model|prosemirror-transform)$)prosemirror-.*|@tiptap/.*',
   // Ce qu'exige la pose d'une ancre de commentaire par le serveur (règle 1,
   // seconde révision, 09/11/2026) : permis à la partie serveur de
@@ -36,7 +37,7 @@ const COUCHES = ['domaine', 'adaptateurs', 'extensions', 'application', 'design'
  * et des couches nommées. `css` : aucune feuille de style (hors du design) ;
  * `cssDesign` : seulement celles des fondations, livrées telles quelles
  * (le design n'a pas de feuille à lui, ADR 0008). */
-function imports({ permises = [], couches = [], css = false, cssDesign = false }) {
+function motifsImports({ permises = [], couches = [], css = false, cssDesign = false, extra = [] }) {
   const interdites = Object.entries(FONDATIONS)
     .filter(([cle]) => !permises.includes(cle))
     .map(([, motif]) => motif)
@@ -65,19 +66,24 @@ function imports({ permises = [], couches = [], css = false, cssDesign = false }
       message: 'dépendance interdite entre couches (règles 1 à 3, 16)',
     })
   if (css) patterns.push({ regex: '\\.css$', message: 'feuille de style hors de v2/design/ (règle 17)' })
-  return ['error', { patterns }]
+  return [...patterns, ...extra]
 }
+const imports = (options) => ['error', { patterns: motifsImports(options) }]
 
 /** Les adaptateurs : aucun n'importe un autre (règle 2), y compris un adaptateur
  * à venir ajouté à cette liste (audit du 10/11/2026). */
 const ADAPTATEURS = ['yjs', 'blocknote', 'yhub', 'courrier', 'postgres', 'ia']
 const autresAdaptateurs = (soi) => ADAPTATEURS.filter((a) => a !== soi)
 /** Le même interdit pour les imports dynamiques (la fonction import), que
- * no-restricted-imports ne voit pas. */
-const sansImportDynamique = (couches) => ({
-  selector: `ImportExpression > Literal[value=/(^|\\/)(${couches.join('|')})(\\/|$)/]`,
-  message: 'dépendance interdite entre couches, par un import dynamique (règles 1 à 3)',
-})
+ * no-restricted-imports ne voit pas : mêmes options, mêmes motifs, donc une
+ * couche ne peut pas faire en important à la volée ce que `import … from` lui refuse
+ * (audit du 11/11/2026). Un import dynamique permis par `imports` reste permis :
+ * l'adaptateur BlockNote charge sa fondation, l'application charge un adaptateur. */
+const sansImportDynamique = (options) =>
+  motifsImports(options).map(({ regex, message }) => ({
+    selector: `ImportExpression > Literal[value=/${regex.replaceAll('/', '\\/')}/]`,
+    message: `${message} — import dynamique`,
+  }))
 
 const TEXTE_EN_DUR = [
   {
@@ -127,11 +133,58 @@ const DESIGN_SANS_REGLAGE = [
   { selector: `JSXAttribute[name.name=/${PROPS_DE_STYLE_MANTINE}/]`, message: REGLAGE_NON_DECIDE },
 ]
 
+const OPTIONS_DOMAINE = { couches: COUCHES.filter((c) => c !== 'domaine'), css: true }
+const OPTIONS_YJS = {
+  permises: ['y'],
+  couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('yjs')],
+  css: true,
+}
+const OPTIONS_BLOCKNOTE = {
+  permises: ['blocknote', 'y'],
+  couches: ['application', 'design', 'i18n', ...autresAdaptateurs('blocknote')],
+  css: true,
+}
+const OPTIONS_BLOCKNOTE_SERVEUR = { ...OPTIONS_BLOCKNOTE, permises: ['blocknote', 'y', 'transformation', 'lib0'] }
+const OPTIONS_YHUB = {
+  permises: ['y', 'lib0'],
+  couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('yhub')],
+  css: true,
+}
+const OPTIONS_COURRIER = {
+  couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('courrier')],
+  css: true,
+}
+const OPTIONS_POSTGRES = {
+  permises: ['serveur'],
+  couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('postgres')],
+  css: true,
+}
+const OPTIONS_IA = {
+  permises: ['ia'],
+  couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('ia')],
+  css: true,
+}
+const OPTIONS_EXTENSIONS = {
+  permises: ['blocknote', 'pointsExtension'],
+  couches: ['application', 'design', 'i18n', 'adaptateurs', 'extensions'],
+  css: true,
+  // Une extension tient dans son dossier (`extensions/<nom>/`) : `../autre/…`
+  // atteindrait une autre extension, `../../domaine/…` reste permis.
+  extra: [{ regex: '^\\.\\./[^./]', message: 'une extension n’en importe pas une autre (règle 2)' }],
+}
+const OPTIONS_APPLICATION = { css: true }
+const OPTIONS_DESIGN = {
+  permises: ['mantine', 'tabler'],
+  couches: ['application', 'adaptateurs', 'extensions', 'domaine', 'i18n'],
+  cssDesign: true,
+}
+const OPTIONS_I18N = { permises: ['icu'], couches: COUCHES.filter((c) => c !== 'i18n'), css: true }
+
 const navigateur = { ...globals.browser }
 const jsx = { ecmaFeatures: { jsx: true } }
 
 export default [
-  { ignores: ['node_modules/**', 'dist/**', '.mesures/**', '.captures/**'] },
+  { ignores: ['node_modules/**', 'dist/**', 'dist.neuf/**', '.mesures/**', '.captures/**'] },
   js.configs.recommended,
   {
     // ESLint ne lit les .jsx que si on les déclare : sans cette ligne, les
@@ -144,14 +197,19 @@ export default [
   {
     files: ['domaine/**'],
     rules: {
-      'no-restricted-imports': imports({ couches: COUCHES.filter((c) => c !== 'domaine'), css: true }),
+      'no-restricted-imports': imports(OPTIONS_DOMAINE),
       'no-restricted-syntax': [
         'error',
         {
           selector: 'ImportDeclaration[source.value=/^(?!\\.{1,2}\\/)/]',
           message: 'le domaine ne dépend de rien (règle 3)',
         },
+        {
+          selector: 'ImportExpression > Literal[value=/^(?!\\.{1,2}\\/)/]',
+          message: 'le domaine ne dépend de rien (règle 3), même par un import dynamique',
+        },
         ...DESIGN_HORS_DESIGN,
+        ...sansImportDynamique(OPTIONS_DOMAINE),
       ],
     },
   },
@@ -160,83 +218,63 @@ export default [
     files: ['adaptateurs/yjs/**'],
     languageOptions: { globals: navigateur },
     rules: {
-      'no-restricted-imports': imports({
-        permises: ['y'],
-        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('yjs')],
-        css: true,
-      }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('yjs'))],
+      'no-restricted-imports': imports(OPTIONS_YJS),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, ...sansImportDynamique(OPTIONS_YJS)],
     },
   },
   {
     files: ['adaptateurs/blocknote/**'],
     languageOptions: { globals: navigateur },
     rules: {
-      'no-restricted-imports': imports({
-        permises: ['blocknote', 'y'],
-        couches: ['application', 'design', 'i18n', ...autresAdaptateurs('blocknote')],
-        css: true,
-      }),
+      'no-restricted-imports': imports(OPTIONS_BLOCKNOTE),
       'no-restricted-syntax': [
         'error',
         STYLE_EN_DUR,
         ...TEXTE_EN_DUR,
         ...DESIGN_HORS_DESIGN,
-        sansImportDynamique(autresAdaptateurs('blocknote')),
+        ...sansImportDynamique(OPTIONS_BLOCKNOTE),
       ],
     },
   },
   {
     files: ['adaptateurs/blocknote/serveur.js'],
     rules: {
-      'no-restricted-imports': imports({
-        permises: ['blocknote', 'y', 'transformation', 'lib0'],
-        couches: ['application', 'design', 'i18n', ...autresAdaptateurs('blocknote')],
-        css: true,
-      }),
+      'no-restricted-imports': imports(OPTIONS_BLOCKNOTE_SERVEUR),
+      'no-restricted-syntax': [
+        'error',
+        STYLE_EN_DUR,
+        ...TEXTE_EN_DUR,
+        ...DESIGN_HORS_DESIGN,
+        ...sansImportDynamique(OPTIONS_BLOCKNOTE_SERVEUR),
+      ],
     },
   },
   {
     files: ['adaptateurs/yhub/**'],
     rules: {
-      'no-restricted-imports': imports({
-        permises: ['y', 'lib0'],
-        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('yhub')],
-        css: true,
-      }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('yhub'))],
+      'no-restricted-imports': imports(OPTIONS_YHUB),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, ...sansImportDynamique(OPTIONS_YHUB)],
     },
   },
   {
     files: ['adaptateurs/courrier/**'],
     rules: {
-      'no-restricted-imports': imports({
-        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('courrier')],
-        css: true,
-      }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('courrier'))],
+      'no-restricted-imports': imports(OPTIONS_COURRIER),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, ...sansImportDynamique(OPTIONS_COURRIER)],
     },
   },
   {
     files: ['adaptateurs/postgres/**'],
     rules: {
-      'no-restricted-imports': imports({
-        permises: ['serveur'],
-        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('postgres')],
-        css: true,
-      }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('postgres'))],
+      'no-restricted-imports': imports(OPTIONS_POSTGRES),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, ...sansImportDynamique(OPTIONS_POSTGRES)],
     },
   },
   {
     files: ['adaptateurs/ia/**'],
     rules: {
-      'no-restricted-imports': imports({
-        permises: ['ia'],
-        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('ia')],
-        css: true,
-      }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('ia'))],
+      'no-restricted-imports': imports(OPTIONS_IA),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, ...sansImportDynamique(OPTIONS_IA)],
     },
   },
   // Couche 3 : les extensions se branchent sur BlockNote, et sur rien d'autre.
@@ -244,12 +282,14 @@ export default [
     files: ['extensions/**'],
     languageOptions: { globals: navigateur },
     rules: {
-      'no-restricted-imports': imports({
-        permises: ['blocknote', 'pointsExtension'],
-        couches: ['application', 'design', 'i18n', 'adaptateurs'],
-        css: true,
-      }),
-      'no-restricted-syntax': ['error', STYLE_EN_DUR, ...TEXTE_EN_DUR, ...DESIGN_HORS_DESIGN],
+      'no-restricted-imports': imports(OPTIONS_EXTENSIONS),
+      'no-restricted-syntax': [
+        'error',
+        STYLE_EN_DUR,
+        ...TEXTE_EN_DUR,
+        ...DESIGN_HORS_DESIGN,
+        ...sansImportDynamique(OPTIONS_EXTENSIONS),
+      ],
     },
   },
   // Couche 5 : l'application technique n'importe aucune fondation, aucun style,
@@ -257,8 +297,14 @@ export default [
   {
     files: ['application/**'],
     rules: {
-      'no-restricted-imports': imports({ css: true }),
-      'no-restricted-syntax': ['error', STYLE_EN_DUR, ...TEXTE_EN_DUR, ...DESIGN_HORS_DESIGN],
+      'no-restricted-imports': imports(OPTIONS_APPLICATION),
+      'no-restricted-syntax': [
+        'error',
+        STYLE_EN_DUR,
+        ...TEXTE_EN_DUR,
+        ...DESIGN_HORS_DESIGN,
+        ...sansImportDynamique(OPTIONS_APPLICATION),
+      ],
     },
   },
   { files: ['application/client/**'], languageOptions: { globals: navigateur } },
@@ -268,26 +314,28 @@ export default [
     files: ['design/**'],
     languageOptions: { globals: navigateur },
     rules: {
-      'no-restricted-imports': imports({
-        permises: ['mantine', 'tabler'],
-        couches: ['application', 'adaptateurs', 'extensions', 'domaine', 'i18n'],
-        cssDesign: true,
-      }),
-      'no-restricted-syntax': ['error', STYLE_EN_DUR, ...TEXTE_EN_DUR, ...DESIGN_SANS_REGLAGE],
+      'no-restricted-imports': imports(OPTIONS_DESIGN),
+      'no-restricted-syntax': [
+        'error',
+        STYLE_EN_DUR,
+        ...TEXTE_EN_DUR,
+        ...DESIGN_SANS_REGLAGE,
+        ...sansImportDynamique(OPTIONS_DESIGN),
+      ],
     },
   },
   // Le seul fichier où une valeur de design est permise : les réglages
   // décidés par Sylvain, chacun noté dans l'ADR 0008 (contrat statique).
   {
     files: ['design/reglages.js', 'design/reglagesLivre.js'],
-    rules: { 'no-restricted-syntax': ['error', STYLE_EN_DUR, ...TEXTE_EN_DUR] },
+    rules: { 'no-restricted-syntax': ['error', STYLE_EN_DUR, ...TEXTE_EN_DUR, ...sansImportDynamique(OPTIONS_DESIGN)] },
   },
   // Les traductions : le format ICU et rien d'autre (ADR 0009).
   {
     files: ['i18n/**'],
     rules: {
-      'no-restricted-imports': imports({ permises: ['icu'], couches: COUCHES.filter((c) => c !== 'i18n'), css: true }),
-      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN],
+      'no-restricted-imports': imports(OPTIONS_I18N),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, ...sansImportDynamique(OPTIONS_I18N)],
     },
   },
   {

@@ -19,7 +19,7 @@ export function boutonsGardes(boutons, exposant = null) {
 
 // En mode Suggérer, pas de mise en forme (contournement temporaire, veille :
 // une suggestion de mise en forme n'est pas arbitrable ; Sylvain, 11/11/2026).
-export const BOUTONS_DE_FORME = [
+const BOUTONS_DE_FORME = [
   'blockTypeSelect',
   'boldStyleButton',
   'italicStyleButton',

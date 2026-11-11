@@ -13,8 +13,8 @@
 import { createExtension } from '@blocknote/core'
 import { Plugin } from 'prosemirror-state'
 
-export const A_CHEVAL = 'suggestion-a-cheval'
-export const MISE_EN_FORME = 'suggestion-mise-en-forme'
+const A_CHEVAL = 'suggestion-a-cheval'
+const MISE_EN_FORME = 'suggestion-mise-en-forme'
 
 /** La sélection franchit-elle la limite d'un paragraphe ? */
 export function aCheval(selection) {
