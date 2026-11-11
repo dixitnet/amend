@@ -125,7 +125,7 @@ Comme Docs, et avec les seuls outils de Mantine :
 ## 8. Décision et mise en œuvre (11/11/2026)
 
 - Deux esthétiques dans `v2/design/reglages.js` : `atelier` (vermillon, celle de l'instance) et `origine` (le thème commun, vert foncé). Le choix au back-office, au niveau de l'instance, viendra dans un lot technique ; d'ici là, `CadreDesign` lit le réglage `esthetique` (pas d'option anticipée, audit du 11/11/2026).
-- Thème : le thème commun complété par celui de l'esthétique (`mergeThemeOverrides` de Mantine). Feuille : `v2/design/feuilles/esthetique-atelier.css`, règles limitées à `[data-amend-esthetique='atelier']`, attribut posé sur la racine par `CadreDesign`.
+- Thème : le thème commun complété par celui de l'esthétique (`mergeThemeOverrides` de Mantine). Feuille : `v2/design/feuilles/esthetique-atelier.css`, règles limitées à `[data-amend-esthetique='atelier']` (renommées au § 9 : `interface-atelier.css`, `data-amend-interface`), attribut posé sur la racine par `CadreDesign`.
 - Police : Source Serif 4 servie par nous (`v2/design/polices/`, OFL), pour le texte de l'éditeur seulement ; l'interface reste en Inter.
 - Page posée : formats M et L seulement ; en S, la police et les couleurs, sans page.
 - **Sombre corrigé.** Défaut de la maquette : le texte de l'éditeur prenait la couleur du thème de BlockNote, qui ne suivait pas toujours celui de l'application (BlockNote redéfinit en outre les variables de Mantine dans son conteneur), d'où un texte gris foncé sur la page sombre. Désormais, fond de l'éditeur transparent et texte en couleurs fixes de la palette de Mantine (`dark.7` en clair, `dark.0` en sombre) ; plan de travail `dark.8`, page `dark.6`, volets `dark.7`.

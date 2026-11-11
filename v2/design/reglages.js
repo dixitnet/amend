@@ -23,7 +23,7 @@ export const REGLAGES = {
   // « page de réglage du backoffice : modèle d'interface + couleur ») : les
   // noms permis et l'apparence par défaut (design/apparence.js, sans Mantine :
   // le serveur les lit aussi). Le modèle d'interface « atelier » a sa feuille
-  // (feuilles/esthetique-atelier.css) ; « origine » n'en a pas.
+  // (feuilles/interface-atelier.css) ; « origine » n'en a pas.
   apparence: APPARENCE,
   // Les couleurs proposées (maquette des esthétiques du 11/11/2026) : une
   // palette de 10 nuances et la nuance principale, choisie pour qu'un texte

@@ -18,7 +18,7 @@ import { creerImages } from './images.js'
 import { adresseSansSecret } from './adresse.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
-import { APPARENCE } from '../../design/apparence.js'
+import { APPARENCE, apparenceRetenue } from '../../design/apparence.js'
 import {
   listeAdministrateurs,
   estAdministrateur,
@@ -188,17 +188,6 @@ const DEMARRAGE = Date.now()
 const REGLAGE_MODELE = 'margo.modele'
 /** La clé du réglage de l'apparence de l'instance (back-office, 11/11/2026). */
 const REGLAGE_APPARENCE = 'apparence'
-
-/** L'apparence retenue : celle enregistrée, champ par champ, si elle porte des
- * noms connus du design (une valeur retirée ne vaut plus rien), sinon celle
- * par défaut. */
-function apparenceRetenue(valeur) {
-  const v = valeur && typeof valeur === 'object' ? valeur : {}
-  return {
-    modele: APPARENCE.modeles.includes(v.modele) ? v.modele : APPARENCE.parDefaut.modele,
-    couleur: APPARENCE.couleurs.includes(v.couleur) ? v.couleur : APPARENCE.parDefaut.couleur,
-  }
-}
 
 const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, ia, collaboration = null) => {
   const administrateurs = listeAdministrateurs(CONF.administrateurs)

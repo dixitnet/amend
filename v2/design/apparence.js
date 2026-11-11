@@ -11,3 +11,14 @@ export const APPARENCE = {
   // Sans choix au back-office : atelier en vermillon.
   parDefaut: { modele: 'atelier', couleur: 'vermillon' },
 }
+
+/** L'apparence retenue : celle donnée, champ par champ, si elle porte des noms
+ * connus (une valeur retirée ne vaut plus rien), sinon celle par défaut. Lue
+ * par le serveur (configuration) et par le cadre de design. */
+export function apparenceRetenue(valeur) {
+  const v = valeur && typeof valeur === 'object' ? valeur : {}
+  return {
+    modele: APPARENCE.modeles.includes(v.modele) ? v.modele : APPARENCE.parDefaut.modele,
+    couleur: APPARENCE.couleurs.includes(v.couleur) ? v.couleur : APPARENCE.parDefaut.couleur,
+  }
+}

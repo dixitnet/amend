@@ -16,8 +16,7 @@ import { useEffect, useMemo } from 'react'
 import { MantineProvider, createTheme, mergeThemeOverrides } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { REGLAGES } from './reglages.js'
-
-const { modeles, couleurs, parDefaut } = REGLAGES.apparence
+import { apparenceRetenue } from './apparence.js'
 
 /** Le thème de Mantine d'une couleur : le thème commun, avec elle comme couleur principale. */
 function themeDe(couleur) {
@@ -39,15 +38,14 @@ function themeDe(couleur) {
 const poserModele = (modele) => {
   if (typeof document !== 'undefined') document.documentElement.dataset.amendInterface = modele
 }
-poserModele(parDefaut.modele)
+poserModele(REGLAGES.apparence.parDefaut.modele)
 
 /**
  * `apparence` : `{ modele, couleur }` de l'instance (back-office) ; absente,
  * ou un nom inconnu : l'apparence par défaut.
  */
 export function CadreDesign({ apparence, children }) {
-  const modele = modeles.includes(apparence?.modele) ? apparence.modele : parDefaut.modele
-  const couleur = couleurs.includes(apparence?.couleur) ? apparence.couleur : parDefaut.couleur
+  const { modele, couleur } = apparenceRetenue(apparence)
   const theme = useMemo(() => themeDe(couleur), [couleur])
   useEffect(() => poserModele(modele), [modele])
   return (
