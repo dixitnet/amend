@@ -52,7 +52,7 @@ export const DUREE_MESURES_MS = 7 * 24 * 3600 * 1000
 /** La mémoire des processus est relevée toutes les cinq minutes. */
 export const PAS_MESURE_MS = 5 * 60 * 1000
 /** Les processus dont on relève la mémoire. */
-export const PROCESSUS_SUIVIS = Object.freeze(['serveur', 'collaboration'])
+const PROCESSUS_SUIVIS = Object.freeze(['serveur', 'collaboration'])
 
 /** Les refus qui ne font pas partie d'un usage ordinaire : trop de demandes
  * (429), requête trop grosse (413), requête venue d'un autre site. */
