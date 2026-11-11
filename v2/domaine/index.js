@@ -47,3 +47,12 @@ export {
   situerRemplacement,
   suiviDesRefus,
 } from './margo.js'
+export {
+  DUREE_CORBEILLE_MS,
+  dansLaCorbeille,
+  joursRestants,
+  titreDeCopie,
+  lieuDeLaCopie,
+  ORDRES_TRI,
+  trierDocuments,
+} from './corbeille.js'

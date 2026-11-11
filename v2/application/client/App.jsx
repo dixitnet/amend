@@ -53,6 +53,8 @@ import {
   LANGUE_DOCUMENT_PAR_DEFAUT,
   AUTEUR_MARGO,
   MARGO_DEMANDE_MAX_SIGNES,
+  ORDRES_TRI,
+  trierDocuments,
 } from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
@@ -350,7 +352,8 @@ function Accueil({ personne }) {
   const { donnees, tous } = voletDocs
   const ids = tous.map((d) => d.id)
   const dernier = lireDernier()
-  const cible = ids.includes(dernier) ? dernier : [...tous].sort((a, b) => b.creeLe - a.creeLe)[0]?.id
+  // Sinon le dernier modifié (date donnée par y/hub, lots du 11/11/2026).
+  const cible = ids.includes(dernier) ? dernier : trierDocuments(tous, 'modifies')[0]?.id
   useEffect(() => {
     if (donnees && cible) location.replace(`#${encodeURIComponent(cible)}`)
   }, [donnees, cible])
@@ -817,6 +820,23 @@ function noterDernier(id) {
     // stockage refusé (navigation privée) : sans conséquence
   }
 }
+/** L'ordre de tri du volet « Documents », gardé dans ce navigateur (comme la v1). */
+const CLE_TRI = 'amend.triDocuments'
+function lireTri() {
+  try {
+    const v = localStorage.getItem(CLE_TRI)
+    return ORDRES_TRI.includes(v) ? v : ORDRES_TRI[0]
+  } catch {
+    return ORDRES_TRI[0]
+  }
+}
+function noterTri(v) {
+  try {
+    localStorage.setItem(CLE_TRI, v)
+  } catch {
+    // stockage refusé : le tri vaut pour cette page seulement
+  }
+}
 /** Pour la recherche : sans casse ni accents. */
 const sansAccents = (s) =>
   String(s ?? '')
@@ -835,6 +855,8 @@ function useVoletDocuments(docId, { actif = true } = {}) {
   const [donnees, setDonnees] = useState(null)
   const [equipes, setEquipes] = useState({})
   const [recherche, setRecherche] = useState('')
+  const [tri, setTri] = useState(lireTri)
+  const [corbeille, setCorbeille] = useState([])
   const [fenetreSaisie, demanderNom] = useSaisie()
   const [fenetreConfirmation, confirmer] = useConfirmation()
   const [choix, setChoix] = useState(null)
@@ -849,6 +871,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
       )
       setDonnees(d)
       setEquipes(Object.fromEntries(vues.filter(Boolean).map((v) => [v.equipe.id, v])))
+      setCorbeille((await envoyerJson('GET', '/api/corbeille').catch(() => null))?.documents ?? [])
     } catch (e) {
       montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
     }
@@ -865,6 +888,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
     recharger()
   }
   const titreDe = (d) => d.titre || t('documents.sansTitre')
+  const trier = (liste) => trierDocuments(liste, tri, t.langue)
   const tous = donnees
     ? [
         ...donnees.documents.map((d) => ({ ...d, equipe: null })),
@@ -893,6 +917,11 @@ function useVoletDocuments(docId, { actif = true } = {}) {
     )
   const choisir = (titre, options, valider) => setChoix({ titre, options, valider, cle: `${titre}-${Date.now()}` })
 
+  /** Dupliquer (comme Docs) : la copie s'ouvre. */
+  const dupliquer = (id) =>
+    agir(async () => {
+      location.hash = (await envoyerJson('POST', `/api/documents/${encodeURIComponent(id)}/copie`)).id
+    })()
   const creerDocument = (lieu) =>
     agir(async () => {
       location.hash = (await envoyerJson('POST', '/api/documents', lieu)).id
@@ -963,6 +992,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
         picto: d.favori ? 'favoriActif' : 'favori',
         surClic: () => basculerFavori(d.id),
       },
+      { cle: 'dupliquer', libelle: t('documents.dupliquer'), picto: 'dupliquer', surClic: () => dupliquer(d.id) },
       ...(caps.includes('ecrire')
         ? [
             {
@@ -1045,6 +1075,34 @@ function useVoletDocuments(docId, { actif = true } = {}) {
     actions: actionsDocument(d),
   })
 
+  /** Les actions d'un document de la corbeille : le restaurer, l'effacer. */
+  const actionsCorbeille = (d) => {
+    const url = `/api/corbeille/${encodeURIComponent(d.id)}`
+    return [
+      {
+        cle: 'restaurer',
+        libelle: t('documents.restaurer'),
+        picto: 'restaurer',
+        surClic: agir(() => envoyerJson('POST', url)),
+      },
+      {
+        cle: 'effacer',
+        libelle: t('documents.effacer'),
+        picto: 'supprimer',
+        danger: true,
+        surClic: agir(async () => {
+          const ok = await confirmer({
+            titre: t('documents.effacer'),
+            texte: t('documents.confirmerEffacement', { titre: titreDe(d) }),
+            libelle: t('documents.effacer'),
+            danger: true,
+          })
+          if (ok) await envoyerJson('DELETE', url)
+        }),
+      },
+    ]
+  }
+
   /** Les actions d'un dossier d'un espace. */
   const actionsDossier = (equipe, x) => {
     if (!modifiable(equipe)) return []
@@ -1119,7 +1177,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
           enfants: dans(d.id),
           actions: actionsDossier(equipe, d),
         })),
-      ...documents.filter((d) => (d.dossier ?? null) === parent).map(entreeDoc),
+      ...trier(documents.filter((d) => (d.dossier ?? null) === parent)).map(entreeDoc),
     ]
     return { enfants: dans(null), ouvert: Boolean(ici) }
   }
@@ -1207,14 +1265,14 @@ function useVoletDocuments(docId, { actif = true } = {}) {
   let entrees = []
   if (donnees && recherche.trim()) {
     const q = sansAccents(recherche.trim())
-    entrees = tous.filter((d) => sansAccents(titreDe(d)).includes(q)).map(entreeDoc)
+    entrees = trier(tous.filter((d) => sansAccents(titreDe(d)).includes(q))).map(entreeDoc)
   } else if (donnees) {
-    const favoris = tous.filter((d) => d.favori)
+    const favoris = trier(tous.filter((d) => d.favori))
     const mes = arbreEspace(
       null,
       donnees.documents.filter((d) => d.section === 'mes-documents'),
     )
-    const partages = donnees.documents.filter((d) => d.section === 'partage')
+    const partages = trier(donnees.documents.filter((d) => d.section === 'partage'))
     entrees = [
       ...(favoris.length
         ? [
@@ -1255,6 +1313,23 @@ function useVoletDocuments(docId, { actif = true } = {}) {
             },
           ]
         : []),
+      // La corbeille (comme Docs, \`trashbin\`) : ce que je peux restaurer, 30 jours.
+      ...(corbeille.length
+        ? [
+            {
+              cle: 'corbeille',
+              nom: t('documents.corbeille'),
+              picto: 'corbeille',
+              enfants: corbeille.map((d) => ({
+                cle: `corbeille-${d.id}`,
+                nom: titreDe(d),
+                picto: 'document',
+                detail: t('documents.joursRestants', { n: d.joursRestants }),
+                actions: actionsCorbeille(d),
+              })),
+            },
+          ]
+        : []),
     ]
   }
 
@@ -1277,6 +1352,16 @@ function useVoletDocuments(docId, { actif = true } = {}) {
           },
           { cle: 'equipe', libelle: t('documents.nouvelleEquipe'), picto: 'equipe', surClic: creerEquipe },
         ]}
+        tri={{
+          libelle: t('documents.trier'),
+          valeur: tri,
+          options: [
+            { value: 'modifies', label: t('documents.triModifies') },
+            { value: 'titre', label: t('documents.triTitre') },
+            { value: 'crees', label: t('documents.triCrees') },
+          ],
+          surChange: (v) => (setTri(v), noterTri(v)),
+        }}
         entrees={entrees}
         vide={
           donnees ? (recherche.trim() ? t('documents.rienTrouve') : t('documents.aucun')) : t('application.chargement')
@@ -1328,7 +1413,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
       </Fenetre>
     </>
   )
-  return { contenu, donnees, tous, estFavori, basculerFavori, recharger }
+  return { contenu, donnees, tous, estFavori, basculerFavori, recharger, dupliquer }
 }
 
 function Edition({ config, personne, docId, droits }) {
@@ -1529,6 +1614,12 @@ function Edition({ config, personne, docId, droits }) {
       surClic: () => setHistorique((h) => !h),
     },
     { cle: 'exporter', libelle: t('document.exporter'), picto: 'exporter', surClic: ouvrirExport },
+    {
+      cle: 'dupliquer',
+      libelle: t('document.dupliquer'),
+      picto: 'dupliquer',
+      surClic: () => voletDocs.dupliquer(docId),
+    },
     ...(caps.includes('supprimer')
       ? [{ cle: 'supprimer', libelle: t('document.supprimer'), picto: 'supprimer', separe: true, surClic: supprimer }]
       : []),
@@ -1675,6 +1766,12 @@ function Edition({ config, personne, docId, droits }) {
             ? [{ cle: 'partager', libelle: t('document.partager'), icone: 'partager', surClic: () => setPartage(true) }]
             : []),
           { cle: 'exporter', libelle: t('document.exporter'), icone: 'exporter', surClic: ouvrirExport },
+          {
+            cle: 'dupliquer',
+            libelle: t('document.dupliquer'),
+            icone: 'dupliquer',
+            surClic: () => voletDocs.dupliquer(docId),
+          },
           { cle: 'liste', libelle: t('document.mesDocuments'), icone: 'retour', surClic: () => (location.hash = '') },
           ...(caps.includes('supprimer')
             ? [{ cle: 'supprimer', libelle: t('document.supprimer'), icone: 'supprimer', surClic: supprimer }]

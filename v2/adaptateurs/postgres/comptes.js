@@ -141,6 +141,11 @@ create table if not exists amend.modeles (
 create index if not exists modeles_equipe on amend.modeles (equipe);
 alter table amend.documents add column if not exists modele text;
 alter table amend.equipes add column if not exists modele_defaut text;
+-- Lots du 11/11/2026 (comme Docs, \`updated_at\` et \`deleted_at\`) : la date de
+-- la dernière modification du contenu, donnée par y/hub, et la corbeille.
+alter table amend.documents add column if not exists modifie_le timestamptz;
+alter table amend.documents add column if not exists supprime_le timestamptz;
+create index if not exists documents_supprime on amend.documents (supprime_le) where supprime_le is not null;
 `
 
 const empreinte = (jeton) => createHash('sha256').update(jeton).digest('hex')
@@ -213,8 +218,35 @@ export async function ouvrirComptes(url) {
             dossier: d.dossier,
             equipe: d.equipe,
             modele: d.modele,
+            modifieLe: (d.modifie_le ?? d.cree_le).getTime(),
+            supprimeLe: d.supprime_le ? d.supprime_le.getTime() : null,
           }
         : null
+    },
+    /** Note que le contenu d'un document a changé (y/hub, comme \`content-updated\` de Docs). */
+    noterModification: (id) =>
+      sql`update amend.documents set modifie_le = now() where id = ${id} and supprime_le is null`.then(() => {}),
+    /** Met un document à la corbeille, ou l'en sort (\`null\`). */
+    mettreALaCorbeille: (id, actif) =>
+      sql`update amend.documents set supprime_le = ${actif ? sql`now()` : null} where id = ${id}`.then(() => {}),
+    /** Les documents de la corbeille que \`personne\` peut restaurer : ceux dont elle
+     * est propriétaire, ou gestionnaire de l'équipe, supprimés depuis \`depuis\` (ms). */
+    async corbeilleDe(personne, depuis) {
+      return (
+        await sql`
+        select d.id, d.titre, d.supprime_le, d.equipe from amend.documents d
+        left join amend.acces a on a.document = d.id and a.personne = ${personne}
+        left join amend.membres m on m.equipe = d.equipe and m.personne = ${personne}
+        where d.supprime_le is not null and d.supprime_le > ${new Date(depuis)}
+          and (a.role = 'proprietaire' or m.role = 'proprietaire')
+        order by d.supprime_le desc`
+      ).map((d) => ({ id: d.id, titre: d.titre, supprimeLe: d.supprime_le.getTime(), equipe: d.equipe }))
+    },
+    /** Les documents à la corbeille depuis avant \`avant\` (ms) : à effacer pour de bon. */
+    async corbeilleExpiree(avant) {
+      return (
+        await sql`select id from amend.documents where supprime_le is not null and supprime_le <= ${new Date(avant)}`
+      ).map((d) => d.id)
     },
     /** Efface le document et tout ce qui s'y rattache ici (accès, invitations, passages). */
     supprimerDocument: (id) => sql`delete from amend.documents where id = ${id}`.then(() => {}),
@@ -227,7 +259,7 @@ export async function ouvrirComptes(url) {
      */
     async documentsDe(personne) {
       const lignes = await sql`
-        select d.id, d.titre, d.cree_par, d.cree_le, d.role_lien, d.emplacement, d.dossier, d.equipe,
+        select d.id, d.titre, d.cree_par, d.cree_le, d.modifie_le, d.role_lien, d.emplacement, d.dossier, d.equipe,
                a.role, a.cree_le as acces_le, p.nom as auteur_nom, p.courriel as auteur_courriel,
                l.cree_le as lien_le, m.role as role_membre, f.personne is not null as favori
         from amend.documents d
@@ -236,13 +268,14 @@ export async function ouvrirComptes(url) {
         left join amend.membres m on m.equipe = d.equipe and m.personne = ${personne}
         left join amend.personnes p on p.id = a.auteur
         left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
-        where a.id is not null or (l.personne is not null and d.role_lien is not null)
+        where d.supprime_le is null and (a.id is not null or (l.personne is not null and d.role_lien is not null))
         order by d.cree_le desc`
       return lignes.map((d) => ({
         id: d.id,
         titre: d.titre,
         creeParMoi: d.cree_par === personne,
         creeLe: d.cree_le.getTime(),
+        modifieLe: (d.modifie_le ?? d.cree_le).getTime(),
         roles: [d.role, d.lien_le ? d.role_lien : null, d.role_membre].filter(Boolean),
         emplacement: d.emplacement,
         dossier: d.dossier,
@@ -304,7 +337,7 @@ export async function ouvrirComptes(url) {
       const r = await sql`
         delete from amend.dossiers d where d.id = ${id}
           and not exists (select 1 from amend.dossiers e where e.parent = d.id)
-          and not exists (select 1 from amend.documents o where o.dossier = d.id)
+          and not exists (select 1 from amend.documents o where o.dossier = d.id and o.supprime_le is null)
         returning d.id`
       return r.length > 0
     },
@@ -379,7 +412,7 @@ export async function ouvrirComptes(url) {
     async documentsDeLEquipe(equipe, personne) {
       return (
         await sql`
-        select d.id, d.titre, d.cree_le, d.dossier, p.nom as createur, a.role, m.role as role_membre,
+        select d.id, d.titre, d.cree_le, d.modifie_le, d.dossier, p.nom as createur, a.role, m.role as role_membre,
                case when l.personne is not null then d.role_lien end as lien,
                f.personne is not null as favori
         from amend.documents d
@@ -388,12 +421,13 @@ export async function ouvrirComptes(url) {
         left join amend.personnes p on p.id = d.cree_par
         left join amend.acces a on a.document = d.id and a.personne = ${personne}
         left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
-        where d.equipe = ${equipe}
+        where d.equipe = ${equipe} and d.supprime_le is null
         order by d.cree_le desc`
       ).map((d) => ({
         id: d.id,
         titre: d.titre,
         creeLe: d.cree_le.getTime(),
+        modifieLe: (d.modifie_le ?? d.cree_le).getTime(),
         dossier: d.dossier,
         createur: d.createur,
         roles: [d.role, d.lien, d.role_membre].filter(Boolean),
@@ -493,7 +527,9 @@ export async function ouvrirComptes(url) {
 
     // --- Accès ---
     /** Les rôles d'une personne sur un document (son accès, et le lien si elle est passée par lui). */
-    async rolesDe(document, personne) {
+    /** Les rôles d'une personne sur un document ; aucun s'il est à la corbeille,
+     * sauf avec \`{ corbeille: true }\` (pour l'y restaurer ou l'effacer). */
+    async rolesDe(document, personne, { corbeille = false } = {}) {
       if (!estUuid(personne)) return []
       const [r] = await sql`
         select a.role, case when l.personne is not null then d.role_lien end as lien, m.role as membre
@@ -501,7 +537,7 @@ export async function ouvrirComptes(url) {
         left join amend.acces a on a.document = d.id and a.personne = ${personne}
         left join amend.membres m on m.equipe = d.equipe and m.personne = ${personne}
         left join amend.passages_par_lien l on l.document = d.id and l.personne = ${personne}
-        where d.id = ${document}`
+        where d.id = ${document} and (${corbeille} or d.supprime_le is null)`
       return r ? [r.role, r.lien, r.membre].filter(Boolean) : []
     },
     /** Le rôle donné en propre (hors lien), ou null. */
@@ -617,7 +653,7 @@ export async function ouvrirComptes(url) {
       const [r] = await sql`select
         (select count(*)::int from amend.personnes where lower(courriel) not like '%.invalid') as personnes,
         (select count(*)::int from amend.personnes where lower(courriel) like '%.invalid') as essai,
-        (select count(*)::int from amend.documents) as documents,
+        (select count(*)::int from amend.documents where supprime_le is null) as documents,
         (select count(*)::int from amend.equipes) as equipes`
       return { personnes: r.personnes, essai: r.essai, documents: r.documents, equipes: r.equipes }
     },

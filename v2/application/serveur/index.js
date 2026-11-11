@@ -319,6 +319,15 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
       if (!docId || !idPersonne || !branche) return json(res, 400, { code: 'parametres-absents' })
       json(res, 200, { acces: accesBranche(capacites(await roleSur(docId, idPersonne)), branche) })
     },
+    // Le contenu d'un document a changé (y/hub, après un compactage ; comme
+    // \`content-updated\` de Docs) : la date de modification avance.
+    'POST /api/interne/modifie': async (req, res, url) => {
+      if (!jetonValide(CONF.jetonInterne, req.headers['x-amend-interne'])) return json(res, 403, { code: 'interdit' })
+      const doc = identifiantDocument(url.searchParams.get('document'))
+      if (!doc.ok) return json(res, 400, { code: doc.code })
+      await comptes.noterModification(doc.id)
+      json(res, 200, {})
+    },
   }
 }
 
@@ -424,7 +433,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     cookieDeSession: identite.cookieDeSession,
     cookieEfface: identite.cookieEfface,
   })
-  return http.createServer(async (req, res) => {
+  const serveur = http.createServer(async (req, res) => {
     poserSecurite(req, res)
     try {
       // L'analyse de l'adresse peut échouer (« // ») : dans le bloc protégé.
@@ -460,6 +469,9 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       json(res, 500, { code: 'erreur-interne' })
     }
   })
+  /** Efface les documents restés plus de 30 jours dans la corbeille. */
+  serveur.purgerCorbeille = partage.purger
+  return serveur
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -470,7 +482,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     commentaires: await ouvrirCommentaires(CONF.postgres),
     courrier: creerCourrier({ cle: CONF.mailgunCle, domaine: CONF.mailgunDomaine, expediteur: CONF.expediteur }),
   }
-  creerServeur(CONF, services).listen(CONF.port, '127.0.0.1', () =>
-    console.log(`[serveur] http://127.0.0.1:${CONF.port}`),
-  )
+  const serveur = creerServeur(CONF, services)
+  serveur.listen(CONF.port, '127.0.0.1', () => console.log(`[serveur] http://127.0.0.1:${CONF.port}`))
+  // La corbeille se vide au démarrage, puis toutes les six heures.
+  const purger = () => serveur.purgerCorbeille().catch((e) => console.error('[serveur] corbeille :', e))
+  setTimeout(purger, 60_000).unref()
+  setInterval(purger, 6 * 3600 * 1000).unref()
 }
