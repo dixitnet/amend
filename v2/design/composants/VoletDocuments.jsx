@@ -2,8 +2,10 @@
 // remplace la page « Mes documents » (Sylvain, 10/11/2026 ; écart avec Docs,
 // qui garde une page d'accueil). En tête, la recherche et les boutons de
 // création ; puis l'arbre : Mes documents et ses dossiers, une entrée par
-// équipe, Partagé avec moi. Chaque entrée a son menu « … » quand elle a des
-// actions. Mantine tel quel ; textes traduits ; les gestes remontent par les
+// équipe, Partagé avec moi, Corbeille (11/11/2026). Chaque entrée a son menu
+// « … » quand elle a des actions ; un document de la corbeille ne s'ouvre pas
+// (pas de lien) et porte un détail (les jours restants). Un sélecteur de tri
+// (11/11/2026, comme les tris de la v1). Mantine tel quel ; textes traduits ; les gestes remontent par les
 // fonctions de rappel. Le même composant sert aux formats L, M et S.
 import { useEffect, useState } from 'react'
 import { Stack, Group, TextInput, Button, NavLink, Menu, ActionIcon, Text, Select, Modal } from '@mantine/core'
@@ -51,8 +53,17 @@ function Entree({ e, libelleActions }) {
       aria-expanded={ouvert}
       onClick={() => setOuvert((o) => !o)}
     />
+  ) : e.href ? (
+    <NavLink
+      component="a"
+      href={e.href}
+      label={e.nom}
+      description={e.detail}
+      leftSection={<PictoDe role={e.picto} />}
+      active={e.actif}
+    />
   ) : (
-    <NavLink component="a" href={e.href} label={e.nom} leftSection={<PictoDe role={e.picto} />} active={e.actif} />
+    <NavLink component="div" label={e.nom} description={e.detail} leftSection={<PictoDe role={e.picto} />} />
   )
   return (
     <div>
@@ -75,10 +86,11 @@ function Entree({ e, libelleActions }) {
  * @param {{
  *   recherche: { libelle: string, valeur: string, surChange: (v: string) => void },
  *   boutons: Array<{ cle: string, libelle: string, picto: string, surClic: () => void }>,
+ *   tri?: { libelle: string, valeur: string, options: Array<{ value: string, label: string }>, surChange: (v: string) => void },
  *   entrees: Array<any>, vide: string, libelleActions: (nom: string) => string,
  * }} p
  */
-export function VoletDocuments({ recherche, boutons, entrees, vide, libelleActions }) {
+export function VoletDocuments({ recherche, boutons, tri, entrees, vide, libelleActions }) {
   return (
     <Stack>
       <TextInput
@@ -100,6 +112,15 @@ export function VoletDocuments({ recherche, boutons, entrees, vide, libelleActio
           </Button>
         ))}
       </Group>
+      {tri ? (
+        <Select
+          aria-label={tri.libelle}
+          data={tri.options}
+          value={tri.valeur}
+          onChange={(v) => v && tri.surChange(v)}
+          allowDeselect={false}
+        />
+      ) : null}
       {entrees.length ? (
         <Stack {...REGLAGES.arbre.racine}>
           {entrees.map((e) => (

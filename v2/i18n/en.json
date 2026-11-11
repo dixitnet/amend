@@ -26,7 +26,7 @@
     "mesDocuments": "My documents",
     "partager": "Share",
     "supprimer": "Delete",
-    "confirmerSuppression": "Delete this document for everyone, permanently?",
+    "confirmerSuppression": "Move this document to the trash? It will disappear for everyone; you can restore it for 30 days.",
     "renommer": "Rename",
     "nomDuDocument": "Document title",
     "exportEchoue": "The export failed. Please try again in a moment.",
@@ -37,7 +37,9 @@
     "passerEcrire": "Edit directly",
     "passerSuggerer": "Suggest changes",
     "passerRelire": "Review suggestions",
-    "exporter": "Export…"
+    "exporter": "Export…",
+    "copie": "{titre} (copy)",
+    "dupliquer": "Duplicate"
   },
   "erreurs": {
     "modele-impossible": "This layout template is impossible: its lines, page number or text width do not fit on the page.",
@@ -178,7 +180,17 @@
     "aucun": "No document yet. Create the first one with “New document”.",
     "rienTrouve": "No document has this title.",
     "destination": "Destination",
-    "modeles": "Layout templates"
+    "modeles": "Layout templates",
+    "dupliquer": "Duplicate",
+    "corbeille": "Trash",
+    "restaurer": "Restore",
+    "effacer": "Delete permanently",
+    "confirmerEffacement": "Delete “{titre}” permanently? It can no longer be restored.",
+    "joursRestants": "{n, plural, one {deleted in # day} other {deleted in # days}}",
+    "trier": "Sort documents",
+    "triModifies": "Recently modified",
+    "triTitre": "By title",
+    "triCrees": "Recently created"
   },
   "partage": {
     "titre": "Sharing",

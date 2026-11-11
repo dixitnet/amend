@@ -27,6 +27,7 @@ import {
   IconArrowBack,
   IconStar,
   IconStarFilled,
+  IconRestore,
 } from '@tabler/icons-react'
 
 const PICTOS = {
@@ -55,6 +56,8 @@ const PICTOS = {
   retour: IconArrowBack,
   favori: IconStar,
   favoriActif: IconStarFilled,
+  corbeille: IconTrash,
+  restaurer: IconRestore,
 }
 
 /** Le picto d'un rôle, ou rien si le rôle est inconnu. */

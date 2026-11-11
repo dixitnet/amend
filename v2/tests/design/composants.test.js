@@ -322,6 +322,52 @@ test('volet « Documents » : recherche, création, arbre imbriqué, menu « …
   assert.ok(vide.includes(echapper(t('documents.aucun'))))
 })
 
+test('volet « Documents » : tri, et document de la corbeille sans lien avec son détail', () => {
+  const t = creerTraducteur('fr')
+  const html = rendre(
+    h(design.VoletDocuments, {
+      recherche: { libelle: t('documents.rechercher'), valeur: '', surChange: rien },
+      boutons: [],
+      tri: {
+        libelle: t('documents.trier'),
+        valeur: 'modifies',
+        options: [
+          { value: 'modifies', label: t('documents.triModifies') },
+          { value: 'titre', label: t('documents.triTitre') },
+        ],
+        surChange: rien,
+      },
+      entrees: [
+        {
+          cle: 'corbeille',
+          nom: t('documents.corbeille'),
+          picto: 'corbeille',
+          ouvert: true,
+          enfants: [
+            {
+              cle: 'x',
+              nom: 'Brouillon',
+              picto: 'document',
+              detail: t('documents.joursRestants', { n: 3 }),
+              actions: [{ cle: 'r', libelle: t('documents.restaurer'), picto: 'restaurer', surClic: rien }],
+            },
+          ],
+        },
+      ],
+      vide: '',
+      libelleActions: (nom) => t('documents.actionsDe', { nom }),
+    }),
+  )
+  assert.ok(html.includes(echapper(t('documents.trier'))), 'le sélecteur de tri est nommé')
+  assert.ok(html.includes(echapper(t('documents.triModifies'))))
+  assert.ok(html.includes(echapper(t('documents.joursRestants', { n: 3 }))), 'les jours restants')
+  assert.doesNotMatch(
+    html.split('Brouillon')[0].split('Corbeille').pop(),
+    /href=/,
+    'pas de lien vers un document supprimé',
+  )
+})
+
 test('bandeau d’un document : l’étoile des favoris et le titre qui se renomme d’un clic', () => {
   const voletGauche = { libelle: 'Plan', surClic: rien }
   const html = rendre(

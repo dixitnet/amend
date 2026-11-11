@@ -26,7 +26,7 @@
     "mesDocuments": "Mes documents",
     "partager": "Partager",
     "supprimer": "Supprimer",
-    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement\u202F?",
+    "confirmerSuppression": "Mettre ce document à la corbeille\u202F? Il disparaîtra pour tout le monde\u202F; vous pourrez le restaurer pendant 30\u00A0jours.",
     "renommer": "Renommer",
     "nomDuDocument": "Titre du document",
     "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant.",
@@ -37,7 +37,9 @@
     "passerEcrire": "Modifier directement",
     "passerSuggerer": "Suggérer des modifications",
     "passerRelire": "Relire les suggestions",
-    "exporter": "Exporter…"
+    "exporter": "Exporter…",
+    "copie": "{titre} (copie)",
+    "dupliquer": "Dupliquer"
   },
   "erreurs": {
     "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes, son folio ou la largeur du texte ne tiennent pas dans la page.",
@@ -178,7 +180,17 @@
     "aucun": "Aucun document pour l’instant. Créez le premier avec «\u00A0Nouveau document\u00A0».",
     "rienTrouve": "Aucun document ne porte ce titre.",
     "destination": "Destination",
-    "modeles": "Modèles de mise en page"
+    "modeles": "Modèles de mise en page",
+    "dupliquer": "Dupliquer",
+    "corbeille": "Corbeille",
+    "restaurer": "Restaurer",
+    "effacer": "Supprimer définitivement",
+    "confirmerEffacement": "Supprimer «\u00A0{titre}\u00A0» définitivement\u202F? Il ne pourra plus être restauré.",
+    "joursRestants": "{n, plural, one {effacé dans #\u00A0jour} other {effacé dans #\u00A0jours}}",
+    "trier": "Trier les documents",
+    "triModifies": "Modifiés récemment",
+    "triTitre": "Par titre",
+    "triCrees": "Créés récemment"
   },
   "partage": {
     "titre": "Partage",
