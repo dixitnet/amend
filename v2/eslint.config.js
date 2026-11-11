@@ -27,6 +27,8 @@ const FONDATIONS = {
   lib0: 'lib0(/.*)?',
   icu: 'intl-messageformat|@formatjs/.*',
   serveur: 'uws|postgres|redis',
+  // Le SDK d'Anthropic : réservé à l'adaptateur IA (étape 8).
+  ia: '@anthropic-ai/.*',
 }
 const COUCHES = ['domaine', 'adaptateurs', 'extensions', 'application', 'design', 'i18n']
 
@@ -68,7 +70,7 @@ function imports({ permises = [], couches = [], css = false, cssDesign = false }
 
 /** Les adaptateurs : aucun n'importe un autre (règle 2), y compris un adaptateur
  * à venir ajouté à cette liste (audit du 10/11/2026). */
-const ADAPTATEURS = ['yjs', 'blocknote', 'yhub', 'courrier', 'postgres']
+const ADAPTATEURS = ['yjs', 'blocknote', 'yhub', 'courrier', 'postgres', 'ia']
 const autresAdaptateurs = (soi) => ADAPTATEURS.filter((a) => a !== soi)
 /** Le même interdit pour les imports dynamiques (la fonction import), que
  * no-restricted-imports ne voit pas. */
@@ -224,6 +226,17 @@ export default [
         css: true,
       }),
       'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('postgres'))],
+    },
+  },
+  {
+    files: ['adaptateurs/ia/**'],
+    rules: {
+      'no-restricted-imports': imports({
+        permises: ['ia'],
+        couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('ia')],
+        css: true,
+      }),
+      'no-restricted-syntax': ['error', ...DESIGN_HORS_DESIGN, sansImportDynamique(autresAdaptateurs('ia'))],
     },
   },
   // Couche 3 : les extensions se branchent sur BlockNote, et sur rien d'autre.

@@ -34,3 +34,16 @@ export {
   modeleRetenu,
   peutChoisirModele,
 } from './miseEnPage.js'
+export {
+  AUTEUR_MARGO,
+  GARDE_FOUS_MARGO,
+  MARGO_DEMANDE_MAX_SIGNES,
+  MARGO_HISTORIQUE_MAX_SIGNES,
+  signes,
+  texteNumerote,
+  porteeMargo,
+  normaliser,
+  situerCitation,
+  situerRemplacement,
+  suiviDesRefus,
+} from './margo.js'
