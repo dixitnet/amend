@@ -556,16 +556,28 @@ async function obtenirDroits(docId, dev) {
 
 function Document({ config, personne, docId }) {
   const [droits, setDroits] = useState(null)
+  // Relu quand le serveur ferme la connexion parce que les droits ont changé
+  // (comme Docs : relire les droits, puis rouvrir l'édition avec eux).
+  const [lecture, setLecture] = useState(0)
   useEffect(() => {
     let actif = true
     obtenirDroits(docId, config.dev).then((d) => actif && setDroits(d))
     return () => {
       actif = false
     }
-  }, [config, docId])
+  }, [config, docId, lecture])
   if (!droits) return <EcranMessage texte={t('application.chargement')} />
   if (droits.code) return <EcranMessage texte={messageErreur(t, droits.code)} />
-  return <Edition config={config} personne={personne} docId={docId} droits={droits} />
+  return (
+    <Edition
+      key={lecture}
+      config={config}
+      personne={personne}
+      docId={docId}
+      droits={droits}
+      surDroitsChanges={() => (setDroits(null), setLecture((n) => n + 1))}
+    />
+  )
 }
 
 /** Le volet « Documents » : mes dossiers et documents, puis ceux partagés avec moi. */
@@ -1079,7 +1091,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
   return { contenu, donnees, tous, estFavori, basculerFavori, recharger }
 }
 
-function Edition({ config, personne, docId, droits }) {
+function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
   // Les trois modes d'un éditeur, comme l'exemple de BlockNote (Sylvain,
@@ -1181,6 +1193,17 @@ function Edition({ config, personne, docId, droits }) {
     }
   }
   useEffect(() => session.surEtat(setConnexion), [session])
+  // Droits changés pendant que le document est ouvert : on les relit.
+  useEffect(
+    () =>
+      session.surFermeture((raison) => {
+        if (raison === 'droits') {
+          montrerMessage(t('document.droitsChanges'))
+          surDroitsChanges?.()
+        } else location.hash = ''
+      }),
+    [session, surDroitsChanges],
+  )
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
   // Le volet droit s'ouvre d'office, une fois, quand des suggestions attendent (5b).

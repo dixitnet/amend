@@ -32,6 +32,7 @@
     "exporterMarkdown": "Exporter en Markdown",
     "exporterPdf": "Exporter en PDF",
     "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant.",
+    "droitsChanges": "Vos droits sur ce document ont changé\u00A0: il se rouvre avec eux.",
     "modes": "Mode d’édition",
     "modeEcrire": "Modifier",
     "modeSuggerer": "Suggérer",

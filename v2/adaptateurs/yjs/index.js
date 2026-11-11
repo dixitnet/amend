@@ -57,6 +57,14 @@ export function ouvrirDocument({ url, api, docId, personne, suggestions = false 
   return {
     /** Pour l'adaptateur de l'éditeur, et lui seul. */
     contexte: { doc, fragment: doc.get(RACINE_TEXTE), fournisseur, suggestions: sugg, api, docId },
+    /** Rappelé une fois quand le serveur ferme la connexion pour de bon :
+     * `droits` (code 4401, ils ont changé : les relire), `supprime` (4404). */
+    surFermeture(rappel) {
+      const fournisseurs = [fournisseur, sugg?.fournisseur].filter(Boolean)
+      const f = ({ code }) => rappel(code === 4404 ? 'supprime' : 'droits')
+      for (const x of fournisseurs) x.on('closed', f)
+      return () => fournisseurs.forEach((x) => x.off('closed', f))
+    },
     surEtat(rappel) {
       const f = ({ status }) => rappel(ETATS[status] || 'deconnecte')
       fournisseur.on('status', f)
