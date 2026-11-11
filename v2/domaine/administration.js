@@ -28,3 +28,19 @@ export function estAdministrateur(courriel, liste) {
  * d'après le nombre de fusions dans main qui touchent v2/ ; `null` sans dépôt. */
 export const numeroDeVersion = (fusions) =>
   Number.isInteger(fusions) && fusions > 0 ? `2.${String(fusions).padStart(3, '0')}` : null
+
+/** L'adresse de l'aide de l'instance (lot du 11/11/2026, comme le
+ * `documentation_url` de Docs) : une adresse absolue en http ou https, sans
+ * identifiants ; sinon `null` (pas d'entrée « Aide »). */
+export function adresseAide(brut) {
+  const texte = String(brut ?? '').trim()
+  if (!texte) return null
+  let u
+  try {
+    u = new URL(texte)
+  } catch {
+    return null
+  }
+  if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.username || u.password) return null
+  return u.href
+}

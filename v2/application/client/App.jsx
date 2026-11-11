@@ -2,21 +2,26 @@
 // l'écran d'un document et son partage ; état et appels au serveur. Tout
 // l'affichage est délégué à la couche design ; tous les textes viennent de
 // v2/i18n/.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState } from 'react'
 import {
   EcranMessage,
+  EcranSuppressionCompte,
   EcranConnexion,
   EcranCourriel,
   PageAdministration,
   PanneauPartage,
   PanneauSuggestions,
+  PanneauMargo,
   Bouton,
   couleurAuteur,
   Coquille,
   ColonneTexte,
+  ZoneZoom,
+  PictoDe,
   Bandeau,
   VoletPlanDocuments,
   VoletRelecture,
+  ListeDesFils,
   TexteDeVolet,
   AlerteHorsLigne,
   Fenetre,
@@ -29,7 +34,13 @@ import {
   PageEditionS,
   PlanDocument,
   useFormatS,
+  PanneauExport,
+  PanneauModeles,
+  FormulaireModele,
+  REGLES_MODELES,
+  MODELES_LIVRE,
 } from '../../design/index.js'
+import { REGLAGES } from '../../design/reglages.js'
 import {
   creerTraducteur,
   choisirLangue,
@@ -38,12 +49,24 @@ import {
   libelleDuRoleEquipe,
   LANGUE_PSEUDO,
 } from '../../i18n/index.js'
-import { identifiantDocument, capacites, LANGUE_DOCUMENT_PAR_DEFAUT } from '../../domaine/index.js'
+import {
+  identifiantDocument,
+  capacites,
+  peutGererModeles,
+  appliquerEcarts,
+  valeurDuReglage,
+  LANGUE_DOCUMENT_PAR_DEFAUT,
+  AUTEUR_MARGO,
+  MARGO_DEMANDE_MAX_SIGNES,
+  ORDRES_TRI,
+  trierDocuments,
+} from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
-import { serviceCommentaires, nomsDe, appel } from './commentaires.js'
+import { serviceCommentaires, nomsDe, appel, envoyerImage } from './commentaires.js'
 import { useVolets } from './volets.js'
-import { exporterDocument } from './exports.js'
+import { exporterDocument, modeleComplet, modeleMaison } from './exports.js'
+import { useMargo } from './margo.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
 // essais et les captures), sinon celle du navigateur.
@@ -55,6 +78,44 @@ document.documentElement.lang = t.langue
 document.title = t('application.nom')
 
 const lireJson = (r) => r.json().catch(() => ({}))
+
+/** Les noms des personnes, et celui de Margo (le serveur rend un code). */
+const nomsAvecMargo = (ids) =>
+  nomsDe(ids).then((l) => l.map((p) => (p.id === AUTEUR_MARGO ? { ...p, username: t('interface.margo') } : p)))
+
+/** Ce que fait Margo pendant une demande (événements du serveur). */
+const MARGO_EN_COURS = {
+  reflexion: () => t('margo.enCours.reflexion'),
+  lire: () => t('margo.enCours.lire'),
+  chercher: () => t('margo.enCours.chercher'),
+  proposer: () => t('margo.enCours.proposer'),
+  commenter: () => t('margo.enCours.commenter'),
+  repli: () => t('margo.enCours.repli'),
+}
+/** Pourquoi une demande s'est arrêtée avant la fin (codes du serveur). */
+const MARGO_ARRET = {
+  etapes: () => t('margo.arret.etapes'),
+  'refus-en-serie': () => t('margo.arret.refusEnSerie'),
+  longueur: () => t('margo.arret.longueur'),
+  refus: () => t('margo.arret.refus'),
+  erreur: () => t('margo.arret.erreur'),
+}
+
+/** Le texte d'une réponse de Margo en morceaux : texte, et liens vers les
+ * blocs qu'elle cite ([12]) ; les marques de gras du Markdown sont retirées. */
+function morceauxDeMargo(m, allerAuBloc) {
+  return String(m.texte)
+    .replace(/\*\*|__/g, '')
+    .split(/(\[\d+\])/)
+    .filter(Boolean)
+    .map((x) => {
+      const n = /^\[(\d+)\]$/.exec(x)?.[1]
+      const id = n ? m.blocs?.[n] : null
+      return id
+        ? { lien: x, libelle: t('margo.allerAuBloc', { n: Number(n) }), surClic: () => allerAuBloc(id) }
+        : { texte: x }
+    })
+}
 
 /** Ce que vise l'adresse : `#` vide, mes documents ; `#/dossiers/id`, l'un
  * de mes dossiers ; `#/partages`, Partagé avec moi ; `#/equipes/id` et
@@ -72,6 +133,7 @@ function viseeDansAdresse() {
   if (!h) return { liste: 'mes', dossier: null }
   if (h === '/partages') return { liste: 'partages' }
   if (h === '/admin') return { admin: true }
+  if (h === '/compte') return { compte: true }
   if (h.startsWith('/dossiers/')) return { liste: 'mes', dossier: h.slice('/dossiers/'.length) }
   const e = h.match(/^\/equipes\/([^/]+)(?:\/dossiers\/([^/]+))?$/)
   if (e) return { liste: `equipe:${e[1]}`, dossier: e[2] ?? null }
@@ -135,7 +197,8 @@ export function App() {
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
   if (visee.admin) return <Administration />
-  if (visee.liste) return <Accueil personne={etat.personne} />
+  if (visee.compte) return <SupprimerCompte />
+  if (visee.liste) return <Accueil config={etat.config} personne={etat.personne} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.
   const doc = identifiantDocument(visee.document)
   if (!doc.ok) return <EcranMessage texte={messageErreur(t, doc.code)} />
@@ -143,8 +206,10 @@ export function App() {
 }
 
 /** Le compte, dans le bandeau : l'administration (administrateurs de
- * l'instance) et un seul « Se déconnecter » (Sylvain, 09/11/2026). */
-function compteDe(personne) {
+ * l'instance), l'aide quand l'instance en a une (pages statiques, lot du
+ * 11/11/2026 ; comme le lien de documentation de Docs, `HelpMenu.tsx`) et un
+ * seul « Se déconnecter » (Sylvain, 09/11/2026). */
+function compteDe(personne, config) {
   const sortir = async () => {
     await envoyerJson('POST', '/api/deconnexion').catch(() => {})
     location.reload()
@@ -164,9 +229,80 @@ function compteDe(personne) {
             },
           ]
         : []),
+      ...(config?.aide
+        ? [
+            {
+              cle: 'aide',
+              libelle: t('interface.aide'),
+              picto: 'aide',
+              surClic: () => window.open(config.aide, '_blank', 'noopener'),
+            },
+          ]
+        : []),
       { cle: 'sortir', libelle: t('documents.deconnexion'), picto: 'deconnexion', surClic: sortir },
+      {
+        cle: 'supprimer',
+        libelle: t('compte.supprimer'),
+        picto: 'supprimer',
+        surClic: () => (location.hash = '#/compte'),
+      },
     ],
   }
+}
+
+/** Supprimer mon compte (lots du 11/11/2026, lot D ; règle de la v1) :
+ * l'aperçu du serveur, groupé, puis la confirmation par l'adresse. */
+function SupprimerCompte() {
+  const [plan, setPlan] = useState(null)
+  useEffect(() => {
+    envoyerJson('GET', '/api/moi/suppression')
+      .then(setPlan)
+      .catch((e) => montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true }))
+  }, [])
+  if (!plan) return <EcranMessage texte={t('application.chargement')} />
+  const liste = (xs) => new Intl.ListFormat(t.langue, { type: 'conjunction' }).format(xs)
+  const titre = (d) => d.titre || t('documents.sansTitre')
+  const docs = (sort) => plan.documents.filter((d) => d.sort === sort)
+  const equipes = (sort) => plan.equipes.filter((e) => e.sort === sort)
+  const groupes = [
+    { cle: 'supprime', titre: t('compte.supprimes'), elements: docs('supprime').map(titre) },
+    {
+      cle: 'confie',
+      titre: t('compte.confies'),
+      elements: docs('confie').map((d) => t('compte.confie', { titre: titre(d), nom: d.aNom ?? '' })),
+    },
+    { cle: 'quitte', titre: t('compte.quittes'), elements: docs('quitte').map(titre) },
+    { cle: 'equipesQuittees', titre: t('compte.equipesQuittees'), elements: equipes('quitte').map((e) => e.nom) },
+    {
+      cle: 'equipesSupprimees',
+      titre: t('compte.equipesSupprimees'),
+      elements: equipes('supprime').map((e) => e.nom),
+    },
+  ].filter((g) => g.elements.length)
+  const refus = [
+    docs('refus').length ? t('compte.refusDocuments', { liste: liste(docs('refus').map(titre)) }) : null,
+    equipes('refus').length ? t('compte.refusEquipes', { liste: liste(equipes('refus').map((e) => e.nom)) }) : null,
+  ].filter(Boolean)
+  return (
+    <EcranSuppressionCompte
+      titre={t('compte.supprimer')}
+      explication={groupes.length ? t('compte.explication') : t('compte.rien')}
+      groupes={groupes}
+      refus={refus.length ? refus.join(' ') : null}
+      libelleCourriel={t('compte.courriel')}
+      libelleBouton={t('compte.bouton')}
+      libelleRetour={t('compte.retour')}
+      surRetour={() => history.back()}
+      surConfirmer={async (courriel) => {
+        try {
+          await envoyerJson('DELETE', '/api/moi', { courriel })
+          location.replace('/')
+        } catch (e) {
+          montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+        }
+      }}
+    />
+  )
 }
 
 /** Le bouton du volet gauche, dans le bandeau. */
@@ -289,14 +425,15 @@ function cheminDe(dossiers, id) {
  * (supprimée le 10/11/2026, Sylvain) : le dernier document ouvert dans ce
  * navigateur, sinon le plus récent ; sans document, la coquille et le volet
  * « Documents ». */
-function Accueil({ personne }) {
+function Accueil({ config, personne }) {
   const voletDocs = useVoletDocuments(null)
   const { etroit } = useFormat()
   const volets = useVolets(etroit)
   const { donnees, tous } = voletDocs
   const ids = tous.map((d) => d.id)
   const dernier = lireDernier()
-  const cible = ids.includes(dernier) ? dernier : [...tous].sort((a, b) => b.creeLe - a.creeLe)[0]?.id
+  // Sinon le dernier modifié (date donnée par y/hub, lots du 11/11/2026).
+  const cible = ids.includes(dernier) ? dernier : trierDocuments(tous, 'modifies')[0]?.id
   useEffect(() => {
     if (donnees && cible) location.replace(`#${encodeURIComponent(cible)}`)
   }, [donnees, cible])
@@ -305,7 +442,9 @@ function Accueil({ personne }) {
     <Coquille
       gaucheOuvert={volets.gauche}
       libelleRedimension={t('interface.largeurVolet')}
-      bandeau={<Bandeau voletGauche={boutonGauche(volets)} titre={t('application.nom')} compte={compteDe(personne)} />}
+      bandeau={
+        <Bandeau voletGauche={boutonGauche(volets)} titre={t('application.nom')} compte={compteDe(personne, config)} />
+      }
       voletGauche={voletDocs.contenu}
     >
       <TexteDeVolet texte={t('documents.aucun')} />
@@ -367,27 +506,275 @@ function Membres({ vue, surChangement }) {
   )
 }
 
-/** Le back-office de l'instance (administrateurs) : la rubrique Système pour
- * commencer (version 2.NNN, serveur, nombres) ; le serveur refuse les autres. */
+/** Les noms des modèles d'amend.ink et des réglages ouverts aux équipes
+ * (catalogue des textes) ; un modèle ou un réglage ajouté au design s'ajoute ici. */
+const NOMS_MAISON = { 'tat-poche': () => t('modeles.maison.tat-poche') }
+const NOMS_REGLAGES = {
+  'page.largeur': () => t('modeles.reglage.page.largeur'),
+  'page.hauteur': () => t('modeles.reglage.page.hauteur'),
+  'marges.haut': () => t('modeles.reglage.marges.haut'),
+  'marges.interieure': () => t('modeles.reglage.marges.interieure'),
+  'marges.exterieure': () => t('modeles.reglage.marges.exterieure'),
+  'grille.corps': () => t('modeles.reglage.grille.corps'),
+  'grille.interligne': () => t('modeles.reglage.grille.interligne'),
+  'grille.lignes': () => t('modeles.reglage.grille.lignes'),
+  police: () => t('modeles.reglage.police'),
+  alinea: () => t('modeles.reglage.alinea'),
+  'chapitre.bellePage': () => t('modeles.reglage.chapitre.bellePage'),
+}
+const nomMaison = (id) => NOMS_MAISON[id]?.() ?? id
+const optionsMaison = () => MODELES_LIVRE.map((m) => ({ value: m.id, label: nomMaison(m.id) }))
+/** Les modèles d'amend.ink, puis ceux d'une équipe, en groupes d'un Select. */
+const groupesDeModeles = (equipe, modeles) => [
+  { group: t('export.groupeMaison'), items: optionsMaison() },
+  ...(equipe && modeles.length
+    ? [{ group: t('export.groupeEquipe', { equipe }), items: modeles.map((m) => ({ value: m.id, label: m.nom })) }]
+    : []),
+]
+
+/** Les modèles de mise en page d'une équipe (étape 7, ADR 0011), pour son
+ * gestionnaire : le modèle par défaut, la liste, la création, le réglage. */
+function ModelesEquipe({ vue, confirmer, surChangement }) {
+  const [message, setMessage] = useState(null)
+  const [enReglage, setEnReglage] = useState(null)
+  const base = `/api/equipes/${encodeURIComponent(vue.equipe.id)}`
+  const essayer = async (f, succes = null) => {
+    try {
+      await f()
+      setMessage(succes)
+      return true
+    } catch (e) {
+      setMessage(messageErreur(t, e.code || 'reseau'))
+      return false
+    } finally {
+      surChangement()
+    }
+  }
+  const modeles = vue.modeles ?? []
+  const regle = modeles.find((m) => m.id === enReglage)
+  if (regle && modeleMaison(regle.base)) {
+    const depart = modeleMaison(regle.base)
+    const calcul = depart ? appliquerEcarts(depart, regle.ecarts, REGLES_MODELES) : null
+    const complet = calcul?.ok ? calcul.modele : depart
+    const polices = REGLES_MODELES.polices.map((p) => ({ value: p.famille, label: p.famille }))
+    return (
+      <FormulaireModele
+        key={regle.id}
+        libelles={{ nom: t('modeles.nom'), enregistrer: t('modeles.enregistrer'), annuler: t('interface.annuler') }}
+        nom={regle.nom}
+        champs={REGLES_MODELES.reglables.map((r) => ({
+          cle: r.cle,
+          type: r.type,
+          libelle: NOMS_REGLAGES[r.cle]?.() ?? r.cle,
+          valeur: valeurDuReglage(complet, r.cle),
+          min: r.min,
+          max: r.max,
+          pas: r.pas,
+          options: r.type === 'police' ? polices : undefined,
+        }))}
+        message={message}
+        surEnregistrer={async ({ nom, valeurs }) => {
+          if (
+            await essayer(
+              () => envoyerJson('PUT', `${base}/modeles/${encodeURIComponent(regle.id)}`, { nom, ecarts: valeurs }),
+              t('modeles.enregistre'),
+            )
+          )
+            setEnReglage(null)
+        }}
+        surAnnuler={() => (setEnReglage(null), setMessage(null))}
+      />
+    )
+  }
+  const defaut = vue.modeleDefaut ?? MODELES_LIVRE[0].id
+  return (
+    <PanneauModeles
+      libelles={{
+        defaut: t('modeles.defaut'),
+        nom: t('modeles.nom'),
+        base: t('modeles.base'),
+        creer: t('modeles.creer'),
+        modifier: t('modeles.modifier'),
+        supprimer: t('modeles.supprimer'),
+        aucun: t('modeles.aucun'),
+        modifierDe: (nom) => t('modeles.modifierDe', { nom }),
+        supprimerDe: (nom) => t('modeles.supprimerDe', { nom }),
+      }}
+      defaut={{
+        options: groupesDeModeles(vue.equipe.nom, modeles),
+        valeur: defaut,
+        // Le premier modèle d'amend.ink, choisi par défaut, s'enregistre comme
+        // « aucun choix » : il suit le premier modèle si le design en change (audit du 11/11/2026).
+        surChange: (choix) =>
+          essayer(() =>
+            envoyerJson('PUT', `${base}/modele-defaut`, { modele: choix === MODELES_LIVRE[0].id ? null : choix }),
+          ),
+      }}
+      modeles={modeles.map((m) => ({
+        cle: m.id,
+        nom: m.nom,
+        detail: t('modeles.detail', { titre: nomMaison(m.base), n: m.documents }),
+        parDefaut: m.id === vue.modeleDefaut ? t('modeles.parDefaut') : null,
+      }))}
+      bases={optionsMaison()}
+      message={message}
+      surCreer={(nom, depart) => essayer(() => envoyerJson('POST', `${base}/modeles`, { nom, base: depart }))}
+      // Un modèle dont la base a quitté le design ne se règle plus : on le dit (audit du 11/11/2026).
+      surModifier={(id) =>
+        modeleMaison(modeles.find((m) => m.id === id)?.base)
+          ? (setEnReglage(id), setMessage(null))
+          : setMessage(messageErreur(t, 'modele-introuvable'))
+      }
+      surSupprimer={async (id) => {
+        const m = modeles.find((x) => x.id === id)
+        if (
+          await confirmer({
+            titre: t('modeles.supprimer'),
+            texte: t('modeles.confirmerSuppression', { nom: m.nom, n: m.documents }),
+            libelle: t('modeles.supprimer'),
+            danger: true,
+          })
+        )
+          essayer(() => envoyerJson('DELETE', `${base}/modeles/${encodeURIComponent(id)}`))
+      }}
+    />
+  )
+}
+
+/** La fenêtre « Exporter » d'un document, comme ModalExport de Docs : le
+ * format, et pour le PDF le modèle de mise en page (celui retenu pour le
+ * document, présélectionné ; qui écrit peut le retenir pour le document). */
+function useExport({ docId, controle, titre }) {
+  const [ouverte, setOuverte] = useState(false)
+  const [format, setFormat] = useState('pdf')
+  const [liste, setListe] = useState(null)
+  const [modele, setModele] = useState(null)
+  const [retenir, setRetenir] = useState(false)
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState(null)
+  const ouvrir = async () => {
+    setMessage(null)
+    setRetenir(false)
+    setOuverte(true)
+    try {
+      const l = await envoyerJson('GET', `/api/documents/${encodeURIComponent(docId)}/modeles`)
+      setListe(l)
+      setModele(l.retenu)
+    } catch (e) {
+      setMessage(messageErreur(t, e.code || 'reseau'))
+    }
+  }
+  const exporter = async () => {
+    setEnCours(true)
+    setMessage(null)
+    try {
+      let leModele
+      if (format === 'pdf') {
+        // Un modèle qu'on ne trouve plus se dit, sans repli silencieux (audit du 11/11/2026).
+        const entree = liste?.modeles.find((m) => m.id === modele)
+        if (!entree) throw Object.assign(new Error('modele-introuvable'), { code: 'modele-introuvable' })
+        leModele = modeleComplet(entree)
+      }
+      await exporterDocument(controle, format, { titre, langue: LANGUE_DOCUMENT_PAR_DEFAUT, modele: leModele })
+      // Le modèle n'est retenu qu'une fois le fichier obtenu (audit du 11/11/2026).
+      if (format === 'pdf' && retenir && liste?.peutChoisir && modele !== liste.choisi)
+        await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/modele`, { modele })
+      setOuverte(false)
+    } catch (e) {
+      const code = e?.code
+      setMessage(
+        ['modele-impossible', 'modele-introuvable', 'droit-insuffisant', 'reseau'].includes(code)
+          ? messageErreur(t, code)
+          : t('document.exportEchoue'),
+      )
+    } finally {
+      setEnCours(false)
+    }
+  }
+  const equipeModeles = (liste?.modeles ?? []).filter((m) => !m.maison)
+  const fenetre = (
+    <Fenetre
+      ouverte={ouverte}
+      titre={t('export.titre')}
+      libelleFermer={t('interface.fermer')}
+      surFermer={() => setOuverte(false)}
+    >
+      {ouverte ? (
+        <PanneauExport
+          libelles={{
+            format: t('export.format'),
+            modele: t('export.modele'),
+            retenir: t('export.retenir'),
+            exporter: t('export.exporter'),
+            annuler: t('interface.annuler'),
+          }}
+          formats={[
+            { value: 'pdf', label: t('export.pdf') },
+            { value: 'markdown', label: t('export.markdown') },
+          ]}
+          format={format}
+          surFormat={setFormat}
+          modeles={format === 'pdf' && liste ? groupesDeModeles(liste.equipe, equipeModeles) : null}
+          modele={modele}
+          surModele={setModele}
+          retenir={liste?.peutChoisir ? { coche: retenir, surChange: setRetenir } : null}
+          enCours={enCours}
+          message={message}
+          surExporter={exporter}
+          surAnnuler={() => setOuverte(false)}
+        />
+      ) : null}
+    </Fenetre>
+  )
+  return [fenetre, ouvrir]
+}
+
+/** Les noms des modèles de Margo (identifiants de l'adaptateur IA). */
+const NOMS_MODELES = {
+  'deepseek-v4.1-flash-1017': () => t('admin.modeles.deepseek'),
+  'claude-sonnet-5-5': () => t('admin.modeles.sonnet'),
+  'claude-haiku-5-5': () => t('admin.modeles.haiku'),
+  'claude-fable-5-2': () => t('admin.modeles.fable'),
+}
+const nomDuModele = (id) => NOMS_MODELES[id]?.() ?? id
+
+/** Le back-office de l'instance (administrateurs) : la rubrique Système
+ * (version 2.NNN, serveur, nombres) et la rubrique IA (le modèle de Margo,
+ * étape 8) ; le serveur refuse les autres. */
 function Administration() {
   const [systeme, setSysteme] = useState(null)
+  const [ia, setIa] = useState(null)
+  const [message, setMessage] = useState(null)
   const [erreur, setErreur] = useState(null)
+  // Deux chargements indépendants : une panne de la rubrique IA ne cache pas
+  // la rubrique Système (audit du 11/11/2026, 3).
+  const [erreurIa, setErreurIa] = useState(null)
   useEffect(() => {
     envoyerJson('GET', '/api/admin/systeme')
       .then(setSysteme)
       .catch((e) => setErreur(e.code || 'reseau'))
+    envoyerJson('GET', '/api/admin/ia')
+      .then(setIa)
+      .catch((e) => setErreurIa(e.code || 'reseau'))
   }, [])
   if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
-  if (!systeme) return <EcranMessage texte={t('application.chargement')} />
+  if (!systeme || (!ia && !erreurIa)) return <EcranMessage texte={t('application.chargement')} />
   const date = new Intl.DateTimeFormat(t.langue, { dateStyle: 'medium', timeStyle: 'short' })
   const nombre = new Intl.NumberFormat(t.langue)
   const mo = new Intl.NumberFormat(t.langue, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 0 })
   const { version: v, comptes: c } = systeme
+  const choisirModele = (modele) =>
+    envoyerJson('PUT', '/api/admin/ia', { modele })
+      .then(
+        () => (setIa((i) => ({ ...i, modele })), setMessage(t('admin.modeleEnregistre', { nom: nomDuModele(modele) }))),
+      )
+      .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
   return (
     <PageAdministration
       nomApplication={t('application.nom')}
       titre={t('admin.titre')}
       actions={<Bouton libelle={t('document.mesDocuments')} surClic={() => (location.hash = '#')} />}
+      message={message}
       rubriques={[
         {
           titre: t('admin.systeme'),
@@ -405,6 +792,25 @@ function Administration() {
             { libelle: t('admin.essai'), valeur: nombre.format(c.essai) },
             { libelle: t('admin.documents'), valeur: nombre.format(c.documents) },
             { libelle: t('admin.equipes'), valeur: nombre.format(c.equipes) },
+          ],
+        },
+        {
+          titre: t('admin.ia'),
+          lignes: [
+            erreurIa
+              ? { libelle: t('admin.modeleMargo'), valeur: messageErreur(t, erreurIa) }
+              : {
+                  libelle: t('admin.modeleMargo'),
+                  choix: {
+                    valeur: ia.modele ?? ia.defaut,
+                    surChange: choisirModele,
+                    options: ia.modeles.map((m) => ({
+                      valeur: m.id,
+                      libelle: m.disponible ? nomDuModele(m.id) : t('admin.modeleSansCle', { nom: nomDuModele(m.id) }),
+                      desactive: !m.disponible,
+                    })),
+                  },
+                },
           ],
         },
       ]}
@@ -510,16 +916,28 @@ async function obtenirDroits(docId, dev) {
 
 function Document({ config, personne, docId }) {
   const [droits, setDroits] = useState(null)
+  // Relu quand le serveur ferme la connexion parce que les droits ont changé
+  // (comme Docs : relire les droits, puis rouvrir l'édition avec eux).
+  const [lecture, setLecture] = useState(0)
   useEffect(() => {
     let actif = true
     obtenirDroits(docId, config.dev).then((d) => actif && setDroits(d))
     return () => {
       actif = false
     }
-  }, [config, docId])
+  }, [config, docId, lecture])
   if (!droits) return <EcranMessage texte={t('application.chargement')} />
   if (droits.code) return <EcranMessage texte={messageErreur(t, droits.code)} />
-  return <Edition config={config} personne={personne} docId={docId} droits={droits} />
+  return (
+    <Edition
+      key={lecture}
+      config={config}
+      personne={personne}
+      docId={docId}
+      droits={droits}
+      surDroitsChanges={() => (setDroits(null), setLecture((n) => n + 1))}
+    />
+  )
 }
 
 /** Le volet « Documents » : mes dossiers et documents, puis ceux partagés avec moi. */
@@ -540,6 +958,23 @@ function noterDernier(id) {
     // stockage refusé (navigation privée) : sans conséquence
   }
 }
+/** L'ordre de tri du volet « Documents », gardé dans ce navigateur (comme la v1). */
+const CLE_TRI = 'amend.triDocuments'
+function lireTri() {
+  try {
+    const v = localStorage.getItem(CLE_TRI)
+    return ORDRES_TRI.includes(v) ? v : ORDRES_TRI[0]
+  } catch {
+    return ORDRES_TRI[0]
+  }
+}
+function noterTri(v) {
+  try {
+    localStorage.setItem(CLE_TRI, v)
+  } catch {
+    // stockage refusé : le tri vaut pour cette page seulement
+  }
+}
 /** Pour la recherche : sans casse ni accents. */
 const sansAccents = (s) =>
   String(s ?? '')
@@ -558,10 +993,13 @@ function useVoletDocuments(docId, { actif = true } = {}) {
   const [donnees, setDonnees] = useState(null)
   const [equipes, setEquipes] = useState({})
   const [recherche, setRecherche] = useState('')
+  const [tri, setTri] = useState(lireTri)
+  const [corbeille, setCorbeille] = useState([])
   const [fenetreSaisie, demanderNom] = useSaisie()
   const [fenetreConfirmation, confirmer] = useConfirmation()
   const [choix, setChoix] = useState(null)
   const [membresDe, setMembresDe] = useState(null)
+  const [modelesDe, setModelesDe] = useState(null)
   const [partageDe, setPartageDe] = useState(null)
   const recharger = async () => {
     try {
@@ -571,6 +1009,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
       )
       setDonnees(d)
       setEquipes(Object.fromEntries(vues.filter(Boolean).map((v) => [v.equipe.id, v])))
+      setCorbeille((await envoyerJson('GET', '/api/corbeille').catch(() => null))?.documents ?? [])
     } catch (e) {
       montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
     }
@@ -587,6 +1026,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
     recharger()
   }
   const titreDe = (d) => d.titre || t('documents.sansTitre')
+  const trier = (liste) => trierDocuments(liste, tri, t.langue)
   const tous = donnees
     ? [
         ...donnees.documents.map((d) => ({ ...d, equipe: null })),
@@ -615,6 +1055,11 @@ function useVoletDocuments(docId, { actif = true } = {}) {
     )
   const choisir = (titre, options, valider) => setChoix({ titre, options, valider, cle: `${titre}-${Date.now()}` })
 
+  /** Dupliquer (comme Docs) : la copie s'ouvre. */
+  const dupliquer = (id) =>
+    agir(async () => {
+      location.hash = (await envoyerJson('POST', `/api/documents/${encodeURIComponent(id)}/copie`)).id
+    })()
   const creerDocument = (lieu) =>
     agir(async () => {
       location.hash = (await envoyerJson('POST', '/api/documents', lieu)).id
@@ -685,6 +1130,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
         picto: d.favori ? 'favoriActif' : 'favori',
         surClic: () => basculerFavori(d.id),
       },
+      { cle: 'dupliquer', libelle: t('documents.dupliquer'), picto: 'dupliquer', surClic: () => dupliquer(d.id) },
       ...(caps.includes('ecrire')
         ? [
             {
@@ -767,6 +1213,34 @@ function useVoletDocuments(docId, { actif = true } = {}) {
     actions: actionsDocument(d),
   })
 
+  /** Les actions d'un document de la corbeille : le restaurer, l'effacer. */
+  const actionsCorbeille = (d) => {
+    const url = `/api/corbeille/${encodeURIComponent(d.id)}`
+    return [
+      {
+        cle: 'restaurer',
+        libelle: t('documents.restaurer'),
+        picto: 'restaurer',
+        surClic: agir(() => envoyerJson('POST', url)),
+      },
+      {
+        cle: 'effacer',
+        libelle: t('documents.effacer'),
+        picto: 'supprimer',
+        danger: true,
+        surClic: agir(async () => {
+          const ok = await confirmer({
+            titre: t('documents.effacer'),
+            texte: t('documents.confirmerEffacement', { titre: titreDe(d) }),
+            libelle: t('documents.effacer'),
+            danger: true,
+          })
+          if (ok) await envoyerJson('DELETE', url)
+        }),
+      },
+    ]
+  }
+
   /** Les actions d'un dossier d'un espace. */
   const actionsDossier = (equipe, x) => {
     if (!modifiable(equipe)) return []
@@ -841,7 +1315,7 @@ function useVoletDocuments(docId, { actif = true } = {}) {
           enfants: dans(d.id),
           actions: actionsDossier(equipe, d),
         })),
-      ...documents.filter((d) => (d.dossier ?? null) === parent).map(entreeDoc),
+      ...trier(documents.filter((d) => (d.dossier ?? null) === parent)).map(entreeDoc),
     ]
     return { enfants: dans(null), ouvert: Boolean(ici) }
   }
@@ -869,6 +1343,16 @@ function useVoletDocuments(docId, { actif = true } = {}) {
       ...(gestionnaire(id)
         ? [
             { cle: 'membres', libelle: t('documents.membres'), picto: 'equipe', surClic: () => setMembresDe(id) },
+            ...(peutGererModeles(capacites(v.equipe.role))
+              ? [
+                  {
+                    cle: 'modeles',
+                    libelle: t('documents.modeles'),
+                    picto: 'exporter',
+                    surClic: () => setModelesDe(id),
+                  },
+                ]
+              : []),
             {
               cle: 'renommer',
               libelle: t('documents.renommerEquipe'),
@@ -919,14 +1403,14 @@ function useVoletDocuments(docId, { actif = true } = {}) {
   let entrees = []
   if (donnees && recherche.trim()) {
     const q = sansAccents(recherche.trim())
-    entrees = tous.filter((d) => sansAccents(titreDe(d)).includes(q)).map(entreeDoc)
+    entrees = trier(tous.filter((d) => sansAccents(titreDe(d)).includes(q))).map(entreeDoc)
   } else if (donnees) {
-    const favoris = tous.filter((d) => d.favori)
+    const favoris = trier(tous.filter((d) => d.favori))
     const mes = arbreEspace(
       null,
       donnees.documents.filter((d) => d.section === 'mes-documents'),
     )
-    const partages = donnees.documents.filter((d) => d.section === 'partage')
+    const partages = trier(donnees.documents.filter((d) => d.section === 'partage'))
     entrees = [
       ...(favoris.length
         ? [
@@ -967,6 +1451,23 @@ function useVoletDocuments(docId, { actif = true } = {}) {
             },
           ]
         : []),
+      // La corbeille (comme Docs, \`trashbin\`) : ce que je peux restaurer, 30 jours.
+      ...(corbeille.length
+        ? [
+            {
+              cle: 'corbeille',
+              nom: t('documents.corbeille'),
+              picto: 'corbeille',
+              enfants: corbeille.map((d) => ({
+                cle: `corbeille-${d.id}`,
+                nom: titreDe(d),
+                picto: 'document',
+                detail: t('documents.joursRestants', { n: d.joursRestants }),
+                actions: actionsCorbeille(d),
+              })),
+            },
+          ]
+        : []),
     ]
   }
 
@@ -989,6 +1490,16 @@ function useVoletDocuments(docId, { actif = true } = {}) {
           },
           { cle: 'equipe', libelle: t('documents.nouvelleEquipe'), picto: 'equipe', surClic: creerEquipe },
         ]}
+        tri={{
+          libelle: t('documents.trier'),
+          valeur: tri,
+          options: [
+            { value: 'modifies', label: t('documents.triModifies') },
+            { value: 'titre', label: t('documents.triTitre') },
+            { value: 'crees', label: t('documents.triCrees') },
+          ],
+          surChange: (v) => (setTri(v), noterTri(v)),
+        }}
         entrees={entrees}
         vide={
           donnees ? (recherche.trim() ? t('documents.rienTrouve') : t('documents.aucun')) : t('application.chargement')
@@ -1021,6 +1532,16 @@ function useVoletDocuments(docId, { actif = true } = {}) {
         {membresDe && equipes[membresDe] ? <Membres vue={equipes[membresDe]} surChangement={recharger} /> : null}
       </Fenetre>
       <Fenetre
+        ouverte={!!modelesDe && !!equipes[modelesDe]}
+        titre={t('modeles.titre')}
+        surFermer={() => setModelesDe(null)}
+        libelleFermer={t('interface.fermer')}
+      >
+        {modelesDe && equipes[modelesDe] ? (
+          <ModelesEquipe vue={equipes[modelesDe]} confirmer={confirmer} surChangement={recharger} />
+        ) : null}
+      </Fenetre>
+      <Fenetre
         ouverte={!!partageDe}
         titre={t('partage.titre')}
         surFermer={() => setPartageDe(null)}
@@ -1030,23 +1551,72 @@ function useVoletDocuments(docId, { actif = true } = {}) {
       </Fenetre>
     </>
   )
-  return { contenu, donnees, tous, estFavori, basculerFavori, recharger }
+  return { contenu, donnees, tous, estFavori, basculerFavori, recharger, dupliquer }
 }
 
-function Edition({ config, personne, docId, droits }) {
+/** Le zoom du texte de l'éditeur (Sylvain, 11/11/2026 : 50, 100, 150 %, comme
+ * la v1) : propre à ce navigateur, une commodité perdue sans conséquence. */
+const CLE_ZOOM = 'amend.zoom'
+function lireZoom() {
+  try {
+    const z = Number(localStorage.getItem(CLE_ZOOM))
+    return REGLAGES.zoom.paliers.includes(z) ? z : REGLAGES.zoom.parDefaut
+  } catch {
+    return REGLAGES.zoom.parDefaut
+  }
+}
+function noterZoom(z) {
+  try {
+    localStorage.setItem(CLE_ZOOM, String(z))
+  } catch {
+    // stockage refusé (navigation privée) : le zoom vaut pour cette page seulement
+  }
+}
+
+/** Les libellés et pictos des ajouts de l'éditeur (exposant, table des matières). */
+const TEXTES_EDITEUR = {
+  exposant: { libelle: t('document.exposant'), picto: <PictoDe role="exposant" /> },
+  table: {
+    titre: t('document.tableDesMatieres'),
+    description: t('document.tableDescription'),
+    profondeur: t('document.tableProfondeur'),
+    picto: <PictoDe role="tableDesMatieres" />,
+  },
+}
+
+/**
+ * Filet de sécurité de l'éditeur (contournement, veille ; Sylvain, 11/11/2026) :
+ * si l'affichage des suggestions plante (document que Yjs ne sait plus rendre en
+ * suggestion), on ne laisse pas la page blanche ; `surErreur` décide de la suite.
+ */
+class FiletDeLEditeur extends Component {
+  state = { erreur: null }
+  static getDerivedStateFromError(erreur) {
+    return { erreur }
+  }
+  componentDidCatch(erreur) {
+    console.error('éditeur :', erreur)
+    this.props.surErreur?.(erreur)
+  }
+  render() {
+    return this.state.erreur ? this.props.repli : this.props.children
+  }
+}
+
+function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
-  // Le suivi des modifications : un interrupteur pour qui écrit, arrêté à
-  // l'ouverture ; le correcteur est toujours en suivi (Sylvain, 10/11/2026,
-  // comme l'interrupteur de la v1).
-  const [suivi, setSuivi] = useState(false)
-  const mode = caps.includes('ecrire')
-    ? suivi
-      ? 'suggerer'
-      : 'ecrire'
-    : caps.includes('suggerer')
-      ? 'suggerer'
-      : 'lire'
+  // Les trois modes d'un éditeur, comme l'exemple de BlockNote (Sylvain,
+  // 10/11/2026) : Modifier à l'ouverture, Suggérer, Relire ; le correcteur
+  // suggère toujours, le lecteur lit.
+  const [modeEditeur, setModeEditeur] = useState('ecrire')
+  const [zoom, setZoom] = useState(lireZoom)
+  const choisirZoom = (z) => (setZoom(z), noterZoom(z))
+  // Le compteur du menu « … », calculé à son ouverture, comme le menu de Docs.
+  const [compteur, setCompteur] = useState(null)
+  const compterAuMenu = () => setCompteur(controle.current?.compter?.() ?? null)
+  const piedMenu = compteur ? t('document.compteur', compteur) : undefined
+  const mode = caps.includes('ecrire') ? modeEditeur : caps.includes('suggerer') ? 'suggerer' : 'lire'
   const avecSuggestions = caps.includes('suggerer')
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
@@ -1058,7 +1628,7 @@ function Edition({ config, personne, docId, droits }) {
         personne: moi,
         suggestions: avecSuggestions,
       }),
-    // Basculer le suivi ne rouvre pas la connexion : seul l'éditeur change de mode.
+    // Changer de mode ne rouvre pas la connexion : seul l'éditeur change de mode.
     [config, docId, moi, avecSuggestions],
   )
   const commentaires = useMemo(
@@ -1089,12 +1659,21 @@ function Edition({ config, personne, docId, droits }) {
   }, [connexion])
   const [autres, setAutres] = useState([])
   const [suggestions, setSuggestions] = useState(null)
+  // L'onglet « Commentaires » : l'élément où l'éditeur place la liste des fils, et son filtre.
+  const [cibleFils, setCibleFils] = useState(null)
+  const [filtreFils, setFiltreFils] = useState('open')
   const [plan, setPlan] = useState({ titres: [], courant: null, allerA: () => {} })
   const [titre, setTitre] = useState(droits.titre ?? null)
   const [volet, setVolet] = useState(null)
   const [enModification, setEnModification] = useState(false)
   const controle = useRef(null)
   const [noms, setNoms] = useState({})
+  // Margo (étape 8) : l'onglet du volet droit et le bouton « Corriger ».
+  const peutMargo = caps.includes('utiliserMargo')
+  const margo = useMargo(docId)
+  const [selection, setSelection] = useState(null)
+  const [demandeMargo, setDemandeMargo] = useState('')
+  const [ongletRelecture, setOngletRelecture] = useState('modifications')
   const [historique, setHistorique] = useState(false)
   const [partage, setPartage] = useState(false)
   // Le volet « Documents », chargé à l'ouverture dans tous les formats : l'étoile
@@ -1135,12 +1714,24 @@ function Edition({ config, personne, docId, droits }) {
     }
   }
   useEffect(() => session.surEtat(setConnexion), [session])
+  // Droits changés pendant que le document est ouvert : on les relit.
+  useEffect(
+    () =>
+      session.surFermeture((raison) => {
+        if (raison === 'droits') {
+          montrerMessage(t('document.droitsChanges'))
+          surDroitsChanges?.()
+        } else if (raison === 'supprime') location.hash = ''
+        else montrerMessage(t('document.connexionPerdue'), { erreur: true })
+      }),
+    [session, surDroitsChanges],
+  )
   useEffect(() => session.surParticipants(setAutres), [session])
   useEffect(() => () => session.fermer(), [session])
   // Le volet droit s'ouvre d'office, une fois, quand des suggestions attendent (5b).
   const ouvertDOffice = useRef(false)
   useEffect(() => {
-    if (!ouvertDOffice.current && suggestions?.liste.length) {
+    if (!ouvertDOffice.current && (suggestions?.liste.length || suggestions?.enAttente)) {
       ouvertDOffice.current = true
       volets.ouvrirDroite()
     }
@@ -1155,7 +1746,7 @@ function Edition({ config, personne, docId, droits }) {
     // Un nom introuvable (serveur injoignable) n'est pas retenu : « auteur
     // inconnu » s'affiche, et le nom sera redemandé (audit du 10/11/2026).
     if (manquants.length)
-      nomsDe(manquants).then((l) => {
+      nomsAvecMargo(manquants).then((l) => {
         const trouves = l.filter((p) => p.username !== p.id)
         for (const id of manquants) if (!trouves.some((p) => p.id === id)) demandes.current.delete(id)
         setNoms((n) => ({ ...n, ...Object.fromEntries(trouves.map((p) => [p.id, p.username])) }))
@@ -1184,14 +1775,27 @@ function Edition({ config, personne, docId, droits }) {
   }
   const peutRenommer = caps.includes('ecrire')
   // Exports Markdown et PDF du texte de base (étape 7), préparés dans le
-  // navigateur comme chez Docs.
-  const exporter = (format) =>
-    exporterDocument(controle, format, { titre: titreAffiche, langue: LANGUE_DOCUMENT_PAR_DEFAUT }).catch((e) =>
-      montrerMessage(e?.code === 'modele-impossible' ? messageErreur(t, e.code) : t('document.exportEchoue'), {
-        erreur: true,
-      }),
-    )
-  const mention = { ecrire: null, suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
+  // navigateur comme chez Docs, depuis la fenêtre « Exporter ».
+  const [fenetreExport, ouvrirExport] = useExport({ docId, controle, titre: titreAffiche })
+  // La mention du mode, pour qui n'a pas le choix (l'éditeur voit le sélecteur).
+  const mention = caps.includes('ecrire')
+    ? null
+    : { suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
+  const MODES = [
+    ['ecrire', t('document.modeEcrire'), t('document.passerEcrire')],
+    ['suggerer', t('document.modeSuggerer'), t('document.passerSuggerer')],
+    ['relire', t('document.modeRelire'), t('document.passerRelire')],
+  ]
+  // Dans les menus (formats M et S) : passer à l'un des deux autres modes.
+  const autresModes = (champ) =>
+    caps.includes('ecrire')
+      ? MODES.filter(([m]) => m !== modeEditeur).map(([m, , passer]) => ({
+          cle: `mode-${m}`,
+          libelle: passer,
+          [champ]: 'modifications',
+          surClic: () => setModeEditeur(m),
+        }))
+      : []
   // « Copier le lien », le même dans tous les formats (audit du 10/11/2026) :
   // le lien du document, un retour, et le lien à recopier si le presse-papiers refuse.
   const lien = `${location.origin}/#${encodeURIComponent(docId)}`
@@ -1199,17 +1803,18 @@ function Edition({ config, personne, docId, droits }) {
     Promise.resolve(navigator.clipboard?.writeText(lien) ?? Promise.reject(new Error('presse-papiers absent')))
       .then(() => montrerMessage(t('telephone.lienCopie')))
       .catch(() => montrerMessage(t('telephone.lienNonCopie', { lien }), { erreur: true }))
+  // Le zoom du texte, dans le menu « … » des trois formats : un choix parmi les paliers.
+  const elementsZoom = [
+    { cle: 'zoom', libelle: t('document.zoom'), titre: true, separe: true },
+    ...REGLAGES.zoom.paliers.map((z) => ({
+      cle: `zoom-${z}`,
+      libelle: t('document.zoomPalier', { zoom: z }),
+      coche: z === zoom,
+      surClic: () => choisirZoom(z),
+    })),
+  ]
   const actions = [
-    ...(caps.includes('ecrire') && etroit
-      ? [
-          {
-            cle: 'suivi',
-            libelle: suivi ? t('document.arreterSuivi') : t('document.activerSuivi'),
-            picto: 'modifications',
-            surClic: () => setSuivi((s) => !s),
-          },
-        ]
-      : []),
+    ...(etroit ? autresModes('picto') : []),
     {
       cle: 'lien',
       libelle: t('telephone.copierLien'),
@@ -1226,22 +1831,44 @@ function Edition({ config, personne, docId, droits }) {
       picto: 'historique',
       surClic: () => setHistorique((h) => !h),
     },
+    { cle: 'exporter', libelle: t('document.exporter'), picto: 'exporter', surClic: ouvrirExport },
     {
-      cle: 'exporterMarkdown',
-      libelle: t('document.exporterMarkdown'),
-      picto: 'exporter',
-      surClic: () => exporter('markdown'),
+      cle: 'dupliquer',
+      libelle: t('document.dupliquer'),
+      picto: 'dupliquer',
+      surClic: () => voletDocs.dupliquer(docId),
     },
-    { cle: 'exporterPdf', libelle: t('document.exporterPdf'), picto: 'exporter', surClic: () => exporter('pdf') },
+    ...elementsZoom,
     ...(caps.includes('supprimer')
       ? [{ cle: 'supprimer', libelle: t('document.supprimer'), picto: 'supprimer', separe: true, surClic: supprimer }]
       : []),
   ]
   // Le lecteur ne voit pas les suggestions : pas de volet droit pour lui.
   const avecVoletDroit = mode !== 'lire'
+  // Contournement (veille) : l'afficheur dit qu'il reste des suggestions que la
+  // liste ne montre pas (une suppression de paragraphe, après un rechargement) ;
+  // « Tout accepter » et « Tout refuser » les traitent quand même.
+  const invisibles = mode === 'relire' && !!suggestions?.enAttente && suggestions.liste.length === 0
   const modifications = suggestions ? (
     <PanneauSuggestions
-      titre={t('suggestions.titre', { n: suggestions.liste.length })}
+      titre={
+        mode === 'relire' || !suggestions.enAttente
+          ? t('suggestions.titre', { n: suggestions.liste.length })
+          : t('suggestions.enCours')
+      }
+      // Hors relecture, l'éditeur ne voit pas les suggestions : une invitation à relire.
+      invitation={
+        mode !== 'relire' && suggestions.enAttente
+          ? {
+              texte: t('suggestions.enAttente'),
+              bouton: t('document.passerRelire'),
+              surClic: () => setModeEditeur('relire'),
+            }
+          : invisibles
+            ? { texte: t('suggestions.invisibles') }
+            : null
+      }
+      actionsGlobales={invisibles}
       lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
       libelles={{
         accepter: t('suggestions.accepter'),
@@ -1259,25 +1886,141 @@ function Edition({ config, personne, docId, droits }) {
   ) : (
     <TexteDeVolet texte={t('interface.modificationsCorrecteur')} />
   )
-  const editeur = (
-    <EditeurCollaboratif
-      contexte={session.contexte}
-      personne={moi}
-      langue={t.langue}
-      langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
-      nomAccessible={t('document.zoneEdition', { id: docId })}
-      mode={mode}
-      nomsDe={nomsDe}
-      commentaires={commentaires}
-      surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
-      historique={historique && !formatS}
-      peutRestaurer={caps.includes('restaurer')}
-      surFermerHistorique={() => setHistorique(false)}
-      lectureAuDepart={formatS || tactile}
-      controle={controle}
-      surModification={setEnModification}
-      surPlan={setPlan}
+  const { demander: demanderMargo } = margo
+  // Le geste de « Corriger » change à chaque rendu ; le bouton, lui, reste le
+  // même (la palette de l'éditeur ne se reconstruit pas).
+  const surCorriger = useRef(null)
+  surCorriger.current = (choisie) => {
+    setOngletRelecture('margo')
+    if (formatS) setVolet('droite')
+    else volets.ouvrirDroite()
+    demanderMargo({ corriger: true, selection: choisie })
+  }
+  // Envoyer une image (comme Docs) : qui écrit ou suggère ; un refus se dit.
+  const peutEnvoyer = caps.includes('ecrire') || caps.includes('suggerer')
+  const televerser = useMemo(
+    () =>
+      peutEnvoyer
+        ? (fichier) =>
+            envoyerImage(docId, fichier).catch((e) => {
+              montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+              throw e
+            })
+        : undefined,
+    [docId, peutEnvoyer],
+  )
+  const corriger = useMemo(
+    () => (peutMargo ? { libelle: t('margo.corriger'), surClic: (choisie) => surCorriger.current(choisie) } : null),
+    [peutMargo],
+  )
+  const allerAuBloc = (id) => {
+    if (formatS) setVolet(null)
+    controle.current?.allerAuBloc(id)
+  }
+  const envoyerMargo = () => {
+    const demande = demandeMargo.trim()
+    if (!demande) return
+    setDemandeMargo('')
+    demanderMargo({ demande, selection })
+  }
+  const panneauMargo = peutMargo ? (
+    <PanneauMargo
+      titre={t('interface.margo')}
+      messages={margo.fil.map((m) => ({
+        cle: m.cle,
+        etiquette: m.auteur === 'margo' ? t('interface.margo') : t('margo.vous'),
+        morceaux:
+          m.auteur === 'margo'
+            ? morceauxDeMargo(m, allerAuBloc)
+            : [{ texte: m.corriger ? t('margo.demandeCorriger') : m.texte }],
+        bilan: m.bilan ? [t('margo.bilan', m.bilan), MARGO_ARRET[m.bilan.arret]?.()].filter(Boolean).join(' ') : null,
+      }))}
+      accueil={t('margo.accueil')}
+      enCours={margo.enCours ? (MARGO_EN_COURS[margo.enCours] ?? MARGO_EN_COURS.reflexion)() : null}
+      erreur={margo.erreur ? messageErreur(t, margo.erreur, { max: MARGO_DEMANDE_MAX_SIGNES }) : null}
+      portee={selection ? t('margo.porteeSelection') : t('margo.porteeDocument')}
+      saisie={{
+        libelle: t('margo.saisie'),
+        valeur: demandeMargo,
+        surChange: setDemandeMargo,
+        surEnvoi: envoyerMargo,
+        envoyer: t('margo.envoyer'),
+        desactive: Boolean(margo.enCours) || !demandeMargo.trim(),
+      }}
+      nouvelle={margo.fil.length ? { libelle: t('margo.nouvelle'), surClic: margo.nouvelle } : null}
     />
+  ) : null
+  const listeFils = commentaires ? (
+    <ListeDesFils
+      filtre={{
+        libelle: t('commentaires.filtre'),
+        valeur: filtreFils,
+        options: [
+          { valeur: 'open', libelle: t('commentaires.ouverts') },
+          { valeur: 'resolved', libelle: t('commentaires.resolus') },
+          { valeur: 'all', libelle: t('commentaires.tous') },
+        ],
+        surChange: setFiltreFils,
+      }}
+      cible={setCibleFils}
+    />
+  ) : null
+  // Un essai de plus de l'éditeur après une panne en Suggérer ou Relire (repli en Modifier).
+  const [essaiEditeur, setEssaiEditeur] = useState(0)
+  const editeur = (
+    <ZoneZoom zoom={zoom}>
+      <FiletDeLEditeur
+        key={essaiEditeur}
+        repli={<TexteDeVolet texte={t('suivi.panne')} />}
+        surErreur={() => {
+          if (caps.includes('ecrire') && mode !== 'ecrire') {
+            setModeEditeur('ecrire')
+            setEssaiEditeur((n) => n + 1)
+            montrerMessage(t('suivi.panneRepli'), { erreur: true })
+          }
+        }}
+      >
+        <EditeurCollaboratif
+          contexte={session.contexte}
+          personne={moi}
+          langue={t.langue}
+          langueDocument={LANGUE_DOCUMENT_PAR_DEFAUT}
+          nomAccessible={t('document.zoneEdition', { id: docId })}
+          mode={mode}
+          nomsDe={nomsAvecMargo}
+          commentaires={commentaires}
+          surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+          historique={historique && !formatS}
+          peutRestaurer={caps.includes('restaurer')}
+          surFermerHistorique={() => setHistorique(false)}
+          fils={commentaires ? { element: cibleFils, filtre: filtreFils } : null}
+          surRefus={(code) =>
+            montrerMessage(
+              { 'suggestion-a-cheval': t('suivi.aCheval'), 'suggestion-mise-en-forme': t('suivi.miseEnForme') }[code] ??
+                messageErreur(t, code),
+              {
+                erreur: true,
+              },
+            )
+          }
+          confirmerRestauration={() =>
+            confirmer({
+              titre: t('document.restaurerTitre'),
+              texte: t('document.restaurerTexte'),
+              libelle: t('document.restaurer'),
+            })
+          }
+          lectureAuDepart={formatS || tactile}
+          controle={controle}
+          surModification={setEnModification}
+          surPlan={setPlan}
+          corriger={corriger}
+          surSelection={peutMargo ? setSelection : undefined}
+          textes={TEXTES_EDITEUR}
+          televerser={televerser}
+        />
+      </FiletDeLEditeur>
+    </ZoneZoom>
   )
 
   // Format S (téléphone) : la maquette validée (docs/v2-format-S.md). Comme
@@ -1307,24 +2050,33 @@ function Edition({ config, personne, docId, droits }) {
             icone: 'lien',
             surClic: copierLien,
           },
-          ...(caps.includes('ecrire')
-            ? [
-                {
-                  cle: 'suivi',
-                  libelle: suivi ? t('document.arreterSuivi') : t('document.activerSuivi'),
-                  icone: 'modifications',
-                  surClic: () => setSuivi((s) => !s),
-                },
-              ]
-            : []),
+          ...autresModes('icone'),
           ...(caps.includes('inviter')
             ? [{ cle: 'partager', libelle: t('document.partager'), icone: 'partager', surClic: () => setPartage(true) }]
             : []),
+          { cle: 'exporter', libelle: t('document.exporter'), icone: 'exporter', surClic: ouvrirExport },
+          {
+            cle: 'dupliquer',
+            libelle: t('document.dupliquer'),
+            icone: 'dupliquer',
+            surClic: () => voletDocs.dupliquer(docId),
+          },
           { cle: 'liste', libelle: t('document.mesDocuments'), icone: 'retour', surClic: () => (location.hash = '') },
+          ...elementsZoom,
           ...(caps.includes('supprimer')
-            ? [{ cle: 'supprimer', libelle: t('document.supprimer'), icone: 'supprimer', surClic: supprimer }]
+            ? [
+                {
+                  cle: 'supprimer',
+                  libelle: t('document.supprimer'),
+                  icone: 'supprimer',
+                  separe: true,
+                  surClic: supprimer,
+                },
+              ]
             : []),
         ]}
+        piedMenu={piedMenu}
+        surOuvrirMenu={compterAuMenu}
         voletGauche={{
           titre: titreAffiche,
           onglets: [
@@ -1349,7 +2101,7 @@ function Edition({ config, personne, docId, droits }) {
           ],
         }}
         voletDroit={
-          suggestions
+          suggestions || peutMargo || listeFils
             ? {
                 titre: t('telephone.relecture'),
                 onglets: [
@@ -1359,7 +2111,22 @@ function Edition({ config, personne, docId, droits }) {
                     icone: 'modifications',
                     contenu: modifications,
                   },
+                  ...(listeFils
+                    ? [
+                        {
+                          cle: 'commentaires',
+                          libelle: t('commentaires.titre'),
+                          icone: 'commentaires',
+                          contenu: listeFils,
+                        },
+                      ]
+                    : []),
+                  ...(peutMargo
+                    ? [{ cle: 'margo', libelle: t('interface.margo'), icone: 'margo', contenu: panneauMargo }]
+                    : []),
                 ],
+                actif: ongletRelecture,
+                surOnglet: setOngletRelecture,
               }
             : null
         }
@@ -1375,6 +2142,7 @@ function Edition({ config, personne, docId, droits }) {
             {editeur}
             {fenetreSaisie}
             {fenetreConfirmation}
+            {fenetreExport}
           </>
         }
       />
@@ -1400,9 +2168,14 @@ function Edition({ config, personne, docId, droits }) {
           mention={mention}
           // L : dans le bandeau, comme la v1 ; M (iPad) : dans le menu « … »,
           // comme au téléphone, le bandeau étant trop étroit (10/11/2026).
-          suivi={
+          modes={
             caps.includes('ecrire') && !etroit
-              ? { libelle: t('document.suiviModifications'), actif: suivi, surChange: setSuivi }
+              ? {
+                  libelle: t('document.modes'),
+                  valeur: modeEditeur,
+                  options: MODES.map(([m, libelle]) => ({ valeur: m, libelle })),
+                  surChange: setModeEditeur,
+                }
               : null
           }
           terminer={
@@ -1412,8 +2185,13 @@ function Edition({ config, personne, docId, droits }) {
           partager={
             caps.includes('inviter') ? { libelle: t('document.partager'), surClic: () => setPartage(true) } : null
           }
-          actions={{ libelle: t('telephone.autresActions'), elements: actions }}
-          compte={compteDe(personne)}
+          actions={{
+            libelle: t('telephone.autresActions'),
+            elements: actions,
+            pied: piedMenu,
+            surOuvrir: compterAuMenu,
+          }}
+          compte={compteDe(personne, config)}
           voletDroit={
             avecVoletDroit
               ? {
@@ -1444,9 +2222,16 @@ function Edition({ config, personne, docId, droits }) {
         avecVoletDroit ? (
           <VoletRelecture
             titre={t('telephone.relecture')}
-            onglets={{ modifications: t('telephone.modifications'), margo: t('interface.margo') }}
+            onglets={{
+              modifications: t('telephone.modifications'),
+              commentaires: t('commentaires.titre'),
+              margo: t('interface.margo'),
+            }}
             modifications={modifications}
-            margo={<TexteDeVolet texte={t('interface.margoBientot')} />}
+            commentaires={listeFils}
+            margo={panneauMargo}
+            actif={ongletRelecture}
+            surOnglet={setOngletRelecture}
           />
         ) : null
       }
@@ -1454,6 +2239,7 @@ function Edition({ config, personne, docId, droits }) {
       <ColonneTexte>{editeur}</ColonneTexte>
       {fenetreSaisie}
       {fenetreConfirmation}
+      {fenetreExport}
       {caps.includes('inviter') ? (
         <Fenetre
           ouverte={partage}

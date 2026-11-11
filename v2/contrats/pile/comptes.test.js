@@ -242,3 +242,20 @@ test('favoris : l’étoile du bandeau met le document dans le groupe « Favoris
   await favoris.locator(`a[href="#${docId}"]`).waitFor({ state: 'detached' })
   await p.context().close()
 })
+
+test('supprimer son compte (lots du 11/11/2026) : par le menu du compte, l’aperçu, la confirmation par l’adresse', async () => {
+  const nom = `Sacha ${randomUUID().slice(0, 6)}`
+  const page = await ouvrirSur(nav, pile.url, nom, `t5-compte-${Date.now().toString(36)}`)
+  await page.getByRole('button', { name: 'Compte' }).click()
+  await page.getByRole('menuitem', { name: 'Supprimer mon compte' }).click()
+  await page.getByRole('heading', { name: 'Supprimer mon compte' }).waitFor()
+  // Le document qu'elle vient de créer, qu'elle porte seule, sera supprimé.
+  await page.getByText('Supprimés définitivement', { exact: false }).waitFor()
+  const courriel = `${Buffer.from(nom.toLowerCase()).toString('hex')}@dev.amend.invalid`
+  await page.getByLabel('Pour confirmer, tapez l’adresse de votre compte').fill(courriel)
+  await page.getByRole('button', { name: 'Supprimer mon compte définitivement' }).click()
+  await page.waitForFunction(() => location.hash === '')
+  const statut = await page.evaluate(async () => (await fetch('/api/moi')).status)
+  assert.equal(statut, 401, 'plus de session')
+  await page.context().close()
+})

@@ -3,6 +3,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { fr } from '@blocknote/core/locales'
+import { creerTraducteur } from '../../i18n/index.js'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import {
   lancerNavigateur,
@@ -12,6 +13,7 @@ import {
   texte,
   attendre,
   NAVIGATEUR,
+  choisirMode,
 } from './outils.mjs'
 
 const I = '\u00A0' // espace insécable
@@ -126,8 +128,12 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'table',
     'image',
     'divider',
+    // Saut de page de BlockNote, comme Docs (11/11/2026).
+    'page_break',
   ])
     assert.ok(titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
+  // La table des matières (11/11/2026), libellé de notre catalogue.
+  assert.ok(titres.includes(creerTraducteur('fr')('document.tableDesMatieres')), `table des matières : ${tout}`)
   // Titres 1 à 5 (Sylvain, 09/11/2026, journal des décisions) : le niveau 6 reste exclu.
   for (const cle of [
     'heading_6',
@@ -140,6 +146,29 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'file',
   ])
     assert.ok(!titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) absent : ${tout}`)
+  await page.context().close()
+})
+
+test('image (comme Docs) : envoyée depuis le bloc Image, gardée par le serveur, affichée', async () => {
+  const page = await pageEcriture('image')
+  await page.keyboard.type('/')
+  await page.waitForSelector('.bn-suggestion-menu')
+  await page.locator('.bn-suggestion-menu-item', { hasText: fr.slash_menu.image.title }).first().click()
+  // Le panneau du bloc : l'onglet d'envoi n'existe que si l'éditeur sait envoyer.
+  const fichier = page.locator('.bn-panel input[type=file], input[type=file]').first()
+  await fichier.waitFor({ state: 'attached' })
+  // Un PNG de 1 × 1 pixel.
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  )
+  await fichier.setInputFiles({ name: 'point.png', mimeType: 'image/png', buffer: png })
+  const img = page.locator('.bn-editor img[src*="/images/"]')
+  await img.waitFor()
+  const src = await img.getAttribute('src')
+  assert.match(src, /\/api\/documents\/[^/]+\/images\/[0-9a-f]{32}\.png$/)
+  const r = await page.evaluate(async (u) => (await fetch(u)).status, src)
+  assert.equal(r, 200, 'le serveur rend l’image à qui lit le document')
   await page.context().close()
 })
 
@@ -172,7 +201,8 @@ test('correcteur : sa frappe et son collage restent des suggestions ; le texte p
   await c.keyboard.type(' "ajout" ?')
   await coller(c, { 'text/plain': 'collé "ici"' })
   await attendre(1500)
-  // Chez l'éditrice : le texte principal, plus les suggestions marquées comme telles.
+  // Chez l'éditrice, en relecture : le texte principal, plus les suggestions marquées comme telles.
+  await choisirMode(p, 'Relire')
   const principal = await p.evaluate(() => {
     const copie = document.querySelector('.bn-editor .bn-inline-content').cloneNode(true)
     copie.querySelectorAll('ins, .ProseMirror-widget').forEach((e) => e.remove())

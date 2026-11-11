@@ -10,6 +10,9 @@
 import { YVersioningExtension, createYHubVersionStorage } from '@blocknote/core/y'
 
 const ACTIONS = ['create', 'rename', 'restore', 'remove']
+// Une version par période de travail : un arrêt de 5 minutes en ouvre une
+// nouvelle (BlockNote : une heure par défaut ; Sylvain, 10/11/2026).
+const ECART_ENTRE_VERSIONS = 5 * 60 * 1000
 
 /**
  * @param {{ api: string, docId: string, fragment: any }} contexte
@@ -22,6 +25,7 @@ export function extensionHistorique(contexte, peutRestaurer, nomAvantRetour) {
     org: 'amend',
     docId: contexte.docId,
     queryParams: { branch: 'main' },
+    activityParams: { groupMaxGap: ECART_ENTRE_VERSIONS },
     fragment: contexte.fragment,
     beforeRestoreName: nomAvantRetour,
   })

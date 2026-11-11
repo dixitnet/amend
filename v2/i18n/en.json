@@ -26,18 +26,35 @@
     "mesDocuments": "My documents",
     "partager": "Share",
     "supprimer": "Delete",
-    "confirmerSuppression": "Delete this document for everyone, permanently?",
+    "confirmerSuppression": "Move this document to the trash? It will disappear for everyone; you can restore it for 30 days.",
     "renommer": "Rename",
     "nomDuDocument": "Document title",
-    "exporterMarkdown": "Export as Markdown",
-    "exporterPdf": "Export as PDF",
     "exportEchoue": "The export failed. Please try again in a moment.",
-    "suiviModifications": "Track changes",
-    "activerSuivi": "Turn on track changes",
-    "arreterSuivi": "Turn off track changes"
+    "connexionPerdue": "The connection to this document was closed. Reload the page.",
+    "droitsChanges": "Your access to this document changed: it reopens accordingly.",
+    "restaurerTitre": "Restore this version?",
+    "restaurerTexte": "The document goes back to this version for everyone. The current state stays in the history (“Before restore”).",
+    "restaurer": "Restore",
+    "modes": "Editing mode",
+    "modeEcrire": "Edit",
+    "modeSuggerer": "Suggest",
+    "modeRelire": "Review",
+    "passerEcrire": "Edit directly",
+    "passerSuggerer": "Suggest changes",
+    "passerRelire": "Review suggestions",
+    "exporter": "Export…",
+    "copie": "{titre} (copy)",
+    "dupliquer": "Duplicate",
+    "compteur": "{signes, plural, one {# character} other {# characters}} including spaces, {mots, plural, one {# word} other {# words}}",
+    "zoom": "Text size",
+    "zoomPalier": "{zoom}%",
+    "exposant": "Superscript",
+    "tableDesMatieres": "Table of contents",
+    "tableDescription": "The document’s headings, down to the chosen level",
+    "tableProfondeur": "Heading levels"
   },
   "erreurs": {
-    "modele-impossible": "This layout model is impossible: its lines or its page number do not fit on the page.",
+    "modele-impossible": "This layout template is impossible: its lines, page number or text width do not fit on the page.",
     "document-vide": "This document has no name.",
     "document-trop-long": "This document name is too long (64 characters at most).",
     "document-caracteres": "A document name may only contain unaccented letters and digits, hyphens and underscores.",
@@ -71,7 +88,35 @@
     "deplacement-impossible": "A document cannot go straight from one team to another: move it to My documents first.",
     "equipe-introuvable": "This team does not exist, or you are not a member.",
     "equipe-non-vide": "This team is not empty: move or delete its documents and folders first.",
-    "reserve-administrateur": "Reserved for the administrators of this instance."
+    "reserve-administrateur": "Reserved for the administrators of this instance.",
+    "modele-introuvable": "This template does not exist, or is not allowed for this document.",
+    "reglage-inconnu": "This setting cannot be changed in a team template.",
+    "reglage-hors-bornes": "A value is outside the allowed limits: check the settings.",
+    "ecarts-invalides": "These settings are not valid.",
+    "margo-indisponible": "Margo is unavailable at the moment.",
+    "selection-absente": "Select the passage to correct first.",
+    "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most).",
+    "image-vide": "This file is empty.",
+    "image-trop-lourde": "This image is too large (5 MB at most).",
+    "images-document-pleines": "This document has reached its image limit (100 MB).",
+    "image-type-refuse": "Only PNG and JPEG images are accepted.",
+    "confirmation-invalide": "The address you typed is not your account’s.",
+    "suppression-refusee": "Your account cannot be deleted yet: see the documents or teams listed.",
+    "modele-inconnu": "This model does not exist.",
+    "modele-sans-cle": "This model has no key configured on this server."
+  },
+  "commentaires": {
+    "titre": "Comments",
+    "filtre": "Threads to show",
+    "ouverts": "Open",
+    "resolus": "Resolved",
+    "tous": "All"
+  },
+  "suivi": {
+    "aCheval": "In Suggest mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph, or switch to Edit.",
+    "miseEnForme": "In Suggest mode, formatting is not suggested (it could not be accepted). Switch to Edit to change it.",
+    "panne": "This document cannot be shown with its suggestions. Reload the page; if it happens again, report it.",
+    "panneRepli": "Showing suggestions failed on this document: back to Edit."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -84,7 +129,10 @@
     "toutAccepter": "Accept all",
     "toutRefuser": "Reject all",
     "accepterDe": "Accept: {texte}",
-    "refuserDe": "Reject: {texte}"
+    "refuserDe": "Reject: {texte}",
+    "invisibles": "Some suggestions are not shown in the list (a paragraph deletion, for instance): “Accept all” and “Reject all” still handle them.",
+    "enCours": "Pending suggestions",
+    "enAttente": "Suggestions are waiting: switch to review to accept or reject them."
   },
   "roles": {
     "lecteur": "reader",
@@ -165,7 +213,18 @@
     "deplacerVers": "Move…",
     "aucun": "No document yet. Create the first one with “New document”.",
     "rienTrouve": "No document has this title.",
-    "destination": "Destination"
+    "destination": "Destination",
+    "modeles": "Layout templates",
+    "dupliquer": "Duplicate",
+    "corbeille": "Trash",
+    "restaurer": "Restore",
+    "effacer": "Delete permanently",
+    "confirmerEffacement": "Delete “{titre}” permanently? It can no longer be restored.",
+    "joursRestants": "{n, plural, one {deleted in # day} other {deleted in # days}}",
+    "trier": "Sort documents",
+    "triModifies": "Recently modified",
+    "triTitre": "By title",
+    "triCrees": "Recently created"
   },
   "partage": {
     "titre": "Sharing",
@@ -196,7 +255,17 @@
     "personnes": "Accounts",
     "essai": "Test and development accounts",
     "documents": "Documents",
-    "equipes": "Teams"
+    "equipes": "Teams",
+    "ia": "AI (Margo)",
+    "modeleMargo": "Margo’s model",
+    "modeleSansCle": "{nom} (no key)",
+    "modeleEnregistre": "Margo’s model saved: {nom}.",
+    "modeles": {
+      "deepseek": "DeepSeek V4.1 Flash (Scaleway, Paris)",
+      "sonnet": "Claude Sonnet 5.5 (Anthropic)",
+      "haiku": "Claude Haiku 5.5 (Anthropic)",
+      "fable": "Claude Fable 5.2 (Anthropic)"
+    }
   },
   "telephone": {
     "planEtDocuments": "Outline and documents",
@@ -217,12 +286,108 @@
     "presence": "People on this document",
     "modificationsCorrecteur": "Your suggestions go to the document’s editors, who accept or reject them.",
     "margo": "Margo (AI)",
-    "margoBientot": "Margo is coming here soon.",
     "horsLigne": "Offline: your changes are kept and will be sent when the connection is back.",
     "largeurVolet": "Panel width",
     "fermer": "Close",
     "valider": "OK",
     "annuler": "Cancel",
-    "continuer": "Continue"
+    "continuer": "Continue",
+    "aide": "Help"
+  },
+  "export": {
+    "titre": "Export",
+    "format": "Format",
+    "modele": "Layout template",
+    "retenir": "Keep this template for the document",
+    "exporter": "Export",
+    "pdf": "PDF",
+    "markdown": "Markdown",
+    "groupeMaison": "amend.ink",
+    "groupeEquipe": "Team “{equipe}”"
+  },
+  "modeles": {
+    "titre": "Layout templates",
+    "defaut": "Team default template",
+    "nom": "Template name",
+    "base": "Based on",
+    "creer": "Create",
+    "modifier": "Adjust",
+    "supprimer": "Delete",
+    "aucun": "The team has no template of its own yet.",
+    "modifierDe": "Adjust “{nom}”",
+    "supprimerDe": "Delete “{nom}”",
+    "parDefaut": "Default",
+    "enregistrer": "Save",
+    "enregistre": "Template saved.",
+    "detail": "Based on “{titre}” · {n, plural, =0 {no document} one {# document} other {# documents}}",
+    "confirmerSuppression": "Delete the template “{nom}”? {n, plural, =0 {No document uses it.} one {The document that used it will take the team default template.} other {The # documents that used it will take the team default template.}}",
+    "reglage": {
+      "page": {
+        "largeur": "Page width (mm)",
+        "hauteur": "Page height (mm)"
+      },
+      "marges": {
+        "haut": "Top margin (mm)",
+        "interieure": "Inside margin (mm)",
+        "exterieure": "Outside margin (mm)"
+      },
+      "grille": {
+        "corps": "Text size (pt)",
+        "interligne": "Line spacing (pt)",
+        "lignes": "Lines per page"
+      },
+      "police": "Font",
+      "alinea": "Paragraph indent (mm)",
+      "chapitre": {
+        "bellePage": "Chapters start on a right-hand page"
+      }
+    },
+    "maison": {
+      "tat-poche": "TàT - Poche"
+    }
+  },
+  "margo": {
+    "accueil": "Ask Margo to proofread, correct or comment on the text. Corrections arrive as suggestions, in Changes, to accept or reject.",
+    "vous": "You",
+    "corriger": "Correct",
+    "demandeCorriger": "Correct the selection",
+    "porteeSelection": "On the selection",
+    "porteeDocument": "On the whole text",
+    "saisie": "Your request",
+    "envoyer": "Send",
+    "nouvelle": "New conversation",
+    "allerAuBloc": "Go to block {n}",
+    "enCours": {
+      "reflexion": "Margo is thinking…",
+      "lire": "Margo is reading the text…",
+      "chercher": "Margo is searching the text…",
+      "proposer": "Margo is proposing corrections…",
+      "commenter": "Margo is commenting…",
+      "repli": "The model declined this request. Margo is resuming it with another model…"
+    },
+    "bilan": "{corrections, plural, =0 {No corrections} one {# correction} other {# corrections}}, {commentaires, plural, =0 {no comments} one {# comment} other {# comments}}.",
+    "arret": {
+      "etapes": "Request stopped: too many steps. Try again on a shorter passage.",
+      "refusEnSerie": "Request stopped: too many rejected proposals in a row.",
+      "longueur": "Answer cut off: it was too long.",
+      "refus": "The model declined this request.",
+      "erreur": "Margo could not finish the request. What was posted stays in Changes."
+    }
+  },
+  "compte": {
+    "supprimer": "Delete my account",
+    "explication": "Your account and your access to amend.ink will disappear. Your comments and suggestions stay in other people’s documents, without your name. Here is what will happen to your documents and teams:",
+    "rien": "You have no documents and no teams.",
+    "supprimes": "Deleted permanently (nobody else has access)",
+    "confies": "Handed over to an editor, who becomes the owner",
+    "confie": "“{titre}”, to {nom}",
+    "quittes": "You leave them (they stay with their other owners)",
+    "equipesQuittees": "Teams you leave",
+    "equipesSupprimees": "Teams deleted with their documents (you are the only member)",
+    "refusDocuments": "These documents have no other editor: first give the owner role to one of the people who have access: {liste}.",
+    "refusEquipes": "You are the last manager of these teams: first appoint another manager: {liste}.",
+    "courriel": "To confirm, type your account’s address",
+    "bouton": "Delete my account permanently",
+    "retour": "Cancel"
   }
 }

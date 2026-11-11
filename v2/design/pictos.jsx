@@ -16,6 +16,7 @@ import {
   IconFileText,
   IconFolder,
   IconWand,
+  IconMessage,
   IconUser,
   IconUsers,
   IconUsersGroup,
@@ -27,6 +28,12 @@ import {
   IconArrowBack,
   IconStar,
   IconStarFilled,
+  IconRestore,
+  IconHelp,
+  IconSuperscript,
+  IconListDetails,
+  IconTextSize,
+  IconCheck,
 } from '@tabler/icons-react'
 
 const PICTOS = {
@@ -44,6 +51,7 @@ const PICTOS = {
   document: IconFileText,
   dossier: IconFolder,
   margo: IconWand,
+  commentaires: IconMessage,
   moi: IconUser,
   partages: IconUsers,
   equipe: IconUsersGroup,
@@ -55,6 +63,14 @@ const PICTOS = {
   retour: IconArrowBack,
   favori: IconStar,
   favoriActif: IconStarFilled,
+  corbeille: IconTrash,
+  restaurer: IconRestore,
+  aide: IconHelp,
+  // 11/11/2026 (comparaison v1 / v2, points 19, 6, zoom) : dessins proposés, à confirmer.
+  exposant: IconSuperscript,
+  tableDesMatieres: IconListDetails,
+  zoom: IconTextSize,
+  choisi: IconCheck,
 }
 
 /** Le picto d'un rôle, ou rien si le rôle est inconnu. */

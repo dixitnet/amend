@@ -26,18 +26,35 @@
     "mesDocuments": "Mes documents",
     "partager": "Partager",
     "supprimer": "Supprimer",
-    "confirmerSuppression": "Supprimer ce document pour tout le monde, définitivement\u202F?",
+    "confirmerSuppression": "Mettre ce document à la corbeille\u202F? Il disparaîtra pour tout le monde\u202F; vous pourrez le restaurer pendant 30\u00A0jours.",
     "renommer": "Renommer",
     "nomDuDocument": "Titre du document",
-    "exporterMarkdown": "Exporter en Markdown",
-    "exporterPdf": "Exporter en PDF",
     "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant.",
-    "suiviModifications": "Suivi des modifications",
-    "activerSuivi": "Activer le suivi des modifications",
-    "arreterSuivi": "Arrêter le suivi des modifications"
+    "connexionPerdue": "La connexion à ce document a été fermée. Rechargez la page.",
+    "droitsChanges": "Vos droits sur ce document ont changé\u00A0: il se rouvre avec eux.",
+    "restaurerTitre": "Revenir à cette version\u202F?",
+    "restaurerTexte": "Le texte du document redevient celui de cette version, pour tout le monde. L’état actuel reste dans l’historique («\u00A0Avant la restauration\u00A0»).",
+    "restaurer": "Restaurer",
+    "modes": "Mode d’édition",
+    "modeEcrire": "Modifier",
+    "modeSuggerer": "Suggérer",
+    "modeRelire": "Relire",
+    "passerEcrire": "Modifier directement",
+    "passerSuggerer": "Suggérer des modifications",
+    "passerRelire": "Relire les suggestions",
+    "exporter": "Exporter…",
+    "copie": "{titre} (copie)",
+    "dupliquer": "Dupliquer",
+    "compteur": "{signes, plural, one {# signe} other {# signes}} espaces compris, {mots, plural, one {# mot} other {# mots}}",
+    "zoom": "Taille du texte",
+    "zoomPalier": "{zoom}\u202F%",
+    "exposant": "Exposant",
+    "tableDesMatieres": "Table des matières",
+    "tableDescription": "Les titres du document, jusqu’au niveau choisi",
+    "tableProfondeur": "Niveaux de titre"
   },
   "erreurs": {
-    "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes ou son folio ne tiennent pas dans la page.",
+    "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes, son folio ou la largeur du texte ne tiennent pas dans la page.",
     "document-vide": "Ce document n’a pas de nom.",
     "document-trop-long": "Le nom de ce document est trop long (64 signes au plus).",
     "document-caracteres": "Le nom d’un document ne peut contenir que des lettres et chiffres sans accent, des tirets et des tirets bas.",
@@ -71,7 +88,35 @@
     "deplacement-impossible": "Un document ne passe pas directement d’une équipe à une autre\u00A0: sortez-le d’abord dans Mes documents.",
     "equipe-introuvable": "Cette équipe n’existe pas, ou vous n’en êtes pas membre.",
     "equipe-non-vide": "Cette équipe n’est pas vide\u00A0: déplacez ou supprimez d’abord ses documents et ses dossiers.",
-    "reserve-administrateur": "Réservé aux administrateurs de l’instance."
+    "reserve-administrateur": "Réservé aux administrateurs de l’instance.",
+    "modele-introuvable": "Ce modèle n’existe pas, ou il n’est pas permis à ce document.",
+    "reglage-inconnu": "Ce réglage ne se change pas dans un modèle d’équipe.",
+    "reglage-hors-bornes": "Une valeur est hors des limites permises\u00A0: vérifiez les réglages.",
+    "ecarts-invalides": "Ces réglages ne sont pas valides.",
+    "margo-indisponible": "Margo est indisponible pour le moment.",
+    "selection-absente": "Sélectionnez d’abord le passage à corriger.",
+    "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus).",
+    "image-vide": "Ce fichier est vide.",
+    "image-trop-lourde": "Cette image est trop lourde (5\u00A0Mo au plus).",
+    "images-document-pleines": "Ce document a atteint sa limite d’images (100\u00A0Mo).",
+    "image-type-refuse": "Seules les images PNG et JPEG sont acceptées.",
+    "confirmation-invalide": "L’adresse tapée n’est pas celle de votre compte.",
+    "suppression-refusee": "Votre compte ne peut pas encore être supprimé\u00A0: voyez les documents ou équipes indiqués.",
+    "modele-inconnu": "Ce modèle n’existe pas.",
+    "modele-sans-cle": "Ce modèle n’a pas de clé configurée sur ce serveur."
+  },
+  "commentaires": {
+    "titre": "Commentaires",
+    "filtre": "Fils à afficher",
+    "ouverts": "Ouverts",
+    "resolus": "Résolus",
+    "tous": "Tous"
+  },
+  "suivi": {
+    "aCheval": "En mode Suggérer, une suppression ne peut pas franchir la fin d’un paragraphe (elle serait mal enregistrée). Supprimez paragraphe par paragraphe, ou passez en Modifier.",
+    "miseEnForme": "En mode Suggérer, la mise en forme n’est pas proposée (elle ne pourrait pas être acceptée). Passez en Modifier pour la changer.",
+    "panne": "Ce document ne peut pas s’afficher avec ses suggestions. Rechargez la page\u202F; si cela se reproduit, signalez-le.",
+    "panneRepli": "L’affichage des suggestions a échoué sur ce document\u00A0: retour en Modifier."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
@@ -84,7 +129,10 @@
     "toutAccepter": "Tout accepter",
     "toutRefuser": "Tout refuser",
     "accepterDe": "Accepter\u00A0: {texte}",
-    "refuserDe": "Refuser\u00A0: {texte}"
+    "refuserDe": "Refuser\u00A0: {texte}",
+    "invisibles": "Des suggestions ne s’affichent pas dans la liste (une suppression de paragraphe, par exemple)\u00A0: «\u00A0Tout accepter\u00A0» et «\u00A0Tout refuser\u00A0» les traitent.",
+    "enCours": "Suggestions en attente",
+    "enAttente": "Des suggestions attendent\u00A0: passez en relecture pour les accepter ou les refuser."
   },
   "roles": {
     "lecteur": "lecteur",
@@ -165,7 +213,18 @@
     "deplacerVers": "Déplacer…",
     "aucun": "Aucun document pour l’instant. Créez le premier avec «\u00A0Nouveau document\u00A0».",
     "rienTrouve": "Aucun document ne porte ce titre.",
-    "destination": "Destination"
+    "destination": "Destination",
+    "modeles": "Modèles de mise en page",
+    "dupliquer": "Dupliquer",
+    "corbeille": "Corbeille",
+    "restaurer": "Restaurer",
+    "effacer": "Supprimer définitivement",
+    "confirmerEffacement": "Supprimer «\u00A0{titre}\u00A0» définitivement\u202F? Il ne pourra plus être restauré.",
+    "joursRestants": "{n, plural, one {effacé dans #\u00A0jour} other {effacé dans #\u00A0jours}}",
+    "trier": "Trier les documents",
+    "triModifies": "Modifiés récemment",
+    "triTitre": "Par titre",
+    "triCrees": "Créés récemment"
   },
   "partage": {
     "titre": "Partage",
@@ -196,7 +255,17 @@
     "personnes": "Comptes",
     "essai": "Comptes d’essai et de développement",
     "documents": "Documents",
-    "equipes": "Équipes"
+    "equipes": "Équipes",
+    "ia": "IA (Margo)",
+    "modeleMargo": "Modèle de Margo",
+    "modeleSansCle": "{nom} (clé absente)",
+    "modeleEnregistre": "Modèle de Margo enregistré\u00A0: {nom}.",
+    "modeles": {
+      "deepseek": "DeepSeek V4.1 Flash (Scaleway, Paris)",
+      "sonnet": "Claude Sonnet 5.5 (Anthropic)",
+      "haiku": "Claude Haiku 5.5 (Anthropic)",
+      "fable": "Claude Fable 5.2 (Anthropic)"
+    }
   },
   "telephone": {
     "planEtDocuments": "Plan et documents",
@@ -217,12 +286,108 @@
     "presence": "Personnes sur ce document",
     "modificationsCorrecteur": "Vos suggestions sont proposées aux éditeurs du document, qui les acceptent ou les refusent.",
     "margo": "Margo (IA)",
-    "margoBientot": "Margo arrive bientôt ici.",
     "horsLigne": "Hors ligne\u00A0: vos modifications sont gardées et partiront au retour de la connexion.",
     "largeurVolet": "Largeur du volet",
     "fermer": "Fermer",
     "valider": "Valider",
     "annuler": "Annuler",
-    "continuer": "Continuer"
+    "continuer": "Continuer",
+    "aide": "Aide"
+  },
+  "export": {
+    "titre": "Exporter",
+    "format": "Format",
+    "modele": "Modèle de mise en page",
+    "retenir": "Retenir ce modèle pour le document",
+    "exporter": "Exporter",
+    "pdf": "PDF",
+    "markdown": "Markdown",
+    "groupeMaison": "amend.ink",
+    "groupeEquipe": "Équipe «\u00A0{equipe}\u00A0»"
+  },
+  "modeles": {
+    "titre": "Modèles de mise en page",
+    "defaut": "Modèle par défaut de l’équipe",
+    "nom": "Nom du modèle",
+    "base": "Modèle de départ",
+    "creer": "Créer",
+    "modifier": "Régler",
+    "supprimer": "Supprimer",
+    "aucun": "L’équipe n’a pas encore de modèle à elle.",
+    "modifierDe": "Régler «\u00A0{nom}\u00A0»",
+    "supprimerDe": "Supprimer «\u00A0{nom}\u00A0»",
+    "parDefaut": "Par défaut",
+    "enregistrer": "Enregistrer",
+    "enregistre": "Modèle enregistré.",
+    "detail": "D’après «\u00A0{titre}\u00A0» · {n, plural, =0 {aucun document} one {# document} other {# documents}}",
+    "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? {n, plural, =0 {Aucun document ne l’a choisi.} one {Le document qui l’avait choisi prendra le modèle par défaut de l’équipe.} other {Les # documents qui l’avaient choisi prendront le modèle par défaut de l’équipe.}}",
+    "reglage": {
+      "page": {
+        "largeur": "Largeur de la page (mm)",
+        "hauteur": "Hauteur de la page (mm)"
+      },
+      "marges": {
+        "haut": "Marge de tête (mm)",
+        "interieure": "Marge intérieure (mm)",
+        "exterieure": "Marge extérieure (mm)"
+      },
+      "grille": {
+        "corps": "Corps du texte (pt)",
+        "interligne": "Interligne (pt)",
+        "lignes": "Lignes par page"
+      },
+      "police": "Police",
+      "alinea": "Alinéa (mm)",
+      "chapitre": {
+        "bellePage": "Chapitres en belle page (page de droite)"
+      }
+    },
+    "maison": {
+      "tat-poche": "TàT - Poche"
+    }
+  },
+  "margo": {
+    "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent en suggestions, dans Modifications, à accepter ou refuser.",
+    "vous": "Vous",
+    "corriger": "Corriger",
+    "demandeCorriger": "Corriger la sélection",
+    "porteeSelection": "Sur la sélection",
+    "porteeDocument": "Sur tout le texte",
+    "saisie": "Votre demande",
+    "envoyer": "Envoyer",
+    "nouvelle": "Nouvelle conversation",
+    "allerAuBloc": "Aller au bloc {n}",
+    "enCours": {
+      "reflexion": "Margo réfléchit…",
+      "lire": "Margo lit le texte…",
+      "chercher": "Margo cherche dans le texte…",
+      "proposer": "Margo propose des corrections…",
+      "commenter": "Margo commente…",
+      "repli": "Le modèle a refusé cette demande. Margo la reprend avec un autre modèle…"
+    },
+    "bilan": "{corrections, plural, =0 {Aucune correction} one {# correction} other {# corrections}}, {commentaires, plural, =0 {aucun commentaire} one {# commentaire} other {# commentaires}}.",
+    "arret": {
+      "etapes": "Demande arrêtée\u00A0: trop d’étapes. Relancez-la sur un passage plus court.",
+      "refusEnSerie": "Demande arrêtée\u00A0: trop de propositions refusées d’affilée.",
+      "longueur": "Réponse coupée\u00A0: elle était trop longue.",
+      "refus": "Le modèle a refusé cette demande.",
+      "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Modifications."
+    }
+  },
+  "compte": {
+    "supprimer": "Supprimer mon compte",
+    "explication": "Votre compte et votre accès à amend.ink disparaîtront. Vos commentaires et vos suggestions restent dans les documents des autres, sans votre nom. Voici ce que deviendront vos documents et vos équipes\u00A0:",
+    "rien": "Vous n’avez aucun document ni aucune équipe.",
+    "supprimes": "Supprimés définitivement (personne d’autre n’y a accès)",
+    "confies": "Confiés à un éditeur, qui en devient propriétaire",
+    "confie": "«\u00A0{titre}\u00A0», à {nom}",
+    "quittes": "Vous les quittez (ils restent à leurs autres propriétaires)",
+    "equipesQuittees": "Équipes que vous quittez",
+    "equipesSupprimees": "Équipes supprimées avec leurs documents (vous en êtes le seul membre)",
+    "refusDocuments": "Ces documents n’ont pas d’autre éditeur\u00A0: donnez d’abord le rôle de propriétaire à l’une des personnes qui y ont accès\u00A0: {liste}.",
+    "refusEquipes": "Vous êtes le dernier gestionnaire de ces équipes\u00A0: nommez d’abord un autre gestionnaire\u00A0: {liste}.",
+    "courriel": "Pour confirmer, tapez l’adresse de votre compte",
+    "bouton": "Supprimer mon compte définitivement",
+    "retour": "Annuler"
   }
 }

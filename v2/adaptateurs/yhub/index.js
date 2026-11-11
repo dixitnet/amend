@@ -2,9 +2,16 @@
 // 0006). y/hub tient le contenu des documents ; il ne décide rien : à chaque
 // connexion, il demande à l'application qui est la personne (`identifier`) et
 // ce qu'elle peut faire (`droits`), comme l'adaptateur de Docs.
-import { createYHub, createAuthPlugin, createAuthorize, createDocumentPermissions, apiError } from '@y/hub'
+import {
+  createYHub,
+  createAuthPlugin,
+  createAuthorize,
+  createDocumentPermissions,
+  createApiEndpoint,
+  apiError,
+} from '@y/hub'
 import { timingSafeEqual } from 'node:crypto'
-import { BRANCHES } from '../../domaine/index.js'
+import { BRANCHES, AUTEUR_MARGO } from '../../domaine/index.js'
 
 /** Les branches ouvertes (domaine) : le texte et les suggestions ; toute autre est refusée. */
 const OUVERTES = new Set(BRANCHES)
@@ -33,17 +40,66 @@ function permissions(a) {
 
 const ORGANISATION = 'amend'
 
+/** La route qui sort un document de la corbeille : y/hub sait le faire
+ * (\`restoreDoc\`) mais ne l'expose pas ; Docs ajoute la même route
+ * (\`src/yhub-server/src/api.ts\`, \`restore-ydoc\`), réservée à son serveur. */
+const RESTAURER = 'restore-ydoc'
+const restaurer = createApiEndpoint(RESTAURER, {
+  post: {
+    handler: async (req) => {
+      if (req.org !== ORGANISATION || !OUVERTES.has(req.branch)) throw apiError(400, 'document inconnu')
+      // Lire la pierre tombale d'abord (comme Docs) : un document jamais
+      // supprimé n'a rien à restaurer, un document effacé ne revient pas.
+      const tombe = await req.yhub.persistence.retrieveTombstone(req.docRef)
+      if (tombe == null) return { restaure: false }
+      if (tombe.hard || tombe.purgedAt != null) throw apiError(409, 'contenu effacé')
+      await req.yhub.restoreDoc(req.docRef)
+      return { restaure: true }
+    },
+  },
+})
+
 /** L'identité de notre serveur auprès de y/hub (jeton interne) : il lit et
  * écrit le texte principal, pour poser l'ancre d'un commentaire de correcteur
- * (étape 5), et efface un document supprimé par son propriétaire (étape 6a). */
+ * (étape 5) et remplir une copie (11/11/2026) ; il met un document à la
+ * corbeille, l'en sort ou l'efface (étape 6a, corbeille du 11/11/2026). */
 const SERVEUR = 'amend-serveur'
+
+/**
+ * Les droits ont changé (accès donné, retiré, rôle changé) : chaque connexion
+ * ouverte du document les redemande (`recheckAuth`) et se ferme (code 4401)
+ * s'ils ne sont plus les mêmes ; le navigateur relit alors ses droits. Le
+ * montage de Docs (`src/yhub-server/src/api.ts`, `reset-connections`), réservé
+ * à notre serveur (aucun droit du navigateur ne nomme cette route).
+ */
+const REVOIR_ACCES = 'reset-connections'
+const revoirAcces = createApiEndpoint(REVOIR_ACCES, {
+  post: {
+    handler: async (req) => {
+      const personne = typeof req.query?.personne === 'string' && req.query.personne ? req.query.personne : null
+      await req.yhub.recheckAuth(req.docRef, { users: personne ? [personne] : null })
+      return { ok: true }
+    },
+  },
+})
 const PERMISSIONS_SERVEUR = createDocumentPermissions({
   ydoc: '-ru-',
-  delete: ['hard'],
-  endpoint: { ydoc: '-rud' },
+  delete: ['soft', 'hard'],
+  endpoint: { ydoc: '-rud', [RESTAURER]: 'c---', [REVOIR_ACCES]: 'c---' },
 })
-// Sur la branche des suggestions, effacer seulement (document supprimé).
-const PERMISSIONS_SERVEUR_SUGGESTIONS = createDocumentPermissions({ delete: ['hard'], endpoint: { ydoc: '---d' } })
+// Sur la branche des suggestions : corbeille, restauration et effacement, et
+// faire revoir les droits des connexions ouvertes.
+const PERMISSIONS_SERVEUR_SUGGESTIONS = createDocumentPermissions({
+  delete: ['soft', 'hard'],
+  endpoint: { ydoc: '---d', [RESTAURER]: 'c---', [REVOIR_ACCES]: 'c---' },
+})
+
+/** Margo, l'IA (étape 8) : notre serveur, au nom de Margo (jeton interne et
+ * en-tête `x-amend-agent: margo`). Elle lit le texte et écrit dans les
+ * suggestions seulement, comme un correcteur : ses propositions y sont
+ * attribuées à « margo ». Ses commentaires s'ancrent par l'identité du serveur. */
+const PERMISSIONS_MARGO_TEXTE = createDocumentPermissions({ ydoc: '-r--', endpoint: { ydoc: '-r--' } })
+const PERMISSIONS_MARGO_SUGGESTIONS = createDocumentPermissions({ ydoc: '-ru-', endpoint: { ydoc: '-ru-' } })
 
 function jetonValide(attendu, recu) {
   const a = Buffer.from(String(attendu || ''))
@@ -62,6 +118,8 @@ function jetonValide(attendu, recu) {
  *   ce que le domaine accorde à la personne sur cette branche du document
  * @param {number} [o.delaiPersistance] ms avant qu'une modification soit écrite dans PostgreSQL
  * @param {string} [o.jetonInterne] le jeton de notre serveur ; vide : il n'a pas d'accès
+ * @param {(docId: string) => void} [o.surModification] appelée quand le contenu
+ *   d'un document a changé (compactage de y/hub ; comme \`content-updated\` de Docs)
  */
 export async function demarrerCollaboration({
   port,
@@ -72,13 +130,18 @@ export async function demarrerCollaboration({
   droits,
   delaiPersistance = 2000,
   jetonInterne = '',
+  surModification = () => {},
 }) {
   const auth = createAuthPlugin({
     authenticate(req) {
       // Les en-têtes de la requête se lisent avant toute attente (uWebSockets).
       const cookie = req.getHeader('cookie') || ''
       if (jetonValide(jetonInterne, req.getHeader('x-amend-interne')))
-        return Promise.resolve({ userid: SERVEUR, interne: true })
+        return Promise.resolve(
+          req.getHeader('x-amend-agent') === AUTEUR_MARGO
+            ? { userid: AUTEUR_MARGO, interne: true, agent: true }
+            : { userid: SERVEUR, interne: true },
+        )
       return identifier(cookie).then((personne) => {
         if (typeof personne?.id !== 'string' || !personne.id) throw apiError(401, 'session absente')
         return { userid: personne.id }
@@ -87,6 +150,8 @@ export async function demarrerCollaboration({
     authorize: createAuthorize({
       document: async (docRef, personne) => {
         if (!personne || docRef.org !== ORGANISATION || !OUVERTES.has(docRef.branch)) return null
+        if (personne.interne === true && personne.agent === true)
+          return docRef.branch === 'main' ? PERMISSIONS_MARGO_TEXTE : PERMISSIONS_MARGO_SUGGESTIONS
         if (personne.interne === true)
           return docRef.branch === 'main' ? PERMISSIONS_SERVEUR : PERMISSIONS_SERVEUR_SUGGESTIONS
         // Une demande de droits qui échoue (serveur lent ou absent) vaut refus.
@@ -101,11 +166,22 @@ export async function demarrerCollaboration({
     redis: { url: redis, prefix: 'amend-v2', taskDebounce: delaiPersistance, minMessageLifetime: 60000, cacheTtl: 1 },
     postgres,
     persistence: [],
-    worker: { taskConcurrency: 2 },
+    // Comme Docs (\`docUpdate\`, \`src/yhub-server/src/server.ts\`) : un compactage
+    // qui trouve du neuf prévient le serveur, sans l'attendre. Écart : la branche
+    // des suggestions compte aussi (une relecture fait avancer le document).
+    worker: {
+      taskConcurrency: 2,
+      events: {
+        docUpdate: ({ docRef }) => {
+          if (docRef.org === ORGANISATION && OUVERTES.has(docRef.branch)) surModification(docRef.docid)
+        },
+      },
+    },
     server: {
       port,
       auth,
       apiPrefix: 'collaboration',
+      api: [restaurer, revoirAcces],
       cors: origines.length ? { origin: origines, credentials: true } : null,
     },
   })

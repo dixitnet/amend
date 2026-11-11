@@ -14,6 +14,10 @@ import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 let comptes, commentaires, serveur, base
 const courrier = creerCourrier({ expediteur: 'amend.ink <x@y.fr>' })
 const effaces = []
+const corbeille = []
+const restaures = []
+const copies = []
+let copieEchoue = false
 const ADRESSE = 'https://essai.amend.ink'
 
 before(async () => {
@@ -22,7 +26,20 @@ before(async () => {
   commentaires = await ouvrirCommentaires(POSTGRES)
   serveur = creerServeur(
     { secret: 's'.repeat(32), jetonInterne: 'j', collaboration: 'ws://x', statique: '/x', dev: true, adresse: ADRESSE },
-    { comptes, commentaires, courrier, collaboration: { supprimerDocument: async (id) => effaces.push(id) } },
+    {
+      comptes,
+      commentaires,
+      courrier,
+      collaboration: {
+        supprimerDocument: async (id) => effaces.push(id),
+        mettreALaCorbeille: async (id) => corbeille.push(id),
+        restaurer: async (id) => restaures.push(id),
+        copierTexte: async (source, cible, pour) => {
+          if (copieEchoue) throw Object.assign(new Error('y/hub : 503'), { code: 'collaboration-indisponible' })
+          copies.push([source, cible, pour])
+        },
+      },
+    },
   )
   await new Promise((r) => serveur.listen(0, '127.0.0.1', r))
   base = `http://127.0.0.1:${serveur.address().port}`
@@ -315,10 +332,10 @@ test('lien de partage : une personne connectée qui a le lien gagne son rôle ; 
   assert.equal((await appel('GET', `/api/droits?document=${doc.id}`, { cookie: lea.cookie })).statut, 404)
 })
 
-test('suppression : le propriétaire seul, tout de suite ; y/hub et les commentaires suivent', async () => {
+test('corbeille (comme Docs) : le propriétaire seul ; le document disparaît pour tous, se restaure entier, s’efface pour de bon', async () => {
   const paule = await personne('Paule')
   const edith = await personne('Edith')
-  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: {} })
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: { titre: 'Brouillon' } })
   await appel('POST', '/api/dev/acces', {
     cookie: paule.cookie,
     corps: { document: doc.id, personne: edith.id, role: 'editeur' },
@@ -326,9 +343,113 @@ test('suppression : le propriétaire seul, tout de suite ; y/hub et les commenta
   await commentaires.creerFil(doc.id, paule.id, [{ type: 'paragraph', content: 'x' }])
   assert.equal((await appel('DELETE', `/api/documents/${doc.id}`, { cookie: edith.cookie })).statut, 403)
   assert.equal((await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })).statut, 200)
+  assert.ok(corbeille.includes(doc.id), 'mis à la corbeille dans y/hub (déconnexion)')
+  assert.ok(!effaces.includes(doc.id), 'rien d’effacé')
+  for (const p of [paule, edith]) {
+    assert.equal((await appel('GET', `/api/droits?document=${doc.id}`, { cookie: p.cookie })).statut, 404)
+    const ids = (await appel('GET', '/api/documents', { cookie: p.cookie })).json.documents.map((d) => d.id)
+    assert.ok(!ids.includes(doc.id), 'plus listé')
+  }
+  // La corbeille : la propriétaire seule la voit, avec les jours restants.
+  const vue = (await appel('GET', '/api/corbeille', { cookie: paule.cookie })).json.documents
+  assert.deepEqual(
+    vue.filter((d) => d.id === doc.id).map((d) => [d.titre, d.joursRestants]),
+    [['Brouillon', 30]],
+  )
+  assert.deepEqual(
+    (await appel('GET', '/api/corbeille', { cookie: edith.cookie })).json.documents.filter((d) => d.id === doc.id),
+    [],
+  )
+  assert.equal((await appel('POST', `/api/corbeille/${doc.id}`, { cookie: edith.cookie })).statut, 404)
+  // Restaurer : y/hub d'abord, puis le document revient avec ses accès et ses fils.
+  assert.equal((await appel('POST', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })).statut, 200)
+  assert.ok(restaures.includes(doc.id))
+  assert.equal((await appel('GET', `/api/droits?document=${doc.id}`, { cookie: edith.cookie })).statut, 200)
+  assert.equal((await commentaires.fils(doc.id)).length, 1)
+  assert.equal(
+    (await appel('POST', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })).statut,
+    404,
+    'plus dans la corbeille',
+  )
+  // Effacer pour de bon depuis la corbeille : y/hub et les commentaires suivent.
+  await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })
+  assert.equal((await appel('DELETE', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })).statut, 200)
   assert.ok(effaces.includes(doc.id), 'effacé dans y/hub')
   assert.deepEqual(await commentaires.fils(doc.id), [])
-  assert.equal((await appel('GET', `/api/droits?document=${doc.id}`, { cookie: paule.cookie })).statut, 404)
+  assert.equal(await comptes.document(doc.id), null)
+})
+
+test('corbeille : purge après 30 jours ; un dossier dont le seul document est à la corbeille se supprime', async () => {
+  const paule = await personne('Paule')
+  const { json: dossier } = await appel('POST', '/api/dossiers', { cookie: paule.cookie, corps: { nom: 'Vieux' } })
+  const { json: doc } = await appel('POST', '/api/documents', {
+    cookie: paule.cookie,
+    corps: { dossier: dossier.id },
+  })
+  await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })
+  assert.equal((await appel('DELETE', `/api/dossiers/${dossier.id}`, { cookie: paule.cookie })).statut, 200)
+  // Le dossier effacé ne laisse pas de référence pendante (clé étrangère, audit du 11/11/2026).
+  assert.equal((await comptes.document(doc.id)).dossier, null)
+  // Une modification signalée pendant la corbeille ne change pas la date.
+  const avant = (await comptes.document(doc.id)).modifieLe
+  await comptes.noterModification(doc.id)
+  assert.equal((await comptes.document(doc.id)).modifieLe, avant)
+  await serveur.purgerCorbeille(Date.now() + 29 * 24 * 3600 * 1000)
+  assert.ok(await comptes.document(doc.id), 'gardé avant 30 jours')
+  await serveur.purgerCorbeille(Date.now() + 31 * 24 * 3600 * 1000)
+  assert.equal(await comptes.document(doc.id), null, 'effacé après 30 jours')
+  assert.ok(effaces.includes(doc.id))
+})
+
+test('dupliquer (comme Docs) : qui lit ; « (copie) » ; à côté de l’original si l’on peut y écrire ; un échec ne laisse rien', async () => {
+  const paule = await personne('Paule')
+  const luc = await personne('Luc')
+  const unique = randomUUID().slice(0, 8)
+  const { json: dossier } = await appel('POST', '/api/dossiers', { cookie: paule.cookie, corps: { nom: 'Essais' } })
+  const { json: doc } = await appel('POST', '/api/documents', {
+    cookie: paule.cookie,
+    corps: { titre: `La gare ${unique}`, dossier: dossier.id },
+  })
+  const r = await appel('POST', `/api/documents/${doc.id}/copie`, { cookie: paule.cookie })
+  assert.equal(r.statut, 201)
+  assert.deepEqual(copies.at(-1), [doc.id, r.json.id, paule.id])
+  const copie = await comptes.document(r.json.id)
+  assert.equal(copie.titre, `La gare ${unique} (copie)`)
+  assert.equal(copie.dossier, dossier.id, 'à côté de l’original')
+  // Un lecteur duplique dans ses propres documents, dont il est propriétaire.
+  assert.equal((await appel('POST', `/api/documents/${doc.id}/copie`, { cookie: luc.cookie })).statut, 404)
+  await appel('POST', '/api/dev/acces', {
+    cookie: paule.cookie,
+    corps: { document: doc.id, personne: luc.id, role: 'lecteur' },
+  })
+  const r2 = await appel('POST', `/api/documents/${doc.id}/copie`, { cookie: luc.cookie })
+  const copie2 = await comptes.document(r2.json.id)
+  assert.deepEqual([copie2.emplacement, copie2.dossier], [luc.id, null])
+  assert.deepEqual(await comptes.rolesDe(r2.json.id, luc.id), ['proprietaire'])
+  // y/hub refuse : la copie est défaite.
+  copieEchoue = true
+  const r3 = await appel('POST', `/api/documents/${doc.id}/copie`, { cookie: paule.cookie })
+  copieEchoue = false
+  assert.equal(r3.statut, 502)
+  const titres = (await appel('GET', '/api/documents', { cookie: paule.cookie })).json.documents.map((d) => d.titre)
+  assert.equal(titres.filter((x) => x === `La gare ${unique} (copie)`).length, 1)
+})
+
+test('date de modification : notée par y/hub (jeton interne seulement), rendue dans la liste', async () => {
+  const paule = await personne('Paule')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: {} })
+  const avant = (await appel('GET', '/api/documents', { cookie: paule.cookie })).json.documents.find(
+    (d) => d.id === doc.id,
+  )
+  assert.equal(avant.modifieLe, avant.creeLe, 'jamais modifié : la date de création')
+  assert.equal((await appel('POST', `/api/interne/modifie?document=${doc.id}`)).statut, 403)
+  await new Promise((r) => setTimeout(r, 20))
+  const ok = await appel('POST', `/api/interne/modifie?document=${doc.id}`, { entetes: { 'x-amend-interne': 'j' } })
+  assert.equal(ok.statut, 200)
+  const apres = (await appel('GET', '/api/documents', { cookie: paule.cookie })).json.documents.find(
+    (d) => d.id === doc.id,
+  )
+  assert.ok(apres.modifieLe > avant.modifieLe)
 })
 
 test('liens de connexion limités par adresse', async () => {
@@ -380,4 +501,91 @@ test('favoris (comme Docs) : chacun les siens ; ni sans accès, ni par une autre
   assert.equal((await appel('POST', `/api/documents/${doc}/favori`, { cookie: p.cookie })).statut, 405)
   assert.equal((await appel('DELETE', `/api/documents/${doc}/favori`, { cookie: p.cookie })).statut, 200)
   assert.equal(await favori(p), false)
+})
+
+test('images (comme Docs) : qui écrit ou suggère envoie ; qui lit voit ; le reste est refusé ; elles partent avec le document', async () => {
+  const paule = await personne('Paule')
+  const luc = await personne('Luc')
+  const zoe = await personne('Zoé')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: {} })
+  await appel('POST', '/api/dev/acces', {
+    cookie: paule.cookie,
+    corps: { document: doc.id, personne: luc.id, role: 'lecteur' },
+  })
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
+  const envoyer = (cookie, corps) =>
+    fetch(`${base}/api/documents/${doc.id}/images`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/octet-stream' },
+      body: corps,
+    })
+  const r = await envoyer(paule.cookie, png)
+  assert.equal(r.status, 201)
+  const { url } = await r.json()
+  assert.match(url, new RegExp(`^/api/documents/${doc.id}/images/[0-9a-f]{32}\\.png$`))
+  // Lire : qui lit le document ; le type vient des octets, jamais du navigateur.
+  const lue = await fetch(`${base}${url}`, { headers: { cookie: luc.cookie } })
+  assert.equal(lue.status, 200)
+  assert.equal(lue.headers.get('content-type'), 'image/png')
+  assert.deepEqual(Buffer.from(await lue.arrayBuffer()), png)
+  assert.equal((await fetch(`${base}${url}`, { headers: { cookie: zoe.cookie } })).status, 404)
+  assert.equal((await fetch(`${base}${url}`)).status, 401)
+  // Envoyer : ni le lecteur, ni un type inconnu (SVG), ni une image trop lourde.
+  assert.equal((await envoyer(luc.cookie, png)).status, 403)
+  const svg = await envoyer(paule.cookie, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'))
+  assert.deepEqual([svg.status, (await svg.json()).code], [400, 'image-type-refuse'])
+  const lourde = Buffer.alloc(5 * 1024 * 1024 + 1)
+  png.copy(lourde)
+  const trop = await envoyer(paule.cookie, lourde)
+  assert.deepEqual([trop.status, (await trop.json()).code], [413, 'image-trop-lourde'])
+  assert.equal(
+    (await fetch(`${base}/api/documents/${doc.id}/images/..%2Fx.png`, { headers: { cookie: paule.cookie } })).status,
+    404,
+  )
+  // Le document effacé emporte ses images.
+  await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })
+  await appel('DELETE', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })
+  assert.equal(await comptes.image(doc.id, url.split('/').pop()), null)
+})
+
+test('supprimer son compte (règle de la v1) : aperçu, refus, puis documents confiés, quittés, supprimés ; commentaires gardés', async () => {
+  const marc = await personne(`Marc ${randomUUID().slice(0, 6)}`)
+  const eve = await personne('Ève')
+  const leo = await personne('Léo')
+  const courrielDeMarc = (await comptes.personne(marc.id)).courriel
+  const nouveau = async (titre) =>
+    (await appel('POST', '/api/documents', { cookie: marc.cookie, corps: { titre } })).json.id
+  const seul = await nouveau('Seul')
+  const confie = await nouveau('Confié')
+  const lu = await nouveau('Lu seulement')
+  const donner = (doc, personneId, role) =>
+    appel('POST', '/api/dev/acces', { cookie: marc.cookie, corps: { document: doc, personne: personneId, role } })
+  await donner(confie, leo.id, 'lecteur')
+  await donner(confie, eve.id, 'editeur')
+  await donner(lu, leo.id, 'correcteur')
+  await commentaires.creerFil(confie, marc.id, [{ type: 'paragraph', content: 'remarque' }])
+  // Aperçu : « Lu seulement » n'a qu'un correcteur : refus.
+  const apercu = (await appel('GET', '/api/moi/suppression', { cookie: marc.cookie })).json
+  const sorts = Object.fromEntries(apercu.documents.map((d) => [d.titre, [d.sort, d.aNom ?? null]]))
+  assert.deepEqual(sorts, { Seul: ['supprime', null], Confié: ['confie', 'Ève'], 'Lu seulement': ['refus', null] })
+  assert.equal(apercu.peut, false)
+  assert.equal(
+    (await appel('DELETE', '/api/moi', { cookie: marc.cookie, corps: { courriel: courrielDeMarc } })).statut,
+    409,
+  )
+  // Il confie lui-même le document au correcteur, puis confirme par son adresse.
+  await donner(lu, leo.id, 'proprietaire')
+  assert.equal(
+    (await appel('DELETE', '/api/moi', { cookie: marc.cookie, corps: { courriel: 'autre@x.fr' } })).statut,
+    400,
+  )
+  const r = await appel('DELETE', '/api/moi', { cookie: marc.cookie, corps: { courriel: courrielDeMarc } })
+  assert.equal(r.statut, 200)
+  assert.equal(await comptes.personne(marc.id), null)
+  assert.equal(await comptes.document(seul), null, 'le document qu’il portait seul est supprimé')
+  assert.deepEqual(await comptes.rolesDe(confie, eve.id), ['proprietaire'], 'confié à l’éditrice')
+  assert.equal((await comptes.document(confie)).emplacement, eve.id, 'rangé chez elle')
+  assert.deepEqual(await comptes.rolesDe(lu, leo.id), ['proprietaire'])
+  assert.equal((await commentaires.fils(confie)).length, 1, 'ses commentaires restent, sans son nom')
+  assert.equal((await appel('GET', '/api/documents', { cookie: marc.cookie })).statut, 401, 'sa session ne vaut plus')
 })

@@ -5,7 +5,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre } from './outils.mjs'
+import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, choisirMode } from './outils.mjs'
 
 let pile, nav
 const ouvrir = (nom, docId, o) => ouvrirSur(nav, pile.url, nom, docId, o)
@@ -84,7 +84,7 @@ test('volets : deux ensemble sur Mac ; un seul à la fois sur iPad en portrait',
   await ipad.context().close()
 })
 
-test('volet droit : il s’ouvre d’office quand une suggestion arrive, avec leur nombre', async () => {
+test('volet droit : il s’ouvre d’office quand une suggestion arrive ; en relecture, leur nombre', async () => {
   const doc = docTest('office')
   const p = await ouvrir('Paule', doc)
   await p.click('.bn-editor')
@@ -97,6 +97,10 @@ test('volet droit : il s’ouvre d’office quand une suggestion arrive, avec le
   await c.keyboard.type(' Noire.')
   for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await inactif(p, DROITE));) await attendre(200)
   assert.equal(await inactif(p, DROITE), false, 'ouvert d’office')
+  await p.getByText('Des suggestions attendent').waitFor()
+  await choisirMode(p, 'Relire')
+  for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(200))
+    if (await p.locator('.mantine-Indicator-indicator').getByText('1', { exact: true }).count()) break
   assert.ok(await p.locator('.mantine-Indicator-indicator').getByText('1', { exact: true }).count())
   await p.context().close()
   await c.context().close()

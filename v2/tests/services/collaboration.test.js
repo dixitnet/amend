@@ -9,6 +9,7 @@ import net from 'node:net'
 import * as Y from '@y/y'
 import { preparerServices, POSTGRES, REDIS } from '../../exploitation/dev/pile.mjs'
 import { demarrerCollaboration } from '../../adaptateurs/yhub/index.js'
+import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { lireBlocs, texteDesBlocs } from '../../adaptateurs/blocknote/serveur.js'
 import { roleEffectif, capacites, accesBranche } from '../../domaine/index.js'
@@ -26,6 +27,8 @@ const joignable = (port) =>
 let collab
 let raisonSaut = null
 const appelsDroits = []
+const modifies = []
+const JETON = 'jeton-t2'
 /** Rôles simulés : `<rôle>-…` en tête de l'identifiant (`editeur-1`), sauf
  * ceux fixés à la main dans `rolesFixes` ; `banni-…` n'a aucun rôle. */
 const rolesFixes = new Map()
@@ -47,6 +50,8 @@ before(async () => {
     postgres: POSTGRES,
     origines: [ORIGINE],
     delaiPersistance: 300,
+    jetonInterne: JETON,
+    surModification: (id) => modifies.push(id),
     // Identité simulée : le cookie `qui=<id>` ; pas de cookie, pas d'identité.
     identifier: async (cookie) => {
       const m = /qui=([\w-]+)/.exec(cookie)
@@ -248,4 +253,50 @@ t2('rôle retiré : la connexion suivante est refusée (les droits sont redemand
 
 t2('demande de droits en échec : refus (403), jamais un accès', async () => {
   assert.equal(await upgrade(docId('panne'), { cookie: 'qui=panne-1' }), 403)
+})
+
+// Lots du 11/11/2026 : la corbeille, la copie et la date de modification,
+// contre le vrai y/hub (route restore-ydoc ajoutée comme chez Docs).
+t2('corbeille : la suppression douce ferme le document, la restauration le rend entier', async () => {
+  const id = docId('corbeille')
+  const serveur = clientCollaboration({ url: `http://127.0.0.1:${PORT}/collaboration`, jeton: JETON })
+  const d = new Y.Doc()
+  d.get('essai-t2', Y.Text).insert(0, 'Gardé à la corbeille')
+  await serveur.ecrireTexte(id, Y.encodeStateAsUpdate(d), 'alice')
+  assert.equal(await upgrade(id, { cookie: 'qui=alice' }), 101)
+  await serveur.mettreALaCorbeille(id)
+  // y/hub accepte la mise à niveau puis ferme aussitôt (« document deleted ») ;
+  // il refuse toute écriture. Notre serveur, lui, refuse déjà les droits.
+  await assert.rejects(serveur.ecrireTexte(id, Y.encodeStateAsUpdate(d), 'alice'), {
+    code: 'collaboration-indisponible',
+  })
+  await serveur.restaurer(id)
+  assert.equal(await upgrade(id, { cookie: 'qui=alice' }), 101)
+  assert.equal(texteDuDoc(await serveur.lireTexte(id)), 'Gardé à la corbeille')
+  // Un document jamais supprimé se « restaure » sans erreur.
+  await serveur.restaurer(id)
+})
+
+t2('copie : le texte principal passe dans un nouveau document', async () => {
+  const source = docId('source')
+  const cible = docId('copie')
+  const serveur = clientCollaboration({ url: `http://127.0.0.1:${PORT}/collaboration`, jeton: JETON })
+  const d = new Y.Doc()
+  d.get('essai-t2', Y.Text).insert(0, 'Texte à copier')
+  await serveur.ecrireTexte(source, Y.encodeStateAsUpdate(d), 'alice')
+  await serveur.copierTexte(source, cible, 'bruno')
+  assert.equal(texteDuDoc(await serveur.lireTexte(cible)), 'Texte à copier')
+  assert.equal(texteDuDoc(await serveur.lireTexte(source)), 'Texte à copier', 'l’original intact')
+})
+
+t2('date de modification : un compactage qui trouve du neuf prévient le serveur', async () => {
+  const id = docId('modifie')
+  const a = client(id, 'alice')
+  try {
+    assert.ok(await attendreQue(() => a.contexte.doc !== undefined))
+    a.contexte.doc.get('essai-t2', Y.Text).insert(0, 'Du neuf')
+    assert.ok(await attendreQue(() => modifies.includes(id), 15000), 'le serveur est prévenu')
+  } finally {
+    a.fermer()
+  }
 })

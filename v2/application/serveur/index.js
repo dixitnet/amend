@@ -10,14 +10,18 @@ import { execFileSync } from 'node:child_process'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerComptes } from './comptes.js'
 import { creerCommentaires } from './commentaires.js'
+import { creerMargo } from './margo.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
+import { creerImages } from './images.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
+import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
 import {
   listeAdministrateurs,
   estAdministrateur,
   numeroDeVersion,
+  adresseAide,
   nomPersonne,
   identifiantDocument,
   roleEffectif,
@@ -25,6 +29,7 @@ import {
   accesBranche,
   refusAcces,
   DUREE_SESSION_MS,
+  AUTEUR_MARGO,
 } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
@@ -39,6 +44,8 @@ const confDepuisEnv = () => ({
   jetonEssai: process.env.V2_JETON_ESSAI || '',
   // Les administrateurs de l'instance (back-office) : des adresses séparées par des virgules.
   administrateurs: process.env.V2_ADMINS || '',
+  // L'adresse de l'aide (pages statiques, lot du 11/11/2026) ; vide : pas d'entrée « Aide ».
+  aide: process.env.V2_AIDE_URL || '',
   dev: process.env.V2_DEV === '1',
   // En ligne (HTTPS derrière Caddy), le cookie de session n'est envoyé qu'en HTTPS.
   cookieSecure: process.env.V2_COOKIE_SECURE === '1',
@@ -53,6 +60,11 @@ const confDepuisEnv = () => ({
   mailgunCle: process.env.V2_MAILGUN_CLE || '',
   mailgunDomaine: process.env.V2_MAILGUN_DOMAINE || '',
   expediteur: process.env.V2_EXPEDITEUR || 'amend.ink <ne-pas-repondre@amend.ink>',
+  // Margo (étape 8) : le modèle, et les clés des fournisseurs ; sans clé, Margo
+  // répond « indisponible ». Le modèle par défaut est celui de la v1.
+  margoModele: process.env.V2_MARGO_MODELE || MODELE_PAR_DEFAUT,
+  cleAnthropic: process.env.V2_ANTHROPIC_CLE || '',
+  cleScaleway: process.env.V2_SCALEWAY_CLE || '',
   postgres:
     process.env.V2_POSTGRES ||
     (process.env.V2_DEV === '1' ? 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub' : ''),
@@ -165,7 +177,10 @@ const VERSION = (() => {
 })()
 const DEMARRAGE = Date.now()
 
-const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) => {
+/** La clé du réglage du modèle de Margo (back-office). */
+const REGLAGE_MODELE = 'margo.modele'
+
+const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, ia, collaboration = null) => {
   const administrateurs = listeAdministrateurs(CONF.administrateurs)
   /** Une personne connectée est-elle administratrice de l'instance ? (son adresse, en base) */
   const administrateur = async (p) =>
@@ -187,17 +202,25 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
 
   return {
     'GET /api/config': (req, res) =>
-      json(res, 200, { collaboration: CONF.collaboration, dev: CONF.dev, version: VERSION.commit }),
+      json(res, 200, {
+        collaboration: CONF.collaboration,
+        dev: CONF.dev,
+        version: VERSION.commit,
+        aide: adresseAide(CONF.aide),
+      }),
     // Les noms d'une liste de personnes (`?id=a&id=b`), pour une personne
     // connectée ; un identifiant inconnu revient sans nom.
     'GET /api/personnes': async (req, res, url) => {
       if (!(await personneDe(req))) return json(res, 401, { code: 'session-absente' })
       const ids = url.searchParams.getAll('id').slice(0, 100)
       const connus = new Map((await comptes.noms(ids)).map((p) => [p.id, p.nom]))
+      // Margo n'est pas une personne : son nom se traduit dans l'interface.
       json(
         res,
         200,
-        ids.map((id) => ({ id, nom: connus.get(id) ?? null })),
+        ids.map((id) =>
+          id === AUTEUR_MARGO ? { id, nom: null, agent: 'margo' } : { id, nom: connus.get(id) ?? null },
+        ),
       )
     },
     'GET /api/moi': async (req, res) => {
@@ -217,6 +240,32 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
         node: process.version,
         comptes: await comptes.statistiques(),
       })
+    },
+    // Back-office, rubrique IA (étape 8, « backoffice simple », Sylvain,
+    // 11/11/2026) : le modèle de Margo, parmi ceux de l'adaptateur ; ceux dont
+    // le fournisseur n'a pas de clé ne se choisissent pas.
+    'GET /api/admin/ia': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      const choisi = await comptes.reglage(REGLAGE_MODELE)
+      json(res, 200, {
+        modele: typeof choisi === 'string' && MODELES[choisi] ? choisi : null,
+        defaut: MODELES[CONF.margoModele] ? CONF.margoModele : MODELE_PAR_DEFAUT,
+        modeles: Object.keys(MODELES).map((id) => ({ id, disponible: ia.disponible(id) })),
+      })
+    },
+    'PUT /api/admin/ia': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      const { modele } = await lireCorps(req)
+      if (typeof modele !== 'string' || !Object.hasOwn(MODELES, modele))
+        return json(res, 400, { code: 'modele-inconnu' })
+      if (!ia.disponible(modele)) return json(res, 409, { code: 'modele-sans-cle' })
+      await comptes.definirReglage(REGLAGE_MODELE, modele, p.id)
+      console.log(`[admin] modèle de Margo : ${modele}`)
+      json(res, 200, { modele })
     },
     // Développement seulement : les courriers gardés en mémoire (sans clé
     // Mailgun), pour les essais et les tests de bout en bout.
@@ -297,6 +346,8 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
         })
       if ((await comptes.modifierAcces(v.docId, personne, role, v.personne.id)) === 'dernier-proprietaire')
         return json(res, 409, { code: 'dernier-proprietaire' })
+      // Comme la route de partage : les connexions ouvertes revoient leurs droits.
+      await collaboration?.revoirAcces?.(v.docId, personne).catch((e) => console.error('revoir les accès :', e.message))
       json(res, 200, {})
     },
     // Pour le processus de collaboration seulement (jeton interne).
@@ -307,6 +358,15 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier) =
       const branche = url.searchParams.get('branche')
       if (!docId || !idPersonne || !branche) return json(res, 400, { code: 'parametres-absents' })
       json(res, 200, { acces: accesBranche(capacites(await roleSur(docId, idPersonne)), branche) })
+    },
+    // Le contenu d'un document a changé (y/hub, après un compactage ; comme
+    // \`content-updated\` de Docs) : la date de modification avance.
+    'POST /api/interne/modifie': async (req, res, url) => {
+      if (!jetonValide(CONF.jetonInterne, req.headers['x-amend-interne'])) return json(res, 403, { code: 'interdit' })
+      const doc = identifiantDocument(url.searchParams.get('document'))
+      if (!doc.ok) return json(res, 400, { code: doc.code })
+      await comptes.noterModification(doc.id)
+      json(res, 200, {})
     },
   }
 }
@@ -362,8 +422,9 @@ async function servirFichier(CONF, res, chemin) {
 
 /**
  * @param {object} [CONF]
- * @param {{ comptes: any, commentaires?: any, courrier?: any, collaboration?: any }} services
- *   les dépôts (adaptateur PostgreSQL), le courrier, l'accès de notre serveur à y/hub ;
+ * @param {{ comptes: any, commentaires?: any, courrier?: any, collaboration?: any, ia?: any }} services
+ *   les dépôts (adaptateur PostgreSQL), le courrier, l'accès de notre serveur à y/hub,
+ *   l'IA de Margo ;
  *   sans dépôt des commentaires, leurs routes répondent 503
  */
 export function creerServeur(CONF = confDepuisEnv(), services = {}) {
@@ -376,7 +437,8 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       ? clientCollaboration({ url: CONF.collaborationApi, jeton: CONF.jetonInterne })
       : null)
   const identite = creerIdentite(CONF, comptes)
-  const routes = creerRoutes(CONF, comptes, identite, courrier)
+  const ia = services.ia ?? creerIA({ cleAnthropic: CONF.cleAnthropic, cleScaleway: CONF.cleScaleway })
+  const routes = creerRoutes(CONF, comptes, identite, courrier, ia, collaboration)
   const commentaires = creerCommentaires({
     personneDe: identite.personneDe,
     roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),
@@ -384,6 +446,37 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     json,
     lireCorps,
     collaboration,
+  })
+  // Le modèle de Margo : celui choisi au back-office, sinon celui de
+  // l'environnement, sinon le modèle par défaut (DeepSeek, comme la v1).
+  const modeleParDefaut = MODELES[CONF.margoModele] ? CONF.margoModele : MODELE_PAR_DEFAUT
+  const modeleMargo = async () => {
+    // Base injoignable : le modèle de l'environnement, et une trace au journal
+    // (audit du 11/11/2026, 5).
+    const choisi = await comptes.reglage(REGLAGE_MODELE).catch((err) => {
+      console.error('[margo] réglage du modèle illisible :', err.code ?? err.message)
+      return null
+    })
+    return typeof choisi === 'string' && MODELES[choisi] ? choisi : modeleParDefaut
+  }
+  const margo = creerMargo({
+    personneDe: identite.personneDe,
+    roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),
+    documentDe: (docId) => comptes.document(docId),
+    ia,
+    modele: modeleMargo,
+    modeleRepli: MODELE_PAR_DEFAUT,
+    collaboration,
+    depot: depotCommentaires,
+    prevenirFils: commentaires.prevenir,
+    json,
+    lireCorps,
+  })
+  const images = creerImages({
+    personneDe: identite.personneDe,
+    roleSur: async (docId, idPersonne) => roleEffectif(await comptes.rolesDe(docId, idPersonne)),
+    depot: comptes,
+    json,
   })
   const partage = creerComptes({
     CONF,
@@ -397,7 +490,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     cookieDeSession: identite.cookieDeSession,
     cookieEfface: identite.cookieEfface,
   })
-  return http.createServer(async (req, res) => {
+  const serveur = http.createServer(async (req, res) => {
     poserSecurite(req, res)
     try {
       // L'analyse de l'adresse peut échouer (« // ») : dans le bloc protégé.
@@ -416,6 +509,8 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       const route = routes[`${req.method} ${url.pathname}`]
       if (route) return await route(req, res, url)
       if (await commentaires(req, res, url)) return
+      if (await margo(req, res, url)) return
+      if (await images(req, res, url)) return
       if (await partage(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })
@@ -432,6 +527,9 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       json(res, 500, { code: 'erreur-interne' })
     }
   })
+  /** Efface les documents restés plus de 30 jours dans la corbeille. */
+  serveur.purgerCorbeille = partage.purger
+  return serveur
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -442,7 +540,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     commentaires: await ouvrirCommentaires(CONF.postgres),
     courrier: creerCourrier({ cle: CONF.mailgunCle, domaine: CONF.mailgunDomaine, expediteur: CONF.expediteur }),
   }
-  creerServeur(CONF, services).listen(CONF.port, '127.0.0.1', () =>
-    console.log(`[serveur] http://127.0.0.1:${CONF.port}`),
-  )
+  const serveur = creerServeur(CONF, services)
+  serveur.listen(CONF.port, '127.0.0.1', () => console.log(`[serveur] http://127.0.0.1:${CONF.port}`))
+  // La corbeille se vide au démarrage, puis toutes les six heures.
+  const purger = () => serveur.purgerCorbeille().catch((e) => console.error('[serveur] corbeille :', e))
+  setTimeout(purger, 60_000).unref()
+  setInterval(purger, 6 * 3600 * 1000).unref()
 }

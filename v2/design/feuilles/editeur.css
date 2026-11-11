@@ -17,3 +17,11 @@
 .bn-root {
   --bn-ui-base-z-index: var(--mantine-z-index-app);
 }
+
+/* réglage : css.editeur.zoom */
+[data-amend-zoom='50'] .bn-default-styles {
+  font-size: 50%;
+}
+[data-amend-zoom='150'] .bn-default-styles {
+  font-size: 150%;
+}

@@ -1,52 +1,181 @@
 // Adaptateur BlockNote (couche 2) : l'éditeur collaboratif, lié au document
 // ouvert par l'adaptateur Yjs, avec le schéma du livre et nos extensions. Il
 // reçoit la langue de l'interface (menus de l'éditeur), la langue du document
-// (typographie), la personne, et ce qu'elle fait du texte :
-//  - `ecrire` : elle écrit le texte et voit les suggestions (éditeur) ;
-//  - `suggerer` : tout ce qu'elle tape est une suggestion (correcteur ; y/hub
-//    le garantit, la branche principale lui est fermée) ;
+// (typographie), la personne, et ce qu'elle fait du texte. Les trois modes
+// d'un éditeur sont ceux de l'exemple de BlockNote
+// (`07-collaboration/12-multi-doc-versioning`), un seul éditeur et un seul
+// afficheur des suggestions, le mode changeant par l'extension des
+// suggestions, sans rien recréer :
+//  - `ecrire` : elle écrit le texte, sans voir les suggestions
+//    (`disableSuggestions`) ;
+//  - `suggerer` : tout ce qu'elle tape est une suggestion (`enableSuggestions` ;
+//    pour un correcteur, y/hub le garantit, la branche principale lui est fermée) ;
+//  - `relire` : elle voit les suggestions et les accepte ou les refuse, sans
+//    écrire (`viewSuggestions`) : écrire par-dessus des suggestions affichées
+//    les prolonge (y-prosemirror#245) ;
 //  - `lire` : lecture seule (lecteur), sans les suggestions.
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   useCreateBlockNote,
   FormattingToolbar,
   FormattingToolbarController,
   getFormattingToolbarItems,
+  useBlockNoteEditor,
+  useComponentsContext,
+  useSelectedBlocks,
+  useEditorState,
+  SuggestionMenuController,
+  getDefaultReactSlashMenuItems,
+  getPageBreakReactSlashMenuItems,
+  RenderInPortalElement,
+  ThreadsSidebar,
 } from '@blocknote/react'
+import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core'
 import { BlockNoteView } from '@blocknote/mantine'
-import { VersioningSidebar } from '@blocknote/react/versioning'
+import {
+  VersioningSidebar,
+  VersionMenu,
+  VersionMenuItem,
+  NameVersionItem,
+  CompareWithVersionItem,
+  CompareSinceBeginningItem,
+  DeleteVersionItem,
+  useRestoreVersionAction,
+} from '@blocknote/react/versioning'
 import { withCollaboration } from '@blocknote/core/y'
 import { CommentsExtension } from '@blocknote/core/comments'
 import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
-import { boutonsGardes } from './palette.js'
+import { boutonsGardes, boutonsGardesEnSuggestion } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
-import { blocsDuTexte, versMarkdown, versTypst, compilerPdf } from './export.js'
+import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
+import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
+import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 
-function Palette() {
-  return <FormattingToolbar>{boutonsGardes(getFormattingToolbarItems())}</FormattingToolbar>
+/** La sélection, en blocs : le premier et le dernier bloc à texte touchés
+ * (`null` sans sélection étendue). Pour Margo (étape 8). */
+function selectionEnBlocs(editeur) {
+  const blocs = (editeur.getSelection()?.blocks ?? []).filter((b) => Array.isArray(b.content))
+  return blocs.length ? { de: blocs[0].id, a: blocs[blocs.length - 1].id } : null
+}
+
+/** Le bouton « Corriger » de la palette, à la fin, comme le bouton IA de Docs
+ * (`AIToolbarButton`) : seulement quand le texte se modifie et qu'un bloc à
+ * texte est sélectionné. Il envoie la sélection, en blocs, à l'application. */
+function BoutonCorriger({ corriger }) {
+  const editeur = useBlockNoteEditor()
+  const Components = useComponentsContext()
+  const choisis = useSelectedBlocks(editeur)
+  if (!editeur.isEditable || !Components || !choisis.some((b) => Array.isArray(b.content))) return null
+  const surClic = () => {
+    const selection = selectionEnBlocs(editeur)
+    if (selection) corriger.surClic(selection)
+  }
+  return (
+    <Components.FormattingToolbar.Button mainTooltip={corriger.libelle} onClick={surClic}>
+      {corriger.libelle}
+    </Components.FormattingToolbar.Button>
+  )
+}
+
+/** Le bouton de l'exposant (11/11/2026), sur le modèle des boutons de style
+ * de BlockNote (`BasicTextStyleButton`) : seulement quand le texte se modifie
+ * et qu'un bloc à texte est sélectionné. Libellé et picto donnés par l'application. */
+function BoutonExposant({ exposant }) {
+  const editeur = useBlockNoteEditor()
+  const Components = useComponentsContext()
+  const etat = useEditorState({
+    editor: editeur,
+    selector: ({ editor }) => {
+      const blocs = editor.getSelection()?.blocks || [editor.getTextCursorPosition().block]
+      if (!editor.isEditable || !blocs.some((b) => b.content !== undefined)) return undefined
+      return { actif: 'exposant' in editor.getActiveStyles() }
+    },
+  })
+  if (etat === undefined || !Components) return null
+  const basculer = () => {
+    editeur.focus()
+    editeur.toggleStyles({ exposant: true })
+  }
+  return (
+    <Components.FormattingToolbar.Button
+      label={exposant.libelle}
+      mainTooltip={exposant.libelle}
+      isSelected={etat.actif}
+      icon={exposant.picto}
+      onClick={basculer}
+    />
+  )
+}
+
+/** « Restaurer », après confirmation (l'API de BlockNote le prévoit :
+ * `useRestoreVersionAction`, « custom items can request confirmation ») ;
+ * comme Docs, qui demande avant de restaurer. */
+function RestaurerApresConfirmation({ libelle, confirmer }) {
+  const action = useRestoreVersionAction()
+  if (!action.available) return null
+  return (
+    <VersionMenuItem onClick={() => void confirmer().then((oui) => oui && action.execute())}>{libelle}</VersionMenuItem>
+  )
+}
+
+function Palette({ corriger, suggerer, exposant }) {
+  return (
+    <FormattingToolbar>
+      {suggerer
+        ? boutonsGardesEnSuggestion(getFormattingToolbarItems())
+        : boutonsGardes(
+            getFormattingToolbarItems(),
+            exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null,
+          )}
+      {corriger ? <BoutonCorriger corriger={corriger} /> : null}
+    </FormattingToolbar>
+  )
+}
+
+/** Le menu « / » : celui de BlockNote, plus le saut de page (comme Docs,
+ * `BlockNoteSuggestionMenu.tsx`) et la table des matières (11/11/2026). */
+function itemsDuMenu(editeur, table) {
+  const items = [...getDefaultReactSlashMenuItems(editeur), ...getPageBreakReactSlashMenuItems(editeur)]
+  if (table)
+    items.push({
+      key: 'table_des_matieres',
+      title: table.titre,
+      subtext: table.description,
+      aliases: [],
+      group: editeur.dictionary.slash_menu.page_break.group,
+      icon: table.picto,
+      onItemClick: () => insertOrUpdateBlockForSlashMenu(editeur, { type: TYPE_TABLE }),
+    })
+  return items
 }
 
 /**
  * @param {object} p
- * @param {'ecrire' | 'suggerer' | 'lire'} p.mode
+ * @param {'ecrire' | 'suggerer' | 'relire' | 'lire'} p.mode
  * @param {(ids: string[]) => Promise<Array<{ id: string, username: string, avatarUrl: string }>>} p.nomsDe
  * @param {{ service: object, capacites: readonly string[] } | null} [p.commentaires]
- * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, accepter: Function, refuser: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
- *   rappelé avec les suggestions à chaque changement (pour qui peut arbitrer) ; doit être stable
+ * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, enAttente: boolean, accepter: Function, refuser: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
+ *   rappelé avec les suggestions à chaque changement (pour qui peut arbitrer) ; la liste
+ *   n'est remplie qu'en relecture, `enAttente` dit dans tous les modes s'il y en a ; doit être stable
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
+ * @param {{ element: HTMLElement | null, filtre: 'open' | 'resolved' | 'all' } | null} [p.fils]
+ *   où placer la liste des fils de commentaires (onglet « Commentaires »), et son filtre
+ * @param {(code: string) => void} [p.surRefus]  un geste refusé en mode Suggérer (contournements, veille)
+ * @param {() => Promise<boolean>} [p.confirmerRestauration]  demandée avant de revenir à une version
  * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
  *   sur le texte passe en modification (curseur à l'endroit touché)
  * @param {{ current: { terminer: () => void, exporter: Function } | null }} [p.controle]  reçoit
- *   `terminer()` (bouton « Terminer » du bandeau) et `exporter(format, options)` :
+ *   `terminer()` (bouton « Terminer » du bandeau), `compter()` ({ signes, mots }
+ *   du texte de base) et `exporter(format, options)` :
  *   le texte de base (sans les suggestions en cours) en `'markdown'` (une
  *   chaîne) ou en `'pdf'` (des octets), options `{ modele, polices, titre, langue }`
  * @param {(enModification: boolean) => void} [p.surModification]
@@ -54,6 +183,14 @@ function Palette() {
  *   rappelé avec les titres du document (enfants compris) et le titre courant
  *   (le premier visible sous le bandeau, comme Docs), à chaque changement et
  *   au défilement ; doit être stable
+ * @param {{ libelle: string, surClic: (selection: { de: string, a: string }) => void } | null} [p.corriger]
+ *   le bouton « Corriger » de la palette (Margo, étape 8), ou rien
+ * @param {(selection: { de: string, a: string } | null) => void} [p.surSelection]
+ *   rappelé quand la sélection change, en blocs (Margo, étape 8) ; doit être stable
+ * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, picto: any } }} [p.textes]
+ *   libellés et pictos de nos ajouts (exposant, table des matières), donnés par l'application
+ * @param {(fichier: File) => Promise<string>} [p.televerser] envoie une image et rend son
+ *   adresse (\`uploadFile\` de BlockNote, comme Docs) ; absent : pas d'envoi de fichier
  */
 export function EditeurCollaboratif({
   contexte,
@@ -68,16 +205,29 @@ export function EditeurCollaboratif({
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
+  confirmerRestauration,
+  surRefus,
+  fils = null,
   lectureAuDepart = false,
   controle,
   surModification,
   surPlan,
+  corriger = null,
+  surSelection,
+  textes = {},
+  televerser,
 }) {
-  const suggerer = mode === 'suggerer'
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
+  // Le mode du moment, lu par la typographie sans recréer l'éditeur.
+  const modeMaintenant = useRef(mode)
+  modeMaintenant.current = mode
+  const surRefusDuSuivi = useRef(surRefus)
+  surRefusDuSuivi.current = surRefus
+  // Un afficheur, créé une fois (le mode du départ seulement) ; le mode passe
+  // ensuite par l'extension (effet plus bas), sans le recréer.
   const afficheur = useMemo(
-    () => (avecSuggestions ? creerAfficheur(contexte, null, suggerer) : null),
-    [contexte, avecSuggestions, suggerer],
+    () => (avecSuggestions ? creerAfficheur(contexte, mode === 'suggerer') : null),
+    [contexte, avecSuggestions],
   )
   const magasin = useMemo(
     () =>
@@ -87,21 +237,32 @@ export function EditeurCollaboratif({
             commentaires.capacites,
             personne.id,
             !commentaires.capacites.includes('ecrire'),
+            langueDocument,
           )
         : null,
-    [commentaires, personne.id],
+    [commentaires, personne.id, langueDocument],
   )
   const editeur = useCreateBlockNote(
     withCollaboration({
       schema: schemaLivre,
-      // Pas de typographie à la frappe en mode suggestion : défaut de BlockNote
-      // (veille ; Sylvain, 08/11/2026 : attendre sa correction).
+      // Envoyer une image (choisie, collée ou déposée), comme Docs.
+      ...(televerser ? { uploadFile: televerser } : {}),
+      // La typographie à la frappe en mode Modifier seulement : en suggestion,
+      // les règles de saisie échouent (défaut de BlockNote, veille ; Sylvain,
+      // 08/11/2026 : attendre sa correction).
       extensions: [
-        ...(suggerer ? [] : [extensionTypographie({ langue: langueDocument })]),
+        extensionTypographie({ langue: langueDocument, actif: () => modeMaintenant.current === 'ecrire' }),
+        // Contournements temporaires du mode Suggérer (veille).
+        extensionLimitesDuSuivi({
+          actif: () => modeMaintenant.current === 'suggerer',
+          refuser: (code) => surRefusDuSuivi.current?.(code),
+        }),
         ...(magasin ? [CommentsExtension({ threadStore: magasin, resolveUsers: nomsDe })] : []),
         extensionHistorique(contexte, peutRestaurer, dictionnaire(langue).versioning.before_restore),
       ],
-      dictionary: dictionnaire(langue),
+      // Les textes de nos extensions (table des matières) voyagent avec le
+      // dictionnaire de BlockNote, que l'éditeur leur donne.
+      dictionary: { ...dictionnaire(langue), amend: { table: textes.table ?? {} } },
       // La zone d'édition doit avoir un nom pour les lecteurs d'écran (axe-core).
       domAttributes: { editor: { 'aria-label': nomAccessible } },
       collaboration: {
@@ -113,7 +274,9 @@ export function EditeurCollaboratif({
         ...(afficheur ? { suggestionDoc: contexte.suggestions.doc, renderer: afficheur } : null),
       },
     }),
-    [contexte, langue, langueDocument, suggerer, afficheur, magasin, peutRestaurer],
+    // Les textes de la table suivent la langue, déjà dans la liste : les
+    // ajouter recréerait l'éditeur à chaque nouvel objet.
+    [contexte, langue, langueDocument, afficheur, magasin, peutRestaurer],
   )
 
   // Le mode des suggestions, puis les auteurs tenus à jour. Pendant
@@ -138,29 +301,51 @@ export function EditeurCollaboratif({
     }
     if (!afficheur) return
     const ext = editeur.getExtension('suggestions')
-    if (suggerer) ext.enableSuggestions()
-    else ext.viewSuggestions()
-    return suivreAuteurs(editeur, contexte, afficheur, suggerer)
-  }, [editeur, contexte, afficheur, suggerer, historique])
+    if (mode === 'suggerer') ext.enableSuggestions()
+    else if (mode === 'relire') ext.viewSuggestions()
+    else ext.disableSuggestions()
+  }, [editeur, afficheur, mode, historique])
 
-  // La liste des suggestions, pour qui peut les accepter ou les refuser.
+  // Les auteurs des suggestions, lus à côté de l'afficheur, pour le panneau.
+  const [auteurs, setAuteurs] = useState(null)
+  useEffect(() => (afficheur ? suivreAuteurs(contexte, setAuteurs) : undefined), [contexte, afficheur])
+
+  // La liste des suggestions, pour qui peut les accepter ou les refuser : en
+  // relecture seulement (l'éditeur les montre alors) ; dans les autres modes,
+  // seulement s'il y en a, d'après l'afficheur.
   useEffect(() => {
-    if (!afficheur || !surSuggestions || suggerer) return
+    if (!afficheur || !surSuggestions) return
     const ext = editeur.getExtension('suggestions')
     const actions = {
-      accepter: (s) => ext.applySuggestion(s.debut, s.fin),
-      refuser: (s) => ext.revertSuggestion(s.debut, s.fin),
+      accepter: (s) => ext.applySuggestion(s.plage.debut, s.plage.fin),
+      refuser: (s) => ext.revertSuggestion(s.plage.debut, s.plage.fin),
       toutAccepter: () => ext.applyAllSuggestions(),
       toutRefuser: () => ext.revertAllSuggestions(),
     }
-    const signaler = () => surSuggestions({ liste: listeDesSuggestions(editeur), ...actions })
+    const relire = mode === 'relire'
+    const signaler = () =>
+      surSuggestions({
+        liste: relire ? listeDesSuggestions(editeur, auteurs) : [],
+        enAttente: !afficheur.attributed.isEmpty(),
+        ...actions,
+      })
     signaler()
     const arreter = editeur.onChange(signaler)
+    // Hors relecture, l'éditeur ne montre pas les suggestions : leurs changements
+    // arrivent par le document des suggestions.
+    let minuterie = null
+    const surChangement = () => {
+      clearTimeout(minuterie)
+      minuterie = setTimeout(signaler, 300)
+    }
+    contexte.suggestions.doc.on('update', surChangement)
     return () => {
       arreter()
+      clearTimeout(minuterie)
+      contexte.suggestions.doc.off('update', surChangement)
       surSuggestions(null)
     }
-  }, [editeur, afficheur, suggerer, surSuggestions])
+  }, [editeur, contexte, afficheur, mode, surSuggestions, auteurs])
 
   // Le plan : les titres du document, tenus à jour (volet « Plan » des trois
   // formats), et le titre courant au défilement. Aller à un titre y met le
@@ -200,7 +385,8 @@ export function EditeurCollaboratif({
   // Tout se fait dans le geste même (sinon le téléphone n'ouvre pas le
   // clavier) ; la propriété `editable` de BlockNoteView reste à `false` et l'on
   // bascule l'éditeur directement (maquette validée, docs/v2-format-S.md).
-  const appui = lectureAuDepart && mode !== 'lire' && !historique
+  const ecrit = mode !== 'lire' && mode !== 'relire'
+  const appui = lectureAuDepart && ecrit && !historique
   const [enModification, setEnModification] = useState(false)
   useEffect(() => surModification?.(enModification), [enModification, surModification])
   const terminer = () => {
@@ -211,13 +397,39 @@ export function EditeurCollaboratif({
   }
   const exporter = async (format, { modele, polices, titre, langue } = {}) => {
     const blocs = blocsDuTexte(editeur, contexte.fragment)
-    if (format === 'markdown') return versMarkdown(editeur, blocs)
+    if (format === 'markdown') return versMarkdown(editeur, blocs, { titreTable: textes.table?.titre })
     const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre, langue })
     return compilerPdf(source, { fichiers, polices })
   }
+  // Aller à un bloc cité par Margo : le curseur, et le bloc sous le bandeau.
+  const allerAuBloc = (id) => allerAuTitre(editeur, id, { focaliser: !lectureAuDepart })
+  // Signes (espaces compris) et mots du texte de base, comme le menu de Docs.
+  const compter = () => compterBlocs(blocsDuTexte(editeur, contexte.fragment))
   useEffect(() => {
-    if (controle) controle.current = { terminer, exporter }
+    if (controle) controle.current = { terminer, exporter, allerAuBloc, compter }
   })
+  // La sélection, en blocs, pour l'onglet Margo (« Sur la sélection »).
+  useEffect(() => {
+    if (!surSelection) return
+    let precedente = null
+    const signaler = () => {
+      const s = selectionEnBlocs(editeur)
+      const cle = s ? `${s.de} ${s.a}` : null
+      if (cle === precedente) return
+      precedente = cle
+      surSelection(s)
+    }
+    signaler()
+    return editeur.onSelectionChange(signaler)
+  }, [editeur, surSelection])
+  const palette = useCallback(
+    (props) => <Palette {...props} corriger={corriger} suggerer={mode === 'suggerer'} exposant={textes.exposant} />,
+    [corriger, mode, textes.exposant],
+  )
+  const menu = useCallback(
+    async (requete) => filterSuggestionItems(itemsDuMenu(editeur, textes.table), requete),
+    [editeur, textes.table],
+  )
   const commencer = (evenement) => {
     if (!appui || editeur.isEditable) return
     editeur.isEditable = true
@@ -257,9 +469,46 @@ export function EditeurCollaboratif({
   }, [enModification])
 
   const vue = (
-    <BlockNoteView editor={editeur} editable={appui ? false : mode !== 'lire' && !historique} formattingToolbar={false}>
-      <FormattingToolbarController formattingToolbar={Palette} />
-      {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
+    <BlockNoteView
+      editor={editeur}
+      editable={appui ? false : ecrit && !historique}
+      formattingToolbar={false}
+      // Pas d'émojis par « : » dans le texte d'un livre (« deux:points » ouvrait
+      // le sélecteur ; Sylvain, 11/11/2026, écart avec Docs) ; les réactions
+      // aux commentaires gardent le leur.
+      emojiPicker={false}
+      // Notre menu « / » (saut de page, table des matières) ; aucun en
+      // Suggérer : pas de changement de type de bloc (contournement, veille).
+      slashMenu={false}
+    >
+      <FormattingToolbarController formattingToolbar={palette} />
+      {mode !== 'suggerer' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
+      {/* La liste des fils (exemple 06-comments-with-sidebar de BlockNote, et
+          Docs) : rendue dans l'éditeur (elle en a besoin), placée dans l'onglet. */}
+      {magasin && fils?.element ? (
+        <RenderInPortalElement target={fils.element}>
+          <ThreadsSidebar filter={fils.filtre} sort="position" />
+        </RenderInPortalElement>
+      ) : null}
+      {historique && historiqueOuvert ? (
+        <VersioningSidebar
+          onClose={surFermerHistorique}
+          snapshotMenu={
+            confirmerRestauration ? (
+              <VersionMenu>
+                <NameVersionItem />
+                <CompareWithVersionItem />
+                <CompareSinceBeginningItem />
+                <RestaurerApresConfirmation
+                  libelle={dictionnaire(langue).versioning.restore_menuitem}
+                  confirmer={confirmerRestauration}
+                />
+                <DeleteVersionItem />
+              </VersionMenu>
+            ) : undefined
+          }
+        />
+      ) : null}
     </BlockNoteView>
   )
   return appui ? <div onClick={commencer}>{vue}</div> : vue

@@ -57,6 +57,21 @@ export function ouvrirDocument({ url, api, docId, personne, suggestions = false 
   return {
     /** Pour l'adaptateur de l'éditeur, et lui seul. */
     contexte: { doc, fragment: doc.get(RACINE_TEXTE), fournisseur, suggestions: sugg, api, docId },
+    /** Rappelé une fois quand le serveur ferme la connexion pour de bon
+     * (`@y/websocket` n'émet `closed` que pour un code définitif) : `droits`
+     * (4401, ils ont changé : les relire), `supprime` (4404), `erreur` (autre).
+     * Une seule fois pour les deux connexions (texte et suggestions). */
+    surFermeture(rappel) {
+      const fournisseurs = [fournisseur, sugg?.fournisseur].filter(Boolean)
+      let fait = false
+      const f = ({ code }) => {
+        if (fait) return
+        fait = true
+        rappel(code === 4401 ? 'droits' : code === 4404 ? 'supprime' : 'erreur')
+      }
+      for (const x of fournisseurs) x.on('closed', f)
+      return () => fournisseurs.forEach((x) => x.off('closed', f))
+    },
     surEtat(rappel) {
       const f = ({ status }) => rappel(ETATS[status] || 'deconnecte')
       fournisseur.on('status', f)

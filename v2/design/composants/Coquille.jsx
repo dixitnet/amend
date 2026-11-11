@@ -27,7 +27,7 @@ import {
   Modal,
   TextInput,
   UnstyledButton,
-  Switch,
+  SegmentedControl,
 } from '@mantine/core'
 import { useRef, useState } from 'react'
 import { REGLAGES } from '../reglages.js'
@@ -83,6 +83,43 @@ export function Coquille({
 /** La colonne du texte (Container de Mantine, réglage de taille). */
 export const ColonneTexte = ({ children }) => <Container>{children}</Container>
 
+/**
+ * Le zoom du texte de l'éditeur (11/11/2026, comme la v1) : le palier choisi,
+ * en pour cent (REGLAGES.zoom), que la feuille de l'éditeur applique au texte
+ * seul (réglage css.editeur.zoom). Dans tous les formats.
+ */
+export const ZoneZoom = ({ zoom, children }) => <div data-amend-zoom={zoom}>{children}</div>
+
+/**
+ * Les éléments d'un menu « … » : une action ; un titre de groupe (`titre`) ;
+ * un choix parmi plusieurs (`coche` : vrai pour celui retenu, coche à gauche).
+ * `pied` : un texte en bas du menu, comme le nombre de mots du menu de Docs.
+ */
+export function ElementsDeMenu({ elements, pied, champPicto = 'picto' }) {
+  return (
+    <>
+      {elements.map((a) => [
+        a.separe ? <Menu.Divider key={`${a.cle}-sep`} /> : null,
+        a.titre ? (
+          <Menu.Label key={a.cle}>{a.libelle}</Menu.Label>
+        ) : (
+          <Menu.Item
+            key={a.cle}
+            leftSection={
+              a.coche === undefined ? <PictoDe role={a[champPicto]} /> : a.coche ? <PictoDe role="choisi" /> : null
+            }
+            {...(a.coche === undefined ? {} : { role: 'menuitemradio', 'aria-checked': a.coche })}
+            onClick={a.surClic}
+          >
+            {a.libelle}
+          </Menu.Item>
+        ),
+      ])}
+      {pied ? [<Menu.Divider key="pied-sep" />, <Menu.Label key="pied">{pied}</Menu.Label>] : null}
+    </>
+  )
+}
+
 /** L'étoile des favoris, devant le titre d'un document (Sylvain, 10/11/2026). */
 export const Etoile = ({ favori }) => (
   <ActionIcon aria-label={favori.libelle} aria-pressed={favori.actif} onClick={favori.surBasculer}>
@@ -137,8 +174,9 @@ function TitreModifiable({ titre, renommer }) {
 
 /**
  * Le bandeau : volet gauche, étoile des favoris, titre (modifiable d’un clic), mention du mode (« Mode suggestion »,
- * « Lecture seule »), puis (document) l'interrupteur du suivi des
- * modifications, « Terminer », présence, « Partager », menu « … », compte,
+ * « Lecture seule »), puis (document) le choix du mode d'un éditeur
+ * (Modifier, Suggérer, Relire, comme l'exemple de BlockNote), « Terminer »,
+ * présence, « Partager », menu « … », compte,
  * volet droit. Le volet gauche est toujours là ; le reste est facultatif.
  */
 export function Bandeau({
@@ -147,7 +185,7 @@ export function Bandeau({
   renommer,
   favori,
   mention,
-  suivi,
+  modes,
   terminer,
   presence,
   partager,
@@ -163,11 +201,12 @@ export function Bandeau({
       {favori ? <Etoile favori={favori} /> : null}
       <TitreModifiable titre={titre} renommer={renommer} />
       {mention ? <Badge>{mention}</Badge> : null}
-      {suivi ? (
-        <Switch
-          label={suivi.libelle}
-          checked={suivi.actif}
-          onChange={(e) => suivi.surChange(e.currentTarget.checked)}
+      {modes ? (
+        <SegmentedControl
+          aria-label={modes.libelle}
+          value={modes.valeur}
+          data={modes.options.map((o) => ({ value: o.valeur, label: o.libelle }))}
+          onChange={modes.surChange}
         />
       ) : null}
       {terminer ? (
@@ -192,19 +231,14 @@ export function Bandeau({
         </Button>
       ) : null}
       {actions?.elements.length ? (
-        <Menu>
+        <Menu onOpen={actions.surOuvrir}>
           <Menu.Target>
             <ActionIcon aria-label={actions.libelle}>
               <PictoDe role="autres" />
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
-            {actions.elements.map((a) => [
-              a.separe ? <Menu.Divider key={`${a.cle}-sep`} /> : null,
-              <Menu.Item key={a.cle} leftSection={<PictoDe role={a.picto} />} onClick={a.surClic}>
-                {a.libelle}
-              </Menu.Item>,
-            ])}
+            <ElementsDeMenu elements={actions.elements} pied={actions.pied} />
           </Menu.Dropdown>
         </Menu>
       ) : null}
@@ -276,29 +310,65 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
 
 /** Le volet droit : onglets Modifications et Margo (IA). Le titre
  * (« Relecture ») n'est plus affiché (Sylvain, 10/11/2026) : il nomme les
- * onglets pour les lecteurs d'écran. */
-export function VoletRelecture({ titre, onglets, modifications, margo }) {
+ * onglets pour les lecteurs d'écran. L'onglet ouvert peut être piloté
+ * (`actif`, `surOnglet`) : « Corriger » ouvre Margo (étape 8). Sans `margo`,
+ * pas d'onglet Margo (le correcteur n'y a pas accès). */
+export function VoletRelecture({ titre, onglets, modifications, commentaires, margo, actif, surOnglet }) {
+  const pilote = actif ? { value: actif, onChange: surOnglet } : { defaultValue: 'modifications' }
   return (
     <>
       <AppShell.Section grow component={ScrollArea}>
-        <Tabs defaultValue="modifications">
+        <Tabs {...pilote}>
           <Tabs.List grow aria-label={titre}>
             <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
               {onglets.modifications}
             </Tabs.Tab>
-            <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
-              {onglets.margo}
-            </Tabs.Tab>
+            {commentaires ? (
+              <Tabs.Tab value="commentaires" leftSection={<PictoDe role="commentaires" />}>
+                {onglets.commentaires}
+              </Tabs.Tab>
+            ) : null}
+            {margo ? (
+              <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
+                {onglets.margo}
+              </Tabs.Tab>
+            ) : null}
           </Tabs.List>
           <Tabs.Panel value="modifications">
             <div className="amend-coquille-volet-corps">{modifications}</div>
           </Tabs.Panel>
-          <Tabs.Panel value="margo">
-            <div className="amend-coquille-volet-corps">{margo}</div>
-          </Tabs.Panel>
+          {commentaires ? (
+            <Tabs.Panel value="commentaires" keepMounted>
+              <div className="amend-coquille-volet-corps">{commentaires}</div>
+            </Tabs.Panel>
+          ) : null}
+          {margo ? (
+            <Tabs.Panel value="margo">
+              <div className="amend-coquille-volet-corps">{margo}</div>
+            </Tabs.Panel>
+          ) : null}
         </Tabs>
       </AppShell.Section>
     </>
+  )
+}
+
+/**
+ * La liste des fils de commentaires (comme Docs : un filtre « Ouverts »,
+ * « Résolus », puis la liste). La liste elle-même est celle de BlockNote,
+ * placée par l'éditeur dans l'élément que rend `cible` (rappel de référence).
+ */
+export function ListeDesFils({ filtre, cible }) {
+  return (
+    <Stack>
+      <SegmentedControl
+        aria-label={filtre.libelle}
+        value={filtre.valeur}
+        data={filtre.options.map((o) => ({ value: o.valeur, label: o.libelle }))}
+        onChange={filtre.surChange}
+      />
+      <div ref={cible} />
+    </Stack>
   )
 }
 

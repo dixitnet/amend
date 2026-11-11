@@ -9,9 +9,15 @@
 //   POST   /api/deconnexion
 //   POST   /api/deconnexion-partout
 //   PUT    /api/moi                          { nom }
+//   GET    /api/moi/suppression              aperçu : ce que deviendraient mes documents et équipes
+//   DELETE /api/moi                          { courriel }  supprimer mon compte (adresse en toutes lettres)
 //   GET    /api/documents                    { dossiers, documents } : Mes documents et Partagé avec moi
 //   POST   /api/documents                    { titre?, dossier? }  nouveau document (je suis propriétaire)
-//   DELETE /api/documents/:doc               le propriétaire seul, tout de suite
+//   DELETE /api/documents/:doc               à la corbeille (le propriétaire seul), 30 jours
+//   POST   /api/documents/:doc/copie         dupliquer (qui lit) : le texte seul, à côté de l'original
+//   GET    /api/corbeille                    les documents que je peux restaurer
+//   POST   /api/corbeille/:doc               le restaurer
+//   DELETE /api/corbeille/:doc               l'effacer définitivement
 //   PUT    /api/documents/:doc/titre         { titre }  (qui écrit ; null : sans titre)
 //   PUT    /api/documents/:doc/dossier       { dossier }  le ranger (null : racine de Mes documents)
 //   DELETE /api/documents/:doc/moi           me retirer du document (Partagé avec moi)
@@ -27,6 +33,12 @@
 //   PUT    /api/equipes/:id/membres/:id      { role }
 //   DELETE /api/equipes/:id/membres/:id
 //   DELETE /api/equipes/:id/invitations/:courriel
+//   POST   /api/equipes/:id/modeles          { nom, base }  modèle de mise en page (gestionnaire), étape 7
+//   PUT    /api/equipes/:id/modeles/:id      { nom?, ecarts? }
+//   DELETE /api/equipes/:id/modeles/:id      les documents qui l'avaient retombent sur le défaut
+//   PUT    /api/equipes/:id/modele-defaut    { modele }  (null : le premier d'amend.ink)
+//   GET    /api/documents/:doc/modeles       les modèles permis au document et celui retenu
+//   PUT    /api/documents/:doc/modele        { modele }  (qui écrit ; null : celui par défaut)
 // Dossiers et documents prennent un `equipe` facultatif (l'espace visé).
 //   GET    /api/documents/:doc/acces         accès, invitations, lien (qui invite)
 //   POST   /api/documents/:doc/acces         { courriel, role }  donner ou inviter
@@ -55,13 +67,31 @@ import {
   refusDepart,
   peutModifierEquipe,
   peutGererEquipe,
+  peutGererModeles,
+  peutChoisirModele,
+  appliquerEcarts,
+  modeleRetenu,
   deplacementDocument,
+  DUREE_CORBEILLE_MS,
+  dansLaCorbeille,
+  joursRestants,
+  titreDeCopie,
+  planSuppressionCompte,
+  confirmationSuppressionValide,
+  lieuDeLaCopie,
   ROLES,
   DUREE_INVITATION_MS,
   DUREE_LIEN_CONNEXION_MS,
 } from '../../domaine/index.js'
 import { creerTraducteur, libelleDuRole, libelleDuRoleEquipe } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
+import { MODELES_LIVRE, REGLES_MODELES } from '../../design/livre.js'
+
+/** Les modèles de mise en page d'amend.ink (design), par identifiant. */
+const MAISON = new Map(MODELES_LIVRE.map((m) => [m.id, m]))
+const IDS_MAISON = MODELES_LIVRE.map((m) => m.id)
+/** Un modèle d'équipe tel que le client le reçoit (il calcule le modèle complet). */
+const modeleVu = (m) => ({ id: m.id, nom: m.nom, base: m.base, ecarts: m.ecarts })
 
 /** Le code montré quand un lien de connexion a servi ou expiré. */
 const LIEN_INVALIDE = 'lien-invalide'
@@ -84,7 +114,7 @@ function decoder(segment) {
  * @param {any} o.comptes  le dépôt des comptes
  * @param {any} [o.commentaires]  le dépôt des commentaires (effacés avec le document)
  * @param {{ envoyer: Function }} o.courrier
- * @param {{ supprimerDocument: (docId: string) => Promise<void> } | null} o.collaboration
+ * @param {{ supprimerDocument: (docId: string) => Promise<void>, revoirAcces?: (docId: string, personne?: string | null) => Promise<void> } | null} o.collaboration
  * @param {(req: any) => Promise<{ id: string, nom: string } | null>} o.personneDe
  * @param {(res: any, statut: number, corps: any, entetes?: object) => void} o.json
  * @param {(req: any, max?: number) => Promise<any>} o.lireCorps
@@ -116,6 +146,22 @@ export function creerComptes({
   const statutDuRefus = (code) =>
     code === 'droit-insuffisant' ? 403 : code === 'dernier-gestionnaire' || code === 'dernier-proprietaire' ? 409 : 400
 
+  /**
+   * Les droits sur un document ont changé : ses connexions ouvertes les
+   * redemandent (montage de Docs, `reset-connections`), pour `personne` ou pour
+   * tous. Un échec ne fait pas échouer le changement : la personne garde au pire
+   * ses anciens droits jusqu'à son prochain rechargement (journal).
+   */
+  async function revoir(docId, personne = null) {
+    if (!collaboration?.revoirAcces) return
+    await collaboration.revoirAcces(docId, personne).catch((e) => console.error('revoir les accès :', e.message))
+  }
+  /** De même pour tous les documents d'une équipe (le rôle d'un membre a changé). */
+  async function revoirEquipe(equipe, membreQuiVoit, personne) {
+    // En parallèle : une demande par document (y/hub n'en connaît pas pour une équipe).
+    await Promise.all((await comptes.documentsDeLEquipe(equipe, membreQuiVoit)).map((d) => revoir(d.id, personne)))
+  }
+
   async function envoyerLien(courriel, document, { dureeMs, sujet, intro, libelleLien }) {
     const jeton = await comptes.creerJeton(courriel, document, dureeMs)
     const lien = `${CONF.adresse}/api/connexion/${jeton}`
@@ -123,10 +169,27 @@ export function creerComptes({
     await courrier.envoyer({ a: courriel, sujet, texte: m.texte, html: m.html })
   }
 
-  /** Le rôle effectif d'une personne sur un document, et ses capacités. */
-  async function roleSur(docId, idPersonne) {
-    const role = roleEffectif(await comptes.rolesDe(docId, idPersonne))
+  /** Le rôle effectif d'une personne sur un document, et ses capacités
+   * (aucun sur un document à la corbeille, sauf avec \`{ corbeille: true }\`). */
+  async function roleSur(docId, idPersonne, options) {
+    const role = roleEffectif(await comptes.rolesDe(docId, idPersonne, options))
     return { role, caps: capacites(role) }
+  }
+
+  /** Efface un document pour de bon : la base, les fils, puis le contenu dans
+   * y/hub. D'abord la base (le document disparaît pour tous) : un échec de
+   * y/hub laisse un contenu inaccessible, pas un document listé mais vidé
+   * (audit, 09/11/2026) ; un échec des fils n'empêche pas d'effacer le texte
+   * (audit du 10/11/2026). */
+  async function effacer(docId) {
+    await comptes.supprimerDocument(docId)
+    await commentaires
+      ?.supprimerFilsDuDocument(docId)
+      .catch((e) => console.error(`[serveur] suppression des fils de ${docId} :`, e))
+    if (collaboration)
+      await collaboration
+        .supprimerDocument(docId)
+        .catch((e) => console.error(`[serveur] suppression dans y/hub de ${docId} :`, e))
   }
 
   /** Les routes des équipes (étape 6d) ; `p` est connecté. */
@@ -154,12 +217,15 @@ export function creerComptes({
             id: d.id,
             titre: d.titre,
             creeLe: d.creeLe,
+            modifieLe: d.modifieLe,
             dossier: d.dossier,
             createur: d.createur,
             role: roleEffectif(d.roles),
             favori: d.favori,
           })),
           membres: await comptes.membresDe(equipe.id),
+          modeles: await comptes.modelesDe(equipe.id),
+          modeleDefaut: equipe.modeleDefaut ?? null,
           ...(gestionnaire
             ? {
                 invitations: (await comptes.invitationsDeLEquipe(equipe.id)).filter((i) => invitationValable(i.creeLe)),
@@ -178,7 +244,10 @@ export function creerComptes({
     }
     if (sous === 'moi' && !cible && methode === 'DELETE') {
       const refus = refusDepart(moi.role, await comptes.gestionnaires(equipe.id))
+      // La liste des documents se lit tant que je suis encore membre.
+      const docs = await comptes.documentsDeLEquipe(equipe.id, p.id)
       if (refus || (await comptes.modifierMembre(equipe.id, p.id, null))) return err(res, 409, 'dernier-gestionnaire')
+      await Promise.all(docs.map((d) => revoir(d.id, p.id)))
       return ok(res)
     }
     if (sous === 'membres' && !cible && methode === 'POST') {
@@ -194,6 +263,7 @@ export function creerComptes({
       if (invite) {
         if ((await comptes.modifierMembre(equipe.id, invite.id, nouveau, p.id)) === 'dernier-gestionnaire')
           return err(res, 409, 'dernier-gestionnaire')
+        await revoirEquipe(equipe.id, p.id, invite.id)
         await courrier.envoyer({
           a: a.courriel,
           sujet: t('courriel.equipe.acces.sujet', vars),
@@ -223,6 +293,7 @@ export function creerComptes({
       if (refus) return err(res, statutDuRefus(refus), refus)
       if ((await comptes.modifierMembre(equipe.id, cible, nouveau, p.id)) === 'dernier-gestionnaire')
         return err(res, 409, 'dernier-gestionnaire')
+      await revoirEquipe(equipe.id, p.id, cible)
       return ok(res)
     }
     if (sous === 'invitations' && cible && methode === 'DELETE') {
@@ -230,12 +301,78 @@ export function creerComptes({
       await comptes.retirerInvitationEquipe(equipe.id, cible)
       return ok(res)
     }
+    if (sous === 'modeles' || sous === 'modele-defaut') return modelesEquipe(req, res, p, equipe, moi, sous, cible)
     return err(res, 404, 'introuvable')
   }
 
-  return async function traiter(req, res, url) {
+  /** Les modèles de mise en page d'une équipe (étape 7, ADR 0011) : le
+   * gestionnaire les crée, les règle, les supprime et choisit le défaut. */
+  async function modelesEquipe(req, res, p, equipe, moi, sous, cible) {
+    const methode = req.method
+    if (!peutGererModeles(moi.caps)) return err(res, 403, 'droit-insuffisant')
+    /** Un modèle de cette équipe, ou un modèle d'amend.ink. */
+    const permis = async (id) => MAISON.has(id) || (await comptes.modele(id))?.equipe === equipe.id
+    if (sous === 'modele-defaut') {
+      if (cible || methode !== 'PUT') return err(res, 405, 'methode-refusee')
+      const { modele } = await lireCorps(req)
+      if (modele !== null && (typeof modele !== 'string' || !(await permis(modele))))
+        return err(res, 404, 'modele-introuvable')
+      await comptes.definirModeleDefaut(equipe.id, modele)
+      return ok(res)
+    }
+    if (!cible) {
+      if (methode !== 'POST') return err(res, 405, 'methode-refusee')
+      const corps = await lireCorps(req)
+      const n = nomDossier(corps.nom)
+      if (!n.ok) return err(res, 400, n.code)
+      if (!MAISON.has(corps.base)) return err(res, 400, 'modele-introuvable')
+      return ok(res, { id: await comptes.creerModele(equipe.id, n.nom, corps.base, {}, p.id) }, 201)
+    }
+    const modele = await comptes.modele(cible)
+    if (!modele || modele.equipe !== equipe.id) return err(res, 404, 'modele-introuvable')
+    if (methode === 'DELETE') return ok(res, { documents: await comptes.supprimerModele(modele.id) })
+    if (methode !== 'PUT') return err(res, 405, 'methode-refusee')
+    const corps = await lireCorps(req)
+    // Tout est vérifié avant de rien changer.
+    const n = corps.nom === undefined ? null : nomDossier(corps.nom)
+    if (n && !n.ok) return err(res, 400, n.code)
+    let ecarts
+    if (corps.ecarts !== undefined) {
+      const r = appliquerEcarts(MAISON.get(modele.base), corps.ecarts, REGLES_MODELES)
+      if (!r.ok) return (json(res, 400, { code: r.code, reglage: r.reglage ?? null, raison: r.raison ?? null }), true)
+      ecarts = r.ecarts
+    }
+    await comptes.modifierModele(modele.id, { nom: n?.nom, ecarts })
+    return ok(res, ecarts === undefined ? {} : { ecarts })
+  }
+
+  /** Ce que deviendraient les documents et les équipes d'une personne si elle
+   * supprimait son compte (domaine : planSuppressionCompte). */
+  async function planDe(moi) {
+    const equipesDeMoi = await comptes.equipesDe(moi)
+    const plan = planSuppressionCompte({
+      moi,
+      documents: await comptes.documentsEnPropre(moi),
+      equipes: await Promise.all(
+        equipesDeMoi.map(async (e) => ({ id: e.id, nom: e.nom, membres: await comptes.membresDe(e.id) })),
+      ),
+    })
+    // Le nom (ou l'adresse) de qui recevra un document, pour l'aperçu.
+    const noms = new Map((await comptes.noms(plan.documents.map((d) => d.a).filter(Boolean))).map((x) => [x.id, x]))
+    for (const d of plan.documents) if (d.a) d.aNom = noms.get(d.a)?.nom || noms.get(d.a)?.courriel || null
+    return plan
+  }
+
+  /** Efface pour de bon les documents restés plus de 30 jours dans la corbeille. */
+  async function purger(maintenant = Date.now()) {
+    for (const id of await comptes.corbeilleExpiree(maintenant - DUREE_CORBEILLE_MS)) await effacer(id)
+  }
+
+  return Object.assign(traiter, { purger })
+
+  async function traiter(req, res, url) {
     const m = url.pathname.match(
-      /^\/api\/(connexion|deconnexion|deconnexion-partout|moi|documents|dossiers|equipes)(?:\/(.*))?$/,
+      /^\/api\/(connexion|deconnexion|deconnexion-partout|moi|documents|dossiers|equipes|corbeille)(?:\/(.*))?$/,
     )
     if (!m) return false
     const [, racine, reste] = m
@@ -311,6 +448,32 @@ export function creerComptes({
     }
     if (!p) return err(res, 401, 'session-absente')
 
+    // --- Supprimer mon compte (lots du 11/11/2026, lot D ; règle de la v1) ---
+    if (racine === 'moi' && segments.length === 1 && segments[0] === 'suppression' && methode === 'GET')
+      return ok(res, await planDe(p.id))
+    if (racine === 'moi' && !segments.length && methode === 'DELETE') {
+      const courriel = (await comptes.personne(p.id))?.courriel
+      if (!confirmationSuppressionValide((await lireCorps(req)).courriel, courriel))
+        return err(res, 400, 'confirmation-invalide')
+      const plan = await planDe(p.id)
+      if (!plan.peut) return (json(res, 409, { code: 'suppression-refusee', ...plan }), true)
+      for (const d of plan.documents) {
+        if (d.sort === 'confie') await comptes.modifierAcces(d.id, d.a, 'proprietaire')
+        if (d.sort === 'supprime') await effacer(d.id)
+        else await comptes.modifierAcces(d.id, p.id, null)
+      }
+      for (const e of plan.equipes) {
+        if (e.sort === 'quitte') {
+          await comptes.modifierMembre(e.id, p.id, null)
+          continue
+        }
+        for (const id of await comptes.idsDocumentsDeLEquipe(e.id)) await effacer(id)
+        await comptes.supprimerEquipe(e.id)
+      }
+      await comptes.supprimerPersonne(p.id, courriel)
+      return (json(res, 200, {}, { 'set-cookie': cookieEfface }), true)
+    }
+
     // --- Mon nom ---
     if (racine === 'moi') {
       if (segments.length || methode !== 'PUT') return false
@@ -382,6 +545,42 @@ export function creerComptes({
     // --- Équipes (dossiers d'équipe, étape 6d) ---
     if (racine === 'equipes') return equipes(req, res, p, segments, membre)
 
+    // --- Corbeille (lots du 11/11/2026, comme Docs : \`trashbin\`, \`restore\`) ---
+    if (racine === 'corbeille') {
+      if (!segments.length) {
+        if (methode !== 'GET') return err(res, 405, 'methode-refusee')
+        const maintenant = Date.now()
+        return ok(res, {
+          documents: (await comptes.corbeilleDe(p.id, maintenant - DUREE_CORBEILLE_MS)).map((d) => ({
+            id: d.id,
+            titre: d.titre,
+            equipe: d.equipe,
+            supprimeLe: d.supprimeLe,
+            joursRestants: joursRestants(d.supprimeLe, maintenant),
+          })),
+        })
+      }
+      if (segments.length > 1) return err(res, 404, 'introuvable')
+      const v = identifiantDocument(segments[0])
+      if (!v.ok) return err(res, 400, v.code)
+      const doc = await comptes.document(v.id)
+      const { caps: capsCorbeille } = await roleSur(v.id, p.id, { corbeille: true })
+      if (!doc || !dansLaCorbeille(doc.supprimeLe) || !capsCorbeille.includes('supprimer'))
+        return err(res, 404, 'document-introuvable')
+      if (methode === 'DELETE') return (await effacer(v.id), ok(res))
+      if (methode !== 'POST') return err(res, 405, 'methode-refusee')
+      // y/hub d'abord : s'il échoue, le document reste dans la corbeille, entier.
+      if (collaboration)
+        try {
+          await collaboration.restaurer(v.id)
+        } catch (e) {
+          console.error(`[serveur] restauration dans y/hub de ${v.id} :`, e)
+          return err(res, 502, 'collaboration-indisponible')
+        }
+      await comptes.mettreALaCorbeille(v.id, false)
+      return ok(res)
+    }
+
     // --- Mes documents et Partagé avec moi (et la liste de mes équipes) ---
     if (!segments.length) {
       if (methode === 'GET') {
@@ -397,6 +596,7 @@ export function creerComptes({
                 id: d.id,
                 titre: d.titre,
                 creeLe: d.creeLe,
+                modifieLe: d.modifieLe,
                 role: roleEffectif(d.roles),
                 section,
                 favori: d.favori,
@@ -432,24 +632,46 @@ export function creerComptes({
     const [, sous, cible, ...trop] = segments
     if (trop.length) return err(res, 404, 'introuvable')
 
-    // DELETE /api/documents/:doc : le propriétaire seul, tout de suite (pas de corbeille).
+    // DELETE /api/documents/:doc : à la corbeille, le propriétaire seul (comme
+    // Docs : suppression douce, 30 jours). D'abord la base (plus personne ne
+    // l'ouvre : le serveur refuse les droits), puis y/hub, qui déconnecte ceux
+    // qui l'ont ouvert ; son échec ne fait que retarder la déconnexion.
     if (!sous) {
       if (methode !== 'DELETE') return err(res, 405, 'methode-refusee')
       if (!caps.includes('supprimer')) return err(res, 403, 'droit-insuffisant')
-      // D'abord la base (le document disparaît pour tous), puis le contenu dans
-      // y/hub : un échec de y/hub laisse un contenu inaccessible, pas un document
-      // listé mais vidé (audit, 09/11/2026).
-      await comptes.supprimerDocument(docId)
-      // Un échec des fils ne doit pas empêcher d'effacer le texte (audit du
-      // 10/11/2026) : les deux suppressions sont toujours tentées.
-      await commentaires
-        ?.supprimerFilsDuDocument(docId)
-        .catch((e) => console.error(`[serveur] suppression des fils de ${docId} :`, e))
+      await comptes.mettreALaCorbeille(docId, true)
       if (collaboration)
         await collaboration
-          .supprimerDocument(docId)
-          .catch((e) => console.error(`[serveur] suppression dans y/hub de ${docId} :`, e))
+          .mettreALaCorbeille(docId)
+          .catch((e) => console.error(`[serveur] corbeille dans y/hub de ${docId} :`, e))
       return ok(res)
+    }
+    // POST /api/documents/:doc/copie : dupliquer (comme Docs, \`duplicate\` : qui
+    // lit le document) ; le texte seul, titré « … (copie) », rangé à côté de
+    // l'original si l'on peut y écrire (domaine : lieuDeLaCopie).
+    if (sous === 'copie' && !cible) {
+      if (methode !== 'POST') return err(res, 405, 'methode-refusee')
+      if (!collaboration) return err(res, 503, 'collaboration-indisponible')
+      const doc = await comptes.document(docId)
+      const ids = new Set((await comptes.equipesDe(p.id)).map((e) => e.id))
+      const section = sectionDuDocument({ ...doc, roles: [role] }, p.id, ids)
+      const lieu = lieuDeLaCopie(
+        { section, equipe: doc.equipe, dossier: doc.dossier },
+        doc.equipe ? peutModifierEquipe((await membre(doc.equipe)).caps) : false,
+      )
+      const titre = titreDeCopie(doc.titre, (x) => t('document.copie', { titre: x }), t('documents.sansTitre'))
+      const id = randomUUID()
+      if (lieu.equipe) await comptes.creerDocumentEquipe(id, lieu.equipe, p.id, titre, lieu.dossier)
+      else await comptes.creerDocument(id, p.id, titre, lieu.dossier)
+      try {
+        await collaboration.copierTexte(docId, id, p.id)
+      } catch (e) {
+        // Comme Docs : un échec défait toute la copie, rien n'est laissé à moitié.
+        console.error(`[serveur] copie de ${docId} :`, e)
+        await effacer(id)
+        return err(res, 502, 'collaboration-indisponible')
+      }
+      return ok(res, { id }, 201)
     }
     // PUT /api/documents/:doc/titre { titre } : qui écrit le texte renomme le document.
     if (sous === 'titre' && !cible && methode === 'PUT') {
@@ -480,6 +702,8 @@ export function creerComptes({
       if (decision.action === 'entrer') await comptes.entrerDansEquipe(docId, destination, rangement)
       else if (decision.action === 'sortir') await comptes.sortirDeLEquipe(docId, p.id, rangement)
       else await comptes.rangerDocument(docId, rangement)
+      // Entrer dans une équipe ou en sortir change les droits de ses membres.
+      if (decision.action === 'entrer' || decision.action === 'sortir') await revoir(docId)
       return ok(res)
     }
     // PUT / DELETE /api/documents/:doc/favori : mes favoris (comme Docs,
@@ -497,7 +721,37 @@ export function creerComptes({
       if (actuel && (await comptes.modifierAcces(docId, p.id, null)) === 'dernier-proprietaire')
         return err(res, 409, 'dernier-proprietaire')
       await comptes.retirerPassageParLien(docId, p.id)
+      await revoir(docId, p.id)
       return ok(res)
+    }
+    // Les modèles de mise en page du document (étape 7, ADR 0011) : ceux
+    // d'amend.ink et ceux de son équipe ; le modèle suit le document (un
+    // correcteur extérieur reçoit celui retenu, pas la liste de l'équipe).
+    if ((sous === 'modeles' && methode === 'GET') || (sous === 'modele' && methode === 'PUT')) {
+      if (cible) return err(res, 404, 'introuvable')
+      const doc = await comptes.document(docId)
+      const equipe = doc.equipe ? await comptes.equipe(doc.equipe) : null
+      const deLEquipe = equipe ? await comptes.modelesDe(equipe.id) : []
+      const permis = [...IDS_MAISON, ...deLEquipe.map((m) => m.id)]
+      if (sous === 'modele') {
+        if (!peutChoisirModele(caps)) return err(res, 403, 'droit-insuffisant')
+        const { modele } = await lireCorps(req)
+        if (modele !== null && !permis.includes(modele)) return err(res, 404, 'modele-introuvable')
+        await comptes.definirModeleDocument(docId, modele)
+        return ok(res)
+      }
+      const retenu = modeleRetenu({ choisi: doc.modele, defautEquipe: equipe?.modeleDefaut, permis })
+      const membre = equipe ? Boolean(await comptes.roleMembre(equipe.id, p.id)) : false
+      return ok(res, {
+        modeles: [
+          ...IDS_MAISON.map((id) => ({ id, maison: true })),
+          ...deLEquipe.filter((m) => membre || m.id === retenu).map(modeleVu),
+        ],
+        equipe: equipe ? equipe.nom : null,
+        choisi: doc.modele && permis.includes(doc.modele) ? doc.modele : null,
+        retenu,
+        peutChoisir: peutChoisirModele(caps),
+      })
     }
     if (!caps.includes('inviter')) return err(res, 403, 'droit-insuffisant')
 
@@ -530,6 +784,7 @@ export function creerComptes({
       }
       if (invite) {
         await comptes.donnerAcces(docId, invite.id, corps.role, p.id)
+        await revoir(docId, invite.id)
         await courrier.envoyer({
           a: a.courriel,
           sujet: t('courriel.acces.sujet', vars),
@@ -566,6 +821,7 @@ export function creerComptes({
       // transaction : deux retraits simultanés ne laissent pas un document sans propriétaire.
       if ((await comptes.modifierAcces(docId, cible, nouveau)) === 'dernier-proprietaire')
         return err(res, 409, 'dernier-proprietaire')
+      await revoir(docId, cible)
       return ok(res)
     }
     if (sous === 'invitations' && cible && methode === 'DELETE') {
@@ -576,6 +832,7 @@ export function creerComptes({
       const { role: roleLien } = await lireCorps(req)
       if (roleLien === undefined || !roleDuLienValide(roleLien)) return err(res, 400, 'role-invalide')
       await comptes.definirRoleLien(docId, roleLien)
+      await revoir(docId)
       return ok(res)
     }
     return err(res, 404, 'introuvable')

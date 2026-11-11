@@ -46,6 +46,13 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     commit: 'abc1234',
     lien: 'https://v2.amend.ink/#x',
     texte: 'Carla ajoute « loin »',
+    corrections: 3,
+    commentaires: 1,
+    max: 4000,
+    signes: 12345,
+    mots: 2000,
+    zoom: 150,
+    liste: 'La gare, Le quai',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -74,6 +81,13 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       commit: 'c',
       lien: 'L',
       texte: 'X',
+      corrections: 2,
+      commentaires: 2,
+      max: 4000,
+      signes: 2,
+      mots: 2,
+      zoom: 50,
+      liste: 'L',
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
@@ -116,15 +130,65 @@ test('un texte piégé s’affiche comme du texte, jamais comme du code', () => 
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
-test('bandeau : l’interrupteur du suivi des modifications, seulement s’il est demandé, dans son état', () => {
+test('bandeau : le choix du mode (Modifier, Suggérer, Relire), seulement s’il est demandé, sur sa valeur', () => {
   const voletGauche = { libelle: 'Plan', surClic: () => {} }
-  assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /role="switch"/)
-  const suivi = (actif) => ({ libelle: 'Suivi des modifications', actif, surChange: () => {} })
-  const arrete = rendre(h(design.Bandeau, { voletGauche, titre: 'x', suivi: suivi(false) }))
-  assert.match(arrete, /role="switch"/)
-  assert.match(arrete, /Suivi des modifications/)
-  assert.doesNotMatch(arrete, /checked=""/)
-  assert.match(rendre(h(design.Bandeau, { voletGauche, titre: 'x', suivi: suivi(true) })), /checked=""/)
+  assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /type="radio"/)
+  const modes = (valeur) => ({
+    libelle: 'Mode',
+    valeur,
+    options: [
+      { valeur: 'ecrire', libelle: 'Modifier' },
+      { valeur: 'suggerer', libelle: 'Suggérer' },
+      { valeur: 'relire', libelle: 'Relire' },
+    ],
+    surChange: () => {},
+  })
+  const html = rendre(h(design.Bandeau, { voletGauche, titre: 'x', modes: modes('suggerer') }))
+  assert.equal(html.match(/type="radio"/g)?.length, 3)
+  for (const l of ['Modifier', 'Suggérer', 'Relire']) assert.ok(html.includes(l), l)
+  assert.match(html, /value="suggerer"[^>]*checked=""|checked=""[^>]*value="suggerer"/)
+})
+
+test('panneau des suggestions : hors relecture, une invitation à la place de la liste', () => {
+  const libelles = {
+    accepter: 'A',
+    refuser: 'R',
+    accepterDe: (x) => x,
+    refuserDe: (x) => x,
+    toutAccepter: 'TA',
+    toutRefuser: 'TR',
+  }
+  const html = rendre(
+    h(design.PanneauSuggestions, {
+      titre: 'Suggestions',
+      lignes: [],
+      libelles,
+      invitation: { texte: 'Des suggestions attendent.', bouton: 'Relire', surClic: () => {} },
+    }),
+  )
+  assert.match(html, /Des suggestions attendent\./)
+  assert.match(html, />Relire</)
+  assert.doesNotMatch(html, />TA</)
+})
+
+test('liste des fils : le filtre (Ouverts, Résolus, Tous) sur sa valeur, puis l’emplacement de la liste', () => {
+  const html = rendre(
+    h(design.ListeDesFils, {
+      filtre: {
+        libelle: 'Fils',
+        valeur: 'open',
+        options: [
+          { valeur: 'open', libelle: 'Ouverts' },
+          { valeur: 'resolved', libelle: 'Résolus' },
+          { valeur: 'all', libelle: 'Tous' },
+        ],
+        surChange: () => {},
+      },
+      cible: () => {},
+    }),
+  )
+  assert.equal(html.match(/type="radio"/g)?.length, 3)
+  for (const l of ['Ouverts', 'Résolus', 'Tous']) assert.ok(html.includes(l), l)
 })
 
 test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni noire', () => {
@@ -159,7 +223,7 @@ test('l’icône de l’onglet reprend le dessin de référence, qui ne contient
 
 // Étape 6b : la coquille des formats M et L (docs/v2-formats-M-L.md).
 const rien = () => {}
-function coquilleDocument(t, { droite = true } = {}) {
+function coquilleDocument(t, { droite = true, relecture = {} } = {}) {
   return h(
     design.Coquille,
     {
@@ -197,7 +261,8 @@ function coquilleDocument(t, { droite = true } = {}) {
         titre: t('telephone.relecture'),
         onglets: { modifications: t('telephone.modifications'), margo: t('interface.margo') },
         modifications: h('div', { id: 'suggestions' }),
-        margo: h(design.TexteDeVolet, { texte: t('interface.margoBientot') }),
+        margo: h('div', { id: 'margo' }),
+        ...relecture,
       }),
     },
     h(design.ColonneTexte, null, h('div', { id: 'editeur' })),
@@ -285,6 +350,52 @@ test('volet « Documents » : recherche, création, arbre imbriqué, menu « …
   assert.ok(vide.includes(echapper(t('documents.aucun'))))
 })
 
+test('volet « Documents » : tri, et document de la corbeille sans lien avec son détail', () => {
+  const t = creerTraducteur('fr')
+  const html = rendre(
+    h(design.VoletDocuments, {
+      recherche: { libelle: t('documents.rechercher'), valeur: '', surChange: rien },
+      boutons: [],
+      tri: {
+        libelle: t('documents.trier'),
+        valeur: 'modifies',
+        options: [
+          { value: 'modifies', label: t('documents.triModifies') },
+          { value: 'titre', label: t('documents.triTitre') },
+        ],
+        surChange: rien,
+      },
+      entrees: [
+        {
+          cle: 'corbeille',
+          nom: t('documents.corbeille'),
+          picto: 'corbeille',
+          ouvert: true,
+          enfants: [
+            {
+              cle: 'x',
+              nom: 'Brouillon',
+              picto: 'document',
+              detail: t('documents.joursRestants', { n: 3 }),
+              actions: [{ cle: 'r', libelle: t('documents.restaurer'), picto: 'restaurer', surClic: rien }],
+            },
+          ],
+        },
+      ],
+      vide: '',
+      libelleActions: (nom) => t('documents.actionsDe', { nom }),
+    }),
+  )
+  assert.ok(html.includes(echapper(t('documents.trier'))), 'le sélecteur de tri est nommé')
+  assert.ok(html.includes(echapper(t('documents.triModifies'))))
+  assert.ok(html.includes(echapper(t('documents.joursRestants', { n: 3 }))), 'les jours restants')
+  assert.doesNotMatch(
+    html.split('Brouillon')[0].split('Corbeille').pop(),
+    /href=/,
+    'pas de lien vers un document supprimé',
+  )
+})
+
 test('bandeau d’un document : l’étoile des favoris et le titre qui se renomme d’un clic', () => {
   const voletGauche = { libelle: 'Plan', surClic: rien }
   const html = rendre(
@@ -316,4 +427,248 @@ test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rie
     }),
   )
   assert.doesNotMatch(html, /<script>|<b>/)
+})
+
+test('export et modèles : la fenêtre « Exporter » (format, modèle, case « retenir »), la liste et le formulaire des modèles', () => {
+  const t = creerTraducteur('fr')
+  const libelles = {
+    format: t('export.format'),
+    modele: t('export.modele'),
+    retenir: t('export.retenir'),
+    exporter: t('export.exporter'),
+    annuler: t('interface.annuler'),
+  }
+  const formats = [
+    { value: 'pdf', label: t('export.pdf') },
+    { value: 'markdown', label: t('export.markdown') },
+  ]
+  const base = {
+    libelles,
+    formats,
+    surFormat: () => {},
+    surModele: () => {},
+    surExporter: () => {},
+    surAnnuler: () => {},
+  }
+  const pdf = rendre(
+    h(design.PanneauExport, {
+      ...base,
+      format: 'pdf',
+      modeles: [{ group: 'amend.ink', items: [{ value: 'tat-poche', label: 'TàT - Poche' }] }],
+      modele: 'tat-poche',
+      retenir: { coche: false, surChange: () => {} },
+      enCours: false,
+    }),
+  )
+  for (const cle of ['export.format', 'export.modele', 'export.retenir', 'export.exporter'])
+    assert.ok(pdf.includes(echapper(t(cle))), cle)
+  assert.match(pdf, /value="TàT - Poche"/)
+  const md = rendre(
+    h(design.PanneauExport, { ...base, format: 'markdown', modeles: null, retenir: null, enCours: true }),
+  )
+  assert.ok(!md.includes(echapper(t('export.modele'))), 'pas de modèle pour le Markdown')
+  assert.ok(!md.includes(echapper(t('export.retenir'))))
+  assert.match(md, /data-loading/, 'l’export en cours se voit sur le bouton')
+
+  const liste = rendre(
+    h(design.PanneauModeles, {
+      libelles: {
+        defaut: t('modeles.defaut'),
+        nom: t('modeles.nom'),
+        base: t('modeles.base'),
+        creer: t('modeles.creer'),
+        modifier: t('modeles.modifier'),
+        supprimer: t('modeles.supprimer'),
+        aucun: t('modeles.aucun'),
+        modifierDe: (nom) => t('modeles.modifierDe', { nom }),
+        supprimerDe: (nom) => t('modeles.supprimerDe', { nom }),
+      },
+      defaut: { options: [{ value: 'tat-poche', label: 'TàT - Poche' }], valeur: 'tat-poche', surChange: () => {} },
+      modeles: [{ cle: 'm1', nom: 'Essais', detail: 'TàT - Poche', parDefaut: t('modeles.parDefaut') }],
+      bases: [{ value: 'tat-poche', label: 'TàT - Poche' }],
+      surCreer: () => {},
+      surModifier: () => {},
+      surSupprimer: () => {},
+    }),
+  )
+  assert.ok(
+    liste.includes(echapper(t('modeles.modifierDe', { nom: 'Essais' }))),
+    'chaque bouton est nommé par sa ligne',
+  )
+  assert.ok(liste.includes(echapper(t('modeles.parDefaut'))))
+  assert.match(liste, /name="nom"/)
+
+  const formulaire = rendre(
+    h(design.FormulaireModele, {
+      libelles: { nom: t('modeles.nom'), enregistrer: t('modeles.enregistrer'), annuler: t('interface.annuler') },
+      nom: 'Essais',
+      champs: [
+        {
+          cle: 'page.largeur',
+          type: 'nombre',
+          libelle: t('modeles.reglage.page.largeur'),
+          valeur: 120,
+          min: 80,
+          max: 450,
+          pas: 0.5,
+        },
+        { cle: 'grille.lignes', type: 'entier', libelle: t('modeles.reglage.grille.lignes'), valeur: 31, min: 1 },
+        { cle: 'chapitre.bellePage', type: 'booleen', libelle: t('modeles.reglage.chapitre.bellePage'), valeur: true },
+        {
+          cle: 'police',
+          type: 'police',
+          libelle: t('modeles.reglage.police'),
+          valeur: 'EB Garamond',
+          options: [{ value: 'EB Garamond', label: 'EB Garamond' }],
+        },
+      ],
+      surEnregistrer: () => {},
+      surAnnuler: () => {},
+    }),
+  )
+  for (const cle of ['page.largeur', 'grille.lignes', 'chapitre.bellePage', 'police'])
+    assert.ok(formulaire.includes(echapper(t(`modeles.reglage.${cle}`))), cle)
+  assert.match(formulaire, /value="Essais"/)
+  assert.match(formulaire, /role="switch"[^>]*checked=""|checked=""[^>]*role="switch"/)
+})
+
+test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiquetée ; accueil quand le fil est vide', () => {
+  const html = rendre(
+    h(design.PanneauMargo, {
+      titre: 'Margo (IA)',
+      messages: [
+        { cle: '1', etiquette: 'Vous', morceaux: [{ texte: 'Corrige <b>' }] },
+        {
+          cle: '2',
+          etiquette: 'Margo (IA)',
+          morceaux: [
+            { texte: 'Deux corrections :\n- dans ' },
+            { lien: '[2]', libelle: 'Aller au bloc 2', surClic: rien },
+          ],
+          bilan: '1 correction, aucun commentaire',
+        },
+      ],
+      accueil: 'Bonjour',
+      enCours: 'Margo travaille…',
+      erreur: 'Erreur réseau',
+      portee: 'Sur la sélection',
+      saisie: {
+        libelle: 'Votre demande',
+        valeur: '',
+        surChange: rien,
+        surEnvoi: rien,
+        envoyer: 'Envoyer',
+        desactive: true,
+      },
+      nouvelle: { libelle: 'Nouvelle conversation', surClic: rien },
+    }),
+  )
+  assert.match(html, /<section[^>]*aria-label="Margo \(IA\)"/)
+  assert.match(html, /aria-live="polite"/)
+  assert.ok(html.includes('Corrige &lt;b&gt;'), 'le texte de la personne reste du texte')
+  assert.match(html, /<button[^>]*aria-label="Aller au bloc 2"[^>]*>\[2\]<\/button>/)
+  assert.ok(html.includes('1 correction, aucun commentaire'))
+  assert.match(html, /Deux corrections :<br\/>- dans /, 'les retours à la ligne de Margo sont gardés')
+  assert.match(html, /role="status"[\s\S]*Margo travaille…/)
+  assert.match(html, /role="alert"[^>]*>Erreur réseau/)
+  assert.match(html, /<label[^>]*>Votre demande/)
+  assert.match(html, /<button[^>]*type="submit"[^>]*disabled/)
+  assert.ok(html.includes('Nouvelle conversation'))
+  const vide = rendre(
+    h(design.PanneauMargo, {
+      titre: 'Margo',
+      messages: [],
+      accueil: 'Bonjour',
+      enCours: null,
+      erreur: null,
+      portee: 'Sur tout le texte',
+      saisie: {
+        libelle: 'Votre demande',
+        valeur: '',
+        surChange: rien,
+        surEnvoi: rien,
+        envoyer: 'Envoyer',
+        desactive: false,
+      },
+      nouvelle: null,
+    }),
+  )
+  assert.ok(vide.includes('Bonjour') && vide.includes('Sur tout le texte'))
+  assert.doesNotMatch(vide, /role="status"|role="alert"|Nouvelle conversation/)
+})
+
+test('volet de relecture : onglet ouvert piloté (« Corriger » ouvre Margo) ; sans Margo, pas d’onglet Margo', () => {
+  const t = creerTraducteur('fr')
+  const pilote = rendre(coquilleDocument(t, { relecture: { actif: 'margo', surOnglet: rien } }))
+  assert.match(pilote, /role="tab"[^>]*aria-selected="true"[^>]*>[\s\S]*?Margo \(IA\)/)
+  const sans = rendre(coquilleDocument(t, { relecture: { margo: undefined } }))
+  assert.doesNotMatch(sans, /role="tab"[^>]*>[\s\S]{0,400}?Margo \(IA\)/)
+  assert.match(sans, /id="suggestions"/)
+})
+
+// Le menu « … » (titres de groupe, choix cochés, pied) ne s'ouvre qu'au
+// navigateur : vérifié dans la pile. Ici, la zone du zoom et les pictos.
+test('zone du zoom et nouveaux pictos (11/11/2026)', () => {
+  assert.match(rendre(h(design.ZoneZoom, { zoom: 150 }, 'texte')), /data-amend-zoom="150"/)
+  for (const role of ['exposant', 'tableDesMatieres', 'zoom', 'choisi'])
+    assert.match(rendre(h(design.PictoDe, { role })), /<svg/, role)
+})
+
+test('supprimer son compte : ce que deviennent les documents, le refus, la confirmation par l’adresse', () => {
+  const t = creerTraducteur('fr')
+  const html = rendre(
+    h(design.EcranSuppressionCompte, {
+      titre: t('compte.supprimer'),
+      explication: t('compte.explication'),
+      groupes: [{ cle: 'supprime', titre: t('compte.supprimes'), elements: ['Brouillon'] }],
+      refus: t('compte.refusDocuments', { liste: 'Essai' }),
+      libelleCourriel: t('compte.courriel'),
+      libelleBouton: t('compte.bouton'),
+      libelleRetour: t('compte.retour'),
+      surRetour: rien,
+      surConfirmer: rien,
+    }),
+  )
+  assert.ok(html.includes(echapper(t('compte.supprimes'))))
+  assert.ok(html.includes('Brouillon'))
+  assert.match(html, /role="alert"/, 'le refus est annoncé')
+  assert.match(html, /type="email"/)
+  assert.match(
+    html,
+    /type="submit"[^>]*disabled|disabled[^>]*type="submit"/,
+    'bouton désactivé tant qu’il y a un refus',
+  )
+})
+
+test('back-office : une ligne peut porter un choix (modèle de Margo), étiqueté, options désactivables', () => {
+  const html = rendre(
+    h(design.PageAdministration, {
+      titre: 'Administration',
+      message: 'Enregistré.',
+      rubriques: [
+        {
+          titre: 'IA',
+          lignes: [
+            {
+              libelle: 'Modèle de Margo',
+              choix: {
+                valeur: 'b',
+                surChange: rien,
+                options: [
+                  { valeur: 'a', libelle: 'Modèle A', desactive: true },
+                  { valeur: 'b', libelle: 'Modèle B' },
+                ],
+              },
+            },
+            { libelle: 'Autre', valeur: 'valeur simple' },
+          ],
+        },
+      ],
+    }),
+  )
+  assert.match(html, /<select[^>]*aria-label="Modèle de Margo"/)
+  assert.match(html, /<option value="a" disabled="">Modèle A<\/option>/)
+  assert.match(html, /<option value="b" selected="">Modèle B<\/option>/)
+  assert.ok(html.includes('valeur simple'))
+  assert.match(html, /role="status"[^>]*>Enregistré\./)
 })

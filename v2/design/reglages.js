@@ -3,6 +3,7 @@
 // décision, dans l'ADR 0008 (« Réglages décidés ») : un contrat statique le
 // vérifie. Sans décision, rien ici : Mantine et BlockNote tels quels.
 import { DEFAULT_THEME } from '@mantine/core'
+import { REGLAGES_LIVRE } from './reglagesLivre.js'
 
 export const REGLAGES = {
   // Le fournisseur Mantine (MantineProvider).
@@ -22,33 +23,9 @@ export const REGLAGES = {
       ActionIcon: { defaultProps: { variant: 'subtle', size: 'lg' } },
     },
   },
-  // Les modèles de mise en page des livres exportés en PDF (règle 21 : le
-  // design des rendus imprimés). Chaque modèle est une décision de Sylvain.
-  livre: {
-    modeles: [
-      {
-        // « TàT - Poche » (Sylvain, 09/11/2026), relevé sur un livre de poche
-        // de référence : grille de 31 lignes, folio à 18 mm du bas, chapitre
-        // en belle page, titre à la 7e ligne, texte à la 12e.
-        id: 'tat-poche',
-        page: { largeur: 120, hauteur: 180 },
-        marges: { haut: 18, interieure: 13, exterieure: 13 },
-        grille: { corps: 10.5, interligne: 12.4, lignes: 31 },
-        police: 'EB Garamond',
-        polices: [
-          new URL('./polices/EBGaramond-Regular.ttf', import.meta.url).href,
-          new URL('./polices/EBGaramond-Italic.ttf', import.meta.url).href,
-          new URL('./polices/EBGaramond-SemiBold.ttf', import.meta.url).href,
-          new URL('./polices/EBGaramond-SemiBoldItalic.ttf', import.meta.url).href,
-        ],
-        alinea: 4.5,
-        folio: { bas: 18 },
-        chapitre: { bellePage: true, ligneTitre: 7, ligneTexte: 12, corps: 13, interligne: 14, graisse: 600 },
-        intertitres: { italique: true, lignesAvant: 1, lignesApres: 0 },
-        citation: { retrait: 5 },
-      },
-    ],
-  },
+  // Les modèles de mise en page des livres (design/reglagesLivre.js, sans
+  // Mantine : le serveur les lit aussi, audit du 11/11/2026).
+  livre: REGLAGES_LIVRE,
   // La coquille des formats M et L (AppShell de Mantine).
   coquille: {
     bandeau: 60,
@@ -76,6 +53,9 @@ export const REGLAGES = {
     ligne: { wrap: 'nowrap', gap: 0 },
     enfants: { gap: 0, pl: 'lg' },
   },
+  // Le zoom du texte de l'éditeur, en pour cent (Sylvain, 11/11/2026 : « 50,
+  // 100, 150 », dans le menu « … », comme le réglage de la v1).
+  zoom: { paliers: [50, 100, 150], parDefaut: 100 },
   // L'alerte hors ligne, comme AlertOffline de Docs.
   alerteHorsLigne: { variant: 'light', color: 'orange' },
 }

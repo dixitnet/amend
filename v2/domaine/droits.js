@@ -17,11 +17,13 @@ export const ROLES = Object.freeze(['lecteur', 'correcteur', 'editeur', 'proprie
  *   `transferer` : nommer un propriétaire, ou changer ou retirer celui d'un
  *   autre ; au propriétaire seul. Il peut y avoir plusieurs propriétaires,
  *   jamais aucun (Sylvain, étape 6a, 09/11/2026).
- * - `ranger` le document dans ses dossiers (étape 6c), au propriétaire. */
+ * - `ranger` le document dans ses dossiers (étape 6c), au propriétaire.
+ * - `utiliserMargo` : demander à Margo, l'IA (étape 8), aux éditeurs et au-dessus ;
+ *   pas au correcteur (Sylvain, 10/11/2026). */
 const AJOUTS = {
   lecteur: ['lire'],
   correcteur: ['commenter', 'suggerer'],
-  editeur: ['ecrire', 'arbitrer', 'restaurer', 'inviter'],
+  editeur: ['ecrire', 'arbitrer', 'restaurer', 'inviter', 'utiliserMargo'],
   proprietaire: ['supprimer', 'transferer', 'ranger'],
 }
 
