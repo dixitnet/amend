@@ -310,6 +310,10 @@ const MODULES = [
   ['Domaine', ['v2/domaine/']],
   ['Traductions', ['v2/i18n/']],
   ['Adaptateurs Yjs et y/hub', ['v2/adaptateurs/yjs/', 'v2/adaptateurs/yhub/']],
+  [
+    'Adaptateurs PostgreSQL, courrier et IA',
+    ['v2/adaptateurs/postgres/', 'v2/adaptateurs/courrier/', 'v2/adaptateurs/ia/'],
+  ],
   ['Adaptateur BlockNote et extensions', ['v2/adaptateurs/blocknote/', 'v2/extensions/']],
   ['Serveur et collaboration', ['v2/application/serveur/', 'v2/application/collab/']],
   ['Client', ['v2/application/client/']],
@@ -320,7 +324,7 @@ const MODULES = [
     ['v2/eslint.config.js', 'v2/contrats/statiques/', 'v2/package.json', 'v2/vite.config.js', 'v2/knip.json'],
   ],
 ]
-const SOURCE = /\.(m?js|jsx|json|css|sh|service|conf|html|md)$|Caddyfile/
+const SOURCE = /\.(m?js|jsx|json|css|sh|service|timer|conf|html|md)$|Caddyfile/
 
 async function auditComplet() {
   const outils = readdirSync(OUTILS)
