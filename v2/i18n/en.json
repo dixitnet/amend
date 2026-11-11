@@ -94,6 +94,8 @@
     "reglage-hors-bornes": "A value is outside the allowed limits: check the settings.",
     "ecarts-invalides": "These settings are not valid.",
     "margo-indisponible": "Margo is unavailable at the moment.",
+    "margo-occupee": "Margo is already answering one of your requests: wait until she has finished.",
+    "trop-de-flux": "Too many windows open on this account: close a few of them.",
     "selection-absente": "Select the passage to correct first.",
     "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most).",
     "image-vide": "This file is empty.",

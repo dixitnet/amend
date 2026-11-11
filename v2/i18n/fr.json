@@ -94,6 +94,8 @@
     "reglage-hors-bornes": "Une valeur est hors des limites permises\u00A0: vérifiez les réglages.",
     "ecarts-invalides": "Ces réglages ne sont pas valides.",
     "margo-indisponible": "Margo est indisponible pour le moment.",
+    "margo-occupee": "Margo répond déjà à l’une de vos demandes\u00A0: attendez qu’elle ait fini.",
+    "trop-de-flux": "Trop de fenêtres ouvertes sur ce compte\u00A0: fermez-en quelques-unes.",
     "selection-absente": "Sélectionnez d’abord le passage à corriger.",
     "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus).",
     "image-vide": "Ce fichier est vide.",

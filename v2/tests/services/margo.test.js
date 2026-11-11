@@ -41,7 +41,7 @@ const iaSimulee = {
       async tour(entree) {
         requetes.push({ modele, consigne, entree })
         const f = scenario[i++]
-        const r = f ? f(entree, modele) : { texte: 'Fini.', appels: [] }
+        const r = f ? await f(entree, modele) : { texte: 'Fini.', appels: [] }
         return {
           texte: r.texte ?? '',
           appels: r.appels ?? [],
@@ -383,4 +383,20 @@ t3('échanges précédents : bornés en signes, les plus récents gardés (audit
   assert.match(premier, /RECENT/)
   assert.match(premier, /DERNIER/)
   assert.doesNotMatch(premier, /ANCIEN|IGNORE/)
+})
+
+t3('une demande à la fois par personne : la seconde est refusée, puis la place revient', async () => {
+  const doc = await nouveauDocument(LIVRE)
+  let liberer
+  const attente = new Promise((r) => (liberer = r))
+  // Le premier tour attend qu'on le libère : la demande reste en cours.
+  scenario = [async () => (await attente, { texte: 'Fini.' })]
+  const premiere = demander(doc, 'Paule', { demande: 'Relis.' })
+  await new Promise((r) => setTimeout(r, 300))
+  const seconde = await demander(doc, 'Paule', { demande: 'Relis encore.' })
+  assert.deepEqual({ statut: seconde.statut, code: seconde.code }, { statut: 429, code: 'margo-occupee' })
+  liberer()
+  assert.equal(fin((await premiere).evenements).arret, 'fin')
+  scenario = []
+  assert.equal((await demander(doc, 'Paule', { demande: 'Relis.' })).statut, 200, 'la place est revenue')
 })
