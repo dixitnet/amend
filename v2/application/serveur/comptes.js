@@ -251,8 +251,10 @@ export function creerComptes({
     if (racine === 'corbeille') return corbeille(req, res, p, segments)
 
     // --- Mes documents et Partagé avec moi (et la liste de mes équipes) ---
-    if (!segments.length) return listeEtCreation(req, res, p, membre, dossierDe)
+    // (Une autre racine sans segment, « GET /api/connexion » par exemple, ne
+    // rend pas la liste des documents : 404.)
     if (racine !== 'documents') return err(res, 404, 'introuvable')
+    if (!segments.length) return listeEtCreation(req, res, p, membre, dossierDe)
 
     const d = identifiantDocument(segments[0])
     if (!d.ok) return err(res, 400, d.code)

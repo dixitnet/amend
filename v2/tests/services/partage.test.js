@@ -555,6 +555,13 @@ test('images (comme Docs) : qui écrit ou suggère envoie ; qui lit voit ; le re
   assert.equal(await comptes.image(doc.id, url.split('/').pop()), null)
 })
 
+test('une racine sans segment qui n’est pas « documents » ne rend pas la liste des documents', async () => {
+  const paule = await personne('Paule')
+  const r = await appel('GET', '/api/connexion', { cookie: paule.cookie })
+  assert.deepEqual([r.statut, r.json], [404, { code: 'introuvable' }])
+  assert.equal((await appel('GET', '/api/documents', { cookie: paule.cookie })).statut, 200)
+})
+
 test('images d’une copie (comme Docs) : qui lit la copie lit les images de la source ; elles survivent à l’effacement de la source', async () => {
   const paule = await personne('Paule')
   const luc = await personne('Luc')
