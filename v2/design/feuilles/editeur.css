@@ -25,3 +25,39 @@
 [data-amend-zoom='150'] .bn-default-styles {
   font-size: 150%;
 }
+
+/* réglage : css.editeur.table */
+nav[data-amend-bloc='tableDesMatieres'] ol {
+  list-style: none;
+  padding-inline-start: 0;
+}
+nav[data-amend-bloc='tableDesMatieres'] li[data-niveau='1'] {
+  font-weight: var(--mantine-font-weight-bold);
+}
+nav[data-amend-bloc='tableDesMatieres'] li[data-niveau='2'] {
+  padding-inline-start: var(--mantine-spacing-md);
+}
+nav[data-amend-bloc='tableDesMatieres'] li[data-niveau='3'] {
+  padding-inline-start: calc(var(--mantine-spacing-md) * 2);
+}
+nav[data-amend-bloc='tableDesMatieres'] li[data-niveau='4'] {
+  padding-inline-start: calc(var(--mantine-spacing-md) * 3);
+}
+nav[data-amend-bloc='tableDesMatieres'] li[data-niveau='5'] {
+  padding-inline-start: calc(var(--mantine-spacing-md) * 4);
+}
+nav[data-amend-bloc='tableDesMatieres'] label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dimmed);
+}
+nav[data-amend-bloc='tableDesMatieres'] select {
+  font: inherit;
+  color: var(--mantine-color-text);
+  background: var(--mantine-color-body);
+  border: calc(0.0625rem * var(--mantine-scale)) solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  padding: calc(var(--mantine-spacing-xs) / 2) var(--mantine-spacing-xs);
+}

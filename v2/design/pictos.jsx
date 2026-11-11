@@ -35,6 +35,7 @@ import {
   IconTextSize,
   IconCheck,
 } from '@tabler/icons-react'
+import { REGLAGES } from './reglages.js'
 
 const PICTOS = {
   plan: IconListTree,
@@ -76,5 +77,8 @@ const PICTOS = {
 /** Le picto d'un rôle, ou rien si le rôle est inconnu. */
 export function PictoDe({ role }) {
   const Dessin = PICTOS[role]
-  return Dessin ? <Dessin aria-hidden="true" /> : null
+  // Les pictos qui s'ajoutent aux boutons de BlockNote (palette, menu « / »)
+  // prennent leur taille, pour ne pas paraître plus gras (réglage pictos.editeur).
+  const size = REGLAGES.pictos.editeur[role]
+  return Dessin ? <Dessin aria-hidden="true" {...(size ? { size } : null)} /> : null
 }
