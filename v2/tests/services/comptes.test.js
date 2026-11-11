@@ -120,6 +120,36 @@ t3('sessions : « déconnecter partout » avance la date de validité', async ()
   assert.ok((await depot.sessionsValidesDepuis(p.id)) > Date.now() - 60_000)
 })
 
+t3('plusieurs écritures en une transaction : une erreur en route ne laisse rien d’écrit', async () => {
+  const a = await depot.personneOuNouvelle(adresse('alix'))
+  const b = await depot.personneOuNouvelle(adresse('bea'))
+  const garde = `t3-tx-${randomUUID().slice(0, 8)}`
+  const efface = `t3-tx-${randomUUID().slice(0, 8)}`
+  await depot.creerDocument(garde, a.id)
+  await depot.creerDocument(efface, a.id)
+  // Une suite qui échoue au milieu : un accès donné (méthode qui ouvre sa
+  // propre transaction), un document effacé, puis une erreur.
+  await assert.rejects(
+    depot.enTransaction(async (c) => {
+      assert.equal(await c.modifierAcces(garde, b.id, 'proprietaire'), null)
+      await c.supprimerDocument(efface)
+      assert.equal(await c.document(efface), null, 'vu effacé dans la transaction')
+      throw Object.assign(new Error('arrêt'), { code: 'essai' })
+    }),
+    { code: 'essai' },
+  )
+  assert.equal(await depot.acces(garde, b.id), null, 'l’accès donné est défait')
+  assert.ok(await depot.document(efface), 'le document effacé est revenu')
+  // La même suite menée au bout est écrite en entier.
+  await depot.enTransaction(async (c) => {
+    await c.modifierAcces(garde, b.id, 'proprietaire')
+    await c.supprimerDocument(efface)
+  })
+  assert.equal(await depot.acces(garde, b.id), 'proprietaire')
+  assert.equal(await depot.document(efface), null)
+  await depot.supprimerDocument(garde)
+})
+
 test('courrier : un seul lien, texte échappé ; sans clé, gardé en mémoire', async () => {
   const m = courrierAvecLien({
     intro: 'Bonjour <Alice>',

@@ -33,7 +33,13 @@ qui pousse, donc elle détient une session Proton. Les parades sont au §8.4.
 lancé à 3 h 05 par `amend-v2-sauvegarde.timer`, dépose `data/v2/amendv2.dump`
 (`pg_dump`, format personnalisé). Elle part donc avec `data/` vers le NAS et
 vers Proton, sans rien d'autre à régler ; ce sont eux qui gardent les jours
-précédents. Essai de restauration (dans une base à part, sans toucher à la
+précédents. Juste après, le même script écrit `data/v2/export/` (11/11/2026,
+`exporter-tout.mjs`) : une copie de tous les documents lisible sans y/hub,
+`<id>.json` (blocs BlockNote) et `<id>.txt` (texte brut) par document, plus
+`index.json`. Elle part avec `data/` de la même façon ; son échec ne fait pas
+échouer la sauvegarde (le message est dans le journal `amend-v2-sauvegarde`).
+Limite connue : y/hub refuse de rendre le texte d'un document à la corbeille ;
+l'index le note (`corbeille-non-exportee`), le texte reste dans le dump. Essai de restauration (dans une base à part, sans toucher à la
 v2) : `sudo bash /opt/amend/app/v2/exploitation/prod/restaurer.sh --essai`.
 Restauration réelle : le même script sans `--essai` (v2 arrêtée le temps de
 la restauration, confirmation demandée). Valkey n'est pas sauvegardé : il ne

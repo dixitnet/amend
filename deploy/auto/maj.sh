@@ -15,6 +15,15 @@ exec 9>/opt/amend/deploiement-auto.verrou
 flock -n 9 || exit 0
 
 cd "$APP"
+# Veille de la v2 (11/11/2026) : à chaque passage qui a le verrou, y compris
+# quand il n'y a rien à déployer (toutes les sorties tôt ci-dessous) et après
+# un déploiement en échec, vérifie les services, la sauvegarde et la page
+# publique, et prévient par courriel (v2/exploitation/prod/veiller.sh). Elle
+# ne change jamais le code de sortie de ce script.
+VEILLER="$APP/v2/exploitation/prod/veiller.sh"
+ALERTER="$APP/v2/exploitation/prod/alerter.sh"
+ESSAYER="$APP/v2/exploitation/prod/essayer.sh"
+trap '[[ -f "$VEILLER" ]] && bash "$VEILLER" || true' EXIT
 git fetch -q origin main
 CIBLE=$(git rev-parse origin/main)
 empreinte() { sha256sum "$1" 2>/dev/null | cut -c1-16 || echo absent; }
@@ -76,16 +85,44 @@ for u in deploy/auto/amend-maj.service deploy/auto/amend-maj.timer \
 done
 
 
+# Lance un déploiement ; s'il échoue, prévient les administrateurs par courriel
+# (le commit visé et les dernières lignes du journal, sans secret : alerter.sh
+# masque en plus les adresses de bases et la clé), puis sort avec le même code.
+lancer() { # nom commande...
+  local nom=$1 rc=0 sortie
+  shift
+  sortie=$(mktemp)
+  "$@" 2>&1 | tee "$sortie" || rc=$?
+  if (( rc != 0 )); then
+    [[ -f "$ALERTER" ]] && bash "$ALERTER" "le déploiement de la $nom a échoué ($(git log --format=%h -1 "$CIBLE"))" \
+      "Le déploiement automatique de la $nom a échoué (code $rc) pour le commit $(git log --oneline -1 "$CIBLE").
+Ce commit n'est pas retenté : le prochain essai attend un nouveau commit sur main (un correctif, ou l'annulation du commit fautif).
+À voir sur le VPS : journalctl -u amend-maj -n 80
+
+Dernières lignes :
+$(tail -n 15 "$sortie")" || true
+    rm -f "$sortie"
+    exit "$rc"
+  fi
+  rm -f "$sortie"
+}
+# Un déploiement de la v2 redémarre ses services : la veille ne compare pas leurs
+# compteurs de redémarrage pour ce passage (voir veiller.sh).
+[[ $V2 -eq 1 ]] && export AMEND_VEILLE_DEPLOYE=1
+
 if [[ $V1 -eq 1 ]]; then
   OPTION=""
   [[ -n "$FAIT_ENV1" && "$ENV1" != "$FAIT_ENV1" ]] && OPTION="--restart"
-  "$APP/deploy/deploy.sh" $OPTION
+  lancer v1 "$APP/deploy/deploy.sh" $OPTION
 else
   echo "→ v1 : rien à reconstruire (documentation, v2 ou tests seulement)"
   git pull -q --ff-only
 fi
 if [[ $V2 -eq 1 ]]; then
-  bash "$APP/v2/exploitation/prod/deployer.sh"
+  lancer v2 bash "$APP/v2/exploitation/prod/deployer.sh"
+  # Essai en ligne (tests/en-ligne, comptes d'essai) : une alerte par courriel
+  # s'il échoue, sans jamais faire échouer ce déploiement ni revenir en arrière.
+  [[ -f "$ESSAYER" ]] && { bash "$ESSAYER" || true; }
 else
   echo "→ v2 : rien à reconstruire"
 fi

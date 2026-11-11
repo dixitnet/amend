@@ -32,6 +32,10 @@ import {
   refusAcces,
   DUREE_SESSION_MS,
   AUTEUR_MARGO,
+  evenementDeReponse,
+  mesureValable,
+  DUREE_MESURES_MS,
+  PAS_MESURE_MS,
 } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
@@ -123,6 +127,8 @@ function poserSecurite(req, res) {
 }
 
 function json(res, statut, corps, entetes = {}) {
+  // Le code rendu, pour le journal du back-office (voir `noterReponse`).
+  res.codeRendu = corps?.code
   res.writeHead(statut, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...entetes })
   res.end(JSON.stringify(corps))
 }
@@ -260,6 +266,17 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
         comptes: await comptes.statistiques(),
       })
     },
+    // Back-office, suivi (Sylvain, 11/11/2026) : le journal des erreurs et des
+    // refus inhabituels, et la mémoire des processus sur sept jours.
+    'GET /api/admin/suivi': async (req, res) => {
+      const p = await personneDe(req)
+      if (!p) return json(res, 401, { code: 'session-absente' })
+      if (!(await administrateur(p))) return json(res, 403, { code: 'reserve-administrateur' })
+      // Sept jours à l'écran, pour la mémoire comme pour le journal (ses 200
+      // lignes les plus récentes) ; le journal est gardé 30 jours dans la base.
+      const depuis = Date.now() - DUREE_MESURES_MS
+      json(res, 200, { journal: await comptes.journal(depuis), mesures: await comptes.mesures(depuis) })
+    },
     // Back-office, rubrique IA (étape 8, « backoffice simple », Sylvain,
     // 11/11/2026) : le modèle de Margo, parmi ceux de l'adaptateur ; ceux dont
     // le fournisseur n'a pas de clé ne se choisissent pas.
@@ -393,6 +410,14 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
       json(res, 200, {})
     },
     // Pour le processus de collaboration seulement (jeton interne).
+    // La collaboration relève sa mémoire (jeton interne) : gardée pour le back-office.
+    'POST /api/interne/mesure': async (req, res) => {
+      if (!jetonValide(CONF.jetonInterne, req.headers['x-amend-interne'])) return json(res, 403, { code: 'interdit' })
+      const { processus, memoire } = await lireCorps(req)
+      if (!mesureValable(processus, memoire)) return json(res, 400, { code: 'parametres-absents' })
+      await comptes.mesurer(processus, memoire)
+      json(res, 200, {})
+    },
     'GET /api/interne/droits': async (req, res, url) => {
       if (!jetonValide(CONF.jetonInterne, req.headers['x-amend-interne'])) return json(res, 403, { code: 'interdit' })
       const docId = url.searchParams.get('document')
@@ -532,8 +557,20 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     cookieDeSession: identite.cookieDeSession,
     cookieEfface: identite.cookieEfface,
   })
+  /** Le journal du back-office : une erreur à nous ou un refus inhabituel
+   * (règle du domaine), avec la méthode et le chemin, jamais un contenu. */
+  function noterReponse(req, res) {
+    const e = evenementDeReponse(res.statusCode, res.codeRendu)
+    if (!e) return
+    const chemin = adresseSansSecret(String(req.url ?? '').split('?')[0]).slice(0, 200)
+    // Jamais une erreur du journal ne remonte : il ne doit rien casser.
+    Promise.resolve()
+      .then(() => comptes.noter(e.type, e.code, { methode: req.method, chemin }))
+      .catch((err) => console.error('[serveur] journal :', err.code ?? err.message))
+  }
   const serveur = http.createServer(async (req, res) => {
     poserSecurite(req, res)
+    res.on('finish', () => noterReponse(req, res))
     try {
       // L'analyse de l'adresse peut échouer (« // ») : dans le bloc protégé.
       let url
@@ -588,4 +625,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const purger = () => serveur.purgerCorbeille().catch((e) => console.error('[serveur] corbeille :', e))
   setTimeout(purger, 60_000).unref()
   setInterval(purger, 6 * 3600 * 1000).unref()
+  // La mémoire du serveur, relevée pour le back-office.
+  const mesurer = () =>
+    services.comptes
+      .mesurer('serveur', process.memoryUsage().rss)
+      .catch((e) => console.error('[serveur] relevé de mémoire :', e.code ?? e.message))
+  setTimeout(mesurer, 30_000).unref()
+  setInterval(mesurer, PAS_MESURE_MS).unref()
 }

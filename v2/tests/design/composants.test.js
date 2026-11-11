@@ -53,6 +53,11 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     mots: 2000,
     zoom: 150,
     liste: 'La gare, Le quai',
+    processus: 'Serveur',
+    min: '92 Mo',
+    dernier: '120 Mo',
+    methode: 'GET',
+    chemin: '/api/documents',
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -88,6 +93,11 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       mots: 2,
       zoom: 50,
       liste: 'L',
+      processus: 'P',
+      min: 'm',
+      dernier: 'd',
+      methode: 'M',
+      chemin: 'C',
     }
     const p = ps(cle, valeurs)
     assert.match(p, /^⟦[\s\S]*⟧$/, cle)
@@ -666,6 +676,46 @@ test('supprimer son compte : ce que deviennent les documents, le refus, la confi
     /type="submit"[^>]*disabled|disabled[^>]*type="submit"/,
     'bouton désactivé tant qu’il y a un refus',
   )
+})
+
+test('back-office : une rubrique peut porter des courbes (nommées, légendées) et un texte quand elle est vide', () => {
+  const html = rendre(
+    h(design.PageAdministration, {
+      titre: 'Administration',
+      rubriques: [
+        {
+          titre: 'Mémoire',
+          courbes: [
+            {
+              libelle: 'Mémoire du serveur sur sept jours',
+              legende: 'De 90 à 210 Mo',
+              points: [
+                { x: 0, y: 0 },
+                { x: 0.5, y: 1 },
+                { x: 1, y: 0.5 },
+              ],
+            },
+          ],
+          lignes: [],
+        },
+        { titre: 'Journal', vide: 'Rien à signaler.', lignes: [] },
+        {
+          titre: 'Doublons',
+          lignes: [
+            { libelle: 'même date', valeur: 'un' },
+            { libelle: 'même date', valeur: 'deux' },
+          ],
+        },
+      ],
+    }),
+  )
+  assert.match(html, /<svg[^>]*role="img"[^>]*aria-label="Mémoire du serveur sur sept jours"/)
+  assert.match(html, /viewBox="0 0 100 25"/)
+  // Le tracé : x sur la largeur, y renversé (1 en haut).
+  assert.match(html, /points="0\.00,25\.00 50\.00,0\.00 100\.00,12\.50"/)
+  assert.match(html, /<figcaption[^>]*>De 90 à 210 Mo<\/figcaption>/)
+  assert.match(html, /Rien à signaler\./)
+  assert.match(html, />un<[\s\S]*>deux</, 'deux lignes de même libellé sont rendues toutes les deux')
 })
 
 test('back-office : une ligne peut porter un choix (modèle de Margo), étiqueté, options désactivables', () => {

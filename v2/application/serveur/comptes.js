@@ -59,6 +59,8 @@ import {
   roleEffectif,
   DUREE_CORBEILLE_MS,
   DUREE_INVITATION_MS,
+  DUREE_JOURNAL_MS,
+  DUREE_MESURES_MS,
 } from '../../domaine/index.js'
 import { creerTraducteur, libelleDuRole, libelleDuRoleEquipe } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
@@ -146,6 +148,10 @@ export function creerComptes({
    * (audit du 10/11/2026). */
   async function effacer(docId) {
     await comptes.supprimerDocument(docId)
+    await effacerContenu(docId)
+  }
+  /** Ce qui reste d'un document effacé de la base : ses fils et son texte dans y/hub. */
+  async function effacerContenu(docId) {
     await commentaires
       ?.supprimerFilsDuDocument(docId)
       .catch((e) => console.error(`[serveur] suppression des fils de ${docId} :`, e))
@@ -179,6 +185,7 @@ export function creerComptes({
     envoyerLien,
     roleSur,
     effacer,
+    effacerContenu,
     equipeVisee,
   }
   const connexion = creerConnexion(ctx)
@@ -195,6 +202,11 @@ export function creerComptes({
     // Les jetons de connexion expirés ou utilisés et les invitations périmées
     // (la durée d'une invitation est une règle du domaine ; audit du 11/11/2026).
     await comptes.purgerPerimes(maintenant, { invitationsAvant: maintenant - DUREE_INVITATION_MS })
+    // Le journal et les relevés de mémoire du back-office (durées : domaine).
+    await comptes.purgerSuivi({
+      journalAvant: maintenant - DUREE_JOURNAL_MS,
+      mesuresAvant: maintenant - DUREE_MESURES_MS,
+    })
   }
 
   return Object.assign(traiter, { purger })

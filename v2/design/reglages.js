@@ -111,4 +111,7 @@ export const REGLAGES = {
   zoom: { paliers: [50, 100, 150], parDefaut: 100 },
   // L'alerte hors ligne, comme AlertOffline de Docs.
   alerteHorsLigne: { variant: 'light', color: 'orange' },
+  // La courbe du back-office (mémoire des processus) : sa proportion, quatre
+  // fois plus large que haute.
+  courbe: { largeur: 100, hauteur: 25 },
 }

@@ -6,12 +6,16 @@
 // le proxy ajoute lui-même la clé à toute requête vers v2.amend.ink, et ne
 // laisse passer ni WebSocket ni port autre que 80 et 443 : ces tests-là s'y
 // déclarent sautés, avec la raison.
+// Essai après chaque déploiement, depuis le VPS (11/11/2026, essayer.sh) : les
+// dépendances de production seules y sont installées, sans Playwright ni
+// navigateur. Playwright n'est donc importé que par le parcours de deux
+// navigateurs, qui se déclare sauté quand V2_SANS_NAVIGATEUR=1 ou que
+// Playwright manque ; tout le reste (HTTP seul) tourne.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 import https from 'node:https'
 import dns from 'node:dns/promises'
-import * as playwright from 'playwright'
 
 const BASE = (process.env.V2_BASE || 'https://v2.amend.ink').replace(/\/$/, '')
 const CLE = process.env.V2_JETON_ESSAI
@@ -137,10 +141,16 @@ sauf(
 )
 
 sauf(
-  DERRIERE_PROXY || !CLE,
-  DERRIERE_PROXY ? 'le proxy de la session ne laisse pas passer les WebSocket' : 'sans V2_JETON_ESSAI',
+  DERRIERE_PROXY || !CLE || process.env.V2_SANS_NAVIGATEUR === '1',
+  DERRIERE_PROXY
+    ? 'le proxy de la session ne laisse pas passer les WebSocket'
+    : !CLE
+      ? 'sans V2_JETON_ESSAI'
+      : 'V2_SANS_NAVIGATEUR=1 (essai depuis le VPS, sans navigateur)',
   'parcours : deux navigateurs convergent, le texte survit au rechargement',
-  async () => {
+  async (t) => {
+    const playwright = await import('playwright').catch(() => null)
+    if (!playwright) return t.skip('Playwright absent (dépendances de production seules)')
     const nav = await playwright[process.env.NAVIGATEUR || 'chromium'].launch()
     const a = await sessionEssai('TEST en ligne A')
     const b = await sessionEssai('TEST en ligne B')

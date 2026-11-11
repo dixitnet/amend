@@ -44,3 +44,35 @@ export function adresseAide(brut) {
   if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.username || u.password) return null
   return u.href
 }
+
+// --- Le suivi de l'instance (Sylvain, 11/11/2026, « stabiliser, fiabiliser ») ---
+/** Le journal du back-office se garde 30 jours, les relevés de mémoire 7 jours. */
+export const DUREE_JOURNAL_MS = 30 * 24 * 3600 * 1000
+export const DUREE_MESURES_MS = 7 * 24 * 3600 * 1000
+/** La mémoire des processus est relevée toutes les cinq minutes. */
+export const PAS_MESURE_MS = 5 * 60 * 1000
+/** Les processus dont on relève la mémoire. */
+const PROCESSUS_SUIVIS = Object.freeze(['serveur', 'collaboration'])
+
+/** Les refus qui ne font pas partie d'un usage ordinaire : trop de demandes
+ * (429), requête trop grosse (413), requête venue d'un autre site. */
+const REFUS_NOTES = new Set(['origine-refusee'])
+
+/**
+ * Ce que le journal garde d'une réponse du serveur : une erreur à nous (5xx)
+ * ou un refus inhabituel ; `null` pour tout le reste (les refus ordinaires,
+ * 401, 403, 404, ne sont pas notés).
+ * @param {number} statut
+ * @param {string | null | undefined} code  le code rendu dans la réponse
+ * @returns {{ type: 'erreur' | 'refus', code: string } | null}
+ */
+export function evenementDeReponse(statut, code) {
+  const c = typeof code === 'string' && code ? code : `http-${statut}`
+  if (statut >= 500) return { type: 'erreur', code: c }
+  if (statut === 429 || statut === 413 || REFUS_NOTES.has(c)) return { type: 'refus', code: c }
+  return null
+}
+
+/** Un relevé de mémoire reçu d'un processus est-il valable ? (processus connu, octets plausibles) */
+export const mesureValable = (processus, memoire) =>
+  PROCESSUS_SUIVIS.includes(processus) && Number.isSafeInteger(memoire) && memoire > 0 && memoire < 2 ** 40
