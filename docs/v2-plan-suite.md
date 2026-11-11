@@ -80,6 +80,8 @@ Export PDF, modèles de mise en page et modèles d'équipe : architecture et pla
 - Plan du document : le surlignage du titre en cours ne suit pas le clic sur un titre du plan (Sylvain, 10/11/2026 ; rien fait pour l'instant). Voir d'abord comment Docs le fait.
 - Suivi des modifications et commentaires : bilan des scénarios B, `docs/v2-tests/bilan-scenarios-B-2026-11-10.md` (corrections après décision).
 
+- **Margo et les tableaux** (Sylvain, 11/11/2026 : « Margo doit intervenir sur les tableaux, mais à faire plus tard si c'est lourd »). Aujourd'hui le texte donné à Margo saute les blocs qui ne sont pas des blocs de texte (`adaptateurs/blocknote/serveur.js`, `blocsATexte`) : les cellules d'un tableau ne sont ni relues ni corrigées (test qui fixe ce comportement : `tests/unitaires/blocknote-serveur.test.js`). C'est lourd : une cellule n'a pas d'identifiant de bloc, or tout l'adressage de Margo (numéros de blocs montrés au modèle, corrections `{ bloc, avant, apres }`, ancres des commentaires, sélection envoyée par le navigateur) repose sur lui ; il faut un adressage des cellules dans l'adaptateur (lecture, suggestion, ancre), puis dans le serveur et le client. À ouvrir comme un lot à part, avec le banc de Margo rejoué.
+
 ## Ordre proposé
 
 A (1, 2, 3) maintenant, puis B (4), puis D (8 à 10) pour clore l'étape 6, puis E, F, G. C se glisse quand Sylvain a pris les décisions de design.
