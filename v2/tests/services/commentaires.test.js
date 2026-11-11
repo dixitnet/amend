@@ -353,3 +353,17 @@ t3(
     assert.equal((await appel('Carla', 'POST', `/${fil.id}/resoudre`)).statut, 200)
   },
 )
+
+t3('rouvrir un fil efface sa date de résolution (et qui l’a résolu)', async () => {
+  const fil = await depot.creerFil(DOC, 'auteur-rouvrir', [{ type: 'paragraph', content: 'Une remarque.' }])
+  await depot.resoudre(fil.id, true, 'resolveur')
+  const resolu = await depot.fil(DOC, fil.id)
+  assert.equal(resolu.resolved, true)
+  assert.ok(resolu.resolvedUpdatedAt, 'date de résolution posée')
+  assert.equal(resolu.resolvedBy, 'resolveur')
+  await depot.resoudre(fil.id, false, 'resolveur')
+  const rouvert = await depot.fil(DOC, fil.id)
+  assert.equal(rouvert.resolved, false)
+  assert.equal(rouvert.resolvedUpdatedAt, undefined, 'plus de date de résolution')
+  assert.equal(rouvert.resolvedBy, undefined)
+})

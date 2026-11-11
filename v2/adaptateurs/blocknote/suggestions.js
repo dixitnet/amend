@@ -35,7 +35,13 @@ export function suivreAuteurs(contexte, rappel, delai = 1500) {
   let minuterie = null
   let arrete = false
   async function rafraichir(essai = 0) {
-    const attributions = await contexte.suggestions.auteurs()
+    // Un rejet vaut une absence de réponse : même nouvel essai.
+    let attributions = null
+    try {
+      attributions = await contexte.suggestions.auteurs()
+    } catch {
+      // attributions reste nul
+    }
     if (arrete) return
     // y/hub n'a pas répondu : un nouvel essai, plus tard, sans attendre le
     // prochain changement (audit du 10/11/2026).
