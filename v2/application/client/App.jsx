@@ -1519,7 +1519,8 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         if (raison === 'droits') {
           montrerMessage(t('document.droitsChanges'))
           surDroitsChanges?.()
-        } else location.hash = ''
+        } else if (raison === 'supprime') location.hash = ''
+        else montrerMessage(t('document.connexionPerdue'), { erreur: true })
       }),
     [session, surDroitsChanges],
   )
@@ -1761,7 +1762,13 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         surFermerHistorique={() => setHistorique(false)}
         fils={commentaires ? { element: cibleFils, filtre: filtreFils } : null}
         surRefus={(code) =>
-          montrerMessage(code === 'suggestion-a-cheval' ? t('suivi.aCheval') : t('suivi.miseEnForme'), { erreur: true })
+          montrerMessage(
+            { 'suggestion-a-cheval': t('suivi.aCheval'), 'suggestion-mise-en-forme': t('suivi.miseEnForme') }[code] ??
+              messageErreur(t, code),
+            {
+              erreur: true,
+            },
+          )
         }
         confirmerRestauration={() =>
           confirmer({

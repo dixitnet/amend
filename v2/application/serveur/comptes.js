@@ -145,7 +145,8 @@ export function creerComptes({
   }
   /** De même pour tous les documents d'une équipe (le rôle d'un membre a changé). */
   async function revoirEquipe(equipe, membreQuiVoit, personne) {
-    for (const d of await comptes.documentsDeLEquipe(equipe, membreQuiVoit)) await revoir(d.id, personne)
+    // En parallèle : une demande par document (y/hub n'en connaît pas pour une équipe).
+    await Promise.all((await comptes.documentsDeLEquipe(equipe, membreQuiVoit)).map((d) => revoir(d.id, personne)))
   }
 
   async function envoyerLien(courriel, document, { dureeMs, sujet, intro, libelleLien }) {
@@ -215,7 +216,7 @@ export function creerComptes({
       // La liste des documents se lit tant que je suis encore membre.
       const docs = await comptes.documentsDeLEquipe(equipe.id, p.id)
       if (refus || (await comptes.modifierMembre(equipe.id, p.id, null))) return err(res, 409, 'dernier-gestionnaire')
-      for (const d of docs) await revoir(d.id, p.id)
+      await Promise.all(docs.map((d) => revoir(d.id, p.id)))
       return ok(res)
     }
     if (sous === 'membres' && !cible && methode === 'POST') {

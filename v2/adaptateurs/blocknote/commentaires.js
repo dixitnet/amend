@@ -71,6 +71,8 @@ class AutorisationsFils extends ThreadStoreAuth {
  * La typographie du document appliquée au message d'un commentaire, à l'envoi :
  * l'éditeur des commentaires de BlockNote ne prend pas d'extension (pas de
  * règle de frappe), on corrige donc le texte des blocs (domaine, `typographier`).
+ * Le contexte (`avant`) suit les morceaux de texte d'un bloc ; il repart à zéro
+ * après un autre élément (lien) : acceptable pour des messages courts.
  */
 function typographierCorps(blocs, langue) {
   if (!Array.isArray(blocs)) return blocs

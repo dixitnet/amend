@@ -30,6 +30,7 @@
     "renommer": "Renommer",
     "nomDuDocument": "Titre du document",
     "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant.",
+    "connexionPerdue": "La connexion à ce document a été fermée. Rechargez la page.",
     "droitsChanges": "Vos droits sur ce document ont changé\u00A0: il se rouvre avec eux.",
     "restaurerTitre": "Revenir à cette version\u202F?",
     "restaurerTexte": "Le texte du document redevient celui de cette version, pour tout le monde. L’état actuel reste dans l’historique («\u00A0Avant la restauration\u00A0»).",

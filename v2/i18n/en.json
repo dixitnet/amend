@@ -30,6 +30,7 @@
     "renommer": "Rename",
     "nomDuDocument": "Document title",
     "exportEchoue": "The export failed. Please try again in a moment.",
+    "connexionPerdue": "The connection to this document was closed. Reload the page.",
     "droitsChanges": "Your access to this document changed: it reopens accordingly.",
     "restaurerTitre": "Restore this version?",
     "restaurerTexte": "The document goes back to this version for everyone. The current state stays in the history (“Before restore”).",

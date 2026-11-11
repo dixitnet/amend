@@ -21,7 +21,9 @@ export function aCheval(selection) {
   return !selection.empty && !selection.$from.sameParent(selection.$to)
 }
 
-/** Retour arrière (`arriere`) ou Suppr (`avant`) fusionnerait-il deux paragraphes ? */
+/** Retour arrière (`arriere`) ou Suppr (`avant`) fusionnerait-il deux paragraphes ?
+ * Limite connue du contournement : en bout de paragraphe, le geste est refusé
+ * même si le bloc voisin n'est pas du texte (image, séparateur). */
 export function fusionnerait(selection, sens) {
   if (!selection.empty) return aCheval(selection)
   const $p = selection.$from
