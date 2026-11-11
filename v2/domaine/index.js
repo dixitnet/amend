@@ -23,7 +23,17 @@ export {
   peutGererModeles,
   deplacementDocument,
 } from './equipes.js'
-export { listeAdministrateurs, estAdministrateur, numeroDeVersion, adresseAide } from './administration.js'
+export {
+  listeAdministrateurs,
+  estAdministrateur,
+  numeroDeVersion,
+  adresseAide,
+  DUREE_JOURNAL_MS,
+  DUREE_MESURES_MS,
+  PAS_MESURE_MS,
+  evenementDeReponse,
+  mesureValable,
+} from './administration.js'
 export { nfc } from './propre.js'
 export { compter, PROFONDEURS_TABLE, PROFONDEUR_TABLE_PAR_DEFAUT, profondeurTable, entreesTable } from './compteur.js'
 export {

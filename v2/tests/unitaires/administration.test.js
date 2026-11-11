@@ -39,3 +39,31 @@ test('adresse de l’aide : http ou https absolue, sans identifiants ; sinon rie
   ])
     assert.equal(adresseAide(v), null, String(v))
 })
+
+test('journal : erreurs à nous et refus inhabituels notés, refus ordinaires non', async () => {
+  const { evenementDeReponse, mesureValable } = await import('../../domaine/index.js')
+  assert.deepEqual(evenementDeReponse(500, 'erreur-interne'), { type: 'erreur', code: 'erreur-interne' })
+  assert.deepEqual(evenementDeReponse(503, undefined), { type: 'erreur', code: 'http-503' })
+  assert.deepEqual(evenementDeReponse(429, 'trop-de-liens'), { type: 'refus', code: 'trop-de-liens' })
+  assert.deepEqual(evenementDeReponse(413, 'image-trop-lourde'), { type: 'refus', code: 'image-trop-lourde' })
+  assert.deepEqual(evenementDeReponse(403, 'origine-refusee'), { type: 'refus', code: 'origine-refusee' })
+  for (const [statut, code] of [
+    [200, null],
+    [401, 'session-absente'],
+    [403, 'droit-insuffisant'],
+    [404, 'document-introuvable'],
+    [400, 'requete-invalide'],
+  ])
+    assert.equal(evenementDeReponse(statut, code), null, `${statut} ${code}`)
+  assert.ok(mesureValable('serveur', 120_000_000))
+  assert.ok(mesureValable('collaboration', 1))
+  for (const [p, m] of [
+    ['autre', 10],
+    ['serveur', 0],
+    ['serveur', -1],
+    ['serveur', 1.5],
+    ['serveur', '10'],
+    ['serveur', 2 ** 41],
+  ])
+    assert.equal(mesureValable(p, m), false, `${p} ${m}`)
+})
