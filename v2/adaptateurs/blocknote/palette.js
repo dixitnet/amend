@@ -9,3 +9,21 @@ export const BOUTONS_RETIRES = ['textAlignLeftButton', 'textAlignCenterButton', 
 export function boutonsGardes(boutons) {
   return boutons.filter((bouton) => !BOUTONS_RETIRES.includes(bouton.key))
 }
+
+// En mode Suggérer, pas de mise en forme (contournement temporaire, veille :
+// une suggestion de mise en forme n'est pas arbitrable ; Sylvain, 11/11/2026).
+export const BOUTONS_DE_FORME = [
+  'blockTypeSelect',
+  'boldStyleButton',
+  'italicStyleButton',
+  'underlineStyleButton',
+  'strikeStyleButton',
+  'colorStyleButton',
+  'nestBlockButton',
+  'unnestBlockButton',
+]
+
+/** Les boutons gardés en mode Suggérer. */
+export function boutonsGardesEnSuggestion(boutons) {
+  return boutonsGardes(boutons).filter((bouton) => !BOUTONS_DE_FORME.includes(bouton.key))
+}

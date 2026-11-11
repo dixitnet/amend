@@ -25,6 +25,19 @@ export function clientCollaboration({ url, jeton }) {
     return encodage.decodeAny(new Uint8Array(await r.arrayBuffer()))
   }
   return {
+    /** Les droits sur le document ont changé (pour `personne`, ou pour tous) :
+     * ses connexions ouvertes les redemandent, texte et suggestions. */
+    async revoirAcces(docId, personne = null) {
+      for (const branche of ['main', 'suggestions']) {
+        const q = new URLSearchParams({ branch: branche, ...(personne ? { personne } : {}) })
+        const r = await fetch(`${url}/reset-connections/v1/${ORGANISATION}/${encodeURIComponent(docId)}?${q}`, {
+          method: 'POST',
+          headers: entetes,
+          signal: AbortSignal.timeout(5000),
+        })
+        if (!r.ok) throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
+      }
+    },
     /** Efface un document dans y/hub, texte et suggestions, définitivement. */
     async supprimerDocument(docId) {
       for (const branche of ['main', 'suggestions']) {

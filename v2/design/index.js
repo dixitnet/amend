@@ -16,6 +16,7 @@ export {
   Bandeau,
   VoletPlanDocuments,
   VoletRelecture,
+  ListeDesFils,
   TexteDeVolet,
   AlerteHorsLigne,
   Fenetre,

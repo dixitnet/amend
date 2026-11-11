@@ -2,7 +2,14 @@
 // 0006). y/hub tient le contenu des documents ; il ne décide rien : à chaque
 // connexion, il demande à l'application qui est la personne (`identifier`) et
 // ce qu'elle peut faire (`droits`), comme l'adaptateur de Docs.
-import { createYHub, createAuthPlugin, createAuthorize, createDocumentPermissions, apiError } from '@y/hub'
+import {
+  createYHub,
+  createAuthPlugin,
+  createAuthorize,
+  createDocumentPermissions,
+  createApiEndpoint,
+  apiError,
+} from '@y/hub'
 import { timingSafeEqual } from 'node:crypto'
 import { BRANCHES, AUTEUR_MARGO } from '../../domaine/index.js'
 
@@ -37,13 +44,35 @@ const ORGANISATION = 'amend'
  * écrit le texte principal, pour poser l'ancre d'un commentaire de correcteur
  * (étape 5), et efface un document supprimé par son propriétaire (étape 6a). */
 const SERVEUR = 'amend-serveur'
+
+/**
+ * Les droits ont changé (accès donné, retiré, rôle changé) : chaque connexion
+ * ouverte du document les redemande (`recheckAuth`) et se ferme (code 4401)
+ * s'ils ne sont plus les mêmes ; le navigateur relit alors ses droits. Le
+ * montage de Docs (`src/yhub-server/src/api.ts`, `reset-connections`), réservé
+ * à notre serveur (aucun droit du navigateur ne nomme cette route).
+ */
+const REVOIR_ACCES = 'reset-connections'
+const revoirAcces = createApiEndpoint(REVOIR_ACCES, {
+  post: {
+    handler: async (req) => {
+      const personne = typeof req.query?.personne === 'string' && req.query.personne ? req.query.personne : null
+      await req.yhub.recheckAuth(req.docRef, { users: personne ? [personne] : null })
+      return { ok: true }
+    },
+  },
+})
 const PERMISSIONS_SERVEUR = createDocumentPermissions({
   ydoc: '-ru-',
   delete: ['hard'],
-  endpoint: { ydoc: '-rud' },
+  endpoint: { ydoc: '-rud', [REVOIR_ACCES]: 'c---' },
 })
-// Sur la branche des suggestions, effacer seulement (document supprimé).
-const PERMISSIONS_SERVEUR_SUGGESTIONS = createDocumentPermissions({ delete: ['hard'], endpoint: { ydoc: '---d' } })
+// Sur la branche des suggestions, effacer seulement (document supprimé), et
+// faire revoir les droits des connexions ouvertes.
+const PERMISSIONS_SERVEUR_SUGGESTIONS = createDocumentPermissions({
+  delete: ['hard'],
+  endpoint: { ydoc: '---d', [REVOIR_ACCES]: 'c---' },
+})
 
 /** Margo, l'IA (étape 8) : notre serveur, au nom de Margo (jeton interne et
  * en-tête `x-amend-agent: margo`). Elle lit le texte et écrit dans les
@@ -119,6 +148,7 @@ export async function demarrerCollaboration({
       port,
       auth,
       apiPrefix: 'collaboration',
+      api: [revoirAcces],
       cors: origines.length ? { origin: origines, credentials: true } : null,
     },
   })

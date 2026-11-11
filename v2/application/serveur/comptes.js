@@ -101,7 +101,7 @@ function decoder(segment) {
  * @param {any} o.comptes  le dépôt des comptes
  * @param {any} [o.commentaires]  le dépôt des commentaires (effacés avec le document)
  * @param {{ envoyer: Function }} o.courrier
- * @param {{ supprimerDocument: (docId: string) => Promise<void> } | null} o.collaboration
+ * @param {{ supprimerDocument: (docId: string) => Promise<void>, revoirAcces?: (docId: string, personne?: string | null) => Promise<void> } | null} o.collaboration
  * @param {(req: any) => Promise<{ id: string, nom: string } | null>} o.personneDe
  * @param {(res: any, statut: number, corps: any, entetes?: object) => void} o.json
  * @param {(req: any, max?: number) => Promise<any>} o.lireCorps
@@ -132,6 +132,22 @@ export function creerComptes({
   /** Le statut HTTP d'un refus du domaine (les mêmes partout, audit du 09/11/2026). */
   const statutDuRefus = (code) =>
     code === 'droit-insuffisant' ? 403 : code === 'dernier-gestionnaire' || code === 'dernier-proprietaire' ? 409 : 400
+
+  /**
+   * Les droits sur un document ont changé : ses connexions ouvertes les
+   * redemandent (montage de Docs, `reset-connections`), pour `personne` ou pour
+   * tous. Un échec ne fait pas échouer le changement : la personne garde au pire
+   * ses anciens droits jusqu'à son prochain rechargement (journal).
+   */
+  async function revoir(docId, personne = null) {
+    if (!collaboration?.revoirAcces) return
+    await collaboration.revoirAcces(docId, personne).catch((e) => console.error('revoir les accès :', e.message))
+  }
+  /** De même pour tous les documents d'une équipe (le rôle d'un membre a changé). */
+  async function revoirEquipe(equipe, membreQuiVoit, personne) {
+    // En parallèle : une demande par document (y/hub n'en connaît pas pour une équipe).
+    await Promise.all((await comptes.documentsDeLEquipe(equipe, membreQuiVoit)).map((d) => revoir(d.id, personne)))
+  }
 
   async function envoyerLien(courriel, document, { dureeMs, sujet, intro, libelleLien }) {
     const jeton = await comptes.creerJeton(courriel, document, dureeMs)
@@ -197,7 +213,10 @@ export function creerComptes({
     }
     if (sous === 'moi' && !cible && methode === 'DELETE') {
       const refus = refusDepart(moi.role, await comptes.gestionnaires(equipe.id))
+      // La liste des documents se lit tant que je suis encore membre.
+      const docs = await comptes.documentsDeLEquipe(equipe.id, p.id)
       if (refus || (await comptes.modifierMembre(equipe.id, p.id, null))) return err(res, 409, 'dernier-gestionnaire')
+      await Promise.all(docs.map((d) => revoir(d.id, p.id)))
       return ok(res)
     }
     if (sous === 'membres' && !cible && methode === 'POST') {
@@ -213,6 +232,7 @@ export function creerComptes({
       if (invite) {
         if ((await comptes.modifierMembre(equipe.id, invite.id, nouveau, p.id)) === 'dernier-gestionnaire')
           return err(res, 409, 'dernier-gestionnaire')
+        await revoirEquipe(equipe.id, p.id, invite.id)
         await courrier.envoyer({
           a: a.courriel,
           sujet: t('courriel.equipe.acces.sujet', vars),
@@ -242,6 +262,7 @@ export function creerComptes({
       if (refus) return err(res, statutDuRefus(refus), refus)
       if ((await comptes.modifierMembre(equipe.id, cible, nouveau, p.id)) === 'dernier-gestionnaire')
         return err(res, 409, 'dernier-gestionnaire')
+      await revoirEquipe(equipe.id, p.id, cible)
       return ok(res)
     }
     if (sous === 'invitations' && cible && methode === 'DELETE') {
@@ -541,6 +562,8 @@ export function creerComptes({
       if (decision.action === 'entrer') await comptes.entrerDansEquipe(docId, destination, rangement)
       else if (decision.action === 'sortir') await comptes.sortirDeLEquipe(docId, p.id, rangement)
       else await comptes.rangerDocument(docId, rangement)
+      // Entrer dans une équipe ou en sortir change les droits de ses membres.
+      if (decision.action === 'entrer' || decision.action === 'sortir') await revoir(docId)
       return ok(res)
     }
     // PUT / DELETE /api/documents/:doc/favori : mes favoris (comme Docs,
@@ -558,6 +581,7 @@ export function creerComptes({
       if (actuel && (await comptes.modifierAcces(docId, p.id, null)) === 'dernier-proprietaire')
         return err(res, 409, 'dernier-proprietaire')
       await comptes.retirerPassageParLien(docId, p.id)
+      await revoir(docId, p.id)
       return ok(res)
     }
     // Les modèles de mise en page du document (étape 7, ADR 0011) : ceux
@@ -620,6 +644,7 @@ export function creerComptes({
       }
       if (invite) {
         await comptes.donnerAcces(docId, invite.id, corps.role, p.id)
+        await revoir(docId, invite.id)
         await courrier.envoyer({
           a: a.courriel,
           sujet: t('courriel.acces.sujet', vars),
@@ -656,6 +681,7 @@ export function creerComptes({
       // transaction : deux retraits simultanés ne laissent pas un document sans propriétaire.
       if ((await comptes.modifierAcces(docId, cible, nouveau)) === 'dernier-proprietaire')
         return err(res, 409, 'dernier-proprietaire')
+      await revoir(docId, cible)
       return ok(res)
     }
     if (sous === 'invitations' && cible && methode === 'DELETE') {
@@ -666,6 +692,7 @@ export function creerComptes({
       const { role: roleLien } = await lireCorps(req)
       if (roleLien === undefined || !roleDuLienValide(roleLien)) return err(res, 400, 'role-invalide')
       await comptes.definirRoleLien(docId, roleLien)
+      await revoir(docId)
       return ok(res)
     }
     return err(res, 404, 'introuvable')

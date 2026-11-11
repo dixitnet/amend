@@ -156,6 +156,26 @@ test('l’interface suit la langue du navigateur', async () => {
   await ctx.close()
 })
 
+test('droits à chaud : rétrogradée en lectrice, le document ouvert, elle n’écrit plus ; retirée, le document se ferme', async () => {
+  const doc = docTest('droits-chaud')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Texte.')
+  const e = await ouvrir('Edith', doc)
+  await attendreTexte(e, 'Texte.')
+  await donnerRole(pile.url, doc, 'Edith', 'lecteur')
+  // La connexion d'Edith est fermée (code 4401), ses droits relus, l'édition rouverte en lecture.
+  await e.getByText('Lecture seule').waitFor({ timeout: 15000 })
+  await e.click('.bn-inline-content')
+  await e.keyboard.type(' Interdit.')
+  await attendre(1500)
+  await attendreTexte(p, 'Texte.')
+  await donnerRole(pile.url, doc, 'Edith', null)
+  await e.getByText('Ce document n’existe pas, ou vous n’y avez pas accès.').waitFor({ timeout: 15000 })
+  await p.context().close()
+  await e.context().close()
+})
+
 test('droits : un correcteur ne fait que proposer, et l’interface le lui dit', async () => {
   const doc = docTest('correcteur')
   const p = await ouvrir('Paule', doc)

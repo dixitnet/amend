@@ -30,6 +30,11 @@
     "renommer": "Renommer",
     "nomDuDocument": "Titre du document",
     "exportEchoue": "L’export n’a pas abouti. Réessayez dans un instant.",
+    "connexionPerdue": "La connexion à ce document a été fermée. Rechargez la page.",
+    "droitsChanges": "Vos droits sur ce document ont changé\u00A0: il se rouvre avec eux.",
+    "restaurerTitre": "Revenir à cette version\u202F?",
+    "restaurerTexte": "Le texte du document redevient celui de cette version, pour tout le monde. L’état actuel reste dans l’historique («\u00A0Avant la restauration\u00A0»).",
+    "restaurer": "Restaurer",
     "modes": "Mode d’édition",
     "modeEcrire": "Modifier",
     "modeSuggerer": "Suggérer",
@@ -85,6 +90,19 @@
     "modele-inconnu": "Ce modèle n’existe pas.",
     "modele-sans-cle": "Ce modèle n’a pas de clé configurée sur ce serveur."
   },
+  "commentaires": {
+    "titre": "Commentaires",
+    "filtre": "Fils à afficher",
+    "ouverts": "Ouverts",
+    "resolus": "Résolus",
+    "tous": "Tous"
+  },
+  "suivi": {
+    "aCheval": "En mode Suggérer, une suppression ne peut pas franchir la fin d’un paragraphe (elle serait mal enregistrée). Supprimez paragraphe par paragraphe, ou passez en Modifier.",
+    "miseEnForme": "En mode Suggérer, la mise en forme n’est pas proposée (elle ne pourrait pas être acceptée). Passez en Modifier pour la changer.",
+    "panne": "Ce document ne peut pas s’afficher avec ses suggestions. Rechargez la page\u202F; si cela se reproduit, signalez-le.",
+    "panneRepli": "L’affichage des suggestions a échoué sur ce document\u00A0: retour en Modifier."
+  },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
     "ajout": "{auteur} ajoute «\u00A0{apres}\u00A0»",
@@ -97,6 +115,7 @@
     "toutRefuser": "Tout refuser",
     "accepterDe": "Accepter\u00A0: {texte}",
     "refuserDe": "Refuser\u00A0: {texte}",
+    "invisibles": "Des suggestions ne s’affichent pas dans la liste (une suppression de paragraphe, par exemple)\u00A0: «\u00A0Tout accepter\u00A0» et «\u00A0Tout refuser\u00A0» les traitent.",
     "enCours": "Suggestions en attente",
     "enAttente": "Des suggestions attendent\u00A0: passez en relecture pour les accepter ou les refuser."
   },
