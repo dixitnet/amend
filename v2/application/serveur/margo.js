@@ -31,7 +31,13 @@ import {
 } from '../../domaine/index.js'
 import { decoder } from './adresse.js'
 import { consigne } from '../../i18n/consignes.js'
-import { blocsATexteDe, suggererRemplacements, ancreCommentaire } from '../../adaptateurs/blocknote/serveur.js'
+
+// BlockNote n'est chargé qu'à la première demande (comme pour l'ancre d'un
+// commentaire, `commentaires.js`) : il pèse ~70 Mo, inutiles au serveur tant
+// que personne ne parle à Margo (mesure du 11/11/2026 : 117 Mo au démarrage
+// avec lui, pour un service plafonné à 200 Mo).
+let adaptateur = null
+const blocknote = async () => (adaptateur ??= await import('../../adaptateurs/blocknote/serveur.js'))
 
 /** Une lecture rend au plus ce nombre de signes (le reste au prochain appel). */
 const LECTURE_MAX_SIGNES = 40_000
@@ -111,6 +117,9 @@ export function creerMargo({
   lireCorps,
   journal = (l) => console.log(`[margo] ${JSON.stringify(l)}`),
 }) {
+  /** Les personnes dont une demande est en cours : une à la fois par personne
+   * (chaque demande relit le texte entier à chaque outil ; audit du 11/11/2026). */
+  const enCours = new Set()
   return async function traiter(req, res, url) {
     const m = /^\/api\/documents\/([^/]+)\/margo$/.exec(url.pathname)
     if (!m) return false
@@ -134,133 +143,145 @@ export function creerMargo({
     const modele = typeof modeleDeMargo === 'function' ? await modeleDeMargo() : modeleDeMargo
     if (!ia.disponible(modele)) return (json(res, 503, { code: 'margo-indisponible' }), true)
 
-    let etat
+    if (enCours.has(p.id)) return (json(res, 429, { code: 'margo-occupee' }), true)
+    enCours.add(p.id)
     try {
-      etat = await lireEtat(collaboration, docId)
-    } catch {
-      return (json(res, 503, { code: 'collaboration-indisponible' }), true)
+      return await repondre()
+    } finally {
+      enCours.delete(p.id)
     }
-    const portee = porteeDeLaSelection(corps.selection, etat.blocs)
-    if (corriger && portee.type !== 'selection') return (json(res, 400, { code: 'selection-absente' }), true)
 
-    res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' })
-    const envoyer = (evenement) => res.write(`${JSON.stringify(evenement)}\n`)
-    const abandon = new AbortController()
-    res.on('close', () => abandon.abort())
-    envoyer({ type: 'debut', blocs: etat.blocs.map((b) => b.id) })
+    async function repondre() {
+      let etat
+      try {
+        etat = await lireEtat(collaboration, docId)
+      } catch {
+        return (json(res, 503, { code: 'collaboration-indisponible' }), true)
+      }
+      const portee = porteeDeLaSelection(corps.selection, etat.blocs)
+      if (corriger && portee.type !== 'selection') return (json(res, 400, { code: 'selection-absente' }), true)
 
-    const titre = (await documentDe(docId).catch(() => null))?.titre || ''
-    const premier = premierMessage({
-      prenom: p.nom,
-      demande: corriger ? consigne('corriger') : demande,
-      historique: corps.historique,
-      portee,
-      blocs: etat.blocs,
-    })
-    const systeme = consigne('margo', {
-      prenom: p.nom,
-      titre,
-      portee: portee.type,
-      de: portee.de ?? 0,
-      a: portee.a ?? 0,
-    })
-    const bilan = { corrections: 0, commentaires: 0, refus: 0 }
-    // Les signes lus comptent aussi le passage sélectionné, envoyé d'emblée.
-    const signesSelection =
-      portee.type === 'selection'
-        ? etat.blocs.slice(portee.de - 1, portee.a).reduce((n, b) => n + signes(b.texte), 0)
-        : 0
-    // Le premier message compte aussi : échanges précédents compris (A2).
-    const compte = {
-      etapes: 0,
-      signesDemande: signes(premier),
-      signesLus: signesSelection,
-      entree: 0,
-      sortie: 0,
-      cacheLu: 0,
-    }
-    const debut = Date.now()
-    let modeleEnCours = modele
-    let arret = 'fin'
-    try {
-      const outils = creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte })
-      let conversation = ia.conversation({ modele, consigne: systeme, outils: OUTILS, signal: abandon.signal })
-      let entree = { texte: premier }
-      const refus = suiviDesRefus()
-      let derniereEtape = false
-      for (;;) {
-        compte.etapes++
-        const tour = await conversation.tour(entree)
-        compte.entree += tour.jetons.entree
-        compte.sortie += tour.jetons.sortie
-        compte.cacheLu += tour.jetons.cacheLu
-        if (tour.texte.trim()) envoyer({ type: 'texte', texte: tour.texte })
-        if (tour.arret === 'refus' && modeleEnCours !== modeleRepli && ia.disponible(modeleRepli)) {
-          // Le modèle refuse : le modèle par défaut reprend la demande depuis
-          // le début (ce qui est déjà posé reste posé).
-          modeleEnCours = modeleRepli
-          envoyer({ type: 'repli' })
-          conversation = ia.conversation({
-            modele: modeleRepli,
-            consigne: systeme,
-            outils: OUTILS,
-            signal: abandon.signal,
-          })
-          entree = { texte: premier }
-          continue
-        }
-        if (tour.arret !== 'outils' || derniereEtape) {
-          if (!derniereEtape) arret = tour.arret
-          break
-        }
-        const resultats = []
-        let ecrituresAcceptees = null
-        for (const appel of tour.appels) {
-          envoyer({ type: 'etape', outil: SCHEMAS[appel.nom] ? appel.nom : 'inconnu' })
-          const r = await outils.executer(appel.nom, appel.entree)
-          if (r.ecriture) ecrituresAcceptees = (ecrituresAcceptees ?? false) || r.acceptee
-          resultats.push({ id: appel.id, contenu: r.contenu, erreur: r.erreur === true })
-        }
-        entree = { resultats }
-        if (ecrituresAcceptees !== null) {
-          const suite = refus.noter(ecrituresAcceptees)
-          if (suite === 'avertir') entree.texte = consigne('service.refusEnSerie', { n: GARDE_FOUS_MARGO.refusEnSerie })
-          if (suite === 'arreter') {
-            entree.texte = consigne('service.bilanRefus')
-            arret = 'refus-en-serie'
+      res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' })
+      const envoyer = (evenement) => res.write(`${JSON.stringify(evenement)}\n`)
+      const abandon = new AbortController()
+      res.on('close', () => abandon.abort())
+      envoyer({ type: 'debut', blocs: etat.blocs.map((b) => b.id) })
+
+      const titre = (await documentDe(docId).catch(() => null))?.titre || ''
+      const premier = premierMessage({
+        prenom: p.nom,
+        demande: corriger ? consigne('corriger') : demande,
+        historique: corps.historique,
+        portee,
+        blocs: etat.blocs,
+      })
+      const systeme = consigne('margo', {
+        prenom: p.nom,
+        titre,
+        portee: portee.type,
+        de: portee.de ?? 0,
+        a: portee.a ?? 0,
+      })
+      const bilan = { corrections: 0, commentaires: 0, refus: 0 }
+      // Les signes lus comptent aussi le passage sélectionné, envoyé d'emblée.
+      const signesSelection =
+        portee.type === 'selection'
+          ? etat.blocs.slice(portee.de - 1, portee.a).reduce((n, b) => n + signes(b.texte), 0)
+          : 0
+      // Le premier message compte aussi : échanges précédents compris (A2).
+      const compte = {
+        etapes: 0,
+        signesDemande: signes(premier),
+        signesLus: signesSelection,
+        entree: 0,
+        sortie: 0,
+        cacheLu: 0,
+      }
+      const debut = Date.now()
+      let modeleEnCours = modele
+      let arret = 'fin'
+      try {
+        const outils = creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte })
+        let conversation = ia.conversation({ modele, consigne: systeme, outils: OUTILS, signal: abandon.signal })
+        let entree = { texte: premier }
+        const refus = suiviDesRefus()
+        let derniereEtape = false
+        for (;;) {
+          compte.etapes++
+          const tour = await conversation.tour(entree)
+          compte.entree += tour.jetons.entree
+          compte.sortie += tour.jetons.sortie
+          compte.cacheLu += tour.jetons.cacheLu
+          if (tour.texte.trim()) envoyer({ type: 'texte', texte: tour.texte })
+          if (tour.arret === 'refus' && modeleEnCours !== modeleRepli && ia.disponible(modeleRepli)) {
+            // Le modèle refuse : le modèle par défaut reprend la demande depuis
+            // le début (ce qui est déjà posé reste posé).
+            modeleEnCours = modeleRepli
+            envoyer({ type: 'repli' })
+            conversation = ia.conversation({
+              modele: modeleRepli,
+              consigne: systeme,
+              outils: OUTILS,
+              signal: abandon.signal,
+            })
+            entree = { texte: premier }
+            continue
+          }
+          if (tour.arret !== 'outils' || derniereEtape) {
+            if (!derniereEtape) arret = tour.arret
+            break
+          }
+          const resultats = []
+          let ecrituresAcceptees = null
+          for (const appel of tour.appels) {
+            envoyer({ type: 'etape', outil: SCHEMAS[appel.nom] ? appel.nom : 'inconnu' })
+            const r = await outils.executer(appel.nom, appel.entree)
+            if (r.ecriture) ecrituresAcceptees = (ecrituresAcceptees ?? false) || r.acceptee
+            resultats.push({ id: appel.id, contenu: r.contenu, erreur: r.erreur === true })
+          }
+          entree = { resultats }
+          if (ecrituresAcceptees !== null) {
+            const suite = refus.noter(ecrituresAcceptees)
+            if (suite === 'avertir')
+              entree.texte = consigne('service.refusEnSerie', { n: GARDE_FOUS_MARGO.refusEnSerie })
+            if (suite === 'arreter') {
+              entree.texte = consigne('service.bilanRefus')
+              arret = 'refus-en-serie'
+              derniereEtape = true
+            }
+          }
+          if (!derniereEtape && compte.etapes >= GARDE_FOUS_MARGO.etapes) {
+            entree.texte = consigne('service.bilanEtapes')
+            arret = 'etapes'
             derniereEtape = true
           }
         }
-        if (!derniereEtape && compte.etapes >= GARDE_FOUS_MARGO.etapes) {
-          entree.texte = consigne('service.bilanEtapes')
-          arret = 'etapes'
-          derniereEtape = true
-        }
+      } catch (err) {
+        arret = err.code === 'ia-annulee' || abandon.signal.aborted ? 'annulee' : 'erreur'
+        if (arret === 'erreur') console.error('[margo] demande interrompue :', err.code ?? err.message)
       }
-    } catch (err) {
-      arret = err.code === 'ia-annulee' || abandon.signal.aborted ? 'annulee' : 'erreur'
-      if (arret === 'erreur') console.error('[margo] demande interrompue :', err.code ?? err.message)
+      if (!abandon.signal.aborted) {
+        envoyer({ type: 'fin', arret, ...bilan })
+        res.end()
+      }
+      journal({
+        document: docId,
+        modele: modeleEnCours,
+        corriger,
+        portee: portee.type,
+        arret,
+        ...bilan,
+        ...compte,
+        duree: Date.now() - debut,
+      })
+      return true
     }
-    if (!abandon.signal.aborted) {
-      envoyer({ type: 'fin', arret, ...bilan })
-      res.end()
-    }
-    journal({
-      document: docId,
-      modele: modeleEnCours,
-      corriger,
-      portee: portee.type,
-      arret,
-      ...bilan,
-      ...compte,
-      duree: Date.now() - debut,
-    })
-    return true
   }
 }
 
 async function lireEtat(collaboration, docId) {
   const [texte, suggestions] = await Promise.all([collaboration.lireTexte(docId), collaboration.lireSuggestions(docId)])
+  const { blocsATexteDe } = await blocknote()
   return { texte, suggestions, blocs: numeroter(blocsATexteDe(texte, suggestions)) }
 }
 
@@ -372,6 +393,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
     }
     let poses = []
     if (aPoser.length) {
+      const { suggererRemplacements } = await blocknote()
       const { resultats, mise } = suggererRemplacements(etat.texte, etat.suggestions, aPoser)
       if (mise) await collaboration.ecrireSuggestions(docId, mise)
       poses = resultats
@@ -394,6 +416,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
     const refuser = (code) => (bilan.refus++, { contenu: consigne(`refus.${code}`), ecriture: true, acceptee: false })
     if (!vise) return refuser('bloc')
     // L'ancre se pose dans le texte principal, sans les suggestions en cours.
+    const { blocsATexteDe, ancreCommentaire } = await blocknote()
     const principal = blocsATexteDe(etat.texte).find((b) => b.id === vise.id)
     if (!principal) return refuser('ancre')
     const ou = situerCitation(principal.texte, citation)

@@ -1,0 +1,142 @@
+// Le back-office de l'instance (administrateurs).
+import { useEffect, useState } from 'react'
+import { EcranMessage, PageAdministration, Bouton } from '../../design/index.js'
+import { messageErreur } from '../../i18n/index.js'
+import { t, envoyerJson, nomDuModele } from './commun.js'
+
+// Les noms des modèles d'interface et des couleurs (design/apparence.js).
+const NOMS_INTERFACES = {
+  atelier: () => t('admin.interfaces.atelier'),
+  origine: () => t('admin.interfaces.origine'),
+}
+const nomDuModeleInterface = (n) => NOMS_INTERFACES[n]?.() ?? n
+const NOMS_COULEURS = {
+  vermillon: () => t('admin.couleurs.vermillon'),
+  vert: () => t('admin.couleurs.vert'),
+  encre: () => t('admin.couleurs.encre'),
+  indigo: () => t('admin.couleurs.indigo'),
+  bleu: () => t('admin.couleurs.bleu'),
+  violet: () => t('admin.couleurs.violet'),
+  petrole: () => t('admin.couleurs.petrole'),
+  sepia: () => t('admin.couleurs.sepia'),
+}
+const nomDeLaCouleur = (n) => NOMS_COULEURS[n]?.() ?? n
+
+/** Le back-office de l'instance (administrateurs) : les rubriques Système
+ * (version 2.NNN, serveur, nombres), Apparence (modèle d'interface et couleur
+ * de l'instance, 11/11/2026) et IA (le modèle de Margo, étape 8) ; le serveur
+ * refuse les autres. `surApparence` : l'apparence choisie, appliquée tout de
+ * suite à l'écran. */
+export function Administration({ surApparence }) {
+  const [systeme, setSysteme] = useState(null)
+  const [ia, setIa] = useState(null)
+  const [message, setMessage] = useState(null)
+  const [erreur, setErreur] = useState(null)
+  // Deux chargements indépendants : une panne de la rubrique IA ne cache pas
+  // la rubrique Système (audit du 11/11/2026, 3).
+  const [erreurIa, setErreurIa] = useState(null)
+  const [apparence, setApparence] = useState(null)
+  const [erreurApparence, setErreurApparence] = useState(null)
+  useEffect(() => {
+    envoyerJson('GET', '/api/admin/apparence')
+      .then(setApparence)
+      .catch((e) => setErreurApparence(e.code || 'reseau'))
+    envoyerJson('GET', '/api/admin/systeme')
+      .then(setSysteme)
+      .catch((e) => setErreur(e.code || 'reseau'))
+    envoyerJson('GET', '/api/admin/ia')
+      .then(setIa)
+      .catch((e) => setErreurIa(e.code || 'reseau'))
+  }, [])
+  if (erreur) return <EcranMessage texte={messageErreur(t, erreur)} />
+  if (!systeme || (!ia && !erreurIa) || (!apparence && !erreurApparence))
+    return <EcranMessage texte={t('application.chargement')} />
+  const date = new Intl.DateTimeFormat(t.langue, { dateStyle: 'medium', timeStyle: 'short' })
+  const nombre = new Intl.NumberFormat(t.langue)
+  const mo = new Intl.NumberFormat(t.langue, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 0 })
+  const { version: v, comptes: c } = systeme
+  const choisirModele = (modele) =>
+    envoyerJson('PUT', '/api/admin/ia', { modele })
+      .then(
+        () => (setIa((i) => ({ ...i, modele })), setMessage(t('admin.modeleEnregistre', { nom: nomDuModele(modele) }))),
+      )
+      .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+  // L'apparence s'applique tout de suite à l'écran, et à toute l'instance.
+  const choisirApparence = (champ) => (valeur) => {
+    const nouvelle = { ...apparence.apparence, [champ]: valeur }
+    envoyerJson('PUT', '/api/admin/apparence', nouvelle)
+      .then(() => {
+        setApparence((a) => ({ ...a, apparence: nouvelle }))
+        surApparence?.(nouvelle)
+        setMessage(t('admin.apparenceEnregistree'))
+      })
+      .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+  }
+  // `apparence` est nul quand la rubrique n'a pas pu se lire : la ligne
+  // affiche alors l'erreur, sans faire tomber la page.
+  const ligneApparence = (champ, libelle, noms, nomDe) =>
+    erreurApparence
+      ? { libelle, valeur: messageErreur(t, erreurApparence) }
+      : {
+          libelle,
+          choix: {
+            valeur: apparence.apparence[champ],
+            surChange: choisirApparence(champ),
+            options: noms.map((n) => ({ valeur: n, libelle: nomDe(n) })),
+          },
+        }
+  return (
+    <PageAdministration
+      nomApplication={t('application.nom')}
+      titre={t('admin.titre')}
+      actions={<Bouton libelle={t('document.mesDocuments')} surClic={() => (location.hash = '#')} />}
+      message={message}
+      rubriques={[
+        {
+          titre: t('admin.systeme'),
+          lignes: [
+            {
+              libelle: t('admin.version'),
+              valeur: v.numero
+                ? t('admin.versionValeur', { numero: v.numero, commit: v.commit, date: date.format(v.date) })
+                : t('admin.versionInconnue'),
+            },
+            { libelle: t('admin.demarrage'), valeur: date.format(systeme.demarrage) },
+            { libelle: t('admin.memoire'), valeur: mo.format(systeme.memoire / 1e6) },
+            { libelle: t('admin.node'), valeur: systeme.node },
+            { libelle: t('admin.personnes'), valeur: nombre.format(c.personnes) },
+            { libelle: t('admin.essai'), valeur: nombre.format(c.essai) },
+            { libelle: t('admin.documents'), valeur: nombre.format(c.documents) },
+            { libelle: t('admin.equipes'), valeur: nombre.format(c.equipes) },
+          ],
+        },
+        {
+          titre: t('admin.apparence'),
+          lignes: [
+            ligneApparence('modele', t('admin.modeleInterface'), apparence?.modeles ?? [], nomDuModeleInterface),
+            ligneApparence('couleur', t('admin.couleur'), apparence?.couleurs ?? [], nomDeLaCouleur),
+          ],
+        },
+        {
+          titre: t('admin.ia'),
+          lignes: [
+            erreurIa
+              ? { libelle: t('admin.modeleMargo'), valeur: messageErreur(t, erreurIa) }
+              : {
+                  libelle: t('admin.modeleMargo'),
+                  choix: {
+                    valeur: ia.modele ?? ia.defaut,
+                    surChange: choisirModele,
+                    options: ia.modeles.map((m) => ({
+                      valeur: m.id,
+                      libelle: m.disponible ? nomDuModele(m.id) : t('admin.modeleSansCle', { nom: nomDuModele(m.id) }),
+                      desactive: !m.disponible,
+                    })),
+                  },
+                },
+          ],
+        },
+      ]}
+    />
+  )
+}

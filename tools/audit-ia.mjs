@@ -117,7 +117,8 @@ const GRILLE_COMPLETE = `1. Architecture : couches et graphe des dépendances (r
 
 const consigne = (
   perimetre,
-  grille
+  grille,
+  outilsTraitesAilleurs = false
 ) => `Tu audites le code d'amend.ink v2, un éditeur de texte collaboratif pour auteurs et éditeurs. Un autre modèle (Claude) a écrit ce code ; ton rôle est de trouver ce qu'il a pu manquer. Réponds en français.
 
 Tu reçois les règles de développement, les décisions (ADR), le registre des renoncements, puis ${perimetre}. Chaque ligne de code est précédée de son numéro de ligne dans le fichier.
@@ -126,7 +127,12 @@ Règles d'audit, strictes :
 - N'audite que le code fourni ; pas de remarque sur ce qui relève d'une étape future du plan.
 - Juge par rapport aux règles et décisions fournies, pas par rapport à tes préférences. Un choix écrit dans une règle, un ADR ou le registre des renoncements n'est pas un défaut.
 - Chaque constat cite au moins un emplacement exact au format \`chemin/du/fichier.js:123\`, avec le numéro de ligne donné. Un constat sans citation exacte sera écarté.
-- N'invente rien : si tu n'es pas sûr, classe le constat en « question ».
+- N'invente rien : si tu n'es pas sûr, classe le constat en « question ».${
+  outilsTraitesAilleurs
+    ? `
+- Les résultats des outils déterministes (npm audit, couverture, knip, Semgrep…) ne sont pas joints à ce module : ils sont traités une seule fois, dans le dernier module de l'audit. N'en parle pas ici.`
+    : ''
+}
 
 Grille :
 ${grille}
@@ -319,11 +325,17 @@ const MODULES = [
   ['Client', ['v2/application/client/']],
   ['Design', ['v2/design/']],
   ['Exploitation', ['v2/exploitation/']],
+  ['Déploiement automatique', ['deploy/auto/']],
   [
     'Garde-fous (lint, contrats statiques, configuration)',
     ['v2/eslint.config.js', 'v2/contrats/statiques/', 'v2/package.json', 'v2/vite.config.js', 'v2/knip.json'],
   ],
 ]
+/**
+ * Le titre d'un test : `test`, `it` ou un enrobage `t2`, `t3`… (éventuellement `.skip`, `.only`), avec
+ * le titre entre apostrophes, guillemets ou accents graves, même sur la ligne suivante.
+ */
+const TITRE_DE_TEST = /^\s*(?:test|it|t\d)(?:\.\w+)?\(\s*(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/gm
 const SOURCE = /\.(m?js|jsx|json|css|sh|service|timer|conf|html|md)$|Caddyfile/
 
 async function auditComplet() {
@@ -332,23 +344,27 @@ async function auditComplet() {
     .map((f) => ({ titre: `Résultat d'outil : ${f}`, texte: readFileSync(join(OUTILS, f), 'utf8') }))
   const tests = suivis('v2/')
     .filter((f) => /\/(tests|contrats)\/.*\.test\.m?js$/.test(f))
-    .map((f) => `${f}\n` + [...lire(f).matchAll(/^(?:test|t2)\('([^']+)'/gm)].map((m) => `  - ${m[1]}`).join('\n'))
+    .map((f) => `${f}\n` + [...lire(f).matchAll(TITRE_DE_TEST)].map((m) => `  - ${m[2]}`).join('\n'))
     .join('\n')
   const sections = []
   let envoyesTotal = 0
   let recusTotal = 0
-  for (const [nom, chemins] of MODULES) {
+  for (const [i, [nom, chemins]] of MODULES.entries()) {
+    // Les résultats des outils ne sont joints qu'au dernier module : joints à
+    // chacun, l'auditeur répétait les mêmes constats d'outils partout (11/11/2026).
+    const dernier = i === MODULES.length - 1
     const fichiers = chemins.flatMap((c) => suivis(c)).filter((f) => SOURCE.test(f) && !/package-lock|LISEZMOI/.test(f))
     const pieces = [
       ...piecesCommunes(),
-      ...outils,
+      ...(dernier ? outils : []),
       { titre: 'Tests existants (fichier, puis titres)', texte: tests },
       ...fichiers.map((f) => ({ titre: `${f} (lignes numérotées)`, texte: numerote(lire(f)) })),
     ]
     const { texte, total } = dossierDe(pieces)
     const systeme = consigne(
-      `les résultats des outils déterministes, la liste des tests existants, et les sources du module « ${nom} »`,
-      GRILLE_COMPLETE
+      `${dernier ? 'les résultats des outils déterministes, ' : ''}la liste des tests existants, et les sources du module « ${nom} »`,
+      GRILLE_COMPLETE,
+      !dernier
     )
     console.log(`${nom} : ${fichiers.length} fichiers, ${total} signes`)
     if (ESSAI) continue

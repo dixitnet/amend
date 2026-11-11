@@ -14,6 +14,7 @@ import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 let comptes, commentaires, serveur, base
 const courrier = creerCourrier({ expediteur: 'amend.ink <x@y.fr>' })
 const effaces = []
+const corbeille = []
 const ADRESSE = 'https://essai.amend.ink'
 
 before(async () => {
@@ -22,7 +23,15 @@ before(async () => {
   commentaires = await ouvrirCommentaires(POSTGRES)
   serveur = creerServeur(
     { secret: 's'.repeat(32), jetonInterne: 'j', collaboration: 'ws://x', statique: '/x', dev: true, adresse: ADRESSE },
-    { comptes, commentaires, courrier, collaboration: { supprimerDocument: async (id) => effaces.push(id) } },
+    {
+      comptes,
+      commentaires,
+      courrier,
+      collaboration: {
+        supprimerDocument: async (id) => effaces.push(id),
+        mettreALaCorbeille: async (id) => corbeille.push(id),
+      },
+    },
   )
   await new Promise((r) => serveur.listen(0, '127.0.0.1', r))
   base = `http://127.0.0.1:${serveur.address().port}`
@@ -55,13 +64,14 @@ const dernierLien = (a) => {
   const m = [...courrier.envoyes].reverse().find((x) => x.a === a)
   return m ? new URL(m.texte.match(/https:\/\/\S+/)[0]).pathname : null
 }
-/** Suit un lien de connexion : rend le cookie de session et la redirection. */
+/** Suit un lien de connexion, comme la page (POST) : rend le cookie de session et le document visé. */
 async function suivre(chemin) {
-  const r = await appel('GET', chemin)
+  const r = await appel('POST', chemin)
   return {
     statut: r.statut,
     cookie: r.entetes.get('set-cookie')?.split(';')[0] ?? null,
-    vers: r.entetes.get('location'),
+    document: r.json?.document ?? null,
+    code: r.json?.code ?? null,
   }
 }
 /** Une personne connectée par la route de développement. */
@@ -248,4 +258,39 @@ test('supprimer une équipe : seulement vide, par le gestionnaire', async () => 
   await appel('PUT', `/api/equipes/${eq.id}`, { ...g, corps: { nom: 'Brève 2' } })
   assert.equal((await appel('DELETE', `/api/equipes/${eq.id}`, g)).statut, 200)
   assert.equal((await appel('GET', `/api/equipes/${eq.id}`, g)).statut, 404)
+})
+
+test('supprimer un document d’équipe : le gestionnaire seul, à la corbeille ; l’éditeur de l’équipe n’y a pas droit', async () => {
+  const gaelle = await personne('Gaëlle')
+  const marc = await personneAvecAdresse('Marc')
+  const g = { cookie: gaelle.cookie }
+  const { json: eq } = await appel('POST', '/api/equipes', { ...g, corps: { nom: 'Maison' } })
+  await appel('POST', `/api/equipes/${eq.id}/membres`, {
+    ...g,
+    corps: { courriel: marc.courriel, role: 'editeur' },
+  })
+  const { json: doc } = await appel('POST', '/api/documents', { ...g, corps: { titre: 'À jeter', equipe: eq.id } })
+  assert.equal(await droit(marc, doc.id), 'editeur')
+  const refus = await appel('DELETE', `/api/documents/${doc.id}`, { cookie: marc.cookie })
+  assert.deepEqual([refus.statut, refus.json.code], [403, 'droit-insuffisant'])
+  assert.ok(!corbeille.includes(doc.id), 'rien n’a bougé')
+  assert.equal((await appel('DELETE', `/api/documents/${doc.id}`, g)).statut, 200)
+  assert.ok(corbeille.includes(doc.id), 'mis à la corbeille dans y/hub (déconnexion)')
+  assert.ok(!effaces.includes(doc.id), 'rien d’effacé')
+  // Il disparaît de l'équipe pour tous ; le gestionnaire le retrouve à la corbeille, pas l'éditeur.
+  for (const p of [gaelle, marc]) {
+    const contenu = (await appel('GET', `/api/equipes/${eq.id}`, { cookie: p.cookie })).json
+    assert.ok(!contenu.documents.some((d) => d.id === doc.id), 'plus dans l’équipe')
+    assert.equal(await droit(p, doc.id), undefined)
+  }
+  const sienne = (await appel('GET', '/api/corbeille', g)).json.documents
+  assert.deepEqual(
+    sienne.filter((d) => d.id === doc.id).map((d) => d.titre),
+    ['À jeter'],
+  )
+  const sienneMarc = (await appel('GET', '/api/corbeille', { cookie: marc.cookie })).json.documents
+  assert.deepEqual(
+    sienneMarc.filter((d) => d.id === doc.id),
+    [],
+  )
 })

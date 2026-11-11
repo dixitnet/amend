@@ -5,6 +5,14 @@ import * as encodage from 'lib0/buffer'
 
 const ORGANISATION = 'amend'
 
+const indisponible = (message) => Object.assign(new Error(message), { code: 'collaboration-indisponible' })
+/** L'état encodé d'une réponse de y/hub : un `Uint8Array`, sinon la réponse est illisible.
+ * (Une branche jamais écrite rend un état vide, pas une absence de `doc`.) */
+function etatDe(reponse) {
+  if (!(reponse?.doc instanceof Uint8Array)) throw indisponible('y/hub : réponse illisible')
+  return reponse.doc
+}
+
 /**
  * Le client de notre serveur vers y/hub (jeton interne) : lire le texte
  * principal d'un document, et y écrire une modification attribuée à une
@@ -21,30 +29,41 @@ export function clientCollaboration({ url, jeton }) {
       headers: { ...entetes, ...options?.headers },
       signal: AbortSignal.timeout(5000),
     })
-    if (!r.ok) throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
-    return encodage.decodeAny(new Uint8Array(await r.arrayBuffer()))
+    if (!r.ok) throw indisponible(`y/hub : ${r.status}`)
+    try {
+      return encodage.decodeAny(new Uint8Array(await r.arrayBuffer()))
+    } catch {
+      throw indisponible('y/hub : réponse illisible')
+    }
   }
   /** Une requête sur les deux branches ; 404 : jamais écrite, rien à faire. */
   async function surLesBranches(url, methode) {
     for (const branche of ['main', 'suggestions']) {
       const r = await fetch(url(branche), { method: methode, headers: entetes, signal: AbortSignal.timeout(5000) })
-      if (!r.ok && r.status !== 404)
-        throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
+      if (!r.ok && r.status !== 404) throw indisponible(`y/hub : ${r.status}`)
     }
   }
   return {
     /** Les droits sur le document ont changé (pour `personne`, ou pour tous) :
      * ses connexions ouvertes les redemandent, texte et suggestions. */
     async revoirAcces(docId, personne = null) {
+      // Les deux branches sont tentées, même si la première échoue : sinon la
+      // seconde garderait ses anciens droits.
+      let echec = null
       for (const branche of ['main', 'suggestions']) {
         const q = new URLSearchParams({ branch: branche, ...(personne ? { personne } : {}) })
-        const r = await fetch(`${url}/reset-connections/v1/${ORGANISATION}/${encodeURIComponent(docId)}?${q}`, {
-          method: 'POST',
-          headers: entetes,
-          signal: AbortSignal.timeout(5000),
-        })
-        if (!r.ok) throw Object.assign(new Error(`y/hub : ${r.status}`), { code: 'collaboration-indisponible' })
+        try {
+          const r = await fetch(`${url}/reset-connections/v1/${ORGANISATION}/${encodeURIComponent(docId)}?${q}`, {
+            method: 'POST',
+            headers: entetes,
+            signal: AbortSignal.timeout(5000),
+          })
+          if (!r.ok) echec ??= indisponible(`y/hub : ${r.status}`)
+        } catch (e) {
+          echec ??= e?.code === 'collaboration-indisponible' ? e : indisponible(`y/hub : ${e?.message ?? e}`)
+        }
       }
+      if (echec) throw indisponible(echec.message)
     },
     /** Efface un document dans y/hub, texte et suggestions, définitivement. */
     supprimerDocument: (docId) => surLesBranches((b) => `${adresse(docId, b)}&hard=true`, 'DELETE'),
@@ -55,11 +74,11 @@ export function clientCollaboration({ url, jeton }) {
     restaurer: (docId) =>
       surLesBranches((b) => `${url}/restore-ydoc/v1/${ORGANISATION}/${encodeURIComponent(docId)}?branch=${b}`, 'POST'),
     /** L'état encodé du texte principal. */
-    lireTexte: async (docId) => (await appel(docId)).doc,
+    lireTexte: async (docId) => etatDe(await appel(docId)),
     /** Écrit dans \`cible\` le texte principal de \`source\`, attribué à \`pour\`
      * (dupliquer, comme Docs : le texte seul, ni suggestions ni historique). */
     async copierTexte(source, cible, pour) {
-      const etat = (await appel(source)).doc
+      const etat = etatDe(await appel(source))
       await appel(cible, {
         method: 'PATCH',
         headers: { 'content-type': 'application/octet-stream' },
@@ -76,7 +95,7 @@ export function clientCollaboration({ url, jeton }) {
     /** Les suggestions en cours (état encodé), lues au nom de Margo ; une branche
      * jamais écrite se lit vide. */
     lireSuggestions: async (docId) =>
-      (await appel(docId, { headers: { 'x-amend-agent': 'margo' } }, 'suggestions')).doc,
+      etatDe(await appel(docId, { headers: { 'x-amend-agent': 'margo' } }, 'suggestions')),
     /** Écrit une modification dans les suggestions, attribuée à Margo (étape 8). */
     ecrireSuggestions: (docId, mise) =>
       appel(

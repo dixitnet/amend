@@ -72,13 +72,14 @@ const dernierLien = (a) => {
   const m = [...courrier.envoyes].reverse().find((x) => x.a === a)
   return m ? new URL(m.texte.match(/https:\/\/\S+/)[0]).pathname : null
 }
-/** Suit un lien de connexion : rend le cookie de session et la redirection. */
+/** Suit un lien de connexion, comme la page (POST) : rend le cookie de session et le document visé. */
 async function suivre(chemin) {
-  const r = await appel('GET', chemin)
+  const r = await appel('POST', chemin)
   return {
     statut: r.statut,
     cookie: r.entetes.get('set-cookie')?.split(';')[0] ?? null,
-    vers: r.entetes.get('location'),
+    document: r.json?.document ?? null,
+    code: r.json?.code ?? null,
   }
 }
 /** Une personne connectée par la route de développement. */
@@ -108,12 +109,18 @@ test('invitation d’une adresse nouvelle : courrier, un clic, accès au bon rô
   assert.match(m.sujet, /Paule/)
   assert.match(m.texte, /La gare/)
   assert.equal((m.html.match(/<a /g) || []).length, 1, 'un seul lien')
+  // Le lien du courrier, visité tel quel (une passerelle de messagerie, un
+  // aperçu), ne consomme rien : il renvoie à la page, sans ouvrir de session.
+  const visite = await appel('GET', dernierLien(a))
+  assert.equal(visite.statut, 303)
+  assert.match(visite.entetes.get('location'), /^\/#\/connexion\/[A-Za-z0-9_-]+$/)
+  assert.equal(visite.entetes.get('set-cookie'), null, 'aucune session à la simple visite')
   const s = await suivre(dernierLien(a))
-  assert.equal(s.statut, 303)
-  assert.equal(s.vers, `/#${doc.id}`)
+  assert.equal(s.statut, 200)
+  assert.equal(s.document, doc.id)
   const droits = await appel('GET', `/api/droits?document=${doc.id}`, { cookie: s.cookie })
   assert.equal(droits.json.role, 'correcteur')
-  assert.equal((await suivre(dernierLien(a))).vers, '/#!lien-invalide', 'déjà utilisé')
+  assert.equal((await suivre(dernierLien(a))).code, 'lien-invalide', 'déjà utilisé')
   // L'adresse connue reçoit désormais un lien de connexion.
   await appel('POST', '/api/connexion', { corps: { courriel: a } })
   assert.ok(dernierLien(a))
@@ -324,7 +331,7 @@ test('lien de partage : une personne connectée qui a le lien gagne son rôle ; 
   const a = adresse('nouvelle')
   await appel('POST', '/api/connexion', { corps: { courriel: a, document: doc.id } })
   const s = await suivre(dernierLien(a))
-  assert.equal(s.vers, `/#${doc.id}`)
+  assert.equal(s.document, doc.id)
   assert.equal((await appel('GET', `/api/droits?document=${doc.id}`, { cookie: s.cookie })).json.role, 'correcteur')
   // Sans session, rien (pas de connexion anonyme).
   assert.equal((await appel('GET', `/api/droits?document=${doc.id}`)).statut, 401)
@@ -545,6 +552,52 @@ test('images (comme Docs) : qui écrit ou suggère envoie ; qui lit voit ; le re
   // Le document effacé emporte ses images.
   await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })
   await appel('DELETE', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })
+  assert.equal(await comptes.image(doc.id, url.split('/').pop()), null)
+})
+
+test('une racine sans segment qui n’est pas « documents » ne rend pas la liste des documents', async () => {
+  const paule = await personne('Paule')
+  const r = await appel('GET', '/api/connexion', { cookie: paule.cookie })
+  assert.deepEqual([r.statut, r.json], [404, { code: 'introuvable' }])
+  assert.equal((await appel('GET', '/api/documents', { cookie: paule.cookie })).statut, 200)
+})
+
+test('images d’une copie (comme Docs) : qui lit la copie lit les images de la source ; elles survivent à l’effacement de la source', async () => {
+  const paule = await personne('Paule')
+  const luc = await personne('Luc')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: { titre: 'Source' } })
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7])
+  const envoi = await fetch(`${base}/api/documents/${doc.id}/images`, {
+    method: 'POST',
+    headers: { cookie: paule.cookie, 'content-type': 'application/octet-stream' },
+    body: png,
+  })
+  const { url } = await envoi.json()
+  const lire = (cookie) => fetch(`${base}${url}`, { headers: { cookie } })
+  const copie = (await appel('POST', `/api/documents/${doc.id}/copie`, { cookie: paule.cookie })).json.id
+  // Luc ne lit que la copie : il voit l'image, dont l'adresse nomme la source.
+  assert.equal((await lire(luc.cookie)).status, 404, 'sans accès à la copie : rien')
+  await appel('POST', '/api/dev/acces', {
+    cookie: paule.cookie,
+    corps: { document: copie, personne: luc.id, role: 'lecteur' },
+  })
+  assert.equal((await lire(luc.cookie)).status, 200)
+  // Une copie de la copie hérite aussi.
+  const copie2 = (await appel('POST', `/api/documents/${copie}/copie`, { cookie: luc.cookie })).json.id
+  // La source effacée pour de bon : l'image passe à une copie, à la même adresse.
+  await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })
+  await appel('DELETE', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })
+  const lue = await lire(luc.cookie)
+  assert.equal(lue.status, 200)
+  assert.deepEqual(Buffer.from(await lue.arrayBuffer()), png)
+  // La première copie effacée : la copie de Luc la garde encore.
+  await appel('DELETE', `/api/documents/${copie}`, { cookie: paule.cookie })
+  await appel('DELETE', `/api/corbeille/${copie}`, { cookie: paule.cookie })
+  assert.equal((await lire(luc.cookie)).status, 200)
+  assert.equal((await lire(paule.cookie)).status, 404, 'Paule ne lit plus aucun document qui la contient')
+  // Le dernier document qui la contenait effacé : l'image part avec lui.
+  await appel('DELETE', `/api/documents/${copie2}`, { cookie: luc.cookie })
+  await appel('DELETE', `/api/corbeille/${copie2}`, { cookie: luc.cookie })
   assert.equal(await comptes.image(doc.id, url.split('/').pop()), null)
 })
 

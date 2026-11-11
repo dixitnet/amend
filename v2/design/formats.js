@@ -1,6 +1,7 @@
 // Le format d'écran (couche design) : le format S (téléphone) sous le seuil
-// `sm` de Mantine (48 em, 768 px, le même que Docs), sinon L et M (réglage
-// css.telephone.bascule, ADR 0008). La règle est ici, pas dans l'application.
+// `sm` de Mantine (48 em, 768 px, le même que Docs), sinon L et M (aucun
+// réglage propre : c'est le seuil par défaut de Mantine). La règle est ici,
+// pas dans l'application.
 import { useMantineTheme } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 
