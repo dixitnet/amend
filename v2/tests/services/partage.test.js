@@ -555,6 +555,45 @@ test('images (comme Docs) : qui écrit ou suggère envoie ; qui lit voit ; le re
   assert.equal(await comptes.image(doc.id, url.split('/').pop()), null)
 })
 
+test('images d’une copie (comme Docs) : qui lit la copie lit les images de la source ; elles survivent à l’effacement de la source', async () => {
+  const paule = await personne('Paule')
+  const luc = await personne('Luc')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: { titre: 'Source' } })
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7])
+  const envoi = await fetch(`${base}/api/documents/${doc.id}/images`, {
+    method: 'POST',
+    headers: { cookie: paule.cookie, 'content-type': 'application/octet-stream' },
+    body: png,
+  })
+  const { url } = await envoi.json()
+  const lire = (cookie) => fetch(`${base}${url}`, { headers: { cookie } })
+  const copie = (await appel('POST', `/api/documents/${doc.id}/copie`, { cookie: paule.cookie })).json.id
+  // Luc ne lit que la copie : il voit l'image, dont l'adresse nomme la source.
+  assert.equal((await lire(luc.cookie)).status, 404, 'sans accès à la copie : rien')
+  await appel('POST', '/api/dev/acces', {
+    cookie: paule.cookie,
+    corps: { document: copie, personne: luc.id, role: 'lecteur' },
+  })
+  assert.equal((await lire(luc.cookie)).status, 200)
+  // Une copie de la copie hérite aussi.
+  const copie2 = (await appel('POST', `/api/documents/${copie}/copie`, { cookie: luc.cookie })).json.id
+  // La source effacée pour de bon : l'image passe à une copie, à la même adresse.
+  await appel('DELETE', `/api/documents/${doc.id}`, { cookie: paule.cookie })
+  await appel('DELETE', `/api/corbeille/${doc.id}`, { cookie: paule.cookie })
+  const lue = await lire(luc.cookie)
+  assert.equal(lue.status, 200)
+  assert.deepEqual(Buffer.from(await lue.arrayBuffer()), png)
+  // La première copie effacée : la copie de Luc la garde encore.
+  await appel('DELETE', `/api/documents/${copie}`, { cookie: paule.cookie })
+  await appel('DELETE', `/api/corbeille/${copie}`, { cookie: paule.cookie })
+  assert.equal((await lire(luc.cookie)).status, 200)
+  assert.equal((await lire(paule.cookie)).status, 404, 'Paule ne lit plus aucun document qui la contient')
+  // Le dernier document qui la contenait effacé : l'image part avec lui.
+  await appel('DELETE', `/api/documents/${copie2}`, { cookie: luc.cookie })
+  await appel('DELETE', `/api/corbeille/${copie2}`, { cookie: luc.cookie })
+  assert.equal(await comptes.image(doc.id, url.split('/').pop()), null)
+})
+
 test('supprimer son compte (règle de la v1) : aperçu, refus, puis documents confiés, quittés, supprimés ; commentaires gardés', async () => {
   const marc = await personne(`Marc ${randomUUID().slice(0, 6)}`)
   const eve = await personne('Ève')

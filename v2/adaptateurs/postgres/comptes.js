@@ -159,6 +159,21 @@ create table if not exists amend.images (
   cree_le timestamptz not null default now(),
   primary key (document, nom)
 );
+-- Les images d'une copie (audit du 11/11/2026 ; comme Docs, dont la copie garde
+-- la liste des images que son texte cite sans recopier les fichiers) : l'adresse
+-- d'une image nomme le document où elle a été envoyée (\`origine\`, qui ne change
+-- jamais) ; \`document\` est celui qui la garde aujourd'hui. Une copie hérite des
+-- images de sa source : qui lit la copie les lit, et elles passent à une copie
+-- quand le document qui les gardait est effacé.
+alter table amend.images add column if not exists origine text;
+update amend.images set origine = document where origine is null;
+create index if not exists images_origine on amend.images (origine, nom);
+create table if not exists amend.images_heritees (
+  document text not null references amend.documents (id) on delete cascade,
+  origine text not null,
+  primary key (document, origine)
+);
+create index if not exists images_heritees_origine on amend.images_heritees (origine);
 -- Les réglages de l'instance, choisis au back-office (le modèle de Margo, étape 8).
 create table if not exists amend.reglages (
   cle text primary key,
@@ -248,12 +263,24 @@ export async function ouvrirComptes(url) {
     },
     /** Garde une image d'un document. */
     garderImage: (document, nom, type, octets, personne) =>
-      sql`insert into amend.images (document, nom, type, octets, taille, cree_par)
-          values (${document}, ${nom}, ${type}, ${octets}, ${octets.length}, ${personne})`.then(() => {}),
-    /** Une image d'un document (\`{ type, octets }\`), ou \`null\`. */
-    async image(document, nom) {
-      const [i] = await sql`select type, octets from amend.images where document = ${document} and nom = ${nom}`
-      return i ? { type: i.type, octets: i.octets } : null
+      sql`insert into amend.images (document, origine, nom, type, octets, taille, cree_par)
+          values (${document}, ${document}, ${nom}, ${type}, ${octets}, ${octets.length}, ${personne})`.then(() => {}),
+    /** Une image, par le document nommé dans son adresse (\`origine\`) :
+     * \`{ document, type, octets }\` (le document qui la garde aujourd'hui), ou \`null\`. */
+    async image(origine, nom) {
+      const [i] = await sql`select document, type, octets from amend.images where origine = ${origine} and nom = ${nom}`
+      return i ? { document: i.document, type: i.type, octets: i.octets } : null
+    },
+    /** Une copie hérite des images de sa source (les siennes et celles dont elle hérite déjà). */
+    heriterImages: (copie, source) =>
+      sql`insert into amend.images_heritees (document, origine)
+          select ${copie}, o.origine from (
+            select distinct origine from amend.images where document = ${source}
+            union select origine from amend.images_heritees where document = ${source}) o
+          on conflict do nothing`.then(() => {}),
+    /** Les documents qui héritent des images envoyées dans \`origine\`. */
+    async heritiersImages(origine) {
+      return (await sql`select document from amend.images_heritees where origine = ${origine}`).map((h) => h.document)
     },
     /** Le poids de toutes les images d'un document, en octets. */
     async poidsImages(document) {
@@ -286,7 +313,16 @@ export async function ouvrirComptes(url) {
       ).map((d) => d.id)
     },
     /** Efface le document et tout ce qui s'y rattache ici (accès, invitations, passages). */
-    supprimerDocument: (id) => sql`delete from amend.documents where id = ${id}`.then(() => {}),
+    async supprimerDocument(id) {
+      await sql.begin(async (t) => {
+        // Les images dont une copie hérite passent à cette copie avant l'effacement.
+        await t`update amend.images i set document = h.document
+                from (select distinct on (origine) origine, document from amend.images_heritees
+                      where document <> ${id} order by origine, document) h
+                where i.document = ${id} and i.origine = h.origine`
+        await t`delete from amend.documents where id = ${id}`
+      })
+    },
     definirRoleLien: (id, role) => sql`update amend.documents set role_lien = ${role} where id = ${id}`.then(() => {}),
     renommerDocument: (id, titre) => sql`update amend.documents set titre = ${titre} where id = ${id}`.then(() => {}),
     /**
