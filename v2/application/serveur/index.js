@@ -435,7 +435,12 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
   // l'environnement, sinon le modèle par défaut (DeepSeek, comme la v1).
   const modeleParDefaut = MODELES[CONF.margoModele] ? CONF.margoModele : MODELE_PAR_DEFAUT
   const modeleMargo = async () => {
-    const choisi = await comptes.reglage?.(REGLAGE_MODELE).catch(() => null)
+    // Base injoignable : le modèle de l'environnement, et une trace au journal
+    // (audit du 11/11/2026, 5).
+    const choisi = await comptes.reglage(REGLAGE_MODELE).catch((err) => {
+      console.error('[margo] réglage du modèle illisible :', err.code ?? err.message)
+      return null
+    })
     return typeof choisi === 'string' && MODELES[choisi] ? choisi : modeleParDefaut
   }
   const margo = creerMargo({
