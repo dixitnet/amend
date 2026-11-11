@@ -26,6 +26,8 @@ const BOUTONS_DE_FORME = [
   'underlineStyleButton',
   'strikeStyleButton',
   'colorStyleButton',
+  // Un lien est une mise en forme comme les autres (Sylvain, 11/11/2026).
+  'createLinkButton',
   'nestBlockButton',
   'unnestBlockButton',
 ]

@@ -21,6 +21,9 @@ import {
   useCreateBlockNote,
   FormattingToolbar,
   FormattingToolbarController,
+  LinkToolbar,
+  LinkToolbarController,
+  OpenLinkButton,
   getFormattingToolbarItems,
   useBlockNoteEditor,
   useComponentsContext,
@@ -136,6 +139,17 @@ function Palette({ corriger, suggerer, exposant }) {
           )}
       {corriger ? <BoutonCorriger corriger={corriger} /> : null}
     </FormattingToolbar>
+  )
+}
+
+/** La barre d'un lien en mode Suggérer : seulement l'ouvrir. Le modifier ou
+ * le retirer serait une mise en forme suggérée, que le panneau ne sait pas
+ * arbitrer (contournement, veille ; Sylvain, 11/11/2026). */
+function BarreDuLienEnSuggestion(props) {
+  return (
+    <LinkToolbar {...props}>
+      <OpenLinkButton url={props.url} />
+    </LinkToolbar>
   )
 }
 
@@ -480,8 +494,10 @@ export function EditeurCollaboratif({
       // Notre menu « / » (saut de page, table des matières) ; aucun en
       // Suggérer : pas de changement de type de bloc (contournement, veille).
       slashMenu={false}
+      linkToolbar={mode !== 'suggerer'}
     >
       <FormattingToolbarController formattingToolbar={palette} />
+      {mode === 'suggerer' ? <LinkToolbarController linkToolbar={BarreDuLienEnSuggestion} /> : null}
       {mode !== 'suggerer' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
       {/* La liste des fils (exemple 06-comments-with-sidebar de BlockNote, et
           Docs) : rendue dans l'éditeur (elle en a besoin), placée dans l'onglet. */}
