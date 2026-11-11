@@ -51,7 +51,8 @@
     "exposant": "Exposant",
     "tableDesMatieres": "Table des matières",
     "tableDescription": "Les titres du document, jusqu’au niveau choisi",
-    "tableProfondeur": "Niveaux de titre"
+    "tableProfondeur": "Niveaux de titre",
+    "tableNiveaux": "{n, plural, =1 {Niveau 1 seulement} other {Niveaux 1 à #}}"
   },
   "erreurs": {
     "apparence-inconnue": "Ce modèle d’interface ou cette couleur n’existe pas.",

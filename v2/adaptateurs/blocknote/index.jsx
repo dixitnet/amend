@@ -201,7 +201,7 @@ function itemsDuMenu(editeur, table) {
  *   le bouton « Corriger » de la palette (Margo, étape 8), ou rien
  * @param {(selection: { de: string, a: string } | null) => void} [p.surSelection]
  *   rappelé quand la sélection change, en blocs (Margo, étape 8) ; doit être stable
- * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, picto: any } }} [p.textes]
+ * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, niveaux?: string[], picto: any } }} [p.textes]
  *   libellés et pictos de nos ajouts (exposant, table des matières), donnés par l'application
  * @param {(fichier: File) => Promise<string>} [p.televerser] envoie une image et rend son
  *   adresse (\`uploadFile\` de BlockNote, comme Docs) ; absent : pas d'envoi de fichier

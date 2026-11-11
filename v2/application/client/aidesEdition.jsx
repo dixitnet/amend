@@ -3,6 +3,7 @@ import { Component } from 'react'
 import { PictoDe } from '../../design/index.js'
 import { REGLAGES } from '../../design/reglages.js'
 import { t } from './commun.js'
+import { PROFONDEURS_TABLE } from '../../domaine/index.js'
 
 /** Le zoom du texte de l'éditeur (Sylvain, 11/11/2026 : 50, 100, 150 %, comme
  * la v1) : propre à ce navigateur, une commodité perdue sans conséquence. */
@@ -30,6 +31,8 @@ export const TEXTES_EDITEUR = {
     titre: t('document.tableDesMatieres'),
     description: t('document.tableDescription'),
     profondeur: t('document.tableProfondeur'),
+    // Les options du choix de la profondeur, en clair (« Niveaux 1 à 3 »).
+    niveaux: PROFONDEURS_TABLE.map((n) => t('document.tableNiveaux', { n })),
     picto: <PictoDe role="tableDesMatieres" />,
   },
 }
