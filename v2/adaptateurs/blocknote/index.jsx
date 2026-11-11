@@ -27,7 +27,16 @@ import {
   useSelectedBlocks,
 } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
-import { VersioningSidebar } from '@blocknote/react/versioning'
+import {
+  VersioningSidebar,
+  VersionMenu,
+  VersionMenuItem,
+  NameVersionItem,
+  CompareWithVersionItem,
+  CompareSinceBeginningItem,
+  DeleteVersionItem,
+  useRestoreVersionAction,
+} from '@blocknote/react/versioning'
 import { withCollaboration } from '@blocknote/core/y'
 import { CommentsExtension } from '@blocknote/core/comments'
 import { dictionnaire } from './dictionnaire.js'
@@ -66,6 +75,17 @@ function BoutonCorriger({ corriger }) {
   )
 }
 
+/** « Restaurer », après confirmation (l'API de BlockNote le prévoit :
+ * `useRestoreVersionAction`, « custom items can request confirmation ») ;
+ * comme Docs, qui demande avant de restaurer. */
+function RestaurerApresConfirmation({ libelle, confirmer }) {
+  const action = useRestoreVersionAction()
+  if (!action.available) return null
+  return (
+    <VersionMenuItem onClick={() => void confirmer().then((oui) => oui && action.execute())}>{libelle}</VersionMenuItem>
+  )
+}
+
 function Palette({ corriger }) {
   return (
     <FormattingToolbar>
@@ -86,6 +106,7 @@ function Palette({ corriger }) {
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
+ * @param {() => Promise<boolean>} [p.confirmerRestauration]  demandée avant de revenir à une version
  * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
  *   sur le texte passe en modification (curseur à l'endroit touché)
  * @param {{ current: { terminer: () => void, exporter: Function } | null }} [p.controle]  reçoit
@@ -115,6 +136,7 @@ export function EditeurCollaboratif({
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
+  confirmerRestauration,
   lectureAuDepart = false,
   controle,
   surModification,
@@ -353,7 +375,25 @@ export function EditeurCollaboratif({
   const vue = (
     <BlockNoteView editor={editeur} editable={appui ? false : ecrit && !historique} formattingToolbar={false}>
       <FormattingToolbarController formattingToolbar={palette} />
-      {historique && historiqueOuvert ? <VersioningSidebar onClose={surFermerHistorique} /> : null}
+      {historique && historiqueOuvert ? (
+        <VersioningSidebar
+          onClose={surFermerHistorique}
+          snapshotMenu={
+            confirmerRestauration ? (
+              <VersionMenu>
+                <NameVersionItem />
+                <CompareWithVersionItem />
+                <CompareSinceBeginningItem />
+                <RestaurerApresConfirmation
+                  libelle={dictionnaire(langue).versioning.restore_menuitem}
+                  confirmer={confirmerRestauration}
+                />
+                <DeleteVersionItem />
+              </VersionMenu>
+            ) : undefined
+          }
+        />
+      ) : null}
     </BlockNoteView>
   )
   return appui ? <div onClick={commencer}>{vue}</div> : vue

@@ -1416,6 +1416,13 @@ function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       historique={historique && !formatS}
       peutRestaurer={caps.includes('restaurer')}
       surFermerHistorique={() => setHistorique(false)}
+      confirmerRestauration={() =>
+        confirmer({
+          titre: t('document.restaurerTitre'),
+          texte: t('document.restaurerTexte'),
+          libelle: t('document.restaurer'),
+        })
+      }
       lectureAuDepart={formatS || tactile}
       controle={controle}
       surModification={setEnModification}
