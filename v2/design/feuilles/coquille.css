@@ -22,17 +22,9 @@
 }
 
 /* réglage : css.coquille.volets */
-.amend-coquille-volet-tete,
 .amend-coquille-volet-corps,
 .amend-coquille-volet-vide {
   padding: var(--mantine-spacing-sm);
-}
-.amend-coquille-volet-tete h2 {
-  margin: 0;
-  font-weight: 500;
-}
-.amend-coquille-volet-bouton {
-  width: 100%;
 }
 
 /* réglage : css.coquille.plan */

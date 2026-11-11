@@ -565,6 +565,8 @@ test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiq
   )
   assert.match(html, /<section[^>]*aria-label="Margo \(IA\)"/)
   assert.match(html, /aria-live="polite"/)
+  assert.match(html, /aria-relevant="additions"/, 'seuls les nouveaux messages sont annoncés')
+  assert.doesNotMatch(html, /aria-atomic="true"/)
   assert.ok(html.includes('Corrige &lt;b&gt;'), 'le texte de la personne reste du texte')
   assert.match(html, /<button[^>]*aria-label="Aller au bloc 2"[^>]*>\[2\]<\/button>/)
   assert.ok(html.includes('1 correction, aucun commentaire'))
@@ -595,6 +597,32 @@ test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiq
   )
   assert.ok(vide.includes('Bonjour') && vide.includes('Sur tout le texte'))
   assert.doesNotMatch(vide, /role="status"|role="alert"|Nouvelle conversation/)
+})
+
+test('format S : les boutons des tiroirs portent aria-expanded d\u2019après le tiroir ouvert', () => {
+  const page = (volet) =>
+    rendre(
+      h(design.PageEditionS, {
+        titre: 'Doc',
+        libelles: { gauche: 'Plan', droite: 'Relecture', actions: 'Actions', terminer: 'Terminer', titre: 'Titre' },
+        etat: '',
+        enModification: false,
+        surTerminer: rien,
+        menu: [],
+        voletGauche: { titre: 'Plan', onglets: [] },
+        voletDroit: { titre: 'Relecture', onglets: [] },
+        volet,
+        surVolet: rien,
+        editeur: null,
+      }),
+    )
+  const etat = (html, libelle) => html.match(new RegExp(`aria-label="${libelle}"[^>]*aria-expanded="(\\w+)"`))?.[1]
+  const ferme = page(null)
+  assert.equal(etat(ferme, 'Plan'), 'false')
+  assert.equal(etat(ferme, 'Relecture'), 'false')
+  assert.equal(etat(page('gauche'), 'Plan'), 'true')
+  assert.equal(etat(page('gauche'), 'Relecture'), 'false')
+  assert.equal(etat(page('droite'), 'Relecture'), 'true')
 })
 
 test('volet de relecture : onglet ouvert piloté (« Corriger » ouvre Margo) ; sans Margo, pas d’onglet Margo', () => {

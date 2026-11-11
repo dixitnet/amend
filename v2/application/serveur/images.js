@@ -57,13 +57,18 @@ export function creerImages({ personneDe, roleSur, depot, json }) {
     const d = identifiantDocument(brut)
     if (!d.ok) return err(400, d.code)
     const caps = capacites(await roleSur(d.id, p.id))
-    if (!caps.includes('lire')) return err(404, 'document-introuvable')
     const nom = m[2]
+    const lit = async (docId) => capacites(await roleSur(docId, p.id)).includes('lire')
 
     if (nom !== undefined) {
       if (req.method !== 'GET') return err(405, 'methode-refusee')
-      if (!nomImageValide(nom)) return err(404, 'introuvable')
-      const image = await depot.image(d.id, nom)
+      const image = nomImageValide(nom) ? await depot.image(d.id, nom) : null
+      // Comme Docs (\`media-auth\`) : lit l'image qui lit un document qui la
+      // contient : celui où elle a été envoyée, ou une copie qui en hérite (celle
+      // qui la garde après l'effacement de la source en est une ; audit du 11/11/2026).
+      let permis = caps.includes('lire')
+      if (!permis && image) for (const h of await depot.heritiersImages(d.id)) if ((permis = await lit(h))) break
+      if (!permis) return err(404, 'document-introuvable')
       if (!image) return err(404, 'introuvable')
       // Un nom n'est jamais réutilisé : l'image ne change pas, le navigateur la garde.
       res.writeHead(200, {
@@ -75,6 +80,7 @@ export function creerImages({ personneDe, roleSur, depot, json }) {
       return (res.end(image.octets), true)
     }
 
+    if (!caps.includes('lire')) return err(404, 'document-introuvable')
     if (req.method !== 'POST') return err(405, 'methode-refusee')
     if (!caps.includes('ecrire') && !caps.includes('suggerer')) return err(403, 'droit-insuffisant')
     const octets = await lireOctets(req, IMAGE_MAX_OCTETS)

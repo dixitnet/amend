@@ -6,6 +6,8 @@ import net from 'node:net'
 import { randomUUID } from 'node:crypto'
 import { preparerServices, POSTGRES } from '../../exploitation/dev/pile.mjs'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
+import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
+import { ouvrirBase } from '../../adaptateurs/postgres/base.js'
 import { courrierAvecLien, creerCourrier } from '../../adaptateurs/courrier/index.js'
 
 let raisonSaut = null
@@ -61,7 +63,7 @@ t3('document : le créateur en est propriétaire ; accès personne, retrait ; su
     (await depot.accesDuDocument(id)).map((a) => a.role),
     ['proprietaire', 'proprietaire'],
   )
-  await depot.retirerAcces(id, e.id)
+  assert.equal(await depot.modifierAcces(id, e.id, null), null)
   assert.deepEqual(await depot.rolesDe(id, e.id), [])
   await depot.inviter(id, adresse('x'), 'lecteur', p.id)
   await depot.supprimerDocument(id)
@@ -144,4 +146,71 @@ t3('deux retraits simultanés de propriétaires : il en reste toujours un', asyn
   const r = await Promise.all([depot.modifierAcces(id, a.id, null), depot.modifierAcces(id, b.id, null)])
   assert.deepEqual(r.sort(), ['dernier-proprietaire', null].sort())
   assert.equal(await depot.proprietaires(id), 1)
+})
+
+t3('donnerAcces : même garde que modifierAcces, le dernier propriétaire ne peut être rétrogradé', async () => {
+  const p = await depot.personneOuNouvelle(adresse('paule'))
+  const id = randomUUID()
+  await depot.creerDocument(id, p.id, 'Essai')
+  assert.equal(await depot.donnerAcces(id, p.id, 'lecteur', p.id), 'dernier-proprietaire')
+  assert.deepEqual(await depot.rolesDe(id, p.id), ['proprietaire'], 'rien n’a changé')
+  const e = await depot.personneOuNouvelle(adresse('edith'))
+  assert.equal(await depot.donnerAcces(id, e.id, 'editeur', p.id), null)
+  assert.equal(await depot.acces(id, e.id), 'editeur')
+  assert.equal(await depot.donnerAcces(id, p.id, 'editeur', e.id), 'dernier-proprietaire')
+  assert.equal(await depot.donnerAcces(id, e.id, 'proprietaire', p.id), null)
+  assert.equal(await depot.donnerAcces(id, p.id, 'editeur', e.id), null, 'un autre propriétaire existe')
+})
+
+t3('une seule réserve de connexions par adresse : fermer un dépôt ne ferme pas l’autre', async () => {
+  const a = ouvrirBase(POSTGRES)
+  const b = ouvrirBase(POSTGRES)
+  assert.equal(a.sql, b.sql, 'la même réserve')
+  await a.rendre()
+  await a.rendre() // sans effet la seconde fois
+  assert.equal((await b.sql`select 1 as un`)[0].un, 1, 'encore ouverte')
+  await b.rendre()
+
+  const comptes = await ouvrirComptes(POSTGRES)
+  const commentaires = await ouvrirCommentaires(POSTGRES)
+  const p = await comptes.personneOuNouvelle(adresse('reserve'))
+  assert.equal((await comptes.personne(p.id)).id, p.id)
+  assert.deepEqual(await commentaires.fils(`t3-reserve-${randomUUID()}`), [])
+  await commentaires.fermer()
+  assert.equal((await comptes.personne(p.id)).id, p.id, 'les comptes marchent encore')
+  await comptes.fermer()
+})
+
+t3('purge : jetons périmés depuis plus de 24 h et invitations antérieures à la date donnée', async () => {
+  const c = adresse('purge')
+  const p = await depot.personneOuNouvelle(adresse('paule'))
+  const id = randomUUID()
+  await depot.creerDocument(id, p.id, 'Essai')
+  const equipe = await depot.creerEquipe('Équipe purge', p.id)
+  await depot.creerJeton(c, null, -48 * 3600_000) // expiré depuis 48 h
+  await depot.creerJeton(c, null, -3600_000) // expiré depuis 1 h : gardé
+  const utilise = await depot.creerJeton(c, null, 3600_000)
+  await depot.consommerJeton(utilise)
+  const frais = await depot.creerJeton(c, null, 3600_000) // valable : gardé
+  const vieuxCourriel = adresse('invite')
+  await depot.inviter(id, vieuxCourriel, 'lecteur', p.id)
+  await depot.inviter(id, adresse('recent'), 'lecteur', p.id)
+  await depot.inviterMembre(equipe, vieuxCourriel, 'membre', p.id)
+  // Vieillit les données de ce test seulement (cette base peut servir à d'autres).
+  const { sql, rendre } = ouvrirBase(POSTGRES)
+  try {
+    await sql`update amend.jetons_connexion set utilise_le = now() - interval '2 days'
+              where courriel = ${c} and utilise_le is not null`
+    await sql`update amend.invitations set cree_le = now() - interval '10 days' where document = ${id} and courriel = ${vieuxCourriel}`
+    await sql`update amend.invitations_equipe set cree_le = now() - interval '10 days' where equipe = ${equipe}`
+    assert.equal(await depot.jetonsRecents(c, 3600_000), 4)
+    const n = await depot.purgerPerimes(Date.now(), { invitationsAvant: Date.now() - 5 * 86400_000 })
+    assert.ok(n.jetons >= 2 && n.invitations >= 2, `effacés : ${JSON.stringify(n)}`)
+    assert.equal(await depot.jetonsRecents(c, 3600_000), 2, 'restent : expiré depuis 1 h, et le valable')
+    assert.deepEqual(await depot.consommerJeton(frais), { courriel: c, document: null })
+    assert.equal((await depot.invitationsDuDocument(id)).length, 1, 'l’invitation récente reste')
+    assert.deepEqual(await depot.invitationsDeLEquipe(equipe), [])
+  } finally {
+    await rendre()
+  }
 })

@@ -30,7 +30,7 @@ export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee
   return (
     <Stack component="section" aria-label={titre}>
       {messages.length ? (
-        <Stack component="ol" aria-live="polite">
+        <Stack component="ol" aria-live="polite" aria-relevant="additions">
           {messages.map((m) => (
             <Stack component="li" key={m.cle}>
               <Text>{m.etiquette}</Text>

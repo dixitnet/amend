@@ -11,6 +11,7 @@ import {
   poserExposants,
   textesDesBlocs,
   compterBlocs,
+  chargerFichier,
 } from '../../adaptateurs/blocknote/export.js'
 import { MODELES_LIVRE } from '../../design/livre.js'
 
@@ -90,4 +91,22 @@ test('exposant au Markdown : dans une cellule de tableau aussi ; une marque tap�
   const cellule = prets[0].content.rows[0].cells[0].content
   assert.equal(poserExposants(cellule.map((c) => c.text).join('')), 'XIX<sup>e</sup>')
   assert.equal(prets[1].content[0].text, 'abc')
+})
+
+test('image de l’export : une réponse en erreur, un réseau en échec ou un délai dépassé donnent un fichier vide', async () => {
+  const fetchInitial = globalThis.fetch
+  try {
+    globalThis.fetch = async () => new Response('x', { status: 403 })
+    assert.equal((await chargerFichier('http://x/a')).size, 0)
+    globalThis.fetch = async () => {
+      throw new TypeError('réseau')
+    }
+    assert.equal((await chargerFichier('http://x/a')).size, 0)
+    let signal = null
+    globalThis.fetch = async (_, o) => ((signal = o.signal), new Response('abc', { status: 200 }))
+    assert.equal((await chargerFichier('http://x/a')).size, 3)
+    assert.ok(signal instanceof AbortSignal, 'un délai est posé')
+  } finally {
+    globalThis.fetch = fetchInitial
+  }
 })
