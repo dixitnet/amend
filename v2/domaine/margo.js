@@ -9,6 +9,11 @@ import { typographier } from './typographie.js'
 /** L'auteur des suggestions et des commentaires de Margo, pour y/hub et les
  * fils (les personnes ont des identifiants UUID : pas de collision). */
 export const AUTEUR_MARGO = 'margo'
+/** L'auteur des suggestions et commentaires posés par Claude, par le
+ * connecteur du back-office (12/11/2026, docs/v2-connecteur-plan.md). */
+export const AUTEUR_CLAUDE = 'claude'
+/** Les agents (non des personnes) qui écrivent au nom du serveur. */
+export const AGENTS = Object.freeze([AUTEUR_MARGO, AUTEUR_CLAUDE])
 
 /** Garde-fous d'une demande (repris de la v1, où ils ont fait leurs preuves :
  * server/garde-fous.js, `margoEtapes` et `margoRefusEnSerie`). */

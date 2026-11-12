@@ -11,7 +11,7 @@ import {
   apiError,
 } from '@y/hub'
 import { timingSafeEqual } from 'node:crypto'
-import { BRANCHES, AUTEUR_MARGO } from '../../domaine/index.js'
+import { BRANCHES, AGENTS } from '../../domaine/index.js'
 
 /** Les branches ouvertes (domaine) : le texte et les suggestions ; toute autre est refusée. */
 const OUVERTES = new Set(BRANCHES)
@@ -141,8 +141,9 @@ export async function demarrerCollaboration({
       const cookie = req.getHeader('cookie') || ''
       if (jetonValide(jetonInterne, req.getHeader('x-amend-interne')))
         return Promise.resolve(
-          req.getHeader('x-amend-agent') === AUTEUR_MARGO
-            ? { userid: AUTEUR_MARGO, interne: true, agent: true }
+          // Un agent (Margo, Claude par le connecteur) écrit en suggestions, sous son nom.
+          AGENTS.includes(req.getHeader('x-amend-agent'))
+            ? { userid: req.getHeader('x-amend-agent'), interne: true, agent: true }
             : { userid: SERVEUR, interne: true },
         )
       return identifier(cookie).then((personne) => {
