@@ -36,12 +36,25 @@ export function titresDe(blocs) {
  * design sous un bandeau fixe) : un titre caché dessous n'est pas courant. */
 const marge = (el) => parseFloat(getComputedStyle(el).scrollMarginTop) || 0
 
-/** Le premier titre encore visible en haut de l'écran (comme Docs) ; si tous
- * sont passés, le dernier (écart avec Docs, qui revient au premier). */
+/** Le haut de la zone qui fait défiler le texte : celle de la coquille quand
+ * le texte défile seul (formats M et L), sinon l'écran. */
+function hautDeLaZone(el) {
+  for (let n = el?.parentElement; n; n = n.parentElement) {
+    const o = getComputedStyle(n).overflowY
+    if (o === 'auto' || o === 'scroll') return n.getBoundingClientRect().top
+  }
+  return 0
+}
+
+/** Le premier titre encore visible en haut de la zone du texte (comme Docs) ;
+ * si tous sont passés, le dernier (écart avec Docs, qui revient au premier). */
 export function titreCourant(racine, titres) {
+  let haut = null
   for (const t of titres) {
     const el = racine?.querySelector(`[data-id="${CSS.escape(t.cle)}"]`)
-    if (el && el.getBoundingClientRect().top >= marge(el)) return t.cle
+    if (!el) continue
+    haut ??= hautDeLaZone(el)
+    if (el.getBoundingClientRect().top >= haut + marge(el)) return t.cle
   }
   return titres.at(-1)?.cle ?? null
 }
