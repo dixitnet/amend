@@ -126,6 +126,20 @@ export const REGLAGES = {
   // table des matières dans le menu « / ») : à la taille des siens (16 px dans
   // la palette, 18 px dans le menu), au lieu des 24 px de Tabler.
   pictos: { editeur: { exposant: 16, tableDesMatieres: 18, titre: 18, sousTitre: 18, date: 18 } },
+  // Le back-office (Sylvain, 12/11/2026 : « une brique graphique minimaliste
+  // pour le back », blocs gratuits de Mantine) : page large, menu des
+  // rubriques à gauche (en haut au téléphone), chiffres en cartes bordées,
+  // libellé discret en petites capitales, valeur en gras.
+  admin: {
+    page: { size: 'lg' },
+    colonnes: { menu: { span: { base: 12, sm: 3 } }, contenu: { span: { base: 12, sm: 9 } } },
+    chiffres: {
+      grille: { cols: { base: 1, xs: 2, md: 4 } },
+      carte: { withBorder: true, p: 'md', radius: 'md' },
+      libelle: { size: 'xs', c: 'dimmed', tt: 'uppercase', fw: 700 },
+      valeur: { size: 'xl', fw: 700 },
+    },
+  },
   // La courbe du back-office (mémoire des processus) : sa proportion, quatre
   // fois plus large que haute.
   courbe: { largeur: 100, hauteur: 25 },
