@@ -239,7 +239,10 @@ export function creerModeles(ctx) {
         console.error(`[modèles] reprise de ${r.id} impossible :`, v.code, v.reglage ?? v.raison ?? '')
         continue
       }
-      const id = await comptes.creerModele(null, r.nom, ID_CODE, v.ecarts, null)
+      // Un modèle déjà créé par une reprise interrompue (avant d'être noté) est
+      // repris tel quel, sans doublon (audit du 12/11/2026).
+      const existant = (await comptes.modelesInstance()).find((m) => m.nom === r.nom && m.base === ID_CODE)
+      const id = existant?.id ?? (await comptes.creerModele(null, r.nom, ID_CODE, v.ecarts, null))
       await comptes.reprendreModele(r.id, id)
       if (!(await comptes.reglage(REGLAGE_DEFAUT))) await comptes.definirReglage(REGLAGE_DEFAUT, id, null)
       faits[r.id] = id

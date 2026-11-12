@@ -223,16 +223,22 @@ export function FormulaireModele({ libelles, nom, groupes = [], champs, message,
     <form onSubmit={soumettre}>
       <Stack>
         <TextInput label={libelles.nom} value={leNom} onChange={(e) => setNom(e.currentTarget.value)} required />
-        {groupes.length
-          ? groupes
+        {groupes.length ? (
+          <>
+            {groupes
               .map((g) => [g, champs.filter((c) => c.groupe === g.cle)])
               .filter(([, cs]) => cs.length)
               .map(([g, cs]) => (
                 <Fieldset key={g.cle} legend={g.libelle}>
                   <Stack>{cs.map(champ)}</Stack>
                 </Fieldset>
-              ))
-          : champs.map(champ)}
+              ))}
+            {/* Un réglage sans groupe connu reste visible, après les groupes. */}
+            {champs.filter((c) => !groupes.some((g) => g.cle === c.groupe)).map(champ)}
+          </>
+        ) : (
+          champs.map(champ)
+        )}
         {message ? <Text role="status">{message}</Text> : null}
         <Group>
           <Button {...REGLAGES.boutonSecondaire} onClick={surAnnuler}>

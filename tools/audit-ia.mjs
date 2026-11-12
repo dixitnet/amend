@@ -1,7 +1,8 @@
 // Audit du code de la v2 par une IA de Scaleway (règles de la v2, § 6 ;
 // décisions de Sylvain du 08/11/2026 : GLM-5.3 pour les deux audits).
 //
-//   node tools/audit-ia.mjs --modele=glm-5.3 [--depuis=<commit>] [--reflexion=low] [--essai]
+//   node tools/audit-ia.mjs --modele=glm-5.3 [--depuis=<commit>] [--jusqua=<commit>] [--reflexion=low] [--essai]
+//   (`--jusqua` : auditer un lot trop gros en tranches de commits ; par défaut HEAD)
 //   node tools/audit-ia.mjs --modele=glm-5.3 --complet --outils=<dossier> [--reflexion=low] [--essai]
 //
 // Partiel (avant une fusion) : le diff de v2/ depuis `--depuis` (par défaut la
@@ -62,7 +63,8 @@ const suivis = (motif) => git('ls-files', '--', motif).split('\n').filter(Boolea
 const maintenant = new Date().toISOString()
 const date = maintenant.slice(0, 10)
 const horodatage = `${date}-${maintenant.slice(11, 16).replace(':', '')}`
-const commit = git('rev-parse', '--short', 'HEAD').trim()
+const JUSQUA = arg('jusqua', 'HEAD')
+const commit = git('rev-parse', '--short', JUSQUA).trim()
 
 /** Les pièces communes : règles, renoncements, décisions. */
 const piecesCommunes = () => [
@@ -260,7 +262,7 @@ const conso = (envoyes, r) =>
 async function auditPartiel() {
   const depuis = arg('depuis') || git('merge-base', 'HEAD', 'origin/main').trim()
   const exclus = [':(exclude)v2/package-lock.json', ':(exclude)v2/LICENSE']
-  const fichiers = git('diff', '--name-only', `${depuis}..HEAD`, '--', 'v2/', ...exclus)
+  const fichiers = git('diff', '--name-only', `${depuis}..${JUSQUA}`, '--', 'v2/', ...exclus)
     .split('\n')
     .filter(Boolean)
   if (!fichiers.length) return console.log(`Aucun changement dans v2/ depuis ${depuis} : rien à auditer.`)
@@ -268,7 +270,7 @@ async function auditPartiel() {
     ...piecesCommunes(),
     {
       titre: `Diff de v2/ depuis ${depuis.slice(0, 7)}, lignes numérotées comme dans le fichier final`,
-      texte: diffNumerote(git('diff', '-U5', `${depuis}..HEAD`, '--', 'v2/', ...exclus)),
+      texte: diffNumerote(git('diff', '-U5', `${depuis}..${JUSQUA}`, '--', 'v2/', ...exclus)),
     },
   ]
   const { texte, total } = dossierDe(pieces)

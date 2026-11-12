@@ -265,6 +265,7 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
   const g = { cookie: gaelle.cookie }
   assert.equal((await appel('GET', '/api/admin/modeles', g)).statut, 403, 'réservé aux administrateurs')
   assert.equal((await appel('POST', '/api/admin/modeles', { ...g, corps: { nom: 'X' } })).statut, 403)
+  assert.equal((await appel('PUT', '/api/admin/modele-defaut', { ...g, corps: { modele: null } })).statut, 403)
   const { statut, json: i } = await appel('POST', '/api/admin/modeles', { ...a, corps: { nom: 'Collection maison' } })
   assert.equal(statut, 201)
   // L'administrateur règle ce qu'une équipe ne règle pas.
@@ -310,6 +311,8 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
     liste = (await appel('GET', '/api/admin/modeles', a)).json
     assert.equal(liste.defaut, i.id)
     assert.equal(liste.modeles.find((x) => x.id === i.id).derives, 1)
+    assert.equal((await appel('PUT', `/api/admin/modeles/${i.id}`, { ...g, corps: { nom: 'Y' } })).statut, 403)
+    assert.equal((await appel('DELETE', `/api/admin/modeles/${i.id}`, g)).statut, 403)
     const sup = await appel('DELETE', `/api/admin/modeles/${i.id}`, a)
     assert.equal(sup.statut, 200)
     assert.equal(await comptes.reglage('modeles.defaut'), null, 'le défaut retombe sur l’A4')

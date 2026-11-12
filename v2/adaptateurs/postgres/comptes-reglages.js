@@ -23,8 +23,7 @@ export function partiesReglages(sql) {
     },
     /** Choisit un réglage ; `null` l'efface (comme s'il n'avait jamais été choisi). */
     async definirReglage(cle, valeur, par) {
-      if (valeur === null || valeur === undefined)
-        return void (await sql`delete from amend.reglages where cle = ${cle}`)
+      if (valeur === null) return void (await sql`delete from amend.reglages where cle = ${cle}`)
       await sql`insert into amend.reglages (cle, valeur, modifie_par) values (${cle}, ${sql.json(valeur)}, ${estUuid(par) ? par : null})
         on conflict (cle) do update set valeur = excluded.valeur, modifie_par = excluded.modifie_par, modifie_le = now()`
     },

@@ -225,7 +225,8 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
           `align(center, it.body)})}`,
   )
   // Le premier numéro de page (v1, `startAt`).
-  if (f.depart !== 1) lignes.push(`#counter(page).update(${Math.trunc(f.depart)})`)
+  // Un numéro de départ qui n'est pas un entier positif est ignoré (1).
+  if (Number.isInteger(f.depart) && f.depart > 1) lignes.push(`#counter(page).update(${f.depart})`)
   return lignes.join('\n') + '\n'
 }
 

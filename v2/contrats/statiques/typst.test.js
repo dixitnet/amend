@@ -211,6 +211,12 @@ test('options de mise en page (12/11/2026) : titre courant, folio en haut, chapi
   ]) {
     const m = { ...modele, ...variante }
     const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
+    // Ce que chaque variante demande est bien dans la source.
+    const attendu = { asterisme: '⁂', trait: '—', etoiles: '* * *' }[variante.separateur]
+    assert.ok(source.includes(`"${attendu}"`), `séparateur ${variante.separateur}`)
+    if (variante.folio.position === 'haut-exterieur') assert.match(source, /header: context \{.*place\(/)
+    if (variante.folio.position === 'aucun') assert.match(source, /footer: none, header: none/)
+    if (variante.enTete) assert.match(source, /query\(heading\.where\(level: 1, outlined: true\)\.before\(here\(\)\)\)/)
     const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
     assert.ok(Buffer.from(pdf).toString('latin1').startsWith('%PDF-'), JSON.stringify(variante))
   }
