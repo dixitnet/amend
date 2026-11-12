@@ -45,7 +45,7 @@
     "exporter": "Export…",
     "copie": "{titre} (copy)",
     "dupliquer": "Duplicate",
-    "compteur": "{signes, plural, one {# character} other {# characters}} including spaces, {mots, plural, one {# word} other {# words}}",
+    "compteur": "{signes, plural, one {# character} other {# characters}}, {mots, plural, one {# word} other {# words}}",
     "zoom": "Text size",
     "zoomPalier": "{zoom}%",
     "exposant": "Superscript",
@@ -61,7 +61,7 @@
     "tableNiveaux": "{n, plural, =1 {Level 1 only} other {Levels 1 to #}}",
     "note": "Footnote",
     "noteDescription": "A numbered note at the bottom of the page",
-    "compteurSelection": "Selection: {signes, plural, one {# character} other {# characters}} including spaces, {mots, plural, one {# word} other {# words}}"
+    "compteurSelection": "Selection: {signes, plural, one {# character} other {# characters}}, {mots, plural, one {# word} other {# words}}"
   },
   "erreurs": {
     "apparence-inconnue": "This interface model or colour does not exist.",

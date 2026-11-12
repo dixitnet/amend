@@ -45,7 +45,7 @@
     "exporter": "Exporter…",
     "copie": "{titre} (copie)",
     "dupliquer": "Dupliquer",
-    "compteur": "{signes, plural, one {# signe} other {# signes}} espaces compris, {mots, plural, one {# mot} other {# mots}}",
+    "compteur": "{signes, plural, one {# signe} other {# signes}}, {mots, plural, one {# mot} other {# mots}}",
     "zoom": "Taille du texte",
     "zoomPalier": "{zoom}\u202F%",
     "exposant": "Exposant",
@@ -61,7 +61,7 @@
     "tableNiveaux": "{n, plural, =1 {Niveau 1 seulement} other {Niveaux 1 à #}}",
     "note": "Note de bas de page",
     "noteDescription": "Une note numérotée, en bas de la page",
-    "compteurSelection": "Sélection\u00A0: {signes, plural, one {# signe} other {# signes}} espaces compris, {mots, plural, one {# mot} other {# mots}}"
+    "compteurSelection": "Sélection\u00A0: {signes, plural, one {# signe} other {# signes}}, {mots, plural, one {# mot} other {# mots}}"
   },
   "erreurs": {
     "apparence-inconnue": "Ce modèle d’interface ou cette couleur n’existe pas.",
