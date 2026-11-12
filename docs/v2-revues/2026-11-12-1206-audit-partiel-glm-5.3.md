@@ -33,7 +33,7 @@ Ce lot étend les modèles de mise en page (folio, titre courant, séparateurs, 
 
 ## Réponse de Claude
 
-1. *Faux* : `appliquerEcarts` et `modeleRetenu` sont importés plus bas dans le fichier (ligne 103, import existant) ; la suite passe (20 tests).
+1. *Faux* : `appliquerEcarts` et `modeleRetenu` sont importés plus bas dans le fichier (ligne 94, import existant) ; la suite passe (20 tests).
 2. *Question pour Sylvain* : la virgule décimale est sa demande (chantier des modèles, point 12). Quand l'anglais sera publié, le séparateur pourra suivre la langue de l'interface ; noté, sans changement aujourd'hui.
 3. *Juste*, corrigé : un réglage sans groupe connu est rendu après les groupes, jamais masqué.
 4. *Question pour Sylvain* : bornes proposées par Claude (graisses 100 à 900 par 100, ligne du folio 0 à 100 mm, lignes blanches 0 à 10), comme les valeurs de l'A4 ; à valider avec elles.
