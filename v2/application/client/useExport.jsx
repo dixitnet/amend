@@ -41,9 +41,10 @@ export function useExport({ docId, controle, titre, auteur }) {
         leModele = modeleComplet(entree)
       }
       await exporterDocument(controle, format, { titre, langue: LANGUE_DOCUMENT_PAR_DEFAUT, modele: leModele, auteur })
-      // Le modèle n'est retenu qu'une fois le fichier obtenu (audit du 11/11/2026).
+      // Le modèle n'est retenu qu'une fois le fichier obtenu (audit du 11/11/2026) ;
+      // s'il ne peut l'être, l'export reste réussi (audit du 12/11/2026).
       if (format === 'pdf' && liste?.peutChoisir && modele !== liste.choisi)
-        await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/modele`, { modele })
+        await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/modele`, { modele }).catch(() => {})
       setOuverte(false)
     } catch (e) {
       const code = e?.code

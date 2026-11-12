@@ -68,8 +68,9 @@ export function PanneauSuggestions({
               {/* L'auteur et les boutons sur une ligne, le passage dessous. */}
               <Group {...entete}>
                 {/* Le nom aussi amène le texte à la suggestion (Sylvain, 12/11/2026) ;
-                    au clavier, le passage dessous fait la même chose. */}
-                <UnstyledButton onClick={() => surMontrer?.(i)} tabIndex={-1} aria-hidden>
+                    au clavier, le passage dessous fait la même chose (hors de
+                    la tabulation, le nom reste lu). */}
+                <UnstyledButton onClick={() => surMontrer?.(i)} tabIndex={-1}>
                   <Text {...auteur}>{l.auteur}</Text>
                 </UnstyledButton>
                 <Group {...boutons}>

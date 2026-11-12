@@ -14,7 +14,7 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 | Docs             | https://github.com/suitenumerique/docs          | `CHANGELOG.md`, adaptateur `src/yhub-server/`                       |
 | Typst            | https://github.com/typst/typst                  | versions                                                            |
 
-À chaque montée de BlockNote : vérifier que les suggestions s'affichent toujours avec notre réglage `css.editeur.suggestions` (`v2/design/feuilles/editeur.css`). Il s'appuie sur des détails de sa feuille de style, sans contrat public : les éléments `ins` et `del`, les classes `bn-suggestion-mark` et `bn-suggestion-mark--delete`, les variables `--user-color-light` et `--user-color-dark` (12/11/2026). Docs, lui, ne vise que `ins` et `[data-type='modification']`.
+À chaque montée de BlockNote : vérifier que les suggestions s'affichent toujours avec notre réglage `css.editeur.suggestions` (`v2/design/feuilles/editeur.css`). Il s'appuie sur des détails de sa feuille de style, sans contrat public : les éléments `ins` et `del`, les classes `bn-suggestion-mark` et `bn-suggestion-mark--delete`, les variables `--user-color-light` et `--user-color-dark` (12/11/2026). Docs, lui, ne vise que `ins` et `[data-type='modification']`. De même pour `css.commentaires.largeur` (`v2/design/feuilles/coquille.css`) : les classes `bn-threads-sidebar` et `bn-thread`.
 
 ## Sujets en cours en amont qui nous concernent
 

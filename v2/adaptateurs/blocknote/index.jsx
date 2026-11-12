@@ -178,6 +178,7 @@ function typesDeBloc(editeur, textes) {
     ['titre', TYPE_TITRE],
     ['sousTitre', TYPE_SOUS_TITRE],
   ]
+    // `titre` et `sousTitre` sont facultatifs dans les textes de l'éditeur.
     .filter(([cle]) => textes?.[cle])
     .map(([cle, type]) => ({ name: textes[cle].titre, type, icon: () => textes[cle].picto }))
   return [...blockTypeSelectItems(editeur), ...nos]

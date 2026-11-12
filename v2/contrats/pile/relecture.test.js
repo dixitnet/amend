@@ -122,6 +122,17 @@ test('commentaire du correcteur : l’ancre, posée par le serveur, se voit chez
     ['nuit'],
   )
   assert.equal(await texte(p), 'Il faisait nuit sur la ville.', 'le texte ne change pas')
+  // Le fil ne s'ouvre que dans la colonne de droite : pas de bulle au clic
+  // sur le passage commenté (Sylvain, 12/11/2026).
+  await p.locator('.bn-thread-mark').first().click()
+  await attendre(600)
+  assert.equal(
+    await p.evaluate(
+      () => [...document.querySelectorAll('.bn-thread')].filter((e) => !e.closest('.bn-threads-sidebar')).length,
+    ),
+    0,
+    'pas de bulle',
+  )
   await fermer()
 })
 
