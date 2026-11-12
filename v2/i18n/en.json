@@ -307,14 +307,14 @@
     "terminer": "Done",
     "plan": "Outline",
     "documents": "Documents",
-    "modifications": "Changes",
+    "modifications": "Suggestions",
     "copierLien": "Copy link",
     "planVide": "No heading in this document.",
     "lienCopie": "Link copied.",
     "lienNonCopie": "The link could not be copied: {lien}"
   },
   "interface": {
-    "voletDroit": "Changes and Margo (AI)",
+    "voletDroit": "Suggestions, comments and Margo (AI)",
     "compte": "My account",
     "presence": "People on this document",
     "modificationsCorrecteur": "Your suggestions go to the document’s editors, who accept or reject them.",

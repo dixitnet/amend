@@ -144,3 +144,15 @@ export const modeChoisi = (page) =>
       [...document.querySelectorAll('[aria-label="Mode d’édition"] input[type=radio]')].find((i) => i.checked)
         ?.labels?.[0]?.textContent ?? null,
   )
+
+/** Le panneau des suggestions, en une ligne. */
+export const panneau = (page) =>
+  page.evaluate(() => {
+    const section = document.querySelector('section[aria-label]')
+    if (!section) return ''
+    // Chaque carte cite le passage ; sa phrase complète est son nom accessible.
+    const cartes = [...section.querySelectorAll('li button[aria-label]:not([aria-label*=":"])')].map((b) =>
+      b.getAttribute('aria-label'),
+    )
+    return [section.innerText.replace(/\n+/g, ' / '), ...cartes].join(' / ')
+  })

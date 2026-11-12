@@ -13,6 +13,7 @@ import {
   attendre,
   choisirMode,
   modeChoisi,
+  panneau,
 } from './outils.mjs'
 
 let pile, nav
@@ -29,9 +30,6 @@ after(async () => {
   await pile?.arreter()
 })
 
-/** Le panneau des suggestions, en une ligne. */
-const panneau = (page) =>
-  page.evaluate(() => document.querySelector('section[aria-label]')?.innerText.replace(/\n+/g, ' / ') ?? '')
 /** Le panneau d'une éditrice, en relecture (le seul mode où il liste les suggestions). */
 async function attendrePanneau(page, motif, delai = 10000) {
   if ((await modeChoisi(page)) && (await modeChoisi(page)) !== 'Relire') await choisirMode(page, 'Relire')
@@ -183,4 +181,43 @@ test('trois modes : l’éditrice suggère, sa frappe devient une suggestion ; e
   await attendrePanneau(p, /Aucune suggestion/)
   await attendreTexte(p, 'Il faisait nuit. Ajout')
   await p.context().close()
+})
+
+test('suivi : cliquer une carte fait défiler le texte jusqu’à la suggestion ; les nombres en pastille', async () => {
+  const doc = docTest('defiler')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  for (let i = 1; i <= 40; i++) {
+    await p.keyboard.type(`Paragraphe ${i}.`)
+    await p.keyboard.press('Enter')
+  }
+  await p.keyboard.type('Dernier paragraphe.')
+  const c = await ouvrir('Carla', doc, { role: 'correcteur' })
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/Dernier paragraphe\.$/.test(await texte(c));)
+    await attendre(200)
+  await c.locator('.bn-inline-content', { hasText: 'Dernier paragraphe.' }).click()
+  await c.keyboard.press('End')
+  await attendre(300)
+  await c.keyboard.type(' Fin')
+  // Hors relecture, le nombre est compté à l'ouverture : on rouvre.
+  await attendre(2000)
+  await p.reload()
+  await p.waitForSelector('.bn-editor')
+  const pastille = () =>
+    p.evaluate(() => document.querySelector('header .mantine-Indicator-indicator')?.textContent ?? '')
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await pastille()) !== '1';) await attendre(200)
+  assert.equal(await pastille(), '1', 'le total des tâches sur le bouton du volet droit, hors relecture')
+  await attendrePanneau(p, /Carla ajoute «\s?Fin\s?»/)
+  await p.evaluate(() => window.scrollTo(0, 0))
+  await attendre(300)
+  await p.locator('section[aria-label] li button[aria-label^="Carla"]').first().click()
+  await attendre(1200)
+  const visible = await p.evaluate(() => {
+    const ins = [...document.querySelectorAll('.bn-editor ins')].find((e) => e.textContent.includes('Fin'))
+    const r = ins?.getBoundingClientRect()
+    return Boolean(r) && r.top >= 0 && r.bottom <= window.innerHeight
+  })
+  assert.ok(visible, 'la suggestion est dans l’écran')
+  await p.context().close()
+  await c.context().close()
 })

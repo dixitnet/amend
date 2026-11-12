@@ -93,6 +93,14 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   }, [connexion])
   const [autres, setAutres] = useState([])
   const [suggestions, setSuggestions] = useState(null)
+  // Les tâches en attente (Sylvain, 12/11/2026) : suggestions et commentaires
+  // ouverts, leur total toujours sur le bouton du volet droit.
+  const [nombreFils, setNombreFils] = useState(0)
+  const nombreSuggestions = suggestions?.nombre ?? 0
+  const [suggestionActive, setSuggestionActive] = useState(null)
+  // Une suggestion traitée décale les cartes : plus de carte active.
+  const longueurListe = suggestions?.liste.length ?? 0
+  useEffect(() => setSuggestionActive(null), [longueurListe])
   // L'onglet « Commentaires » : l'élément où l'éditeur place la liste des fils, et son filtre.
   const [cibleFils, setCibleFils] = useState(null)
   const [filtreFils, setFiltreFils] = useState('open')
@@ -306,7 +314,20 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
             : null
       }
       actionsGlobales={invisibles}
-      lignes={suggestions.liste.map((s) => ({ cle: `${s.debut}-${s.type}`, texte: ligne(s) }))}
+      lignes={suggestions.liste.map((s) => ({
+        cle: `${s.debut}-${s.type}`,
+        texte: ligne(s),
+        auteur: noms[s.auteur] ?? t('suggestions.auteurInconnu'),
+        passage: {
+          avant: s.type === 'ajout' ? '' : s.avant.trim(),
+          apres: s.type === 'suppression' ? '' : s.apres.trim(),
+        },
+      }))}
+      active={suggestionActive}
+      surMontrer={(i) => {
+        setSuggestionActive(i)
+        suggestions.montrer(suggestions.liste[i])
+      }}
       libelles={{
         accepter: t('suggestions.accepter'),
         refuser: t('suggestions.refuser'),
@@ -427,6 +448,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           nomsDe={nomsAvecMargo}
           commentaires={commentaires}
           surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+          surNombreFils={commentaires ? setNombreFils : undefined}
           historique={historique && !formatS}
           peutRestaurer={caps.includes('restaurer')}
           surFermerHistorique={() => setHistorique(false)}
@@ -541,11 +563,13 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           suggestions || peutMargo || listeFils
             ? {
                 titre: t('telephone.relecture'),
+                nombre: nombreSuggestions + nombreFils,
                 onglets: [
                   {
                     cle: 'modifications',
                     libelle: t('telephone.modifications'),
                     icone: 'modifications',
+                    nombre: nombreSuggestions,
                     contenu: modifications,
                   },
                   ...(listeFils
@@ -554,6 +578,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
                           cle: 'commentaires',
                           libelle: t('commentaires.titre'),
                           icone: 'commentaires',
+                          nombre: nombreFils,
                           contenu: listeFils,
                         },
                       ]
@@ -633,7 +658,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
             avecVoletDroit
               ? {
                   libelle: t('interface.voletDroit'),
-                  nombre: suggestions?.liste.length ?? 0,
+                  nombre: nombreSuggestions + nombreFils,
                   ouvert: volets.droite,
                   surClic: volets.basculerDroite,
                 }
@@ -664,6 +689,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
               commentaires: t('commentaires.titre'),
               margo: t('interface.margo'),
             }}
+            nombres={{ modifications: nombreSuggestions, commentaires: nombreFils }}
             modifications={modifications}
             commentaires={listeFils}
             margo={panneauMargo}
