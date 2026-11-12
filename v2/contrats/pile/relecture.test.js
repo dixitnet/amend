@@ -183,11 +183,9 @@ test('trois modes : l’éditrice corrige, sa frappe devient une suggestion ; en
   await choisirMode(p, 'Éditer')
   assert.ok(await p.$('.bn-editor ins'), 'la suggestion se voit dans le texte')
   await attendrePanneau(p, /Paule ajoute «\s?Ajout\s?»/)
-  await p
-    .locator('section[aria-label] li')
-    .first()
-    .getByRole('button', { name: /^Accepter\s*:/ })
-    .click()
+  // Sa propre suggestion, après avoir écrit en Éditer, ne s'accepte pas une à
+  // une (défaut amont, veille, 12/11/2026) : « Tout accepter » la traite.
+  await p.getByRole('button', { name: 'Tout accepter' }).click()
   await attendrePanneau(p, /Aucune suggestion/)
   await attendreTexte(p, 'Il faisait nuit. Ajout')
   await p.context().close()
