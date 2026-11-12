@@ -26,6 +26,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  Textarea,
   UnstyledButton,
   SegmentedControl,
 } from '@mantine/core'
@@ -477,6 +478,51 @@ export function FenetreSaisie({
           </Group>
         </Stack>
       </form>
+    </Modal>
+  )
+}
+
+/**
+ * La fenêtre d'une note de bas de page (12/11/2026) : son texte simple, à lire
+ * ou à écrire ; « Supprimer la note » pour une note existante.
+ * @param {{ ouverte: boolean, titre: string, valeur: string, lectureSeule: boolean,
+ *   libelles: { texte: string, enregistrer: string, annuler: string, fermer: string, retirer: string },
+ *   surEnregistrer: (texte: string) => void, surRetirer?: (() => void) | null, surFermer: () => void }} p
+ */
+export function FenetreNote({ ouverte, titre, valeur, lectureSeule, libelles, surEnregistrer, surRetirer, surFermer }) {
+  const soumettre = (e) => {
+    e.preventDefault()
+    surEnregistrer(String(new FormData(e.currentTarget).get('texte') || ''))
+  }
+  return (
+    <Modal opened={ouverte} onClose={surFermer} title={titre} withCloseButton={false}>
+      {lectureSeule ? (
+        <Stack>
+          <Text>{valeur}</Text>
+          <Group>
+            <Button {...REGLAGES.boutonSecondaire} onClick={surFermer} data-autofocus>
+              {libelles.fermer}
+            </Button>
+          </Group>
+        </Stack>
+      ) : (
+        <form onSubmit={soumettre}>
+          <Stack>
+            <Textarea name="texte" label={libelles.texte} defaultValue={valeur} autosize data-autofocus />
+            <Group>
+              <Button type="submit">{libelles.enregistrer}</Button>
+              <Button {...REGLAGES.boutonSecondaire} onClick={surFermer}>
+                {libelles.annuler}
+              </Button>
+              {surRetirer ? (
+                <Button {...REGLAGES.boutonDanger} onClick={surRetirer}>
+                  {libelles.retirer}
+                </Button>
+              ) : null}
+            </Group>
+          </Stack>
+        </form>
+      )}
     </Modal>
   )
 }

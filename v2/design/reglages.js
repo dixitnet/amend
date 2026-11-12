@@ -125,7 +125,17 @@ export const REGLAGES = {
   // Les pictos ajoutés aux boutons de BlockNote (exposant dans la palette,
   // table des matières dans le menu « / ») : à la taille des siens (16 px dans
   // la palette, 18 px dans le menu), au lieu des 24 px de Tabler.
-  pictos: { editeur: { exposant: 16, tableDesMatieres: 18, titre: 18, sousTitre: 18, date: 18 } },
+  pictos: {
+    editeur: {
+      exposant: 16,
+      tableDesMatieres: 18,
+      titre: 18,
+      sousTitre: 18,
+      date: 18,
+      noteDePage: 16,
+      noteDePageMenu: 18,
+    },
+  },
   // Le back-office (Sylvain, 12/11/2026 : « une brique graphique minimaliste
   // pour le back », blocs gratuits de Mantine) : page large, menu des
   // rubriques à gauche (en haut au téléphone), chiffres en cartes bordées,

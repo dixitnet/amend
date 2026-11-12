@@ -24,6 +24,7 @@ export {
   AlerteHorsLigne,
   Fenetre,
   FenetreSaisie,
+  FenetreNote,
   FenetreConfirmation,
 } from './composants/Coquille.jsx'
 export { montrerMessage } from './messages.js'
