@@ -92,17 +92,18 @@ export function clientCollaboration({ url, jeton }) {
         headers: { 'content-type': 'application/octet-stream' },
         body: encodage.encodeAny({ update: mise, customAttributions: [{ k: 'pour', v: pour }] }),
       }),
-    /** Les suggestions en cours (état encodé), lues au nom de Margo ; une branche
-     * jamais écrite se lit vide. */
-    lireSuggestions: async (docId) =>
-      etatDe(await appel(docId, { headers: { 'x-amend-agent': 'margo' } }, 'suggestions')),
-    /** Écrit une modification dans les suggestions, attribuée à Margo (étape 8). */
-    ecrireSuggestions: (docId, mise) =>
+    /** Les suggestions en cours (état encodé), lues au nom d'un agent (Margo par
+     * défaut) ; une branche jamais écrite se lit vide. */
+    lireSuggestions: async (docId, agent = 'margo') =>
+      etatDe(await appel(docId, { headers: { 'x-amend-agent': agent } }, 'suggestions')),
+    /** Écrit une modification dans les suggestions, attribuée à un agent (Margo
+     * par défaut, étape 8 ; Claude par le connecteur). */
+    ecrireSuggestions: (docId, mise, agent = 'margo') =>
       appel(
         docId,
         {
           method: 'PATCH',
-          headers: { 'content-type': 'application/octet-stream', 'x-amend-agent': 'margo' },
+          headers: { 'content-type': 'application/octet-stream', 'x-amend-agent': agent },
           body: encodage.encodeAny({ update: mise }),
         },
         'suggestions',

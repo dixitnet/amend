@@ -315,6 +315,20 @@
       "aucun": "L’instance n’a pas encore de modèle à elle.",
       "detail": "D’après «\u00A0{titre}\u00A0» · {n, plural, =0 {aucun document} one {# document} other {# documents}} · {e, plural, =0 {aucune équipe} one {# équipe} other {# équipes}} · {d, plural, =0 {aucun modèle d’équipe} one {# modèle d’équipe} other {# modèles d’équipe}}",
       "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? Les documents et les équipes qui l’avaient choisi prendront le modèle par défaut\u202F; les modèles d’équipe qui en dérivent repartiront de «\u00A0{code}\u00A0»."
+    },
+    "connecteur": {
+      "titre": "Connecteur Claude",
+      "explication": "Une adresse secrète à ajouter dans Claude (Réglages, Connecteurs, connecteur personnalisé). Claude y retrouve tous les documents de votre compte, avec vos droits sur chacun\u202F; il propose des corrections et des commentaires, signés «\u00A0Claude\u00A0», que vous acceptez ou refusez. Ne partagez pas cette adresse.",
+      "inactif": "Aucune adresse active.",
+      "actif": "Adresse active, créée le {date}.",
+      "creer": "Créer l’adresse",
+      "renouveler": "Créer une nouvelle adresse",
+      "revoquer": "Révoquer l’adresse",
+      "adresse": "Adresse du connecteur",
+      "copier": "Copier",
+      "copie": "Copiée",
+      "avertissement": "Copiez-la maintenant\u00A0: elle ne sera plus affichée. Une nouvelle adresse remplace l’ancienne, qui cesse de fonctionner.",
+      "confirmerRevocation": "Révoquer l’adresse du connecteur\u202F? Claude n’aura plus accès à vos documents."
     }
   },
   "telephone": {
@@ -342,7 +356,8 @@
     "valider": "Valider",
     "annuler": "Annuler",
     "continuer": "Continuer",
-    "aide": "Aide"
+    "aide": "Aide",
+    "claude": "Claude (connecteur)"
   },
   "export": {
     "titre": "Exporter",
