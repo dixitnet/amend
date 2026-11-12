@@ -311,22 +311,38 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
   )
 }
 
-/** Le volet droit : onglets Modifications et Margo (IA). Le titre
+/** Un picto avec son nombre en pastille (les tâches en attente : suggestions,
+ * commentaires ouverts ; Sylvain, 12/11/2026) ; sans nombre, le picto seul. */
+export function PictoCompte({ role, nombre }) {
+  return (
+    <Indicator {...REGLAGES.nombreSuggestions} label={nombre} disabled={!nombre}>
+      <PictoDe role={role} />
+    </Indicator>
+  )
+}
+
+/** Le volet droit : onglets Suggestions, Commentaires et Margo (IA). Le titre
  * (« Relecture ») n'est plus affiché (Sylvain, 10/11/2026) : il nomme les
  * onglets pour les lecteurs d'écran. L'onglet ouvert peut être piloté
  * (`actif`, `surOnglet`) : « Corriger » ouvre Margo (étape 8). Sans `margo`,
  * pas d'onglet Margo (le correcteur n'y a pas accès). */
-export function VoletRelecture({ titre, onglets, modifications, commentaires, margo, actif, surOnglet }) {
+export function VoletRelecture({ titre, onglets, nombres = {}, modifications, commentaires, margo, actif, surOnglet }) {
   const pilote = actif ? { value: actif, onChange: surOnglet } : { defaultValue: 'modifications' }
   return (
     <>
       <Tabs {...pilote} className="amend-coquille-onglets">
         <Tabs.List grow aria-label={titre}>
-          <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
+          <Tabs.Tab
+            value="modifications"
+            leftSection={<PictoCompte role="modifications" nombre={nombres.modifications} />}
+          >
             {onglets.modifications}
           </Tabs.Tab>
           {commentaires ? (
-            <Tabs.Tab value="commentaires" leftSection={<PictoDe role="commentaires" />}>
+            <Tabs.Tab
+              value="commentaires"
+              leftSection={<PictoCompte role="commentaires" nombre={nombres.commentaires} />}
+            >
               {onglets.commentaires}
             </Tabs.Tab>
           ) : null}
