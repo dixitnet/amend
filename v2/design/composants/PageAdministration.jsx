@@ -77,7 +77,9 @@ function Chiffres({ lignes }) {
  *     courbes?: Array<{ libelle: string, legende?: string, points: Array<{ x: number, y: number }> }>,
  *     lignes: Array<{ libelle: string, valeur?: string, choix?: object }> }> }} p
  *   `vide` : le texte montré quand la rubrique n'a ni courbe, ni ligne, ni contenu ;
- *   `chiffres` : les lignes en cartes plutôt qu'en tableau
+ *   `chiffres` : les lignes en cartes plutôt qu'en tableau (valeurs seules : une
+ *   ligne à choix va dans une rubrique en tableau) ; le menu retient la rubrique
+ *   choisie par son titre (la première au départ, ou si elle disparaît)
  */
 export function PageAdministration({ nomApplication, titre, actions, message, rubriques }) {
   const [choisie, setChoisie] = useState(rubriques[0]?.titre ?? null)
