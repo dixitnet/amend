@@ -303,6 +303,13 @@
       "sonnet": "Claude Sonnet 5.5 (Anthropic)",
       "haiku": "Claude Haiku 5.5 (Anthropic)",
       "fable": "Claude Fable 5.2 (Anthropic)"
+    },
+    "modelesPdf": {
+      "titre": "Page layout templates",
+      "defaut": "Default template of this instance",
+      "aucun": "This instance has no template of its own yet.",
+      "detail": "Based on “{titre}” · {n, plural, =0 {no documents} one {# document} other {# documents}} · {e, plural, =0 {no teams} one {# team} other {# teams}} · {d, plural, =0 {no team templates} one {# team template} other {# team templates}}",
+      "confirmerSuppression": "Delete the template “{nom}”? Documents and teams that chose it will use the default template; team templates based on it will start again from “{code}”."
     }
   },
   "telephone": {
@@ -377,18 +384,78 @@
       "police": "Font",
       "alinea": "Paragraph indent (mm)",
       "chapitre": {
-        "bellePage": "Chapters start on a right-hand page"
+        "debut": "Chapter start",
+        "ligneTitre": "Chapter title line",
+        "ligneTexte": "Line where the text resumes",
+        "corps": "Chapter title size (pt)",
+        "interligne": "Chapter title leading (pt)",
+        "graisse": "Chapter title weight"
       },
       "titre": {
-        "corps": "Title size (pt)"
+        "corps": "Title size (pt)",
+        "graisse": "Title weight"
       },
       "sousTitre": {
-        "corps": "Subtitle size (pt)"
-      }
+        "corps": "Subtitle size (pt)",
+        "italique": "Subtitle in italics"
+      },
+      "folio": {
+        "position": "Page number position",
+        "depart": "First page number",
+        "bas": "Page number line from the bottom (mm)",
+        "ouverture": "Page number on chapter opening pages"
+      },
+      "enTete": {
+        "gauche": "Running head on left pages",
+        "droite": "Running head on right pages"
+      },
+      "intertitres": {
+        "italique": "Subheadings in italics",
+        "lignesAvant": "Blank lines before a subheading",
+        "lignesApres": "Blank lines after a subheading"
+      },
+      "citation": {
+        "retrait": "Quotation indent (mm)"
+      },
+      "separateur": "Scene break",
+      "cesure": "Hyphenation"
     },
     "maison": {
-      "tat-poche": "TàT - Poche"
-    }
+      "a4": "Simple A4"
+    },
+    "options": {
+      "separateur": {
+        "blanc": "Blank line",
+        "asterisme": "Asterism ⁂",
+        "etoiles": "Three asterisks * * *",
+        "trait": "Dash —"
+      },
+      "chapitre": {
+        "continuer": "On the same page",
+        "page": "Next page",
+        "belle-page": "Right-hand page"
+      },
+      "folio": {
+        "bas-centre": "Bottom, centred",
+        "bas-exterieur": "Bottom, outer edge",
+        "haut-exterieur": "Top, outer edge",
+        "aucun": "None"
+      },
+      "enTete": {
+        "rien": "Nothing",
+        "titreDocument": "Document title",
+        "chapitre": "Current chapter"
+      }
+    },
+    "groupes": {
+      "format": "Format and margins",
+      "texte": "Text",
+      "titres": "Headings and chapters",
+      "pages": "Page numbers and running heads"
+    },
+    "essayer": "Try",
+    "essayerDe": "Export the open document with “{nom}”",
+    "defautInstance": "The instance default"
   },
   "margo": {
     "accueil": "Ask Margo to proofread, correct or comment on the text. Corrections arrive as suggestions, in Changes, to accept or reject.",

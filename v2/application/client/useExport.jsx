@@ -10,7 +10,7 @@ import { groupesDeModeles } from './Modeles.jsx'
 /** La fenêtre « Exporter » d'un document, comme ModalExport de Docs : le
  * format, et pour le PDF le modèle de mise en page (celui retenu pour le
  * document, présélectionné ; qui écrit peut le retenir pour le document). */
-export function useExport({ docId, controle, titre }) {
+export function useExport({ docId, controle, titre, auteur }) {
   const [ouverte, setOuverte] = useState(false)
   const [format, setFormat] = useState('pdf')
   const [liste, setListe] = useState(null)
@@ -41,7 +41,7 @@ export function useExport({ docId, controle, titre }) {
         if (!entree) throw Object.assign(new Error('modele-introuvable'), { code: 'modele-introuvable' })
         leModele = modeleComplet(entree)
       }
-      await exporterDocument(controle, format, { titre, langue: LANGUE_DOCUMENT_PAR_DEFAUT, modele: leModele })
+      await exporterDocument(controle, format, { titre, langue: LANGUE_DOCUMENT_PAR_DEFAUT, modele: leModele, auteur })
       // Le modèle n'est retenu qu'une fois le fichier obtenu (audit du 11/11/2026).
       if (format === 'pdf' && retenir && liste?.peutChoisir && modele !== liste.choisi)
         await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/modele`, { modele })
@@ -57,7 +57,6 @@ export function useExport({ docId, controle, titre }) {
       setEnCours(false)
     }
   }
-  const equipeModeles = (liste?.modeles ?? []).filter((m) => !m.maison)
   const fenetre = (
     <Fenetre
       ouverte={ouverte}
@@ -80,7 +79,15 @@ export function useExport({ docId, controle, titre }) {
           ]}
           format={format}
           surFormat={setFormat}
-          modeles={format === 'pdf' && liste ? groupesDeModeles(liste.equipe, equipeModeles) : null}
+          modeles={
+            format === 'pdf' && liste
+              ? groupesDeModeles(
+                  liste.equipe,
+                  liste.modeles.filter((m) => m.code || m.instance),
+                  liste.modeles.filter((m) => !m.code && !m.instance),
+                )
+              : null
+          }
           modele={modele}
           surModele={setModele}
           retenir={liste?.peutChoisir ? { coche: retenir, surChange: setRetenir } : null}

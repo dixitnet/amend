@@ -1,6 +1,6 @@
 // T5 : les exports Markdown et PDF dans un vrai navigateur (étape 7) : la
 // fenêtre « Exporter » propose un fichier, le texte de base y est (pas les
-// suggestions), le PDF est au format du modèle « TàT - Poche », ou d'un
+// suggestions), le PDF est au format du modèle « A4 simple », ou d'un
 // modèle d'équipe réglé par son gestionnaire (ADR 0011).
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -64,12 +64,13 @@ test('PDF : un livre au format du modèle, compilé dans le navigateur', async (
   await page.keyboard.press('Enter')
   await page.keyboard.type('Le second conte est parfaitement immoral.')
   await attendreTexte(page, 'Petit conte immoral\nLe second conte est parfaitement immoral.')
-  const { nom, contenu } = await telecharger(page, 'PDF')
+  const { nom, contenu } = await telecharger(page, 'PDF', { modele: 'A4 simple' })
   assert.match(nom, /\.pdf$/)
   const brut = contenu.toString('latin1')
   assert.ok(brut.startsWith('%PDF-'))
-  // 120 × 180 mm, police du modèle incorporée.
-  assert.match(brut, /MediaBox ?\[0 0 340\.157\d* 510\.236\d*\]/)
+  // 210 × 297 mm (le modèle du code, choisi ici : le défaut de l'instance
+  // dépend de la base), police du modèle incorporée.
+  assert.match(brut, /MediaBox ?\[0 0 595\.27\d* 841\.88\d*\]/)
   assert.match(brut, /EBGaramond/)
 })
 
@@ -109,9 +110,9 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   await fenetre.getByText('Modèle enregistré.').waitFor()
   await fenetre.getByRole('button', { name: 'Fermer' }).click()
 
-  // L'export le propose, l'applique (135 mm de large) et le retient.
+  // L'export le propose, l'applique (135 mm de large, sur l'A4 de départ) et le retient.
   const { contenu } = await telecharger(page, 'PDF', { modele: 'Collection', retenir: true })
-  assert.match(contenu.toString('latin1'), /MediaBox ?\[0 0 382\.677\d* 510\.236\d*\]/)
+  assert.match(contenu.toString('latin1'), /MediaBox ?\[0 0 382\.677\d* 841\.88\d*\]/)
   const vue = await api('GET', `/api/documents/${doc.id}/modeles`)
   assert.equal(vue.choisi, vue.modeles.find((m) => m.nom === 'Collection').id)
   assert.equal(vue.retenu, vue.choisi)
