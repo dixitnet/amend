@@ -323,13 +323,13 @@ test('bandeau : signes et mots du document, ou de la sélection', async () => {
   const compteur = () =>
     page
       .locator('.amend-coquille-bandeau')
-      .getByText(/espaces compris/)
+      .getByText(/\d+ mots?$/)
       .innerText()
   for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(200))
     if (/29 signes/.test(await compteur().catch(() => ''))) break
-  assert.match(await compteur(), /^29 signes espaces compris, 6 mots$/)
+  assert.match(await compteur(), /^29 signes, 6 mots$/)
   await page.locator('.bn-inline-content').first().dblclick()
   await attendre(400)
-  assert.match(await compteur(), /^Sélection\s?: \d+ signes? espaces compris, 1 mot$/)
+  assert.match(await compteur(), /^Sélection\s?: \d+ signes?, 1 mot$/)
   await page.context().close()
 })

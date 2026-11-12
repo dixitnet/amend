@@ -149,7 +149,7 @@ Ajouté le 08/11/2026, après une proposition précipitée (un lot de design pou
 24. **Le français est la langue source.** L'anglais est la première langue cible, préparée dès l'étape 6, même si elle n'est publiée que plus tard. Le nom « amend.ink » ne se traduit jamais.
 25. **Le domaine et le serveur rendent des codes, pas des phrases** (`{ code: 'limite-ia-atteinte', signes: 120000 }`). La couche d'interface, ou le module de courrier, choisit la phrase dans la langue de la personne.
 26. **Pas de phrase assemblée par morceaux.** Les messages ont des paramètres nommés et gèrent le pluriel (format de messages ICU ou équivalent). Les dates, les nombres et les durées passent par `Intl`, dans la langue de la personne.
-27. **Les unités restent les signes, espaces compris** (règle 5 de `CLAUDE.md`), traduits par exemple en « characters (including spaces) » en anglais, jamais en mots ni en pages.
+27. **Les unités restent les signes, espaces compris** (règle 5 de `CLAUDE.md`), traduits par exemple en « characters (including spaces) » en anglais, jamais en mots ni en pages. Exception décidée par Sylvain le 12/11/2026 : le compteur du document (bandeau, menu « … ») dit seulement « signes » ; il compte toujours les espaces.
 28. **Deux langues à ne pas confondre** :
     - la **langue de l'interface** (préférence de la personne, puis navigateur, puis français) ;
     - la **langue du document** (propriété du document, choisie par ses éditeurs). Elle règle la typographie (règles françaises seulement pour un document en français), la langue déclarée dans les exports (`lang` de Typst, Word) et les consignes de Margo.
