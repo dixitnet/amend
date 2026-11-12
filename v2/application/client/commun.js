@@ -1,7 +1,7 @@
 // Ce que tous les écrans partagent : le traducteur (initialisé une seule fois, avant
 // tout rendu), les appels JSON, les noms traduits et le compte du bandeau.
 import { creerTraducteur, choisirLangue, libelleDuRole, libelleDuRoleEquipe, LANGUE_PSEUDO } from '../../i18n/index.js'
-import { AUTEUR_MARGO } from '../../domaine/index.js'
+import { AUTEUR_MARGO, AUTEUR_CLAUDE } from '../../domaine/index.js'
 import { nomsDe, appel } from './commentaires.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
@@ -15,9 +15,18 @@ document.title = t('application.nom')
 
 export const lireJson = (r) => r.json().catch(() => ({}))
 
-/** Les noms des personnes, et celui de Margo (le serveur rend un code). */
+/** Les noms des personnes, et ceux des agents, Margo et Claude par le
+ * connecteur (le serveur rend un code). */
 export const nomsAvecMargo = (ids) =>
-  nomsDe(ids).then((l) => l.map((p) => (p.id === AUTEUR_MARGO ? { ...p, username: t('interface.margo') } : p)))
+  nomsDe(ids).then((l) =>
+    l.map((p) =>
+      p.id === AUTEUR_MARGO
+        ? { ...p, username: t('interface.margo') }
+        : p.id === AUTEUR_CLAUDE
+          ? { ...p, username: t('interface.claude') }
+          : p,
+    ),
+  )
 
 export const envoyerJson = appel
 

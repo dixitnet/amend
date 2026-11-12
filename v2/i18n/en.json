@@ -315,6 +315,20 @@
       "aucun": "This instance has no template of its own yet.",
       "detail": "Based on “{titre}” · {n, plural, =0 {no documents} one {# document} other {# documents}} · {e, plural, =0 {no teams} one {# team} other {# teams}} · {d, plural, =0 {no team templates} one {# team template} other {# team templates}}",
       "confirmerSuppression": "Delete the template “{nom}”? Documents and teams that chose it will use the default template; team templates based on it will start again from “{code}”."
+    },
+    "connecteur": {
+      "titre": "Claude connector",
+      "explication": "A secret address to add in Claude (Settings, Connectors, custom connector). Claude finds all the documents of your account there, with your rights on each; it suggests corrections and comments, signed “Claude”, that you accept or reject. Do not share this address.",
+      "inactif": "No active address.",
+      "actif": "Active address, created on {date}.",
+      "creer": "Create the address",
+      "renouveler": "Create a new address",
+      "revoquer": "Revoke the address",
+      "adresse": "Connector address",
+      "copier": "Copy",
+      "copie": "Copied",
+      "avertissement": "Copy it now: it will not be shown again. A new address replaces the old one, which stops working.",
+      "confirmerRevocation": "Revoke the connector address? Claude will no longer have access to your documents."
     }
   },
   "telephone": {
@@ -342,7 +356,8 @@
     "valider": "OK",
     "annuler": "Cancel",
     "continuer": "Continue",
-    "aide": "Help"
+    "aide": "Help",
+    "claude": "Claude (connector)"
   },
   "export": {
     "titre": "Export",

@@ -1,6 +1,6 @@
 // Le back-office de l'instance (administrateurs).
 import { useEffect, useState } from 'react'
-import { EcranMessage, PageAdministration, Bouton } from '../../design/index.js'
+import { EcranMessage, PageAdministration, Bouton, PanneauConnecteur } from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
 import { t, envoyerJson, nomDuModele } from './commun.js'
 import { courbeDeMemoire } from './suivi.js'
@@ -46,6 +46,32 @@ export function Administration({ surApparence }) {
   const [suivi, setSuivi] = useState(null)
   const [erreurSuivi, setErreurSuivi] = useState(null)
   const [maintenant] = useState(() => Date.now())
+  // Le connecteur Claude (12/11/2026) : son état, et l'adresse juste après sa création.
+  const [connecteur, setConnecteur] = useState(null)
+  const [adresseConnecteur, setAdresseConnecteur] = useState(null)
+  const chargerConnecteur = () =>
+    envoyerJson('GET', '/api/admin/connecteur')
+      .then(setConnecteur)
+      .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+  useEffect(() => {
+    chargerConnecteur()
+  }, [])
+  const creerConnecteur = () =>
+    envoyerJson('POST', '/api/admin/connecteur')
+      .then((r) => (setAdresseConnecteur(r.adresse), chargerConnecteur()))
+      .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+  const revoquerConnecteur = async () => {
+    const ok = await confirmer({
+      titre: t('admin.connecteur.revoquer'),
+      texte: t('admin.connecteur.confirmerRevocation'),
+      libelle: t('admin.connecteur.revoquer'),
+      danger: true,
+    })
+    if (!ok) return
+    await envoyerJson('DELETE', '/api/admin/connecteur').catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+    setAdresseConnecteur(null)
+    chargerConnecteur()
+  }
   // Les modèles de mise en page de l'instance (12/11/2026).
   const [modeles, setModeles] = useState(null)
   const [erreurModeles, setErreurModeles] = useState(null)
@@ -199,6 +225,37 @@ export function Administration({ surApparence }) {
           contenu: modeles ? (
             <>
               <ModelesInstance donnees={modeles} confirmer={confirmer} surChangement={chargerModeles} />
+              {fenetreConfirmation}
+            </>
+          ) : null,
+        },
+        {
+          titre: t('admin.connecteur.titre'),
+          lignes: [],
+          vide: t('application.chargement'),
+          contenu: connecteur ? (
+            <>
+              <PanneauConnecteur
+                explication={t('admin.connecteur.explication')}
+                etat={
+                  connecteur.actif
+                    ? t('admin.connecteur.actif', { date: date.format(connecteur.creeLe) })
+                    : t('admin.connecteur.inactif')
+                }
+                actif={connecteur.actif}
+                adresse={adresseConnecteur}
+                avertissement={t('admin.connecteur.avertissement')}
+                libelles={{
+                  creer: t('admin.connecteur.creer'),
+                  renouveler: t('admin.connecteur.renouveler'),
+                  revoquer: t('admin.connecteur.revoquer'),
+                  copier: t('admin.connecteur.copier'),
+                  copie: t('admin.connecteur.copie'),
+                  adresse: t('admin.connecteur.adresse'),
+                }}
+                surCreer={creerConnecteur}
+                surRevoquer={revoquerConnecteur}
+              />
               {fenetreConfirmation}
             </>
           ) : null,
