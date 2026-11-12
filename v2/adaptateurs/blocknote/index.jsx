@@ -59,7 +59,8 @@ import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
 import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
 import { TYPE_TITRE, TYPE_SOUS_TITRE } from '../../extensions/titres/index.js'
-import { dateDuJour } from '../../domaine/index.js'
+import { dateDuJour, typographier, nfc } from '../../domaine/index.js'
+import { TYPE_NOTE, EVENEMENT_NOTE } from '../../extensions/note/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 
@@ -108,6 +109,28 @@ function BoutonCorriger({ corriger }) {
 /** Le bouton de l'exposant (11/11/2026), sur le modèle des boutons de style
  * de BlockNote (`BasicTextStyleButton`) : seulement quand le texte se modifie
  * et qu'un bloc à texte est sélectionné. Libellé et picto donnés par l'application. */
+/** Le bouton « Note de bas de page » de la palette : la note se pose à la fin de la sélection. */
+function BoutonNote({ note, surNouvelleNote }) {
+  const editeur = useBlockNoteEditor()
+  const Components = useComponentsContext()
+  const visible = useEditorState({
+    editor: editeur,
+    selector: ({ editor }) => {
+      const blocs = editor.getSelection()?.blocks || [editor.getTextCursorPosition().block]
+      return editor.isEditable && blocs.some((b) => Array.isArray(b.content))
+    },
+  })
+  if (!visible || !Components) return null
+  return (
+    <Components.FormattingToolbar.Button
+      label={note.libelle}
+      mainTooltip={note.libelle}
+      icon={note.pictoPalette ?? note.picto}
+      onClick={surNouvelleNote}
+    />
+  )
+}
+
 function BoutonExposant({ exposant }) {
   const editeur = useBlockNoteEditor()
   const Components = useComponentsContext()
@@ -146,7 +169,7 @@ function RestaurerApresConfirmation({ libelle, confirmer }) {
   )
 }
 
-function Palette({ corriger, suggerer, exposant, formatS }) {
+function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote }) {
   const boutons = suggerer
     ? boutonsGardesEnSuggestion(getFormattingToolbarItems())
     : boutonsGardes(
@@ -156,6 +179,7 @@ function Palette({ corriger, suggerer, exposant, formatS }) {
   return (
     <FormattingToolbar>
       {formatS ? boutonsDuFormatS(boutons) : boutons}
+      {note && surNouvelleNote ? <BoutonNote note={note} surNouvelleNote={surNouvelleNote} /> : null}
       {corriger ? <BoutonCorriger corriger={corriger} /> : null}
     </FormattingToolbar>
   )
@@ -201,6 +225,17 @@ function itemsDuMenu(editeur, table, textesTitres) {
       group: groupe,
       icon: textesTitres.date.picto,
       onItemClick: () => editeur.insertInlineContent(dateDuJour()),
+    })
+  // La note de bas de page (12/11/2026) : la fenêtre s'ouvre pour l'écrire.
+  if (textesTitres?.note && textesTitres.surNouvelleNote)
+    items.push({
+      key: 'amend_note',
+      title: textesTitres.note.titre,
+      subtext: textesTitres.note.description,
+      aliases: ['note'],
+      group: groupe,
+      icon: textesTitres.note.picto,
+      onItemClick: textesTitres.surNouvelleNote,
     })
   // Titre et sous-titre, en bas du menu (Sylvain, 12/11/2026), dans son
   // dernier groupe.
@@ -259,6 +294,10 @@ function itemsDuMenu(editeur, table, textesTitres) {
  *   rappelé quand la sélection change, en blocs (Margo, étape 8) ; doit être stable
  * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, niveaux?: Record<number, string>, picto: any }, titre?: { titre: string, description: string, picto: any }, sousTitre?: { titre: string, description: string, picto: any } }} [p.textes]
  *   libellés et pictos de nos ajouts (exposant, table des matières), donnés par l'application
+ * @param {(note: { texte: string, nouvelle: boolean, lectureSeule: boolean,
+ *   enregistrer: (texte: string) => void, retirer: (() => void) | null, fermer: () => void } | null) => void} [p.surNote]
+ *   une note de bas de page à lire, écrire ou retirer (12/11/2026) : l'application
+ *   ouvre sa fenêtre ; doit être stable
  * @param {boolean} [p.formatS] format S (téléphone) : barre de mise en forme
  *   sans le choix du type de bloc (Sylvain, 12/11/2026)
  * @param {(fichier: File) => Promise<string>} [p.televerser] envoie une image et rend son
@@ -290,6 +329,7 @@ export function EditeurCollaboratif({
   textes = {},
   televerser,
   formatS = false,
+  surNote,
 }) {
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
   // Le mode du moment, lu par la typographie sans recréer l'éditeur.
@@ -336,7 +376,10 @@ export function EditeurCollaboratif({
       ],
       // Les textes de nos extensions (table des matières) voyagent avec le
       // dictionnaire de BlockNote, que l'éditeur leur donne.
-      dictionary: { ...dictionnaire(langue), amend: { table: textes.table ?? {} } },
+      dictionary: {
+        ...dictionnaire(langue),
+        amend: { table: textes.table ?? {}, note: { appel: textes.note?.libelle } },
+      },
       // La zone d'édition doit avoir un nom pour les lecteurs d'écran (axe-core).
       domAttributes: { editor: { 'aria-label': nomAccessible } },
       collaboration: {
@@ -524,6 +567,53 @@ export function EditeurCollaboratif({
     signaler()
     return editeur.onSelectionChange(signaler)
   }, [editeur, surSelection])
+  // Les notes de bas de page (12/11/2026) : le texte est typographié et
+  // composé (NFC) à l'enregistrement ; vide, la note est retirée.
+  const typo = useCallback(
+    (t) => typographier(nfc(String(t ?? '').trim()), { langue: langueDocument }),
+    [langueDocument],
+  )
+  // La fenêtre fermée, le curseur revient dans le texte (sinon la frappe se perd).
+  const rendreLaMain = useCallback(() => setTimeout(() => editeur.isEditable && editeur.focus(), 0), [editeur])
+  const surNoteActuel = useRef(surNote)
+  surNoteActuel.current = surNote
+  useEffect(() => {
+    const dom = editeur.domElement
+    if (!dom) return undefined
+    const ouvrir = (e) => {
+      const { texte, modifier, retirer } = e.detail
+      surNoteActuel.current?.({
+        texte,
+        nouvelle: false,
+        // En Suggérer, le texte d'une note ne se modifie pas : Yjs 14 ne sait
+        // pas accepter une seule proposition d'attribut (veille, 12/11/2026) ;
+        // on commente l'appel. Ajouter ou supprimer une note reste possible.
+        lectureSeule: !editeur.isEditable || modeMaintenant.current === 'suggerer',
+        enregistrer: (t) => (typo(t) ? modifier(typo(t)) : retirer()),
+        retirer,
+        fermer: rendreLaMain,
+      })
+    }
+    dom.addEventListener(EVENEMENT_NOTE, ouvrir)
+    return () => dom.removeEventListener(EVENEMENT_NOTE, ouvrir)
+  }, [editeur, editeur.domElement, typo, rendreLaMain])
+  /** Une nouvelle note, posée à la fin de la sélection du moment. */
+  const nouvelleNote = useCallback(() => {
+    const position = editeur.prosemirrorState.selection.to
+    surNoteActuel.current?.({
+      texte: '',
+      nouvelle: true,
+      lectureSeule: false,
+      enregistrer: (t) => {
+        const texte = typo(t)
+        if (!texte) return
+        editeur.transact((tr) => tr.insert(position, editeur.pmSchema.nodes[TYPE_NOTE].create({ texte })))
+        editeur.focus()
+      },
+      retirer: null,
+      fermer: rendreLaMain,
+    })
+  }, [editeur, typo, rendreLaMain])
   const palette = useCallback(
     (props) => (
       <Palette
@@ -532,13 +622,19 @@ export function EditeurCollaboratif({
         suggerer={mode === 'suggerer'}
         exposant={textes.exposant}
         formatS={formatS}
+        note={textes.note}
+        surNouvelleNote={surNote ? nouvelleNote : null}
       />
     ),
-    [corriger, mode, textes.exposant, formatS],
+    [corriger, mode, textes.exposant, textes.note, formatS, surNote, nouvelleNote],
   )
   const menu = useCallback(
-    async (requete) => filterSuggestionItems(itemsDuMenu(editeur, textes.table, textes), requete),
-    [editeur, textes],
+    async (requete) =>
+      filterSuggestionItems(
+        itemsDuMenu(editeur, textes.table, { ...textes, surNouvelleNote: surNote ? nouvelleNote : null }),
+        requete,
+      ),
+    [editeur, textes, surNote, nouvelleNote],
   )
   const commencer = (evenement) => {
     if (!appui || editeur.isEditable) return

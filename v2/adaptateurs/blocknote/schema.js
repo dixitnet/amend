@@ -16,6 +16,7 @@ import {
 import { blocTableDesMatieres } from '../../extensions/tableDesMatieres/index.js'
 import { styleExposant } from '../../extensions/exposant/index.js'
 import { blocTitre, blocSousTitre } from '../../extensions/titres/index.js'
+import { elementNote } from '../../extensions/note/index.js'
 
 const { paragraph, quote, bulletListItem, numberedListItem, divider, table, image } = defaultBlockSpecs
 const { bold, italic, underline, strike } = defaultStyleSpecs
@@ -41,7 +42,8 @@ const STYLES_DU_LIVRE = { bold, italic, underline, strike, exposant: styleExposa
 export const schemaLivre = withPageBreak(
   BlockNoteSchema.create({
     blockSpecs: BLOCS_DU_LIVRE,
-    inlineContentSpecs: defaultInlineContentSpecs,
+    // La note de bas de page (12/11/2026) : un appel en ligne qui porte son texte.
+    inlineContentSpecs: { ...defaultInlineContentSpecs, note: elementNote },
     styleSpecs: STYLES_DU_LIVRE,
   }),
 )

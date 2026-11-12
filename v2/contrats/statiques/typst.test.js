@@ -221,3 +221,15 @@ test('options de mise en page (12/11/2026) : titre courant, folio en haut, chapi
     assert.ok(Buffer.from(pdf).toString('latin1').startsWith('%PDF-'), JSON.stringify(variante))
   }
 })
+
+test('notes de bas de page : le PDF se compile avec `footnote` (12/11/2026)', async () => {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'heading', props: { level: 1 }, content: [texte('Chapitre')] },
+    { type: 'paragraph', content: [texte('Un texte'), { type: 'note', props: { texte: 'Une note.' } }, texte('.')] },
+  ])
+  const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+  assert.match(source, /#footnote\[#"Une note\."\]/)
+  const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+  assert.ok(Buffer.from(pdf).toString('latin1').startsWith('%PDF-'))
+})

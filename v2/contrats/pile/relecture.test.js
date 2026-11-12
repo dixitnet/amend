@@ -221,3 +221,47 @@ test('suivi : cliquer une carte fait défiler le texte jusqu’à la suggestion 
   await p.context().close()
   await c.context().close()
 })
+
+test('notes et relecture : le correcteur lit une note sans la modifier, en ajoute une, l’éditrice l’accepte seule', async () => {
+  const { p, c, fermer } = await relecture('notes')
+  // L'éditrice pose une note.
+  await p.click('.bn-inline-content')
+  await p.keyboard.press('End')
+  await attendre(300)
+  await p.keyboard.type('/note')
+  await p.waitForSelector('.bn-suggestion-menu-item')
+  await p.keyboard.press('Enter')
+  await p.getByRole('dialog').getByRole('textbox', { name: 'Texte de la note' }).fill('Note de l’éditrice.')
+  await p.getByRole('dialog').getByRole('button', { name: 'Enregistrer' }).click()
+  for (const t0 = Date.now(); Date.now() - t0 < 10000; await attendre(200))
+    if ((await c.locator('.bn-editor [data-amend-note]').count()) === 1) break
+  // Le correcteur la lit, sans champ pour la modifier.
+  await c.locator('.bn-editor [data-amend-note]').click()
+  assert.equal(await c.getByRole('dialog').getByRole('textbox').count(), 0, 'lecture seule en Suggérer')
+  assert.match(await c.getByRole('dialog').innerText(), /Note de l’éditrice\./)
+  await c.getByRole('dialog').getByRole('button', { name: 'Fermer' }).click()
+  // Il ajoute une note, par la palette.
+  await c.click('.bn-inline-content')
+  await c.keyboard.press('Home')
+  await c.keyboard.press('Shift+End')
+  await attendre(500)
+  await c.locator('.bn-formatting-toolbar button[aria-label="Note de bas de page"]').click()
+  await c.getByRole('dialog').getByRole('textbox', { name: 'Texte de la note' }).fill('Note du correcteur.')
+  await c.getByRole('dialog').getByRole('button', { name: 'Enregistrer' }).click()
+  await attendrePanneau(p, /Carla ajoute une note\s?:\s?«\s?Note du correcteur\.\s?»/)
+  await p
+    .getByRole('button', { name: /^Accepter\s*:/ })
+    .first()
+    .click()
+  await attendrePanneau(p, /Aucune suggestion/)
+  await choisirMode(p, 'Modifier')
+  for (const t0 = Date.now(); Date.now() - t0 < 10000; await attendre(200))
+    if ((await p.locator('.bn-editor [data-amend-note]').count()) === 2) break
+  assert.deepEqual(
+    await p.evaluate(() =>
+      [...document.querySelectorAll('.bn-editor [data-amend-note]')].map((n) => n.getAttribute('data-texte')),
+    ),
+    ['Note de l’éditrice.', 'Note du correcteur.'],
+  )
+  await fermer()
+})
