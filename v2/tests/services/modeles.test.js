@@ -335,6 +335,9 @@ test('reprise de « TàT - Poche » : un modèle de l’instance, une seule fois
   await comptes.definirModeleDefaut(eq.id, 'tat-poche')
   await comptes.modifierModele(m.id, { ecarts: { 'chapitre.bellePage': false } })
   const avant = { reprise: await comptes.reglage('modeles.reprise'), defaut: await comptes.reglage('modeles.defaut') }
+  // Les modèles de l'instance déjà là (base de développement partagée) ne
+  // sont pas effacés par le ménage du test.
+  const deja = new Set((await comptes.modelesInstance()).map((x) => x.id))
   await comptes.definirReglage('modeles.reprise', {}, null)
   let cree = null
   try {
@@ -353,7 +356,7 @@ test('reprise de « TàT - Poche » : un modèle de l’instance, une seule fois
     await serveur.reprendreModeles()
     assert.equal((await comptes.reglage('modeles.reprise'))['tat-poche'], cree)
   } finally {
-    if (cree) await comptes.supprimerModeleInstance(cree, 'a4')
+    if (cree && !deja.has(cree)) await comptes.supprimerModeleInstance(cree, 'a4')
     await comptes.definirReglage('modeles.reprise', avant.reprise, null)
     await comptes.definirReglage('modeles.defaut', avant.defaut, null)
   }
