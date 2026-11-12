@@ -51,7 +51,7 @@ import { withCollaboration } from '@blocknote/core/y'
 import { CommentsExtension } from '@blocknote/core/comments'
 import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
-import { boutonsGardes, boutonsGardesEnSuggestion } from './palette.js'
+import { boutonsGardes, boutonsGardesEnSuggestion, boutonsDuFormatS } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import { creerAfficheur, suivreAuteurs, listeDesSuggestions, compterSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
@@ -146,15 +146,16 @@ function RestaurerApresConfirmation({ libelle, confirmer }) {
   )
 }
 
-function Palette({ corriger, suggerer, exposant }) {
+function Palette({ corriger, suggerer, exposant, formatS }) {
+  const boutons = suggerer
+    ? boutonsGardesEnSuggestion(getFormattingToolbarItems())
+    : boutonsGardes(
+        getFormattingToolbarItems(),
+        exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null,
+      )
   return (
     <FormattingToolbar>
-      {suggerer
-        ? boutonsGardesEnSuggestion(getFormattingToolbarItems())
-        : boutonsGardes(
-            getFormattingToolbarItems(),
-            exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null,
-          )}
+      {formatS ? boutonsDuFormatS(boutons) : boutons}
       {corriger ? <BoutonCorriger corriger={corriger} /> : null}
     </FormattingToolbar>
   )
@@ -258,6 +259,8 @@ function itemsDuMenu(editeur, table, textesTitres) {
  *   rappelé quand la sélection change, en blocs (Margo, étape 8) ; doit être stable
  * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, niveaux?: Record<number, string>, picto: any }, titre?: { titre: string, description: string, picto: any }, sousTitre?: { titre: string, description: string, picto: any } }} [p.textes]
  *   libellés et pictos de nos ajouts (exposant, table des matières), donnés par l'application
+ * @param {boolean} [p.formatS] format S (téléphone) : barre de mise en forme
+ *   sans le choix du type de bloc (Sylvain, 12/11/2026)
  * @param {(fichier: File) => Promise<string>} [p.televerser] envoie une image et rend son
  *   adresse (\`uploadFile\` de BlockNote, comme Docs) ; absent : pas d'envoi de fichier
  */
@@ -286,6 +289,7 @@ export function EditeurCollaboratif({
   surSelection,
   textes = {},
   televerser,
+  formatS = false,
 }) {
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
   // Le mode du moment, lu par la typographie sans recréer l'éditeur.
@@ -521,8 +525,16 @@ export function EditeurCollaboratif({
     return editeur.onSelectionChange(signaler)
   }, [editeur, surSelection])
   const palette = useCallback(
-    (props) => <Palette {...props} corriger={corriger} suggerer={mode === 'suggerer'} exposant={textes.exposant} />,
-    [corriger, mode, textes.exposant],
+    (props) => (
+      <Palette
+        {...props}
+        corriger={corriger}
+        suggerer={mode === 'suggerer'}
+        exposant={textes.exposant}
+        formatS={formatS}
+      />
+    ),
+    [corriger, mode, textes.exposant, formatS],
   )
   const menu = useCallback(
     async (requete) => filterSuggestionItems(itemsDuMenu(editeur, textes.table, textes), requete),
