@@ -285,6 +285,7 @@ function itemsDuMenu(editeur, table, textesTitres) {
  * @param {() => void} [p.surAppuiEnLecture]  format S : en Lire, un appui sur le
  *   texte demande à l'application le mode d'écriture de la personne (Éditer ou
  *   Corriger), le curseur à l'endroit touché (Sylvain, 12/11/2026)
+ * @param {'editer' | 'corriger'} [p.modeApresAppui]  ce mode-là
  * @param {{ current: { terminer: () => void, exporter: Function } | null }} [p.controle]  reçoit
  *   `terminer()` (bouton « Terminer » du bandeau), `compter()` ({ signes, mots }
  *   du texte de base) et `exporter(format, options)` :
@@ -332,6 +333,7 @@ export function EditeurCollaboratif({
   fils = null,
   lectureAuDepart = false,
   surAppuiEnLecture,
+  modeApresAppui = 'editer',
   controle,
   surModification,
   surPlan,
@@ -425,10 +427,24 @@ export function EditeurCollaboratif({
   // Le panneau ne s'affiche qu'une fois l'historique ouvert (les effets d'un
   // composant enfant passent avant ceux de l'éditeur).
   const [historiqueOuvert, setHistoriqueOuvert] = useState(false)
+  // La liaison du moment (mode des suggestions), pour ne la refaire que si
+  // elle change : relier l'éditeur redessine tout le texte. Propre à chaque
+  // éditeur (un nouvel éditeur repart sans liaison).
+  const lier = useMemo(() => {
+    let actuelle = null
+    return (m) => {
+      if (!afficheur || actuelle === m) return
+      actuelle = m
+      const ext = editeur.getExtension('suggestions')
+      if (m === 'corriger') ext.enableSuggestions()
+      else if (m === 'editer') ext.viewSuggestions()
+      else ext.disableSuggestions()
+    }
+  }, [editeur, afficheur])
   useEffect(() => {
     const versions = editeur.getExtension('versioning')
     if (historique) {
-      afficheur && editeur.getExtension('suggestions').disableSuggestions()
+      lier('historique')
       versions.open()
       setHistoriqueOuvert(true)
       return () => {
@@ -436,12 +452,8 @@ export function EditeurCollaboratif({
         versions.close()
       }
     }
-    if (!afficheur) return
-    const ext = editeur.getExtension('suggestions')
-    if (mode === 'corriger') ext.enableSuggestions()
-    else if (mode === 'editer') ext.viewSuggestions()
-    else ext.disableSuggestions()
-  }, [editeur, afficheur, mode, historique])
+    lier(mode)
+  }, [editeur, mode, historique, lier])
 
   // Les auteurs des suggestions, lus à côté de l'afficheur, pour le panneau.
   const [auteurs, setAuteurs] = useState(null)
@@ -710,7 +722,13 @@ export function EditeurCollaboratif({
   )
   const commencer = (evenement) => {
     if (!(appui || appuiEnLecture) || editeur.isEditable) return
-    if (appuiEnLecture) surAppuiEnLecture()
+    if (appuiEnLecture) {
+      // Le texte est relié au mode d'écriture dans le geste même, avant le
+      // curseur et la frappe : relié après coup, il serait redessiné et la
+      // première touche se perdrait (pile, Chromium, 12/11/2026).
+      lier(modeApresAppui)
+      surAppuiEnLecture()
+    }
     editeur.isEditable = true
     editeur.prosemirrorView?.focus()
     // Le curseur à l'endroit touché : par la sélection du navigateur, que
