@@ -595,11 +595,12 @@ export function EditeurCollaboratif({
     }
     signaler()
     const arreter = editeur.onChange(signaler)
-    window.addEventListener('scroll', auDefilement, { passive: true })
+    // En capture : le texte défile dans sa zone (formats M et L) ou dans l'écran.
+    document.addEventListener('scroll', auDefilement, { passive: true, capture: true })
     return () => {
       arreter()
       clearTimeout(attente)
-      window.removeEventListener('scroll', auDefilement)
+      document.removeEventListener('scroll', auDefilement, { capture: true })
     }
   }, [editeur, surPlan, lectureAuDepart])
 

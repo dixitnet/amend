@@ -36,7 +36,7 @@ export function PanneauSuggestions({
   invitation,
   actionsGlobales = false,
 }) {
-  const { carte, accepter, refuser } = REGLAGES.suggestions
+  const { carte, pile, entete, auteur, boutons, accepter, refuser } = REGLAGES.suggestions
   const arbitre = Boolean(surAccepter)
   return (
     <Stack component="section" aria-label={titre}>
@@ -64,22 +64,25 @@ export function PanneauSuggestions({
       <Stack component="ol" className="amend-suggestions-liste">
         {lignes.map((l, i) => (
           <Paper component="li" key={l.cle} {...carte} data-active={active === i || undefined}>
-            <Stack>
+            <Stack {...pile}>
+              {/* L'auteur et les boutons sur une ligne, le passage dessous. */}
+              <Group {...entete}>
+                <Text {...auteur}>{l.auteur}</Text>
+                {arbitre ? (
+                  <Group {...boutons}>
+                    {/* Un nom par ligne pour les lecteurs d'écran (audit du 10/11/2026). */}
+                    <Button {...accepter} aria-label={libelles.accepterDe(l.texte)} onClick={() => surAccepter(i)}>
+                      {libelles.accepter}
+                    </Button>
+                    <Button {...refuser} aria-label={libelles.refuserDe(l.texte)} onClick={() => surRefuser(i)}>
+                      {libelles.refuser}
+                    </Button>
+                  </Group>
+                ) : null}
+              </Group>
               <UnstyledButton onClick={() => surMontrer?.(i)} aria-label={l.texte} data-amend-carte>
-                <Text>{l.auteur}</Text>
                 {l.passage ? <Passage passage={l.passage} /> : <Text>{l.texte}</Text>}
               </UnstyledButton>
-              {arbitre ? (
-                <Group>
-                  {/* Un nom par ligne pour les lecteurs d'écran (audit du 10/11/2026). */}
-                  <Button {...accepter} aria-label={libelles.accepterDe(l.texte)} onClick={() => surAccepter(i)}>
-                    {libelles.accepter}
-                  </Button>
-                  <Button {...refuser} aria-label={libelles.refuserDe(l.texte)} onClick={() => surRefuser(i)}>
-                    {libelles.refuser}
-                  </Button>
-                </Group>
-              ) : null}
             </Stack>
           </Paper>
         ))}

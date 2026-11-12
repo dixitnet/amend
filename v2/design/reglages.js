@@ -107,9 +107,15 @@ export const REGLAGES = {
   compteur: { size: 'sm', visibleFrom: 'lg' },
   // Les cartes des suggestions : une carte de Mantine bordée par suggestion ;
   // Accepter en vert, Refuser en rouge, tous deux discrets (variante « light »),
-  // petits (Sylvain, 12/11/2026, variante vert / rouge).
+  // petits (Sylvain, 12/11/2026, variante vert / rouge). Cartes resserrées
+  // (Sylvain, 12/11/2026 : « trop hautes ») : l'auteur et les boutons sur une
+  // ligne, le passage dessous, espacements `xs`.
   suggestions: {
-    carte: { withBorder: true, p: 'sm' },
+    carte: { withBorder: true, p: 'xs' },
+    pile: { gap: 'xs' },
+    entete: { justify: 'space-between', wrap: 'nowrap', gap: 'xs' },
+    auteur: { size: 'sm', truncate: true },
+    boutons: { gap: 'xs', wrap: 'nowrap' },
     accepter: { color: 'green', variant: 'light', size: 'xs' },
     refuser: { color: 'red', variant: 'light', size: 'xs' },
   },

@@ -99,3 +99,30 @@ nav[data-amend-bloc='tableDesMatieres'] select {
   counter-increment: amend-note;
   content: counter(amend-note);
 }
+
+/* réglage : css.editeur.suggestions */
+/* Les éléments `ins` et `del` de BlockNote portent la couleur de l'auteur :
+   le texte reprend la couleur normale. */
+.bn-container .bn-editor ins,
+.bn-container .bn-editor del {
+  color: inherit;
+}
+.bn-container .bn-editor .bn-suggestion-mark,
+.bn-container .bn-editor .bn-suggestion-mark:hover {
+  color: inherit;
+  text-decoration: none;
+  background-color: color-mix(in srgb, var(--user-color-light) 50%, transparent);
+  border-bottom: 2px solid var(--user-color-dark);
+  border-radius: 0;
+}
+.bn-container .bn-editor .bn-suggestion-mark--delete,
+.bn-container .bn-editor .bn-suggestion-mark--delete:hover {
+  text-decoration: line-through 2px var(--user-color-dark);
+  border-bottom: none;
+}
+[data-mantine-color-scheme='dark'] .bn-container .bn-editor .bn-suggestion-mark {
+  border-bottom-color: var(--user-color-light);
+}
+[data-mantine-color-scheme='dark'] .bn-container .bn-editor .bn-suggestion-mark--delete {
+  text-decoration-color: var(--user-color-light);
+}
