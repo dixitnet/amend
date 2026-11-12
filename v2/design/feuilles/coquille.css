@@ -61,13 +61,16 @@
 }
 
 /* réglage : css.coquille.texte */
-.mantine-AppShell-main > .mantine-Container-root {
+.amend-coquille-defilement > .mantine-Container-root {
   padding-block: var(--mantine-spacing-md);
 }
 
-/* réglage : css.coquille.ancres */
-.bn-block-outer {
-  scroll-margin-top: var(--app-shell-header-offset, 0rem);
+/* réglage : css.coquille.defilement */
+@media (min-width: 48em) {
+  .amend-coquille-defilement {
+    height: calc(100dvh - var(--app-shell-header-offset, 0rem));
+    overflow-y: auto;
+  }
 }
 
 /* réglage : css.suggestions.cartes */
