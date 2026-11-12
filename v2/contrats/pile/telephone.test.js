@@ -123,7 +123,7 @@ test('format S : un lecteur ne passe pas en modification ; l’accueil ouvre le 
   await p.getByRole('button', { name: 'Plan et documents' }).click()
   await p.getByRole('dialog').getByRole('tab', { name: 'Documents' }).click()
   await p.getByRole('dialog').getByRole('searchbox', { name: 'Rechercher un document' }).waitFor()
-  await p.getByRole('dialog').getByRole('button', { name: 'Nouveau document' }).waitFor()
+  await p.getByRole('dialog').getByRole('button', { name: 'Nouveau', exact: true }).waitFor()
   await l.context().close()
   await p.context().close()
 })

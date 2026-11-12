@@ -4,6 +4,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { fr } from '@blocknote/core/locales'
 import { creerTraducteur } from '../../i18n/index.js'
+import { dateDuJour } from '../../domaine/index.js'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import {
   lancerNavigateur,
@@ -134,6 +135,12 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     assert.ok(titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
   // La table des matières (11/11/2026), libellé de notre catalogue.
   assert.ok(titres.includes(creerTraducteur('fr')('document.tableDesMatieres')), `table des matières : ${tout}`)
+  // Titre et sous-titre, en bas du menu (12/11/2026).
+  assert.deepEqual(
+    titres.slice(-2),
+    [creerTraducteur('fr')('document.titre'), creerTraducteur('fr')('document.sousTitre')],
+    `titre et sous-titre en bas : ${tout}`,
+  )
   // Titres 1 à 5 (Sylvain, 09/11/2026, journal des décisions) : le niveau 6 reste exclu.
   for (const cle of [
     'heading_6',
@@ -236,4 +243,40 @@ test('correcteur : sa frappe et son collage restent des suggestions ; le texte p
   assert.ok(await p.$('.bn-editor ins'), 'la proposition se voit, en suggestion')
   await p.context().close()
   await c.context().close()
+})
+
+test('titre et sous-titre : insérés par le menu « / », hors du plan', async () => {
+  const page = await pageEcriture('titres')
+  const t = creerTraducteur('fr')
+  for (const [cle, texte] of [
+    ['document.titre', 'Mon livre'],
+    ['document.sousTitre', 'Un essai'],
+  ]) {
+    await page.keyboard.type('/')
+    // Le libellé exact : « Titre » est aussi dans « Titre 1 » et « Sous-titre ».
+    await page
+      .locator('.bn-suggestion-menu-item')
+      .filter({ has: page.getByText(t(cle), { exact: true }) })
+      .click()
+    await page.keyboard.type(texte)
+    await page.keyboard.press('Enter')
+  }
+  await page.keyboard.type('# Chapitre')
+  await attendre(800)
+  assert.equal(await page.locator('[data-content-type="titre"]').innerText(), 'Mon livre')
+  assert.equal(await page.locator('[data-content-type="sousTitre"]').innerText(), 'Un essai')
+  const plan = page.getByRole('tabpanel', { name: 'Plan' })
+  assert.deepEqual(await plan.locator('button').allInnerTexts(), ['Chapitre'], 'seul le chapitre est au plan')
+  await page.context().close()
+})
+
+test('« /date » insère la date du jour, AAAA-MM-JJ', async () => {
+  const page = await pageEcriture('date')
+  await page.keyboard.type('Le ')
+  await page.keyboard.type('/date')
+  await page.waitForSelector('.bn-suggestion-menu-item')
+  await page.keyboard.press('Enter')
+  await attendre(300)
+  assert.equal(await page.locator('.bn-inline-content').first().innerText(), `Le ${dateDuJour()}`)
+  await page.context().close()
 })

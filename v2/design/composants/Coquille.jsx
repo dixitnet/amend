@@ -321,36 +321,45 @@ export function PictoCompte({ role, nombre }) {
   )
 }
 
+/** Un onglet compact (Sylvain, 12/11/2026 : les onglets du volet droit sur
+ * une ligne) : le texte pour l'onglet actif seulement ; les autres, leur
+ * picto et leur nombre, nommés pour les lecteurs d'écran. Le rôle du picto
+ * est celui de l'onglet, sauf mention. */
+export function OngletCompact({ valeur, actif, libelle, nombre, role = valeur }) {
+  return (
+    <Tabs.Tab value={valeur} aria-label={libelle} leftSection={<PictoCompte role={role} nombre={nombre} />}>
+      {actif === valeur ? libelle : null}
+    </Tabs.Tab>
+  )
+}
+
 /** Le volet droit : onglets Suggestions, Commentaires et Margo (IA). Le titre
  * (« Relecture ») n'est plus affiché (Sylvain, 10/11/2026) : il nomme les
  * onglets pour les lecteurs d'écran. L'onglet ouvert peut être piloté
  * (`actif`, `surOnglet`) : « Corriger » ouvre Margo (étape 8). Sans `margo`,
  * pas d'onglet Margo (le correcteur n'y a pas accès). */
 export function VoletRelecture({ titre, onglets, nombres = {}, modifications, commentaires, margo, actif, surOnglet }) {
-  const pilote = actif ? { value: actif, onChange: surOnglet } : { defaultValue: 'modifications' }
+  const [local, setLocal] = useState('modifications')
+  const valeur = actif ?? local
   return (
     <>
-      <Tabs {...pilote} className="amend-coquille-onglets">
-        <Tabs.List grow aria-label={titre}>
-          <Tabs.Tab
-            value="modifications"
-            leftSection={<PictoCompte role="modifications" nombre={nombres.modifications} />}
-          >
-            {onglets.modifications}
-          </Tabs.Tab>
+      <Tabs value={valeur} onChange={surOnglet ?? setLocal} className="amend-coquille-onglets">
+        <Tabs.List aria-label={titre}>
+          <OngletCompact
+            valeur="modifications"
+            actif={valeur}
+            libelle={onglets.modifications}
+            nombre={nombres.modifications}
+          />
           {commentaires ? (
-            <Tabs.Tab
-              value="commentaires"
-              leftSection={<PictoCompte role="commentaires" nombre={nombres.commentaires} />}
-            >
-              {onglets.commentaires}
-            </Tabs.Tab>
+            <OngletCompact
+              valeur="commentaires"
+              actif={valeur}
+              libelle={onglets.commentaires}
+              nombre={nombres.commentaires}
+            />
           ) : null}
-          {margo ? (
-            <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
-              {onglets.margo}
-            </Tabs.Tab>
-          ) : null}
+          {margo ? <OngletCompact valeur="margo" actif={valeur} libelle={onglets.margo} /> : null}
         </Tabs.List>
         <AppShell.Section grow component={ScrollArea}>
           <Tabs.Panel value="modifications">

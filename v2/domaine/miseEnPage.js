@@ -89,6 +89,10 @@ const impossible = (raison) =>
  *   titres de niveau 2 à 5 : au corps du texte, un nombre entier de lignes
  *   blanches avant et après
  * @param {{ retrait: number }} modele.citation  retrait à gauche, en mm
+ * @param {{ corps: number, graisse: number }} [modele.titre]  le bloc « Titre » :
+ *   centré, hors de la table des matières ; par défaut, comme un titre de chapitre
+ * @param {{ corps: number, italique: boolean }} [modele.sousTitre]  le bloc
+ *   « Sous-titre » : centré ; par défaut, au corps du chapitre, en italique
  * @param {{ titre?: string, langue?: string }} [document]  titre et langue
  *   (code ISO à deux lettres) du document
  * @returns {string}
@@ -96,6 +100,8 @@ const impossible = (raison) =>
 export function gabaritTypst(modele, { titre, langue } = {}) {
   const { page, marges, grille: g, chapitre: c, intertitres: it } = modele
   const { pas, margeBas, descenteFolio } = grille(modele)
+  const titre_ = modele.titre ?? { corps: c.corps, graisse: c.graisse }
+  const sousTitre_ = modele.sousTitre ?? { corps: c.corps, italique: true }
   const ecart = `${pt(pas)} - ${em(1)}`
   // Ligne n de la grille : sa ligne de base est à HAUT × corps + (n − 1) × pas
   // du haut de la zone de texte.
@@ -131,6 +137,14 @@ export function gabaritTypst(modele, { titre, langue } = {}) {
     `#show quote.where(block: true): it => pad(left: ${mm(modele.citation.retrait)}, it.body)`,
     // Un blanc (le séparateur de BlockNote) : une ligne de la grille.
     `#let amend-blanc = v(${pt(pas)})`,
+    // Titre et sous-titre (Sylvain, 12/11/2026) : dans le flux, centrés, sans
+    // alinéa ni justification ; leur corps vient du modèle.
+    `#let amend-titre(corps) = block(width: ${PLEINE_LARGEUR}, {` +
+      `set par(justify: false, first-line-indent: ${ZERO}); ` +
+      `align(center, text(size: ${pt(titre_.corps)}, weight: ${titre_.graisse}, corps))})`,
+    `#let amend-sous-titre(corps) = block(width: ${PLEINE_LARGEUR}, {` +
+      `set par(justify: false, first-line-indent: ${ZERO}); ` +
+      `align(center, text(size: ${pt(sousTitre_.corps)}, style: ${sousTitre_.italique ? '"italic"' : '"normal"'}, corps))})`,
     // Le premier paragraphe d'un chapitre, sans alinéa.
     `#let amend-sans-alinea(corps) = par(first-line-indent: ${ZERO}, corps)`,
     `#show heading: it => block(above: ${pt(avant)}, below: ${pt(apres)}, sticky: true, {` +

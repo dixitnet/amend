@@ -125,6 +125,25 @@ test('table des matières, saut de page et exposant : le PDF se compile (11/11/2
   assert.ok([...brut.matchAll(/\/Type ?\/Page\b/g)].length >= 3)
 })
 
+test('titre et sous-titre : centrés dans le flux, hors de la table des matières ; le PDF se compile (12/11/2026)', async () => {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'titre', content: [texte('Mon livre')] },
+    { type: 'sousTitre', content: [texte('Un essai')] },
+    { type: 'tableDesMatieres', props: { profondeur: 2 } },
+    { type: 'heading', props: { level: 1 }, content: [texte('Premier chapitre')] },
+    { type: 'paragraph', content: [texte('Texte.')] },
+  ])
+  const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+  assert.match(source, /#let amend-titre\(corps\) = .*size: 13pt, weight: 600/)
+  assert.match(source, /#let amend-sous-titre\(corps\) = .*size: 13pt, style: "italic"/)
+  assert.match(source, /#amend-titre\[#"Mon livre"\]\s+#amend-sous-titre\[#"Un essai"\]/)
+  // Hors de la table : ce ne sont pas des titres de Typst.
+  assert.equal(source.match(/#heading\(/g).length, 1)
+  const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+  assert.ok(Buffer.from(pdf).toString('latin1').startsWith('%PDF-'))
+})
+
 test('une source Typst fautive donne une erreur de code export-pdf-echoue', async () => {
   await assert.rejects(compilerPdf('#fonction-inconnue()', { polices: polices(), wasm: wasm() }), {
     code: 'export-pdf-echoue',

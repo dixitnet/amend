@@ -50,6 +50,12 @@
     "zoomPalier": "{zoom}\u202F%",
     "exposant": "Exposant",
     "tableDesMatieres": "Table des matières",
+    "date": "Date du jour",
+    "dateDescription": "La date du jour, au format AAAA-MM-JJ",
+    "titre": "Titre",
+    "titreDescription": "Le titre du document, hors de la table des matières",
+    "sousTitre": "Sous-titre",
+    "sousTitreDescription": "Le sous-titre du document, hors de la table des matières",
     "tableDescription": "Les titres du document, jusqu’au niveau choisi",
     "tableProfondeur": "Niveaux de titre",
     "tableNiveaux": "{n, plural, =1 {Niveau 1 seulement} other {Niveaux 1 à #}}"
@@ -225,10 +231,9 @@
     "effacer": "Supprimer définitivement",
     "confirmerEffacement": "Supprimer «\u00A0{titre}\u00A0» définitivement\u202F? Il ne pourra plus être restauré.",
     "joursRestants": "{n, plural, one {effacé dans #\u00A0jour} other {effacé dans #\u00A0jours}}",
-    "trier": "Trier les documents",
-    "triModifies": "Modifiés récemment",
-    "triTitre": "Par titre",
-    "triCrees": "Créés récemment"
+    "nouveauMenu": "Nouveau",
+    "nouvelleNote": "Nouvelle note",
+    "dossierNotes": "Notes"
   },
   "partage": {
     "titre": "Partage",
@@ -373,6 +378,12 @@
       "alinea": "Alinéa (mm)",
       "chapitre": {
         "bellePage": "Chapitres en belle page (page de droite)"
+      },
+      "titre": {
+        "corps": "Corps du titre (pt)"
+      },
+      "sousTitre": {
+        "corps": "Corps du sous-titre (pt)"
       }
     },
     "maison": {

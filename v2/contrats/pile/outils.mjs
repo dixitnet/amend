@@ -106,7 +106,8 @@ export async function voletDocuments(page) {
 /** « Nouveau document » du volet : rend l'identifiant du document créé. */
 export async function nouveauDocument(page) {
   const avant = page.url()
-  await (await voletDocuments(page)).getByRole('button', { name: 'Nouveau document' }).click()
+  await (await voletDocuments(page)).getByRole('button', { name: 'Nouveau', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Nouveau document' }).click()
   await page.waitForFunction((a) => location.href !== a, avant)
   await page.waitForSelector('.bn-editor')
   return decodeURIComponent(new URL(page.url()).hash.slice(1))

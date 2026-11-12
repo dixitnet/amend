@@ -110,3 +110,29 @@ test('image de l’export : une réponse en erreur, un réseau en échec ou un d
     globalThis.fetch = fetchInitial
   }
 })
+
+test('Markdown : le titre en paragraphe gras, le sous-titre en italique, hors de la table des matières (12/11/2026)', () => {
+  const editeur = BlockNoteEditor.create({ schema: schemaLivre })
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'titre', content: [texte('Mon livre')] },
+    { type: 'sousTitre', content: [texte('Un essai')] },
+    { type: 'tableDesMatieres', props: { profondeur: 2 } },
+    { type: 'heading', props: { level: 1 }, content: [texte('Chapitre')] },
+  ])
+  const prets = blocsPourMarkdown(editeur.document)
+  // Des paragraphes, pas des titres : ils ne deviennent pas « # » ailleurs.
+  assert.deepEqual(
+    prets.slice(0, 2).map((b) => [b.type, b.content[0].text, b.content[0].styles]),
+    [
+      ['paragraph', 'Mon livre', { bold: true }],
+      ['paragraph', 'Un essai', { italic: true }],
+    ],
+  )
+  // La table ne liste que le chapitre.
+  assert.deepEqual(
+    blocsPourMarkdown(editeur.document)
+      .filter((b) => b.type === 'bulletListItem')
+      .map((b) => b.content[0].text),
+    ['Chapitre'],
+  )
+})

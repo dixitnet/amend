@@ -34,6 +34,11 @@ export const REGLAGES_LIVRE = {
       chapitre: { bellePage: true, ligneTitre: 7, ligneTexte: 12, corps: 13, interligne: 14, graisse: 600 },
       intertitres: { italique: true, lignesAvant: 1, lignesApres: 0 },
       citation: { retrait: 5 },
+      // Titre et sous-titre (Sylvain, 12/11/2026 : « modifiable dans le
+      // modèle ») : au départ, le corps et la graisse du titre de chapitre ;
+      // le sous-titre au même corps, en italique.
+      titre: { corps: 13, graisse: 600 },
+      sousTitre: { corps: 13, italique: true },
     },
   ],
   // Les réglages qu'une équipe peut changer dans son modèle (Sylvain,
@@ -54,6 +59,8 @@ export const REGLAGES_LIVRE = {
     { cle: 'police', type: 'police' },
     { cle: 'alinea', type: 'nombre', unite: 'mm', min: 0, max: 50, pas: 0.5 },
     { cle: 'chapitre.bellePage', type: 'booleen' },
+    { cle: 'titre.corps', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
+    { cle: 'sousTitre.corps', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
   ],
   // Largeur utile minimale entre les marges, en mm (v1, `UTILE_MIN`).
   largeurUtileMin: 40,
