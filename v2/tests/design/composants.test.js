@@ -344,7 +344,8 @@ test('volet « Documents » : recherche, création, arbre imbriqué, menu « …
     }),
   )
   assert.match(html, /type="search"/)
-  // Le menu « Nouveau » (ses éléments s'affichent à l'ouverture).
+  // Le bouton du menu « Nouveau » ; ses éléments, rendus à l'ouverture, sont
+  // vérifiés dans la pile (comptes.test.js, « Nouvelle note »).
   assert.ok(html.includes(echapper(t('documents.nouveauMenu'))))
   assert.match(html, /aria-expanded="true"[\s\S]*href="#d1"/, 'le document dans son dossier ouvert')
   assert.ok(
