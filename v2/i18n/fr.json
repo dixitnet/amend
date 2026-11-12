@@ -50,6 +50,10 @@
     "zoomPalier": "{zoom}\u202F%",
     "exposant": "Exposant",
     "tableDesMatieres": "Table des matières",
+    "titre": "Titre",
+    "titreDescription": "Le titre du document, hors de la table des matières",
+    "sousTitre": "Sous-titre",
+    "sousTitreDescription": "Le sous-titre du document, hors de la table des matières",
     "tableDescription": "Les titres du document, jusqu’au niveau choisi",
     "tableProfondeur": "Niveaux de titre",
     "tableNiveaux": "{n, plural, =1 {Niveau 1 seulement} other {Niveaux 1 à #}}"
@@ -373,6 +377,12 @@
       "alinea": "Alinéa (mm)",
       "chapitre": {
         "bellePage": "Chapitres en belle page (page de droite)"
+      },
+      "titre": {
+        "corps": "Corps du titre (pt)"
+      },
+      "sousTitre": {
+        "corps": "Corps du sous-titre (pt)"
       }
     },
     "maison": {

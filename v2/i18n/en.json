@@ -50,6 +50,10 @@
     "zoomPalier": "{zoom}%",
     "exposant": "Superscript",
     "tableDesMatieres": "Table of contents",
+    "titre": "Title",
+    "titreDescription": "The document title, left out of the table of contents",
+    "sousTitre": "Subtitle",
+    "sousTitreDescription": "The document subtitle, left out of the table of contents",
     "tableDescription": "The document’s headings, down to the chosen level",
     "tableProfondeur": "Heading levels",
     "tableNiveaux": "{n, plural, =1 {Level 1 only} other {Levels 1 to #}}"
@@ -373,6 +377,12 @@
       "alinea": "Paragraph indent (mm)",
       "chapitre": {
         "bellePage": "Chapters start on a right-hand page"
+      },
+      "titre": {
+        "corps": "Title size (pt)"
+      },
+      "sousTitre": {
+        "corps": "Subtitle size (pt)"
       }
     },
     "maison": {

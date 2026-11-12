@@ -24,7 +24,7 @@ export function noterZoom(z) {
   }
 }
 
-/** Les libellés et pictos des ajouts de l'éditeur (exposant, table des matières). */
+/** Les libellés et pictos des ajouts de l'éditeur (exposant, table des matières, titre et sous-titre). */
 export const TEXTES_EDITEUR = {
   exposant: { libelle: t('document.exposant'), picto: <PictoDe role="exposant" /> },
   table: {
@@ -34,6 +34,12 @@ export const TEXTES_EDITEUR = {
     // Les options du choix de la profondeur, en clair (« Niveaux 1 à 3 »).
     niveaux: Object.fromEntries(PROFONDEURS_TABLE.map((n) => [n, t('document.tableNiveaux', { n })])),
     picto: <PictoDe role="tableDesMatieres" />,
+  },
+  titre: { titre: t('document.titre'), description: t('document.titreDescription'), picto: <PictoDe role="titre" /> },
+  sousTitre: {
+    titre: t('document.sousTitre'),
+    description: t('document.sousTitreDescription'),
+    picto: <PictoDe role="sousTitre" />,
   },
 }
 

@@ -21,6 +21,8 @@ const NOMS_REGLAGES = {
   police: () => t('modeles.reglage.police'),
   alinea: () => t('modeles.reglage.alinea'),
   'chapitre.bellePage': () => t('modeles.reglage.chapitre.bellePage'),
+  'titre.corps': () => t('modeles.reglage.titre.corps'),
+  'sousTitre.corps': () => t('modeles.reglage.sousTitre.corps'),
 }
 const nomMaison = (id) => NOMS_MAISON[id]?.() ?? id
 const optionsMaison = () => MODELES_LIVRE.map((m) => ({ value: m.id, label: nomMaison(m.id) }))
