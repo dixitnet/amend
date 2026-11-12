@@ -101,6 +101,10 @@ export const REGLAGES = {
   // Les nombres des formulaires de modèles avec une virgule décimale, à la
   // française (Sylvain, 12/11/2026 : « 12 » du chantier des modèles).
   modeles: { nombre: { decimalSeparator: ',' } },
+  // Le compteur de signes et de mots du bandeau : petit, à la couleur du texte
+  // (le gris `dimmed` de Mantine n'a pas le contraste demandé ; 12/11/2026).
+  // Seulement à partir de `lg` : plus étroit, le titre en serait coupé.
+  compteur: { size: 'sm', visibleFrom: 'lg' },
   // Les cartes des suggestions : une carte de Mantine bordée par suggestion ;
   // Accepter en vert, Refuser en rouge, tous deux discrets (variante « light »),
   // petits (Sylvain, 12/11/2026, variante vert / rouge).

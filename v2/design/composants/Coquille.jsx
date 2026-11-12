@@ -196,6 +196,7 @@ export function Bandeau({
   actions,
   compte,
   voletDroit,
+  compteur,
 }) {
   return (
     <div className="amend-coquille-bandeau">
@@ -205,6 +206,8 @@ export function Bandeau({
       {favori ? <Etoile favori={favori} /> : null}
       <TitreModifiable titre={titre} renommer={renommer} />
       {mention ? <Badge>{mention}</Badge> : null}
+      {/* Signes et mots du document, ou de la sélection (12/11/2026). */}
+      {compteur ? <Text {...REGLAGES.compteur}>{compteur}</Text> : null}
       {modes ? (
         <SegmentedControl
           aria-label={modes.libelle}

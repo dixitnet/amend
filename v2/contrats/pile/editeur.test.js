@@ -316,3 +316,20 @@ test('notes de bas de page : « /note », texte typographié, modification au cl
   assert.equal(await texte(page), 'La ville existe.', 'le texte autour reste intact')
   await page.context().close()
 })
+
+test('bandeau : signes et mots du document, ou de la sélection', async () => {
+  const page = await pageEcriture('compteur')
+  await page.keyboard.type('Il faisait nuit sur la ville.')
+  const compteur = () =>
+    page
+      .locator('.amend-coquille-bandeau')
+      .getByText(/espaces compris/)
+      .innerText()
+  for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(200))
+    if (/29 signes/.test(await compteur().catch(() => ''))) break
+  assert.match(await compteur(), /^29 signes espaces compris, 6 mots$/)
+  await page.locator('.bn-inline-content').first().dblclick()
+  await attendre(400)
+  assert.match(await compteur(), /^Sélection\s?: \d+ signes? espaces compris, 1 mot$/)
+  await page.context().close()
+})
