@@ -49,3 +49,17 @@
     --level: 1rem;
   }
 }
+
+/* réglage : css.telephone.palette */
+/* La barre de mise en forme du téléphone (celle de BlockNote) en haut de la
+   zone visible, et non au-dessus du clavier, où Safari (iOS 26) empile sa
+   pastille d'adresse et sa barre de saisie (Sylvain, 12/11/2026). La position
+   vient des variables que BlockNote tient à jour (--bn-vv-*). */
+@media (width < 48em) {
+  .bn-root .bn-mobile-formatting-toolbar,
+  .bn-mobile-formatting-toolbar {
+    transform: translate(var(--bn-vv-left, 0px), var(--bn-vv-top, 0px)) scale(calc(1 / var(--bn-vv-scale, 1)));
+    transform-origin: 0 0;
+    padding-bottom: 0;
+  }
+}
