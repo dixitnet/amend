@@ -6,33 +6,19 @@
 // décident rien : les champs, leurs bornes et leurs valeurs viennent de
 // l'application, les gestes remontent par les fonctions de rappel. Placés
 // dans une `Fenetre`, qui porte le titre.
-import {
-  Stack,
-  Group,
-  Text,
-  TextInput,
-  NumberInput,
-  Select,
-  Switch,
-  Checkbox,
-  Button,
-  Badge,
-  Fieldset,
-} from '@mantine/core'
+import { Stack, Group, Text, TextInput, NumberInput, Select, Switch, Button, Badge, Fieldset } from '@mantine/core'
 import { useState } from 'react'
 import { REGLAGES } from '../reglages.js'
 
 /**
  * Le contenu de la fenêtre « Exporter ».
  * @param {{
- *   libelles: { format: string, modele: string, retenir: string, exporter: string, annuler: string },
+ *   libelles: { format: string, modele: string, exporter: string, annuler: string },
  *   formats: Array<{ value: string, label: string }>, format: string, surFormat: (f: string) => void,
  *   modeles: Array<any> | null, modele: string | null, surModele: (m: string) => void,
- *   retenir: { coche: boolean, surChange: (v: boolean) => void } | null,
  *   enCours: boolean, message?: string | null, surExporter: () => void, surAnnuler: () => void,
  * }} props  `modeles` : les données d'un Select de Mantine (groupes permis),
- *   ou `null` quand le format n'en a pas ; `retenir` : la case « retenir
- *   pour ce document », pour qui peut le choisir
+ *   ou `null` quand le format n'en a pas
  */
 export function PanneauExport({
   libelles,
@@ -42,7 +28,6 @@ export function PanneauExport({
   modeles,
   modele,
   surModele,
-  retenir,
   enCours,
   message,
   surExporter,
@@ -53,13 +38,6 @@ export function PanneauExport({
       <Select label={libelles.format} data={formats} value={format} onChange={surFormat} allowDeselect={false} />
       {modeles ? (
         <Select label={libelles.modele} data={modeles} value={modele} onChange={surModele} allowDeselect={false} />
-      ) : null}
-      {modeles && retenir ? (
-        <Checkbox
-          label={libelles.retenir}
-          checked={retenir.coche}
-          onChange={(e) => retenir.surChange(e.currentTarget.checked)}
-        />
       ) : null}
       {message ? <Text role="status">{message}</Text> : null}
       <Group>
