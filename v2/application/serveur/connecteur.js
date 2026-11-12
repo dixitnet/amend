@@ -136,6 +136,7 @@ export function creerConnecteur({
     const p = await personneDe(req)
     if (!p) return (json(res, 401, { code: 'session-absente' }), true)
     if (!(await administrateur(p))) return (json(res, 403, { code: 'reserve-administrateur' }), true)
+    if (!['GET', 'POST', 'DELETE'].includes(req.method)) return (json(res, 405, { code: 'methode-refusee' }), true)
     const ancienne = await comptes.reglage(cleDeLaPersonne(p.id))
     if (req.method === 'GET') {
       const entree = typeof ancienne === 'string' ? await comptes.reglage(cleDe(ancienne)) : null
@@ -147,7 +148,6 @@ export function creerConnecteur({
       console.log('[connecteur] adresse révoquée')
       return (json(res, 200, {}), true)
     }
-    if (req.method !== 'POST') return (json(res, 405, { code: 'methode-refusee' }), true)
     const secret = randomBytes(32).toString('base64url')
     const hash = empreinte(secret)
     await comptes.definirReglage(cleDe(hash), { personne: p.id, creeLe: Date.now() }, p.id)
@@ -241,7 +241,14 @@ export function creerConnecteur({
         })
       case 'tools/call': {
         const nom = m.params?.name
-        const r = await appeler(p, nom, m.params?.arguments ?? {})
+        let r
+        try {
+          r = await appeler(p, nom, m.params?.arguments ?? {})
+        } catch (err) {
+          // Une panne d'un outil rend une erreur à cet appel seulement (audit du 12/11/2026).
+          console.error('[connecteur] outil en panne :', err.code ?? err.message)
+          return erreur(-32603, 'internal error')
+        }
         console.log(`[connecteur] ${OUTILS[nom] ? nom : 'inconnu'}${r.erreur ? ' (refus)' : ''}`)
         return repondre({ content: [{ type: 'text', text: r.texte }], isError: r.erreur === true })
       }
@@ -263,14 +270,15 @@ export function creerConnecteur({
     // Pas de flux du serveur vers le client (comme la v1) : seulement des POST.
     if (req.method !== 'POST') return (json(res, 405, { code: 'methode-refusee' }, { allow: 'POST' }), true)
     const corps = await lireCorps(req, 200_000)
-    const lot = Array.isArray(corps) ? corps : [corps]
-    const reponses = (await Promise.all(lot.map((x) => message(p, x)))).filter(Boolean)
-    if (!reponses.length) {
+    // Un message par requête : la version 2025-06-18 du protocole a retiré les
+    // lots, et `lireCorps` refuse un tableau (400).
+    const reponse = await message(p, corps)
+    if (!reponse) {
       res.writeHead(202)
       res.end()
       return true
     }
-    json(res, 200, Array.isArray(corps) ? reponses : reponses[0])
+    json(res, 200, reponse)
     return true
   }
 }

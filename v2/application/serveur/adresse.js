@@ -12,5 +12,6 @@ export function decoder(segment) {
 /** L'adresse d'une requête pour le journal, sans le jeton secret d'une
  * connexion (`/api/connexion/<jeton>` devient `/api/connexion/***`). */
 export function adresseSansSecret(url) {
-  return String(url ?? '').replace(/^(\/api\/connexion\/)[^/?#]+/, '$1***')
+  // Le lien de connexion, et l'adresse secrète du connecteur Claude (12/11/2026).
+  return String(url ?? '').replace(/^(\/api\/(?:connexion|mcp)\/)[^/?#]+/, '$1***')
 }

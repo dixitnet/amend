@@ -182,6 +182,17 @@ t3(
     assert.equal(interdit.isError, true)
     assert.match(interdit.content[0].text, /pas ce droit/)
 
+    // Pas de lot (retiré du protocole en 2025-06-18) : un tableau est refusé.
+    const lot = await fetch(`${base}${new URL(adresse).pathname}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify([{ jsonrpc: '2.0', id: 7, method: 'ping' }]),
+    })
+    assert.equal(lot.status, 400)
+    // Une méthode imprévue ne touche pas à l'adresse active.
+    assert.equal((await appel('PUT', '/api/admin/connecteur', { cookie: admin.cookie })).statut, 405)
+    assert.equal((await mcp(adresse, 'ping', {})).status, 200, 'toujours active')
+
     // Pas d'OAuth ni de flux : 404 net aux sondes, 405 au GET.
     assert.equal((await fetch(`${base}/.well-known/oauth-protected-resource`)).status, 404)
     const get = await fetch(`${base}${new URL(adresse).pathname}`)
