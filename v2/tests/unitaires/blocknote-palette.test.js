@@ -67,4 +67,8 @@ test('format S : sans le choix du type de bloc, le reste gardé (12/11/2026)', (
   const s = cles(boutonsDuFormatS(boutonsGardes(getFormattingToolbarItems())))
   assert.ok(!s.includes('blockTypeSelect'))
   for (const cle of ['boldStyleButton', 'createLinkButton', 'nestBlockButton']) assert.ok(s.includes(cle), cle)
+  // En Suggérer au téléphone : aucun bouton de forme ne revient, le commentaire reste.
+  const sugg = cles(boutonsDuFormatS(boutonsGardesEnSuggestion(getFormattingToolbarItems())))
+  for (const cle of ['blockTypeSelect', 'boldStyleButton', 'createLinkButton']) assert.ok(!sugg.includes(cle), cle)
+  assert.ok(sugg.includes('addCommentButton'))
 })

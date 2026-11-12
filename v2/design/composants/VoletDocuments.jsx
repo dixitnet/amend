@@ -58,6 +58,7 @@ function Entree({ e, libelleActions }) {
     // écart avec Docs). Dossiers et espaces gardent le leur.
     <NavLink component="a" href={e.href} label={e.nom} description={e.detail} active={e.actif} />
   ) : (
+    // Un document de la corbeille : pas de lien, pas de picto non plus.
     <NavLink component="div" label={e.nom} description={e.detail} />
   )
   return (
