@@ -316,7 +316,10 @@ test('volet « Documents » : recherche, création, arbre imbriqué, menu « …
   const html = rendre(
     h(design.VoletDocuments, {
       recherche: { libelle: t('documents.rechercher'), valeur: '', surChange: rien },
-      boutons: [{ cle: 'n', libelle: t('documents.nouveau'), picto: 'nouveau', surClic: rien }],
+      nouveau: {
+        libelle: t('documents.nouveauMenu'),
+        elements: [{ cle: 'n', libelle: t('documents.nouveau'), picto: 'nouveau', surClic: rien }],
+      },
       entrees: [
         {
           cle: 'mes',
@@ -341,7 +344,8 @@ test('volet « Documents » : recherche, création, arbre imbriqué, menu « …
     }),
   )
   assert.match(html, /type="search"/)
-  assert.ok(html.includes(echapper(t('documents.nouveau'))))
+  // Le menu « Nouveau » (ses éléments s'affichent à l'ouverture).
+  assert.ok(html.includes(echapper(t('documents.nouveauMenu'))))
   assert.match(html, /aria-expanded="true"[\s\S]*href="#d1"/, 'le document dans son dossier ouvert')
   assert.ok(
     html.includes(echapper(t('documents.actionsDe', { nom: 'La gare' }))),
@@ -351,7 +355,7 @@ test('volet « Documents » : recherche, création, arbre imbriqué, menu « …
   const vide = rendre(
     h(design.VoletDocuments, {
       recherche: { libelle: 'r', valeur: '', surChange: rien },
-      boutons: [],
+      nouveau: { libelle: t('documents.nouveauMenu'), elements: [] },
       entrees: [],
       vide: t('documents.aucun'),
       libelleActions: () => '',
@@ -360,20 +364,14 @@ test('volet « Documents » : recherche, création, arbre imbriqué, menu « …
   assert.ok(vide.includes(echapper(t('documents.aucun'))))
 })
 
-test('volet « Documents » : tri, et document de la corbeille sans lien avec son détail', () => {
+test('volet « Documents » : menu « Nouveau », et document de la corbeille sans lien avec son détail', () => {
   const t = creerTraducteur('fr')
   const html = rendre(
     h(design.VoletDocuments, {
       recherche: { libelle: t('documents.rechercher'), valeur: '', surChange: rien },
-      boutons: [],
-      tri: {
-        libelle: t('documents.trier'),
-        valeur: 'modifies',
-        options: [
-          { value: 'modifies', label: t('documents.triModifies') },
-          { value: 'titre', label: t('documents.triTitre') },
-        ],
-        surChange: rien,
+      nouveau: {
+        libelle: t('documents.nouveauMenu'),
+        elements: [{ cle: 'note', libelle: t('documents.nouvelleNote'), picto: 'note', surClic: rien }],
       },
       entrees: [
         {
@@ -396,8 +394,7 @@ test('volet « Documents » : tri, et document de la corbeille sans lien avec so
       libelleActions: (nom) => t('documents.actionsDe', { nom }),
     }),
   )
-  assert.ok(html.includes(echapper(t('documents.trier'))), 'le sélecteur de tri est nommé')
-  assert.ok(html.includes(echapper(t('documents.triModifies'))))
+  assert.ok(html.includes(echapper(t('documents.nouveauMenu'))), 'le menu « Nouveau »')
   assert.ok(html.includes(echapper(t('documents.joursRestants', { n: 3 }))), 'les jours restants')
   assert.doesNotMatch(
     html.split('Brouillon')[0].split('Corbeille').pop(),
