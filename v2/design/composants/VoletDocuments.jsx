@@ -54,16 +54,11 @@ function Entree({ e, libelleActions }) {
       onClick={() => setOuvert((o) => !o)}
     />
   ) : e.href ? (
-    <NavLink
-      component="a"
-      href={e.href}
-      label={e.nom}
-      description={e.detail}
-      leftSection={<PictoDe role={e.picto} />}
-      active={e.actif}
-    />
+    // Un document : sans picto, pour alléger l'arbre (Sylvain, 12/11/2026 ;
+    // écart avec Docs). Dossiers et espaces gardent le leur.
+    <NavLink component="a" href={e.href} label={e.nom} description={e.detail} active={e.actif} />
   ) : (
-    <NavLink component="div" label={e.nom} description={e.detail} leftSection={<PictoDe role={e.picto} />} />
+    <NavLink component="div" label={e.nom} description={e.detail} />
   )
   return (
     <div>
