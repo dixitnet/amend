@@ -59,7 +59,7 @@ import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
 import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
 import { TYPE_TITRE, TYPE_SOUS_TITRE } from '../../extensions/titres/index.js'
-import { dateDuJour, typographier, nfc } from '../../domaine/index.js'
+import { dateDuJour, typographier, nfc, compter as compterTextes } from '../../domaine/index.js'
 import { TYPE_NOTE, EVENEMENT_NOTE } from '../../extensions/note/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
@@ -298,6 +298,9 @@ function itemsDuMenu(editeur, table, textesTitres) {
  *   enregistrer: (texte: string) => void, retirer: (() => void) | null, fermer: () => void } | null) => void} [p.surNote]
  *   une note de bas de page à lire, écrire ou retirer (12/11/2026) : l'application
  *   ouvre sa fenêtre ; doit être stable
+ * @param {(compte: { total: { signes: number, mots: number }, selection: { signes: number, mots: number } | null }) => void} [p.surCompte]
+ *   les signes (espaces compris) et les mots du texte de base, et de la
+ *   sélection quand il y en a une (bandeau, 12/11/2026) ; doit être stable
  * @param {boolean} [p.formatS] format S (téléphone) : barre de mise en forme
  *   sans le choix du type de bloc (Sylvain, 12/11/2026)
  * @param {(fichier: File) => Promise<string>} [p.televerser] envoie une image et rend son
@@ -330,6 +333,7 @@ export function EditeurCollaboratif({
   televerser,
   formatS = false,
   surNote,
+  surCompte,
 }) {
   const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
   // Le mode du moment, lu par la typographie sans recréer l'éditeur.
@@ -479,6 +483,33 @@ export function EditeurCollaboratif({
       surSuggestions(null)
     }
   }, [editeur, contexte, afficheur, mode, surSuggestions, auteurs])
+
+  // Le compteur du bandeau (Sylvain, 12/11/2026) : le texte de base, recompté
+  // au repos (500 ms après la frappe), et la sélection, à chaque changement.
+  useEffect(() => {
+    if (!surCompte) return undefined
+    let total = null
+    let minuterie = null
+    const signaler = () => {
+      const choisi = editeur.getSelectedText()
+      surCompte({ total, selection: choisi.trim() ? compterTextes([choisi]) : null })
+    }
+    const recompter = () => {
+      total = compterBlocs(blocsDuTexte(editeur, contexte.fragment))
+      signaler()
+    }
+    recompter()
+    const arreter = editeur.onChange(() => {
+      clearTimeout(minuterie)
+      minuterie = setTimeout(recompter, 500)
+    })
+    const arreterSelection = editeur.onSelectionChange(signaler)
+    return () => {
+      arreter()
+      arreterSelection()
+      clearTimeout(minuterie)
+    }
+  }, [editeur, contexte, surCompte])
 
   // Le nombre de fils ouverts, pour le compteur des tâches (Sylvain, 12/11/2026).
   useEffect(() => {
