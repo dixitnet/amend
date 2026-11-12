@@ -672,6 +672,8 @@ test('volet de relecture : onglet ouvert piloté (« Corriger » ouvre Margo) ; 
 // navigateur : vérifié dans la pile. Ici, la zone du zoom et les pictos.
 test('zone du zoom et nouveaux pictos (11/11/2026)', () => {
   assert.match(rendre(h(design.ZoneZoom, { zoom: 150 }, 'texte')), /data-amend-zoom="150"/)
+  assert.doesNotMatch(rendre(h(design.ZoneZoom, { zoom: 100 }, 'texte')), /data-amend-lecture/)
+  assert.match(rendre(h(design.ZoneZoom, { zoom: 100, lecture: true }, 'texte')), /data-amend-lecture=""/)
   for (const role of ['exposant', 'tableDesMatieres', 'zoom', 'choisi'])
     assert.match(rendre(h(design.PictoDe, { role })), /<svg/, role)
 })

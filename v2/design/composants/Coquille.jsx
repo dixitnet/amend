@@ -90,9 +90,14 @@ export const ColonneTexte = ({ children }) => <Container data-amend-colonne="">{
 /**
  * Le zoom du texte de l'éditeur (11/11/2026, comme la v1) : le palier choisi,
  * en pour cent (REGLAGES.zoom), que la feuille de l'éditeur applique au texte
- * seul (réglage css.editeur.zoom). Dans tous les formats.
+ * seul (réglage css.editeur.zoom). Dans tous les formats. `lecture` : le mode
+ * Lire, où les commentaires ne se voient pas (réglage css.editeur.lecture).
  */
-export const ZoneZoom = ({ zoom, children }) => <div data-amend-zoom={zoom}>{children}</div>
+export const ZoneZoom = ({ zoom, lecture = false, children }) => (
+  <div data-amend-zoom={zoom} data-amend-lecture={lecture ? '' : undefined}>
+    {children}
+  </div>
+)
 
 /**
  * Les éléments d'un menu « … » : une action ; un titre de groupe (`titre`) ;
