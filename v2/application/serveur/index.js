@@ -9,6 +9,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { NOM_COOKIE, creerJeton, lireJeton, lireCookie } from './session.js'
 import { creerComptes } from './comptes.js'
+import { creerConnecteur } from './connecteur.js'
 import { creerCommentaires } from './commentaires.js'
 import { creerMargo } from './margo.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
@@ -32,6 +33,7 @@ import {
   refusAcces,
   DUREE_SESSION_MS,
   AUTEUR_MARGO,
+  AGENTS,
   evenementDeReponse,
   mesureValable,
   DUREE_MESURES_MS,
@@ -243,9 +245,7 @@ const creerRoutes = (CONF, comptes, { personneDe, cookieDeSession }, courrier, i
       json(
         res,
         200,
-        ids.map((id) =>
-          id === AUTEUR_MARGO ? { id, nom: null, agent: 'margo' } : { id, nom: connus.get(id) ?? null },
-        ),
+        ids.map((id) => (AGENTS.includes(id) ? { id, nom: null, agent: id } : { id, nom: connus.get(id) ?? null })),
       )
     },
     'GET /api/moi': async (req, res) => {
@@ -549,6 +549,19 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
   const administrateurs = listeAdministrateurs(CONF.administrateurs)
   const administrateur = async (p) =>
     administrateurs.size > 0 && estAdministrateur((await comptes.personne(p.id))?.courriel, administrateurs)
+  // Le connecteur Claude du back-office (12/11/2026) : un serveur MCP sur les
+  // documents du compte d'un administrateur.
+  const connecteur = creerConnecteur({
+    comptes,
+    collaboration,
+    depot: depotCommentaires,
+    prevenirFils: commentaires.prevenir,
+    personneDe: identite.personneDe,
+    administrateur,
+    adresse: CONF.adresse,
+    json,
+    lireCorps,
+  })
   const partage = creerComptes({
     CONF,
     administrateur,
@@ -594,6 +607,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       if (route) return await route(req, res, url)
       if (await commentaires(req, res, url)) return
       if (await margo(req, res, url)) return
+      if (await connecteur(req, res, url)) return
       if (await images(req, res, url)) return
       if (await partage(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))

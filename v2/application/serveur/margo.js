@@ -279,8 +279,11 @@ export function creerMargo({
   }
 }
 
-async function lireEtat(collaboration, docId) {
-  const [texte, suggestions] = await Promise.all([collaboration.lireTexte(docId), collaboration.lireSuggestions(docId)])
+export async function lireEtat(collaboration, docId, auteur = AUTEUR_MARGO) {
+  const [texte, suggestions] = await Promise.all([
+    collaboration.lireTexte(docId),
+    collaboration.lireSuggestions(docId, auteur),
+  ])
   const { blocsATexteDe } = await blocknote()
   return { texte, suggestions, blocs: numeroter(blocsATexteDe(texte, suggestions)) }
 }
@@ -321,8 +324,9 @@ function premierMessage({ prenom, demande, historique, portee, blocs }) {
 }
 
 /** Les quatre outils de Margo, sur un document. Chaque exécution rend
- * `{ contenu, erreur?, ecriture?, acceptee? }`. */
-function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte }) {
+ * `{ contenu, erreur?, ecriture?, acceptee? }`. `auteur` signe les suggestions
+ * et les commentaires (Margo, ou Claude par le connecteur du back-office). */
+export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte, auteur = AUTEUR_MARGO }) {
   const entier = (v) => Number.isSafeInteger(v)
   const parametres = (nom) => ({
     contenu: consigne('outils.parametres', { attendu: JSON.stringify(SCHEMAS[nom]) }),
@@ -331,7 +335,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
 
   async function lire({ de, a }) {
     if (!entier(de) || !entier(a)) return parametres('lire')
-    const { blocs } = await lireEtat(collaboration, docId)
+    const { blocs } = await lireEtat(collaboration, docId, auteur)
     const choisis = []
     let total = 0
     for (const b of blocs.slice(Math.max(0, de - 1), Math.max(0, a))) {
@@ -351,7 +355,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
   async function chercher({ textes }) {
     if (!Array.isArray(textes) || !textes.length || !textes.every((t) => typeof t === 'string'))
       return parametres('chercher')
-    const { blocs } = await lireEtat(collaboration, docId)
+    const { blocs } = await lireEtat(collaboration, docId, auteur)
     const parties = []
     for (const t of textes.slice(0, 20)) {
       const motif = normaliser(t).toLocaleLowerCase('fr')
@@ -366,7 +370,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
 
   async function proposer({ corrections }) {
     if (!Array.isArray(corrections) || !corrections.length) return parametres('proposer')
-    const etat = await lireEtat(collaboration, docId)
+    const etat = await lireEtat(collaboration, docId, auteur)
     const motifs = []
     const aPoser = []
     const plages = new Map()
@@ -395,7 +399,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
     if (aPoser.length) {
       const { suggererRemplacements } = await blocknote()
       const { resultats, mise } = suggererRemplacements(etat.texte, etat.suggestions, aPoser)
-      if (mise) await collaboration.ecrireSuggestions(docId, mise)
+      if (mise) await collaboration.ecrireSuggestions(docId, mise, auteur)
       poses = resultats
     }
     const lignes = motifs.map((m, i) => {
@@ -411,7 +415,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
   async function commenter({ bloc, citation, texte }) {
     if (!entier(bloc) || typeof citation !== 'string' || typeof texte !== 'string' || !texte.trim())
       return parametres('commenter')
-    const etat = await lireEtat(collaboration, docId)
+    const etat = await lireEtat(collaboration, docId, auteur)
     const vise = etat.blocs[bloc - 1]
     const refuser = (code) => (bilan.refus++, { contenu: consigne(`refus.${code}`), ecriture: true, acceptee: false })
     if (!vise) return refuser('bloc')
@@ -423,7 +427,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
     if (!ou.ok) return refuser(ou.motif)
     const fil = await depot.creerFil(
       docId,
-      AUTEUR_MARGO,
+      auteur,
       [{ type: 'paragraph', content: typographier(texte.trim().normalize('NFC')) }],
       null,
     )
@@ -438,7 +442,7 @@ function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte 
       return refuser('ancre')
     }
     try {
-      await collaboration.ecrireTexte(docId, ancre.mise, AUTEUR_MARGO)
+      await collaboration.ecrireTexte(docId, ancre.mise, auteur)
     } catch (err) {
       // Pas de fil sans ancre (audit du 10/11/2026, A3).
       await depot.supprimerFil(fil.id).catch(() => {})
