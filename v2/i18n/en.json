@@ -58,7 +58,9 @@
     "sousTitreDescription": "The document subtitle, left out of the table of contents",
     "tableDescription": "The document’s headings, down to the chosen level",
     "tableProfondeur": "Heading levels",
-    "tableNiveaux": "{n, plural, =1 {Level 1 only} other {Levels 1 to #}}"
+    "tableNiveaux": "{n, plural, =1 {Level 1 only} other {Levels 1 to #}}",
+    "note": "Footnote",
+    "noteDescription": "A numbered note at the bottom of the page"
   },
   "erreurs": {
     "apparence-inconnue": "This interface model or colour does not exist.",
@@ -142,7 +144,10 @@
     "refuserDe": "Reject: {texte}",
     "invisibles": "Some suggestions are not shown in the list (a paragraph deletion, for instance): “Accept all” and “Reject all” still handle them.",
     "enCours": "Pending suggestions",
-    "enAttente": "Suggestions are waiting: switch to review to accept or reject them."
+    "enAttente": "Suggestions are waiting: switch to review to accept or reject them.",
+    "note": "{auteur} edits a footnote: “{apres}”",
+    "ajoutNote": "{auteur} adds a footnote: “{apres}”",
+    "suppressionNote": "{auteur} deletes a footnote: “{avant}”"
   },
   "roles": {
     "lecteur": "reader",
@@ -500,5 +505,11 @@
     "courriel": "To confirm, type your account’s address",
     "bouton": "Delete my account permanently",
     "retour": "Cancel"
+  },
+  "note": {
+    "nouvelle": "New footnote",
+    "texte": "Footnote text",
+    "enregistrer": "Save",
+    "retirer": "Delete the footnote"
   }
 }

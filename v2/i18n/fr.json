@@ -58,7 +58,9 @@
     "sousTitreDescription": "Le sous-titre du document, hors de la table des matières",
     "tableDescription": "Les titres du document, jusqu’au niveau choisi",
     "tableProfondeur": "Niveaux de titre",
-    "tableNiveaux": "{n, plural, =1 {Niveau 1 seulement} other {Niveaux 1 à #}}"
+    "tableNiveaux": "{n, plural, =1 {Niveau 1 seulement} other {Niveaux 1 à #}}",
+    "note": "Note de bas de page",
+    "noteDescription": "Une note numérotée, en bas de la page"
   },
   "erreurs": {
     "apparence-inconnue": "Ce modèle d’interface ou cette couleur n’existe pas.",
@@ -142,7 +144,10 @@
     "refuserDe": "Refuser\u00A0: {texte}",
     "invisibles": "Des suggestions ne s’affichent pas dans la liste (une suppression de paragraphe, par exemple)\u00A0: «\u00A0Tout accepter\u00A0» et «\u00A0Tout refuser\u00A0» les traitent.",
     "enCours": "Suggestions en attente",
-    "enAttente": "Des suggestions attendent\u00A0: passez en relecture pour les accepter ou les refuser."
+    "enAttente": "Des suggestions attendent\u00A0: passez en relecture pour les accepter ou les refuser.",
+    "note": "{auteur} modifie une note\u00A0: «\u00A0{apres}\u00A0»",
+    "ajoutNote": "{auteur} ajoute une note\u00A0: «\u00A0{apres}\u00A0»",
+    "suppressionNote": "{auteur} supprime une note\u00A0: «\u00A0{avant}\u00A0»"
   },
   "roles": {
     "lecteur": "lecteur",
@@ -500,5 +505,11 @@
     "courriel": "Pour confirmer, tapez l’adresse de votre compte",
     "bouton": "Supprimer mon compte définitivement",
     "retour": "Annuler"
+  },
+  "note": {
+    "nouvelle": "Nouvelle note de bas de page",
+    "texte": "Texte de la note",
+    "enregistrer": "Enregistrer",
+    "retirer": "Supprimer la note"
   }
 }
