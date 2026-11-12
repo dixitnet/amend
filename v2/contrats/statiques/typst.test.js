@@ -74,9 +74,19 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
     textes('Trois'),
     textes('Quatre'),
     vide,
+    { type: 'divider' },
+    vide,
+    textes('Cinq'),
+    vide,
+    { type: 'pageBreak' },
+    vide,
+    textes('Six'),
   ])
   const blancs = (await versTypst(editeur, editeur.document, modele)).source
-  assert.match(blancs, /#amend-sans-alinea\[#"Un"\]\s+#amend-blanc\s+#"Deux"\s+#amend-blanc\s+#"Trois"\s+#"Quatre"\s*$/)
+  assert.match(
+    blancs,
+    /#amend-sans-alinea\[#"Un"\]\s+#amend-blanc\s+#"Deux"\s+#amend-blanc\s+#"Trois"\s+#"Quatre"\s+#amend-blanc\s+#"Cinq"\s+#pagebreak\(\)\s+#"Six"\s*$/,
+  )
   // Aucun blanc de BlockNote autour des blocs (il casserait la grille).
   assert.doesNotMatch(source, /inset: \(top/)
   // Le texte est échappé et en forme composée (NFC).
