@@ -33,6 +33,7 @@ import { t, nomsAvecMargo, envoyerJson, compteDe, boutonGauche } from './commun.
 import { MARGO_EN_COURS, MARGO_ARRET, morceauxDeMargo } from './textesMargo.js'
 import { useSaisie, useConfirmation } from './fenetres.jsx'
 import { useExport } from './useExport.jsx'
+import { exporterDocument, modeleComplet } from './exports.js'
 import { Partage } from './Partage.jsx'
 import { noterDernier, useVoletDocuments } from './voletDocuments.jsx'
 import { lireZoom, noterZoom, TEXTES_EDITEUR, FiletDeLEditeur } from './aidesEdition.jsx'
@@ -120,7 +121,16 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const [partage, setPartage] = useState(false)
   // Le volet « Documents », chargé à l'ouverture dans tous les formats : l'étoile
   // du bandeau en dépend (audit du 10/11/2026).
-  const voletDocs = useVoletDocuments(docId)
+  // « Essayer » un modèle d'équipe : le document ouvert, exporté avec lui (12/11/2026).
+  const voletDocs = useVoletDocuments(docId, {
+    essayerModele: (m) =>
+      exporterDocument(controle, 'pdf', {
+        titre: titreAffiche,
+        langue: LANGUE_DOCUMENT_PAR_DEFAUT,
+        modele: modeleComplet(m),
+        auteur: moi.nom,
+      }),
+  })
   // Le dernier document ouvert, pour la prochaine ouverture (Sylvain, 10/11/2026).
   useEffect(() => noterDernier(docId), [docId])
   const enregistrerTitre = async (nom) => {
@@ -221,7 +231,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const peutRenommer = caps.includes('ecrire')
   // Exports Markdown et PDF du texte de base (étape 7), préparés dans le
   // navigateur comme chez Docs, depuis la fenêtre « Exporter ».
-  const [fenetreExport, ouvrirExport] = useExport({ docId, controle, titre: titreAffiche })
+  const [fenetreExport, ouvrirExport] = useExport({ docId, controle, titre: titreAffiche, auteur: moi.nom })
   // La mention du mode, pour qui n'a pas le choix (l'éditeur voit le sélecteur).
   const mention = caps.includes('ecrire')
     ? null

@@ -11,9 +11,9 @@ import { createRequire } from 'node:module'
 import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
-import { MODELES_LIVRE } from '../../design/livre.js'
+import { MODELES_LIVRE, REPRISE_MODELES } from '../../design/livre.js'
 
-const modele = MODELES_LIVRE.find((m) => m.id === 'tat-poche')
+const modele = { ...MODELES_LIVRE[0], ...REPRISE_MODELES[0].valeurs }
 // Un éditeur neuf à chaque test : le livre n'y est inséré qu'une fois.
 const nouvelEditeur = () => BlockNoteEditor.create({ schema: schemaLivre })
 const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
@@ -55,7 +55,7 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
   assert.match(source, /#amend-sans-alinea\[#"« Le second \[conte\] est "#emph\("parfaitement"\)/)
   assert.match(source, /#heading\(level: 2\)/)
   assert.match(source, /#quote\(block: true\)/)
-  assert.match(source, /#amend-blanc/)
+  assert.match(source, /#amend-separateur/)
   assert.match(source, /#list\(\[#"un"\], \[#strong\("deux"\)\]\)/)
   assert.match(source, /#enum\(\[#"premier"\]\)/)
   // Des paragraphes vides entre deux textes : une ligne blanche, une seule ;
@@ -85,7 +85,7 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
   const blancs = (await versTypst(editeur, editeur.document, modele)).source
   assert.match(
     blancs,
-    /#amend-sans-alinea\[#"Un"\]\s+#amend-blanc\s+#"Deux"\s+#amend-blanc\s+#"Trois"\s+#"Quatre"\s+#amend-blanc\s+#"Cinq"\s+#pagebreak\(\)\s+#"Six"\s*$/,
+    /#amend-sans-alinea\[#"Un"\]\s+#amend-blanc\s+#"Deux"\s+#amend-blanc\s+#"Trois"\s+#"Quatre"\s+#amend-separateur\s+#"Cinq"\s+#pagebreak\(\)\s+#"Six"\s*$/,
   )
   // Aucun blanc de BlockNote autour des blocs (il casserait la grille).
   assert.doesNotMatch(source, /inset: \(top/)
@@ -181,5 +181,43 @@ test('un tableau, une image et une image introuvable : le PDF se compile quand m
     assert.equal(Buffer.from(pdf.slice(0, 5)).toString(), '%PDF-')
   } finally {
     serveur.close()
+  }
+})
+
+test('options de mise en page (12/11/2026) : titre courant, folio en haut, chapitre continu, séparateurs ; le PDF se compile', async () => {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'tableDesMatieres', props: { profondeur: 2 } },
+    { type: 'heading', props: { level: 1 }, content: [texte('Premier chapitre')] },
+    ...Array.from({ length: 40 }, () => ({ type: 'paragraph', content: [texte(paragraphe)] })),
+    { type: 'divider' },
+    { type: 'heading', props: { level: 1 }, content: [texte('Second chapitre')] },
+    ...Array.from({ length: 40 }, () => ({ type: 'paragraph', content: [texte(paragraphe)] })),
+  ])
+  for (const variante of [
+    {
+      folio: { ...modele.folio, position: 'haut-exterieur', depart: 5, ouverture: false },
+      enTete: { gauche: 'titreDocument', droite: 'chapitre' },
+      chapitre: { ...modele.chapitre, debut: 'continuer' },
+      separateur: 'asterisme',
+      cesure: false,
+    },
+    {
+      folio: { ...modele.folio, position: 'bas-exterieur' },
+      chapitre: { ...modele.chapitre, debut: 'page' },
+      separateur: 'trait',
+    },
+    { folio: { ...modele.folio, position: 'aucun' }, separateur: 'etoiles' },
+  ]) {
+    const m = { ...modele, ...variante }
+    const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
+    // Ce que chaque variante demande est bien dans la source.
+    const attendu = { asterisme: '⁂', trait: '—', etoiles: '* * *' }[variante.separateur]
+    assert.ok(source.includes(`"${attendu}"`), `séparateur ${variante.separateur}`)
+    if (variante.folio.position === 'haut-exterieur') assert.match(source, /header: context \{.*place\(/)
+    if (variante.folio.position === 'aucun') assert.match(source, /footer: none, header: none/)
+    if (variante.enTete) assert.match(source, /query\(heading\.where\(level: 1, outlined: true\)\.before\(here\(\)\)\)/)
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+    assert.ok(Buffer.from(pdf).toString('latin1').startsWith('%PDF-'), JSON.stringify(variante))
   }
 })

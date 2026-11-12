@@ -85,6 +85,7 @@ import { creerAcces } from './comptes-acces.js'
  * @param {(req: any, max?: number) => Promise<any>} o.lireCorps
  * @param {(personne: { id: string, nom: string }) => string} o.cookieDeSession
  * @param {string} o.cookieEfface
+ * @param {(p: { id: string }) => Promise<boolean>} [o.administrateur]  la personne administre-t-elle l'instance ?
  */
 export function creerComptes({
   CONF,
@@ -97,6 +98,7 @@ export function creerComptes({
   lireCorps,
   cookieDeSession,
   cookieEfface,
+  administrateur = async () => false,
 }) {
   const t = creerTraducteur('fr') // langue des courriers : celle des documents d'ici l'étape 6b
   const nomDuRole = (role) => libelleDuRole(t, role)
@@ -187,12 +189,13 @@ export function creerComptes({
     effacer,
     effacerContenu,
     equipeVisee,
+    administrateur,
   }
   const connexion = creerConnexion(ctx)
   const moi = creerMoi(ctx)
   const dossiers = creerDossiers(ctx)
-  const { modelesEquipe, modelesDocument } = creerModeles(ctx)
-  const equipes = creerEquipes({ ...ctx, modelesEquipe })
+  const { modelesEquipe, vueModelesEquipe, modelesInstance, modelesDocument, reprendre } = creerModeles(ctx)
+  const equipes = creerEquipes({ ...ctx, modelesEquipe, vueModelesEquipe })
   const { corbeille, listeEtCreation, document } = creerDocuments(ctx)
   const acces = creerAcces(ctx)
 
@@ -209,9 +212,18 @@ export function creerComptes({
     })
   }
 
-  return Object.assign(traiter, { purger })
+  return Object.assign(traiter, { purger, reprendreModeles: reprendre })
 
   async function traiter(req, res, url) {
+    // Les modèles de l'instance (back-office, 12/11/2026).
+    const admin = url.pathname.match(/^\/api\/admin\/((?:modeles|modele-defaut)(?:\/.*)?)$/)
+    if (admin) {
+      const segments = admin[1].split('/').filter(Boolean).map(decoder)
+      if (segments.includes(null)) return err(res, 400, 'requete-invalide')
+      const p = await personneDe(req)
+      if (!p) return err(res, 401, 'session-absente')
+      return modelesInstance(req, res, p, segments)
+    }
     const m = url.pathname.match(
       /^\/api\/(connexion|deconnexion|deconnexion-partout|moi|documents|dossiers|equipes|corbeille)(?:\/(.*))?$/,
     )

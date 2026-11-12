@@ -4,6 +4,8 @@ import { EcranMessage, PageAdministration, Bouton } from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
 import { t, envoyerJson, nomDuModele } from './commun.js'
 import { courbeDeMemoire } from './suivi.js'
+import { ModelesInstance } from './Modeles.jsx'
+import { useConfirmation } from './fenetres.jsx'
 
 /** La période du suivi (le serveur garde sept jours de relevés). */
 const SEPT_JOURS_MS = 7 * 24 * 3600 * 1000
@@ -44,6 +46,17 @@ export function Administration({ surApparence }) {
   const [suivi, setSuivi] = useState(null)
   const [erreurSuivi, setErreurSuivi] = useState(null)
   const [maintenant] = useState(() => Date.now())
+  // Les modèles de mise en page de l'instance (12/11/2026).
+  const [modeles, setModeles] = useState(null)
+  const [erreurModeles, setErreurModeles] = useState(null)
+  const [fenetreConfirmation, confirmer] = useConfirmation()
+  const chargerModeles = () =>
+    envoyerJson('GET', '/api/admin/modeles')
+      .then((d) => (setModeles(d), setErreurModeles(null)))
+      .catch((e) => setErreurModeles(e.code || 'reseau'))
+  useEffect(() => {
+    chargerModeles()
+  }, [])
   const [apparence, setApparence] = useState(null)
   const [erreurApparence, setErreurApparence] = useState(null)
   useEffect(() => {
@@ -176,6 +189,17 @@ export function Administration({ surApparence }) {
               ? t('admin.journalVide')
               : t('application.chargement'),
           lignes: lignesDuJournal,
+        },
+        {
+          titre: t('admin.modelesPdf.titre'),
+          lignes: [],
+          vide: erreurModeles ? messageErreur(t, erreurModeles) : t('application.chargement'),
+          contenu: modeles ? (
+            <>
+              <ModelesInstance donnees={modeles} confirmer={confirmer} surChangement={chargerModeles} />
+              {fenetreConfirmation}
+            </>
+          ) : null,
         },
         {
           titre: t('admin.ia'),

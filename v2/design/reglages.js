@@ -98,6 +98,9 @@ export const REGLAGES = {
   messages: { duree: 3000, erreur: { color: 'red' } },
   // La pastille du nombre de suggestions : 10 px par défaut, trop petite pour un chiffre.
   nombreSuggestions: { size: 16, inline: true },
+  // Les nombres des formulaires de modèles avec une virgule décimale, à la
+  // française (Sylvain, 12/11/2026 : « 12 » du chantier des modèles).
+  modeles: { nombre: { decimalSeparator: ',' } },
   // Les cartes des suggestions : une carte de Mantine bordée par suggestion ;
   // Accepter en vert, Refuser en rouge, tous deux discrets (variante « light »),
   // petits (Sylvain, 12/11/2026, variante vert / rouge).

@@ -13,10 +13,10 @@ import {
   compterBlocs,
   chargerFichier,
 } from '../../adaptateurs/blocknote/export.js'
-import { MODELES_LIVRE } from '../../design/livre.js'
+import { MODELES_LIVRE, REPRISE_MODELES } from '../../design/livre.js'
 
 const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
-const modele = MODELES_LIVRE.find((m) => m.id === 'tat-poche')
+const modele = { ...MODELES_LIVRE[0], ...REPRISE_MODELES[0].valeurs }
 
 function document() {
   const editeur = BlockNoteEditor.create({ schema: schemaLivre })

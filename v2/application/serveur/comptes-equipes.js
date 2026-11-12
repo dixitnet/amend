@@ -31,6 +31,7 @@ export function creerEquipes(ctx) {
     revoirEquipe,
     envoyerLien,
     modelesEquipe,
+    vueModelesEquipe,
   } = ctx
 
   /** Les routes des équipes (étape 6d) ; `p` est connecté. */
@@ -65,8 +66,8 @@ export function creerEquipes(ctx) {
             favori: d.favori,
           })),
           membres: await comptes.membresDe(equipe.id),
-          modeles: await comptes.modelesDe(equipe.id),
-          modeleDefaut: equipe.modeleDefaut ?? null,
+          // Ses modèles complets, ceux de l'instance (bases possibles) et le défaut.
+          ...(await vueModelesEquipe(equipe)),
           ...(gestionnaire
             ? {
                 invitations: (await comptes.invitationsDeLEquipe(equipe.id)).filter((i) => invitationValable(i.creeLe)),

@@ -303,6 +303,13 @@
       "sonnet": "Claude Sonnet 5.5 (Anthropic)",
       "haiku": "Claude Haiku 5.5 (Anthropic)",
       "fable": "Claude Fable 5.2 (Anthropic)"
+    },
+    "modelesPdf": {
+      "titre": "Modèles de mise en page",
+      "defaut": "Modèle par défaut de l’instance",
+      "aucun": "L’instance n’a pas encore de modèle à elle.",
+      "detail": "D’après «\u00A0{titre}\u00A0» · {n, plural, =0 {aucun document} one {# document} other {# documents}} · {e, plural, =0 {aucune équipe} one {# équipe} other {# équipes}} · {d, plural, =0 {aucun modèle d’équipe} one {# modèle d’équipe} other {# modèles d’équipe}}",
+      "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? Les documents et les équipes qui l’avaient choisi prendront le modèle par défaut\u202F; les modèles d’équipe qui en dérivent repartiront de «\u00A0{code}\u00A0»."
     }
   },
   "telephone": {
@@ -377,18 +384,78 @@
       "police": "Police",
       "alinea": "Alinéa (mm)",
       "chapitre": {
-        "bellePage": "Chapitres en belle page (page de droite)"
+        "debut": "Début de chapitre",
+        "ligneTitre": "Ligne du titre de chapitre",
+        "ligneTexte": "Ligne où reprend le texte",
+        "corps": "Corps du titre de chapitre (pt)",
+        "interligne": "Interligne du titre de chapitre (pt)",
+        "graisse": "Graisse du titre de chapitre"
       },
       "titre": {
-        "corps": "Corps du titre (pt)"
+        "corps": "Corps du titre (pt)",
+        "graisse": "Graisse du titre"
       },
       "sousTitre": {
-        "corps": "Corps du sous-titre (pt)"
-      }
+        "corps": "Corps du sous-titre (pt)",
+        "italique": "Sous-titre en italique"
+      },
+      "folio": {
+        "position": "Place du folio",
+        "depart": "Premier numéro de page",
+        "bas": "Ligne du folio en bas (mm)",
+        "ouverture": "Folio sur les pages d’ouverture de chapitre"
+      },
+      "enTete": {
+        "gauche": "Titre courant des pages de gauche",
+        "droite": "Titre courant des pages de droite"
+      },
+      "intertitres": {
+        "italique": "Intertitres en italique",
+        "lignesAvant": "Lignes blanches avant un intertitre",
+        "lignesApres": "Lignes blanches après un intertitre"
+      },
+      "citation": {
+        "retrait": "Retrait des citations (mm)"
+      },
+      "separateur": "Séparateur de scène",
+      "cesure": "Césure (couper les mots en fin de ligne)"
     },
     "maison": {
-      "tat-poche": "TàT - Poche"
-    }
+      "a4": "A4 simple"
+    },
+    "options": {
+      "separateur": {
+        "blanc": "Ligne blanche",
+        "asterisme": "Astérisme ⁂",
+        "etoiles": "Trois astérisques * * *",
+        "trait": "Tiret —"
+      },
+      "chapitre": {
+        "continuer": "Sur la même page",
+        "page": "Page suivante",
+        "belle-page": "Belle page (page de droite)"
+      },
+      "folio": {
+        "bas-centre": "En bas, centré",
+        "bas-exterieur": "En bas, côté extérieur",
+        "haut-exterieur": "En haut, côté extérieur",
+        "aucun": "Aucun"
+      },
+      "enTete": {
+        "rien": "Rien",
+        "titreDocument": "Titre du document",
+        "chapitre": "Chapitre en cours"
+      }
+    },
+    "groupes": {
+      "format": "Format et marges",
+      "texte": "Texte",
+      "titres": "Titres et chapitres",
+      "pages": "Folio et titre courant"
+    },
+    "essayer": "Essayer",
+    "essayerDe": "Exporter le document ouvert avec «\u00A0{nom}\u00A0»",
+    "defautInstance": "Celui de l’instance"
   },
   "margo": {
     "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent en suggestions, dans Modifications, à accepter ou refuser.",

@@ -497,10 +497,10 @@ export function EditeurCollaboratif({
     editeur.prosemirrorView?.dom.blur()
     setEnModification(false)
   }
-  const exporter = async (format, { modele, polices, titre, langue } = {}) => {
+  const exporter = async (format, { modele, polices, titre, langue, auteur } = {}) => {
     const blocs = blocsDuTexte(editeur, contexte.fragment)
     if (format === 'markdown') return versMarkdown(editeur, blocs, { titreTable: textes.table?.titre })
-    const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre, langue })
+    const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre, langue, auteur })
     return compilerPdf(source, { fichiers, polices })
   }
   // Aller à un bloc cité par Margo : le curseur, et le bloc sous le bandeau.

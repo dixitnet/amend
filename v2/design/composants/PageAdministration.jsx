@@ -34,7 +34,8 @@ export function PageAdministration({ nomApplication, titre, actions, message, ru
             {(r.courbes ?? []).map((c) => (
               <Courbe key={c.libelle} libelle={c.libelle} legende={c.legende} points={c.points} />
             ))}
-            {r.vide && !r.lignes.length && !r.courbes?.length ? <Text>{r.vide}</Text> : null}
+            {r.vide && !r.lignes.length && !r.courbes?.length && !r.contenu ? <Text>{r.vide}</Text> : null}
+            {r.contenu ?? null}
             <Table>
               <Table.Tbody>
                 {r.lignes.map((l, i) => (

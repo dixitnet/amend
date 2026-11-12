@@ -58,6 +58,9 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     dernier: '120 Mo',
     methode: 'GET',
     chemin: '/api/documents',
+    e: 1,
+    d: 2,
+    // `code` sert aussi au nom du modèle du code (modèles de l'instance).
   }
   for (const l of LANGUES) {
     const t = creerTraducteur(l)
@@ -73,6 +76,8 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       id: 'x',
       code: 'y',
       n: 2,
+      e: 1,
+      d: 3,
       auteur: 'A',
       avant: 'b',
       apres: 'c',
@@ -462,15 +467,15 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle, case « 
     h(design.PanneauExport, {
       ...base,
       format: 'pdf',
-      modeles: [{ group: 'amend.ink', items: [{ value: 'tat-poche', label: 'TàT - Poche' }] }],
-      modele: 'tat-poche',
+      modeles: [{ group: 'amend.ink', items: [{ value: 'a4', label: 'A4 simple' }] }],
+      modele: 'a4',
       retenir: { coche: false, surChange: () => {} },
       enCours: false,
     }),
   )
   for (const cle of ['export.format', 'export.modele', 'export.retenir', 'export.exporter'])
     assert.ok(pdf.includes(echapper(t(cle))), cle)
-  assert.match(pdf, /value="TàT - Poche"/)
+  assert.match(pdf, /value="A4 simple"/)
   const md = rendre(
     h(design.PanneauExport, { ...base, format: 'markdown', modeles: null, retenir: null, enCours: true }),
   )
@@ -491,9 +496,9 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle, case « 
         modifierDe: (nom) => t('modeles.modifierDe', { nom }),
         supprimerDe: (nom) => t('modeles.supprimerDe', { nom }),
       },
-      defaut: { options: [{ value: 'tat-poche', label: 'TàT - Poche' }], valeur: 'tat-poche', surChange: () => {} },
-      modeles: [{ cle: 'm1', nom: 'Essais', detail: 'TàT - Poche', parDefaut: t('modeles.parDefaut') }],
-      bases: [{ value: 'tat-poche', label: 'TàT - Poche' }],
+      defaut: { options: [{ value: 'a4', label: 'A4 simple' }], valeur: 'a4', surChange: () => {} },
+      modeles: [{ cle: 'm1', nom: 'Essais', detail: 'A4 simple', parDefaut: t('modeles.parDefaut') }],
+      bases: [{ value: 'a4', label: 'A4 simple' }],
       surCreer: () => {},
       surModifier: () => {},
       surSupprimer: () => {},
@@ -521,7 +526,7 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle, case « 
           pas: 0.5,
         },
         { cle: 'grille.lignes', type: 'entier', libelle: t('modeles.reglage.grille.lignes'), valeur: 31, min: 1 },
-        { cle: 'chapitre.bellePage', type: 'booleen', libelle: t('modeles.reglage.chapitre.bellePage'), valeur: true },
+        { cle: 'cesure', type: 'booleen', libelle: t('modeles.reglage.cesure'), valeur: true },
         {
           cle: 'police',
           type: 'police',
@@ -534,7 +539,7 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle, case « 
       surAnnuler: () => {},
     }),
   )
-  for (const cle of ['page.largeur', 'grille.lignes', 'chapitre.bellePage', 'police'])
+  for (const cle of ['page.largeur', 'grille.lignes', 'cesure', 'police'])
     assert.ok(formulaire.includes(echapper(t(`modeles.reglage.${cle}`))), cle)
   assert.match(formulaire, /value="Essais"/)
   assert.match(formulaire, /role="switch"[^>]*checked=""|checked=""[^>]*role="switch"/)

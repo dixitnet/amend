@@ -2,7 +2,7 @@
 // fichiers exportés (domaine/document.js).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { grille, gabaritTypst, chaineTypst, nomDeFichier, titreDocument } from '../../domaine/index.js'
+import { grille, gabaritTypst, chaineTypst, nomDeFichier, titreDocument, resoudreModele } from '../../domaine/index.js'
 
 const MODELE = {
   page: { largeur: 120, hauteur: 180 },
@@ -189,4 +189,93 @@ test('la grille refuse une valeur non numérique avec le code modele-impossible'
   ])
     for (const valeur of [NaN, '12', undefined])
       assert.throws(() => grille(avec(chemin, valeur)), { code: 'modele-impossible' }, `${chemin} = ${String(valeur)}`)
+})
+
+test('mise en page (12/11/2026) : titre courant, folio, début de chapitre, séparateur, césure, auteur', () => {
+  const g = gabaritTypst(
+    {
+      ...MODELE,
+      folio: { bas: 18, position: 'haut-exterieur', depart: 3, ouverture: false },
+      enTete: { gauche: 'titreDocument', droite: 'chapitre' },
+      chapitre: { ...MODELE.chapitre, debut: 'continuer' },
+      separateur: 'asterisme',
+      cesure: false,
+    },
+    { titre: 'Le livre', auteur: 'Paule' },
+  )
+  assert.match(g, /#set document\(title: "Le livre", author: "Paule"\)/)
+  assert.match(g, /footer: none/)
+  assert.match(g, /header: context \{.*place\(if calc\.odd\(p\) \{ right \} else \{ left \}, counter\(page\)/)
+  assert.match(g, /if not ouverture \{ let c = if calc\.odd\(p\) \{ \{ let hs = query/)
+  assert.match(g, /\[#"Le livre"\]/)
+  assert.match(g, /hyphenate: false/)
+  assert.match(g, /#let amend-separateur = align\(center, par\(.*"⁂"/)
+  assert.match(g, /#counter\(page\)\.update\(3\)/)
+  assert.doesNotMatch(g, /pagebreak/, 'le chapitre continue sur la page')
+  // Par défaut : folio centré en bas, chapitre en belle page, séparateur blanc.
+  const d = gabaritTypst(MODELE)
+  assert.match(d, /align\(center \+ top/)
+  assert.match(d, /header: none/)
+  assert.match(d, /pagebreak\(to: "odd"/)
+  assert.match(d, /#let amend-separateur = v\(12\.4pt\)/)
+  assert.doesNotMatch(d, /counter\(page\)\.update/)
+  assert.match(
+    gabaritTypst({ ...MODELE, chapitre: { ...MODELE.chapitre, bellePage: false } }),
+    /pagebreak\(weak: true\)/,
+  )
+})
+
+test('un chapitre dont le texte reprendrait avant son titre, ou hors de la page, est impossible', () => {
+  for (const chapitre of [
+    { ...MODELE.chapitre, ligneTexte: 7 },
+    { ...MODELE.chapitre, ligneTexte: 40 },
+    { ...MODELE.chapitre, ligneTitre: 0 },
+  ])
+    assert.throws(() => grille({ ...MODELE, chapitre }), { code: 'modele-impossible', raison: 'chapitre' })
+})
+
+test('réglage à choix : seules ses options passent', () => {
+  const regles = {
+    reglables: [{ cle: 'separateur', type: 'choix', options: ['blanc', 'asterisme'] }],
+    polices: [],
+  }
+  assert.equal(appliquerEcarts(MODELE, { separateur: 'asterisme' }, regles).ok, true)
+  assert.equal(appliquerEcarts(MODELE, { separateur: 'licorne' }, regles).code, 'reglage-hors-bornes')
+})
+
+test('modèle retenu : document, équipe, instance, puis le premier permis', () => {
+  const permis = ['a4', 'i1', 'e1']
+  assert.equal(modeleRetenu({ choisi: 'e1', defautEquipe: 'i1', defautInstance: 'i1', permis }), 'e1')
+  assert.equal(modeleRetenu({ choisi: null, defautEquipe: 'e1', defautInstance: 'i1', permis }), 'e1')
+  assert.equal(modeleRetenu({ choisi: 'parti', defautEquipe: null, defautInstance: 'i1', permis }), 'i1')
+  assert.equal(modeleRetenu({ permis }), 'a4')
+})
+
+test('résolution à deux étages : code, instance, équipe ; chaque étage par ses règles', () => {
+  const polices = [{ famille: 'EB Garamond', fichiers: [] }]
+  const regles = {
+    instance: {
+      reglables: [
+        { cle: 'grille.corps', type: 'nombre', min: 5, max: 96 },
+        { cle: 'separateur', type: 'choix', options: ['blanc', 'trait'] },
+      ],
+      polices,
+    },
+    equipe: { reglables: [{ cle: 'page.largeur', type: 'nombre', min: 80, max: 450 }], polices },
+  }
+  const code = (id) => (id === 'a4' ? MODELE : null)
+  const instances = { i1: { base: 'a4', ecarts: { 'grille.corps': 11, separateur: 'trait' } } }
+  const instance = (id) => instances[id] ?? null
+  const sources = { code, instance, regles }
+  const i = resoudreModele({ base: 'a4', ecarts: instances.i1.ecarts, equipe: null }, sources)
+  assert.equal(i.modele.grille.corps, 11)
+  const e = resoudreModele({ base: 'i1', ecarts: { 'page.largeur': 135 }, equipe: 'eq' }, sources)
+  assert.deepEqual([e.modele.grille.corps, e.modele.separateur, e.modele.page.largeur], [11, 'trait', 135])
+  // Une équipe ne règle pas ce que seule l'instance règle.
+  assert.equal(
+    resoudreModele({ base: 'i1', ecarts: { 'grille.corps': 12 }, equipe: 'eq' }, sources).code,
+    'reglage-inconnu',
+  )
+  // Un modèle de l'instance disparu.
+  assert.equal(resoudreModele({ base: 'i9', ecarts: {}, equipe: 'eq' }, sources).code, 'modele-introuvable')
 })

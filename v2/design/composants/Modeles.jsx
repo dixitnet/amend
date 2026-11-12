@@ -6,7 +6,19 @@
 // décident rien : les champs, leurs bornes et leurs valeurs viennent de
 // l'application, les gestes remontent par les fonctions de rappel. Placés
 // dans une `Fenetre`, qui porte le titre.
-import { Stack, Group, Text, TextInput, NumberInput, Select, Switch, Checkbox, Button, Badge } from '@mantine/core'
+import {
+  Stack,
+  Group,
+  Text,
+  TextInput,
+  NumberInput,
+  Select,
+  Switch,
+  Checkbox,
+  Button,
+  Badge,
+  Fieldset,
+} from '@mantine/core'
 import { useState } from 'react'
 import { REGLAGES } from '../reglages.js'
 
@@ -70,11 +82,22 @@ export function PanneauExport({
  *     aucun: string, modifierDe: (nom: string) => string, supprimerDe: (nom: string) => string },
  *   defaut: { options: Array<any>, valeur: string, surChange: (v: string) => void },
  *   modeles: Array<{ cle: string, nom: string, detail: string, parDefaut?: string | null }>,
+ *   essayer?: { libelle: string, libelleDe: (nom: string) => string, surClic: (cle: string) => void } | null,
  *   bases: Array<{ value: string, label: string }>, message?: string | null,
  *   surCreer: (nom: string, base: string) => void, surModifier: (cle: string) => void, surSupprimer: (cle: string) => void,
  * }} props
  */
-export function PanneauModeles({ libelles, defaut, modeles, bases, message, surCreer, surModifier, surSupprimer }) {
+export function PanneauModeles({
+  libelles,
+  defaut,
+  modeles,
+  bases,
+  message,
+  essayer = null,
+  surCreer,
+  surModifier,
+  surSupprimer,
+}) {
   const soumettre = (e) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
@@ -102,6 +125,15 @@ export function PanneauModeles({ libelles, defaut, modeles, bases, message, surC
                 <Text>{m.detail}</Text>
               </Stack>
               {m.parDefaut ? <Badge>{m.parDefaut}</Badge> : null}
+              {essayer ? (
+                <Button
+                  {...REGLAGES.boutonSecondaire}
+                  aria-label={essayer.libelleDe(m.nom)}
+                  onClick={() => essayer.surClic(m.cle)}
+                >
+                  {essayer.libelle}
+                </Button>
+              ) : null}
               <Button aria-label={libelles.modifierDe(m.nom)} onClick={() => surModifier(m.cle)}>
                 {libelles.modifier}
               </Button>
@@ -131,17 +163,19 @@ export function PanneauModeles({ libelles, defaut, modeles, bases, message, surC
 }
 
 /**
- * Le formulaire d'un modèle d'équipe : son nom et les réglages ouverts.
+ * Le formulaire d'un modèle (d'équipe ou de l'instance) : son nom et les
+ * réglages ouverts, par groupe (12/11/2026 : format, texte, titres, pages).
  * @param {{
  *   libelles: { nom: string, enregistrer: string, annuler: string },
  *   nom: string,
- *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police', libelle: string, valeur: any,
- *     min?: number, max?: number, pas?: number, options?: Array<{ value: string, label: string }> }>,
+ *   groupes?: Array<{ cle: string, libelle: string }>,
+ *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix', libelle: string, valeur: any,
+ *     groupe?: string, min?: number, max?: number, pas?: number, options?: Array<{ value: string, label: string }> }>,
  *   message?: string | null, surEnregistrer: (o: { nom: string, valeurs: Record<string, any> }) => void,
  *   surAnnuler: () => void,
  * }} props
  */
-export function FormulaireModele({ libelles, nom, champs, message, surEnregistrer, surAnnuler }) {
+export function FormulaireModele({ libelles, nom, groupes = [], champs, message, surEnregistrer, surAnnuler }) {
   const [leNom, setNom] = useState(nom)
   const [valeurs, setValeurs] = useState(() => Object.fromEntries(champs.map((c) => [c.cle, c.valeur])))
   const changer = (cle) => (v) => setValeurs((x) => ({ ...x, [cle]: v }))
@@ -159,7 +193,7 @@ export function FormulaireModele({ libelles, nom, champs, message, surEnregistre
           onChange={(e) => changer(c.cle)(e.currentTarget.checked)}
         />
       )
-    if (c.type === 'police')
+    if (c.type === 'police' || c.type === 'choix')
       return (
         <Select
           key={c.cle}
@@ -181,6 +215,7 @@ export function FormulaireModele({ libelles, nom, champs, message, surEnregistre
         step={c.pas ?? 1}
         allowDecimal={c.type !== 'entier'}
         decimalScale={c.type === 'entier' ? 0 : undefined}
+        {...REGLAGES.modeles.nombre}
       />
     )
   }
@@ -188,7 +223,22 @@ export function FormulaireModele({ libelles, nom, champs, message, surEnregistre
     <form onSubmit={soumettre}>
       <Stack>
         <TextInput label={libelles.nom} value={leNom} onChange={(e) => setNom(e.currentTarget.value)} required />
-        {champs.map(champ)}
+        {groupes.length ? (
+          <>
+            {groupes
+              .map((g) => [g, champs.filter((c) => c.groupe === g.cle)])
+              .filter(([, cs]) => cs.length)
+              .map(([g, cs]) => (
+                <Fieldset key={g.cle} legend={g.libelle}>
+                  <Stack>{cs.map(champ)}</Stack>
+                </Fieldset>
+              ))}
+            {/* Un réglage sans groupe connu reste visible, après les groupes. */}
+            {champs.filter((c) => !groupes.some((g) => g.cle === c.groupe)).map(champ)}
+          </>
+        ) : (
+          champs.map(champ)
+        )}
         {message ? <Text role="status">{message}</Text> : null}
         <Group>
           <Button {...REGLAGES.boutonSecondaire} onClick={surAnnuler}>

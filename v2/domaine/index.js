@@ -43,6 +43,10 @@ export {
   appliquerEcarts,
   valeurDuReglage,
   modeleRetenu,
+  resoudreModele,
+  ecartsVers,
+  SEPARATEURS,
+  debutChapitre,
   peutChoisirModele,
 } from './miseEnPage.js'
 export {

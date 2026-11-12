@@ -52,9 +52,10 @@ const sansAccents = (s) =>
  * 10/11/2026 ; écart avec Docs) : l'arbre (Favoris, Mes documents et ses
  * dossiers, une entrée par équipe, Partagé avec moi), la recherche par titre,
  * la création, et les actions de chaque entrée. Rend le contenu de l'onglet,
- * ses fenêtres, et les favoris (pour l'étoile du bandeau).
+ * ses fenêtres, et les favoris (pour l'étoile du bandeau). `essayerModele(m)` :
+ * exporter le document ouvert avec un modèle d'équipe (« Essayer », 12/11/2026).
  */
-export function useVoletDocuments(docId, { actif = true } = {}) {
+export function useVoletDocuments(docId, { actif = true, essayerModele = null } = {}) {
   const [donnees, setDonnees] = useState(null)
   const [erreur, setErreur] = useState(null)
   const [equipes, setEquipes] = useState({})
@@ -629,7 +630,12 @@ export function useVoletDocuments(docId, { actif = true } = {}) {
         libelleFermer={t('interface.fermer')}
       >
         {modelesDe && equipes[modelesDe] ? (
-          <ModelesEquipe vue={equipes[modelesDe]} confirmer={confirmer} surChangement={recharger} />
+          <ModelesEquipe
+            vue={equipes[modelesDe]}
+            confirmer={confirmer}
+            surChangement={recharger}
+            essayer={essayerModele}
+          />
         ) : null}
       </Fenetre>
       <Fenetre
