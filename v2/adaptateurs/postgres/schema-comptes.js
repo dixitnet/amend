@@ -126,6 +126,8 @@ create table if not exists amend.modeles (
   modifie_le timestamptz not null default now()
 );
 create index if not exists modeles_equipe on amend.modeles (equipe);
+-- Les modèles de l'instance (12/11/2026) : sans équipe, réglés par les administrateurs.
+alter table amend.modeles alter column equipe drop not null;
 alter table amend.documents add column if not exists modele text;
 alter table amend.equipes add column if not exists modele_defaut text;
 -- Lots du 11/11/2026 (comme Docs, \`updated_at\` et \`deleted_at\`) : la date de

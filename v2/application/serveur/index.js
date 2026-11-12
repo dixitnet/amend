@@ -545,8 +545,13 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     depot: comptes,
     json,
   })
+  // Les administrateurs de l'instance, pour les modèles de l'instance (12/11/2026).
+  const administrateurs = listeAdministrateurs(CONF.administrateurs)
+  const administrateur = async (p) =>
+    administrateurs.size > 0 && estAdministrateur((await comptes.personne(p.id))?.courriel, administrateurs)
   const partage = creerComptes({
     CONF,
+    administrateur,
     comptes,
     commentaires: depotCommentaires,
     courrier,
@@ -608,6 +613,8 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
   })
   /** Efface les documents restés plus de 30 jours dans la corbeille. */
   serveur.purgerCorbeille = partage.purger
+  /** Reprend les modèles qui ont quitté le code (une fois ; sans effet ensuite). */
+  serveur.reprendreModeles = partage.reprendreModeles
   return serveur
 }
 
@@ -620,6 +627,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     courrier: creerCourrier({ cle: CONF.mailgunCle, domaine: CONF.mailgunDomaine, expediteur: CONF.expediteur }),
   }
   const serveur = creerServeur(CONF, services)
+  // Les modèles qui ont quitté le code deviennent des modèles de l'instance,
+  // avant d'ouvrir le service (12/11/2026, docs/v2-modeles-pdf-plan.md).
+  await serveur.reprendreModeles().catch((e) => console.error('[serveur] reprise des modèles :', e))
   serveur.listen(CONF.port, '127.0.0.1', () => console.log(`[serveur] http://127.0.0.1:${CONF.port}`))
   // La corbeille se vide au démarrage, puis toutes les six heures.
   const purger = () => serveur.purgerCorbeille().catch((e) => console.error('[serveur] corbeille :', e))

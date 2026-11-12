@@ -163,7 +163,7 @@ export async function chargerFichier(url) {
  *   introuvable est omise plutôt que de faire échouer l'export
  * @returns {Promise<{ source: string, fichiers: Map<string, Uint8Array> }>}
  */
-export async function versTypst(editeur, blocs, modele, { titre, langue } = {}) {
+export async function versTypst(editeur, blocs, modele, { titre, langue, auteur } = {}) {
   const exportateur = new TypstExporter(editeur.schema, CORRESPONDANCES, {
     fontFamily: modele.police,
     fontSize: modele.grille.corps,
@@ -171,7 +171,7 @@ export async function versTypst(editeur, blocs, modele, { titre, langue } = {}) 
   })
   const corps = await parcourir(exportateur, blocs)
   return {
-    source: nfc(gabaritTypst(modele, { titre, langue }) + '\n' + corps.join('\n\n') + '\n'),
+    source: nfc(gabaritTypst(modele, { titre, langue, auteur }) + '\n' + corps.join('\n\n') + '\n'),
     fichiers: exportateur.assetFiles,
   }
 }
@@ -224,7 +224,7 @@ async function parcourir(exportateur, blocs) {
     // Titre et sous-titre : dans le flux, centrés (gabarit du modèle).
     else if (b.type === TYPE_TITRE) sortie.push(`#amend-titre[${texte}]`)
     else if (b.type === TYPE_SOUS_TITRE) sortie.push(`#amend-sous-titre[${texte}]`)
-    else if (b.type === 'divider') sortie.push('#amend-blanc')
+    else if (b.type === 'divider') sortie.push('#amend-separateur')
     else if (b.type === 'pageBreak') sortie.push('#pagebreak()')
     // La table des matières de Typst, à la place du bloc, titre dans la
     // langue du document (`lang` du gabarit).
