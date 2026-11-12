@@ -32,10 +32,6 @@ export function titresDe(blocs) {
   return titres
 }
 
-/** La marge d'ancrage d'un bloc (`scroll-margin-top`, posée par la couche
- * design sous un bandeau fixe) : un titre caché dessous n'est pas courant. */
-const marge = (el) => parseFloat(getComputedStyle(el).scrollMarginTop) || 0
-
 /** Le haut de la zone qui fait défiler le texte : celle de la coquille quand
  * le texte défile seul (formats M et L), sinon l'écran. */
 function hautDeLaZone(el) {
@@ -54,7 +50,7 @@ export function titreCourant(racine, titres) {
     const el = racine?.querySelector(`[data-id="${CSS.escape(t.cle)}"]`)
     if (!el) continue
     haut ??= hautDeLaZone(el)
-    if (el.getBoundingClientRect().top >= haut + marge(el)) return t.cle
+    if (el.getBoundingClientRect().top >= haut) return t.cle
   }
   return titres.at(-1)?.cle ?? null
 }
@@ -66,7 +62,6 @@ export function titreCourant(racine, titres) {
 export function allerAuTitre(editeur, cle, { focaliser }) {
   if (focaliser) editeur.focus()
   editeur.setTextCursorPosition(cle, 'end')
-  // Le défilement respecte la marge d'ancrage du bloc (sous le bandeau).
   editeur.domElement
     ?.querySelector(`[data-id="${CSS.escape(cle)}"]`)
     ?.scrollIntoView({ block: 'start', behavior: 'smooth' })

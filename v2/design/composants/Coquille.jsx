@@ -75,7 +75,8 @@ export function Coquille({
       {voletDroit ? <AppShell.Aside inert={!droiteOuvert}>{voletDroit}</AppShell.Aside> : null}
       <AppShell.Main>
         {/* Le texte défile seul, son ascenseur le long de la colonne (comme
-            Docs) : le bandeau et les volets ne bougent pas. */}
+            Docs) : le bandeau et les volets ne bougent pas. Les tests de la
+            pile font défiler le texte par cette classe. */}
         <div className="amend-coquille-defilement">
           {alerte}
           {children}
