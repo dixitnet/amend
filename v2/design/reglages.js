@@ -122,7 +122,7 @@ export const REGLAGES = {
   // Les pictos ajoutés aux boutons de BlockNote (exposant dans la palette,
   // table des matières dans le menu « / ») : à la taille des siens (16 px dans
   // la palette, 18 px dans le menu), au lieu des 24 px de Tabler.
-  pictos: { editeur: { exposant: 16, tableDesMatieres: 18 } },
+  pictos: { editeur: { exposant: 16, tableDesMatieres: 18, titre: 18, sousTitre: 18 } },
   // La courbe du back-office (mémoire des processus) : sa proportion, quatre
   // fois plus large que haute.
   courbe: { largeur: 100, hauteur: 25 },

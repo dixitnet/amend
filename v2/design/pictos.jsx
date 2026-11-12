@@ -32,6 +32,8 @@ import {
   IconHelp,
   IconSuperscript,
   IconListDetails,
+  IconLetterT,
+  IconLetterTSmall,
   IconTextSize,
   IconCheck,
 } from '@tabler/icons-react'
@@ -70,6 +72,8 @@ const PICTOS = {
   // 11/11/2026 (comparaison v1 / v2, points 19, 6, zoom) : dessins proposés, à confirmer.
   exposant: IconSuperscript,
   tableDesMatieres: IconListDetails,
+  titre: IconLetterT,
+  sousTitre: IconLetterTSmall,
   zoom: IconTextSize,
   choisi: IconCheck,
 }

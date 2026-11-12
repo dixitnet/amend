@@ -61,3 +61,23 @@ nav[data-amend-bloc='tableDesMatieres'] select {
   border-radius: var(--mantine-radius-sm);
   padding: calc(var(--mantine-spacing-xs) / 2) var(--mantine-spacing-xs);
 }
+
+/* réglage : css.editeur.titres */
+.bn-container [data-content-type='titre'] {
+  font-size: 3em;
+  font-weight: 700;
+  text-align: center;
+}
+.bn-container [data-content-type='sousTitre'] {
+  font-size: 2em;
+  font-style: italic;
+  text-align: center;
+}
+@media (width <= 35em) {
+  .bn-container [data-content-type='titre'] {
+    font-size: 1.6rem;
+  }
+  .bn-container [data-content-type='sousTitre'] {
+    font-size: 1.35rem;
+  }
+}
