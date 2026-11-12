@@ -6,10 +6,7 @@
 // décidés dans design/feuilles/telephone.css (ADR 0008) ; textes traduits.
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
-import { Etoile, ElementsDeMenu } from './Coquille.jsx'
-
-/** Les pictos, par rôle : la table commune (design/pictos.jsx ; audit du 10/11/2026). */
-const Icone = ({ nom }) => <PictoDe role={nom} />
+import { Etoile, ElementsDeMenu, PictoCompte } from './Coquille.jsx'
 
 /** Un tiroir à onglets ; l'onglet ouvert peut être piloté (`actif`, `surOnglet`). */
 function Volet({ volet, position, ouvert, surFermer }) {
@@ -22,7 +19,7 @@ function Volet({ volet, position, ouvert, surFermer }) {
       <Tabs {...pilote}>
         <Tabs.List grow>
           {volet.onglets.map((o) => (
-            <Tabs.Tab key={o.cle} value={o.cle} leftSection={<Icone nom={o.icone} />}>
+            <Tabs.Tab key={o.cle} value={o.cle} leftSection={<PictoCompte role={o.icone} nombre={o.nombre} />}>
               {o.libelle}
             </Tabs.Tab>
           ))}
@@ -47,7 +44,7 @@ function Volet({ volet, position, ouvert, surFermer }) {
  *   menu: Array<{ cle: string, libelle: string, icone?: string, titre?: boolean, coche?: boolean, surClic?: () => void }>,
  *   piedMenu?: string, surOuvrirMenu?: () => void,
  *   voletGauche: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> },
- *   voletDroit?: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }>, actif?: string, surOnglet?: (cle: string) => void } | null,
+ *   voletDroit?: { titre: string, nombre?: number, onglets: Array<{ cle: string, libelle: string, icone: string, nombre?: number, contenu: any }>, actif?: string, surOnglet?: (cle: string) => void } | null,
  *   volet: 'gauche' | 'droite' | null, surVolet: (v: 'gauche' | 'droite' | null) => void,
  *   panneau?: { titre: string, contenu: any, surFermer: () => void } | null,
  *   editeur: any,
@@ -107,7 +104,7 @@ export function PageEditionS({
             aria-expanded={volet === 'droite'}
             onClick={() => surVolet('droite')}
           >
-            <PictoDe role="modifications" />
+            <PictoCompte role="modifications" nombre={voletDroit.nombre} />
           </ActionIcon>
         ) : null}
       </header>

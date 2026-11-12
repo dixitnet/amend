@@ -19,6 +19,7 @@ import {
   choisirMode,
   modeChoisi,
   nouveauDocument,
+  panneau as panneauDe,
 } from './outils.mjs'
 
 let pile, nav
@@ -110,10 +111,6 @@ test('liste des documents injoignable (volet d’un document) : le message d’e
   await p.context().close()
 })
 
-/** Le panneau des suggestions, en une ligne (comme relecture.test.js). */
-const panneau = (page) =>
-  page.evaluate(() => document.querySelector('section[aria-label]')?.innerText.replace(/\n+/g, ' / ') ?? '')
-
 test('noms d’auteurs introuvables : peu de requêtes /api/personnes en 10 s, et la suggestion s’affiche (auteur inconnu)', async () => {
   const doc = docTest('noms')
   const phrase = 'Il faisait nuit sur la ville.'
@@ -128,8 +125,8 @@ test('noms d’auteurs introuvables : peu de requêtes /api/personnes en 10 s, e
   await c.keyboard.type(' Ajout')
   // La suggestion est arrivée chez l'éditrice (noms disponibles).
   if ((await modeChoisi(p)) !== 'Relire') await choisirMode(p, 'Relire')
-  for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/Carla ajoute/.test(await panneau(p)); await attendre(200));
-  assert.match(await panneau(p), /Carla ajoute/)
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/Carla ajoute/.test(await panneauDe(p)); await attendre(200));
+  assert.match(await panneauDe(p), /Carla ajoute/)
 
   // L'éditrice ouvre le document sur une page neuve, noms coupés.
   const q = await p.context().newPage()
@@ -142,8 +139,8 @@ test('noms d’auteurs introuvables : peu de requêtes /api/personnes en 10 s, e
   await q.waitForSelector('.bn-editor')
   await attendreEtat(q, 'connecte')
   if ((await modeChoisi(q)) !== 'Relire') await choisirMode(q, 'Relire')
-  for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/ajoute/.test(await panneau(q)); await attendre(200));
-  assert.match(await panneau(q), /Quelqu’un ajoute/, 'la ligne s’affiche, auteur inconnu')
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/ajoute/.test(await panneauDe(q)); await attendre(200));
+  assert.match(await panneauDe(q), /Quelqu’un ajoute/, 'la ligne s’affiche, auteur inconnu')
   await attendre(10000)
   assert.ok(requetes <= 3, `${requetes} requêtes vers /api/personnes en 10 s (3 au plus)`)
   await p.context().close()

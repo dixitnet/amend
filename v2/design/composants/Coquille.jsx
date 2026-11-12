@@ -278,16 +278,16 @@ export function Bandeau({
 export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, documents }) {
   return (
     <>
-      <AppShell.Section grow component={ScrollArea}>
-        <Tabs defaultValue="plan">
-          <Tabs.List grow>
-            <Tabs.Tab value="plan" leftSection={<PictoDe role="plan" />}>
-              {onglets.plan}
-            </Tabs.Tab>
-            <Tabs.Tab value="documents" leftSection={<PictoDe role="documents" />}>
-              {onglets.documents}
-            </Tabs.Tab>
-          </Tabs.List>
+      <Tabs defaultValue="plan" className="amend-coquille-onglets">
+        <Tabs.List grow>
+          <Tabs.Tab value="plan" leftSection={<PictoDe role="plan" />}>
+            {onglets.plan}
+          </Tabs.Tab>
+          <Tabs.Tab value="documents" leftSection={<PictoDe role="documents" />}>
+            {onglets.documents}
+          </Tabs.Tab>
+        </Tabs.List>
+        <AppShell.Section grow component={ScrollArea}>
           <Tabs.Panel value="plan">
             {plan.length ? (
               plan.map((t) => (
@@ -305,38 +305,54 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
             )}
           </Tabs.Panel>
           <Tabs.Panel value="documents">{documents}</Tabs.Panel>
-        </Tabs>
-      </AppShell.Section>
+        </AppShell.Section>
+      </Tabs>
     </>
   )
 }
 
-/** Le volet droit : onglets Modifications et Margo (IA). Le titre
+/** Un picto avec son nombre en pastille (les tâches en attente : suggestions,
+ * commentaires ouverts ; Sylvain, 12/11/2026) ; sans nombre, le picto seul. */
+export function PictoCompte({ role, nombre }) {
+  return (
+    <Indicator {...REGLAGES.nombreSuggestions} label={nombre} disabled={!nombre}>
+      <PictoDe role={role} />
+    </Indicator>
+  )
+}
+
+/** Le volet droit : onglets Suggestions, Commentaires et Margo (IA). Le titre
  * (« Relecture ») n'est plus affiché (Sylvain, 10/11/2026) : il nomme les
  * onglets pour les lecteurs d'écran. L'onglet ouvert peut être piloté
  * (`actif`, `surOnglet`) : « Corriger » ouvre Margo (étape 8). Sans `margo`,
  * pas d'onglet Margo (le correcteur n'y a pas accès). */
-export function VoletRelecture({ titre, onglets, modifications, commentaires, margo, actif, surOnglet }) {
+export function VoletRelecture({ titre, onglets, nombres = {}, modifications, commentaires, margo, actif, surOnglet }) {
   const pilote = actif ? { value: actif, onChange: surOnglet } : { defaultValue: 'modifications' }
   return (
     <>
-      <AppShell.Section grow component={ScrollArea}>
-        <Tabs {...pilote}>
-          <Tabs.List grow aria-label={titre}>
-            <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
-              {onglets.modifications}
+      <Tabs {...pilote} className="amend-coquille-onglets">
+        <Tabs.List grow aria-label={titre}>
+          <Tabs.Tab
+            value="modifications"
+            leftSection={<PictoCompte role="modifications" nombre={nombres.modifications} />}
+          >
+            {onglets.modifications}
+          </Tabs.Tab>
+          {commentaires ? (
+            <Tabs.Tab
+              value="commentaires"
+              leftSection={<PictoCompte role="commentaires" nombre={nombres.commentaires} />}
+            >
+              {onglets.commentaires}
             </Tabs.Tab>
-            {commentaires ? (
-              <Tabs.Tab value="commentaires" leftSection={<PictoDe role="commentaires" />}>
-                {onglets.commentaires}
-              </Tabs.Tab>
-            ) : null}
-            {margo ? (
-              <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
-                {onglets.margo}
-              </Tabs.Tab>
-            ) : null}
-          </Tabs.List>
+          ) : null}
+          {margo ? (
+            <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
+              {onglets.margo}
+            </Tabs.Tab>
+          ) : null}
+        </Tabs.List>
+        <AppShell.Section grow component={ScrollArea}>
           <Tabs.Panel value="modifications">
             <div className="amend-coquille-volet-corps">{modifications}</div>
           </Tabs.Panel>
@@ -350,8 +366,8 @@ export function VoletRelecture({ titre, onglets, modifications, commentaires, ma
               <div className="amend-coquille-volet-corps">{margo}</div>
             </Tabs.Panel>
           ) : null}
-        </Tabs>
-      </AppShell.Section>
+        </AppShell.Section>
+      </Tabs>
     </>
   )
 }

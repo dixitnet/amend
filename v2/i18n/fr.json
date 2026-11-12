@@ -307,14 +307,14 @@
     "terminer": "Terminer",
     "plan": "Plan",
     "documents": "Documents",
-    "modifications": "Modifications",
+    "modifications": "Suggestions",
     "copierLien": "Copier le lien",
     "planVide": "Aucun titre dans ce document.",
     "lienCopie": "Lien copié.",
     "lienNonCopie": "Le lien n’a pas pu être copié\u00A0: {lien}"
   },
   "interface": {
-    "voletDroit": "Modifications et Margo (IA)",
+    "voletDroit": "Suggestions, commentaires et Margo (IA)",
     "compte": "Mon compte",
     "presence": "Personnes sur ce document",
     "modificationsCorrecteur": "Vos suggestions sont proposées aux éditeurs du document, qui les acceptent ou les refusent.",

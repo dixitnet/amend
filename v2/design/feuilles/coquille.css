@@ -21,6 +21,14 @@
   text-overflow: ellipsis;
 }
 
+/* réglage : css.coquille.onglets */
+.amend-coquille-onglets {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /* réglage : css.coquille.volets */
 .amend-coquille-volet-corps,
 .amend-coquille-volet-vide {
@@ -60,4 +68,13 @@
 /* réglage : css.coquille.ancres */
 .bn-block-outer {
   scroll-margin-top: var(--app-shell-header-offset, 0rem);
+}
+
+/* réglage : css.suggestions.cartes */
+.amend-suggestions-liste {
+  padding-inline-start: 0;
+  list-style: none;
+}
+.amend-suggestions-liste > [data-active] {
+  border-color: var(--mantine-primary-color-filled);
 }

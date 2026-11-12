@@ -58,6 +58,35 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
   assert.match(source, /#amend-blanc/)
   assert.match(source, /#list\(\[#"un"\], \[#strong\("deux"\)\]\)/)
   assert.match(source, /#enum\(\[#"premier"\]\)/)
+  // Des paragraphes vides entre deux textes : une ligne blanche, une seule ;
+  // après un titre (le paragraphe vide du chapitre), rien.
+  const textes = (t) => ({ type: 'paragraph', content: [texte(t)] })
+  const vide = { type: 'paragraph', content: [] }
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'heading', props: { level: 1 }, content: [texte('Titre')] },
+    vide,
+    textes('Un'),
+    vide,
+    textes('Deux'),
+    vide,
+    vide,
+    vide,
+    textes('Trois'),
+    textes('Quatre'),
+    vide,
+    { type: 'divider' },
+    vide,
+    textes('Cinq'),
+    vide,
+    { type: 'pageBreak' },
+    vide,
+    textes('Six'),
+  ])
+  const blancs = (await versTypst(editeur, editeur.document, modele)).source
+  assert.match(
+    blancs,
+    /#amend-sans-alinea\[#"Un"\]\s+#amend-blanc\s+#"Deux"\s+#amend-blanc\s+#"Trois"\s+#"Quatre"\s+#amend-blanc\s+#"Cinq"\s+#pagebreak\(\)\s+#"Six"\s*$/,
+  )
   // Aucun blanc de BlockNote autour des blocs (il casserait la grille).
   assert.doesNotMatch(source, /inset: \(top/)
   // Le texte est échappé et en forme composée (NFC).

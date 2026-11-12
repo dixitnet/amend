@@ -97,7 +97,15 @@ export const REGLAGES = {
   // en rouge pour une erreur, sinon la couleur de l'interface.
   messages: { duree: 3000, erreur: { color: 'red' } },
   // La pastille du nombre de suggestions : 10 px par défaut, trop petite pour un chiffre.
-  nombreSuggestions: { size: 16 },
+  nombreSuggestions: { size: 16, inline: true },
+  // Les cartes des suggestions : une carte de Mantine bordée par suggestion ;
+  // Accepter en vert, Refuser en rouge, tous deux discrets (variante « light »),
+  // petits (Sylvain, 12/11/2026, variante vert / rouge).
+  suggestions: {
+    carte: { withBorder: true, p: 'sm' },
+    accepter: { color: 'green', variant: 'light', size: 'xs' },
+    refuser: { color: 'red', variant: 'light', size: 'xs' },
+  },
   // L'arbre du volet « Documents » : les valeurs des liens imbriqués de Mantine
   // (NavLink : lignes jointives, enfants en retrait de `lg`), le menu « … » à
   // côté de chaque ligne.
