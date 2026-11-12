@@ -4,6 +4,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { fr } from '@blocknote/core/locales'
 import { creerTraducteur } from '../../i18n/index.js'
+import { dateDuJour } from '../../domaine/index.js'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import {
   lancerNavigateur,
@@ -266,5 +267,16 @@ test('titre et sous-titre : insérés par le menu « / », hors du plan', async 
   assert.equal(await page.locator('[data-content-type="sousTitre"]').innerText(), 'Un essai')
   const plan = page.getByRole('tabpanel', { name: 'Plan' })
   assert.deepEqual(await plan.locator('button').allInnerTexts(), ['Chapitre'], 'seul le chapitre est au plan')
+  await page.context().close()
+})
+
+test('« /date » insère la date du jour, AAAA-MM-JJ', async () => {
+  const page = await pageEcriture('date')
+  await page.keyboard.type('Le ')
+  await page.keyboard.type('/date')
+  await page.waitForSelector('.bn-suggestion-menu-item')
+  await page.keyboard.press('Enter')
+  await attendre(300)
+  assert.equal(await page.locator('.bn-inline-content').first().innerText(), `Le ${dateDuJour()}`)
   await page.context().close()
 })

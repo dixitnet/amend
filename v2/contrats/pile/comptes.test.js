@@ -7,6 +7,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
+import { dateDuJour } from '../../domaine/index.js'
 import {
   lancerNavigateur,
   ouvrir as ouvrirSur,
@@ -116,7 +117,8 @@ test('suppression : le propriétaire supprime ; le document disparaît du volet'
 test('dossiers (volet) : créer, y créer un document, le déplacer à la racine, supprimer le dossier vide', async () => {
   const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
   const nom = `Livres ${randomUUID().slice(0, 4)}`
-  await (await voletDocuments(p)).getByRole('button', { name: 'Nouveau dossier' }).click()
+  await (await voletDocuments(p)).getByRole('button', { name: 'Nouveau', exact: true }).click()
+  await p.getByRole('menuitem', { name: 'Nouveau dossier' }).click()
   await p.getByRole('textbox', { name: 'Nom du dossier' }).fill(nom)
   await p.getByRole('button', { name: 'Valider' }).click()
   await (await voletDocuments(p)).getByRole('button', { name: nom, exact: true }).waitFor()
@@ -180,7 +182,8 @@ test('partagé avec moi (volet) : le document apparaît ; je m’en retire', asy
 test('équipe (volet) : la créer, y faire entrer un document, inviter une correctrice, qui arrive sur ce document', async () => {
   const g = await ouvrirSur(nav, pile.url, 'Gaëlle', `t5-attente-${Date.now().toString(36)}`)
   const nom = `Éditions ${randomUUID().slice(0, 4)}`
-  await (await voletDocuments(g)).getByRole('button', { name: 'Nouvelle équipe' }).click()
+  await (await voletDocuments(g)).getByRole('button', { name: 'Nouveau', exact: true }).click()
+  await g.getByRole('menuitem', { name: 'Nouvelle équipe' }).click()
   await g.getByRole('textbox', { name: 'Nom de l’équipe' }).fill(nom)
   await g.getByRole('button', { name: 'Valider' }).click()
   await (await voletDocuments(g)).getByRole('button', { name: nom, exact: true }).waitFor()
@@ -258,4 +261,34 @@ test('supprimer son compte (lots du 11/11/2026) : par le menu du compte, l’ape
   const statut = await page.evaluate(async () => (await fetch('/api/moi')).status)
   assert.equal(statut, 401, 'plus de session')
   await page.context().close()
+})
+
+test('« Nouvelle note » : un document daté du jour dans le dossier « Notes », créé une seule fois', async () => {
+  const p = await ouvrirSur(nav, pile.url, 'Nora', `t5-note-${Date.now().toString(36)}`)
+  const ids = []
+  for (let i = 0; i < 2; i++) {
+    const avant = p.url()
+    await (await voletDocuments(p)).getByRole('button', { name: 'Nouveau', exact: true }).click()
+    // L'ordre du menu : document, note, dossier, équipe.
+    await p.getByRole('menuitem', { name: 'Nouvelle note' }).waitFor()
+    assert.deepEqual(await p.getByRole('menuitem').allInnerTexts(), [
+      'Nouveau document',
+      'Nouvelle note',
+      'Nouveau dossier',
+      'Nouvelle équipe',
+    ])
+    await p.getByRole('menuitem', { name: 'Nouvelle note' }).click()
+    await p.waitForFunction((a) => location.href !== a, avant)
+    await p.waitForSelector('.bn-editor')
+    ids.push(decodeURIComponent(new URL(p.url()).hash.slice(1)))
+  }
+  const liste = await p.evaluate(() => fetch('/api/documents').then((r) => r.json()))
+  const notes = liste.dossiers.filter((d) => d.nom === 'Notes' && !d.parent)
+  assert.equal(notes.length, 1, 'un seul dossier « Notes »')
+  for (const id of ids) {
+    const d = liste.documents.find((x) => x.id === id)
+    assert.equal(d.titre, dateDuJour(), 'titré de la date du jour')
+    assert.equal(d.dossier, notes[0].id, 'rangé dans « Notes »')
+  }
+  await p.context().close()
 })

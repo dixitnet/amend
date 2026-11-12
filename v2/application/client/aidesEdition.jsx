@@ -35,6 +35,7 @@ export const TEXTES_EDITEUR = {
     niveaux: Object.fromEntries(PROFONDEURS_TABLE.map((n) => [n, t('document.tableNiveaux', { n })])),
     picto: <PictoDe role="tableDesMatieres" />,
   },
+  date: { titre: t('document.date'), description: t('document.dateDescription'), picto: <PictoDe role="date" /> },
   titre: { titre: t('document.titre'), description: t('document.titreDescription'), picto: <PictoDe role="titre" /> },
   sousTitre: {
     titre: t('document.sousTitre'),

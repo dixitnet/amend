@@ -8,6 +8,7 @@
     "admin.processusCollaboration",
     "telephone.documents",
     "telephone.modifications",
+    "documents.dossierNotes",
     "documents.destination",
     "admin.modeles.deepseek",
     "admin.modeles.sonnet",

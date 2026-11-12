@@ -50,6 +50,8 @@
     "zoomPalier": "{zoom}%",
     "exposant": "Superscript",
     "tableDesMatieres": "Table of contents",
+    "date": "Today’s date",
+    "dateDescription": "Today’s date, as YYYY-MM-DD",
     "titre": "Title",
     "titreDescription": "The document title, left out of the table of contents",
     "sousTitre": "Subtitle",
@@ -229,10 +231,9 @@
     "effacer": "Delete permanently",
     "confirmerEffacement": "Delete “{titre}” permanently? It can no longer be restored.",
     "joursRestants": "{n, plural, one {deleted in # day} other {deleted in # days}}",
-    "trier": "Sort documents",
-    "triModifies": "Recently modified",
-    "triTitre": "By title",
-    "triCrees": "Recently created"
+    "nouveauMenu": "New",
+    "nouvelleNote": "New note",
+    "dossierNotes": "Notes"
   },
   "partage": {
     "titre": "Sharing",

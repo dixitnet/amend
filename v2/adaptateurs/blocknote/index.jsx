@@ -59,6 +59,7 @@ import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
 import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
 import { TYPE_TITRE, TYPE_SOUS_TITRE } from '../../extensions/titres/index.js'
+import { dateDuJour } from '../../domaine/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 
@@ -188,9 +189,20 @@ function itemsDuMenu(editeur, table, textesTitres) {
       icon: table.picto,
       onItemClick: () => insertOrUpdateBlockForSlashMenu(editeur, { type: TYPE_TABLE }),
     })
+  const groupe = items.at(-1)?.group
+  // « /date » : la date du jour dans le texte, AAAA-MM-JJ (Sylvain, 12/11/2026).
+  if (textesTitres?.date)
+    items.push({
+      key: 'amend_date',
+      title: textesTitres.date.titre,
+      subtext: textesTitres.date.description,
+      aliases: ['date'],
+      group: groupe,
+      icon: textesTitres.date.picto,
+      onItemClick: () => editeur.insertInlineContent(dateDuJour()),
+    })
   // Titre et sous-titre, en bas du menu (Sylvain, 12/11/2026), dans son
   // dernier groupe.
-  const groupe = items.at(-1)?.group
   for (const [cle, type] of [
     ['titre', TYPE_TITRE],
     ['sousTitre', TYPE_SOUS_TITRE],

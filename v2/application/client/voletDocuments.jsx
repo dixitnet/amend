@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Fenetre, FenetreChoix, VoletDocuments, montrerMessage } from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
-import { capacites, peutGererModeles, ORDRES_TRI, trierDocuments } from '../../domaine/index.js'
+import { capacites, peutGererModeles, trierDocuments, dateDuJour } from '../../domaine/index.js'
 import { t, envoyerJson } from './commun.js'
 import { useSaisie, useConfirmation } from './fenetres.jsx'
 import { Membres } from './Membres.jsx'
@@ -40,23 +40,6 @@ export function noterDernier(id) {
     // stockage refusé (navigation privée) : sans conséquence
   }
 }
-/** L'ordre de tri du volet « Documents », gardé dans ce navigateur (comme la v1). */
-const CLE_TRI = 'amend.triDocuments'
-function lireTri() {
-  try {
-    const v = localStorage.getItem(CLE_TRI)
-    return ORDRES_TRI.includes(v) ? v : ORDRES_TRI[0]
-  } catch {
-    return ORDRES_TRI[0]
-  }
-}
-function noterTri(v) {
-  try {
-    localStorage.setItem(CLE_TRI, v)
-  } catch {
-    // stockage refusé : le tri vaut pour cette page seulement
-  }
-}
 /** Pour la recherche : sans casse ni accents. */
 const sansAccents = (s) =>
   String(s ?? '')
@@ -76,7 +59,6 @@ export function useVoletDocuments(docId, { actif = true } = {}) {
   const [erreur, setErreur] = useState(null)
   const [equipes, setEquipes] = useState({})
   const [recherche, setRecherche] = useState('')
-  const [tri, setTri] = useState(lireTri)
   const [corbeille, setCorbeille] = useState([])
   const [fenetreSaisie, demanderNom] = useSaisie()
   const [fenetreConfirmation, confirmer] = useConfirmation()
@@ -121,7 +103,8 @@ export function useVoletDocuments(docId, { actif = true } = {}) {
     recharger()
   }
   const titreDe = (d) => d.titre || t('documents.sansTitre')
-  const trier = (liste) => trierDocuments(liste, tri, t.langue)
+  // L'arbre par titre ; la recherche par date de modification (Sylvain, 12/11/2026).
+  const trier = (liste) => trierDocuments(liste, 'titre', t.langue)
   const tous = donnees
     ? [
         ...donnees.documents.map((d) => ({ ...d, equipe: null })),
@@ -165,6 +148,14 @@ export function useVoletDocuments(docId, { actif = true } = {}) {
       libelle: t('documents.nomDuDossier'),
       valider: (nom) => agir(() => envoyerJson('POST', '/api/dossiers', { nom, parent, equipe }))(),
     })
+  // « Nouvelle note » (Sylvain, 12/11/2026) : un document daté du jour
+  // (AAAA-MM-JJ) dans le dossier « Notes » de Mes documents, créé s'il manque.
+  const creerNote = agir(async () => {
+    const nom = t('documents.dossierNotes')
+    const existant = (donnees?.dossiers ?? []).find((d) => (d.parent ?? null) === null && d.nom === nom)
+    const dossier = existant?.id ?? (await envoyerJson('POST', '/api/dossiers', { nom, parent: null, equipe: null })).id
+    location.hash = (await envoyerJson('POST', '/api/documents', { equipe: null, dossier, titre: dateDuJour() })).id
+  })
   const creerEquipe = () =>
     demanderNom({
       titre: t('documents.nouvelleEquipe'),
@@ -498,7 +489,11 @@ export function useVoletDocuments(docId, { actif = true } = {}) {
   let entrees = []
   if (donnees && recherche.trim()) {
     const q = sansAccents(recherche.trim())
-    entrees = trier(tous.filter((d) => sansAccents(titreDe(d)).includes(q))).map(entreeDoc)
+    entrees = trierDocuments(
+      tous.filter((d) => sansAccents(titreDe(d)).includes(q)),
+      'modifies',
+      t.langue,
+    ).map(entreeDoc)
   } else if (donnees) {
     const favoris = trier(tous.filter((d) => d.favori))
     const mes = arbreEspace(
@@ -570,30 +565,25 @@ export function useVoletDocuments(docId, { actif = true } = {}) {
     <>
       <VoletDocuments
         recherche={{ libelle: t('documents.rechercher'), valeur: recherche, surChange: setRecherche }}
-        boutons={[
-          {
-            cle: 'nouveau',
-            libelle: t('documents.nouveau'),
-            picto: 'nouveau',
-            surClic: () => creerDocument(lieuCourant),
-          },
-          {
-            cle: 'dossier',
-            libelle: t('documents.nouveauDossier'),
-            picto: 'dossier',
-            surClic: () => creerDossier(null),
-          },
-          { cle: 'equipe', libelle: t('documents.nouvelleEquipe'), picto: 'equipe', surClic: creerEquipe },
-        ]}
-        tri={{
-          libelle: t('documents.trier'),
-          valeur: tri,
-          options: [
-            { value: 'modifies', label: t('documents.triModifies') },
-            { value: 'titre', label: t('documents.triTitre') },
-            { value: 'crees', label: t('documents.triCrees') },
+        nouveau={{
+          libelle: t('documents.nouveauMenu'),
+          // Dans cet ordre : document, note, dossier, équipe (Sylvain, 12/11/2026).
+          elements: [
+            {
+              cle: 'nouveau',
+              libelle: t('documents.nouveau'),
+              picto: 'nouveau',
+              surClic: () => creerDocument(lieuCourant),
+            },
+            { cle: 'note', libelle: t('documents.nouvelleNote'), picto: 'note', surClic: creerNote },
+            {
+              cle: 'dossier',
+              libelle: t('documents.nouveauDossier'),
+              picto: 'dossier',
+              surClic: () => creerDossier(null),
+            },
+            { cle: 'equipe', libelle: t('documents.nouvelleEquipe'), picto: 'equipe', surClic: creerEquipe },
           ],
-          surChange: (v) => (setTri(v), noterTri(v)),
         }}
         entrees={entrees}
         vide={
