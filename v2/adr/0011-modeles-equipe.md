@@ -23,3 +23,7 @@ Docs (La Suite numérique) avait des modèles avec des accès par personne et pa
 ## Ce qui ferait revenir dessus
 
 Un maquettiste réel qui a besoin d'un réglage hors de la liste (on l'ajoute alors à la liste, ou Sylvain ajoute un modèle d'amend.ink) ; une police demandée par une maison (on l'ajoute au catalogue) ; Docs qui rétablirait un mécanisme de modèle générique (`docs/v2-veille.md`).
+
+## Complément du 12/11/2026 : modèles de l'instance
+
+Décision de Sylvain (`docs/v2-modeles-pdf-plan.md`) : un seul modèle dans le code, « A4 simple », par défaut et base de tous les autres ; des **modèles de l'instance**, en données (`amend.modeles` sans équipe), que les administrateurs créent et règlent au back-office sur **tous** les réglages du modèle (`livre.reglablesInstance`), et dont ils choisissent le défaut ; « TàT - Poche » quitte le code et devient le premier d'entre eux (reprise au démarrage du serveur, une fois). Un modèle d'équipe s'appuie sur l'A4 ou sur un modèle de l'instance (deux étages, `resoudreModele`), et garde la liste fermée des équipes. Le modèle d'un document : son choix, sinon le défaut de son équipe, sinon celui de l'instance, sinon l'A4. Des écarts propres à un document viendront plus tard.

@@ -11,3 +11,13 @@ export const REGLES_MODELES = Object.freeze({
   polices: REGLAGES_LIVRE.polices,
   largeurUtileMin: REGLAGES_LIVRE.largeurUtileMin,
 })
+
+/** Ce qu'un administrateur peut changer dans un modèle de l'instance (12/11/2026). */
+export const REGLES_MODELES_INSTANCE = Object.freeze({
+  reglables: REGLAGES_LIVRE.reglablesInstance,
+  polices: REGLAGES_LIVRE.polices,
+  largeurUtileMin: REGLAGES_LIVRE.largeurUtileMin,
+})
+
+/** Les modèles qui ont quitté le code, à reprendre en modèles de l'instance (`[{ id, nom, valeurs }]`). */
+export const REPRISE_MODELES = REGLAGES_LIVRE.reprise
