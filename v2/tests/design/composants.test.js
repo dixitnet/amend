@@ -186,6 +186,27 @@ test('panneau des suggestions : hors relecture, une invitation à la place de la
   assert.doesNotMatch(html, />TA</)
 })
 
+test('panneau des suggestions en consultation (sans surAccepter) : les cartes, sans Accepter ni Refuser', () => {
+  const html = rendre(
+    h(design.PanneauSuggestions, {
+      titre: 'Suggestions',
+      lignes: [{ cle: 'a', texte: 'Carla ajoute « donc »', auteur: 'Carla', passage: { avant: '', apres: 'donc' } }],
+      libelles: {
+        accepter: 'A',
+        refuser: 'R',
+        accepterDe: (x) => x,
+        refuserDe: (x) => x,
+        toutAccepter: 'TA',
+        toutRefuser: 'TR',
+      },
+      surMontrer: () => {},
+    }),
+  )
+  assert.match(html, /Carla/)
+  assert.match(html, /<ins>donc<\/ins>/)
+  assert.doesNotMatch(html, />A<|>R<|>TA<|>TR</)
+})
+
 test('liste des fils : le filtre (Ouverts, Résolus, Tous) sur sa valeur, puis l’emplacement de la liste', () => {
   const html = rendre(
     h(design.ListeDesFils, {
