@@ -329,7 +329,8 @@
       "copie": "Copiée",
       "avertissement": "Copiez-la maintenant\u00A0: elle ne sera plus affichée. Une nouvelle adresse remplace l’ancienne, qui cesse de fonctionner.",
       "confirmerRevocation": "Révoquer l’adresse du connecteur\u202F? Claude n’aura plus accès à vos documents."
-    }
+    },
+    "synthese": "Synthèse"
   },
   "telephone": {
     "planEtDocuments": "Plan et documents",

@@ -329,7 +329,8 @@
       "copie": "Copied",
       "avertissement": "Copy it now: it will not be shown again. A new address replaces the old one, which stops working.",
       "confirmerRevocation": "Revoke the connector address? Claude will no longer have access to your documents."
-    }
+    },
+    "synthese": "Overview"
   },
   "telephone": {
     "planEtDocuments": "Outline and documents",

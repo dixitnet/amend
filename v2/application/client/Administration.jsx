@@ -173,8 +173,8 @@ export function Administration({ surApparence }) {
       message={message}
       rubriques={[
         {
-          titre: t('admin.systeme'),
-          // Les chiffres de l'instance en cartes (12/11/2026).
+          // La synthèse : les chiffres de l'instance en cartes (Sylvain, 12/11/2026).
+          titre: t('admin.synthese'),
           chiffres: true,
           lignes: [
             {
@@ -200,23 +200,19 @@ export function Administration({ surApparence }) {
           ],
         },
         {
-          titre: t('admin.suivi'),
+          // Le système (Sylvain, 12/11/2026) : la mémoire des processus, puis le
+          // journal, réunis ; une ligne dit ce qui manque encore.
+          titre: t('admin.systeme'),
           courbes,
-          vide: erreurSuivi
-            ? messageErreur(t, erreurSuivi)
-            : suivi
-              ? t('admin.memoireAucune')
-              : t('application.chargement'),
-          lignes: [],
-        },
-        {
-          titre: t('admin.journal'),
-          vide: erreurSuivi
-            ? messageErreur(t, erreurSuivi)
-            : suivi
-              ? t('admin.journalVide')
-              : t('application.chargement'),
-          lignes: lignesDuJournal,
+          vide: erreurSuivi ? messageErreur(t, erreurSuivi) : t('application.chargement'),
+          lignes: suivi
+            ? [
+                ...(courbes.length ? [] : [{ libelle: t('admin.suivi'), valeur: t('admin.memoireAucune') }]),
+                ...(lignesDuJournal.length
+                  ? lignesDuJournal
+                  : [{ libelle: t('admin.journal'), valeur: t('admin.journalVide') }]),
+              ]
+            : [],
         },
         {
           titre: t('admin.modelesPdf.titre'),
