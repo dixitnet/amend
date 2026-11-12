@@ -54,4 +54,4 @@ Lot cohérent : blocs « Titre »/« Sous-titre » en extension, « /date », «
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+Sylvain, 12/11/2026 : A1 (nom « Notes » identique dans les langues) accepté ; A2 (double clic, pas de route serveur) accepté ; valeurs de design du lot (Titre et Sous-titre à l'écran, 13 pt au PDF, pictos) validées.
