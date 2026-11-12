@@ -59,6 +59,10 @@ export const blocTableDesMatieres = createBlockSpec(
       legende.textContent = textes.profondeur ?? ''
       const choix = document.createElement('select')
       reglage.append(legende, choix)
+      // Le choix reste au navigateur : sans cela, ProseMirror prend le clic et
+      // sélectionne tout le bloc, et le menu ne s'ouvre pas (Sylvain, 12/11/2026).
+      for (const evenement of ['mousedown', 'pointerdown', 'keydown'])
+        reglage.addEventListener(evenement, (e) => e.stopPropagation())
       for (const n of PROFONDEURS_TABLE) {
         const option = document.createElement('option')
         option.value = String(n)

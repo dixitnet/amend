@@ -144,8 +144,32 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'video',
     'audio',
     'file',
+    // Les émoticônes, retirées du menu (Sylvain, 12/11/2026).
+    'emoji',
   ])
     assert.ok(!titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) absent : ${tout}`)
+  await page.context().close()
+})
+
+test('table des matières : un clic sur le choix des niveaux l’ouvre, sans sélectionner le bloc', async () => {
+  const page = await pageEcriture('choix-table')
+  await page.keyboard.type('# Titre')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('/')
+  await page
+    .locator('.bn-suggestion-menu-item', { hasText: creerTraducteur('fr')('document.tableDesMatieres') })
+    .first()
+    .click()
+  const choix = page.locator('nav[data-amend-bloc="tableDesMatieres"] select')
+  await choix.waitFor()
+  await choix.click()
+  await attendre(300)
+  assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'SELECT', 'le choix a le focus')
+  assert.equal(await page.locator('.ProseMirror-selectednode').count(), 0, 'le bloc n’est pas sélectionné')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await attendre(300)
+  assert.equal(await choix.inputValue(), '3')
   await page.context().close()
 })
 

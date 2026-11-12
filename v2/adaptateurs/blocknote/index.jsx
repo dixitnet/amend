@@ -170,9 +170,13 @@ function BarreDuLienEnSuggestion(props) {
 }
 
 /** Le menu « / » : celui de BlockNote, plus le saut de page (comme Docs,
- * `BlockNoteSuggestionMenu.tsx`) et la table des matières (11/11/2026). */
+ * `BlockNoteSuggestionMenu.tsx`) et la table des matières (11/11/2026), sans
+ * les émoticônes (Sylvain, 12/11/2026 ; Docs les garde). */
 function itemsDuMenu(editeur, table) {
-  const items = [...getDefaultReactSlashMenuItems(editeur), ...getPageBreakReactSlashMenuItems(editeur)]
+  const items = [
+    ...getDefaultReactSlashMenuItems(editeur).filter((x) => x.key !== 'emoji'),
+    ...getPageBreakReactSlashMenuItems(editeur),
+  ]
   if (table)
     items.push({
       key: 'table_des_matieres',
