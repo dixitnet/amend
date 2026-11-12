@@ -442,12 +442,11 @@ test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rie
   assert.doesNotMatch(html, /<script>|<b>/)
 })
 
-test('export et modèles : la fenêtre « Exporter » (format, modèle, case « retenir »), la liste et le formulaire des modèles', () => {
+test('export et modèles : la fenêtre « Exporter » (format, modèle), la liste et le formulaire des modèles', () => {
   const t = creerTraducteur('fr')
   const libelles = {
     format: t('export.format'),
     modele: t('export.modele'),
-    retenir: t('export.retenir'),
     exporter: t('export.exporter'),
     annuler: t('interface.annuler'),
   }
@@ -469,18 +468,14 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle, case « 
       format: 'pdf',
       modeles: [{ group: 'amend.ink', items: [{ value: 'a4', label: 'A4 simple' }] }],
       modele: 'a4',
-      retenir: { coche: false, surChange: () => {} },
       enCours: false,
     }),
   )
-  for (const cle of ['export.format', 'export.modele', 'export.retenir', 'export.exporter'])
+  for (const cle of ['export.format', 'export.modele', 'export.exporter'])
     assert.ok(pdf.includes(echapper(t(cle))), cle)
   assert.match(pdf, /value="A4 simple"/)
-  const md = rendre(
-    h(design.PanneauExport, { ...base, format: 'markdown', modeles: null, retenir: null, enCours: true }),
-  )
+  const md = rendre(h(design.PanneauExport, { ...base, format: 'markdown', modeles: null, enCours: true }))
   assert.ok(!md.includes(echapper(t('export.modele'))), 'pas de modèle pour le Markdown')
-  assert.ok(!md.includes(echapper(t('export.retenir'))))
   assert.match(md, /data-loading/, 'l’export en cours se voit sur le bouton')
 
   const liste = rendre(

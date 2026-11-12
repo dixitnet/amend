@@ -23,7 +23,7 @@ after(async () => {
 })
 
 /** Ouvre la fenêtre « Exporter », choisit le format (et le modèle), et rend le fichier téléchargé. */
-async function telecharger(page, format, { modele, retenir = false } = {}) {
+async function telecharger(page, format, { modele } = {}) {
   await page.getByRole('button', { name: 'Autres actions' }).click()
   await page.getByRole('menuitem', { name: 'Exporter…' }).click()
   const fenetre = page.getByRole('dialog', { name: 'Exporter' })
@@ -33,7 +33,6 @@ async function telecharger(page, format, { modele, retenir = false } = {}) {
     await fenetre.getByRole('combobox', { name: 'Modèle de mise en page' }).click()
     await page.getByRole('option', { name: modele, exact: true }).click()
   }
-  if (retenir) await fenetre.getByRole('checkbox', { name: 'Retenir ce modèle pour le document' }).check()
   const [fichier] = await Promise.all([
     page.waitForEvent('download', { timeout: 60000 }),
     fenetre.getByRole('button', { name: 'Exporter', exact: true }).click(),
@@ -110,8 +109,9 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   await fenetre.getByText('Modèle enregistré.').waitFor()
   await fenetre.getByRole('button', { name: 'Fermer' }).click()
 
-  // L'export le propose, l'applique (135 mm de large, sur l'A4 de départ) et le retient.
-  const { contenu } = await telecharger(page, 'PDF', { modele: 'Collection', retenir: true })
+  // L'export le propose, l'applique (135 mm de large, sur l'A4 de départ) et le
+  // retient pour le document, sans case à cocher : le dernier modèle utilisé.
+  const { contenu } = await telecharger(page, 'PDF', { modele: 'Collection' })
   assert.match(contenu.toString('latin1'), /MediaBox ?\[0 0 382\.677\d* 841\.88\d*\]/)
   const vue = await api('GET', `/api/documents/${doc.id}/modeles`)
   assert.equal(vue.choisi, vue.modeles.find((m) => m.nom === 'Collection').id)

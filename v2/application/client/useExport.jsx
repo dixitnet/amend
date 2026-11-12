@@ -9,18 +9,17 @@ import { groupesDeModeles } from './Modeles.jsx'
 
 /** La fenêtre « Exporter » d'un document, comme ModalExport de Docs : le
  * format, et pour le PDF le modèle de mise en page (celui retenu pour le
- * document, présélectionné ; qui écrit peut le retenir pour le document). */
+ * document, présélectionné). Le modèle d'un export réussi devient celui du
+ * document pour qui peut le choisir : le dernier retenu (Sylvain, 12/11/2026). */
 export function useExport({ docId, controle, titre, auteur }) {
   const [ouverte, setOuverte] = useState(false)
   const [format, setFormat] = useState('pdf')
   const [liste, setListe] = useState(null)
   const [modele, setModele] = useState(null)
-  const [retenir, setRetenir] = useState(false)
   const [enCours, setEnCours] = useState(false)
   const [message, setMessage] = useState(null)
   const ouvrir = async () => {
     setMessage(null)
-    setRetenir(false)
     setOuverte(true)
     try {
       const l = await envoyerJson('GET', `/api/documents/${encodeURIComponent(docId)}/modeles`)
@@ -43,7 +42,7 @@ export function useExport({ docId, controle, titre, auteur }) {
       }
       await exporterDocument(controle, format, { titre, langue: LANGUE_DOCUMENT_PAR_DEFAUT, modele: leModele, auteur })
       // Le modèle n'est retenu qu'une fois le fichier obtenu (audit du 11/11/2026).
-      if (format === 'pdf' && retenir && liste?.peutChoisir && modele !== liste.choisi)
+      if (format === 'pdf' && liste?.peutChoisir && modele !== liste.choisi)
         await envoyerJson('PUT', `/api/documents/${encodeURIComponent(docId)}/modele`, { modele })
       setOuverte(false)
     } catch (e) {
@@ -69,7 +68,6 @@ export function useExport({ docId, controle, titre, auteur }) {
           libelles={{
             format: t('export.format'),
             modele: t('export.modele'),
-            retenir: t('export.retenir'),
             exporter: t('export.exporter'),
             annuler: t('interface.annuler'),
           }}
@@ -90,7 +88,6 @@ export function useExport({ docId, controle, titre, auteur }) {
           }
           modele={modele}
           surModele={setModele}
-          retenir={liste?.peutChoisir ? { coche: retenir, surChange: setRetenir } : null}
           enCours={enCours}
           message={message}
           surExporter={exporter}
