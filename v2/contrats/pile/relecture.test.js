@@ -208,7 +208,7 @@ test('suivi : cliquer une carte fait défiler le texte jusqu’à la suggestion 
   for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await pastille()) !== '1';) await attendre(200)
   assert.equal(await pastille(), '1', 'le total des tâches sur le bouton du volet droit, hors relecture')
   await attendrePanneau(p, /Carla ajoute «\s?Fin\s?»/)
-  await p.evaluate(() => window.scrollTo(0, 0))
+  await p.evaluate(() => document.querySelector('.amend-coquille-defilement').scrollTo(0, 0))
   await attendre(300)
   await p.locator('section[aria-label] [data-amend-carte]').first().click()
   await attendre(1200)
