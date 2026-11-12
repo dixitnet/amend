@@ -25,6 +25,7 @@ import {
   LinkToolbarController,
   OpenLinkButton,
   getFormattingToolbarItems,
+  blockTypeSelectItems,
   useBlockNoteEditor,
   useComponentsContext,
   useSelectedBlocks,
@@ -34,6 +35,7 @@ import {
   getPageBreakReactSlashMenuItems,
   RenderInPortalElement,
   ThreadsSidebar,
+  FloatingComposerController,
 } from '@blocknote/react'
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core'
 import { BlockNoteView } from '@blocknote/mantine'
@@ -169,13 +171,24 @@ function RestaurerApresConfirmation({ libelle, confirmer }) {
   )
 }
 
-function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote }) {
+/** Les types de bloc du menu de la palette : ceux de BlockNote, puis Titre et
+ * Sous-titre, comme Docs y ajoute ses blocs (`BlockNoteToolbar.tsx`). */
+function typesDeBloc(editeur, textes) {
+  const nos = [
+    ['titre', TYPE_TITRE],
+    ['sousTitre', TYPE_SOUS_TITRE],
+  ]
+    .filter(([cle]) => textes?.[cle])
+    .map(([cle, type]) => ({ name: textes[cle].titre, type, icon: () => textes[cle].picto }))
+  return [...blockTypeSelectItems(editeur), ...nos]
+}
+
+function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote, titres }) {
+  const editeur = useBlockNoteEditor()
+  const tous = getFormattingToolbarItems(typesDeBloc(editeur, titres))
   const boutons = suggerer
-    ? boutonsGardesEnSuggestion(getFormattingToolbarItems())
-    : boutonsGardes(
-        getFormattingToolbarItems(),
-        exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null,
-      )
+    ? boutonsGardesEnSuggestion(tous)
+    : boutonsGardes(tous, exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null)
   return (
     <FormattingToolbar>
       {formatS ? boutonsDuFormatS(boutons) : boutons}
@@ -667,9 +680,10 @@ export function EditeurCollaboratif({
         formatS={formatS}
         note={textes.note}
         surNouvelleNote={surNote ? nouvelleNote : null}
+        titres={textes}
       />
     ),
-    [corriger, mode, textes.exposant, textes.note, formatS, surNote, nouvelleNote],
+    [corriger, mode, textes, formatS, surNote, nouvelleNote],
   )
   const menu = useCallback(
     async (requete) =>
@@ -730,7 +744,12 @@ export function EditeurCollaboratif({
       // Suggérer : pas de changement de type de bloc (contournement, veille).
       slashMenu={false}
       linkToolbar={mode !== 'suggerer'}
+      // Les fils ne s'ouvrent que dans la colonne de droite : pas de bulle au
+      // clic sur un passage commenté (Sylvain, 12/11/2026, écart avec Docs, qui
+      // n'a que les bulles). La saisie d'un nouveau commentaire reste flottante.
+      comments={false}
     >
+      {magasin ? <FloatingComposerController /> : null}
       <FormattingToolbarController formattingToolbar={palette} />
       {mode === 'suggerer' ? <LinkToolbarController linkToolbar={BarreDuLienEnSuggestion} /> : null}
       {mode !== 'suggerer' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
