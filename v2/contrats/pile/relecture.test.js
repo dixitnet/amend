@@ -231,6 +231,27 @@ test('garde-fou d’Éditer : au contact d’une suggestion, la frappe est refus
   await fermer()
 })
 
+test('accepter aussitôt après une frappe : la liste a une frappe de retard, le geste vise la bonne suggestion', async () => {
+  const { p, c, fermer } = await relecture('aussitot', 'Il faisait nuit sur la ville. Le vent soufflait.')
+  await c.click('.bn-inline-content')
+  await c.keyboard.press('End')
+  await attendre(300)
+  await c.keyboard.type(' Fin')
+  await attendrePanneau(p, /Carla ajoute «\s?Fin\s?»/)
+  // L'éditrice tape au début (loin de la suggestion) et accepte dans la foulée.
+  await p.click('.bn-inline-content')
+  await p.keyboard.press('Home')
+  await attendre(300)
+  await p.keyboard.type('Ce soir-là, ')
+  await p
+    .getByRole('button', { name: /^Accepter\s*:/ })
+    .first()
+    .click()
+  await attendrePanneau(p, /Aucune suggestion/)
+  await attendreTexte(c, 'Ce soir-là, Il faisait nuit sur la ville. Le vent soufflait. Fin')
+  await fermer()
+})
+
 test('le correcteur voit toute la liste, sans Accepter ni Refuser', async () => {
   const { doc, p, c, fermer } = await relecture('liste-correcteur')
   const d = await ouvrir('Dario', doc, { role: 'correcteur' })

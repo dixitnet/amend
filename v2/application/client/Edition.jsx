@@ -512,7 +512,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           // Format S : en Lire à l'ouverture, un appui sur le texte passe au
           // mode d'écriture ; « Terminer » (ou le clavier fermé) ramène en Lire.
           surAppuiEnLecture={formatS && modesPermis.length > 1 ? () => setModeChoisi(modesPermis[0]) : undefined}
-          modeApresAppui={modesPermis[0]}
+          modeApresAppui={formatS && modesPermis.length > 1 ? modesPermis[0] : undefined}
           controle={controle}
           surModification={surModification}
           surPlan={setPlan}

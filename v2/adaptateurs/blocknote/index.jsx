@@ -464,12 +464,22 @@ export function EditeurCollaboratif({
   useEffect(() => {
     if (!afficheur || !surSuggestions) return
     const ext = editeur.getExtension('suggestions')
-    // La liste donnée au panneau est recalculée au repos (plus bas) : ses
+    // La liste donnée au panneau est refaite au repos (plus bas) : ses
     // positions peuvent avoir vieilli d'une frappe. Au geste, on reprend la
-    // suggestion à la même place dans une liste fraîche (en Éditer, la frappe
-    // ne crée ni ne retire de suggestion : l'ordre ne change pas).
+    // même suggestion dans une liste fraîche, d'après son contenu (type,
+    // auteur, passage), à défaut à la même place (audit du 12/11/2026 : en
+    // Corriger, la frappe crée des suggestions et décale la liste).
     let donnee = []
-    const fraiche = (s) => listeDesSuggestions(editeur, auteurs)[donnee.indexOf(s)] ?? s
+    const fraiche = (s) => {
+      const liste = listeDesSuggestions(editeur, auteurs)
+      const meme = (x) => x.type === s.type && x.auteur === s.auteur && x.avant === s.avant && x.apres === s.apres
+      const candidates = liste.filter(meme)
+      if (candidates.length === 1) return candidates[0]
+      // Plusieurs suggestions identiques : la plus proche de l'ancienne position.
+      if (candidates.length > 1)
+        return candidates.reduce((a, b) => (Math.abs(b.debut - s.debut) < Math.abs(a.debut - s.debut) ? b : a))
+      return liste[donnee.indexOf(s)] ?? s
+    }
     const actions = {
       accepter: (s) => ((s = fraiche(s)), ext.applySuggestion(s.plage.debut, s.plage.fin)),
       refuser: (s) => ((s = fraiche(s)), ext.revertSuggestion(s.plage.debut, s.plage.fin)),
