@@ -5,7 +5,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre } from './outils.mjs'
+import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, panneau } from './outils.mjs'
 
 let pile, nav
 /** Un téléphone en portrait (taille d'un iPhone 13). */
@@ -52,6 +52,30 @@ test('format S : bandeau, lecture à l’ouverture, un appui pour modifier, « T
   await p.context().close()
 })
 
+test('format S : le correcteur s’ouvre en Lire ; un appui passe en Corriger, sa frappe est une suggestion ; « Terminer » ramène en Lire', async () => {
+  const doc = docTest('s-correcteur')
+  // L'éditrice, sur grand écran, écrit le texte.
+  const p = await ouvrirSur(nav, pile.url, 'Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Il faisait nuit.')
+  const c = await ouvrir('Carla', doc, { role: 'correcteur' })
+  await attendreTexte(c, 'Il faisait nuit.')
+  assert.equal(await modifiable(c), false, 'Lire à l’ouverture')
+  const boite = await c.locator('.bn-inline-content').first().boundingBox()
+  await c.mouse.click(boite.x + boite.width - 2, boite.y + boite.height / 2)
+  assert.equal(await modifiable(c), true, 'un appui passe en Corriger')
+  await c.keyboard.press('End')
+  await attendre(300)
+  await c.keyboard.type(' Ajout')
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/Carla ajoute/.test(await panneau(p));) await attendre(200)
+  assert.match(await panneau(p), /Carla ajoute «\s?Ajout\s?»/, 'une suggestion, chez l’éditrice')
+  await c.getByRole('button', { name: 'Terminer' }).click()
+  assert.equal(await modifiable(c), false, '« Terminer » ramène en Lire')
+  await attendreTexte(c, 'Il faisait nuit.')
+  await p.context().close()
+  await c.context().close()
+})
+
 test('format S : le plan liste les titres ; le menu « … » ; le partage en plein écran ; le titre se renomme', async () => {
   const doc = docTest('s-plan')
   const p = await ouvrir('Paule', doc)
@@ -84,8 +108,8 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
     elements.map((e) => e.trim()),
     [
       'Copier le lien',
-      'Suggérer des modifications',
-      'Relire les suggestions',
+      'Passer en mode Éditer',
+      'Passer en mode Corriger',
       'Partager',
       'Exporter…',
       'Dupliquer',
