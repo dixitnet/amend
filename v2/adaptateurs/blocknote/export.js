@@ -161,8 +161,23 @@ async function parcourir(exportateur, blocs) {
   const enLigne = (b) => (Array.isArray(b.content) ? exportateur.transformInlineContent(b.content).join('') : '')
   const sortie = []
   let precedent = null
+  // Des paragraphes vides entre deux blocs de texte (deux sauts de paragraphe
+  // ou plus) donnent une ligne blanche, une seule, sur la grille (Sylvain,
+  // 12/11/2026) ; autour d'un titre, d'un séparateur ou d'un saut de page,
+  // rien : ces blocs ont déjà leur blanc.
+  let blanc = false
+  const sansBlanc = (b) => !b || ['heading', 'divider', 'pageBreak'].includes(b.type)
   for (let i = 0; i < blocs.length; i++) {
     const b = blocs[i]
+    const texte = enLigne(b)
+    // Un paragraphe vide n'est pas écrit et ne compte pas : le premier
+    // paragraphe écrit après un titre de chapitre reste « le premier ».
+    if (b.type === 'paragraph' && !texte && !b.children?.length) {
+      blanc = !sansBlanc(precedent)
+      continue
+    }
+    if (blanc && !sansBlanc(b)) sortie.push('#amend-blanc')
+    blanc = false
     const liste = LISTES[b.type]
     if (liste) {
       const items = []
@@ -176,12 +191,7 @@ async function parcourir(exportateur, blocs) {
       precedent = b
       continue
     }
-    const texte = enLigne(b)
-    // Un paragraphe vide est sauté sans compter : le premier paragraphe écrit
-    // après un titre de chapitre reste « le premier ».
-    if (b.type === 'paragraph' && !texte && !b.children?.length) continue
     if (b.type === 'paragraph') {
-      // Un paragraphe vide n'ajoute pas de blanc : la grille ne bouge pas.
       if (texte) {
         // Pas d'alinéa au premier paragraphe d'un chapitre.
         const ouverture = precedent?.type === 'heading' && precedent.props?.level === 1
