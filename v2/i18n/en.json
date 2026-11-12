@@ -51,7 +51,8 @@
     "exposant": "Superscript",
     "tableDesMatieres": "Table of contents",
     "tableDescription": "The document’s headings, down to the chosen level",
-    "tableProfondeur": "Heading levels"
+    "tableProfondeur": "Heading levels",
+    "tableNiveaux": "{n, plural, =1 {Level 1 only} other {Levels 1 to #}}"
   },
   "erreurs": {
     "apparence-inconnue": "This interface model or colour does not exist.",

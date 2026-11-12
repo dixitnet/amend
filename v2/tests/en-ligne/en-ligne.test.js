@@ -122,9 +122,19 @@ sauf(
   },
 )
 
+// Depuis le VPS lui-même (essai après déploiement, essayer.sh), le pare-feu ne
+// filtre pas le trafic de la machine vers sa propre adresse : y/hub, qui écoute
+// sur toutes les interfaces, y paraît ouvert. Ce contrôle n'a de sens que de
+// l'extérieur (fausse alerte du 11/11/2026) : il se joue quand la suite est
+// lancée depuis le Mac ; à la main, du Mac : `nc -vz -w 5 v2.amend.ink 4400`
+// (de même 4300, 5432, 6379) doit échouer.
+const DEPUIS_LE_SERVEUR = process.env.V2_DEPUIS_LE_SERVEUR === '1'
+
 sauf(
-  DERRIERE_PROXY,
-  'la session de Claude ne joint que les ports 80 et 443',
+  DERRIERE_PROXY || DEPUIS_LE_SERVEUR,
+  DERRIERE_PROXY
+    ? 'la session de Claude ne joint que les ports 80 et 443'
+    : 'depuis le serveur lui-même, le pare-feu ne s’applique pas : à vérifier de l’extérieur',
   'les ports internes du VPS sont fermés depuis Internet',
   async () => {
     const [{ address }] = await dns.lookup(new URL(BASE).hostname, { all: true })

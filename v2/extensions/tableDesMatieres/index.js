@@ -9,8 +9,11 @@
 // l'export, l'adaptateur le rend à sa place (PDF : `#outline`). Éléments et
 // attributs sémantiques seulement (`nav`, `ol`, `data-niveau`), sans classe ni
 // style (règle 19) ; les textes viennent du dictionnaire de l'éditeur
-// (`dictionary.amend.table` : `titre`, `profondeur`), que l'application
-// remplit depuis ses catalogues : aucune phrase ici.
+// (`dictionary.amend.table` : `titre`, `profondeur`, `niveaux`), que
+// l'application remplit depuis ses catalogues : aucune phrase ici. Le choix
+// de la profondeur a une étiquette visible et des options en clair (« Niveaux
+// 1 à 3 »), comme la v1 (« Jusqu'au titre ») ; Sylvain, 11/11/2026 :
+// « sélecteur de niveaux plus accessible ».
 import { createBlockSpec } from '@blocknote/core'
 import { PROFONDEURS_TABLE, PROFONDEUR_TABLE_PAR_DEFAUT, profondeurTable, entreesTable } from '../../domaine/index.js'
 
@@ -50,12 +53,16 @@ export const blocTableDesMatieres = createBlockSpec(
       if (textes.titre) nav.setAttribute('aria-label', textes.titre)
       const titre = document.createElement('p')
       titre.textContent = textes.titre ?? ''
+      // L'étiquette visible englobe le choix : elle le nomme, et un clic dessus l'ouvre.
+      const reglage = document.createElement('label')
+      const legende = document.createElement('span')
+      legende.textContent = textes.profondeur ?? ''
       const choix = document.createElement('select')
-      if (textes.profondeur) choix.setAttribute('aria-label', textes.profondeur)
+      reglage.append(legende, choix)
       for (const n of PROFONDEURS_TABLE) {
         const option = document.createElement('option')
         option.value = String(n)
-        option.textContent = String(n)
+        option.textContent = textes.niveaux?.[n] ?? String(n)
         option.selected = n === profondeur
         choix.append(option)
       }
@@ -79,7 +86,7 @@ export const blocTableDesMatieres = createBlockSpec(
       rafraichir()
       const arreter = editeur.onChange(rafraichir)
       choix.addEventListener('focus', rafraichir)
-      nav.append(titre, choix, liste)
+      nav.append(titre, reglage, liste)
       return {
         dom: nav,
         // Le bloc n'a pas de contenu à lui : ce qui change dedans (la liste,

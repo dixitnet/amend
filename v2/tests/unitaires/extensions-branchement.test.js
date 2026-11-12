@@ -139,26 +139,31 @@ function rendreTable({ editable = true, profondeur = 2, dictionary = {} } = {}) 
   }
   const rendu = blocTableDesMatieres().implementation.render({ id: 'b1', props: { profondeur } }, editeur)
   const nav = rendu.dom.trouver((e) => e.attributs['data-amend-bloc'] === 'tableDesMatieres')
-  const [titreDom, choix, liste] = nav.enfants
-  return { rendu, nav, titreDom, choix, liste, editeur, abonnes, mises, arretes: () => arretes }
+  const [titreDom, reglage, liste] = nav.enfants
+  const [legende, choix] = reglage.enfants
+  return { rendu, nav, titreDom, reglage, legende, choix, liste, editeur, abonnes, mises, arretes: () => arretes }
 }
 
 test('table des matières : titre, choix de profondeur et liste jusqu’à cette profondeur', () => {
-  const { nav, titreDom, choix, liste } = rendreTable({
-    dictionary: { amend: { table: { titre: 'Sommaire', profondeur: 'Profondeur' } } },
+  const niveaux = { 1: 'N1', 2: 'N1-2', 3: 'N1-3', 4: 'N1-4', 5: 'N1-5' }
+  const { nav, titreDom, reglage, legende, choix, liste } = rendreTable({
+    dictionary: { amend: { table: { titre: 'Sommaire', profondeur: 'Profondeur', niveaux } } },
   })
   assert.equal(nav.tagName, 'NAV')
   assert.equal(nav.getAttribute('aria-label'), 'Sommaire')
   assert.equal(titreDom.textContent, 'Sommaire')
-  assert.equal(choix.getAttribute('aria-label'), 'Profondeur')
+  // Une étiquette visible qui englobe le choix (elle le nomme).
+  assert.equal(reglage.tagName, 'LABEL')
+  assert.equal(legende.textContent, 'Profondeur')
+  assert.equal(choix.tagName, 'SELECT')
   assert.deepEqual(
-    choix.enfants.map((o) => [o.value, o.selected]),
+    choix.enfants.map((o) => [o.value, o.textContent, o.selected]),
     [
-      ['1', false],
-      ['2', true],
-      ['3', false],
-      ['4', false],
-      ['5', false],
+      ['1', 'N1', false],
+      ['2', 'N1-2', true],
+      ['3', 'N1-3', false],
+      ['4', 'N1-4', false],
+      ['5', 'N1-5', false],
     ],
   )
   assert.deepEqual(
@@ -172,10 +177,15 @@ test('table des matières : titre, choix de profondeur et liste jusqu’à cette
 })
 
 test('table des matières : sans dictionnaire, aucun libellé inventé', () => {
-  const { nav, titreDom, choix } = rendreTable()
+  const { nav, titreDom, legende, choix } = rendreTable()
   assert.equal(nav.getAttribute('aria-label'), null)
-  assert.equal(choix.getAttribute('aria-label'), null)
+  assert.equal(legende.textContent, '')
   assert.equal(titreDom.textContent, '')
+  assert.deepEqual(
+    choix.enfants.map((o) => o.textContent),
+    ['1', '2', '3', '4', '5'],
+    'sans textes, les numéros des niveaux',
+  )
 })
 
 test('table des matières : changer la profondeur met à jour le bloc, seulement pour qui peut écrire', () => {
