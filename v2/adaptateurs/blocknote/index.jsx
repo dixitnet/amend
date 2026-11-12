@@ -569,8 +569,17 @@ export function EditeurCollaboratif({
   }, [editeur, surSelection])
   // Les notes de bas de page (12/11/2026) : le texte est typographié et
   // composé (NFC) à l'enregistrement ; vide, la note est retirée.
+  // Une note tient sur une ligne : les sauts de ligne deviennent des espaces.
   const typo = useCallback(
-    (t) => typographier(nfc(String(t ?? '').trim()), { langue: langueDocument }),
+    (t) =>
+      typographier(
+        nfc(
+          String(t ?? '')
+            .replace(/\s*\n\s*/g, ' ')
+            .trim(),
+        ),
+        { langue: langueDocument },
+      ),
     [langueDocument],
   )
   // La fenêtre fermée, le curseur revient dans le texte (sinon la frappe se perd).
@@ -599,7 +608,6 @@ export function EditeurCollaboratif({
   }, [editeur, editeur.domElement, typo, rendreLaMain])
   /** Une nouvelle note, posée à la fin de la sélection du moment. */
   const nouvelleNote = useCallback(() => {
-    const position = editeur.prosemirrorState.selection.to
     surNoteActuel.current?.({
       texte: '',
       nouvelle: true,
@@ -607,6 +615,9 @@ export function EditeurCollaboratif({
       enregistrer: (t) => {
         const texte = typo(t)
         if (!texte) return
+        // La sélection est relue à l'enregistrement : ProseMirror l'a suivie
+        // pendant la saisie, même si d'autres ont écrit entre-temps.
+        const position = editeur.prosemirrorState.selection.to
         editeur.transact((tr) => tr.insert(position, editeur.pmSchema.nodes[TYPE_NOTE].create({ texte })))
         editeur.focus()
       },

@@ -80,15 +80,23 @@ export function blocsPourMarkdown(blocs, { titreTable } = {}) {
   // Les notes, numérotées dans l'ordre du texte, rendues en fin de fichier.
   const notes = []
   const appels = (contenu) =>
-    Array.isArray(contenu)
-      ? contenu.map((c) => {
-          if (c.type === TYPE_NOTE) {
-            notes.push(sansMarques(nfc(c.props?.texte ?? '')))
-            return { type: 'text', text: `${APPEL}${notes.length}${APPEL}`, styles: {} }
-          }
-          return Array.isArray(c.content) ? { ...c, content: appels(c.content) } : c
-        })
-      : contenu
+    contenu?.type === 'tableContent'
+      ? {
+          ...contenu,
+          rows: (contenu.rows ?? []).map((r) => ({
+            ...r,
+            cells: (r.cells ?? []).map((c) => (Array.isArray(c) ? appels(c) : { ...c, content: appels(c.content) })),
+          })),
+        }
+      : Array.isArray(contenu)
+        ? contenu.map((c) => {
+            if (c.type === TYPE_NOTE) {
+              notes.push(sansMarques(nfc(c.props?.texte ?? '')))
+              return { type: 'text', text: `${APPEL}${notes.length}${APPEL}`, styles: {} }
+            }
+            return Array.isArray(c.content) ? { ...c, content: appels(c.content) } : c
+          })
+        : contenu
   const preparer = (liste) =>
     liste.flatMap((b) => {
       if (b.type === 'pageBreak') return []
@@ -166,7 +174,7 @@ const CORRESPONDANCES = {
   ...typstDefaultSchemaMappings,
   inlineContentMapping: {
     ...typstDefaultSchemaMappings.inlineContentMapping,
-    [TYPE_NOTE]: (note) => `#footnote[#${chaineTypst(nfc(note.props?.texte ?? ''))}]`,
+    [TYPE_NOTE]: (note) => `#footnote[#${chaineTypst(sansMarques(nfc(note.props?.texte ?? '')))}]`,
   },
   styleMapping: {
     ...typstDefaultSchemaMappings.styleMapping,

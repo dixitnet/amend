@@ -154,3 +154,21 @@ test('notes de bas de page (12/11/2026) : `footnote` de Typst, `[^n]` en Markdow
   const md = poserExposants(prets.map((b) => b.content.map((c) => c.text).join('')).join('\n'))
   assert.equal(md, 'La ville[^1] existe.\nEncore[^2]\n[^1]: Première note.\n[^2]: Seconde « note ».')
 })
+
+test('une note dans une cellule de tableau garde son appel et son texte en Markdown', () => {
+  const editeur = BlockNoteEditor.create({ schema: schemaLivre })
+  editeur.replaceBlocks(editeur.document, [
+    {
+      type: 'table',
+      content: {
+        type: 'tableContent',
+        rows: [{ cells: [[texte('Case'), { type: 'note', props: { texte: 'Note de case.' } }], 'b'] }],
+      },
+    },
+  ])
+  const prets = blocsPourMarkdown(editeur.document)
+  const cellule = prets[0].content.rows[0].cells[0]
+  const contenu = Array.isArray(cellule) ? cellule : cellule.content
+  assert.equal(poserExposants(contenu.map((c) => c.text).join('')), 'Case[^1]')
+  assert.equal(poserExposants(prets.at(-1).content[0].text), '[^1]: Note de case.')
+})

@@ -255,7 +255,7 @@ export function compterSuggestions(contexte, afficheur) {
           // Une note de bas de page ajoutée, supprimée ou dont le texte est
           // proposé compte comme un passage (12/11/2026).
           if (x.name === 'note') {
-            if (c.attribution || JSON.stringify(x.attrs ?? {}).includes('"attribution"')) {
+            if (c.attribution || x.attrs?.texte?.attribution) {
               if (!dansUnPassage) n++
               dansUnPassage = true
             } else dansUnPassage = false

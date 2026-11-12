@@ -24,11 +24,11 @@ export const elementNote = createInlineContentSpec(
       appel.setAttribute('data-amend-note', '')
       appel.setAttribute('data-texte', note.props.texte)
       appel.setAttribute('role', 'button')
-      appel.setAttribute('tabindex', '-1')
+      appel.setAttribute('tabindex', '0')
       const libelle = editeur.dictionary?.amend?.note?.appel
       if (libelle) appel.setAttribute('aria-label', libelle)
       appel.addEventListener('mousedown', (e) => e.preventDefault())
-      appel.addEventListener('click', (e) => {
+      const ouvrir = (e) => {
         e.preventDefault()
         appel.dispatchEvent(
           new CustomEvent(EVENEMENT_NOTE, {
@@ -44,6 +44,14 @@ export const elementNote = createInlineContentSpec(
             },
           }),
         )
+      }
+      appel.addEventListener('click', ouvrir)
+      // Au clavier aussi (audit du 12/11/2026) : Entrée ou Espace sur l'appel.
+      appel.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.stopPropagation()
+          ouvrir(e)
+        }
       })
       return { dom: appel }
     },
