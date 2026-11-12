@@ -148,6 +148,8 @@ export function Administration({ surApparence }) {
       rubriques={[
         {
           titre: t('admin.systeme'),
+          // Les chiffres de l'instance en cartes (12/11/2026).
+          chiffres: true,
           lignes: [
             {
               libelle: t('admin.version'),
