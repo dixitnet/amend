@@ -6,23 +6,35 @@
 // décidés dans design/feuilles/telephone.css (ADR 0008) ; textes traduits.
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
-import { Etoile, ElementsDeMenu, PictoCompte } from './Coquille.jsx'
+import { useState } from 'react'
+import { Etoile, ElementsDeMenu, PictoCompte, OngletCompact } from './Coquille.jsx'
 
-/** Un tiroir à onglets ; l'onglet ouvert peut être piloté (`actif`, `surOnglet`). */
-function Volet({ volet, position, ouvert, surFermer }) {
+/** Un tiroir à onglets ; l'onglet ouvert peut être piloté (`actif`, `surOnglet`).
+ * `compact` : seul l'onglet actif montre son texte (volet droit, 12/11/2026). */
+function Volet({ volet, position, ouvert, surFermer, compact = false }) {
+  const [local, setLocal] = useState(null)
   if (!volet) return null
-  const pilote = volet.actif
-    ? { value: volet.actif, onChange: volet.surOnglet }
-    : { defaultValue: volet.onglets[0]?.cle }
+  const valeur = volet.actif ?? local ?? volet.onglets[0]?.cle
   return (
     <Drawer opened={ouvert} onClose={surFermer} position={position} title={volet.titre}>
-      <Tabs {...pilote}>
-        <Tabs.List grow>
-          {volet.onglets.map((o) => (
-            <Tabs.Tab key={o.cle} value={o.cle} leftSection={<PictoCompte role={o.icone} nombre={o.nombre} />}>
-              {o.libelle}
-            </Tabs.Tab>
-          ))}
+      <Tabs value={valeur} onChange={volet.surOnglet ?? setLocal}>
+        <Tabs.List grow={!compact}>
+          {volet.onglets.map((o) =>
+            compact ? (
+              <OngletCompact
+                key={o.cle}
+                valeur={o.cle}
+                actif={valeur}
+                libelle={o.libelle}
+                nombre={o.nombre}
+                role={o.icone}
+              />
+            ) : (
+              <Tabs.Tab key={o.cle} value={o.cle} leftSection={<PictoCompte role={o.icone} nombre={o.nombre} />}>
+                {o.libelle}
+              </Tabs.Tab>
+            ),
+          )}
         </Tabs.List>
         {volet.onglets.map((o) => (
           <Tabs.Panel key={o.cle} value={o.cle}>
@@ -116,7 +128,7 @@ export function PageEditionS({
         {etat}
       </Text>
       <Volet volet={voletGauche} position="left" ouvert={volet === 'gauche'} surFermer={fermer} />
-      <Volet volet={voletDroit} position="right" ouvert={volet === 'droite'} surFermer={fermer} />
+      <Volet volet={voletDroit} position="right" ouvert={volet === 'droite'} surFermer={fermer} compact />
       {panneau ? (
         <Modal opened onClose={panneau.surFermer} title={panneau.titre} fullScreen>
           {panneau.contenu}
