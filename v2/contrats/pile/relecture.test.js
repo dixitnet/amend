@@ -212,8 +212,20 @@ test('garde-fou d’Éditer : au contact d’une suggestion, la frappe est refus
   await attendre(300)
   await p.keyboard.type(' Fin.')
   await attendreTexte(l, 'Il faisait nuit noire sur la ville endormie. Fin.')
+  // L'annulation (celle de ProseMirror) est un changement direct : au contact
+  // d'une suggestion, elle est refusée aussi (Carla en pose une juste après
+  // « Fin. » ; audit du 12/11/2026) ; loin de toute suggestion, elle marche.
+  await c.click('.bn-inline-content')
+  await c.keyboard.press('End')
+  await attendre(300)
+  await c.keyboard.type(' Encore')
+  await attendrePanneau(p, /Carla ajoute «\s?Encore\s?»/)
+  await p.click('.bn-inline-content')
+  await p.keyboard.press('Control+z')
+  await attendre(1500)
+  await attendreTexte(l, 'Il faisait nuit noire sur la ville endormie. Fin.')
   // La suggestion de Carla est intacte, à son nom.
-  await attendrePanneau(p, /^1 suggestion.*Carla ajoute «\s?donc\s?»/)
+  await attendrePanneau(p, /^2 suggestions.*Carla ajoute «\s?donc\s?»/)
   assert.doesNotMatch(await panneau(p), /Q/)
   await l.context().close()
   await fermer()

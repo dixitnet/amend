@@ -65,10 +65,12 @@ import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 import { extensionGardeSuggestions } from '../../extensions/garde-suggestions/index.js'
 
-// Le compte des suggestions hors relecture : chaque minute, ou 30 s après le
+// Le compte des suggestions en Lire : chaque minute, ou 30 s après le
 // dernier changement (Sylvain, 12/11/2026 : « plus rustique »).
 const COMPTE_CHAQUE = 60_000
 const COMPTE_AU_REPOS = 30_000
+/** La liste des suggestions, refaite après une pause de la frappe (ms). */
+const LISTE_AU_REPOS = 300
 
 /** Fait défiler le texte jusqu'à une position, au centre, comme BlockNote
  * pour un commentaire (`selectThread`). */
@@ -450,10 +452,16 @@ export function EditeurCollaboratif({
   useEffect(() => {
     if (!afficheur || !surSuggestions) return
     const ext = editeur.getExtension('suggestions')
+    // La liste donnée au panneau est recalculée au repos (plus bas) : ses
+    // positions peuvent avoir vieilli d'une frappe. Au geste, on reprend la
+    // suggestion à la même place dans une liste fraîche (en Éditer, la frappe
+    // ne crée ni ne retire de suggestion : l'ordre ne change pas).
+    let donnee = []
+    const fraiche = (s) => listeDesSuggestions(editeur, auteurs)[donnee.indexOf(s)] ?? s
     const actions = {
-      accepter: (s) => ext.applySuggestion(s.plage.debut, s.plage.fin),
-      refuser: (s) => ext.revertSuggestion(s.plage.debut, s.plage.fin),
-      montrer: (s) => montrerPosition(editeur, s.debut),
+      accepter: (s) => ((s = fraiche(s)), ext.applySuggestion(s.plage.debut, s.plage.fin)),
+      refuser: (s) => ((s = fraiche(s)), ext.revertSuggestion(s.plage.debut, s.plage.fin)),
+      montrer: (s) => montrerPosition(editeur, fraiche(s).debut),
       toutAccepter: () => ext.applyAllSuggestions(),
       toutRefuser: () => ext.revertAllSuggestions(),
     }
@@ -463,6 +471,7 @@ export function EditeurCollaboratif({
     const signaler = () => {
       const enAttente = !afficheur.attributed.isEmpty()
       const liste = affichees ? listeDesSuggestions(editeur, auteurs) : []
+      donnee = liste
       surSuggestions({ liste, nombre: !enAttente ? 0 : affichees ? liste.length : compte, enAttente, ...actions })
     }
     signaler()
@@ -473,8 +482,10 @@ export function EditeurCollaboratif({
     }
     const intervalle = affichees ? null : setInterval(recompter, COMPTE_CHAQUE)
     const changement = () => {
-      if (affichees) return signaler()
       clearTimeout(repos)
+      // La liste parcourt tout le document : refaite au repos, pas à chaque
+      // frappe (banc du 12/11/2026 : 1 000 suggestions, 100 ms par touche).
+      if (affichees) return void (repos = setTimeout(signaler, LISTE_AU_REPOS))
       repos = setTimeout(recompter, COMPTE_AU_REPOS)
       signaler()
     }

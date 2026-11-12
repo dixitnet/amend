@@ -71,6 +71,10 @@ test('transaction locale : refusée au contact, permise loin', () => {
   const s = etat(schema.node('doc', null, [bloc, p('Libre.')]))
   assert.equal(changeUneSuggestion(s.tr.insertText('Q', 17)), true, 'juste après « donc »')
   assert.equal(changeUneSuggestion(s.tr.delete(10, 14)), true, 'suppression qui mord la zone')
+  // Positions d'avant l'étape (StepMap.forEach : ancien début, ancienne fin) : une
+  // suppression qui part d'avant la zone (1) et y entre (5) est refusée (audit du 12/11/2026).
+  assert.equal(changeUneSuggestion(s.tr.delete(1, 5)), true, 'suppression qui entre dans la zone par la gauche')
+  assert.equal(changeUneSuggestion(s.tr.delete(1, 3)), false, 'suppression qui s’arrête avant la zone')
   assert.equal(changeUneSuggestion(s.tr.insertText('Q', 1)), false, 'début du paragraphe')
   assert.equal(changeUneSuggestion(s.tr.insertText('Q', bloc.nodeSize + 2)), false, 'autre paragraphe')
   assert.equal(changeUneSuggestion(s.tr.addMark(4, 9, schema.marks.bold.create())), true, 'gras sur « faisait »')

@@ -11,9 +11,10 @@
 // Tant qu'elle est active (`actif()`), elle refuse tout changement du texte,
 // par la personne elle-même, qui touche une zone protégée : frappe (refusée
 // avant d'atteindre la page), Entrée, Retour arrière, Suppr, collage, dépôt,
-// coupe, mise en forme, menu « / ». Elle laisse passer ce qui vient de la
-// collaboration (autres personnes, acceptation et refus des suggestions,
-// annulation) et les marques de commentaire. Chaque refus appelle
+// coupe, mise en forme, menu « / », et l'annulation (Ctrl+Z : celle de
+// ProseMirror, un changement direct comme un autre). Elle laisse passer ce qui
+// vient de la collaboration (autres personnes, acceptation et refus des
+// suggestions) et les marques de commentaire. Chaque refus appelle
 // `refuser(code)`, au plus une fois par seconde, pour que l'application le dise.
 // À retirer quand l'amont corrige y-prosemirror#245.
 // Écrite comme si elle devait partir en amont : BlockNote et ProseMirror seulement.
