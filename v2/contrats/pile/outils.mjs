@@ -151,8 +151,6 @@ export const panneau = (page) =>
     const section = document.querySelector('section[aria-label]')
     if (!section) return ''
     // Chaque carte cite le passage ; sa phrase complète est son nom accessible.
-    const cartes = [...section.querySelectorAll('li button[aria-label]:not([aria-label*=":"])')].map((b) =>
-      b.getAttribute('aria-label'),
-    )
+    const cartes = [...section.querySelectorAll('[data-amend-carte]')].map((b) => b.getAttribute('aria-label'))
     return [section.innerText.replace(/\n+/g, ' / '), ...cartes].join(' / ')
   })

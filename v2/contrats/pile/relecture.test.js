@@ -210,7 +210,7 @@ test('suivi : cliquer une carte fait défiler le texte jusqu’à la suggestion 
   await attendrePanneau(p, /Carla ajoute «\s?Fin\s?»/)
   await p.evaluate(() => window.scrollTo(0, 0))
   await attendre(300)
-  await p.locator('section[aria-label] li button[aria-label^="Carla"]').first().click()
+  await p.locator('section[aria-label] [data-amend-carte]').first().click()
   await attendre(1200)
   const visible = await p.evaluate(() => {
     const ins = [...document.querySelectorAll('.bn-editor ins')].find((e) => e.textContent.includes('Fin'))

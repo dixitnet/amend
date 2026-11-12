@@ -98,9 +98,9 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const [nombreFils, setNombreFils] = useState(0)
   const nombreSuggestions = suggestions?.nombre ?? 0
   const [suggestionActive, setSuggestionActive] = useState(null)
-  // Une suggestion traitée décale les cartes : plus de carte active.
-  const longueurListe = suggestions?.liste.length ?? 0
-  useEffect(() => setSuggestionActive(null), [longueurListe])
+  // La liste a changé (suggestion traitée ou arrivée) : plus de carte active.
+  const empreinteListe = (suggestions?.liste ?? []).map((x) => `${x.debut}-${x.type}`).join(' ')
+  useEffect(() => setSuggestionActive(null), [empreinteListe])
   // L'onglet « Commentaires » : l'élément où l'éditeur place la liste des fils, et son filtre.
   const [cibleFils, setCibleFils] = useState(null)
   const [filtreFils, setFiltreFils] = useState('open')

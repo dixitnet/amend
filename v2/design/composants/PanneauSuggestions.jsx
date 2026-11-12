@@ -62,7 +62,7 @@ export function PanneauSuggestions({
         {lignes.map((l, i) => (
           <Paper component="li" key={l.cle} {...carte} data-active={active === i || undefined}>
             <Stack>
-              <UnstyledButton onClick={() => surMontrer?.(i)} aria-label={l.texte}>
+              <UnstyledButton onClick={() => surMontrer?.(i)} aria-label={l.texte} data-amend-carte>
                 <Text>{l.auteur}</Text>
                 {l.passage ? <Passage passage={l.passage} /> : <Text>{l.texte}</Text>}
               </UnstyledButton>
