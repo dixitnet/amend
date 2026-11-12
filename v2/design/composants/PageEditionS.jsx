@@ -6,7 +6,7 @@
 // décidés dans design/feuilles/telephone.css (ADR 0008) ; textes traduits.
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Etoile, ElementsDeMenu, PictoCompte, OngletCompact } from './Coquille.jsx'
 
 /** Un tiroir à onglets ; l'onglet ouvert peut être piloté (`actif`, `surOnglet`).
@@ -82,10 +82,33 @@ export function PageEditionS({
   panneau,
   editeur,
 }) {
+  // La hauteur du bandeau, pour la barre de mise en forme du téléphone, qui se
+  // cale sous lui quand il est à l'écran (design/feuilles/telephone.css,
+  // css.telephone.palette ; Sylvain, 12/11/2026).
+  const bandeau = useRef(null)
+  useEffect(() => {
+    const el = bandeau.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const racine = document.documentElement
+    const noter = () =>
+      racine.style.setProperty(
+        '--amend-bandeau-hauteur',
+        // Sa place sous le haut de la page (marge de sécurité comprise), sans
+        // dépendre du défilement au moment de la mesure.
+        `${el.offsetHeight + (parseFloat(getComputedStyle(el).top) || 0)}px`,
+      )
+    const suivi = new ResizeObserver(noter)
+    suivi.observe(el)
+    noter()
+    return () => {
+      suivi.disconnect()
+      racine.style.removeProperty('--amend-bandeau-hauteur')
+    }
+  }, [])
   const fermer = () => surVolet(null)
   return (
     <>
-      <header className="amend-bandeau" data-connexion={connexion}>
+      <header className="amend-bandeau" data-connexion={connexion} ref={bandeau}>
         <ActionIcon aria-label={libelles.gauche} aria-expanded={volet === 'gauche'} onClick={() => surVolet('gauche')}>
           <PictoDe role="plan" />
         </ActionIcon>

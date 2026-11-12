@@ -58,7 +58,10 @@
 @media (width < 48em) {
   /* La barre est rendue dans body, hors de .bn-root. */
   .bn-mobile-formatting-toolbar {
-    transform: translate(var(--bn-vv-left, 0px), var(--bn-vv-top, 0px)) scale(calc(1 / var(--bn-vv-scale, 1)));
+    /* Sous le bandeau quand il est à l'écran (page en haut), sinon tout en
+       haut de la zone visible ; --amend-bandeau-hauteur : PageEditionS. */
+    transform: translate(var(--bn-vv-left, 0px), max(var(--bn-vv-top, 0px), var(--amend-bandeau-hauteur, 0px)))
+      scale(calc(1 / var(--bn-vv-scale, 1)));
     transform-origin: 0 0;
     /* La marge de BlockNote sous la barre (zone de l'indicateur d'accueil)
        n'a plus lieu d'être en haut. */
