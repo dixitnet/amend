@@ -16,6 +16,7 @@ import { yfragmentToBlocks } from '@blocknote/core/y'
 import { TypstExporter, typstDefaultSchemaMappings } from '@blocknote/xl-typst-exporter'
 import { gabaritTypst, nfc, compter, entreesTable, profondeurTable } from '../../domaine/index.js'
 import { TYPE_TABLE, texteEnLigne, titresDesBlocs } from '../../extensions/tableDesMatieres/index.js'
+import { TYPE_TITRE, TYPE_SOUS_TITRE } from '../../extensions/titres/index.js'
 
 /** Les blocs du texte de base, lus dans son fragment Yjs. */
 export const blocsDuTexte = (editeur, fragment) => yfragmentToBlocks(editeur, fragment)
@@ -63,7 +64,9 @@ function marquerExposants(contenu) {
 /**
  * Les blocs prêts pour le Markdown : une table des matières devient la liste
  * des titres jusqu'à sa profondeur (après son titre, s'il est donné) ; un saut
- * de page n'a pas d'équivalent et disparaît ; l'exposant est marqué.
+ * de page n'a pas d'équivalent et disparaît ; l'exposant est marqué ; le
+ * titre devient un paragraphe en gras, le sous-titre un paragraphe en
+ * italique (Sylvain, 12/11/2026 : pas un titre de niveau 1 ailleurs).
  * @param {Array} blocs
  * @param {{ titreTable?: string }} [textes]
  */
@@ -80,10 +83,29 @@ export function blocsPourMarkdown(blocs, { titreTable } = {}) {
             content: [{ type: 'text', text: e.texte, styles: {} }],
           })),
         ]
+      const style = { [TYPE_TITRE]: 'bold', [TYPE_SOUS_TITRE]: 'italic' }[b.type]
+      if (style)
+        return [
+          {
+            type: 'paragraph',
+            content: avecStyle(marquerExposants(b.content), style),
+            children: preparer(b.children ?? []),
+          },
+        ]
       return [{ ...b, content: marquerExposants(b.content), children: preparer(b.children ?? []) }]
     })
   return preparer(blocs)
 }
+
+/** Un contenu en ligne, liens compris, avec un style de plus. */
+const avecStyle = (contenu, style) =>
+  (contenu ?? []).map((c) =>
+    c.type === 'text'
+      ? { ...c, styles: { ...c.styles, [style]: true } }
+      : Array.isArray(c.content)
+        ? { ...c, content: avecStyle(c.content, style) }
+        : c,
+  )
 
 /** Les marques d'exposant changées en `<sup>`. */
 export const poserExposants = (md) => md.replaceAll(DEBUT_SUP, '<sup>').replaceAll(FIN_SUP, '</sup>')
@@ -199,6 +221,9 @@ async function parcourir(exportateur, blocs) {
       }
     } else if (b.type === 'heading') sortie.push(`#heading(level: ${b.props?.level ?? 1})[${texte}]`)
     else if (b.type === 'quote') sortie.push(`#quote(block: true)[${texte}]`)
+    // Titre et sous-titre : dans le flux, centrés (gabarit du modèle).
+    else if (b.type === TYPE_TITRE) sortie.push(`#amend-titre[${texte}]`)
+    else if (b.type === TYPE_SOUS_TITRE) sortie.push(`#amend-sous-titre[${texte}]`)
     else if (b.type === 'divider') sortie.push('#amend-blanc')
     else if (b.type === 'pageBreak') sortie.push('#pagebreak()')
     // La table des matières de Typst, à la place du bloc, titre dans la

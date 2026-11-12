@@ -58,6 +58,7 @@ import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
 import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
+import { TYPE_TITRE, TYPE_SOUS_TITRE } from '../../extensions/titres/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 
@@ -172,7 +173,7 @@ function BarreDuLienEnSuggestion(props) {
 /** Le menu « / » : celui de BlockNote, plus le saut de page (comme Docs,
  * `BlockNoteSuggestionMenu.tsx`) et la table des matières (11/11/2026), sans
  * les émoticônes (Sylvain, 12/11/2026 ; Docs les garde). */
-function itemsDuMenu(editeur, table) {
+function itemsDuMenu(editeur, table, textesTitres) {
   const items = [
     ...getDefaultReactSlashMenuItems(editeur).filter((x) => x.key !== 'emoji'),
     ...getPageBreakReactSlashMenuItems(editeur),
@@ -187,6 +188,23 @@ function itemsDuMenu(editeur, table) {
       icon: table.picto,
       onItemClick: () => insertOrUpdateBlockForSlashMenu(editeur, { type: TYPE_TABLE }),
     })
+  // Titre et sous-titre, en bas du menu (Sylvain, 12/11/2026), dans son
+  // dernier groupe.
+  const groupe = items.at(-1)?.group
+  for (const [cle, type] of [
+    ['titre', TYPE_TITRE],
+    ['sousTitre', TYPE_SOUS_TITRE],
+  ])
+    if (textesTitres?.[cle])
+      items.push({
+        key: `amend_${type}`,
+        title: textesTitres[cle].titre,
+        subtext: textesTitres[cle].description,
+        aliases: [],
+        group: groupe,
+        icon: textesTitres[cle].picto,
+        onItemClick: () => insertOrUpdateBlockForSlashMenu(editeur, { type }),
+      })
   return items
 }
 
@@ -226,7 +244,7 @@ function itemsDuMenu(editeur, table) {
  *   le bouton « Corriger » de la palette (Margo, étape 8), ou rien
  * @param {(selection: { de: string, a: string } | null) => void} [p.surSelection]
  *   rappelé quand la sélection change, en blocs (Margo, étape 8) ; doit être stable
- * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, niveaux?: string[], picto: any } }} [p.textes]
+ * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, niveaux?: Record<number, string>, picto: any }, titre?: { titre: string, description: string, picto: any }, sousTitre?: { titre: string, description: string, picto: any } }} [p.textes]
  *   libellés et pictos de nos ajouts (exposant, table des matières), donnés par l'application
  * @param {(fichier: File) => Promise<string>} [p.televerser] envoie une image et rend son
  *   adresse (\`uploadFile\` de BlockNote, comme Docs) ; absent : pas d'envoi de fichier
@@ -495,8 +513,8 @@ export function EditeurCollaboratif({
     [corriger, mode, textes.exposant],
   )
   const menu = useCallback(
-    async (requete) => filterSuggestionItems(itemsDuMenu(editeur, textes.table), requete),
-    [editeur, textes.table],
+    async (requete) => filterSuggestionItems(itemsDuMenu(editeur, textes.table, textes), requete),
+    [editeur, textes],
   )
   const commencer = (evenement) => {
     if (!appui || editeur.isEditable) return
