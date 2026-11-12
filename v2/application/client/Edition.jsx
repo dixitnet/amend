@@ -477,6 +477,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           surSelection={peutMargo ? setSelection : undefined}
           textes={TEXTES_EDITEUR}
           televerser={televerser}
+          formatS={formatS}
         />
       </FiletDeLEditeur>
     </ZoneZoom>
