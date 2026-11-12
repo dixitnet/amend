@@ -14,6 +14,7 @@ import {
   TexteDeVolet,
   AlerteHorsLigne,
   Fenetre,
+  FenetreNote,
   montrerMessage,
   useFormat,
   PageEditionS,
@@ -99,6 +100,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const [nombreFils, setNombreFils] = useState(0)
   const nombreSuggestions = suggestions?.nombre ?? 0
   const [suggestionActive, setSuggestionActive] = useState(null)
+  // La note de bas de page ouverte (lue, écrite ou nouvelle), et sa fenêtre.
+  const [note, setNote] = useState(null)
   // La liste a changé (suggestion traitée ou arrivée) : plus de carte active.
   const empreinteListe = (suggestions?.liste ?? []).map((x) => `${x.debut}-${x.type}`).join(' ')
   useEffect(() => setSuggestionActive(null), [empreinteListe])
@@ -211,6 +214,10 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const ligne = (s) => {
     const auteur = noms[s.auteur] ?? t('suggestions.auteurInconnu')
     const v = { auteur, avant: s.avant.trim(), apres: s.apres.trim() }
+    // Une note de bas de page : son texte modifié, ou la note ajoutée, supprimée.
+    if (s.type === 'note') return t('suggestions.note', v)
+    if (s.note && s.type === 'ajout') return t('suggestions.ajoutNote', v)
+    if (s.note && s.type === 'suppression') return t('suggestions.suppressionNote', v)
     if (s.type === 'ajout') return t('suggestions.ajout', v)
     if (s.type === 'suppression') return t('suggestions.suppression', v)
     return t('suggestions.remplacement', v)
@@ -488,9 +495,45 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           textes={TEXTES_EDITEUR}
           televerser={televerser}
           formatS={formatS}
+          surNote={setNote}
         />
       </FiletDeLEditeur>
     </ZoneZoom>
+  )
+
+  const fenetreNote = (
+    <FenetreNote
+      key={note ? `${note.nouvelle}-${note.texte}` : 'fermee'}
+      ouverte={Boolean(note)}
+      titre={note?.nouvelle ? t('note.nouvelle') : t('document.note')}
+      valeur={note?.texte ?? ''}
+      lectureSeule={Boolean(note?.lectureSeule)}
+      libelles={{
+        texte: t('note.texte'),
+        enregistrer: t('note.enregistrer'),
+        annuler: t('interface.annuler'),
+        fermer: t('interface.fermer'),
+        retirer: t('note.retirer'),
+      }}
+      surEnregistrer={(texte) => {
+        note?.enregistrer(texte)
+        note?.fermer()
+        setNote(null)
+      }}
+      surRetirer={
+        note?.retirer
+          ? () => {
+              note.retirer()
+              note.fermer()
+              setNote(null)
+            }
+          : null
+      }
+      surFermer={() => {
+        note?.fermer()
+        setNote(null)
+      }}
+    />
   )
 
   // Format S (téléphone) : la maquette validée (docs/v2-format-S.md). Comme
@@ -616,6 +659,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
             {fenetreSaisie}
             {fenetreConfirmation}
             {fenetreExport}
+            {fenetreNote}
           </>
         }
       />
@@ -714,6 +758,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       {fenetreSaisie}
       {fenetreConfirmation}
       {fenetreExport}
+      {fenetreNote}
       {caps.includes('inviter') ? (
         <Fenetre
           ouverte={partage}

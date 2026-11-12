@@ -136,3 +136,39 @@ test('Markdown : le titre en paragraphe gras, le sous-titre en italique, hors de
     ['Chapitre'],
   )
 })
+
+test('notes de bas de page (12/11/2026) : `footnote` de Typst, `[^n]` en Markdown avec le texte en fin de fichier', async () => {
+  const editeur = BlockNoteEditor.create({ schema: schemaLivre })
+  editeur.replaceBlocks(editeur.document, [
+    {
+      type: 'paragraph',
+      content: [texte('La ville'), { type: 'note', props: { texte: 'Première note.' } }, texte(' existe.')],
+    },
+    { type: 'paragraph', content: [texte('Encore'), { type: 'note', props: { texte: 'Seconde « note ».' } }] },
+  ])
+  const { source } = await versTypst(editeur, editeur.document, modele)
+  assert.match(source, /#"La ville"#footnote\[#"Première note\."\]#" existe\."/)
+  assert.match(source, /#footnote\[#"Seconde « note »\."\]/)
+  const prets = blocsPourMarkdown(editeur.document)
+  assert.equal(prets.length, 4, 'les deux paragraphes, puis les deux notes')
+  const md = poserExposants(prets.map((b) => b.content.map((c) => c.text).join('')).join('\n'))
+  assert.equal(md, 'La ville[^1] existe.\nEncore[^2]\n[^1]: Première note.\n[^2]: Seconde « note ».')
+})
+
+test('une note dans une cellule de tableau garde son appel et son texte en Markdown', () => {
+  const editeur = BlockNoteEditor.create({ schema: schemaLivre })
+  editeur.replaceBlocks(editeur.document, [
+    {
+      type: 'table',
+      content: {
+        type: 'tableContent',
+        rows: [{ cells: [[texte('Case'), { type: 'note', props: { texte: 'Note de case.' } }], 'b'] }],
+      },
+    },
+  ])
+  const prets = blocsPourMarkdown(editeur.document)
+  const cellule = prets[0].content.rows[0].cells[0]
+  const contenu = Array.isArray(cellule) ? cellule : cellule.content
+  assert.equal(poserExposants(contenu.map((c) => c.text).join('')), 'Case[^1]')
+  assert.equal(poserExposants(prets.at(-1).content[0].text), '[^1]: Note de case.')
+})

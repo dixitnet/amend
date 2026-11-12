@@ -280,3 +280,39 @@ test('« /date » insère la date du jour, AAAA-MM-JJ', async () => {
   assert.equal(await page.locator('.bn-inline-content').first().innerText(), `Le ${dateDuJour()}`)
   await page.context().close()
 })
+
+test('notes de bas de page : « /note », texte typographié, modification au clic, retrait, curseur rendu au texte', async () => {
+  const page = await pageEcriture('notes')
+  const notes = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('.bn-editor [data-amend-note]')].map((n) => n.getAttribute('data-texte')),
+    )
+  await page.keyboard.type('La ville')
+  await page.keyboard.type('/note')
+  await page.waitForSelector('.bn-suggestion-menu-item')
+  await page.keyboard.press('Enter')
+  const fenetre = page.getByRole('dialog')
+  await fenetre.getByRole('textbox', { name: 'Texte de la note' }).fill("Voir l'introduction : la ville existe.")
+  await fenetre.getByRole('button', { name: 'Enregistrer' }).click()
+  await attendre(400)
+  // Le curseur est revenu dans le texte, après la note.
+  await page.keyboard.type(' existe.')
+  assert.deepEqual(
+    await notes(),
+    [`Voir l’introduction${String.fromCodePoint(0xa0)}: la ville existe.`],
+    'typographie française',
+  )
+  assert.equal(await texte(page), 'La ville existe.')
+  // Modifier au clic ; vider la note la retire.
+  await page.locator('.bn-editor [data-amend-note]').click()
+  await fenetre.getByRole('textbox', { name: 'Texte de la note' }).fill('Note corrigée.')
+  await fenetre.getByRole('button', { name: 'Enregistrer' }).click()
+  await attendre(300)
+  assert.deepEqual(await notes(), ['Note corrigée.'])
+  await page.locator('.bn-editor [data-amend-note]').click()
+  await fenetre.getByRole('button', { name: 'Supprimer la note' }).click()
+  await attendre(300)
+  assert.deepEqual(await notes(), [])
+  assert.equal(await texte(page), 'La ville existe.', 'le texte autour reste intact')
+  await page.context().close()
+})

@@ -14,7 +14,8 @@
 // blocs sont lus dans le document Yjs, pas dans l'affichage de l'éditeur.
 import { yfragmentToBlocks } from '@blocknote/core/y'
 import { TypstExporter, typstDefaultSchemaMappings } from '@blocknote/xl-typst-exporter'
-import { gabaritTypst, nfc, compter, entreesTable, profondeurTable } from '../../domaine/index.js'
+import { gabaritTypst, nfc, compter, entreesTable, profondeurTable, chaineTypst } from '../../domaine/index.js'
+import { TYPE_NOTE } from '../../extensions/note/index.js'
 import { TYPE_TABLE, texteEnLigne, titresDesBlocs } from '../../extensions/tableDesMatieres/index.js'
 import { TYPE_TITRE, TYPE_SOUS_TITRE } from '../../extensions/titres/index.js'
 
@@ -27,10 +28,14 @@ export const blocsDuTexte = (editeur, fragment) => yfragmentToBlocks(editeur, fr
 // par `<sup>…</sup>` (le Markdown admet le HTML en ligne).
 const DEBUT_SUP = '\uE000'
 const FIN_SUP = '\uE001'
+// La note en Markdown (12/11/2026) : l'appel `[^n]` et, en fin de fichier, le
+// texte `[^n]: …`, marqués de même (le Markdown échapperait les crochets).
+const APPEL = '\uE002'
+const DEFINITION = '\uE003'
 
 /** Un texte tapé qui contiendrait déjà ces marques les perd (audit du
  * 11/11/2026) : elles ne viennent que de nous. */
-const sansMarques = (texte) => texte.replaceAll(DEBUT_SUP, '').replaceAll(FIN_SUP, '')
+const sansMarques = (texte) => texte.replace(/[\uE000-\uE003]/g, '')
 
 /** Les textes en exposant, entourés des deux marques ; les cellules des
  * tableaux aussi (audit du 11/11/2026). */
@@ -72,6 +77,26 @@ function marquerExposants(contenu) {
  */
 export function blocsPourMarkdown(blocs, { titreTable } = {}) {
   const titres = titresDesBlocs(blocs)
+  // Les notes, numérotées dans l'ordre du texte, rendues en fin de fichier.
+  const notes = []
+  const appels = (contenu) =>
+    contenu?.type === 'tableContent'
+      ? {
+          ...contenu,
+          rows: (contenu.rows ?? []).map((r) => ({
+            ...r,
+            cells: (r.cells ?? []).map((c) => (Array.isArray(c) ? appels(c) : { ...c, content: appels(c.content) })),
+          })),
+        }
+      : Array.isArray(contenu)
+        ? contenu.map((c) => {
+            if (c.type === TYPE_NOTE) {
+              notes.push(sansMarques(nfc(c.props?.texte ?? '')))
+              return { type: 'text', text: `${APPEL}${notes.length}${APPEL}`, styles: {} }
+            }
+            return Array.isArray(c.content) ? { ...c, content: appels(c.content) } : c
+          })
+        : contenu
   const preparer = (liste) =>
     liste.flatMap((b) => {
       if (b.type === 'pageBreak') return []
@@ -88,13 +113,20 @@ export function blocsPourMarkdown(blocs, { titreTable } = {}) {
         return [
           {
             type: 'paragraph',
-            content: avecStyle(marquerExposants(b.content), style),
+            content: avecStyle(appels(marquerExposants(b.content)), style),
             children: preparer(b.children ?? []),
           },
         ]
-      return [{ ...b, content: marquerExposants(b.content), children: preparer(b.children ?? []) }]
+      return [{ ...b, content: appels(marquerExposants(b.content)), children: preparer(b.children ?? []) }]
     })
-  return preparer(blocs)
+  const prets = preparer(blocs)
+  return [
+    ...prets,
+    ...notes.map((texte, i) => ({
+      type: 'paragraph',
+      content: [{ type: 'text', text: `${DEFINITION}${i + 1}${DEFINITION}${texte}`, styles: {} }],
+    })),
+  ]
 }
 
 /** Un contenu en ligne, liens compris, avec un style de plus. */
@@ -108,7 +140,12 @@ const avecStyle = (contenu, style) =>
   )
 
 /** Les marques d'exposant changées en `<sup>`. */
-export const poserExposants = (md) => md.replaceAll(DEBUT_SUP, '<sup>').replaceAll(FIN_SUP, '</sup>')
+export const poserExposants = (md) =>
+  md
+    .replaceAll(DEBUT_SUP, '<sup>')
+    .replaceAll(FIN_SUP, '</sup>')
+    .replace(/\uE002(\d+)\uE002/g, '[^$1]')
+    .replace(/\uE003(\d+)\uE003/g, '[^$1]: ')
 
 /** Le document en Markdown, en forme composée (NFC). */
 export const versMarkdown = (editeur, blocs, textes) =>
@@ -131,9 +168,14 @@ export function textesDesBlocs(blocs) {
 /** Signes (espaces compris) et mots du texte de base (domaine, `compter`). */
 export const compterBlocs = (blocs) => compter(textesDesBlocs(blocs))
 
-/** Les correspondances Typst de BlockNote, plus l'exposant (`super` de Typst). */
+/** Les correspondances Typst de BlockNote, plus l'exposant (`super` de Typst)
+ * et la note de bas de page (`footnote` de Typst, 12/11/2026). */
 const CORRESPONDANCES = {
   ...typstDefaultSchemaMappings,
+  inlineContentMapping: {
+    ...typstDefaultSchemaMappings.inlineContentMapping,
+    [TYPE_NOTE]: (note) => `#footnote[#${chaineTypst(sansMarques(nfc(note.props?.texte ?? '')))}]`,
+  },
   styleMapping: {
     ...typstDefaultSchemaMappings.styleMapping,
     exposant: (actif) => (actif ? (e) => `super(${e})` : (e) => e),

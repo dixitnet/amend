@@ -81,3 +81,16 @@ nav[data-amend-bloc='tableDesMatieres'] select {
     font-size: 1.35rem;
   }
 }
+
+/* réglage : css.editeur.notes */
+.bn-editor {
+  counter-reset: amend-note;
+}
+.bn-editor [data-amend-note] {
+  cursor: pointer;
+  color: var(--mantine-primary-color-filled);
+}
+.bn-editor [data-amend-note]::after {
+  counter-increment: amend-note;
+  content: counter(amend-note);
+}
