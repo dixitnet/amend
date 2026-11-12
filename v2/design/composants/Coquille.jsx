@@ -278,16 +278,16 @@ export function Bandeau({
 export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, documents }) {
   return (
     <>
-      <AppShell.Section grow component={ScrollArea}>
-        <Tabs defaultValue="plan">
-          <Tabs.List grow>
-            <Tabs.Tab value="plan" leftSection={<PictoDe role="plan" />}>
-              {onglets.plan}
-            </Tabs.Tab>
-            <Tabs.Tab value="documents" leftSection={<PictoDe role="documents" />}>
-              {onglets.documents}
-            </Tabs.Tab>
-          </Tabs.List>
+      <Tabs defaultValue="plan" className="amend-coquille-onglets">
+        <Tabs.List grow>
+          <Tabs.Tab value="plan" leftSection={<PictoDe role="plan" />}>
+            {onglets.plan}
+          </Tabs.Tab>
+          <Tabs.Tab value="documents" leftSection={<PictoDe role="documents" />}>
+            {onglets.documents}
+          </Tabs.Tab>
+        </Tabs.List>
+        <AppShell.Section grow component={ScrollArea}>
           <Tabs.Panel value="plan">
             {plan.length ? (
               plan.map((t) => (
@@ -305,8 +305,8 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
             )}
           </Tabs.Panel>
           <Tabs.Panel value="documents">{documents}</Tabs.Panel>
-        </Tabs>
-      </AppShell.Section>
+        </AppShell.Section>
+      </Tabs>
     </>
   )
 }
@@ -320,23 +320,23 @@ export function VoletRelecture({ titre, onglets, modifications, commentaires, ma
   const pilote = actif ? { value: actif, onChange: surOnglet } : { defaultValue: 'modifications' }
   return (
     <>
-      <AppShell.Section grow component={ScrollArea}>
-        <Tabs {...pilote}>
-          <Tabs.List grow aria-label={titre}>
-            <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
-              {onglets.modifications}
+      <Tabs {...pilote} className="amend-coquille-onglets">
+        <Tabs.List grow aria-label={titre}>
+          <Tabs.Tab value="modifications" leftSection={<PictoDe role="modifications" />}>
+            {onglets.modifications}
+          </Tabs.Tab>
+          {commentaires ? (
+            <Tabs.Tab value="commentaires" leftSection={<PictoDe role="commentaires" />}>
+              {onglets.commentaires}
             </Tabs.Tab>
-            {commentaires ? (
-              <Tabs.Tab value="commentaires" leftSection={<PictoDe role="commentaires" />}>
-                {onglets.commentaires}
-              </Tabs.Tab>
-            ) : null}
-            {margo ? (
-              <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
-                {onglets.margo}
-              </Tabs.Tab>
-            ) : null}
-          </Tabs.List>
+          ) : null}
+          {margo ? (
+            <Tabs.Tab value="margo" leftSection={<PictoDe role="margo" />}>
+              {onglets.margo}
+            </Tabs.Tab>
+          ) : null}
+        </Tabs.List>
+        <AppShell.Section grow component={ScrollArea}>
           <Tabs.Panel value="modifications">
             <div className="amend-coquille-volet-corps">{modifications}</div>
           </Tabs.Panel>
@@ -350,8 +350,8 @@ export function VoletRelecture({ titre, onglets, modifications, commentaires, ma
               <div className="amend-coquille-volet-corps">{margo}</div>
             </Tabs.Panel>
           ) : null}
-        </Tabs>
-      </AppShell.Section>
+        </AppShell.Section>
+      </Tabs>
     </>
   )
 }

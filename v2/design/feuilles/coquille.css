@@ -21,6 +21,14 @@
   text-overflow: ellipsis;
 }
 
+/* réglage : css.coquille.onglets */
+.amend-coquille-onglets {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /* réglage : css.coquille.volets */
 .amend-coquille-volet-corps,
 .amend-coquille-volet-vide {
