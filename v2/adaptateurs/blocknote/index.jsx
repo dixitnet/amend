@@ -618,6 +618,11 @@ export function EditeurCollaboratif({
     if (!editeur.isEditable) return
     editeur.isEditable = false
     editeur.prosemirrorView?.dom.blur()
+    // Format S : la fin d'une modification ramène en Lire ; le texte y est
+    // relié dans le geste même, comme l'appui le relie au mode d'écriture :
+    // sinon la liaison, faite au rendu suivant, pourrait passer après un
+    // appui rapide et redessiner le texte sous la frappe (pile, Chromium).
+    if (surAppuiEnLecture) lier('lire')
     setEnModification(false)
   }
   // Passer en Lire pendant une modification (menu « … » du format S) la termine.
