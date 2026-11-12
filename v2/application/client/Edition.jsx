@@ -52,7 +52,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const [compteur, setCompteur] = useState(null)
   const compterAuMenu = () => setCompteur(controle.current?.compter?.() ?? null)
   const piedMenu = compteur ? t('document.compteur', compteur) : undefined
-  // Le compteur du bandeau (formats L et M ; 12/11/2026) : la sélection s'il y
+  // Le compteur du bandeau (format L ; 12/11/2026) : la sélection s'il y
   // en a une, sinon tout le document.
   const [compte, setCompte] = useState(null)
   const compteurBandeau = compte?.selection
@@ -504,7 +504,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           televerser={televerser}
           formatS={formatS}
           surNote={setNote}
-          surCompte={formatS ? undefined : setCompte}
+          surCompte={formatS || etroit ? undefined : setCompte}
         />
       </FiletDeLEditeur>
     </ZoneZoom>
@@ -714,9 +714,13 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           actions={{
             libelle: t('telephone.autresActions'),
             elements: actions,
+            // Le compteur reste aussi au menu « … » : le bandeau ne le montre qu'en grand écran.
+            pied: piedMenu,
+            surOuvrir: compterAuMenu,
           }}
           compte={compteDe(personne, config)}
-          compteur={compteurBandeau}
+          // Au format M, le bandeau est trop étroit : le compteur reste au menu « … ».
+          compteur={etroit ? null : compteurBandeau}
           voletDroit={
             avecVoletDroit
               ? {
