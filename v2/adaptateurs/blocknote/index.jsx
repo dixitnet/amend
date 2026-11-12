@@ -2,18 +2,18 @@
 // ouvert par l'adaptateur Yjs, avec le schéma du livre et nos extensions. Il
 // reçoit la langue de l'interface (menus de l'éditeur), la langue du document
 // (typographie), la personne, et ce qu'elle fait du texte. Les trois modes
-// d'un éditeur sont ceux de l'exemple de BlockNote
-// (`07-collaboration/12-multi-doc-versioning`), un seul éditeur et un seul
+// (Sylvain, 12/11/2026) reprennent le montage de l'exemple de BlockNote
+// (`07-collaboration/12-multi-doc-versioning`) : un seul éditeur et un seul
 // afficheur des suggestions, le mode changeant par l'extension des
 // suggestions, sans rien recréer :
-//  - `ecrire` : elle écrit le texte, sans voir les suggestions
-//    (`disableSuggestions`) ;
-//  - `suggerer` : tout ce qu'elle tape est une suggestion (`enableSuggestions` ;
+//  - `editer` : les suggestions et les commentaires affichés, la frappe va
+//    dans le texte (`viewSuggestions`), et l'on accepte ou refuse ; le
+//    garde-fou refuse tout changement au contact d'une suggestion, qu'il
+//    prolongerait (y-prosemirror#245, extensions/garde-suggestions) ;
+//  - `corriger` : tout ce qu'elle tape est une suggestion (`enableSuggestions` ;
 //    pour un correcteur, y/hub le garantit, la branche principale lui est fermée) ;
-//  - `relire` : elle voit les suggestions et les accepte ou les refuse, sans
-//    écrire (`viewSuggestions`) : écrire par-dessus des suggestions affichées
-//    les prolonge (y-prosemirror#245) ;
-//  - `lire` : lecture seule (lecteur), sans les suggestions.
+//  - `lire` : le texte seul, sans suggestions ni commentaires, sans frappe
+//    (`disableSuggestions`).
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -63,6 +63,7 @@ import { dateDuJour, typographier, nfc, compter as compterTextes } from '../../d
 import { TYPE_NOTE, EVENEMENT_NOTE } from '../../extensions/note/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
+import { extensionGardeSuggestions } from '../../extensions/garde-suggestions/index.js'
 
 // Le compte des suggestions hors relecture : chaque minute, ou 30 s après le
 // dernier changement (Sylvain, 12/11/2026 : « plus rustique »).
@@ -185,7 +186,7 @@ function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote 
   )
 }
 
-/** La barre d'un lien en mode Suggérer : seulement l'ouvrir. Le modifier ou
+/** La barre d'un lien en mode Corriger : seulement l'ouvrir. Le modifier ou
  * le retirer serait une mise en forme suggérée, que le panneau ne sait pas
  * arbitrer (contournement, veille ; Sylvain, 11/11/2026). */
 function BarreDuLienEnSuggestion(props) {
@@ -258,26 +259,30 @@ function itemsDuMenu(editeur, table, textesTitres) {
 
 /**
  * @param {object} p
- * @param {'ecrire' | 'suggerer' | 'relire' | 'lire'} p.mode
+ * @param {'editer' | 'corriger' | 'lire'} p.mode
  * @param {(ids: string[]) => Promise<Array<{ id: string, username: string, avatarUrl: string }>>} p.nomsDe
  * @param {{ service: object, capacites: readonly string[] } | null} [p.commentaires]
  * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, nombre: number, enAttente: boolean, accepter: Function, refuser: Function, montrer: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
- *   `nombre` : en relecture, la longueur de la liste ; ailleurs, un compte refait
+ *   `nombre` : en Éditer et Corriger, la longueur de la liste ; en Lire, un compte refait
  *   à l'ouverture, puis chaque minute ou après 30 s de repos ; `montrer(s)` fait
  *   défiler le texte jusqu'à la suggestion, comme BlockNote pour un commentaire
  * @param {(n: number) => void} [p.surNombreFils] rappelé avec le nombre de fils
  *   de commentaires ouverts (non résolus) ; doit être stable
- *   rappelé avec les suggestions à chaque changement (pour qui peut arbitrer) ; la liste
- *   n'est remplie qu'en relecture, `enAttente` dit dans tous les modes s'il y en a ; doit être stable
+ *   rappelé avec les suggestions à chaque changement (pour qui les voit) ; la liste
+ *   n'est remplie qu'en Éditer et Corriger, `enAttente` dit dans tous les modes s'il y en a ; doit être stable
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
  * @param {{ element: HTMLElement | null, filtre: 'open' | 'resolved' | 'all' } | null} [p.fils]
  *   où placer la liste des fils de commentaires (onglet « Commentaires »), et son filtre
- * @param {(code: string) => void} [p.surRefus]  un geste refusé en mode Suggérer (contournements, veille)
+ * @param {(code: string) => void} [p.surRefus]  un geste refusé en Corriger ou en Éditer (contournements, veille)
  * @param {() => Promise<boolean>} [p.confirmerRestauration]  demandée avant de revenir à une version
- * @param {boolean} [p.lectureAuDepart]  format S : s'ouvre en lecture ; un appui
- *   sur le texte passe en modification (curseur à l'endroit touché)
+ * @param {boolean} [p.lectureAuDepart]  écran tactile : en Éditer et Corriger, le
+ *   texte s'ouvre sans clavier ; un appui sur le texte passe en modification
+ *   (curseur à l'endroit touché)
+ * @param {() => void} [p.surAppuiEnLecture]  format S : en Lire, un appui sur le
+ *   texte demande à l'application le mode d'écriture de la personne (Éditer ou
+ *   Corriger), le curseur à l'endroit touché (Sylvain, 12/11/2026)
  * @param {{ current: { terminer: () => void, exporter: Function } | null }} [p.controle]  reçoit
  *   `terminer()` (bouton « Terminer » du bandeau), `compter()` ({ signes, mots }
  *   du texte de base) et `exporter(format, options)` :
@@ -324,6 +329,7 @@ export function EditeurCollaboratif({
   surRefus,
   fils = null,
   lectureAuDepart = false,
+  surAppuiEnLecture,
   controle,
   surModification,
   surPlan,
@@ -335,7 +341,9 @@ export function EditeurCollaboratif({
   surNote,
   surCompte,
 }) {
-  const avecSuggestions = mode !== 'lire' && contexte.suggestions !== null
+  // Le lecteur ne reçoit pas les suggestions ; les autres les ont dans tous
+  // les modes (en Lire, l'afficheur est seulement débranché).
+  const avecSuggestions = contexte.suggestions !== null
   // Le mode du moment, lu par la typographie sans recréer l'éditeur.
   const modeMaintenant = useRef(mode)
   modeMaintenant.current = mode
@@ -344,7 +352,7 @@ export function EditeurCollaboratif({
   // Un afficheur, créé une fois (le mode du départ seulement) ; le mode passe
   // ensuite par l'extension (effet plus bas), sans le recréer.
   const afficheur = useMemo(
-    () => (avecSuggestions ? creerAfficheur(contexte, mode === 'suggerer') : null),
+    () => (avecSuggestions ? creerAfficheur(contexte, mode === 'corriger') : null),
     [contexte, avecSuggestions],
   )
   const magasin = useMemo(
@@ -365,14 +373,20 @@ export function EditeurCollaboratif({
       schema: schemaLivre,
       // Envoyer une image (choisie, collée ou déposée), comme Docs.
       ...(televerser ? { uploadFile: televerser } : {}),
-      // La typographie à la frappe en mode Modifier seulement : en suggestion,
-      // les règles de saisie échouent (défaut de BlockNote, veille ; Sylvain,
-      // 08/11/2026 : attendre sa correction).
+      // La typographie à la frappe en Éditer seulement : en suggestion, les
+      // règles de saisie échouent (défaut de BlockNote, veille ; Sylvain,
+      // 08/11/2026 : attendre sa correction). En Éditer, elle marche avec les
+      // suggestions affichées (essai du 12/11/2026).
       extensions: [
-        extensionTypographie({ langue: langueDocument, actif: () => modeMaintenant.current === 'ecrire' }),
-        // Contournements temporaires du mode Suggérer (veille).
+        extensionTypographie({ langue: langueDocument, actif: () => modeMaintenant.current === 'editer' }),
+        // Contournements temporaires du mode Corriger (veille).
         extensionLimitesDuSuivi({
-          actif: () => modeMaintenant.current === 'suggerer',
+          actif: () => modeMaintenant.current === 'corriger',
+          refuser: (code) => surRefusDuSuivi.current?.(code),
+        }),
+        // Le garde-fou du mode Éditer (y-prosemirror#245, veille).
+        extensionGardeSuggestions({
+          actif: () => modeMaintenant.current === 'editer' && avecSuggestions,
           refuser: (code) => surRefusDuSuivi.current?.(code),
         }),
         ...(magasin ? [CommentsExtension({ threadStore: magasin, resolveUsers: nomsDe })] : []),
@@ -422,8 +436,8 @@ export function EditeurCollaboratif({
     }
     if (!afficheur) return
     const ext = editeur.getExtension('suggestions')
-    if (mode === 'suggerer') ext.enableSuggestions()
-    else if (mode === 'relire') ext.viewSuggestions()
+    if (mode === 'corriger') ext.enableSuggestions()
+    else if (mode === 'editer') ext.viewSuggestions()
     else ext.disableSuggestions()
   }, [editeur, afficheur, mode, historique])
 
@@ -431,9 +445,8 @@ export function EditeurCollaboratif({
   const [auteurs, setAuteurs] = useState(null)
   useEffect(() => (afficheur ? suivreAuteurs(contexte, setAuteurs) : undefined), [contexte, afficheur])
 
-  // La liste des suggestions, pour qui peut les accepter ou les refuser : en
-  // relecture seulement (l'éditeur les montre alors) ; dans les autres modes,
-  // seulement s'il y en a, d'après l'afficheur.
+  // La liste des suggestions : en Éditer et Corriger (l'éditeur les montre
+  // alors) ; en Lire, seulement s'il y en a, d'après l'afficheur.
   useEffect(() => {
     if (!afficheur || !surSuggestions) return
     const ext = editeur.getExtension('suggestions')
@@ -444,13 +457,13 @@ export function EditeurCollaboratif({
       toutAccepter: () => ext.applyAllSuggestions(),
       toutRefuser: () => ext.revertAllSuggestions(),
     }
-    const relire = mode === 'relire'
-    // Hors relecture, le nombre est compté à part, rarement (compterSuggestions).
-    let compte = relire ? 0 : compterSuggestions(contexte, afficheur)
+    const affichees = mode !== 'lire'
+    // En Lire, le nombre est compté à part, rarement (compterSuggestions).
+    let compte = affichees ? 0 : compterSuggestions(contexte, afficheur)
     const signaler = () => {
       const enAttente = !afficheur.attributed.isEmpty()
-      const liste = relire ? listeDesSuggestions(editeur, auteurs) : []
-      surSuggestions({ liste, nombre: !enAttente ? 0 : relire ? liste.length : compte, enAttente, ...actions })
+      const liste = affichees ? listeDesSuggestions(editeur, auteurs) : []
+      surSuggestions({ liste, nombre: !enAttente ? 0 : affichees ? liste.length : compte, enAttente, ...actions })
     }
     signaler()
     let repos = null
@@ -458,15 +471,15 @@ export function EditeurCollaboratif({
       compte = compterSuggestions(contexte, afficheur)
       signaler()
     }
-    const intervalle = relire ? null : setInterval(recompter, COMPTE_CHAQUE)
+    const intervalle = affichees ? null : setInterval(recompter, COMPTE_CHAQUE)
     const changement = () => {
-      if (relire) return signaler()
+      if (affichees) return signaler()
       clearTimeout(repos)
       repos = setTimeout(recompter, COMPTE_AU_REPOS)
       signaler()
     }
     const arreter = editeur.onChange(changement)
-    // Hors relecture, l'éditeur ne montre pas les suggestions : leurs changements
+    // En Lire, l'éditeur ne montre pas les suggestions : leurs changements
     // arrivent par le document des suggestions.
     let minuterie = null
     const surChangement = () => {
@@ -561,8 +574,10 @@ export function EditeurCollaboratif({
   // Tout se fait dans le geste même (sinon le téléphone n'ouvre pas le
   // clavier) ; la propriété `editable` de BlockNoteView reste à `false` et l'on
   // bascule l'éditeur directement (maquette validée, docs/v2-format-S.md).
-  const ecrit = mode !== 'lire' && mode !== 'relire'
+  const ecrit = mode !== 'lire'
   const appui = lectureAuDepart && ecrit && !historique
+  // Format S : en Lire, un appui sur le texte passe au mode d'écriture.
+  const appuiEnLecture = !ecrit && !historique && Boolean(surAppuiEnLecture)
   const [enModification, setEnModification] = useState(false)
   useEffect(() => surModification?.(enModification), [enModification, surModification])
   const terminer = () => {
@@ -571,6 +586,10 @@ export function EditeurCollaboratif({
     editeur.prosemirrorView?.dom.blur()
     setEnModification(false)
   }
+  // Passer en Lire pendant une modification (menu « … » du format S) la termine.
+  useEffect(() => {
+    if (!ecrit) terminer()
+  }, [ecrit])
   const exporter = async (format, { modele, polices, titre, langue, auteur } = {}) => {
     const blocs = blocsDuTexte(editeur, contexte.fragment)
     if (format === 'markdown') return versMarkdown(editeur, blocs, { titreTable: textes.table?.titre })
@@ -625,10 +644,10 @@ export function EditeurCollaboratif({
       surNoteActuel.current?.({
         texte,
         nouvelle: false,
-        // En Suggérer, le texte d'une note ne se modifie pas : Yjs 14 ne sait
+        // En Corriger, le texte d'une note ne se modifie pas : Yjs 14 ne sait
         // pas accepter une seule proposition d'attribut (veille, 12/11/2026) ;
         // on commente l'appel. Ajouter ou supprimer une note reste possible.
-        lectureSeule: !editeur.isEditable || modeMaintenant.current === 'suggerer',
+        lectureSeule: !editeur.isEditable || modeMaintenant.current === 'corriger',
         enregistrer: (t) => (typo(t) ? modifier(typo(t)) : retirer()),
         retirer,
         fermer: rendreLaMain,
@@ -661,7 +680,7 @@ export function EditeurCollaboratif({
       <Palette
         {...props}
         corriger={corriger}
-        suggerer={mode === 'suggerer'}
+        suggerer={mode === 'corriger'}
         exposant={textes.exposant}
         formatS={formatS}
         note={textes.note}
@@ -679,7 +698,8 @@ export function EditeurCollaboratif({
     [editeur, textes, surNote, nouvelleNote],
   )
   const commencer = (evenement) => {
-    if (!appui || editeur.isEditable) return
+    if (!(appui || appuiEnLecture) || editeur.isEditable) return
+    if (appuiEnLecture) surAppuiEnLecture()
     editeur.isEditable = true
     editeur.prosemirrorView?.focus()
     // Le curseur à l'endroit touché : par la sélection du navigateur, que
@@ -728,11 +748,13 @@ export function EditeurCollaboratif({
       // Notre menu « / » (saut de page, table des matières) ; aucun en
       // Suggérer : pas de changement de type de bloc (contournement, veille).
       slashMenu={false}
-      linkToolbar={mode !== 'suggerer'}
+      linkToolbar={mode !== 'corriger'}
+      // En Lire, ni fil ni bulle de commentaire (le texte seul).
+      comments={mode !== 'lire'}
     >
       <FormattingToolbarController formattingToolbar={palette} />
-      {mode === 'suggerer' ? <LinkToolbarController linkToolbar={BarreDuLienEnSuggestion} /> : null}
-      {mode !== 'suggerer' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
+      {mode === 'corriger' ? <LinkToolbarController linkToolbar={BarreDuLienEnSuggestion} /> : null}
+      {mode !== 'corriger' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
       {/* La liste des fils (exemple 06-comments-with-sidebar de BlockNote, et
           Docs) : rendue dans l'éditeur (elle en a besoin), placée dans l'onglet. */}
       {magasin && fils?.element ? (
@@ -761,5 +783,5 @@ export function EditeurCollaboratif({
       ) : null}
     </BlockNoteView>
   )
-  return appui ? <div onClick={commencer}>{vue}</div> : vue
+  return appui || appuiEnLecture ? <div onClick={commencer}>{vue}</div> : vue
 }

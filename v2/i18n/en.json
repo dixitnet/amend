@@ -21,7 +21,6 @@
     "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
     "lectureSeule": "Read only",
-    "modeSuggestion": "Suggesting",
     "historique": "History",
     "mesDocuments": "My documents",
     "partager": "Share",
@@ -35,13 +34,13 @@
     "restaurerTitre": "Restore this version?",
     "restaurerTexte": "The document goes back to this version for everyone. The current state stays in the history (“Before restore”).",
     "restaurer": "Restore",
-    "modes": "Editing mode",
-    "modeEcrire": "Edit",
-    "modeSuggerer": "Suggest",
-    "modeRelire": "Review",
-    "passerEcrire": "Edit directly",
-    "passerSuggerer": "Suggest changes",
-    "passerRelire": "Review suggestions",
+    "modes": "Working mode",
+    "modeEditer": "Edit",
+    "modeCorriger": "Suggest",
+    "modeLire": "Read",
+    "passerEditer": "Switch to Edit mode",
+    "passerCorriger": "Switch to Suggest mode",
+    "passerLire": "Switch to Read mode",
     "exporter": "Export…",
     "copie": "{titre} (copy)",
     "dupliquer": "Duplicate",
@@ -126,10 +125,11 @@
     "tous": "All"
   },
   "suivi": {
-    "aCheval": "In Suggest mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph, or switch to Edit.",
-    "miseEnForme": "In Suggest mode, formatting is not suggested (it could not be accepted). Switch to Edit to change it.",
+    "aCheval": "In Suggest mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph.",
+    "miseEnForme": "In Suggest mode, formatting is not suggested (it could not be accepted).",
+    "contreSuggestion": "In Edit mode, text next to a suggestion cannot be changed (the change would merge into it): accept or reject the suggestion first.",
     "panne": "This document cannot be shown with its suggestions. Reload the page; if it happens again, report it.",
-    "panneRepli": "Showing suggestions failed on this document: back to Edit."
+    "panneRepli": "Showing suggestions failed on this document: back to Read mode."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
@@ -144,8 +144,6 @@
     "accepterDe": "Accept: {texte}",
     "refuserDe": "Reject: {texte}",
     "invisibles": "Some suggestions are not shown in the list (a paragraph deletion, for instance): “Accept all” and “Reject all” still handle them.",
-    "enCours": "Pending suggestions",
-    "enAttente": "Suggestions are waiting: switch to review to accept or reject them.",
     "note": "{auteur} edits a footnote: “{apres}”",
     "ajoutNote": "{auteur} adds a footnote: “{apres}”",
     "suppressionNote": "{auteur} deletes a footnote: “{avant}”"

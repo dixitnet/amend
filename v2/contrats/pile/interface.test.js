@@ -5,7 +5,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, choisirMode } from './outils.mjs'
+import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, panneau } from './outils.mjs'
 
 let pile, nav
 const ouvrir = (nom, docId, o) => ouvrirSur(nav, pile.url, nom, docId, o)
@@ -97,8 +97,8 @@ test('volet droit : il s’ouvre d’office quand une suggestion arrive ; en rel
   await c.keyboard.type(' Noire.')
   for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await inactif(p, DROITE));) await attendre(200)
   assert.equal(await inactif(p, DROITE), false, 'ouvert d’office')
-  await p.getByText('Des suggestions attendent').waitFor()
-  await choisirMode(p, 'Relire')
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/Carla ajoute/.test(await panneau(p));) await attendre(200)
+  assert.match(await panneau(p), /Carla ajoute/)
   for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(200))
     if (await p.locator('.mantine-Indicator-indicator').getByText('1', { exact: true }).count()) break
   assert.ok(await p.locator('.mantine-Indicator-indicator').getByText('1', { exact: true }).count())

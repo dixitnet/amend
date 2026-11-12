@@ -271,7 +271,7 @@ function coquilleDocument(t, { droite = true, relecture = {} } = {}) {
       bandeau: h(design.Bandeau, {
         voletGauche: { libelle: t('telephone.planEtDocuments'), ouvert: true, surClic: rien },
         titre: 'La gare',
-        mention: t('document.modeSuggestion'),
+        mention: t('document.lectureSeule'),
         terminer: { libelle: t('telephone.terminer'), surClic: rien },
         presence: { libelle: t('interface.presence'), personnes: [{ cle: 'c', nom: 'Claire Martin' }] },
         partager: { libelle: t('document.partager'), surClic: rien },
@@ -331,7 +331,7 @@ test('coquille d’un document : bandeau, volets, alerte et texte, dans chaque l
     assert.match(html, /data-niveau="3"/, 'le niveau du titre passe au design')
     assert.match(html, /role="status"/, 'l’alerte hors ligne est annoncée')
     assert.match(html, />3</, 'le nombre de suggestions sur le bouton du volet droit')
-    assert.ok(html.includes(echapper(t('document.modeSuggestion'))), `${l} : mention du mode`)
+    assert.ok(html.includes(echapper(t('document.lectureSeule'))), `${l} : mention du mode`)
     assert.match(html, /data-connexion="connecte"/, 'l’état de la connexion, en attribut')
   }
 })

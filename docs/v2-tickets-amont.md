@@ -15,6 +15,7 @@ Chaque ticket est écrit en anglais, sur les versions installées le 11/11/2026,
 | 5   | yjs/y-prosemirror                               | une mise en forme suggérée (gras) n'est pas marquée comme suggestion                                     | **prêt** | reproduit sur la démo publique de y-prosemirror (sources identiques à 2.0.0-15) ; captures                                   |
 | 6   | yjs/y-prosemirror                               | une touche morte sur une sélection, en mode suggestion, laisse le « ^ » dans le texte                    | **prêt** | reproduit sur la démo, par simulation de la composition (outils de Chromium), deux fois sur deux ; captures                  |
 | 7   | yjs/y-prosemirror                               | les remplacements sont découpés au caractère (question, pas un défaut)                                   | **prêt** | reproduit sur la démo ; captures                                                                                             |
+| 8   | yjs/y-prosemirror                               | commentaire sur #245 : avec les suggestions affichées, la frappe directe au contact d'une suggestion s'y mêle (attribution à la mauvaise personne, suggestion effacée par un remplacement) | **à vérifier sur la démo** | reproduit dans amend.ink (montage de l'exemple `12-multi-doc-versioning` de BlockNote, `viewSuggestions` et frappe permise), essai du 12/11/2026 ; pas encore rejoué sur la démo de y-prosemirror |
 
 Non préparés, et pourquoi :
 
@@ -351,3 +352,29 @@ Is the character-level granularity intended for suggestions? Would a word-level 
 **Environment**
 Public demo on 2026-11-11 (sources identical to `@y/prosemirror` 2.0.0-15, `@y/y` 14.0.0-rc.29). Chromium. Also seen through BlockNote 0.57.0.
 ```
+
+---
+
+## 8. y-prosemirror : commentaire sur #245 (frappe directe au contact d'une suggestion affichée)
+
+Ajouter à https://github.com/yjs/y-prosemirror/issues/245 (décision de Sylvain, 12/11/2026). **À rejouer d'abord sur la démo** (mode qui affiche les suggestions tout en écrivant dans le texte) : le cas vient d'amend.ink, sur le montage de l'exemple `07-collaboration/12-multi-doc-versioning` de BlockNote. Détail : `docs/v2-tests/essai-editer-2026-11-12.md`.
+
+**Corps** :
+
+```markdown
+Adding cases to this issue, seen with suggestions **shown** (BlockNote `viewSuggestions()`, i.e. a `DiffRenderer` with `suggestionMode = false`) while the user **edits the base document directly** — the setup of BlockNote's `12-multi-doc-versioning` example, with editing allowed in the "view suggestions" state. This is the mode Google Docs calls "Editing" with suggestions visible, and what Docs (La Suite numérique) plans in suitenumerique/docs#2491.
+
+User A suggests " donc" in "Il faisait| nuit". User B, an editor, types directly:
+
+1. right after the suggestion (and one character beyond, in the next word): B's text is absorbed into A's suggestion, **attributed to A**; rejecting the suggestion **deletes B's text**;
+2. right before the suggestion at the end of a paragraph: B's text is absorbed and **the whole suggestion is now attributed to B**;
+3. B selects a range overlapping the suggestion and types a replacement: **A's suggestion disappears**, with no trace in the attributions;
+4. inside a suggested deletion: B's text goes to the base document and splits the deletion in two suggestions (acceptable, but surprising).
+
+Typing one word away from the suggestion is fine.
+
+Versions: `@y/prosemirror` 2.0.0-15, `@y/y` 14.0.0-rc.29, `@blocknote/core` 0.57.0, Chromium.
+
+We now block direct edits within the suggestion and the words touching it in that mode, as a workaround. A fix in the binding (direct edits never attributed, and never extending a suggestion) would let us remove it.
+```
+
