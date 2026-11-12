@@ -185,3 +185,33 @@ export function listeDesSuggestions(editeur, auteurs = null) {
     })
   })
 }
+
+/**
+ * Le nombre de suggestions, lu dans Yjs sans passer par l'éditeur : hors
+ * relecture, l'éditeur montre le texte seul et ne connaît pas les
+ * suggestions. Le rendu des différences (l'afficheur) marque le texte proposé
+ * (`attribution`) ; un passage marqué d'un seul tenant, dans un même bloc,
+ * compte pour une suggestion, comme une ligne de `listeDesSuggestions` (sans
+ * les auteurs : deux propositions de deux personnes qui se touchent comptent
+ * pour une). Un calcul de tout le document : à faire rarement (Sylvain,
+ * 12/11/2026 : à l'ouverture, puis chaque minute ou après 30 s de repos).
+ */
+export function compterSuggestions(contexte, afficheur) {
+  const delta = contexte.suggestions.fragment.toDeltaDeep({ renderer: afficheur }).toJSON()
+  let n = 0
+  const parcourir = (noeud) => {
+    let dansUnPassage = false
+    for (const c of noeud?.children ?? []) {
+      if (c.type === 'insert' && typeof c.insert === 'string') {
+        if (c.attribution && !dansUnPassage) n++
+        dansUnPassage = Boolean(c.attribution)
+        continue
+      }
+      dansUnPassage = false
+      if (c.type === 'insert' && Array.isArray(c.insert))
+        for (const x of c.insert) if (x && typeof x === 'object') parcourir(x)
+    }
+  }
+  parcourir(delta)
+  return n
+}

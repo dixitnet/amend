@@ -53,7 +53,7 @@ import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
 import { boutonsGardes, boutonsGardesEnSuggestion } from './palette.js'
 import { MagasinFils } from './commentaires.js'
-import { creerAfficheur, suivreAuteurs, listeDesSuggestions } from './suggestions.js'
+import { creerAfficheur, suivreAuteurs, listeDesSuggestions, compterSuggestions } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
@@ -61,6 +61,22 @@ import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 
+// Le compte des suggestions hors relecture : chaque minute, ou 30 s après le
+// dernier changement (Sylvain, 12/11/2026 : « plus rustique »).
+const COMPTE_CHAQUE = 60_000
+const COMPTE_AU_REPOS = 30_000
+
+/** Fait défiler le texte jusqu'à une position, au centre, comme BlockNote
+ * pour un commentaire (`selectThread`). */
+function montrerPosition(editeur, position) {
+  try {
+    const { node } = editeur.prosemirrorView.domAtPos(position)
+    const element = node.nodeType === 1 ? node : node.parentElement
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  } catch {
+    // Une position qui n'existe plus (suggestion traitée entre-temps) : rien.
+  }
+}
 /** La sélection, en blocs : le premier et le dernier bloc à texte touchés
  * (`null` sans sélection étendue). Pour Margo (étape 8). */
 function selectionEnBlocs(editeur) {
@@ -175,7 +191,12 @@ function itemsDuMenu(editeur, table) {
  * @param {'ecrire' | 'suggerer' | 'relire' | 'lire'} p.mode
  * @param {(ids: string[]) => Promise<Array<{ id: string, username: string, avatarUrl: string }>>} p.nomsDe
  * @param {{ service: object, capacites: readonly string[] } | null} [p.commentaires]
- * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, enAttente: boolean, accepter: Function, refuser: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
+ * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, nombre: number, enAttente: boolean, accepter: Function, refuser: Function, montrer: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
+ *   `nombre` : en relecture, la longueur de la liste ; ailleurs, un compte refait
+ *   à l'ouverture, puis chaque minute ou après 30 s de repos ; `montrer(s)` fait
+ *   défiler le texte jusqu'à la suggestion, comme BlockNote pour un commentaire
+ * @param {(n: number) => void} [p.surNombreFils] rappelé avec le nombre de fils
+ *   de commentaires ouverts (non résolus) ; doit être stable
  *   rappelé avec les suggestions à chaque changement (pour qui peut arbitrer) ; la liste
  *   n'est remplie qu'en relecture, `enAttente` dit dans tous les modes s'il y en a ; doit être stable
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
@@ -216,6 +237,7 @@ export function EditeurCollaboratif({
   nomsDe,
   commentaires = null,
   surSuggestions,
+  surNombreFils,
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
@@ -333,33 +355,61 @@ export function EditeurCollaboratif({
     const actions = {
       accepter: (s) => ext.applySuggestion(s.plage.debut, s.plage.fin),
       refuser: (s) => ext.revertSuggestion(s.plage.debut, s.plage.fin),
+      montrer: (s) => montrerPosition(editeur, s.debut),
       toutAccepter: () => ext.applyAllSuggestions(),
       toutRefuser: () => ext.revertAllSuggestions(),
     }
     const relire = mode === 'relire'
-    const signaler = () =>
-      surSuggestions({
-        liste: relire ? listeDesSuggestions(editeur, auteurs) : [],
-        enAttente: !afficheur.attributed.isEmpty(),
-        ...actions,
-      })
+    // Hors relecture, le nombre est compté à part, rarement (compterSuggestions).
+    let compte = relire ? 0 : compterSuggestions(contexte, afficheur)
+    const signaler = () => {
+      const enAttente = !afficheur.attributed.isEmpty()
+      const liste = relire ? listeDesSuggestions(editeur, auteurs) : []
+      surSuggestions({ liste, nombre: !enAttente ? 0 : relire ? liste.length : compte, enAttente, ...actions })
+    }
     signaler()
-    const arreter = editeur.onChange(signaler)
+    let repos = null
+    const recompter = () => {
+      compte = compterSuggestions(contexte, afficheur)
+      signaler()
+    }
+    const intervalle = relire ? null : setInterval(recompter, COMPTE_CHAQUE)
+    const changement = () => {
+      if (relire) return signaler()
+      clearTimeout(repos)
+      repos = setTimeout(recompter, COMPTE_AU_REPOS)
+      signaler()
+    }
+    const arreter = editeur.onChange(changement)
     // Hors relecture, l'éditeur ne montre pas les suggestions : leurs changements
     // arrivent par le document des suggestions.
     let minuterie = null
     const surChangement = () => {
       clearTimeout(minuterie)
-      minuterie = setTimeout(signaler, 300)
+      minuterie = setTimeout(changement, 300)
     }
     contexte.suggestions.doc.on('update', surChangement)
     return () => {
       arreter()
       clearTimeout(minuterie)
+      clearTimeout(repos)
+      clearInterval(intervalle)
       contexte.suggestions.doc.off('update', surChangement)
       surSuggestions(null)
     }
   }, [editeur, contexte, afficheur, mode, surSuggestions, auteurs])
+
+  // Le nombre de fils ouverts, pour le compteur des tâches (Sylvain, 12/11/2026).
+  useEffect(() => {
+    if (!magasin || !surNombreFils) return
+    const compter = (fils) => surNombreFils([...fils.values()].filter((f) => !f.resolved).length)
+    compter(magasin.getThreads())
+    const arreter = magasin.subscribe(compter)
+    return () => {
+      arreter()
+      surNombreFils(0)
+    }
+  }, [magasin, surNombreFils])
 
   // Le plan : les titres du document, tenus à jour (volet « Plan » des trois
   // formats), et le titre courant au défilement. Aller à un titre y met le
