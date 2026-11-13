@@ -207,7 +207,9 @@ export function PanneauModeles({
         </form>
       ) : (
         <Group>
-          <Button onClick={() => setCreation({ nom: '', base: bases[0]?.value })}>{libelles.nouveau}</Button>
+          <Button disabled={!bases.length} onClick={() => setCreation({ nom: '', base: bases[0]?.value })}>
+            {libelles.nouveau}
+          </Button>
         </Group>
       )}
     </Stack>

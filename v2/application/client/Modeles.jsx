@@ -305,7 +305,7 @@ export function PageModele({ equipe, modele }) {
     return () => {
       vivant = false
     }
-  }, [equipe, modele])
+  }, [equipe])
   if (etat.phase === 'chargement') return <EcranMessage texte={t('application.chargement')} />
   if (etat.phase === 'erreur') return <EcranMessage texte={messageErreur(t, etat.code)} />
   const m = (etat.donnees.modeles ?? []).find((x) => x.id === modele)
