@@ -11,7 +11,7 @@ import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
 import { lirePolice, STYLES_POLICE } from '../../domaine/index.js'
-import { MODELES_LIVRE, REGLES_MODELES, REGLES_MODELES_INSTANCE } from '../../design/livre.js'
+import { MODELES_LIVRE, REGLES_MODELES } from '../../design/livre.js'
 
 const FAMILLES = [
   'EB Garamond',
@@ -33,7 +33,7 @@ test('le catalogue : neuf familles, les mêmes pour les équipes et pour l’ins
     FAMILLES,
   )
   assert.deepEqual(
-    REGLES_MODELES_INSTANCE.polices.map((p) => p.famille),
+    REGLES_MODELES.polices.map((p) => p.famille),
     FAMILLES,
   )
 })

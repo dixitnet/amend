@@ -117,38 +117,58 @@ test('modèles d’équipe : le gestionnaire crée et règle ; les écarts sont 
   const { gaelle, marc, eq } = await equipeEtDocument()
   const base = `/api/equipes/${eq.id}/modeles`
   assert.equal(
-    (await appel('POST', base, { cookie: marc.cookie, corps: { nom: 'Essais', base: 'a4' } })).statut,
+    (await appel('POST', base, { cookie: marc.cookie, corps: { nom: 'Essais', depart: 'a4' } })).statut,
     403,
     'un éditeur de l’équipe ne crée pas de modèle',
   )
   assert.equal(
-    (await appel('POST', base, { cookie: gaelle.cookie, corps: { nom: 'Essais', base: 'inconnu' } })).json.code,
+    (await appel('POST', base, { cookie: gaelle.cookie, corps: { nom: 'Essais', depart: 'inconnu' } })).json.code,
     'modele-introuvable',
   )
   const { statut, json: m } = await appel('POST', base, {
     cookie: gaelle.cookie,
-    corps: { nom: ' Essais ', base: 'a4' },
+    corps: { nom: ' Essais ', depart: 'a4' },
   })
   assert.equal(statut, 201)
   const refus = await appel('PUT', `${base}/${m.id}`, {
     cookie: gaelle.cookie,
-    corps: { ecarts: { 'grille.lignes': 80 } },
+    corps: { reglages: { 'grille.lignes': 80 } },
   })
   assert.equal(refus.statut, 400)
   assert.deepEqual(refus.json, { code: 'modele-impossible', reglage: null, raison: 'lignes' })
-  const hors = await appel('PUT', `${base}/${m.id}`, { cookie: gaelle.cookie, corps: { ecarts: { 'folio.bas': 3 } } })
-  assert.deepEqual(hors.json, { code: 'reglage-inconnu', reglage: 'folio.bas', raison: null })
+  const hors = await appel('PUT', `${base}/${m.id}`, {
+    cookie: gaelle.cookie,
+    corps: { reglages: { 'nimporte.quoi': 3 } },
+  })
+  assert.deepEqual(hors.json, { code: 'reglage-inconnu', reglage: 'nimporte.quoi', raison: null })
   const bon = await appel('PUT', `${base}/${m.id}`, {
     cookie: gaelle.cookie,
-    corps: { nom: 'Essais 2027', ecarts: { 'page.largeur': 135, 'page.hauteur': 297, 'chapitre.debut': 'continuer' } },
+    corps: {
+      nom: 'Essais 2027',
+      reglages: {
+        'page.largeur': 135,
+        'chapitre.debut': 'continuer',
+        'styles.titre1.capitales': true,
+        'styles.titre2.corps': 12,
+      },
+    },
   })
-  assert.deepEqual(bon.json, { ecarts: { 'page.largeur': 135, 'chapitre.debut': 'continuer' } })
+  assert.equal(bon.statut, 200)
   const vue = (await appel('GET', `/api/equipes/${eq.id}`, { cookie: marc.cookie })).json
   assert.deepEqual(
-    vue.modeles.map((x) => [x.nom, x.base, x.ecarts, x.documents]),
-    [['Essais 2027', 'a4', { 'page.largeur': 135, 'chapitre.debut': 'continuer' }, 0]],
+    vue.modeles.map((x) => [
+      x.nom,
+      x.documents,
+      x.complet.page.largeur,
+      x.complet.page.hauteur,
+      x.complet.chapitre.debut,
+      x.complet.styles.titre1.capitales,
+      x.complet.styles.titre2.corps,
+    ]),
+    [['Essais 2027', 0, 135, 297, 'continuer', true, 12]],
   )
   assert.equal(vue.modeleDefaut, null)
+  assert.equal(vue.modeles[0].base, undefined, 'aucune filiation gardée')
 })
 
 test('modèle d’un document : défaut de l’équipe, choix par qui écrit, ce que voit un correcteur extérieur', async () => {
@@ -156,11 +176,11 @@ test('modèle d’un document : défaut de l’équipe, choix par qui écrit, ce
   const g = { cookie: gaelle.cookie }
   const { json: m } = await appel('POST', `/api/equipes/${eq.id}/modeles`, {
     ...g,
-    corps: { nom: 'Collection', base: 'a4' },
+    corps: { nom: 'Collection', depart: 'a4' },
   })
   const { json: m2 } = await appel('POST', `/api/equipes/${eq.id}/modeles`, {
     ...g,
-    corps: { nom: 'Brouillon', base: 'a4' },
+    corps: { nom: 'Brouillon', depart: 'a4' },
   })
   let v = await modelesDu(marc, doc.id)
   assert.equal(v.retenu, await defautInstance(), 'sans choix, le défaut de l’instance')
@@ -195,7 +215,7 @@ test('modèle d’un document : défaut de l’équipe, choix par qui écrit, ce
   const { json: autre } = await appel('POST', '/api/equipes', { ...g, corps: { nom: 'Autre' } })
   const { json: ailleurs } = await appel('POST', `/api/equipes/${autre.id}/modeles`, {
     ...g,
-    corps: { nom: 'Ailleurs', base: 'a4' },
+    corps: { nom: 'Ailleurs', depart: 'a4' },
   })
   assert.equal(
     (await appel('PUT', `/api/documents/${doc.id}/modele`, { cookie: marc.cookie, corps: { modele: ailleurs.id } }))
@@ -213,7 +233,7 @@ test('modèle d’un document : défaut de l’équipe, choix par qui écrit, ce
     ['a4', m2.id],
   )
   const [, vu] = horsInstance(v)
-  assert.deepEqual([vu.id, vu.nom, vu.base, vu.ecarts, vu.complet.page.largeur], [m2.id, 'Brouillon', 'a4', {}, 210])
+  assert.deepEqual([vu.id, vu.nom, vu.complet.page.largeur], [m2.id, 'Brouillon', 210])
   // Personne d'autre ne voit les modèles du document.
   const inconnu = await personne('Inconnu')
   assert.equal((await appel('GET', `/api/documents/${doc.id}/modeles`, { cookie: inconnu.cookie })).statut, 404)
@@ -224,7 +244,7 @@ test('supprimer un modèle : les documents qui l’avaient retombent sur le déf
   const g = { cookie: gaelle.cookie }
   const { json: m } = await appel('POST', `/api/equipes/${eq.id}/modeles`, {
     ...g,
-    corps: { nom: 'Collection', base: 'a4' },
+    corps: { nom: 'Collection', depart: 'a4' },
   })
   await appel('PUT', `/api/equipes/${eq.id}/modele-defaut`, { ...g, corps: { modele: m.id } })
   await appel('PUT', `/api/documents/${doc.id}/modele`, { ...g, corps: { modele: m.id } })
@@ -243,7 +263,7 @@ test('un document qui sort de l’équipe perd son modèle d’équipe, garde un
   const g = { cookie: gaelle.cookie }
   const { json: m } = await appel('POST', `/api/equipes/${eq.id}/modeles`, {
     ...g,
-    corps: { nom: 'Collection', base: 'a4' },
+    corps: { nom: 'Collection', depart: 'a4' },
   })
   await appel('PUT', `/api/documents/${doc.id}/modele`, { ...g, corps: { modele: m.id } })
   await appel('PUT', `/api/documents/${doc.id}/dossier`, { ...g, corps: { equipe: null, dossier: null } })
@@ -265,45 +285,51 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
   const { gaelle, marc, eq, doc } = await equipeEtDocument()
   const g = { cookie: gaelle.cookie }
   assert.equal((await appel('GET', '/api/admin/modeles', g)).statut, 403, 'réservé aux administrateurs')
-  assert.equal((await appel('POST', '/api/admin/modeles', { ...g, corps: { nom: 'X' } })).statut, 403)
+  assert.equal((await appel('POST', '/api/admin/modeles', { ...g, corps: { nom: 'X', depart: 'a4' } })).statut, 403)
   assert.equal((await appel('PUT', '/api/admin/modele-defaut', { ...g, corps: { modele: null } })).statut, 403)
-  const { statut, json: i } = await appel('POST', '/api/admin/modeles', { ...a, corps: { nom: 'Collection maison' } })
+  const { statut, json: i } = await appel('POST', '/api/admin/modeles', {
+    ...a,
+    corps: { nom: 'Collection maison', depart: 'a4' },
+  })
   assert.equal(statut, 201)
-  // L'administrateur règle ce qu'une équipe ne règle pas.
+  // L'administrateur règle tout, style par style.
   const r = await appel('PUT', `/api/admin/modeles/${i.id}`, {
     ...a,
-    corps: { ecarts: { 'folio.bas': 20, 'chapitre.ligneTitre': 4, separateur: 'trait' } },
+    corps: { reglages: { 'folio.bas': 20, 'chapitre.ligneTitre': 4, separateur: 'trait', 'styles.legende.corps': 8 } },
   })
-  assert.deepEqual(r.json, { ecarts: { 'folio.bas': 20, 'chapitre.ligneTitre': 4, separateur: 'trait' } })
-  const hors = await appel('PUT', `/api/admin/modeles/${i.id}`, { ...a, corps: { ecarts: { separateur: 'licorne' } } })
+  assert.equal(r.statut, 200)
+  const hors = await appel('PUT', `/api/admin/modeles/${i.id}`, {
+    ...a,
+    corps: { reglages: { separateur: 'licorne' } },
+  })
   assert.equal(hors.json.code, 'reglage-hors-bornes')
   let liste = (await appel('GET', '/api/admin/modeles', a)).json
   assert.equal(liste.modeleCode.id, 'a4')
   assert.equal(liste.modeles.find((m) => m.id === i.id).complet.folio.bas, 20)
-  // Une équipe part du modèle de l'instance et règle sa largeur.
+  // Une équipe part du modèle de l'instance (une copie) et règle ce qu'elle veut.
   const { json: m } = await appel('POST', `/api/equipes/${eq.id}/modeles`, {
     ...g,
-    corps: { nom: 'Poche', base: i.id },
+    corps: { nom: 'Poche', depart: i.id },
   })
-  await appel('PUT', `/api/equipes/${eq.id}/modeles/${m.id}`, { ...g, corps: { ecarts: { 'page.largeur': 150 } } })
-  const interdit = await appel('PUT', `/api/equipes/${eq.id}/modeles/${m.id}`, {
+  await appel('PUT', `/api/equipes/${eq.id}/modeles/${m.id}`, {
     ...g,
-    corps: { ecarts: { 'folio.bas': 30 } },
+    corps: { reglages: { 'page.largeur': 150, 'folio.bas': 22 } },
   })
-  assert.equal(interdit.json.code, 'reglage-inconnu', 'l’équipe garde sa liste fermée')
   const vueEquipe = (await appel('GET', `/api/equipes/${eq.id}`, g)).json
   assert.ok(
     vueEquipe.modelesInstance.some((x) => x.id === i.id),
-    'les modèles de l’instance, bases possibles',
+    'les modèles de l’instance, modèles de départ possibles',
   )
   const complet = () => modelesDu(marc, doc.id).then((v) => v.modeles.find((x) => x.id === m.id).complet)
-  assert.deepEqual(await complet().then((c) => [c.page.largeur, c.folio.bas, c.separateur]), [150, 20, 'trait'])
-  // Une correction du modèle de l'instance atteint le modèle de l'équipe.
-  await appel('PUT', `/api/admin/modeles/${i.id}`, {
-    ...a,
-    corps: { ecarts: { 'folio.bas': 25, separateur: 'trait' } },
-  })
-  assert.equal((await complet()).folio.bas, 25)
+  assert.deepEqual(await complet().then((c) => [c.page.largeur, c.folio.bas, c.separateur, c.styles.legende.corps]), [
+    150,
+    22,
+    'trait',
+    8,
+  ])
+  // Après la copie, plus de filiation : une correction du modèle de l'instance n'atteint pas la copie.
+  await appel('PUT', `/api/admin/modeles/${i.id}`, { ...a, corps: { reglages: { 'folio.bas': 25 } } })
+  assert.equal((await complet()).folio.bas, 22)
   // Le défaut de l'instance, puis sa suppression.
   const avant = await comptes.reglage('modeles.defaut')
   try {
@@ -311,30 +337,22 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
     assert.equal((await modelesDu(marc, doc.id)).retenu, i.id, 'le défaut de l’instance')
     liste = (await appel('GET', '/api/admin/modeles', a)).json
     assert.equal(liste.defaut, i.id)
-    assert.equal(liste.modeles.find((x) => x.id === i.id).derives, 1)
     assert.equal((await appel('PUT', `/api/admin/modeles/${i.id}`, { ...g, corps: { nom: 'Y' } })).statut, 403)
     assert.equal((await appel('DELETE', `/api/admin/modeles/${i.id}`, g)).statut, 403)
     const sup = await appel('DELETE', `/api/admin/modeles/${i.id}`, a)
     assert.equal(sup.statut, 200)
     assert.equal(await comptes.reglage('modeles.defaut'), null, 'le défaut retombe sur l’A4')
-    assert.equal((await comptes.modele(m.id)).base, 'a4', 'le modèle d’équipe repart de l’A4')
+    assert.equal((await comptes.modele(m.id)).valeurs.page.largeur, 150, 'la copie de l’équipe reste entière')
   } finally {
     await comptes.definirReglage('modeles.defaut', avant, null)
   }
 })
 
 test('reprise de « TàT - Poche » : un modèle de l’instance, une seule fois, et ce qui le citait le suit', async () => {
-  const { gaelle, eq, doc } = await equipeEtDocument()
-  const g = { cookie: gaelle.cookie }
-  const { json: m } = await appel('POST', `/api/equipes/${eq.id}/modeles`, {
-    ...g,
-    corps: { nom: 'Vieux', base: 'a4' },
-  })
-  // Comme avant la reprise : le document et l'équipe citent « tat-poche », le
-  // modèle d'équipe porte l'ancien réglage « belle page ».
+  const { eq, doc } = await equipeEtDocument()
+  // Comme avant la reprise : le document et l'équipe citent « tat-poche ».
   await comptes.definirModeleDocument(doc.id, 'tat-poche')
   await comptes.definirModeleDefaut(eq.id, 'tat-poche')
-  await comptes.modifierModele(m.id, { ecarts: { 'chapitre.bellePage': false } })
   const avant = { reprise: await comptes.reglage('modeles.reprise'), defaut: await comptes.reglage('modeles.defaut') }
   // Les modèles de l'instance déjà là (base de développement partagée) ne
   // sont pas effacés par le ménage du test.
@@ -348,16 +366,15 @@ test('reprise de « TàT - Poche » : un modèle de l’instance, une seule fois
     const repris = await comptes.modele(cree)
     assert.equal(repris.equipe, null)
     assert.equal(repris.nom, 'TàT - Poche')
-    assert.equal(repris.base, 'a4')
-    assert.equal(repris.ecarts['page.largeur'], 120)
+    assert.equal(repris.valeurs.page.largeur, 120)
+    assert.equal(repris.valeurs.chapitre.debut, 'belle-page')
     assert.equal((await comptes.document(doc.id)).modele, cree)
     assert.equal((await comptes.equipe(eq.id)).modeleDefaut, cree)
-    assert.deepEqual((await comptes.modele(m.id)).ecarts, { 'chapitre.debut': 'page' }, 'l’ancienne belle page')
     // Une seconde fois : rien de plus.
     await serveur.reprendreModeles()
     assert.equal((await comptes.reglage('modeles.reprise'))['tat-poche'], cree)
   } finally {
-    if (cree && !deja.has(cree)) await comptes.supprimerModeleInstance(cree, 'a4')
+    if (cree && !deja.has(cree)) await comptes.supprimerModeleInstance(cree)
     await comptes.definirReglage('modeles.reprise', avant.reprise, null)
     await comptes.definirReglage('modeles.defaut', avant.defaut, null)
   }
@@ -438,25 +455,37 @@ test('polices de l’instance : l’administrateur envoie, la famille est lue da
   // modèle complet porte les adresses de ses fichiers.
   const modeles = (await appel('GET', '/api/admin/modeles', a)).json
   assert.ok(modeles.polices.includes(famille) && modeles.polices.includes('EB Garamond'))
-  const { json: m } = await appel('POST', '/api/admin/modeles', { ...a, corps: { nom: `Avec ${famille}` } })
-  const regle = await appel('PUT', `/api/admin/modeles/${m.id}`, { ...a, corps: { ecarts: { police: famille } } })
-  assert.deepEqual(regle.json, { ecarts: { police: famille } })
-  const complet = (await appel('GET', '/api/admin/modeles', a)).json.modeles.find((x) => x.id === m.id).complet
+  const { json: m } = await appel('POST', '/api/admin/modeles', {
+    ...a,
+    corps: { nom: `Avec ${famille}`, depart: 'a4' },
+  })
+  const regle = await appel('PUT', `/api/admin/modeles/${m.id}`, {
+    ...a,
+    corps: { reglages: { 'styles.texte.police': famille, 'styles.titre1.police': famille } },
+  })
+  assert.equal(regle.statut, 200)
+  const apres = (await appel('GET', '/api/admin/modeles', a)).json
+  assert.equal(apres.modeles.find((x) => x.id === m.id).complet.styles.titre1.police, famille)
   assert.deepEqual(
-    [...complet.polices].sort(),
+    [...apres.fichiersPolices[famille]].sort(),
     [`/api/polices/${romain.json.id}`, `/api/polices/${italique.json.id}`].sort(),
   )
   assert.equal(
-    (await appel('PUT', `/api/admin/modeles/${m.id}`, { ...a, corps: { ecarts: { police: 'Inconnue' } } })).json.code,
+    (
+      await appel('PUT', `/api/admin/modeles/${m.id}`, {
+        ...a,
+        corps: { reglages: { 'styles.texte.police': 'Inconnue' } },
+      })
+    ).json.code,
     'reglage-hors-bornes',
   )
 
   // Un modèle d'équipe qui dérive du modèle de l'instance hérite de la police
-  // sans l'écrire dans ses écarts : il compte aussi (audit du 13/11/2026).
+  // sans l'écrire à part : il en a une copie, et compte aussi (audit du 13/11/2026).
   const { gaelle: gestionnaire, eq: equipe } = await equipeEtDocument()
-  await appel('POST', `/api/equipes/${equipe.id}/modeles`, {
+  const { json: derive } = await appel('POST', `/api/equipes/${equipe.id}/modeles`, {
     cookie: gestionnaire.cookie,
-    corps: { nom: 'Dérivé', base: m.id },
+    corps: { nom: 'Dérivé', depart: m.id },
   })
 
   // Supprimer : un fichier part ; le dernier d'une famille utilisée, non.
@@ -468,6 +497,9 @@ test('polices de l’instance : l’administrateur envoie, la famille est lue da
     'le modèle d’équipe qui hérite de la police compte aussi',
   )
   await appel('DELETE', `/api/admin/modeles/${m.id}`, a)
+  // Sa copie dans l'équipe porte toujours la police : elle la retient encore.
+  assert.equal((await appel('DELETE', `/api/admin/polices/${romain.json.id}`, a)).statut, 409)
+  await appel('DELETE', `/api/equipes/${equipe.id}/modeles/${derive.id}`, { cookie: gestionnaire.cookie })
   assert.equal((await appel('DELETE', `/api/admin/polices/${romain.json.id}`, a)).statut, 200)
   liste = (await appel('GET', '/api/admin/polices', a)).json
   assert.equal(

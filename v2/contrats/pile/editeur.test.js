@@ -135,11 +135,15 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     assert.ok(titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) proposé : ${tout}`)
   // La table des matières (11/11/2026), libellé de notre catalogue.
   assert.ok(titres.includes(creerTraducteur('fr')('document.tableDesMatieres')), `table des matières : ${tout}`)
-  // Titre et sous-titre, en bas du menu (12/11/2026).
+  // Titre, sous-titre et légende, en bas du menu (12 et 13/11/2026).
   assert.deepEqual(
-    titres.slice(-2),
-    [creerTraducteur('fr')('document.titre'), creerTraducteur('fr')('document.sousTitre')],
-    `titre et sous-titre en bas : ${tout}`,
+    titres.slice(-3),
+    [
+      creerTraducteur('fr')('document.titre'),
+      creerTraducteur('fr')('document.sousTitre'),
+      creerTraducteur('fr')('document.legende'),
+    ],
+    `titre, sous-titre et légende en bas : ${tout}`,
   )
   // Titres 1 à 5 (Sylvain, 09/11/2026, journal des décisions) : le niveau 6 reste exclu.
   for (const cle of [
@@ -334,7 +338,7 @@ test('bandeau : signes et mots du document, ou de la sélection', async () => {
   await page.context().close()
 })
 
-test('palette : le style « Paragraphe » une seule fois, avec notre picto (un P) ; « Titre » et « Sous-titre » à la suite', async () => {
+test('palette : le style « Paragraphe » une seule fois, avec notre picto (un P) ; « Titre », « Sous-titre » et « Légende » à la suite', async () => {
   const page = await pageEcriture('styles')
   await page.keyboard.type('Un paragraphe')
   await page.keyboard.press('Shift+Home')
@@ -344,7 +348,7 @@ test('palette : le style « Paragraphe » une seule fois, avec notre picto (un P
   await items.first().waitFor()
   const noms = (await items.allInnerTexts()).map((x) => x.trim())
   assert.equal(noms.filter((n) => n === 'Paragraphe').length, 1)
-  assert.deepEqual(noms.slice(-2), ['Titre', 'Sous-titre'])
+  assert.deepEqual(noms.slice(-3), ['Titre', 'Sous-titre', 'Légende'])
   assert.equal(
     await page.getByRole('menuitem', { name: 'Paragraphe', exact: true }).locator('svg.tabler-icon-letter-p').count(),
     1,

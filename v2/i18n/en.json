@@ -60,7 +60,9 @@
     "tableNiveaux": "{n, plural, =1 {Level 1 only} other {Levels 1 to #}}",
     "note": "Footnote",
     "noteDescription": "A numbered note at the bottom of the page",
-    "compteurSelection": "Selection: {signes, plural, one {# character} other {# characters}}, {mots, plural, one {# word} other {# words}}"
+    "compteurSelection": "Selection: {signes, plural, one {# character} other {# characters}}, {mots, plural, one {# word} other {# words}}",
+    "legende": "Caption",
+    "legendeDescription": "The caption of an image or a table, outside the table of contents"
   },
   "erreurs": {
     "apparence-inconnue": "This interface model or colour does not exist.",
@@ -102,7 +104,7 @@
     "modele-introuvable": "This template does not exist, or is not allowed for this document.",
     "reglage-inconnu": "This setting cannot be changed in a team template.",
     "reglage-hors-bornes": "A value is outside the allowed limits: check the settings.",
-    "ecarts-invalides": "These settings are not valid.",
+    "reglages-invalides": "These settings are not valid.",
     "margo-indisponible": "Margo is unavailable at the moment.",
     "margo-occupee": "Margo is already answering one of your requests: wait until she has finished.",
     "trop-de-flux": "Too many windows open on this account: close a few of them.",
@@ -318,9 +320,9 @@
       "titre": "Page layout templates",
       "defaut": "Default template of this instance",
       "aucun": "This instance has no template of its own yet.",
-      "detail": "Based on “{titre}” · {n, plural, =0 {no documents} one {# document} other {# documents}} · {e, plural, =0 {no teams} one {# team} other {# teams}} · {d, plural, =0 {no team templates} one {# team template} other {# team templates}}",
-      "confirmerSuppression": "Delete the template “{nom}”? Documents and teams that chose it will use the default template; team templates based on it will start again from “{code}”.",
-      "intro": "A template sets the layout of exported PDFs: page size, margins, font, headings. “{code}” ships with amend.ink. Templates created here start from it and are offered to every document; each team can derive its own."
+      "detail": "{n, plural, =0 {no document} one {# document} other {# documents}} · {e, plural, =0 {no team} one {# team} other {# teams}}",
+      "confirmerSuppression": "Delete the template “{nom}”? The documents and teams that had chosen it will take the default template.",
+      "intro": "A template sets the layout of exported PDFs: page size, margins, and the style of body text, quotes, headings, title, subtitle and captions. “{code}” ships with amend.ink. A template is created by copying an existing one; the copy is independent afterwards. Templates created here are offered to every document; each team also has its own."
     },
     "connecteur": {
       "titre": "Claude connector",
@@ -403,7 +405,7 @@
     "titre": "Layout templates",
     "defaut": "Team default template",
     "nom": "Template name",
-    "base": "Based on",
+    "base": "Copy the template",
     "creer": "Create",
     "modifier": "Adjust",
     "supprimer": "Delete",
@@ -413,7 +415,7 @@
     "parDefaut": "Default",
     "enregistrer": "Save",
     "enregistre": "Template saved.",
-    "detail": "Based on “{titre}” · {n, plural, =0 {no document} one {# document} other {# documents}}",
+    "detail": "{n, plural, =0 {no document} one {# document} other {# documents}}",
     "confirmerSuppression": "Delete the template “{nom}”? {n, plural, =0 {No document uses it.} one {The document that used it will take the team default template.} other {The # documents that used it will take the team default template.}}",
     "reglage": {
       "page": {
@@ -430,23 +432,11 @@
         "interligne": "Line spacing (pt)",
         "lignes": "Lines per page"
       },
-      "police": "Font",
-      "alinea": "Paragraph indent (mm)",
       "chapitre": {
         "debut": "Chapter start",
         "ligneTitre": "Chapter title line",
         "ligneTexte": "Line where the text resumes",
-        "corps": "Chapter title size (pt)",
-        "interligne": "Chapter title leading (pt)",
-        "graisse": "Chapter title weight"
-      },
-      "titre": {
-        "corps": "Title size (pt)",
-        "graisse": "Title weight"
-      },
-      "sousTitre": {
-        "corps": "Subtitle size (pt)",
-        "italique": "Subtitle in italics"
+        "interligne": "Chapter title line spacing (pt)"
       },
       "folio": {
         "position": "Page number position",
@@ -457,14 +447,6 @@
       "enTete": {
         "gauche": "Running head on left pages",
         "droite": "Running head on right pages"
-      },
-      "intertitres": {
-        "italique": "Subheadings in italics",
-        "lignesAvant": "Blank lines before a subheading",
-        "lignesApres": "Blank lines after a subheading"
-      },
-      "citation": {
-        "retrait": "Quotation indent (mm)"
       },
       "separateur": "Scene break",
       "cesure": "Hyphenation"
@@ -494,13 +476,26 @@
         "rien": "Nothing",
         "titreDocument": "Document title",
         "chapitre": "Current chapter"
+      },
+      "alignement": {
+        "gauche": "Left",
+        "justifie": "Justified",
+        "centre": "Centered"
       }
     },
     "groupes": {
-      "format": "Format and margins",
-      "texte": "Text",
-      "titres": "Headings and chapters",
-      "pages": "Page numbers and running heads"
+      "format": "Page size and margins",
+      "texte": "Body text",
+      "pages": "Page number and running head",
+      "citation": "Quote",
+      "titre1": "Heading 1 (chapter)",
+      "titre2": "Heading 2",
+      "titre3": "Heading 3",
+      "titre4": "Heading 4",
+      "titre5": "Heading 5",
+      "titre": "Title (title page)",
+      "sousTitre": "Subtitle",
+      "legende": "Caption"
     },
     "essayer": "Try",
     "essayerDe": "Export the open document with “{nom}”",
@@ -509,7 +504,19 @@
     "titreListe": "Templates",
     "titreCreer": "Create a template",
     "resume": "{largeur, number}\u00A0×\u00A0{hauteur, number}\u00A0mm · {police}",
-    "reglerTitre": "Adjust “{nom}”"
+    "reglerTitre": "Adjust “{nom}”",
+    "propriete": {
+      "police": "Font",
+      "corps": "Size (pt)",
+      "gras": "Bold",
+      "italique": "Italic",
+      "capitales": "Capitals",
+      "alignement": "Alignment",
+      "lignesAvant": "Blank lines before",
+      "lignesApres": "Blank lines after",
+      "alinea": "First-line indent (mm)",
+      "retrait": "Left indent (mm)"
+    }
   },
   "margo": {
     "accueil": "Ask Margo to proofread, correct or comment on the text. Its corrections arrive in the Corrections tab, to accept or reject.",

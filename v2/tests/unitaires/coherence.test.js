@@ -47,7 +47,12 @@ test('chaque modèle d’amend.ink et chaque réglage ouvert aux équipes a son 
   const { REGLAGES } = await import('../../design/reglages.js')
   const existantes = new Set(cles(CATALOGUES[LANGUE_SOURCE]))
   for (const m of REGLAGES.livre.modeles) assert.ok(existantes.has(`modeles.maison.${m.id}`), m.id)
-  for (const r of REGLAGES.livre.reglables) assert.ok(existantes.has(`modeles.reglage.${r.cle}`), r.cle)
+  for (const r of REGLAGES.livre.reglables) {
+    const [debut, , propriete] = r.cle.split('.')
+    const nom = debut === 'styles' ? `modeles.propriete.${propriete}` : `modeles.reglage.${r.cle}`
+    assert.ok(existantes.has(nom), r.cle)
+    if (debut === 'styles') assert.ok(existantes.has(`modeles.groupes.${r.cle.split('.')[1]}`), r.cle)
+  }
 })
 
 test('chaque modèle d’interface et chaque couleur de l’apparence ont leurs valeurs et leur nom dans le catalogue', async () => {
