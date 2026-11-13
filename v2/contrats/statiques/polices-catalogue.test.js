@@ -49,6 +49,7 @@ for (const { famille, fichiers } of REGLES_MODELES.polices)
       assert.equal(r.famille, famille, `la famille lue dans ${url}`)
       styles.push(r.style)
     }
+    // Le demi-gras d'EB Garamond (graisse 600) compte pour « gras » (lirePolice : à partir de 600).
     assert.deepEqual([...styles].sort(), [...STYLES_POLICE].sort(), 'romain, italique, gras, gras italique')
     // La licence (SIL OFL) est dans le dossier de la famille, ou à la racine pour EB Garamond.
     const dossier = dirname(fichier(fichiers[0]))
@@ -60,7 +61,7 @@ const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
 const wasm = () => readFileSync(createRequire(import.meta.url).resolve('@blocknote/xl-typst-compiler/wasm'))
 
 for (const { famille, fichiers } of REGLES_MODELES.polices)
-  test(`${famille} : un PDF composé avec cette famille l’incorpore (romain, italique, gras)`, async () => {
+  test(`${famille} : un PDF composé avec cette famille l’incorpore (romain, italique, gras, gras italique)`, async () => {
     const editeur = BlockNoteEditor.create({ schema: schemaLivre })
     editeur.replaceBlocks(editeur.document, [
       { type: 'heading', props: { level: 1 }, content: [texte('Éloge de la lenteur')] },
@@ -71,6 +72,8 @@ for (const { famille, fichiers } of REGLES_MODELES.polices)
           texte('très', { italic: true }),
           texte(' long », écrivit-il, '),
           texte('œuvre', { bold: true }),
+          texte(' et '),
+          texte('refrain', { bold: true, italic: true }),
           texte('. Ça va.'),
         ],
       },
@@ -86,4 +89,9 @@ for (const { famille, fichiers } of REGLES_MODELES.polices)
     // Le nom de la police dans le PDF : sans espaces, avec un préfixe de sous-ensemble.
     const nom = famille.replace(/\s+/g, '')
     assert.match(brut, new RegExp(`/BaseFont ?/[A-Z]{6}\\+${nom}`), `${famille} incorporée`)
+    // Les quatre styles : le PDF incorpore un sous-ensemble de chaque fichier utilisé.
+    const incorporees = new Set(
+      [...brut.matchAll(new RegExp(`/BaseFont ?/[A-Z]{6}\\+(${nom}[\\w-]*)`, 'g'))].map((m) => m[1]),
+    )
+    assert.ok(incorporees.size >= 4, `${famille} : ${[...incorporees].join(', ')}`)
   })

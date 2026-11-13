@@ -17,8 +17,8 @@ const POLICES_EB_GARAMOND = [
  * italique, gras et gras italique, dans `design/polices/<famille>/` avec la
  * licence de la famille. Le navigateur ne charge les fichiers d'une famille
  * que pour exporter avec un modèle qui s'en sert. */
-const famille = (famille, dossier, fichier) => ({
-  famille,
+const famille = (nom, dossier, fichier) => ({
+  famille: nom,
   fichiers: ['Regular', 'Italic', 'Bold', 'BoldItalic'].map(
     (style) => new URL(`./polices/${dossier}/${fichier}-${style}.ttf`, import.meta.url).href,
   ),
