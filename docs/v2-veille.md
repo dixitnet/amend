@@ -59,3 +59,5 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 ## Correctifs temporaires de fondations en place
 
 Aucun.
+
+- 13/11/2026 : la barre mobile de BlockNote (`.bn-mobile-formatting-toolbar`) ne se monte que clavier ouvert sous iOS ; aucun test automatique ne peut la voir ici. Contrôle réel : essai de Sylvain sur iPhone. Le suivi de la zone visible de Safari (`--bn-vv-*`) arrive avec retard : la palette est cachée pendant le défilement (`paletteMobile.reapparitionMs`).

@@ -11,7 +11,6 @@
   z-index: var(--mantine-z-index-app);
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: var(--mantine-spacing-xs);
   padding: var(--mantine-spacing-xs);
   background: var(--mantine-color-body);
@@ -38,14 +37,6 @@
   .amend-synchro[data-connexion='connexion'] svg {
     animation: none;
   }
-}
-
-/* réglage : css.telephone.barre */
-/* ESSAI (13/11/2026) : la barre de mise en forme sur une seconde ligne du bandeau,
-   en pleine largeur, qui défile en travers si elle dépasse. */
-.amend-barre {
-  flex-basis: 100%;
-  overflow-x: auto;
 }
 
 /* réglage : css.telephone.plan */
@@ -93,5 +84,12 @@
     /* La marge de BlockNote sous la barre (zone de l'indicateur d'accueil)
        n'a plus lieu d'être en haut. */
     padding-bottom: 0;
+  }
+  /* Cachée pendant le défilement, sans transition : Safari ne signale la zone
+     visible qu'avec retard, la barre se replaçait par à-coups (13/11/2026).
+     L'attribut est posé par application/client/aidesEdition.jsx. */
+  html[data-amend-defile] .bn-mobile-formatting-toolbar {
+    visibility: hidden;
+    transition: none;
   }
 }
