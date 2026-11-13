@@ -24,6 +24,7 @@ import { partiesDocuments } from './comptes-documents.js'
 import { partiesDossiers } from './comptes-dossiers.js'
 import { partiesEquipes } from './comptes-equipes.js'
 import { partiesModeles } from './comptes-modeles.js'
+import { partiesPolices } from './comptes-polices.js'
 import { partiesAcces } from './comptes-acces.js'
 import { partiesJetons } from './comptes-jetons.js'
 import { partiesReglages } from './comptes-reglages.js'
@@ -49,6 +50,7 @@ export async function ouvrirComptes(url) {
       partiesDossiers(base),
       partiesEquipes(base),
       partiesModeles(base),
+      partiesPolices(base),
       partiesAcces(base, d),
       partiesJetons(base),
       partiesReglages(base),
