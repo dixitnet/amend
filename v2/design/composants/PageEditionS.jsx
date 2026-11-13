@@ -57,6 +57,7 @@ const ETAT_PICTO = { connecte: 'synchro', connexion: 'synchroEnCours' }
  *   enModification: boolean, surTerminer: () => void,
  *   menu: Array<{ cle: string, libelle: string, icone?: string, titre?: boolean, coche?: boolean, surClic?: () => void }>,
  *   piedMenu?: string, surOuvrirMenu?: () => void,
+ *   refBarre?: (element: HTMLElement | null) => void,  // ESSAI : place de la barre de mise en forme, sous le bandeau, en modification
  *   voletGauche: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> },
  *   voletDroit?: { titre: string, nombre?: number, onglets: Array<{ cle: string, libelle: string, icone: string, nombre?: number, contenu: any }>, actif?: string, surOnglet?: (cle: string) => void } | null,
  *   volet: 'gauche' | 'droite' | null, surVolet: (v: 'gauche' | 'droite' | null) => void,
@@ -76,6 +77,7 @@ export function PageEditionS({
   menu,
   piedMenu,
   surOuvrirMenu,
+  refBarre,
   voletGauche,
   voletDroit,
   volet,
@@ -137,6 +139,7 @@ export function PageEditionS({
             <ElementsDeMenu elements={menu} pied={piedMenu} champPicto="icone" />
           </Menu.Dropdown>
         </Menu>
+        {enModification && refBarre ? <div className="amend-barre" ref={refBarre} /> : null}
         {voletDroit ? (
           <ActionIcon
             aria-label={libelles.droite}
