@@ -38,7 +38,7 @@ import { exporterDocument, modeleComplet } from './exports.js'
 import { Partage } from './Partage.jsx'
 import { noterDernier, useVoletDocuments } from './voletDocuments.jsx'
 import { equipeDesModelesOuverts } from './Modeles.jsx'
-import { lireZoom, noterZoom, TEXTES_EDITEUR, FiletDeLEditeur } from './aidesEdition.jsx'
+import { lireZoom, noterZoom, palierLePlusProche, TEXTES_EDITEUR, FiletDeLEditeur } from './aidesEdition.jsx'
 
 export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // L'interface suit les capacités, jamais le nom du rôle.
@@ -292,13 +292,16 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
     Promise.resolve(navigator.clipboard?.writeText(lien) ?? Promise.reject(new Error('presse-papiers absent')))
       .then(() => montrerMessage(t('telephone.lienCopie')))
       .catch(() => montrerMessage(t('telephone.lienNonCopie', { lien }), { erreur: true }))
-  // Le zoom du texte, dans le menu « … » des trois formats : un choix parmi les paliers.
+  // Le zoom du texte, dans le menu « … » des trois formats : un choix parmi les paliers
+  // (100, 150, 200 % au format S ; un zoom mémorisé hors de ces paliers est ramené au plus proche).
+  const paliersDuZoom = formatS ? REGLAGES.zoom.paliersS : REGLAGES.zoom.paliers
+  const zoomAffiche = palierLePlusProche(zoom, paliersDuZoom)
   const elementsZoom = [
     { cle: 'zoom', libelle: t('document.zoom'), titre: true, separe: true },
-    ...REGLAGES.zoom.paliers.map((z) => ({
+    ...paliersDuZoom.map((z) => ({
       cle: `zoom-${z}`,
       libelle: t('document.zoomPalier', { zoom: z }),
-      coche: z === zoom,
+      coche: z === zoomAffiche,
       surClic: () => choisirZoom(z),
     })),
   ]
@@ -474,7 +477,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // suggestions (Éditer ou Corriger) : repli en Lire, qui ne les affiche pas.
   const [essaiEditeur, setEssaiEditeur] = useState(0)
   const editeur = (
-    <ZoneZoom zoom={zoom} lecture={mode === 'lire'}>
+    <ZoneZoom zoom={zoomAffiche} lecture={mode === 'lire'}>
       <FiletDeLEditeur
         key={essaiEditeur}
         repli={<TexteDeVolet texte={t('suivi.panne')} />}
@@ -583,7 +586,6 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       <PageEditionS
         titre={titreAffiche}
         surTitre={peutRenommer ? renommer : undefined}
-        favori={favori}
         libelles={{
           gauche: t('telephone.planEtDocuments'),
           droite: t('telephone.relecture'),
@@ -597,6 +599,13 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         enModification={enModification}
         surTerminer={() => controle.current?.terminer()}
         menu={[
+          // Les favoris dans le menu, plus devant le titre (13/11/2026).
+          {
+            cle: 'favori',
+            libelle: favori.libelle,
+            icone: favori.actif ? 'favoriActif' : 'favori',
+            surClic: favori.surBasculer,
+          },
           {
             cle: 'lien',
             libelle: t('telephone.copierLien'),
