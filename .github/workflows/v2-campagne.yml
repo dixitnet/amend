@@ -1,5 +1,5 @@
 # Campagnes de test de la v2 (docs/v2-tests/procedure-relecture.md), une par
-# famille de scénarios (A à G), sous Chromium et WebKit : des
+# famille de scénarios (A à G), sous Chromium, WebKit et Firefox : des
 # scénarios qui relèvent ce qui se passe, sans faire échouer le flux ; le
 # relevé est dans le journal de chaque moteur et en artefact. Lancées à la
 # demande, ou quand un script de campagne change.
@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        navigateur: [chromium, webkit]
+        navigateur: [chromium, webkit, firefox]
         famille: [suivi, correcteurs, commentaires, editeur, roles, robustesse, historique, complements]
     services:
       postgres:
