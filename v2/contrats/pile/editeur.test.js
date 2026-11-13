@@ -333,3 +333,22 @@ test('bandeau : signes et mots du document, ou de la sélection', async () => {
   assert.match(await compteur(), /^Sélection\s?: \d+ signes?, 1 mot$/)
   await page.context().close()
 })
+
+test('palette : le style « Paragraphe » une seule fois, avec notre picto (un P) ; « Titre » et « Sous-titre » à la suite', async () => {
+  const page = await pageEcriture('styles')
+  await page.keyboard.type('Un paragraphe')
+  await page.keyboard.press('Shift+Home')
+  await attendre(800)
+  await page.locator('.bn-formatting-toolbar button').first().click()
+  const items = page.getByRole('menuitem')
+  await items.first().waitFor()
+  const noms = (await items.allInnerTexts()).map((x) => x.trim())
+  assert.equal(noms.filter((n) => n === 'Paragraphe').length, 1)
+  assert.deepEqual(noms.slice(-2), ['Titre', 'Sous-titre'])
+  assert.equal(
+    await page.getByRole('menuitem', { name: 'Paragraphe', exact: true }).locator('svg.tabler-icon-letter-p').count(),
+    1,
+    'le P de Tabler, pas le T de BlockNote',
+  )
+  await page.context().close()
+})
