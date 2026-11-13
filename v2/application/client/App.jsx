@@ -11,10 +11,11 @@ import { SupprimerCompte } from './Compte.jsx'
 import { Accueil } from './Accueil.jsx'
 import { Administration } from './Administration.jsx'
 import { Document } from './Document.jsx'
+import { PageModele } from './Modeles.jsx'
 
 /** Ce que vise l'adresse : `#` vide, mes documents ; `#/dossiers/id`, l'un
  * de mes dossiers ; `#/partages`, Partagé avec moi ; `#/equipes/id` et
- * `#/equipes/id/dossiers/id`, une équipe et ses dossiers ; `#/admin`, le
+ * `#/equipes/id/dossiers/id`, une équipe et ses dossiers ; `#/equipes/id/modeles/id`, le réglage d'un modèle de mise en page de l'équipe (`#/admin/modeles` et `#/admin/modeles/id` au back-office) ; `#/admin`, le
  * back-office (administrateurs de l'instance) ; `#!code`, un message ;
  * `#/connexion/jeton`, un lien de connexion reçu par courriel ;
  * `#id`, un document (jamais de `/` dans son identifiant) ; `null` si
@@ -29,10 +30,16 @@ function viseeDansAdresse() {
   if (!h) return { liste: 'mes', dossier: null }
   if (h === '/partages') return { liste: 'partages' }
   if (h === '/admin') return { admin: true }
+  // Les modèles de mise en page (13/11/2026) : la liste du back-office, et la page de réglage d'un modèle.
+  if (h === '/admin/modeles') return { admin: true, rubrique: 'modeles' }
+  const am = h.match(/^\/admin\/modeles\/([^/]+)$/)
+  if (am) return { pageModele: { equipe: null, modele: am[1] } }
   if (h === '/compte') return { compte: true }
   const c = h.match(/^\/connexion\/([A-Za-z0-9_-]+)$/)
   if (c) return { connexion: c[1] }
   if (h.startsWith('/dossiers/')) return { liste: 'mes', dossier: h.slice('/dossiers/'.length) }
+  const em = h.match(/^\/equipes\/([^/]+)\/modeles\/([^/]+)$/)
+  if (em) return { pageModele: { equipe: em[1], modele: em[2] } }
   const e = h.match(/^\/equipes\/([^/]+)(?:\/dossiers\/([^/]+))?$/)
   if (e) return { liste: `equipe:${e[1]}`, dossier: e[2] ?? null }
   if (h.startsWith('!')) return { message: h.slice(1) }
@@ -114,7 +121,8 @@ export function App({ surApparence }) {
     )
   if (visee === null) return <EcranMessage texte={messageErreur(t, 'document-caracteres')} />
   if (visee.message) return <EcranMessage texte={messageErreur(t, visee.message)} />
-  if (visee.admin) return <Administration surApparence={surApparence} />
+  if (visee.pageModele) return <PageModele equipe={visee.pageModele.equipe} modele={visee.pageModele.modele} />
+  if (visee.admin) return <Administration surApparence={surApparence} rubrique={visee.rubrique} />
   if (visee.compte) return <SupprimerCompte />
   if (visee.liste) return <Accueil config={etat.config} personne={etat.personne} />
   // Une adresse illisible a le même message qu'un nom refusé, sans dépendre du domaine.

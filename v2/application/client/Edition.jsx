@@ -37,6 +37,7 @@ import { useExport } from './useExport.jsx'
 import { exporterDocument, modeleComplet } from './exports.js'
 import { Partage } from './Partage.jsx'
 import { noterDernier, useVoletDocuments } from './voletDocuments.jsx'
+import { equipeDesModelesOuverts } from './Modeles.jsx'
 import { lireZoom, noterZoom, TEXTES_EDITEUR, FiletDeLEditeur } from './aidesEdition.jsx'
 
 export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
@@ -149,6 +150,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // Le volet « Documents », chargé à l'ouverture dans tous les formats : l'étoile
   // du bandeau en dépend (audit du 10/11/2026).
   // « Essayer » un modèle d'équipe : le document ouvert, exporté avec lui (12/11/2026).
+  // Revenu de la page de réglage d'un modèle : l'onglet Documents, où la fenêtre des modèles se rouvre.
+  const [ongletInitial] = useState(() => (equipeDesModelesOuverts() ? 'documents' : 'plan'))
   const voletDocs = useVoletDocuments(docId, {
     essayerModele: (m, fichiersPolices) =>
       exporterDocument(controle, 'pdf', {
@@ -763,6 +766,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       }
       voletGauche={
         <VoletPlanDocuments
+          ongletInitial={ongletInitial}
           onglets={{ plan: t('telephone.plan'), documents: t('telephone.documents') }}
           plan={plan.titres.map((x) => ({
             cle: x.id,
