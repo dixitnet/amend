@@ -3,6 +3,8 @@
 // devient un modèle complet, avec un jeu de réglages par style. À retirer
 // quand plus aucun modèle n'est enregistré à l'ancienne façon.
 
+import { poser } from './miseEnPage.js'
+
 /** « A4 simple » tel que le code le livrait jusqu'au 13/11/2026. */
 export const A4_ANCIEN = Object.freeze({
   page: { largeur: 210, hauteur: 297 },
@@ -20,13 +22,6 @@ export const A4_ANCIEN = Object.freeze({
   separateur: 'blanc',
   cesure: true,
 })
-
-function poser(objet, cle, valeur) {
-  const k = cle.split('.')
-  let o = objet
-  for (const p of k.slice(0, -1)) o = o[p] = { ...(o[p] ?? {}) }
-  o[k.at(-1)] = valeur
-}
 
 /**
  * Le modèle complet, à l'ancienne façon, d'un modèle enregistré : son modèle

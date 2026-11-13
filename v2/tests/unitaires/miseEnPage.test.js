@@ -36,10 +36,7 @@ test('le gabarit : page, texte sur la grille, titres comptés en lignes', () => 
   assert.match(g, /footer-descent: 8\.727mm/)
   // Boîte de ligne de 1 em : le pas vaut exactement l'interligne.
   assert.match(g, /top-edge: 0\.8em, bottom-edge: -0\.2em, fill: cmyk\(0%, 0%, 0%, 100%\)/)
-  assert.match(
-    g,
-    /leading: 12\.4pt - 1em, spacing: 12\.4pt - 1em, first-line-indent: \(amount: \d+(\.\d+)?mm, all: true\)/,
-  )
+  assert.match(g, /leading: 12\.4pt - 1em, spacing: 12\.4pt - 1em, first-line-indent: \(amount: 4\.5mm, all: true\)/)
   assert.match(g, /lang: "fr"/)
   // Intertitre : une ligne blanche avant (2 pas moins une boîte), aucune après.
   assert.match(g, /above: 14\.3pt, below: 1\.9pt/)
@@ -146,6 +143,7 @@ test('réglages : inconnu, hors bornes, de mauvais type, ou modèle impossible :
     return r.ok ? 'ok' : [r.code, r.reglage ?? r.raison]
   }
   assert.deepEqual(code({ 'folio.bas': 10 }), ['reglage-inconnu', 'folio.bas'])
+  assert.deepEqual(code({ __proto__: null, 'page.largeur': 79 }), ['reglage-hors-bornes', 'page.largeur'])
   assert.deepEqual(code({ 'page.largeur': 79 }), ['reglage-hors-bornes', 'page.largeur'])
   assert.deepEqual(code({ 'page.largeur': '135' }), ['reglage-hors-bornes', 'page.largeur'])
   assert.deepEqual(code({ 'page.largeur': Number.NaN }), ['reglage-hors-bornes', 'page.largeur'])

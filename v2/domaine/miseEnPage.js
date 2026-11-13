@@ -322,7 +322,7 @@ function separateurTypst(choix, pas) {
 // de réglages bornés (décidée dans le design et passée ici en paramètre).
 
 const lire = (objet, cle) => cle.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), objet)
-function poser(objet, cle, valeur) {
+export function poser(objet, cle, valeur) {
   const k = cle.split('.')
   let o = objet
   for (const p of k.slice(0, -1)) o = o[p] = { ...(o[p] ?? {}) }
