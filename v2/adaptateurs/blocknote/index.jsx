@@ -192,7 +192,11 @@ function typesDeBloc(editeur, textes) {
     // `titre` et `sousTitre` sont facultatifs dans les textes de l'éditeur.
     .filter(([cle]) => textes?.[cle])
     .map(([cle, type]) => ({ name: textes[cle].titre, type, icon: () => textes[cle].picto }))
-  return [...blockTypeSelectItems(editeur), ...nos]
+  // Le picto du paragraphe : le nôtre s'il est donné (un P), sinon celui de BlockNote.
+  const leurs = blockTypeSelectItems(editeur).map((x) =>
+    x.type === 'paragraph' && textes?.paragraphe?.picto ? { ...x, icon: () => textes.paragraphe.picto } : x,
+  )
+  return [...leurs, ...nos]
 }
 
 function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote, titres }) {

@@ -1,0 +1,1143 @@
+# Campagne de test de la v2, 2026-11-13 (d8511ae)
+
+**À traiter : 0 régression(s), 1 scénario(s) instable(s), 1 script(s) en panne.**
+
+Défauts connus toujours là : 14. Défauts connus qui passent maintenant : 2. À qualifier (combinaison jamais passée au bilan) : 420. Scénarios hors référence : 0. Scénarios de la référence non joués : 0.
+
+## Tableau
+
+Scénarios passés sur scénarios joués (hors diagnostics), par famille.
+
+| Famille | chromium/L | chromium/M | chromium/S | en ligne | firefox/L | firefox/M | firefox/S | webkit/L | webkit/M | webkit/S |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| commentaires | 13/15 | 13/15 | 1/15 | 15/15 | 0/15 | 0/15 | 0/15 | 13/15 | 10/15 | 1/15 |
+| complements | 11/12 | 11/12 | 6/12 | 11/12 | 1/12 | 0/12 | 1/12 | 8/12 | 8/12 | 4/12 |
+| correcteurs | 14/15 | 6/15 | 0/15 | 14/15 | 0/15 | 0/15 | 0/15 | 14/15 | 6/15 | 0/15 |
+| editeur | 12/14 | 12/14 | 11/14 | 10/14 | 0/14 | 0/14 | 0/14 | 12/14 | 12/14 | 11/14 |
+| historique | 1/1 | 1/1 | 0/1 | 1/1 | 0/1 | 0/1 | 0/1 | 1/1 | 1/1 | 0/1 |
+| robustesse | 6/6 | 6/6 | 3/6 | 5/5 | 0/6 | 0/6 | 0/6 | 5/6 | 5/6 | 2/6 |
+| roles | 2/4 | 2/4 | 2/4 | 2/4 | 1/4 | 1/4 | 1/4 | 2/4 | 2/4 | 2/4 |
+| suivi | 21/21 | 21/21 | 9/21 | 21/21 | 2/21 | 2/21 | 1/21 | 21/21 | 21/21 | 9/21 |
+
+## Scénarios instables (1)
+
+Attendus, et ne passent qu’une partie des fois.
+
+- **A2 collage de texte brut sur plusieurs lignes** (editeur, en ligne) : 1/2
+  - exception : création du document de test : 502
+  - texte (Lucie) : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare.Un.Deux.Trois. »
+
+## Scripts en panne (1)
+
+Le script plante avant de savoir ce que fait le produit : à réparer dans les gestes.
+
+- **A1 Annuler et Rétablir : Paule n’annule que ce qu’elle a fait** (editeur, en ligne) : 0/2
+  - exception : création du document de test : 502
+
+## Défauts connus qui passent maintenant (2)
+
+À reclasser « attendu » dans la référence.
+
+- **D2 rouvrir un fil résolu** (commentaires, en ligne) : 2/2 ; à qualifier au bilan
+  - accès aux fils résolus dans l’interface : oui
+  - rouvert par l’API : l’ancre revient chez Edith oui
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, en ligne) : 2/2 ; à qualifier au bilan
+  - onglet « Commentaires » : ouverts 0, résolus 1
+  - actions du fil résolu : ajouteruneréaction | rouvrir | plusd'actions
+  - rouvert par l’interface, ancre revenue chez Edith : oui
+
+## À qualifier (420)
+
+Première fois sur cette combinaison : à passer au bilan, puis à inscrire dans la référence.
+
+- **D2 rouvrir un fil résolu** (commentaires, chromium/M) : 0/3 ; à qualifier au bilan
+  - accès aux fils résolus dans l’interface : oui
+  - rouvert par l’API : l’ancre revient chez Edith NON
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, chromium/M) : 0/3 ; à qualifier au bilan
+  - onglet « Commentaires » : ouverts 0, résolus 1
+  - actions du fil résolu : ajouteruneréaction | rouvrir | plusd'actions
+  - rouvert par l’interface, ancre revenue chez Edith : NON
+- **D1 Carla (correctrice) crée un commentaire** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Edith répond par l’interface ; Paule voit la réponse dans le fil** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Carla modifie son message** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Edith supprime sa réponse** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Paule réagit au message de Carla** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 Paule résout par l’interface : l’ancre disparaît chez tous** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 rouvrir un fil résolu** (commentaires, chromium/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 Carla supprime son fil (son seul message)** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 le fil reste à qui l’a ouvert (Q4) : Carla supprime son premier message après la réponse d’Edith** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un mot, puis Paule le remplace en direct** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un passage, puis Paule le supprime** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un mot, puis Carla le remplace en suggestion ; Paule accepte** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D4 commenter une sélection à cheval sur deux paragraphes : le message (Q3)** (commentaires, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, chromium/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Paule (éditrice) crée un commentaire : l’ancre chez Edith et Carla, pas chez Lucie** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Carla (correctrice) crée un commentaire** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Edith répond par l’interface ; Paule voit la réponse dans le fil** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Carla modifie son message** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Edith supprime sa réponse** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Paule réagit au message de Carla** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D2 Paule résout par l’interface : l’ancre disparaît chez tous** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D2 rouvrir un fil résolu** (commentaires, firefox/L) : 0/3 ; à qualifier au bilan
+  - exception : page.evaluate: introuvable : nuit
+- **D2 Carla supprime son fil (son seul message)** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D2 le fil reste à qui l’a ouvert (Q4) : Carla supprime son premier message après la réponse d’Edith** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D3 commenter un mot, puis Paule le remplace en direct** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D3 commenter un passage, puis Paule le supprime** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D3 commenter un mot, puis Carla le remplace en suggestion ; Paule accepte** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D4 commenter une sélection à cheval sur deux paragraphes : le message (Q3)** (commentaires, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : ville
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, firefox/L) : 0/3 ; à qualifier au bilan
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Paule (éditrice) crée un commentaire : l’ancre chez Edith et Carla, pas chez Lucie** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Carla (correctrice) crée un commentaire** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Edith répond par l’interface ; Paule voit la réponse dans le fil** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Carla modifie son message** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Edith supprime sa réponse** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Paule réagit au message de Carla** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D2 Paule résout par l’interface : l’ancre disparaît chez tous** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D2 rouvrir un fil résolu** (commentaires, firefox/M) : 0/3 ; à qualifier au bilan
+  - exception : page.evaluate: introuvable : nuit
+- **D2 Carla supprime son fil (son seul message)** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D2 le fil reste à qui l’a ouvert (Q4) : Carla supprime son premier message après la réponse d’Edith** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D3 commenter un mot, puis Paule le remplace en direct** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D3 commenter un passage, puis Paule le supprime** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D3 commenter un mot, puis Carla le remplace en suggestion ; Paule accepte** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D4 commenter une sélection à cheval sur deux paragraphes : le message (Q3)** (commentaires, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : ville
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, firefox/M) : 0/3 ; à qualifier au bilan
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Paule (éditrice) crée un commentaire : l’ancre chez Edith et Carla, pas chez Lucie** (commentaires, firefox/S) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **D1 Carla (correctrice) crée un commentaire** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Edith répond par l’interface ; Paule voit la réponse dans le fil** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Carla modifie son message** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Edith supprime sa réponse** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Paule réagit au message de Carla** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 Paule résout par l’interface : l’ancre disparaît chez tous** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 rouvrir un fil résolu** (commentaires, firefox/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 Carla supprime son fil (son seul message)** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 le fil reste à qui l’a ouvert (Q4) : Carla supprime son premier message après la réponse d’Edith** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un mot, puis Paule le remplace en direct** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un passage, puis Paule le supprime** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un mot, puis Carla le remplace en suggestion ; Paule accepte** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D4 commenter une sélection à cheval sur deux paragraphes : le message (Q3)** (commentaires, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, firefox/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 rouvrir un fil résolu** (commentaires, webkit/L) : 0/3 ; à qualifier au bilan
+  - accès aux fils résolus dans l’interface : oui
+  - rouvert par l’API : l’ancre revient chez Edith NON
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, webkit/L) : 0/3 ; à qualifier au bilan
+  - onglet « Commentaires » : ouverts 0, résolus 1
+  - actions du fil résolu : ajouteruneréaction | rouvrir | plusd'actions
+  - rouvert par l’interface, ancre revenue chez Edith : NON
+- **D1 Edith répond par l’interface ; Paule voit la réponse dans le fil** (commentaires, webkit/M) : 0/3
+  - messages (API) : Pourquoi la nuit ?
+  - fil affiché chez Paule : Carla13 nov. / Pourquoi la nuit ?
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Edith supprime sa réponse** (commentaires, webkit/M) : 0/3
+  - exception : locator.hover: Timeout 30000ms exceeded.
+- **D2 rouvrir un fil résolu** (commentaires, webkit/M) : 0/3 ; à qualifier au bilan
+  - accès aux fils résolus dans l’interface : oui
+  - rouvert par l’API : l’ancre revient chez Edith NON
+- **D2 le fil reste à qui l’a ouvert (Q4) : Carla supprime son premier message après la réponse d’Edith** (commentaires, webkit/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, webkit/M) : 0/3 ; à qualifier au bilan
+  - onglet « Commentaires » : ouverts 0, résolus 1
+  - actions du fil résolu : ajouteruneréaction | rouvrir | plusd'actions
+  - rouvert par l’interface, ancre revenue chez Edith : NON
+- **D1 Carla (correctrice) crée un commentaire** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Edith répond par l’interface ; Paule voit la réponse dans le fil** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Carla modifie son message** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Edith supprime sa réponse** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D1 Paule réagit au message de Carla** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 Paule résout par l’interface : l’ancre disparaît chez tous** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 rouvrir un fil résolu** (commentaires, webkit/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 Carla supprime son fil (son seul message)** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 le fil reste à qui l’a ouvert (Q4) : Carla supprime son premier message après la réponse d’Edith** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un mot, puis Paule le remplace en direct** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un passage, puis Paule le supprime** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D3 commenter un mot, puis Carla le remplace en suggestion ; Paule accepte** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D4 commenter une sélection à cheval sur deux paragraphes : le message (Q3)** (commentaires, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, webkit/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, chromium/M) : 0/3 ; à qualifier au bilan
+  - versions (2) : Version actuelle, 13 novembre 2026 à 11:10, Paule | Début du document, 13 novembre 2026 à 11:08, Paule
+  - « Version actuelle » montre la dernière phrase : oui
+  - versions (2) : Version actuelle, 13 novembre 2026 à 11:13, Paule | Début du document, 13 novembre 2026 à 11:11, Paule
+- **H1 (P19) Carla propose ; Paule tape ailleurs en direct : la suggestion reste-t-elle ?** (complements, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H2 (P19) Paule fait une suggestion, l’arrête, puis tape ailleurs : la suggestion reste-t-elle ?** (complements, chromium/S) : 0/3
+  - panneau de Paule : avant (vide) ; après sa frappe (vide) ; après rechargement (vide)
+  - panneau d’Edith après la frappe de Paule : (vide)
+  - affiché chez Paule § 1 : « Il faisait nuit sur la ville. Ajout. » ; texte principal (Lucie) § 1 : « Il faisait nuit sur la ville. »
+- **H3 (P19) Carla propose ; Paule active le suivi puis recharge : la suggestion devient-elle du texte ?** (complements, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H6 (P22) clic au bout de la dernière ligne, après la fermeture de l’historique** (complements, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H7 (P21) restaurer une version : confirmation ? l’état d’avant est-il gardé ?** (complements, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, chromium/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H1 (P19) Carla propose ; Paule tape ailleurs en direct : la suggestion reste-t-elle ?** (complements, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H2 (P19) Paule fait une suggestion, l’arrête, puis tape ailleurs : la suggestion reste-t-elle ?** (complements, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H3 (P19) Carla propose ; Paule active le suivi puis recharge : la suggestion devient-elle du texte ?** (complements, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H4 (P22) clic au bout de la dernière ligne, sans rien avant (témoin)** (complements, firefox/L) : 0/3
+  - exception : locator.boundingBox: Timeout 30000ms exceeded.
+- **H5 (P22) clic au bout de la dernière ligne, après une bascule du suivi** (complements, firefox/L) : 0/3
+  - exception : locator.boundingBox: Timeout 30000ms exceeded.
+- **H6 (P22) clic au bout de la dernière ligne, après la fermeture de l’historique** (complements, firefox/L) : 0/3
+  - exception : locator.waitFor: Timeout 30000ms exceeded.
+- **H7 (P21) restaurer une version : confirmation ? l’état d’avant est-il gardé ?** (complements, firefox/L) : 0/3
+  - exception : locator.waitFor: Timeout 30000ms exceeded.
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, firefox/L) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H10 (P24) « deux:points » ouvre-t-il le sélecteur d’émojis ?** (complements, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H11 (P18) recette : en suivi, supprimer un paragraphe par double-clic et Suppr, accepter, puis rebasculer** (complements, firefox/L) : 0/3
+  - exception : locator.dblclick: Timeout 30000ms exceeded.
+- **H12 (P18) recette : la même suppression, puis refuser, puis rebasculer** (complements, firefox/L) : 0/3
+  - exception : locator.dblclick: Timeout 30000ms exceeded.
+- **H1 (P19) Carla propose ; Paule tape ailleurs en direct : la suggestion reste-t-elle ?** (complements, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H2 (P19) Paule fait une suggestion, l’arrête, puis tape ailleurs : la suggestion reste-t-elle ?** (complements, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H3 (P19) Carla propose ; Paule active le suivi puis recharge : la suggestion devient-elle du texte ?** (complements, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H4 (P22) clic au bout de la dernière ligne, sans rien avant (témoin)** (complements, firefox/M) : 0/3
+  - exception : locator.boundingBox: Timeout 30000ms exceeded.
+- **H5 (P22) clic au bout de la dernière ligne, après une bascule du suivi** (complements, firefox/M) : 0/3
+  - exception : locator.boundingBox: Timeout 30000ms exceeded.
+- **H6 (P22) clic au bout de la dernière ligne, après la fermeture de l’historique** (complements, firefox/M) : 0/3
+  - exception : locator.waitFor: Timeout 30000ms exceeded.
+- **H7 (P21) restaurer une version : confirmation ? l’état d’avant est-il gardé ?** (complements, firefox/M) : 0/3
+  - exception : locator.waitFor: Timeout 30000ms exceeded.
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, firefox/M) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H9 (P16) la lectrice rattrape-t-elle deux éditeurs qui tapent au même endroit ? (30 s)** (complements, firefox/M) : 2/3
+  - Lucie EN RETARD après 30 s : «  Paule. »
+  - Lucie à jour en 0.0 s
+- **H10 (P24) « deux:points » ouvre-t-il le sélecteur d’émojis ?** (complements, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H11 (P18) recette : en suivi, supprimer un paragraphe par double-clic et Suppr, accepter, puis rebasculer** (complements, firefox/M) : 0/3
+  - exception : locator.dblclick: Timeout 30000ms exceeded.
+- **H12 (P18) recette : la même suppression, puis refuser, puis rebasculer** (complements, firefox/M) : 0/3
+  - exception : locator.dblclick: Timeout 30000ms exceeded.
+- **H1 (P19) Carla propose ; Paule tape ailleurs en direct : la suggestion reste-t-elle ?** (complements, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H2 (P19) Paule fait une suggestion, l’arrête, puis tape ailleurs : la suggestion reste-t-elle ?** (complements, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H3 (P19) Carla propose ; Paule active le suivi puis recharge : la suggestion devient-elle du texte ?** (complements, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H4 (P22) clic au bout de la dernière ligne, sans rien avant (témoin)** (complements, firefox/S) : 0/3
+  - exception : locator.boundingBox: Timeout 30000ms exceeded.
+- **H5 (P22) clic au bout de la dernière ligne, après une bascule du suivi** (complements, firefox/S) : 0/3
+  - exception : locator.boundingBox: Timeout 30000ms exceeded.
+- **H6 (P22) clic au bout de la dernière ligne, après la fermeture de l’historique** (complements, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H7 (P21) restaurer une version : confirmation ? l’état d’avant est-il gardé ?** (complements, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, firefox/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H10 (P24) « deux:points » ouvre-t-il le sélecteur d’émojis ?** (complements, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H11 (P18) recette : en suivi, supprimer un paragraphe par double-clic et Suppr, accepter, puis rebasculer** (complements, firefox/S) : 0/3
+  - exception : locator.dblclick: Timeout 30000ms exceeded.
+- **H12 (P18) recette : la même suppression, puis refuser, puis rebasculer** (complements, firefox/S) : 0/3
+  - exception : locator.dblclick: Timeout 30000ms exceeded.
+- **H4 (P22) clic au bout de la dernière ligne, sans rien avant (témoin)** (complements, webkit/L) : 0/3
+  - texte : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare Fin.. »
+- **H5 (P22) clic au bout de la dernière ligne, après une bascule du suivi** (complements, webkit/L) : 0/3
+  - texte : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare Fin. ⏎ Nouveau.. »
+- **H6 (P22) clic au bout de la dernière ligne, après la fermeture de l’historique** (complements, webkit/L) : 0/3
+  - texte : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare Fin.. »
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, webkit/L) : 0/3 ; à qualifier au bilan
+  - versions (2) : Version actuelle, 13 novembre 2026 à 11:37, Paule | Début du document, 13 novembre 2026 à 11:35, Paule
+  - « Version actuelle » montre la dernière phrase : oui
+  - versions (2) : Version actuelle, 13 novembre 2026 à 11:39, Paule | Début du document, 13 novembre 2026 à 11:37, Paule
+- **H4 (P22) clic au bout de la dernière ligne, sans rien avant (témoin)** (complements, webkit/M) : 0/3
+  - texte : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare Fin.. »
+- **H5 (P22) clic au bout de la dernière ligne, après une bascule du suivi** (complements, webkit/M) : 0/3
+  - texte : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare Fin. ⏎ Nouveau.. »
+- **H6 (P22) clic au bout de la dernière ligne, après la fermeture de l’historique** (complements, webkit/M) : 0/3
+  - texte : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare Fin.. »
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, webkit/M) : 0/3 ; à qualifier au bilan
+  - versions (2) : Version actuelle, 13 novembre 2026 à 11:39, Paule | Début du document, 13 novembre 2026 à 11:37, Paule
+  - « Version actuelle » montre la dernière phrase : oui
+  - versions (2) : Version actuelle, 13 novembre 2026 à 11:41, Paule | Début du document, 13 novembre 2026 à 11:39, Paule
+- **H1 (P19) Carla propose ; Paule tape ailleurs en direct : la suggestion reste-t-elle ?** (complements, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H2 (P19) Paule fait une suggestion, l’arrête, puis tape ailleurs : la suggestion reste-t-elle ?** (complements, webkit/S) : 0/3
+  - panneau de Paule : avant (vide) ; après sa frappe (vide) ; après rechargement (vide)
+  - panneau d’Edith après la frappe de Paule : (vide)
+  - affiché chez Paule § 1 : « Il faisait nuit sur la ville. Ajout. » ; texte principal (Lucie) § 1 : « Il faisait nuit sur la ville. »
+- **H3 (P19) Carla propose ; Paule active le suivi puis recharge : la suggestion devient-elle du texte ?** (complements, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H4 (P22) clic au bout de la dernière ligne, sans rien avant (témoin)** (complements, webkit/S) : 0/3
+  - texte : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare Fin.. »
+- **H5 (P22) clic au bout de la dernière ligne, après une bascule du suivi** (complements, webkit/S) : 0/3
+  - texte : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare Fin. ⏎ Nouveau.. »
+- **H6 (P22) clic au bout de la dernière ligne, après la fermeture de l’historique** (complements, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H7 (P21) restaurer une version : confirmation ? l’état d’avant est-il gardé ?** (complements, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, webkit/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression au début** (correcteurs, chromium/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 suppression au milieu** (correcteurs, chromium/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 suppression à la fin** (correcteurs, chromium/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 remplacement au début** (correcteurs, chromium/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 remplacement au milieu** (correcteurs, chromium/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 remplacement à la fin** (correcteurs, chromium/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, chromium/M) : 0/3 ; à qualifier au bilan
+  - affiché : Carla « Il faisait nuit sur la ville.  CCayrrlial.. », Cyril « Il faisait nuit sur la ville.  CCayrrlial.. », Paule « Il faisait nuit sur la ville.  CCayrrlial.. »
+  - panneau de Paule (1) : Carla ajoute « CCayrrlial.. »
+  - Accepter « Carla ajoute « CCayrrlial.. » » : fait
+- **C2 une suggestion sur une suggestion (Cyril corrige l’ajout de Carla)** (correcteurs, chromium/M) : 0/3
+  - affiché chez Paule : « Il faisait nuit sur la ville. Une note de Carla. »
+  - panneau de Paule (1) : Carla ajoute « Une note de Carla. »
+  - Accepter « Carla ajoute « Une note de Carla. » » : fait
+- **C3 paragraphe entier supprimé proposé : refusé à cheval, accepté vidé** (correcteurs, chromium/M) : 0/3
+  - message à cheval : NON
+  - panneau : 
+  - texte (Lucie) : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare. »
+- **C1 ajout au début** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au milieu (un mot)** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au milieu (une phrase, défaut d’affichage connu)** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout à la fin** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression au début** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression au milieu** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression à la fin** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement au début** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement au milieu** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement à la fin** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, chromium/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C2 une suggestion sur une suggestion (Cyril corrige l’ajout de Carla)** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C3 nouveau paragraphe proposé** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C3 paragraphe entier supprimé proposé : refusé à cheval, accepté vidé** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C4 Paule arbitre pendant que Carla continue d’écrire** (correcteurs, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au début** (correcteurs, firefox/L) : 0/3
+  - affiché chez Carla : « Ce soir,  »
+  - texte principal avant arbitrage : «  »
+  - panneau de Paule (1) : Quelqu’un ajoute « Ce soir, »
+- **C1 ajout au milieu (un mot)** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **C1 ajout au milieu (une phrase, défaut d’affichage connu)** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : faisait
+- **C1 ajout à la fin** (correcteurs, firefox/L) : 0/3
+  - affiché chez Carla : «  Encore. »
+  - texte principal avant arbitrage : «  »
+  - panneau de Paule (1) : Quelqu’un ajoute « Encore. »
+- **C1 suppression au début** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : Il
+- **C1 suppression au milieu** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **C1 suppression à la fin** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable :  ville
+- **C1 remplacement au début** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : Il
+- **C1 remplacement au milieu** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **C1 remplacement à la fin** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : ville
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, firefox/L) : 0/3 ; à qualifier au bilan
+  - affiché : Carla «  CCayrirl.la. », Cyril «  CCayrirl.la. », Paule «  CCayrirl.la. »
+  - panneau de Paule (1) : Carla ajoute « CCayrirl.la. »
+  - Accepter « Carla ajoute « CCayrirl.la. » » : RIEN
+- **C2 une suggestion sur une suggestion (Cyril corrige l’ajout de Carla)** (correcteurs, firefox/L) : 0/3
+  - affiché chez Paule : «  Une remarque de Carla. »
+  - panneau de Paule (1) : Carla ajoute « Une remarque de Carla. »
+  - Accepter « Carla ajoute « Une remarque de Carla. » » : RIEN
+- **C3 nouveau paragraphe proposé** (correcteurs, firefox/L) : 0/3
+  - affiché chez Carla : «  »
+  - texte principal avant arbitrage : «  »
+  - panneau de Paule (1) : Quelqu’un ajoute « Nouveau paragraphe. »
+- **C3 paragraphe entier supprimé proposé : refusé à cheval, accepté vidé** (correcteurs, firefox/L) : 0/3
+  - exception : page.evaluate: Document.createTreeWalker: Argument 1 is not an object.
+- **C4 Paule arbitre pendant que Carla continue d’écrire** (correcteurs, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au début** (correcteurs, firefox/M) : 0/3
+  - affiché chez Carla : « Ce soir,  »
+  - texte principal avant arbitrage : «  »
+  - panneau de Paule (1) : Carla ajoute « Ce soir, »
+- **C1 ajout au milieu (un mot)** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **C1 ajout au milieu (une phrase, défaut d’affichage connu)** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : faisait
+- **C1 ajout à la fin** (correcteurs, firefox/M) : 0/3
+  - affiché chez Carla : «  Encore. »
+  - texte principal avant arbitrage : «  »
+  - panneau de Paule (1) : Carla ajoute « Encore. »
+- **C1 suppression au début** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : Il
+- **C1 suppression au milieu** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **C1 suppression à la fin** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable :  ville
+- **C1 remplacement au début** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : Il
+- **C1 remplacement au milieu** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **C1 remplacement à la fin** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : ville
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, firefox/M) : 0/3 ; à qualifier au bilan
+  - affiché : Carla «  CCyarrilal.. », Cyril «  CCyarrilal.. », Paule «  CCyarrilal.. »
+  - panneau de Paule (1) : Cyril ajoute « CCyarrilal.. »
+  - Accepter « Cyril ajoute « CCyarrilal.. » » : RIEN
+- **C2 une suggestion sur une suggestion (Cyril corrige l’ajout de Carla)** (correcteurs, firefox/M) : 0/3
+  - affiché chez Paule : «  Une note de Carla. »
+  - panneau de Paule (1) : Carla ajoute « Une note de Carla. »
+  - Accepter « Carla ajoute « Une note de Carla. » » : RIEN
+- **C3 nouveau paragraphe proposé** (correcteurs, firefox/M) : 0/3
+  - affiché chez Carla : «  »
+  - texte principal avant arbitrage : «  »
+  - panneau de Paule (1) : Carla ajoute « Nouveau paragraphe. »
+- **C3 paragraphe entier supprimé proposé : refusé à cheval, accepté vidé** (correcteurs, firefox/M) : 0/3
+  - exception : page.evaluate: Document.createTreeWalker: Argument 1 is not an object.
+- **C4 Paule arbitre pendant que Carla continue d’écrire** (correcteurs, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au début** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au milieu (un mot)** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au milieu (une phrase, défaut d’affichage connu)** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout à la fin** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression au début** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression au milieu** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression à la fin** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement au début** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement au milieu** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement à la fin** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, firefox/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C2 une suggestion sur une suggestion (Cyril corrige l’ajout de Carla)** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C3 nouveau paragraphe proposé** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C3 paragraphe entier supprimé proposé : refusé à cheval, accepté vidé** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C4 Paule arbitre pendant que Carla continue d’écrire** (correcteurs, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, webkit/L) : 0/3 ; à qualifier au bilan
+  - affiché : Carla « Il faisait nuit sur la ville.  CCayrrilla.. », Cyril « Il faisait nuit sur la ville.  CCayrrilla.. », Paule « Il faisait nuit sur la ville.  CCayrrilla.. »
+  - panneau de Paule (1) : Cyril ajoute « CCayrrilla.. »
+  - Accepter « Cyril ajoute « CCayrrilla.. » » : fait
+- **C1 suppression au début** (correcteurs, webkit/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 suppression au milieu** (correcteurs, webkit/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 suppression à la fin** (correcteurs, webkit/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 remplacement au début** (correcteurs, webkit/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 remplacement au milieu** (correcteurs, webkit/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C1 remplacement à la fin** (correcteurs, webkit/M) : 0/3
+  - affiché chez Carla : « Il faisait nuit sur la ville. »
+  - texte principal avant arbitrage : inchangé
+  - panneau de Paule (0) : (vide)
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, webkit/M) : 0/3 ; à qualifier au bilan
+  - affiché : Carla « Il faisait nuit sur la ville.  CCayrrilal.. », Cyril « Il faisait nuit sur la ville.  CCayrrilal.. », Paule « Il faisait nuit sur la ville.  CCayrrilal.. »
+  - panneau de Paule (1) : Cyril ajoute « CCayrrilal.. »
+  - Accepter « Cyril ajoute « CCayrrilal.. » » : fait
+- **C2 une suggestion sur une suggestion (Cyril corrige l’ajout de Carla)** (correcteurs, webkit/M) : 0/3
+  - affiché chez Paule : « Il faisait nuit sur la ville. Une note de Carla. »
+  - panneau de Paule (1) : Carla ajoute « Une note de Carla. »
+  - Accepter « Carla ajoute « Une note de Carla. » » : fait
+- **C3 paragraphe entier supprimé proposé : refusé à cheval, accepté vidé** (correcteurs, webkit/M) : 0/3
+  - message à cheval : NON
+  - panneau : 
+  - texte (Lucie) : « Il faisait nuit sur la ville. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare. »
+- **C1 ajout au début** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au milieu (un mot)** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout au milieu (une phrase, défaut d’affichage connu)** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 ajout à la fin** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression au début** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression au milieu** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 suppression à la fin** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement au début** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement au milieu** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C1 remplacement à la fin** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, webkit/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C2 une suggestion sur une suggestion (Cyril corrige l’ajout de Carla)** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C3 nouveau paragraphe proposé** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C3 paragraphe entier supprimé proposé : refusé à cheval, accepté vidé** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **C4 Paule arbitre pendant que Carla continue d’écrire** (correcteurs, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, chromium/M) : 0/3 ; à qualifier au bilan
+  - panneau : Paule ajoute «⍽Il dit "oui" ; bien.⍽»
+  - affiché chez Edith : « Paule marchait vers la gare. Il dit "oui" ; bien. »
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, chromium/M) : 0/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  EPdaiutlh.e. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  EPdaiutlhe.. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  PEaduilteh.. »
+- **A1 gras et italique (Ctrl+B, Ctrl+I)** (editeur, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, chromium/S) : 0/3 ; à qualifier au bilan
+  - panneau : 
+  - affiché chez Edith : « Paule marchait vers la gare. »
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, chromium/S) : 1/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  Edith.Paule. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  EPdaiutlhe.. »
+- **A1 frappe, Entrée, puis Retour arrière en début de paragraphe (fusion)** (editeur, firefox/L) : 0/3
+  - après Entrée (Edith) : «  Suite. ⏎ Nouveau. »
+  - après la fusion (Lucie) : «  Suite.Nouveau. »
+- **A1 titre et liste par les raccourcis « # » et « - »** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A1 gras et italique (Ctrl+B, Ctrl+I)** (editeur, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **A1 Annuler et Rétablir : Paule n’annule que ce qu’elle a fait** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de texte brut sur plusieurs lignes** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage HTML d’un traitement de texte** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de 10 000 signes** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de 100 000 signes** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie au collage** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, firefox/L) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, dans des paragraphes différents** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, dans le même paragraphe** (editeur, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, firefox/L) : 0/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : «  EPdaiuthl.e. »
+  - convergence : oui ; § 1 : «  EPdaiutlhe.. »
+  - convergence : oui ; § 1 : «  PEadiutlhe.. »
+- **A1 frappe, Entrée, puis Retour arrière en début de paragraphe (fusion)** (editeur, firefox/M) : 0/3
+  - après Entrée (Edith) : «  Suite. ⏎ Nouveau. »
+  - après la fusion (Lucie) : «  Suite.Nouveau. »
+- **A1 titre et liste par les raccourcis « # » et « - »** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A1 gras et italique (Ctrl+B, Ctrl+I)** (editeur, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **A1 Annuler et Rétablir : Paule n’annule que ce qu’elle a fait** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de texte brut sur plusieurs lignes** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage HTML d’un traitement de texte** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de 10 000 signes** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de 100 000 signes** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie au collage** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, firefox/M) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, dans des paragraphes différents** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, dans le même paragraphe** (editeur, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, firefox/M) : 0/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : «  EPdaiutleh.. »
+  - convergence : oui ; § 1 : «  PEaduilteh.. »
+- **A1 frappe, Entrée, puis Retour arrière en début de paragraphe (fusion)** (editeur, firefox/S) : 0/3
+  - après Entrée (Edith) : «  Suite. ⏎ Nouveau. »
+  - après la fusion (Lucie) : «  Suite.Nouveau. »
+- **A1 titre et liste par les raccourcis « # » et « - »** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A1 gras et italique (Ctrl+B, Ctrl+I)** (editeur, firefox/S) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **A1 Annuler et Rétablir : Paule n’annule que ce qu’elle a fait** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de texte brut sur plusieurs lignes** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage HTML d’un traitement de texte** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de 10 000 signes** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A2 collage de 100 000 signes** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie au collage** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, firefox/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, dans des paragraphes différents** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, dans le même paragraphe** (editeur, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, firefox/S) : 0/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : «  PEadiutlhe.. »
+  - convergence : oui ; § 1 : «  PEdaiutlhe.. »
+  - convergence : oui ; § 1 : «  PEdauilteh.. »
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, webkit/L) : 0/3 ; à qualifier au bilan
+  - panneau : Paule ajoute «⍽Il dit "oui" ; bien.⍽»
+  - affiché chez Edith : « Paule marchait vers la gare. Il dit "oui" ; bien. »
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, webkit/L) : 0/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  PEadith.ule. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  EPdaiuthle.. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  EPadiutlhe.. »
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, webkit/M) : 0/3 ; à qualifier au bilan
+  - panneau : Paule ajoute «⍽Il dit "oui" ; bien.⍽»
+  - affiché chez Edith : « Paule marchait vers la gare. Il dit "oui" ; bien. »
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, webkit/M) : 0/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  PEadulei.th. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  PaulEed.ith. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  EPdaiutlhe.. »
+- **A1 gras et italique (Ctrl+B, Ctrl+I)** (editeur, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, webkit/S) : 0/3 ; à qualifier au bilan
+  - panneau : 
+  - affiché chez Edith : « Paule marchait vers la gare. »
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, webkit/S) : 0/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  PEdaiulteh.. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  PEadule.ith. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  EPdaiutlhe.. »
+- **G1 nommer une version, relire, puis revenir à cette version** (historique, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **G1 nommer une version, relire, puis revenir à cette version** (historique, firefox/L) : 0/3
+  - exception : locator.waitFor: Timeout 30000ms exceeded.
+- **G1 nommer une version, relire, puis revenir à cette version** (historique, firefox/M) : 0/3
+  - exception : locator.waitFor: Timeout 30000ms exceeded.
+- **G1 nommer une version, relire, puis revenir à cette version** (historique, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **G1 nommer une version, relire, puis revenir à cette version** (historique, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Paule perd le réseau en écrivant en suivi, puis le retrouve** (robustesse, chromium/S) : 0/3
+  - panneau d’Edith : (vide)
+  - texte principal (Lucie) : inchangé
+- **F1 Carla (correctrice) perd le réseau en proposant, puis le retrouve** (robustesse, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F3 le service de collaboration redémarre pendant que Paule écrit et que Carla propose** (robustesse, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Edith perd le réseau en écrivant en direct, puis le retrouve** (robustesse, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Paule perd le réseau en écrivant en suivi, puis le retrouve** (robustesse, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Carla (correctrice) perd le réseau en proposant, puis le retrouve** (robustesse, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F2 Paule recharge juste après avoir tapé** (robustesse, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F2 Paule a deux onglets sur le même document et écrit dans les deux** (robustesse, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F3 le service de collaboration redémarre pendant que Paule écrit et que Carla propose** (robustesse, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Edith perd le réseau en écrivant en direct, puis le retrouve** (robustesse, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Paule perd le réseau en écrivant en suivi, puis le retrouve** (robustesse, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Carla (correctrice) perd le réseau en proposant, puis le retrouve** (robustesse, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F2 Paule recharge juste après avoir tapé** (robustesse, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F2 Paule a deux onglets sur le même document et écrit dans les deux** (robustesse, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F3 le service de collaboration redémarre pendant que Paule écrit et que Carla propose** (robustesse, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Edith perd le réseau en écrivant en direct, puis le retrouve** (robustesse, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Paule perd le réseau en écrivant en suivi, puis le retrouve** (robustesse, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Carla (correctrice) perd le réseau en proposant, puis le retrouve** (robustesse, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F2 Paule recharge juste après avoir tapé** (robustesse, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F2 Paule a deux onglets sur le même document et écrit dans les deux** (robustesse, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F3 le service de collaboration redémarre pendant que Paule écrit et que Carla propose** (robustesse, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F1 Edith perd le réseau en écrivant en direct, puis le retrouve** (robustesse, webkit/L) : 0/3
+  - pendant la coupure, chez Lucie : déjà là ?
+  - au retour : arrivé, 1 fois
+- **F1 Edith perd le réseau en écrivant en direct, puis le retrouve** (robustesse, webkit/M) : 0/3
+  - pendant la coupure, chez Lucie : déjà là ?
+  - au retour : arrivé, 1 fois
+- **F1 Edith perd le réseau en écrivant en direct, puis le retrouve** (robustesse, webkit/S) : 0/3
+  - pendant la coupure, chez Lucie : déjà là ?
+  - au retour : arrivé, 1 fois
+- **F1 Paule perd le réseau en écrivant en suivi, puis le retrouve** (robustesse, webkit/S) : 0/3
+  - panneau d’Edith : (vide)
+  - texte principal (Lucie) : inchangé
+- **F1 Carla (correctrice) perd le réseau en proposant, puis le retrouve** (robustesse, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **F3 le service de collaboration redémarre pendant que Paule écrit et que Carla propose** (robustesse, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, chromium/M) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, chromium/M) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, chromium/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, chromium/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, firefox/L) : 0/3 ; à qualifier au bilan
+  - exception : page.evaluate: Document.createTreeWalker: Argument 1 is not an object.
+- **E2 Carla passe de correctrice à éditrice, le document ouvert** (roles, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, firefox/L) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, firefox/M) : 0/3 ; à qualifier au bilan
+  - exception : page.evaluate: Document.createTreeWalker: Argument 1 is not an object.
+- **E2 Carla passe de correctrice à éditrice, le document ouvert** (roles, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, firefox/M) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, firefox/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Carla passe de correctrice à éditrice, le document ouvert** (roles, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, firefox/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, webkit/L) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, webkit/L) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, webkit/M) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, webkit/M) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, webkit/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, webkit/S) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B1 accepter une à une sa propre suggestion** (suivi, chromium/S) : 0/3
+- **B1 Tout accepter sa propre suggestion** (suivi, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B10 une autre éditrice accepte une à une la suggestion de Paule** (suivi, chromium/S) : 0/3
+- **B2 bascules rapides et répétées, une lettre entre chaque** (suivi, chromium/S) : 0/3
+  - Paule toujours là
+  - texte principal (Lucie), § 2 : « Les quais étaient déserts et le vent soufflait.bd » (attendu : « …soufflait.bd »)
+  - affiché chez Edith, § 2 : « Les quais étaient déserts et le vent soufflait.bd »
+- **B2 bascules répétées, une seconde après chaque bascule** (suivi, chromium/S) : 0/3
+  - Paule toujours là
+  - texte principal (Lucie), § 2 : « Les quais étaient déserts et le vent soufflait.bd » (attendu : « …soufflait.bd »)
+  - affiché chez Edith, § 2 : « Les quais étaient déserts et le vent soufflait.bd »
+- **B3 suppression d’un mot en suivi, puis acceptée une à une** (suivi, chromium/S) : 0/3
+  - pendant le suivi, Edith (texte principal) : inchangé
+  - Carla voit : « Il faisait nuit sur la ville. »
+  - panneau : 
+- **B3 remplacement d’un mot en suivi** (suivi, chromium/S) : 0/3
+  - panneau : 
+  - Edith : « Il faisait nuit sur la ville. »
+- **B4 insertions au début, au milieu et à la fin, en suivi** (suivi, chromium/S) : 0/3
+  - panneau (0) : 
+  - Edith § 2 : « Les quais étaient déserts et le vent soufflait. »
+- **B7 basculer pendant que Carla écrit** (suivi, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B7 basculer juste après la résolution d’un fil** (suivi, chromium/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B8 deux éditeurs au même paragraphe, l’un en suivi, l’autre en direct** (suivi, chromium/S) : 0/3
+  - texte principal (Lucie) § 2 : « Direct, Les quais étaient déserts et le vent soufflait. »
+  - affiché chez Edith § 2 : « Direct, Les quais étaient déserts et le vent soufflait. Suivi de Paule. »
+  - affiché chez Carla § 2 : « Direct, Les quais étaient déserts et le vent soufflait. »
+- **B9 recharger en suivi : le mode revient à Modifier, les suggestions restent** (suivi, chromium/S) : 0/3
+  - mode après rechargement : PAS Éditer
+  - panneau : (vide)
+- **B1 accepter une à une sa propre suggestion** (suivi, firefox/L) : 0/3
+  - Accepter « Paule ajoute « Ajout. » » : RIEN
+- **B1 refuser une à une sa propre suggestion** (suivi, firefox/L) : 0/3
+  - Refuser « Paule ajoute « Ajout. » » : fait
+- **B1 Tout accepter sa propre suggestion** (suivi, firefox/L) : 0/3
+  - Edith :  Ajout.
+- **B10 une autre éditrice accepte une à une la suggestion de Paule** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 bascules rapides et répétées, une lettre entre chaque** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 bascules répétées, une seconde après chaque bascule** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 activer puis arrêter le suivi, sans rien taper ; puis taper : la frappe est-elle directe ?** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 sans jamais activer le suivi, la frappe est directe (témoin)** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 après une suggestion, arrêter le suivi et taper AILLEURS** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 après une suggestion, arrêter le suivi et taper JUSTE APRÈS elle** (suivi, firefox/L) : 0/3
+  - texte principal (Lucie), § 1 : «  » (attendu : « …ville. Direct. »)
+  - panneau : Paule ajoute « Proposé. Direct. »
+- **B3 suppression d’un mot en suivi, puis acceptée une à une** (suivi, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B3 remplacement d’un mot en suivi** (suivi, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B3 suppression à cheval sur deux paragraphes : refusée, avec un message (contournement)** (suivi, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : ville
+- **B4 insertions au début, au milieu et à la fin, en suivi** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B4 couper un paragraphe (Entrée) puis en fusionner deux, en suivi** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B6 mise en forme (gras) en suivi : refusée (contournement)** (suivi, firefox/L) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B7 basculer pendant que Carla écrit** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B7 basculer juste après la résolution d’un fil** (suivi, firefox/L) : 0/3
+  - exception : page.evaluate: Document.createTreeWalker: Argument 1 is not an object.
+- **B8 deux éditeurs au même paragraphe, l’un en suivi, l’autre en direct** (suivi, firefox/L) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B1 accepter une à une sa propre suggestion** (suivi, firefox/M) : 0/3
+  - Accepter « Paule ajoute « Ajout. » » : RIEN
+- **B1 refuser une à une sa propre suggestion** (suivi, firefox/M) : 0/3
+  - Refuser « Paule ajoute « Ajout. » » : fait
+- **B1 Tout accepter sa propre suggestion** (suivi, firefox/M) : 0/3
+  - Edith :  Ajout.
+- **B10 une autre éditrice accepte une à une la suggestion de Paule** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 bascules rapides et répétées, une lettre entre chaque** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 bascules répétées, une seconde après chaque bascule** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 activer puis arrêter le suivi, sans rien taper ; puis taper : la frappe est-elle directe ?** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 sans jamais activer le suivi, la frappe est directe (témoin)** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 après une suggestion, arrêter le suivi et taper AILLEURS** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 après une suggestion, arrêter le suivi et taper JUSTE APRÈS elle** (suivi, firefox/M) : 0/3
+  - texte principal (Lucie), § 1 : «  » (attendu : « …ville. Direct. »)
+  - panneau : Paule ajoute « Proposé. Direct. »
+- **B3 suppression d’un mot en suivi, puis acceptée une à une** (suivi, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B3 remplacement d’un mot en suivi** (suivi, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B3 suppression à cheval sur deux paragraphes : refusée, avec un message (contournement)** (suivi, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : ville
+- **B4 insertions au début, au milieu et à la fin, en suivi** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B4 couper un paragraphe (Entrée) puis en fusionner deux, en suivi** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B6 mise en forme (gras) en suivi : refusée (contournement)** (suivi, firefox/M) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B7 basculer pendant que Carla écrit** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B7 basculer juste après la résolution d’un fil** (suivi, firefox/M) : 0/3
+  - exception : page.evaluate: Document.createTreeWalker: Argument 1 is not an object.
+- **B8 deux éditeurs au même paragraphe, l’un en suivi, l’autre en direct** (suivi, firefox/M) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B1 accepter une à une sa propre suggestion** (suivi, firefox/S) : 0/3
+- **B1 refuser une à une sa propre suggestion** (suivi, firefox/S) : 0/3
+- **B1 Tout accepter sa propre suggestion** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B10 une autre éditrice accepte une à une la suggestion de Paule** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 bascules rapides et répétées, une lettre entre chaque** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 bascules répétées, une seconde après chaque bascule** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 activer puis arrêter le suivi, sans rien taper ; puis taper : la frappe est-elle directe ?** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 sans jamais activer le suivi, la frappe est directe (témoin)** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 après une suggestion, arrêter le suivi et taper AILLEURS** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B2 après une suggestion, arrêter le suivi et taper JUSTE APRÈS elle** (suivi, firefox/S) : 0/3
+  - texte principal (Lucie), § 1 : «  » (attendu : « …ville. Direct. »)
+  - panneau : (vide)
+- **B3 suppression d’un mot en suivi, puis acceptée une à une** (suivi, firefox/S) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B3 remplacement d’un mot en suivi** (suivi, firefox/S) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B3 suppression à cheval sur deux paragraphes : refusée, avec un message (contournement)** (suivi, firefox/S) : 0/3
+  - exception : page.evaluate: introuvable : ville
+- **B4 insertions au début, au milieu et à la fin, en suivi** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B4 couper un paragraphe (Entrée) puis en fusionner deux, en suivi** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B6 mise en forme (gras) en suivi : refusée (contournement)** (suivi, firefox/S) : 0/3
+  - exception : page.evaluate: introuvable : nuit
+- **B7 basculer pendant que Carla écrit** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B7 basculer juste après la résolution d’un fil** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B8 deux éditeurs au même paragraphe, l’un en suivi, l’autre en direct** (suivi, firefox/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B9 recharger en suivi : le mode revient à Modifier, les suggestions restent** (suivi, firefox/S) : 0/3
+  - mode après rechargement : PAS Éditer
+  - panneau : (vide)
+- **B1 accepter une à une sa propre suggestion** (suivi, webkit/S) : 0/3
+- **B1 Tout accepter sa propre suggestion** (suivi, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B10 une autre éditrice accepte une à une la suggestion de Paule** (suivi, webkit/S) : 0/3
+- **B2 bascules rapides et répétées, une lettre entre chaque** (suivi, webkit/S) : 0/3
+  - Paule toujours là
+  - texte principal (Lucie), § 2 : « Les quais étaient déserts et le vent soufflait.bd » (attendu : « …soufflait.bd »)
+  - affiché chez Edith, § 2 : « Les quais étaient déserts et le vent soufflait.bd »
+- **B2 bascules répétées, une seconde après chaque bascule** (suivi, webkit/S) : 0/3
+  - Paule toujours là
+  - texte principal (Lucie), § 2 : « Les quais étaient déserts et le vent soufflait.bd » (attendu : « …soufflait.bd »)
+  - affiché chez Edith, § 2 : « Les quais étaient déserts et le vent soufflait.bd »
+- **B3 suppression d’un mot en suivi, puis acceptée une à une** (suivi, webkit/S) : 0/3
+  - pendant le suivi, Edith (texte principal) : inchangé
+  - Carla voit : « Il faisait nuit sur la ville. »
+  - panneau : 
+- **B3 remplacement d’un mot en suivi** (suivi, webkit/S) : 0/3
+  - panneau : 
+  - Edith : « Il faisait nuit sur la ville. »
+- **B4 insertions au début, au milieu et à la fin, en suivi** (suivi, webkit/S) : 0/3
+  - panneau (0) : 
+  - Edith § 2 : « Les quais étaient déserts et le vent soufflait. »
+- **B7 basculer pendant que Carla écrit** (suivi, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B7 basculer juste après la résolution d’un fil** (suivi, webkit/S) : 0/3
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **B8 deux éditeurs au même paragraphe, l’un en suivi, l’autre en direct** (suivi, webkit/S) : 0/3
+  - texte principal (Lucie) § 2 : « Direct, Les quais étaient déserts et le vent soufflait. »
+  - affiché chez Edith § 2 : « Direct, Les quais étaient déserts et le vent soufflait. Suivi de Paule. »
+  - affiché chez Carla § 2 : « Direct, Les quais étaient déserts et le vent soufflait. »
+- **B9 recharger en suivi : le mode revient à Modifier, les suggestions restent** (suivi, webkit/S) : 0/3
+  - mode après rechargement : PAS Éditer
+  - panneau : (vide)
+
+## Défauts connus toujours là (14)
+
+Suivis dans la référence, avec leur issue.
+
+- **D2 rouvrir un fil résolu** (commentaires, chromium/L) : 0/3 ; à qualifier au bilan
+  - accès aux fils résolus dans l’interface : oui
+  - rouvert par l’API : l’ancre revient chez Edith NON
+- **D2 retrouver un fil résolu dans l’onglet « Commentaires » et le rouvrir** (commentaires, chromium/L) : 0/3 ; à qualifier au bilan
+  - onglet « Commentaires » : ouverts 0, résolus 1
+  - actions du fil résolu : ajouteruneréaction | rouvrir | plusd'actions
+  - rouvert par l’interface, ancre revenue chez Edith : NON
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, chromium/L) : 0/3 ; à qualifier au bilan
+  - versions (2) : Version actuelle, 13 novembre 2026 à 11:13, Paule | Début du document, 13 novembre 2026 à 11:12, Paule
+  - « Version actuelle » montre la dernière phrase : oui
+  - versions (2) : Version actuelle, 13 novembre 2026 à 11:16, Paule | Début du document, 13 novembre 2026 à 11:14, Paule
+- **H8 (P23) instantanés : combien après deux minutes de travail, et « Version actuelle » est-elle à jour ?** (complements, en ligne) : 0/2 ; à qualifier au bilan
+  - versions (2) : Version actuelle, 13 novembre 2026 à 12:35, TEST Claude Paule | Début du document, 13 novembre 2026 à 12:33, TEST Claude Paule
+  - « Version actuelle » montre la dernière phrase : oui
+  - versions (2) : Version actuelle, 13 novembre 2026 à 12:37, TEST Claude Paule | Début du document, 13 novembre 2026 à 12:36, TEST Claude Paule
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, chromium/L) : 0/3 ; à qualifier au bilan
+  - affiché : Carla « Il faisait nuit sur la ville.  CCayrrlia.l. », Cyril « Il faisait nuit sur la ville.  CCayrrlia.l. », Paule « Il faisait nuit sur la ville.  CCayrrlia.l. »
+  - panneau de Paule (1) : Carla ajoute « CCayrrlia.l. »
+  - Accepter « Carla ajoute « CCayrrlia.l. » » : fait
+- **C2 deux correcteurs au même endroit, en même temps** (correcteurs, en ligne) : 0/2 ; à qualifier au bilan
+  - affiché : Carla « Il faisait nuit sur la ville. Ca rClyar.il. », Cyril « Il faisait nuit sur la ville. Ca rClyar.il. », Paule « Il faisait nuit sur la ville. Ca rClyar.il. »
+  - panneau de Paule (1) : TEST Claude Carla ajoute « Ca rClyar.il. »
+  - Accepter « TEST Claude Carla ajoute « Ca rClyar.il. » » : fait
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, chromium/L) : 0/3 ; à qualifier au bilan
+  - panneau : Paule ajoute «⍽Il dit "oui" ; bien.⍽»
+  - affiché chez Edith : « Paule marchait vers la gare. Il dit "oui" ; bien. »
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, chromium/L) : 0/3 ; à qualifier au bilan
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  PEaduilte.h. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  PEaule.dith. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville.  EPdaiutlhe.. »
+- **A3 typographie à la frappe, en suivi des modifications** (editeur, en ligne) : 0/2 ; à qualifier au bilan
+  - panneau : TEST Claude Paule ajoute «⍽Il dit "oui" ; bien.⍽»
+  - affiché chez Edith : « Paule marchait vers la gare. Il dit "oui" ; bien. »
+- **A4 deux éditeurs en même temps, au même endroit** (editeur, en ligne) : 0/2 ; à qualifier au bilan
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville. Ed iPtahu.le. »
+  - convergence : oui ; § 1 : « Il faisait nuit sur la ville. Ed itPh.aule. »
+- **E1 ce que chacun voit et peut faire** (roles, chromium/L) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, chromium/L) : 0/3 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E1 ce que chacun voit et peut faire** (roles, en ligne) : 0/2 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+- **E2 Edith passe d’éditrice à lectrice, le document ouvert** (roles, en ligne) : 0/2 ; à qualifier au bilan
+  - exception : locator.click: Timeout 30000ms exceeded.
+
+## Diagnostics (70)
+
+Des relevés, sans verdict.
+
+- ✔ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (chromium/L) : juste après l’arrêt : Paule Paule ajoute « Ajout. » ; Edith Paule ajoute « Ajout. » ; affiché chez Paule oui
+- ✔ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (chromium/L) : panneau d’Edith (Paule en suivi) : Paule ajoute « Ajout. »
+- ✔ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (chromium/L) : panneau de Paule : Paule ajoute « Ajout. »
+- ✔ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (chromium/L) : texte principal (Lucie) : « Il faisait nuit sur la ville. ⏎ Nouveau paragraphe. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare. » ; panneau ensuite (vide)
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (chromium/L) : référence (Paule) : « Il faisait nuit sur la ville.  EPdaith.ule. »
+- ✔ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (chromium/L) : Paule « Il faisait nuit sur la ville.  EPdaiulteh.. » ; Edith pareil
+- ✖ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (chromium/L) : panneau : Paule supprime « X »
+- ✔ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (chromium/M) : juste après l’arrêt : Paule Paule ajoute « Ajout. » ; Edith Paule ajoute « Ajout. » ; affiché chez Paule oui
+- ✔ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (chromium/M) : panneau d’Edith (Paule en suivi) : Paule ajoute « Ajout. »
+- ✔ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (chromium/M) : panneau de Paule : Paule ajoute « Ajout. »
+- ✔ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (chromium/M) : texte principal (Lucie) : « Il faisait nuit sur la ville. ⏎ Nouveau paragraphe. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare. » ; panneau ensuite (vide)
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (chromium/M) : référence (Paule) : « Il faisait nuit sur la ville.  Paule.Edith. »
+- ✔ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (chromium/M) : Paule « Il faisait nuit sur la ville.  PEdith.aule. » ; Edith pareil
+- ✖ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (chromium/M) : panneau : Paule supprime « X »
+- ✖ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (chromium/S) : juste après l’arrêt : Paule (vide) ; Edith (vide) ; affiché chez Paule oui
+- ✖ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (chromium/S) : panneau d’Edith (Paule en suivi) : (vide)
+- ✖ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (chromium/S) : panneau de Paule : (vide)
+- ⚠ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (chromium/S) : exception : locator.click: Timeout 30000ms exceeded.
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (chromium/S) : référence (Paule) : « Il faisait nuit sur la ville.  EPdaiulteh.. »
+- ✔ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (chromium/S) : Paule « Il faisait nuit sur la ville.  PEaduilteh.. » ; Edith pareil
+- ✔ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (chromium/S) : panneau : (vide)
+- ✔ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (en ligne) : juste après l’arrêt : Paule TEST Claude Paule ajoute « Ajout. » ; Edith TEST Claude Paule ajoute « Ajout. » ; affiché chez Paule oui
+- ✔ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (en ligne) : panneau d’Edith (Paule en suivi) : TEST Claude Paule ajoute « Ajout. »
+- ✔ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (en ligne) : panneau de Paule : TEST Claude Paule ajoute « Ajout. »
+- ✔ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (en ligne) : texte principal (Lucie) : « Il faisait nuit sur la ville. ⏎ Nouveau paragraphe. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare. » ; panneau ensuite (vide)
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (en ligne) : référence (Paule) : « Il faisait nuit sur la ville. Ed iPtahu.le. »
+- ⚠ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (en ligne) : exception : page.waitForSelector: Timeout 30000ms exceeded.
+- ✖ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (en ligne) : panneau : TEST Claude Paule supprime « X »
+- ⚠ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (firefox/L) : exception : locator.click: Timeout 30000ms exceeded.
+- ⚠ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (firefox/L) : exception : locator.click: Timeout 30000ms exceeded.
+- ✔ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (firefox/L) : panneau de Paule : Paule ajoute « Z Ajout. »
+- ✖ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (firefox/L) : texte principal (Lucie) : «  ⏎ Nouveau paragraphe. » ; panneau ensuite (vide)
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (firefox/L) : référence (Paule) : «  PEdaiutleh.. »
+- ✖ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (firefox/L) : Paule «  EPdaiutlh.e. » ; Edith pareil
+- ⚠ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (firefox/L) : exception : locator.dblclick: Timeout 30000ms exceeded.
+- ⚠ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (firefox/M) : exception : locator.click: Timeout 30000ms exceeded.
+- ⚠ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (firefox/M) : exception : locator.click: Timeout 30000ms exceeded.
+- ✔ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (firefox/M) : panneau de Paule : Paule ajoute « Z Ajout. »
+- ✖ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (firefox/M) : texte principal (Lucie) : «  ⏎ Nouveau paragraphe. » ; panneau ensuite (vide)
+- ≈ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (firefox/M) : référence (Paule) : «  EPdaiutlhe.. »
+- ✖ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (firefox/M) : Paule «  Paule.Edith. » ; Edith pareil
+- ⚠ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (firefox/M) : exception : locator.dblclick: Timeout 30000ms exceeded.
+- ⚠ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (firefox/S) : exception : locator.click: Timeout 30000ms exceeded.
+- ⚠ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (firefox/S) : exception : locator.click: Timeout 30000ms exceeded.
+- ✖ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (firefox/S) : panneau de Paule : (vide)
+- ⚠ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (firefox/S) : exception : locator.click: Timeout 30000ms exceeded.
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (firefox/S) : référence (Paule) : «  EPdaiutlh.e. »
+- ✖ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (firefox/S) : Paule «  PEadiuthl.e. » ; Edith pareil
+- ⚠ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (firefox/S) : exception : locator.dblclick: Timeout 30000ms exceeded.
+- ✔ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (webkit/L) : juste après l’arrêt : Paule Paule ajoute « Ajout. » ; Edith Paule ajoute « Ajout. » ; affiché chez Paule oui
+- ✔ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (webkit/L) : panneau d’Edith (Paule en suivi) : Paule ajoute « Ajout. »
+- ✔ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (webkit/L) : panneau de Paule : Paule ajoute « Ajout. »
+- ✔ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (webkit/L) : texte principal (Lucie) : « Il faisait nuit sur la ville. ⏎ Nouveau paragraphe. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare. » ; panneau ensuite (vide)
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (webkit/L) : référence (Paule) : « Il faisait nuit sur la ville.  Paule.Edith. »
+- ✔ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (webkit/L) : Paule « Il faisait nuit sur la ville.  EPdith.aule. » ; Edith pareil
+- ✖ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (webkit/L) : panneau : Paule supprime « X »
+- ✔ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (webkit/M) : juste après l’arrêt : Paule Paule ajoute « Ajout. » ; Edith Paule ajoute « Ajout. » ; affiché chez Paule oui
+- ✔ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (webkit/M) : panneau d’Edith (Paule en suivi) : Paule ajoute « Ajout. »
+- ✔ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (webkit/M) : panneau de Paule : Paule ajoute « Ajout. »
+- ✔ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (webkit/M) : texte principal (Lucie) : « Il faisait nuit sur la ville. ⏎ Nouveau paragraphe. ⏎ Les quais étaient déserts et le vent soufflait. ⏎ Paule marchait vers la gare. » ; panneau ensuite (vide)
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (webkit/M) : référence (Paule) : « Il faisait nuit sur la ville.  EPdauliet.h. »
+- ✔ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (webkit/M) : Paule « Il faisait nuit sur la ville.  EPdaiuleth.. » ; Edith pareil
+- ✖ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (webkit/M) : panneau : Paule supprime « X »
+- ✖ H13 (diagnostic de 4) Paule fait une suggestion et arrête le suivi ; on attend, Edith tape ailleurs, puis Paule tape ailleurs (webkit/S) : juste après l’arrêt : Paule (vide) ; Edith (vide) ; affiché chez Paule oui
+- ✖ H14 (diagnostic de 4) Paule fait une suggestion et garde le suivi ; Edith tape ailleurs (webkit/S) : panneau d’Edith (Paule en suivi) : (vide)
+- ✖ H15 (diagnostic de 4) Paule fait une suggestion, arrête, puis tape AVANT elle dans le même paragraphe (webkit/S) : panneau de Paule : (vide)
+- ⚠ H16 (diagnostic de 6) Carla propose un paragraphe ; Paule fait « Tout accepter » (webkit/S) : exception : locator.click: Timeout 30000ms exceeded.
+- ✔ H18 (diagnostic de 8) lectrice et éditrice spectatrice après deux éditeurs au même endroit ; rechargement si en retard (webkit/S) : référence (Paule) : « Il faisait nuit sur la ville.  PEadule.ith. »
+- ✔ H19 (diagnostic de 8) deux éditeurs au même endroit, puis tout le monde ferme : le texte est-il complet à la réouverture ? (webkit/S) : Paule « Il faisait nuit sur la ville.  PEaule.dith. » ; Edith pareil
+- ✔ H20 (diagnostic de 1) en suivi, supprimer un paragraphe par double-clic et Suppr, puis « Tout accepter » (webkit/S) : panneau : (vide)
