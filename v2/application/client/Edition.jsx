@@ -448,6 +448,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         desactive: Boolean(margo.enCours) || !demandeMargo.trim(),
       }}
       nouvelle={margo.fil.length ? { libelle: t('margo.nouvelle'), surClic: margo.nouvelle } : null}
+      // Le volet montre Margo : la fin de l'échange vient à l'écran.
+      visible={ongletRelecture === 'margo' && (formatS ? volet === 'droite' : volets.droite)}
     />
   ) : null
   const listeFils = commentaires ? (

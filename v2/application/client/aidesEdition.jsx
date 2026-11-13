@@ -45,6 +45,7 @@ export const TEXTES_EDITEUR = {
   },
   date: { titre: t('document.date'), description: t('document.dateDescription'), picto: <PictoDe role="date" /> },
   titre: { titre: t('document.titre'), description: t('document.titreDescription'), picto: <PictoDe role="titre" /> },
+  paragraphe: { picto: <PictoDe role="paragraphe" /> },
   sousTitre: {
     titre: t('document.sousTitre'),
     description: t('document.sousTitreDescription'),
