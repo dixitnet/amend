@@ -205,3 +205,20 @@ test('format S : sans réseau (mode avion), le picto passe à « Hors ligne », 
   await p.context().setOffline(false)
   await p.getByRole('status', { name: 'Synchronisé' }).waitFor({ timeout: 30000 })
 })
+
+test('format S : un serveur qui ne répond pas, au-delà de 10 secondes, est annoncé « Hors ligne »', async () => {
+  const doc = docTest('s-serveur-muet')
+  const p = await ouvrir('Paule', doc)
+  await p.getByRole('status', { name: 'Synchronisé' }).waitFor()
+  // Le réseau est là, mais le serveur de collaboration ne répond plus : les connexions sont refusées.
+  let muet = true
+  await p.routeWebSocket(/.*/, (ws) => (muet ? ws.close() : ws.connectToServer()))
+  await p.reload()
+  await p.getByRole('status', { name: 'Synchronisation…' }).waitFor()
+  // Avant le délai, le picto dit encore « Synchronisation… » ; après, « Hors ligne ».
+  assert.equal(await p.getByRole('status', { name: 'Hors ligne' }).count(), 0, 'pas avant le délai')
+  await p.getByRole('status', { name: 'Hors ligne' }).waitFor({ timeout: 20000 })
+  // Le serveur revient : le fournisseur se reconnecte, le picto repasse à « Synchronisé ».
+  muet = false
+  await p.getByRole('status', { name: 'Synchronisé' }).waitFor({ timeout: 60000 })
+})

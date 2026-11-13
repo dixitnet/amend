@@ -33,6 +33,28 @@ export function useEnLigne() {
   return enLigne
 }
 
+/**
+ * L'état de connexion à annoncer (13/11/2026) : « hors ligne » tout de suite
+ * sans réseau, et aussi quand la connexion n'aboutit pas depuis plus de
+ * `REGLAGES.synchro.delaiHorsLigne` ; sinon celui du fournisseur.
+ */
+export function useEtatAffiche(etat, enLigne) {
+  // « Trop long » reste vrai tant que la connexion n'a pas abouti : le fournisseur
+  // alterne « en connexion » et « déconnecté » à chaque essai, sans que le
+  // picto ne clignote entre « hors ligne » et « synchronisation ».
+  const [trop, setTrop] = useState(false)
+  useEffect(() => {
+    if (etat === 'connecte') setTrop(false)
+    else if (etat === 'deconnecte') setTrop(true)
+    else {
+      const minuteur = setTimeout(() => setTrop(true), REGLAGES.synchro.delaiHorsLigne)
+      return () => clearTimeout(minuteur)
+    }
+    return undefined
+  }, [etat])
+  return !enLigne || (etat !== 'connecte' && trop) ? 'deconnecte' : etat
+}
+
 /** Le palier proposé (d'une liste) le plus proche d'un zoom mémorisé : 50 % devient 100 % au format S.
  * À égale distance, le premier de la liste (les paliers vont du plus petit au plus grand). */
 export const palierLePlusProche = (z, paliers) =>

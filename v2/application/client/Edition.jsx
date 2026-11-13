@@ -43,6 +43,7 @@ import {
   noterZoom,
   palierLePlusProche,
   useEnLigne,
+  useEtatAffiche,
   TEXTES_EDITEUR,
   FiletDeLEditeur,
 } from './aidesEdition.jsx'
@@ -112,10 +113,9 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const [fenetreSaisie, demanderNom] = useSaisie()
   const [fenetreConfirmation, confirmer] = useConfirmation()
   const [etatSession, setConnexion] = useState('connexion')
-  // Sans réseau (mode avion), le fournisseur de collaboration reste « en connexion » et réessaie sans fin :
-  // l'état annoncé est alors « hors ligne » (13/11/2026).
-  const enLigne = useEnLigne()
-  const connexion = enLigne ? etatSession : 'deconnecte'
+  // Sans réseau (mode avion) ou sans réponse du serveur au-delà du délai décidé,
+  // l'état annoncé est « hors ligne » : le fournisseur, lui, réessaie sans fin (13/11/2026).
+  const connexion = useEtatAffiche(etatSession, useEnLigne())
   // Hors ligne : seulement après avoir été connecté une fois (pas à l'ouverture).
   const [aEteConnecte, setAEteConnecte] = useState(false)
   useEffect(() => {
