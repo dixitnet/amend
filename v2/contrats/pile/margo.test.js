@@ -50,8 +50,8 @@ test('éditeur : onglet Margo et « Corriger » ; correcteur : ni l’un ni l’
   assert.equal(await p.locator('.bn-formatting-toolbar [data-test="bold"]').count(), 1, 'le gras pour l’éditrice')
   // Le volet droit est ouvert d'office (suggestions) ou s'ouvre par le bouton du bandeau.
   const ouvrirVolet = async (page) => {
-    if (!(await page.getByRole('tab', { name: /^Suggestions/ }).isVisible()))
-      await page.getByRole('button', { name: 'Suggestions, commentaires et Margo (IA)' }).click()
+    if (!(await page.getByRole('tab', { name: /^Corrections/ }).isVisible()))
+      await page.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).click()
   }
   await ouvrirVolet(p)
   assert.equal(await ongletMargo(p).count(), 1)
@@ -85,7 +85,7 @@ test('essai réel (MARGO_ESSAI_REEL=1) : « Corriger » pose une suggestion sign
   await selectionner(p)
   await boutonCorriger(p).click()
   await p.getByText(/1 correction/).waitFor({ timeout: 120000 })
-  await p.getByRole('tab', { name: /^Suggestions/ }).click()
+  await p.getByRole('tab', { name: /^Corrections/ }).click()
   // Yjs garde les lettres communes : « enfant » → « enfants » est un ajout de « s ».
   const ligne = p.getByText(/Margo \(IA\) (ajoute|remplace)/)
   try {

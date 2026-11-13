@@ -42,10 +42,13 @@ import { lireZoom, noterZoom, TEXTES_EDITEUR, FiletDeLEditeur } from './aidesEdi
 export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
-  // Les trois modes d'un éditeur, comme l'exemple de BlockNote (Sylvain,
-  // 10/11/2026) : Modifier à l'ouverture, Suggérer, Relire ; le correcteur
-  // suggère toujours, le lecteur lit.
+  // Les trois modes d'un éditeur (Sylvain, 12/11/2026) : Éditer à l'ouverture
+  // (il écrit en voyant les corrections), Corriger (ce qu'il tape est une
+  // correction), Lire ; en Éditer et en Corriger, il accepte ou refuse les
+  // corrections. Le correcteur corrige toujours, le lecteur lit.
   const [modeEditeur, setModeEditeur] = useState('ecrire')
+  // Après une panne de l'affichage des corrections : Éditer sans les voir.
+  const [sansCorrections, setSansCorrections] = useState(false)
   const [zoom, setZoom] = useState(lireZoom)
   const choisirZoom = (z) => (setZoom(z), noterZoom(z))
   // Le compteur du menu « … », calculé à son ouverture, comme le menu de Docs.
@@ -60,7 +63,13 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
     : compte?.total
       ? t('document.compteur', compte.total)
       : null
-  const mode = caps.includes('ecrire') ? modeEditeur : caps.includes('suggerer') ? 'suggerer' : 'lire'
+  const mode = caps.includes('ecrire')
+    ? modeEditeur === 'ecrire' && sansCorrections
+      ? 'ecrireSeul'
+      : modeEditeur
+    : caps.includes('suggerer')
+      ? 'suggerer'
+      : 'lire'
   const avecSuggestions = caps.includes('suggerer')
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
@@ -254,7 +263,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const MODES = [
     ['ecrire', t('document.modeEcrire'), t('document.passerEcrire')],
     ['suggerer', t('document.modeSuggerer'), t('document.passerSuggerer')],
-    ['relire', t('document.modeRelire'), t('document.passerRelire')],
+    ['lire', t('document.modeLire'), t('document.passerLire')],
   ]
   // Dans les menus (formats M et S) : passer à l'un des deux autres modes.
   const autresModes = (champ) =>
@@ -318,22 +327,21 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // Contournement (veille) : l'afficheur dit qu'il reste des suggestions que la
   // liste ne montre pas (une suppression de paragraphe, après un rechargement) ;
   // « Tout accepter » et « Tout refuser » les traitent quand même.
-  const invisibles = mode === 'relire' && !!suggestions?.enAttente && suggestions.liste.length === 0
+  // Le texte montre les corrections, et le volet leur liste, en Éditer et en Corriger.
+  const visibles = mode === 'ecrire' || mode === 'suggerer'
+  const invisibles = visibles && !!suggestions?.enAttente && suggestions.liste.length === 0
   const modifications = suggestions ? (
     <PanneauSuggestions
       titre={
-        mode === 'relire' || !suggestions.enAttente
+        visibles || !suggestions.enAttente
           ? t('suggestions.titre', { n: suggestions.liste.length })
           : t('suggestions.enCours')
       }
-      // Hors relecture, l'éditeur ne voit pas les suggestions : une invitation à relire.
+      // Après une panne de leur affichage, le texte ne montre pas les
+      // corrections : le volet le dit, sans liste.
       invitation={
-        mode !== 'relire' && suggestions.enAttente
-          ? {
-              texte: t('suggestions.enAttente'),
-              bouton: t('document.passerRelire'),
-              surClic: () => setModeEditeur('relire'),
-            }
+        !visibles && suggestions.enAttente
+          ? { texte: t('suggestions.enAttente') }
           : invisibles
             ? { texte: t('suggestions.invisibles') }
             : null
@@ -448,7 +456,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       cible={setCibleFils}
     />
   ) : null
-  // Un essai de plus de l'éditeur après une panne en Suggérer ou Relire (repli en Modifier).
+  // Un essai de plus de l'éditeur après une panne de l'affichage des
+  // corrections : repli en Éditer, sans les voir.
   const [essaiEditeur, setEssaiEditeur] = useState(0)
   const editeur = (
     <ZoneZoom zoom={zoom}>
@@ -456,7 +465,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         key={essaiEditeur}
         repli={<TexteDeVolet texte={t('suivi.panne')} />}
         surErreur={() => {
-          if (caps.includes('ecrire') && mode !== 'ecrire') {
+          if (caps.includes('ecrire') && mode !== 'ecrireSeul') {
+            setSansCorrections(true)
             setModeEditeur('ecrire')
             setEssaiEditeur((n) => n + 1)
             montrerMessage(t('suivi.panneRepli'), { erreur: true })

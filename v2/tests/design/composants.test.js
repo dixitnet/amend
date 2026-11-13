@@ -145,22 +145,22 @@ test('un texte piégé s’affiche comme du texte, jamais comme du code', () => 
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
-test('bandeau : le choix du mode (Modifier, Suggérer, Relire), seulement s’il est demandé, sur sa valeur', () => {
+test('bandeau : le choix du mode (Éditer, Corriger, Lire), seulement s’il est demandé, sur sa valeur', () => {
   const voletGauche = { libelle: 'Plan', surClic: () => {} }
   assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /type="radio"/)
   const modes = (valeur) => ({
     libelle: 'Mode',
     valeur,
     options: [
-      { valeur: 'ecrire', libelle: 'Modifier' },
-      { valeur: 'suggerer', libelle: 'Suggérer' },
-      { valeur: 'relire', libelle: 'Relire' },
+      { valeur: 'ecrire', libelle: 'Éditer' },
+      { valeur: 'suggerer', libelle: 'Corriger' },
+      { valeur: 'lire', libelle: 'Lire' },
     ],
     surChange: () => {},
   })
   const html = rendre(h(design.Bandeau, { voletGauche, titre: 'x', modes: modes('suggerer') }))
   assert.equal(html.match(/type="radio"/g)?.length, 3)
-  for (const l of ['Modifier', 'Suggérer', 'Relire']) assert.ok(html.includes(l), l)
+  for (const l of ['Éditer', 'Corriger', 'Lire']) assert.ok(html.includes(l), l)
   assert.match(html, /value="suggerer"[^>]*checked=""|checked=""[^>]*value="suggerer"/)
 })
 

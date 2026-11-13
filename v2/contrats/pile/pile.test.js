@@ -187,8 +187,8 @@ test('droits : un correcteur ne fait que proposer, et l’interface le lui dit',
   const doc = docTest('correcteur')
   const p = await ouvrir('Paule', doc)
   const c = await ouvrir('Carl', doc, { role: 'correcteur' })
-  assert.equal(await p.getByText('Mode suggestion').count(), 0, 'pas de mention pour la propriétaire')
-  assert.equal(await c.getByText('Mode suggestion').count(), 1)
+  assert.equal(await p.getByText('Mode correction').count(), 0, 'pas de mention pour la propriétaire')
+  assert.equal(await c.getByText('Mode correction').count(), 1)
 
   await p.click('.bn-editor')
   await p.keyboard.type('Texte de Paule.')

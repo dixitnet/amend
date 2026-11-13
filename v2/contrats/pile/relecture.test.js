@@ -30,9 +30,8 @@ after(async () => {
   await pile?.arreter()
 })
 
-/** Le panneau d'une éditrice, en relecture (le seul mode où il liste les suggestions). */
+/** Le panneau d'une éditrice (il liste les corrections en Éditer et en Corriger). */
 async function attendrePanneau(page, motif, delai = 10000) {
-  if ((await modeChoisi(page)) && (await modeChoisi(page)) !== 'Relire') await choisirMode(page, 'Relire')
   for (const t0 = Date.now(); Date.now() - t0 < delai; await attendre(200)) if (motif.test(await panneau(page))) return
   assert.match(await panneau(page), motif)
 }
@@ -60,7 +59,7 @@ test('suggestion : l’éditrice la voit avec son auteur, l’accepte ; le texte
     .getByRole('button', { name: /^Accepter\s*:/ })
     .first()
     .click()
-  await attendrePanneau(p, /Aucune suggestion/)
+  await attendrePanneau(p, /Aucune correction/)
   await attendreTexte(c, 'Il faisait nuit sur la ville. Ajout')
   await p.reload()
   await attendreTexte(p, 'Il faisait nuit sur la ville. Ajout')
@@ -92,7 +91,7 @@ test('suggestion refusée : le texte revient tel quel chez les deux', async () =
   await c.keyboard.type(' Ajout')
   await attendrePanneau(p, /Carla ajoute/)
   await p.getByRole('button', { name: 'Tout refuser' }).click()
-  await attendrePanneau(p, /Aucune suggestion/)
+  await attendrePanneau(p, /Aucune correction/)
   await attendreTexte(c, 'Il faisait nuit sur la ville.')
   await fermer()
 })
@@ -166,31 +165,48 @@ test('historique : ouvert pour tous ; nommer une version seulement pour l’édi
   await fermer()
 })
 
-test('trois modes : l’éditrice suggère, sa frappe devient une suggestion ; en relecture, elle la retrouve et l’accepte', async () => {
+test('trois modes : en Corriger, la frappe de l’éditrice est une correction ; en Éditer, elle écrit en la voyant et l’accepte ; en Lire, ni correction ni frappe', async () => {
   const doc = docTest('modes')
   const p = await ouvrir('Paule', doc)
   await p.click('.bn-editor')
   await p.keyboard.type('Il faisait nuit.')
-  assert.equal(await modeChoisi(p), 'Modifier', 'Modifier à l’ouverture')
-  await choisirMode(p, 'Suggérer')
+  assert.equal(await modeChoisi(p), 'Éditer', 'Éditer à l’ouverture')
+  await choisirMode(p, 'Corriger')
   await p.click('.bn-inline-content')
   await p.keyboard.press('End')
   await attendre(300)
   await p.keyboard.type(' Ajout')
-  await attendre(1500)
-  await choisirMode(p, 'Modifier')
-  // En Modifier, la suggestion n'est pas dans le texte, et le panneau invite à relire.
-  await attendreTexte(p, 'Il faisait nuit.')
-  await p.getByText('Des suggestions attendent').waitFor()
+  // En Corriger, l'éditrice voit sa correction dans le texte et dans le volet.
   await attendrePanneau(p, /Paule ajoute «\s?Ajout\s?»/)
-  assert.equal(await p.locator('.bn-editor [contenteditable=true]').count(), 0, 'pas de frappe en relecture')
+  assert.ok(await p.$('.bn-editor ins'), 'la correction se voit en Corriger')
+  // En Lire : le texte seul, sans frappe possible.
+  await choisirMode(p, 'Lire')
+  await attendreTexte(p, 'Il faisait nuit.')
+  assert.equal(await p.locator('.bn-editor ins').count(), 0, 'pas de correction en Lire')
+  assert.equal(await p.locator('.bn-editor [contenteditable=true]').count(), 0, 'pas de frappe en Lire')
+  // En Éditer : la correction se voit, on écrit contre elle sans la prolonger
+  // (correctif temporaire de y-prosemirror#245), et on l'accepte.
+  await choisirMode(p, 'Éditer')
+  await p.locator('.bn-editor ins').first().waitFor()
+  await p.click('.bn-inline-content')
+  await p.keyboard.press('End')
+  await attendre(300)
+  await p.keyboard.type(' Suite')
+  await attendre(1500)
+  assert.equal(
+    await p.evaluate(() => [...document.querySelectorAll('.bn-editor ins')].map((e) => e.textContent).join('|')),
+    ' Ajout',
+    'la frappe en Éditer ne prolonge pas la correction',
+  )
+  await attendrePanneau(p, /Paule ajoute «\s?Ajout\s?»/)
   await p
     .locator('section[aria-label] li')
     .first()
     .getByRole('button', { name: /^Accepter\s*:/ })
     .click()
-  await attendrePanneau(p, /Aucune suggestion/)
-  await attendreTexte(p, 'Il faisait nuit. Ajout')
+  await attendrePanneau(p, /Aucune correction/)
+  const fin = await texte(p)
+  assert.ok(fin.includes('Ajout') && fin.includes('Suite') && fin.startsWith('Il faisait nuit.'), fin)
   await p.context().close()
 })
 
@@ -264,8 +280,7 @@ test('notes et relecture : le correcteur lit une note sans la modifier, en ajout
     .getByRole('button', { name: /^Accepter\s*:/ })
     .first()
     .click()
-  await attendrePanneau(p, /Aucune suggestion/)
-  await choisirMode(p, 'Modifier')
+  await attendrePanneau(p, /Aucune correction/)
   for (const t0 = Date.now(); Date.now() - t0 < 10000; await attendre(200))
     if ((await p.locator('.bn-editor [data-amend-note]').count()) === 2) break
   assert.deepEqual(

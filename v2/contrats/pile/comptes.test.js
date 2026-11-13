@@ -60,7 +60,7 @@ test('créer un document, inviter une adresse nouvelle : elle entre d’un clic,
   await c.getByRole('button', { name: 'Continuer' }).click()
   await c.waitForSelector('.bn-editor')
   await attendreEtat(c, 'connecte')
-  assert.equal(await c.getByText('Mode suggestion').count(), 1, 'arrivée en correctrice')
+  assert.equal(await c.getByText('Mode correction').count(), 1, 'arrivée en correctrice')
   assert.equal(new URL(c.url()).hash, `#${docId}`)
   // Le lien ne sert qu'une fois.
   await c.goto(`${pile.url}${await lienPour(adresse)}`)
@@ -218,7 +218,7 @@ test('équipe (volet) : la créer, y faire entrer un document, inviter une corre
   await c.getByRole('button', { name: 'Continuer' }).click()
   // Son seul document : celui de l'équipe, qui s'ouvre, en correctrice.
   await c.waitForFunction((d) => decodeURIComponent(location.hash.slice(1)) === d, docId)
-  await c.getByText('Mode suggestion').waitFor()
+  await c.getByText('Mode correction').waitFor()
   await menuDe(c, { nom })
   assert.equal(
     await c.getByRole('menuitem', { name: 'Nouveau dossier' }).count(),

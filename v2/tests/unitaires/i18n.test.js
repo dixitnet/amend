@@ -38,10 +38,10 @@ test('le nom « amend.ink » ne se traduit jamais (règle 24)', () => {
 
 test('le pluriel et les paramètres nommés passent par ICU', () => {
   const t = creerTraducteur('fr')
-  assert.equal(t('suggestions.titre', { n: 0 }), 'Aucune suggestion')
-  assert.equal(t('suggestions.titre', { n: 1 }), '1 suggestion')
-  assert.equal(t('suggestions.titre', { n: 2 }), '2 suggestions')
-  assert.equal(creerTraducteur('en')('suggestions.titre', { n: 2 }), '2 suggestions')
+  assert.equal(t('suggestions.titre', { n: 0 }), 'Aucune correction')
+  assert.equal(t('suggestions.titre', { n: 1 }), '1 correction')
+  assert.equal(t('suggestions.titre', { n: 2 }), '2 corrections')
+  assert.equal(creerTraducteur('en')('suggestions.titre', { n: 2 }), '2 corrections')
 })
 
 test('langue : préférences, repli sur le français', () => {
@@ -59,7 +59,7 @@ test('une clé absente d’une langue retombe sur le français', () => {
   const sauve = CATALOGUES.en.suggestions.titre
   delete CATALOGUES.en.suggestions.titre
   try {
-    assert.equal(creerTraducteur('en')('suggestions.titre', { n: 0 }), 'Aucune suggestion')
+    assert.equal(creerTraducteur('en')('suggestions.titre', { n: 0 }), 'Aucune correction')
   } finally {
     CATALOGUES.en.suggestions.titre = sauve
   }

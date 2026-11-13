@@ -84,8 +84,8 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
     elements.map((e) => e.trim()),
     [
       'Copier le lien',
-      'Suggérer des modifications',
-      'Relire les suggestions',
+      'Proposer des corrections',
+      'Lire sans modifier',
       'Partager',
       'Exporter…',
       'Dupliquer',

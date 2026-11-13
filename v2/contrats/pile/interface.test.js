@@ -5,7 +5,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, choisirMode } from './outils.mjs'
+import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre } from './outils.mjs'
 
 let pile, nav
 const ouvrir = (nom, docId, o) => ouvrirSur(nav, pile.url, nom, docId, o)
@@ -66,7 +66,7 @@ test('volets : deux ensemble sur Mac ; un seul à la fois sur iPad en portrait',
   const doc = docTest('volets')
   const mac = await ouvrir('Paule', doc)
   assert.equal(await inactif(mac, GAUCHE), false, 'volet gauche ouvert au départ sur Mac')
-  await mac.getByRole('button', { name: 'Suggestions, commentaires et Margo (IA)' }).click()
+  await mac.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).click()
   await attendre(300)
   assert.equal(await inactif(mac, DROITE), false)
   assert.equal(await inactif(mac, GAUCHE), false, 'les deux ensemble')
@@ -77,17 +77,17 @@ test('volets : deux ensemble sur Mac ; un seul à la fois sur iPad en portrait',
   await ipad.getByRole('button', { name: 'Plan et documents' }).click()
   await attendre(300)
   assert.equal(await inactif(ipad, GAUCHE), false)
-  await ipad.getByRole('button', { name: 'Suggestions, commentaires et Margo (IA)' }).click()
+  await ipad.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).click()
   await attendre(300)
   assert.equal(await inactif(ipad, DROITE), false)
   assert.equal(await inactif(ipad, GAUCHE), true, 'ouvrir le droit ferme le gauche')
-  await ipad.getByRole('button', { name: 'Suggestions, commentaires et Margo (IA)' }).click()
+  await ipad.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).click()
   await attendre(300)
   assert.equal(await inactif(ipad, GAUCHE), false, 'le gauche fermé d’office se rouvre')
   await ipad.context().close()
 })
 
-test('volet droit : il s’ouvre d’office quand une suggestion arrive ; en relecture, leur nombre', async () => {
+test('volet droit : il s’ouvre d’office quand une correction arrive, avec leur nombre', async () => {
   const doc = docTest('office')
   const p = await ouvrir('Paule', doc)
   await p.click('.bn-editor')
@@ -100,8 +100,6 @@ test('volet droit : il s’ouvre d’office quand une suggestion arrive ; en rel
   await c.keyboard.type(' Noire.')
   for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await inactif(p, DROITE));) await attendre(200)
   assert.equal(await inactif(p, DROITE), false, 'ouvert d’office')
-  await p.getByText('Des suggestions attendent').waitFor()
-  await choisirMode(p, 'Relire')
   for (const t0 = Date.now(); Date.now() - t0 < 5000; await attendre(200))
     if (await p.locator('.mantine-Indicator-indicator').getByText('1', { exact: true }).count()) break
   assert.ok(await p.locator('.mantine-Indicator-indicator').getByText('1', { exact: true }).count())
