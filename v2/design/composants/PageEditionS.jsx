@@ -113,6 +113,10 @@ export function PageEditionS({
         <ActionIcon aria-label={libelles.gauche} aria-expanded={volet === 'gauche'} onClick={() => surVolet('gauche')}>
           <PictoDe role="plan" />
         </ActionIcon>
+        {/* L'état de la synchronisation (13/11/2026), entre le volet gauche et le titre, où était l'étoile. */}
+        <span role="status" aria-label={etat} title={etat} className="amend-synchro" data-connexion={connexion}>
+          <PictoDe role={ETAT_PICTO[connexion] ?? 'horsLigne'} />
+        </span>
         <div className="amend-bandeau-titre">
           {surTitre ? (
             <UnstyledButton onClick={surTitre} aria-label={libelles.titre}>
@@ -122,10 +126,6 @@ export function PageEditionS({
             <Text truncate="end">{titre}</Text>
           )}
         </div>
-        {/* L'état de la synchronisation (13/11/2026), à la place de l'étoile et du texte du bas de page. */}
-        <span role="status" aria-label={etat} title={etat} className="amend-synchro" data-connexion={connexion}>
-          <PictoDe role={ETAT_PICTO[connexion] ?? 'horsLigne'} />
-        </span>
         {enModification ? <Button onClick={surTerminer}>{libelles.terminer}</Button> : null}
         <Menu onOpen={surOuvrirMenu}>
           <Menu.Target>
