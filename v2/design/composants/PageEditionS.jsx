@@ -57,6 +57,7 @@ const ETAT_PICTO = { connecte: 'synchro', connexion: 'synchroEnCours' }
  *   enModification: boolean, surTerminer: () => void,
  *   menu: Array<{ cle: string, libelle: string, icone?: string, titre?: boolean, coche?: boolean, surClic?: () => void }>,
  *   piedMenu?: string, surOuvrirMenu?: () => void,
+ *   refBarre?: (element: HTMLElement | null) => void,  // ESSAI : place de la barre de mise en forme, sous le bandeau, en modification
  *   voletGauche: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> },
  *   voletDroit?: { titre: string, nombre?: number, onglets: Array<{ cle: string, libelle: string, icone: string, nombre?: number, contenu: any }>, actif?: string, surOnglet?: (cle: string) => void } | null,
  *   volet: 'gauche' | 'droite' | null, surVolet: (v: 'gauche' | 'droite' | null) => void,
@@ -76,6 +77,7 @@ export function PageEditionS({
   menu,
   piedMenu,
   surOuvrirMenu,
+  refBarre,
   voletGauche,
   voletDroit,
   volet,
@@ -113,6 +115,10 @@ export function PageEditionS({
         <ActionIcon aria-label={libelles.gauche} aria-expanded={volet === 'gauche'} onClick={() => surVolet('gauche')}>
           <PictoDe role="plan" />
         </ActionIcon>
+        {/* L'état de la synchronisation (13/11/2026), entre le volet gauche et le titre, où était l'étoile. */}
+        <span role="status" aria-label={etat} title={etat} className="amend-synchro" data-connexion={connexion}>
+          <PictoDe role={ETAT_PICTO[connexion] ?? 'horsLigne'} />
+        </span>
         <div className="amend-bandeau-titre">
           {surTitre ? (
             <UnstyledButton onClick={surTitre} aria-label={libelles.titre}>
@@ -122,10 +128,6 @@ export function PageEditionS({
             <Text truncate="end">{titre}</Text>
           )}
         </div>
-        {/* L'état de la synchronisation (13/11/2026), à la place de l'étoile et du texte du bas de page. */}
-        <span role="status" aria-label={etat} title={etat} className="amend-synchro" data-connexion={connexion}>
-          <PictoDe role={ETAT_PICTO[connexion] ?? 'horsLigne'} />
-        </span>
         {enModification ? <Button onClick={surTerminer}>{libelles.terminer}</Button> : null}
         <Menu onOpen={surOuvrirMenu}>
           <Menu.Target>
@@ -137,6 +139,7 @@ export function PageEditionS({
             <ElementsDeMenu elements={menu} pied={piedMenu} champPicto="icone" />
           </Menu.Dropdown>
         </Menu>
+        {enModification && refBarre ? <div className="amend-barre" ref={refBarre} /> : null}
         {voletDroit ? (
           <ActionIcon
             aria-label={libelles.droite}

@@ -55,6 +55,23 @@ export function useEtatAffiche(etat, enLigne) {
   return !enLigne || (etat !== 'connecte' && trop) ? 'deconnecte' : etat
 }
 
+/**
+ * ESSAI (13/11/2026) : la barre de mise en forme en bandeau au format S.
+ * `?barre=bandeau` dans l'adresse l'active et le retient dans ce navigateur ;
+ * `?barre=flottante` revient à la palette flottante.
+ */
+const CLE_BARRE = 'amend.essai.barre'
+export function lireEssaiBarre() {
+  try {
+    const demande = new URLSearchParams(location.search).get('barre')
+    if (demande === 'bandeau') localStorage.setItem(CLE_BARRE, '1')
+    else if (demande === 'flottante') localStorage.removeItem(CLE_BARRE)
+    return localStorage.getItem(CLE_BARRE) === '1'
+  } catch {
+    return false
+  }
+}
+
 /** Le palier proposé (d'une liste) le plus proche d'un zoom mémorisé : 50 % devient 100 % au format S.
  * À égale distance, le premier de la liste (les paliers vont du plus petit au plus grand). */
 export const palierLePlusProche = (z, paliers) =>
