@@ -18,7 +18,7 @@
     }
   },
   "document": {
-    "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
+    "etat": "{etat, select, connecte {Synchronisé} connexion {Synchronisation…} other {Hors ligne}}",
     "zoneEdition": "Texte du document {id}",
     "lectureSeule": "Lecture seule",
     "historique": "Historique",
@@ -410,11 +410,8 @@
     "modifier": "Régler",
     "supprimer": "Supprimer",
     "aucun": "L’équipe n’a pas encore de modèle à elle.",
-    "modifierDe": "Régler «\u00A0{nom}\u00A0»",
-    "supprimerDe": "Supprimer «\u00A0{nom}\u00A0»",
     "parDefaut": "Par défaut",
     "enregistrer": "Enregistrer",
-    "enregistre": "Modèle enregistré.",
     "detail": "{n, plural, =0 {aucun document} one {# document} other {# documents}}",
     "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? {n, plural, =0 {Aucun document ne l’a choisi.} one {Le document qui l’avait choisi prendra le modèle par défaut de l’équipe.} other {Les # documents qui l’avaient choisi prendront le modèle par défaut de l’équipe.}}",
     "reglage": {
@@ -495,15 +492,13 @@
       "titre5": "Titre 5",
       "titre": "Titre (page de titre)",
       "sousTitre": "Sous-titre",
-      "legende": "Légende"
+      "legende": "Légende",
+      "general": "Nom"
     },
     "essayer": "Essayer",
-    "essayerDe": "Exporter le document ouvert avec «\u00A0{nom}\u00A0»",
     "defautInstance": "Celui de l’instance",
     "titreDefaut": "Modèle par défaut",
     "titreListe": "Modèles",
-    "titreCreer": "Créer un modèle",
-    "resume": "{largeur, number}\u00A0×\u00A0{hauteur, number}\u00A0mm · {police}",
     "reglerTitre": "Régler «\u00A0{nom}\u00A0»",
     "propriete": {
       "police": "Police",
@@ -516,7 +511,20 @@
       "lignesApres": "Lignes blanches après",
       "alinea": "Retrait de première ligne (mm)",
       "retrait": "Retrait à gauche (mm)"
-    }
+    },
+    "nouveau": "Nouveau modèle",
+    "dupliquer": "Dupliquer",
+    "actions": "Actions",
+    "retour": "Retour aux modèles",
+    "colonnes": {
+      "nom": "Modèle",
+      "format": "Format",
+      "police": "Police du texte",
+      "documents": "Utilisation"
+    },
+    "actionsDe": "Actions pour «\u00A0{nom}\u00A0»",
+    "copieDe": "{nom} (copie)",
+    "format": "{largeur, number} × {hauteur, number} mm"
   },
   "margo": {
     "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent dans l’onglet Corrections, à accepter ou refuser.",

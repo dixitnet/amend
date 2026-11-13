@@ -289,10 +289,10 @@ export function Bandeau({
 
 /** Le volet gauche d'un document : onglets Plan et Documents (le contenu de
  * l'onglet Documents : VoletDocuments), sans marque en tête (Sylvain, 10/11/2026). */
-export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, documents }) {
+export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, documents, ongletInitial = 'plan' }) {
   return (
     <>
-      <Tabs defaultValue="plan" className="amend-coquille-onglets">
+      <Tabs defaultValue={ongletInitial} className="amend-coquille-onglets">
         <Tabs.List grow>
           <Tabs.Tab value="plan" leftSection={<PictoDe role="plan" />}>
             {onglets.plan}

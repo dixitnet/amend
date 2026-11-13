@@ -107,6 +107,7 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
   assert.deepEqual(
     elements.map((e) => e.trim()),
     [
+      'Ajouter aux favoris',
       'Copier le lien',
       'Passer en mode Éditer',
       'Passer en mode Corriger',
@@ -114,9 +115,9 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
       'Exporter…',
       'Dupliquer',
       'Mes documents',
-      '50\u202F%',
       '100\u202F%',
       '150\u202F%',
+      '200\u202F%',
       'Supprimer',
     ],
   )
@@ -150,4 +151,47 @@ test('format S : un lecteur ne passe pas en modification ; l’accueil ouvre le 
   await p.getByRole('dialog').getByRole('button', { name: 'Nouveau', exact: true }).waitFor()
   await l.context().close()
   await p.context().close()
+})
+
+test('format S : l’état de synchronisation est un picto du bandeau, les favoris et la taille du texte sont dans le menu « … »', async () => {
+  const doc = docTest('s-synchro')
+  const p = await ouvrir('Paule', doc)
+  // Le picto dit l'état (nom accessible) ; ni étoile devant le titre, ni texte « Synchronisé » en bas de page.
+  await p.getByRole('status', { name: 'Synchronisé' }).waitFor()
+  assert.equal(
+    await p
+      .locator('header')
+      .getByRole('button', { name: /favoris/ })
+      .count(),
+    0,
+    'plus d’étoile dans le bandeau',
+  )
+  assert.equal(await p.getByText('Synchronisé', { exact: true }).count(), 0, 'plus de texte d’état en bas de page')
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Ajouter aux favoris' }).waitFor()
+  // Taille du texte : 100, 150 et 200 % au format S (plus de 50 %).
+  assert.equal(await p.getByRole('menuitem', { name: '50\u202F%', exact: true }).count(), 0)
+  await p.getByRole('menuitem', { name: '200\u202F%', exact: true }).click()
+  const taille = () =>
+    p.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.bn-editor .bn-inline-content')).fontSize))
+  for (const t0 = Date.now(); Date.now() - t0 < 3000 && (await taille()) < 30;) await attendre(100)
+  assert.ok((await taille()) >= 30, 'le texte à 200 % est deux fois plus grand')
+  // Les favoris se basculent depuis le menu.
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Ajouter aux favoris' }).click()
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Retirer des favoris' }).waitFor()
+})
+
+test('format S : un zoom mémorisé à 50 % (autre format) est ramené à 100 %, le palier le plus proche', async () => {
+  const doc = docTest('s-zoom-memorise')
+  const p = await ouvrir('Paule', doc)
+  await p.evaluate(() => localStorage.setItem('amend.zoom', '50'))
+  await p.reload()
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  const coche = p
+    .getByRole('menuitemradio', { checked: true })
+    .or(p.getByRole('menuitem', { name: '100\u202F%', exact: true }))
+  await coche.first().waitFor()
+  assert.equal(await p.locator('[data-amend-zoom]').first().getAttribute('data-amend-zoom'), '100')
 })

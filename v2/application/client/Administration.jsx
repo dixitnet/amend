@@ -33,7 +33,7 @@ const nomDeLaCouleur = (n) => NOMS_COULEURS[n]?.() ?? n
  * de l'instance, 11/11/2026) et IA (le modèle de Margo, étape 8) ; le serveur
  * refuse les autres. `surApparence` : l'apparence choisie, appliquée tout de
  * suite à l'écran. */
-export function Administration({ surApparence }) {
+export function Administration({ surApparence, rubrique = null }) {
   const [systeme, setSysteme] = useState(null)
   const [ia, setIa] = useState(null)
   const [message, setMessage] = useState(null)
@@ -180,6 +180,7 @@ export function Administration({ surApparence }) {
       titre={t('admin.titre')}
       actions={<Bouton libelle={t('document.mesDocuments')} surClic={() => (location.hash = '#')} />}
       message={message}
+      rubriqueInitiale={rubrique === 'modeles' ? t('admin.modelesPdf.titre') : null}
       rubriques={[
         {
           // La synthèse : les chiffres de l'instance en cartes (Sylvain, 12/11/2026).

@@ -6,7 +6,7 @@ import { capacites, peutGererModeles, trierDocuments, dateDuJour } from '../../d
 import { t, envoyerJson } from './commun.js'
 import { useSaisie, useConfirmation } from './fenetres.jsx'
 import { Membres } from './Membres.jsx'
-import { ModelesEquipe } from './Modeles.jsx'
+import { ModelesEquipe, equipeDesModelesOuverts, retenirOrigineModeles, oublierOrigineModeles } from './Modeles.jsx'
 import { Partage } from './Partage.jsx'
 
 /** Valeurs spéciales des listes de déplacement (jamais un identifiant). */
@@ -65,7 +65,10 @@ export function useVoletDocuments(docId, { actif = true, essayerModele = null } 
   const [fenetreConfirmation, confirmer] = useConfirmation()
   const [choix, setChoix] = useState(null)
   const [membresDe, setMembresDe] = useState(null)
-  const [modelesDe, setModelesDe] = useState(null)
+  // Revenir de la page de réglage d'un modèle rouvre la liste des modèles de l'équipe.
+  const [modelesDe, setModelesDe] = useState(equipeDesModelesOuverts)
+  // La fenêtre ouverte est retenue, pour la retrouver en revenant d'une page de réglage ; fermée, elle est oubliée.
+  useEffect(() => (modelesDe ? retenirOrigineModeles(modelesDe) : oublierOrigineModeles()), [modelesDe])
   const [partageDe, setPartageDe] = useState(null)
   const recharger = async () => {
     try {

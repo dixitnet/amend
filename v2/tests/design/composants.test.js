@@ -526,34 +526,67 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle), la list
         nom: t('modeles.nom'),
         base: t('modeles.base'),
         creer: t('modeles.creer'),
-        modifier: t('modeles.modifier'),
+        nouveau: t('modeles.nouveau'),
+        annuler: t('interface.annuler'),
+        regler: t('modeles.modifier'),
+        dupliquer: t('modeles.dupliquer'),
         supprimer: t('modeles.supprimer'),
+        actions: t('modeles.actions'),
         aucun: t('modeles.aucun'),
-        modifierDe: (nom) => t('modeles.modifierDe', { nom }),
-        supprimerDe: (nom) => t('modeles.supprimerDe', { nom }),
+        colonnes: {
+          nom: t('modeles.colonnes.nom'),
+          format: t('modeles.colonnes.format'),
+          police: t('modeles.colonnes.police'),
+          documents: t('modeles.colonnes.documents'),
+        },
+        actionsDe: (nom) => t('modeles.actionsDe', { nom }),
+        copieDe: (nom) => t('modeles.copieDe', { nom }),
       },
       defaut: { options: [{ value: 'a4', label: 'A4 simple' }], valeur: 'a4', surChange: () => {} },
-      modeles: [{ cle: 'm1', nom: 'Essais', detail: 'A4 simple', parDefaut: t('modeles.parDefaut') }],
+      modeles: [
+        {
+          cle: 'm1',
+          nom: 'Essais',
+          adresse: '#/admin/modeles/m1',
+          format: '120 × 180 mm',
+          police: 'EB Garamond',
+          detail: 'aucun document',
+          parDefaut: t('modeles.parDefaut'),
+        },
+      ],
       bases: [{ value: 'a4', label: 'A4 simple' }],
       surCreer: () => {},
-      surModifier: () => {},
       surSupprimer: () => {},
     }),
   )
+  assert.ok(liste.includes(echapper(t('modeles.colonnes.police'))), 'le tableau a ses colonnes')
+  assert.match(liste, /href="#\/admin\/modeles\/m1"/, 'le nom mène à la page de réglage')
+  assert.ok(liste.includes('EB Garamond') && liste.includes('120 × 180 mm'))
   assert.ok(
-    liste.includes(echapper(t('modeles.modifierDe', { nom: 'Essais' }))),
-    'chaque bouton est nommé par sa ligne',
+    liste.includes(echapper(t('modeles.actionsDe', { nom: 'Essais' }))),
+    'le menu d’actions est nommé par sa ligne',
   )
   assert.ok(liste.includes(echapper(t('modeles.parDefaut'))))
-  assert.match(liste, /name="nom"/)
+  assert.ok(liste.includes(echapper(t('modeles.nouveau'))), 'un seul bouton de création')
+  assert.doesNotMatch(liste, /name="nom"/, 'le formulaire de création est fermé tant qu’on ne l’ouvre pas')
 
-  const formulaire = rendre(
-    h(design.FormulaireModele, {
-      libelles: { nom: t('modeles.nom'), enregistrer: t('modeles.enregistrer'), annuler: t('interface.annuler') },
+  const page = rendre(
+    h(design.PageReglageModele, {
+      libelles: {
+        nom: t('modeles.nom'),
+        general: t('modeles.groupes.general'),
+        retour: t('modeles.retour'),
+        enregistrer: t('modeles.enregistrer'),
+        annuler: t('interface.annuler'),
+      },
+      titre: 'Régler « Essais »',
+      adresseRetour: '#/admin/modeles',
       nom: 'Essais',
+      groupes: [{ cle: 'format', libelle: t('modeles.groupes.format') }],
       champs: [
         {
           cle: 'page.largeur',
+          groupe: 'format',
           type: 'nombre',
           libelle: t('modeles.reglage.page.largeur'),
           valeur: 120,
@@ -561,25 +594,16 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle), la list
           max: 450,
           pas: 0.5,
         },
-        { cle: 'grille.lignes', type: 'entier', libelle: t('modeles.reglage.grille.lignes'), valeur: 31, min: 1 },
-        { cle: 'cesure', type: 'booleen', libelle: t('modeles.reglage.cesure'), valeur: true },
-        {
-          cle: 'styles.texte.police',
-          type: 'police',
-          libelle: t('modeles.propriete.police'),
-          valeur: 'EB Garamond',
-          options: [{ value: 'EB Garamond', label: 'EB Garamond' }],
-        },
       ],
       surEnregistrer: () => {},
       surAnnuler: () => {},
     }),
   )
-  for (const cle of ['page.largeur', 'grille.lignes', 'cesure'])
-    assert.ok(formulaire.includes(echapper(t(`modeles.reglage.${cle}`))), cle)
-  assert.ok(formulaire.includes(echapper(t('modeles.propriete.police'))))
-  assert.match(formulaire, /value="Essais"/)
-  assert.match(formulaire, /role="switch"[^>]*checked=""|checked=""[^>]*role="switch"/)
+  assert.match(page, /href="#\/admin\/modeles"/, 'le retour à la liste')
+  assert.ok(
+    page.includes(echapper(t('modeles.groupes.general'))) && page.includes(echapper(t('modeles.groupes.format'))),
+  )
+  assert.match(page, /value="Essais"/, 'la première rubrique porte le nom du modèle')
 })
 
 test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiquetée ; accueil quand le fil est vide', () => {

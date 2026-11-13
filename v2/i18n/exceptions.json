@@ -20,6 +20,8 @@
     "export.groupeMaison",
     "modeles.maison.tat-poche",
     "admin.couleurs.violet",
-    "modeles.resume"
+    "modeles.resume",
+    "modeles.actions",
+    "modeles.format"
   ]
 }

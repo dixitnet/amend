@@ -101,13 +101,24 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   await menuDe(page, { nom: nomEquipe })
   await page.getByRole('menuitem', { name: 'Modèles de mise en page' }).click()
   const fenetre = page.getByRole('dialog', { name: 'Modèles de mise en page' })
+  await fenetre.getByRole('button', { name: 'Nouveau modèle' }).click()
   await fenetre.getByRole('textbox', { name: 'Nom du modèle' }).fill('Collection')
   await fenetre.getByRole('button', { name: 'Créer' }).click()
-  await fenetre.getByRole('button', { name: 'Régler « Collection »' }).click()
-  await fenetre.getByRole('textbox', { name: 'Largeur de la page (mm)' }).fill('135')
-  await fenetre.getByRole('button', { name: 'Enregistrer' }).click()
-  await fenetre.getByText('Modèle enregistré.').waitFor()
-  await fenetre.getByRole('button', { name: 'Fermer' }).click()
+  // Le nom du modèle mène à sa page de réglage (13/11/2026).
+  await fenetre.getByRole('link', { name: 'Collection' }).click()
+  await page.getByRole('heading', { name: 'Régler « Collection »' }).waitFor()
+  await page.getByRole('button', { name: 'Format et marges' }).click()
+  await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).fill('135')
+  // Changer de rubrique garde ce qu'on a réglé.
+  await page.getByRole('button', { name: 'Titre 1 (chapitre)' }).click()
+  await page.getByRole('button', { name: 'Format et marges' }).click()
+  assert.equal(await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).inputValue(), '135')
+  await page.getByRole('button', { name: 'Enregistrer' }).click()
+  // De retour : le document, avec la liste des modèles rouverte.
+  const liste = page.getByRole('dialog', { name: 'Modèles de mise en page' })
+  await liste.getByRole('link', { name: 'Collection' }).waitFor()
+  await liste.getByText('135 × 297 mm').waitFor()
+  await liste.getByRole('button', { name: 'Fermer' }).click()
 
   // L'export le propose, l'applique (135 mm de large, sur l'A4 de départ) et le
   // retient pour le document, sans case à cocher : le dernier modèle utilisé.

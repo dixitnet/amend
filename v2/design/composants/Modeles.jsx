@@ -1,7 +1,7 @@
 // Composants de présentation de l'export et des modèles de mise en page
 // (étape 7, docs/v2-etape-7-modeles-plan.md) : le contenu de la fenêtre
 // « Exporter » (comme ModalExport de Docs : un format, et pour le PDF un
-// modèle), la liste des modèles d'une équipe et le formulaire d'un modèle.
+// modèle), la liste des modèles et la page de réglage d'un modèle.
 // Mantine sans réglage ; textes traduits ; ils n'appellent rien et ne
 // décident rien : les champs, leurs bornes et leurs valeurs viennent de
 // l'application, les gestes remontent par les fonctions de rappel. Placés
@@ -17,8 +17,14 @@ import {
   Switch,
   Button,
   Badge,
-  Fieldset,
   FileButton,
+  Table,
+  Menu,
+  Anchor,
+  NavLink,
+  Grid,
+  Container,
+  VisuallyHidden,
 } from '@mantine/core'
 import { useState } from 'react'
 import { REGLAGES } from '../reglages.js'
@@ -66,17 +72,24 @@ export function PanneauExport({
 }
 
 /**
- * Les modèles de mise en page d'une équipe : le modèle par défaut, la liste
- * (nom, modèle de base, nombre de documents), et la création d'un modèle.
+ * Les modèles de mise en page (équipe ou instance) : le modèle par défaut, un
+ * tableau (nom, format, police, documents, étiquette « Défaut ») avec un menu
+ * d'actions par ligne, et un seul bouton « Nouveau modèle » (13/11/2026). Le
+ * nom d'un modèle mène à sa page de réglage ; « Dupliquer » ouvre la création
+ * avec le modèle choisi comme départ.
  * @param {{
- *   libelles: { defaut: string, nom: string, base: string, creer: string, modifier: string, supprimer: string,
- *     aucun: string, modifierDe: (nom: string) => string, supprimerDe: (nom: string) => string },
+ *   libelles: { defaut: string, nom: string, base: string, creer: string, nouveau: string, annuler: string,
+ *     regler: string, dupliquer: string, supprimer: string, actions: string, aucun: string,
+ *     colonnes: { nom: string, format: string, police: string, documents: string },
+ *     actionsDe: (nom: string) => string, copieDe: (nom: string) => string,
+ *     titres?: { defaut?: string, liste?: string } },
  *   defaut: { options: Array<any>, valeur: string, surChange: (v: string) => void },
  *   intro?: string | null,
- *   modeles: Array<{ cle: string, nom: string, resume?: string | null, detail: string, parDefaut?: string | null }>,
- *   essayer?: { libelle: string, libelleDe: (nom: string) => string, surClic: (cle: string) => void } | null,
+ *   modeles: Array<{ cle: string, nom: string, adresse: string, format?: string | null, police?: string | null,
+ *     detail: string, parDefaut?: string | null }>,
+ *   essayer?: { libelle: string, surClic: (cle: string) => void } | null,
  *   bases: Array<{ value: string, label: string }>, message?: string | null,
- *   surCreer: (nom: string, base: string) => void, surModifier: (cle: string) => void, surSupprimer: (cle: string) => void,
+ *   surCreer: (nom: string, base: string) => void, surSupprimer: (cle: string) => void,
  * }} props
  */
 export function PanneauModeles({
@@ -88,20 +101,18 @@ export function PanneauModeles({
   message,
   essayer = null,
   surCreer,
-  surModifier,
   surSupprimer,
 }) {
+  // Le formulaire de création : fermé, ou ouvert (avec un nom et un départ, éventuellement proposés par « Dupliquer »).
+  const [creation, setCreation] = useState(null)
   const soumettre = (e) => {
     e.preventDefault()
-    const f = new FormData(e.currentTarget)
-    const nom = String(f.get('nom') || '').trim()
+    const nom = creation.nom.trim()
     if (nom) {
-      surCreer(nom, String(f.get('base')))
-      e.currentTarget.reset()
+      surCreer(nom, creation.base)
+      setCreation(null)
     }
   }
-  // Trois blocs titrés (13/11/2026, « clarifier la page modèles ») : le
-  // défaut, les modèles, la création ; `intro` explique d'où viennent les modèles.
   const { titres = {} } = libelles
   return (
     <Stack>
@@ -116,69 +127,126 @@ export function PanneauModeles({
       />
       {titres.liste ? <Title order={3}>{titres.liste}</Title> : null}
       {modeles.length ? (
-        <Stack component="ul">
-          {modeles.map((m) => (
-            <Group component="li" key={m.cle}>
-              <Stack>
-                <Text>{m.nom}</Text>
-                {m.resume ? <Text>{m.resume}</Text> : null}
-                <Text>{m.detail}</Text>
-              </Stack>
-              {m.parDefaut ? <Badge>{m.parDefaut}</Badge> : null}
-              {essayer ? (
-                <Button
-                  {...REGLAGES.boutonSecondaire}
-                  aria-label={essayer.libelleDe(m.nom)}
-                  onClick={() => essayer.surClic(m.cle)}
-                >
-                  {essayer.libelle}
-                </Button>
-              ) : null}
-              <Button aria-label={libelles.modifierDe(m.nom)} onClick={() => surModifier(m.cle)}>
-                {libelles.modifier}
-              </Button>
-              <Button
-                {...REGLAGES.boutonDanger}
-                aria-label={libelles.supprimerDe(m.nom)}
-                onClick={() => surSupprimer(m.cle)}
-              >
-                {libelles.supprimer}
-              </Button>
-            </Group>
-          ))}
-        </Stack>
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>{libelles.colonnes.nom}</Table.Th>
+              <Table.Th>{libelles.colonnes.format}</Table.Th>
+              <Table.Th>{libelles.colonnes.police}</Table.Th>
+              <Table.Th>{libelles.colonnes.documents}</Table.Th>
+              <Table.Th>
+                <VisuallyHidden>{libelles.actions}</VisuallyHidden>
+              </Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {modeles.map((m) => (
+              <Table.Tr key={m.cle}>
+                <Table.Td>
+                  <Group>
+                    <Anchor href={m.adresse}>{m.nom}</Anchor>
+                    {m.parDefaut ? <Badge>{m.parDefaut}</Badge> : null}
+                  </Group>
+                </Table.Td>
+                <Table.Td>{m.format}</Table.Td>
+                <Table.Td>{m.police}</Table.Td>
+                <Table.Td>{m.detail}</Table.Td>
+                <Table.Td>
+                  <Menu>
+                    <Menu.Target>
+                      <Button {...REGLAGES.boutonSecondaire} aria-label={libelles.actionsDe(m.nom)}>
+                        {libelles.actions}
+                      </Button>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      <Menu.Item component="a" href={m.adresse}>
+                        {libelles.regler}
+                      </Menu.Item>
+                      <Menu.Item onClick={() => setCreation({ nom: libelles.copieDe(m.nom), base: m.cle })}>
+                        {libelles.dupliquer}
+                      </Menu.Item>
+                      {essayer ? <Menu.Item onClick={() => essayer.surClic(m.cle)}>{essayer.libelle}</Menu.Item> : null}
+                      <Menu.Item {...REGLAGES.boutonDanger} onClick={() => surSupprimer(m.cle)}>
+                        {libelles.supprimer}
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
       ) : (
         <Text>{libelles.aucun}</Text>
       )}
       {message ? <Text role="status">{message}</Text> : null}
-      {titres.creer ? <Title order={3}>{titres.creer}</Title> : null}
-      <form onSubmit={soumettre}>
+      {creation ? (
+        <form onSubmit={soumettre}>
+          <Group>
+            <TextInput
+              name="nom"
+              label={libelles.nom}
+              value={creation.nom}
+              onChange={(e) => setCreation({ ...creation, nom: e.currentTarget.value })}
+              required
+              data-autofocus
+            />
+            <Select
+              name="base"
+              label={libelles.base}
+              data={bases}
+              value={creation.base}
+              onChange={(base) => setCreation({ ...creation, base })}
+              allowDeselect={false}
+            />
+            <Button {...REGLAGES.boutonSecondaire} onClick={() => setCreation(null)}>
+              {libelles.annuler}
+            </Button>
+            <Button type="submit">{libelles.creer}</Button>
+          </Group>
+        </form>
+      ) : (
         <Group>
-          <TextInput name="nom" label={libelles.nom} required />
-          <Select name="base" label={libelles.base} data={bases} defaultValue={bases[0]?.value} allowDeselect={false} />
-          <Button type="submit">{libelles.creer}</Button>
+          <Button disabled={!bases.length} onClick={() => setCreation({ nom: '', base: bases[0]?.value })}>
+            {libelles.nouveau}
+          </Button>
         </Group>
-      </form>
+      )}
     </Stack>
   )
 }
 
 /**
- * Le formulaire d'un modèle (d'équipe ou de l'instance) : son nom et les
- * réglages ouverts, par groupe (12/11/2026 : format, texte, titres, pages).
+ * La page de réglage d'un modèle (13/11/2026) : à gauche les rubriques (le nom,
+ * puis un groupe de réglages par style), à droite celle qu'on règle ; Enregistrer
+ * et Annuler restent en bas. Les valeurs de toutes les rubriques sont gardées
+ * pendant qu'on change de rubrique.
  * @param {{
- *   libelles: { nom: string, enregistrer: string, annuler: string },
+ *   libelles: { nom: string, general: string, retour: string, enregistrer: string, annuler: string },
+ *   titre: string, adresseRetour: string,
  *   nom: string,
- *   groupes?: Array<{ cle: string, libelle: string }>,
+ *   groupes: Array<{ cle: string, libelle: string }>,
  *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix', libelle: string, valeur: any,
  *     groupe?: string, min?: number, max?: number, pas?: number, options?: Array<{ value: string, label: string }> }>,
  *   message?: string | null, surEnregistrer: (o: { nom: string, valeurs: Record<string, any> }) => void,
  *   surAnnuler: () => void,
  * }} props
  */
-export function FormulaireModele({ libelles, nom, groupes = [], champs, message, surEnregistrer, surAnnuler }) {
+export function PageReglageModele({
+  libelles,
+  titre,
+  adresseRetour,
+  nom,
+  groupes,
+  champs,
+  message,
+  surEnregistrer,
+  surAnnuler,
+}) {
   const [leNom, setNom] = useState(nom)
   const [valeurs, setValeurs] = useState(() => Object.fromEntries(champs.map((c) => [c.cle, c.valeur])))
+  const rubriques = groupes.filter((g) => champs.some((c) => c.groupe === g.cle))
+  const [choisie, setChoisie] = useState('general')
   const changer = (cle) => (v) => setValeurs((x) => ({ ...x, [cle]: v }))
   const soumettre = (e) => {
     e.preventDefault()
@@ -220,35 +288,58 @@ export function FormulaireModele({ libelles, nom, groupes = [], champs, message,
       />
     )
   }
+  const { menu, contenu } = REGLAGES.admin.colonnes
+  const rubrique = rubriques.find((g) => g.cle === choisie)
   return (
-    <form onSubmit={soumettre}>
-      <Stack>
-        <TextInput label={libelles.nom} value={leNom} onChange={(e) => setNom(e.currentTarget.value)} required />
-        {groupes.length ? (
-          <>
-            {groupes
-              .map((g) => [g, champs.filter((c) => c.groupe === g.cle)])
-              .filter(([, cs]) => cs.length)
-              .map(([g, cs]) => (
-                <Fieldset key={g.cle} legend={g.libelle}>
-                  <Stack>{cs.map(champ)}</Stack>
-                </Fieldset>
-              ))}
-            {/* Un réglage sans groupe connu reste visible, après les groupes. */}
-            {champs.filter((c) => !groupes.some((g) => g.cle === c.groupe)).map(champ)}
-          </>
-        ) : (
-          champs.map(champ)
-        )}
-        {message ? <Text role="status">{message}</Text> : null}
-        <Group>
-          <Button {...REGLAGES.boutonSecondaire} onClick={surAnnuler}>
-            {libelles.annuler}
-          </Button>
-          <Button type="submit">{libelles.enregistrer}</Button>
-        </Group>
-      </Stack>
-    </form>
+    <Container {...REGLAGES.admin.page}>
+      <form onSubmit={soumettre}>
+        <Stack>
+          <Group>
+            <Anchor href={adresseRetour}>{libelles.retour}</Anchor>
+          </Group>
+          <Title order={1}>{titre}</Title>
+          <Grid>
+            <Grid.Col {...menu}>
+              <nav aria-label={titre}>
+                {[{ cle: 'general', libelle: libelles.general }, ...rubriques].map((g) => (
+                  <NavLink
+                    key={g.cle}
+                    component="button"
+                    type="button"
+                    label={g.libelle}
+                    active={g.cle === (rubrique ? choisie : 'general')}
+                    aria-current={g.cle === (rubrique ? choisie : 'general') ? 'page' : undefined}
+                    onClick={() => setChoisie(g.cle)}
+                  />
+                ))}
+              </nav>
+            </Grid.Col>
+            <Grid.Col {...contenu}>
+              <Stack component="section" aria-label={rubrique ? rubrique.libelle : libelles.general}>
+                <Title order={2}>{rubrique ? rubrique.libelle : libelles.general}</Title>
+                {rubrique ? (
+                  champs.filter((c) => c.groupe === rubrique.cle).map(champ)
+                ) : (
+                  <TextInput
+                    label={libelles.nom}
+                    value={leNom}
+                    onChange={(e) => setNom(e.currentTarget.value)}
+                    required
+                  />
+                )}
+              </Stack>
+            </Grid.Col>
+          </Grid>
+          {message ? <Text role="status">{message}</Text> : null}
+          <Group>
+            <Button {...REGLAGES.boutonSecondaire} onClick={surAnnuler}>
+              {libelles.annuler}
+            </Button>
+            <Button type="submit">{libelles.enregistrer}</Button>
+          </Group>
+        </Stack>
+      </form>
+    </Container>
   )
 }
 

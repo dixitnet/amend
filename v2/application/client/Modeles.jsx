@@ -2,8 +2,8 @@
 // ceux d'une équipe (son gestionnaire) et ceux de l'instance (back-office,
 // administrateurs), dans un même composant. Le serveur envoie chaque modèle
 // complet ; le formulaire en montre les réglages ouverts, par groupe.
-import { useState } from 'react'
-import { PanneauModeles, FormulaireModele, PanneauPolices, Fenetre, REGLES_MODELES } from '../../design/index.js'
+import { useEffect, useState } from 'react'
+import { PanneauModeles, PageReglageModele, PanneauPolices, EcranMessage, REGLES_MODELES } from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
 import { valeurDuReglage } from '../../domaine/index.js'
 import { t, envoyerJson } from './commun.js'
@@ -132,18 +132,17 @@ const champsDu = (complet, regles, familles = null) => {
 }
 
 /**
- * La liste, le défaut, la création, le réglage et la suppression de modèles.
+ * La liste, le défaut, la création, la duplication et la suppression de
+ * modèles ; le réglage d'un modèle a sa propre page (`PageModele`).
  * @param {object} o
  * @param {string} o.chemin  la route des modèles (`…/modeles`)
  * @param {string} o.cheminDefaut  la route du défaut (`…/modele-defaut`)
+ * @param {(id: string) => string} o.adresse  l'adresse de la page de réglage d'un modèle
  * @param {Array<any>} o.modeles  les modèles gérés ici (complets)
  * @param {Array<any>} o.bases  les modèles qu'on peut copier pour en créer un (code, instance, équipe)
  * @param {{ options: Array<any>, valeur: string | null, enregistre: (v: string) => string | null }} o.defaut
- * @param {object} o.regles  les réglages ouverts (équipe ou instance)
- * @param {string[] | null} [o.polices]  les familles du catalogue (serveur)
  * @param {Record<string, string[]>} [o.fichiersPolices]  les fichiers des polices de l'instance
  * @param {string | null} [o.intro]  le texte d'en-tête de la liste
- * @param {boolean} [o.enFenetre]  régler un modèle dans une fenêtre (back-office)
  * @param {(m: any) => string} o.detail
  * @param {(m: any) => string} o.texteSuppression
  * @param {string} o.libelleDefaut
@@ -153,14 +152,12 @@ const champsDu = (complet, regles, familles = null) => {
 function GestionModeles({
   chemin,
   cheminDefaut,
+  adresse,
   modeles,
   bases,
   defaut,
-  regles,
-  polices = null,
   fichiersPolices = {},
   intro = null,
-  enFenetre = false,
   detail,
   texteSuppression,
   libelleDefaut,
@@ -170,7 +167,6 @@ function GestionModeles({
   surChangement,
 }) {
   const [message, setMessage] = useState(null)
-  const [enReglage, setEnReglage] = useState(null)
   const essayerDe = async (f, succes = null) => {
     try {
       await f()
@@ -183,43 +179,29 @@ function GestionModeles({
       surChangement()
     }
   }
-  const regle = modeles.find((m) => m.id === enReglage)
-  const formulaire = regle?.complet ? (
-    <FormulaireModele
-      key={regle.id}
-      libelles={{ nom: t('modeles.nom'), enregistrer: t('modeles.enregistrer'), annuler: t('interface.annuler') }}
-      nom={regle.nom}
-      groupes={groupes()}
-      champs={champsDu(regle.complet, regles, polices)}
-      message={message}
-      surEnregistrer={async ({ nom, valeurs }) => {
-        if (
-          await essayerDe(
-            () => envoyerJson('PUT', `${chemin}/${encodeURIComponent(regle.id)}`, { nom, reglages: valeurs }),
-            t('modeles.enregistre'),
-          )
-        )
-          setEnReglage(null)
-      }}
-      surAnnuler={() => (setEnReglage(null), setMessage(null))}
-    />
-  ) : null
-  // Dans la fenêtre d'une équipe, le formulaire remplace la liste ; au
-  // back-office, il s'ouvre dans une fenêtre, la liste restant dessous (13/11/2026).
-  if (formulaire && !enFenetre) return formulaire
-  const liste = (
+  return (
     <PanneauModeles
       libelles={{
         defaut: libelleDefaut,
         nom: t('modeles.nom'),
         base: t('modeles.base'),
         creer: t('modeles.creer'),
-        modifier: t('modeles.modifier'),
+        nouveau: t('modeles.nouveau'),
+        annuler: t('interface.annuler'),
+        regler: t('modeles.modifier'),
+        dupliquer: t('modeles.dupliquer'),
         supprimer: t('modeles.supprimer'),
+        actions: t('modeles.actions'),
         aucun,
-        modifierDe: (nom) => t('modeles.modifierDe', { nom }),
-        supprimerDe: (nom) => t('modeles.supprimerDe', { nom }),
-        titres: { defaut: t('modeles.titreDefaut'), liste: t('modeles.titreListe'), creer: t('modeles.titreCreer') },
+        colonnes: {
+          nom: t('modeles.colonnes.nom'),
+          format: t('modeles.colonnes.format'),
+          police: t('modeles.colonnes.police'),
+          documents: t('modeles.colonnes.documents'),
+        },
+        actionsDe: (nom) => t('modeles.actionsDe', { nom }),
+        copieDe: (nom) => t('modeles.copieDe', { nom }),
+        titres: { defaut: t('modeles.titreDefaut'), liste: t('modeles.titreListe') },
       }}
       intro={intro}
       defaut={{
@@ -230,14 +212,12 @@ function GestionModeles({
       modeles={modeles.map((m) => ({
         cle: m.id,
         nom: m.nom,
-        // Le format de la page et la police, pour reconnaître un modèle d'un coup d'œil.
-        resume: m.complet
-          ? t('modeles.resume', {
-              largeur: m.complet.page.largeur,
-              hauteur: m.complet.page.hauteur,
-              police: m.complet.police,
-            })
+        adresse: adresse(m.id),
+        // Le format de la page et la police du texte, pour reconnaître un modèle d'un coup d'œil.
+        format: m.complet
+          ? t('modeles.format', { largeur: m.complet.page.largeur, hauteur: m.complet.page.hauteur })
           : null,
+        police: m.complet?.styles?.texte?.police ?? null,
         detail: detail(m),
         parDefaut: m.id === defaut.valeur ? t('modeles.parDefaut') : null,
       }))}
@@ -247,7 +227,6 @@ function GestionModeles({
         essayer
           ? {
               libelle: t('modeles.essayer'),
-              libelleDe: (nom) => t('modeles.essayerDe', { nom }),
               surClic: (id) =>
                 essayerDe(() =>
                   essayer(
@@ -259,12 +238,6 @@ function GestionModeles({
           : null
       }
       surCreer={(nom, depart) => essayerDe(() => envoyerJson('POST', chemin, { nom, depart }))}
-      // Un modèle qui ne se calcule plus (base disparue) ne se règle pas : on le dit.
-      surModifier={(id) =>
-        modeles.find((m) => m.id === id)?.complet
-          ? (setEnReglage(id), setMessage(null))
-          : setMessage(messageErreur(t, 'modele-introuvable'))
-      }
       surSupprimer={async (id) => {
         const m = modeles.find((x) => x.id === id)
         if (
@@ -279,19 +252,90 @@ function GestionModeles({
       }}
     />
   )
-  if (!enFenetre) return liste
+}
+
+/** Le chemin d'un modèle dans les adresses : `#/admin/modeles/id` ou `#/equipes/équipe/modeles/id`. */
+const adresseModele = (equipe) => (id) =>
+  `${equipe ? `#/equipes/${encodeURIComponent(equipe)}` : '#/admin'}/modeles/${encodeURIComponent(id)}`
+// La fenêtre des modèles d'une équipe s'ouvre depuis la liste des documents ou
+// depuis un document ; en revenant de la page de réglage d'un modèle, on la
+// retrouve ouverte (13/11/2026). Par onglet, sans autre portée.
+const CLE_ORIGINE = 'amend.modeles.origine'
+const adresseEquipe = (equipe) => `#/equipes/${encodeURIComponent(equipe)}`
+const lireOrigine = () => {
+  try {
+    return sessionStorage.getItem(CLE_ORIGINE)
+  } catch {
+    return null
+  }
+}
+/** Retient l'équipe dont on ouvre la fenêtre des modèles. */
+export const retenirOrigineModeles = (equipe) => {
+  try {
+    sessionStorage.setItem(CLE_ORIGINE, equipe)
+  } catch {
+    // Sans stockage de session, on revient à la page de l'équipe, fenêtre fermée.
+  }
+}
+/** L'équipe dont la fenêtre des modèles est à rouvrir (retour de la page de réglage), sinon nul. */
+export const equipeDesModelesOuverts = lireOrigine
+/** La fenêtre des modèles est fermée : on ne la rouvrira plus au retour. */
+export const oublierOrigineModeles = () => {
+  try {
+    sessionStorage.removeItem(CLE_ORIGINE)
+  } catch {
+    // rien à retirer
+  }
+}
+
+/**
+ * La page de réglage d'un modèle (13/11/2026) : `equipe` est l'identifiant de
+ * l'équipe, ou nul pour un modèle de l'instance (administrateurs).
+ */
+export function PageModele({ equipe, modele }) {
+  const [etat, setEtat] = useState({ phase: 'chargement' })
+  const [message, setMessage] = useState(null)
+  const chemin = equipe ? `/api/equipes/${encodeURIComponent(equipe)}/modeles` : '/api/admin/modeles'
+  const retour = equipe ? adresseEquipe(equipe) : '#/admin/modeles'
+  useEffect(() => {
+    let vivant = true
+    envoyerJson('GET', equipe ? `/api/equipes/${encodeURIComponent(equipe)}` : '/api/admin/modeles')
+      .then((d) => vivant && setEtat({ phase: 'pret', donnees: d }))
+      .catch((e) => vivant && setEtat({ phase: 'erreur', code: e.code || 'reseau' }))
+    return () => {
+      vivant = false
+    }
+  }, [equipe])
+  if (etat.phase === 'chargement') return <EcranMessage texte={t('application.chargement')} />
+  if (etat.phase === 'erreur') return <EcranMessage texte={messageErreur(t, etat.code)} />
+  const m = (etat.donnees.modeles ?? []).find((x) => x.id === modele)
+  if (!m?.complet) return <EcranMessage texte={messageErreur(t, 'modele-introuvable')} />
   return (
-    <>
-      {liste}
-      <Fenetre
-        ouverte={Boolean(formulaire)}
-        titre={regle ? t('modeles.reglerTitre', { nom: regle.nom }) : ''}
-        libelleFermer={t('interface.fermer')}
-        surFermer={() => (setEnReglage(null), setMessage(null))}
-      >
-        {formulaire}
-      </Fenetre>
-    </>
+    <PageReglageModele
+      key={m.id}
+      libelles={{
+        nom: t('modeles.nom'),
+        general: t('modeles.groupes.general'),
+        retour: t('modeles.retour'),
+        enregistrer: t('modeles.enregistrer'),
+        annuler: t('interface.annuler'),
+      }}
+      titre={t('modeles.reglerTitre', { nom: m.nom })}
+      adresseRetour={retour}
+      nom={m.nom}
+      groupes={groupes()}
+      champs={champsDu(m.complet, REGLES_MODELES, etat.donnees.polices ?? null)}
+      message={message}
+      surEnregistrer={async ({ nom, valeurs }) => {
+        try {
+          await envoyerJson('PUT', `${chemin}/${encodeURIComponent(m.id)}`, { nom, reglages: valeurs })
+          location.hash = retour
+        } catch (e) {
+          setMessage(messageErreur(t, e.code || 'reseau'))
+        }
+      }}
+      surAnnuler={() => (location.hash = retour)}
+    />
   )
 }
 
@@ -307,10 +351,9 @@ export function ModelesEquipe({ vue, confirmer, surChangement, essayer = null })
     <GestionModeles
       chemin={`${base}/modeles`}
       cheminDefaut={`${base}/modele-defaut`}
+      adresse={adresseModele(vue.equipe.id)}
       modeles={modeles}
       bases={[...maison, ...modeles]}
-      regles={REGLES_MODELES}
-      polices={vue.polices ?? null}
       fichiersPolices={vue.fichiersPolices ?? {}}
       defaut={{
         options: [
@@ -342,13 +385,11 @@ export function ModelesInstance({ donnees, confirmer, surChangement }) {
     <GestionModeles
       chemin="/api/admin/modeles"
       cheminDefaut="/api/admin/modele-defaut"
+      adresse={adresseModele(null)}
       modeles={donnees.modeles}
       bases={[code, ...donnees.modeles]}
-      regles={REGLES_MODELES}
-      polices={donnees.polices ?? null}
       fichiersPolices={donnees.fichiersPolices ?? {}}
       intro={t('admin.modelesPdf.intro', { code: nomDuModele(code) })}
-      enFenetre
       defaut={{
         options: groupesDeModeles(null, [code, ...donnees.modeles]),
         valeur: donnees.defaut ?? code.id,
