@@ -135,8 +135,9 @@ export const REGLAGES = {
     enfants: { gap: 0, pl: 'lg' },
   },
   // Le zoom du texte de l'éditeur, en pour cent (Sylvain, 11/11/2026 : « 50,
-  // 100, 150 », dans le menu « … », comme le réglage de la v1).
-  zoom: { paliers: [50, 100, 150], parDefaut: 100 },
+  // 100, 150 », dans le menu « … », comme le réglage de la v1) ; au format S,
+  // 100, 150 et 200 % (Sylvain, 13/11/2026).
+  zoom: { paliers: [50, 100, 150], paliersS: [100, 150, 200], parDefaut: 100 },
   // L'alerte hors ligne, comme AlertOffline de Docs.
   alerteHorsLigne: { variant: 'light', color: 'orange' },
   // Les pictos ajoutés aux boutons de BlockNote (exposant dans la palette,

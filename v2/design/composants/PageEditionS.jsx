@@ -7,7 +7,7 @@
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
 import { useEffect, useRef, useState } from 'react'
-import { Etoile, ElementsDeMenu, PictoCompte, OngletCompact } from './Coquille.jsx'
+import { ElementsDeMenu, PictoCompte, OngletCompact } from './Coquille.jsx'
 
 /** Un tiroir à onglets ; l'onglet ouvert peut être piloté (`actif`, `surOnglet`).
  * `compact` : seul l'onglet actif montre son texte (volet droit, 12/11/2026). */
@@ -46,10 +46,12 @@ function Volet({ volet, position, ouvert, surFermer, compact = false }) {
   )
 }
 
+/** Le picto de chaque état de la connexion (tout autre état : hors ligne). */
+const ETAT_PICTO = { connecte: 'synchro', connexion: 'synchroEnCours' }
+
 /**
  * @param {{
  *   titre: string, surTitre?: () => void,
- *   favori?: { actif: boolean, libelle: string, surBasculer: () => void },
  *   libelles: { gauche: string, droite: string, actions: string, terminer: string, titre: string },
  *   etat: string, connexion?: string, mention?: string | null,
  *   enModification: boolean, surTerminer: () => void,
@@ -65,7 +67,6 @@ function Volet({ volet, position, ouvert, surFermer, compact = false }) {
 export function PageEditionS({
   titre,
   surTitre,
-  favori,
   libelles,
   etat,
   connexion,
@@ -112,7 +113,6 @@ export function PageEditionS({
         <ActionIcon aria-label={libelles.gauche} aria-expanded={volet === 'gauche'} onClick={() => surVolet('gauche')}>
           <PictoDe role="plan" />
         </ActionIcon>
-        {favori ? <Etoile favori={favori} /> : null}
         <div className="amend-bandeau-titre">
           {surTitre ? (
             <UnstyledButton onClick={surTitre} aria-label={libelles.titre}>
@@ -122,6 +122,10 @@ export function PageEditionS({
             <Text truncate="end">{titre}</Text>
           )}
         </div>
+        {/* L'état de la synchronisation (13/11/2026), à la place de l'étoile et du texte du bas de page. */}
+        <span role="status" aria-label={etat} title={etat} className="amend-synchro" data-connexion={connexion}>
+          <PictoDe role={ETAT_PICTO[connexion] ?? 'horsLigne'} />
+        </span>
         {enModification ? <Button onClick={surTerminer}>{libelles.terminer}</Button> : null}
         <Menu onOpen={surOuvrirMenu}>
           <Menu.Target>
@@ -147,9 +151,6 @@ export function PageEditionS({
         {mention ? <Text>{mention}</Text> : null}
         {editeur}
       </main>
-      <Text role="status" component="div">
-        {etat}
-      </Text>
       <Volet volet={voletGauche} position="left" ouvert={volet === 'gauche'} surFermer={fermer} />
       <Volet volet={voletDroit} position="right" ouvert={volet === 'droite'} surFermer={fermer} compact />
       {panneau ? (

@@ -21,6 +21,24 @@
   min-width: 0;
 }
 
+/* réglage : css.telephone.synchro */
+.amend-synchro {
+  display: inline-flex;
+}
+.amend-synchro[data-connexion='connexion'] svg {
+  animation: amend-synchro-tour 1s linear infinite;
+}
+@keyframes amend-synchro-tour {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .amend-synchro[data-connexion='connexion'] svg {
+    animation: none;
+  }
+}
+
 /* réglage : css.telephone.plan */
 .amend-plan-niveau-2 {
   padding-inline-start: var(--mantine-spacing-md);

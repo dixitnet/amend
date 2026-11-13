@@ -25,6 +25,9 @@
 [data-amend-zoom='150'] .bn-default-styles {
   font-size: 150%;
 }
+[data-amend-zoom='200'] .bn-default-styles {
+  font-size: 200%;
+}
 
 /* réglage : css.editeur.lecture */
 [data-amend-lecture] .bn-thread-mark:not([data-orphan='true']) {
