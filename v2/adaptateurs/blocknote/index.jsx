@@ -215,6 +215,17 @@ function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote,
   )
 }
 
+/** ESSAI (13/11/2026, à juger sur iPhone) : la barre de mise en forme dans un
+ * bandeau du format S, au lieu de la palette flottante. Quatre boutons seulement. */
+const BOUTONS_DE_L_ESSAI = ['boldStyleButton', 'italicStyleButton', 'underlineStyleButton', 'createLinkButton']
+function BarreEnBandeau({ titres }) {
+  const editeur = useBlockNoteEditor()
+  const boutons = getFormattingToolbarItems(typesDeBloc(editeur, titres)).filter((b) =>
+    BOUTONS_DE_L_ESSAI.includes(b.key),
+  )
+  return <FormattingToolbar>{boutons}</FormattingToolbar>
+}
+
 /** La barre d'un lien en mode Corriger : seulement l'ouvrir. Le modifier ou
  * le retirer serait une mise en forme suggérée, que le panneau ne sait pas
  * arbitrer (contournement, veille ; Sylvain, 11/11/2026). */
@@ -305,6 +316,8 @@ function itemsDuMenu(editeur, table, textesTitres) {
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
+ * @param {{ element: HTMLElement } | null} [p.barre]
+ *   ESSAI : où placer la barre de mise en forme (bandeau du format S) au lieu de la palette flottante
  * @param {{ element: HTMLElement | null, filtre: 'open' | 'resolved' | 'all' } | null} [p.fils]
  *   où placer la liste des fils de commentaires (onglet « Commentaires »), et son filtre
  * @param {(code: string) => void} [p.surRefus]  un geste refusé en Corriger ou en Éditer (contournements, veille)
@@ -362,6 +375,7 @@ export function EditeurCollaboratif({
   confirmerRestauration,
   surRefus,
   fils = null,
+  barre = null,
   lectureAuDepart = false,
   surAppuiEnLecture,
   modeApresAppui = 'editer',
@@ -862,7 +876,13 @@ export function EditeurCollaboratif({
       comments={false}
     >
       {magasin && mode !== 'lire' ? <FloatingComposerController /> : null}
-      <FormattingToolbarController formattingToolbar={palette} />
+      {barre?.element ? (
+        <RenderInPortalElement target={barre.element}>
+          <BarreEnBandeau titres={textes} />
+        </RenderInPortalElement>
+      ) : (
+        <FormattingToolbarController formattingToolbar={palette} />
+      )}
       {mode === 'corriger' ? <LinkToolbarController linkToolbar={BarreDuLienEnSuggestion} /> : null}
       {mode !== 'corriger' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
       {/* La liste des fils (exemple 06-comments-with-sidebar de BlockNote, et
