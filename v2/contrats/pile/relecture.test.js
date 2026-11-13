@@ -229,8 +229,9 @@ test('Éditer au contact d’une suggestion : la frappe va dans le texte sans la
     document.dispatchEvent(new Event('selectionchange'))
   })
   await attendre(500)
-  await p.keyboard.type('Q')
-  await attendreTexte(l, 'Il faisait Qnuit noire sur la ville endormie.')
+  // Deux lettres : le curseur suit la première, replacée dans le texte.
+  await p.keyboard.type('QR')
+  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie.')
   assert.equal(
     // Sans l'étiquette du curseur de Carla, que l'éditeur glisse dans le texte.
     await p.evaluate(() =>
@@ -244,12 +245,12 @@ test('Éditer au contact d’une suggestion : la frappe va dans le texte sans la
   // Une suppression au contact de la suggestion : refusée, le message le dit.
   await p.keyboard.press('Backspace')
   await p.getByText('seule la frappe passe').waitFor()
-  await attendreTexte(l, 'Il faisait Qnuit noire sur la ville endormie.')
+  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie.')
   // Loin de la suggestion : la frappe va dans le texte (le lecteur la voit).
   await p.keyboard.press('End')
   await attendre(300)
   await p.keyboard.type(' Fin.')
-  await attendreTexte(l, 'Il faisait Qnuit noire sur la ville endormie. Fin.')
+  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie. Fin.')
   // L'annulation (celle de ProseMirror) est un changement direct : au contact
   // d'une suggestion, elle est refusée aussi (Carla en pose une juste après
   // « Fin. » ; audit du 12/11/2026) ; loin de toute suggestion, elle marche.
@@ -261,11 +262,11 @@ test('Éditer au contact d’une suggestion : la frappe va dans le texte sans la
   await p.click('.bn-inline-content')
   await p.keyboard.press('Control+z')
   await attendre(1500)
-  await attendreTexte(l, 'Il faisait Qnuit noire sur la ville endormie. Fin.')
+  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie. Fin.')
   // La suggestion de Carla est intacte, à son nom.
   await attendrePanneau(p, /Carla ajoute «\s?donc\s?»/)
   assert.equal(await p.locator('section[aria-label] li').count(), 2, 'deux suggestions')
-  assert.doesNotMatch(await panneau(p), /Q/)
+  assert.doesNotMatch(await panneau(p), /QR/)
   await l.context().close()
   await fermer()
 })
