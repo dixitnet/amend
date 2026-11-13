@@ -2,6 +2,10 @@
 // comparaison avec l'état de référence, rapport.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { verdict, comparer, rapport, statutPour, referenceDepuis, cle } from '../../exploitation/campagne/verdicts.mjs'
 
 const joue = (nom, reussis, exceptions = 0, fois = 3) => ({ nom, fois, reussis, exceptions, notes: [] })
@@ -17,7 +21,11 @@ test('verdict : passé, échoué, instable, script en panne', () => {
   )
   assert.equal(verdict({ fois: 3, reussis: 0, exceptions: 3 }), 'panne', 'jamais allé au bout : le script est en cause')
   assert.equal(verdict({ fois: 3, reussis: 1, exceptions: 2 }), 'instable')
-  assert.equal(verdict({ fois: 0, reussis: 0, exceptions: 0 }), 'panne', 'rien de joué')
+  assert.equal(
+    verdict({ fois: 0, reussis: 0, exceptions: 0 }),
+    'panne',
+    'rien de joué (le lanceur joue au moins une fois)',
+  )
 })
 
 const reference = {
@@ -136,4 +144,35 @@ test('référence de départ : attendu si le scénario passe partout, connu sino
   assert.equal(r.scenarios[cle('suivi', 'A')].note, 'déjà classé', 'un scénario déjà classé n’est pas touché')
   assert.equal(r.scenarios[cle('suivi', 'B')].statut, 'connu')
   assert.equal(r.scenarios[cle('suivi', 'H13 (diagnostic de 4) relevé')].statut, 'diagnostic')
+})
+
+test('bilan : lit les relevés d’un dossier (sous-dossiers compris), écrit le rapport, sort en erreur sur une régression', () => {
+  const dossier = mkdtempSync(join(tmpdir(), 'campagne-'))
+  try {
+    // Un scénario de la référence commitée, « attendu » sous Chromium en format L.
+    const reference = JSON.parse(
+      readFileSync(new URL('../../exploitation/campagne/reference.json', import.meta.url), 'utf8'),
+    )
+    const [k] = Object.entries(reference.scenarios).find(([, s]) => s.statut === 'attendu')
+    const [famille, nom] = k.split(' :: ')
+    const ecrire = (reussis) => {
+      mkdirSync(join(dossier, 'releve-x'), { recursive: true })
+      writeFileSync(
+        join(dossier, 'releve-x', `campagne-${famille}-chromium-L.json`),
+        JSON.stringify({ famille, navigateur: 'chromium', format: 'L', scenarios: [joue(nom, reussis)] }),
+      )
+    }
+    const lancer = () =>
+      spawnSync(process.execPath, ['exploitation/campagne/bilan.mjs', dossier, `--rapport=${join(dossier, 'r.md')}`], {
+        encoding: 'utf8',
+      })
+    ecrire(3)
+    assert.equal(lancer().status, 0)
+    assert.match(readFileSync(join(dossier, 'r.md'), 'utf8'), /Aucune régression/)
+    ecrire(0)
+    assert.equal(lancer().status, 1, 'un scénario attendu qui ne passe plus')
+    assert.match(readFileSync(join(dossier, 'r.md'), 'utf8'), /## Régressions \(1\)/)
+  } finally {
+    rmSync(dossier, { recursive: true, force: true })
+  }
 })
