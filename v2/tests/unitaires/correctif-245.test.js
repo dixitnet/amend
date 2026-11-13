@@ -43,14 +43,17 @@ function monter(idEditrice, idCorrectrice, { correctif = true } = {}) {
       i = curseur ?? i + 1
     }
   }
-  return { texte, cote, de, rendu, taper, afficheur }
+  return { texte, cote, correctrice, de, rendu, taper, afficheur }
 }
 
 test('le défaut amont, sans le correctif : la frappe contre une correction reste en attente', async () => {
   const { texte, cote, de, taper } = monter(10, 500, { correctif: false })
   await taper(de(cote).toString().length, ' Paule')
-  assert.equal(de(texte).toString(), 'Il faisait nuit.', 'la frappe n’atteint pas le texte')
-  assert.ok(texte.store.pendingStructs, 'elle reste en attente : le jour où ce test échoue, le correctif peut partir')
+  assert.equal(
+    de(texte).toString(),
+    'Il faisait nuit.',
+    'la frappe n’atteint pas le texte : le jour où ce test échoue, l’amont est corrigé et le correctif peut partir',
+  )
 })
 
 for (const [nom, idEditrice, idCorrectrice] of [
@@ -58,17 +61,20 @@ for (const [nom, idEditrice, idCorrectrice] of [
   ['identifiant de l’éditrice après celui de la correctrice', 500, 10],
 ])
   test(`écrire après, avant et dans une correction affichée : du texte, la correction intacte (${nom})`, async () => {
-    const { texte, cote, de, rendu, taper } = monter(idEditrice, idCorrectrice)
+    const { texte, cote, correctrice, de, rendu, taper } = monter(idEditrice, idCorrectrice)
     await taper(de(cote).toString().indexOf(' Ajout') + 6, ' Paule')
     await taper(de(cote).toString().indexOf(' Ajout'), ' Devant')
     await taper(de(cote).toString().indexOf(' Ajout') + 3, ' Dedans')
     // Tout ce qu'a tapé l'éditrice est dans le texte, dans l'ordre de la frappe.
     for (const mot of [' Paule', ' Devant', ' Dedans']) assert.ok(de(texte).toString().includes(mot), mot)
     assert.ok(!de(texte).toString().includes('Ajout'), 'la correction n’est pas entrée dans le texte')
-    assert.equal(texte.store.pendingStructs, null, 'rien en attente dans le texte')
     // La correction reste une correction, d'un seul tenant.
     assert.ok(rendu().includes('[ Ajout]'), rendu())
     assert.equal(rendu().replace('[ Ajout]', ''), de(texte).toString(), 'hors la correction, le rendu est le texte')
+    // Rien n'attend dans le texte : une fois la correction acceptée, chaque mot n'y est qu'une fois.
+    Y.applyUpdate(texte, Y.encodeStateAsUpdate(correctrice))
+    for (const mot of [' Paule', ' Devant', ' Dedans', ' Ajout'])
+      assert.equal(de(texte).toString().split(mot).length - 1, 1, `${mot} : une seule fois après acceptation`)
   })
 
 test('écrire loin d’une correction : rien ne change, la frappe va au texte comme avant', async () => {
@@ -85,6 +91,28 @@ test('en mode correction (suggestionMode), le correctif ne touche à rien : la f
   afficheur.suggestionMode = true
   await taper(de(cote).toString().length, ' Paule')
   assert.equal(de(texte).toString(), 'Il faisait nuit.')
-  assert.equal(texte.store.pendingStructs, null)
   assert.equal(rendu(), 'Il faisait nuit.[ Ajout Paule]')
+})
+
+test('corrections en attente : une frappe replacée ne laisse rien à arbitrer ; la correction acceptée, plus rien', async () => {
+  const { resteDesCorrections } = await import('../../adaptateurs/blocknote/correctif-245.js')
+  const { texte, cote, correctrice, de, taper, afficheur } = monter(500, 10)
+  assert.equal(resteDesCorrections(afficheur, cote), true, 'la correction attend')
+  await taper(de(cote).toString().length, ' Paule')
+  assert.equal(resteDesCorrections(afficheur, cote), true, 'elle attend toujours')
+  // La correction est acceptée : elle entre dans le texte.
+  Y.applyUpdate(texte, Y.encodeStateAsUpdate(correctrice))
+  assert.equal(resteDesCorrections(afficheur, cote), false, 'plus rien à arbitrer, malgré la trace de la frappe')
+})
+
+test('corrections en attente : une suppression suggérée d’un passage du texte reste à arbitrer', async () => {
+  const { resteDesCorrections } = await import('../../adaptateurs/blocknote/correctif-245.js')
+  const { texte, cote, correctrice, de, afficheur } = monter(500, 10)
+  Y.applyUpdate(texte, Y.encodeStateAsUpdate(correctrice))
+  assert.equal(resteDesCorrections(afficheur, cote), false)
+  // La correctrice propose de supprimer « nuit ».
+  de(correctrice).delete(11, 4)
+  Y.applyUpdate(cote, Y.encodeStateAsUpdate(correctrice), 'distant')
+  assert.equal(de(texte).toString().includes('nuit'), true, 'le texte garde le passage')
+  assert.equal(resteDesCorrections(afficheur, cote), true, 'la suppression suggérée attend')
 })

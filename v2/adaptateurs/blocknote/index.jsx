@@ -63,6 +63,7 @@ import {
   listeDesSuggestions,
   compterSuggestions,
   curseurApresFrappe,
+  correctionsEnAttente,
 } from './suggestions.js'
 import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
@@ -439,7 +440,9 @@ export function EditeurCollaboratif({
   // Le panneau ne s'affiche qu'une fois l'historique ouvert (les effets d'un
   // composant enfant passent avant ceux de l'éditeur).
   const [historiqueOuvert, setHistoriqueOuvert] = useState(false)
-  replacerCurseur.current = (apres) => curseurApresFrappe(editeur, apres)
+  useEffect(() => {
+    replacerCurseur.current = (apres) => curseurApresFrappe(editeur, apres)
+  }, [editeur])
   useEffect(() => {
     const versions = editeur.getExtension('versioning')
     if (historique) {
@@ -480,8 +483,8 @@ export function EditeurCollaboratif({
     // Hors relecture, le nombre est compté à part, rarement (compterSuggestions).
     let compte = relire ? 0 : compterSuggestions(contexte, afficheur)
     const signaler = () => {
-      const enAttente = !afficheur.attributed.isEmpty()
       const liste = relire ? listeDesSuggestions(editeur, auteurs) : []
+      const enAttente = liste.length > 0 || correctionsEnAttente(contexte, afficheur)
       surSuggestions({ liste, nombre: !enAttente ? 0 : relire ? liste.length : compte, enAttente, ...actions })
     }
     signaler()

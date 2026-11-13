@@ -503,7 +503,7 @@
       "refusEnSerie": "Demande arrêtée\u00A0: trop de propositions refusées d’affilée.",
       "longueur": "Réponse coupée\u00A0: elle était trop longue.",
       "refus": "Le modèle a refusé cette demande.",
-      "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Modifications."
+      "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Corrections."
     }
   },
   "compte": {

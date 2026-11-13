@@ -49,6 +49,11 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const [modeEditeur, setModeEditeur] = useState('ecrire')
   // Après une panne de l'affichage des corrections : Éditer sans les voir.
   const [sansCorrections, setSansCorrections] = useState(false)
+  // Choisir un mode sort de ce repli : l'affichage des corrections est retenté.
+  const choisirMode = (m) => {
+    setSansCorrections(false)
+    setModeEditeur(m)
+  }
   const [zoom, setZoom] = useState(lireZoom)
   const choisirZoom = (z) => (setZoom(z), noterZoom(z))
   // Le compteur du menu « … », calculé à son ouverture, comme le menu de Docs.
@@ -272,7 +277,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           cle: `mode-${m}`,
           libelle: passer,
           [champ]: 'modifications',
-          surClic: () => setModeEditeur(m),
+          surClic: () => choisirMode(m),
         }))
       : []
   // « Copier le lien », le même dans tous les formats (audit du 10/11/2026) :
@@ -710,7 +715,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
                   libelle: t('document.modes'),
                   valeur: modeEditeur,
                   options: MODES.map(([m, libelle]) => ({ valeur: m, libelle })),
-                  surChange: setModeEditeur,
+                  surChange: choisirMode,
                 }
               : null
           }

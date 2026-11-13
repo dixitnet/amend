@@ -12,7 +12,7 @@
 //    (disposition C, choix de Sylvain) ; un remplacement y fait une ligne.
 import * as Y from '@y/y'
 import { resolvedPositionToRelativePosition, relativePositionToResolvedPosition } from '@y/prosemirror'
-import { brancherCorrectif245 } from './correctif-245.js'
+import { brancherCorrectif245, resteDesCorrections } from './correctif-245.js'
 
 const INSERTION = 'y-attributed-insert'
 const SUPPRESSION = 'y-attributed-delete'
@@ -287,3 +287,8 @@ export function curseurApresFrappe(editeur, apres) {
     // La position n'existe plus : le curseur reste où il est.
   }
 }
+
+/** Des corrections attendent-elles d'être arbitrées ? Avec le correctif
+ * temporaire (`correctif-245.js`), les traces mortes ne comptent pas ; sans
+ * lui, revenir à `!afficheur.attributed.isEmpty()`. */
+export const correctionsEnAttente = (contexte, afficheur) => resteDesCorrections(afficheur, contexte.suggestions.doc)

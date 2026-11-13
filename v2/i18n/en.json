@@ -503,7 +503,7 @@
       "refusEnSerie": "Request stopped: too many rejected proposals in a row.",
       "longueur": "Answer cut off: it was too long.",
       "refus": "The model declined this request.",
-      "erreur": "Margo could not finish the request. What was posted stays in Changes."
+      "erreur": "Margo could not finish the request. What was posted stays in Corrections."
     }
   },
   "compte": {

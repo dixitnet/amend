@@ -2,7 +2,8 @@
 // d'une suggestion la prolonge »). À débrancher quand l'amont l'aura corrigé :
 // retirer l'appel de `brancherCorrectif245` dans `suggestions.js`, ce fichier
 // et son test (`tests/unitaires/correctif-245.test.js`). Rien d'autre n'en
-// dépend.
+// dépend. Réexamen : à chaque montée de `@y/y` ou de `@y/prosemirror`, et au
+// plus tard le 13/12/2026 (veille, docs/v2-veille.md).
 //
 // La cause (Yjs 14, `DiffRenderer`) : quand on écrit directement en voyant les
 // suggestions, la frappe va dans le document des suggestions, puis l'afficheur
@@ -17,7 +18,9 @@
 //    place équivalente, et retirer la frappe du document des suggestions ;
 //  - sinon (coupure de paragraphe, collage riche…) : ne rien recopier ; le
 //    changement reste une suggestion de la personne, sans rien en attente.
-// Seule l'API publique de Yjs est utilisée.
+// Seule la surface publique de Yjs est utilisée : ses exports
+// (`iterateStructsByIdSet`, positions relatives, `IdSet`) et le réglage
+// documenté `suggestionOrigins` de l'afficheur.
 import * as Y from '@y/y'
 
 /** L'origine de nos propres transactions (réparation, nettoyage). */
@@ -50,7 +53,8 @@ function indiceDansLeTexte(type, afficheur, indice) {
   let texte = 0
   for (const op of type.toDelta({ renderer: afficheur }).toJSON().children ?? []) {
     if (op.type !== 'insert') continue
-    const longueur = typeof op.insert === 'string' ? op.insert.length : op.insert.length
+    // Une chaîne, ou une liste d'éléments en ligne (un appel de note) : sa longueur.
+    const longueur = op.insert.length
     const ajoute = Boolean(op.attribution?.insert)
     const supprime = Boolean(op.attribution?.delete)
     // Longueur dans le document des suggestions : tout sauf le supprimé.
@@ -146,4 +150,22 @@ export function brancherCorrectif245(afficheur, texte, cote, surReplace) {
     cote.off('afterAllTransactions', apres)
     relacher()
   }
+}
+
+/**
+ * Reste-t-il des corrections à arbitrer ? L'afficheur compte aussi ce qui a été
+ * ajouté puis supprimé du seul côté des suggestions (une frappe que le
+ * correctif a replacée, ou une correction que son auteur a effacée) : il n'y a
+ * là plus rien à accepter ni à refuser.
+ * @param {any} afficheur  le `DiffRenderer` de Yjs
+ * @param {any} cote       le document des suggestions
+ */
+export function resteDesCorrections(afficheur, cote) {
+  if (afficheur.attributed.isEmpty()) return false
+  // Un ajout suggéré déjà supprimé du côté des suggestions : une trace morte.
+  // (Une suppression suggérée d'un passage du texte, elle, n'est pas un ajout :
+  // elle reste à arbitrer.)
+  const supprimes = Y.createDeleteSetFromStructStore(cote.store)
+  const mortes = Y.intersectSets(Y.createIdSetFromIdMap(afficheur.inserts), supprimes)
+  return !Y.diffIdSet(afficheur.attributed, mortes).isEmpty()
 }
