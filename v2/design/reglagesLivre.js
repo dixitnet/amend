@@ -11,6 +11,29 @@ const POLICES_EB_GARAMOND = [
   new URL('./polices/EBGaramond-SemiBoldItalic.ttf', import.meta.url).href,
 ]
 
+/** Les familles ajoutées le 13/11/2026 (Sylvain : « une liste de 5 à 10 polices
+ * standard à intégrer directement »), sous licence OFL, en versions statiques
+ * (le moteur du PDF s'en sert mieux que des polices variables) : romain,
+ * italique, gras et gras italique, dans `design/polices/<famille>/` avec la
+ * licence de la famille. Le navigateur ne charge les fichiers d'une famille
+ * que pour exporter avec un modèle qui s'en sert. */
+const famille = (nom, dossier, fichier) => ({
+  famille: nom,
+  fichiers: ['Regular', 'Italic', 'Bold', 'BoldItalic'].map(
+    (style) => new URL(`./polices/${dossier}/${fichier}-${style}.ttf`, import.meta.url).href,
+  ),
+})
+const POLICES_AJOUTEES = [
+  famille('Source Serif 4', 'source-serif-4', 'SourceSerif4'),
+  famille('Crimson Pro', 'crimson-pro', 'CrimsonPro'),
+  famille('Libre Baskerville', 'libre-baskerville', 'LibreBaskerville'),
+  famille('Lora', 'lora', 'Lora'),
+  famille('Spectral', 'spectral', 'Spectral'),
+  famille('Inter', 'inter', 'Inter'),
+  famille('Source Sans 3', 'source-sans-3', 'SourceSans3'),
+  famille('Roboto', 'roboto', 'Roboto'),
+]
+
 const corps = (cle, groupe) => ({ cle, groupe, type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 })
 const mm = (cle, groupe, max = 100) => ({ cle, groupe, type: 'nombre', unite: 'mm', min: 0, max, pas: 0.5 })
 const TITRE_COURANT = ['rien', 'titreDocument', 'chapitre']
@@ -65,7 +88,7 @@ const REGLABLES_INSTANCE = [
 // `reglables` (ADR 0011).
 export const REGLAGES_LIVRE = {
   // Le catalogue des polices (licences OFL), seules permises dans un modèle.
-  polices: [{ famille: 'EB Garamond', fichiers: POLICES_EB_GARAMOND }],
+  polices: [{ famille: 'EB Garamond', fichiers: POLICES_EB_GARAMOND }, ...POLICES_AJOUTEES],
   modeles: [
     {
       // « A4 simple » (12/11/2026, valeurs proposées par Claude, à valider
