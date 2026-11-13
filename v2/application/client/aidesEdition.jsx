@@ -51,6 +51,11 @@ export const TEXTES_EDITEUR = {
     description: t('document.sousTitreDescription'),
     picto: <PictoDe role="sousTitre" />,
   },
+  legende: {
+    titre: t('document.legende'),
+    description: t('document.legendeDescription'),
+    picto: <PictoDe role="legende" />,
+  },
 }
 
 /**

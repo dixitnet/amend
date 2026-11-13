@@ -5,7 +5,7 @@
 // de l'instance ou d'équipe, calculé par le domaine) ; le client y joint les
 // fichiers de sa police (12/11/2026, docs/v2-modeles-pdf-plan.md).
 import { MODELES_LIVRE, REGLES_MODELES } from '../../design/index.js'
-import { nomDeFichier } from '../../domaine/index.js'
+import { nomDeFichier, famillesDuModele } from '../../domaine/index.js'
 
 const TYPES = { markdown: 'text/markdown;charset=utf-8', pdf: 'application/pdf' }
 const EXTENSIONS = { markdown: 'md', pdf: 'pdf' }
@@ -15,18 +15,22 @@ const echec = (code) => Object.assign(new Error(code), { code })
 
 /**
  * Le modèle prêt à composer d'une entrée de la liste des modèles (son modèle
- * `complet`, envoyé par le serveur), avec les fichiers de sa police. Lève
- * une erreur de code `modele-introuvable` (modèle qui ne se calcule plus,
- * police hors du catalogue).
+ * `complet`, envoyé par le serveur), avec les fichiers des polices de ses
+ * styles : celles fournies avec amend.ink sont dans le catalogue du client,
+ * celles de l'instance ont leurs adresses dans `fichiersPolices` (envoyées
+ * par le serveur). Lève une erreur de code `modele-introuvable` (modèle qui ne
+ * se calcule plus, police hors du catalogue).
  */
-export function modeleComplet(entree) {
+export function modeleComplet(entree, fichiersPolices = {}) {
   const complet = entree?.complet
-  // Une police fournie avec amend.ink : ses fichiers sont dans le catalogue du
-  // client ; une police de l'instance : le serveur a joint leurs adresses.
-  const fournie = complet && REGLES_MODELES.polices.find((p) => p.famille === complet.police)
-  const fichiers = fournie?.fichiers ?? (complet?.polices?.length ? complet.polices : null)
-  if (!fichiers) throw echec('modele-introuvable')
-  return { ...complet, polices: fichiers }
+  if (!complet) throw echec('modele-introuvable')
+  const polices = []
+  for (const famille of famillesDuModele(complet)) {
+    const fichiers = REGLES_MODELES.polices.find((p) => p.famille === famille)?.fichiers ?? fichiersPolices[famille]
+    if (!fichiers?.length) throw echec('modele-introuvable')
+    polices.push(...fichiers)
+  }
+  return { ...complet, polices }
 }
 
 /**
@@ -42,7 +46,7 @@ export async function exporterDocument(controle, format, { titre, langue, modele
   if (!exporter) throw echec('export-impossible')
   let contenu
   if (format === 'pdf') {
-    const leModele = modele ?? MODELES_LIVRE[0]
+    const leModele = modele ?? modeleComplet({ complet: MODELES_LIVRE[0] })
     const polices = (await Promise.all(leModele.polices.map(octets))).map((b) => new Uint8Array(b))
     contenu = await exporter('pdf', { modele: leModele, polices, titre, langue, auteur })
   } else contenu = await exporter('markdown')

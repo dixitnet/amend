@@ -3,14 +3,7 @@
 // administrateurs), dans un même composant. Le serveur envoie chaque modèle
 // complet ; le formulaire en montre les réglages ouverts, par groupe.
 import { useState } from 'react'
-import {
-  PanneauModeles,
-  FormulaireModele,
-  PanneauPolices,
-  Fenetre,
-  REGLES_MODELES,
-  REGLES_MODELES_INSTANCE,
-} from '../../design/index.js'
+import { PanneauModeles, FormulaireModele, PanneauPolices, Fenetre, REGLES_MODELES } from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
 import { valeurDuReglage } from '../../domaine/index.js'
 import { t, envoyerJson } from './commun.js'
@@ -28,32 +21,42 @@ const NOMS_REGLAGES = {
   'grille.corps': () => t('modeles.reglage.grille.corps'),
   'grille.interligne': () => t('modeles.reglage.grille.interligne'),
   'grille.lignes': () => t('modeles.reglage.grille.lignes'),
-  police: () => t('modeles.reglage.police'),
-  alinea: () => t('modeles.reglage.alinea'),
   'chapitre.debut': () => t('modeles.reglage.chapitre.debut'),
   'chapitre.ligneTitre': () => t('modeles.reglage.chapitre.ligneTitre'),
   'chapitre.ligneTexte': () => t('modeles.reglage.chapitre.ligneTexte'),
-  'chapitre.corps': () => t('modeles.reglage.chapitre.corps'),
   'chapitre.interligne': () => t('modeles.reglage.chapitre.interligne'),
-  'chapitre.graisse': () => t('modeles.reglage.chapitre.graisse'),
-  'titre.corps': () => t('modeles.reglage.titre.corps'),
-  'titre.graisse': () => t('modeles.reglage.titre.graisse'),
-  'sousTitre.corps': () => t('modeles.reglage.sousTitre.corps'),
-  'sousTitre.italique': () => t('modeles.reglage.sousTitre.italique'),
   'folio.position': () => t('modeles.reglage.folio.position'),
   'folio.depart': () => t('modeles.reglage.folio.depart'),
   'folio.bas': () => t('modeles.reglage.folio.bas'),
   'folio.ouverture': () => t('modeles.reglage.folio.ouverture'),
   'enTete.gauche': () => t('modeles.reglage.enTete.gauche'),
   'enTete.droite': () => t('modeles.reglage.enTete.droite'),
-  'intertitres.italique': () => t('modeles.reglage.intertitres.italique'),
-  'intertitres.lignesAvant': () => t('modeles.reglage.intertitres.lignesAvant'),
-  'intertitres.lignesApres': () => t('modeles.reglage.intertitres.lignesApres'),
-  'citation.retrait': () => t('modeles.reglage.citation.retrait'),
   separateur: () => t('modeles.reglage.separateur'),
   cesure: () => t('modeles.reglage.cesure'),
 }
+// Les réglages d'un style (`styles.<style>.<propriété>`) : le même nom pour
+// chaque style, le groupe du formulaire disant lequel.
+const NOMS_PROPRIETES = {
+  police: () => t('modeles.propriete.police'),
+  corps: () => t('modeles.propriete.corps'),
+  gras: () => t('modeles.propriete.gras'),
+  italique: () => t('modeles.propriete.italique'),
+  capitales: () => t('modeles.propriete.capitales'),
+  alignement: () => t('modeles.propriete.alignement'),
+  lignesAvant: () => t('modeles.propriete.lignesAvant'),
+  lignesApres: () => t('modeles.propriete.lignesApres'),
+  alinea: () => t('modeles.propriete.alinea'),
+  retrait: () => t('modeles.propriete.retrait'),
+}
+/** Le nom d'un réglage, par sa clé. */
+const nomDuReglage = (cle) =>
+  cle.startsWith('styles.') ? NOMS_PROPRIETES[cle.split('.')[2]]?.() : NOMS_REGLAGES[cle]?.()
 const NOMS_OPTIONS = {
+  alignement: {
+    gauche: () => t('modeles.options.alignement.gauche'),
+    justifie: () => t('modeles.options.alignement.justifie'),
+    centre: () => t('modeles.options.alignement.centre'),
+  },
   separateur: {
     blanc: () => t('modeles.options.separateur.blanc'),
     asterisme: () => t('modeles.options.separateur.asterisme'),
@@ -78,11 +81,21 @@ const NOMS_OPTIONS = {
   },
 }
 /** Les options d'un réglage à choix, par sa clé. */
-const optionsDe = (cle) => NOMS_OPTIONS[cle.startsWith('enTete.') ? 'enTete' : cle.split('.')[0]] ?? {}
+const optionsDe = (cle) =>
+  NOMS_OPTIONS[cle.endsWith('.alignement') ? 'alignement' : cle.startsWith('enTete.') ? 'enTete' : cle.split('.')[0]] ??
+  {}
 const groupes = () => [
   { cle: 'format', libelle: t('modeles.groupes.format') },
   { cle: 'texte', libelle: t('modeles.groupes.texte') },
-  { cle: 'titres', libelle: t('modeles.groupes.titres') },
+  { cle: 'citation', libelle: t('modeles.groupes.citation') },
+  { cle: 'titre1', libelle: t('modeles.groupes.titre1') },
+  { cle: 'titre2', libelle: t('modeles.groupes.titre2') },
+  { cle: 'titre3', libelle: t('modeles.groupes.titre3') },
+  { cle: 'titre4', libelle: t('modeles.groupes.titre4') },
+  { cle: 'titre5', libelle: t('modeles.groupes.titre5') },
+  { cle: 'titre', libelle: t('modeles.groupes.titre') },
+  { cle: 'sousTitre', libelle: t('modeles.groupes.sousTitre') },
+  { cle: 'legende', libelle: t('modeles.groupes.legende') },
   { cle: 'pages', libelle: t('modeles.groupes.pages') },
 ]
 
@@ -104,7 +117,7 @@ const champsDu = (complet, regles, familles = null) => {
     cle: r.cle,
     type: r.type,
     groupe: r.groupe,
-    libelle: NOMS_REGLAGES[r.cle]?.() ?? r.cle,
+    libelle: nomDuReglage(r.cle) ?? r.cle,
     valeur: valeurDuReglage(complet, r.cle),
     min: r.min,
     max: r.max,
@@ -124,10 +137,11 @@ const champsDu = (complet, regles, familles = null) => {
  * @param {string} o.chemin  la route des modèles (`…/modeles`)
  * @param {string} o.cheminDefaut  la route du défaut (`…/modele-defaut`)
  * @param {Array<any>} o.modeles  les modèles gérés ici (complets)
- * @param {Array<any>} o.bases  les modèles dont on peut partir (code, instance)
+ * @param {Array<any>} o.bases  les modèles qu'on peut copier pour en créer un (code, instance, équipe)
  * @param {{ options: Array<any>, valeur: string | null, enregistre: (v: string) => string | null }} o.defaut
  * @param {object} o.regles  les réglages ouverts (équipe ou instance)
  * @param {string[] | null} [o.polices]  les familles du catalogue (serveur)
+ * @param {Record<string, string[]>} [o.fichiersPolices]  les fichiers des polices de l'instance
  * @param {string | null} [o.intro]  le texte d'en-tête de la liste
  * @param {boolean} [o.enFenetre]  régler un modèle dans une fenêtre (back-office)
  * @param {(m: any) => string} o.detail
@@ -144,6 +158,7 @@ function GestionModeles({
   defaut,
   regles,
   polices = null,
+  fichiersPolices = {},
   intro = null,
   enFenetre = false,
   detail,
@@ -180,7 +195,7 @@ function GestionModeles({
       surEnregistrer={async ({ nom, valeurs }) => {
         if (
           await essayerDe(
-            () => envoyerJson('PUT', `${chemin}/${encodeURIComponent(regle.id)}`, { nom, ecarts: valeurs }),
+            () => envoyerJson('PUT', `${chemin}/${encodeURIComponent(regle.id)}`, { nom, reglages: valeurs }),
             t('modeles.enregistre'),
           )
         )
@@ -233,11 +248,17 @@ function GestionModeles({
           ? {
               libelle: t('modeles.essayer'),
               libelleDe: (nom) => t('modeles.essayerDe', { nom }),
-              surClic: (id) => essayerDe(() => essayer(modeles.find((m) => m.id === id))),
+              surClic: (id) =>
+                essayerDe(() =>
+                  essayer(
+                    modeles.find((m) => m.id === id),
+                    fichiersPolices,
+                  ),
+                ),
             }
           : null
       }
-      surCreer={(nom, depart) => essayerDe(() => envoyerJson('POST', chemin, { nom, base: depart }))}
+      surCreer={(nom, depart) => essayerDe(() => envoyerJson('POST', chemin, { nom, depart }))}
       // Un modèle qui ne se calcule plus (base disparue) ne se règle pas : on le dit.
       surModifier={(id) =>
         modeles.find((m) => m.id === id)?.complet
@@ -282,15 +303,15 @@ export function ModelesEquipe({ vue, confirmer, surChangement, essayer = null })
   const base = `/api/equipes/${encodeURIComponent(vue.equipe.id)}`
   const maison = [vue.modeleCode, ...(vue.modelesInstance ?? [])].filter(Boolean)
   const modeles = vue.modeles ?? []
-  const nomDeLaBase = (id) => nomDuModele(maison.find((m) => m.id === id) ?? { id, code: true })
   return (
     <GestionModeles
       chemin={`${base}/modeles`}
       cheminDefaut={`${base}/modele-defaut`}
       modeles={modeles}
-      bases={maison}
+      bases={[...maison, ...modeles]}
       regles={REGLES_MODELES}
       polices={vue.polices ?? null}
+      fichiersPolices={vue.fichiersPolices ?? {}}
       defaut={{
         options: [
           {
@@ -304,7 +325,7 @@ export function ModelesEquipe({ vue, confirmer, surChangement, essayer = null })
       }}
       libelleDefaut={t('modeles.defaut')}
       aucun={t('modeles.aucun')}
-      detail={(m) => t('modeles.detail', { titre: nomDeLaBase(m.base), n: m.documents ?? 0 })}
+      detail={(m) => t('modeles.detail', { n: m.documents ?? 0 })}
       texteSuppression={(m) => t('modeles.confirmerSuppression', { nom: m.nom, n: m.documents ?? 0 })}
       essayer={essayer}
       confirmer={confirmer}
@@ -322,9 +343,10 @@ export function ModelesInstance({ donnees, confirmer, surChangement }) {
       chemin="/api/admin/modeles"
       cheminDefaut="/api/admin/modele-defaut"
       modeles={donnees.modeles}
-      bases={[code]}
-      regles={REGLES_MODELES_INSTANCE}
+      bases={[code, ...donnees.modeles]}
+      regles={REGLES_MODELES}
       polices={donnees.polices ?? null}
+      fichiersPolices={donnees.fichiersPolices ?? {}}
       intro={t('admin.modelesPdf.intro', { code: nomDuModele(code) })}
       enFenetre
       defaut={{
@@ -335,15 +357,8 @@ export function ModelesInstance({ donnees, confirmer, surChangement }) {
       }}
       libelleDefaut={t('admin.modelesPdf.defaut')}
       aucun={t('admin.modelesPdf.aucun')}
-      detail={(m) =>
-        t('admin.modelesPdf.detail', {
-          titre: nomDuModele(code),
-          n: m.documents ?? 0,
-          e: m.equipes ?? 0,
-          d: m.derives ?? 0,
-        })
-      }
-      texteSuppression={(m) => t('admin.modelesPdf.confirmerSuppression', { nom: m.nom, code: nomDuModele(code) })}
+      detail={(m) => t('admin.modelesPdf.detail', { n: m.documents ?? 0, e: m.equipes ?? 0 })}
+      texteSuppression={(m) => t('admin.modelesPdf.confirmerSuppression', { nom: m.nom })}
       confirmer={confirmer}
       surChangement={surChangement}
     />
