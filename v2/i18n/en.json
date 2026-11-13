@@ -18,7 +18,7 @@
     }
   },
   "document": {
-    "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
+    "etat": "{etat, select, connecte {Synced} connexion {Syncing…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
     "lectureSeule": "Read only",
     "historique": "History",

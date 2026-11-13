@@ -18,7 +18,7 @@
     }
   },
   "document": {
-    "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
+    "etat": "{etat, select, connecte {Synchronisé} connexion {Synchronisation…} other {Hors ligne}}",
     "zoneEdition": "Texte du document {id}",
     "lectureSeule": "Lecture seule",
     "historique": "Historique",
