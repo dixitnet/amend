@@ -38,7 +38,7 @@ export function useExport({ docId, controle, titre, auteur }) {
         // Un modèle qu'on ne trouve plus se dit, sans repli silencieux (audit du 11/11/2026).
         const entree = liste?.modeles.find((m) => m.id === modele)
         if (!entree) throw Object.assign(new Error('modele-introuvable'), { code: 'modele-introuvable' })
-        leModele = modeleComplet(entree)
+        leModele = modeleComplet(entree, liste.fichiersPolices)
       }
       await exporterDocument(controle, format, { titre, langue: LANGUE_DOCUMENT_PAR_DEFAUT, modele: leModele, auteur })
       // Le modèle n'est retenu qu'une fois le fichier obtenu (audit du 11/11/2026) ;

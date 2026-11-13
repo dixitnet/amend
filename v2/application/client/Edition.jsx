@@ -150,11 +150,11 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // du bandeau en dépend (audit du 10/11/2026).
   // « Essayer » un modèle d'équipe : le document ouvert, exporté avec lui (12/11/2026).
   const voletDocs = useVoletDocuments(docId, {
-    essayerModele: (m) =>
+    essayerModele: (m, fichiersPolices) =>
       exporterDocument(controle, 'pdf', {
         titre: titreAffiche,
         langue: LANGUE_DOCUMENT_PAR_DEFAUT,
-        modele: modeleComplet(m),
+        modele: modeleComplet(m, fichiersPolices),
         auteur: moi.nom,
       }),
   })

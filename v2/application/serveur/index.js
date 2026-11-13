@@ -17,7 +17,7 @@ import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 import { creerImages } from './images.js'
 import { creerPolices } from './polices.js'
-import { REGLES_MODELES_INSTANCE } from '../../design/livre.js'
+import { REGLES_MODELES } from '../../design/livre.js'
 import { adresseSansSecret } from './adresse.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
@@ -558,7 +558,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     personneDe: identite.personneDe,
     administrateur,
     depot: comptes,
-    reservees: REGLES_MODELES_INSTANCE.polices.map((x) => x.famille),
+    reservees: REGLES_MODELES.polices.map((x) => x.famille),
     json,
   })
   // Le connecteur Claude du back-office (12/11/2026) : un serveur MCP sur les

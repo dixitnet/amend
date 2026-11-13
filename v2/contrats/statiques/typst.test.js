@@ -11,9 +11,13 @@ import { createRequire } from 'node:module'
 import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
-import { MODELES_LIVRE, REPRISE_MODELES } from '../../design/livre.js'
+import { MODELES_LIVRE, REPRISE_MODELES, REGLES_MODELES } from '../../design/livre.js'
+import { famillesDuModele } from '../../domaine/index.js'
 
-const modele = { ...MODELES_LIVRE[0], ...REPRISE_MODELES[0].valeurs }
+const modele = { ...REPRISE_MODELES[0].valeurs }
+/** Les fichiers des polices d'un modèle : celles de ses styles, dans le catalogue. */
+const fichiersDe = (m) =>
+  famillesDuModele(m).flatMap((f) => REGLES_MODELES.polices.find((p) => p.famille === f).fichiers)
 // Un éditeur neuf à chaque test : le livre n'y est inséré qu'une fois.
 const nouvelEditeur = () => BlockNoteEditor.create({ schema: schemaLivre })
 const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
@@ -41,7 +45,7 @@ function livre() {
   return { editeur, blocs: editeur.document }
 }
 
-const polices = () => modele.polices.map((url) => new Uint8Array(readFileSync(fileURLToPath(url))))
+const polices = (m = modele) => fichiersDe(m).map((url) => new Uint8Array(readFileSync(fileURLToPath(url))))
 const wasm = () => readFileSync(createRequire(import.meta.url).resolve('@blocknote/xl-typst-compiler/wasm'))
 
 test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans blanc à eux', async () => {
@@ -49,7 +53,10 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
   const { source } = await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr' })
   assert.equal(source.match(/#heading\(level: 1\)/g).length, 1, 'le livre une seule fois')
   assert.match(source, /^#set document\(title: "Essai"\)/)
-  assert.match(source, /#set text\(font: \("EB Garamond",\), size: 10\.5pt, lang: "fr"/)
+  assert.match(
+    source,
+    /#set text\(font: \("EB Garamond",\), size: 10\.5pt, weight: "regular", style: "normal", lang: "fr"/,
+  )
   assert.match(source, /#heading\(level: 1\)\[#"Petit conte immoral"\]/)
   // Le premier paragraphe d'un chapitre n'a pas d'alinéa ; les autres en ont.
   assert.match(source, /#amend-sans-alinea\[#"« Le second \[conte\] est "#emph\("parfaitement"\)/)
@@ -135,8 +142,9 @@ test('titre et sous-titre : centrés dans le flux, hors de la table des matière
     { type: 'paragraph', content: [texte('Texte.')] },
   ])
   const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
-  assert.match(source, /#let amend-titre\(corps\) = .*size: 13pt, weight: 600/)
-  assert.match(source, /#let amend-sous-titre\(corps\) = .*size: 13pt, style: "italic"/)
+  assert.match(source, /#let amend-titre\(corps\) = .*size: 13pt, weight: "bold"/)
+  assert.match(source, /#let amend-sous-titre\(corps\) = .*size: 13pt, weight: "regular", style: "italic"/)
+  assert.match(source, /#let amend-legende\(corps\) = .*size: 9pt/)
   assert.match(source, /#amend-titre\[#"Mon livre"\]\s+#amend-sous-titre\[#"Un essai"\]/)
   // Hors de la table : ce ne sont pas des titres de Typst.
   assert.equal(source.match(/#heading\(/g).length, 1)

@@ -2,19 +2,11 @@
 // fichiers exportés (domaine/document.js).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { grille, gabaritTypst, chaineTypst, nomDeFichier, titreDocument, resoudreModele } from '../../domaine/index.js'
+import { grille, gabaritTypst, chaineTypst, nomDeFichier, titreDocument } from '../../domaine/index.js'
+import { REPRISE_MODELES } from '../../design/livre.js'
 
-const MODELE = {
-  page: { largeur: 120, hauteur: 180 },
-  marges: { haut: 18, interieure: 13, exterieure: 13 },
-  grille: { corps: 10.5, interligne: 12.4, lignes: 31 },
-  police: 'EB Garamond',
-  alinea: 4.5,
-  folio: { bas: 18 },
-  chapitre: { bellePage: true, ligneTitre: 7, ligneTexte: 12, corps: 13, interligne: 14, graisse: 600 },
-  intertitres: { italique: true, lignesAvant: 1, lignesApres: 0 },
-  citation: { retrait: 5 },
-}
+// « TàT - Poche » : un modèle complet, 120 × 180 mm, grille de 31 lignes de 12,4 pt.
+const MODELE = structuredClone(REPRISE_MODELES.find((r) => r.id === 'tat-poche').valeurs)
 const proche = (a, b) => Math.abs(a - b) < 1e-6
 
 test('la grille : 31 lignes de 12,4 pt, la marge de pied et la descente du folio en découlent', () => {
@@ -47,16 +39,16 @@ test('le gabarit : page, texte sur la grille, titres comptés en lignes', () => 
   assert.match(g, /leading: 12\.4pt - 1em, spacing: 12\.4pt - 1em, first-line-indent: \(amount: 4\.5mm, all: true\)/)
   assert.match(g, /lang: "fr"/)
   // Intertitre : une ligne blanche avant (2 pas moins une boîte), aucune après.
-  assert.match(g, /block\(above: 14\.3pt, below: 1\.9pt/)
+  assert.match(g, /above: 14\.3pt, below: 1\.9pt/)
   // Chapitre : belle page, bloc de 11 lignes, première ligne du titre à la 7e.
   assert.match(g, /pagebreak\(to: "odd", weak: true\)/)
   assert.match(g, /block\(height: 136\.4pt/)
   assert.match(g, /v\(72\.4pt\)/)
-  assert.match(g, /weight: 600/)
+  assert.match(g, /weight: "bold"/)
 })
 
 test('sans belle page ni langue', () => {
-  const g = gabaritTypst({ ...MODELE, chapitre: { ...MODELE.chapitre, bellePage: false } })
+  const g = gabaritTypst({ ...MODELE, chapitre: { ...MODELE.chapitre, debut: 'page' } })
   assert.doesNotMatch(g, /#set document/)
   assert.doesNotMatch(g, /lang:/)
   assert.doesNotMatch(g, /to: "odd"/)
@@ -90,17 +82,28 @@ test('titre : les espaces insécables restent, les blancs ordinaires sont resser
   assert.equal(titreDocument('   ').titre, null)
 })
 
-// --- Modèles d'équipe : une base et des écarts bornés (ADR 0011) ---
-import { appliquerEcarts, modeleRetenu, peutChoisirModele, peutGererModeles, capacites } from '../../domaine/index.js'
+// --- Modèles : copies complètes dont on règle les valeurs (ADR 0011, 13/11/2026) ---
+import {
+  appliquerReglages,
+  verifierModele,
+  completerModele,
+  famillesDuModele,
+  modeleRetenu,
+  peutChoisirModele,
+  peutGererModeles,
+  capacites,
+} from '../../domaine/index.js'
 
 const REGLES = {
   reglables: [
     { cle: 'page.largeur', type: 'nombre', min: 80, max: 450 },
-    { cle: 'grille.corps', type: 'nombre', min: 5, max: 96 },
     { cle: 'grille.lignes', type: 'entier', min: 1 },
     { cle: 'marges.interieure', type: 'nombre', min: 0, max: 100 },
-    { cle: 'police', type: 'police' },
-    { cle: 'chapitre.bellePage', type: 'booleen' },
+    { cle: 'cesure', type: 'booleen' },
+    { cle: 'styles.texte.police', type: 'police' },
+    { cle: 'styles.titre1.corps', type: 'nombre', min: 5, max: 96 },
+    { cle: 'styles.titre1.capitales', type: 'booleen' },
+    { cle: 'styles.titre2.lignesAvant', type: 'entier', min: 0, max: 10 },
   ],
   polices: [
     { famille: 'EB Garamond', fichiers: ['eb.ttf'] },
@@ -108,43 +111,62 @@ const REGLES = {
   ],
   largeurUtileMin: 40,
 }
-const BASE = { ...MODELE, polices: ['eb.ttf'] }
 
-test('modèle d’équipe : les écarts s’appliquent à une copie de la base, qui ne bouge pas', () => {
-  const r = appliquerEcarts(BASE, { 'page.largeur': 135, 'chapitre.bellePage': false, police: 'Autre' }, REGLES)
-  assert.equal(r.ok, true)
+test('réglages : ils s’appliquent à une copie, qui ne bouge pas, style par style', () => {
+  const r = appliquerReglages(
+    MODELE,
+    {
+      'page.largeur': 135,
+      cesure: false,
+      'styles.titre1.corps': 20,
+      'styles.titre1.capitales': true,
+      'styles.texte.police': 'Autre',
+    },
+    REGLES,
+  )
+  assert.equal(r.ok, true, JSON.stringify(r))
   assert.equal(r.modele.page.largeur, 135)
-  assert.equal(r.modele.page.hauteur, 180, 'le reste vient de la base')
-  assert.equal(r.modele.chapitre.bellePage, false)
-  assert.equal(r.modele.chapitre.ligneTitre, 7)
-  assert.equal(r.modele.police, 'Autre')
-  assert.deepEqual(r.modele.polices, ['a.ttf', 'b.ttf'], 'les fichiers de la police viennent du catalogue')
-  assert.equal(BASE.page.largeur, 120)
-  assert.equal(BASE.chapitre.bellePage, true)
+  assert.equal(r.modele.page.hauteur, 180, 'le reste est conservé')
+  assert.equal(r.modele.cesure, false)
+  assert.equal(r.modele.styles.titre1.corps, 20)
+  assert.equal(r.modele.styles.titre1.capitales, true)
+  assert.equal(r.modele.styles.titre2.corps, MODELE.styles.titre2.corps, 'les autres styles ne bougent pas')
+  assert.equal(r.modele.styles.texte.police, 'Autre')
+  assert.equal(MODELE.page.largeur, 120)
+  assert.notEqual(MODELE.styles.titre1.corps, 20)
+  assert.ok(famillesDuModele(r.modele).includes('Autre'))
 })
 
-test('modèle d’équipe : un écart égal à la base n’est pas gardé (la base reste maîtresse)', () => {
-  const r = appliquerEcarts(BASE, { 'page.largeur': 120, 'grille.corps': 11 }, REGLES)
-  assert.deepEqual(r.ecarts, { 'grille.corps': 11 })
-  assert.deepEqual(appliquerEcarts(BASE, {}, REGLES).ecarts, {})
-})
-
-test('modèle d’équipe : réglage inconnu, hors bornes, de mauvais type, ou modèle impossible : refusés avec un code', () => {
-  const code = (ecarts) => {
-    const r = appliquerEcarts(BASE, ecarts, REGLES)
+test('réglages : inconnu, hors bornes, de mauvais type, ou modèle impossible : refusés avec un code', () => {
+  const code = (reglages) => {
+    const r = appliquerReglages(MODELE, reglages, REGLES)
     return r.ok ? 'ok' : [r.code, r.reglage ?? r.raison]
   }
   assert.deepEqual(code({ 'folio.bas': 10 }), ['reglage-inconnu', 'folio.bas'])
   assert.deepEqual(code({ __proto__: null, 'page.largeur': 79 }), ['reglage-hors-bornes', 'page.largeur'])
+  assert.deepEqual(code({ 'page.largeur': 79 }), ['reglage-hors-bornes', 'page.largeur'])
   assert.deepEqual(code({ 'page.largeur': '135' }), ['reglage-hors-bornes', 'page.largeur'])
   assert.deepEqual(code({ 'page.largeur': Number.NaN }), ['reglage-hors-bornes', 'page.largeur'])
   assert.deepEqual(code({ 'grille.lignes': 30.5 }), ['reglage-hors-bornes', 'grille.lignes'])
   assert.deepEqual(code({ 'grille.lignes': 0 }), ['reglage-hors-bornes', 'grille.lignes'])
-  assert.deepEqual(code({ police: 'Comic Sans' }), ['reglage-hors-bornes', 'police'])
-  assert.deepEqual(code({ 'chapitre.bellePage': 'non' }), ['reglage-hors-bornes', 'chapitre.bellePage'])
+  assert.deepEqual(code({ 'styles.texte.police': 'Comic Sans' }), ['reglage-hors-bornes', 'styles.texte.police'])
+  assert.deepEqual(code({ 'styles.titre1.capitales': 'oui' }), ['reglage-hors-bornes', 'styles.titre1.capitales'])
+  assert.deepEqual(code({ 'styles.titre2.lignesAvant': 11 }), ['reglage-hors-bornes', 'styles.titre2.lignesAvant'])
   assert.deepEqual(code({ 'grille.lignes': 45 }), ['modele-impossible', 'lignes'])
   assert.deepEqual(code({ 'page.largeur': 80, 'marges.interieure': 30 }), ['modele-impossible', 'largeur'])
-  for (const pas of [null, [], 'x', 3]) assert.equal(appliquerEcarts(BASE, pas, REGLES).code, 'ecarts-invalides')
+  for (const pas of [null, [], 'x', 3]) assert.equal(appliquerReglages(MODELE, pas, REGLES).code, 'reglages-invalides')
+})
+
+test('un modèle complet se vérifie ; un modèle enregistré plus tôt est complété par le défaut', () => {
+  assert.equal(verifierModele(MODELE, REGLES).ok, true)
+  const cassé = structuredClone(MODELE)
+  cassé.styles.titre1.corps = 500
+  assert.equal(verifierModele(cassé, REGLES).ok, false)
+  const partiel = { page: { largeur: 100, hauteur: 150 } }
+  const c = completerModele(partiel, MODELE)
+  assert.equal(c.page.largeur, 100)
+  assert.equal(c.grille.lignes, MODELE.grille.lignes)
+  assert.deepEqual(c.styles, MODELE.styles)
 })
 
 test('modèle retenu : celui du document s’il est permis, sinon le défaut de l’équipe, sinon le premier d’amend.ink', () => {
@@ -219,15 +241,12 @@ test('mise en page (12/11/2026) : titre courant, folio, début de chapitre, sép
   assert.match(d, /pagebreak\(to: "odd"/)
   assert.match(d, /#let amend-separateur = v\(12\.4pt\)/)
   assert.doesNotMatch(d, /counter\(page\)\.update/)
-  assert.match(
-    gabaritTypst({ ...MODELE, chapitre: { ...MODELE.chapitre, bellePage: false } }),
-    /pagebreak\(weak: true\)/,
-  )
+  assert.match(gabaritTypst({ ...MODELE, chapitre: { ...MODELE.chapitre, debut: 'page' } }), /pagebreak\(weak: true\)/)
 })
 
 test('un chapitre dont le texte reprendrait avant son titre, ou hors de la page, est impossible', () => {
   for (const chapitre of [
-    { ...MODELE.chapitre, ligneTexte: 7 },
+    { ...MODELE.chapitre, ligneTexte: MODELE.chapitre.ligneTitre },
     { ...MODELE.chapitre, ligneTexte: 40 },
     { ...MODELE.chapitre, ligneTitre: 0 },
   ])
@@ -239,8 +258,8 @@ test('réglage à choix : seules ses options passent', () => {
     reglables: [{ cle: 'separateur', type: 'choix', options: ['blanc', 'asterisme'] }],
     polices: [],
   }
-  assert.equal(appliquerEcarts(MODELE, { separateur: 'asterisme' }, regles).ok, true)
-  assert.equal(appliquerEcarts(MODELE, { separateur: 'licorne' }, regles).code, 'reglage-hors-bornes')
+  assert.equal(appliquerReglages(MODELE, { separateur: 'asterisme' }, regles).ok, true)
+  assert.equal(appliquerReglages(MODELE, { separateur: 'licorne' }, regles).code, 'reglage-hors-bornes')
 })
 
 test('modèle retenu : document, équipe, instance, puis le premier permis', () => {
@@ -249,33 +268,4 @@ test('modèle retenu : document, équipe, instance, puis le premier permis', () 
   assert.equal(modeleRetenu({ choisi: null, defautEquipe: 'e1', defautInstance: 'i1', permis }), 'e1')
   assert.equal(modeleRetenu({ choisi: 'parti', defautEquipe: null, defautInstance: 'i1', permis }), 'i1')
   assert.equal(modeleRetenu({ permis }), 'a4')
-})
-
-test('résolution à deux étages : code, instance, équipe ; chaque étage par ses règles', () => {
-  const polices = [{ famille: 'EB Garamond', fichiers: [] }]
-  const regles = {
-    instance: {
-      reglables: [
-        { cle: 'grille.corps', type: 'nombre', min: 5, max: 96 },
-        { cle: 'separateur', type: 'choix', options: ['blanc', 'trait'] },
-      ],
-      polices,
-    },
-    equipe: { reglables: [{ cle: 'page.largeur', type: 'nombre', min: 80, max: 450 }], polices },
-  }
-  const code = (id) => (id === 'a4' ? MODELE : null)
-  const instances = { i1: { base: 'a4', ecarts: { 'grille.corps': 11, separateur: 'trait' } } }
-  const instance = (id) => instances[id] ?? null
-  const sources = { code, instance, regles }
-  const i = resoudreModele({ base: 'a4', ecarts: instances.i1.ecarts, equipe: null }, sources)
-  assert.equal(i.modele.grille.corps, 11)
-  const e = resoudreModele({ base: 'i1', ecarts: { 'page.largeur': 135 }, equipe: 'eq' }, sources)
-  assert.deepEqual([e.modele.grille.corps, e.modele.separateur, e.modele.page.largeur], [11, 'trait', 135])
-  // Une équipe ne règle pas ce que seule l'instance règle.
-  assert.equal(
-    resoudreModele({ base: 'i1', ecarts: { 'grille.corps': 12 }, equipe: 'eq' }, sources).code,
-    'reglage-inconnu',
-  )
-  // Un modèle de l'instance disparu.
-  assert.equal(resoudreModele({ base: 'i9', ecarts: {}, equipe: 'eq' }, sources).code, 'modele-introuvable')
 })

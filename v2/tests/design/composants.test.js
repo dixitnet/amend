@@ -564,9 +564,9 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle), la list
         { cle: 'grille.lignes', type: 'entier', libelle: t('modeles.reglage.grille.lignes'), valeur: 31, min: 1 },
         { cle: 'cesure', type: 'booleen', libelle: t('modeles.reglage.cesure'), valeur: true },
         {
-          cle: 'police',
+          cle: 'styles.texte.police',
           type: 'police',
-          libelle: t('modeles.reglage.police'),
+          libelle: t('modeles.propriete.police'),
           valeur: 'EB Garamond',
           options: [{ value: 'EB Garamond', label: 'EB Garamond' }],
         },
@@ -575,8 +575,9 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle), la list
       surAnnuler: () => {},
     }),
   )
-  for (const cle of ['page.largeur', 'grille.lignes', 'cesure', 'police'])
+  for (const cle of ['page.largeur', 'grille.lignes', 'cesure'])
     assert.ok(formulaire.includes(echapper(t(`modeles.reglage.${cle}`))), cle)
+  assert.ok(formulaire.includes(echapper(t('modeles.propriete.police'))))
   assert.match(formulaire, /value="Essais"/)
   assert.match(formulaire, /role="switch"[^>]*checked=""|checked=""[^>]*role="switch"/)
 })

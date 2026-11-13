@@ -38,6 +38,7 @@ import {
   IconAsterisk,
   IconLetterTSmall,
   IconLetterP,
+  IconLetterL,
   IconTextSize,
   IconCheck,
 } from '@tabler/icons-react'
@@ -82,6 +83,8 @@ const PICTOS = {
   noteDePage: IconAsterisk,
   noteDePageMenu: IconAsterisk,
   sousTitre: IconLetterTSmall,
+  // La légende d'une image ou d'un tableau (13/11/2026).
+  legende: IconLetterL,
   // Le style « Paragraphe » de la palette : un P, pas le T de BlockNote, qui
   // se confondait avec ceux du titre et du sous-titre (Sylvain, 13/11/2026).
   paragraphe: IconLetterP,

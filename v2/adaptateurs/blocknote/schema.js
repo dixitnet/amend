@@ -15,7 +15,7 @@ import {
 } from '@blocknote/core'
 import { blocTableDesMatieres } from '../../extensions/tableDesMatieres/index.js'
 import { styleExposant } from '../../extensions/exposant/index.js'
-import { blocTitre, blocSousTitre } from '../../extensions/titres/index.js'
+import { blocTitre, blocSousTitre, blocLegende } from '../../extensions/titres/index.js'
 import { elementNote } from '../../extensions/note/index.js'
 
 const { paragraph, quote, bulletListItem, numberedListItem, divider, table, image } = defaultBlockSpecs
@@ -36,6 +36,7 @@ const BLOCS_DU_LIVRE = {
   // Titre et sous-titre du document (12/11/2026), hors plan et table.
   titre: blocTitre(),
   sousTitre: blocSousTitre(),
+  legende: blocLegende(),
 }
 const STYLES_DU_LIVRE = { bold, italic, underline, strike, exposant: styleExposant }
 

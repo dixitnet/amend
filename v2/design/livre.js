@@ -5,16 +5,9 @@ import { REGLAGES_LIVRE } from './reglagesLivre.js'
 
 export const MODELES_LIVRE = REGLAGES_LIVRE.modeles
 
-/** Ce qu'une équipe peut changer dans un modèle, et ce qui le borne. */
+/** Ce qu'on peut changer dans un modèle (équipes et instance, 13/11/2026) et ce qui le borne. */
 export const REGLES_MODELES = Object.freeze({
   reglables: REGLAGES_LIVRE.reglables,
-  polices: REGLAGES_LIVRE.polices,
-  largeurUtileMin: REGLAGES_LIVRE.largeurUtileMin,
-})
-
-/** Ce qu'un administrateur peut changer dans un modèle de l'instance (12/11/2026). */
-export const REGLES_MODELES_INSTANCE = Object.freeze({
-  reglables: REGLAGES_LIVRE.reglablesInstance,
   polices: REGLAGES_LIVRE.polices,
   largeurUtileMin: REGLAGES_LIVRE.largeurUtileMin,
 })

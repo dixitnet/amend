@@ -128,6 +128,11 @@ create table if not exists amend.modeles (
 create index if not exists modeles_equipe on amend.modeles (equipe);
 -- Les modèles de l'instance (12/11/2026) : sans équipe, réglés par les administrateurs.
 alter table amend.modeles alter column equipe drop not null;
+-- Un modèle est une copie complète, sans filiation (13/11/2026) : ses valeurs
+-- complètes sont dans la colonne valeurs ; base et ecarts ne servent plus qu'à
+-- la reprise des modèles enregistrés à l'ancienne façon.
+alter table amend.modeles add column if not exists valeurs jsonb;
+alter table amend.modeles alter column base drop not null;
 alter table amend.documents add column if not exists modele text;
 alter table amend.equipes add column if not exists modele_defaut text;
 -- Lots du 11/11/2026 (comme Docs, \`updated_at\` et \`deleted_at\`) : la date de

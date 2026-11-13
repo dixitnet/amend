@@ -1,19 +1,25 @@
 // Les modèles de mise en page (étape 7, ADR 0011 ; 12/11/2026,
-// docs/v2-modeles-pdf-plan.md) : le modèle du code (« A4 simple », par
-// défaut), ceux de l'instance (les administrateurs les créent, les règlent,
-// les suppriment et choisissent le défaut de l'instance), ceux d'une équipe
-// (son gestionnaire), et ceux offerts à un document. Le serveur calcule le
-// modèle complet (domaine) et l'envoie ; le client y joint les polices.
+// docs/v2-modeles-pdf-plan.md ; revus le 13/11/2026) : le modèle du code
+// (« A4 simple », par défaut), ceux de l'instance (les administrateurs les
+// créent, les règlent, les suppriment et choisissent le défaut de l'instance),
+// ceux d'une équipe (son gestionnaire), et ceux offerts à un document. Un modèle
+// est une copie complète : on le crée à partir d'un autre, puis il est
+// indépendant. Le serveur le complète (domaine) et l'envoie ; le client y joint
+// les fichiers de ses polices.
 import {
   nomDossier,
   peutGererModeles,
   peutChoisirModele,
   modeleRetenu,
-  resoudreModele,
-  ecartsVers,
+  appliquerReglages,
+  verifierModele,
+  completerModele,
+  famillesDuModele,
   famillesDePolices,
+  ancienModele,
+  versModeleParStyle,
 } from '../../domaine/index.js'
-import { MODELES_LIVRE, REGLES_MODELES, REGLES_MODELES_INSTANCE, REPRISE_MODELES } from '../../design/livre.js'
+import { MODELES_LIVRE, REGLES_MODELES, REPRISE_MODELES } from '../../design/livre.js'
 
 /** Le modèle du code (design), par identifiant. */
 const CODE = new Map(MODELES_LIVRE.map((m) => [m.id, m]))
@@ -22,40 +28,16 @@ const ID_CODE = MODELES_LIVRE[0].id
 const REGLAGE_DEFAUT = 'modeles.defaut'
 /** Le réglage qui garde trace des modèles repris du code. */
 const REGLAGE_REPRISE = 'modeles.reprise'
-const REGLES = { instance: REGLES_MODELES_INSTANCE, equipe: REGLES_MODELES }
 
 /** L'adresse d'un fichier de police de l'instance. */
 export const adressePolice = (id) => `/api/polices/${id}`
-/** Les familles fournies avec amend.ink (le client en a les fichiers). */
-const FAMILLES_DU_CODE = new Set(REGLES_MODELES_INSTANCE.polices.map((p) => p.famille))
-
-/** Un modèle complet tel que le client le reçoit : sans les fichiers d'une
- * police fournie avec amend.ink (le client les prend dans son catalogue) ;
- * avec les adresses des fichiers d'une police de l'instance, qu'il télécharge. */
-function sansPolices(modele) {
-  const reste = { ...modele }
-  if (FAMILLES_DU_CODE.has(modele.police)) delete reste.polices
-  return reste
-}
 
 /** @param {any} ctx  les aides et dépendances de `creerComptes` */
 export function creerModeles(ctx) {
   const { comptes, lireCorps, json, ok, err, administrateur } = ctx
 
-  /** Les noms des modèles (de l'instance et des équipes) dont la police, une
-   * fois le modèle résolu (écarts et héritage), est cette famille : un modèle
-   * qui hérite de la police de sa base compte (13/11/2026, audit). */
-  async function modelesUtilisant(famille) {
-    const { complet, instance } = await sources()
-    const noms = []
-    for (const m of [...instance, ...(await comptes.modelesDeToutesLesEquipes())]) {
-      const c = complet(m)
-      if (c?.police === famille) noms.push(m.nom)
-    }
-    return noms.sort((a, b) => a.localeCompare(b, 'fr'))
-  }
-
-  /** Les modèles de l'instance, et la façon de résoudre n'importe quel modèle. */
+  /** Les modèles de l'instance, le catalogue des polices (celles du code, puis
+   * celles de l'instance) et la façon de compléter un modèle enregistré. */
   async function sources() {
     const instance = await comptes.modelesInstance()
     const parId = new Map(instance.map((m) => [m.id, m]))
@@ -64,41 +46,50 @@ export function creerModeles(ctx) {
       famille: f.famille,
       fichiers: f.fichiers.map((x) => adressePolice(x.id)),
     }))
-    const avecPolices = (r) => ({ ...r, polices: [...r.polices, ...envoyees] })
-    const regles = { instance: avecPolices(REGLES.instance), equipe: avecPolices(REGLES.equipe) }
-    const polices = regles.instance.polices.map((x) => x.famille)
-    const s = { code: (id) => CODE.get(id) ?? null, instance: (id) => parId.get(id) ?? null, regles }
-    /** Le modèle complet d'un modèle enregistré (`null` s'il ne se calcule plus). */
-    const complet = (m) => {
-      const r = resoudreModele(m, s)
-      return r.ok ? sansPolices({ ...r.modele, id: m.id }) : null
-    }
-    return { instance, parId, s, complet, polices }
+    const regles = { ...REGLES_MODELES, polices: [...REGLES_MODELES.polices, ...envoyees] }
+    const polices = regles.polices.map((x) => x.famille)
+    /** Les fichiers des familles envoyées par l'instance (le client a ceux du code). */
+    const fichiersPolices = Object.fromEntries(envoyees.map((f) => [f.famille, f.fichiers]))
+    /** Le modèle complet d'un modèle enregistré : ses valeurs, complétées par celles du code pour ce qui lui manque. */
+    const complet = (m) => completerModele(m.valeurs ?? {}, CODE.get(ID_CODE))
+    return { instance, parId, regles, complet, polices, fichiersPolices }
   }
-  const versClient = (m, complet, extra = {}) => ({
-    id: m.id,
-    nom: m.nom,
-    base: m.base,
-    ecarts: m.ecarts,
-    complet: complet(m),
-    ...extra,
-  })
-  const modeleDuCode = () => ({ id: ID_CODE, code: true, complet: sansPolices(CODE.get(ID_CODE)) })
-  const refusEcarts = (res, r) => (
+  const versClient = (m, complet, extra = {}) => ({ id: m.id, nom: m.nom, complet: complet(m), ...extra })
+  const modeleDuCode = () => ({ id: ID_CODE, code: true, complet: CODE.get(ID_CODE) })
+  const refusReglages = (res, r) => (
     json(res, 400, { code: r.code, reglage: r.reglage ?? null, raison: r.raison ?? null }),
     true
   )
 
-  /** Les modèles de mise en page d'une équipe : le gestionnaire les crée
-   * (sur le modèle du code ou un modèle de l'instance), les règle, les
+  /** Les noms des modèles (de l'instance et des équipes) dont une police est
+   * cette famille : l'envoi et la suppression d'une police s'en servent. */
+  async function modelesUtilisant(famille) {
+    const { complet, instance } = await sources()
+    const noms = []
+    for (const m of [...instance, ...(await comptes.modelesDeToutesLesEquipes())])
+      if (famillesDuModele(complet(m)).includes(famille)) noms.push(m.nom)
+    return noms.sort((a, b) => a.localeCompare(b, 'fr'))
+  }
+
+  /** Le modèle complet dont on part : celui du code, de l'instance, ou de l'équipe. */
+  async function modeleDeDepart(id, equipe, { parId, complet }) {
+    if (typeof id !== 'string') return null
+    if (CODE.has(id)) return CODE.get(id)
+    if (parId.has(id)) return complet(parId.get(id))
+    const m = equipe ? await comptes.modele(id) : null
+    return m && m.equipe === equipe ? complet(m) : null
+  }
+
+  /** Les modèles de mise en page d'une équipe : le gestionnaire les crée (en
+   * copiant un modèle du code, de l'instance ou de l'équipe), les règle, les
    * supprime et choisit le défaut. */
   async function modelesEquipe(req, res, p, equipe, moi, sous, cible) {
     const methode = req.method
     if (!peutGererModeles(moi.caps)) return err(res, 403, 'droit-insuffisant')
-    const { parId, s } = await sources()
-    const baseDispo = (id) => CODE.has(id) || parId.has(id)
+    const src = await sources()
+    const { parId, regles, complet } = src
     /** Un modèle de cette équipe, de l'instance ou du code. */
-    const permis = async (id) => baseDispo(id) || (await comptes.modele(id))?.equipe === equipe.id
+    const permis = async (id) => CODE.has(id) || parId.has(id) || (await comptes.modele(id))?.equipe === equipe.id
     if (sous === 'modele-defaut') {
       if (cible || methode !== 'PUT') return err(res, 405, 'methode-refusee')
       const { modele } = await lireCorps(req)
@@ -112,8 +103,9 @@ export function creerModeles(ctx) {
       const corps = await lireCorps(req)
       const n = nomDossier(corps.nom)
       if (!n.ok) return err(res, 400, n.code)
-      if (typeof corps.base !== 'string' || !baseDispo(corps.base)) return err(res, 400, 'modele-introuvable')
-      return ok(res, { id: await comptes.creerModele(equipe.id, n.nom, corps.base, {}, p.id) }, 201)
+      const depart = await modeleDeDepart(corps.depart, equipe.id, src)
+      if (!depart) return err(res, 400, 'modele-introuvable')
+      return ok(res, { id: await comptes.creerModele(equipe.id, n.nom, depart, p.id) }, 201)
     }
     const modele = await comptes.modele(cible)
     if (!modele || modele.equipe !== equipe.id) return err(res, 404, 'modele-introuvable')
@@ -123,25 +115,24 @@ export function creerModeles(ctx) {
     // Tout est vérifié avant de rien changer.
     const n = corps.nom === undefined ? null : nomDossier(corps.nom)
     if (n && !n.ok) return err(res, 400, n.code)
-    let ecarts
-    if (corps.ecarts !== undefined) {
-      const r = resoudreModele({ base: modele.base, ecarts: corps.ecarts, equipe: equipe.id }, s)
-      if (!r.ok) return refusEcarts(res, r)
-      ecarts = r.ecarts
+    let valeurs
+    if (corps.reglages !== undefined) {
+      const r = appliquerReglages(complet(modele), corps.reglages, regles)
+      if (!r.ok) return refusReglages(res, r)
+      valeurs = r.modele
     }
-    await comptes.modifierModele(modele.id, { nom: n?.nom, ecarts })
-    return ok(res, ecarts === undefined ? {} : { ecarts })
+    await comptes.modifierModele(modele.id, { nom: n?.nom, valeurs })
+    return ok(res)
   }
 
   /** Ce qu'une équipe voit de ses modèles (fenêtre de l'équipe) : les siens,
-   * complets, et ceux de l'instance comme bases possibles. */
+   * complets, et ceux de l'instance comme modèles de départ possibles. */
   async function vueModelesEquipe(equipe) {
-    const { instance, complet, polices } = await sources()
+    const { instance, complet, polices, fichiersPolices } = await sources()
     return {
       polices,
-      modeles: (await comptes.modelesDe(equipe.id)).map((m) =>
-        versClient({ ...m, equipe: equipe.id }, complet, { documents: m.documents }),
-      ),
+      fichiersPolices,
+      modeles: (await comptes.modelesDe(equipe.id)).map((m) => versClient(m, complet, { documents: m.documents })),
       modelesInstance: instance.map((m) => versClient(m, complet)),
       modeleCode: modeleDuCode(),
       modeleDefaut: equipe.modeleDefaut ?? null,
@@ -149,15 +140,16 @@ export function creerModeles(ctx) {
   }
 
   /** Les modèles de l'instance (back-office, administrateurs) : la liste et
-   * le défaut (GET), la création (POST, sur le modèle du code), le réglage
-   * (PUT, tout le modèle), la suppression (DELETE), le défaut (PUT
-   * `modele-defaut`). `segments` suit `/api/admin/`. */
+   * le défaut (GET), la création (POST, en copiant un modèle), le réglage
+   * (PUT), la suppression (DELETE), le défaut (PUT `modele-defaut`).
+   * `segments` suit `/api/admin/`. */
   async function modelesInstance(req, res, p, segments) {
     if (!(await administrateur(p))) return err(res, 403, 'reserve-administrateur')
     const methode = req.method
     const [racine, cible, ...reste] = segments
     if (reste.length) return err(res, 404, 'introuvable')
-    const { instance, parId, s, complet, polices } = await sources()
+    const src = await sources()
+    const { instance, parId, regles, complet, polices, fichiersPolices } = src
     if (racine === 'modele-defaut') {
       if (cible || methode !== 'PUT') return err(res, 405, 'methode-refusee')
       const { modele } = await lireCorps(req)
@@ -172,22 +164,24 @@ export function creerModeles(ctx) {
         const defaut = await comptes.reglage(REGLAGE_DEFAUT)
         return ok(res, {
           polices,
-          modeles: instance.map((m) =>
-            versClient(m, complet, { documents: m.documents, equipes: m.equipes, derives: m.derives }),
-          ),
+          fichiersPolices,
+          modeles: instance.map((m) => versClient(m, complet, { documents: m.documents, equipes: m.equipes })),
           modeleCode: modeleDuCode(),
           defaut: typeof defaut === 'string' && (CODE.has(defaut) || parId.has(defaut)) ? defaut : null,
         })
       }
       if (methode !== 'POST') return err(res, 405, 'methode-refusee')
-      const n = nomDossier((await lireCorps(req)).nom)
+      const corps = await lireCorps(req)
+      const n = nomDossier(corps.nom)
       if (!n.ok) return err(res, 400, n.code)
-      return ok(res, { id: await comptes.creerModele(null, n.nom, ID_CODE, {}, p.id) }, 201)
+      const depart = await modeleDeDepart(corps.depart, null, src)
+      if (!depart) return err(res, 400, 'modele-introuvable')
+      return ok(res, { id: await comptes.creerModele(null, n.nom, depart, p.id) }, 201)
     }
     const modele = parId.get(cible)
     if (!modele) return err(res, 404, 'modele-introuvable')
     if (methode === 'DELETE') {
-      const documents = await comptes.supprimerModeleInstance(modele.id, ID_CODE)
+      const documents = await comptes.supprimerModeleInstance(modele.id)
       if ((await comptes.reglage(REGLAGE_DEFAUT)) === modele.id)
         await comptes.definirReglage(REGLAGE_DEFAUT, null, p.id)
       return ok(res, { documents })
@@ -196,14 +190,14 @@ export function creerModeles(ctx) {
     const corps = await lireCorps(req)
     const n = corps.nom === undefined ? null : nomDossier(corps.nom)
     if (n && !n.ok) return err(res, 400, n.code)
-    let ecarts
-    if (corps.ecarts !== undefined) {
-      const r = resoudreModele({ base: modele.base, ecarts: corps.ecarts, equipe: null }, s)
-      if (!r.ok) return refusEcarts(res, r)
-      ecarts = r.ecarts
+    let valeurs
+    if (corps.reglages !== undefined) {
+      const r = appliquerReglages(complet(modele), corps.reglages, regles)
+      if (!r.ok) return refusReglages(res, r)
+      valeurs = r.modele
     }
-    await comptes.modifierModele(modele.id, { nom: n?.nom, ecarts })
-    return ok(res, ecarts === undefined ? {} : { ecarts })
+    await comptes.modifierModele(modele.id, { nom: n?.nom, valeurs })
+    return ok(res)
   }
 
   /** Les modèles offerts au document et celui retenu (GET), ou le choix du
@@ -218,7 +212,7 @@ export function creerModeles(ctx) {
       const doc = await comptes.document(docId)
       const equipe = doc.equipe ? await comptes.equipe(doc.equipe) : null
       const deLEquipe = equipe ? await comptes.modelesDe(equipe.id) : []
-      const { instance, complet } = await sources()
+      const { instance, complet, polices, fichiersPolices } = await sources()
       const permis = [ID_CODE, ...instance.map((m) => m.id), ...deLEquipe.map((m) => m.id)]
       if (sous === 'modele') {
         if (!peutChoisirModele(caps)) return err(res, 403, 'droit-insuffisant')
@@ -236,12 +230,12 @@ export function creerModeles(ctx) {
       })
       const membre = equipe ? Boolean(await comptes.roleMembre(equipe.id, p.id)) : false
       return ok(res, {
+        polices,
+        fichiersPolices,
         modeles: [
           modeleDuCode(),
           ...instance.map((m) => versClient(m, complet, { instance: true })),
-          ...deLEquipe
-            .filter((m) => membre || m.id === retenu)
-            .map((m) => versClient({ ...m, equipe: equipe.id }, complet)),
+          ...deLEquipe.filter((m) => membre || m.id === retenu).map((m) => versClient(m, complet)),
         ],
         equipe: equipe ? equipe.nom : null,
         choisi: doc.modele && permis.includes(doc.modele) ? doc.modele : null,
@@ -252,27 +246,42 @@ export function creerModeles(ctx) {
   }
 
   /**
+   * Les modèles enregistrés avant le 13/11/2026 (un modèle de base et des
+   * écarts) deviennent des modèles complets, par style. Sans effet quand il
+   * n'en reste aucun.
+   */
+  async function convertir() {
+    const aConvertir = await comptes.modelesAConvertir()
+    if (!aConvertir.length) return
+    const anciens = new Map((await comptes.modelesDeLInstanceAncienne()).map((m) => [m.id, m]))
+    for (const m of aConvertir) {
+      const ancien = ancienModele(m, (id) => anciens.get(id) ?? null, ID_CODE)
+      await comptes.poserValeurs(m.id, versModeleParStyle(ancien))
+    }
+    console.log(`[modèles] ${aConvertir.length} modèle(s) converti(s) en modèles complets par style`)
+  }
+
+  /**
    * La reprise des modèles qui quittent le code (12/11/2026) : chacun est
-   * recréé une fois en modèle de l'instance (base : le modèle du code), ce
-   * qui le citait est repris, et le premier devient le défaut de l'instance
-   * s'il n'y en a pas. L'ancien réglage « belle page » des équipes devient
-   * le début de chapitre. Sans effet la seconde fois.
+   * recréé une fois en modèle de l'instance, ce qui le citait est repris, et le
+   * premier devient le défaut de l'instance s'il n'y en a pas. Les modèles
+   * enregistrés à l'ancienne façon sont d'abord convertis. Sans effet la
+   * seconde fois.
    */
   async function reprendre() {
-    await comptes.reprendreBellePage()
+    await convertir()
     const faits = (await comptes.reglage(REGLAGE_REPRISE)) ?? {}
     for (const r of REPRISE_MODELES) {
       if (faits[r.id]) continue
-      const ecarts = ecartsVers(CODE.get(ID_CODE), r.valeurs, REGLES_MODELES_INSTANCE.reglables)
-      const v = resoudreModele({ base: ID_CODE, ecarts, equipe: null }, { code: (id) => CODE.get(id), regles: REGLES })
+      const v = verifierModele(r.valeurs, REGLES_MODELES)
       if (!v.ok) {
         console.error(`[modèles] reprise de ${r.id} impossible :`, v.code, v.reglage ?? v.raison ?? '')
         continue
       }
       // Un modèle déjà créé par une reprise interrompue (avant d'être noté) est
       // repris tel quel, sans doublon (audit du 12/11/2026).
-      const existant = (await comptes.modelesInstance()).find((m) => m.nom === r.nom && m.base === ID_CODE)
-      const id = existant?.id ?? (await comptes.creerModele(null, r.nom, ID_CODE, v.ecarts, null))
+      const existant = (await comptes.modelesInstance()).find((m) => m.nom === r.nom)
+      const id = existant?.id ?? (await comptes.creerModele(null, r.nom, r.valeurs, null))
       await comptes.reprendreModele(r.id, id)
       if (!(await comptes.reglage(REGLAGE_DEFAUT))) await comptes.definirReglage(REGLAGE_DEFAUT, id, null)
       faits[r.id] = id

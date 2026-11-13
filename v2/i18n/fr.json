@@ -60,7 +60,9 @@
     "tableNiveaux": "{n, plural, =1 {Niveau 1 seulement} other {Niveaux 1 à #}}",
     "note": "Note de bas de page",
     "noteDescription": "Une note numérotée, en bas de la page",
-    "compteurSelection": "Sélection\u00A0: {signes, plural, one {# signe} other {# signes}}, {mots, plural, one {# mot} other {# mots}}"
+    "compteurSelection": "Sélection\u00A0: {signes, plural, one {# signe} other {# signes}}, {mots, plural, one {# mot} other {# mots}}",
+    "legende": "Légende",
+    "legendeDescription": "La légende d’une image ou d’un tableau, hors de la table des matières"
   },
   "erreurs": {
     "apparence-inconnue": "Ce modèle d’interface ou cette couleur n’existe pas.",
@@ -102,7 +104,7 @@
     "modele-introuvable": "Ce modèle n’existe pas, ou il n’est pas permis à ce document.",
     "reglage-inconnu": "Ce réglage ne se change pas dans un modèle d’équipe.",
     "reglage-hors-bornes": "Une valeur est hors des limites permises\u00A0: vérifiez les réglages.",
-    "ecarts-invalides": "Ces réglages ne sont pas valides.",
+    "reglages-invalides": "Ces réglages ne sont pas valides.",
     "margo-indisponible": "Margo est indisponible pour le moment.",
     "margo-occupee": "Margo répond déjà à l’une de vos demandes\u00A0: attendez qu’elle ait fini.",
     "trop-de-flux": "Trop de fenêtres ouvertes sur ce compte\u00A0: fermez-en quelques-unes.",
@@ -318,9 +320,9 @@
       "titre": "Modèles de mise en page",
       "defaut": "Modèle par défaut de l’instance",
       "aucun": "L’instance n’a pas encore de modèle à elle.",
-      "detail": "D’après «\u00A0{titre}\u00A0» · {n, plural, =0 {aucun document} one {# document} other {# documents}} · {e, plural, =0 {aucune équipe} one {# équipe} other {# équipes}} · {d, plural, =0 {aucun modèle d’équipe} one {# modèle d’équipe} other {# modèles d’équipe}}",
-      "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? Les documents et les équipes qui l’avaient choisi prendront le modèle par défaut\u202F; les modèles d’équipe qui en dérivent repartiront de «\u00A0{code}\u00A0».",
-      "intro": "Un modèle fixe la mise en page des PDF\u00A0: format, marges, police, titres. «\u00A0{code}\u00A0» est fourni avec amend.ink. Les modèles créés ici en partent et sont proposés à tous les documents\u202F; chaque équipe peut en dériver les siens."
+      "detail": "{n, plural, =0 {aucun document} one {# document} other {# documents}} · {e, plural, =0 {aucune équipe} one {# équipe} other {# équipes}}",
+      "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? Les documents et les équipes qui l’avaient choisi prendront le modèle par défaut.",
+      "intro": "Un modèle fixe la mise en page des PDF\u00A0: format, marges, et le style du texte, des citations, des titres, du titre et du sous-titre, des légendes. «\u00A0{code}\u00A0» est fourni avec amend.ink. On crée un modèle en copiant un modèle existant\u202F; la copie est ensuite indépendante. Les modèles créés ici sont proposés à tous les documents\u202F; chaque équipe a aussi les siens."
     },
     "connecteur": {
       "titre": "Connecteur Claude",
@@ -403,7 +405,7 @@
     "titre": "Modèles de mise en page",
     "defaut": "Modèle par défaut de l’équipe",
     "nom": "Nom du modèle",
-    "base": "Modèle de départ",
+    "base": "Copier le modèle",
     "creer": "Créer",
     "modifier": "Régler",
     "supprimer": "Supprimer",
@@ -413,7 +415,7 @@
     "parDefaut": "Par défaut",
     "enregistrer": "Enregistrer",
     "enregistre": "Modèle enregistré.",
-    "detail": "D’après «\u00A0{titre}\u00A0» · {n, plural, =0 {aucun document} one {# document} other {# documents}}",
+    "detail": "{n, plural, =0 {aucun document} one {# document} other {# documents}}",
     "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? {n, plural, =0 {Aucun document ne l’a choisi.} one {Le document qui l’avait choisi prendra le modèle par défaut de l’équipe.} other {Les # documents qui l’avaient choisi prendront le modèle par défaut de l’équipe.}}",
     "reglage": {
       "page": {
@@ -430,23 +432,11 @@
         "interligne": "Interligne (pt)",
         "lignes": "Lignes par page"
       },
-      "police": "Police",
-      "alinea": "Alinéa (mm)",
       "chapitre": {
         "debut": "Début de chapitre",
         "ligneTitre": "Ligne du titre de chapitre",
         "ligneTexte": "Ligne où reprend le texte",
-        "corps": "Corps du titre de chapitre (pt)",
-        "interligne": "Interligne du titre de chapitre (pt)",
-        "graisse": "Graisse du titre de chapitre"
-      },
-      "titre": {
-        "corps": "Corps du titre (pt)",
-        "graisse": "Graisse du titre"
-      },
-      "sousTitre": {
-        "corps": "Corps du sous-titre (pt)",
-        "italique": "Sous-titre en italique"
+        "interligne": "Interligne du titre de chapitre (pt)"
       },
       "folio": {
         "position": "Place du folio",
@@ -457,14 +447,6 @@
       "enTete": {
         "gauche": "Titre courant des pages de gauche",
         "droite": "Titre courant des pages de droite"
-      },
-      "intertitres": {
-        "italique": "Intertitres en italique",
-        "lignesAvant": "Lignes blanches avant un intertitre",
-        "lignesApres": "Lignes blanches après un intertitre"
-      },
-      "citation": {
-        "retrait": "Retrait des citations (mm)"
       },
       "separateur": "Séparateur de scène",
       "cesure": "Césure (couper les mots en fin de ligne)"
@@ -494,13 +476,26 @@
         "rien": "Rien",
         "titreDocument": "Titre du document",
         "chapitre": "Chapitre en cours"
+      },
+      "alignement": {
+        "gauche": "À gauche",
+        "justifie": "Justifié",
+        "centre": "Centré"
       }
     },
     "groupes": {
       "format": "Format et marges",
-      "texte": "Texte",
-      "titres": "Titres et chapitres",
-      "pages": "Folio et titre courant"
+      "texte": "Texte courant",
+      "pages": "Folio et titre courant",
+      "citation": "Citation",
+      "titre1": "Titre 1 (chapitre)",
+      "titre2": "Titre 2",
+      "titre3": "Titre 3",
+      "titre4": "Titre 4",
+      "titre5": "Titre 5",
+      "titre": "Titre (page de titre)",
+      "sousTitre": "Sous-titre",
+      "legende": "Légende"
     },
     "essayer": "Essayer",
     "essayerDe": "Exporter le document ouvert avec «\u00A0{nom}\u00A0»",
@@ -509,7 +504,19 @@
     "titreListe": "Modèles",
     "titreCreer": "Créer un modèle",
     "resume": "{largeur, number}\u00A0×\u00A0{hauteur, number}\u00A0mm · {police}",
-    "reglerTitre": "Régler «\u00A0{nom}\u00A0»"
+    "reglerTitre": "Régler «\u00A0{nom}\u00A0»",
+    "propriete": {
+      "police": "Police",
+      "corps": "Corps (pt)",
+      "gras": "Gras",
+      "italique": "Italique",
+      "capitales": "Majuscules",
+      "alignement": "Alignement",
+      "lignesAvant": "Lignes blanches avant",
+      "lignesApres": "Lignes blanches après",
+      "alinea": "Retrait de première ligne (mm)",
+      "retrait": "Retrait à gauche (mm)"
+    }
   },
   "margo": {
     "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent dans l’onglet Corrections, à accepter ou refuser.",

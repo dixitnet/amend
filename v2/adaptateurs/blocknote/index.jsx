@@ -68,7 +68,7 @@ import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
 import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
-import { TYPE_TITRE, TYPE_SOUS_TITRE } from '../../extensions/titres/index.js'
+import { TYPE_TITRE, TYPE_SOUS_TITRE, TYPE_LEGENDE } from '../../extensions/titres/index.js'
 import { dateDuJour, typographier, nfc, compter as compterTextes } from '../../domaine/index.js'
 import { TYPE_NOTE, EVENEMENT_NOTE } from '../../extensions/note/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
@@ -188,8 +188,9 @@ function typesDeBloc(editeur, textes) {
   const nos = [
     ['titre', TYPE_TITRE],
     ['sousTitre', TYPE_SOUS_TITRE],
+    ['legende', TYPE_LEGENDE],
   ]
-    // `titre` et `sousTitre` sont facultatifs dans les textes de l'éditeur.
+    // `titre`, `sousTitre` et `legende` sont facultatifs dans les textes de l'éditeur.
     .filter(([cle]) => textes?.[cle])
     .map(([cle, type]) => ({ name: textes[cle].titre, type, icon: () => textes[cle].picto }))
   // Le picto du paragraphe : le nôtre s'il est donné (un P), sinon celui de BlockNote.
@@ -271,6 +272,7 @@ function itemsDuMenu(editeur, table, textesTitres) {
   for (const [cle, type] of [
     ['titre', TYPE_TITRE],
     ['sousTitre', TYPE_SOUS_TITRE],
+    ['legende', TYPE_LEGENDE],
   ])
     if (textesTitres?.[cle])
       items.push({
@@ -328,7 +330,7 @@ function itemsDuMenu(editeur, table, textesTitres) {
  *   le bouton « Corriger » de la palette (Margo, étape 8), ou rien
  * @param {(selection: { de: string, a: string } | null) => void} [p.surSelection]
  *   rappelé quand la sélection change, en blocs (Margo, étape 8) ; doit être stable
- * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, niveaux?: Record<number, string>, picto: any }, titre?: { titre: string, description: string, picto: any }, sousTitre?: { titre: string, description: string, picto: any } }} [p.textes]
+ * @param {{ exposant?: { libelle: string, picto: any }, table?: { titre: string, description: string, profondeur: string, niveaux?: Record<number, string>, picto: any }, titre?: { titre: string, description: string, picto: any }, sousTitre?: { titre: string, description: string, picto: any }, legende?: { titre: string, description: string, picto: any } }} [p.textes]
  *   libellés et pictos de nos ajouts (exposant, table des matières), donnés par l'application
  * @param {(note: { texte: string, nouvelle: boolean, lectureSeule: boolean,
  *   enregistrer: (texte: string) => void, retirer: (() => void) | null, fermer: () => void } | null) => void} [p.surNote]

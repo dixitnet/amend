@@ -73,6 +73,65 @@ export function grille(modele) {
 const impossible = (raison) =>
   Object.assign(new Error(`modèle impossible : ${raison}`), { code: 'modele-impossible', raison })
 
+// --- Les styles d'un modèle (13/11/2026) ------------------------------------
+//
+// Chaque style du livre a son jeu de réglages, repris de la v1 (`shared/style.js` :
+// police, taille, gras, italique, majuscules, alignement, espaces, retraits) et
+// adapté à la grille : les espaces se comptent en lignes. Un modèle est une
+// copie complète : on le crée à partir d'un autre, puis il est indépendant.
+
+/** Les alignements d'un style. */
+export const ALIGNEMENTS = Object.freeze(['gauche', 'justifie', 'centre'])
+/** Les styles réglables d'un modèle, dans l'ordre du formulaire. */
+export const NOMS_STYLES = Object.freeze([
+  'texte',
+  'citation',
+  'titre1',
+  'titre2',
+  'titre3',
+  'titre4',
+  'titre5',
+  'titre',
+  'sousTitre',
+  'legende',
+])
+
+const STYLE_PAR_DEFAUT = {
+  gras: false,
+  italique: false,
+  capitales: false,
+  alignement: 'gauche',
+  lignesAvant: 0,
+  lignesApres: 0,
+  alinea: 0,
+  retrait: 0,
+}
+
+/** Un style d'un modèle, complété : sa police est celle du texte et son corps
+ * celui de la grille tant qu'il ne dit pas autre chose. */
+function styleDe(modele, nom) {
+  const texte = modele.styles?.texte ?? {}
+  return { police: texte.police, corps: modele.grille.corps, ...STYLE_PAR_DEFAUT, ...modele.styles?.[nom] }
+}
+
+/**
+ * Le blanc, en pt, entre un bloc et le texte voisin pour que le texte retombe
+ * sur la grille : `n` lignes blanches au moins, davantage si le corps du bloc
+ * l'exige ; jamais moins que l'espace ordinaire entre deux paragraphes, que
+ * Typst ferait gagner sinon.
+ */
+function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
+  const ordinaire = pas - corps
+  for (let k = Math.max(0, n); k <= n + 60; k++) {
+    const v =
+      cote === 'avant'
+        ? (1 + k) * pas - BAS * corps - HAUT * corpsDuBloc
+        : (1 + k) * pas - BAS * corpsDuBloc - HAUT * corps
+    if (v >= ordinaire - 1e-9) return v
+  }
+  return ordinaire
+}
+
 /**
  * Le préambule Typst d'un livre.
  *
@@ -80,9 +139,7 @@ const impossible = (raison) =>
  * @param {{ largeur: number, hauteur: number }} modele.page  format, en mm
  * @param {{ haut: number, interieure: number, exterieure: number }} modele.marges  en mm
  * @param {{ corps: number, interligne: number, lignes: number }} modele.grille
- *   corps et interligne en pt, nombre de lignes par page
- * @param {string} modele.police  nom de famille de la police du texte
- * @param {number} modele.alinea  retrait de première ligne, en mm
+ *   corps (celui du texte courant) et interligne en pt, nombre de lignes par page
  * @param {{ bas: number, position?: 'bas-centre' | 'bas-exterieur' | 'haut-exterieur' | 'aucun', depart?: number, ouverture?: boolean }} modele.folio
  *   ligne de base du folio en bas (mm depuis le bas de la page), sa place,
  *   le premier numéro, et s'il paraît sur les pages d'ouverture de chapitre
@@ -90,30 +147,28 @@ const impossible = (raison) =>
  *   pages de gauche et de droite : `rien`, `titreDocument` ou `chapitre`
  * @param {string} [modele.separateur]  séparateur de scène (`SEPARATEURS`)
  * @param {boolean} [modele.cesure]  couper les mots en fin de ligne (oui par défaut)
- * @param {{ debut?: 'continuer' | 'page' | 'belle-page', bellePage?: boolean, ligneTitre: number, ligneTexte: number, corps: number, interligne: number, graisse: number }} modele.chapitre
- *   titre de niveau 1 : début (sur la page, page suivante, belle page), ligne de la
- *   grille où tombe sa première ligne, ligne où reprend le texte, corps et
- *   interligne (pt), graisse
- * @param {{ italique: boolean, lignesAvant: number, lignesApres: number }} modele.intertitres
- *   titres de niveau 2 à 5 : au corps du texte, un nombre entier de lignes
- *   blanches avant et après
- * @param {{ retrait: number }} modele.citation  retrait à gauche, en mm
- * @param {{ corps: number, graisse: number }} [modele.titre]  le bloc « Titre » :
- *   centré, hors de la table des matières ; par défaut, comme un titre de chapitre
- * @param {{ corps: number, italique: boolean }} [modele.sousTitre]  le bloc
- *   « Sous-titre » : centré ; par défaut, au corps du chapitre, en italique
+ * @param {{ debut?: 'continuer' | 'page' | 'belle-page', bellePage?: boolean, ligneTitre: number, ligneTexte: number, interligne: number }} modele.chapitre
+ *   l'ouverture d'un chapitre (titre de niveau 1) : début (sur la page, page
+ *   suivante, belle page), ligne de la grille où tombe sa première ligne,
+ *   ligne où reprend le texte, interligne (pt) de ses lignes
+ * @param {Record<string, { police?: string, corps?: number, gras?: boolean, italique?: boolean, capitales?: boolean,
+ *   alignement?: 'gauche' | 'justifie' | 'centre', lignesAvant?: number, lignesApres?: number, alinea?: number, retrait?: number }>} modele.styles
+ *   les styles (`NOMS_STYLES`) : `texte` (le texte courant, dont le corps est
+ *   celui de la grille), `citation`, `titre1` (le chapitre) à `titre5`, `titre`,
+ *   `sousTitre`, `legende`. Les espaces avant et après sont des nombres de lignes
+ *   de la grille ; l'alinéa et le retrait sont en mm
  * @param {{ titre?: string, langue?: string, auteur?: string }} [document]  titre,
  *   langue (code ISO à deux lettres) et auteur du document
  * @returns {string}
  */
 export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
-  const { page, marges, grille: g, intertitres: it } = modele
+  const { page, marges, grille: g } = modele
   const c = { ...modele.chapitre, debut: debutChapitre(modele.chapitre) }
   const f = { position: 'bas-centre', depart: 1, ouverture: true, ...modele.folio }
   const enTete = { gauche: 'rien', droite: 'rien', ...modele.enTete }
   const { pas, margeBas, descenteFolio } = grille(modele)
-  const titre_ = modele.titre ?? { corps: c.corps, graisse: c.graisse }
-  const sousTitre_ = modele.sousTitre ?? { corps: c.corps, italique: true }
+  const texte = styleDe(modele, 'texte')
+  const t1 = styleDe(modele, 'titre1')
   const ecart = `${pt(pas)} - ${em(1)}`
   // Ligne n de la grille : sa ligne de base est à HAUT × corps + (n − 1) × pas
   // du haut de la zone de texte.
@@ -121,12 +176,28 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
   // L'ouverture de chapitre est un bloc de hauteur fixe : le texte reprend
   // toujours à la même ligne, que le titre tienne sur une ligne ou deux.
   const hauteurOuverture = (c.ligneTexte - 1) * pas
-  const descenteTitre = base(c.ligneTitre) - HAUT * c.corps
-  // Un intertitre au corps du texte : avant lui, sa ligne et ses blancs
-  // occupent un nombre entier de lignes de la grille.
+  const descenteTitre = base(c.ligneTitre) - HAUT * t1.corps
+  // Le blanc d'une ligne de la grille et de ses voisines, au corps du texte.
   const lignesDeBlanc = (n) => (1 + n) * pas - (BAS + HAUT) * g.corps
-  const avant = lignesDeBlanc(it.lignesAvant)
-  const apres = lignesDeBlanc(it.lignesApres)
+
+  // Un style : le texte réglé (police, corps, graisse, italique), l'interligne
+  // de la grille quel que soit le corps, l'alignement ; sans alinéa sauf pour
+  // les styles qui en ont un.
+  const poids = (st) => (st.gras ? '"bold"' : '"regular"')
+  const forme = (st) => (st.italique ? '"italic"' : '"normal"')
+  const placement = (st) => (st.alignement === 'centre' ? 'center' : 'left')
+  const regle = (st) =>
+    `set text(font: (${chaineTypst(st.police)},), size: ${pt(st.corps)}, weight: ${poids(st)}, style: ${forme(st)}); ` +
+    `set par(justify: ${st.alignement === 'justifie'}, leading: ${pt(pas)} - ${em(1)}, ` +
+    `first-line-indent: (amount: ${mm(st.alinea)}, all: true)); `
+  const contenu = (st, corps) => (st.capitales ? `upper(${corps})` : corps)
+  const avantApres = (st) =>
+    `above: ${pt(blancSurGrille({ pas, corps: g.corps }, st.lignesAvant, st.corps, 'avant'))}, ` +
+    `below: ${pt(blancSurGrille({ pas, corps: g.corps }, st.lignesApres, st.corps, 'apres'))}`
+  const bloc = (st, corps, { retrait = false, colle = false } = {}) =>
+    `block(width: ${PLEINE_LARGEUR}, ${avantApres(st)}${colle ? ', sticky: true' : ''}, { ${regle(st)}` +
+    (retrait && st.retrait ? `pad(left: ${mm(st.retrait)}, ` : '(') +
+    `align(${placement(st)}, ${contenu(st, corps)}))})`
 
   // Pages : page blanche laissée avant un chapitre en belle page (celle qui
   // suit la fin d'un chapitre et précède le suivant), page d'ouverture d'un
@@ -174,55 +245,56 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
           ` } }`
         : 'header: none') +
       ')',
-    `#set text(font: (${chaineTypst(modele.police)},), size: ${pt(g.corps)}, ` +
+    `#set text(font: (${chaineTypst(texte.police)},), size: ${pt(g.corps)}, weight: ${poids(texte)}, style: ${forme(texte)}, ` +
       (langue ? `lang: ${chaineTypst(langue)}, ` : '') +
       (modele.cesure === false ? 'hyphenate: false, ' : '') +
       `top-edge: ${em(HAUT)}, bottom-edge: ${em(-BAS)}, fill: ${NOIR})`,
-    `#set par(justify: true, leading: ${ecart}, spacing: ${ecart}, first-line-indent: (amount: ${mm(modele.alinea)}, all: true))`,
+    `#set par(justify: ${texte.alignement === 'justifie'}, leading: ${ecart}, spacing: ${ecart}, first-line-indent: (amount: ${mm(texte.alinea)}, all: true))`,
+    ...(texte.alignement === 'centre' ? ['#set align(center)'] : []),
     `#set block(spacing: ${ecart})`,
     `#set list(spacing: ${ecart})`,
     `#set enum(spacing: ${ecart})`,
-    `#show quote.where(block: true): set block(spacing: ${ecart})`,
-    `#show quote.where(block: true): it => pad(left: ${mm(modele.citation.retrait)}, it.body)`,
+    // La citation : son style, et son retrait à gauche.
+    `#show quote.where(block: true): it => ${bloc(styleDe(modele, 'citation'), 'it.body', { retrait: true })}`,
     // Les liens en noir, comme le texte (impression) ; l'adresse reste dans le PDF.
     `#show link: set text(fill: ${NOIR})`,
     // La table des matières : les chapitres à la graisse de leur titre.
-    `#show outline.entry.where(level: 1): set text(weight: ${c.graisse})`,
+    `#show outline.entry.where(level: 1): set text(weight: ${poids(t1)})`,
     // Un blanc (paragraphes vides en série) : une ligne de la grille.
     `#let amend-blanc = v(${pt(pas)})`,
     // Le séparateur de scène (le séparateur de BlockNote) : une ligne de la
     // grille, blanche ou portant un signe centré.
     `#let amend-separateur = ${separateurTypst(modele.separateur, pas)}`,
-    // Titre et sous-titre (Sylvain, 12/11/2026) : dans le flux, centrés, sans
-    // alinéa ni justification ; leur corps vient du modèle.
-    `#let amend-titre(corps) = block(width: ${PLEINE_LARGEUR}, {` +
-      `set par(justify: false, first-line-indent: ${ZERO}); ` +
-      `align(center, text(size: ${pt(titre_.corps)}, weight: ${titre_.graisse}, corps))})`,
-    `#let amend-sous-titre(corps) = block(width: ${PLEINE_LARGEUR}, {` +
-      `set par(justify: false, first-line-indent: ${ZERO}); ` +
-      `align(center, text(size: ${pt(sousTitre_.corps)}, style: ${sousTitre_.italique ? '"italic"' : '"normal"'}, corps))})`,
+    // Titre, sous-titre et légende : dans le flux, chacun son style.
+    `#let amend-titre(corps) = ${bloc(styleDe(modele, 'titre'), 'corps')}`,
+    `#let amend-sous-titre(corps) = ${bloc(styleDe(modele, 'sousTitre'), 'corps')}`,
+    `#let amend-legende(corps) = ${bloc(styleDe(modele, 'legende'), 'corps')}`,
     // Le premier paragraphe d'un chapitre, sans alinéa.
     `#let amend-sans-alinea(corps) = par(first-line-indent: ${ZERO}, corps)`,
-    `#show heading: it => block(above: ${pt(avant)}, below: ${pt(apres)}, sticky: true, {` +
-      `set par(justify: false, first-line-indent: ${ZERO}); ` +
-      `text(size: ${pt(g.corps)}, style: ${it.italique ? '"italic"' : '"normal"'}, weight: "regular", it.body)})`,
+    // Les intertitres : le titre de niveau 5 vaut pour tout niveau inconnu, puis
+    // chaque niveau de 4 à 2 a son style.
+    `#show heading: it => ${bloc(styleDe(modele, 'titre5'), 'it.body', { colle: true })}`,
+    ...[4, 3, 2].map(
+      (n) =>
+        `#show heading.where(level: ${n}): it => ${bloc(styleDe(modele, `titre${n}`), 'it.body', { colle: true })}`,
+    ),
     c.debut === 'continuer'
       ? // Le chapitre continue sur la page : son titre garde ses blancs d'ouverture
         // (lignes avant et après), dans le flux.
         `#show heading.where(level: 1): it => block(above: ${pt(lignesDeBlanc(c.ligneTitre - 1))}, ` +
           `below: ${pt(lignesDeBlanc(c.ligneTexte - c.ligneTitre - 1))}, width: ${PLEINE_LARGEUR}, sticky: true, {` +
-          `set text(size: ${pt(c.corps)}, weight: ${c.graisse}); ` +
-          `set par(justify: false, first-line-indent: ${ZERO}, leading: ${pt(c.interligne)} - ${em(1)}); ` +
-          `align(center, it.body)})`
+          `set text(font: (${chaineTypst(t1.police)},), size: ${pt(t1.corps)}, weight: ${poids(t1)}, style: ${forme(t1)}); ` +
+          `set par(justify: ${t1.alignement === 'justifie'}, first-line-indent: ${ZERO}, leading: ${pt(c.interligne)} - ${em(1)}); ` +
+          `align(${placement(t1)}, ${contenu(t1, 'it.body')})})`
       : `#show heading.where(level: 1): it => {` +
           `[#metadata(none) <amend-fin>]; ` +
           (c.debut === 'belle-page' ? `pagebreak(to: "odd", weak: true); ` : `pagebreak(weak: true); `) +
           `[#metadata(none) <amend-debut>]; ` +
           `block(height: ${pt(hauteurOuverture)}, width: ${PLEINE_LARGEUR}, above: ${ZERO}, below: ${ZERO}, sticky: true, {` +
           `v(${pt(descenteTitre)}); ` +
-          `set text(size: ${pt(c.corps)}, weight: ${c.graisse}); ` +
-          `set par(justify: false, first-line-indent: ${ZERO}, leading: ${pt(c.interligne)} - ${em(1)}); ` +
-          `align(center, it.body)})}`,
+          `set text(font: (${chaineTypst(t1.police)},), size: ${pt(t1.corps)}, weight: ${poids(t1)}, style: ${forme(t1)}); ` +
+          `set par(justify: ${t1.alignement === 'justifie'}, first-line-indent: ${ZERO}, leading: ${pt(c.interligne)} - ${em(1)}); ` +
+          `align(${placement(t1)}, ${contenu(t1, 'it.body')})})}`,
   )
   // Le premier numéro de page (v1, `startAt`).
   // Un numéro de départ qui n'est pas un entier positif est ignoré (1).
@@ -242,15 +314,15 @@ function separateurTypst(choix, pas) {
   return `align(center, par(first-line-indent: ${ZERO}, justify: false, ${chaineTypst(signe)}))`
 }
 
-// --- Modèles d'équipe (ADR 0011) -------------------------------------------
+// --- Les modèles (ADR 0011, revu le 13/11/2026) ------------------------------
 //
-// Un modèle d'équipe dérive d'un modèle d'amend.ink : il n'enregistre que ses
-// écarts, pris dans une liste fermée de réglages bornés (décidée dans le
-// design et passée ici en paramètre). Le modèle complet est toujours calculé ;
-// une correction du modèle de base atteint donc les modèles qui en dérivent.
+// Un modèle est une copie complète : on le crée à partir d'un modèle existant,
+// puis il est indépendant (Sylvain, 13/11/2026 : « après, pas besoin de faire
+// référence à cette filiation »). Ses réglages sont pris dans une liste fermée
+// de réglages bornés (décidée dans le design et passée ici en paramètre).
 
 const lire = (objet, cle) => cle.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), objet)
-function poser(objet, cle, valeur) {
+export function poser(objet, cle, valeur) {
   const k = cle.split('.')
   let o = objet
   for (const p of k.slice(0, -1)) o = o[p] = { ...(o[p] ?? {}) }
@@ -271,56 +343,58 @@ function valeurPermise(r, v, polices) {
 }
 
 /**
- * Le modèle complet d'une équipe : son modèle de base et ses écarts.
- * @param {object} base  un modèle d'amend.ink (voir `gabaritTypst`)
- * @param {Record<string, any>} ecarts  `{ 'page.largeur': 135, police: '…' }`
- * @param {{ reglables: Array<{ cle: string, type: string, min?: number, max?: number }>,
- *   polices: Array<{ famille: string, fichiers: string[] }>, largeurUtileMin?: number }} regles
- * @returns {{ ok: true, modele: object, ecarts: object } | { ok: false, code: string, reglage?: string, raison?: string }}
- *   codes : `ecarts-invalides`, `reglage-inconnu`, `reglage-hors-bornes`,
+ * Les réglages d'un modèle changés : le modèle complet qui en résulte.
+ * @param {object} modele  le modèle actuel (voir `gabaritTypst`)
+ * @param {Record<string, any>} reglages  `{ 'page.largeur': 135, 'styles.texte.police': '…' }`
+ * @param {{ reglables: Array<{ cle: string, type: string, min?: number, max?: number, options?: string[] }>,
+ *   polices: Array<{ famille: string }>, largeurUtileMin?: number }} regles
+ * @returns {{ ok: true, modele: object } | { ok: false, code: string, reglage?: string, raison?: string }}
+ *   codes : `reglages-invalides`, `reglage-inconnu`, `reglage-hors-bornes`,
  *   `modele-impossible` (la grille ne tient pas dans la page)
  */
-export function appliquerEcarts(base, ecarts, { reglables, polices, largeurUtileMin = 0 }) {
-  if (!estObjet(ecarts)) return refus('ecarts-invalides')
-  const modele = structuredClone(base)
-  const retenus = {}
-  for (const [cle, valeur] of Object.entries(ecarts)) {
+export function appliquerReglages(modele, reglages, { reglables, polices, largeurUtileMin = 0 }) {
+  if (!estObjet(reglages)) return refus('reglages-invalides')
+  const resultat = structuredClone(modele)
+  for (const [cle, valeur] of Object.entries(reglages)) {
     const r = reglables.find((x) => x.cle === cle)
     if (!r) return refus('reglage-inconnu', cle)
     if (!valeurPermise(r, valeur, polices)) return refus('reglage-hors-bornes', cle)
-    // Un écart égal à la base n'en est pas un : il n'est pas gardé, pour que
-    // la base reste maîtresse de ce réglage.
-    if (lire(base, cle) === valeur) continue
-    retenus[cle] = valeur
-    poser(modele, cle, valeur)
-    if (r.type === 'police') modele.polices = polices.find((p) => p.famille === valeur).fichiers
+    poser(resultat, cle, valeur)
   }
-  const utile = modele.page.largeur - modele.marges.interieure - modele.marges.exterieure
+  const utile = resultat.page.largeur - resultat.marges.interieure - resultat.marges.exterieure
   if (utile < largeurUtileMin) return { ...refus('modele-impossible'), raison: 'largeur' }
   try {
-    grille(modele)
+    grille(resultat)
   } catch (e) {
     if (e.code !== 'modele-impossible') throw e
     return { ...refus('modele-impossible'), raison: e.raison }
   }
-  return { ok: true, modele, ecarts: retenus }
+  return { ok: true, modele: resultat }
 }
 
-/**
- * Les écarts qui font d'un modèle de base un modèle donné, sur une liste de
- * réglages : la reprise d'un modèle qui quitte le code (12/11/2026).
- * @param {object} base  modèle complet de départ
- * @param {object} valeurs  le modèle visé (mêmes clés que `base`)
- * @param {Array<{ cle: string }>} reglables
- * @returns {Record<string, any>}
- */
-export function ecartsVers(base, valeurs, reglables) {
-  const ecarts = {}
-  for (const { cle } of reglables) {
-    const v = lire(valeurs, cle)
-    if (v !== undefined && v !== lire(base, cle)) ecarts[cle] = v
-  }
-  return ecarts
+/** Un modèle complet respecte-t-il ses règles ? (tous ses réglages sont présents et permis) */
+export function verifierModele(modele, regles) {
+  const reglages = Object.fromEntries(regles.reglables.map((r) => [r.cle, lire(modele, r.cle)]))
+  return appliquerReglages(modele, reglages, regles)
+}
+
+/** Un modèle enregistré, complété par les valeurs d'un modèle de référence pour
+ * ce qui lui manque (un réglage ajouté depuis qu'il a été enregistré). */
+export function completerModele(valeurs, defaut) {
+  if (!estObjet(defaut)) return valeurs === undefined ? defaut : valeurs
+  const sortie = { ...defaut }
+  for (const [k, v] of Object.entries(valeurs ?? {})) sortie[k] = estObjet(v) ? completerModele(v, defaut[k]) : v
+  return sortie
+}
+
+/** Les familles de polices qu'emploie un modèle : celle de chacun de ses styles,
+ * la police du texte en premier. */
+export function famillesDuModele(modele) {
+  const familles = new Set()
+  const texte = modele.styles?.texte?.police
+  if (texte) familles.add(texte)
+  for (const st of Object.values(modele.styles ?? {})) if (st?.police) familles.add(st.police)
+  return [...familles]
 }
 
 /** La valeur d'un réglage dans un modèle complet (pour le formulaire). */
@@ -329,8 +403,8 @@ export const valeurDuReglage = (modele, cle) => lire(modele, cle)
 /**
  * Le modèle retenu pour un document : celui choisi pour lui s'il lui est
  * permis, sinon le modèle par défaut de son équipe s'il l'est, sinon le
- * premier modèle d'amend.ink.
- * @param {{ choisi?: string | null, defautEquipe?: string | null, permis: readonly string[] }} o
+ * modèle par défaut de l'instance, sinon le premier modèle d'amend.ink.
+ * @param {{ choisi?: string | null, defautEquipe?: string | null, defautInstance?: string | null, permis: readonly string[] }} o
  *   `permis` : les identifiants des modèles d'amend.ink, puis ceux de
  *   l'équipe qui possède le document
  * @returns {string}
@@ -338,28 +412,6 @@ export const valeurDuReglage = (modele, cle) => lire(modele, cle)
 export function modeleRetenu({ choisi, defautEquipe, defautInstance, permis }) {
   for (const id of [choisi, defautEquipe, defautInstance]) if (id && permis.includes(id)) return id
   return permis[0]
-}
-
-/**
- * Le modèle complet d'un modèle enregistré (12/11/2026, `docs/v2-modeles-pdf-plan.md`) :
- * un modèle de l'instance s'appuie sur un modèle du code ; un modèle d'équipe,
- * sur un modèle du code ou de l'instance. Les écarts de chaque étage sont
- * contrôlés par ses règles (`instance` : tout le modèle ; `equipe` : la liste fermée).
- * @param {{ base: string, ecarts: object, equipe?: string | null }} entree
- * @param {{ code: (id: string) => object | null, instance: (id: string) => { base: string, ecarts: object } | null,
- *   regles: { instance: object, equipe: object } }} sources
- * @returns {{ ok: true, modele: object } | { ok: false, code: string, reglage?: string, raison?: string }}
- */
-export function resoudreModele(entree, { code, instance, regles }) {
-  const depuisLeCode = code(entree.base)
-  if (depuisLeCode)
-    return appliquerEcarts(depuisLeCode, entree.ecarts ?? {}, entree.equipe ? regles.equipe : regles.instance)
-  const parent = entree.equipe ? instance(entree.base) : null
-  const baseParent = parent && code(parent.base)
-  if (!baseParent) return refus('modele-introuvable')
-  const r = appliquerEcarts(baseParent, parent.ecarts ?? {}, regles.instance)
-  if (!r.ok) return r
-  return appliquerEcarts(r.modele, entree.ecarts ?? {}, regles.equipe)
 }
 
 /** Choisir le modèle d'un document (l'enregistrer avec lui) : qui l'écrit. */
