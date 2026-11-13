@@ -21,7 +21,6 @@
     "etat": "{etat, select, connecte {Synchronisé} connexion {Connexion…} other {Hors ligne}}",
     "zoneEdition": "Texte du document {id}",
     "lectureSeule": "Lecture seule",
-    "modeSuggestion": "Mode correction",
     "historique": "Historique",
     "mesDocuments": "Mes documents",
     "partager": "Partager",
@@ -35,13 +34,13 @@
     "restaurerTitre": "Revenir à cette version\u202F?",
     "restaurerTexte": "Le texte du document redevient celui de cette version, pour tout le monde. L’état actuel reste dans l’historique («\u00A0Avant la restauration\u00A0»).",
     "restaurer": "Restaurer",
-    "modes": "Mode d’édition",
-    "modeEcrire": "Éditer",
-    "modeSuggerer": "Corriger",
+    "modes": "Mode",
+    "modeEditer": "Éditer",
+    "modeCorriger": "Corriger",
     "modeLire": "Lire",
-    "passerEcrire": "Éditer le texte",
-    "passerSuggerer": "Proposer des corrections",
-    "passerLire": "Lire sans modifier",
+    "passerEditer": "Passer en mode Éditer",
+    "passerCorriger": "Passer en mode Corriger",
+    "passerLire": "Passer en mode Lire",
     "exporter": "Exporter…",
     "copie": "{titre} (copie)",
     "dupliquer": "Dupliquer",
@@ -126,10 +125,11 @@
     "tous": "Tous"
   },
   "suivi": {
-    "aCheval": "En mode Corriger, une suppression ne peut pas franchir la fin d’un paragraphe (elle serait mal enregistrée). Supprimez paragraphe par paragraphe, ou passez en Éditer.",
-    "miseEnForme": "En mode Corriger, la mise en forme n’est pas proposée (elle ne pourrait pas être acceptée). Passez en Éditer pour la changer.",
+    "aCheval": "En mode Corriger, une suppression ne peut pas franchir la fin d’un paragraphe (elle serait mal enregistrée). Supprimez paragraphe par paragraphe.",
+    "miseEnForme": "En mode Corriger, la mise en forme n’est pas proposée (elle ne pourrait pas être acceptée).",
+    "contreSuggestion": "En mode Éditer, au contact d’une correction, seule la frappe passe\u00A0: pour supprimer, coller ou mettre en forme à cet endroit, acceptez-la ou refusez-la d’abord.",
     "panne": "Ce document ne peut pas s’afficher avec ses corrections. Rechargez la page\u202F; si cela se reproduit, signalez-le.",
-    "panneRepli": "L’affichage des corrections a échoué sur ce document\u00A0: vous l’éditez sans les voir."
+    "panneRepli": "L’affichage des corrections a échoué sur ce document\u00A0: retour en mode Lire."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {Aucune correction} one {# correction} other {# corrections}}",
@@ -144,8 +144,6 @@
     "accepterDe": "Accepter\u00A0: {texte}",
     "refuserDe": "Refuser\u00A0: {texte}",
     "invisibles": "Des corrections ne s’affichent pas dans la liste (une suppression de paragraphe, par exemple)\u00A0: «\u00A0Tout accepter\u00A0» et «\u00A0Tout refuser\u00A0» les traitent.",
-    "enCours": "Corrections en attente",
-    "enAttente": "Des corrections attendent, mais elles ne peuvent pas s’afficher sur ce document pour l’instant.",
     "note": "{auteur} modifie une note\u00A0: «\u00A0{apres}\u00A0»",
     "ajoutNote": "{auteur} ajoute une note\u00A0: «\u00A0{apres}\u00A0»",
     "suppressionNote": "{auteur} supprime une note\u00A0: «\u00A0{avant}\u00A0»"

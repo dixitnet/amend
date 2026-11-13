@@ -186,6 +186,27 @@ test('panneau des suggestions : hors relecture, une invitation à la place de la
   assert.doesNotMatch(html, />TA</)
 })
 
+test('panneau des suggestions en consultation (sans surAccepter) : les cartes, sans Accepter ni Refuser', () => {
+  const html = rendre(
+    h(design.PanneauSuggestions, {
+      titre: 'Suggestions',
+      lignes: [{ cle: 'a', texte: 'Carla ajoute « donc »', auteur: 'Carla', passage: { avant: '', apres: 'donc' } }],
+      libelles: {
+        accepter: 'A',
+        refuser: 'R',
+        accepterDe: (x) => x,
+        refuserDe: (x) => x,
+        toutAccepter: 'TA',
+        toutRefuser: 'TR',
+      },
+      surMontrer: () => {},
+    }),
+  )
+  assert.match(html, /Carla/)
+  assert.match(html, /<ins>donc<\/ins>/)
+  assert.doesNotMatch(html, />A<|>R<|>TA<|>TR</)
+})
+
 test('liste des fils : le filtre (Ouverts, Résolus, Tous) sur sa valeur, puis l’emplacement de la liste', () => {
   const html = rendre(
     h(design.ListeDesFils, {
@@ -250,7 +271,7 @@ function coquilleDocument(t, { droite = true, relecture = {} } = {}) {
       bandeau: h(design.Bandeau, {
         voletGauche: { libelle: t('telephone.planEtDocuments'), ouvert: true, surClic: rien },
         titre: 'La gare',
-        mention: t('document.modeSuggestion'),
+        mention: t('document.lectureSeule'),
         terminer: { libelle: t('telephone.terminer'), surClic: rien },
         presence: { libelle: t('interface.presence'), personnes: [{ cle: 'c', nom: 'Claire Martin' }] },
         partager: { libelle: t('document.partager'), surClic: rien },
@@ -310,7 +331,7 @@ test('coquille d’un document : bandeau, volets, alerte et texte, dans chaque l
     assert.match(html, /data-niveau="3"/, 'le niveau du titre passe au design')
     assert.match(html, /role="status"/, 'l’alerte hors ligne est annoncée')
     assert.match(html, />3</, 'le nombre de suggestions sur le bouton du volet droit')
-    assert.ok(html.includes(echapper(t('document.modeSuggestion'))), `${l} : mention du mode`)
+    assert.ok(html.includes(echapper(t('document.lectureSeule'))), `${l} : mention du mode`)
     assert.match(html, /data-connexion="connecte"/, 'l’état de la connexion, en attribut')
   }
 })
@@ -646,6 +667,8 @@ test('volet de relecture : onglet ouvert piloté (« Corriger » ouvre Margo) ; 
 // navigateur : vérifié dans la pile. Ici, la zone du zoom et les pictos.
 test('zone du zoom et nouveaux pictos (11/11/2026)', () => {
   assert.match(rendre(h(design.ZoneZoom, { zoom: 150 }, 'texte')), /data-amend-zoom="150"/)
+  assert.doesNotMatch(rendre(h(design.ZoneZoom, { zoom: 100 }, 'texte')), /data-amend-lecture/)
+  assert.match(rendre(h(design.ZoneZoom, { zoom: 100, lecture: true }, 'texte')), /data-amend-lecture=""/)
   for (const role of ['exposant', 'tableDesMatieres', 'zoom', 'choisi'])
     assert.match(rendre(h(design.PictoDe, { role })), /<svg/, role)
 })

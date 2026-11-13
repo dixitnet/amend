@@ -14,6 +14,7 @@ import {
   attendreTexte,
   attendreEtat,
   donnerRole,
+  attendreMode,
   session as sessionSur,
 } from './outils.mjs'
 
@@ -187,8 +188,8 @@ test('droits : un correcteur ne fait que proposer, et l’interface le lui dit',
   const doc = docTest('correcteur')
   const p = await ouvrir('Paule', doc)
   const c = await ouvrir('Carl', doc, { role: 'correcteur' })
-  assert.equal(await p.getByText('Mode correction').count(), 0, 'pas de mention pour la propriétaire')
-  assert.equal(await c.getByText('Mode correction').count(), 1)
+  await attendreMode(p, 'Éditer') // la propriétaire s'ouvre en Éditer
+  await attendreMode(c, 'Corriger') // le correcteur en Corriger
 
   await p.click('.bn-editor')
   await p.keyboard.type('Texte de Paule.')

@@ -8,7 +8,9 @@
 // Mantine ; ses textes lui arrivent traduits, les gestes remontent par les
 // fonctions de rappel (l'indice de la carte). Hors relecture, une invitation
 // (un texte et un bouton) remplace la liste. `actionsGlobales` : « Tout
-// accepter », « Tout refuser » même sans carte.
+// accepter », « Tout refuser » même sans carte. Sans `surAccepter`, la liste
+// se consulte seulement : ni Accepter, ni Refuser, ni leurs variantes « Tout »
+// (le correcteur voit tout, sans arbitrer ; Sylvain, 12/11/2026).
 import { Stack, Group, Text, Button, Paper, UnstyledButton } from '@mantine/core'
 import { REGLAGES } from '../reglages.js'
 
@@ -35,11 +37,12 @@ export function PanneauSuggestions({
   actionsGlobales = false,
 }) {
   const { carte, pile, entete, auteur, boutons, accepter, refuser } = REGLAGES.suggestions
+  const arbitre = Boolean(surAccepter)
   return (
     <Stack component="section" aria-label={titre}>
       {/* Pas de titre visible (« 45 suggestions » : le nombre est sur l'onglet ;
           Sylvain, 12/11/2026) : il nomme la section pour les lecteurs d'écran,
-          et se lit seulement quand la liste est vide (« Aucune suggestion »). */}
+          et se lit seulement quand la liste est vide (« Aucune correction »). */}
       {!lignes.length && !invitation && !actionsGlobales ? <Text>{titre}</Text> : null}
       {invitation ? (
         <>
@@ -51,7 +54,7 @@ export function PanneauSuggestions({
           ) : null}
         </>
       ) : null}
-      {lignes.length || actionsGlobales ? (
+      {arbitre && (lignes.length || actionsGlobales) ? (
         <Group>
           <Button {...accepter} onClick={surToutAccepter}>
             {libelles.toutAccepter}
@@ -73,15 +76,17 @@ export function PanneauSuggestions({
                 <UnstyledButton onClick={() => surMontrer?.(i)} tabIndex={-1}>
                   <Text {...auteur}>{l.auteur}</Text>
                 </UnstyledButton>
-                <Group {...boutons}>
-                  {/* Un nom par ligne pour les lecteurs d'écran (audit du 10/11/2026). */}
-                  <Button {...accepter} aria-label={libelles.accepterDe(l.texte)} onClick={() => surAccepter(i)}>
-                    {libelles.accepter}
-                  </Button>
-                  <Button {...refuser} aria-label={libelles.refuserDe(l.texte)} onClick={() => surRefuser(i)}>
-                    {libelles.refuser}
-                  </Button>
-                </Group>
+                {arbitre ? (
+                  <Group {...boutons}>
+                    {/* Un nom par ligne pour les lecteurs d'écran (audit du 10/11/2026). */}
+                    <Button {...accepter} aria-label={libelles.accepterDe(l.texte)} onClick={() => surAccepter(i)}>
+                      {libelles.accepter}
+                    </Button>
+                    <Button {...refuser} aria-label={libelles.refuserDe(l.texte)} onClick={() => surRefuser(i)}>
+                      {libelles.refuser}
+                    </Button>
+                  </Group>
+                ) : null}
               </Group>
               <UnstyledButton onClick={() => surMontrer?.(i)} aria-label={l.texte} data-amend-carte>
                 {l.passage ? <Passage passage={l.passage} /> : <Text>{l.texte}</Text>}

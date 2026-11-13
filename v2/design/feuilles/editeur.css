@@ -26,6 +26,11 @@
   font-size: 150%;
 }
 
+/* réglage : css.editeur.lecture */
+[data-amend-lecture] .bn-thread-mark:not([data-orphan='true']) {
+  background: transparent;
+}
+
 /* réglage : css.editeur.table */
 nav[data-amend-bloc='tableDesMatieres'] ol {
   list-style: none;

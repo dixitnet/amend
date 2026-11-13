@@ -126,8 +126,8 @@ export async function menuDe(page, { id, nom }) {
     .click()
 }
 
-/** Le mode d'un éditeur (« Éditer », « Corriger », « Lire ») : le sélecteur du bandeau (formats L). */
-const selecteurDeMode = (page) => page.getByRole('radiogroup', { name: 'Mode d’édition' })
+/** Le mode (« Éditer », « Corriger », « Lire ») : le sélecteur du bandeau (format L). */
+const selecteurDeMode = (page) => page.getByRole('radiogroup', { name: 'Mode', exact: true })
 export async function choisirMode(page, libelle) {
   const choix = selecteurDeMode(page).getByText(libelle, { exact: true })
   await choix.click()
@@ -142,9 +142,16 @@ export async function choisirMode(page, libelle) {
 export const modeChoisi = (page) =>
   page.evaluate(
     () =>
-      [...document.querySelectorAll('[aria-label="Mode d’édition"] input[type=radio]')].find((i) => i.checked)
-        ?.labels?.[0]?.textContent ?? null,
+      [...document.querySelectorAll('[aria-label="Mode"] input[type=radio]')].find((i) => i.checked)?.labels?.[0]
+        ?.textContent ?? null,
   )
+
+/** Attend que le mode coché soit `libelle`. */
+export async function attendreMode(page, libelle, delai = 15000) {
+  for (const t0 = Date.now(); Date.now() - t0 < delai; await attendre(100))
+    if ((await modeChoisi(page)) === libelle) return
+  assert.equal(await modeChoisi(page), libelle)
+}
 
 /** Le panneau des suggestions, en une ligne. */
 export const panneau = (page) =>

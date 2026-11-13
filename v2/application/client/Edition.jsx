@@ -1,5 +1,5 @@
 // L'écran d'un document : éditeur, volets, relecture, Margo, export.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   PanneauSuggestions,
   PanneauMargo,
@@ -42,18 +42,16 @@ import { lireZoom, noterZoom, TEXTES_EDITEUR, FiletDeLEditeur } from './aidesEdi
 export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // L'interface suit les capacités, jamais le nom du rôle.
   const caps = droits.capacites
-  // Les trois modes d'un éditeur (Sylvain, 12/11/2026) : Éditer à l'ouverture
-  // (il écrit en voyant les corrections), Corriger (ce qu'il tape est une
-  // correction), Lire ; en Éditer et en Corriger, il accepte ou refuse les
-  // corrections. Le correcteur corrige toujours, le lecteur lit.
-  const [modeEditeur, setModeEditeur] = useState('ecrire')
-  // Après une panne de l'affichage des corrections : Éditer sans les voir.
-  const [sansCorrections, setSansCorrections] = useState(false)
-  // Choisir un mode sort de ce repli : l'affichage des corrections est retenté.
-  const choisirMode = (m) => {
-    setSansCorrections(false)
-    setModeEditeur(m)
-  }
+  // Les modes (Sylvain, 12/11/2026) : Éditer, Corriger, Lire pour l'éditeur ;
+  // Corriger et Lire pour le correcteur ; Lire seul pour le lecteur. On
+  // s'ouvre dans le premier ; au format S, en Lire, et un appui sur le texte
+  // passe au premier (useFormatS plus bas).
+  const modesPermis = caps.includes('ecrire')
+    ? ['editer', 'corriger', 'lire']
+    : caps.includes('suggerer')
+      ? ['corriger', 'lire']
+      : ['lire']
+  const [modeChoisi, setModeChoisi] = useState(null)
   const [zoom, setZoom] = useState(lireZoom)
   const choisirZoom = (z) => (setZoom(z), noterZoom(z))
   // Le compteur du menu « … », calculé à son ouverture, comme le menu de Docs.
@@ -68,13 +66,6 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
     : compte?.total
       ? t('document.compteur', compte.total)
       : null
-  const mode = caps.includes('ecrire')
-    ? modeEditeur === 'ecrire' && sansCorrections
-      ? 'ecrireSeul'
-      : modeEditeur
-    : caps.includes('suggerer')
-      ? 'suggerer'
-      : 'lire'
   const avecSuggestions = caps.includes('suggerer')
   const moi = useMemo(() => ({ ...personne, couleur: couleurAuteur(personne.id) }), [personne])
   const session = useMemo(
@@ -106,6 +97,9 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   )
   const { etroit, tactile } = useFormat()
   const formatS = useFormatS()
+  // Le mode du moment : celui choisi s'il est permis (les droits peuvent
+  // changer en cours de route), sinon celui de l'ouverture.
+  const mode = modesPermis.includes(modeChoisi) ? modeChoisi : formatS ? 'lire' : modesPermis[0]
   const volets = useVolets(etroit)
   const [fenetreSaisie, demanderNom] = useSaisie()
   const [fenetreConfirmation, confirmer] = useConfirmation()
@@ -134,6 +128,14 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const [titre, setTitre] = useState(droits.titre ?? null)
   const [volet, setVolet] = useState(null)
   const [enModification, setEnModification] = useState(false)
+  // Format S : la fin d'une modification (« Terminer », clavier fermé) ramène en Lire.
+  const surModification = useCallback(
+    (enCours) => {
+      setEnModification(enCours)
+      if (!enCours && formatS) setModeChoisi('lire')
+    },
+    [formatS],
+  )
   const controle = useRef(null)
   const [noms, setNoms] = useState({})
   // Margo (étape 8) : l'onglet du volet droit et le bouton « Corriger ».
@@ -261,24 +263,24 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // Exports Markdown et PDF du texte de base (étape 7), préparés dans le
   // navigateur comme chez Docs, depuis la fenêtre « Exporter ».
   const [fenetreExport, ouvrirExport] = useExport({ docId, controle, titre: titreAffiche, auteur: moi.nom })
-  // La mention du mode, pour qui n'a pas le choix (l'éditeur voit le sélecteur).
-  const mention = caps.includes('ecrire')
-    ? null
-    : { suggerer: t('document.modeSuggestion'), lire: t('document.lectureSeule') }[mode]
-  const MODES = [
-    ['ecrire', t('document.modeEcrire'), t('document.passerEcrire')],
-    ['suggerer', t('document.modeSuggerer'), t('document.passerSuggerer')],
-    ['lire', t('document.modeLire'), t('document.passerLire')],
-  ]
-  // Dans les menus (formats M et S) : passer à l'un des deux autres modes.
+  // La mention du mode, pour qui n'a pas le choix (le lecteur).
+  const mention = modesPermis.length > 1 ? null : t('document.lectureSeule')
+  const MODES = {
+    editer: [t('document.modeEditer'), t('document.passerEditer')],
+    corriger: [t('document.modeCorriger'), t('document.passerCorriger')],
+    lire: [t('document.modeLire'), t('document.passerLire')],
+  }
+  // Dans les menus (formats M et S) : passer à l'un des autres modes permis.
   const autresModes = (champ) =>
-    caps.includes('ecrire')
-      ? MODES.filter(([m]) => m !== modeEditeur).map(([m, , passer]) => ({
-          cle: `mode-${m}`,
-          libelle: passer,
-          [champ]: 'modifications',
-          surClic: () => choisirMode(m),
-        }))
+    modesPermis.length > 1
+      ? modesPermis
+          .filter((m) => m !== mode)
+          .map((m) => ({
+            cle: `mode-${m}`,
+            libelle: MODES[m][1],
+            [champ]: 'modifications',
+            surClic: () => setModeChoisi(m),
+          }))
       : []
   // « Copier le lien », le même dans tous les formats (audit du 10/11/2026) :
   // le lien du document, un retour, et le lien à recopier si le presse-papiers refuse.
@@ -327,29 +329,24 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       ? [{ cle: 'supprimer', libelle: t('document.supprimer'), picto: 'supprimer', separe: true, surClic: supprimer }]
       : []),
   ]
-  // Le lecteur ne voit pas les suggestions : pas de volet droit pour lui.
+  // En Lire, le texte seul : pas de volet droit (suggestions, commentaires, Margo).
   const avecVoletDroit = mode !== 'lire'
+  // Accepter et refuser : en Éditer et en Corriger, pour qui peut arbitrer
+  // (Sylvain, 13/11/2026) ; le correcteur voit tout, sans arbitrer.
+  const arbitre = mode !== 'lire' && caps.includes('arbitrer')
   // Contournement (veille) : l'afficheur dit qu'il reste des suggestions que la
   // liste ne montre pas (une suppression de paragraphe, après un rechargement) ;
   // « Tout accepter » et « Tout refuser » les traitent quand même.
-  // Le texte montre les corrections, et le volet leur liste, en Éditer et en Corriger.
-  const visibles = mode === 'ecrire' || mode === 'suggerer'
-  const invisibles = visibles && !!suggestions?.enAttente && suggestions.liste.length === 0
+  const invisibles = arbitre && !!suggestions?.enAttente && suggestions.liste.length === 0
   const modifications = suggestions ? (
     <PanneauSuggestions
-      titre={
-        visibles || !suggestions.enAttente
-          ? t('suggestions.titre', { n: suggestions.liste.length })
-          : t('suggestions.enCours')
-      }
-      // Après une panne de leur affichage, le texte ne montre pas les
-      // corrections : le volet le dit, sans liste.
+      titre={t('suggestions.titre', { n: suggestions.liste.length })}
       invitation={
-        !visibles && suggestions.enAttente
-          ? { texte: t('suggestions.enAttente') }
-          : invisibles
-            ? { texte: t('suggestions.invisibles') }
-            : null
+        invisibles
+          ? { texte: t('suggestions.invisibles') }
+          : caps.includes('ecrire')
+            ? null
+            : { texte: t('interface.modificationsCorrecteur') }
       }
       actionsGlobales={invisibles}
       lignes={suggestions.liste.map((s) => ({
@@ -374,10 +371,10 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         toutAccepter: t('suggestions.toutAccepter'),
         toutRefuser: t('suggestions.toutRefuser'),
       }}
-      surAccepter={(i) => suggestions.accepter(suggestions.liste[i])}
-      surRefuser={(i) => suggestions.refuser(suggestions.liste[i])}
-      surToutAccepter={suggestions.toutAccepter}
-      surToutRefuser={suggestions.toutRefuser}
+      surAccepter={arbitre ? (i) => suggestions.accepter(suggestions.liste[i]) : undefined}
+      surRefuser={arbitre ? (i) => suggestions.refuser(suggestions.liste[i]) : undefined}
+      surToutAccepter={arbitre ? suggestions.toutAccepter : undefined}
+      surToutRefuser={arbitre ? suggestions.toutRefuser : undefined}
     />
   ) : (
     <TexteDeVolet texte={t('interface.modificationsCorrecteur')} />
@@ -462,17 +459,16 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
     />
   ) : null
   // Un essai de plus de l'éditeur après une panne de l'affichage des
-  // corrections : repli en Éditer, sans les voir.
+  // suggestions (Éditer ou Corriger) : repli en Lire, qui ne les affiche pas.
   const [essaiEditeur, setEssaiEditeur] = useState(0)
   const editeur = (
-    <ZoneZoom zoom={zoom}>
+    <ZoneZoom zoom={zoom} lecture={mode === 'lire'}>
       <FiletDeLEditeur
         key={essaiEditeur}
         repli={<TexteDeVolet texte={t('suivi.panne')} />}
         surErreur={() => {
-          if (caps.includes('ecrire') && mode !== 'ecrireSeul') {
-            setSansCorrections(true)
-            setModeEditeur('ecrire')
+          if (mode !== 'lire') {
+            setModeChoisi('lire')
             setEssaiEditeur((n) => n + 1)
             montrerMessage(t('suivi.panneRepli'), { erreur: true })
           }
@@ -487,7 +483,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           mode={mode}
           nomsDe={nomsAvecMargo}
           commentaires={commentaires}
-          surSuggestions={caps.includes('arbitrer') ? setSuggestions : undefined}
+          surSuggestions={avecSuggestions ? setSuggestions : undefined}
           surNombreFils={commentaires ? setNombreFils : undefined}
           historique={historique && !formatS}
           peutRestaurer={caps.includes('restaurer')}
@@ -495,8 +491,11 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           fils={commentaires ? { element: cibleFils, filtre: filtreFils } : null}
           surRefus={(code) =>
             montrerMessage(
-              { 'suggestion-a-cheval': t('suivi.aCheval'), 'suggestion-mise-en-forme': t('suivi.miseEnForme') }[code] ??
-                messageErreur(t, code),
+              {
+                'suggestion-a-cheval': t('suivi.aCheval'),
+                'suggestion-mise-en-forme': t('suivi.miseEnForme'),
+                'edition-contre-suggestion': t('suivi.contreSuggestion'),
+              }[code] ?? messageErreur(t, code),
               {
                 erreur: true,
               },
@@ -510,8 +509,12 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
             })
           }
           lectureAuDepart={formatS || tactile}
+          // Format S : en Lire à l'ouverture, un appui sur le texte passe au
+          // mode d'écriture ; « Terminer » (ou le clavier fermé) ramène en Lire.
+          surAppuiEnLecture={formatS && modesPermis.length > 1 ? () => setModeChoisi(modesPermis[0]) : undefined}
+          modeApresAppui={formatS && modesPermis.length > 1 ? modesPermis[0] : undefined}
           controle={controle}
-          surModification={setEnModification}
+          surModification={surModification}
           surPlan={setPlan}
           corriger={corriger}
           surSelection={peutMargo ? setSelection : undefined}
@@ -710,12 +713,12 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           // L : dans le bandeau, comme la v1 ; M (iPad) : dans le menu « … »,
           // comme au téléphone, le bandeau étant trop étroit (10/11/2026).
           modes={
-            caps.includes('ecrire') && !etroit
+            modesPermis.length > 1 && !etroit
               ? {
                   libelle: t('document.modes'),
-                  valeur: modeEditeur,
-                  options: MODES.map(([m, libelle]) => ({ valeur: m, libelle })),
-                  surChange: choisirMode,
+                  valeur: mode,
+                  options: modesPermis.map((m) => ({ valeur: m, libelle: MODES[m][0] })),
+                  surChange: setModeChoisi,
                 }
               : null
           }

@@ -21,7 +21,6 @@
     "etat": "{etat, select, connecte {Synced} connexion {Connecting…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
     "lectureSeule": "Read only",
-    "modeSuggestion": "Correcting",
     "historique": "History",
     "mesDocuments": "My documents",
     "partager": "Share",
@@ -35,13 +34,13 @@
     "restaurerTitre": "Restore this version?",
     "restaurerTexte": "The document goes back to this version for everyone. The current state stays in the history (“Before restore”).",
     "restaurer": "Restore",
-    "modes": "Editing mode",
-    "modeEcrire": "Edit",
-    "modeSuggerer": "Correct",
+    "modes": "Working mode",
+    "modeEditer": "Edit",
+    "modeCorriger": "Correct",
     "modeLire": "Read",
-    "passerEcrire": "Edit the text",
-    "passerSuggerer": "Propose corrections",
-    "passerLire": "Read without editing",
+    "passerEditer": "Switch to Edit mode",
+    "passerCorriger": "Switch to Correct mode",
+    "passerLire": "Switch to Read mode",
     "exporter": "Export…",
     "copie": "{titre} (copy)",
     "dupliquer": "Duplicate",
@@ -126,10 +125,11 @@
     "tous": "All"
   },
   "suivi": {
-    "aCheval": "In Correct mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph, or switch to Edit.",
-    "miseEnForme": "In Correct mode, formatting is not proposed (it could not be accepted). Switch to Edit to change it.",
+    "aCheval": "In Correct mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph.",
+    "miseEnForme": "In Correct mode, formatting is not proposed (it could not be accepted).",
+    "contreSuggestion": "In Edit mode, next to a correction, only typing goes through: to delete, paste or format there, accept or reject the correction first.",
     "panne": "This document cannot be shown with its corrections. Reload the page; if it happens again, report it.",
-    "panneRepli": "Showing corrections failed on this document: you are editing without seeing them."
+    "panneRepli": "Showing corrections failed on this document: back to Read mode."
   },
   "suggestions": {
     "titre": "{n, plural, =0 {No corrections} one {# correction} other {# corrections}}",
@@ -144,8 +144,6 @@
     "accepterDe": "Accept: {texte}",
     "refuserDe": "Reject: {texte}",
     "invisibles": "Some corrections are not shown in the list (a paragraph deletion, for instance): “Accept all” and “Reject all” still handle them.",
-    "enCours": "Pending corrections",
-    "enAttente": "Corrections are waiting, but they cannot be shown on this document for now.",
     "note": "{auteur} edits a footnote: “{apres}”",
     "ajoutNote": "{auteur} adds a footnote: “{apres}”",
     "suppressionNote": "{auteur} deletes a footnote: “{avant}”"

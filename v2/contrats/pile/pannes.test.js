@@ -16,6 +16,8 @@ import {
   attendreEtat,
   attendreTexte,
   texte,
+  choisirMode,
+  modeChoisi,
   nouveauDocument,
   panneau as panneauDe,
 } from './outils.mjs'
@@ -123,6 +125,7 @@ test('noms d’auteurs introuvables : peu de requêtes /api/personnes en 10 s, e
   await attendre(300)
   await c.keyboard.type(' Ajout')
   // La suggestion est arrivée chez l'éditrice (noms disponibles).
+  if ((await modeChoisi(p)) !== 'Éditer') await choisirMode(p, 'Éditer')
   for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/Carla ajoute/.test(await panneauDe(p)); await attendre(200));
   assert.match(await panneauDe(p), /Carla ajoute/)
 
@@ -136,6 +139,7 @@ test('noms d’auteurs introuvables : peu de requêtes /api/personnes en 10 s, e
   await q.goto(`${pile.url}/#${doc}`)
   await q.waitForSelector('.bn-editor')
   await attendreEtat(q, 'connecte')
+  if ((await modeChoisi(q)) !== 'Éditer') await choisirMode(q, 'Éditer')
   for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/ajoute/.test(await panneauDe(q)); await attendre(200));
   assert.match(await panneauDe(q), /Quelqu’un ajoute/, 'la ligne s’affiche, auteur inconnu')
   await attendre(10000)
