@@ -40,11 +40,14 @@ export {
   gabaritTypst,
   grille,
   chaineTypst,
-  appliquerEcarts,
+  appliquerReglages,
+  verifierModele,
+  completerModele,
+  famillesDuModele,
+  ALIGNEMENTS,
+  NOMS_STYLES,
   valeurDuReglage,
   modeleRetenu,
-  resoudreModele,
-  ecartsVers,
   SEPARATEURS,
   debutChapitre,
   peutChoisirModele,
@@ -74,6 +77,7 @@ export {
   trierDocuments,
 } from './corbeille.js'
 export { IMAGE_MAX_OCTETS, IMAGES_DOCUMENT_MAX_OCTETS, typeImage, refusImage, nomImageValide } from './images.js'
+export { ancienModele, versModeleParStyle } from './migrationModeles.js'
 export {
   POLICE_MAX_OCTETS,
   STYLES_POLICE,
