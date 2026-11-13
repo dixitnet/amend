@@ -39,14 +39,20 @@ export function useEnLigne() {
  * `REGLAGES.synchro.delaiHorsLigne` ; sinon celui du fournisseur.
  */
 export function useEtatAffiche(etat, enLigne) {
+  // « Trop long » reste vrai tant que la connexion n'a pas abouti : le fournisseur
+  // alterne « en connexion » et « déconnecté » à chaque essai, sans que le
+  // picto ne clignote entre « hors ligne » et « synchronisation ».
   const [trop, setTrop] = useState(false)
   useEffect(() => {
-    setTrop(false)
-    if (etat !== 'connexion') return undefined
-    const minuteur = setTimeout(() => setTrop(true), REGLAGES.synchro.delaiHorsLigne)
-    return () => clearTimeout(minuteur)
+    if (etat === 'connecte') setTrop(false)
+    else if (etat === 'deconnecte') setTrop(true)
+    else {
+      const minuteur = setTimeout(() => setTrop(true), REGLAGES.synchro.delaiHorsLigne)
+      return () => clearTimeout(minuteur)
+    }
+    return undefined
   }, [etat])
-  return !enLigne || (etat === 'connexion' && trop) ? 'deconnecte' : etat
+  return !enLigne || (etat !== 'connecte' && trop) ? 'deconnecte' : etat
 }
 
 /** Le palier proposé (d'une liste) le plus proche d'un zoom mémorisé : 50 % devient 100 % au format S.
