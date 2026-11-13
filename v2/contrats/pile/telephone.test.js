@@ -239,3 +239,27 @@ test('format S, essai ?barre=bandeau : la barre de mise en forme est dans le ban
     document.querySelector('.bn-editor strong, .bn-editor [data-style-type="bold"], .bn-editor b'),
   )
 })
+
+test('format S, essai : ?barre=bandeau l’active et le retient, ?barre=flottante le retire', async () => {
+  const doc = docTest('s-barre-adresse')
+  const p = await ouvrir('Paule', doc)
+  const racine = new URL(p.url()).origin
+  await p.goto(`${racine}/?barre=bandeau#${doc}`)
+  await p
+    .getByRole('status', { name: /Synchronis|Hors ligne/ })
+    .first()
+    .waitFor()
+  assert.equal(await p.evaluate(() => localStorage.getItem('amend.essai.barre')), '1')
+  await p.goto(`${racine}/#${doc}`)
+  await p
+    .getByRole('status', { name: /Synchronis|Hors ligne/ })
+    .first()
+    .waitFor()
+  assert.equal(await p.evaluate(() => localStorage.getItem('amend.essai.barre')), '1', 'retenu sans le paramètre')
+  await p.goto(`${racine}/?barre=flottante#${doc}`)
+  await p
+    .getByRole('status', { name: /Synchronis|Hors ligne/ })
+    .first()
+    .waitFor()
+  assert.equal(await p.evaluate(() => localStorage.getItem('amend.essai.barre')), null)
+})

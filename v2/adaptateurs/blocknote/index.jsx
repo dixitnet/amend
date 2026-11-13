@@ -218,12 +218,18 @@ function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote,
 /** ESSAI (13/11/2026, à juger sur iPhone) : la barre de mise en forme dans un
  * bandeau du format S, au lieu de la palette flottante. Quatre boutons seulement. */
 const BOUTONS_DE_L_ESSAI = ['boldStyleButton', 'italicStyleButton', 'underlineStyleButton', 'createLinkButton']
-function BarreEnBandeau({ titres }) {
+function BarreEnBandeau({ titres, corriger, suggerer }) {
   const editeur = useBlockNoteEditor()
-  const boutons = getFormattingToolbarItems(typesDeBloc(editeur, titres)).filter((b) =>
-    BOUTONS_DE_L_ESSAI.includes(b.key),
+  // Pas de mise en forme en Suggérer (comme la palette) ; le bouton « Corriger » de Margo reste.
+  const boutons = suggerer
+    ? []
+    : getFormattingToolbarItems(typesDeBloc(editeur, titres)).filter((b) => BOUTONS_DE_L_ESSAI.includes(b.key))
+  return (
+    <FormattingToolbar>
+      {boutons}
+      {corriger ? <BoutonCorriger corriger={corriger} /> : null}
+    </FormattingToolbar>
   )
-  return <FormattingToolbar>{boutons}</FormattingToolbar>
 }
 
 /** La barre d'un lien en mode Corriger : seulement l'ouvrir. Le modifier ou
@@ -878,7 +884,7 @@ export function EditeurCollaboratif({
       {magasin && mode !== 'lire' ? <FloatingComposerController /> : null}
       {barre?.element ? (
         <RenderInPortalElement target={barre.element}>
-          <BarreEnBandeau titres={textes} />
+          <BarreEnBandeau titres={textes} corriger={corriger} suggerer={mode === 'corriger'} />
         </RenderInPortalElement>
       ) : (
         <FormattingToolbarController formattingToolbar={palette} />
