@@ -182,9 +182,9 @@ function TitreModifiable({ titre, renommer }) {
 }
 
 /**
- * Le bandeau : volet gauche, étoile des favoris, titre (modifiable d’un clic), mention du mode (« Mode suggestion »,
+ * Le bandeau : volet gauche, étoile des favoris, titre (modifiable d’un clic), mention du mode (« Mode correction »,
  * « Lecture seule »), puis (document) le choix du mode d'un éditeur
- * (Modifier, Suggérer, Relire, comme l'exemple de BlockNote), « Terminer »,
+ * (Éditer, Corriger, Lire), « Terminer »,
  * présence, « Partager », menu « … », compte,
  * volet droit. Le volet gauche est toujours là ; le reste est facultatif.
  */
