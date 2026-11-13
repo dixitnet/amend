@@ -1,5 +1,7 @@
 # amend.ink v2 : procédure de test de l'éditeur, du suivi des modifications et des commentaires
 
+> **Remplacée le 13/11/2026** par la campagne de test (`procedure-campagne.md`) : trois navigateurs, trois formats, état de référence, bilan. Ce document garde la liste d'origine des scénarios.
+
 Statut : **proposée** le 10/11/2026 (Sylvain : « une procédure de test complète… on finalise les tests, on fait le bilan et seulement ensuite on corrige »). Aucun correctif tant que le bilan n'est pas fait (le correctif du plantage trouvé par le scénario à cinq est mis de côté : `docs/v2-tests/correctif-suivi-en-attente.patch`).
 
 ## Comment
