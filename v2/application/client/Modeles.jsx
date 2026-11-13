@@ -3,10 +3,18 @@
 // administrateurs), dans un même composant. Le serveur envoie chaque modèle
 // complet ; le formulaire en montre les réglages ouverts, par groupe.
 import { useState } from 'react'
-import { PanneauModeles, FormulaireModele, REGLES_MODELES, REGLES_MODELES_INSTANCE } from '../../design/index.js'
+import {
+  PanneauModeles,
+  FormulaireModele,
+  PanneauPolices,
+  Fenetre,
+  REGLES_MODELES,
+  REGLES_MODELES_INSTANCE,
+} from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
 import { valeurDuReglage } from '../../domaine/index.js'
 import { t, envoyerJson } from './commun.js'
+import { envoyerPolice } from './commentaires.js'
 
 /** Les noms des modèles du code, des réglages et de leurs options (catalogue
  * des textes) ; un modèle ou un réglage ajouté au design s'ajoute ici. */
@@ -88,8 +96,10 @@ export const groupesDeModeles = (equipe, maison, deLEquipe = []) => [
     : []),
 ]
 /** Les champs du formulaire d'un modèle complet, pour une liste de réglages. */
-const champsDu = (complet, regles) => {
-  const polices = regles.polices.map((p) => ({ value: p.famille, label: p.famille }))
+const champsDu = (complet, regles, familles = null) => {
+  // Le catalogue des polices : celui que le serveur envoie (polices de
+  // l'instance comprises), sinon celui du code.
+  const polices = (familles ?? regles.polices.map((p) => p.famille)).map((f) => ({ value: f, label: f }))
   return regles.reglables.map((r) => ({
     cle: r.cle,
     type: r.type,
@@ -117,6 +127,9 @@ const champsDu = (complet, regles) => {
  * @param {Array<any>} o.bases  les modèles dont on peut partir (code, instance)
  * @param {{ options: Array<any>, valeur: string | null, enregistre: (v: string) => string | null }} o.defaut
  * @param {object} o.regles  les réglages ouverts (équipe ou instance)
+ * @param {string[] | null} [o.polices]  les familles du catalogue (serveur)
+ * @param {string | null} [o.intro]  le texte d'en-tête de la liste
+ * @param {boolean} [o.enFenetre]  régler un modèle dans une fenêtre (back-office)
  * @param {(m: any) => string} o.detail
  * @param {(m: any) => string} o.texteSuppression
  * @param {string} o.libelleDefaut
@@ -130,6 +143,9 @@ function GestionModeles({
   bases,
   defaut,
   regles,
+  polices = null,
+  intro = null,
+  enFenetre = false,
   detail,
   texteSuppression,
   libelleDefaut,
@@ -153,29 +169,30 @@ function GestionModeles({
     }
   }
   const regle = modeles.find((m) => m.id === enReglage)
-  if (regle?.complet) {
-    return (
-      <FormulaireModele
-        key={regle.id}
-        libelles={{ nom: t('modeles.nom'), enregistrer: t('modeles.enregistrer'), annuler: t('interface.annuler') }}
-        nom={regle.nom}
-        groupes={groupes()}
-        champs={champsDu(regle.complet, regles)}
-        message={message}
-        surEnregistrer={async ({ nom, valeurs }) => {
-          if (
-            await essayerDe(
-              () => envoyerJson('PUT', `${chemin}/${encodeURIComponent(regle.id)}`, { nom, ecarts: valeurs }),
-              t('modeles.enregistre'),
-            )
+  const formulaire = regle?.complet ? (
+    <FormulaireModele
+      key={regle.id}
+      libelles={{ nom: t('modeles.nom'), enregistrer: t('modeles.enregistrer'), annuler: t('interface.annuler') }}
+      nom={regle.nom}
+      groupes={groupes()}
+      champs={champsDu(regle.complet, regles, polices)}
+      message={message}
+      surEnregistrer={async ({ nom, valeurs }) => {
+        if (
+          await essayerDe(
+            () => envoyerJson('PUT', `${chemin}/${encodeURIComponent(regle.id)}`, { nom, ecarts: valeurs }),
+            t('modeles.enregistre'),
           )
-            setEnReglage(null)
-        }}
-        surAnnuler={() => (setEnReglage(null), setMessage(null))}
-      />
-    )
-  }
-  return (
+        )
+          setEnReglage(null)
+      }}
+      surAnnuler={() => (setEnReglage(null), setMessage(null))}
+    />
+  ) : null
+  // Dans la fenêtre d'une équipe, le formulaire remplace la liste ; au
+  // back-office, il s'ouvre dans une fenêtre, la liste restant dessous (13/11/2026).
+  if (formulaire && !enFenetre) return formulaire
+  const liste = (
     <PanneauModeles
       libelles={{
         defaut: libelleDefaut,
@@ -187,7 +204,9 @@ function GestionModeles({
         aucun,
         modifierDe: (nom) => t('modeles.modifierDe', { nom }),
         supprimerDe: (nom) => t('modeles.supprimerDe', { nom }),
+        titres: { defaut: t('modeles.titreDefaut'), liste: t('modeles.titreListe'), creer: t('modeles.titreCreer') },
       }}
+      intro={intro}
       defaut={{
         options: defaut.options,
         valeur: defaut.valeur,
@@ -196,6 +215,14 @@ function GestionModeles({
       modeles={modeles.map((m) => ({
         cle: m.id,
         nom: m.nom,
+        // Le format de la page et la police, pour reconnaître un modèle d'un coup d'œil.
+        resume: m.complet
+          ? t('modeles.resume', {
+              largeur: m.complet.page.largeur,
+              hauteur: m.complet.page.hauteur,
+              police: m.complet.police,
+            })
+          : null,
         detail: detail(m),
         parDefaut: m.id === defaut.valeur ? t('modeles.parDefaut') : null,
       }))}
@@ -231,6 +258,20 @@ function GestionModeles({
       }}
     />
   )
+  if (!enFenetre) return liste
+  return (
+    <>
+      {liste}
+      <Fenetre
+        ouverte={Boolean(formulaire)}
+        titre={regle ? t('modeles.reglerTitre', { nom: regle.nom }) : ''}
+        libelleFermer={t('interface.fermer')}
+        surFermer={() => (setEnReglage(null), setMessage(null))}
+      >
+        {formulaire}
+      </Fenetre>
+    </>
+  )
 }
 
 /** La valeur « celui de l'instance » du défaut d'une équipe (enregistrée nulle). */
@@ -249,6 +290,7 @@ export function ModelesEquipe({ vue, confirmer, surChangement, essayer = null })
       modeles={modeles}
       bases={maison}
       regles={REGLES_MODELES}
+      polices={vue.polices ?? null}
       defaut={{
         options: [
           {
@@ -282,6 +324,9 @@ export function ModelesInstance({ donnees, confirmer, surChangement }) {
       modeles={donnees.modeles}
       bases={[code]}
       regles={REGLES_MODELES_INSTANCE}
+      polices={donnees.polices ?? null}
+      intro={t('admin.modelesPdf.intro', { code: nomDuModele(code) })}
+      enFenetre
       defaut={{
         options: groupesDeModeles(null, [code, ...donnees.modeles]),
         valeur: donnees.defaut ?? code.id,
@@ -301,6 +346,104 @@ export function ModelesInstance({ donnees, confirmer, surChangement }) {
       texteSuppression={(m) => t('admin.modelesPdf.confirmerSuppression', { nom: m.nom, code: nomDuModele(code) })}
       confirmer={confirmer}
       surChangement={surChangement}
+    />
+  )
+}
+
+/** Des octets en mégaoctets, à une décimale (le catalogue met le nombre en forme). */
+/** Une liste de noms dans la langue de l'interface (« A, B et C »). */
+const enListe = (noms) => new Intl.ListFormat(t.langue, { style: 'long', type: 'conjunction' }).format(noms)
+const octetsEnMo = (n) => Math.round((n / (1024 * 1024)) * 10) / 10
+const NOMS_STYLES = {
+  romain: () => t('admin.polices.styles.romain'),
+  italique: () => t('admin.polices.styles.italique'),
+  gras: () => t('admin.polices.styles.gras'),
+  'gras-italique': () => t('admin.polices.styles.grasItalique'),
+}
+const nomDuStyle = (s) => NOMS_STYLES[s]?.() ?? s
+
+/** Les polices de l'instance (back-office, administrateurs, 13/11/2026) :
+ * `donnees` est la réponse de `GET /api/admin/polices`. */
+export function PolicesInstance({ donnees, confirmer, surChangement }) {
+  const [message, setMessage] = useState(null)
+  const [enCours, setEnCours] = useState(false)
+  const erreur = (e) =>
+    messageErreur(t, e.code || 'reseau', {
+      famille: e.famille ?? '',
+      modeles: enListe(e.modeles ?? []),
+      max: octetsEnMo(donnees.max),
+    })
+  const envoyer = async (fichiers) => {
+    if (!fichiers?.length) return
+    setEnCours(true)
+    const faits = []
+    const refus = []
+    for (const f of fichiers) {
+      try {
+        const r = await envoyerPolice(f)
+        faits.push(t('admin.polices.envoye', { famille: r.famille, style: nomDuStyle(r.style) }))
+      } catch (e) {
+        refus.push(t('admin.polices.refuse', { fichier: f.name, raison: erreur(e) }))
+      }
+    }
+    setEnCours(false)
+    setMessage([...faits, ...refus].join(' '))
+    surChangement()
+  }
+  const supprimer = async (id) => {
+    const fichier = donnees.familles.flatMap((f) => f.fichiers).find((x) => x.id === id)
+    // Supprimé entre-temps (autre onglet) : on recharge la liste.
+    if (!fichier) return surChangement()
+    if (
+      !(await confirmer({
+        titre: t('admin.polices.supprimer'),
+        texte: t('admin.polices.confirmerSuppression', { fichier: fichier.fichier }),
+        libelle: t('admin.polices.supprimer'),
+        danger: true,
+      }))
+    )
+      return
+    try {
+      await envoyerJson('DELETE', `/api/admin/polices/${encodeURIComponent(id)}`)
+      setMessage(null)
+    } catch (e) {
+      setMessage(erreur(e))
+    }
+    surChangement()
+  }
+  return (
+    <PanneauPolices
+      libelles={{
+        fournies: t('admin.polices.fournies'),
+        envoyees: t('admin.polices.envoyees'),
+        aucune: t('admin.polices.aucune'),
+        envoyer: t('admin.polices.envoyer'),
+        supprimer: t('admin.polices.supprimer'),
+        supprimerDe: (fichier) => t('admin.polices.supprimerDe', { fichier }),
+      }}
+      intro={t('admin.polices.intro')}
+      aide={t('admin.polices.aide', { max: octetsEnMo(donnees.max) })}
+      fournies={donnees.fournies}
+      familles={donnees.familles.map((f) => ({
+        famille: f.famille,
+        usage: f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null,
+        avertissement: f.manquants.length
+          ? t('admin.polices.manquants', { styles: enListe(f.manquants.map(nomDuStyle)) })
+          : null,
+        fichiers: f.fichiers.map((x) => ({
+          cle: x.id,
+          fichier: x.fichier,
+          libelle: t('admin.polices.fichier', {
+            style: nomDuStyle(x.style),
+            fichier: x.fichier,
+            taille: octetsEnMo(x.octets),
+          }),
+        })),
+      }))}
+      message={message}
+      enCours={enCours}
+      surFichiers={envoyer}
+      surSupprimer={supprimer}
     />
   )
 }

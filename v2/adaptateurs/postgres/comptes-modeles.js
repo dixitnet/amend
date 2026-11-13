@@ -22,6 +22,16 @@ export function partiesModeles(sql) {
         documents: m.documents,
       }))
     },
+    /** Les modèles de toutes les équipes (pour chercher ceux qui utilisent une police). */
+    async modelesDeToutesLesEquipes() {
+      return (await sql`select id, nom, base, ecarts, equipe from amend.modeles where equipe is not null`).map((m) => ({
+        id: m.id,
+        nom: m.nom,
+        base: m.base,
+        ecarts: m.ecarts,
+        equipe: m.equipe,
+      }))
+    },
     /** Les modèles de l'instance (sans équipe), avec ce qui s'en sert :
      * documents qui les ont choisis, équipes qui en ont fait leur défaut,
      * modèles d'équipe qui en dérivent. */

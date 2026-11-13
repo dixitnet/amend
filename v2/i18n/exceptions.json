@@ -19,6 +19,7 @@
     "export.markdown",
     "export.groupeMaison",
     "modeles.maison.tat-poche",
-    "admin.couleurs.violet"
+    "admin.couleurs.violet",
+    "modeles.resume"
   ]
 }

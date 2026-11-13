@@ -21,9 +21,12 @@ const echec = (code) => Object.assign(new Error(code), { code })
  */
 export function modeleComplet(entree) {
   const complet = entree?.complet
-  const police = complet && REGLES_MODELES.polices.find((p) => p.famille === complet.police)
-  if (!police) throw echec('modele-introuvable')
-  return { ...complet, polices: police.fichiers }
+  // Une police fournie avec amend.ink : ses fichiers sont dans le catalogue du
+  // client ; une police de l'instance : le serveur a joint leurs adresses.
+  const fournie = complet && REGLES_MODELES.polices.find((p) => p.famille === complet.police)
+  const fichiers = fournie?.fichiers ?? (complet?.polices?.length ? complet.polices : null)
+  if (!fichiers) throw echec('modele-introuvable')
+  return { ...complet, polices: fichiers }
 }
 
 /**

@@ -187,4 +187,22 @@ create table if not exists amend.mesures (
   memoire bigint not null
 );
 create index if not exists mesures_le on amend.mesures (le);
+-- Les polices de l'instance (13/11/2026) : les fichiers qu'un administrateur
+-- envoie, pour les modèles de mise en page ; dans la base, comme les images,
+-- que la sauvegarde de la nuit emporte. La famille et le style sont lus dans
+-- le fichier (domaine).
+create table if not exists amend.polices (
+  id uuid primary key default gen_random_uuid(),
+  famille text not null,
+  style text not null,
+  graisse integer not null,
+  fichier text not null,
+  octets bytea not null,
+  taille integer not null,
+  cree_par uuid references amend.personnes (id) on delete set null,
+  cree_le timestamptz not null default now()
+);
+create index if not exists polices_famille on amend.polices (famille);
+-- Un seul fichier par famille, style et graisse : deux envois simultanés du même style ne passent pas tous deux.
+create unique index if not exists polices_unique on amend.polices (famille, style, graisse);
 `

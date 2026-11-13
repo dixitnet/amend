@@ -55,6 +55,22 @@ export async function envoyerImage(docId, fichier) {
   return donnees.url
 }
 
+/** Envoie un fichier de police de l'instance (13/11/2026) ; une réponse en
+ * erreur lève avec son code et la famille en cause, comme \`appel\`. */
+export async function envoyerPolice(fichier) {
+  const r = await fetch('/api/admin/polices', {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream', 'x-amend-fichier': encodeURIComponent(fichier.name) },
+    body: fichier,
+  })
+  const donnees = await r.json().catch(() => ({}))
+  if (!r.ok) {
+    const code = donnees.code || `http-${r.status}`
+    throw Object.assign(new Error(code), { code, famille: donnees.famille ?? null })
+  }
+  return donnees
+}
+
 /** Le service des commentaires d'un document. */
 export function serviceCommentaires(docId) {
   const base = `/api/documents/${encodeURIComponent(docId)}/fils`

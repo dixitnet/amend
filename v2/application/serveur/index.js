@@ -16,6 +16,8 @@ import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 import { creerImages } from './images.js'
+import { creerPolices } from './polices.js'
+import { REGLES_MODELES_INSTANCE } from '../../design/livre.js'
 import { adresseSansSecret } from './adresse.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { creerIA, MODELES, MODELE_PAR_DEFAUT } from '../../adaptateurs/ia/index.js'
@@ -549,6 +551,16 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
   const administrateurs = listeAdministrateurs(CONF.administrateurs)
   const administrateur = async (p) =>
     administrateurs.size > 0 && estAdministrateur((await comptes.personne(p.id))?.courriel, administrateurs)
+  // Les polices de l'instance (13/11/2026) : envoyées par les administrateurs.
+  // Le service des comptes (créé plus bas) cherche les modèles qui en usent.
+  const polices = creerPolices({
+    modelesUtilisant: (famille) => partage.modelesUtilisant(famille),
+    personneDe: identite.personneDe,
+    administrateur,
+    depot: comptes,
+    reservees: REGLES_MODELES_INSTANCE.polices.map((x) => x.famille),
+    json,
+  })
   // Le connecteur Claude du back-office (12/11/2026) : un serveur MCP sur les
   // documents du compte d'un administrateur.
   const connecteur = creerConnecteur({
@@ -609,6 +621,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       if (await margo(req, res, url)) return
       if (await connecteur(req, res, url)) return
       if (await images(req, res, url)) return
+      if (await polices(req, res, url)) return
       if (await partage(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })
