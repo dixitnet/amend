@@ -115,7 +115,13 @@
     "confirmation-invalide": "The address you typed is not your account’s.",
     "suppression-refusee": "Your account cannot be deleted yet: see the documents or teams listed.",
     "modele-inconnu": "This model does not exist.",
-    "modele-sans-cle": "This model has no key configured on this server."
+    "modele-sans-cle": "This model has no key configured on this server.",
+    "police-illisible": "This file is not a readable font.",
+    "police-format": "This format is not accepted (.ttf or .otf files only).",
+    "police-trop-lourde": "This file is too large ({max, number}\u00A0MB at most).",
+    "police-reservee": "The family “{famille}” ships with amend.ink: it cannot be added to.",
+    "police-en-double": "This style of the family “{famille}” is already uploaded.",
+    "police-utilisee": "The family “{famille}” is used by {modeles}: its last file cannot be deleted."
   },
   "commentaires": {
     "titre": "Comments",
@@ -313,7 +319,8 @@
       "defaut": "Default template of this instance",
       "aucun": "This instance has no template of its own yet.",
       "detail": "Based on “{titre}” · {n, plural, =0 {no documents} one {# document} other {# documents}} · {e, plural, =0 {no teams} one {# team} other {# teams}} · {d, plural, =0 {no team templates} one {# team template} other {# team templates}}",
-      "confirmerSuppression": "Delete the template “{nom}”? Documents and teams that chose it will use the default template; team templates based on it will start again from “{code}”."
+      "confirmerSuppression": "Delete the template “{nom}”? Documents and teams that chose it will use the default template; team templates based on it will start again from “{code}”.",
+      "intro": "A template sets the layout of exported PDFs: page size, margins, font, headings. “{code}” ships with amend.ink. Templates created here start from it and are offered to every document; each team can derive its own."
     },
     "connecteur": {
       "titre": "Claude connector",
@@ -329,7 +336,30 @@
       "avertissement": "Copy it now: it will not be shown again. A new address replaces the old one, which stops working.",
       "confirmerRevocation": "Revoke the connector address? Claude will no longer have access to your documents."
     },
-    "synthese": "Overview"
+    "synthese": "Overview",
+    "polices": {
+      "titre": "Fonts",
+      "intro": "The fonts offered in layout templates. The ones you upload here are added to those shipped with amend.ink and are embedded in exported PDFs.",
+      "aide": ".ttf or .otf files, {max, number}\u00A0MB each at most, one per style (regular, italic, bold, bold italic). The family and style are read from the file, not from its name.",
+      "fournies": "Shipped with amend.ink",
+      "envoyees": "Fonts of this instance",
+      "aucune": "No font uploaded yet.",
+      "envoyer": "Upload font files",
+      "supprimer": "Delete",
+      "supprimerDe": "Delete the file “{fichier}”",
+      "confirmerSuppression": "Delete the file “{fichier}”? PDFs already exported do not change.",
+      "envoye": "{famille}, {style}: uploaded.",
+      "refuse": "“{fichier}” refused: {raison}",
+      "usage": "{n, plural, one {Used by the template} other {Used by the templates}}: {modeles}",
+      "manquants": "Incomplete family, missing: {styles}. In a PDF, a missing style is replaced by another one of the family.",
+      "fichier": "{style} · {fichier} · {taille, number}\u00A0MB",
+      "styles": {
+        "romain": "regular",
+        "italique": "italic",
+        "gras": "bold",
+        "grasItalique": "bold italic"
+      }
+    }
   },
   "telephone": {
     "planEtDocuments": "Outline and documents",
@@ -474,7 +504,12 @@
     },
     "essayer": "Try",
     "essayerDe": "Export the open document with “{nom}”",
-    "defautInstance": "The instance default"
+    "defautInstance": "The instance default",
+    "titreDefaut": "Default template",
+    "titreListe": "Templates",
+    "titreCreer": "Create a template",
+    "resume": "{largeur, number}\u00A0×\u00A0{hauteur, number}\u00A0mm · {police}",
+    "reglerTitre": "Adjust “{nom}”"
   },
   "margo": {
     "accueil": "Ask Margo to proofread, correct or comment on the text. Its corrections arrive in the Corrections tab, to accept or reject.",

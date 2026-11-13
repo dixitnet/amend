@@ -105,6 +105,9 @@ export const REGLAGES = {
   // (le gris `dimmed` de Mantine n'a pas le contraste demandé ; 12/11/2026).
   // Seulement à partir de `lg` : plus étroit, le titre en serait coupé.
   compteur: { size: 'sm', visibleFrom: 'lg' },
+  // Les polices du back-office (13/11/2026) : le nom de la famille en gras ;
+  // le bouton de suppression d'un fichier, petit.
+  polices: { famille: { fw: 'bold' }, supprimer: { size: 'xs' } },
   // Le volet de Margo : la portée de la demande (« Sur la sélection », « Sur
   // tout le texte ») en étiquette discrète de Mantine, pour la distinguer des
   // échanges (Sylvain, 13/11/2026).

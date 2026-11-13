@@ -115,7 +115,13 @@
     "confirmation-invalide": "L’adresse tapée n’est pas celle de votre compte.",
     "suppression-refusee": "Votre compte ne peut pas encore être supprimé\u00A0: voyez les documents ou équipes indiqués.",
     "modele-inconnu": "Ce modèle n’existe pas.",
-    "modele-sans-cle": "Ce modèle n’a pas de clé configurée sur ce serveur."
+    "modele-sans-cle": "Ce modèle n’a pas de clé configurée sur ce serveur.",
+    "police-illisible": "Ce fichier n’est pas une police lisible.",
+    "police-format": "Ce format n’est pas accepté (fichiers .ttf ou .otf seulement).",
+    "police-trop-lourde": "Ce fichier est trop lourd ({max, number}\u00A0Mo au plus).",
+    "police-reservee": "La famille «\u00A0{famille}\u00A0» est fournie avec amend.ink\u00A0: elle ne se complète pas.",
+    "police-en-double": "Ce style de la famille «\u00A0{famille}\u00A0» est déjà envoyé.",
+    "police-utilisee": "La famille «\u00A0{famille}\u00A0» est utilisée par {modeles}\u00A0: son dernier fichier ne peut pas être supprimé."
   },
   "commentaires": {
     "titre": "Commentaires",
@@ -313,7 +319,8 @@
       "defaut": "Modèle par défaut de l’instance",
       "aucun": "L’instance n’a pas encore de modèle à elle.",
       "detail": "D’après «\u00A0{titre}\u00A0» · {n, plural, =0 {aucun document} one {# document} other {# documents}} · {e, plural, =0 {aucune équipe} one {# équipe} other {# équipes}} · {d, plural, =0 {aucun modèle d’équipe} one {# modèle d’équipe} other {# modèles d’équipe}}",
-      "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? Les documents et les équipes qui l’avaient choisi prendront le modèle par défaut\u202F; les modèles d’équipe qui en dérivent repartiront de «\u00A0{code}\u00A0»."
+      "confirmerSuppression": "Supprimer le modèle «\u00A0{nom}\u00A0»\u202F? Les documents et les équipes qui l’avaient choisi prendront le modèle par défaut\u202F; les modèles d’équipe qui en dérivent repartiront de «\u00A0{code}\u00A0».",
+      "intro": "Un modèle fixe la mise en page des PDF\u00A0: format, marges, police, titres. «\u00A0{code}\u00A0» est fourni avec amend.ink. Les modèles créés ici en partent et sont proposés à tous les documents\u202F; chaque équipe peut en dériver les siens."
     },
     "connecteur": {
       "titre": "Connecteur Claude",
@@ -329,7 +336,30 @@
       "avertissement": "Copiez-la maintenant\u00A0: elle ne sera plus affichée. Une nouvelle adresse remplace l’ancienne, qui cesse de fonctionner.",
       "confirmerRevocation": "Révoquer l’adresse du connecteur\u202F? Claude n’aura plus accès à vos documents."
     },
-    "synthese": "Synthèse"
+    "synthese": "Synthèse",
+    "polices": {
+      "titre": "Polices",
+      "intro": "Les polices proposées dans les modèles de mise en page. Celles que vous envoyez ici s’ajoutent à celles fournies avec amend.ink et sont incorporées dans les PDF exportés.",
+      "aide": "Fichiers .ttf ou .otf, {max, number}\u00A0Mo au plus chacun, un par style (romain, italique, gras, gras italique). La famille et le style sont lus dans le fichier, pas dans son nom.",
+      "fournies": "Fournies avec amend.ink",
+      "envoyees": "Polices de l’instance",
+      "aucune": "Aucune police envoyée pour l’instant.",
+      "envoyer": "Envoyer des fichiers de police",
+      "supprimer": "Supprimer",
+      "supprimerDe": "Supprimer le fichier «\u00A0{fichier}\u00A0»",
+      "confirmerSuppression": "Supprimer le fichier «\u00A0{fichier}\u00A0»\u202F? Les PDF déjà exportés ne changent pas.",
+      "envoye": "{famille}, {style}\u00A0: envoyé.",
+      "refuse": "«\u00A0{fichier}\u00A0» refusé\u00A0: {raison}",
+      "usage": "{n, plural, one {Utilisée par le modèle} other {Utilisée par les modèles}}\u00A0: {modeles}",
+      "manquants": "Famille incomplète, il manque\u00A0: {styles}. Dans un PDF, un style manquant est remplacé par un autre de la famille.",
+      "fichier": "{style} · {fichier} · {taille, number}\u00A0Mo",
+      "styles": {
+        "romain": "romain",
+        "italique": "italique",
+        "gras": "gras",
+        "grasItalique": "gras italique"
+      }
+    }
   },
   "telephone": {
     "planEtDocuments": "Plan et documents",
@@ -474,7 +504,12 @@
     },
     "essayer": "Essayer",
     "essayerDe": "Exporter le document ouvert avec «\u00A0{nom}\u00A0»",
-    "defautInstance": "Celui de l’instance"
+    "defautInstance": "Celui de l’instance",
+    "titreDefaut": "Modèle par défaut",
+    "titreListe": "Modèles",
+    "titreCreer": "Créer un modèle",
+    "resume": "{largeur, number}\u00A0×\u00A0{hauteur, number}\u00A0mm · {police}",
+    "reglerTitre": "Régler «\u00A0{nom}\u00A0»"
   },
   "margo": {
     "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent dans l’onglet Corrections, à accepter ou refuser.",

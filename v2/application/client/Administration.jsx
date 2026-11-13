@@ -4,7 +4,7 @@ import { EcranMessage, PageAdministration, Bouton, PanneauConnecteur } from '../
 import { messageErreur } from '../../i18n/index.js'
 import { t, envoyerJson, nomDuModele } from './commun.js'
 import { courbeDeMemoire } from './suivi.js'
-import { ModelesInstance } from './Modeles.jsx'
+import { ModelesInstance, PolicesInstance } from './Modeles.jsx'
 import { useConfirmation } from './fenetres.jsx'
 
 /** La période du suivi (le serveur garde sept jours de relevés). */
@@ -80,8 +80,17 @@ export function Administration({ surApparence }) {
     envoyerJson('GET', '/api/admin/modeles')
       .then((d) => (setModeles(d), setErreurModeles(null)))
       .catch((e) => setErreurModeles(e.code || 'reseau'))
+  // Les polices de l'instance (13/11/2026) ; une police envoyée ou retirée
+  // change aussi le catalogue des modèles.
+  const [polices, setPolices] = useState(null)
+  const [erreurPolices, setErreurPolices] = useState(null)
+  const chargerPolices = () =>
+    envoyerJson('GET', '/api/admin/polices')
+      .then((d) => (setPolices(d), setErreurPolices(null)))
+      .catch((e) => setErreurPolices(e.code || 'reseau'))
   useEffect(() => {
     chargerModeles()
+    chargerPolices()
   }, [])
   const [apparence, setApparence] = useState(null)
   const [erreurApparence, setErreurApparence] = useState(null)
@@ -223,6 +232,18 @@ export function Administration({ surApparence }) {
               <ModelesInstance donnees={modeles} confirmer={confirmer} surChangement={chargerModeles} />
               {fenetreConfirmation}
             </>
+          ) : null,
+        },
+        {
+          titre: t('admin.polices.titre'),
+          lignes: [],
+          vide: erreurPolices ? messageErreur(t, erreurPolices) : t('application.chargement'),
+          contenu: polices ? (
+            <PolicesInstance
+              donnees={polices}
+              confirmer={confirmer}
+              surChangement={() => (chargerPolices(), chargerModeles())}
+            />
           ) : null,
         },
         {

@@ -6,7 +6,20 @@
 // décident rien : les champs, leurs bornes et leurs valeurs viennent de
 // l'application, les gestes remontent par les fonctions de rappel. Placés
 // dans une `Fenetre`, qui porte le titre.
-import { Stack, Group, Text, TextInput, NumberInput, Select, Switch, Button, Badge, Fieldset } from '@mantine/core'
+import {
+  Stack,
+  Group,
+  Text,
+  Title,
+  TextInput,
+  NumberInput,
+  Select,
+  Switch,
+  Button,
+  Badge,
+  Fieldset,
+  FileButton,
+} from '@mantine/core'
 import { useState } from 'react'
 import { REGLAGES } from '../reglages.js'
 
@@ -59,7 +72,8 @@ export function PanneauExport({
  *   libelles: { defaut: string, nom: string, base: string, creer: string, modifier: string, supprimer: string,
  *     aucun: string, modifierDe: (nom: string) => string, supprimerDe: (nom: string) => string },
  *   defaut: { options: Array<any>, valeur: string, surChange: (v: string) => void },
- *   modeles: Array<{ cle: string, nom: string, detail: string, parDefaut?: string | null }>,
+ *   intro?: string | null,
+ *   modeles: Array<{ cle: string, nom: string, resume?: string | null, detail: string, parDefaut?: string | null }>,
  *   essayer?: { libelle: string, libelleDe: (nom: string) => string, surClic: (cle: string) => void } | null,
  *   bases: Array<{ value: string, label: string }>, message?: string | null,
  *   surCreer: (nom: string, base: string) => void, surModifier: (cle: string) => void, surSupprimer: (cle: string) => void,
@@ -67,6 +81,7 @@ export function PanneauExport({
  */
 export function PanneauModeles({
   libelles,
+  intro = null,
   defaut,
   modeles,
   bases,
@@ -85,8 +100,13 @@ export function PanneauModeles({
       e.currentTarget.reset()
     }
   }
+  // Trois blocs titrés (13/11/2026, « clarifier la page modèles ») : le
+  // défaut, les modèles, la création ; `intro` explique d'où viennent les modèles.
+  const { titres = {} } = libelles
   return (
     <Stack>
+      {intro ? <Text>{intro}</Text> : null}
+      {titres.defaut ? <Title order={3}>{titres.defaut}</Title> : null}
       <Select
         label={libelles.defaut}
         data={defaut.options}
@@ -94,12 +114,14 @@ export function PanneauModeles({
         onChange={defaut.surChange}
         allowDeselect={false}
       />
+      {titres.liste ? <Title order={3}>{titres.liste}</Title> : null}
       {modeles.length ? (
         <Stack component="ul">
           {modeles.map((m) => (
             <Group component="li" key={m.cle}>
               <Stack>
                 <Text>{m.nom}</Text>
+                {m.resume ? <Text>{m.resume}</Text> : null}
                 <Text>{m.detail}</Text>
               </Stack>
               {m.parDefaut ? <Badge>{m.parDefaut}</Badge> : null}
@@ -129,6 +151,7 @@ export function PanneauModeles({
         <Text>{libelles.aucun}</Text>
       )}
       {message ? <Text role="status">{message}</Text> : null}
+      {titres.creer ? <Title order={3}>{titres.creer}</Title> : null}
       <form onSubmit={soumettre}>
         <Group>
           <TextInput name="nom" label={libelles.nom} required />
@@ -226,5 +249,86 @@ export function FormulaireModele({ libelles, nom, groupes = [], champs, message,
         </Group>
       </Stack>
     </form>
+  )
+}
+
+/**
+ * Les polices de l'instance (back-office, 13/11/2026) : les familles fournies
+ * avec amend.ink, celles que l'administrateur a envoyées (leurs fichiers, ce
+ * qui leur manque, les modèles qui s'en servent), et l'envoi de fichiers.
+ * @param {{
+ *   libelles: { fournies: string, envoyees: string, aucune: string, envoyer: string, supprimer: string,
+ *     supprimerDe: (fichier: string) => string },
+ *   intro: string, aide: string,
+ *   fournies: string[],
+ *   familles: Array<{ famille: string, avertissement?: string | null, usage?: string | null,
+ *     fichiers: Array<{ cle: string, libelle: string, fichier: string }> }>,
+ *   message?: string | null, enCours: boolean,
+ *   surFichiers: (fichiers: File[]) => void, surSupprimer: (cle: string) => void,
+ * }} props
+ */
+export function PanneauPolices({
+  libelles,
+  intro,
+  aide,
+  fournies,
+  familles,
+  message,
+  enCours,
+  surFichiers,
+  surSupprimer,
+}) {
+  return (
+    <Stack>
+      <Text>{intro}</Text>
+      <Title order={3}>{libelles.fournies}</Title>
+      <Stack component="ul">
+        {fournies.map((f) => (
+          <Text component="li" key={f}>
+            {f}
+          </Text>
+        ))}
+      </Stack>
+      <Title order={3}>{libelles.envoyees}</Title>
+      {familles.length ? (
+        <Stack component="ul">
+          {familles.map((f) => (
+            <Stack component="li" key={f.famille}>
+              <Text {...REGLAGES.polices.famille}>{f.famille}</Text>
+              {f.usage ? <Text>{f.usage}</Text> : null}
+              {f.avertissement ? <Text role="note">{f.avertissement}</Text> : null}
+              <Stack component="ul">
+                {f.fichiers.map((x) => (
+                  <Group component="li" key={x.cle}>
+                    <Text>{x.libelle}</Text>
+                    <Button
+                      {...REGLAGES.boutonDanger}
+                      {...REGLAGES.polices.supprimer}
+                      aria-label={libelles.supprimerDe(x.fichier)}
+                      onClick={() => surSupprimer(x.cle)}
+                    >
+                      {libelles.supprimer}
+                    </Button>
+                  </Group>
+                ))}
+              </Stack>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text>{libelles.aucune}</Text>
+      )}
+      {message ? <Text role="status">{message}</Text> : null}
+      <Group>
+        <FileButton onChange={surFichiers} accept=".ttf,.otf" multiple>
+          {(props) => (
+            <Button {...props} loading={enCours}>
+              {libelles.envoyer}
+            </Button>
+          )}
+        </FileButton>
+      </Group>
+      <Text>{aide}</Text>
+    </Stack>
   )
 }
