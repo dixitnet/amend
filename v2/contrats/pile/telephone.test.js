@@ -222,3 +222,20 @@ test('format S : un serveur qui ne répond pas, au-delà de 10 secondes, est ann
   muet = false
   await p.getByRole('status', { name: 'Synchronisé' }).waitFor({ timeout: 60000 })
 })
+
+test('format S, essai ?barre=bandeau : la barre de mise en forme est dans le bandeau, la palette flottante n’est plus montée', async () => {
+  const doc = docTest('s-barre-bandeau')
+  const p = await ouvrir('Paule', doc)
+  await p.evaluate(() => localStorage.setItem('amend.essai.barre', '1'))
+  await p.reload()
+  await p.click('.bn-editor')
+  await p.keyboard.type('Un mot gras')
+  await p.keyboard.press('Shift+Home')
+  const barre = p.locator('header .amend-barre')
+  await barre.getByRole('button', { name: 'Gras' }).waitFor()
+  assert.equal(await p.locator('.bn-mobile-formatting-toolbar').count(), 0, 'plus de palette flottante')
+  await barre.getByRole('button', { name: 'Gras' }).click()
+  await p.waitForFunction(() =>
+    document.querySelector('.bn-editor strong, .bn-editor [data-style-type="bold"], .bn-editor b'),
+  )
+})

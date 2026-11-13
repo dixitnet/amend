@@ -42,6 +42,7 @@ import {
   lireZoom,
   noterZoom,
   palierLePlusProche,
+  lireEssaiBarre,
   useEnLigne,
   useEtatAffiche,
   TEXTES_EDITEUR,
@@ -135,6 +136,9 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   useEffect(() => setSuggestionActive(null), [empreinteListe])
   // L'onglet « Commentaires » : l'élément où l'éditeur place la liste des fils, et son filtre.
   const [cibleFils, setCibleFils] = useState(null)
+  // ESSAI : la barre de mise en forme en bandeau (format S), son emplacement.
+  const [cibleBarre, setCibleBarre] = useState(null)
+  const [essaiBarre] = useState(lireEssaiBarre)
   const [filtreFils, setFiltreFils] = useState('open')
   const [plan, setPlan] = useState({ titres: [], courant: null, allerA: () => {} })
   const [titre, setTitre] = useState(droits.titre ?? null)
@@ -516,6 +520,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           peutRestaurer={caps.includes('restaurer')}
           surFermerHistorique={() => setHistorique(false)}
           fils={commentaires ? { element: cibleFils, filtre: filtreFils } : null}
+          barre={formatS && essaiBarre && cibleBarre ? { element: cibleBarre } : null}
           surRefus={(code) =>
             montrerMessage(
               {
@@ -608,6 +613,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         connexion={connexion}
         mention={mention}
         enModification={enModification}
+        refBarre={essaiBarre ? setCibleBarre : undefined}
         surTerminer={() => controle.current?.terminer()}
         menu={[
           // Les favoris dans le menu, plus devant le titre (13/11/2026).
