@@ -148,6 +148,7 @@ export const REGLAGES = {
       tableDesMatieres: 18,
       titre: 18,
       sousTitre: 18,
+      legende: 18,
       paragraphe: 16,
       date: 18,
       noteDePage: 16,
