@@ -351,6 +351,8 @@ export function ModelesInstance({ donnees, confirmer, surChangement }) {
 }
 
 /** Des octets en mégaoctets, à une décimale (le catalogue met le nombre en forme). */
+/** Une liste de noms dans la langue de l'interface (« A, B et C »). */
+const enListe = (noms) => new Intl.ListFormat(t.langue, { style: 'long', type: 'conjunction' }).format(noms)
 const octetsEnMo = (n) => Math.round((n / (1024 * 1024)) * 10) / 10
 const NOMS_STYLES = {
   romain: () => t('admin.polices.styles.romain'),
@@ -368,7 +370,7 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
   const erreur = (e) =>
     messageErreur(t, e.code || 'reseau', {
       famille: e.famille ?? '',
-      modeles: (e.modeles ?? []).join(', '),
+      modeles: enListe(e.modeles ?? []),
       max: octetsEnMo(donnees.max),
     })
   const envoyer = async (fichiers) => {
@@ -390,6 +392,8 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
   }
   const supprimer = async (id) => {
     const fichier = donnees.familles.flatMap((f) => f.fichiers).find((x) => x.id === id)
+    // Supprimé entre-temps (autre onglet) : on recharge la liste.
+    if (!fichier) return surChangement()
     if (
       !(await confirmer({
         titre: t('admin.polices.supprimer'),
@@ -422,11 +426,9 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
       fournies={donnees.fournies}
       familles={donnees.familles.map((f) => ({
         famille: f.famille,
-        usage: f.modeles.length
-          ? t('admin.polices.usage', { n: f.modeles.length, modeles: f.modeles.join(', ') })
-          : null,
+        usage: f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null,
         avertissement: f.manquants.length
-          ? t('admin.polices.manquants', { styles: f.manquants.map(nomDuStyle).join(', ') })
+          ? t('admin.polices.manquants', { styles: enListe(f.manquants.map(nomDuStyle)) })
           : null,
         fichiers: f.fichiers.map((x) => ({
           cle: x.id,

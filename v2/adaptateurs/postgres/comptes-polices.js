@@ -23,20 +23,16 @@ export function partiesPolices(sql) {
     async garderPolice({ famille, style, graisse, fichier }, octets, personne) {
       const [p] = await sql`insert into amend.polices (famille, style, graisse, fichier, octets, taille, cree_par)
                             values (${famille}, ${style}, ${graisse}, ${fichier}, ${octets}, ${octets.length}, ${personne})
+                            on conflict (famille, style, graisse) do nothing
                             returning id`
-      return p.id
+      // `null` : ce style de cette famille est déjà là (envoi simultané).
+      return p?.id ?? null
     },
     /** Les octets d'un fichier de police, ou `null`. */
     async octetsPolice(id) {
       if (!estUuid(id)) return null
       const [p] = await sql`select octets from amend.polices where id = ${id}`
       return p ? new Uint8Array(p.octets) : null
-    },
-    /** Les modèles (de l'instance et des équipes) qui ont choisi cette famille. */
-    async modelesUtilisantPolice(famille) {
-      return (await sql`select nom from amend.modeles where ecarts->>'police' = ${famille} order by nom`).map(
-        (m) => m.nom,
-      )
     },
     /** Supprime un fichier de police ; rend vrai s'il existait. */
     async supprimerPolice(id) {

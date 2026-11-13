@@ -552,7 +552,9 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
   const administrateur = async (p) =>
     administrateurs.size > 0 && estAdministrateur((await comptes.personne(p.id))?.courriel, administrateurs)
   // Les polices de l'instance (13/11/2026) : envoyées par les administrateurs.
+  // Le service des comptes (créé plus bas) cherche les modèles qui en usent.
   const polices = creerPolices({
+    modelesUtilisant: (famille) => partage.modelesUtilisant(famille),
     personneDe: identite.personneDe,
     administrateur,
     depot: comptes,

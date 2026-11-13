@@ -194,7 +194,8 @@ export function creerComptes({
   const connexion = creerConnexion(ctx)
   const moi = creerMoi(ctx)
   const dossiers = creerDossiers(ctx)
-  const { modelesEquipe, vueModelesEquipe, modelesInstance, modelesDocument, reprendre } = creerModeles(ctx)
+  const { modelesEquipe, vueModelesEquipe, modelesInstance, modelesDocument, reprendre, modelesUtilisant } =
+    creerModeles(ctx)
   const equipes = creerEquipes({ ...ctx, modelesEquipe, vueModelesEquipe })
   const { corbeille, listeEtCreation, document } = creerDocuments(ctx)
   const acces = creerAcces(ctx)
@@ -212,7 +213,7 @@ export function creerComptes({
     })
   }
 
-  return Object.assign(traiter, { purger, reprendreModeles: reprendre })
+  return Object.assign(traiter, { purger, reprendreModeles: reprendre, modelesUtilisant })
 
   async function traiter(req, res, url) {
     // Les modèles de l'instance (back-office, 12/11/2026).

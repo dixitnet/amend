@@ -203,4 +203,6 @@ create table if not exists amend.polices (
   cree_le timestamptz not null default now()
 );
 create index if not exists polices_famille on amend.polices (famille);
+-- Un seul fichier par famille, style et graisse : deux envois simultanés du même style ne passent pas tous deux.
+create unique index if not exists polices_unique on amend.polices (famille, style, graisse);
 `

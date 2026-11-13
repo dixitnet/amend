@@ -42,6 +42,19 @@ function sansPolices(modele) {
 export function creerModeles(ctx) {
   const { comptes, lireCorps, json, ok, err, administrateur } = ctx
 
+  /** Les noms des modèles (de l'instance et des équipes) dont la police, une
+   * fois le modèle résolu (écarts et héritage), est cette famille : un modèle
+   * qui hérite de la police de sa base compte (13/11/2026, audit). */
+  async function modelesUtilisant(famille) {
+    const { complet, instance } = await sources()
+    const noms = []
+    for (const m of [...instance, ...(await comptes.modelesDeToutesLesEquipes())]) {
+      const c = complet(m)
+      if (c?.police === famille) noms.push(m.nom)
+    }
+    return noms.sort((a, b) => a.localeCompare(b, 'fr'))
+  }
+
   /** Les modèles de l'instance, et la façon de résoudre n'importe quel modèle. */
   async function sources() {
     const instance = await comptes.modelesInstance()
@@ -268,5 +281,5 @@ export function creerModeles(ctx) {
     }
   }
 
-  return { modelesEquipe, vueModelesEquipe, modelesInstance, modelesDocument, reprendre }
+  return { modelesEquipe, vueModelesEquipe, modelesInstance, modelesDocument, reprendre, modelesUtilisant }
 }

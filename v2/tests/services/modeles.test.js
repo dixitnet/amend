@@ -403,6 +403,10 @@ test('polices de l’instance : l’administrateur envoie, la famille est lue da
   )
   assert.deepEqual([reservee.statut, reservee.json.code], [409, 'police-reservee'])
 
+  // Trop lourd : refusé par la route avant lecture (le domaine le refuse aussi).
+  const lourd = await envoyerPolice(ada.cookie, new Uint8Array(10 * 1024 * 1024 + 1), 'lourd.ttf').catch((e) => e)
+  assert.ok(lourd.statut === 413 || lourd instanceof Error, 'trop lourd : refusé (413 ou connexion coupée)')
+
   // Envoi du romain : la famille et le style viennent du fichier, pas de son nom.
   const romain = await envoyerPolice(ada.cookie, policeDEssai('EBGaramond-Regular.ttf', famille), 'n’importe quoi.ttf')
   assert.equal(romain.statut, 201)
@@ -411,6 +415,11 @@ test('polices de l’instance : l’administrateur envoie, la famille est lue da
     (await envoyerPolice(ada.cookie, policeDEssai('EBGaramond-Regular.ttf', famille), 'bis.ttf')).json.code,
     'police-en-double',
   )
+  // Deux envois simultanés du même style : un seul passe.
+  const gras = policeDEssai('EBGaramond-SemiBold.ttf', famille)
+  const course = await Promise.all([envoyerPolice(ada.cookie, gras, 'a.ttf'), envoyerPolice(ada.cookie, gras, 'b.ttf')])
+  assert.deepEqual(course.map((r) => r.statut).sort(), [201, 409], 'un seul des deux envois simultanés est gardé')
+  await appel('DELETE', `/api/admin/polices/${course.find((r) => r.statut === 201).json.id}`, a)
   let liste = (await appel('GET', '/api/admin/polices', a)).json
   let f = liste.familles.find((x) => x.famille === famille)
   assert.deepEqual(f.manquants, ['italique', 'gras', 'gras-italique'], 'une famille incomplète est acceptée, et le dit')
@@ -442,12 +451,21 @@ test('polices de l’instance : l’administrateur envoie, la famille est lue da
     'reglage-hors-bornes',
   )
 
+  // Un modèle d'équipe qui dérive du modèle de l'instance hérite de la police
+  // sans l'écrire dans ses écarts : il compte aussi (audit du 13/11/2026).
+  const { gaelle: gestionnaire, eq: equipe } = await equipeEtDocument()
+  await appel('POST', `/api/equipes/${equipe.id}/modeles`, {
+    cookie: gestionnaire.cookie,
+    corps: { nom: 'Dérivé', base: m.id },
+  })
+
   // Supprimer : un fichier part ; le dernier d'une famille utilisée, non.
   assert.equal((await appel('DELETE', `/api/admin/polices/${italique.json.id}`, a)).statut, 200)
   const dernier = await appel('DELETE', `/api/admin/polices/${romain.json.id}`, a)
   assert.deepEqual(
     [dernier.statut, dernier.json.code, dernier.json.modeles],
-    [409, 'police-utilisee', [`Avec ${famille}`]],
+    [409, 'police-utilisee', [`Avec ${famille}`, 'Dérivé']],
+    'le modèle d’équipe qui hérite de la police compte aussi',
   )
   await appel('DELETE', `/api/admin/modeles/${m.id}`, a)
   assert.equal((await appel('DELETE', `/api/admin/polices/${romain.json.id}`, a)).statut, 200)

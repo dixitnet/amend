@@ -23,7 +23,10 @@ function lireOctets(req, max) {
         morceaux.length = 0
         req.removeAllListeners('data')
         req.pause()
-        return resolve(null)
+        resolve(null)
+        // La réponse part, puis la connexion se ferme : le reste n'est pas lu.
+        req.socket?.setTimeout?.(1000)
+        return
       }
       morceaux.push(m)
     })
@@ -38,9 +41,10 @@ function lireOctets(req, max) {
  * @param {(p: { id: string }) => Promise<boolean>} o.administrateur
  * @param {any} o.depot  le dépôt des comptes (adaptateur PostgreSQL)
  * @param {string[]} o.reservees  les familles fournies avec amend.ink
+ * @param {(famille: string) => Promise<string[]>} o.modelesUtilisant  les noms des modèles dont la police résolue est cette famille (écarts et héritage)
  * @param {(res: any, statut: number, corps: any) => void} o.json
  */
-export function creerPolices({ personneDe, administrateur, depot, reservees, json }) {
+export function creerPolices({ personneDe, administrateur, depot, reservees, modelesUtilisant, json }) {
   return async function traiter(req, res, url) {
     const m = url.pathname.match(/^\/api\/(admin\/)?polices(?:\/([^/]+))?$/)
     if (!m) return false
@@ -71,8 +75,7 @@ export function creerPolices({ personneDe, administrateur, depot, reservees, jso
     if (id === undefined) {
       if (req.method === 'GET') {
         const familles = []
-        for (const f of famillesDePolices(fichiers))
-          familles.push({ ...f, modeles: await depot.modelesUtilisantPolice(f.famille) })
+        for (const f of famillesDePolices(fichiers)) familles.push({ ...f, modeles: await modelesUtilisant(f.famille) })
         return (json(res, 200, { familles, fournies: reservees, max: POLICE_MAX_OCTETS }), true)
       }
       if (req.method !== 'POST') return err(405, 'methode-refusee')
@@ -86,6 +89,7 @@ export function creerPolices({ personneDe, administrateur, depot, reservees, jso
         return err(409, 'police-en-double', { famille: lue.famille })
       const nom = nomFichierPolice(decoder(String(req.headers['x-amend-fichier'] ?? '')) ?? '') || `${lue.famille}.ttf`
       const nouveau = await depot.garderPolice({ ...lue, fichier: nom }, octets, p.id)
+      if (!nouveau) return err(409, 'police-en-double', { famille: lue.famille })
       console.log(`[admin] police envoyée : ${lue.famille}, ${lue.style} (${octets.length} octets)`)
       return (json(res, 201, { id: nouveau, famille: lue.famille, style: lue.style }), true)
     }
@@ -96,7 +100,7 @@ export function creerPolices({ personneDe, administrateur, depot, reservees, jso
     // Le dernier fichier d'une famille qu'un modèle utilise ne part pas : le
     // modèle ne pourrait plus se composer.
     if (fichiers.filter((f) => f.famille === fichier.famille).length === 1) {
-      const modeles = await depot.modelesUtilisantPolice(fichier.famille)
+      const modeles = await modelesUtilisant(fichier.famille)
       if (modeles.length) return err(409, 'police-utilisee', { famille: fichier.famille, modeles })
     }
     await depot.supprimerPolice(id)
