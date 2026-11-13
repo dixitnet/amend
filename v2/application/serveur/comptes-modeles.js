@@ -11,6 +11,7 @@ import {
   modeleRetenu,
   resoudreModele,
   ecartsVers,
+  famillesDePolices,
 } from '../../domaine/index.js'
 import { MODELES_LIVRE, REGLES_MODELES, REGLES_MODELES_INSTANCE, REPRISE_MODELES } from '../../design/livre.js'
 
@@ -23,11 +24,17 @@ const REGLAGE_DEFAUT = 'modeles.defaut'
 const REGLAGE_REPRISE = 'modeles.reprise'
 const REGLES = { instance: REGLES_MODELES_INSTANCE, equipe: REGLES_MODELES }
 
-/** Un modèle complet tel que le client le reçoit : sans les fichiers de
- * police (adresses du serveur), que le client prend dans son catalogue. */
+/** L'adresse d'un fichier de police de l'instance. */
+export const adressePolice = (id) => `/api/polices/${id}`
+/** Les familles fournies avec amend.ink (le client en a les fichiers). */
+const FAMILLES_DU_CODE = new Set(REGLES_MODELES_INSTANCE.polices.map((p) => p.famille))
+
+/** Un modèle complet tel que le client le reçoit : sans les fichiers d'une
+ * police fournie avec amend.ink (le client les prend dans son catalogue) ;
+ * avec les adresses des fichiers d'une police de l'instance, qu'il télécharge. */
 function sansPolices(modele) {
   const reste = { ...modele }
-  delete reste.polices
+  if (FAMILLES_DU_CODE.has(modele.police)) delete reste.polices
   return reste
 }
 
@@ -39,13 +46,21 @@ export function creerModeles(ctx) {
   async function sources() {
     const instance = await comptes.modelesInstance()
     const parId = new Map(instance.map((m) => [m.id, m]))
-    const s = { code: (id) => CODE.get(id) ?? null, instance: (id) => parId.get(id) ?? null, regles: REGLES }
+    // Le catalogue des polices : celles du code, puis celles de l'instance (13/11/2026).
+    const envoyees = famillesDePolices(await comptes.polices()).map((f) => ({
+      famille: f.famille,
+      fichiers: f.fichiers.map((x) => adressePolice(x.id)),
+    }))
+    const avecPolices = (r) => ({ ...r, polices: [...r.polices, ...envoyees] })
+    const regles = { instance: avecPolices(REGLES.instance), equipe: avecPolices(REGLES.equipe) }
+    const polices = regles.instance.polices.map((x) => x.famille)
+    const s = { code: (id) => CODE.get(id) ?? null, instance: (id) => parId.get(id) ?? null, regles }
     /** Le modèle complet d'un modèle enregistré (`null` s'il ne se calcule plus). */
     const complet = (m) => {
       const r = resoudreModele(m, s)
       return r.ok ? sansPolices({ ...r.modele, id: m.id }) : null
     }
-    return { instance, parId, s, complet }
+    return { instance, parId, s, complet, polices }
   }
   const versClient = (m, complet, extra = {}) => ({
     id: m.id,
@@ -108,8 +123,9 @@ export function creerModeles(ctx) {
   /** Ce qu'une équipe voit de ses modèles (fenêtre de l'équipe) : les siens,
    * complets, et ceux de l'instance comme bases possibles. */
   async function vueModelesEquipe(equipe) {
-    const { instance, complet } = await sources()
+    const { instance, complet, polices } = await sources()
     return {
+      polices,
       modeles: (await comptes.modelesDe(equipe.id)).map((m) =>
         versClient({ ...m, equipe: equipe.id }, complet, { documents: m.documents }),
       ),
@@ -128,7 +144,7 @@ export function creerModeles(ctx) {
     const methode = req.method
     const [racine, cible, ...reste] = segments
     if (reste.length) return err(res, 404, 'introuvable')
-    const { instance, parId, s, complet } = await sources()
+    const { instance, parId, s, complet, polices } = await sources()
     if (racine === 'modele-defaut') {
       if (cible || methode !== 'PUT') return err(res, 405, 'methode-refusee')
       const { modele } = await lireCorps(req)
@@ -142,6 +158,7 @@ export function creerModeles(ctx) {
       if (methode === 'GET') {
         const defaut = await comptes.reglage(REGLAGE_DEFAUT)
         return ok(res, {
+          polices,
           modeles: instance.map((m) =>
             versClient(m, complet, { documents: m.documents, equipes: m.equipes, derives: m.derives }),
           ),

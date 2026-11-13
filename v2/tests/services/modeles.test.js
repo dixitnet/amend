@@ -5,6 +5,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { preparerServices, POSTGRES } from '../../exploitation/dev/pile.mjs'
 import { creerServeur } from '../../application/serveur/index.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
@@ -360,4 +361,99 @@ test('reprise de « TàT - Poche » : un modèle de l’instance, une seule fois
     await comptes.definirReglage('modeles.reprise', avant.reprise, null)
     await comptes.definirReglage('modeles.defaut', avant.defaut, null)
   }
+})
+
+// --- Les polices de l'instance (13/11/2026) ---
+/** Un fichier de police d'essai : EB Garamond, renommée (même longueur de nom). */
+function policeDEssai(fichier, famille) {
+  assert.equal(famille.length, 'EB Garamond'.length)
+  const octets = new Uint8Array(readFileSync(new URL(`../../design/polices/${fichier}`, import.meta.url)))
+  const utf16 = (t) => [...t].flatMap((c) => [0, c.charCodeAt(0)])
+  const [de, vers] = [utf16('EB Garamond'), utf16(famille)]
+  for (let i = 0; i + de.length <= octets.length; i++) if (de.every((o, k) => octets[i + k] === o)) octets.set(vers, i)
+  return octets
+}
+const envoyerPolice = (cookie, octets, nom) =>
+  fetch(`${base}/api/admin/polices`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/octet-stream', 'x-amend-fichier': encodeURIComponent(nom) },
+    body: octets,
+  }).then(async (r) => ({ statut: r.status, json: await r.json() }))
+
+test('polices de l’instance : l’administrateur envoie, la famille est lue dans le fichier, un modèle la prend, la suppression est gardée', async () => {
+  const admin = await personneAvecAdresse('Ada', adresse('admin2'))
+  // (La liste des administrateurs est fixée au démarrage : on réutilise ADMIN.)
+  const ada = await personneAvecAdresse('Ada', ADMIN)
+  const a = { cookie: ada.cookie }
+  const famille = `Essai ${randomUUID().slice(0, 5)}`
+  assert.equal(famille.length, 11)
+  assert.equal(
+    (await appel('GET', '/api/admin/polices', { cookie: admin.cookie })).statut,
+    403,
+    'réservé aux administrateurs',
+  )
+  assert.equal((await envoyerPolice(admin.cookie, new Uint8Array(20), 'x.ttf')).statut, 403)
+
+  // Refus : pas une police ; une famille fournie avec amend.ink.
+  assert.equal((await envoyerPolice(ada.cookie, new Uint8Array(64), 'x.ttf')).json.code, 'police-format')
+  const reservee = await envoyerPolice(
+    ada.cookie,
+    new Uint8Array(readFileSync(new URL('../../design/polices/EBGaramond-Regular.ttf', import.meta.url))),
+    'EBGaramond-Regular.ttf',
+  )
+  assert.deepEqual([reservee.statut, reservee.json.code], [409, 'police-reservee'])
+
+  // Envoi du romain : la famille et le style viennent du fichier, pas de son nom.
+  const romain = await envoyerPolice(ada.cookie, policeDEssai('EBGaramond-Regular.ttf', famille), 'n’importe quoi.ttf')
+  assert.equal(romain.statut, 201)
+  assert.deepEqual([romain.json.famille, romain.json.style], [famille, 'romain'])
+  assert.equal(
+    (await envoyerPolice(ada.cookie, policeDEssai('EBGaramond-Regular.ttf', famille), 'bis.ttf')).json.code,
+    'police-en-double',
+  )
+  let liste = (await appel('GET', '/api/admin/polices', a)).json
+  let f = liste.familles.find((x) => x.famille === famille)
+  assert.deepEqual(f.manquants, ['italique', 'gras', 'gras-italique'], 'une famille incomplète est acceptée, et le dit')
+  assert.equal(f.fichiers[0].fichier, 'n’importe quoi.ttf')
+  assert.ok(liste.fournies.includes('EB Garamond'))
+  const italique = await envoyerPolice(ada.cookie, policeDEssai('EBGaramond-Italic.ttf', famille), 'i.ttf')
+  assert.equal(italique.json.style, 'italique')
+
+  // Le fichier se lit, pour qui est connecté ; pas sans session.
+  const lu = await fetch(`${base}/api/polices/${romain.json.id}`, { headers: { cookie: admin.cookie } })
+  assert.equal(lu.status, 200)
+  assert.equal((await lu.arrayBuffer()).byteLength, policeDEssai('EBGaramond-Regular.ttf', famille).length)
+  assert.equal((await fetch(`${base}/api/polices/${romain.json.id}`)).status, 401)
+
+  // La famille entre au catalogue : un modèle de l'instance la prend, et le
+  // modèle complet porte les adresses de ses fichiers.
+  const modeles = (await appel('GET', '/api/admin/modeles', a)).json
+  assert.ok(modeles.polices.includes(famille) && modeles.polices.includes('EB Garamond'))
+  const { json: m } = await appel('POST', '/api/admin/modeles', { ...a, corps: { nom: `Avec ${famille}` } })
+  const regle = await appel('PUT', `/api/admin/modeles/${m.id}`, { ...a, corps: { ecarts: { police: famille } } })
+  assert.deepEqual(regle.json, { ecarts: { police: famille } })
+  const complet = (await appel('GET', '/api/admin/modeles', a)).json.modeles.find((x) => x.id === m.id).complet
+  assert.deepEqual(
+    [...complet.polices].sort(),
+    [`/api/polices/${romain.json.id}`, `/api/polices/${italique.json.id}`].sort(),
+  )
+  assert.equal(
+    (await appel('PUT', `/api/admin/modeles/${m.id}`, { ...a, corps: { ecarts: { police: 'Inconnue' } } })).json.code,
+    'reglage-hors-bornes',
+  )
+
+  // Supprimer : un fichier part ; le dernier d'une famille utilisée, non.
+  assert.equal((await appel('DELETE', `/api/admin/polices/${italique.json.id}`, a)).statut, 200)
+  const dernier = await appel('DELETE', `/api/admin/polices/${romain.json.id}`, a)
+  assert.deepEqual(
+    [dernier.statut, dernier.json.code, dernier.json.modeles],
+    [409, 'police-utilisee', [`Avec ${famille}`]],
+  )
+  await appel('DELETE', `/api/admin/modeles/${m.id}`, a)
+  assert.equal((await appel('DELETE', `/api/admin/polices/${romain.json.id}`, a)).statut, 200)
+  liste = (await appel('GET', '/api/admin/polices', a)).json
+  assert.equal(
+    liste.familles.some((x) => x.famille === famille),
+    false,
+  )
 })
