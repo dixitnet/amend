@@ -36,10 +36,10 @@
     "restaurer": "Restore",
     "modes": "Working mode",
     "modeEditer": "Edit",
-    "modeCorriger": "Suggest",
+    "modeCorriger": "Correct",
     "modeLire": "Read",
     "passerEditer": "Switch to Edit mode",
-    "passerCorriger": "Switch to Suggest mode",
+    "passerCorriger": "Switch to Correct mode",
     "passerLire": "Switch to Read mode",
     "exporter": "Export…",
     "copie": "{titre} (copy)",
@@ -125,14 +125,14 @@
     "tous": "All"
   },
   "suivi": {
-    "aCheval": "In Suggest mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph.",
-    "miseEnForme": "In Suggest mode, formatting is not suggested (it could not be accepted).",
-    "contreSuggestion": "In Edit mode, text next to a suggestion cannot be changed (the change would merge into it): accept or reject the suggestion first.",
-    "panne": "This document cannot be shown with its suggestions. Reload the page; if it happens again, report it.",
-    "panneRepli": "Showing suggestions failed on this document: back to Read mode."
+    "aCheval": "In Correct mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph.",
+    "miseEnForme": "In Correct mode, formatting is not proposed (it could not be accepted).",
+    "contreSuggestion": "In Edit mode, next to a correction, only typing goes through: to delete, paste or format there, accept or reject the correction first.",
+    "panne": "This document cannot be shown with its corrections. Reload the page; if it happens again, report it.",
+    "panneRepli": "Showing corrections failed on this document: back to Read mode."
   },
   "suggestions": {
-    "titre": "{n, plural, =0 {No suggestions} one {# suggestion} other {# suggestions}}",
+    "titre": "{n, plural, =0 {No corrections} one {# correction} other {# corrections}}",
     "ajout": "{auteur} adds “{apres}”",
     "suppression": "{auteur} deletes “{avant}”",
     "remplacement": "{auteur} replaces “{avant}” with “{apres}”",
@@ -143,7 +143,7 @@
     "toutRefuser": "Reject all",
     "accepterDe": "Accept: {texte}",
     "refuserDe": "Reject: {texte}",
-    "invisibles": "Some suggestions are not shown in the list (a paragraph deletion, for instance): “Accept all” and “Reject all” still handle them.",
+    "invisibles": "Some corrections are not shown in the list (a paragraph deletion, for instance): “Accept all” and “Reject all” still handle them.",
     "note": "{auteur} edits a footnote: “{apres}”",
     "ajoutNote": "{auteur} adds a footnote: “{apres}”",
     "suppressionNote": "{auteur} deletes a footnote: “{avant}”"
@@ -338,17 +338,17 @@
     "terminer": "Done",
     "plan": "Outline",
     "documents": "Documents",
-    "modifications": "Suggestions",
+    "modifications": "Corrections",
     "copierLien": "Copy link",
     "planVide": "No heading in this document.",
     "lienCopie": "Link copied.",
     "lienNonCopie": "The link could not be copied: {lien}"
   },
   "interface": {
-    "voletDroit": "Suggestions, comments and Margo (AI)",
+    "voletDroit": "Corrections, comments and Margo (AI)",
     "compte": "My account",
     "presence": "People on this document",
-    "modificationsCorrecteur": "Your suggestions go to the document’s editors, who accept or reject them.",
+    "modificationsCorrecteur": "Your corrections go to the document’s editors, who accept or reject them.",
     "margo": "Margo (AI)",
     "horsLigne": "Offline: your changes are kept and will be sent when the connection is back.",
     "largeurVolet": "Panel width",
@@ -363,7 +363,6 @@
     "titre": "Export",
     "format": "Format",
     "modele": "Layout template",
-    "retenir": "Keep this template for the document",
     "exporter": "Export",
     "pdf": "PDF",
     "markdown": "Markdown",
@@ -478,7 +477,7 @@
     "defautInstance": "The instance default"
   },
   "margo": {
-    "accueil": "Ask Margo to proofread, correct or comment on the text. Corrections arrive as suggestions, in Changes, to accept or reject.",
+    "accueil": "Ask Margo to proofread, correct or comment on the text. Its corrections arrive in the Corrections tab, to accept or reject.",
     "vous": "You",
     "corriger": "Correct",
     "demandeCorriger": "Correct the selection",
@@ -502,12 +501,12 @@
       "refusEnSerie": "Request stopped: too many rejected proposals in a row.",
       "longueur": "Answer cut off: it was too long.",
       "refus": "The model declined this request.",
-      "erreur": "Margo could not finish the request. What was posted stays in Changes."
+      "erreur": "Margo could not finish the request. What was posted stays in Corrections."
     }
   },
   "compte": {
     "supprimer": "Delete my account",
-    "explication": "Your account and your access to amend.ink will disappear. Your comments and suggestions stay in other people’s documents, without your name. Here is what will happen to your documents and teams:",
+    "explication": "Your account and your access to amend.ink will disappear. Your comments and corrections stay in other people’s documents, without your name. Here is what will happen to your documents and teams:",
     "rien": "You have no documents and no teams.",
     "supprimes": "Deleted permanently (nobody else has access)",
     "confies": "Handed over to an editor, who becomes the owner",

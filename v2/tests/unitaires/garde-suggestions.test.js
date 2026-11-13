@@ -5,7 +5,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Schema } from 'prosemirror-model'
 import { EditorState } from 'prosemirror-state'
-import { zonesDuBloc, toucheUneSuggestion, changeUneSuggestion } from '../../extensions/garde-suggestions/index.js'
+import {
+  zonesDuBloc,
+  toucheUneSuggestion,
+  changeUneSuggestion,
+  ajouteSeulementDuTexte,
+} from '../../extensions/garde-suggestions/index.js'
 
 const schema = new Schema({
   nodes: {
@@ -87,4 +92,14 @@ test('transaction : la collaboration, les transactions ajoutées et les commenta
   assert.equal(changeUneSuggestion(s.tr.insertText('Q', 17).setMeta('appendedTransaction', s.tr)), false)
   assert.equal(changeUneSuggestion(s.tr.addMark(12, 16, schema.marks.comment.create())), false)
   assert.equal(changeUneSuggestion(s.tr.setSelection(s.selection)), false, 'sans changement du texte')
+})
+
+test('frappe réparée : seule une transaction qui n’ajoute que du texte passe au contact (correctif de y-prosemirror#245)', () => {
+  const s = etat(schema.node('doc', null, [bloc, p('Libre.')]))
+  assert.equal(ajouteSeulementDuTexte(s.tr.insertText('Q', 17)), true, 'une lettre tapée')
+  assert.equal(ajouteSeulementDuTexte(s.tr.insertText('Q', 15, 17)), false, 'une lettre qui remplace une sélection')
+  assert.equal(ajouteSeulementDuTexte(s.tr.delete(10, 14)), false, 'une suppression')
+  assert.equal(ajouteSeulementDuTexte(s.tr.addMark(4, 9, schema.marks.bold.create())), false, 'une mise en forme')
+  assert.equal(ajouteSeulementDuTexte(s.tr.split(17)), false, 'une coupure de paragraphe')
+  assert.equal(ajouteSeulementDuTexte(s.tr), false, 'aucune étape')
 })

@@ -145,22 +145,22 @@ test('un texte piégé s’affiche comme du texte, jamais comme du code', () => 
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
 })
 
-test('bandeau : le choix du mode (Modifier, Suggérer, Relire), seulement s’il est demandé, sur sa valeur', () => {
+test('bandeau : le choix du mode (Éditer, Corriger, Lire), seulement s’il est demandé, sur sa valeur', () => {
   const voletGauche = { libelle: 'Plan', surClic: () => {} }
   assert.doesNotMatch(rendre(h(design.Bandeau, { voletGauche, titre: 'x' })), /type="radio"/)
   const modes = (valeur) => ({
     libelle: 'Mode',
     valeur,
     options: [
-      { valeur: 'ecrire', libelle: 'Modifier' },
-      { valeur: 'suggerer', libelle: 'Suggérer' },
-      { valeur: 'relire', libelle: 'Relire' },
+      { valeur: 'ecrire', libelle: 'Éditer' },
+      { valeur: 'suggerer', libelle: 'Corriger' },
+      { valeur: 'lire', libelle: 'Lire' },
     ],
     surChange: () => {},
   })
   const html = rendre(h(design.Bandeau, { voletGauche, titre: 'x', modes: modes('suggerer') }))
   assert.equal(html.match(/type="radio"/g)?.length, 3)
-  for (const l of ['Modifier', 'Suggérer', 'Relire']) assert.ok(html.includes(l), l)
+  for (const l of ['Éditer', 'Corriger', 'Lire']) assert.ok(html.includes(l), l)
   assert.match(html, /value="suggerer"[^>]*checked=""|checked=""[^>]*value="suggerer"/)
 })
 
@@ -463,12 +463,11 @@ test('coquille : un texte piégé reste du texte ; un picto inconnu ne casse rie
   assert.doesNotMatch(html, /<script>|<b>/)
 })
 
-test('export et modèles : la fenêtre « Exporter » (format, modèle, case « retenir »), la liste et le formulaire des modèles', () => {
+test('export et modèles : la fenêtre « Exporter » (format, modèle), la liste et le formulaire des modèles', () => {
   const t = creerTraducteur('fr')
   const libelles = {
     format: t('export.format'),
     modele: t('export.modele'),
-    retenir: t('export.retenir'),
     exporter: t('export.exporter'),
     annuler: t('interface.annuler'),
   }
@@ -490,18 +489,14 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle, case « 
       format: 'pdf',
       modeles: [{ group: 'amend.ink', items: [{ value: 'a4', label: 'A4 simple' }] }],
       modele: 'a4',
-      retenir: { coche: false, surChange: () => {} },
       enCours: false,
     }),
   )
-  for (const cle of ['export.format', 'export.modele', 'export.retenir', 'export.exporter'])
+  for (const cle of ['export.format', 'export.modele', 'export.exporter'])
     assert.ok(pdf.includes(echapper(t(cle))), cle)
   assert.match(pdf, /value="A4 simple"/)
-  const md = rendre(
-    h(design.PanneauExport, { ...base, format: 'markdown', modeles: null, retenir: null, enCours: true }),
-  )
+  const md = rendre(h(design.PanneauExport, { ...base, format: 'markdown', modeles: null, enCours: true }))
   assert.ok(!md.includes(echapper(t('export.modele'))), 'pas de modèle pour le Markdown')
-  assert.ok(!md.includes(echapper(t('export.retenir'))))
   assert.match(md, /data-loading/, 'l’export en cours se voit sur le bouton')
 
   const liste = rendre(

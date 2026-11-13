@@ -331,9 +331,9 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   ]
   // En Lire, le texte seul : pas de volet droit (suggestions, commentaires, Margo).
   const avecVoletDroit = mode !== 'lire'
-  // Accepter et refuser : en Éditer, pour qui peut arbitrer ; le correcteur
-  // voit tout, sans arbitrer (Sylvain, 12/11/2026).
-  const arbitre = mode === 'editer' && caps.includes('arbitrer')
+  // Accepter et refuser : en Éditer et en Corriger, pour qui peut arbitrer
+  // (Sylvain, 13/11/2026) ; le correcteur voit tout, sans arbitrer.
+  const arbitre = mode !== 'lire' && caps.includes('arbitrer')
   // Contournement (veille) : l'afficheur dit qu'il reste des suggestions que la
   // liste ne montre pas (une suppression de paragraphe, après un rechargement) ;
   // « Tout accepter » et « Tout refuser » les traitent quand même.

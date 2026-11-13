@@ -127,12 +127,12 @@
   "suivi": {
     "aCheval": "En mode Corriger, une suppression ne peut pas franchir la fin d’un paragraphe (elle serait mal enregistrée). Supprimez paragraphe par paragraphe.",
     "miseEnForme": "En mode Corriger, la mise en forme n’est pas proposée (elle ne pourrait pas être acceptée).",
-    "contreSuggestion": "En mode Éditer, le texte ne se modifie pas au contact d’une suggestion (la modification s’y mêlerait)\u00A0: acceptez-la ou refusez-la d’abord.",
-    "panne": "Ce document ne peut pas s’afficher avec ses suggestions. Rechargez la page\u202F; si cela se reproduit, signalez-le.",
-    "panneRepli": "L’affichage des suggestions a échoué sur ce document\u00A0: retour en mode Lire."
+    "contreSuggestion": "En mode Éditer, au contact d’une correction, seule la frappe passe\u00A0: pour supprimer, coller ou mettre en forme à cet endroit, acceptez-la ou refusez-la d’abord.",
+    "panne": "Ce document ne peut pas s’afficher avec ses corrections. Rechargez la page\u202F; si cela se reproduit, signalez-le.",
+    "panneRepli": "L’affichage des corrections a échoué sur ce document\u00A0: retour en mode Lire."
   },
   "suggestions": {
-    "titre": "{n, plural, =0 {Aucune suggestion} one {# suggestion} other {# suggestions}}",
+    "titre": "{n, plural, =0 {Aucune correction} one {# correction} other {# corrections}}",
     "ajout": "{auteur} ajoute «\u00A0{apres}\u00A0»",
     "suppression": "{auteur} supprime «\u00A0{avant}\u00A0»",
     "remplacement": "{auteur} remplace «\u00A0{avant}\u00A0» par «\u00A0{apres}\u00A0»",
@@ -143,7 +143,7 @@
     "toutRefuser": "Tout refuser",
     "accepterDe": "Accepter\u00A0: {texte}",
     "refuserDe": "Refuser\u00A0: {texte}",
-    "invisibles": "Des suggestions ne s’affichent pas dans la liste (une suppression de paragraphe, par exemple)\u00A0: «\u00A0Tout accepter\u00A0» et «\u00A0Tout refuser\u00A0» les traitent.",
+    "invisibles": "Des corrections ne s’affichent pas dans la liste (une suppression de paragraphe, par exemple)\u00A0: «\u00A0Tout accepter\u00A0» et «\u00A0Tout refuser\u00A0» les traitent.",
     "note": "{auteur} modifie une note\u00A0: «\u00A0{apres}\u00A0»",
     "ajoutNote": "{auteur} ajoute une note\u00A0: «\u00A0{apres}\u00A0»",
     "suppressionNote": "{auteur} supprime une note\u00A0: «\u00A0{avant}\u00A0»"
@@ -338,17 +338,17 @@
     "terminer": "Terminer",
     "plan": "Plan",
     "documents": "Documents",
-    "modifications": "Suggestions",
+    "modifications": "Corrections",
     "copierLien": "Copier le lien",
     "planVide": "Aucun titre dans ce document.",
     "lienCopie": "Lien copié.",
     "lienNonCopie": "Le lien n’a pas pu être copié\u00A0: {lien}"
   },
   "interface": {
-    "voletDroit": "Suggestions, commentaires et Margo (IA)",
+    "voletDroit": "Corrections, commentaires et Margo (IA)",
     "compte": "Mon compte",
     "presence": "Personnes sur ce document",
-    "modificationsCorrecteur": "Vos suggestions sont proposées aux éditeurs du document, qui les acceptent ou les refusent.",
+    "modificationsCorrecteur": "Vos corrections sont proposées aux éditeurs du document, qui les acceptent ou les refusent.",
     "margo": "Margo (IA)",
     "horsLigne": "Hors ligne\u00A0: vos modifications sont gardées et partiront au retour de la connexion.",
     "largeurVolet": "Largeur du volet",
@@ -363,7 +363,6 @@
     "titre": "Exporter",
     "format": "Format",
     "modele": "Modèle de mise en page",
-    "retenir": "Retenir ce modèle pour le document",
     "exporter": "Exporter",
     "pdf": "PDF",
     "markdown": "Markdown",
@@ -478,7 +477,7 @@
     "defautInstance": "Celui de l’instance"
   },
   "margo": {
-    "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent en suggestions, dans Modifications, à accepter ou refuser.",
+    "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent dans l’onglet Corrections, à accepter ou refuser.",
     "vous": "Vous",
     "corriger": "Corriger",
     "demandeCorriger": "Corriger la sélection",
@@ -502,12 +501,12 @@
       "refusEnSerie": "Demande arrêtée\u00A0: trop de propositions refusées d’affilée.",
       "longueur": "Réponse coupée\u00A0: elle était trop longue.",
       "refus": "Le modèle a refusé cette demande.",
-      "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Modifications."
+      "erreur": "Margo n’a pas pu aller au bout de la demande. Ce qui est posé reste dans Corrections."
     }
   },
   "compte": {
     "supprimer": "Supprimer mon compte",
-    "explication": "Votre compte et votre accès à amend.ink disparaîtront. Vos commentaires et vos suggestions restent dans les documents des autres, sans votre nom. Voici ce que deviendront vos documents et vos équipes\u00A0:",
+    "explication": "Votre compte et votre accès à amend.ink disparaîtront. Vos commentaires et vos corrections restent dans les documents des autres, sans votre nom. Voici ce que deviendront vos documents et vos équipes\u00A0:",
     "rien": "Vous n’avez aucun document ni aucune équipe.",
     "supprimes": "Supprimés définitivement (personne d’autre n’y a accès)",
     "confies": "Confiés à un éditeur, qui en devient propriétaire",

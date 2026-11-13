@@ -11,7 +11,8 @@
 //  - la liste des suggestions, pour le panneau où l'éditeur accepte ou refuse
 //    (disposition C, choix de Sylvain) ; un remplacement y fait une ligne.
 import * as Y from '@y/y'
-import { resolvedPositionToRelativePosition } from '@y/prosemirror'
+import { resolvedPositionToRelativePosition, relativePositionToResolvedPosition } from '@y/prosemirror'
+import { brancherCorrectif245, resteDesCorrections } from './correctif-245.js'
 
 const INSERTION = 'y-attributed-insert'
 const SUPPRESSION = 'y-attributed-delete'
@@ -21,9 +22,12 @@ const ATTRIBUTS = 'y-attributed-attrs'
 const NOTE = 'note'
 
 /** L'afficheur des suggestions : le texte, plus les propositions attribuées. */
-export function creerAfficheur(contexte, suggerer) {
+export function creerAfficheur(contexte, suggerer, surReplace) {
   const r = Y.createDiffRenderer(contexte.doc, contexte.suggestions.doc)
   r.suggestionMode = suggerer
+  // Correctif temporaire (y-prosemirror#245) : écrire en voyant les
+  // corrections. À retirer avec `correctif-245.js` quand l'amont sera corrigé.
+  brancherCorrectif245(r, contexte.doc, contexte.suggestions.doc, surReplace)
   return r
 }
 
@@ -270,3 +274,21 @@ export function compterSuggestions(contexte, afficheur) {
   parcourir(delta)
   return n
 }
+
+/** Correctif temporaire (y-prosemirror#245, `correctif-245.js`) : remet le
+ * curseur juste après une frappe que le correctif a replacée dans le texte.
+ * À retirer avec lui. */
+export function curseurApresFrappe(editeur, apres) {
+  try {
+    const position = relativePositionToResolvedPosition(editeur.prosemirrorView, apres)
+    if (!position) return
+    editeur.transact((tr) => tr.setSelection(tr.selection.constructor.near(tr.doc.resolve(position.pos))))
+  } catch {
+    // La position n'existe plus : le curseur reste où il est.
+  }
+}
+
+/** Des corrections attendent-elles d'être arbitrées ? Avec le correctif
+ * temporaire (`correctif-245.js`), les traces mortes ne comptent pas ; sans
+ * lui, revenir à `!afficheur.attributed.isEmpty()`. */
+export const correctionsEnAttente = (contexte, afficheur) => resteDesCorrections(afficheur, contexte.suggestions.doc)

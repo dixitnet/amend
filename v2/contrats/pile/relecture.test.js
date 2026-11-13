@@ -64,7 +64,7 @@ test('suggestion : l’éditrice la voit avec son auteur, l’accepte ; le texte
     .getByRole('button', { name: /^Accepter\s*:/ })
     .first()
     .click()
-  await attendrePanneau(p, /Aucune suggestion/)
+  await attendrePanneau(p, /Aucune correction/)
   await attendreTexte(c, 'Il faisait nuit sur la ville. Ajout')
   await p.reload()
   await attendreTexte(p, 'Il faisait nuit sur la ville. Ajout')
@@ -96,7 +96,7 @@ test('suggestion refusée : le texte revient tel quel chez les deux', async () =
   await c.keyboard.type(' Ajout')
   await attendrePanneau(p, /Carla ajoute/)
   await p.getByRole('button', { name: 'Tout refuser' }).click()
-  await attendrePanneau(p, /Aucune suggestion/)
+  await attendrePanneau(p, /Aucune correction/)
   await attendreTexte(c, 'Il faisait nuit sur la ville.')
   await fermer()
 })
@@ -126,6 +126,17 @@ test('commentaire du correcteur : l’ancre, posée par le serveur, se voit chez
     ['nuit'],
   )
   assert.equal(await texte(p), 'Il faisait nuit sur la ville.', 'le texte ne change pas')
+  // Le fil ne s'ouvre que dans la colonne de droite : pas de bulle au clic
+  // sur le passage commenté (Sylvain, 12/11/2026).
+  await p.locator('.bn-thread-mark').first().click()
+  await attendre(600)
+  assert.equal(
+    await p.evaluate(
+      () => [...document.querySelectorAll('.bn-thread')].filter((e) => !e.closest('.bn-threads-sidebar')).length,
+    ),
+    0,
+    'pas de bulle',
+  )
   await fermer()
 })
 
@@ -171,9 +182,9 @@ test('trois modes : l’éditrice corrige, sa frappe devient une suggestion ; en
   await attendre(300)
   await p.keyboard.type(' Ajout')
   await attendre(1500)
-  // En Corriger, l'éditrice voit la liste, sans Accepter (on arbitre en Éditer).
+  // En Corriger aussi, l'éditrice voit la liste et peut arbitrer (Sylvain, 13/11/2026).
   await attendrePanneau(p, /Paule ajoute «\s?Ajout\s?»/)
-  assert.equal(await p.getByRole('button', { name: /^Accepter\s*:/ }).count(), 0, 'pas d’arbitrage en Corriger')
+  assert.equal(await p.getByRole('button', { name: /^Accepter\s*:/ }).count(), 1, 'on arbitre aussi en Corriger')
   // En Lire : le texte seul, ni frappe ni volet droit.
   await choisirMode(p, 'Lire')
   await attendreTexte(p, 'Il faisait nuit.')
@@ -186,12 +197,12 @@ test('trois modes : l’éditrice corrige, sa frappe devient une suggestion ; en
   // Sa propre suggestion, après avoir écrit en Éditer, ne s'accepte pas une à
   // une (défaut amont, veille, 12/11/2026) : « Tout accepter » la traite.
   await p.getByRole('button', { name: 'Tout accepter' }).click()
-  await attendrePanneau(p, /Aucune suggestion/)
+  await attendrePanneau(p, /Aucune correction/)
   await attendreTexte(p, 'Il faisait nuit. Ajout')
   await p.context().close()
 })
 
-test('garde-fou d’Éditer : au contact d’une suggestion, la frappe est refusée et dite ; ailleurs, elle va dans le texte', async () => {
+test('Éditer au contact d’une suggestion : la frappe va dans le texte sans la prolonger (correctif de y-prosemirror#245) ; le reste est refusé et dit', async () => {
   const { doc, p, c, fermer } = await relecture('garde', 'Il faisait nuit noire sur la ville endormie.')
   const l = await ouvrir('Lucie', doc, { role: 'lecteur' })
   await c.click('.bn-inline-content')
@@ -200,18 +211,46 @@ test('garde-fou d’Éditer : au contact d’une suggestion, la frappe est refus
   for (let i = 0; i < 10; i++) await c.keyboard.press('ArrowRight')
   await c.keyboard.type(' donc')
   await attendrePanneau(p, /Carla ajoute «\s?donc\s?»/)
-  // Juste après la suggestion : refusé, le message le dit, rien ne change.
+  // Juste après la suggestion : la frappe va dans le texte (le lecteur la
+  // voit), et la suggestion de Carla n'en est pas prolongée.
   await p.click('.bn-inline-content')
-  await p.keyboard.press('Home')
-  await attendre(300)
-  for (let i = 0; i < 15; i++) await p.keyboard.press('ArrowRight')
-  await p.keyboard.type('Q')
-  await p.getByText('ne se modifie pas au contact d’une suggestion').waitFor()
+  // Le curseur à la fin de la suggestion, posé dans la page (les flèches
+  // comptent la frontière d'une suggestion pour un pas).
+  await p.evaluate(() => {
+    const noeud = document.createTreeWalker(document.querySelector('.bn-editor ins'), NodeFilter.SHOW_TEXT)
+    let dernier = null
+    while (noeud.nextNode()) dernier = noeud.currentNode
+    const plage = document.createRange()
+    plage.setStart(dernier, dernier.textContent.length)
+    plage.collapse(true)
+    const selection = window.getSelection()
+    selection.removeAllRanges()
+    selection.addRange(plage)
+    document.dispatchEvent(new Event('selectionchange'))
+  })
+  await attendre(500)
+  // Deux lettres : le curseur suit la première, replacée dans le texte.
+  await p.keyboard.type('QR')
+  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie.')
+  assert.equal(
+    // Sans l'étiquette du curseur de Carla, que l'éditeur glisse dans le texte.
+    await p.evaluate(() =>
+      [...document.querySelectorAll('.bn-editor ins')]
+        .map((e) => e.textContent.replace(/\u2060[^\u2060]*\u2060/g, ''))
+        .join('|'),
+    ),
+    'donc ',
+    'la suggestion n’est pas prolongée',
+  )
+  // Une suppression au contact de la suggestion : refusée, le message le dit.
+  await p.keyboard.press('Backspace')
+  await p.getByText('seule la frappe passe').waitFor()
+  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie.')
   // Loin de la suggestion : la frappe va dans le texte (le lecteur la voit).
   await p.keyboard.press('End')
   await attendre(300)
   await p.keyboard.type(' Fin.')
-  await attendreTexte(l, 'Il faisait nuit noire sur la ville endormie. Fin.')
+  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie. Fin.')
   // L'annulation (celle de ProseMirror) est un changement direct : au contact
   // d'une suggestion, elle est refusée aussi (Carla en pose une juste après
   // « Fin. » ; audit du 12/11/2026) ; loin de toute suggestion, elle marche.
@@ -223,10 +262,11 @@ test('garde-fou d’Éditer : au contact d’une suggestion, la frappe est refus
   await p.click('.bn-inline-content')
   await p.keyboard.press('Control+z')
   await attendre(1500)
-  await attendreTexte(l, 'Il faisait nuit noire sur la ville endormie. Fin.')
+  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie. Fin.')
   // La suggestion de Carla est intacte, à son nom.
-  await attendrePanneau(p, /^2 suggestions.*Carla ajoute «\s?donc\s?»/)
-  assert.doesNotMatch(await panneau(p), /Q/)
+  await attendrePanneau(p, /Carla ajoute «\s?donc\s?»/)
+  assert.equal(await p.locator('section[aria-label] li').count(), 2, 'deux suggestions')
+  assert.doesNotMatch(await panneau(p), /QR/)
   await l.context().close()
   await fermer()
 })
@@ -247,7 +287,7 @@ test('accepter aussitôt après une frappe : la liste a une frappe de retard, le
     .getByRole('button', { name: /^Accepter\s*:/ })
     .first()
     .click()
-  await attendrePanneau(p, /Aucune suggestion/)
+  await attendrePanneau(p, /Aucune correction/)
   await attendreTexte(c, 'Ce soir-là, Il faisait nuit sur la ville. Le vent soufflait. Fin')
   await fermer()
 })
@@ -336,7 +376,7 @@ test('notes et relecture : le correcteur lit une note sans la modifier, en ajout
     .getByRole('button', { name: /^Accepter\s*:/ })
     .first()
     .click()
-  await attendrePanneau(p, /Aucune suggestion/)
+  await attendrePanneau(p, /Aucune correction/)
   await choisirMode(p, 'Lire')
   for (const t0 = Date.now(); Date.now() - t0 < 10000; await attendre(200))
     if ((await p.locator('.bn-editor [data-amend-note]').count()) === 2) break

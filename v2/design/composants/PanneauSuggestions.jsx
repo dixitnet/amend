@@ -11,7 +11,7 @@
 // accepter », « Tout refuser » même sans carte. Sans `surAccepter`, la liste
 // se consulte seulement : ni Accepter, ni Refuser, ni leurs variantes « Tout »
 // (le correcteur voit tout, sans arbitrer ; Sylvain, 12/11/2026).
-import { Stack, Group, Title, Text, Button, Paper, UnstyledButton } from '@mantine/core'
+import { Stack, Group, Text, Button, Paper, UnstyledButton } from '@mantine/core'
 import { REGLAGES } from '../reglages.js'
 
 /** Le passage : ce qui est supprimé, puis ce qui est ajouté. */
@@ -40,7 +40,10 @@ export function PanneauSuggestions({
   const arbitre = Boolean(surAccepter)
   return (
     <Stack component="section" aria-label={titre}>
-      <Title order={2}>{titre}</Title>
+      {/* Pas de titre visible (« 45 suggestions » : le nombre est sur l'onglet ;
+          Sylvain, 12/11/2026) : il nomme la section pour les lecteurs d'écran,
+          et se lit seulement quand la liste est vide (« Aucune correction »). */}
+      {!lignes.length && !invitation && !actionsGlobales ? <Text>{titre}</Text> : null}
       {invitation ? (
         <>
           <Text>{invitation.texte}</Text>
@@ -67,7 +70,12 @@ export function PanneauSuggestions({
             <Stack {...pile}>
               {/* L'auteur et les boutons sur une ligne, le passage dessous. */}
               <Group {...entete}>
-                <Text {...auteur}>{l.auteur}</Text>
+                {/* Le nom aussi amène le texte à la suggestion (Sylvain, 12/11/2026) ;
+                    au clavier, le passage dessous fait la même chose (hors de
+                    la tabulation, le nom reste lu). */}
+                <UnstyledButton onClick={() => surMontrer?.(i)} tabIndex={-1}>
+                  <Text {...auteur}>{l.auteur}</Text>
+                </UnstyledButton>
                 {arbitre ? (
                   <Group {...boutons}>
                     {/* Un nom par ligne pour les lecteurs d'écran (audit du 10/11/2026). */}

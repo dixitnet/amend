@@ -81,3 +81,9 @@
 .amend-suggestions-liste > [data-active] {
   border-color: var(--mantine-primary-color-filled);
 }
+
+/* réglage : css.commentaires.largeur */
+.bn-mantine .bn-threads-sidebar .bn-thread {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -106,8 +106,28 @@ export function changeUneSuggestion(tr) {
   })
 }
 
+/** La transaction n'ajoute-t-elle que du texte, sans rien remplacer ? (La
+ * frappe simple, ou le collage d'un texte brut dans une ligne.) */
+export function ajouteSeulementDuTexte(tr) {
+  return (
+    tr.steps.length > 0 &&
+    tr.steps.every((etape) => {
+      if (typeof etape.from !== 'number' || etape.from !== etape.to || !etape.slice) return false
+      const { content, openStart, openEnd } = etape.slice
+      let texte = content.childCount > 0
+      content.forEach((n) => {
+        if (!n.isText) texte = false
+      })
+      return texte && openStart === 0 && openEnd === 0
+    })
+  )
+}
+
 export const extensionGardeSuggestions = createExtension(({ options }) => {
   const actif = options.actif ?? (() => false)
+  // `frappeReparee` : un correctif, ailleurs, répare la frappe simple au
+  // contact d'une suggestion ; le garde-fou la laisse alors passer.
+  const frappeReparee = options.frappeReparee === true
   const refuser = options.refuser ?? (() => {})
   let dernier = 0
   const non = () => {
@@ -122,10 +142,12 @@ export const extensionGardeSuggestions = createExtension(({ options }) => {
       new Plugin({
         props: {
           // La frappe : refusée avant d'atteindre la page.
-          handleTextInput: (vue, de, a) => (actif() && toucheUneSuggestion(vue.state.doc, de, a) ? non() : false),
+          handleTextInput: (vue, de, a) =>
+            actif() && !(frappeReparee && de === a) && toucheUneSuggestion(vue.state.doc, de, a) ? non() : false,
         },
         // Tout le reste (commandes, collage, dépôt, coupe, mise en forme).
-        filterTransaction: (tr) => !(actif() && changeUneSuggestion(tr) && non()),
+        filterTransaction: (tr) =>
+          !(actif() && changeUneSuggestion(tr) && !(frappeReparee && ajouteSeulementDuTexte(tr)) && non()),
       }),
     ],
   }

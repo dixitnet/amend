@@ -7,9 +7,10 @@
 // afficheur des suggestions, le mode changeant par l'extension des
 // suggestions, sans rien recréer :
 //  - `editer` : les suggestions et les commentaires affichés, la frappe va
-//    dans le texte (`viewSuggestions`), et l'on accepte ou refuse ; le
-//    garde-fou refuse tout changement au contact d'une suggestion, qu'il
-//    prolongerait (y-prosemirror#245, extensions/garde-suggestions) ;
+//    dans le texte (`viewSuggestions`), et l'on accepte ou refuse ; au
+//    contact d'une suggestion, la frappe la prolongeait (y-prosemirror#245) :
+//    le correctif temporaire `correctif-245.js` la replace dans le texte, et le
+//    garde-fou (extensions/garde-suggestions) refuse les autres changements ;
 //  - `corriger` : tout ce qu'elle tape est une suggestion (`enableSuggestions` ;
 //    pour un correcteur, y/hub le garantit, la branche principale lui est fermée) ;
 //  - `lire` : le texte seul, sans suggestions ni commentaires, sans frappe
@@ -25,6 +26,7 @@ import {
   LinkToolbarController,
   OpenLinkButton,
   getFormattingToolbarItems,
+  blockTypeSelectItems,
   useBlockNoteEditor,
   useComponentsContext,
   useSelectedBlocks,
@@ -34,6 +36,7 @@ import {
   getPageBreakReactSlashMenuItems,
   RenderInPortalElement,
   ThreadsSidebar,
+  FloatingComposerController,
 } from '@blocknote/react'
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core'
 import { BlockNoteView } from '@blocknote/mantine'
@@ -53,7 +56,14 @@ import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
 import { boutonsGardes, boutonsGardesEnSuggestion, boutonsDuFormatS } from './palette.js'
 import { MagasinFils } from './commentaires.js'
-import { creerAfficheur, suivreAuteurs, listeDesSuggestions, compterSuggestions } from './suggestions.js'
+import {
+  creerAfficheur,
+  suivreAuteurs,
+  listeDesSuggestions,
+  compterSuggestions,
+  curseurApresFrappe,
+  correctionsEnAttente,
+} from './suggestions.js'
 import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
@@ -172,13 +182,25 @@ function RestaurerApresConfirmation({ libelle, confirmer }) {
   )
 }
 
-function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote }) {
+/** Les types de bloc du menu de la palette : ceux de BlockNote, puis Titre et
+ * Sous-titre, comme Docs y ajoute ses blocs (`BlockNoteToolbar.tsx`). */
+function typesDeBloc(editeur, textes) {
+  const nos = [
+    ['titre', TYPE_TITRE],
+    ['sousTitre', TYPE_SOUS_TITRE],
+  ]
+    // `titre` et `sousTitre` sont facultatifs dans les textes de l'éditeur.
+    .filter(([cle]) => textes?.[cle])
+    .map(([cle, type]) => ({ name: textes[cle].titre, type, icon: () => textes[cle].picto }))
+  return [...blockTypeSelectItems(editeur), ...nos]
+}
+
+function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote, titres }) {
+  const editeur = useBlockNoteEditor()
+  const tous = getFormattingToolbarItems(typesDeBloc(editeur, titres))
   const boutons = suggerer
-    ? boutonsGardesEnSuggestion(getFormattingToolbarItems())
-    : boutonsGardes(
-        getFormattingToolbarItems(),
-        exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null,
-      )
+    ? boutonsGardesEnSuggestion(tous)
+    : boutonsGardes(tous, exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null)
   return (
     <FormattingToolbar>
       {formatS ? boutonsDuFormatS(boutons) : boutons}
@@ -355,8 +377,13 @@ export function EditeurCollaboratif({
   surRefusDuSuivi.current = surRefus
   // Un afficheur, créé une fois (le mode du départ seulement) ; le mode passe
   // ensuite par l'extension (effet plus bas), sans le recréer.
+  // Correctif temporaire (y-prosemirror#245) : le curseur suit une frappe replacée.
+  const replacerCurseur = useRef(null)
   const afficheur = useMemo(
-    () => (avecSuggestions ? creerAfficheur(contexte, mode === 'corriger') : null),
+    () =>
+      avecSuggestions
+        ? creerAfficheur(contexte, mode === 'corriger', (apres) => replacerCurseur.current?.(apres))
+        : null,
     [contexte, avecSuggestions],
   )
   const magasin = useMemo(
@@ -388,8 +415,12 @@ export function EditeurCollaboratif({
           actif: () => modeMaintenant.current === 'corriger',
           refuser: (code) => surRefusDuSuivi.current?.(code),
         }),
-        // Le garde-fou du mode Éditer (y-prosemirror#245, veille).
+        // Le garde-fou du mode Éditer (y-prosemirror#245, veille). La frappe
+        // simple passe : le correctif temporaire `correctif-245.js` la replace
+        // dans le texte ; le reste (collage riche, suppression, mise en forme)
+        // reste refusé au contact d'une correction.
         extensionGardeSuggestions({
+          frappeReparee: true,
           actif: () => modeMaintenant.current === 'editer' && avecSuggestions,
           refuser: (code) => surRefusDuSuivi.current?.(code),
         }),
@@ -442,6 +473,9 @@ export function EditeurCollaboratif({
     }
   }, [editeur, afficheur])
   useEffect(() => {
+    replacerCurseur.current = (apres) => curseurApresFrappe(editeur, apres)
+  }, [editeur])
+  useEffect(() => {
     const versions = editeur.getExtension('versioning')
     if (historique) {
       lier('historique')
@@ -491,8 +525,8 @@ export function EditeurCollaboratif({
     // En Lire, le nombre est compté à part, rarement (compterSuggestions).
     let compte = affichees ? 0 : compterSuggestions(contexte, afficheur)
     const signaler = () => {
-      const enAttente = !afficheur.attributed.isEmpty()
       const liste = affichees ? listeDesSuggestions(editeur, auteurs) : []
+      const enAttente = liste.length > 0 || correctionsEnAttente(contexte, afficheur)
       donnee = liste
       surSuggestions({ liste, nombre: !enAttente ? 0 : affichees ? liste.length : compte, enAttente, ...actions })
     }
@@ -724,9 +758,10 @@ export function EditeurCollaboratif({
         formatS={formatS}
         note={textes.note}
         surNouvelleNote={surNote ? nouvelleNote : null}
+        titres={textes}
       />
     ),
-    [corriger, mode, textes.exposant, textes.note, formatS, surNote, nouvelleNote],
+    [corriger, mode, textes, formatS, surNote, nouvelleNote],
   )
   const menu = useCallback(
     async (requete) =>
@@ -794,9 +829,13 @@ export function EditeurCollaboratif({
       // Suggérer : pas de changement de type de bloc (contournement, veille).
       slashMenu={false}
       linkToolbar={mode !== 'corriger'}
-      // En Lire, ni fil ni bulle de commentaire (le texte seul).
-      comments={mode !== 'lire'}
+      // Les fils ne s'ouvrent que dans la colonne de droite : pas de bulle au
+      // clic sur un passage commenté (Sylvain, 12/11/2026, écart avec Docs, qui
+      // n'a que les bulles). La saisie d'un nouveau commentaire reste flottante ;
+      // en Lire, ni fil ni saisie (le texte seul).
+      comments={false}
     >
+      {magasin && mode !== 'lire' ? <FloatingComposerController /> : null}
       <FormattingToolbarController formattingToolbar={palette} />
       {mode === 'corriger' ? <LinkToolbarController linkToolbar={BarreDuLienEnSuggestion} /> : null}
       {mode !== 'corriger' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
