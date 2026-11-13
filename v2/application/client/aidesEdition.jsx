@@ -1,5 +1,5 @@
 // Les aides de l'écran d'édition : zoom mémorisé, textes des ajouts et filet de sécurité.
-import { Component } from 'react'
+import { Component, useEffect, useState } from 'react'
 import { PictoDe } from '../../design/index.js'
 import { REGLAGES } from '../../design/reglages.js'
 import { t } from './commun.js'
@@ -16,6 +16,23 @@ export function lireZoom() {
     return REGLAGES.zoom.parDefaut
   }
 }
+/** Le réseau est-il disponible ? (`navigator.onLine` et ses événements ; vrai quand le navigateur ne le dit pas.) */
+export function useEnLigne() {
+  const lire = () => (typeof navigator === 'undefined' ? true : navigator.onLine !== false)
+  const [enLigne, setEnLigne] = useState(lire)
+  useEffect(() => {
+    const maj = () => setEnLigne(lire())
+    window.addEventListener('online', maj)
+    window.addEventListener('offline', maj)
+    maj()
+    return () => {
+      window.removeEventListener('online', maj)
+      window.removeEventListener('offline', maj)
+    }
+  }, [])
+  return enLigne
+}
+
 /** Le palier proposé (d'une liste) le plus proche d'un zoom mémorisé : 50 % devient 100 % au format S.
  * À égale distance, le premier de la liste (les paliers vont du plus petit au plus grand). */
 export const palierLePlusProche = (z, paliers) =>
