@@ -2,7 +2,8 @@
 // d'une suggestion la prolonge »). À débrancher quand l'amont l'aura corrigé :
 // retirer l'appel de `brancherCorrectif245` dans `suggestions.js`, ce fichier
 // et son test (`tests/unitaires/correctif-245.test.js`). Rien d'autre n'en
-// dépend. Réexamen : à chaque montée de `@y/y` ou de `@y/prosemirror`, et au
+// dépend. Sylvain, 13/11/2026 : à retirer sans redemander dès que l'amont est
+// corrigé. Réexamen : à chaque montée de `@y/y` ou de `@y/prosemirror`, et au
 // plus tard le 13/12/2026 (veille, docs/v2-veille.md).
 //
 // La cause (Yjs 14, `DiffRenderer`) : quand on écrit directement en voyant les

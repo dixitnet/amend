@@ -43,4 +43,4 @@ Ce diff remplace le refus systématique de la frappe au contact d'une suggestion
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+Constat 6 : exception inscrite dans les règles (Sylvain, 13/11/2026, « ok pour 1 »).
