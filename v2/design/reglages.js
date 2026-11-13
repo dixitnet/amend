@@ -141,6 +141,9 @@ export const REGLAGES = {
   // Le délai, en millisecondes, au-delà duquel une connexion qui n'aboutit pas
   // est annoncée « hors ligne » (Sylvain, 13/11/2026 : 10 secondes).
   synchro: { delaiHorsLigne: 10000 },
+  // La palette du téléphone, cachée pendant le défilement, réapparaît quand il
+  // s'arrête depuis ce délai en millisecondes (Sylvain, 13/11/2026).
+  paletteMobile: { reapparitionMs: 150 },
   // L'alerte hors ligne, comme AlertOffline de Docs.
   alerteHorsLigne: { variant: 'light', color: 'orange' },
   // Les pictos ajoutés aux boutons de BlockNote (exposant dans la palette,
