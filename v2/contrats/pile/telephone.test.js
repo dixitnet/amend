@@ -182,3 +182,16 @@ test('format S : l’état de synchronisation est un picto du bandeau, les favor
   await p.getByRole('button', { name: 'Autres actions' }).click()
   await p.getByRole('menuitem', { name: 'Retirer des favoris' }).waitFor()
 })
+
+test('format S : un zoom mémorisé à 50 % (autre format) est ramené à 100 %, le palier le plus proche', async () => {
+  const doc = docTest('s-zoom-memorise')
+  const p = await ouvrir('Paule', doc)
+  await p.evaluate(() => localStorage.setItem('amend.zoom', '50'))
+  await p.reload()
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  const coche = p
+    .getByRole('menuitemradio', { checked: true })
+    .or(p.getByRole('menuitem', { name: '100\u202F%', exact: true }))
+  await coche.first().waitFor()
+  assert.equal(await p.locator('[data-amend-zoom]').first().getAttribute('data-amend-zoom'), '100')
+})

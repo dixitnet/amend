@@ -16,7 +16,8 @@ export function lireZoom() {
     return REGLAGES.zoom.parDefaut
   }
 }
-/** Le palier proposé (d'une liste) le plus proche d'un zoom mémorisé : 50 % devient 100 % au format S. */
+/** Le palier proposé (d'une liste) le plus proche d'un zoom mémorisé : 50 % devient 100 % au format S.
+ * À égale distance, le premier de la liste (les paliers vont du plus petit au plus grand). */
 export const palierLePlusProche = (z, paliers) =>
   paliers.reduce((meilleur, p) => (Math.abs(p - z) < Math.abs(meilleur - z) ? p : meilleur), paliers[0])
 export function noterZoom(z) {
