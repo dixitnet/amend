@@ -410,11 +410,8 @@
     "modifier": "Adjust",
     "supprimer": "Delete",
     "aucun": "The team has no template of its own yet.",
-    "modifierDe": "Adjust “{nom}”",
-    "supprimerDe": "Delete “{nom}”",
     "parDefaut": "Default",
     "enregistrer": "Save",
-    "enregistre": "Template saved.",
     "detail": "{n, plural, =0 {no document} one {# document} other {# documents}}",
     "confirmerSuppression": "Delete the template “{nom}”? {n, plural, =0 {No document uses it.} one {The document that used it will take the team default template.} other {The # documents that used it will take the team default template.}}",
     "reglage": {
@@ -495,15 +492,13 @@
       "titre5": "Heading 5",
       "titre": "Title (title page)",
       "sousTitre": "Subtitle",
-      "legende": "Caption"
+      "legende": "Caption",
+      "general": "Name"
     },
     "essayer": "Try",
-    "essayerDe": "Export the open document with “{nom}”",
     "defautInstance": "The instance default",
     "titreDefaut": "Default template",
     "titreListe": "Templates",
-    "titreCreer": "Create a template",
-    "resume": "{largeur, number}\u00A0×\u00A0{hauteur, number}\u00A0mm · {police}",
     "reglerTitre": "Adjust “{nom}”",
     "propriete": {
       "police": "Font",
@@ -516,7 +511,20 @@
       "lignesApres": "Blank lines after",
       "alinea": "First-line indent (mm)",
       "retrait": "Left indent (mm)"
-    }
+    },
+    "nouveau": "New template",
+    "dupliquer": "Duplicate",
+    "actions": "Actions",
+    "retour": "Back to templates",
+    "colonnes": {
+      "nom": "Template",
+      "format": "Size",
+      "police": "Body font",
+      "documents": "Use"
+    },
+    "actionsDe": "Actions for “{nom}”",
+    "copieDe": "{nom} (copy)",
+    "format": "{largeur, number} × {hauteur, number} mm"
   },
   "margo": {
     "accueil": "Ask Margo to proofread, correct or comment on the text. Its corrections arrive in the Corrections tab, to accept or reject.",
