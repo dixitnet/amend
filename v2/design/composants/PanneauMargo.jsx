@@ -3,7 +3,9 @@
 // une zone de saisie en bas et « Nouvelle conversation ». Composants Mantine
 // sans réglage ; les textes lui arrivent traduits, les gestes remontent par
 // les fonctions de rappel. Les numéros de blocs cités par Margo sont des liens.
-import { Stack, Group, Text, Textarea, Button, Anchor, Loader } from '@mantine/core'
+import { useEffect, useRef } from 'react'
+import { Stack, Group, Text, Textarea, Button, Anchor, Loader, Badge } from '@mantine/core'
+import { REGLAGES } from '../reglages.js'
 
 /**
  * @param {object} p
@@ -15,6 +17,8 @@ import { Stack, Group, Text, Textarea, Button, Anchor, Loader } from '@mantine/c
  * @param {string} p.portee  « Sur la sélection » ou « Sur tout le texte »
  * @param {{ libelle: string, valeur: string, surChange: (v: string) => void, surEnvoi: () => void, envoyer: string, desactive: boolean }} p.saisie
  * @param {{ libelle: string, surClic: () => void } | null} p.nouvelle
+ * @param {boolean} [p.visible]  le volet montre ce panneau : à son ouverture, et à chaque
+ *   nouvel échange, la fin de la conversation et la saisie sont amenées à l'écran
  */
 /** Un texte avec ses retours à la ligne (les réponses de Margo sont en lignes). */
 const avecRetours = (texte) =>
@@ -22,7 +26,13 @@ const avecRetours = (texte) =>
     .split('\n')
     .flatMap((ligne, i) => (i ? [<br key={i} />, ligne] : [ligne]))
 
-export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee, saisie, nouvelle }) {
+export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee, saisie, nouvelle, visible = true }) {
+  // Le bas de l'échange, amené à l'écran à l'ouverture du volet et à chaque
+  // message (Sylvain, 13/11/2026).
+  const fin = useRef(null)
+  useEffect(() => {
+    if (visible) fin.current?.scrollIntoView({ block: 'end' })
+  }, [visible, messages.length, enCours])
   const envoyer = (evenement) => {
     evenement.preventDefault()
     if (!saisie.desactive) saisie.surEnvoi()
@@ -61,7 +71,9 @@ export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee
       {erreur ? <Text role="alert">{erreur}</Text> : null}
       <form onSubmit={envoyer}>
         <Stack>
-          <Text>{portee}</Text>
+          <Group>
+            <Badge {...REGLAGES.margo.portee}>{portee}</Badge>
+          </Group>
           <Textarea
             label={saisie.libelle}
             value={saisie.valeur}
@@ -83,6 +95,7 @@ export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee
           </Group>
         </Stack>
       </form>
+      <div ref={fin} />
     </Stack>
   )
 }

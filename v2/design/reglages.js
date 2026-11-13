@@ -105,6 +105,10 @@ export const REGLAGES = {
   // (le gris `dimmed` de Mantine n'a pas le contraste demandé ; 12/11/2026).
   // Seulement à partir de `lg` : plus étroit, le titre en serait coupé.
   compteur: { size: 'sm', visibleFrom: 'lg' },
+  // Le volet de Margo : la portée de la demande (« Sur la sélection », « Sur
+  // tout le texte ») en étiquette discrète de Mantine, pour la distinguer des
+  // échanges (Sylvain, 13/11/2026).
+  margo: { portee: { variant: 'light' } },
   // Les cartes des suggestions : une carte de Mantine bordée par suggestion ;
   // Accepter en vert, Refuser en rouge, tous deux discrets (variante « light »),
   // petits (Sylvain, 12/11/2026, variante vert / rouge). Cartes resserrées
@@ -141,6 +145,7 @@ export const REGLAGES = {
       tableDesMatieres: 18,
       titre: 18,
       sousTitre: 18,
+      paragraphe: 16,
       date: 18,
       noteDePage: 16,
       noteDePageMenu: 18,

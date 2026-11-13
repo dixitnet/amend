@@ -37,6 +37,7 @@ import {
   IconCalendar,
   IconAsterisk,
   IconLetterTSmall,
+  IconLetterP,
   IconTextSize,
   IconCheck,
 } from '@tabler/icons-react'
@@ -81,6 +82,9 @@ const PICTOS = {
   noteDePage: IconAsterisk,
   noteDePageMenu: IconAsterisk,
   sousTitre: IconLetterTSmall,
+  // Le style « Paragraphe » de la palette : un P, pas le T de BlockNote, qui
+  // se confondait avec ceux du titre et du sous-titre (Sylvain, 13/11/2026).
+  paragraphe: IconLetterP,
   zoom: IconTextSize,
   choisi: IconCheck,
 }
