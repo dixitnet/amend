@@ -39,7 +39,7 @@ Ce diff remplace le refus systématique de la frappe au contact d'une suggestion
 4. **Faux** : `actionsGlobales` n'est fourni que dans le cas « invisibles », où l'invitation dit déjà ce qui se passe ; sans rien en attente, le titre « Aucune correction » s'affiche (tests de la pile : « Aucune correction »).
 5. **Juste** pour le curseur, corrigé : le test de la pile tape deux lettres au contact et vérifie leur ordre dans le texte. La saisie flottante d'un commentaire est déjà couverte (« commentaire du correcteur » : il crée le fil par la saisie flottante).
 6. **Question pour Sylvain** : l'adaptateur BlockNote importe `@y/y` depuis l'origine (`suggestions.js`), parce que l'afficheur de Yjs se monte avec l'éditeur. Inscrire cette exception dans les règles, ou déplacer ce code dans l'adaptateur Yjs dans un lot à part ?
-7. **Accepté tel quel** : décision de l'audit du 12/11 ; l'échec côté serveur est déjà journalisé par la route.
+7. **Accepté tel quel** : décision de l'audit du 12/11 (un export réussi ne doit pas s'afficher comme raté). L'échec de la rétention n'est pas tracé côté client ; à reprendre si le cas se présente.
 
 ## Arbitrage de Sylvain
 
