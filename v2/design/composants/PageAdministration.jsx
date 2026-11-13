@@ -81,8 +81,8 @@ function Chiffres({ lignes }) {
  *   ligne à choix va dans une rubrique en tableau) ; le menu retient la rubrique
  *   choisie par son titre (la première au départ, ou si elle disparaît)
  */
-export function PageAdministration({ nomApplication, titre, actions, message, rubriques }) {
-  const [choisie, setChoisie] = useState(rubriques[0]?.titre ?? null)
+export function PageAdministration({ nomApplication, titre, actions, message, rubriques, rubriqueInitiale = null }) {
+  const [choisie, setChoisie] = useState(rubriqueInitiale ?? rubriques[0]?.titre ?? null)
   const r = rubriques.find((x) => x.titre === choisie) ?? rubriques[0]
   const { menu, contenu } = REGLAGES.admin.colonnes
   return (
