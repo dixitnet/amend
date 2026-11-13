@@ -56,20 +56,30 @@ export function useEtatAffiche(etat, enLigne) {
 }
 
 /**
- * ESSAI (13/11/2026) : la barre de mise en forme en bandeau au format S.
- * `?barre=bandeau` dans l'adresse l'active et le retient dans ce navigateur ;
- * `?barre=flottante` revient à la palette flottante.
+ * Au format S, la palette flottante est cachée pendant le défilement (attribut
+ * `data-amend-defile` sur la page, que la feuille du téléphone lit) et revient
+ * quand il s'arrête (13/11/2026).
  */
-const CLE_BARRE = 'amend.essai.barre'
-export function lireEssaiBarre() {
-  try {
-    const demande = new URLSearchParams(location.search).get('barre')
-    if (demande === 'bandeau') localStorage.setItem(CLE_BARRE, '1')
-    else if (demande === 'flottante') localStorage.removeItem(CLE_BARRE)
-    return localStorage.getItem(CLE_BARRE) === '1'
-  } catch {
-    return false
-  }
+export function useDefilementEnCours(actif) {
+  useEffect(() => {
+    if (!actif) return undefined
+    const racine = document.documentElement
+    let attente
+    const defile = () => {
+      racine.setAttribute('data-amend-defile', '')
+      clearTimeout(attente)
+      attente = setTimeout(() => racine.removeAttribute('data-amend-defile'), REGLAGES.paletteMobile.reapparitionMs)
+    }
+    // En capture : le texte défile dans sa zone ou dans l'écran ; la zone visible de Safari aussi.
+    document.addEventListener('scroll', defile, { passive: true, capture: true })
+    window.visualViewport?.addEventListener('scroll', defile)
+    return () => {
+      clearTimeout(attente)
+      racine.removeAttribute('data-amend-defile')
+      document.removeEventListener('scroll', defile, { capture: true })
+      window.visualViewport?.removeEventListener('scroll', defile)
+    }
+  }, [actif])
 }
 
 /** Le palier proposé (d'une liste) le plus proche d'un zoom mémorisé : 50 % devient 100 % au format S.
