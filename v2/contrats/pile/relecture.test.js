@@ -137,6 +137,8 @@ test('commentaire du correcteur : l’ancre, posée par le serveur, se voit chez
     0,
     'pas de bulle',
   )
+  // Le clic ouvre la colonne de droite sur l'onglet « Commentaires », où le fil se lit.
+  await p.locator('.bn-threads-sidebar .bn-thread').first().waitFor({ timeout: 5000 })
   await fermer()
 })
 

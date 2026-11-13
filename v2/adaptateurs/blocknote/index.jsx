@@ -290,6 +290,8 @@ function itemsDuMenu(editeur, table, textesTitres) {
  *   `nombre` : en Éditer et Corriger, la longueur de la liste ; en Lire, un compte refait
  *   à l'ouverture, puis chaque minute ou après 30 s de repos ; `montrer(s)` fait
  *   défiler le texte jusqu'à la suggestion, comme BlockNote pour un commentaire
+ * @param {() => void} [p.surFilChoisi] rappelé quand un fil est choisi (un clic sur un
+ *   passage commenté) : l'application ouvre l'onglet « Commentaires », où il se lit
  * @param {(n: number) => void} [p.surNombreFils] rappelé avec le nombre de fils
  *   de commentaires ouverts (non résolus) ; doit être stable
  *   rappelé avec les suggestions à chaque changement (pour qui les voit) ; la liste
@@ -347,6 +349,7 @@ export function EditeurCollaboratif({
   commentaires = null,
   surSuggestions,
   surNombreFils,
+  surFilChoisi,
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
@@ -602,6 +605,23 @@ export function EditeurCollaboratif({
       surNombreFils(0)
     }
   }, [magasin, surNombreFils])
+
+  // Un clic sur un passage commenté choisit son fil : sans bulle, il se lit
+  // dans la colonne de droite, que l'application ouvre (13/11/2026).
+  const surFil = useRef(surFilChoisi)
+  surFil.current = surFilChoisi
+  useEffect(() => {
+    if (!magasin) return
+    const etat = editeur.getExtension(CommentsExtension)?.store
+    if (!etat) return
+    let dernier = etat.state.selectedThreadId
+    const abonnement = etat.subscribe(() => {
+      const choisi = etat.state.selectedThreadId
+      if (choisi && choisi !== dernier) surFil.current?.()
+      dernier = choisi
+    })
+    return () => (typeof abonnement === 'function' ? abonnement() : abonnement?.unsubscribe?.())
+  }, [editeur, magasin])
 
   // Le plan : les titres du document, tenus à jour (volet « Plan » des trois
   // formats), et le titre courant au défilement. Aller à un titre y met le
