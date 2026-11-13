@@ -1,15 +1,30 @@
-# Campagnes de test de la v2 (docs/v2-tests/procedure-relecture.md), une par
-# famille de scénarios (A à G), sous Chromium, WebKit et Firefox : des
-# scénarios qui relèvent ce qui se passe, sans faire échouer le flux ; le
-# relevé est dans le journal de chaque moteur et en artefact. Lancées à la
-# demande, ou quand un script de campagne change.
+# Campagne de test de la v2 (docs/v2-tests/procedure-campagne.md) : des
+# scénarios à plusieurs personnes, par famille, joués dans les trois
+# navigateurs (Chromium, WebKit, Firefox) et les trois formats d'écran (L, M,
+# S), puis contre v2.amend.ink. Le dernier job compare les relevés à l'état de
+# référence (v2/exploitation/campagne/reference.json), écrit le rapport et
+# échoue sur une régression. Lancée à la demande seulement (Sylvain, 13/11/2026).
 name: v2-campagne
 
 on:
   workflow_dispatch:
-  push:
-    branches: ['claude/**']
-    paths: ['v2/exploitation/campagne/**', '.github/workflows/v2-campagne.yml']
+    inputs:
+      navigateurs:
+        description: 'Navigateurs, séparés par des virgules'
+        default: 'chromium,webkit,firefox'
+      formats:
+        description: 'Formats d’écran, séparés par des virgules (L, M, S)'
+        default: 'L,M,S'
+      familles:
+        description: 'Familles de scénarios, séparées par des virgules'
+        default: 'editeur,suivi,correcteurs,commentaires,roles,robustesse,historique,complements'
+      fois:
+        description: 'Nombre de passages de chaque scénario'
+        default: '3'
+      en_ligne:
+        description: 'Jouer aussi contre v2.amend.ink (Chromium, format L)'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -23,7 +38,29 @@ defaults:
     working-directory: v2
 
 jobs:
-  suivi:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      navigateurs: ${{ steps.listes.outputs.navigateurs }}
+      formats: ${{ steps.listes.outputs.formats }}
+      familles: ${{ steps.listes.outputs.familles }}
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - id: listes
+        env:
+          NAVIGATEURS: ${{ inputs.navigateurs }}
+          FORMATS: ${{ inputs.formats }}
+          FAMILLES: ${{ inputs.familles }}
+        run: |
+          liste() { printf '%s' "$1" | tr -d ' ' | jq -Rc 'split(",") | map(select(length > 0))'; }
+          echo "navigateurs=$(liste "$NAVIGATEURS")" >> "$GITHUB_OUTPUT"
+          echo "formats=$(liste "$FORMATS")" >> "$GITHUB_OUTPUT"
+          echo "familles=$(liste "$FAMILLES")" >> "$GITHUB_OUTPUT"
+
+  scenarios:
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 60
     container:
@@ -33,12 +70,14 @@ jobs:
       V2_SERVICES_EXTERNES: '1'
       V2_POSTGRES: postgres://amendv2:amendv2-dev@postgres:5432/amendv2_yhub
       V2_REDIS: redis://redis:6379
+      # Firefox refuse un HOME qui n'est pas à l'utilisateur (consigne de Playwright).
       HOME: /root
     strategy:
       fail-fast: false
       matrix:
-        navigateur: [chromium, webkit, firefox]
-        famille: [suivi, correcteurs, commentaires, editeur, roles, robustesse, historique, complements]
+        navigateur: ${{ fromJSON(needs.plan.outputs.navigateurs) }}
+        format: ${{ fromJSON(needs.plan.outputs.formats) }}
+        famille: ${{ fromJSON(needs.plan.outputs.familles) }}
     services:
       postgres:
         image: postgres:16
@@ -60,20 +99,26 @@ jobs:
           cache: npm
           cache-dependency-path: v2/package-lock.json
       - run: npm ci
-      - name: Scénarios ${{ matrix.famille }}, ${{ matrix.navigateur }}
-        run: node exploitation/campagne/scenarios-${{ matrix.famille }}.mjs --fois=3 | tee campagne-${{ matrix.famille }}-${{ matrix.navigateur }}.log
+      - name: Scénarios ${{ matrix.famille }}, ${{ matrix.navigateur }}, format ${{ matrix.format }}
+        run: node exploitation/campagne/scenarios-${{ matrix.famille }}.mjs --fois="$FOIS" --sortie=releves
         env:
           NAVIGATEUR: ${{ matrix.navigateur }}
+          FORMAT: ${{ matrix.format }}
+          FOIS: ${{ inputs.fois }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: campagne-${{ matrix.famille }}-${{ matrix.navigateur }}
-          path: v2/campagne-${{ matrix.famille }}-${{ matrix.navigateur }}.log
+          name: releve-${{ matrix.famille }}-${{ matrix.navigateur }}-${{ matrix.format }}
+          path: v2/releves/
+          if-no-files-found: ignore
 
   # Les mêmes scénarios contre v2.amend.ink (vrai serveur, vraies WebSocket),
-  # avec des comptes d'essai (@essai.amend.invalid) ; une famille à la fois
-  # pour ne pas charger le VPS (1 vCPU, partagé avec la v1).
+  # avec des comptes d'essai (@essai.amend.invalid) ; Chromium et format L
+  # seulement, une famille à la fois, pour ne pas charger le VPS (1 vCPU,
+  # partagé avec la v1).
   en-ligne:
+    needs: plan
+    if: inputs.en_ligne
     runs-on: ubuntu-latest
     timeout-minutes: 60
     container:
@@ -86,7 +131,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        famille: [complements, suivi, correcteurs, roles, commentaires, historique, editeur, robustesse]
+        famille: ${{ fromJSON(needs.plan.outputs.familles) }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -96,11 +141,40 @@ jobs:
           cache-dependency-path: v2/package-lock.json
       - run: npm ci
       - name: Scénarios ${{ matrix.famille }}, en ligne
-        run: node exploitation/campagne/scenarios-${{ matrix.famille }}.mjs --fois=2 | tee campagne-${{ matrix.famille }}-en-ligne.log
+        run: node exploitation/campagne/scenarios-${{ matrix.famille }}.mjs --fois=2 --sortie=releves
         env:
           V2_JETON_ESSAI: ${{ secrets.V2_JETON_ESSAI }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: campagne-${{ matrix.famille }}-en-ligne
-          path: v2/campagne-${{ matrix.famille }}-en-ligne.log
+          name: releve-${{ matrix.famille }}-en-ligne
+          path: v2/releves/
+          if-no-files-found: ignore
+
+  # Le bilan : tous les relevés, comparés à la référence. Le rapport est dans
+  # le résumé du flux et en artefact ; ce job échoue sur une régression.
+  bilan:
+    needs: [scenarios, en-ligne]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          path: v2/releves
+          pattern: releve-*
+      - name: Bilan de la campagne
+        run: |
+          set +e
+          node exploitation/campagne/bilan.mjs releves --rapport=rapport-campagne.md --commit="${GITHUB_SHA:0:7}" > /dev/null
+          code=$?
+          cat rapport-campagne.md >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapport-campagne
+          path: v2/rapport-campagne.md
