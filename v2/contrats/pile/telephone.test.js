@@ -195,3 +195,13 @@ test('format S : un zoom mémorisé à 50 % (autre format) est ramené à 100 %,
   await coche.first().waitFor()
   assert.equal(await p.locator('[data-amend-zoom]').first().getAttribute('data-amend-zoom'), '100')
 })
+
+test('format S : sans réseau (mode avion), le picto passe à « Hors ligne », puis revient à « Synchronisé »', async () => {
+  const doc = docTest('s-avion')
+  const p = await ouvrir('Paule', doc)
+  await p.getByRole('status', { name: 'Synchronisé' }).waitFor()
+  await p.context().setOffline(true)
+  await p.getByRole('status', { name: 'Hors ligne' }).waitFor()
+  await p.context().setOffline(false)
+  await p.getByRole('status', { name: 'Synchronisé' }).waitFor({ timeout: 30000 })
+})

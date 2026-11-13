@@ -38,7 +38,14 @@ import { exporterDocument, modeleComplet } from './exports.js'
 import { Partage } from './Partage.jsx'
 import { noterDernier, useVoletDocuments } from './voletDocuments.jsx'
 import { equipeDesModelesOuverts } from './Modeles.jsx'
-import { lireZoom, noterZoom, palierLePlusProche, TEXTES_EDITEUR, FiletDeLEditeur } from './aidesEdition.jsx'
+import {
+  lireZoom,
+  noterZoom,
+  palierLePlusProche,
+  useEnLigne,
+  TEXTES_EDITEUR,
+  FiletDeLEditeur,
+} from './aidesEdition.jsx'
 
 export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // L'interface suit les capacités, jamais le nom du rôle.
@@ -104,7 +111,11 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const volets = useVolets(etroit)
   const [fenetreSaisie, demanderNom] = useSaisie()
   const [fenetreConfirmation, confirmer] = useConfirmation()
-  const [connexion, setConnexion] = useState('connexion')
+  const [etatSession, setConnexion] = useState('connexion')
+  // Sans réseau (mode avion), le fournisseur de collaboration reste « en connexion » et réessaie sans fin :
+  // l'état annoncé est alors « hors ligne » (13/11/2026).
+  const enLigne = useEnLigne()
+  const connexion = enLigne ? etatSession : 'deconnecte'
   // Hors ligne : seulement après avoir été connecté une fois (pas à l'ouverture).
   const [aEteConnecte, setAEteConnecte] = useState(false)
   useEffect(() => {
