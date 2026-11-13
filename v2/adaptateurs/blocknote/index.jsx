@@ -6,14 +6,16 @@
 // (`07-collaboration/12-multi-doc-versioning`), un seul éditeur et un seul
 // afficheur des suggestions, le mode changeant par l'extension des
 // suggestions, sans rien recréer :
-//  - `ecrire` : elle écrit le texte, sans voir les suggestions
-//    (`disableSuggestions`) ;
-//  - `suggerer` : tout ce qu'elle tape est une suggestion (`enableSuggestions` ;
-//    pour un correcteur, y/hub le garantit, la branche principale lui est fermée) ;
-//  - `relire` : elle voit les suggestions et les accepte ou les refuse, sans
-//    écrire (`viewSuggestions`) : écrire par-dessus des suggestions affichées
-//    les prolonge (y-prosemirror#245) ;
-//  - `lire` : lecture seule (lecteur), sans les suggestions.
+//  - `ecrire` (« Éditer ») : elle écrit le texte en voyant les corrections
+//    (`viewSuggestions`, éditeur modifiable ; Sylvain, 12/11/2026). Écrire
+//    contre une correction affichée la prolongeait (y-prosemirror#245) : le
+//    correctif temporaire `correctif-245.js` replace la frappe dans le texte ;
+//  - `suggerer` (« Corriger ») : tout ce qu'elle tape est une correction
+//    (`enableSuggestions` ; pour un correcteur, y/hub le garantit, la branche
+//    principale lui est fermée) ; elle voit aussi celles des autres ;
+//  - `ecrireSeul` : elle écrit sans voir les corrections (`disableSuggestions`),
+//    le repli quand leur affichage plante sur un document ;
+//  - `lire` : lecture seule, sans les corrections.
 // Aucune apparence ici : feuilles de style et thème relèvent de la couche
 // design, dont le fournisseur Mantine entoure l'application.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -55,7 +57,13 @@ import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
 import { boutonsGardes, boutonsGardesEnSuggestion, boutonsDuFormatS } from './palette.js'
 import { MagasinFils } from './commentaires.js'
-import { creerAfficheur, suivreAuteurs, listeDesSuggestions, compterSuggestions } from './suggestions.js'
+import {
+  creerAfficheur,
+  suivreAuteurs,
+  listeDesSuggestions,
+  compterSuggestions,
+  curseurApresFrappe,
+} from './suggestions.js'
 import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
@@ -272,7 +280,7 @@ function itemsDuMenu(editeur, table, textesTitres) {
 
 /**
  * @param {object} p
- * @param {'ecrire' | 'suggerer' | 'relire' | 'lire'} p.mode
+ * @param {'ecrire' | 'suggerer' | 'ecrireSeul' | 'lire'} p.mode
  * @param {(ids: string[]) => Promise<Array<{ id: string, username: string, avatarUrl: string }>>} p.nomsDe
  * @param {{ service: object, capacites: readonly string[] } | null} [p.commentaires]
  * @param {(etat: { liste: ReturnType<typeof listeDesSuggestions>, nombre: number, enAttente: boolean, accepter: Function, refuser: Function, montrer: Function, toutAccepter: Function, toutRefuser: Function } | null) => void} [p.surSuggestions]
@@ -357,8 +365,13 @@ export function EditeurCollaboratif({
   surRefusDuSuivi.current = surRefus
   // Un afficheur, créé une fois (le mode du départ seulement) ; le mode passe
   // ensuite par l'extension (effet plus bas), sans le recréer.
+  // Correctif temporaire (y-prosemirror#245) : le curseur suit une frappe replacée.
+  const replacerCurseur = useRef(null)
   const afficheur = useMemo(
-    () => (avecSuggestions ? creerAfficheur(contexte, mode === 'suggerer') : null),
+    () =>
+      avecSuggestions
+        ? creerAfficheur(contexte, mode === 'suggerer', (apres) => replacerCurseur.current?.(apres))
+        : null,
     [contexte, avecSuggestions],
   )
   const magasin = useMemo(
@@ -383,7 +396,10 @@ export function EditeurCollaboratif({
       // les règles de saisie échouent (défaut de BlockNote, veille ; Sylvain,
       // 08/11/2026 : attendre sa correction).
       extensions: [
-        extensionTypographie({ langue: langueDocument, actif: () => modeMaintenant.current === 'ecrire' }),
+        extensionTypographie({
+          langue: langueDocument,
+          actif: () => ['ecrire', 'ecrireSeul'].includes(modeMaintenant.current),
+        }),
         // Contournements temporaires du mode Suggérer (veille).
         extensionLimitesDuSuivi({
           actif: () => modeMaintenant.current === 'suggerer',
@@ -423,6 +439,7 @@ export function EditeurCollaboratif({
   // Le panneau ne s'affiche qu'une fois l'historique ouvert (les effets d'un
   // composant enfant passent avant ceux de l'éditeur).
   const [historiqueOuvert, setHistoriqueOuvert] = useState(false)
+  replacerCurseur.current = (apres) => curseurApresFrappe(editeur, apres)
   useEffect(() => {
     const versions = editeur.getExtension('versioning')
     if (historique) {
@@ -437,7 +454,7 @@ export function EditeurCollaboratif({
     if (!afficheur) return
     const ext = editeur.getExtension('suggestions')
     if (mode === 'suggerer') ext.enableSuggestions()
-    else if (mode === 'relire') ext.viewSuggestions()
+    else if (mode === 'ecrire') ext.viewSuggestions()
     else ext.disableSuggestions()
   }, [editeur, afficheur, mode, historique])
 
@@ -458,7 +475,8 @@ export function EditeurCollaboratif({
       toutAccepter: () => ext.applyAllSuggestions(),
       toutRefuser: () => ext.revertAllSuggestions(),
     }
-    const relire = mode === 'relire'
+    // La liste, dans les modes où le texte montre les corrections.
+    const relire = mode === 'ecrire' || mode === 'suggerer'
     // Hors relecture, le nombre est compté à part, rarement (compterSuggestions).
     let compte = relire ? 0 : compterSuggestions(contexte, afficheur)
     const signaler = () => {
@@ -576,7 +594,7 @@ export function EditeurCollaboratif({
   // Tout se fait dans le geste même (sinon le téléphone n'ouvre pas le
   // clavier) ; la propriété `editable` de BlockNoteView reste à `false` et l'on
   // bascule l'éditeur directement (maquette validée, docs/v2-format-S.md).
-  const ecrit = mode !== 'lire' && mode !== 'relire'
+  const ecrit = mode !== 'lire'
   const appui = lectureAuDepart && ecrit && !historique
   const [enModification, setEnModification] = useState(false)
   useEffect(() => surModification?.(enModification), [enModification, surModification])
