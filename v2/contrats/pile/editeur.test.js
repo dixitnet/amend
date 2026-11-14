@@ -520,3 +520,17 @@ test('titres : l’interligne d’un titre est celui des titres de Mantine, pas 
   assert.ok(rapports.texte >= 1.45, `le texte garde le sien : ${rapports.texte}`)
   await page.context().close()
 })
+
+test('poignées de bloc : visibles aux formats L et M (Sylvain, 14/11/2026)', async () => {
+  const page = await pageEcriture('poignees-l')
+  await page.keyboard.type('Un paragraphe.')
+  await attendre(500)
+  await page.hover('.bn-block-content[data-content-type="paragraph"]')
+  await attendre(500)
+  const affichee = await page.evaluate(() => {
+    const el = document.querySelector('.bn-side-menu')
+    return Boolean(el) && getComputedStyle(el).display !== 'none'
+  })
+  assert.ok(affichee, 'la poignée de bloc est affichée au survol')
+  await page.context().close()
+})
