@@ -255,13 +255,7 @@ test('format S : en Lire (choix du menu « … »), le texte seul : un appui n�
   await p.click('.bn-editor')
   await p.keyboard.type('Du texte.')
   await p.getByRole('button', { name: 'Terminer' }).click()
-  assert.equal(
-    (await p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).count()) +
-      (await p.getByRole('button', { name: 'Relecture' }).count()) >
-      0,
-    true,
-    'volet de droite en Éditer',
-  )
+  await p.getByRole('button', { name: 'Relecture' }).waitFor() // le volet de droite, en Éditer
   await p.getByRole('button', { name: 'Autres actions' }).click()
   await p.getByRole('menuitem', { name: 'Passer en mode Lire', exact: true }).click()
   await p.locator('[data-amend-lecture]').waitFor()
