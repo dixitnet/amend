@@ -7,34 +7,31 @@
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
 import { useEffect, useRef, useState } from 'react'
-import { ElementsDeMenu, PictoCompte, OngletCompact } from './Coquille.jsx'
+import { ElementsDeMenu, PictoCompte } from './Coquille.jsx'
 
-/** Un tiroir à onglets ; l'onglet ouvert peut être piloté (`actif`, `surOnglet`).
- * `compact` : seul l'onglet actif montre son texte (volet droit, 12/11/2026). */
-function Volet({ volet, position, ouvert, surFermer, compact = false }) {
+/** Un tiroir à onglets, les deux de la même façon (Sylvain, 14/11/2026,
+ * « harmoniser les volets gauche et droite avec une version réduite
+ * uniquement avec picto », piste 1) : des onglets en pictos seuls sur toute la
+ * largeur (nommés pour les lecteurs d'écran, nombre en pastille sur le picto),
+ * et le nom de l'onglet ouvert en titre du tiroir. L'onglet ouvert peut être
+ * piloté (`actif`, `surOnglet`). */
+function Volet({ volet, position, ouvert, surFermer }) {
   const [local, setLocal] = useState(null)
   if (!volet) return null
   const valeur = volet.actif ?? local ?? volet.onglets[0]?.cle
+  const titre = volet.onglets.find((o) => o.cle === valeur)?.libelle ?? volet.titre
   return (
-    <Drawer opened={ouvert} onClose={surFermer} position={position} title={volet.titre}>
-      <Tabs value={valeur} onChange={volet.surOnglet ?? setLocal}>
-        <Tabs.List grow={!compact}>
-          {volet.onglets.map((o) =>
-            compact ? (
-              <OngletCompact
-                key={o.cle}
-                valeur={o.cle}
-                actif={valeur}
-                libelle={o.libelle}
-                nombre={o.nombre}
-                role={o.icone}
-              />
-            ) : (
-              <Tabs.Tab key={o.cle} value={o.cle} leftSection={<PictoCompte role={o.icone} nombre={o.nombre} />}>
-                {o.libelle}
-              </Tabs.Tab>
-            ),
-          )}
+    <Drawer opened={ouvert} onClose={surFermer} position={position} title={titre}>
+      <Tabs value={valeur} onChange={volet.surOnglet ?? setLocal} className="amend-volet-onglets">
+        <Tabs.List grow aria-label={volet.titre}>
+          {volet.onglets.map((o) => (
+            <Tabs.Tab
+              key={o.cle}
+              value={o.cle}
+              aria-label={o.libelle}
+              leftSection={<PictoCompte role={o.icone} nombre={o.nombre} />}
+            />
+          ))}
         </Tabs.List>
         {volet.onglets.map((o) => (
           <Tabs.Panel key={o.cle} value={o.cle}>
@@ -152,7 +149,7 @@ export function PageEditionS({
         {editeur}
       </main>
       <Volet volet={voletGauche} position="left" ouvert={volet === 'gauche'} surFermer={fermer} />
-      <Volet volet={voletDroit} position="right" ouvert={volet === 'droite'} surFermer={fermer} compact />
+      <Volet volet={voletDroit} position="right" ouvert={volet === 'droite'} surFermer={fermer} />
       {panneau ? (
         <Modal opened onClose={panneau.surFermer} title={panneau.titre} fullScreen>
           {panneau.contenu}

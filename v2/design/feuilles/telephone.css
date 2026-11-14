@@ -93,3 +93,10 @@
     transition: none;
   }
 }
+
+/* réglage : css.telephone.volets */
+/* Les onglets des deux tiroirs sont des pictos seuls, répartis sur la largeur
+   (Sylvain, 14/11/2026) : chaque picto est centré dans son onglet. */
+.amend-volet-onglets .mantine-Tabs-tab {
+  justify-content: center;
+}
