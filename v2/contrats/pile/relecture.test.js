@@ -390,3 +390,78 @@ test('notes et relecture : le correcteur lit une note sans la modifier, en ajout
   )
   await fermer()
 })
+
+/** Une éditrice (Paule) qui a écrit une phrase, une autre éditrice (Edith) et une lectrice (Lucie, qui ne voit que le texte de base). */
+async function propositionEntreEditrices(nom, { texteDe }) {
+  const doc = docTest(nom)
+  const phrase = 'Il faisait nuit sur la ville.'
+  const premiere = texteDe === 'Edith' ? await ouvrir('Edith', doc) : await ouvrir('Paule', doc)
+  await premiere.click('.bn-editor')
+  await premiere.keyboard.type(phrase)
+  const p = texteDe === 'Edith' ? await ouvrir('Paule', doc, { role: 'editeur' }) : premiere
+  const e = texteDe === 'Edith' ? premiere : await ouvrir('Edith', doc, { role: 'editeur' })
+  const l = await ouvrir('Lucie', doc, { role: 'lecteur' })
+  await attendreTexte(e, phrase)
+  await attendreTexte(p, phrase)
+  await attendreTexte(l, phrase)
+  await choisirMode(p, 'Corriger')
+  await p.click('.bn-inline-content')
+  await p.keyboard.press('End')
+  await attendre(300)
+  await p.keyboard.type(' Ajout.')
+  await attendre(1500)
+  await attendrePanneau(e, /Paule ajoute «\s?Ajout\.\s?»/)
+  await e
+    .getByRole('button', { name: /^Accepter\s*:/ })
+    .first()
+    .click()
+  return { p, e, l, phrase, fermer: async () => Promise.all([p, e, l].map((x) => x.context().close())) }
+}
+
+test('une éditrice propose à la suite du texte d’une autre ; cette autre l’accepte : le texte de base change chez la lectrice', async () => {
+  const { l, phrase, fermer } = await propositionEntreEditrices('editrice-propose-b', { texteDe: 'Edith' })
+  await attendreTexte(l, `${phrase} Ajout.`)
+  await fermer()
+})
+
+// DÉFAUT CONNU (14/11/2026, campagne B10) : quand l'éditrice qui propose est
+// aussi l'auteure du texte voisin, « Accepter » par une autre éditrice ne fait
+// rien (la commande rend « vrai », le texte de base ne change pas) ; « Tout
+// accepter » fonctionne. Les cas voisins passent (correctrice qui propose, ou
+// texte voisin écrit par l'autre éditrice). Voir docs/v2-veille.md.
+test(
+  'une éditrice propose à la suite de son propre texte ; une autre éditrice l’accepte : le texte de base change chez la lectrice',
+  { todo: 'acceptChanges d’une plage ne s’applique pas quand le texte voisin est de la même auteure' },
+  async () => {
+    const { l, phrase, fermer } = await propositionEntreEditrices('editrice-propose-a', { texteDe: 'Paule' })
+    try {
+      await attendreTexte(l, `${phrase} Ajout.`)
+    } finally {
+      await fermer()
+    }
+  },
+)
+
+test('une correctrice propose ; une éditrice qui n’a pas écrit le texte l’accepte', async () => {
+  const doc = docTest('correctrice-edith')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Il faisait nuit sur la ville.')
+  const c = await ouvrir('Carla', doc, { role: 'correcteur' })
+  const e = await ouvrir('Edith', doc, { role: 'editeur' })
+  await attendreTexte(c, 'Il faisait nuit sur la ville.')
+  await c.click('.bn-inline-content')
+  await c.keyboard.press('End')
+  await attendre(300)
+  await c.keyboard.type(' Ajout.')
+  await attendre(1500)
+  await attendrePanneau(e, /Carla ajoute «\s?Ajout\.\s?»/)
+  await e
+    .getByRole('button', { name: /^Accepter\s*:/ })
+    .first()
+    .click()
+  await attendrePanneau(e, /Aucune correction/)
+  await p.context().close()
+  await c.context().close()
+  await e.context().close()
+})

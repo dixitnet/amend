@@ -5,7 +5,15 @@ import * as playwright from 'playwright'
 
 export const NAVIGATEUR = process.env.NAVIGATEUR || 'chromium'
 export const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
-export const lancerNavigateur = () => playwright[NAVIGATEUR].launch()
+// Firefox : le presse-papiers de la page (écriture sans geste ni autorisation,
+// pour coller pour de vrai dans les essais ; campagne du 14/11/2026).
+const PREFS_FIREFOX = {
+  'dom.events.asyncClipboard.clipboardItem': true,
+  'dom.events.testing.asyncClipboard': true,
+  'dom.events.asyncClipboard.readText': true,
+}
+export const lancerNavigateur = () =>
+  playwright[NAVIGATEUR].launch(NAVIGATEUR === 'firefox' ? { firefoxUserPrefs: PREFS_FIREFOX } : undefined)
 export const docTest = (nom) => `t5-${nom}-${Date.now().toString(36)}`
 
 /** Le cookie de session du propriétaire de chaque document ouvert par ces
@@ -36,6 +44,26 @@ export async function donnerRole(base, docId, nom, role) {
 export async function ouvrir(nav, base, nom, docId, { locale = 'fr-FR', role = 'editeur', contexte = {} } = {}) {
   if (proprietaires.has(cle(base, docId))) await donnerRole(base, docId, nom, role)
   const ctx = await nav.newContext({ locale, ...contexte })
+  // Les connexions WebSocket de la page, pour pouvoir les couper : `setOffline`
+  // ne ferme pas celles qui sont ouvertes sous Firefox et WebKit, ni ne bloque
+  // les nouvelles (campagne du 14/11/2026). `__amendCoupe` : plus aucune
+  // connexion ne reste ouverte ni ne s'ouvre.
+  await ctx.addInitScript(() => {
+    const Natif = window.WebSocket
+    window.__amendSockets = []
+    window.__amendCoupe = false
+    class Coupable extends Natif {
+      constructor(...args) {
+        super(...args)
+        window.__amendSockets.push(this)
+        if (window.__amendCoupe) setTimeout(() => this.close(), 0)
+      }
+      send(donnees) {
+        if (!window.__amendCoupe) super.send(donnees)
+      }
+    }
+    window.WebSocket = Coupable
+  })
   const page = await ctx.newPage()
   await page.goto(`${base}/#${docId}`)
   await page.waitForSelector('input[name=nom], .bn-editor')

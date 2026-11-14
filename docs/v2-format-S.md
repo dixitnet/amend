@@ -12,13 +12,13 @@ Vertical seulement. Le plus de place possible pour le texte ; Mantine et BlockNo
 
 Fixe en haut, une seule ligne, de gauche à droite :
 
-| Élément | Picto (Tabler) | Rôle |
-|---|---|---|
-| Volet gauche | `IconListTree` (liste en arbre) | ouvre « Plan / Documents » |
-| Titre du document | — | coupé par « … » s'il est trop long ; le titre n'est plus dans le texte |
-| « Terminer » | — | seulement en modification : repasse en lecture |
-| Menu « … » | `IconDots` | Copier le lien, Partager, Exporter, Imprimer, Dupliquer, Supprimer |
-| Volet droit, tout à droite | `IconPencilCheck` (crayon avec coche) | ouvre « Modifications / Margo (IA) » |
+| Élément                    | Picto (Tabler)                        | Rôle                                                                   |
+| -------------------------- | ------------------------------------- | ---------------------------------------------------------------------- |
+| Volet gauche               | `IconListTree` (liste en arbre)       | ouvre « Plan / Documents »                                             |
+| Titre du document          | —                                     | coupé par « … » s'il est trop long ; le titre n'est plus dans le texte |
+| « Terminer »               | —                                     | seulement en modification : repasse en lecture                         |
+| Menu « … »                 | `IconDots`                            | Copier le lien, Partager, Exporter, Imprimer, Dupliquer, Supprimer     |
+| Volet droit, tout à droite | `IconPencilCheck` (crayon avec coche) | ouvre « Modifications / Margo (IA) »                                   |
 
 Docs : barre flottante avec le volet gauche, puis le volet droit et le menu « … » en dernier (`DocFloatingBar.tsx`) ; liste à puces pour le plan (`bulleted-list.svg`) ; sur téléphone, son menu masque « Présenter » et « Historique » (`DocToolBox.tsx`). Écart décidé : le volet droit est tout à droite, et le picto du plan est une liste en arbre.
 
@@ -31,14 +31,14 @@ Tiroirs Mantine (`Drawer`), chacun à deux onglets avec picto :
 
 Docs : une page pour les documents (`sub-page-logo.svg`), une baguette avec étoiles pour l'IA (`wand_stars.svg`).
 
-## Lecture et modification
+## Mode et clavier (décision du 14/11/2026, qui remplace celle du 09/11/2026)
 
-- Le document s'ouvre **en lecture seule**.
-- **Un appui sur le texte** passe en modification, curseur à l'endroit touché, dans le geste même (sinon le téléphone n'ouvre pas le clavier).
-- Retour en lecture : **« Terminer »** dans le bandeau, ou **fermeture du clavier** (la zone visible, `visualViewport`, retrouve sa hauteur).
+- **Le mode est celui de la personne dès l'ouverture** : Éditer pour qui écrit, Corriger pour un correcteur, Lire pour un lecteur (ou si la personne choisit Lire dans le menu « … »). Les corrections s'affichent donc dans le texte et dans le volet de droite, comme aux autres formats.
+- **Le clavier est un état à part** : le texte s'ouvre sans clavier ; **un appui sur le texte** l'ouvre, curseur à l'endroit touché, dans le geste même (sinon le téléphone n'ouvre pas le clavier). **« Terminer »** ou la **fermeture du clavier** (la zone visible, `visualViewport`, retrouve sa hauteur) le referme, **sans changer de mode**.
+- **Lire** reste proposé dans le menu « … » : le texte seul, sans volet de droite, un appui n'ouvre pas le clavier.
 - Pas de bouton flottant.
 
-Docs n'a pas de mode lecture pour qui peut modifier : la lecture seule n'y existe que sans droit d'écriture (`DocEditor.tsx`). Écart décidé.
+Docs : le texte est éditable dès l'ouverture pour qui a le droit d'écrire, sans mode lecture ni cas particulier du téléphone (`DocEditor.tsx` : `readOnly = !doc.abilities.partial_update`). Ce modèle s'en rapproche ; l'écart du 09/11/2026 (ouverture en lecture seule) est supprimé.
 
 ## Éditeur (décisions générales, formats S, M et L)
 

@@ -25,13 +25,14 @@ after(async () => {
 
 const modifiable = (page) => page.evaluate(() => document.querySelector('.bn-editor')?.contentEditable === 'true')
 
-test('format S : bandeau, lecture à l’ouverture, un appui pour modifier, « Terminer » pour revenir', async () => {
+test('format S : bandeau, mode Éditer sans clavier à l’ouverture, un appui pour modifier, « Terminer » ferme le clavier', async () => {
   const doc = docTest('s-lecture')
   const p = await ouvrir('Paule', doc)
   await p.getByRole('button', { name: 'Plan et documents' }).waitFor()
   await p.getByRole('button', { name: 'Autres actions' }).waitFor()
   assert.equal(await p.getByRole('button', { name: 'Historique' }).count(), 0, 'pas d’historique sur téléphone (Docs)')
-  assert.equal(await modifiable(p), false, 'lecture à l’ouverture')
+  assert.equal(await modifiable(p), false, 'sans clavier à l’ouverture')
+  assert.equal(await p.locator('[data-amend-lecture]').count(), 0, 'le mode est Éditer, pas Lire')
   await p.click('.bn-editor')
   assert.equal(await modifiable(p), true, 'un appui passe en modification')
   await p.getByRole('button', { name: 'Terminer' }).waitFor()
@@ -44,7 +45,8 @@ test('format S : bandeau, lecture à l’ouverture, un appui pour modifier, « T
   await p.keyboard.type('X')
   await attendreTexte(p, 'XÉcrit sur téléphone.')
   await p.getByRole('button', { name: 'Terminer' }).click()
-  assert.equal(await modifiable(p), false, '« Terminer » revient en lecture')
+  assert.equal(await modifiable(p), false, '« Terminer » ferme le clavier')
+  assert.equal(await p.locator('[data-amend-lecture]').count(), 0, 'sans changer de mode : toujours Éditer')
   await p.getByRole('button', { name: 'Terminer' }).waitFor({ state: 'detached' })
   await attendre(1500)
   await p.reload()
@@ -52,7 +54,7 @@ test('format S : bandeau, lecture à l’ouverture, un appui pour modifier, « T
   await p.context().close()
 })
 
-test('format S : le correcteur s’ouvre en Lire ; un appui passe en Corriger, sa frappe est une suggestion ; « Terminer » ramène en Lire', async () => {
+test('format S : le correcteur s’ouvre en Corriger sans clavier ; un appui l’ouvre, sa frappe est une suggestion ; « Terminer » ferme le clavier', async () => {
   const doc = docTest('s-correcteur')
   // L'éditrice, sur grand écran, écrit le texte.
   const p = await ouvrirSur(nav, pile.url, 'Paule', doc)
@@ -60,18 +62,21 @@ test('format S : le correcteur s’ouvre en Lire ; un appui passe en Corriger, s
   await p.keyboard.type('Il faisait nuit.')
   const c = await ouvrir('Carla', doc, { role: 'correcteur' })
   await attendreTexte(c, 'Il faisait nuit.')
-  assert.equal(await modifiable(c), false, 'Lire à l’ouverture')
+  assert.equal(await modifiable(c), false, 'sans clavier à l’ouverture')
+  assert.equal(await c.locator('[data-amend-lecture]').count(), 0, 'le mode est Corriger, pas Lire')
   const boite = await c.locator('.bn-inline-content').first().boundingBox()
   await c.mouse.click(boite.x + boite.width - 2, boite.y + boite.height / 2)
-  assert.equal(await modifiable(c), true, 'un appui passe en Corriger')
+  assert.equal(await modifiable(c), true, 'un appui ouvre le clavier')
   await c.keyboard.press('End')
   await attendre(300)
   await c.keyboard.type(' Ajout')
   for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/Carla ajoute/.test(await panneau(p));) await attendre(200)
   assert.match(await panneau(p), /Carla ajoute «\s?Ajout\s?»/, 'une suggestion, chez l’éditrice')
   await c.getByRole('button', { name: 'Terminer' }).click()
-  assert.equal(await modifiable(c), false, '« Terminer » ramène en Lire')
-  await attendreTexte(c, 'Il faisait nuit.')
+  assert.equal(await modifiable(c), false, '« Terminer » ferme le clavier')
+  assert.equal(await c.locator('[data-amend-lecture]').count(), 0, 'toujours Corriger')
+  // Toujours Corriger : sa suggestion reste visible dans le texte (en Lire, le texte de base seul).
+  await attendreTexte(c, 'Il faisait nuit. Ajout')
   await p.context().close()
   await c.context().close()
 })
@@ -109,8 +114,8 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
     [
       'Ajouter aux favoris',
       'Copier le lien',
-      'Passer en mode Éditer',
       'Passer en mode Corriger',
+      'Passer en mode Lire',
       'Partager',
       'Exporter…',
       'Dupliquer',
@@ -242,4 +247,23 @@ test('format S : la palette flottante est cachée pendant le défilement et réa
   assert.equal(await palette.evaluate((e) => getComputedStyle(e).visibility), 'hidden', 'cachée pendant le défilement')
   await p.waitForFunction(() => !document.documentElement.hasAttribute('data-amend-defile'), null, { timeout: 2000 })
   assert.equal(await palette.evaluate((e) => getComputedStyle(e).visibility), 'visible', 'revenue à l’arrêt')
+})
+
+test('format S : en Lire (choix du menu « … »), le texte seul : un appui n’ouvre pas le clavier, pas de volet de droite ; les corrections reviennent en Éditer', async () => {
+  const doc = docTest('s-lire-choisi')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Du texte.')
+  await p.getByRole('button', { name: 'Terminer' }).click()
+  await p.getByRole('button', { name: 'Relecture' }).waitFor() // le volet de droite, en Éditer
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Passer en mode Lire', exact: true }).click()
+  await p.locator('[data-amend-lecture]').waitFor()
+  assert.equal(await p.getByRole('button', { name: 'Relecture' }).count(), 0, 'pas de volet de droite en Lire')
+  await p.click('.bn-editor')
+  assert.equal(await modifiable(p), false, 'un appui n’ouvre pas le clavier en Lire')
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Passer en mode Éditer', exact: true }).click()
+  await p.getByRole('button', { name: 'Relecture' }).waitFor()
+  await p.context().close()
 })

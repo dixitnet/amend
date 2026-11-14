@@ -312,10 +312,6 @@ function itemsDuMenu(editeur, table, textesTitres) {
  * @param {boolean} [p.lectureAuDepart]  écran tactile : en Éditer et Corriger, le
  *   texte s'ouvre sans clavier ; un appui sur le texte passe en modification
  *   (curseur à l'endroit touché)
- * @param {() => void} [p.surAppuiEnLecture]  format S : en Lire, un appui sur le
- *   texte demande à l'application le mode d'écriture de la personne (Éditer ou
- *   Corriger), le curseur à l'endroit touché (Sylvain, 12/11/2026)
- * @param {'editer' | 'corriger'} [p.modeApresAppui]  ce mode-là
  * @param {{ current: { terminer: () => void, exporter: Function } | null }} [p.controle]  reçoit
  *   `terminer()` (bouton « Terminer » du bandeau), `compter()` ({ signes, mots }
  *   du texte de base) et `exporter(format, options)` :
@@ -363,8 +359,6 @@ export function EditeurCollaboratif({
   surRefus,
   fils = null,
   lectureAuDepart = false,
-  surAppuiEnLecture,
-  modeApresAppui = 'editer',
   controle,
   surModification,
   surPlan,
@@ -670,19 +664,12 @@ export function EditeurCollaboratif({
   // bascule l'éditeur directement (maquette validée, docs/v2-format-S.md).
   const ecrit = mode !== 'lire'
   const appui = lectureAuDepart && ecrit && !historique
-  // Format S : en Lire, un appui sur le texte passe au mode d'écriture.
-  const appuiEnLecture = !ecrit && !historique && Boolean(surAppuiEnLecture)
   const [enModification, setEnModification] = useState(false)
   useEffect(() => surModification?.(enModification), [enModification, surModification])
   const terminer = () => {
     if (!editeur.isEditable) return
     editeur.isEditable = false
     editeur.prosemirrorView?.dom.blur()
-    // Format S : la fin d'une modification ramène en Lire ; le texte y est
-    // relié dans le geste même, comme l'appui le relie au mode d'écriture :
-    // sinon la liaison, faite au rendu suivant, pourrait passer après un
-    // appui rapide et redessiner le texte sous la frappe (pile, Chromium).
-    if (surAppuiEnLecture) lier('lire')
     setEnModification(false)
   }
   // Passer en Lire pendant une modification (menu « … » du format S) la termine.
@@ -798,14 +785,7 @@ export function EditeurCollaboratif({
     [editeur, textes, surNote, nouvelleNote],
   )
   const commencer = (evenement) => {
-    if (!(appui || appuiEnLecture) || editeur.isEditable) return
-    if (appuiEnLecture) {
-      // Le texte est relié au mode d'écriture dans le geste même, avant le
-      // curseur et la frappe : relié après coup, il serait redessiné et la
-      // première touche se perdrait (pile, Chromium, 12/11/2026).
-      lier(modeApresAppui)
-      surAppuiEnLecture()
-    }
+    if (!appui || editeur.isEditable) return
     editeur.isEditable = true
     editeur.prosemirrorView?.focus()
     // Le curseur à l'endroit touché : par la sélection du navigateur, que
@@ -893,5 +873,5 @@ export function EditeurCollaboratif({
       ) : null}
     </BlockNoteView>
   )
-  return appui || appuiEnLecture ? <div onClick={commencer}>{vue}</div> : vue
+  return appui ? <div onClick={commencer}>{vue}</div> : vue
 }
