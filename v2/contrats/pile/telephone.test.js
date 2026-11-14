@@ -283,3 +283,30 @@ test('format S : pas de poignées de bloc, marges de 10 px (Sylvain, 09/11/2026,
   assert.equal(mesure.marge, '10px', 'marges de 10 px')
   await p.context().close()
 })
+
+test('format S : les onglets des tiroirs sont des pictos seuls, le nom de l’onglet ouvert est le titre (Sylvain, 14/11/2026)', async () => {
+  const p = await ouvrir('Paule', docTest('s-onglets-pictos'))
+  for (const [bouton, ouvert, autre] of [
+    ['Plan et documents', 'Plan', 'Documents'],
+    ['Relecture', 'Corrections', 'Commentaires'],
+  ]) {
+    await p.getByRole('button', { name: bouton }).click()
+    const tiroir = p.getByRole('dialog')
+    await tiroir.getByRole('tab', { name: ouvert }).waitFor()
+    assert.equal(await tiroir.locator('.mantine-Drawer-title').innerText(), ouvert, 'titre = onglet ouvert')
+    for (const t of await tiroir.getByRole('tab').all()) {
+      assert.equal((await t.innerText()).trim(), '', 'aucun libellé dans l’onglet')
+      const c = await t.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const g = el.querySelector('svg').getBoundingClientRect()
+        return Math.abs(r.left + r.width / 2 - (g.left + g.width / 2))
+      })
+      assert.ok(c < 3, `picto centré dans son onglet (écart ${c})`)
+    }
+    await tiroir.getByRole('tab', { name: autre }).click()
+    assert.equal(await tiroir.locator('.mantine-Drawer-title').innerText(), autre, 'le titre suit l’onglet')
+    await p.keyboard.press('Escape')
+    await tiroir.waitFor({ state: 'detached' })
+  }
+  await p.context().close()
+})
