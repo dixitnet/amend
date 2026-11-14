@@ -322,3 +322,26 @@ test('format S : les onglets des tiroirs sont des pictos seuls, le nom de l’on
   }
   await p.context().close()
 })
+
+test('format S : la pastille de nombre du volet droit n’est pas rognée par son bouton (Sylvain, 14/11/2026)', async () => {
+  const doc = docTest('s-pastille')
+  const p = await ouvrirSur(nav, pile.url, 'Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Il faisait nuit.')
+  const c = await ouvrirSur(nav, pile.url, 'Carla', doc, { role: 'correcteur' })
+  await c.locator('.bn-editor').click()
+  await c.keyboard.press('End')
+  await c.keyboard.type(' Ajout')
+  const e = await ouvrir('Edith', doc)
+  await attendreTexte(e, 'Il faisait nuit. Ajout')
+  const pastille = e.locator('.amend-bandeau-volet-droit .mantine-Indicator-indicator')
+  await pastille.waitFor()
+  const rogne = await e.evaluate(() => {
+    const b = document.querySelector('.amend-bandeau-volet-droit')
+    return getComputedStyle(b).overflow
+  })
+  assert.equal(rogne, 'visible', 'le bouton ne rogne pas sa pastille')
+  const boite = await pastille.boundingBox()
+  assert.ok(boite.x + boite.width <= 390, 'la pastille tient dans l’écran')
+  await p.context().close()
+})
