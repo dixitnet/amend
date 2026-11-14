@@ -45,6 +45,7 @@ test('statut : celui de la référence, sauf exception pour un navigateur ou un 
     statut: 'connu',
     note: 'propre à WebKit',
     lien: '',
+    verdicts: null,
   })
   assert.equal(statutPour(reference, cle('suivi', 'inconnu'), 'chromium', 'L'), null)
   const precise = {
@@ -175,4 +176,28 @@ test('bilan : lit les relevés d’un dossier (sous-dossiers compris), écrit le
   } finally {
     rmSync(dossier, { recursive: true, force: true })
   }
+})
+
+test('un défaut connu dont le résultat a changé est signalé (P13), pas un connu stable', () => {
+  const ref = {
+    qualifiees: ['chromium/L'],
+    scenarios: {
+      [cle('suivi', 'K')]: { statut: 'connu', verdicts: { 'chromium/L': 'echoue', 'en ligne': 'passe' } },
+      [cle('suivi', 'S')]: { statut: 'connu', verdicts: { 'chromium/L': 'echoue' } },
+    },
+  }
+  const b = comparer(
+    [
+      releve('chromium', 'L', [joue('K', 0), joue('S', 0)]),
+      { famille: 'suivi', navigateur: 'chromium', format: 'L', enLigne: true, scenarios: [joue('K', 0)] },
+    ],
+    ref,
+  )
+  assert.deepEqual(
+    b.changes.map((l) => [l.nom, l.ou, l.verdict]),
+    [['K', 'en ligne', 'echoue']],
+  )
+  const texte = rapport(b, { date: '2026-11-14', commit: 'abc' })
+  assert.match(texte, /## Défauts connus dont le résultat a changé \(1\)/)
+  assert.match(texte, /noté « passe », maintenant « echoue »/)
 })
