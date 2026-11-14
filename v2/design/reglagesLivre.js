@@ -127,6 +127,8 @@ export const REGLAGES_LIVRE = {
       enTete: { gauche: 'rien', droite: 'rien' },
       separateur: 'blanc',
       cesure: true,
+      // Une image occupe toute la largeur de la page hors marges, en pour cent (Sylvain, 14/11/2026).
+      image: { largeur: 100 },
       chapitre: { debut: 'page', ligneTitre: 3, ligneTexte: 7, interligne: 19 },
       styles: {
         texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 5 },
@@ -203,6 +205,7 @@ export const REGLAGES_LIVRE = {
         enTete: { gauche: 'rien', droite: 'rien' },
         separateur: 'blanc',
         cesure: true,
+        image: { largeur: 100 },
         chapitre: { debut: 'belle-page', ligneTitre: 7, ligneTexte: 12, interligne: 14 },
         styles: {
           texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 4.5 },

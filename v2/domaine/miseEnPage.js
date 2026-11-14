@@ -252,6 +252,8 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#set par(justify: ${texte.alignement === 'justifie'}, leading: ${ecart}, spacing: ${ecart}, first-line-indent: (amount: ${mm(texte.alinea)}, all: true))`,
     ...(texte.alignement === 'centre' ? ['#set align(center)'] : []),
     `#set block(spacing: ${ecart})`,
+    // Une image occupe la largeur de la page hors marges, 100 % (Sylvain, 14/11/2026).
+    `#set image(width: ${modele.image?.largeur ?? 100}%)`,
     `#set list(spacing: ${ecart})`,
     `#set enum(spacing: ${ecart})`,
     // La citation : son style, et son retrait à gauche.

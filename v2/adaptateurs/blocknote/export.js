@@ -282,7 +282,10 @@ async function parcourir(exportateur, blocs) {
         // que rien ne référence plus, ne gêne pas la compilation.
         const fichiers = exportateur.assetFiles
         const vide = [...typst.matchAll(/image\("([^"]+)"/g)].some((m) => !fichiers.get(m[1])?.length)
-        if (!vide) sortie.push(typst)
+        // Une image occupe toute la largeur de la page hors marges (Sylvain,
+        // 14/11/2026, règle du gabarit) : on retire la largeur que BlockNote lui
+        // donne (`previewWidth` de l'éditeur, en points, qui déborde de la page).
+        if (!vide) sortie.push(typst.replace(/(image\("[^"]+"), width: [^,)]+/g, '$1'))
       } catch {
         // Un bloc que BlockNote ne sait pas exporter est omis de même.
       }
