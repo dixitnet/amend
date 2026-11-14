@@ -101,3 +101,5 @@ export {
 } from './polices.js'
 export { planSuppressionCompte, confirmationSuppressionValide } from './compte.js'
 export { dateDuJour } from './date.js'
+
+export { DELAI_GRACE_IMAGES_MS, DOCUMENTS_LISTES_MAX, nomsCites, analyserImages } from './imagesOrphelines.js'
