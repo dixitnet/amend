@@ -386,7 +386,8 @@
         "document": "Document",
         "nombre": "Images",
         "poids": "Size"
-      }
+      },
+      "corbeille": "In the trash (documents y/hub does not read: not judged)"
     }
   },
   "telephone": {

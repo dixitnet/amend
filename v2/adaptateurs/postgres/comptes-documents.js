@@ -63,9 +63,12 @@ export function partiesDocuments(sql) {
         creeLe: i.cree_le.getTime(),
       }))
     },
-    /** Les identifiants de tous les documents de l'instance, corbeille comprise. */
+    /** Tous les documents de l'instance : `{ id, corbeille }` (corbeille comprise). */
     async tousLesDocuments() {
-      return (await sql`select id from amend.documents`).map((d) => d.id)
+      return (await sql`select id, supprime_le is not null as corbeille from amend.documents`).map((d) => ({
+        id: d.id,
+        corbeille: d.corbeille,
+      }))
     },
     /** Le poids de toutes les images d'un document, en octets. */
     async poidsImages(document) {

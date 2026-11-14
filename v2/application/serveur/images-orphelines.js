@@ -31,23 +31,29 @@ export function creerImagesOrphelines({
     if (!(await administrateur(p))) return err(403, 'reserve-administrateur')
     if (req.method !== 'GET') return err(405, 'methode-refusee')
     const [images, documents] = await Promise.all([depot.toutesLesImages(), depot.tousLesDocuments()])
+    // y/hub refuse de lire un document à la corbeille (renoncement n° 24) : on ne le lit pas, et ses images ne sont pas jugées.
+    const corbeille = new Set(documents.filter((d) => d.corbeille).map((d) => d.id))
     const citees = new Set()
     // Les documents qu'on n'a pas pu lire : on ne sait pas ce qu'ils citent, le rapport le dit.
-    const illisibles = []
+    let lus = 0
+    let illisibles = 0
     // Rien à chercher sans image : pas la peine de lire les documents.
     if (images.length)
-      for (const id of documents) {
+      for (const { id } of documents) {
+        if (corbeille.has(id)) continue
         try {
           for (const etat of [await collaboration.lireTexte(id), await collaboration.lireSuggestions(id)])
             for (const nom of nomsCites(etat)) citees.add(nom)
+          lus += 1
         } catch {
-          illisibles.push(id)
+          illisibles += 1
         }
       }
     json(res, 200, {
-      ...analyserImages({ images, citees, maintenant: maintenant() }),
-      documentsLus: documents.length - illisibles.length,
-      documentsIllisibles: illisibles.length,
+      ...analyserImages({ images, citees, maintenant: maintenant(), corbeille }),
+      documentsLus: lus,
+      documentsIllisibles: illisibles,
+      documentsCorbeille: corbeille.size,
     })
     return true
   }

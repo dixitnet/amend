@@ -21,7 +21,10 @@ function monter({ admin = true, connecte = true, lecture } = {}) {
         { document: 'd1', nom: nom('b'), taille: 200, creeLe: VIEUX },
         { document: 'd2', nom: nom('c'), taille: 30, creeLe: VIEUX },
       ],
-      tousLesDocuments: async () => ['d1', 'd2'],
+      tousLesDocuments: async () => [
+        { id: 'd1', corbeille: false },
+        { id: 'd2', corbeille: false },
+      ],
     },
     collaboration: {
       lireTexte:
@@ -50,6 +53,59 @@ test('analyse : une image citée par le texte ou par une suggestion est utilisé
   assert.deepEqual(corps.documents, [{ document: 'd1', n: 1, octets: 200 }])
   assert.equal(corps.documentsLus, 2)
   assert.equal(corps.documentsIllisibles, 0)
+  assert.equal(corps.documentsCorbeille, 0)
+})
+
+test('un document à la corbeille n’est pas lu, et ses images ne sont pas jugées', async () => {
+  const lus = []
+  const reponses = []
+  const traiter = creerImagesOrphelines({
+    personneDe: async () => ({ id: 'p' }),
+    administrateur: async () => true,
+    depot: {
+      toutesLesImages: async () => [
+        { document: 'd1', nom: nom('a'), taille: 10, creeLe: VIEUX },
+        { document: 'jeté', nom: nom('b'), taille: 90, creeLe: VIEUX },
+      ],
+      tousLesDocuments: async () => [
+        { id: 'd1', corbeille: false },
+        { id: 'jeté', corbeille: true },
+      ],
+    },
+    collaboration: {
+      lireTexte: async (id) => (lus.push(id), octets('rien')),
+      lireSuggestions: async () => new Uint8Array(),
+    },
+    json: (res, statut, corps) => reponses.push({ statut, corps }),
+    maintenant: () => MAINTENANT,
+  })
+  await traiter({ method: 'GET' }, {}, { pathname: '/api/admin/images-orphelines' })
+  assert.deepEqual(lus, ['d1'], 'y/hub refuse de lire un document à la corbeille')
+  const { corps } = reponses[0]
+  assert.deepEqual(corps.orphelines, { n: 1, octets: 10 })
+  assert.deepEqual(corps.corbeille, { n: 1, octets: 90 })
+  assert.equal(corps.documentsCorbeille, 1)
+  assert.equal(corps.documentsIllisibles, 0, 'la corbeille n’est pas un document illisible')
+})
+
+test('sans image, aucun document n’est lu et le rapport ne prétend pas le contraire', async () => {
+  const reponses = []
+  const traiter = creerImagesOrphelines({
+    personneDe: async () => ({ id: 'p' }),
+    administrateur: async () => true,
+    depot: { toutesLesImages: async () => [], tousLesDocuments: async () => [{ id: 'd1', corbeille: false }] },
+    collaboration: {
+      lireTexte: async () => {
+        throw new Error('ne doit pas être appelé')
+      },
+      lireSuggestions: async () => new Uint8Array(),
+    },
+    json: (res, statut, corps) => reponses.push({ statut, corps }),
+    maintenant: () => MAINTENANT,
+  })
+  await traiter({ method: 'GET' }, {}, { pathname: '/api/admin/images-orphelines' })
+  assert.equal(reponses[0].corps.documentsLus, 0)
+  assert.equal(reponses[0].corps.total.n, 0)
 })
 
 test('un document illisible est signalé (on ne sait pas ce qu’il cite)', async () => {

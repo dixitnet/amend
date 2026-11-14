@@ -59,3 +59,14 @@ test('le rapport liste au plus vingt documents, les plus lourds d’abord', () =
   assert.equal(r.documents[0].octets, DOCUMENTS_LISTES_MAX + 5)
   assert.equal(r.orphelines.n, DOCUMENTS_LISTES_MAX + 5)
 })
+
+test('une image d’un document à la corbeille n’est pas jugée (y/hub ne le lit pas)', () => {
+  const r = analyserImages({
+    images: [{ document: 'jeté', nom: nom('f'), taille: 40, creeLe: 0 }],
+    citees: new Set(),
+    maintenant: DELAI_GRACE_IMAGES_MS * 10,
+    corbeille: new Set(['jeté']),
+  })
+  assert.deepEqual(r.corbeille, { n: 1, octets: 40 })
+  assert.equal(r.orphelines.n, 0)
+})

@@ -35,21 +35,25 @@ const ajouter = (c, taille) => {
 }
 
 /**
- * Le rapport : combien d'images, combien sont utilisées, orphelines, récentes.
+ * Le rapport : combien d'images, combien sont utilisées, orphelines, récentes,
+ * ou gardées par un document à la corbeille (que y/hub refuse de lire : on ne
+ * juge pas ses images, la restauration du document les rendrait utilisées).
  * @param {{
  *   images: Array<{ document: string, nom: string, taille: number, creeLe: number }>,
- *   citees: Set<string>, maintenant: number, delaiMs?: number,
- * }} o  `creeLe` : le moment d'envoi, en millisecondes
+ *   citees: Set<string>, maintenant: number, delaiMs?: number, corbeille?: Set<string>,
+ * }} o  `creeLe` : le moment d'envoi, en millisecondes ; `corbeille` : les documents à la corbeille
  */
-export function analyserImages({ images, citees, maintenant, delaiMs = DELAI_GRACE_IMAGES_MS }) {
+export function analyserImages({ images, citees, maintenant, delaiMs = DELAI_GRACE_IMAGES_MS, corbeille = new Set() }) {
   const total = vide()
   const utilisees = vide()
   const orphelines = vide()
   const recentes = vide()
+  const aLaCorbeille = vide()
   const parDocument = new Map()
   for (const i of images) {
     ajouter(total, i.taille)
     if (citees.has(i.nom)) ajouter(utilisees, i.taille)
+    else if (corbeille.has(i.document)) ajouter(aLaCorbeille, i.taille)
     else if (maintenant - i.creeLe < delaiMs) ajouter(recentes, i.taille)
     else {
       ajouter(orphelines, i.taille)
@@ -63,6 +67,7 @@ export function analyserImages({ images, citees, maintenant, delaiMs = DELAI_GRA
     utilisees,
     orphelines,
     recentes,
+    corbeille: aLaCorbeille,
     documents: [...parDocument.values()].sort((a, b) => b.octets - a.octets).slice(0, DOCUMENTS_LISTES_MAX),
   }
 }

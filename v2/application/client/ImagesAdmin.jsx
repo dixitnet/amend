@@ -16,6 +16,7 @@ function rapportAffiche(r) {
       ligne('utilisees', t('admin.images.utilisees'), r.utilisees),
       ligne('orphelines', t('admin.images.orphelines'), r.orphelines),
       ligne('recentes', t('admin.images.recentes'), r.recentes),
+      ligne('corbeille', t('admin.images.corbeille'), r.corbeille),
     ],
     avertissement: r.documentsIllisibles ? t('admin.images.illisibles', { n: r.documentsIllisibles }) : null,
     note: t('admin.images.note'),

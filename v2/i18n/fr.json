@@ -386,7 +386,8 @@
         "document": "Document",
         "nombre": "Images",
         "poids": "Poids"
-      }
+      },
+      "corbeille": "À la corbeille (documents que y/hub ne lit pas\u00A0: pas jugées)"
     }
   },
   "telephone": {
