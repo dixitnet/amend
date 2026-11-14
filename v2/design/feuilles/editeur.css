@@ -13,6 +13,28 @@
   padding-inline: 10px;
 }
 
+/* réglage : css.editeur.titres */
+/* L'interligne d'un titre : celui des titres de Mantine (--mantine-h1-line-height…
+   --mantine-h5-line-height : 1,3 à 1,5), et non l'interligne du texte (1,5 chez
+   BlockNote, 1,6 dans Atelier) que le titre héritait, à sa taille : Sylvain,
+   14/11/2026, « le titre 1 s'affiche avec un interligne trop important ». */
+/* Le niveau 1 est le niveau par défaut : BlockNote n'écrit pas `data-level` pour lui. */
+.bn-container .bn-block-content[data-content-type='heading'] {
+  line-height: var(--mantine-h1-line-height);
+}
+.bn-container .bn-block-content[data-content-type='heading'][data-level='2'] {
+  line-height: var(--mantine-h2-line-height);
+}
+.bn-container .bn-block-content[data-content-type='heading'][data-level='3'] {
+  line-height: var(--mantine-h3-line-height);
+}
+.bn-container .bn-block-content[data-content-type='heading'][data-level='4'] {
+  line-height: var(--mantine-h4-line-height);
+}
+.bn-container .bn-block-content[data-content-type='heading'][data-level='5'] {
+  line-height: var(--mantine-h5-line-height);
+}
+
 /* réglage : css.editeur.palettes */
 .bn-root {
   --bn-ui-base-z-index: var(--mantine-z-index-app);
