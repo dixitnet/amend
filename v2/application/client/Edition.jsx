@@ -700,6 +700,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
             ? {
                 titre: t('telephone.relecture'),
                 nombre: nombreSuggestions + nombreFils,
+                occupe: Boolean(margo.enCours),
                 onglets: [
                   {
                     cle: 'modifications',
