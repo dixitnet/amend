@@ -267,3 +267,19 @@ test('format S : en Lire (choix du menu « … »), le texte seul : un appui n�
   await p.getByRole('button', { name: 'Relecture' }).waitFor()
   await p.context().close()
 })
+
+test('format S : pas de poignées de bloc, marges de 10 px (Sylvain, 09/11/2026, maintenu le 14/11/2026)', async () => {
+  const p = await ouvrir('Paule', docTest('s-poignees'))
+  await p.locator('.bn-editor').waitFor()
+  const mesure = await p.evaluate(() => {
+    const sonde = document.createElement('div')
+    sonde.className = 'bn-side-menu'
+    document.querySelector('.bn-container').appendChild(sonde)
+    const affichage = getComputedStyle(sonde).display
+    sonde.remove()
+    return { affichage, marge: getComputedStyle(document.querySelector('.bn-editor')).paddingLeft }
+  })
+  assert.equal(mesure.affichage, 'none', 'poignées masquées')
+  assert.equal(mesure.marge, '10px', 'marges de 10 px')
+  await p.context().close()
+})
