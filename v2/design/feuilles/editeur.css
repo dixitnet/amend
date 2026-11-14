@@ -13,7 +13,7 @@
   padding-inline: 10px;
 }
 
-/* réglage : css.editeur.titres */
+/* réglage : css.editeur.titresInterligne */
 /* L'interligne d'un titre : celui des titres de Mantine (--mantine-h1-line-height…
    --mantine-h5-line-height : 1,3 à 1,5), et non l'interligne du texte (1,5 chez
    BlockNote, 1,6 dans Atelier) que le titre héritait, à sa taille : Sylvain,
