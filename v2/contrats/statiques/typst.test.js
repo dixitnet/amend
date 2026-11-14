@@ -192,6 +192,58 @@ test('un tableau, une image et une image introuvable : le PDF se compile quand m
   }
 })
 
+test('une image occupe toute la largeur de la page hors marges, quelle que soit sa largeur d’affichage dans l’éditeur (Sylvain, 14/11/2026)', async () => {
+  const { default: http } = await import('node:http')
+  const { deflateSync, crc32 } = await import('node:zlib')
+  // Un PNG de 1 × 20 pixels (très haut) et un d'un pixel, servis par un faux serveur.
+  const morceau = (type, donnees) => {
+    const t = Buffer.concat([Buffer.from(type), donnees])
+    const lon = Buffer.alloc(4)
+    lon.writeUInt32BE(donnees.length)
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(t))
+    return Buffer.concat([lon, t, crc])
+  }
+  const png = (l, h) => {
+    const entete = Buffer.alloc(13)
+    entete.writeUInt32BE(l, 0)
+    entete.writeUInt32BE(h, 4)
+    entete.set([8, 2, 0, 0, 0], 8)
+    const brut = Buffer.alloc((1 + l * 3) * h, 0x80)
+    for (let y = 0; y < h; y++) brut[y * (1 + l * 3)] = 0
+    return Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      morceau('IHDR', entete),
+      morceau('IDAT', deflateSync(brut)),
+      morceau('IEND', Buffer.alloc(0)),
+    ])
+  }
+  const images = { '/large.png': png(40, 10), '/haute.png': png(1, 20) }
+  const serveur = http.createServer((req, res) =>
+    images[req.url]
+      ? res.writeHead(200, { 'content-type': 'image/png' }).end(images[req.url])
+      : res.writeHead(404).end(),
+  )
+  await new Promise((r) => serveur.listen(0, '127.0.0.1', r))
+  const adresse = `http://127.0.0.1:${serveur.address().port}`
+  try {
+    const editeur = nouvelEditeur()
+    editeur.replaceBlocks(editeur.document, [
+      { type: 'image', props: { url: `${adresse}/large.png`, previewWidth: 2000, caption: 'Large' } },
+      { type: 'image', props: { url: `${adresse}/haute.png`, previewWidth: 300 } },
+      { type: 'image', props: { url: `${adresse}/large.png` } },
+    ])
+    const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+    assert.match(source, /#set image\(width: 100%\)/, 'la règle du gabarit : toute la largeur de la page hors marges')
+    assert.equal([...source.matchAll(/image\("[^"]+"/g)].length, 3, 'trois images')
+    assert.doesNotMatch(source, /image\("[^"]+", width:/, 'plus de largeur d’éditeur (en points) dans l’export')
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+    assert.equal(Buffer.from(pdf.slice(0, 5)).toString(), '%PDF-', 'le PDF se compile, même avec une image très haute')
+  } finally {
+    serveur.close()
+  }
+})
+
 test('options de mise en page (12/11/2026) : titre courant, folio en haut, chapitre continu, séparateurs ; le PDF se compile', async () => {
   const editeur = nouvelEditeur()
   editeur.replaceBlocks(editeur.document, [

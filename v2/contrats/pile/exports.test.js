@@ -5,6 +5,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { inflateSync } from 'node:zlib'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendreEtat, menuDe } from './outils.mjs'
 
@@ -127,4 +128,52 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   const vue = await api('GET', `/api/documents/${doc.id}/modeles`)
   assert.equal(vue.choisi, vue.modeles.find((m) => m.nom === 'Collection').id)
   assert.equal(vue.retenu, vue.choisi)
+})
+
+/** Les largeurs (en points) des images posées sur les pages d'un PDF : le `cm` qui précède un `Do`. */
+function largeursDImages(pdf) {
+  const largeurs = []
+  let debut = 0
+  for (;;) {
+    const i = pdf.indexOf('stream\n', debut)
+    if (i < 0) break
+    const j = pdf.indexOf('\nendstream', i)
+    debut = j + 10
+    let texte
+    try {
+      texte = inflateSync(pdf.subarray(i + 7, j)).toString('latin1')
+    } catch {
+      continue
+    }
+    for (const m of texte.matchAll(/([\d.]+) 0 0 ([\d.]+) [-\d.]+ [-\d.]+ cm\s*\/\S+ Do/g)) largeurs.push(Number(m[1]))
+  }
+  return largeurs
+}
+
+test('PDF : une image occupe toute la largeur de la page hors marges (170 mm sur l’A4 simple), même lourde et large (Sylvain, 14/11/2026)', async () => {
+  const page = await ouvrir('Alice', docTest('pdf-image'))
+  await page.click('.bn-editor')
+  // Un PNG de 3 000 × 100 pixels, plus large que la page : l'éditeur le plafonne, l'export doit le caler.
+  const png = await page.evaluate(async () => {
+    const c = document.createElement('canvas')
+    c.width = 3000
+    c.height = 100
+    const g = c.getContext('2d')
+    g.fillRect(0, 0, 3000, 100)
+    const blob = await new Promise((r) => c.toBlob(r, 'image/png'))
+    return [...new Uint8Array(await blob.arrayBuffer())]
+  })
+  await page.keyboard.type('/')
+  await page.waitForSelector('.bn-suggestion-menu')
+  await page.locator('.bn-suggestion-menu-item', { hasText: 'Image' }).first().click()
+  const champ = page.locator('.bn-panel input[type=file], input[type=file]').first()
+  await champ.waitFor({ state: 'attached' })
+  await champ.setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.from(png) })
+  await page.locator('.bn-editor img[src*="/images/"]').waitFor({ timeout: 15000 })
+  const { contenu } = await telecharger(page, 'PDF', { modele: 'A4 simple' })
+  const largeurs = largeursDImages(contenu)
+  assert.ok(largeurs.length >= 1, 'une image est posée sur une page')
+  // 210 mm moins deux marges de 20 mm : 170 mm, soit 481,9 pt.
+  for (const l of largeurs) assert.ok(Math.abs(l - 481.89) < 1, `largeur de l'image : ${l} pt (attendu 481,9 pt)`)
+  await page.context().close()
 })
