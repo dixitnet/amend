@@ -110,7 +110,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   useDefilementEnCours(formatS)
   // Le mode du moment : celui choisi s'il est permis (les droits peuvent
   // changer en cours de route), sinon celui de l'ouverture.
-  const mode = modesPermis.includes(modeChoisi) ? modeChoisi : formatS ? 'lire' : modesPermis[0]
+  const mode = modesPermis.includes(modeChoisi) ? modeChoisi : modesPermis[0]
   const volets = useVolets(etroit)
   const [fenetreSaisie, demanderNom] = useSaisie()
   const [fenetreConfirmation, confirmer] = useConfirmation()
@@ -142,14 +142,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const [titre, setTitre] = useState(droits.titre ?? null)
   const [volet, setVolet] = useState(null)
   const [enModification, setEnModification] = useState(false)
-  // Format S : la fin d'une modification (« Terminer », clavier fermé) ramène en Lire.
-  const surModification = useCallback(
-    (enCours) => {
-      setEnModification(enCours)
-      if (!enCours && formatS) setModeChoisi('lire')
-    },
-    [formatS],
-  )
+  // « Terminer » ou le clavier fermé finit la modification, sans changer de mode (13/11/2026).
+  const surModification = useCallback((enCours) => setEnModification(enCours), [])
   const controle = useRef(null)
   const [noms, setNoms] = useState({})
   // Margo (étape 8) : l'onglet du volet droit et le bouton « Corriger ».
@@ -538,10 +532,6 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
             })
           }
           lectureAuDepart={formatS || tactile}
-          // Format S : en Lire à l'ouverture, un appui sur le texte passe au
-          // mode d'écriture ; « Terminer » (ou le clavier fermé) ramène en Lire.
-          surAppuiEnLecture={formatS && modesPermis.length > 1 ? () => setModeChoisi(modesPermis[0]) : undefined}
-          modeApresAppui={formatS && modesPermis.length > 1 ? modesPermis[0] : undefined}
           controle={controle}
           surModification={surModification}
           surPlan={setPlan}
@@ -675,8 +665,9 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
             },
           ],
         }}
+        // En Lire, le texte seul : pas de volet droit, comme aux autres formats (13/11/2026).
         voletDroit={
-          suggestions || peutMargo || listeFils
+          avecVoletDroit && (suggestions || peutMargo || listeFils)
             ? {
                 titre: t('telephone.relecture'),
                 nombre: nombreSuggestions + nombreFils,
