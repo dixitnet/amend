@@ -23,7 +23,7 @@ Diff très court : une correction d'espacement dans les tiroirs du format S (feu
 
 ## Réponse de Claude
 
-1. *Juste*, corrigé : la règle porte sa propre ligne `/* réglage : css.telephone.volets */`.
+1. *Faux*, avec la preuve : la règle suit directement le bloc `/* réglage : css.telephone.volets */`, qui couvre les deux règles ; une seconde ligne pour la même clé fait échouer le contrat `design-decide.test.js` (une clé, un commentaire).
 2. *Juste*, corrigé : le test compare à la valeur résolue de `--mantine-spacing-sm`, plus à un seuil de 8 px.
 3. *Hors sujet* : c'est l'intention ; le statut reste « connu » tant que l'échec de la pile locale (Chromium L) subsiste, la note le dit déjà.
 
