@@ -2,6 +2,10 @@
 
 Statut : **en place** depuis le 13/11/2026 (Sylvain : « restructure une vraie campagne de test pour les 3 navigateurs, qui sera rejouée et ajustée de temps en temps » ; « je veux supprimer tous les échecs connus sur les 3 navigateurs »). Elle remplace le relevé du 10/11/2026 (`procedure-relecture.md`, dont elle reprend les scénarios).
 
+## Son nom
+
+Depuis le 14/11/2026 (Sylvain), on l'appelle la **recette multi-navigateurs**. Elle s'ajoute à la **revue de code** (audit par une autre IA) comme test ponctuel : l'une et l'autre se font **sans régularité fixe**, sur décision de Sylvain, et pas à chaque lot. Les fichiers gardent leur nom (`procedure-campagne.md`, `v2-campagne.yml`, `exploitation/campagne/`).
+
 ## À quoi elle sert
 
 Les tests d'interface (`npm run test:pile`, T5) vérifient chaque fonction, à chaque fusion, dans les trois navigateurs. La campagne joue des **scénarios à plusieurs personnes** (une éditrice, une correctrice, une lectrice qui travaillent en même temps sur un document) : ce que chacune voit, ce qui arrive au texte, aux corrections, aux commentaires. Elle dure plus d'une heure : on la lance **à la demande**, pas à chaque fusion, et elle ne bloque pas une fusion.
