@@ -76,7 +76,20 @@ export {
   ORDRES_TRI,
   trierDocuments,
 } from './corbeille.js'
-export { IMAGE_MAX_OCTETS, IMAGES_DOCUMENT_MAX_OCTETS, typeImage, refusImage, nomImageValide } from './images.js'
+export {
+  IMAGE_MAX_OCTETS,
+  IMAGES_DOCUMENT_MAX_OCTETS,
+  IMAGE_ENTREE_MAX_OCTETS,
+  IMAGE_LARGEUR_MAX_PX,
+  IMAGE_SEUIL_JPEG_OCTETS,
+  IMAGE_QUALITES_JPEG,
+  typeImage,
+  refusImage,
+  refusEntree,
+  nomImageValide,
+  dimensionsReduites,
+  garderOriginal,
+} from './images.js'
 export { ancienModele, versModeleParStyle } from './migrationModeles.js'
 export {
   POLICE_MAX_OCTETS,
@@ -88,3 +101,5 @@ export {
 } from './polices.js'
 export { planSuppressionCompte, confirmationSuppressionValide } from './compte.js'
 export { dateDuJour } from './date.js'
+
+export { DELAI_GRACE_IMAGES_MS, DOCUMENTS_LISTES_MAX, nomsCites, analyserImages } from './imagesOrphelines.js'

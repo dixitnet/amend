@@ -1,6 +1,6 @@
 # Signalement à préparer pour l'amont (y-prosemirror) : `acceptChanges` d'une plage sans effet
 
-État : **brouillon, non publié** (accord de Sylvain le 14/11/2026 pour préparer ; la publication reste à faire, depuis un compte ayant accès au dépôt amont).
+État : **brouillon, non publié, et décision de ne rien faire** (Sylvain, 14/11/2026 : « on note pour mémoire »). À reprendre si le défaut gêne de vrais auteurs ou si l'amont le corrige.
 
 ## Titre proposé
 

@@ -17,6 +17,7 @@ import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
 import { creerImages } from './images.js'
 import { creerPolices } from './polices.js'
+import { creerImagesOrphelines } from './images-orphelines.js'
 import { REGLES_MODELES } from '../../design/livre.js'
 import { adresseSansSecret } from './adresse.js'
 import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
@@ -561,6 +562,14 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     reservees: REGLES_MODELES.polices.map((x) => x.famille),
     json,
   })
+  // L'analyse des images orphelines (14/11/2026) : les administrateurs, sans rien supprimer.
+  const imagesOrphelines = creerImagesOrphelines({
+    personneDe: identite.personneDe,
+    administrateur,
+    depot: comptes,
+    collaboration,
+    json,
+  })
   // Le connecteur Claude du back-office (12/11/2026) : un serveur MCP sur les
   // documents du compte d'un administrateur.
   const connecteur = creerConnecteur({
@@ -622,6 +631,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
       if (await connecteur(req, res, url)) return
       if (await images(req, res, url)) return
       if (await polices(req, res, url)) return
+      if (await imagesOrphelines(req, res, url)) return
       if (await partage(req, res, url)) return
       if (Object.keys(routes).some((r) => r.endsWith(` ${url.pathname}`)))
         return json(res, 405, { code: 'methode-refusee' })

@@ -111,9 +111,9 @@
     "selection-absente": "Select the passage to correct first.",
     "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most).",
     "image-vide": "This file is empty.",
-    "image-trop-lourde": "This image is too large (5 MB at most).",
+    "image-trop-lourde": "This image is too large, even reduced ({max, number} MB at most).",
     "images-document-pleines": "This document has reached its image limit (100 MB).",
-    "image-type-refuse": "Only PNG and JPEG images are accepted.",
+    "image-type-refuse": "Only PNG, GIF and JPEG images are accepted.",
     "confirmation-invalide": "The address you typed is not your account’s.",
     "suppression-refusee": "Your account cannot be deleted yet: see the documents or teams listed.",
     "modele-inconnu": "This model does not exist.",
@@ -123,7 +123,9 @@
     "police-trop-lourde": "This file is too large ({max, number}\u00A0MB at most).",
     "police-reservee": "The family “{famille}” ships with amend.ink: it cannot be added to.",
     "police-en-double": "This style of the family “{famille}” is already uploaded.",
-    "police-utilisee": "The family “{famille}” is used by {modeles}: its last file cannot be deleted."
+    "police-utilisee": "The family “{famille}” is used by {modeles}: its last file cannot be deleted.",
+    "image-entree-trop-lourde": "This image is over {max, number} MB.",
+    "image-illisible": "This image could not be read."
   },
   "commentaires": {
     "titre": "Comments",
@@ -361,6 +363,31 @@
         "gras": "bold",
         "grasItalique": "bold italic"
       }
+    },
+    "images": {
+      "titre": "Images",
+      "intro": "An image deleted from the text stays in the database, and in its document’s size, until the document is deleted. This analysis counts the images that no document’s text or suggestions cite any more. It deletes nothing.",
+      "analyser": "Analyze images",
+      "titreRapport": "Report",
+      "colonnes": {
+        "rubrique": "Images",
+        "nombre": "Count",
+        "poids": "Size"
+      },
+      "total": "In the database",
+      "utilisees": "Used in a text",
+      "orphelines": "Orphaned (sent more than 7 days ago, cited nowhere)",
+      "recentes": "Recent (under 7 days, not judged yet)",
+      "poids": "{mo, number} MB",
+      "note": "Saved versions are not read: an orphaned image may still be needed to restore an older version. This report is therefore not enough to delete.",
+      "illisibles": "{n, plural, one {# document could not be read: the report is incomplete.} other {# documents could not be read: the report is incomplete.}}",
+      "titreDocuments": "Documents keeping the most orphaned images",
+      "colonnesDocuments": {
+        "document": "Document",
+        "nombre": "Images",
+        "poids": "Size"
+      },
+      "corbeille": "In the trash (documents y/hub does not read: not judged)"
     }
   },
   "telephone": {

@@ -111,9 +111,9 @@
     "selection-absente": "Sélectionnez d’abord le passage à corriger.",
     "demande-invalide": "Cette demande est vide, ou trop longue ({max, number} signes, espaces compris, au plus).",
     "image-vide": "Ce fichier est vide.",
-    "image-trop-lourde": "Cette image est trop lourde (5\u00A0Mo au plus).",
+    "image-trop-lourde": "Cette image est trop lourde, même réduite ({max, number}\u00A0Mo au plus).",
     "images-document-pleines": "Ce document a atteint sa limite d’images (100\u00A0Mo).",
-    "image-type-refuse": "Seules les images PNG et JPEG sont acceptées.",
+    "image-type-refuse": "Seules les images PNG, GIF et JPEG sont acceptées.",
     "confirmation-invalide": "L’adresse tapée n’est pas celle de votre compte.",
     "suppression-refusee": "Votre compte ne peut pas encore être supprimé\u00A0: voyez les documents ou équipes indiqués.",
     "modele-inconnu": "Ce modèle n’existe pas.",
@@ -123,7 +123,9 @@
     "police-trop-lourde": "Ce fichier est trop lourd ({max, number}\u00A0Mo au plus).",
     "police-reservee": "La famille «\u00A0{famille}\u00A0» est fournie avec amend.ink\u00A0: elle ne se complète pas.",
     "police-en-double": "Ce style de la famille «\u00A0{famille}\u00A0» est déjà envoyé.",
-    "police-utilisee": "La famille «\u00A0{famille}\u00A0» est utilisée par {modeles}\u00A0: son dernier fichier ne peut pas être supprimé."
+    "police-utilisee": "La famille «\u00A0{famille}\u00A0» est utilisée par {modeles}\u00A0: son dernier fichier ne peut pas être supprimé.",
+    "image-entree-trop-lourde": "Cette image dépasse {max, number}\u00A0Mo.",
+    "image-illisible": "Cette image n’a pas pu être lue."
   },
   "commentaires": {
     "titre": "Commentaires",
@@ -361,6 +363,31 @@
         "gras": "gras",
         "grasItalique": "gras italique"
       }
+    },
+    "images": {
+      "titre": "Images",
+      "intro": "Une image supprimée du texte reste dans la base, et dans le poids de son document, jusqu’à la suppression du document. Cette analyse compte les images que le texte ou les suggestions d’aucun document ne citent plus. Elle ne supprime rien.",
+      "analyser": "Analyser les images",
+      "titreRapport": "Rapport",
+      "colonnes": {
+        "rubrique": "Images",
+        "nombre": "Nombre",
+        "poids": "Poids"
+      },
+      "total": "En base",
+      "utilisees": "Utilisées dans un texte",
+      "orphelines": "Orphelines (envoyées il y a plus de 7 jours, citées nulle part)",
+      "recentes": "Récentes (moins de 7 jours, pas encore jugées)",
+      "poids": "{mo, number}\u00A0Mo",
+      "note": "Les versions enregistrées ne sont pas lues\u00A0: une image orpheline peut encore servir à restaurer une ancienne version. Ce rapport ne suffit donc pas pour supprimer.",
+      "illisibles": "{n, plural, one {# document n’a pas pu être lu\u00A0: le rapport est incomplet.} other {# documents n’ont pas pu être lus\u00A0: le rapport est incomplet.}}",
+      "titreDocuments": "Documents qui gardent le plus d’images orphelines",
+      "colonnesDocuments": {
+        "document": "Document",
+        "nombre": "Images",
+        "poids": "Poids"
+      },
+      "corbeille": "À la corbeille (documents que y/hub ne lit pas\u00A0: pas jugées)"
     }
   },
   "telephone": {

@@ -2,9 +2,12 @@
 // la frappe et au collage, Retour arrière, schéma du livre (menus et collage).
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
+import { randomBytes } from 'node:crypto'
+import { crc32, deflateSync } from 'node:zlib'
 import { fr } from '@blocknote/core/locales'
 import { creerTraducteur } from '../../i18n/index.js'
-import { dateDuJour } from '../../domaine/index.js'
+import { dateDuJour, nomsCites } from '../../domaine/index.js'
+import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import {
   lancerNavigateur,
@@ -204,6 +207,142 @@ test('image (comme Docs) : envoyée depuis le bloc Image, gardée par le serveur
   assert.match(src, /\/api\/documents\/[^/]+\/images\/[0-9a-f]{32}\.png$/)
   const r = await page.evaluate(async (u) => (await fetch(u)).status, src)
   assert.equal(r, 200, 'le serveur rend l’image à qui lit le document')
+  await page.context().close()
+})
+
+/** Un PNG de bruit (incompressible), de `l` × `h` pixels : une photo lourde, sans dépendance. */
+function pngBruit(l, h) {
+  const ligne = 1 + l * 3
+  const brut = randomBytes(ligne * h)
+  for (let y = 0; y < h; y++) brut[y * ligne] = 0
+  const morceau = (type, donnees) => {
+    const t = Buffer.concat([Buffer.from(type), donnees])
+    const longueur = Buffer.alloc(4)
+    longueur.writeUInt32BE(donnees.length)
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(t))
+    return Buffer.concat([longueur, t, crc])
+  }
+  const entete = Buffer.alloc(13)
+  entete.writeUInt32BE(l, 0)
+  entete.writeUInt32BE(h, 4)
+  entete.set([8, 2, 0, 0, 0], 8)
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    morceau('IHDR', entete),
+    morceau('IDAT', deflateSync(brut, { level: 0 })),
+    morceau('IEND', Buffer.alloc(0)),
+  ])
+}
+
+/** Un PNG d'aplats (très compressible), de `l` × `h` pixels : une capture d'écran. */
+function pngPlat(l, h) {
+  const ligne = 1 + l * 3
+  const brut = Buffer.alloc(ligne * h, 0xc8)
+  for (let y = 0; y < h; y++) brut[y * ligne] = 0
+  const morceau = (type, donnees) => {
+    const t = Buffer.concat([Buffer.from(type), donnees])
+    const longueur = Buffer.alloc(4)
+    longueur.writeUInt32BE(donnees.length)
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(t))
+    return Buffer.concat([longueur, t, crc])
+  }
+  const entete = Buffer.alloc(13)
+  entete.writeUInt32BE(l, 0)
+  entete.writeUInt32BE(h, 4)
+  entete.set([8, 2, 0, 0, 0], 8)
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    morceau('IHDR', entete),
+    morceau('IDAT', deflateSync(brut, { level: 9 })),
+    morceau('IEND', Buffer.alloc(0)),
+  ])
+}
+
+/** Envoie `fichier` par le bloc Image ; rend la page. */
+async function envoyerParLeBloc(nom, fichier) {
+  const page = await pageEcriture(nom)
+  await page.keyboard.type('/')
+  await page.waitForSelector('.bn-suggestion-menu')
+  await page.locator('.bn-suggestion-menu-item', { hasText: fr.slash_menu.image.title }).first().click()
+  const champ = page.locator('.bn-panel input[type=file], input[type=file]').first()
+  await champ.waitFor({ state: 'attached' })
+  await champ.setInputFiles(fichier)
+  return page
+}
+
+test('image lourde : acceptée à l’import (jusqu’à 25 Mo), réduite avant l’envoi (2 000 px, moins de 5 Mo)', async () => {
+  const brut = pngBruit(3000, 1500) // environ 13 Mo
+  assert.ok(brut.length > 5 * 1024 * 1024 && brut.length < 25 * 1024 * 1024, `poids d'essai : ${brut.length}`)
+  const page = await envoyerParLeBloc('image-lourde', { name: 'photo.png', mimeType: 'image/png', buffer: brut })
+  const img = page.locator('.bn-editor img[src*="/images/"]')
+  await img.waitFor({ timeout: 30000 })
+  const src = await img.getAttribute('src')
+  assert.match(src, /\.jpg$/, 'un bruit pèse moins en JPEG : c’est ce qui est gardé')
+  const { statut, octets, type } = await page.evaluate(async (u) => {
+    const r = await fetch(u)
+    return { statut: r.status, octets: (await r.arrayBuffer()).byteLength, type: r.headers.get('content-type') }
+  }, src)
+  assert.equal(statut, 200)
+  assert.equal(type, 'image/jpeg')
+  assert.ok(octets <= 5 * 1024 * 1024, `l’image gardée pèse ${octets} octets`)
+  assert.equal(await img.evaluate((e) => e.naturalWidth), 2000, 'réduite à 2 000 px de large')
+  // Affichée à la largeur de la colonne, sans la déborder.
+  const [boite, colonne] = await Promise.all([img.boundingBox(), page.locator('.bn-editor').boundingBox()])
+  assert.ok(boite.width <= colonne.width + 1, `image affichée : ${boite.width} px, colonne : ${colonne.width} px`)
+  await page.context().close()
+})
+
+test('capture d’écran large (aplats) : réduite à 2 000 px et gardée en PNG, plus léger que le JPEG', async () => {
+  const page = await envoyerParLeBloc('image-capture', {
+    name: 'capture.png',
+    mimeType: 'image/png',
+    buffer: pngPlat(3200, 400),
+  })
+  const img = page.locator('.bn-editor img[src*="/images/"]')
+  await img.waitFor({ timeout: 30000 })
+  assert.match(await img.getAttribute('src'), /\.png$/)
+  assert.equal(await img.evaluate((e) => e.naturalWidth), 2000)
+  await page.context().close()
+})
+
+test('analyse des orphelines : le nom d’une image se lit dans l’état du document dans y/hub, tant qu’elle est dans le texte', async () => {
+  const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+  const page = await envoyerParLeBloc('image-etat', { name: 'point.gif', mimeType: 'image/gif', buffer: gif })
+  const img = page.locator('.bn-editor img[src*="/images/"]')
+  await img.waitFor({ timeout: 15000 })
+  const nom = (await img.getAttribute('src')).split('/').pop()
+  const docId = decodeURIComponent(new URL(page.url()).hash.slice(1))
+  const collaboration = clientCollaboration({ url: `${pile.collab}/collaboration`, jeton: pile.secrets.jetonInterne })
+  // y/hub écrit après un court délai de persistance.
+  let cite = false
+  for (let i = 0; i < 20 && !cite; i++) {
+    await attendre(500)
+    cite = nomsCites(await collaboration.lireTexte(docId)).has(nom)
+  }
+  assert.ok(cite, `le nom ${nom} se lit dans l’état du document`)
+  await page.context().close()
+})
+
+test('image GIF : acceptée et gardée telle quelle (l’animation est conservée)', async () => {
+  const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+  const page = await envoyerParLeBloc('image-gif', { name: 'point.gif', mimeType: 'image/gif', buffer: gif })
+  const img = page.locator('.bn-editor img[src*="/images/"]')
+  await img.waitFor({ timeout: 15000 })
+  const src = await img.getAttribute('src')
+  assert.match(src, /\.gif$/)
+  const rendu = await page.evaluate(async (u) => [...new Uint8Array(await (await fetch(u)).arrayBuffer())], src)
+  assert.deepEqual(Buffer.from(rendu), gif, 'les octets du GIF sont ceux de l’original')
+  await page.context().close()
+})
+
+test('image de plus de 25 Mo : refusée avec un message, rien n’est envoyé', async () => {
+  const trop = Buffer.alloc(25 * 1024 * 1024 + 1)
+  trop.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  const page = await envoyerParLeBloc('image-25-mo', { name: 'enorme.png', mimeType: 'image/png', buffer: trop })
+  await page.getByText('Cette image dépasse 25').waitFor({ timeout: 15000 })
+  assert.equal(await page.locator('.bn-editor img[src*="/images/"]').count(), 0)
   await page.context().close()
 })
 

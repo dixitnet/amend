@@ -54,6 +54,22 @@ export function partiesDocuments(sql) {
     async heritiersImages(origine) {
       return (await sql`select document from amend.images_heritees where origine = ${origine}`).map((h) => h.document)
     },
+    /** Toutes les images de l'instance, sans leurs octets (l'analyse des orphelines, 14/11/2026). */
+    async toutesLesImages() {
+      return (await sql`select document, nom, taille, cree_le from amend.images`).map((i) => ({
+        document: i.document,
+        nom: i.nom,
+        taille: i.taille,
+        creeLe: i.cree_le.getTime(),
+      }))
+    },
+    /** Tous les documents de l'instance : `{ id, corbeille }` (corbeille comprise). */
+    async tousLesDocuments() {
+      return (await sql`select id, supprime_le is not null as corbeille from amend.documents`).map((d) => ({
+        id: d.id,
+        corbeille: d.corbeille,
+      }))
+    },
     /** Le poids de toutes les images d'un document, en octets. */
     async poidsImages(document) {
       const [r] = await sql`select coalesce(sum(taille), 0)::bigint as n from amend.images where document = ${document}`
