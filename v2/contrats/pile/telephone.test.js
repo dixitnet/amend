@@ -303,6 +303,10 @@ test('format S : les onglets des tiroirs sont des pictos seuls, le nom de l’on
       })
       assert.ok(c < 3, `picto centré dans son onglet (écart ${c})`)
     }
+    const haut = await tiroir
+      .locator('[role=tabpanel]:visible')
+      .evaluate((el) => parseFloat(getComputedStyle(el).paddingTop))
+    assert.ok(haut >= 8, `le contenu ne colle pas au trait des onglets (${haut} px)`)
     await tiroir.getByRole('tab', { name: autre }).click()
     assert.equal(await tiroir.getByRole('heading').innerText(), autre, 'le titre suit l’onglet')
     await p.keyboard.press('Escape')
