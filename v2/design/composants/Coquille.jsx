@@ -327,9 +327,12 @@ export function VoletPlanDocuments({ onglets, plan, surTitre, videPlan, document
 
 /** Un picto avec son nombre en pastille (les tâches en attente : suggestions,
  * commentaires ouverts ; Sylvain, 12/11/2026) ; sans nombre, le picto seul. */
-export function PictoCompte({ role, nombre }) {
+export function PictoCompte({ role, nombre, occupe = false }) {
+  // Margo au travail : sans nombre, une pastille animée sans chiffre.
+  const reglage =
+    nombre || !occupe ? REGLAGES.nombreSuggestions : { ...REGLAGES.nombreSuggestions, ...REGLAGES.margoOccupe }
   return (
-    <Indicator {...REGLAGES.nombreSuggestions} label={nombre} disabled={!nombre}>
+    <Indicator {...reglage} label={nombre} disabled={!nombre && !occupe} processing={Boolean(occupe)}>
       <PictoDe role={role} />
     </Indicator>
   )
