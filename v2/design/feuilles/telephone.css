@@ -100,6 +100,7 @@
 .amend-volet-onglets .mantine-Tabs-tab {
   justify-content: center;
 }
+/* réglage : css.telephone.volets */
 /* Le contenu ne colle pas au trait sous les onglets (Sylvain, 14/11/2026) :
    l'espacement `sm` de Mantine au-dessus. */
 .amend-volet-onglets .mantine-Tabs-panel {
