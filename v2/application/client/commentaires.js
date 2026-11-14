@@ -43,10 +43,10 @@ export async function appel(methode, chemin, corps) {
 }
 
 /** Réduit puis envoie une image d'un document (lots du 11/11/2026, lot B ;
- * réduction du 14/11/2026) ; rend son adresse et les dimensions de l'image
+ * réduction du 14/11/2026) ; rend son adresse et la largeur de l'image
  * envoyée ; une réponse en erreur lève avec son code, comme \`appel\`. */
 export async function envoyerImage(docId, fichier) {
-  const { blob, largeur, hauteur } = await preparerImage(fichier)
+  const { blob, largeur } = await preparerImage(fichier)
   const r = await fetch(`/api/documents/${encodeURIComponent(docId)}/images`, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
@@ -55,7 +55,7 @@ export async function envoyerImage(docId, fichier) {
   const donnees = await r.json().catch(() => ({}))
   if (!r.ok)
     throw Object.assign(new Error(donnees.code || `http-${r.status}`), { code: donnees.code || `http-${r.status}` })
-  return { url: donnees.url, largeur, hauteur }
+  return { url: donnees.url, largeur }
 }
 
 /** Envoie un fichier de police de l'instance (13/11/2026) ; une réponse en

@@ -111,7 +111,7 @@
     "selection-absente": "Select the passage to correct first.",
     "demande-invalide": "This request is empty, or too long ({max, number} characters, including spaces, at most).",
     "image-vide": "This file is empty.",
-    "image-trop-lourde": "This image is too large, even reduced (5 MB at most).",
+    "image-trop-lourde": "This image is too large, even reduced ({max, number} MB at most).",
     "images-document-pleines": "This document has reached its image limit (100 MB).",
     "image-type-refuse": "Only PNG, GIF and JPEG images are accepted.",
     "confirmation-invalide": "The address you typed is not your account’s.",
@@ -124,7 +124,7 @@
     "police-reservee": "The family “{famille}” ships with amend.ink: it cannot be added to.",
     "police-en-double": "This style of the family “{famille}” is already uploaded.",
     "police-utilisee": "The family “{famille}” is used by {modeles}: its last file cannot be deleted.",
-    "image-entree-trop-lourde": "This image is over 25 MB.",
+    "image-entree-trop-lourde": "This image is over {max, number} MB.",
     "image-illisible": "This image could not be read."
   },
   "commentaires": {

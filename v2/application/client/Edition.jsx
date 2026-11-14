@@ -23,7 +23,12 @@ import {
 } from '../../design/index.js'
 import { REGLAGES } from '../../design/reglages.js'
 import { messageErreur } from '../../i18n/index.js'
-import { LANGUE_DOCUMENT_PAR_DEFAUT, MARGO_DEMANDE_MAX_SIGNES } from '../../domaine/index.js'
+import {
+  LANGUE_DOCUMENT_PAR_DEFAUT,
+  MARGO_DEMANDE_MAX_SIGNES,
+  IMAGE_MAX_OCTETS,
+  IMAGE_ENTREE_MAX_OCTETS,
+} from '../../domaine/index.js'
 import { ouvrirDocument } from '../../adaptateurs/yjs/index.js'
 import { EditeurCollaboratif } from '../../adaptateurs/blocknote/index.jsx'
 import { serviceCommentaires, envoyerImage } from './commentaires.js'
@@ -419,7 +424,12 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
               // La largeur de l'image envoyée devient celle du bloc (l'éditeur la plafonne à la colonne).
               .then(({ url, largeur }) => ({ props: { url, previewWidth: largeur } }))
               .catch((e) => {
-                montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+                montrerMessage(
+                  messageErreur(t, e.code || 'reseau', {
+                    max: (e.code === 'image-entree-trop-lourde' ? IMAGE_ENTREE_MAX_OCTETS : IMAGE_MAX_OCTETS) / 1048576,
+                  }),
+                  { erreur: true },
+                )
                 throw e
               })
         : undefined,

@@ -18,7 +18,7 @@ const versBlob = (canvas, type, qualite) => new Promise((resolve) => canvas.toBl
 /**
  * Réduit une image choisie par la personne.
  * @param {File} fichier
- * @returns {Promise<{ blob: Blob, largeur: number, hauteur: number }>}  l'image à envoyer et ses dimensions
+ * @returns {Promise<{ blob: Blob, largeur: number }>}  l'image à envoyer et sa largeur (la hauteur n'est pas portée : renoncement n° 26)
  * @throws une erreur portant un code : `image-vide`, `image-entree-trop-lourde`,
  *   `image-type-refuse`, `image-illisible`, `image-trop-lourde` (même réduite)
  */
@@ -35,7 +35,7 @@ export async function preparerImage(fichier) {
     const { largeur, hauteur } = dimensionsReduites(bitmap.width, bitmap.height)
     const original = { type: fichier.type, octets: fichier.size, largeur: bitmap.width }
     // Un GIF dans les limites garde son animation : il part tel quel.
-    if (garderOriginal(original)) return { blob: fichier, largeur, hauteur }
+    if (garderOriginal(original)) return { blob: fichier, largeur }
     const canvas = document.createElement('canvas')
     canvas.width = largeur
     canvas.height = hauteur
@@ -61,10 +61,11 @@ export async function preparerImage(fichier) {
         if (meilleur.size <= IMAGE_MAX_OCTETS) break
       }
     }
+    // Une image déjà petite, au bon format, n'a rien à gagner à être ré-encodée
+    // (même si tout ré-encodage la rendrait trop lourde).
+    if (garderOriginal(original, meilleur.size)) return { blob: fichier, largeur }
     if (meilleur.size > IMAGE_MAX_OCTETS) throw erreur('image-trop-lourde')
-    // Une image déjà petite, au bon format, n'a rien à gagner à être ré-encodée.
-    if (garderOriginal(original, meilleur.size)) return { blob: fichier, largeur, hauteur }
-    return { blob: meilleur, largeur, hauteur }
+    return { blob: meilleur, largeur }
   } finally {
     bitmap.close?.()
   }

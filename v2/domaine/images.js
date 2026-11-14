@@ -73,8 +73,8 @@ export const nomImageValide = (nom) => typeof nom === 'string' && NOM.test(nom)
  * large au plus (jamais agrandie), proportions gardées.
  * @returns {{ largeur: number, hauteur: number, facteur: number }}
  */
-export function dimensionsReduites(largeur, hauteur, max = IMAGE_LARGEUR_MAX_PX) {
-  const facteur = Math.min(1, max / largeur)
+export function dimensionsReduites(largeur, hauteur) {
+  const facteur = Math.min(1, IMAGE_LARGEUR_MAX_PX / Math.max(1, largeur))
   return {
     largeur: Math.max(1, Math.round(largeur * facteur)),
     hauteur: Math.max(1, Math.round(hauteur * facteur)),

@@ -234,6 +234,31 @@ function pngBruit(l, h) {
   ])
 }
 
+/** Un PNG d'aplats (très compressible), de `l` × `h` pixels : une capture d'écran. */
+function pngPlat(l, h) {
+  const ligne = 1 + l * 3
+  const brut = Buffer.alloc(ligne * h, 0xc8)
+  for (let y = 0; y < h; y++) brut[y * ligne] = 0
+  const morceau = (type, donnees) => {
+    const t = Buffer.concat([Buffer.from(type), donnees])
+    const longueur = Buffer.alloc(4)
+    longueur.writeUInt32BE(donnees.length)
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(t))
+    return Buffer.concat([longueur, t, crc])
+  }
+  const entete = Buffer.alloc(13)
+  entete.writeUInt32BE(l, 0)
+  entete.writeUInt32BE(h, 4)
+  entete.set([8, 2, 0, 0, 0], 8)
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    morceau('IHDR', entete),
+    morceau('IDAT', deflateSync(brut, { level: 9 })),
+    morceau('IEND', Buffer.alloc(0)),
+  ])
+}
+
 /** Envoie `fichier` par le bloc Image ; rend la page. */
 async function envoyerParLeBloc(nom, fichier) {
   const page = await pageEcriture(nom)
@@ -265,6 +290,19 @@ test('image lourde : acceptée à l’import (jusqu’à 25 Mo), réduite avant 
   // Affichée à la largeur de la colonne, sans la déborder.
   const [boite, colonne] = await Promise.all([img.boundingBox(), page.locator('.bn-editor').boundingBox()])
   assert.ok(boite.width <= colonne.width + 1, `image affichée : ${boite.width} px, colonne : ${colonne.width} px`)
+  await page.context().close()
+})
+
+test('capture d’écran large (aplats) : réduite à 2 000 px et gardée en PNG, plus léger que le JPEG', async () => {
+  const page = await envoyerParLeBloc('image-capture', {
+    name: 'capture.png',
+    mimeType: 'image/png',
+    buffer: pngPlat(3200, 400),
+  })
+  const img = page.locator('.bn-editor img[src*="/images/"]')
+  await img.waitFor({ timeout: 30000 })
+  assert.match(await img.getAttribute('src'), /\.png$/)
+  assert.equal(await img.evaluate((e) => e.naturalWidth), 2000)
   await page.context().close()
 })
 
