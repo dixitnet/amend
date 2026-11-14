@@ -557,6 +557,7 @@
     "accueil": "Ask Margo to proofread, correct or comment on the text. Its corrections arrive in the Corrections tab, to accept or reject.",
     "vous": "You",
     "corriger": "Correct",
+    "corrigeDebut": "Margo is correcting the selection…",
     "demandeCorriger": "Correct the selection",
     "porteeSelection": "On the selection",
     "porteeDocument": "On the whole text",

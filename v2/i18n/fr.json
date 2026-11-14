@@ -557,6 +557,7 @@
     "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent dans l’onglet Corrections, à accepter ou refuser.",
     "vous": "Vous",
     "corriger": "Corriger",
+    "corrigeDebut": "Margo corrige la sélection…",
     "demandeCorriger": "Corriger la sélection",
     "porteeSelection": "Sur la sélection",
     "porteeDocument": "Sur tout le texte",
