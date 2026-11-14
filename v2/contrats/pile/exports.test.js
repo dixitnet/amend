@@ -138,6 +138,7 @@ function largeursDImages(pdf) {
     const i = pdf.indexOf('stream\n', debut)
     if (i < 0) break
     const j = pdf.indexOf('\nendstream', i)
+    if (j < 0) break
     debut = j + 10
     let texte
     try {
