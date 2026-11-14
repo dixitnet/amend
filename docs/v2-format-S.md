@@ -24,10 +24,10 @@ Docs : barre flottante avec le volet gauche, puis le volet droit et le menu « �
 
 ## Volets
 
-Tiroirs Mantine (`Drawer`), chacun à deux onglets avec picto :
+Tiroirs Mantine (`Drawer`), construits à l'identique (Sylvain, 14/11/2026, piste 1) : onglets en **pictos seuls** sur toute la largeur (nommés pour les lecteurs d'écran, nombre en pastille sur le picto), le **nom de l'onglet ouvert en titre du tiroir** ; actions de « Documents » dans le contenu :
 
 - gauche : **Plan** (`IconListTree`) et **Documents** (`IconFiles`) ;
-- droite : **Modifications** (`IconPencilCheck`, ouvert par défaut) et **Margo (IA)** (`IconWand`).
+- droite : **Corrections** (`IconPencilCheck`, ouvert par défaut), **Commentaires** et **Margo (IA)** (`IconWand`).
 
 Docs : une page pour les documents (`sub-page-logo.svg`), une baguette avec étoiles pour l'IA (`wand_stars.svg`).
 
