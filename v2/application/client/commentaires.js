@@ -1,6 +1,7 @@
 // Les appels aux routes des commentaires (couche application), pour le
 // magasin de fils de l'adaptateur BlockNote. Les codes d'erreur du serveur
 // remontent tels quels (`err.code`) ; aucun texte ici.
+import { preparerImage } from './images.js'
 
 const CLE_RECHARGE = 'amend2.session.rechargee'
 
@@ -41,18 +42,20 @@ export async function appel(methode, chemin, corps) {
   return donnees
 }
 
-/** Envoie une image d'un document (lots du 11/11/2026, lot B) ; rend son
- * adresse ; une réponse en erreur lève avec son code, comme \`appel\`. */
+/** Réduit puis envoie une image d'un document (lots du 11/11/2026, lot B ;
+ * réduction du 14/11/2026) ; rend son adresse et les dimensions de l'image
+ * envoyée ; une réponse en erreur lève avec son code, comme \`appel\`. */
 export async function envoyerImage(docId, fichier) {
+  const { blob, largeur, hauteur } = await preparerImage(fichier)
   const r = await fetch(`/api/documents/${encodeURIComponent(docId)}/images`, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
-    body: fichier,
+    body: blob,
   })
   const donnees = await r.json().catch(() => ({}))
   if (!r.ok)
     throw Object.assign(new Error(donnees.code || `http-${r.status}`), { code: donnees.code || `http-${r.status}` })
-  return donnees.url
+  return { url: donnees.url, largeur, hauteur }
 }
 
 /** Envoie un fichier de police de l'instance (13/11/2026) ; une réponse en

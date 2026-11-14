@@ -415,10 +415,13 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
     () =>
       peutEnvoyer
         ? (fichier) =>
-            envoyerImage(docId, fichier).catch((e) => {
-              montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
-              throw e
-            })
+            envoyerImage(docId, fichier)
+              // La largeur de l'image envoyée devient celle du bloc (l'éditeur la plafonne à la colonne).
+              .then(({ url, largeur }) => ({ props: { url, previewWidth: largeur } }))
+              .catch((e) => {
+                montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+                throw e
+              })
         : undefined,
     [docId, peutEnvoyer],
   )
