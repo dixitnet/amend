@@ -411,24 +411,28 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   // « Corriger » n'ouvre aucun volet (Sylvain, 14/11/2026, comme Docs : l'IA
   // travaille dans le texte, sans panneau) : un message dit le début, puis le
   // bilan ou l'erreur ; les corrections arrivent dans le texte.
-  const corrigerEnCours = useRef(false)
+  // Le fil de Margo à l'envoi de la demande (nombre de messages) : le bilan lu
+  // à la fin est celui de cette demande, pas d'une précédente.
+  const corrigerEnCours = useRef(null)
   surCorriger.current = (choisie) => {
-    corrigerEnCours.current = true
+    corrigerEnCours.current = margo.fil.length
     montrerMessage(t('margo.corrigeDebut'))
     demanderMargo({ corriger: true, selection: choisie })
   }
   useEffect(() => {
-    if (margo.enCours || !corrigerEnCours.current) return
-    corrigerEnCours.current = false
+    if (margo.enCours || corrigerEnCours.current === null) return
+    const avant = corrigerEnCours.current
+    corrigerEnCours.current = null
     if (margo.erreur) {
       montrerMessage(messageErreur(t, margo.erreur, { max: MARGO_DEMANDE_MAX_SIGNES }), { erreur: true })
       return
     }
-    const derniere = [...margo.fil].reverse().find((m) => m.auteur === 'margo')
-    if (derniere?.bilan)
-      montrerMessage(
-        [t('margo.bilan', derniere.bilan), MARGO_ARRET[derniere.bilan.arret]?.()].filter(Boolean).join(' '),
-      )
+    const reponse = margo.fil.slice(avant).find((m) => m.auteur === 'margo' && m.bilan)
+    if (!reponse) return
+    // Le bilan, puis la raison d'un arrêt : deux messages, jamais une phrase recollée.
+    montrerMessage(t('margo.bilan', reponse.bilan))
+    const arret = MARGO_ARRET[reponse.bilan.arret]?.()
+    if (arret) montrerMessage(arret, { erreur: true })
   }, [margo.enCours, margo.erreur, margo.fil])
   // Envoyer une image (comme Docs) : qui écrit ou suggère ; un refus se dit.
   const peutEnvoyer = caps.includes('ecrire') || caps.includes('suggerer')

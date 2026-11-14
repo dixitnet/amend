@@ -85,6 +85,33 @@ test('« Corriger » : aucun volet ne s’ouvre, un message dit le début ; sans
   await p.context().close()
 })
 
+test('« Corriger » : une réponse simulée de Margo, le bilan s’affiche dans un message (sans modèle réel)', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const doc = docTest('margo-bilan')
+  const p = await ouvrir('Paule', doc)
+  await p.route('**/margo', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/x-ndjson',
+      body: [
+        { type: 'debut', blocs: [] },
+        { type: 'texte', texte: 'J’ai corrigé le passage.' },
+        { type: 'fin', corrections: 1, commentaires: 0, refus: 0, arret: 'longueur' },
+      ]
+        .map((e) => JSON.stringify(e))
+        .join('\n'),
+    }),
+  )
+  await p.click('.bn-editor')
+  await p.keyboard.type('Les enfant jouent dans la cour.')
+  await selectionner(p)
+  await boutonCorriger(p).click()
+  const messages = p.locator('.mantine-Notification-root')
+  await messages.filter({ hasText: /1 correction/ }).waitFor()
+  await messages.filter({ hasText: 'Réponse coupée' }).waitFor()
+  await p.context().close()
+})
+
 test('essai réel (MARGO_ESSAI_REEL=1) : « Corriger » pose une suggestion signée Margo (IA)', async (t) => {
   if (!REEL) return t.skip('essai réel non demandé (MARGO_ESSAI_REEL=1)')
   const doc = docTest('margo-reel')
