@@ -5,6 +5,7 @@ import { messageErreur } from '../../i18n/index.js'
 import { t, envoyerJson, nomDuModele } from './commun.js'
 import { courbeDeMemoire } from './suivi.js'
 import { ModelesInstance, PolicesInstance } from './Modeles.jsx'
+import { ImagesInstance } from './ImagesAdmin.jsx'
 import { useConfirmation } from './fenetres.jsx'
 
 /** La période du suivi (le serveur garde sept jours de relevés). */
@@ -246,6 +247,12 @@ export function Administration({ surApparence, rubrique = null }) {
               surChangement={() => (chargerPolices(), chargerModeles())}
             />
           ) : null,
+        },
+        {
+          titre: t('admin.images.titre'),
+          lignes: [],
+          vide: '',
+          contenu: <ImagesInstance />,
         },
         {
           titre: t('admin.connecteur.titre'),

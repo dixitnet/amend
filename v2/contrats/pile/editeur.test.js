@@ -6,7 +6,8 @@ import { randomBytes } from 'node:crypto'
 import { crc32, deflateSync } from 'node:zlib'
 import { fr } from '@blocknote/core/locales'
 import { creerTraducteur } from '../../i18n/index.js'
-import { dateDuJour } from '../../domaine/index.js'
+import { dateDuJour, nomsCites } from '../../domaine/index.js'
+import { clientCollaboration } from '../../adaptateurs/yhub/client.js'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
 import {
   lancerNavigateur,
@@ -303,6 +304,24 @@ test('capture d’écran large (aplats) : réduite à 2 000 px et gardée en PNG
   await img.waitFor({ timeout: 30000 })
   assert.match(await img.getAttribute('src'), /\.png$/)
   assert.equal(await img.evaluate((e) => e.naturalWidth), 2000)
+  await page.context().close()
+})
+
+test('analyse des orphelines : le nom d’une image se lit dans l’état du document dans y/hub, tant qu’elle est dans le texte', async () => {
+  const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+  const page = await envoyerParLeBloc('image-etat', { name: 'point.gif', mimeType: 'image/gif', buffer: gif })
+  const img = page.locator('.bn-editor img[src*="/images/"]')
+  await img.waitFor({ timeout: 15000 })
+  const nom = (await img.getAttribute('src')).split('/').pop()
+  const docId = decodeURIComponent(new URL(page.url()).hash.slice(1))
+  const collaboration = clientCollaboration({ url: `${pile.collab}/collaboration`, jeton: pile.secrets.jetonInterne })
+  // y/hub écrit après un court délai de persistance.
+  let cite = false
+  for (let i = 0; i < 20 && !cite; i++) {
+    await attendre(500)
+    cite = nomsCites(await collaboration.lireTexte(docId)).has(nom)
+  }
+  assert.ok(cite, `le nom ${nom} se lit dans l’état du document`)
   await page.context().close()
 })
 

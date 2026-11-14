@@ -363,6 +363,30 @@
         "gras": "gras",
         "grasItalique": "gras italique"
       }
+    },
+    "images": {
+      "titre": "Images",
+      "intro": "Une image supprimée du texte reste dans la base, et dans le poids de son document, jusqu’à la suppression du document. Cette analyse compte les images que le texte ou les suggestions d’aucun document ne citent plus. Elle ne supprime rien.",
+      "analyser": "Analyser les images",
+      "titreRapport": "Rapport",
+      "colonnes": {
+        "rubrique": "Images",
+        "nombre": "Nombre",
+        "poids": "Poids"
+      },
+      "total": "En base",
+      "utilisees": "Utilisées dans un texte",
+      "orphelines": "Orphelines (envoyées il y a plus de 7 jours, citées nulle part)",
+      "recentes": "Récentes (moins de 7 jours, pas encore jugées)",
+      "poids": "{mo, number}\u00A0Mo",
+      "note": "Les versions enregistrées ne sont pas lues\u00A0: une image orpheline peut encore servir à restaurer une ancienne version. Ce rapport ne suffit donc pas pour supprimer.",
+      "illisibles": "{n, plural, one {# document n’a pas pu être lu\u00A0: le rapport est incomplet.} other {# documents n’ont pas pu être lus\u00A0: le rapport est incomplet.}}",
+      "titreDocuments": "Documents qui gardent le plus d’images orphelines",
+      "colonnesDocuments": {
+        "document": "Document",
+        "nombre": "Images",
+        "poids": "Poids"
+      }
     }
   },
   "telephone": {

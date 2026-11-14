@@ -22,6 +22,10 @@
     "admin.couleurs.violet",
     "modeles.resume",
     "modeles.actions",
-    "modeles.format"
+    "modeles.format",
+    "admin.images.titre",
+    "admin.images.colonnes.rubrique",
+    "admin.images.colonnesDocuments.document",
+    "admin.images.colonnesDocuments.nombre"
   ]
 }
