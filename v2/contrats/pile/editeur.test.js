@@ -521,7 +521,7 @@ test('titres : l’interligne d’un titre est celui des titres de Mantine, pas 
   await page.context().close()
 })
 
-test('poignées de bloc : visibles aux formats L et M (Sylvain, 14/11/2026)', async () => {
+test('poignées de bloc : visibles au format L (Sylvain, 14/11/2026)', async () => {
   const page = await pageEcriture('poignees-l')
   await page.keyboard.type('Un paragraphe.')
   await attendre(500)
