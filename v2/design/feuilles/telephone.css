@@ -20,6 +20,12 @@
   flex: 1;
   min-width: 0;
 }
+/* Le bouton du volet droit laisse sa pastille de nombre déborder : Mantine
+   rogne le contenu d'un bouton d'action, la pastille « 18 » était coupée en
+   haut à droite (Sylvain, 14/11/2026, « le picto n'est pas visible »). */
+.amend-bandeau-volet-droit {
+  overflow: visible;
+}
 
 /* réglage : css.telephone.synchro */
 .amend-synchro {

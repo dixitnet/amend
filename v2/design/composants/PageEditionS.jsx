@@ -136,6 +136,7 @@ export function PageEditionS({
         </Menu>
         {voletDroit ? (
           <ActionIcon
+            className="amend-bandeau-volet-droit"
             aria-label={libelles.droite}
             aria-expanded={volet === 'droite'}
             onClick={() => surVolet('droite')}
