@@ -495,3 +495,24 @@ test('palette : le style « Paragraphe » une seule fois, avec notre picto (un P
   )
   await page.context().close()
 })
+
+test('titres : l’interligne d’un titre est celui des titres de Mantine, pas celui du texte (Sylvain, 14/11/2026)', async () => {
+  const page = await pageEcriture('titres-interligne')
+  await page.keyboard.type('# Un grand titre')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Du texte courant.')
+  await attendre(500)
+  const rapports = await page.evaluate(() => {
+    const rapport = (el) => {
+      const c = getComputedStyle(el)
+      return parseFloat(c.lineHeight) / parseFloat(c.fontSize)
+    }
+    return {
+      titre: rapport(document.querySelector('.bn-block-content[data-content-type="heading"]')),
+      texte: rapport(document.querySelector('.bn-block-content[data-content-type="paragraph"]')),
+    }
+  })
+  assert.ok(rapports.titre >= 1.25 && rapports.titre <= 1.35, `interligne du titre 1 : ${rapports.titre}`)
+  assert.ok(rapports.texte >= 1.45, `le texte garde le sien : ${rapports.texte}`)
+  await page.context().close()
+})
