@@ -32,6 +32,8 @@ const POLICES_AJOUTEES = [
   famille('Inter', 'inter', 'Inter'),
   famille('Source Sans 3', 'source-sans-3', 'SourceSans3'),
   famille('Roboto', 'roboto', 'Roboto'),
+  // Une police à chasse fixe (Sylvain, 15/11/2026), pour les extraits de code, la dactylographie, les dialogues de scénario.
+  famille('Courier Prime', 'courier-prime', 'CourierPrime'),
 ]
 
 const ALIGNEMENTS = ['gauche', 'justifie', 'centre']
