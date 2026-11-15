@@ -95,7 +95,7 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
   const blancs = (await versTypst(editeur, editeur.document, modele)).source
   assert.match(
     blancs,
-    /#amend-sans-alinea\[#"Un"\]\s+#amend-blanc\s+#"Deux"\s+#amend-blanc\s+#"Trois"\s+#"Quatre"\s+#amend-separateur\s+#"Cinq"\s+#pagebreak\(\)\s+#"Six"\s*$/,
+    /#amend-sans-alinea\[#"Un"\]\s+#amend-blanc\s+#"Deux"\s+#amend-blanc\s+#"Trois"\s+#"Quatre"\s+#amend-separateur\s+#"Cinq"\s+#pagebreak\(\)\s+#amend-blanc\s+#"Six"\s*$/,
   )
   // Aucun blanc de BlockNote autour des blocs (il casserait la grille).
   assert.doesNotMatch(source, /inset: \(top/)
@@ -207,6 +207,61 @@ test('un saut de ligne en haut de page compte comme ailleurs : une ligne de la g
     }
   }
   assert.ok(enHaut >= 1, 'au moins un cas où le blanc est en tête de page')
+})
+
+test('formats de base A5 et livre de poche : le PDF se compile au bon format (Sylvain, 15/11/2026)', async () => {
+  const formats = REPRISE_MODELES.filter((r) => ['a5', 'livre-de-poche'].includes(r.id))
+  assert.equal(formats.length, 2, 'les deux formats de base sont repris')
+  for (const { id, valeurs } of formats) {
+    const editeur = nouvelEditeur()
+    editeur.replaceBlocks(editeur.document, [
+      { type: 'heading', props: { level: 1 }, content: [texte('Un chapitre')] },
+      ...Array.from({ length: 40 }, () => ({ type: 'paragraph', content: [texte(paragraphe)] })),
+    ])
+    const { source, fichiers } = await versTypst(editeur, editeur.document, valeurs, { titre: 'Essai', langue: 'fr' })
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(valeurs), wasm: wasm() })
+    const dossier = mkdtempSync(join(tmpdir(), 'fmt-'))
+    try {
+      writeFileSync(join(dossier, 'a.pdf'), pdf)
+      const info = execFileSync('pdfinfo', [join(dossier, 'a.pdf')], { encoding: 'utf8' })
+      const taille = info.match(/Page size:\s+([\d.]+) x ([\d.]+) pts/)
+      const mm = (pt) => Math.round((Number(pt) * 25.4) / 72)
+      assert.deepEqual([mm(taille[1]), mm(taille[2])], [valeurs.page.largeur, valeurs.page.hauteur], id)
+    } finally {
+      rmSync(dossier, { recursive: true, force: true })
+    }
+  }
+})
+
+test('les lignes vides en début de page comptent, une par paragraphe vide (Sylvain, 15/11/2026)', async () => {
+  const para = (t) => ({ type: 'paragraph', content: t ? [texte(t)] : [] })
+  const marqueur = async (vides) => {
+    const e = nouvelEditeur()
+    e.replaceBlocks(e.document, [
+      para('Avant'),
+      { type: 'pageBreak' },
+      ...Array.from({ length: vides }, () => para('')),
+      para('Marqueur'),
+    ])
+    const { source, fichiers } = await versTypst(e, e.document, modele, { titre: 'E', langue: 'fr' })
+    assert.match(source, /#pagebreak\(\)\n\n(#amend-blanc\n\n)*#"Marqueur"/)
+    assert.equal((source.match(/#amend-blanc\n/g) ?? []).length, vides, `${vides} lignes vides écrites`)
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+    const dossier = mkdtempSync(join(tmpdir(), 'vide-'))
+    try {
+      writeFileSync(join(dossier, 'a.pdf'), pdf)
+      const x = execFileSync('pdftotext', ['-bbox', join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
+      const m = x.split('<page ')[2]?.match(/yMin="([^"]*)"[^>]*>Marqueur</)
+      assert.ok(m, 'le marqueur est sur la page 2')
+      return Number(m[1])
+    } finally {
+      rmSync(dossier, { recursive: true, force: true })
+    }
+  }
+  const { pas } = grille(modele)
+  const zero = await marqueur(0)
+  assert.ok(Math.abs((await marqueur(1)) - zero - pas) < 0.2, 'une ligne vide descend le texte d’une ligne')
+  assert.ok(Math.abs((await marqueur(3)) - zero - 3 * pas) < 0.2, 'trois lignes vides, trois lignes')
 })
 
 test('titre et sous-titre : centrés dans le flux, hors de la table des matières ; le PDF se compile (12/11/2026)', async () => {

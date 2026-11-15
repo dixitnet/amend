@@ -30,7 +30,7 @@ const ESSAI = process.argv.includes('--essai')
 // Intensité de la réflexion (none, low, high, max) : au-delà de « low », la
 // réflexion de DeepSeek et de GLM épuise la sortie avant toute réponse (essai du 08/11).
 const REFLEXION = arg('reflexion', 'low')
-const PLAFOND_SIGNES = 400_000
+const PLAFOND_SIGNES = Number(arg('plafond', 400_000))
 const ADRESSE = 'https://api.scaleway.ai/v1/chat/completions'
 
 if (!MODELE || (COMPLET && !OUTILS)) {

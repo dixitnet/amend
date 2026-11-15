@@ -112,7 +112,7 @@ const REGLES = {
     { cle: 'styles.texte.police', type: 'police' },
     { cle: 'styles.titre1.corps', type: 'nombre', min: 5, max: 96 },
     { cle: 'styles.titre1.capitales', type: 'booleen' },
-    { cle: 'styles.titre2.lignesAvant', type: 'entier', min: 0, max: 10 },
+    { cle: 'styles.titre2.espaceAvant', type: 'nombre', min: 0, max: 200 },
   ],
   polices: [
     { famille: 'EB Garamond', fichiers: ['eb.ttf'] },
@@ -160,7 +160,7 @@ test('réglages : inconnu, hors bornes, de mauvais type, ou modèle impossible :
   assert.deepEqual(code({ 'marges.bas': 176 }), ['reglage-hors-bornes', 'marges.bas'])
   assert.deepEqual(code({ 'styles.texte.police': 'Comic Sans' }), ['reglage-hors-bornes', 'styles.texte.police'])
   assert.deepEqual(code({ 'styles.titre1.capitales': 'oui' }), ['reglage-hors-bornes', 'styles.titre1.capitales'])
-  assert.deepEqual(code({ 'styles.titre2.lignesAvant': 11 }), ['reglage-hors-bornes', 'styles.titre2.lignesAvant'])
+  assert.deepEqual(code({ 'styles.titre2.espaceAvant': 201 }), ['reglage-hors-bornes', 'styles.titre2.espaceAvant'])
   assert.deepEqual(code({ 'marges.bas': 170 }), ['modele-impossible', 'lignes'])
   assert.deepEqual(code({ 'page.largeur': 80, 'marges.interieure': 30 }), ['modele-impossible', 'largeur'])
   for (const pas of [null, [], 'x', 3]) assert.equal(appliquerReglages(MODELE, pas, REGLES).code, 'reglages-invalides')
@@ -326,4 +326,35 @@ test('police d’un style : vide, c’est celle du texte courant (sauf pour le t
   const police = MODELE.styles.texte.police
   assert.ok(g.includes(`font: ("${police}",)`))
   assert.doesNotMatch(g, /font: \(""/)
+})
+
+test('espaces en points et retraits pour tous les styles (Sylvain, 15/11/2026)', () => {
+  const m = structuredClone(MODELE)
+  m.styles.titre2.espaceAvant = 20
+  m.styles.titre2.espaceApres = 6.5
+  m.styles.titre2.alinea = 3
+  m.styles.titre2.retrait = 7
+  m.styles.legende.retrait = 4
+  m.styles.titre1.alinea = 2
+  m.styles.titre1.retrait = 9
+  const g = gabaritTypst(m)
+  assert.match(g, /show heading\.where\(level: 2\): it => block\(width: 100%, above: 20pt, below: 6\.5pt, sticky: true/)
+  assert.match(g, /first-line-indent: \(amount: 3mm, all: true\)\); pad\(left: 7mm, align\(left, it\.body\)\)/)
+  assert.match(g, /amend-legende\(corps\) = block\(.*pad\(left: 4mm, align\(center, corps\)\)/)
+  assert.match(g, /first-line-indent: 2mm, leading: .*pad\(left: 9mm, align\(center, it\.body\)\)/)
+})
+
+test('un modèle enregistré avec des lignes blanches (avant le 15/11/2026) reçoit les points qu’elles valaient', () => {
+  const ancien = {
+    styles: { titre: { lignesAvant: 0, lignesApres: 1, corps: 13 }, titre2: { lignesAvant: 1, lignesApres: 0 } },
+  }
+  const c = completerModele(ancien, MODELE)
+  // Une ligne de la grille 12,4 pt, au corps du bloc ; sans espace voulu, l'espace ordinaire entre deux paragraphes.
+  assert.equal(c.styles.titre2.espaceAvant, 14.3)
+  assert.equal(c.styles.titre2.espaceApres, 1.9)
+  assert.equal(c.styles.titre.espaceApres, 13.8)
+  assert.equal(c.styles.titre.lignesApres, undefined, 'plus de lignes blanches')
+  // Un modèle qui a déjà ses points ne bouge pas.
+  const deja = completerModele({ styles: { titre2: { lignesAvant: 3, espaceAvant: 5 } } }, MODELE)
+  assert.equal(deja.styles.titre2.espaceAvant, 5)
 })

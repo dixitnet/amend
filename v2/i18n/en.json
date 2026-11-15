@@ -347,7 +347,7 @@
       "aide": ".ttf or .otf files, {max, number}\u00A0MB each at most, one per style (regular, italic, bold, bold italic). The family and style are read from the file, not from its name.",
       "ajouter": "Add fonts",
       "fournies": "Shipped with amend.ink",
-      "aideFournies": "Always available: they cannot be turned off or deleted.",
+      "aideFournies": "Their files are part of the application: you can turn them off (no longer offered, templates that kept them still use them) but not delete them.",
       "envoyees": "Fonts of this instance",
       "colonnes": {
         "famille": "Family",
@@ -565,8 +565,8 @@
       "italique": "Italic",
       "capitales": "Capitals",
       "alignement": "Alignment",
-      "lignesAvant": "Blank lines before",
-      "lignesApres": "Blank lines after",
+      "espaceAvant": "Space before (pt)",
+      "espaceApres": "Space after (pt)",
       "alinea": "First-line indent (mm)",
       "retrait": "Left indent (mm)"
     },

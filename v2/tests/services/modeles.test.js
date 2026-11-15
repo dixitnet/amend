@@ -441,7 +441,7 @@ test('polices de l’instance : l’administrateur envoie, la famille est lue da
   let f = liste.familles.find((x) => x.famille === famille)
   assert.deepEqual(f.manquants, ['italique', 'gras', 'gras-italique'], 'une famille incomplète est acceptée, et le dit')
   assert.equal(f.fichiers[0].fichier, 'n’importe quoi.ttf')
-  assert.ok(liste.fournies.includes('EB Garamond'))
+  assert.ok(liste.fournies.some((x) => x.famille === 'EB Garamond' && x.actif === true))
   const italique = await envoyerPolice(ada.cookie, policeDEssai('EBGaramond-Italic.ttf', famille), 'i.ttf')
   assert.equal(italique.json.style, 'italique')
 
@@ -566,4 +566,26 @@ test('polices de l’instance : désactiver une famille (plus proposée, mais va
     (await appel('PATCH', `/api/admin/polices/famille/${nom}`, { ...a, corps: { actif: true } })).statut,
     404,
   )
+})
+
+test('polices fournies avec amend.ink : désactivables et réactivables, pas supprimables (15/11/2026)', async () => {
+  const ada = await personneAvecAdresse('Ada', ADMIN)
+  const a = { cookie: ada.cookie }
+  const etat = async () =>
+    (await appel('GET', '/api/admin/polices', a)).json.fournies.find((x) => x.famille === 'Roboto')
+  assert.equal((await etat()).actif, true)
+  assert.equal(
+    (await appel('PATCH', '/api/admin/polices/famille/Roboto', { ...a, corps: { actif: false } })).statut,
+    200,
+  )
+  assert.equal((await etat()).actif, false)
+  const sans = (await appel('GET', '/api/admin/modeles', a)).json
+  assert.ok(!sans.polices.includes('Roboto'), 'plus proposée')
+  assert.ok(sans.polices.includes('EB Garamond'), 'les autres restent')
+  assert.equal((await appel('DELETE', '/api/admin/polices/famille/Roboto', a)).json.code, 'police-fournie')
+  assert.equal(
+    (await appel('PATCH', '/api/admin/polices/famille/Roboto', { ...a, corps: { actif: true } })).statut,
+    200,
+  )
+  assert.ok((await appel('GET', '/api/admin/modeles', a)).json.polices.includes('Roboto'), 'réactivée')
 })

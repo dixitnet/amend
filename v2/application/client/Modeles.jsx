@@ -47,8 +47,8 @@ const NOMS_PROPRIETES = {
   italique: () => t('modeles.propriete.italique'),
   capitales: () => t('modeles.propriete.capitales'),
   alignement: () => t('modeles.propriete.alignement'),
-  lignesAvant: () => t('modeles.propriete.lignesAvant'),
-  lignesApres: () => t('modeles.propriete.lignesApres'),
+  espaceAvant: () => t('modeles.propriete.espaceAvant'),
+  espaceApres: () => t('modeles.propriete.espaceApres'),
   alinea: () => t('modeles.propriete.alinea'),
   retrait: () => t('modeles.propriete.retrait'),
 }
@@ -103,7 +103,18 @@ const LIGNES_STYLES = {
   sousTitre: () => t('modeles.styles.sousTitre'),
   legende: () => t('modeles.styles.legende'),
 }
-const COLONNES = ['police', 'corps', 'gras', 'italique', 'capitales', 'alignement', 'lignesAvant', 'lignesApres']
+const COLONNES = [
+  'police',
+  'corps',
+  'gras',
+  'italique',
+  'capitales',
+  'alignement',
+  'alinea',
+  'retrait',
+  'espaceAvant',
+  'espaceApres',
+]
 const tableauDesStyles = () => ({
   premiereColonne: t('modeles.styles.colonne'),
   colonnes: COLONNES.map((cle) => ({ cle, libelle: NOMS_PROPRIETES[cle]() })),
@@ -514,6 +525,8 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
     }
     surChangement()
   }
+  const usageDe = (f) =>
+    f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null
   const activer = async (famille, actif) => {
     try {
       await envoyerJson('PATCH', `/api/admin/polices/famille/${encodeURIComponent(famille)}`, { actif })
@@ -566,11 +579,11 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
       intro={t('admin.polices.intro')}
       aide={t('admin.polices.aide', { max: octetsEnMo(donnees.max) })}
       aideFournies={t('admin.polices.aideFournies')}
-      fournies={donnees.fournies}
+      fournies={donnees.fournies.map((f) => ({ famille: f.famille, actif: f.actif, usage: usageDe(f) }))}
       familles={donnees.familles.map((f) => ({
         famille: f.famille,
         actif: f.actif !== false,
-        usage: f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null,
+        usage: usageDe(f),
         avertissement: f.manquants.length
           ? t('admin.polices.manquants', { styles: enListe(f.manquants.map(nomDuStyle)) })
           : null,
