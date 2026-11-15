@@ -537,6 +537,7 @@
       "pages": "Numéro de page et en-têtes",
       "general": "Nom"
     },
+    "reglageDeStyle": "{style}\u00A0: {propriete}",
     "memePolice": "Même police que le texte",
     "styles": {
       "colonne": "Style",

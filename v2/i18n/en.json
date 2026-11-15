@@ -537,6 +537,7 @@
       "pages": "Page number and running head",
       "general": "Name"
     },
+    "reglageDeStyle": "{style}: {propriete}",
     "memePolice": "Same font as the text",
     "styles": {
       "colonne": "Style",

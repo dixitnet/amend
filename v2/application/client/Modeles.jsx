@@ -156,7 +156,10 @@ const champsDu = (complet, regles, familles = null) => {
     // Hors du tableau, un réglage d'un style (retrait de la citation) dit de quel style il est.
     libelle:
       r.groupe === 'styles' && r.cle.startsWith('styles.')
-        ? `${LIGNES_STYLES[r.cle.split('.')[1]]?.() ?? ''}\u00A0: ${(nomDuReglage(r.cle) ?? '').replace(/^./, (c) => c.toLowerCase())}`
+        ? t('modeles.reglageDeStyle', {
+            style: LIGNES_STYLES[r.cle.split('.')[1]]?.() ?? '',
+            propriete: nomDuReglage(r.cle),
+          })
         : (nomDuReglage(r.cle) ?? r.cle),
     valeur: valeurDuReglage(complet, r.cle),
     min: r.min,
