@@ -470,7 +470,9 @@
       },
       "enTete": {
         "gauche": "Running head on left pages",
-        "droite": "Running head on right pages"
+        "droite": "Running head on right pages",
+        "texteGauche": "Text of the left-page running head",
+        "texteDroite": "Text of the right-page running head"
       },
       "separateur": "Scene break",
       "cesure": "Hyphenation"
@@ -499,7 +501,8 @@
       "enTete": {
         "rien": "Nothing",
         "titreDocument": "Document title",
-        "chapitre": "Current chapter"
+        "chapitre": "Current chapter",
+        "texte": "Free text"
       },
       "alignement": {
         "gauche": "Left",

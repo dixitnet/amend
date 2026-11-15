@@ -31,6 +31,8 @@ const NOMS_REGLAGES = {
   'folio.ouverture': () => t('modeles.reglage.folio.ouverture'),
   'enTete.gauche': () => t('modeles.reglage.enTete.gauche'),
   'enTete.droite': () => t('modeles.reglage.enTete.droite'),
+  'enTete.texteGauche': () => t('modeles.reglage.enTete.texteGauche'),
+  'enTete.texteDroite': () => t('modeles.reglage.enTete.texteDroite'),
   separateur: () => t('modeles.reglage.separateur'),
   cesure: () => t('modeles.reglage.cesure'),
 }
@@ -78,6 +80,7 @@ const NOMS_OPTIONS = {
     rien: () => t('modeles.options.enTete.rien'),
     titreDocument: () => t('modeles.options.enTete.titreDocument'),
     chapitre: () => t('modeles.options.enTete.chapitre'),
+    texte: () => t('modeles.options.enTete.texte'),
   },
 }
 /** Les options d'un réglage à choix, par sa clé. */
@@ -122,6 +125,7 @@ const champsDu = (complet, regles, familles = null) => {
     min: r.min,
     max: r.max,
     pas: r.pas,
+    visibleSi: r.visibleSi,
     options:
       r.type === 'police'
         ? polices
