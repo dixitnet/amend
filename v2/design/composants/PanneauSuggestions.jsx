@@ -66,29 +66,49 @@ export function PanneauSuggestions({
       ) : null}
       <Stack component="ol" className="amend-suggestions-liste" {...liste}>
         {lignes.map((l, i) => (
-          <Paper component="li" key={l.cle} {...carte} data-active={active === i || undefined}>
+          <Paper
+            component="li"
+            key={l.cle}
+            {...carte}
+            data-active={active === i || undefined}
+            // Tout clic sur la carte, hors Accepter et Refuser, mène au passage (Sylvain, 15/11/2026) ;
+            // le nom et le passage restent des boutons, pour le clavier : leur clic remonte ici.
+            onClick={(e) => {
+              if (!e.target.closest('[data-amend-action]')) surMontrer?.(i)
+            }}
+          >
             <Stack {...pile}>
               {/* L'auteur et les boutons sur une ligne, le passage dessous. */}
               <Group {...entete}>
                 {/* Le nom aussi amène le texte à la suggestion (Sylvain, 12/11/2026) ;
                     au clavier, le passage dessous fait la même chose (hors de
                     la tabulation, le nom reste lu). */}
-                <UnstyledButton onClick={() => surMontrer?.(i)} tabIndex={-1}>
+                <UnstyledButton tabIndex={-1}>
                   <Text {...auteur}>{l.auteur}</Text>
                 </UnstyledButton>
                 {arbitre ? (
                   <Group {...boutons}>
                     {/* Un nom par ligne pour les lecteurs d'écran (audit du 10/11/2026). */}
-                    <Button {...accepter} aria-label={libelles.accepterDe(l.texte)} onClick={() => surAccepter(i)}>
+                    <Button
+                      {...accepter}
+                      aria-label={libelles.accepterDe(l.texte)}
+                      data-amend-action
+                      onClick={() => surAccepter(i)}
+                    >
                       {libelles.accepter}
                     </Button>
-                    <Button {...refuser} aria-label={libelles.refuserDe(l.texte)} onClick={() => surRefuser(i)}>
+                    <Button
+                      {...refuser}
+                      aria-label={libelles.refuserDe(l.texte)}
+                      data-amend-action
+                      onClick={() => surRefuser(i)}
+                    >
                       {libelles.refuser}
                     </Button>
                   </Group>
                 ) : null}
               </Group>
-              <UnstyledButton onClick={() => surMontrer?.(i)} aria-label={l.texte} data-amend-carte>
+              <UnstyledButton aria-label={l.texte} data-amend-carte>
                 {l.passage ? <Passage passage={l.passage} /> : <Text>{l.texte}</Text>}
               </UnstyledButton>
             </Stack>
