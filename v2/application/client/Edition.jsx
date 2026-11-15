@@ -505,22 +505,6 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       visible={ongletRelecture === 'margo' && (formatS ? volet === 'droite' : volets.droite)}
     />
   ) : null
-  // Au format S, un clic sur une carte de commentaire (hors boutons et champs de
-  // saisie) mène au passage : le tiroir se ferme pour qu'on le voie (Sylvain,
-  // 15/11/2026). L'éditeur y amène déjà le texte (clic sur la carte, BlockNote).
-  useEffect(() => {
-    if (!formatS || !cibleFils) return
-    const surClic = (e) => {
-      if (
-        !e.target.closest('.bn-thread') ||
-        e.target.closest('button, [contenteditable], input, textarea, [role=menu], [role=menuitem]')
-      )
-        return
-      setTimeout(() => setVolet(null), 0)
-    }
-    cibleFils.addEventListener('click', surClic)
-    return () => cibleFils.removeEventListener('click', surClic)
-  }, [formatS, cibleFils])
   const listeFils = commentaires ? (
     <ListeDesFils
       filtre={{
@@ -561,6 +545,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           nomsDe={nomsAvecMargo}
           commentaires={commentaires}
           surSuggestions={avecSuggestions ? setSuggestions : undefined}
+          // Au format S, un clic sur une carte de commentaire mène au passage : le tiroir se ferme pour qu'on le voie (Sylvain, 15/11/2026).
+          surCarteDeFil={formatS ? () => setVolet(null) : undefined}
           surNombreFils={commentaires ? setNombreFils : undefined}
           surFilChoisi={ouvrirCommentaires}
           historique={historique && !formatS}

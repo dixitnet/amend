@@ -437,9 +437,9 @@ export function completerModele(valeurs, defaut) {
   const complet = fusionner(valeurs, defaut)
   // Un modèle enregistré en lignes par page (avant le 15/11/2026) : la marge
   // basse qui laisse ce nombre de lignes remplace celle du modèle de référence.
-  if (Number.isFinite(valeurs?.grille?.lignes) && !Number.isFinite(valeurs?.marges?.bas)) {
-    complet.marges.bas = margeBasPourLignes(complet, valeurs.grille.lignes)
-    delete complet.grille.lignes
+  if (Number.isFinite(valeurs?.grille?.lignes)) {
+    if (!Number.isFinite(valeurs?.marges?.bas)) complet.marges.bas = margeBasPourLignes(complet, valeurs.grille.lignes)
+    delete complet.grille.lignes // la marge basse fait foi, plus de donnée morte
   }
   return complet
 }
