@@ -61,7 +61,7 @@ test('éditeur : onglet Margo et « Corriger » ; correcteur : ni l’un ni l’
   await c.context().close()
 })
 
-test('« Corriger » : l’onglet Margo s’ouvre sur la demande ; sans modèle, Margo se dit indisponible', async (t) => {
+test('« Corriger » : aucun volet ne s’ouvre, un message dit le début ; sans modèle, Margo se dit indisponible', async (t) => {
   if (REEL) return t.skip('essai réel demandé : le modèle est configuré')
   const doc = docTest('margo-indisponible')
   const p = await ouvrir('Paule', doc)
@@ -69,9 +69,46 @@ test('« Corriger » : l’onglet Margo s’ouvre sur la demande ; sans modèle,
   await p.keyboard.type('Les enfant jouent dans la cour.')
   await selectionner(p)
   await boutonCorriger(p).click()
-  await p.getByRole('tab', { name: 'Margo (IA)', selected: true }).waitFor()
-  await p.getByText('Corriger la sélection').waitFor()
+  await p.getByText('Margo corrige la sélection').waitFor()
   await p.getByRole('alert').filter({ hasText: 'Margo est indisponible' }).waitFor()
+  // Docs : l'IA travaille dans le texte, sans panneau (Sylvain, 14/11/2026).
+  assert.equal(
+    await p.getByRole('tab', { name: 'Margo (IA)', selected: true }).count(),
+    0,
+    'aucun volet ouvert sur Margo',
+  )
+  // La demande est dans le fil de Margo, portée « sur la sélection ».
+  await p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).click()
+  await p.getByRole('tab', { name: 'Margo (IA)' }).click()
+  await p.getByText('Corriger la sélection').waitFor()
+  await p.getByText('Sur la sélection').waitFor()
+  await p.context().close()
+})
+
+test('« Corriger » : une réponse simulée de Margo, le bilan s’affiche dans un message (sans modèle réel)', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const doc = docTest('margo-bilan')
+  const p = await ouvrir('Paule', doc)
+  await p.route('**/margo', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/x-ndjson',
+      body: [
+        { type: 'debut', blocs: [] },
+        { type: 'texte', texte: 'J’ai corrigé le passage.' },
+        { type: 'fin', corrections: 1, commentaires: 0, refus: 0, arret: 'longueur' },
+      ]
+        .map((e) => JSON.stringify(e))
+        .join('\n'),
+    }),
+  )
+  await p.click('.bn-editor')
+  await p.keyboard.type('Les enfant jouent dans la cour.')
+  await selectionner(p)
+  await boutonCorriger(p).click()
+  const messages = p.locator('.mantine-Notification-root')
+  await messages.filter({ hasText: /1 correction/ }).waitFor()
+  await messages.filter({ hasText: 'Réponse coupée' }).waitFor()
   await p.context().close()
 })
 

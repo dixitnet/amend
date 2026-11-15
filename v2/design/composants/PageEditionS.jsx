@@ -55,7 +55,7 @@ const ETAT_PICTO = { connecte: 'synchro', connexion: 'synchroEnCours' }
  *   menu: Array<{ cle: string, libelle: string, icone?: string, titre?: boolean, coche?: boolean, surClic?: () => void }>,
  *   piedMenu?: string, surOuvrirMenu?: () => void,
  *   voletGauche: { titre: string, onglets: Array<{ cle: string, libelle: string, icone: string, contenu: any }> },
- *   voletDroit?: { titre: string, nombre?: number, onglets: Array<{ cle: string, libelle: string, icone: string, nombre?: number, contenu: any }>, actif?: string, surOnglet?: (cle: string) => void } | null,
+ *   voletDroit?: { titre: string, nombre?: number, occupe?: boolean, onglets: Array<{ cle: string, libelle: string, icone: string, nombre?: number, contenu: any }>, actif?: string, surOnglet?: (cle: string) => void } | null,
  *   volet: 'gauche' | 'droite' | null, surVolet: (v: 'gauche' | 'droite' | null) => void,
  *   panneau?: { titre: string, contenu: any, surFermer: () => void } | null,
  *   editeur: any,
@@ -141,7 +141,7 @@ export function PageEditionS({
             aria-expanded={volet === 'droite'}
             onClick={() => surVolet('droite')}
           >
-            <PictoCompte role="modifications" nombre={voletDroit.nombre} />
+            <PictoCompte role="modifications" nombre={voletDroit.nombre} occupe={voletDroit.occupe} />
           </ActionIcon>
         ) : null}
       </header>

@@ -352,3 +352,49 @@ test('format S : la pastille de nombre du volet droit n’est pas rognée par so
   assert.ok(entiere, 'la pastille est celle qui reçoit le point, aucun ancêtre ne la recouvre ni ne la rogne')
   for (const x of [p, c, e]) await x.context().close()
 })
+
+test('format S : « Corriger » une sélection n’ouvre aucun volet et la portée reste « sur la sélection » (Sylvain, 14/11/2026)', async () => {
+  const doc = docTest('s-corriger')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Les enfant jouent dans la cour.')
+  await attendre(500)
+  await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
+  await p.locator('button', { hasText: 'Corriger' }).first().click()
+  await p.getByText('Margo corrige la sélection').waitFor()
+  assert.equal(await p.getByRole('dialog').count(), 0, 'aucun tiroir ouvert')
+  // La palette recouvre le bandeau tant que le texte est sélectionné : le
+  // tiroir s'ouvre par un clic programmatique, qui prend le focus à l'éditeur.
+  await p.getByRole('button', { name: 'Relecture' }).evaluate((b) => b.click())
+  await p.getByRole('tab', { name: 'Margo (IA)' }).click()
+  await p.getByText('Sur la sélection').waitFor()
+  assert.equal(await p.getByText('Sur tout le texte').count(), 0, 'la portée n’est pas « tout le texte »')
+  await p.context().close()
+})
+
+test('format S : la pastille du volet droit s’anime pendant que Margo travaille, volet fermé (Sylvain, 14/11/2026)', async () => {
+  const doc = docTest('s-margo-occupe')
+  const p = await ouvrir('Paule', doc)
+  // Une réponse de Margo retardée : le temps de voir l'animation.
+  await p.route('**/margo', async (route) => {
+    await attendre(2500)
+    await route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"margo-indisponible"}' })
+  })
+  await p.click('.bn-editor')
+  await p.keyboard.type('Les enfant jouent dans la cour.')
+  await attendre(500)
+  await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
+  await p.locator('button', { hasText: 'Corriger' }).first().click()
+  const pastille = p.locator('.amend-bandeau-volet-droit .mantine-Indicator-indicator')
+  await pastille.waitFor()
+  assert.equal(await p.getByRole('dialog').count(), 0, 'volet fermé')
+  assert.ok(
+    await pastille.evaluate(
+      (el) => el.hasAttribute('data-processing') || getComputedStyle(el).animationName !== 'none',
+    ),
+    'la pastille est animée',
+  )
+  await pastille.waitFor({ state: 'detached', timeout: 10000 })
+  await p.getByRole('alert').filter({ hasText: 'Margo est indisponible' }).waitFor()
+  await p.context().close()
+})

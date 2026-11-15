@@ -695,6 +695,10 @@ export function EditeurCollaboratif({
     let precedente = null
     const signaler = () => {
       const s = selectionEnBlocs(editeur)
+      // Hors de l'éditeur (le tiroir du format S prend le focus), la sélection
+      // retombe à « aucune » sans que la personne y ait touché : on garde la
+      // dernière, qui est celle de la demande (Sylvain, 14/11/2026).
+      if (!s && !editeur.isFocused()) return
       const cle = s ? `${s.de} ${s.a}` : null
       if (cle === precedente) return
       precedente = cle

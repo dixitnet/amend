@@ -98,6 +98,10 @@ export const REGLAGES = {
   messages: { duree: 3000, erreur: { color: 'red' } },
   // La pastille du nombre de suggestions : 10 px par défaut, trop petite pour un chiffre.
   nombreSuggestions: { size: 16, inline: true },
+  // Margo au travail, sans volet ouvert (Sylvain, 14/11/2026) : la pastille
+  // animée de Mantine (`processing`) sur le picto du volet droit, à sa taille
+  // par défaut (10 px) puisqu'elle n'a pas de chiffre.
+  margoOccupe: { size: 10 },
   // Les nombres des formulaires de modèles avec une virgule décimale, à la
   // française (Sylvain, 12/11/2026 : « 12 » du chantier des modèles).
   modeles: { nombre: { decimalSeparator: ',' } },
