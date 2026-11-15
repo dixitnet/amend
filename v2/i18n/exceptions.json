@@ -1,6 +1,9 @@
 {
   "identiques": [
     "application.nom",
+    "modeles.styles.colonne",
+    "modeles.groupes.images",
+    "modeles.groupes.styles",
     "admin.titre",
     "admin.version",
     "admin.node",

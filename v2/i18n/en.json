@@ -458,6 +458,7 @@
       },
       "chapitre": {
         "debut": "Chapter start",
+        "premierSansAlinea": "No indent on the first paragraph of a chapter",
         "ligneTitre": "Chapter title line",
         "ligneTexte": "Line where the text resumes",
         "interligne": "Chapter title line spacing (pt)"
@@ -516,7 +517,16 @@
     "groupes": {
       "format": "Page size and margins",
       "texte": "Body text",
+      "styles": "Styles",
+      "chapitre": "Chapter",
+      "images": "Images",
       "pages": "Page number and running head",
+      "general": "Name"
+    },
+    "memePolice": "Same font as the text",
+    "styles": {
+      "colonne": "Style",
+      "texte": "Body text",
       "citation": "Quote",
       "titre1": "Heading 1 (chapter)",
       "titre2": "Heading 2",
@@ -525,8 +535,7 @@
       "titre5": "Heading 5",
       "titre": "Title (title page)",
       "sousTitre": "Subtitle",
-      "legende": "Caption",
-      "general": "Name"
+      "legende": "Caption"
     },
     "essayer": "Try",
     "margeBasseObtenue": "Resulting margin: {marge, number} mm, {lignes, plural, one {# line} other {# lines}} per page.",

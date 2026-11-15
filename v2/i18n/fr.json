@@ -458,6 +458,7 @@
       },
       "chapitre": {
         "debut": "Début de chapitre",
+        "premierSansAlinea": "Premier paragraphe du chapitre sans retrait",
         "ligneTitre": "Ligne du titre de chapitre",
         "ligneTexte": "Ligne où reprend le texte",
         "interligne": "Interligne du titre de chapitre (pt)"
@@ -516,7 +517,16 @@
     "groupes": {
       "format": "Format et marges",
       "texte": "Texte courant",
+      "styles": "Styles",
+      "chapitre": "Chapitre",
+      "images": "Images",
       "pages": "Numéro de page et en-têtes",
+      "general": "Nom"
+    },
+    "memePolice": "Même police que le texte",
+    "styles": {
+      "colonne": "Style",
+      "texte": "Texte courant",
       "citation": "Citation",
       "titre1": "Titre 1 (chapitre)",
       "titre2": "Titre 2",
@@ -525,8 +535,7 @@
       "titre5": "Titre 5",
       "titre": "Titre (page de titre)",
       "sousTitre": "Sous-titre",
-      "legende": "Légende",
-      "general": "Nom"
+      "legende": "Légende"
     },
     "essayer": "Essayer",
     "margeBasseObtenue": "Marge obtenue\u00A0: {marge, number} mm, soit {lignes, plural, one {# ligne} other {# lignes}} par page.",
