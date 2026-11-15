@@ -398,3 +398,44 @@ test('format S : la pastille du volet droit s’anime pendant que Margo travaill
   await p.getByRole('alert').filter({ hasText: 'Margo est indisponible' }).waitFor()
   await p.context().close()
 })
+
+test('format S : « Tout accepter » et « Tout refuser » restent sous l’en-tête du tiroir quand la liste défile (Sylvain, 15/11/2026)', async () => {
+  const doc = docTest('s-suggestions-collees')
+  const p = await ouvrirSur(nav, pile.url, 'Paule', doc)
+  await p.click('.bn-editor')
+  const n = 14
+  for (let i = 0; i < n; i++) {
+    await p.keyboard.type(`Ligne numero ${i}.`)
+    if (i < n - 1) await p.keyboard.press('Enter')
+  }
+  const c = await ouvrirSur(nav, pile.url, 'Carla', doc, { role: 'correcteur' })
+  await attendre(3000)
+  await c.click('.bn-editor .bn-block-content >> nth=0')
+  await c.keyboard.press('Control+Home')
+  for (let i = 0; i < n; i++) {
+    await c.keyboard.press('End')
+    await c.keyboard.type(' x')
+    if (i < n - 1) await c.keyboard.press('ArrowDown')
+  }
+  await attendre(2500)
+  const e = await ouvrir('Edith', doc)
+  await e.getByRole('button', { name: 'Relecture' }).click()
+  const bouton = e.getByRole('button', { name: 'Tout accepter' })
+  await bouton.waitFor()
+  await bouton.evaluate((el) => {
+    for (let x = el.parentElement; x && x !== document.body; x = x.parentElement)
+      if (/(auto|scroll)/.test(getComputedStyle(x).overflowY) && x.scrollHeight > x.clientHeight) {
+        x.scrollTop = x.scrollHeight
+        return
+      }
+  })
+  await attendre(400)
+  const entete = await e.locator('.mantine-Drawer-header').boundingBox()
+  const apres = await bouton.boundingBox()
+  assert.ok(
+    apres.y >= entete.y + entete.height - 1 && apres.y < entete.y + entete.height + 40,
+    `sous l’en-tête (${apres.y} px)`,
+  )
+  assert.ok(await e.getByRole('button', { name: 'Tout refuser' }).isVisible(), '« Tout refuser » aussi')
+  await p.context().close()
+})

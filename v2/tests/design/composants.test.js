@@ -229,7 +229,7 @@ test('panneau des suggestions en consultation (sans surAccepter) : les cartes, s
   assert.doesNotMatch(html, />A<|>R<|>TA<|>TR</)
 })
 
-test('liste des fils : le filtre (Ouverts, Résolus, Tous) sur sa valeur, puis l’emplacement de la liste', () => {
+test('liste des fils : le filtre (Ouverts, Résolus) sur sa valeur, puis l’emplacement de la liste', () => {
   const html = rendre(
     h(design.ListeDesFils, {
       filtre: {
@@ -238,15 +238,14 @@ test('liste des fils : le filtre (Ouverts, Résolus, Tous) sur sa valeur, puis l
         options: [
           { valeur: 'open', libelle: 'Ouverts' },
           { valeur: 'resolved', libelle: 'Résolus' },
-          { valeur: 'all', libelle: 'Tous' },
         ],
         surChange: () => {},
       },
       cible: () => {},
     }),
   )
-  assert.equal(html.match(/type="radio"/g)?.length, 3)
-  for (const l of ['Ouverts', 'Résolus', 'Tous']) assert.ok(html.includes(l), l)
+  assert.equal(html.match(/type="radio"/g)?.length, 2)
+  for (const l of ['Ouverts', 'Résolus']) assert.ok(html.includes(l), l)
 })
 
 test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni noire', () => {

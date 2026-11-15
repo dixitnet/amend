@@ -465,3 +465,67 @@ test('une correctrice propose ; une éditrice qui n’a pas écrit le texte l’
   await c.context().close()
   await e.context().close()
 })
+
+/** Un document de `n` lignes, chacune corrigée par une correctrice : `n` suggestions. */
+async function documentAvecSuggestions(nom, n) {
+  const doc = docTest(nom)
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  for (let i = 0; i < n; i++) {
+    await p.keyboard.type(`Ligne numero ${i}.`)
+    if (i < n - 1) await p.keyboard.press('Enter')
+  }
+  const c = await ouvrir('Carla', doc, { role: 'correcteur' })
+  await attendre(3000)
+  await c.click('.bn-editor .bn-block-content >> nth=0')
+  await c.keyboard.press('Control+Home')
+  for (let i = 0; i < n; i++) {
+    await c.keyboard.press('End')
+    await c.keyboard.type(' x')
+    if (i < n - 1) await c.keyboard.press('ArrowDown')
+  }
+  await attendre(2500)
+  return { doc, p, c }
+}
+/** Le bouton reste à la même place quand la liste défile jusqu'en bas. */
+async function resteVisible(bouton) {
+  const avant = (await bouton.boundingBox()).y
+  await bouton.evaluate((el) => {
+    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement)
+      if (/(auto|scroll)/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight) {
+        n.scrollTop = n.scrollHeight
+        return
+      }
+  })
+  await attendre(400)
+  const apres = (await bouton.boundingBox()).y
+  return { avant, apres }
+}
+
+test('suggestions : « Tout accepter » et « Tout refuser » restent visibles quand la liste défile (Sylvain, 15/11/2026)', async () => {
+  const { p } = await documentAvecSuggestions('suggestions-collees', 14)
+  const bouton = p.getByRole('button', { name: 'Tout accepter' })
+  await bouton.waitFor()
+  const haut = (await p.locator('[role=tabpanel]:visible').first().boundingBox()).y
+  const { apres } = await resteVisible(bouton)
+  assert.ok(
+    apres >= haut - 1 && apres < haut + 60,
+    `le bouton reste en haut du volet (${apres} px, volet à ${haut} px)`,
+  )
+  assert.ok(await p.getByRole('button', { name: 'Tout refuser' }).isVisible(), '« Tout refuser » aussi')
+  await p.context().close()
+})
+
+test('commentaires : le filtre ne propose que « Ouverts » et « Résolus » (Sylvain, 15/11/2026)', async () => {
+  const p = await ouvrir('Paule', docTest('filtre-fils'))
+  await p.click('.bn-editor')
+  const volet = p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' })
+  if ((await volet.getAttribute('aria-expanded')) === 'false') await volet.click()
+  const onglet = p.locator('[role=tab][aria-label="Commentaires"]')
+  await onglet.click()
+  await p.getByText('Ouverts', { exact: true }).waitFor()
+  const filtre = p.locator('[role=tabpanel]:visible').getByRole('radio')
+  assert.equal(await filtre.count(), 2, 'deux choix')
+  assert.equal(await p.getByText('Tous', { exact: true }).count(), 0, 'pas de « Tous »')
+  await p.context().close()
+})
