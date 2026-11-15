@@ -111,7 +111,7 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   await page.getByRole('button', { name: 'Format et marges' }).click()
   await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).fill('135')
   // Changer de rubrique garde ce qu'on a réglé.
-  await page.getByRole('button', { name: 'Titre 1 (chapitre)' }).click()
+  await page.getByRole('button', { name: 'Chapitre', exact: true }).click()
   await page.getByRole('button', { name: 'Format et marges' }).click()
   assert.equal(await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).inputValue(), '135')
   await page.getByRole('button', { name: 'Enregistrer' }).click()

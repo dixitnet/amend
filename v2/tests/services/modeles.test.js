@@ -507,3 +507,63 @@ test('polices de l’instance : l’administrateur envoie, la famille est lue da
     false,
   )
 })
+
+test('polices de l’instance : désactiver une famille (plus proposée, mais valable pour les modèles qui l’ont), la réactiver, la supprimer (15/11/2026)', async () => {
+  const ada = await personneAvecAdresse('Ada', ADMIN)
+  const a = { cookie: ada.cookie }
+  const famille = `Essai ${randomUUID().slice(0, 5)}`
+  const envoi = await envoyerPolice(ada.cookie, policeDEssai('EBGaramond-Regular.ttf', famille), 'r.ttf')
+  assert.equal(envoi.statut, 201)
+  const nom = encodeURIComponent(famille)
+  const etat = async () =>
+    (await appel('GET', '/api/admin/polices', a)).json.familles.find((x) => x.famille === famille)
+  assert.equal((await etat()).actif, true, 'active à l’envoi')
+  // Un modèle prend la famille, puis on la désactive.
+  const { json: m } = await appel('POST', '/api/admin/modeles', {
+    ...a,
+    corps: { nom: `Avec ${famille}`, depart: 'a4' },
+  })
+  assert.equal(
+    (
+      await appel('PUT', `/api/admin/modeles/${m.id}`, {
+        ...a,
+        corps: { reglages: { 'styles.texte.police': famille } },
+      })
+    ).statut,
+    200,
+  )
+  assert.equal(
+    (await appel('PATCH', `/api/admin/polices/famille/${nom}`, { ...a, corps: { actif: 'non' } })).statut,
+    400,
+  )
+  assert.equal(
+    (await appel('PATCH', `/api/admin/polices/famille/${nom}`, { ...a, corps: { actif: false } })).statut,
+    200,
+  )
+  assert.equal((await etat()).actif, false)
+  const liste = (await appel('GET', '/api/admin/modeles', a)).json
+  assert.ok(!liste.polices.includes(famille), 'plus proposée dans les modèles')
+  assert.ok(liste.fichiersPolices[famille], 'ses fichiers restent, pour composer les modèles qui l’ont')
+  assert.equal(liste.modeles.find((x) => x.id === m.id).complet.styles.texte.police, famille, 'le modèle la garde')
+  // Un modèle qui l'a gardée se règle encore (le reste de ses réglages).
+  assert.equal(
+    (await appel('PUT', `/api/admin/modeles/${m.id}`, { ...a, corps: { reglages: { 'page.largeur': 200 } } })).statut,
+    200,
+  )
+  // Réactivée, elle revient ; supprimée tant qu'un modèle l'a : refusé.
+  assert.equal(
+    (await appel('PATCH', `/api/admin/polices/famille/${nom}`, { ...a, corps: { actif: true } })).statut,
+    200,
+  )
+  assert.ok((await appel('GET', '/api/admin/modeles', a)).json.polices.includes(famille))
+  const refus = await appel('DELETE', `/api/admin/polices/famille/${nom}`, a)
+  assert.deepEqual([refus.statut, refus.json.code, refus.json.modeles], [409, 'police-utilisee', [`Avec ${famille}`]])
+  await appel('DELETE', `/api/admin/modeles/${m.id}`, a)
+  assert.equal((await appel('DELETE', `/api/admin/polices/famille/${nom}`, a)).statut, 200)
+  assert.equal(await etat(), undefined, 'la famille est partie')
+  assert.equal((await appel('DELETE', `/api/admin/polices/famille/${nom}`, a)).statut, 404)
+  assert.equal(
+    (await appel('PATCH', `/api/admin/polices/famille/${nom}`, { ...a, corps: { actif: true } })).statut,
+    404,
+  )
+})

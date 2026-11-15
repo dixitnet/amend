@@ -32,6 +32,8 @@ const POLICES_AJOUTEES = [
   famille('Inter', 'inter', 'Inter'),
   famille('Source Sans 3', 'source-sans-3', 'SourceSans3'),
   famille('Roboto', 'roboto', 'Roboto'),
+  // Une police à chasse fixe (Sylvain, 15/11/2026), pour les extraits de code, la dactylographie, les dialogues de scénario.
+  famille('Courier Prime', 'courier-prime', 'CourierPrime'),
 ]
 
 const ALIGNEMENTS = ['gauche', 'justifie', 'centre']
@@ -41,7 +43,8 @@ const TITRE_COURANT = ['rien', 'titreDocument', 'chapitre', 'texte']
 // retrait 0 à 50 mm, espaces) et comptés en lignes de la grille (Sylvain,
 // 13/11/2026 : « modifier chacun des styles : titres, texte courant, citation »).
 const PROPRIETES_STYLE = {
-  police: (cle) => ({ cle, type: 'police' }),
+  // Hors du texte courant, la police peut être « la même que le texte » (valeur vide).
+  police: (cle) => ({ cle, type: 'police', ...(cle === 'styles.texte.police' ? {} : { herite: true }) }),
   corps: (cle) => ({ cle, type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 }),
   gras: (cle) => ({ cle, type: 'booleen' }),
   italique: (cle) => ({ cle, type: 'booleen' }),
@@ -52,8 +55,10 @@ const PROPRIETES_STYLE = {
   alinea: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 50, pas: 0.5 }),
   retrait: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 100, pas: 0.5 }),
 }
-const reglagesDuStyle = (nom, props) =>
-  props.map((p) => ({ ...PROPRIETES_STYLE[p](`styles.${nom}.${p}`), groupe: nom }))
+// Les réglages d'un style, tous dans la rubrique « Styles » (un tableau, un style par ligne) ;
+// l'alinéa et le retrait, qui n'ont pas leur colonne, vont sous le tableau.
+const reglagesDuStyle = (nom, props, groupe = 'styles') =>
+  props.map((p) => ({ ...PROPRIETES_STYLE[p](`styles.${nom}.${p}`), groupe }))
 const BLOC = ['police', 'corps', 'gras', 'italique', 'capitales', 'alignement', 'lignesAvant', 'lignesApres']
 const mm = (cle, groupe, max = 100) => ({ cle, groupe, type: 'nombre', unite: 'mm', min: 0, max, pas: 0.5 })
 /** Les réglages d'un modèle, par groupe du formulaire (un groupe par style) : tout
@@ -68,17 +73,20 @@ const REGLABLES = [
   mm('marges.bas', 'format'),
   // Le texte courant : son corps est celui de la grille.
   ...reglagesDuStyle('texte', ['police']),
-  { cle: 'grille.corps', groupe: 'texte', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
+  { cle: 'grille.corps', groupe: 'styles', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
   { cle: 'grille.interligne', groupe: 'texte', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.1 },
-  ...reglagesDuStyle('texte', ['gras', 'italique', 'alignement', 'alinea']),
+  ...reglagesDuStyle('texte', ['gras', 'italique', 'alignement']),
+  ...reglagesDuStyle('texte', ['alinea'], 'texte'),
   { cle: 'cesure', groupe: 'texte', type: 'booleen' },
   { cle: 'separateur', groupe: 'texte', type: 'choix', options: ['blanc', 'asterisme', 'etoiles', 'trait'] },
   ...reglagesDuStyle('citation', [...BLOC, 'alinea', 'retrait']),
   // Le titre de niveau 1 : l'ouverture de chapitre et son style.
-  { cle: 'chapitre.debut', groupe: 'titre1', type: 'choix', options: ['continuer', 'page', 'belle-page'] },
-  { cle: 'chapitre.ligneTitre', groupe: 'titre1', type: 'entier', min: 1 },
-  { cle: 'chapitre.ligneTexte', groupe: 'titre1', type: 'entier', min: 2 },
-  { cle: 'chapitre.interligne', groupe: 'titre1', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.1 },
+  { cle: 'chapitre.debut', groupe: 'chapitre', type: 'choix', options: ['continuer', 'page', 'belle-page'] },
+  // Le premier paragraphe d'un chapitre : sans retrait comme dans les exports jusqu'ici, ou avec (Sylvain, 15/11/2026).
+  { cle: 'chapitre.premierSansAlinea', groupe: 'chapitre', type: 'booleen' },
+  { cle: 'chapitre.ligneTitre', groupe: 'chapitre', type: 'entier', min: 1 },
+  { cle: 'chapitre.ligneTexte', groupe: 'chapitre', type: 'entier', min: 2 },
+  { cle: 'chapitre.interligne', groupe: 'chapitre', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.1 },
   ...reglagesDuStyle('titre1', ['police', 'corps', 'gras', 'italique', 'capitales', 'alignement']),
   ...['titre2', 'titre3', 'titre4', 'titre5', 'titre', 'sousTitre', 'legende'].flatMap((nom) =>
     reglagesDuStyle(nom, BLOC),
@@ -93,7 +101,7 @@ const REGLABLES = [
   mm('folio.bas', 'pages'),
   { cle: 'folio.ouverture', groupe: 'pages', type: 'booleen' },
   // La numérotation des images légendées (« Figure 1 : … »), avec le style « Légende » (Sylvain, 15/11/2026).
-  { cle: 'image.numerotation', groupe: 'legende', type: 'booleen' },
+  { cle: 'image.numerotation', groupe: 'images', type: 'booleen' },
   { cle: 'enTete.gauche', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
   { cle: 'enTete.droite', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
   // Le texte libre d'un en-tête, demandé seulement quand le choix est « texte » (Sylvain, 15/11/2026).
@@ -148,7 +156,7 @@ export const REGLAGES_LIVRE = {
       cesure: true,
       // Une image occupe toute la largeur de la page hors marges, en pour cent (Sylvain, 14/11/2026).
       image: { largeur: 100, numerotation: false },
-      chapitre: { debut: 'page', ligneTitre: 3, ligneTexte: 7, interligne: 19 },
+      chapitre: { debut: 'page', premierSansAlinea: true, ligneTitre: 3, ligneTexte: 7, interligne: 19 },
       styles: {
         texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 5 },
         citation: {
@@ -225,7 +233,7 @@ export const REGLAGES_LIVRE = {
         separateur: 'blanc',
         cesure: true,
         image: { largeur: 100, numerotation: false },
-        chapitre: { debut: 'belle-page', ligneTitre: 7, ligneTexte: 12, interligne: 14 },
+        chapitre: { debut: 'belle-page', premierSansAlinea: true, ligneTitre: 7, ligneTexte: 12, interligne: 14 },
         styles: {
           texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 4.5 },
           citation: {

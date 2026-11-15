@@ -23,11 +23,12 @@ const FAMILLES = [
   'Inter',
   'Source Sans 3',
   'Roboto',
+  'Courier Prime',
 ]
 const fichier = (url) => fileURLToPath(url)
 const octets = (url) => new Uint8Array(readFileSync(fichier(url)))
 
-test('le catalogue : neuf familles, les mêmes pour les équipes et pour l’instance', () => {
+test('le catalogue : dix familles, les mêmes pour les équipes et pour l’instance', () => {
   assert.deepEqual(
     REGLES_MODELES.polices.map((p) => p.famille),
     FAMILLES,

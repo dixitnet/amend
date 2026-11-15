@@ -42,12 +42,17 @@ export function creerModeles(ctx) {
     const instance = await comptes.modelesInstance()
     const parId = new Map(instance.map((m) => [m.id, m]))
     // Le catalogue des polices : celles du code, puis celles de l'instance (13/11/2026).
-    const envoyees = famillesDePolices(await comptes.polices()).map((f) => ({
+    const familles = famillesDePolices(await comptes.polices())
+    const envoyees = familles.map((f) => ({
       famille: f.famille,
       fichiers: f.fichiers.map((x) => adressePolice(x.id)),
     }))
+    // Toutes les familles servent à valider et à composer ; seules les familles actives sont proposées (15/11/2026).
     const regles = { ...REGLES_MODELES, polices: [...REGLES_MODELES.polices, ...envoyees] }
-    const polices = regles.polices.map((x) => x.famille)
+    const polices = [
+      ...REGLES_MODELES.polices.map((x) => x.famille),
+      ...familles.filter((f) => f.actif).map((f) => f.famille),
+    ]
     /** Les fichiers des familles envoyées par l'instance (le client a ceux du code). */
     const fichiersPolices = Object.fromEntries(envoyees.map((f) => [f.famille, f.fichiers]))
     /** Le modèle complet d'un modèle enregistré : ses valeurs, complétées par celles du code pour ce qui lui manque. */

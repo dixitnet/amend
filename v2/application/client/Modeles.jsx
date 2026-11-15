@@ -22,6 +22,7 @@ const NOMS_REGLAGES = {
   'grille.corps': () => t('modeles.reglage.grille.corps'),
   'grille.interligne': () => t('modeles.reglage.grille.interligne'),
   'chapitre.debut': () => t('modeles.reglage.chapitre.debut'),
+  'chapitre.premierSansAlinea': () => t('modeles.reglage.chapitre.premierSansAlinea'),
   'chapitre.ligneTitre': () => t('modeles.reglage.chapitre.ligneTitre'),
   'chapitre.ligneTexte': () => t('modeles.reglage.chapitre.ligneTexte'),
   'chapitre.interligne': () => t('modeles.reglage.chapitre.interligne'),
@@ -88,19 +89,39 @@ const NOMS_OPTIONS = {
 const optionsDe = (cle) =>
   NOMS_OPTIONS[cle.endsWith('.alignement') ? 'alignement' : cle.startsWith('enTete.') ? 'enTete' : cle.split('.')[0]] ??
   {}
+// Les styles, un par ligne du tableau « Styles », et les propriétés, une par colonne
+// (Sylvain, 15/11/2026). Le corps du texte courant est celui de la grille.
+const LIGNES_STYLES = {
+  texte: () => t('modeles.styles.texte'),
+  citation: () => t('modeles.styles.citation'),
+  titre1: () => t('modeles.styles.titre1'),
+  titre2: () => t('modeles.styles.titre2'),
+  titre3: () => t('modeles.styles.titre3'),
+  titre4: () => t('modeles.styles.titre4'),
+  titre5: () => t('modeles.styles.titre5'),
+  titre: () => t('modeles.styles.titre'),
+  sousTitre: () => t('modeles.styles.sousTitre'),
+  legende: () => t('modeles.styles.legende'),
+}
+const COLONNES = ['police', 'corps', 'gras', 'italique', 'capitales', 'alignement', 'lignesAvant', 'lignesApres']
+const tableauDesStyles = () => ({
+  premiereColonne: t('modeles.styles.colonne'),
+  colonnes: COLONNES.map((cle) => ({ cle, libelle: NOMS_PROPRIETES[cle]() })),
+  lignes: Object.entries(LIGNES_STYLES).map(([nom, libelle]) => ({
+    cle: nom,
+    libelle: libelle(),
+    cellules: Object.fromEntries(
+      COLONNES.map((c) => [c, nom === 'texte' && c === 'corps' ? 'grille.corps' : `styles.${nom}.${c}`]),
+    ),
+  })),
+})
 const groupes = () => [
   { cle: 'format', libelle: t('modeles.groupes.format') },
   { cle: 'texte', libelle: t('modeles.groupes.texte') },
-  { cle: 'citation', libelle: t('modeles.groupes.citation') },
-  { cle: 'titre1', libelle: t('modeles.groupes.titre1') },
-  { cle: 'titre2', libelle: t('modeles.groupes.titre2') },
-  { cle: 'titre3', libelle: t('modeles.groupes.titre3') },
-  { cle: 'titre4', libelle: t('modeles.groupes.titre4') },
-  { cle: 'titre5', libelle: t('modeles.groupes.titre5') },
-  { cle: 'titre', libelle: t('modeles.groupes.titre') },
-  { cle: 'sousTitre', libelle: t('modeles.groupes.sousTitre') },
-  { cle: 'legende', libelle: t('modeles.groupes.legende') },
+  { cle: 'styles', libelle: t('modeles.groupes.styles'), tableau: tableauDesStyles() },
+  { cle: 'chapitre', libelle: t('modeles.groupes.chapitre') },
   { cle: 'pages', libelle: t('modeles.groupes.pages') },
+  { cle: 'images', libelle: t('modeles.groupes.images') },
 ]
 
 /** Le nom d'un modèle : celui du catalogue pour le modèle du code, le sien sinon. */
@@ -132,7 +153,14 @@ const champsDu = (complet, regles, familles = null) => {
     cle: r.cle,
     type: r.type,
     groupe: r.groupe,
-    libelle: nomDuReglage(r.cle) ?? r.cle,
+    // Hors du tableau, un réglage d'un style (retrait de la citation) dit de quel style il est.
+    libelle:
+      r.groupe === 'styles' && r.cle.startsWith('styles.')
+        ? t('modeles.reglageDeStyle', {
+            style: LIGNES_STYLES[r.cle.split('.')[1]]?.() ?? '',
+            propriete: nomDuReglage(r.cle),
+          })
+        : (nomDuReglage(r.cle) ?? r.cle),
     valeur: valeurDuReglage(complet, r.cle),
     min: r.min,
     max: r.max,
@@ -141,7 +169,9 @@ const champsDu = (complet, regles, familles = null) => {
     aide: r.cle === 'marges.bas' ? (valeurs) => aideMargeBasse(complet, regles, valeurs) : undefined,
     options:
       r.type === 'police'
-        ? polices
+        ? r.herite
+          ? [{ value: '', label: t('modeles.memePolice') }, ...polices]
+          : polices
         : r.type === 'choix'
           ? r.options.map((v) => ({ value: v, label: optionsDe(r.cle)[v]?.() ?? v }))
           : undefined,
@@ -484,21 +514,62 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
     }
     surChangement()
   }
+  const activer = async (famille, actif) => {
+    try {
+      await envoyerJson('PATCH', `/api/admin/polices/famille/${encodeURIComponent(famille)}`, { actif })
+      setMessage(null)
+    } catch (e) {
+      setMessage(erreur(e))
+    }
+    surChangement()
+  }
+  const supprimerFamille = async (famille) => {
+    if (
+      !(await confirmer({
+        titre: t('admin.polices.supprimerFamille'),
+        texte: t('admin.polices.confirmerSuppressionFamille', { famille }),
+        libelle: t('admin.polices.supprimerFamille'),
+        danger: true,
+      }))
+    )
+      return
+    try {
+      await envoyerJson('DELETE', `/api/admin/polices/famille/${encodeURIComponent(famille)}`)
+      setMessage(null)
+    } catch (e) {
+      setMessage(erreur(e))
+    }
+    surChangement()
+  }
   return (
     <PanneauPolices
       libelles={{
-        fournies: t('admin.polices.fournies'),
-        envoyees: t('admin.polices.envoyees'),
-        aucune: t('admin.polices.aucune'),
+        ajouter: t('admin.polices.ajouter'),
         envoyer: t('admin.polices.envoyer'),
-        supprimer: t('admin.polices.supprimer'),
-        supprimerDe: (fichier) => t('admin.polices.supprimerDe', { fichier }),
+        instance: t('admin.polices.envoyees'),
+        fournies: t('admin.polices.fournies'),
+        aucune: t('admin.polices.aucune'),
+        colonnes: {
+          famille: t('admin.polices.colonnes.famille'),
+          styles: t('admin.polices.colonnes.styles'),
+          utilisation: t('admin.polices.colonnes.utilisation'),
+          etat: t('admin.polices.colonnes.etat'),
+        },
+        active: t('admin.polices.active'),
+        activeDe: (famille) => t('admin.polices.activeDe', { famille }),
+        supprimerFamille: t('admin.polices.supprimerFamille'),
+        supprimerFamilleDe: (famille) => t('admin.polices.supprimerFamilleDe', { famille }),
+        supprimerFichier: t('admin.polices.supprimer'),
+        supprimerFichierDe: (fichier) => t('admin.polices.supprimerDe', { fichier }),
+        inutilisee: t('admin.polices.inutilisee'),
       }}
       intro={t('admin.polices.intro')}
       aide={t('admin.polices.aide', { max: octetsEnMo(donnees.max) })}
+      aideFournies={t('admin.polices.aideFournies')}
       fournies={donnees.fournies}
       familles={donnees.familles.map((f) => ({
         famille: f.famille,
+        actif: f.actif !== false,
         usage: f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null,
         avertissement: f.manquants.length
           ? t('admin.polices.manquants', { styles: enListe(f.manquants.map(nomDuStyle)) })
@@ -517,6 +588,8 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
       enCours={enCours}
       surFichiers={envoyer}
       surSupprimer={supprimer}
+      surActiver={activer}
+      surSupprimerFamille={supprimerFamille}
     />
   )
 }

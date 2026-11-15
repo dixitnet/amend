@@ -15,7 +15,7 @@ import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
 import { MODELES_LIVRE, REPRISE_MODELES, REGLES_MODELES } from '../../design/livre.js'
-import { famillesDuModele } from '../../domaine/index.js'
+import { famillesDuModele, grille } from '../../domaine/index.js'
 
 const modele = { ...REPRISE_MODELES[0].valeurs }
 /** Les fichiers des polices d'un modèle : celles de ses styles, dans le catalogue. */
@@ -168,6 +168,45 @@ test('en-têtes : le chapitre en cours tient sur une ligne, un texte libre au ch
   // Page 2 (paire, gauche) : le texte libre. Page 3 (impaire, droite) : le chapitre, sur une ligne.
   assert.match(page(2), /Mon livre libre/, 'texte libre à gauche : ' + page(2))
   assert.match(page(3), /Les enfants de la nuit/, 'le chapitre sur une seule ligne à droite : ' + page(3))
+})
+
+test('un saut de ligne en haut de page compte comme ailleurs : une ligne de la grille (Sylvain, 15/11/2026)', async () => {
+  const para = (t) => ({ type: 'paragraph', content: t ? [texte(t)] : [] })
+  const position = async (blocs) => {
+    const e = nouvelEditeur()
+    e.replaceBlocks(e.document, blocs)
+    const { source, fichiers } = await versTypst(e, e.document, modele, { titre: 'E', langue: 'fr' })
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+    const dossier = mkdtempSync(join(tmpdir(), 'bbox-'))
+    try {
+      writeFileSync(join(dossier, 'a.pdf'), pdf)
+      const x = execFileSync('pdftotext', ['-bbox', join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
+      const pages = x.split('<page ').slice(1)
+      for (let p = 0; p < pages.length; p++) {
+        const m = pages[p].match(/<word xMin="[^"]*" yMin="([^"]*)"[^>]*>Marqueur<\/word>/)
+        if (m) return { page: p + 1, y: Number(m[1]) }
+      }
+      assert.fail('le mot « Marqueur » est introuvable dans le texte du PDF (pdftotext requis : poppler-utils)')
+    } finally {
+      rmSync(dossier, { recursive: true, force: true })
+    }
+  }
+  const { pas } = grille(modele)
+  let enHaut = 0
+  // On cherche les longueurs où le marqueur tombe en tête de la deuxième page, sans puis avec un paragraphe vide.
+  for (let n = 26; n <= 36; n++) {
+    const base = Array.from({ length: n }, (_, i) => para(`Ligne${i}`))
+    const sans = await position([...base, para('Marqueur')])
+    const avec = await position([...base, para(''), para('Marqueur')])
+    if (sans.page === 2 && avec.page === 2) {
+      assert.ok(
+        Math.abs(avec.y - sans.y - pas) < 0.2,
+        `n = ${n} : le blanc décale d’une ligne (${avec.y - sans.y} pour ${pas})`,
+      )
+      if (sans.y < 60) enHaut++
+    }
+  }
+  assert.ok(enHaut >= 1, 'au moins un cas où le blanc est en tête de page')
 })
 
 test('titre et sous-titre : centrés dans le flux, hors de la table des matières ; le PDF se compile (12/11/2026)', async () => {

@@ -343,10 +343,24 @@
     "synthese": "Synthèse",
     "polices": {
       "titre": "Polices",
-      "intro": "Les polices proposées dans les modèles de mise en page. Celles que vous envoyez ici s’ajoutent à celles fournies avec amend.ink et sont incorporées dans les PDF exportés.",
+      "intro": "Les polices proposées dans les modèles de mise en page, et incorporées dans les PDF exportés. Vous pouvez en ajouter, les désactiver (elles ne sont plus proposées, mais les modèles qui les ont gardées continuent de les employer) ou les supprimer (impossible tant qu’un modèle s’en sert).",
       "aide": "Fichiers .ttf ou .otf, {max, number}\u00A0Mo au plus chacun, un par style (romain, italique, gras, gras italique). La famille et le style sont lus dans le fichier, pas dans son nom.",
+      "ajouter": "Ajouter des polices",
       "fournies": "Fournies avec amend.ink",
+      "aideFournies": "Toujours disponibles\u00A0: on ne peut ni les désactiver, ni les supprimer.",
       "envoyees": "Polices de l’instance",
+      "colonnes": {
+        "famille": "Famille",
+        "styles": "Fichiers",
+        "utilisation": "Utilisation",
+        "etat": "Dans les modèles"
+      },
+      "active": "Proposée",
+      "activeDe": "Proposer la police «\u00A0{famille}\u00A0» dans les modèles",
+      "inutilisee": "Aucun modèle",
+      "supprimerFamille": "Supprimer la famille",
+      "supprimerFamilleDe": "Supprimer la famille «\u00A0{famille}\u00A0»",
+      "confirmerSuppressionFamille": "Supprimer la famille «\u00A0{famille}\u00A0» et tous ses fichiers\u202F? Les PDF déjà exportés ne changent pas.",
       "aucune": "Aucune police envoyée pour l’instant.",
       "envoyer": "Envoyer des fichiers de police",
       "supprimer": "Supprimer",
@@ -458,6 +472,7 @@
       },
       "chapitre": {
         "debut": "Début de chapitre",
+        "premierSansAlinea": "Premier paragraphe du chapitre sans retrait",
         "ligneTitre": "Ligne du titre de chapitre",
         "ligneTexte": "Ligne où reprend le texte",
         "interligne": "Interligne du titre de chapitre (pt)"
@@ -516,7 +531,17 @@
     "groupes": {
       "format": "Format et marges",
       "texte": "Texte courant",
+      "styles": "Styles",
+      "chapitre": "Chapitre",
+      "images": "Images",
       "pages": "Numéro de page et en-têtes",
+      "general": "Nom"
+    },
+    "reglageDeStyle": "{style}\u00A0: {propriete}",
+    "memePolice": "Même police que le texte",
+    "styles": {
+      "colonne": "Style",
+      "texte": "Texte courant",
       "citation": "Citation",
       "titre1": "Titre 1 (chapitre)",
       "titre2": "Titre 2",
@@ -525,8 +550,7 @@
       "titre5": "Titre 5",
       "titre": "Titre (page de titre)",
       "sousTitre": "Sous-titre",
-      "legende": "Légende",
-      "general": "Nom"
+      "legende": "Légende"
     },
     "essayer": "Essayer",
     "margeBasseObtenue": "Marge obtenue\u00A0: {marge, number} mm, soit {lignes, plural, one {# ligne} other {# lignes}} par page.",

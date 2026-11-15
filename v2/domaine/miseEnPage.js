@@ -139,7 +139,10 @@ const STYLE_PAR_DEFAUT = {
  * celui de la grille tant qu'il ne dit pas autre chose. */
 function styleDe(modele, nom) {
   const texte = modele.styles?.texte ?? {}
-  return { police: texte.police, corps: modele.grille.corps, ...STYLE_PAR_DEFAUT, ...modele.styles?.[nom] }
+  const st = { police: texte.police, corps: modele.grille.corps, ...STYLE_PAR_DEFAUT, ...modele.styles?.[nom] }
+  // Une police vide : celle du texte courant (Sylvain, 15/11/2026, « même police que le texte »).
+  if (!st.police) st.police = texte.police
+  return st
 }
 
 /**
@@ -177,7 +180,7 @@ function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
  *   ou `texteDroite`, Sylvain, 15/11/2026)
  * @param {string} [modele.separateur]  séparateur de scène (`SEPARATEURS`)
  * @param {boolean} [modele.cesure]  couper les mots en fin de ligne (oui par défaut)
- * @param {{ debut?: 'continuer' | 'page' | 'belle-page', bellePage?: boolean, ligneTitre: number, ligneTexte: number, interligne: number }} modele.chapitre
+ * @param {{ debut?: 'continuer' | 'page' | 'belle-page', bellePage?: boolean, premierSansAlinea?: boolean, ligneTitre: number, ligneTexte: number, interligne: number }} modele.chapitre
  *   l'ouverture d'un chapitre (titre de niveau 1) : début (sur la page, page
  *   suivante, belle page), ligne de la grille où tombe sa première ligne,
  *   ligne où reprend le texte, interligne (pt) de ses lignes
@@ -299,7 +302,10 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#show outline.entry: it => { show linebreak: [ ]; show regex("[\\n\\r]+"): [ ]; it }`,
     `#show outline.entry.where(level: 1): set text(weight: ${poids(t1)})`,
     // Un blanc (paragraphes vides en série) : une ligne de la grille.
-    `#let amend-blanc = v(${pt(pas)})`,
+    // Une ligne vide (un paragraphe qui ne porte qu'une boîte d'un em, sans aucun caractère), non un espacement :
+    // Typst supprime un espacement en haut de page, et le saut de ligne d'une page commencée par un blanc ne
+    // comptait pas (Sylvain, 15/11/2026). Comme un paragraphe, elle tombe sur la grille en haut de page comme ailleurs.
+    `#let amend-blanc = par(first-line-indent: ${ZERO})[#box(height: ${em(1)})]`,
     // Le séparateur de scène (le séparateur de BlockNote) : une ligne de la
     // grille, blanche ou portant un signe centré.
     `#let amend-separateur = ${separateurTypst(modele.separateur, pas)}`,
@@ -315,7 +321,10 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#set figure.caption(separator: [~: ])`,
     `#show figure.caption: it => amend-legende(it)`,
     // Le premier paragraphe d'un chapitre, sans alinéa.
-    `#let amend-sans-alinea(corps) = par(first-line-indent: ${ZERO}, corps)`,
+    // Le premier paragraphe d'un chapitre : sans retrait par défaut, au choix du modèle (Sylvain, 15/11/2026).
+    c.premierSansAlinea === false
+      ? `#let amend-sans-alinea(corps) = corps`
+      : `#let amend-sans-alinea(corps) = par(first-line-indent: ${ZERO}, corps)`,
     // Les intertitres : le titre de niveau 5 vaut pour tout niveau inconnu, puis
     // chaque niveau de 4 à 2 a son style.
     `#show heading: it => ${bloc(styleDe(modele, 'titre5'), 'it.body', { colle: true })}`,
@@ -385,7 +394,8 @@ const sansControle = (c) => {
 /** Une valeur est-elle permise par la description d'un réglage ? */
 function valeurPermise(r, v, polices) {
   if (r.type === 'booleen') return typeof v === 'boolean'
-  if (r.type === 'police') return typeof v === 'string' && polices.some((p) => p.famille === v)
+  if (r.type === 'police')
+    return typeof v === 'string' && ((r.herite && v === '') || polices.some((p) => p.famille === v))
   if (r.type === 'choix') return r.options.includes(v)
   // Un texte libre : sur une seule ligne, sans caractère de contrôle, borné.
   if (r.type === 'texte') return typeof v === 'string' && v.length <= (r.max ?? 100) && [...v].every(sansControle)

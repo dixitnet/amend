@@ -561,6 +561,7 @@ export function creerServeur(CONF = confDepuisEnv(), services = {}) {
     depot: comptes,
     reservees: REGLES_MODELES.polices.map((x) => x.famille),
     json,
+    lireJson: (req) => lireCorps(req),
   })
   // L'analyse des images orphelines (14/11/2026) : les administrateurs, sans rien supprimer.
   const imagesOrphelines = creerImagesOrphelines({

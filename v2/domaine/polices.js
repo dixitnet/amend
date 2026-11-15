@@ -120,5 +120,7 @@ export function famillesDePolices(fichiers) {
         (a, b) => STYLES_POLICE.indexOf(a.style) - STYLES_POLICE.indexOf(b.style) || a.graisse - b.graisse,
       ),
       manquants: stylesManquants(liste.map((f) => f.style)),
+      // Désactivée : plus proposée dans les modèles (15/11/2026).
+      actif: liste.every((f) => f.actif !== false),
     }))
 }

@@ -15,6 +15,7 @@ import {
   NumberInput,
   Select,
   Switch,
+  Checkbox,
   Button,
   Badge,
   FileButton,
@@ -225,7 +226,8 @@ export function PanneauModeles({
  *   libelles: { nom: string, general: string, retour: string, enregistrer: string, annuler: string },
  *   titre: string, adresseRetour: string,
  *   nom: string,
- *   groupes: Array<{ cle: string, libelle: string }>,
+ *   groupes: Array<{ cle: string, libelle: string, tableau?: { premiereColonne: string, colonnes: Array<{ cle: string, libelle: string }>,
+ *     lignes: Array<{ cle: string, libelle: string, cellules: Record<string, string> }> } }>,
  *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix' | 'texte', libelle: string, valeur: any, visibleSi?: { cle: string, egal: string }, aide?: (valeurs: object) => string | null,
  *     groupe?: string, min?: number, max?: number, pas?: number, options?: Array<{ value: string, label: string }> }>,
  *   message?: string | null, surEnregistrer: (o: { nom: string, valeurs: Record<string, any> }) => void,
@@ -252,7 +254,7 @@ export function PageReglageModele({
     e.preventDefault()
     surEnregistrer({ nom: leNom.trim(), valeurs })
   }
-  const champ = (c) => {
+  const champ = (c, compact = false, nomCellule = '') => {
     // Un champ qui dépend d'un choix (le texte libre d'un en-tête) n'apparaît que sur ce choix.
     if (c.visibleSi && valeurs[c.visibleSi.cle] !== c.visibleSi.egal) return null
     if (c.type === 'texte')
@@ -265,6 +267,7 @@ export function PageReglageModele({
           maxLength={c.max}
         />
       )
+    if (compact) return cellule(c, nomCellule)
     if (c.type === 'booleen')
       return (
         <Switch
@@ -301,6 +304,71 @@ export function PageReglageModele({
       />
     )
   }
+  // Une cellule du tableau des styles : la commande seule, nommée « ligne : colonne » pour les lecteurs d'écran.
+  const cellule = (c, nom) => {
+    const controle = REGLAGES.modeles.tableau.controle
+    if (c.type === 'booleen')
+      return (
+        <Checkbox
+          {...controle}
+          aria-label={nom}
+          checked={Boolean(valeurs[c.cle])}
+          onChange={(e) => changer(c.cle)(e.currentTarget.checked)}
+        />
+      )
+    if (c.type === 'police' || c.type === 'choix')
+      return (
+        <Select
+          {...controle}
+          {...(c.type === 'police' ? REGLAGES.modeles.tableau.police : {})}
+          aria-label={nom}
+          data={c.options}
+          value={valeurs[c.cle]}
+          onChange={changer(c.cle)}
+          allowDeselect={false}
+        />
+      )
+    return (
+      <NumberInput
+        {...controle}
+        aria-label={nom}
+        value={valeurs[c.cle]}
+        onChange={changer(c.cle)}
+        min={c.min}
+        max={c.max}
+        step={c.pas ?? 1}
+        allowDecimal={c.type !== 'entier'}
+        decimalScale={c.type === 'entier' ? 0 : undefined}
+        {...REGLAGES.modeles.nombre}
+      />
+    )
+  }
+  // Le tableau des styles d'une rubrique : un style par ligne, les réglages qu'il n'a pas laissés vides.
+  const tableauDes = (g) => (
+    <Table.ScrollContainer minWidth={0}>
+      <Table {...REGLAGES.modeles.tableau.table}>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>{g.tableau.premiereColonne}</Table.Th>
+            {g.tableau.colonnes.map((col) => (
+              <Table.Th key={col.cle}>{col.libelle}</Table.Th>
+            ))}
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {g.tableau.lignes.map((l) => (
+            <Table.Tr key={l.cle}>
+              <Table.Th scope="row">{l.libelle}</Table.Th>
+              {g.tableau.colonnes.map((col) => {
+                const c = champs.find((x) => x.cle === l.cellules[col.cle])
+                return <Table.Td key={col.cle}>{c ? champ(c, true, `${l.libelle} : ${col.libelle}`) : null}</Table.Td>
+              })}
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
+  )
   const { menu, contenu } = REGLAGES.admin.colonnes
   const rubrique = rubriques.find((g) => g.cle === choisie)
   return (
@@ -331,7 +399,16 @@ export function PageReglageModele({
               <Stack component="section" aria-label={rubrique ? rubrique.libelle : libelles.general}>
                 <Title order={2}>{rubrique ? rubrique.libelle : libelles.general}</Title>
                 {rubrique ? (
-                  champs.filter((c) => c.groupe === rubrique.cle).map(champ)
+                  <>
+                    {rubrique.tableau ? tableauDes(rubrique) : null}
+                    {champs
+                      .filter(
+                        (c) =>
+                          c.groupe === rubrique.cle &&
+                          !(rubrique.tableau?.lignes ?? []).some((l) => Object.values(l.cellules).includes(c.cle)),
+                      )
+                      .map((c) => champ(c))}
+                  </>
                 ) : (
                   <TextInput
                     label={libelles.nom}
@@ -357,72 +434,46 @@ export function PageReglageModele({
 }
 
 /**
- * Les polices de l'instance (back-office, 13/11/2026) : les familles fournies
- * avec amend.ink, celles que l'administrateur a envoyées (leurs fichiers, ce
- * qui leur manque, les modèles qui s'en servent), et l'envoi de fichiers.
+ * Les polices de l'instance (back-office, 13/11/2026, page reprise le 15/11/2026,
+ * Sylvain : « désactiver et supprimer les polices de l'instance, en plus d'en
+ * ajouter ; clarifier la page ») : trois parties, dans l'ordre où l'on s'en
+ * sert : ajouter des fichiers, gérer les familles de l'instance (activer,
+ * désactiver, supprimer), et la liste de celles fournies avec amend.ink.
  * @param {{
- *   libelles: { fournies: string, envoyees: string, aucune: string, envoyer: string, supprimer: string,
- *     supprimerDe: (fichier: string) => string },
- *   intro: string, aide: string,
+ *   libelles: { ajouter: string, envoyer: string, instance: string, fournies: string, aucune: string,
+ *     colonnes: { famille: string, styles: string, utilisation: string, etat: string },
+ *     active: string, activeDe: (famille: string) => string,
+ *     supprimerFamille: string, supprimerFamilleDe: (famille: string) => string,
+ *     supprimerFichier: string, supprimerFichierDe: (fichier: string) => string,
+ *     inutilisee: string, actionsDe: (famille: string) => string },
+ *   intro: string, aide: string, aideFournies: string,
  *   fournies: string[],
- *   familles: Array<{ famille: string, avertissement?: string | null, usage?: string | null,
+ *   familles: Array<{ famille: string, actif: boolean, avertissement?: string | null, usage?: string | null,
  *     fichiers: Array<{ cle: string, libelle: string, fichier: string }> }>,
  *   message?: string | null, enCours: boolean,
  *   surFichiers: (fichiers: File[]) => void, surSupprimer: (cle: string) => void,
+ *   surActiver: (famille: string, actif: boolean) => void, surSupprimerFamille: (famille: string) => void,
  * }} props
  */
 export function PanneauPolices({
   libelles,
   intro,
   aide,
+  aideFournies,
   fournies,
   familles,
   message,
   enCours,
   surFichiers,
   surSupprimer,
+  surActiver,
+  surSupprimerFamille,
 }) {
   return (
     <Stack>
       <Text>{intro}</Text>
-      <Title order={3}>{libelles.fournies}</Title>
-      <Stack component="ul">
-        {fournies.map((f) => (
-          <Text component="li" key={f}>
-            {f}
-          </Text>
-        ))}
-      </Stack>
-      <Title order={3}>{libelles.envoyees}</Title>
-      {familles.length ? (
-        <Stack component="ul">
-          {familles.map((f) => (
-            <Stack component="li" key={f.famille}>
-              <Text {...REGLAGES.polices.famille}>{f.famille}</Text>
-              {f.usage ? <Text>{f.usage}</Text> : null}
-              {f.avertissement ? <Text role="note">{f.avertissement}</Text> : null}
-              <Stack component="ul">
-                {f.fichiers.map((x) => (
-                  <Group component="li" key={x.cle}>
-                    <Text>{x.libelle}</Text>
-                    <Button
-                      {...REGLAGES.boutonDanger}
-                      {...REGLAGES.polices.supprimer}
-                      aria-label={libelles.supprimerDe(x.fichier)}
-                      onClick={() => surSupprimer(x.cle)}
-                    >
-                      {libelles.supprimer}
-                    </Button>
-                  </Group>
-                ))}
-              </Stack>
-            </Stack>
-          ))}
-        </Stack>
-      ) : (
-        <Text>{libelles.aucune}</Text>
-      )}
-      {message ? <Text role="status">{message}</Text> : null}
+      <Title order={3}>{libelles.ajouter}</Title>
+      <Text>{aide}</Text>
       <Group>
         <FileButton onChange={surFichiers} accept=".ttf,.otf" multiple>
           {(props) => (
@@ -432,7 +483,82 @@ export function PanneauPolices({
           )}
         </FileButton>
       </Group>
-      <Text>{aide}</Text>
+      {message ? <Text role="status">{message}</Text> : null}
+      <Title order={3}>{libelles.instance}</Title>
+      {familles.length ? (
+        <Table.ScrollContainer minWidth={0}>
+          <Table {...REGLAGES.polices.tableau}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>{libelles.colonnes.famille}</Table.Th>
+                <Table.Th>{libelles.colonnes.styles}</Table.Th>
+                <Table.Th>{libelles.colonnes.utilisation}</Table.Th>
+                <Table.Th>{libelles.colonnes.etat}</Table.Th>
+                <Table.Th>
+                  <VisuallyHidden>{libelles.supprimerFamille}</VisuallyHidden>
+                </Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {familles.map((f) => (
+                <Table.Tr key={f.famille}>
+                  <Table.Th scope="row">
+                    <Text {...REGLAGES.polices.famille}>{f.famille}</Text>
+                  </Table.Th>
+                  <Table.Td>
+                    <Stack {...REGLAGES.polices.styles}>
+                      {f.fichiers.map((x) => (
+                        <Group key={x.cle} {...REGLAGES.polices.fichier}>
+                          <Text>{x.libelle}</Text>
+                          <Button
+                            {...REGLAGES.boutonDanger}
+                            {...REGLAGES.polices.supprimer}
+                            aria-label={libelles.supprimerFichierDe(x.fichier)}
+                            onClick={() => surSupprimer(x.cle)}
+                          >
+                            {libelles.supprimerFichier}
+                          </Button>
+                        </Group>
+                      ))}
+                      {f.avertissement ? <Text role="note">{f.avertissement}</Text> : null}
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td>{f.usage ?? libelles.inutilisee}</Table.Td>
+                  <Table.Td>
+                    <Switch
+                      aria-label={libelles.activeDe(f.famille)}
+                      label={libelles.active}
+                      checked={f.actif}
+                      onChange={(e) => surActiver(f.famille, e.currentTarget.checked)}
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <Button
+                      {...REGLAGES.boutonDanger}
+                      {...REGLAGES.polices.supprimer}
+                      aria-label={libelles.supprimerFamilleDe(f.famille)}
+                      onClick={() => surSupprimerFamille(f.famille)}
+                    >
+                      {libelles.supprimerFamille}
+                    </Button>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      ) : (
+        <Text>{libelles.aucune}</Text>
+      )}
+      <Title order={3}>{libelles.fournies}</Title>
+      <Text>{aideFournies}</Text>
+      <Stack component="ul">
+        {fournies.map((f) => (
+          <Text component="li" key={f}>
+            {f}
+          </Text>
+        ))}
+      </Stack>
     </Stack>
   )
 }

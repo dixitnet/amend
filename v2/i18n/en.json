@@ -343,10 +343,24 @@
     "synthese": "Overview",
     "polices": {
       "titre": "Fonts",
-      "intro": "The fonts offered in layout templates. The ones you upload here are added to those shipped with amend.ink and are embedded in exported PDFs.",
+      "intro": "The fonts offered in layout templates, embedded in exported PDFs. You can add some, turn them off (they are no longer offered, but templates that kept them still use them) or delete them (not possible while a template uses them).",
       "aide": ".ttf or .otf files, {max, number}\u00A0MB each at most, one per style (regular, italic, bold, bold italic). The family and style are read from the file, not from its name.",
+      "ajouter": "Add fonts",
       "fournies": "Shipped with amend.ink",
+      "aideFournies": "Always available: they cannot be turned off or deleted.",
       "envoyees": "Fonts of this instance",
+      "colonnes": {
+        "famille": "Family",
+        "styles": "Files",
+        "utilisation": "Use",
+        "etat": "In templates"
+      },
+      "active": "Offered",
+      "activeDe": "Offer the font “{famille}” in templates",
+      "inutilisee": "No template",
+      "supprimerFamille": "Delete the family",
+      "supprimerFamilleDe": "Delete the family “{famille}”",
+      "confirmerSuppressionFamille": "Delete the family “{famille}” and all its files? PDFs already exported do not change.",
       "aucune": "No font uploaded yet.",
       "envoyer": "Upload font files",
       "supprimer": "Delete",
@@ -458,6 +472,7 @@
       },
       "chapitre": {
         "debut": "Chapter start",
+        "premierSansAlinea": "No indent on the first paragraph of a chapter",
         "ligneTitre": "Chapter title line",
         "ligneTexte": "Line where the text resumes",
         "interligne": "Chapter title line spacing (pt)"
@@ -516,7 +531,17 @@
     "groupes": {
       "format": "Page size and margins",
       "texte": "Body text",
+      "styles": "Styles",
+      "chapitre": "Chapter",
+      "images": "Images",
       "pages": "Page number and running head",
+      "general": "Name"
+    },
+    "reglageDeStyle": "{style}: {propriete}",
+    "memePolice": "Same font as the text",
+    "styles": {
+      "colonne": "Style",
+      "texte": "Body text",
       "citation": "Quote",
       "titre1": "Heading 1 (chapter)",
       "titre2": "Heading 2",
@@ -525,8 +550,7 @@
       "titre5": "Heading 5",
       "titre": "Title (title page)",
       "sousTitre": "Subtitle",
-      "legende": "Caption",
-      "general": "Name"
+      "legende": "Caption"
     },
     "essayer": "Try",
     "margeBasseObtenue": "Resulting margin: {marge, number} mm, {lignes, plural, one {# line} other {# lines}} per page.",

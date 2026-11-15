@@ -104,14 +104,28 @@ export const REGLAGES = {
   margoOccupe: { size: 10 },
   // Les nombres des formulaires de modèles avec une virgule décimale, à la
   // française (Sylvain, 12/11/2026 : « 12 » du chantier des modèles).
-  modeles: { nombre: { decimalSeparator: ',' } },
+  // Le tableau des styles d'un modèle (Sylvain, 15/11/2026 : « les styles dans un
+  // seul tableau ») : un style par ligne, des commandes à la taille `xs` de Mantine,
+  // lignes à l'espacement vertical `xs`.
+  modeles: {
+    nombre: { decimalSeparator: ',' },
+    tableau: { table: { verticalSpacing: 'xs' }, controle: { size: 'xs' }, police: { miw: 160 } },
+  },
   // Le compteur de signes et de mots du bandeau : petit, à la couleur du texte
   // (le gris `dimmed` de Mantine n'a pas le contraste demandé ; 12/11/2026).
   // Seulement à partir de `lg` : plus étroit, le titre en serait coupé.
   compteur: { size: 'sm', visibleFrom: 'lg' },
   // Les polices du back-office (13/11/2026) : le nom de la famille en gras ;
   // le bouton de suppression d'un fichier, petit.
-  polices: { famille: { fw: 'bold' }, supprimer: { size: 'xs' } },
+  // La page des polices (15/11/2026) : un tableau, une famille par ligne ; ses fichiers
+  // empilés dans la colonne des styles.
+  polices: {
+    famille: { fw: 'bold' },
+    supprimer: { size: 'xs' },
+    tableau: { verticalSpacing: 'xs', withTableBorder: true },
+    styles: { gap: 'xs' },
+    fichier: { gap: 'xs', wrap: 'nowrap' },
+  },
   // Le volet de Margo : la portée de la demande (« Sur la sélection », « Sur
   // tout le texte ») en étiquette discrète de Mantine, pour la distinguer des
   // échanges (Sylvain, 13/11/2026).
