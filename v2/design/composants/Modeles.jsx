@@ -435,72 +435,46 @@ export function PageReglageModele({
 }
 
 /**
- * Les polices de l'instance (back-office, 13/11/2026) : les familles fournies
- * avec amend.ink, celles que l'administrateur a envoyées (leurs fichiers, ce
- * qui leur manque, les modèles qui s'en servent), et l'envoi de fichiers.
+ * Les polices de l'instance (back-office, 13/11/2026, page reprise le 15/11/2026,
+ * Sylvain : « désactiver et supprimer les polices de l'instance, en plus d'en
+ * ajouter ; clarifier la page ») : trois parties, dans l'ordre où l'on s'en
+ * sert : ajouter des fichiers, gérer les familles de l'instance (activer,
+ * désactiver, supprimer), et la liste de celles fournies avec amend.ink.
  * @param {{
- *   libelles: { fournies: string, envoyees: string, aucune: string, envoyer: string, supprimer: string,
- *     supprimerDe: (fichier: string) => string },
- *   intro: string, aide: string,
+ *   libelles: { ajouter: string, envoyer: string, instance: string, fournies: string, aucune: string,
+ *     colonnes: { famille: string, styles: string, utilisation: string, etat: string },
+ *     active: string, activeDe: (famille: string) => string,
+ *     supprimerFamille: string, supprimerFamilleDe: (famille: string) => string,
+ *     supprimerFichier: string, supprimerFichierDe: (fichier: string) => string,
+ *     inutilisee: string, actionsDe: (famille: string) => string },
+ *   intro: string, aide: string, aideFournies: string,
  *   fournies: string[],
- *   familles: Array<{ famille: string, avertissement?: string | null, usage?: string | null,
+ *   familles: Array<{ famille: string, actif: boolean, avertissement?: string | null, usage?: string | null,
  *     fichiers: Array<{ cle: string, libelle: string, fichier: string }> }>,
  *   message?: string | null, enCours: boolean,
  *   surFichiers: (fichiers: File[]) => void, surSupprimer: (cle: string) => void,
+ *   surActiver: (famille: string, actif: boolean) => void, surSupprimerFamille: (famille: string) => void,
  * }} props
  */
 export function PanneauPolices({
   libelles,
   intro,
   aide,
+  aideFournies,
   fournies,
   familles,
   message,
   enCours,
   surFichiers,
   surSupprimer,
+  surActiver,
+  surSupprimerFamille,
 }) {
   return (
     <Stack>
       <Text>{intro}</Text>
-      <Title order={3}>{libelles.fournies}</Title>
-      <Stack component="ul">
-        {fournies.map((f) => (
-          <Text component="li" key={f}>
-            {f}
-          </Text>
-        ))}
-      </Stack>
-      <Title order={3}>{libelles.envoyees}</Title>
-      {familles.length ? (
-        <Stack component="ul">
-          {familles.map((f) => (
-            <Stack component="li" key={f.famille}>
-              <Text {...REGLAGES.polices.famille}>{f.famille}</Text>
-              {f.usage ? <Text>{f.usage}</Text> : null}
-              {f.avertissement ? <Text role="note">{f.avertissement}</Text> : null}
-              <Stack component="ul">
-                {f.fichiers.map((x) => (
-                  <Group component="li" key={x.cle}>
-                    <Text>{x.libelle}</Text>
-                    <Button
-                      {...REGLAGES.boutonDanger}
-                      {...REGLAGES.polices.supprimer}
-                      aria-label={libelles.supprimerDe(x.fichier)}
-                      onClick={() => surSupprimer(x.cle)}
-                    >
-                      {libelles.supprimer}
-                    </Button>
-                  </Group>
-                ))}
-              </Stack>
-            </Stack>
-          ))}
-        </Stack>
-      ) : (
-        <Text>{libelles.aucune}</Text>
-      )}
-      {message ? <Text role="status">{message}</Text> : null}
+      <Title order={3}>{libelles.ajouter}</Title>
+      <Text>{aide}</Text>
       <Group>
         <FileButton onChange={surFichiers} accept=".ttf,.otf" multiple>
           {(props) => (
@@ -510,7 +484,82 @@ export function PanneauPolices({
           )}
         </FileButton>
       </Group>
-      <Text>{aide}</Text>
+      {message ? <Text role="status">{message}</Text> : null}
+      <Title order={3}>{libelles.instance}</Title>
+      {familles.length ? (
+        <Table.ScrollContainer minWidth={0}>
+          <Table {...REGLAGES.polices.tableau}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>{libelles.colonnes.famille}</Table.Th>
+                <Table.Th>{libelles.colonnes.styles}</Table.Th>
+                <Table.Th>{libelles.colonnes.utilisation}</Table.Th>
+                <Table.Th>{libelles.colonnes.etat}</Table.Th>
+                <Table.Th>
+                  <VisuallyHidden>{libelles.supprimerFamille}</VisuallyHidden>
+                </Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {familles.map((f) => (
+                <Table.Tr key={f.famille}>
+                  <Table.Th scope="row">
+                    <Text {...REGLAGES.polices.famille}>{f.famille}</Text>
+                  </Table.Th>
+                  <Table.Td>
+                    <Stack {...REGLAGES.polices.styles}>
+                      {f.fichiers.map((x) => (
+                        <Group key={x.cle} {...REGLAGES.polices.fichier}>
+                          <Text>{x.libelle}</Text>
+                          <Button
+                            {...REGLAGES.boutonDanger}
+                            {...REGLAGES.polices.supprimer}
+                            aria-label={libelles.supprimerFichierDe(x.fichier)}
+                            onClick={() => surSupprimer(x.cle)}
+                          >
+                            {libelles.supprimerFichier}
+                          </Button>
+                        </Group>
+                      ))}
+                      {f.avertissement ? <Text role="note">{f.avertissement}</Text> : null}
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td>{f.usage ?? libelles.inutilisee}</Table.Td>
+                  <Table.Td>
+                    <Switch
+                      aria-label={libelles.activeDe(f.famille)}
+                      label={libelles.active}
+                      checked={f.actif}
+                      onChange={(e) => surActiver(f.famille, e.currentTarget.checked)}
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <Button
+                      {...REGLAGES.boutonDanger}
+                      {...REGLAGES.polices.supprimer}
+                      aria-label={libelles.supprimerFamilleDe(f.famille)}
+                      onClick={() => surSupprimerFamille(f.famille)}
+                    >
+                      {libelles.supprimerFamille}
+                    </Button>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      ) : (
+        <Text>{libelles.aucune}</Text>
+      )}
+      <Title order={3}>{libelles.fournies}</Title>
+      <Text>{aideFournies}</Text>
+      <Stack component="ul">
+        {fournies.map((f) => (
+          <Text component="li" key={f}>
+            {f}
+          </Text>
+        ))}
+      </Stack>
     </Stack>
   )
 }

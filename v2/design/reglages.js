@@ -117,7 +117,15 @@ export const REGLAGES = {
   compteur: { size: 'sm', visibleFrom: 'lg' },
   // Les polices du back-office (13/11/2026) : le nom de la famille en gras ;
   // le bouton de suppression d'un fichier, petit.
-  polices: { famille: { fw: 'bold' }, supprimer: { size: 'xs' } },
+  // La page des polices (15/11/2026) : un tableau, une famille par ligne ; ses fichiers
+  // empilés dans la colonne des styles.
+  polices: {
+    famille: { fw: 'bold' },
+    supprimer: { size: 'xs' },
+    tableau: { verticalSpacing: 'xs', withTableBorder: true },
+    styles: { gap: 'xs' },
+    fichier: { gap: 'xs', wrap: 'nowrap' },
+  },
   // Le volet de Margo : la portée de la demande (« Sur la sélection », « Sur
   // tout le texte ») en étiquette discrète de Mantine, pour la distinguer des
   // échanges (Sylvain, 13/11/2026).
