@@ -131,8 +131,7 @@
     "titre": "Comments",
     "filtre": "Threads to show",
     "ouverts": "Open",
-    "resolus": "Resolved",
-    "tous": "All"
+    "resolus": "Resolved"
   },
   "suivi": {
     "aCheval": "In Correct mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph.",
@@ -212,6 +211,7 @@
     "partagesAvecMoi": "Shared with me",
     "nouveauDossier": "New folder",
     "nomDuDossier": "Folder name",
+    "nouvelOnglet": "Open in a new tab",
     "renommer": "Rename",
     "deplacer": "Move {nom}",
     "supprimer": "Delete",
@@ -449,12 +449,12 @@
       "marges": {
         "haut": "Top margin (mm)",
         "interieure": "Inside margin (mm)",
-        "exterieure": "Outside margin (mm)"
+        "exterieure": "Outside margin (mm)",
+        "bas": "Bottom margin (mm)"
       },
       "grille": {
         "corps": "Text size (pt)",
-        "interligne": "Line spacing (pt)",
-        "lignes": "Lines per page"
+        "interligne": "Line spacing (pt)"
       },
       "chapitre": {
         "debut": "Chapter start",
@@ -470,7 +470,12 @@
       },
       "enTete": {
         "gauche": "Running head on left pages",
-        "droite": "Running head on right pages"
+        "droite": "Running head on right pages",
+        "texteGauche": "Text of the left-page running head",
+        "texteDroite": "Text of the right-page running head"
+      },
+      "image": {
+        "numerotation": "Number captioned images (“Fig. 1: …”)"
       },
       "separateur": "Scene break",
       "cesure": "Hyphenation"
@@ -499,7 +504,8 @@
       "enTete": {
         "rien": "Nothing",
         "titreDocument": "Document title",
-        "chapitre": "Current chapter"
+        "chapitre": "Current chapter",
+        "texte": "Free text"
       },
       "alignement": {
         "gauche": "Left",
@@ -523,6 +529,7 @@
       "general": "Name"
     },
     "essayer": "Try",
+    "margeBasseObtenue": "Resulting margin: {marge, number} mm, {lignes, plural, one {# line} other {# lines}} per page.",
     "defautInstance": "The instance default",
     "titreDefaut": "Default template",
     "titreListe": "Templates",

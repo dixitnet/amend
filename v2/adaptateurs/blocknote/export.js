@@ -68,14 +68,13 @@ function marquerExposants(contenu) {
 
 /**
  * Les blocs prêts pour le Markdown : une table des matières devient la liste
- * des titres jusqu'à sa profondeur (après son titre, s'il est donné) ; un saut
+ * des titres jusqu'à sa profondeur, sans titre (Sylvain, 15/11/2026) ; un saut
  * de page n'a pas d'équivalent et disparaît ; l'exposant est marqué ; le
  * titre devient un paragraphe en gras, le sous-titre un paragraphe en
  * italique (Sylvain, 12/11/2026 : pas un titre de niveau 1 ailleurs).
  * @param {Array} blocs
- * @param {{ titreTable?: string }} [textes]
  */
-export function blocsPourMarkdown(blocs, { titreTable } = {}) {
+export function blocsPourMarkdown(blocs) {
   const titres = titresDesBlocs(blocs)
   // Les notes, numérotées dans l'ordre du texte, rendues en fin de fichier.
   const notes = []
@@ -102,7 +101,6 @@ export function blocsPourMarkdown(blocs, { titreTable } = {}) {
       if (b.type === 'pageBreak') return []
       if (b.type === TYPE_TABLE)
         return [
-          ...(titreTable ? [{ type: 'paragraph', content: [{ type: 'text', text: titreTable, styles: {} }] }] : []),
           ...entreesTable(titres, b.props?.profondeur).map((e) => ({
             type: 'bulletListItem',
             content: [{ type: 'text', text: e.texte, styles: {} }],
@@ -271,7 +269,7 @@ async function parcourir(exportateur, blocs) {
     else if (b.type === 'pageBreak') sortie.push('#pagebreak()')
     // La table des matières de Typst, à la place du bloc, titre dans la
     // langue du document (`lang` du gabarit).
-    else if (b.type === TYPE_TABLE) sortie.push(`#outline(depth: ${profondeurTable(b.props?.profondeur)})`)
+    else if (b.type === TYPE_TABLE) sortie.push(`#outline(title: none, depth: ${profondeurTable(b.props?.profondeur)})`)
     else {
       // Tableaux et images : la correspondance de BlockNote, hors grille.
       try {

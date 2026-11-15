@@ -226,7 +226,7 @@ export function PanneauModeles({
  *   titre: string, adresseRetour: string,
  *   nom: string,
  *   groupes: Array<{ cle: string, libelle: string }>,
- *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix', libelle: string, valeur: any,
+ *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix' | 'texte', libelle: string, valeur: any, visibleSi?: { cle: string, egal: string }, aide?: (valeurs: object) => string | null,
  *     groupe?: string, min?: number, max?: number, pas?: number, options?: Array<{ value: string, label: string }> }>,
  *   message?: string | null, surEnregistrer: (o: { nom: string, valeurs: Record<string, any> }) => void,
  *   surAnnuler: () => void,
@@ -253,6 +253,18 @@ export function PageReglageModele({
     surEnregistrer({ nom: leNom.trim(), valeurs })
   }
   const champ = (c) => {
+    // Un champ qui dépend d'un choix (le texte libre d'un en-tête) n'apparaît que sur ce choix.
+    if (c.visibleSi && valeurs[c.visibleSi.cle] !== c.visibleSi.egal) return null
+    if (c.type === 'texte')
+      return (
+        <TextInput
+          key={c.cle}
+          label={c.libelle}
+          value={valeurs[c.cle] ?? ''}
+          onChange={(e) => changer(c.cle)(e.currentTarget.value)}
+          maxLength={c.max}
+        />
+      )
     if (c.type === 'booleen')
       return (
         <Switch
@@ -279,6 +291,7 @@ export function PageReglageModele({
         label={c.libelle}
         value={valeurs[c.cle]}
         onChange={changer(c.cle)}
+        description={c.aide?.(valeurs) ?? undefined}
         min={c.min}
         max={c.max}
         step={c.pas ?? 1}

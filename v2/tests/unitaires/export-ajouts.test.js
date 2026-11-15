@@ -36,25 +36,24 @@ test('Typst : la table à sa place et à sa profondeur, le saut de page, l’exp
   const { editeur, blocs } = document()
   const { source } = await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr' })
   const corps = source.slice(source.indexOf('#heading(level: 1)'))
-  assert.ok(corps.indexOf('#outline(depth: 3)') > corps.indexOf('Ouverture'))
-  assert.ok(corps.indexOf('#outline(depth: 3)') < corps.indexOf('siècle'))
+  assert.ok(corps.indexOf('#outline(title: none, depth: 3)') > corps.indexOf('Ouverture'))
+  assert.ok(corps.indexOf('#outline(title: none, depth: 3)') < corps.indexOf('siècle'))
   assert.match(corps, /#"Au XIX"#super\("e"\)#" siècle\."/)
   assert.match(corps, /#pagebreak\(\)\n\n#heading\(level: 2\)/)
 })
 
 test('Markdown : la table devient la liste de ses titres ; plus de saut de page ; exposant marqué', () => {
   const { blocs } = document()
-  const prets = blocsPourMarkdown(blocs, { titreTable: 'Table des matières' })
+  const prets = blocsPourMarkdown(blocs)
   const types = prets.map((b) => b.type)
   assert.ok(!types.includes('pageBreak') && !types.includes('tableDesMatieres'))
   const liste = prets.filter((b) => b.type === 'bulletListItem').map((b) => b.content[0].text)
   assert.deepEqual(liste, ['Ouverture', 'Section'])
-  assert.equal(prets[1].content[0].text, 'Table des matières')
+  assert.ok(!prets.some((b) => b.content?.[0]?.text === 'Table des matières'), 'sans titre')
   const para = prets.find((b) => b.type === 'paragraph' && b.content.length === 3)
   assert.equal(poserExposants(para.content.map((c) => c.text).join('')), 'Au XIX<sup>e</sup> siècle.')
   assert.ok(!('exposant' in para.content[1].styles))
-  // Sans titre donné, la liste seule.
-  assert.equal(blocsPourMarkdown(blocs)[1].type, 'bulletListItem')
+  assert.equal(prets[1].type, 'bulletListItem', 'la liste seule')
 })
 
 test('compteur : texte des blocs, cellules comprises, sans la table ni le saut de page', () => {
@@ -171,4 +170,18 @@ test('une note dans une cellule de tableau garde son appel et son texte en Markd
   const contenu = Array.isArray(cellule) ? cellule : cellule.content
   assert.equal(poserExposants(contenu.map((c) => c.text).join('')), 'Case[^1]')
   assert.equal(poserExposants(prets.at(-1).content[0].text), '[^1]: Note de case.')
+})
+
+test('table des matières : un titre écrit sur plusieurs lignes tient sur une seule (Sylvain, 15/11/2026)', async () => {
+  const { titresDesBlocs, uneLigne } = await import('../../extensions/tableDesMatieres/index.js')
+  assert.equal(uneLigne('Les enfants\n  de la nuit\r\nsuite'), 'Les enfants de la nuit suite')
+  assert.equal(uneLigne('Quoi\u00A0: oui'), 'Quoi\u00A0: oui', 'l’espace insécable reste')
+  const titres = titresDesBlocs([
+    {
+      type: 'heading',
+      props: { level: 1 },
+      content: [{ type: 'text', text: 'Un titre\nsur deux lignes', styles: {} }],
+    },
+  ])
+  assert.equal(titres[0].texte, 'Un titre sur deux lignes')
 })

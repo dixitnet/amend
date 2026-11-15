@@ -3,7 +3,7 @@
 // devient un modèle complet, avec un jeu de réglages par style. À retirer
 // quand plus aucun modèle n'est enregistré à l'ancienne façon.
 
-import { poser } from './miseEnPage.js'
+import { poser, margeBasPourLignes } from './miseEnPage.js'
 
 /** « A4 simple » tel que le code le livrait jusqu'au 13/11/2026. */
 export const A4_ANCIEN = Object.freeze({
@@ -66,10 +66,14 @@ export function versModeleParStyle(ancien) {
   const sousTitre = ancien.sousTitre ?? { corps: c.corps, italique: true }
   return {
     page: structuredClone(ancien.page),
-    marges: structuredClone(ancien.marges),
-    grille: structuredClone(g),
+    // La marge basse qui laisse le nombre de lignes par page d'alors (15/11/2026).
+    marges: { ...structuredClone(ancien.marges), bas: margeBasPourLignes(ancien, g.lignes) },
+    grille: { corps: g.corps, interligne: g.interligne },
     folio: structuredClone(ancien.folio),
-    enTete: structuredClone(ancien.enTete),
+    // Les textes libres des en-têtes (15/11/2026) manquent aux anciens modèles.
+    enTete: { texteGauche: '', texteDroite: '', ...structuredClone(ancien.enTete) },
+    // Les images (14 et 15/11/2026) : toute la largeur, sans numérotation.
+    image: { largeur: 100, numerotation: false },
     separateur: ancien.separateur,
     cesure: ancien.cesure,
     chapitre: { debut: c.debut, ligneTitre: c.ligneTitre, ligneTexte: c.ligneTexte, interligne: c.interligne },

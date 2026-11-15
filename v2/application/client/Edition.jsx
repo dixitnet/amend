@@ -380,6 +380,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       surMontrer={(i) => {
         setSuggestionActive(i)
         suggestions.montrer(suggestions.liste[i])
+        // Au format S, le tiroir recouvre le texte : il se ferme pour qu'on voie le passage.
+        if (formatS) setVolet(null)
       }}
       libelles={{
         accepter: t('suggestions.accepter'),
@@ -511,7 +513,6 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         options: [
           { valeur: 'open', libelle: t('commentaires.ouverts') },
           { valeur: 'resolved', libelle: t('commentaires.resolus') },
-          { valeur: 'all', libelle: t('commentaires.tous') },
         ],
         surChange: setFiltreFils,
       }}
@@ -544,6 +545,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           nomsDe={nomsAvecMargo}
           commentaires={commentaires}
           surSuggestions={avecSuggestions ? setSuggestions : undefined}
+          // Au format S, un clic sur une carte de commentaire mène au passage : le tiroir se ferme pour qu'on le voie (Sylvain, 15/11/2026).
+          surCarteDeFil={formatS ? () => setVolet(null) : undefined}
           surNombreFils={commentaires ? setNombreFils : undefined}
           surFilChoisi={ouvrirCommentaires}
           historique={historique && !formatS}

@@ -214,6 +214,13 @@ export function useVoletDocuments(docId, { actif = true, essayerModele = null } 
     const id = encodeURIComponent(d.id)
     const peutDeplacer = d.section === 'partage' ? false : d.equipe ? modifiable(d.equipe) : caps.includes('ranger')
     return [
+      // Première option (Sylvain, 15/11/2026) : le document s'ouvre dans un autre onglet du navigateur.
+      {
+        cle: 'nouvelOnglet',
+        libelle: t('documents.nouvelOnglet'),
+        picto: 'nouvelOnglet',
+        surClic: () => window.open(`${window.location.origin}${window.location.pathname}#${id}`, '_blank', 'noopener'),
+      },
       {
         cle: 'favori',
         libelle: d.favori ? t('documents.retirerFavori') : t('documents.ajouterFavori'),

@@ -66,7 +66,7 @@
   },
   "erreurs": {
     "apparence-inconnue": "Ce modèle d’interface ou cette couleur n’existe pas.",
-    "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes, son folio ou la largeur du texte ne tiennent pas dans la page.",
+    "modele-impossible": "Ce modèle de mise en page est impossible\u00A0: ses lignes, son numéro de page ou la largeur du texte ne tiennent pas dans la page.",
     "document-vide": "Ce document n’a pas de nom.",
     "document-trop-long": "Le nom de ce document est trop long (64 signes au plus).",
     "document-caracteres": "Le nom d’un document ne peut contenir que des lettres et chiffres sans accent, des tirets et des tirets bas.",
@@ -131,8 +131,7 @@
     "titre": "Commentaires",
     "filtre": "Fils à afficher",
     "ouverts": "Ouverts",
-    "resolus": "Résolus",
-    "tous": "Tous"
+    "resolus": "Résolus"
   },
   "suivi": {
     "aCheval": "En mode Corriger, une suppression ne peut pas franchir la fin d’un paragraphe (elle serait mal enregistrée). Supprimez paragraphe par paragraphe.",
@@ -212,6 +211,7 @@
     "partagesAvecMoi": "Partagé avec moi",
     "nouveauDossier": "Nouveau dossier",
     "nomDuDossier": "Nom du dossier",
+    "nouvelOnglet": "Ouvrir dans un nouvel onglet",
     "renommer": "Renommer",
     "deplacer": "Déplacer {nom}",
     "supprimer": "Supprimer",
@@ -449,12 +449,12 @@
       "marges": {
         "haut": "Marge de tête (mm)",
         "interieure": "Marge intérieure (mm)",
-        "exterieure": "Marge extérieure (mm)"
+        "exterieure": "Marge extérieure (mm)",
+        "bas": "Marge basse (mm)"
       },
       "grille": {
         "corps": "Corps du texte (pt)",
-        "interligne": "Interligne (pt)",
-        "lignes": "Lignes par page"
+        "interligne": "Interligne (pt)"
       },
       "chapitre": {
         "debut": "Début de chapitre",
@@ -463,14 +463,19 @@
         "interligne": "Interligne du titre de chapitre (pt)"
       },
       "folio": {
-        "position": "Place du folio",
+        "position": "Place du numéro de page",
         "depart": "Premier numéro de page",
-        "bas": "Ligne du folio en bas (mm)",
-        "ouverture": "Folio sur les pages d’ouverture de chapitre"
+        "bas": "Ligne du numéro de page en bas (mm)",
+        "ouverture": "Numéro de page sur les pages d’ouverture de chapitre"
       },
       "enTete": {
-        "gauche": "Titre courant des pages de gauche",
-        "droite": "Titre courant des pages de droite"
+        "gauche": "En-tête des pages de gauche",
+        "droite": "En-tête des pages de droite",
+        "texteGauche": "Texte de l’en-tête des pages de gauche",
+        "texteDroite": "Texte de l’en-tête des pages de droite"
+      },
+      "image": {
+        "numerotation": "Numéroter les images légendées («\u00A0Fig. 1\u00A0: …\u00A0»)"
       },
       "separateur": "Séparateur de scène",
       "cesure": "Césure (couper les mots en fin de ligne)"
@@ -499,7 +504,8 @@
       "enTete": {
         "rien": "Rien",
         "titreDocument": "Titre du document",
-        "chapitre": "Chapitre en cours"
+        "chapitre": "Chapitre en cours",
+        "texte": "Texte libre"
       },
       "alignement": {
         "gauche": "À gauche",
@@ -510,7 +516,7 @@
     "groupes": {
       "format": "Format et marges",
       "texte": "Texte courant",
-      "pages": "Folio et titre courant",
+      "pages": "Numéro de page et en-têtes",
       "citation": "Citation",
       "titre1": "Titre 1 (chapitre)",
       "titre2": "Titre 2",
@@ -523,6 +529,7 @@
       "general": "Nom"
     },
     "essayer": "Essayer",
+    "margeBasseObtenue": "Marge obtenue\u00A0: {marge, number} mm, soit {lignes, plural, one {# ligne} other {# lignes}} par page.",
     "defautInstance": "Celui de l’instance",
     "titreDefaut": "Modèle par défaut",
     "titreListe": "Modèles",

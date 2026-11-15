@@ -5,7 +5,10 @@
 // la grille sont vérifiées à part (docs/v2-etape-7-plan.md, « Mesures »).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { BlockNoteEditor } from '@blocknote/core'
@@ -132,6 +135,41 @@ test('table des matières, saut de page et exposant : le PDF se compile (11/11/2
   assert.ok([...brut.matchAll(/\/Type ?\/Page\b/g)].length >= 3)
 })
 
+test('table des matières : sans titre, un titre sur plusieurs lignes tient sur une seule (Sylvain, 15/11/2026)', async () => {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'tableDesMatieres', props: { profondeur: 2 } },
+    { type: 'heading', props: { level: 1 }, content: [texte('Les enfants\nde la nuit')] },
+    { type: 'paragraph', content: [texte('Texte.')] },
+  ])
+  const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+  assert.match(source, /#outline\(title: none, depth: 2\)/)
+  const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+  const premiere = texteDuPdf(pdf, 1)
+  assert.ok(!/Table des mati|Contents|Sommaire/i.test(premiere), 'pas de titre sur la table : ' + premiere)
+  assert.match(premiere, /Les enfants de la nuit/, 'le titre sur une seule ligne dans la table : ' + premiere)
+})
+
+test('en-têtes : le chapitre en cours tient sur une ligne, un texte libre au choix (Sylvain, 15/11/2026)', async () => {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'heading', props: { level: 1 }, content: [texte('Les enfants\nde la nuit')] },
+    ...Array.from({ length: 60 }, () => ({ type: 'paragraph', content: [texte(paragraphe)] })),
+  ])
+  const m = {
+    ...modele,
+    folio: { ...modele.folio, ouverture: true },
+    enTete: { gauche: 'texte', droite: 'chapitre', texteGauche: 'Mon livre libre', texteDroite: '' },
+  }
+  const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
+  assert.match(source, /#"Mon livre libre"/, 'le texte libre est dans l’en-tête')
+  const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+  const page = (n) => texteDuPdf(pdf, n)
+  // Page 2 (paire, gauche) : le texte libre. Page 3 (impaire, droite) : le chapitre, sur une ligne.
+  assert.match(page(2), /Mon livre libre/, 'texte libre à gauche : ' + page(2))
+  assert.match(page(3), /Les enfants de la nuit/, 'le chapitre sur une seule ligne à droite : ' + page(3))
+})
+
 test('titre et sous-titre : centrés dans le flux, hors de la table des matières ; le PDF se compile (12/11/2026)', async () => {
   const editeur = nouvelEditeur()
   editeur.replaceBlocks(editeur.document, [
@@ -192,10 +230,22 @@ test('un tableau, une image et une image introuvable : le PDF se compile quand m
   }
 })
 
-test('une image occupe toute la largeur de la page hors marges, quelle que soit sa largeur d’affichage dans l’éditeur (Sylvain, 14/11/2026)', async () => {
+/** Le texte d'un PDF (poppler, `pdftotext`, requis par ces tests : voir v2/LISEZMOI.md), pages `de` à `a` si données. */
+function texteDuPdf(pdf, de, a) {
+  const dossier = mkdtempSync(join(tmpdir(), 'pdf-'))
+  try {
+    writeFileSync(join(dossier, 'a.pdf'), pdf)
+    const pages = de ? ['-f', String(de), '-l', String(a ?? de)] : []
+    return execFileSync('pdftotext', [...pages, '-layout', join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
+  } finally {
+    rmSync(dossier, { recursive: true, force: true })
+  }
+}
+
+/** Un faux serveur d'images PNG (`/large.png` 40 × 10, `/haute.png` 1 × 20) ; `fermer()` l'arrête. */
+async function serveurImages() {
   const { default: http } = await import('node:http')
   const { deflateSync, crc32 } = await import('node:zlib')
-  // Un PNG de 1 × 20 pixels (très haut) et un d'un pixel, servis par un faux serveur.
   const morceau = (type, donnees) => {
     const t = Buffer.concat([Buffer.from(type), donnees])
     const lon = Buffer.alloc(4)
@@ -225,7 +275,11 @@ test('une image occupe toute la largeur de la page hors marges, quelle que soit 
       : res.writeHead(404).end(),
   )
   await new Promise((r) => serveur.listen(0, '127.0.0.1', r))
-  const adresse = `http://127.0.0.1:${serveur.address().port}`
+  return { adresse: `http://127.0.0.1:${serveur.address().port}`, fermer: () => serveur.close() }
+}
+
+test('une image occupe toute la largeur de la page hors marges, quelle que soit sa largeur d’affichage dans l’éditeur (Sylvain, 14/11/2026)', async () => {
+  const { adresse, fermer } = await serveurImages()
   try {
     const editeur = nouvelEditeur()
     editeur.replaceBlocks(editeur.document, [
@@ -240,11 +294,44 @@ test('une image occupe toute la largeur de la page hors marges, quelle que soit 
     const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
     assert.equal(Buffer.from(pdf.slice(0, 5)).toString(), '%PDF-', 'le PDF se compile, même avec une image très haute')
   } finally {
-    serveur.close()
+    fermer()
   }
 })
 
-test('options de mise en page (12/11/2026) : titre courant, folio en haut, chapitre continu, séparateurs ; le PDF se compile', async () => {
+test('images légendées : la légende prend le style « Légende », numérotée ou non selon le modèle (Sylvain, 15/11/2026)', async () => {
+  const { adresse, fermer } = await serveurImages()
+  try {
+    const editeur = nouvelEditeur()
+    editeur.replaceBlocks(editeur.document, [
+      { type: 'paragraph', content: [texte('Avant.')] },
+      { type: 'image', props: { url: `${adresse}/large.png`, caption: 'Une belle photo' } },
+      { type: 'image', props: { url: `${adresse}/large.png`, caption: 'Une seconde photo' } },
+    ])
+    const lire = async (numerotation) => {
+      const m = { ...modele, image: { ...modele.image, numerotation } }
+      const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
+      assert.match(source, /#show figure\.caption: it => amend-legende\(it\)/, 'la légende prend le style « Légende »')
+      assert.match(
+        source,
+        new RegExp(
+          `#show figure\\.where\\(kind: image\\): set figure\\(numbering: ${numerotation ? '"1"' : 'none'}\\)`,
+        ),
+      )
+      const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+      return texteDuPdf(pdf)
+    }
+    const avec = await lire(true)
+    assert.match(avec, /Fig\. 1\s?: Une belle photo/, 'numérotée : ' + avec)
+    assert.match(avec, /Fig\. 2\s?: Une seconde photo/)
+    const sans = await lire(false)
+    assert.match(sans, /Une belle photo/, 'la légende reste')
+    assert.doesNotMatch(sans, /Fig\. \d/, 'sans numéro : ' + sans)
+  } finally {
+    fermer()
+  }
+})
+
+test('options de mise en page (12/11/2026) : en-têtes, numéro de page en haut, chapitre continu, séparateurs ; le PDF se compile', async () => {
   const editeur = nouvelEditeur()
   editeur.replaceBlocks(editeur.document, [
     { type: 'tableDesMatieres', props: { profondeur: 2 } },

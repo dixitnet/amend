@@ -122,12 +122,14 @@ export const REGLAGES = {
     // L'attente : trois points animés (`Loader` de Mantine) dans une bulle de Margo.
     attente: { type: 'dots' },
     // Le fil : sans le retrait par défaut d'une liste du navigateur, pour que les bulles tiennent toute la largeur.
-    fil: { p: 0 },
+    fil: { p: 0, gap: 'xs' },
+    // Le volet de Margo : l'espacement `xs`, comme les autres volets.
+    section: { gap: 'xs' },
     // Le fil en bulles, comme un échange de SMS (Sylvain, 15/11/2026) : les
     // siennes à droite sur la couleur d'accent, celles de Margo à gauche sur le
     // gris des survols de Mantine ; couleurs et rayon de Mantine.
     bulle: {
-      commune: { radius: 'lg', p: 'sm', maw: '85%' },
+      commune: { radius: 'md', p: 'xs', maw: '85%' },
       personne: { bg: 'var(--mantine-primary-color-filled)', c: 'var(--mantine-primary-color-contrast)', ml: 'auto' },
       margo: { bg: 'var(--mantine-color-default-hover)' },
     },
@@ -138,7 +140,9 @@ export const REGLAGES = {
   // (Sylvain, 12/11/2026 : « trop hautes ») : l'auteur et les boutons sur une
   // ligne, le passage dessous, espacements `xs`.
   suggestions: {
-    carte: { withBorder: true, p: 'xs' },
+    carte: { withBorder: true, p: 'xs', radius: 'md' },
+    // La liste des cartes et le volet qui la porte : l'espacement `xs`, comme les autres volets.
+    liste: { gap: 'xs' },
     pile: { gap: 'xs' },
     entete: { justify: 'space-between', wrap: 'nowrap', gap: 'xs' },
     auteur: { size: 'sm', truncate: true },

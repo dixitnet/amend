@@ -41,24 +41,52 @@ export function chaineTypst(texte) {
 }
 
 /**
+ * Combien de lignes de la grille tiennent entre la marge de tête et la marge
+ * basse du modèle : n lignes tiennent, n + 1 non (Sylvain, 15/11/2026 : la
+ * personne règle la marge basse, le nombre de lignes s'en déduit).
+ * @param {{ page: { hauteur: number }, marges: { haut: number, bas: number }, grille: { corps: number, interligne: number } }} modele
+ * @returns {number}
+ */
+export function lignesQuiTiennent({ page, marges, grille: g }) {
+  const disponible = (page.hauteur - marges.haut - marges.bas) * PT_PAR_MM
+  return Math.floor((disponible - g.corps - (g.interligne - g.corps) / 2) / g.interligne) + 1
+}
+
+/**
+ * La marge basse (mm, arrondie à 0,1 mm vers le bas) qui laisse exactement
+ * `lignes` lignes à la page : pour reprendre un modèle écrit en lignes par page.
+ * @param {{ page: { hauteur: number }, marges: { haut: number }, grille: { corps: number, interligne: number } }} modele
+ * @param {number} lignes
+ */
+export function margeBasPourLignes({ page, marges, grille: g }, lignes) {
+  const hauteurTexte = (lignes - 1) * g.interligne + g.corps + (g.interligne - g.corps) / 2
+  return Math.floor((page.hauteur - marges.haut - hauteurTexte / PT_PAR_MM) * 10) / 10
+}
+
+/**
  * Ce que la grille impose à la page.
  * @param {object} modele  voir `gabaritTypst`
- * @returns {{ pas: number, hauteurTexte: number, margeBas: number, descenteFolio: number }}
- *   le pas (pt), la hauteur de la zone de texte (pt), la marge de pied (mm) et
- *   la descente du folio sous la zone de texte (mm). Un modèle impossible
- *   (lignes qui ne tiennent pas, folio hors de la page) lève une erreur de
- *   code `modele-impossible`.
+ * @returns {{ pas: number, lignes: number, hauteurTexte: number, margeBas: number, descenteFolio: number }}
+ *   le pas (pt), le nombre de lignes par page, la hauteur de la zone de texte
+ *   (pt), la marge de pied obtenue (mm : la marge basse demandée, plus le reste
+ *   de moins d'une ligne) et la descente du folio sous la zone de texte (mm).
+ *   Un modèle impossible (aucune ligne ne tient, folio hors de la page) lève
+ *   une erreur de code `modele-impossible`. Un modèle d'avant le 15/11/2026,
+ *   écrit en `grille.lignes`, se lit encore.
  */
 export function grille(modele) {
   const { page, marges, grille: g, folio } = modele
+  const parMarge = Number.isFinite(marges?.bas)
   // Une valeur non numérique (NaN, chaîne, absente) ferait passer du NaN dans le gabarit.
-  const mesures = [page?.hauteur, marges?.haut, folio?.bas, g?.corps, g?.interligne, g?.lignes]
+  const mesures = [page?.hauteur, marges?.haut, folio?.bas, g?.corps, g?.interligne, parMarge ? marges.bas : g?.lignes]
   if (!mesures.every(Number.isFinite)) throw impossible('valeur')
   const pas = g.interligne
-  if (!(pas >= g.corps && g.lignes >= 1)) throw impossible('interligne')
+  if (!(pas >= g.corps)) throw impossible('interligne')
+  const lignes = parMarge ? lignesQuiTiennent(modele) : g.lignes
+  if (!(lignes >= 1)) throw impossible('lignes')
   // n lignes tiennent dans la zone, n + 1 non : on laisse sous la dernière
   // ligne la moitié du blanc qui sépare deux lignes.
-  const hauteurTexte = (g.lignes - 1) * pas + g.corps + (pas - g.corps) / 2
+  const hauteurTexte = (lignes - 1) * pas + g.corps + (pas - g.corps) / 2
   const margeBas = page.hauteur - marges.haut - hauteurTexte / PT_PAR_MM
   if (margeBas <= 0) throw impossible('lignes')
   // Le folio est posé par sa ligne de base, à `folio.bas` mm du bas de la page.
@@ -66,8 +94,8 @@ export function grille(modele) {
   if (descenteFolio <= 0) throw impossible('folio')
   // Le titre de chapitre tombe sur une ligne de la page, et le texte reprend après lui.
   const c = modele.chapitre
-  if (c && !(c.ligneTitre >= 1 && c.ligneTexte > c.ligneTitre && c.ligneTexte <= g.lignes)) throw impossible('chapitre')
-  return { pas, hauteurTexte, margeBas, descenteFolio }
+  if (c && !(c.ligneTitre >= 1 && c.ligneTexte > c.ligneTitre && c.ligneTexte <= lignes)) throw impossible('chapitre')
+  return { pas, lignes, hauteurTexte, margeBas, descenteFolio }
 }
 
 const impossible = (raison) =>
@@ -143,8 +171,10 @@ function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
  * @param {{ bas: number, position?: 'bas-centre' | 'bas-exterieur' | 'haut-exterieur' | 'aucun', depart?: number, ouverture?: boolean }} modele.folio
  *   ligne de base du folio en bas (mm depuis le bas de la page), sa place,
  *   le premier numéro, et s'il paraît sur les pages d'ouverture de chapitre
- * @param {{ gauche?: string, droite?: string }} [modele.enTete]  titre courant des
- *   pages de gauche et de droite : `rien`, `titreDocument` ou `chapitre`
+ * @param {{ gauche?: string, droite?: string, texteGauche?: string, texteDroite?: string }} [modele.enTete]
+ *   en-têtes des pages de gauche et de droite : `rien`, `titreDocument`,
+ *   `chapitre` (le chapitre en cours) ou `texte` (le texte libre `texteGauche`
+ *   ou `texteDroite`, Sylvain, 15/11/2026)
  * @param {string} [modele.separateur]  séparateur de scène (`SEPARATEURS`)
  * @param {boolean} [modele.cesure]  couper les mots en fin de ligne (oui par défaut)
  * @param {{ debut?: 'continuer' | 'page' | 'belle-page', bellePage?: boolean, ligneTitre: number, ligneTexte: number, interligne: number }} modele.chapitre
@@ -211,15 +241,19 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
   const folio = `counter(page).display()`
   const folioVisible = f.ouverture ? 'true' : 'not ouverture'
   const cote = `if calc.odd(p) { right } else { left }`
-  // Le titre courant (v1, `entete`), absent des pages d'ouverture.
-  const courant = (choix) =>
+  // L'en-tête (v1, `entete`, « titre courant » jusqu'au 15/11/2026), absent des
+  // pages d'ouverture. Le nom du chapitre en cours tient sur une ligne : ni
+  // retour de ligne ni saut de paragraphe du titre (Sylvain, 15/11/2026).
+  const courant = (choix, libre) =>
     choix === 'titreDocument' && titre
       ? `[#${chaineTypst(titre)}]`
-      : choix === 'chapitre'
-        ? `{ let hs = query(heading.where(level: 1, outlined: true).before(here())); if hs.len() > 0 { hs.last().body } }`
-        : 'none'
-  const avecTitreCourant = enTete.gauche !== 'rien' || enTete.droite !== 'rien'
-  const enHaut = f.position === 'haut-exterieur' || avecTitreCourant
+      : choix === 'texte' && libre
+        ? `[#${chaineTypst(libre)}]`
+        : choix === 'chapitre'
+          ? `{ show linebreak: [ ]; show parbreak: [ ]; show regex("[\\n\\r]+"): [ ]; let hs = query(heading.where(level: 1, outlined: true).before(here())); if hs.len() > 0 { hs.last().body } }`
+          : 'none'
+  const avecEnTete = enTete.gauche !== 'rien' || enTete.droite !== 'rien'
+  const enHaut = f.position === 'haut-exterieur' || avecEnTete
   const enBas = f.position === 'bas-centre' || f.position === 'bas-exterieur'
 
   const lignes = []
@@ -238,8 +272,8 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
         ? `header: context { let p = here().page(); ${blanche}${ouverture}` +
           `if not blanche { ` +
           (f.position === 'haut-exterieur' ? `if ${folioVisible} { place(${cote}, ${folio}) }; ` : '') +
-          (avecTitreCourant
-            ? `if not ouverture { let c = if calc.odd(p) { ${courant(enTete.droite)} } else { ${courant(enTete.gauche)} }; ` +
+          (avecEnTete
+            ? `if not ouverture { let c = if calc.odd(p) { ${courant(enTete.droite, enTete.texteDroite)} } else { ${courant(enTete.gauche, enTete.texteGauche)} }; ` +
               `if c != none { align(center, text(style: "italic", c)) } }`
             : '') +
           ` } }`
@@ -260,7 +294,9 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#show quote.where(block: true): it => ${bloc(styleDe(modele, 'citation'), 'it.body', { retrait: true })}`,
     // Les liens en noir, comme le texte (impression) ; l'adresse reste dans le PDF.
     `#show link: set text(fill: ${NOIR})`,
-    // La table des matières : les chapitres à la graisse de leur titre.
+    // La table des matières : un titre sur plusieurs lignes tient sur une seule
+    // (Sylvain, 15/11/2026), et les chapitres sont à la graisse de leur titre.
+    `#show outline.entry: it => { show linebreak: [ ]; show regex("[\\n\\r]+"): [ ]; it }`,
     `#show outline.entry.where(level: 1): set text(weight: ${poids(t1)})`,
     // Un blanc (paragraphes vides en série) : une ligne de la grille.
     `#let amend-blanc = v(${pt(pas)})`,
@@ -271,6 +307,13 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#let amend-titre(corps) = ${bloc(styleDe(modele, 'titre'), 'corps')}`,
     `#let amend-sous-titre(corps) = ${bloc(styleDe(modele, 'sousTitre'), 'corps')}`,
     `#let amend-legende(corps) = ${bloc(styleDe(modele, 'legende'), 'corps')}`,
+    // Les images légendées (Sylvain, 15/11/2026) : la légende prend le style
+    // « Légende » du modèle, collée à son image (l'espace est celui du style),
+    // et se numérote (« Figure 1 : … ») ou non, selon le réglage du modèle.
+    `#set figure(gap: ${ZERO})`,
+    `#show figure.where(kind: image): set figure(numbering: ${modele.image?.numerotation ? '"1"' : 'none'})`,
+    `#set figure.caption(separator: [~: ])`,
+    `#show figure.caption: it => amend-legende(it)`,
     // Le premier paragraphe d'un chapitre, sans alinéa.
     `#let amend-sans-alinea(corps) = par(first-line-indent: ${ZERO}, corps)`,
     // Les intertitres : le titre de niveau 5 vaut pour tout niveau inconnu, puis
@@ -333,11 +376,19 @@ export function poser(objet, cle, valeur) {
 const refus = (code, reglage) => ({ ok: false, code, ...(reglage ? { reglage } : {}) })
 const estObjet = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 
+/** Un caractère de texte libre : ni contrôle, ni saut de ligne ou de paragraphe Unicode. */
+const sansControle = (c) => {
+  const n = c.codePointAt(0)
+  return n >= 0x20 && !(n >= 0x7f && n <= 0x9f) && n !== 0x2028 && n !== 0x2029
+}
+
 /** Une valeur est-elle permise par la description d'un réglage ? */
 function valeurPermise(r, v, polices) {
   if (r.type === 'booleen') return typeof v === 'boolean'
   if (r.type === 'police') return typeof v === 'string' && polices.some((p) => p.famille === v)
   if (r.type === 'choix') return r.options.includes(v)
+  // Un texte libre : sur une seule ligne, sans caractère de contrôle, borné.
+  if (r.type === 'texte') return typeof v === 'string' && v.length <= (r.max ?? 100) && [...v].every(sansControle)
   if (r.type !== 'nombre' && r.type !== 'entier') return false
   if (typeof v !== 'number' || !Number.isFinite(v)) return false
   if (r.type === 'entier' && !Number.isInteger(v)) return false
@@ -383,9 +434,19 @@ export function verifierModele(modele, regles) {
 /** Un modèle enregistré, complété par les valeurs d'un modèle de référence pour
  * ce qui lui manque (un réglage ajouté depuis qu'il a été enregistré). */
 export function completerModele(valeurs, defaut) {
+  const complet = fusionner(valeurs, defaut)
+  // Un modèle enregistré en lignes par page (avant le 15/11/2026) : la marge
+  // basse qui laisse ce nombre de lignes remplace celle du modèle de référence.
+  if (Number.isFinite(valeurs?.grille?.lignes)) {
+    if (!Number.isFinite(valeurs?.marges?.bas)) complet.marges.bas = margeBasPourLignes(complet, valeurs.grille.lignes)
+    delete complet.grille.lignes // la marge basse fait foi, plus de donnée morte
+  }
+  return complet
+}
+function fusionner(valeurs, defaut) {
   if (!estObjet(defaut)) return valeurs === undefined ? defaut : valeurs
   const sortie = { ...defaut }
-  for (const [k, v] of Object.entries(valeurs ?? {})) sortie[k] = estObjet(v) ? completerModele(v, defaut[k]) : v
+  for (const [k, v] of Object.entries(valeurs ?? {})) sortie[k] = estObjet(v) ? fusionner(v, defaut[k]) : v
   return sortie
 }
 

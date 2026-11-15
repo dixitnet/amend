@@ -35,7 +35,8 @@ const POLICES_AJOUTEES = [
 ]
 
 const ALIGNEMENTS = ['gauche', 'justifie', 'centre']
-const TITRE_COURANT = ['rien', 'titreDocument', 'chapitre']
+// Les en-têtes (« titre courant » jusqu'au 15/11/2026) : rien, le titre du document, le chapitre en cours ou un texte libre.
+const TITRE_COURANT = ['rien', 'titreDocument', 'chapitre', 'texte']
 // Les réglages d'un style, repris de la v1 (`shared/style.js` : taille 5 à 96 pt,
 // retrait 0 à 50 mm, espaces) et comptés en lignes de la grille (Sylvain,
 // 13/11/2026 : « modifier chacun des styles : titres, texte courant, citation »).
@@ -63,11 +64,12 @@ const REGLABLES = [
   mm('marges.haut', 'format'),
   mm('marges.interieure', 'format'),
   mm('marges.exterieure', 'format'),
+  // La marge basse remplace le nombre de lignes par page (Sylvain, 15/11/2026) : le nombre de lignes s'en déduit.
+  mm('marges.bas', 'format'),
   // Le texte courant : son corps est celui de la grille.
   ...reglagesDuStyle('texte', ['police']),
   { cle: 'grille.corps', groupe: 'texte', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
   { cle: 'grille.interligne', groupe: 'texte', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.1 },
-  { cle: 'grille.lignes', groupe: 'texte', type: 'entier', min: 1 },
   ...reglagesDuStyle('texte', ['gras', 'italique', 'alignement', 'alinea']),
   { cle: 'cesure', groupe: 'texte', type: 'booleen' },
   { cle: 'separateur', groupe: 'texte', type: 'choix', options: ['blanc', 'asterisme', 'etoiles', 'trait'] },
@@ -90,8 +92,25 @@ const REGLABLES = [
   { cle: 'folio.depart', groupe: 'pages', type: 'entier', min: 1, max: 9999 },
   mm('folio.bas', 'pages'),
   { cle: 'folio.ouverture', groupe: 'pages', type: 'booleen' },
+  // La numérotation des images légendées (« Figure 1 : … »), avec le style « Légende » (Sylvain, 15/11/2026).
+  { cle: 'image.numerotation', groupe: 'legende', type: 'booleen' },
   { cle: 'enTete.gauche', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
   { cle: 'enTete.droite', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
+  // Le texte libre d'un en-tête, demandé seulement quand le choix est « texte » (Sylvain, 15/11/2026).
+  {
+    cle: 'enTete.texteGauche',
+    groupe: 'pages',
+    type: 'texte',
+    max: 100,
+    visibleSi: { cle: 'enTete.gauche', egal: 'texte' },
+  },
+  {
+    cle: 'enTete.texteDroite',
+    groupe: 'pages',
+    type: 'texte',
+    max: 100,
+    visibleSi: { cle: 'enTete.droite', egal: 'texte' },
+  },
 ]
 
 /** Un intertitre de A4 simple : au corps du texte, en italique, une ligne avant. */
@@ -117,18 +136,18 @@ export const REGLAGES_LIVRE = {
     {
       // « A4 simple » (12/11/2026, valeurs proposées par Claude, à valider
       // par Sylvain sur le PDF) : le modèle par défaut, base de tous les
-      // autres. A4, grille de 50 lignes de 11/14 pt, chapitre en page
+      // autres. A4, marge basse de 25,5 mm (50 lignes de 11/14 pt), chapitre en page
       // suivante, folio centré en bas.
       id: 'a4',
       page: { largeur: 210, hauteur: 297 },
-      marges: { haut: 25, interieure: 20, exterieure: 20 },
-      grille: { corps: 11, interligne: 14, lignes: 50 },
+      marges: { haut: 25, interieure: 20, exterieure: 20, bas: 25.5 },
+      grille: { corps: 11, interligne: 14 },
       folio: { bas: 15, position: 'bas-centre', depart: 1, ouverture: true },
-      enTete: { gauche: 'rien', droite: 'rien' },
+      enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
       separateur: 'blanc',
       cesure: true,
       // Une image occupe toute la largeur de la page hors marges, en pour cent (Sylvain, 14/11/2026).
-      image: { largeur: 100 },
+      image: { largeur: 100, numerotation: false },
       chapitre: { debut: 'page', ligneTitre: 3, ligneTexte: 7, interligne: 19 },
       styles: {
         texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 5 },
@@ -199,13 +218,13 @@ export const REGLAGES_LIVRE = {
       nom: 'TàT - Poche',
       valeurs: {
         page: { largeur: 120, hauteur: 180 },
-        marges: { haut: 18, interieure: 13, exterieure: 13 },
-        grille: { corps: 10.5, interligne: 12.4, lignes: 31 },
+        marges: { haut: 18, interieure: 13, exterieure: 13, bas: 26.7 },
+        grille: { corps: 10.5, interligne: 12.4 },
         folio: { bas: 18, position: 'bas-centre', depart: 1, ouverture: true },
-        enTete: { gauche: 'rien', droite: 'rien' },
+        enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
         separateur: 'blanc',
         cesure: true,
-        image: { largeur: 100 },
+        image: { largeur: 100, numerotation: false },
         chapitre: { debut: 'belle-page', ligneTitre: 7, ligneTexte: 12, interligne: 14 },
         styles: {
           texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 4.5 },

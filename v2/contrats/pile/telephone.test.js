@@ -5,7 +5,15 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, panneau } from './outils.mjs'
+import {
+  lancerNavigateur,
+  docTest,
+  ouvrir as ouvrirSur,
+  attendreTexte,
+  attendre,
+  panneau,
+  defilerJusquEnBas,
+} from './outils.mjs'
 
 let pile, nav
 /** Un téléphone en portrait (taille d'un iPhone 13). */
@@ -397,4 +405,82 @@ test('format S : la pastille du volet droit s’anime pendant que Margo travaill
   await pastille.waitFor({ state: 'detached', timeout: 10000 })
   await p.getByRole('alert').filter({ hasText: 'Margo est indisponible' }).waitFor()
   await p.context().close()
+})
+
+test('format S : « Tout accepter » et « Tout refuser » restent sous l’en-tête du tiroir quand la liste défile (Sylvain, 15/11/2026)', async () => {
+  const doc = docTest('s-suggestions-collees')
+  const p = await ouvrirSur(nav, pile.url, 'Paule', doc)
+  await p.click('.bn-editor')
+  const n = 14
+  for (let i = 0; i < n; i++) {
+    await p.keyboard.type(`Ligne numero ${i}.`)
+    if (i < n - 1) await p.keyboard.press('Enter')
+  }
+  const c = await ouvrirSur(nav, pile.url, 'Carla', doc, { role: 'correcteur' })
+  await attendre(3000)
+  await c.click('.bn-editor .bn-block-content >> nth=0')
+  await c.keyboard.press('Control+Home')
+  for (let i = 0; i < n; i++) {
+    await c.keyboard.press('End')
+    await c.keyboard.type(' x')
+    if (i < n - 1) await c.keyboard.press('ArrowDown')
+  }
+  await attendre(2500)
+  const e = await ouvrir('Edith', doc)
+  await e.getByRole('button', { name: 'Relecture' }).click()
+  const bouton = e.getByRole('button', { name: 'Tout accepter' })
+  await bouton.waitFor()
+  await defilerJusquEnBas(bouton)
+  await attendre(400)
+  const entete = await e.locator('.mantine-Drawer-header').boundingBox()
+  const apres = await bouton.boundingBox()
+  assert.ok(
+    apres.y >= entete.y + entete.height - 1 && apres.y < entete.y + entete.height + 40,
+    `sous l’en-tête (${apres.y} px)`,
+  )
+  assert.ok(await e.getByRole('button', { name: 'Tout refuser' }).isVisible(), '« Tout refuser » aussi')
+  for (const x of [p, c, e]) await x.context().close()
+})
+
+test('format S : un clic sur une carte (correction ou commentaire), hors boutons, ferme le tiroir et mène au passage (Sylvain, 15/11/2026)', async () => {
+  const doc = docTest('s-carte-cliquable')
+  const p = await ouvrirSur(nav, pile.url, 'Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Il faisait nuit sur la ville.')
+  const c = await ouvrirSur(nav, pile.url, 'Carla', doc, { role: 'correcteur' })
+  await attendre(2500)
+  await c.click('.bn-editor .bn-inline-content')
+  await c.keyboard.press('End')
+  await c.keyboard.type(' Ajout.')
+  await attendre(1000)
+  await c
+    .getByText('Il faisait nuit', { exact: false })
+    .first()
+    .dblclick({ position: { x: 100, y: 5 } })
+  const bouton = c.locator('.bn-formatting-toolbar button[aria-label="Ajouter un commentaire"]')
+  await bouton.click()
+  await attendre(400)
+  await c.keyboard.type('Pourquoi la nuit ?')
+  await c.keyboard.press('Control+Enter')
+  await attendre(1500)
+  const e = await ouvrir('Edith', doc)
+  await attendre(2500)
+  // La carte de correction : un coin, hors nom, passage et boutons.
+  await e.getByRole('button', { name: 'Relecture' }).click()
+  const carte = e.locator('.amend-suggestions-liste > li').first()
+  await carte.waitFor()
+  await attendre(800) // le tiroir finit de glisser
+  const b1 = await carte.boundingBox()
+  await e.mouse.click(b1.x + 3, b1.y + b1.height - 3)
+  await e.getByRole('dialog').waitFor({ state: 'detached' })
+  // La carte de commentaire.
+  await e.getByRole('button', { name: 'Relecture' }).click()
+  await e.locator('[role=tab][aria-label="Commentaires"]').click()
+  const fil = e.locator('.bn-thread').first()
+  await fil.waitFor()
+  await attendre(800)
+  const b2 = await fil.boundingBox()
+  await e.mouse.click(b2.x + 3, b2.y + 3)
+  await e.getByRole('dialog').waitFor({ state: 'detached' })
+  for (const x of [p, c, e]) await x.context().close()
 })

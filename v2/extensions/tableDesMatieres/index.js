@@ -25,12 +25,21 @@ export function texteEnLigne(contenu) {
   return contenu.map((c) => (c.type === 'text' ? c.text : texteEnLigne(c.content))).join('')
 }
 
+/**
+ * Un titre écrit sur plusieurs lignes (retours de ligne, sauts) tient sur une
+ * seule dans la table (Sylvain, 15/11/2026). Les espaces insécables restent.
+ */
+export const uneLigne = (texte) =>
+  String(texte)
+    .replace(/[ \t]*[\r\n\u2028\u2029\v\f]+[ \t]*/g, ' ')
+    .trim()
+
 /** Les titres d'une liste de blocs, enfants compris, dans l'ordre. */
 export function titresDesBlocs(blocs) {
   const titres = []
   const parcourir = (liste) => {
     for (const b of liste ?? []) {
-      if (b.type === 'heading') titres.push({ niveau: b.props?.level ?? 1, texte: texteEnLigne(b.content) })
+      if (b.type === 'heading') titres.push({ niveau: b.props?.level ?? 1, texte: uneLigne(texteEnLigne(b.content)) })
       parcourir(b.children)
     }
   }

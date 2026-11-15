@@ -2,16 +2,25 @@
 // fichiers exportés (domaine/document.js).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { grille, gabaritTypst, chaineTypst, nomDeFichier, titreDocument } from '../../domaine/index.js'
+import {
+  grille,
+  lignesQuiTiennent,
+  margeBasPourLignes,
+  gabaritTypst,
+  chaineTypst,
+  nomDeFichier,
+  titreDocument,
+} from '../../domaine/index.js'
 import { REPRISE_MODELES } from '../../design/livre.js'
 
 // « TàT - Poche » : un modèle complet, 120 × 180 mm, grille de 31 lignes de 12,4 pt.
 const MODELE = structuredClone(REPRISE_MODELES.find((r) => r.id === 'tat-poche').valeurs)
 const proche = (a, b) => Math.abs(a - b) < 1e-6
 
-test('la grille : 31 lignes de 12,4 pt, la marge de pied et la descente du folio en découlent', () => {
-  const { pas, hauteurTexte, margeBas, descenteFolio } = grille(MODELE)
+test('la grille : la marge basse donne 31 lignes de 12,4 pt, la marge de pied et la descente du folio en découlent', () => {
+  const { pas, lignes, hauteurTexte, margeBas, descenteFolio } = grille(MODELE)
   assert.equal(pas, 12.4)
+  assert.equal(lignes, 31, 'le nombre de lignes se déduit de la marge basse (26,7 mm)')
   // 30 pas, une boîte de ligne de 10,5 pt et la moitié du blanc entre deux lignes.
   assert.ok(proche(hauteurTexte, 30 * 12.4 + 10.5 + 0.95))
   assert.ok(proche(margeBas, 180 - 18 - (hauteurTexte * 25.4) / 72))
@@ -22,7 +31,7 @@ test('un modèle impossible est refusé avec un code', () => {
   const avec = (champ, valeur) => ({ ...MODELE, [champ]: { ...MODELE[champ], ...valeur } })
   for (const [modele, raison] of [
     [avec('grille', { interligne: 9 }), 'interligne'],
-    [avec('grille', { lignes: 45 }), 'lignes'],
+    [avec('marges', { bas: 170 }), 'lignes'],
     [avec('folio', { bas: 40 }), 'folio'],
   ])
     assert.throws(() => grille(modele), { code: 'modele-impossible', raison })
@@ -97,7 +106,7 @@ import {
 const REGLES = {
   reglables: [
     { cle: 'page.largeur', type: 'nombre', min: 80, max: 450 },
-    { cle: 'grille.lignes', type: 'entier', min: 1 },
+    { cle: 'marges.bas', type: 'nombre', min: 0, max: 175 },
     { cle: 'marges.interieure', type: 'nombre', min: 0, max: 100 },
     { cle: 'cesure', type: 'booleen' },
     { cle: 'styles.texte.police', type: 'police' },
@@ -147,12 +156,12 @@ test('réglages : inconnu, hors bornes, de mauvais type, ou modèle impossible :
   assert.deepEqual(code({ 'page.largeur': 79 }), ['reglage-hors-bornes', 'page.largeur'])
   assert.deepEqual(code({ 'page.largeur': '135' }), ['reglage-hors-bornes', 'page.largeur'])
   assert.deepEqual(code({ 'page.largeur': Number.NaN }), ['reglage-hors-bornes', 'page.largeur'])
-  assert.deepEqual(code({ 'grille.lignes': 30.5 }), ['reglage-hors-bornes', 'grille.lignes'])
-  assert.deepEqual(code({ 'grille.lignes': 0 }), ['reglage-hors-bornes', 'grille.lignes'])
+  assert.deepEqual(code({ 'marges.bas': -1 }), ['reglage-hors-bornes', 'marges.bas'])
+  assert.deepEqual(code({ 'marges.bas': 176 }), ['reglage-hors-bornes', 'marges.bas'])
   assert.deepEqual(code({ 'styles.texte.police': 'Comic Sans' }), ['reglage-hors-bornes', 'styles.texte.police'])
   assert.deepEqual(code({ 'styles.titre1.capitales': 'oui' }), ['reglage-hors-bornes', 'styles.titre1.capitales'])
   assert.deepEqual(code({ 'styles.titre2.lignesAvant': 11 }), ['reglage-hors-bornes', 'styles.titre2.lignesAvant'])
-  assert.deepEqual(code({ 'grille.lignes': 45 }), ['modele-impossible', 'lignes'])
+  assert.deepEqual(code({ 'marges.bas': 170 }), ['modele-impossible', 'lignes'])
   assert.deepEqual(code({ 'page.largeur': 80, 'marges.interieure': 30 }), ['modele-impossible', 'largeur'])
   for (const pas of [null, [], 'x', 3]) assert.equal(appliquerReglages(MODELE, pas, REGLES).code, 'reglages-invalides')
 })
@@ -165,7 +174,7 @@ test('un modèle complet se vérifie ; un modèle enregistré plus tôt est comp
   const partiel = { page: { largeur: 100, hauteur: 150 } }
   const c = completerModele(partiel, MODELE)
   assert.equal(c.page.largeur, 100)
-  assert.equal(c.grille.lignes, MODELE.grille.lignes)
+  assert.equal(c.marges.bas, MODELE.marges.bas)
   assert.deepEqual(c.styles, MODELE.styles)
 })
 
@@ -201,19 +210,12 @@ test('la grille refuse une valeur non numérique avec le code modele-impossible'
     m[a][b] = valeur
     return m
   }
-  for (const chemin of [
-    'page.hauteur',
-    'marges.haut',
-    'folio.bas',
-    'grille.corps',
-    'grille.interligne',
-    'grille.lignes',
-  ])
+  for (const chemin of ['page.hauteur', 'marges.haut', 'folio.bas', 'grille.corps', 'grille.interligne', 'marges.bas'])
     for (const valeur of [NaN, '12', undefined])
       assert.throws(() => grille(avec(chemin, valeur)), { code: 'modele-impossible' }, `${chemin} = ${String(valeur)}`)
 })
 
-test('mise en page (12/11/2026) : titre courant, folio, début de chapitre, séparateur, césure, auteur', () => {
+test('mise en page (12/11/2026) : en-têtes, numéro de page, début de chapitre, séparateur, césure, auteur', () => {
   const g = gabaritTypst(
     {
       ...MODELE,
@@ -228,7 +230,11 @@ test('mise en page (12/11/2026) : titre courant, folio, début de chapitre, sép
   assert.match(g, /#set document\(title: "Le livre", author: "Paule"\)/)
   assert.match(g, /footer: none/)
   assert.match(g, /header: context \{.*place\(if calc\.odd\(p\) \{ right \} else \{ left \}, counter\(page\)/)
-  assert.match(g, /if not ouverture \{ let c = if calc\.odd\(p\) \{ \{ let hs = query/)
+  assert.match(
+    g,
+    /if not ouverture \{ let c = if calc\.odd\(p\) \{ \{ show linebreak: \[ \]; show parbreak: \[ \]; show regex/,
+  )
+  assert.match(g, /let hs = query\(heading\.where\(level: 1, outlined: true\)\.before\(here\(\)\)\)/)
   assert.match(g, /\[#"Le livre"\]/)
   assert.match(g, /hyphenate: false/)
   assert.match(g, /#let amend-separateur = align\(center, par\(.*"⁂"/)
@@ -268,4 +274,31 @@ test('modèle retenu : document, équipe, instance, puis le premier permis', () 
   assert.equal(modeleRetenu({ choisi: null, defautEquipe: 'e1', defautInstance: 'i1', permis }), 'e1')
   assert.equal(modeleRetenu({ choisi: 'parti', defautEquipe: null, defautInstance: 'i1', permis }), 'i1')
   assert.equal(modeleRetenu({ permis }), 'a4')
+})
+
+test('marge basse (Sylvain, 15/11/2026) : le nombre de lignes s’en déduit, et la marge obtenue est celle de n lignes entières', () => {
+  const base = { page: { hauteur: 180 }, marges: { haut: 18, bas: 26.7 }, grille: { corps: 10.5, interligne: 12.4 } }
+  assert.equal(lignesQuiTiennent(base), 31)
+  // Un peu plus de marge fait perdre une ligne, un peu moins la laisse (le reste est de moins d'une ligne).
+  assert.equal(lignesQuiTiennent({ ...base, marges: { haut: 18, bas: 26.7 + 4.4 } }), 30)
+  assert.equal(lignesQuiTiennent({ ...base, marges: { haut: 18, bas: 26.7 - 0.1 } }), 31)
+  // L'aller-retour : la marge qui laisse n lignes redonne n lignes.
+  for (const n of [1, 10, 31, 50]) {
+    const bas = margeBasPourLignes(base, n)
+    assert.equal(lignesQuiTiennent({ ...base, marges: { haut: 18, bas } }), n, `${n} lignes`)
+  }
+})
+
+test('un modèle enregistré en lignes par page (avant le 15/11/2026) reçoit la marge basse qui laisse ces lignes', () => {
+  const ancien = { page: { largeur: 120, hauteur: 180 }, grille: { corps: 10.5, interligne: 12.4, lignes: 31 } }
+  const c = completerModele(ancien, MODELE)
+  assert.equal(c.marges.bas, 26.7)
+  assert.equal(c.grille.lignes, undefined, 'plus de grille.lignes')
+  assert.equal(grille(c).lignes, 31)
+  // Un modèle qui a déjà sa marge basse ne bouge pas.
+  assert.equal(completerModele({ marges: { bas: 20 } }, MODELE).marges.bas, 20)
+  // Les deux à la fois : la marge basse fait foi, `grille.lignes` ne reste pas.
+  const double = completerModele({ marges: { bas: 20 }, grille: { corps: 10.5, interligne: 12.4, lignes: 31 } }, MODELE)
+  assert.equal(double.marges.bas, 20)
+  assert.equal(double.grille.lignes, undefined)
 })
