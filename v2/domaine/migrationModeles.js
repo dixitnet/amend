@@ -76,7 +76,13 @@ export function versModeleParStyle(ancien) {
     image: { largeur: 100, numerotation: false },
     separateur: ancien.separateur,
     cesure: ancien.cesure,
-    chapitre: { debut: c.debut, ligneTitre: c.ligneTitre, ligneTexte: c.ligneTexte, interligne: c.interligne },
+    chapitre: {
+      debut: c.debut,
+      premierSansAlinea: true,
+      ligneTitre: c.ligneTitre,
+      ligneTexte: c.ligneTexte,
+      interligne: c.interligne,
+    },
     styles: {
       texte: {
         police,
