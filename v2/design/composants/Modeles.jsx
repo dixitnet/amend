@@ -15,6 +15,7 @@ import {
   NumberInput,
   Select,
   Switch,
+  Checkbox,
   Button,
   Badge,
   FileButton,
@@ -226,6 +227,8 @@ export function PanneauModeles({
  *   titre: string, adresseRetour: string,
  *   nom: string,
  *   groupes: Array<{ cle: string, libelle: string }>,
+ *   groupes: Array<{ cle: string, libelle: string, tableau?: { premiereColonne: string, colonnes: Array<{ cle: string, libelle: string }>,
+ *     lignes: Array<{ cle: string, libelle: string, cellules: Record<string, string> }> } }>,
  *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix' | 'texte', libelle: string, valeur: any, visibleSi?: { cle: string, egal: string }, aide?: (valeurs: object) => string | null,
  *     groupe?: string, min?: number, max?: number, pas?: number, options?: Array<{ value: string, label: string }> }>,
  *   message?: string | null, surEnregistrer: (o: { nom: string, valeurs: Record<string, any> }) => void,
@@ -252,7 +255,7 @@ export function PageReglageModele({
     e.preventDefault()
     surEnregistrer({ nom: leNom.trim(), valeurs })
   }
-  const champ = (c) => {
+  const champ = (c, compact = false, nomCellule = '') => {
     // Un champ qui dépend d'un choix (le texte libre d'un en-tête) n'apparaît que sur ce choix.
     if (c.visibleSi && valeurs[c.visibleSi.cle] !== c.visibleSi.egal) return null
     if (c.type === 'texte')
@@ -265,6 +268,7 @@ export function PageReglageModele({
           maxLength={c.max}
         />
       )
+    if (compact) return cellule(c, nomCellule)
     if (c.type === 'booleen')
       return (
         <Switch
@@ -301,6 +305,71 @@ export function PageReglageModele({
       />
     )
   }
+  // Une cellule du tableau des styles : la commande seule, nommée « ligne : colonne » pour les lecteurs d'écran.
+  const cellule = (c, nom) => {
+    const controle = REGLAGES.modeles.tableau.controle
+    if (c.type === 'booleen')
+      return (
+        <Checkbox
+          {...controle}
+          aria-label={nom}
+          checked={Boolean(valeurs[c.cle])}
+          onChange={(e) => changer(c.cle)(e.currentTarget.checked)}
+        />
+      )
+    if (c.type === 'police' || c.type === 'choix')
+      return (
+        <Select
+          {...controle}
+          {...(c.type === 'police' ? REGLAGES.modeles.tableau.police : {})}
+          aria-label={nom}
+          data={c.options}
+          value={valeurs[c.cle]}
+          onChange={changer(c.cle)}
+          allowDeselect={false}
+        />
+      )
+    return (
+      <NumberInput
+        {...controle}
+        aria-label={nom}
+        value={valeurs[c.cle]}
+        onChange={changer(c.cle)}
+        min={c.min}
+        max={c.max}
+        step={c.pas ?? 1}
+        allowDecimal={c.type !== 'entier'}
+        decimalScale={c.type === 'entier' ? 0 : undefined}
+        {...REGLAGES.modeles.nombre}
+      />
+    )
+  }
+  // Le tableau des styles d'une rubrique : un style par ligne, les réglages qu'il n'a pas laissés vides.
+  const tableauDes = (g) => (
+    <Table.ScrollContainer minWidth={0}>
+      <Table {...REGLAGES.modeles.tableau.table}>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>{g.tableau.premiereColonne}</Table.Th>
+            {g.tableau.colonnes.map((col) => (
+              <Table.Th key={col.cle}>{col.libelle}</Table.Th>
+            ))}
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {g.tableau.lignes.map((l) => (
+            <Table.Tr key={l.cle}>
+              <Table.Th scope="row">{l.libelle}</Table.Th>
+              {g.tableau.colonnes.map((col) => {
+                const c = champs.find((x) => x.cle === l.cellules[col.cle])
+                return <Table.Td key={col.cle}>{c ? champ(c, true, `${l.libelle} : ${col.libelle}`) : null}</Table.Td>
+              })}
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
+  )
   const { menu, contenu } = REGLAGES.admin.colonnes
   const rubrique = rubriques.find((g) => g.cle === choisie)
   return (
@@ -331,7 +400,16 @@ export function PageReglageModele({
               <Stack component="section" aria-label={rubrique ? rubrique.libelle : libelles.general}>
                 <Title order={2}>{rubrique ? rubrique.libelle : libelles.general}</Title>
                 {rubrique ? (
-                  champs.filter((c) => c.groupe === rubrique.cle).map(champ)
+                  <>
+                    {rubrique.tableau ? tableauDes(rubrique) : null}
+                    {champs
+                      .filter(
+                        (c) =>
+                          c.groupe === rubrique.cle &&
+                          !(rubrique.tableau?.lignes ?? []).some((l) => Object.values(l.cellules).includes(c.cle)),
+                      )
+                      .map((c) => champ(c))}
+                  </>
                 ) : (
                   <TextInput
                     label={libelles.nom}
