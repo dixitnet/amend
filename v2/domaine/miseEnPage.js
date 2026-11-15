@@ -260,7 +260,9 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#show quote.where(block: true): it => ${bloc(styleDe(modele, 'citation'), 'it.body', { retrait: true })}`,
     // Les liens en noir, comme le texte (impression) ; l'adresse reste dans le PDF.
     `#show link: set text(fill: ${NOIR})`,
-    // La table des matières : les chapitres à la graisse de leur titre.
+    // La table des matières : un titre sur plusieurs lignes tient sur une seule
+    // (Sylvain, 15/11/2026), et les chapitres sont à la graisse de leur titre.
+    `#show outline.entry: it => { show linebreak: [ ]; show regex("[\\n\\r]+"): [ ]; it }`,
     `#show outline.entry.where(level: 1): set text(weight: ${poids(t1)})`,
     // Un blanc (paragraphes vides en série) : une ligne de la grille.
     `#let amend-blanc = v(${pt(pas)})`,

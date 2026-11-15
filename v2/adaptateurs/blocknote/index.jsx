@@ -678,7 +678,7 @@ export function EditeurCollaboratif({
   }, [ecrit])
   const exporter = async (format, { modele, polices, titre, langue, auteur } = {}) => {
     const blocs = blocsDuTexte(editeur, contexte.fragment)
-    if (format === 'markdown') return versMarkdown(editeur, blocs, { titreTable: textes.table?.titre })
+    if (format === 'markdown') return versMarkdown(editeur, blocs)
     const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre, langue, auteur })
     return compilerPdf(source, { fichiers, polices })
   }

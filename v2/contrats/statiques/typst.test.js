@@ -5,7 +5,10 @@
 // la grille sont vérifiées à part (docs/v2-etape-7-plan.md, « Mesures »).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { BlockNoteEditor } from '@blocknote/core'
@@ -130,6 +133,25 @@ test('table des matières, saut de page et exposant : le PDF se compile (11/11/2
   assert.ok(brut.startsWith('%PDF-'))
   // Trois pages au moins : la table, le chapitre (belle page), le saut de page.
   assert.ok([...brut.matchAll(/\/Type ?\/Page\b/g)].length >= 3)
+})
+
+test('table des matières : sans titre, un titre sur plusieurs lignes tient sur une seule (Sylvain, 15/11/2026)', async () => {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'tableDesMatieres', props: { profondeur: 2 } },
+    { type: 'heading', props: { level: 1 }, content: [texte('Les enfants\nde la nuit')] },
+    { type: 'paragraph', content: [texte('Texte.')] },
+  ])
+  const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+  assert.match(source, /#outline\(title: none, depth: 2\)/)
+  const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+  const dossier = mkdtempSync(join(tmpdir(), 'tdm-'))
+  writeFileSync(join(dossier, 'a.pdf'), pdf)
+  const premiere = execFileSync('pdftotext', ['-f', '1', '-l', '1', '-layout', join(dossier, 'a.pdf'), '-'], {
+    encoding: 'utf8',
+  })
+  assert.ok(!/Table des mati|Contents|Sommaire/i.test(premiere), 'pas de titre sur la table : ' + premiere)
+  assert.match(premiere, /Les enfants de la nuit/, 'le titre sur une seule ligne dans la table : ' + premiere)
 })
 
 test('titre et sous-titre : centrés dans le flux, hors de la table des matières ; le PDF se compile (12/11/2026)', async () => {
