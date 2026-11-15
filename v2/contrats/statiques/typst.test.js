@@ -186,6 +186,7 @@ test('un saut de ligne en haut de page compte comme ailleurs : une ligne de la g
         const m = pages[p].match(/<word xMin="[^"]*" yMin="([^"]*)"[^>]*>Marqueur<\/word>/)
         if (m) return { page: p + 1, y: Number(m[1]) }
       }
+      assert.fail('le mot « Marqueur » est introuvable dans le texte du PDF (pdftotext requis : poppler-utils)')
     } finally {
       rmSync(dossier, { recursive: true, force: true })
     }
