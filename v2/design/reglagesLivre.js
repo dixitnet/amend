@@ -64,11 +64,12 @@ const REGLABLES = [
   mm('marges.haut', 'format'),
   mm('marges.interieure', 'format'),
   mm('marges.exterieure', 'format'),
+  // La marge basse remplace le nombre de lignes par page (Sylvain, 15/11/2026) : le nombre de lignes s'en déduit.
+  mm('marges.bas', 'format'),
   // Le texte courant : son corps est celui de la grille.
   ...reglagesDuStyle('texte', ['police']),
   { cle: 'grille.corps', groupe: 'texte', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
   { cle: 'grille.interligne', groupe: 'texte', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.1 },
-  { cle: 'grille.lignes', groupe: 'texte', type: 'entier', min: 1 },
   ...reglagesDuStyle('texte', ['gras', 'italique', 'alignement', 'alinea']),
   { cle: 'cesure', groupe: 'texte', type: 'booleen' },
   { cle: 'separateur', groupe: 'texte', type: 'choix', options: ['blanc', 'asterisme', 'etoiles', 'trait'] },
@@ -135,12 +136,12 @@ export const REGLAGES_LIVRE = {
     {
       // « A4 simple » (12/11/2026, valeurs proposées par Claude, à valider
       // par Sylvain sur le PDF) : le modèle par défaut, base de tous les
-      // autres. A4, grille de 50 lignes de 11/14 pt, chapitre en page
+      // autres. A4, marge basse de 25,5 mm (50 lignes de 11/14 pt), chapitre en page
       // suivante, folio centré en bas.
       id: 'a4',
       page: { largeur: 210, hauteur: 297 },
-      marges: { haut: 25, interieure: 20, exterieure: 20 },
-      grille: { corps: 11, interligne: 14, lignes: 50 },
+      marges: { haut: 25, interieure: 20, exterieure: 20, bas: 25.5 },
+      grille: { corps: 11, interligne: 14 },
       folio: { bas: 15, position: 'bas-centre', depart: 1, ouverture: true },
       enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
       separateur: 'blanc',
@@ -217,8 +218,8 @@ export const REGLAGES_LIVRE = {
       nom: 'TàT - Poche',
       valeurs: {
         page: { largeur: 120, hauteur: 180 },
-        marges: { haut: 18, interieure: 13, exterieure: 13 },
-        grille: { corps: 10.5, interligne: 12.4, lignes: 31 },
+        marges: { haut: 18, interieure: 13, exterieure: 13, bas: 26.7 },
+        grille: { corps: 10.5, interligne: 12.4 },
         folio: { bas: 18, position: 'bas-centre', depart: 1, ouverture: true },
         enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
         separateur: 'blanc',

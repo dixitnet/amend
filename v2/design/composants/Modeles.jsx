@@ -226,7 +226,7 @@ export function PanneauModeles({
  *   titre: string, adresseRetour: string,
  *   nom: string,
  *   groupes: Array<{ cle: string, libelle: string }>,
- *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix' | 'texte', libelle: string, valeur: any, visibleSi?: { cle: string, egal: string },
+ *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix' | 'texte', libelle: string, valeur: any, visibleSi?: { cle: string, egal: string }, aide?: (valeurs: object) => string | null,
  *     groupe?: string, min?: number, max?: number, pas?: number, options?: Array<{ value: string, label: string }> }>,
  *   message?: string | null, surEnregistrer: (o: { nom: string, valeurs: Record<string, any> }) => void,
  *   surAnnuler: () => void,
@@ -291,6 +291,7 @@ export function PageReglageModele({
         label={c.libelle}
         value={valeurs[c.cle]}
         onChange={changer(c.cle)}
+        description={c.aide?.(valeurs) ?? undefined}
         min={c.min}
         max={c.max}
         step={c.pas ?? 1}
