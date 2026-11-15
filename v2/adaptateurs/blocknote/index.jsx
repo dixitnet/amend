@@ -100,6 +100,9 @@ function selectionEnBlocs(editeur) {
   return blocs.length ? { de: blocs[0].id, a: blocs[blocs.length - 1].id } : null
 }
 
+/** Ce qui, dans une carte de fil, reçoit son propre clic : boutons, champs de saisie, menus. */
+const CLIC_DE_CARTE_IGNORE = 'button, [contenteditable], input, textarea, [role=menu], [role=menuitem]'
+
 /** Le bouton « Corriger » de la palette, à la fin, comme le bouton IA de Docs
  * (`AIToolbarButton`) : seulement quand le texte se modifie et qu'un bloc à
  * texte est sélectionné. Il envoie la sélection, en blocs, à l'application. */
@@ -298,6 +301,8 @@ function itemsDuMenu(editeur, table, textesTitres) {
  *   défiler le texte jusqu'à la suggestion, comme BlockNote pour un commentaire
  * @param {() => void} [p.surFilChoisi] rappelé quand un fil est choisi (un clic sur un
  *   passage commenté) : l'application ouvre l'onglet « Commentaires », où il se lit
+ * @param {() => void} [p.surCarteDeFil] rappelé quand on clique une carte de la liste des fils (hors
+ *   boutons et champs de saisie) : l'application ferme le tiroir qui la porte, au format S
  * @param {(n: number) => void} [p.surNombreFils] rappelé avec le nombre de fils
  *   de commentaires ouverts (non résolus) ; doit être stable
  *   rappelé avec les suggestions à chaque changement (pour qui les voit) ; la liste
@@ -352,6 +357,7 @@ export function EditeurCollaboratif({
   surSuggestions,
   surNombreFils,
   surFilChoisi,
+  surCarteDeFil,
   historique = false,
   peutRestaurer = false,
   surFermerHistorique,
@@ -853,7 +859,15 @@ export function EditeurCollaboratif({
           Docs) : rendue dans l'éditeur (elle en a besoin), placée dans l'onglet. */}
       {magasin && fils?.element ? (
         <RenderInPortalElement target={fils.element}>
-          <ThreadsSidebar filter={fils.filtre} sort="position" />
+          {/* Un clic sur une carte (hors boutons et champs de saisie) : BlockNote amène déjà
+              le texte au passage ; l'application peut fermer le tiroir qui la porte. */}
+          <div
+            onClick={(e) => {
+              if (e.target.closest('.bn-thread') && !e.target.closest(CLIC_DE_CARTE_IGNORE)) surCarteDeFil?.()
+            }}
+          >
+            <ThreadsSidebar filter={fils.filtre} sort="position" />
+          </div>
         </RenderInPortalElement>
       ) : null}
       {historique && historiqueOuvert ? (
