@@ -391,7 +391,8 @@ const sansControle = (c) => {
 /** Une valeur est-elle permise par la description d'un réglage ? */
 function valeurPermise(r, v, polices) {
   if (r.type === 'booleen') return typeof v === 'boolean'
-  if (r.type === 'police') return typeof v === 'string' && ((r.herite && v === '') || polices.some((p) => p.famille === v))
+  if (r.type === 'police')
+    return typeof v === 'string' && ((r.herite && v === '') || polices.some((p) => p.famille === v))
   if (r.type === 'choix') return r.options.includes(v)
   // Un texte libre : sur une seule ligne, sans caractère de contrôle, borné.
   if (r.type === 'texte') return typeof v === 'string' && v.length <= (r.max ?? 100) && [...v].every(sansControle)
