@@ -35,7 +35,8 @@ const POLICES_AJOUTEES = [
 ]
 
 const ALIGNEMENTS = ['gauche', 'justifie', 'centre']
-const TITRE_COURANT = ['rien', 'titreDocument', 'chapitre']
+// Les en-têtes (« titre courant » jusqu'au 15/11/2026) : rien, le titre du document, le chapitre en cours ou un texte libre.
+const TITRE_COURANT = ['rien', 'titreDocument', 'chapitre', 'texte']
 // Les réglages d'un style, repris de la v1 (`shared/style.js` : taille 5 à 96 pt,
 // retrait 0 à 50 mm, espaces) et comptés en lignes de la grille (Sylvain,
 // 13/11/2026 : « modifier chacun des styles : titres, texte courant, citation »).
@@ -92,6 +93,21 @@ const REGLABLES = [
   { cle: 'folio.ouverture', groupe: 'pages', type: 'booleen' },
   { cle: 'enTete.gauche', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
   { cle: 'enTete.droite', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
+  // Le texte libre d'un en-tête, demandé seulement quand le choix est « texte » (Sylvain, 15/11/2026).
+  {
+    cle: 'enTete.texteGauche',
+    groupe: 'pages',
+    type: 'texte',
+    max: 100,
+    visibleSi: { cle: 'enTete.gauche', egal: 'texte' },
+  },
+  {
+    cle: 'enTete.texteDroite',
+    groupe: 'pages',
+    type: 'texte',
+    max: 100,
+    visibleSi: { cle: 'enTete.droite', egal: 'texte' },
+  },
 ]
 
 /** Un intertitre de A4 simple : au corps du texte, en italique, une ligne avant. */
@@ -124,7 +140,7 @@ export const REGLAGES_LIVRE = {
       marges: { haut: 25, interieure: 20, exterieure: 20 },
       grille: { corps: 11, interligne: 14, lignes: 50 },
       folio: { bas: 15, position: 'bas-centre', depart: 1, ouverture: true },
-      enTete: { gauche: 'rien', droite: 'rien' },
+      enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
       separateur: 'blanc',
       cesure: true,
       // Une image occupe toute la largeur de la page hors marges, en pour cent (Sylvain, 14/11/2026).
@@ -202,7 +218,7 @@ export const REGLAGES_LIVRE = {
         marges: { haut: 18, interieure: 13, exterieure: 13 },
         grille: { corps: 10.5, interligne: 12.4, lignes: 31 },
         folio: { bas: 18, position: 'bas-centre', depart: 1, ouverture: true },
-        enTete: { gauche: 'rien', droite: 'rien' },
+        enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
         separateur: 'blanc',
         cesure: true,
         image: { largeur: 100 },
