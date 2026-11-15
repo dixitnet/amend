@@ -8,11 +8,14 @@
 //   GET    /api/admin/polices        les familles, leurs fichiers, ce qui leur manque, qui s'en sert
 //   POST   /api/admin/polices        corps : le fichier (octets) ; en-tête x-amend-fichier : son nom
 //   DELETE /api/admin/polices/:id    un fichier (refusé pour le dernier d'une famille utilisée)
-//   PATCH  /api/admin/polices/famille/:nom   corps { actif } : active ou désactive une famille (15/11/2026)
+//   PATCH  /api/admin/polices/famille/:nom   corps { actif } : active ou désactive une famille, y compris une famille fournie avec amend.ink (15/11/2026)
 //   DELETE /api/admin/polices/famille/:nom   toute une famille (refusé si un modèle s'en sert)
 //   GET    /api/polices/:id          le fichier
 import { lirePolice, nomFichierPolice, famillesDePolices, POLICE_MAX_OCTETS } from '../../domaine/index.js'
 import { decoder } from './adresse.js'
+
+/** Le réglage de l'instance qui garde les familles fournies que l'on a désactivées. */
+export const REGLAGE_DESACTIVEES = 'polices.desactivees'
 
 /** Lit le corps brut, sans dépasser `max` octets (au-delà : `null`). */
 function lireOctets(req, max) {
@@ -80,7 +83,12 @@ export function creerPolices({ personneDe, administrateur, depot, reservees, mod
       if (req.method === 'GET') {
         const familles = []
         for (const f of famillesDePolices(fichiers)) familles.push({ ...f, modeles: await modelesUtilisant(f.famille) })
-        return (json(res, 200, { familles, fournies: reservees, max: POLICE_MAX_OCTETS }), true)
+        // Les familles fournies : on ne peut que les désactiver (leurs fichiers font partie de l'application).
+        const off = new Set((await depot.reglage(REGLAGE_DESACTIVEES)) ?? [])
+        const fournies = []
+        for (const famille of reservees)
+          fournies.push({ famille, actif: !off.has(famille), modeles: await modelesUtilisant(famille) })
+        return (json(res, 200, { familles, fournies, max: POLICE_MAX_OCTETS }), true)
       }
       if (req.method !== 'POST') return err(405, 'methode-refusee')
       const octets = await lireOctets(req, POLICE_MAX_OCTETS)
@@ -100,15 +108,23 @@ export function creerPolices({ personneDe, administrateur, depot, reservees, mod
 
     // Une famille entière : l'activer ou la désactiver, ou la supprimer.
     if (nomFamille !== undefined) {
-      if (!fichiers.some((f) => f.famille === nomFamille)) return err(404, 'introuvable')
+      const fournie = reservees.includes(nomFamille)
+      if (!fournie && !fichiers.some((f) => f.famille === nomFamille)) return err(404, 'introuvable')
       if (req.method === 'PATCH') {
         const corps = await lireJson(req).catch(() => null)
         if (typeof corps?.actif !== 'boolean') return err(400, 'requete-invalide')
-        await depot.activerFamille(nomFamille, corps.actif)
+        if (fournie) {
+          const off = new Set((await depot.reglage(REGLAGE_DESACTIVEES)) ?? [])
+          if (corps.actif) off.delete(nomFamille)
+          else off.add(nomFamille)
+          await depot.definirReglage(REGLAGE_DESACTIVEES, [...off].sort(), p.id)
+        } else await depot.activerFamille(nomFamille, corps.actif)
         console.log(`[admin] police ${corps.actif ? 'activée' : 'désactivée'} : ${nomFamille}`)
         return (json(res, 200, {}), true)
       }
       if (req.method !== 'DELETE') return err(405, 'methode-refusee')
+      // Une famille fournie ne se supprime pas : ses fichiers sont ceux de l'application.
+      if (fournie) return err(409, 'police-fournie', { famille: nomFamille })
       const modeles = await modelesUtilisant(nomFamille)
       if (modeles.length) return err(409, 'police-utilisee', { famille: nomFamille, modeles })
       await depot.supprimerFamille(nomFamille)

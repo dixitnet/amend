@@ -347,7 +347,7 @@
       "aide": "Fichiers .ttf ou .otf, {max, number}\u00A0Mo au plus chacun, un par style (romain, italique, gras, gras italique). La famille et le style sont lus dans le fichier, pas dans son nom.",
       "ajouter": "Ajouter des polices",
       "fournies": "Fournies avec amend.ink",
-      "aideFournies": "Toujours disponibles\u00A0: on ne peut ni les désactiver, ni les supprimer.",
+      "aideFournies": "Leurs fichiers font partie de l’application\u00A0: on peut les désactiver (elles ne sont plus proposées, les modèles qui les ont gardées continuent de les employer), pas les supprimer.",
       "envoyees": "Polices de l’instance",
       "colonnes": {
         "famille": "Famille",
@@ -565,9 +565,9 @@
       "italique": "Italique",
       "capitales": "Majuscules",
       "alignement": "Alignement",
-      "lignesAvant": "Lignes blanches avant",
-      "lignesApres": "Lignes blanches après",
-      "alinea": "Retrait de première ligne (mm)",
+      "espaceAvant": "Espace avant (pt)",
+      "espaceApres": "Espace après (pt)",
+      "alinea": "Retrait de 1re ligne (mm)",
       "retrait": "Retrait à gauche (mm)"
     },
     "nouveau": "Nouveau modèle",
