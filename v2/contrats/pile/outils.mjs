@@ -190,3 +190,13 @@ export const panneau = (page) =>
     const cartes = [...section.querySelectorAll('[data-amend-carte]')].map((b) => b.getAttribute('aria-label'))
     return [section.innerText.replace(/\n+/g, ' / '), ...cartes].join(' / ')
   })
+
+/** Fait défiler jusqu'en bas le premier conteneur défilant qui contient l'élément. */
+export const defilerJusquEnBas = (cible) =>
+  cible.evaluate((el) => {
+    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement)
+      if (/(auto|scroll)/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight) {
+        n.scrollTop = n.scrollHeight
+        return
+      }
+  })

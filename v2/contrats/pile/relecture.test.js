@@ -14,6 +14,7 @@ import {
   choisirMode,
   modeChoisi,
   panneau,
+  defilerJusquEnBas,
 } from './outils.mjs'
 
 let pile, nav
@@ -487,32 +488,20 @@ async function documentAvecSuggestions(nom, n) {
   await attendre(2500)
   return { doc, p, c }
 }
-/** Le bouton reste à la même place quand la liste défile jusqu'en bas. */
-async function resteVisible(bouton) {
-  const avant = (await bouton.boundingBox()).y
-  await bouton.evaluate((el) => {
-    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement)
-      if (/(auto|scroll)/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight) {
-        n.scrollTop = n.scrollHeight
-        return
-      }
-  })
-  await attendre(400)
-  const apres = (await bouton.boundingBox()).y
-  return { avant, apres }
-}
-
 test('suggestions : « Tout accepter » et « Tout refuser » restent visibles quand la liste défile (Sylvain, 15/11/2026)', async () => {
-  const { p } = await documentAvecSuggestions('suggestions-collees', 14)
+  const { p, c } = await documentAvecSuggestions('suggestions-collees', 14)
   const bouton = p.getByRole('button', { name: 'Tout accepter' })
   await bouton.waitFor()
   const haut = (await p.locator('[role=tabpanel]:visible').first().boundingBox()).y
-  const { apres } = await resteVisible(bouton)
+  await defilerJusquEnBas(bouton)
+  await attendre(400)
+  const apres = (await bouton.boundingBox()).y
   assert.ok(
     apres >= haut - 1 && apres < haut + 60,
     `le bouton reste en haut du volet (${apres} px, volet à ${haut} px)`,
   )
   assert.ok(await p.getByRole('button', { name: 'Tout refuser' }).isVisible(), '« Tout refuser » aussi')
+  await c.context().close()
   await p.context().close()
 })
 

@@ -112,7 +112,7 @@
   padding-top: var(--mantine-spacing-sm);
 }
 /* « Tout accepter » et « Tout refuser » collés sous l'en-tête du tiroir, qui
-   est collant lui aussi (60 px chez Mantine) : sans ce décalage, il les recouvre. */
+   est collant lui aussi (`min-height` de 3,75 rem de l'en-tête des fenêtres de Mantine, ModalBase) : sans ce décalage, il les recouvre. */
 .amend-volet-onglets .amend-suggestions-actions {
   top: calc(3.75rem * var(--mantine-scale));
 }

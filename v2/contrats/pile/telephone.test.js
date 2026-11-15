@@ -5,7 +5,15 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, panneau } from './outils.mjs'
+import {
+  lancerNavigateur,
+  docTest,
+  ouvrir as ouvrirSur,
+  attendreTexte,
+  attendre,
+  panneau,
+  defilerJusquEnBas,
+} from './outils.mjs'
 
 let pile, nav
 /** Un téléphone en portrait (taille d'un iPhone 13). */
@@ -422,13 +430,7 @@ test('format S : « Tout accepter » et « Tout refuser » restent sous l’en-t
   await e.getByRole('button', { name: 'Relecture' }).click()
   const bouton = e.getByRole('button', { name: 'Tout accepter' })
   await bouton.waitFor()
-  await bouton.evaluate((el) => {
-    for (let x = el.parentElement; x && x !== document.body; x = x.parentElement)
-      if (/(auto|scroll)/.test(getComputedStyle(x).overflowY) && x.scrollHeight > x.clientHeight) {
-        x.scrollTop = x.scrollHeight
-        return
-      }
-  })
+  await defilerJusquEnBas(bouton)
   await attendre(400)
   const entete = await e.locator('.mantine-Drawer-header').boundingBox()
   const apres = await bouton.boundingBox()
@@ -437,5 +439,5 @@ test('format S : « Tout accepter » et « Tout refuser » restent sous l’en-t
     `sous l’en-tête (${apres.y} px)`,
   )
   assert.ok(await e.getByRole('button', { name: 'Tout refuser' }).isVisible(), '« Tout refuser » aussi')
-  await p.context().close()
+  for (const x of [p, c, e]) await x.context().close()
 })
