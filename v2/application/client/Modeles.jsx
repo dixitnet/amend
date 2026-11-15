@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { PanneauModeles, PageReglageModele, PanneauPolices, EcranMessage, REGLES_MODELES } from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
-import { valeurDuReglage } from '../../domaine/index.js'
+import { valeurDuReglage, appliquerReglages, grille } from '../../domaine/index.js'
 import { t, envoyerJson } from './commun.js'
 import { envoyerPolice } from './commentaires.js'
 
@@ -18,9 +18,9 @@ const NOMS_REGLAGES = {
   'marges.haut': () => t('modeles.reglage.marges.haut'),
   'marges.interieure': () => t('modeles.reglage.marges.interieure'),
   'marges.exterieure': () => t('modeles.reglage.marges.exterieure'),
+  'marges.bas': () => t('modeles.reglage.marges.bas'),
   'grille.corps': () => t('modeles.reglage.grille.corps'),
   'grille.interligne': () => t('modeles.reglage.grille.interligne'),
-  'grille.lignes': () => t('modeles.reglage.grille.lignes'),
   'chapitre.debut': () => t('modeles.reglage.chapitre.debut'),
   'chapitre.ligneTitre': () => t('modeles.reglage.chapitre.ligneTitre'),
   'chapitre.ligneTexte': () => t('modeles.reglage.chapitre.ligneTexte'),
@@ -112,6 +112,17 @@ export const groupesDeModeles = (equipe, maison, deLEquipe = []) => [
     ? [{ group: t('export.groupeEquipe', { equipe }), items: deLEquipe.map((m) => ({ value: m.id, label: m.nom })) }]
     : []),
 ]
+/**
+ * Sous la marge basse, ce qu'elle donne : la marge obtenue (celle demandée plus
+ * le reste de moins d'une ligne) et le nombre de lignes par page (Sylvain,
+ * 15/11/2026). Rien si le modèle est impossible : le serveur le dira.
+ */
+const aideMargeBasse = (complet, regles, valeurs) => {
+  const r = appliquerReglages(complet, valeurs, regles)
+  if (!r.ok) return null
+  const { lignes, margeBas } = grille(r.modele)
+  return t('modeles.margeBasseObtenue', { marge: Math.round(margeBas * 10) / 10, lignes })
+}
 /** Les champs du formulaire d'un modèle complet, pour une liste de réglages. */
 const champsDu = (complet, regles, familles = null) => {
   // Le catalogue des polices : celui que le serveur envoie (polices de
@@ -127,6 +138,7 @@ const champsDu = (complet, regles, familles = null) => {
     max: r.max,
     pas: r.pas,
     visibleSi: r.visibleSi,
+    aide: r.cle === 'marges.bas' ? (valeurs) => aideMargeBasse(complet, regles, valeurs) : undefined,
     options:
       r.type === 'police'
         ? polices

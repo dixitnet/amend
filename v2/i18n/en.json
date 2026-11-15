@@ -449,12 +449,12 @@
       "marges": {
         "haut": "Top margin (mm)",
         "interieure": "Inside margin (mm)",
-        "exterieure": "Outside margin (mm)"
+        "exterieure": "Outside margin (mm)",
+        "bas": "Bottom margin (mm)"
       },
       "grille": {
         "corps": "Text size (pt)",
-        "interligne": "Line spacing (pt)",
-        "lignes": "Lines per page"
+        "interligne": "Line spacing (pt)"
       },
       "chapitre": {
         "debut": "Chapter start",
@@ -529,6 +529,7 @@
       "general": "Name"
     },
     "essayer": "Try",
+    "margeBasseObtenue": "Resulting margin: {marge, number} mm, {lignes, plural, one {# line} other {# lines}} per page.",
     "defautInstance": "The instance default",
     "titreDefaut": "Default template",
     "titreListe": "Templates",

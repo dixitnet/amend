@@ -449,12 +449,12 @@
       "marges": {
         "haut": "Marge de tête (mm)",
         "interieure": "Marge intérieure (mm)",
-        "exterieure": "Marge extérieure (mm)"
+        "exterieure": "Marge extérieure (mm)",
+        "bas": "Marge basse (mm)"
       },
       "grille": {
         "corps": "Corps du texte (pt)",
-        "interligne": "Interligne (pt)",
-        "lignes": "Lignes par page"
+        "interligne": "Interligne (pt)"
       },
       "chapitre": {
         "debut": "Début de chapitre",
@@ -529,6 +529,7 @@
       "general": "Nom"
     },
     "essayer": "Essayer",
+    "margeBasseObtenue": "Marge obtenue\u00A0: {marge, number} mm, soit {lignes, plural, one {# ligne} other {# lignes}} par page.",
     "defautInstance": "Celui de l’instance",
     "titreDefaut": "Modèle par défaut",
     "titreListe": "Modèles",
