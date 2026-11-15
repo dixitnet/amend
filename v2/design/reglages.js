@@ -115,7 +115,23 @@ export const REGLAGES = {
   // Le volet de Margo : la portée de la demande (« Sur la sélection », « Sur
   // tout le texte ») en étiquette discrète de Mantine, pour la distinguer des
   // échanges (Sylvain, 13/11/2026).
-  margo: { portee: { variant: 'light' } },
+  margo: {
+    portee: { variant: 'light' },
+    // Le menu « … » du fil (« Nouvelle conversation »), à droite.
+    menu: { justify: 'flex-end' },
+    // L'attente : trois points animés (`Loader` de Mantine) dans une bulle de Margo.
+    attente: { type: 'dots' },
+    // Le fil : sans le retrait par défaut d'une liste du navigateur, pour que les bulles tiennent toute la largeur.
+    fil: { p: 0 },
+    // Le fil en bulles, comme un échange de SMS (Sylvain, 15/11/2026) : les
+    // siennes à droite sur la couleur d'accent, celles de Margo à gauche sur le
+    // gris des survols de Mantine ; couleurs et rayon de Mantine.
+    bulle: {
+      commune: { radius: 'lg', p: 'sm', maw: '85%' },
+      personne: { bg: 'var(--mantine-primary-color-filled)', c: 'var(--mantine-primary-color-contrast)', ml: 'auto' },
+      margo: { bg: 'var(--mantine-color-default-hover)' },
+    },
+  },
   // Les cartes des suggestions : une carte de Mantine bordée par suggestion ;
   // Accepter en vert, Refuser en rouge, tous deux discrets (variante « light »),
   // petits (Sylvain, 12/11/2026, variante vert / rouge). Cartes resserrées

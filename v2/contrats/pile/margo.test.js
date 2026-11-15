@@ -112,6 +112,60 @@ test('« Corriger » : une réponse simulée de Margo, le bilan s’affiche dans
   await p.context().close()
 })
 
+test('Margo au travail, volet ouvert : trois points dans une bulle de Margo (Sylvain, 15/11/2026)', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const doc = docTest('margo-points')
+  const p = await ouvrir('Paule', doc)
+  await p.route('**/margo', async (route) => {
+    await attendre(3000)
+    await route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"margo-indisponible"}' })
+  })
+  await p.click('.bn-editor')
+  await p.keyboard.type('Les enfant jouent dans la cour.')
+  await selectionner(p)
+  await boutonCorriger(p).click()
+  await p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).click()
+  await p.getByRole('tab', { name: 'Margo (IA)' }).click()
+  await p.locator('[role=status] .mantine-Loader-root').waitFor()
+  await p.context().close()
+})
+
+test('fil de Margo en bulles : la personne à droite, Margo à gauche ; « Nouvelle conversation » dans le menu « … » (Sylvain, 15/11/2026)', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const doc = docTest('margo-bulles')
+  const p = await ouvrir('Paule', doc)
+  await p.route('**/margo', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/x-ndjson',
+      body: [
+        { type: 'debut', blocs: [] },
+        { type: 'texte', texte: 'J’ai corrigé le passage.' },
+        { type: 'fin', corrections: 1, commentaires: 0, refus: 0, arret: null },
+      ]
+        .map((e) => JSON.stringify(e))
+        .join('\n'),
+    }),
+  )
+  await p.click('.bn-editor')
+  await p.keyboard.type('Les enfant jouent dans la cour.')
+  await selectionner(p)
+  await boutonCorriger(p).click()
+  await p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).click()
+  await p.getByRole('tab', { name: 'Margo (IA)' }).click()
+  const moi = p.locator('li').filter({ hasText: 'Corriger la sélection' }).locator('.mantine-Paper-root')
+  const elle = p.locator('li').filter({ hasText: 'J’ai corrigé le passage.' }).locator('.mantine-Paper-root')
+  const [a, b] = [await moi.boundingBox(), await elle.boundingBox()]
+  assert.ok(a.x + a.width > b.x + b.width, 'la bulle de la personne finit plus à droite que celle de Margo')
+  assert.ok(b.x < a.x, 'la bulle de Margo commence plus à gauche')
+  // La portée au-dessus de la saisie (4a).
+  await p.getByText('Sur la sélection').waitFor()
+  await p.getByRole('region', { name: 'Margo (IA)' }).getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Nouvelle conversation' }).click()
+  await p.getByText('Demandez à Margo').waitFor()
+  await p.context().close()
+})
+
 test('essai réel (MARGO_ESSAI_REEL=1) : « Corriger » pose une suggestion signée Margo (IA)', async (t) => {
   if (!REEL) return t.skip('essai réel non demandé (MARGO_ESSAI_REEL=1)')
   const doc = docTest('margo-reel')
