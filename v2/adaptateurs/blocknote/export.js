@@ -216,7 +216,7 @@ export async function versTypst(editeur, blocs, modele, { titre, langue, auteur 
   }
 }
 
-async function parcourir(exportateur, blocs) {
+async function parcourir(exportateur, blocs, racine = true) {
   // Seuls les blocs de texte ont un contenu en ligne : un tableau a le sien
   // (`tableContent`), une image aucun (audit du 10/11/2026 : un tableau faisait
   // échouer tout l'export).
@@ -226,7 +226,9 @@ async function parcourir(exportateur, blocs) {
   // Des paragraphes vides entre deux blocs de texte (deux sauts de paragraphe
   // ou plus) donnent une ligne blanche, une seule, sur la grille (Sylvain,
   // 12/11/2026) ; autour d'un titre, d'un séparateur ou d'un saut de page,
-  // rien : ces blocs ont déjà leur blanc.
+  // rien : ces blocs ont déjà leur blanc. Au début d'une page (après un saut de
+  // page, ou au tout début du livre), chaque paragraphe vide compte pour une ligne
+  // blanche : la personne les a écrits pour descendre le texte (Sylvain, 15/11/2026).
   let blanc = false
   const sansBlanc = (b) => !b || ['heading', 'divider', 'pageBreak'].includes(b.type)
   for (let i = 0; i < blocs.length; i++) {
@@ -235,7 +237,9 @@ async function parcourir(exportateur, blocs) {
     // Un paragraphe vide n'est pas écrit et ne compte pas : le premier
     // paragraphe écrit après un titre de chapitre reste « le premier ».
     if (b.type === 'paragraph' && !texte && !b.children?.length) {
-      blanc = !sansBlanc(precedent)
+      const debutDePage = precedent?.type === 'pageBreak' || (!precedent && racine)
+      if (debutDePage) sortie.push('#amend-blanc')
+      else blanc = !sansBlanc(precedent)
       continue
     }
     if (blanc && !sansBlanc(b)) sortie.push('#amend-blanc')
@@ -244,7 +248,7 @@ async function parcourir(exportateur, blocs) {
     if (liste) {
       const items = []
       while (i < blocs.length && blocs[i].type === b.type) {
-        const enfants = await parcourir(exportateur, blocs[i].children ?? [])
+        const enfants = await parcourir(exportateur, blocs[i].children ?? [], false)
         items.push(`[${[enLigne(blocs[i]), ...enfants].join('\n\n')}]`)
         i++
       }
@@ -288,7 +292,7 @@ async function parcourir(exportateur, blocs) {
         // Un bloc que BlockNote ne sait pas exporter est omis de même.
       }
     }
-    sortie.push(...(await parcourir(exportateur, b.children ?? [])))
+    sortie.push(...(await parcourir(exportateur, b.children ?? [], false)))
     precedent = b
   }
   return sortie

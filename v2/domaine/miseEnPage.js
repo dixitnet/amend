@@ -231,8 +231,7 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     st.retrait ? `pad(left: ${mm(st.retrait)}, ${contenuTypst})` : contenuTypst
   const bloc = (st, corps, { colle = false } = {}) =>
     `block(width: ${PLEINE_LARGEUR}, ${avantApres(st)}${colle ? ', sticky: true' : ''}, { ${regle(st)}` +
-    (st.retrait ? `pad(left: ${mm(st.retrait)}, ` : '(') +
-    `align(${placement(st)}, ${contenu(st, corps)}))})`
+    `${avecRetrait(st, `align(${placement(st)}, ${contenu(st, corps)})`)}})`
 
   // Pages : page blanche laissée avant un chapitre en belle page (celle qui
   // suit la fin d'un chapitre et précède le suivant), page d'ouverture d'un
@@ -463,8 +462,8 @@ export function completerModele(valeurs, defaut) {
  */
 export function stylesEnPoints(complet, valeurs) {
   for (const [nom, v] of Object.entries(valeurs?.styles ?? {})) {
-    if (!estObjet(v)) continue
-    const st = complet.styles[nom]
+    const st = complet.styles?.[nom]
+    if (!estObjet(v) || !st) continue // un style inconnu est ignoré
     const grilleDuModele = { pas: complet.grille.interligne, corps: complet.grille.corps }
     const corps = st.corps ?? complet.grille.corps
     if (Number.isFinite(v.lignesAvant) && !Number.isFinite(v.espaceAvant))
@@ -472,9 +471,11 @@ export function stylesEnPoints(complet, valeurs) {
     if (Number.isFinite(v.lignesApres) && !Number.isFinite(v.espaceApres))
       st.espaceApres = Math.round(blancSurGrille(grilleDuModele, v.lignesApres, corps, 'apres') * 10) / 10
   }
-  for (const st of Object.values(complet.styles ?? {})) {
-    delete st.lignesAvant
-    delete st.lignesApres
+  // Seuls les styles que le modèle enregistré portait (des copies : les autres sont ceux du modèle de référence).
+  for (const nom of Object.keys(valeurs?.styles ?? {})) {
+    if (!complet.styles?.[nom]) continue
+    delete complet.styles[nom].lignesAvant
+    delete complet.styles[nom].lignesApres
   }
   return complet
 }
