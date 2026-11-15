@@ -82,6 +82,17 @@
   border-color: var(--mantine-primary-color-filled);
 }
 
+/* réglage : css.suggestions.actions */
+/* « Tout accepter » et « Tout refuser » restent en haut du volet quand la
+   liste défile (Sylvain, 15/11/2026) : sur le fond du volet, au-dessus des cartes. */
+.amend-suggestions-actions {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--mantine-color-body);
+  padding-block: var(--mantine-spacing-xs);
+}
+
 /* réglage : css.commentaires.largeur */
 .bn-mantine .bn-threads-sidebar .bn-thread {
   min-width: 0;

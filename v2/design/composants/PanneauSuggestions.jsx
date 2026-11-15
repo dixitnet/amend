@@ -55,7 +55,7 @@ export function PanneauSuggestions({
         </>
       ) : null}
       {arbitre && (lignes.length || actionsGlobales) ? (
-        <Group>
+        <Group className="amend-suggestions-actions">
           <Button {...accepter} onClick={surToutAccepter}>
             {libelles.toutAccepter}
           </Button>
