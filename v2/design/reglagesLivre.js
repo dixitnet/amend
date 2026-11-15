@@ -91,6 +91,8 @@ const REGLABLES = [
   { cle: 'folio.depart', groupe: 'pages', type: 'entier', min: 1, max: 9999 },
   mm('folio.bas', 'pages'),
   { cle: 'folio.ouverture', groupe: 'pages', type: 'booleen' },
+  // La numérotation des images légendées (« Figure 1 : … »), avec le style « Légende » (Sylvain, 15/11/2026).
+  { cle: 'image.numerotation', groupe: 'legende', type: 'booleen' },
   { cle: 'enTete.gauche', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
   { cle: 'enTete.droite', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
   // Le texte libre d'un en-tête, demandé seulement quand le choix est « texte » (Sylvain, 15/11/2026).
@@ -144,7 +146,7 @@ export const REGLAGES_LIVRE = {
       separateur: 'blanc',
       cesure: true,
       // Une image occupe toute la largeur de la page hors marges, en pour cent (Sylvain, 14/11/2026).
-      image: { largeur: 100 },
+      image: { largeur: 100, numerotation: false },
       chapitre: { debut: 'page', ligneTitre: 3, ligneTexte: 7, interligne: 19 },
       styles: {
         texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 5 },
@@ -221,7 +223,7 @@ export const REGLAGES_LIVRE = {
         enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
         separateur: 'blanc',
         cesure: true,
-        image: { largeur: 100 },
+        image: { largeur: 100, numerotation: false },
         chapitre: { debut: 'belle-page', ligneTitre: 7, ligneTexte: 12, interligne: 14 },
         styles: {
           texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 4.5 },
