@@ -32,6 +32,8 @@ const POLICES_AJOUTEES = [
   famille('Inter', 'inter', 'Inter'),
   famille('Source Sans 3', 'source-sans-3', 'SourceSans3'),
   famille('Roboto', 'roboto', 'Roboto'),
+  // Open Sans (Sylvain, 15/11/2026), sans empattement.
+  famille('Open Sans', 'open-sans', 'OpenSans'),
   // Une police à chasse fixe (Sylvain, 15/11/2026), pour les extraits de code, la dactylographie, les dialogues de scénario.
   famille('Courier Prime', 'courier-prime', 'CourierPrime'),
 ]
@@ -50,8 +52,8 @@ const PROPRIETES_STYLE = {
   italique: (cle) => ({ cle, type: 'booleen' }),
   capitales: (cle) => ({ cle, type: 'booleen' }),
   alignement: (cle) => ({ cle, type: 'choix', options: ALIGNEMENTS }),
-  lignesAvant: (cle) => ({ cle, type: 'entier', min: 0, max: 10 }),
-  lignesApres: (cle) => ({ cle, type: 'entier', min: 0, max: 10 }),
+  espaceAvant: (cle) => ({ cle, type: 'nombre', unite: 'pt', min: 0, max: 200, pas: 0.5 }),
+  espaceApres: (cle) => ({ cle, type: 'nombre', unite: 'pt', min: 0, max: 200, pas: 0.5 }),
   alinea: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 50, pas: 0.5 }),
   retrait: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 100, pas: 0.5 }),
 }
@@ -59,7 +61,19 @@ const PROPRIETES_STYLE = {
 // l'alinéa et le retrait, qui n'ont pas leur colonne, vont sous le tableau.
 const reglagesDuStyle = (nom, props, groupe = 'styles') =>
   props.map((p) => ({ ...PROPRIETES_STYLE[p](`styles.${nom}.${p}`), groupe }))
-const BLOC = ['police', 'corps', 'gras', 'italique', 'capitales', 'alignement', 'lignesAvant', 'lignesApres']
+// Les réglages d'un style en bloc : tous, dont les retraits (de première ligne et à gauche) et l'espace avant et après, en points.
+const BLOC = [
+  'police',
+  'corps',
+  'gras',
+  'italique',
+  'capitales',
+  'alignement',
+  'alinea',
+  'retrait',
+  'espaceAvant',
+  'espaceApres',
+]
 const mm = (cle, groupe, max = 100) => ({ cle, groupe, type: 'nombre', unite: 'mm', min: 0, max, pas: 0.5 })
 /** Les réglages d'un modèle, par groupe du formulaire (un groupe par style) : tout
  * le modèle, pour les équipes comme pour les administrateurs (Sylvain, 13/11/2026). */
@@ -76,10 +90,10 @@ const REGLABLES = [
   { cle: 'grille.corps', groupe: 'styles', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
   { cle: 'grille.interligne', groupe: 'texte', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.1 },
   ...reglagesDuStyle('texte', ['gras', 'italique', 'alignement']),
-  ...reglagesDuStyle('texte', ['alinea'], 'texte'),
+  ...reglagesDuStyle('texte', ['alinea']),
   { cle: 'cesure', groupe: 'texte', type: 'booleen' },
   { cle: 'separateur', groupe: 'texte', type: 'choix', options: ['blanc', 'asterisme', 'etoiles', 'trait'] },
-  ...reglagesDuStyle('citation', [...BLOC, 'alinea', 'retrait']),
+  ...reglagesDuStyle('citation', BLOC),
   // Le titre de niveau 1 : l'ouverture de chapitre et son style.
   { cle: 'chapitre.debut', groupe: 'chapitre', type: 'choix', options: ['continuer', 'page', 'belle-page'] },
   // Le premier paragraphe d'un chapitre : sans retrait comme dans les exports jusqu'ici, ou avec (Sylvain, 15/11/2026).
@@ -87,7 +101,7 @@ const REGLABLES = [
   { cle: 'chapitre.ligneTitre', groupe: 'chapitre', type: 'entier', min: 1 },
   { cle: 'chapitre.ligneTexte', groupe: 'chapitre', type: 'entier', min: 2 },
   { cle: 'chapitre.interligne', groupe: 'chapitre', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.1 },
-  ...reglagesDuStyle('titre1', ['police', 'corps', 'gras', 'italique', 'capitales', 'alignement']),
+  ...reglagesDuStyle('titre1', ['police', 'corps', 'gras', 'italique', 'capitales', 'alignement', 'alinea', 'retrait']),
   ...['titre2', 'titre3', 'titre4', 'titre5', 'titre', 'sousTitre', 'legende'].flatMap((nom) =>
     reglagesDuStyle(nom, BLOC),
   ),
@@ -129,8 +143,94 @@ const INTERTITRE = {
   italique: true,
   capitales: false,
   alignement: 'gauche',
-  lignesAvant: 1,
-  lignesApres: 0,
+  // Une ligne de la grille avant (17 pt), l'espace ordinaire après (3 pt), sur la grille 11/14 de l'A4.
+  espaceAvant: 17,
+  espaceApres: 3,
+  alinea: 0,
+  retrait: 0,
+}
+
+/**
+ * Un modèle de format standard (Sylvain, 15/11/2026 : « 2 formats de base A4, A5, livre de
+ * poche avec des paramètres standards »), en EB Garamond : un livre dont tous les styles
+ * suivent le corps du texte. Valeurs proposées par Claude (marges et corps usuels de
+ * l'édition), à valider sur le PDF par Sylvain.
+ */
+const modeleStandard = ({
+  page,
+  marges,
+  corps,
+  interligne,
+  folioBas,
+  chapitre,
+  alinea,
+  retrait,
+  titre1,
+  titre,
+  sousTitre,
+  legende,
+  blancs,
+}) => {
+  const EB = 'EB Garamond'
+  // Les blancs, en points : ceux d'une ligne de la grille du modèle (intertitres : avant, après ; citation,
+  // titre, sous-titre, légende : [avant, après]).
+  const bloc = (c, gras, italique, [espaceAvant, espaceApres]) => ({
+    police: EB,
+    corps: c,
+    gras,
+    italique,
+    capitales: false,
+    alignement: 'centre',
+    espaceAvant,
+    espaceApres,
+    alinea: 0,
+    retrait: 0,
+  })
+  return {
+    page,
+    marges,
+    grille: { corps, interligne },
+    folio: { bas: folioBas, position: 'bas-centre', depart: 1, ouverture: true },
+    enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
+    separateur: 'blanc',
+    cesure: true,
+    image: { largeur: 100, numerotation: false },
+    chapitre: { debut: 'belle-page', premierSansAlinea: true, ...chapitre },
+    styles: {
+      texte: { police: EB, gras: false, italique: false, alignement: 'justifie', alinea },
+      citation: {
+        police: EB,
+        corps,
+        gras: false,
+        italique: false,
+        capitales: false,
+        alignement: 'justifie',
+        espaceAvant: blancs.citation[0],
+        espaceApres: blancs.citation[1],
+        alinea,
+        retrait,
+      },
+      titre1: {
+        police: EB,
+        corps: titre1,
+        gras: true,
+        italique: false,
+        capitales: false,
+        alignement: 'centre',
+        alinea: 0,
+        retrait: 0,
+      },
+      ...Object.fromEntries(
+        ['titre2', 'titre3', 'titre4', 'titre5'].map((n) => [
+          n,
+          { ...INTERTITRE, corps, espaceAvant: blancs.intertitre[0], espaceApres: blancs.intertitre[1] },
+        ]),
+      ),
+      titre: bloc(titre, true, false, blancs.titre),
+      sousTitre: bloc(sousTitre, false, true, blancs.sousTitre),
+      legende: bloc(legende, false, true, blancs.legende),
+    },
+  }
 }
 
 // Les modèles de mise en page des livres exportés en PDF (règle 21 : le
@@ -166,8 +266,8 @@ export const REGLAGES_LIVRE = {
           italique: false,
           capitales: false,
           alignement: 'justifie',
-          lignesAvant: 0,
-          lignesApres: 0,
+          espaceAvant: 3,
+          espaceApres: 3,
           alinea: 5,
           retrait: 8,
         },
@@ -178,6 +278,8 @@ export const REGLAGES_LIVRE = {
           italique: false,
           capitales: false,
           alignement: 'centre',
+          alinea: 0,
+          retrait: 0,
         },
         titre2: { ...INTERTITRE },
         titre3: { ...INTERTITRE },
@@ -190,8 +292,10 @@ export const REGLAGES_LIVRE = {
           italique: false,
           capitales: false,
           alignement: 'centre',
-          lignesAvant: 0,
-          lignesApres: 1,
+          espaceAvant: 9.8,
+          espaceApres: 15.2,
+          alinea: 0,
+          retrait: 0,
         },
         sousTitre: {
           police: 'EB Garamond',
@@ -200,8 +304,10 @@ export const REGLAGES_LIVRE = {
           italique: true,
           capitales: false,
           alignement: 'centre',
-          lignesAvant: 0,
-          lignesApres: 1,
+          espaceAvant: 14.6,
+          espaceApres: 16.4,
+          alinea: 0,
+          retrait: 0,
         },
         legende: {
           police: 'EB Garamond',
@@ -210,8 +316,10 @@ export const REGLAGES_LIVRE = {
           italique: true,
           capitales: false,
           alignement: 'centre',
-          lignesAvant: 0,
-          lignesApres: 1,
+          espaceAvant: 4.6,
+          espaceApres: 17.4,
+          alinea: 0,
+          retrait: 0,
         },
       },
     },
@@ -243,8 +351,8 @@ export const REGLAGES_LIVRE = {
             italique: false,
             capitales: false,
             alignement: 'justifie',
-            lignesAvant: 0,
-            lignesApres: 0,
+            espaceAvant: 1.9,
+            espaceApres: 1.9,
             alinea: 4.5,
             retrait: 5,
           },
@@ -255,11 +363,13 @@ export const REGLAGES_LIVRE = {
             italique: false,
             capitales: false,
             alignement: 'centre',
+            alinea: 0,
+            retrait: 0,
           },
-          titre2: { ...INTERTITRE, corps: 10.5 },
-          titre3: { ...INTERTITRE, corps: 10.5 },
-          titre4: { ...INTERTITRE, corps: 10.5 },
-          titre5: { ...INTERTITRE, corps: 10.5 },
+          titre2: { ...INTERTITRE, corps: 10.5, espaceAvant: 14.3, espaceApres: 1.9 },
+          titre3: { ...INTERTITRE, corps: 10.5, espaceAvant: 14.3, espaceApres: 1.9 },
+          titre4: { ...INTERTITRE, corps: 10.5, espaceAvant: 14.3, espaceApres: 1.9 },
+          titre5: { ...INTERTITRE, corps: 10.5, espaceAvant: 14.3, espaceApres: 1.9 },
           titre: {
             police: 'EB Garamond',
             corps: 13,
@@ -267,8 +377,10 @@ export const REGLAGES_LIVRE = {
             italique: false,
             capitales: false,
             alignement: 'centre',
-            lignesAvant: 0,
-            lignesApres: 1,
+            espaceAvant: 12.3,
+            espaceApres: 13.8,
+            alinea: 0,
+            retrait: 0,
           },
           sousTitre: {
             police: 'EB Garamond',
@@ -277,8 +389,10 @@ export const REGLAGES_LIVRE = {
             italique: true,
             capitales: false,
             alignement: 'centre',
-            lignesAvant: 0,
-            lignesApres: 1,
+            espaceAvant: 12.3,
+            espaceApres: 13.8,
+            alinea: 0,
+            retrait: 0,
           },
           legende: {
             police: 'EB Garamond',
@@ -287,11 +401,65 @@ export const REGLAGES_LIVRE = {
             italique: true,
             capitales: false,
             alignement: 'centre',
-            lignesAvant: 0,
-            lignesApres: 1,
+            espaceAvant: 3.1,
+            espaceApres: 14.6,
+            alinea: 0,
+            retrait: 0,
           },
         },
       },
+    },
+    // Les formats de base A5 et livre de poche (15/11/2026), proposés à toutes les équipes comme l'A4 : des
+    // modèles de l'instance qu'un administrateur peut régler ou supprimer.
+    {
+      id: 'a5',
+      nom: 'A5',
+      valeurs: modeleStandard({
+        page: { largeur: 148, hauteur: 210 },
+        marges: { haut: 20, interieure: 20, exterieure: 15, bas: 22.6 },
+        corps: 11,
+        interligne: 14,
+        folioBas: 12,
+        chapitre: { ligneTitre: 5, ligneTexte: 9, interligne: 19 },
+        alinea: 5,
+        retrait: 8,
+        titre1: 16,
+        titre: 20,
+        sousTitre: 14,
+        legende: 9,
+        blancs: {
+          intertitre: [17, 3],
+          citation: [3, 3],
+          titre: [9.8, 15.2],
+          sousTitre: [14.6, 16.4],
+          legende: [4.6, 17.4],
+        },
+      }),
+    },
+    {
+      id: 'livre-de-poche',
+      nom: 'Livre de poche',
+      valeurs: modeleStandard({
+        page: { largeur: 108, hauteur: 178 },
+        marges: { haut: 14, interieure: 15, exterieure: 11, bas: 16.2 },
+        corps: 9.5,
+        interligne: 12,
+        folioBas: 9,
+        chapitre: { ligneTitre: 5, ligneTexte: 9, interligne: 15 },
+        alinea: 4,
+        retrait: 5,
+        titre1: 13,
+        titre: 15,
+        sousTitre: 11,
+        legende: 8,
+        blancs: {
+          intertitre: [14.5, 2.5],
+          citation: [2.5, 2.5],
+          titre: [10.1, 13.4],
+          sousTitre: [13.3, 14.2],
+          legende: [3.7, 14.8],
+        },
+      }),
     },
   ],
   // Les réglages d'un modèle (Sylvain, 13/11/2026) : tout le modèle, pour les

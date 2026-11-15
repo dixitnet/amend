@@ -447,7 +447,7 @@ export function PageReglageModele({
  *     supprimerFichier: string, supprimerFichierDe: (fichier: string) => string,
  *     inutilisee: string, actionsDe: (famille: string) => string },
  *   intro: string, aide: string, aideFournies: string,
- *   fournies: string[],
+ *   fournies: Array<{ famille: string, actif: boolean, usage?: string | null }>,
  *   familles: Array<{ famille: string, actif: boolean, avertissement?: string | null, usage?: string | null,
  *     fichiers: Array<{ cle: string, libelle: string, fichier: string }> }>,
  *   message?: string | null, enCours: boolean,
@@ -552,13 +552,35 @@ export function PanneauPolices({
       )}
       <Title order={3}>{libelles.fournies}</Title>
       <Text>{aideFournies}</Text>
-      <Stack component="ul">
-        {fournies.map((f) => (
-          <Text component="li" key={f}>
-            {f}
-          </Text>
-        ))}
-      </Stack>
+      <Table.ScrollContainer minWidth={0}>
+        <Table {...REGLAGES.polices.tableau}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>{libelles.colonnes.famille}</Table.Th>
+              <Table.Th>{libelles.colonnes.utilisation}</Table.Th>
+              <Table.Th>{libelles.colonnes.etat}</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {fournies.map((f) => (
+              <Table.Tr key={f.famille}>
+                <Table.Th scope="row">
+                  <Text {...REGLAGES.polices.famille}>{f.famille}</Text>
+                </Table.Th>
+                <Table.Td>{f.usage ?? libelles.inutilisee}</Table.Td>
+                <Table.Td>
+                  <Switch
+                    aria-label={libelles.activeDe(f.famille)}
+                    label={libelles.active}
+                    checked={f.actif}
+                    onChange={(e) => surActiver(f.famille, e.currentTarget.checked)}
+                  />
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
     </Stack>
   )
 }
