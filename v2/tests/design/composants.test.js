@@ -613,9 +613,10 @@ test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiq
     h(design.PanneauMargo, {
       titre: 'Margo (IA)',
       messages: [
-        { cle: '1', etiquette: 'Vous', morceaux: [{ texte: 'Corrige <b>' }] },
+        { cle: '1', auteur: 'personne', etiquette: 'Vous', morceaux: [{ texte: 'Corrige <b>' }] },
         {
           cle: '2',
+          auteur: 'margo',
           etiquette: 'Margo (IA)',
           morceaux: [
             { texte: 'Deux corrections :\n- dans ' },
@@ -636,7 +637,7 @@ test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiq
         envoyer: 'Envoyer',
         desactive: true,
       },
-      nouvelle: { libelle: 'Nouvelle conversation', surClic: rien },
+      nouvelle: { libelle: 'Nouvelle conversation', libelleMenu: 'Autres actions', surClic: rien },
     }),
   )
   assert.match(html, /<section[^>]*aria-label="Margo \(IA\)"/)
@@ -651,7 +652,9 @@ test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiq
   assert.match(html, /role="alert"[^>]*>Erreur réseau/)
   assert.match(html, /<label[^>]*>Votre demande/)
   assert.match(html, /<button[^>]*type="submit"[^>]*disabled/)
-  assert.ok(html.includes('Nouvelle conversation'))
+  // « Nouvelle conversation » est dans un menu « … » : son bouton est nommé, l'entrée n'existe qu'ouvert.
+  assert.match(html, /<button[^>]*aria-label="Autres actions"/)
+  assert.match(html, /role="status"[\s\S]*mantine-Loader-root/, 'trois points pendant l’attente')
   const vide = rendre(
     h(design.PanneauMargo, {
       titre: 'Margo',

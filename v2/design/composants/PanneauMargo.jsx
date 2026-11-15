@@ -31,7 +31,7 @@ import { REGLAGES } from '../reglages.js'
  * @param {string | null} p.erreur
  * @param {string} p.portee  « Sur la sélection » ou « Sur tout le texte »
  * @param {{ libelle: string, valeur: string, surChange: (v: string) => void, surEnvoi: () => void, envoyer: string, desactive: boolean }} p.saisie
- * @param {{ libelle: string, libelleMenu?: string, surClic: () => void } | null} p.nouvelle  `libelleMenu` : le nom du bouton « … » (par défaut `libelle`)
+ * @param {{ libelle: string, libelleMenu: string, surClic: () => void } | null} p.nouvelle  `libelleMenu` : le nom du bouton « … »
  * @param {boolean} [p.visible]  le volet montre ce panneau : à son ouverture, et à chaque
  *   nouvel échange, la fin de la conversation et la saisie sont amenées à l'écran
  */
@@ -58,7 +58,7 @@ export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee
         <Group {...REGLAGES.margo.menu}>
           <Menu>
             <Menu.Target>
-              <ActionIcon aria-label={nouvelle.libelleMenu ?? nouvelle.libelle}>
+              <ActionIcon aria-label={nouvelle.libelleMenu}>
                 <PictoDe role="autres" />
               </ActionIcon>
             </Menu.Target>
@@ -102,7 +102,7 @@ export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee
       {enCours ? (
         <Paper role="status" {...REGLAGES.margo.bulle.commune} {...REGLAGES.margo.bulle.margo}>
           <VisuallyHidden>{enCours}</VisuallyHidden>
-          <Loader type="dots" aria-hidden="true" />
+          <Loader {...REGLAGES.margo.attente} aria-hidden="true" />
         </Paper>
       ) : null}
       {erreur ? <Text role="alert">{erreur}</Text> : null}

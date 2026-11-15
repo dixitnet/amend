@@ -119,6 +119,8 @@ export const REGLAGES = {
     portee: { variant: 'light' },
     // Le menu « … » du fil (« Nouvelle conversation »), à droite.
     menu: { justify: 'flex-end' },
+    // L'attente : trois points animés (`Loader` de Mantine) dans une bulle de Margo.
+    attente: { type: 'dots' },
     // Le fil : sans le retrait par défaut d'une liste du navigateur, pour que les bulles tiennent toute la largeur.
     fil: { p: 0 },
     // Le fil en bulles, comme un échange de SMS (Sylvain, 15/11/2026) : les
