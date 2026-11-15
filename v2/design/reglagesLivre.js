@@ -57,8 +57,7 @@ const PROPRIETES_STYLE = {
   alinea: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 50, pas: 0.5 }),
   retrait: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 100, pas: 0.5 }),
 }
-// Les réglages d'un style, tous dans la rubrique « Styles » (un tableau, un style par ligne) ;
-// l'alinéa et le retrait, qui n'ont pas leur colonne, vont sous le tableau.
+// Les réglages d'un style, tous dans la rubrique « Styles » (un tableau, un style par ligne).
 const reglagesDuStyle = (nom, props, groupe = 'styles') =>
   props.map((p) => ({ ...PROPRIETES_STYLE[p](`styles.${nom}.${p}`), groupe }))
 // Les réglages d'un style en bloc : tous, dont les retraits (de première ligne et à gauche) et l'espace avant et après, en points.
