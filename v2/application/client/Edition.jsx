@@ -474,6 +474,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
       titre={t('interface.margo')}
       messages={margo.fil.map((m) => ({
         cle: m.cle,
+        auteur: m.auteur,
         etiquette: m.auteur === 'margo' ? t('interface.margo') : t('margo.vous'),
         morceaux:
           m.auteur === 'margo'
@@ -493,7 +494,11 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         envoyer: t('margo.envoyer'),
         desactive: Boolean(margo.enCours) || !demandeMargo.trim(),
       }}
-      nouvelle={margo.fil.length ? { libelle: t('margo.nouvelle'), surClic: margo.nouvelle } : null}
+      nouvelle={
+        margo.fil.length
+          ? { libelle: t('margo.nouvelle'), libelleMenu: t('margo.menu'), surClic: margo.nouvelle }
+          : null
+      }
       // Le volet montre Margo : la fin de l'échange vient à l'écran.
       visible={ongletRelecture === 'margo' && (formatS ? volet === 'droite' : volets.droite)}
     />
