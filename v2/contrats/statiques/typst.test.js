@@ -239,10 +239,10 @@ test('un tableau, une image et une image introuvable : le PDF se compile quand m
   }
 })
 
-test('une image occupe toute la largeur de la page hors marges, quelle que soit sa largeur d’affichage dans l’éditeur (Sylvain, 14/11/2026)', async () => {
+/** Un faux serveur d'images PNG (`/large.png` 40 × 10, `/haute.png` 1 × 20) ; `fermer()` l'arrête. */
+async function serveurImages() {
   const { default: http } = await import('node:http')
   const { deflateSync, crc32 } = await import('node:zlib')
-  // Un PNG de 1 × 20 pixels (très haut) et un d'un pixel, servis par un faux serveur.
   const morceau = (type, donnees) => {
     const t = Buffer.concat([Buffer.from(type), donnees])
     const lon = Buffer.alloc(4)
@@ -272,7 +272,11 @@ test('une image occupe toute la largeur de la page hors marges, quelle que soit 
       : res.writeHead(404).end(),
   )
   await new Promise((r) => serveur.listen(0, '127.0.0.1', r))
-  const adresse = `http://127.0.0.1:${serveur.address().port}`
+  return { adresse: `http://127.0.0.1:${serveur.address().port}`, fermer: () => serveur.close() }
+}
+
+test('une image occupe toute la largeur de la page hors marges, quelle que soit sa largeur d’affichage dans l’éditeur (Sylvain, 14/11/2026)', async () => {
+  const { adresse, fermer } = await serveurImages()
   try {
     const editeur = nouvelEditeur()
     editeur.replaceBlocks(editeur.document, [
@@ -287,7 +291,42 @@ test('une image occupe toute la largeur de la page hors marges, quelle que soit 
     const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
     assert.equal(Buffer.from(pdf.slice(0, 5)).toString(), '%PDF-', 'le PDF se compile, même avec une image très haute')
   } finally {
-    serveur.close()
+    fermer()
+  }
+})
+
+test('images légendées : la légende prend le style « Légende », numérotée ou non selon le modèle (Sylvain, 15/11/2026)', async () => {
+  const { adresse, fermer } = await serveurImages()
+  try {
+    const editeur = nouvelEditeur()
+    editeur.replaceBlocks(editeur.document, [
+      { type: 'paragraph', content: [texte('Avant.')] },
+      { type: 'image', props: { url: `${adresse}/large.png`, caption: 'Une belle photo' } },
+      { type: 'image', props: { url: `${adresse}/large.png`, caption: 'Une seconde photo' } },
+    ])
+    const lire = async (numerotation) => {
+      const m = { ...modele, image: { ...modele.image, numerotation } }
+      const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
+      assert.match(source, /#show figure\.caption: it => amend-legende\(it\)/, 'la légende prend le style « Légende »')
+      assert.match(
+        source,
+        new RegExp(
+          `#show figure\\.where\\(kind: image\\): set figure\\(numbering: ${numerotation ? '"1"' : 'none'}\\)`,
+        ),
+      )
+      const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+      const dossier = mkdtempSync(join(tmpdir(), 'leg-'))
+      writeFileSync(join(dossier, 'a.pdf'), pdf)
+      return execFileSync('pdftotext', ['-layout', join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
+    }
+    const avec = await lire(true)
+    assert.match(avec, /Fig\. 1\s?: Une belle photo/, 'numérotée : ' + avec)
+    assert.match(avec, /Fig\. 2\s?: Une seconde photo/)
+    const sans = await lire(false)
+    assert.match(sans, /Une belle photo/, 'la légende reste')
+    assert.doesNotMatch(sans, /Fig\. \d/, 'sans numéro : ' + sans)
+  } finally {
+    fermer()
   }
 })
 
