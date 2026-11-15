@@ -71,6 +71,8 @@ export function versModeleParStyle(ancien) {
     folio: structuredClone(ancien.folio),
     // Les textes libres des en-têtes (15/11/2026) manquent aux anciens modèles.
     enTete: { texteGauche: '', texteDroite: '', ...structuredClone(ancien.enTete) },
+    // Les images (14 et 15/11/2026) : toute la largeur, sans numérotation.
+    image: { largeur: 100, numerotation: false },
     separateur: ancien.separateur,
     cesure: ancien.cesure,
     chapitre: { debut: c.debut, ligneTitre: c.ligneTitre, ligneTexte: c.ligneTexte, interligne: c.interligne },
