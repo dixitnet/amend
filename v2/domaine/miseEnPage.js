@@ -302,10 +302,10 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#show outline.entry: it => { show linebreak: [ ]; show regex("[\\n\\r]+"): [ ]; it }`,
     `#show outline.entry.where(level: 1): set text(weight: ${poids(t1)})`,
     // Un blanc (paragraphes vides en série) : une ligne de la grille.
-    // Une ligne vide (un paragraphe qui ne porte qu'une espace sans chasse), non un espacement : Typst supprime
-    // un espacement en haut de page, et le saut de ligne d'une page commencée par un blanc ne comptait pas
-    // (Sylvain, 15/11/2026). Comme un paragraphe, elle tombe sur la grille en haut de page comme ailleurs.
-    `#let amend-blanc = par(first-line-indent: ${ZERO})[#"\\u{200B}"]`,
+    // Une ligne vide (un paragraphe qui ne porte qu'une boîte d'un em, sans aucun caractère), non un espacement :
+    // Typst supprime un espacement en haut de page, et le saut de ligne d'une page commencée par un blanc ne
+    // comptait pas (Sylvain, 15/11/2026). Comme un paragraphe, elle tombe sur la grille en haut de page comme ailleurs.
+    `#let amend-blanc = par(first-line-indent: ${ZERO})[#box(height: ${em(1)})]`,
     // Le séparateur de scène (le séparateur de BlockNote) : une ligne de la
     // grille, blanche ou portant un signe centré.
     `#let amend-separateur = ${separateurTypst(modele.separateur, pas)}`,
