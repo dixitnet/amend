@@ -15,7 +15,8 @@ test('un ancien modèle (base de l’A4 et écarts) devient un modèle complet p
   assert.equal(m.page.largeur, 135)
   assert.equal(m.styles.texte.police, 'EB Garamond')
   assert.equal(m.styles.legende.italique, true)
-  assert.equal(m.styles.titre.lignesAvant, 0)
+  assert.ok(m.styles.titre.espaceAvant > 0, 'les blancs sont en points')
+  assert.equal(m.styles.titre.lignesAvant, undefined)
   assert.equal(verifierModele(m, REGLES_MODELES).ok, true)
 })
 

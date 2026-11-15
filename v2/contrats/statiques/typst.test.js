@@ -209,6 +209,28 @@ test('un saut de ligne en haut de page compte comme ailleurs : une ligne de la g
   assert.ok(enHaut >= 1, 'au moins un cas où le blanc est en tête de page')
 })
 
+test('formats de base A5 et livre de poche : le PDF se compile au bon format (Sylvain, 15/11/2026)', async () => {
+  for (const { id, valeurs } of REPRISE_MODELES.filter((r) => ['a5', 'livre-de-poche'].includes(r.id))) {
+    const editeur = nouvelEditeur()
+    editeur.replaceBlocks(editeur.document, [
+      { type: 'heading', props: { level: 1 }, content: [texte('Un chapitre')] },
+      ...Array.from({ length: 40 }, () => ({ type: 'paragraph', content: [texte(paragraphe)] })),
+    ])
+    const { source, fichiers } = await versTypst(editeur, editeur.document, valeurs, { titre: 'Essai', langue: 'fr' })
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(valeurs), wasm: wasm() })
+    const dossier = mkdtempSync(join(tmpdir(), 'fmt-'))
+    try {
+      writeFileSync(join(dossier, 'a.pdf'), pdf)
+      const info = execFileSync('pdfinfo', [join(dossier, 'a.pdf')], { encoding: 'utf8' })
+      const taille = info.match(/Page size:\s+([\d.]+) x ([\d.]+) pts/)
+      const mm = (pt) => Math.round((Number(pt) * 25.4) / 72)
+      assert.deepEqual([mm(taille[1]), mm(taille[2])], [valeurs.page.largeur, valeurs.page.hauteur], id)
+    } finally {
+      rmSync(dossier, { recursive: true, force: true })
+    }
+  }
+})
+
 test('titre et sous-titre : centrés dans le flux, hors de la table des matières ; le PDF se compile (12/11/2026)', async () => {
   const editeur = nouvelEditeur()
   editeur.replaceBlocks(editeur.document, [
