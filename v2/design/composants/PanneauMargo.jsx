@@ -53,7 +53,7 @@ export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee
     if (!saisie.desactive) saisie.surEnvoi()
   }
   return (
-    <Stack component="section" aria-label={titre}>
+    <Stack component="section" aria-label={titre} {...REGLAGES.margo.section}>
       {nouvelle ? (
         <Group {...REGLAGES.margo.menu}>
           <Menu>

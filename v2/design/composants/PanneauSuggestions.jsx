@@ -36,10 +36,10 @@ export function PanneauSuggestions({
   invitation,
   actionsGlobales = false,
 }) {
-  const { carte, pile, entete, auteur, boutons, accepter, refuser } = REGLAGES.suggestions
+  const { carte, liste, pile, entete, auteur, boutons, accepter, refuser } = REGLAGES.suggestions
   const arbitre = Boolean(surAccepter)
   return (
-    <Stack component="section" aria-label={titre}>
+    <Stack component="section" aria-label={titre} {...liste}>
       {/* Pas de titre visible (« 45 suggestions » : le nombre est sur l'onglet ;
           Sylvain, 12/11/2026) : il nomme la section pour les lecteurs d'écran,
           et se lit seulement quand la liste est vide (« Aucune correction »). */}
@@ -64,7 +64,7 @@ export function PanneauSuggestions({
           </Button>
         </Group>
       ) : null}
-      <Stack component="ol" className="amend-suggestions-liste">
+      <Stack component="ol" className="amend-suggestions-liste" {...liste}>
         {lignes.map((l, i) => (
           <Paper component="li" key={l.cle} {...carte} data-active={active === i || undefined}>
             <Stack {...pile}>

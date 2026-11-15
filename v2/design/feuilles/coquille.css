@@ -76,6 +76,7 @@
 /* réglage : css.suggestions.cartes */
 .amend-suggestions-liste {
   padding-inline-start: 0;
+  margin-block: 0;
   list-style: none;
 }
 .amend-suggestions-liste > [data-active] {
@@ -91,6 +92,21 @@
   z-index: 1;
   background: var(--mantine-color-body);
   padding-block: var(--mantine-spacing-xs);
+}
+
+/* réglage : css.commentaires.cartes */
+/* Les cartes des fils au même dessin que celles des corrections (Sylvain,
+   15/11/2026, « parfaite coordination du design des volets ») : marge et
+   espacement `xs`, rayon `md`, bordure fine de l'interface, police de
+   l'interface pour le texte des commentaires (et non celle du livre). */
+.bn-mantine .bn-threads-sidebar .bn-thread {
+  padding: var(--mantine-spacing-xs);
+  gap: var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-md);
+  border-color: var(--mantine-color-default-border);
+}
+.bn-mantine .bn-threads-sidebar .bn-thread .bn-editor {
+  font-family: var(--mantine-font-family);
 }
 
 /* réglage : css.commentaires.largeur */
