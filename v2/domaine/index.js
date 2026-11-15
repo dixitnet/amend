@@ -45,6 +45,8 @@ export {
   appliquerReglages,
   verifierModele,
   completerModele,
+  stylesEnPoints,
+  blancSurGrille,
   famillesDuModele,
   ALIGNEMENTS,
   NOMS_STYLES,

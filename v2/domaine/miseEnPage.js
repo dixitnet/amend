@@ -129,8 +129,9 @@ const STYLE_PAR_DEFAUT = {
   italique: false,
   capitales: false,
   alignement: 'gauche',
-  lignesAvant: 0,
-  lignesApres: 0,
+  // L'espace avant et après un bloc, en points (Sylvain, 15/11/2026 : « espacement en pt »).
+  espaceAvant: 0,
+  espaceApres: 0,
   alinea: 0,
   retrait: 0,
 }
@@ -151,7 +152,7 @@ function styleDe(modele, nom) {
  * l'exige ; jamais moins que l'espace ordinaire entre deux paragraphes, que
  * Typst ferait gagner sinon.
  */
-function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
+export function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
   const ordinaire = pas - corps
   for (let k = Math.max(0, n); k <= n + 60; k++) {
     const v =
@@ -224,12 +225,13 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `set par(justify: ${st.alignement === 'justifie'}, leading: ${pt(pas)} - ${em(1)}, ` +
     `first-line-indent: (amount: ${mm(st.alinea)}, all: true)); `
   const contenu = (st, corps) => (st.capitales ? `upper(${corps})` : corps)
-  const avantApres = (st) =>
-    `above: ${pt(blancSurGrille({ pas, corps: g.corps }, st.lignesAvant, st.corps, 'avant'))}, ` +
-    `below: ${pt(blancSurGrille({ pas, corps: g.corps }, st.lignesApres, st.corps, 'apres'))}`
-  const bloc = (st, corps, { retrait = false, colle = false } = {}) =>
+  const avantApres = (st) => `above: ${pt(st.espaceAvant)}, below: ${pt(st.espaceApres)}`
+  // Le retrait de première ligne (`alinea`) est dans `regle` ; le retrait à gauche, ici, pour tout style.
+  const avecRetrait = (st, contenuTypst) =>
+    st.retrait ? `pad(left: ${mm(st.retrait)}, ${contenuTypst})` : contenuTypst
+  const bloc = (st, corps, { colle = false } = {}) =>
     `block(width: ${PLEINE_LARGEUR}, ${avantApres(st)}${colle ? ', sticky: true' : ''}, { ${regle(st)}` +
-    (retrait && st.retrait ? `pad(left: ${mm(st.retrait)}, ` : '(') +
+    (st.retrait ? `pad(left: ${mm(st.retrait)}, ` : '(') +
     `align(${placement(st)}, ${contenu(st, corps)}))})`
 
   // Pages : page blanche laissée avant un chapitre en belle page (celle qui
@@ -294,7 +296,7 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#set list(spacing: ${ecart})`,
     `#set enum(spacing: ${ecart})`,
     // La citation : son style, et son retrait à gauche.
-    `#show quote.where(block: true): it => ${bloc(styleDe(modele, 'citation'), 'it.body', { retrait: true })}`,
+    `#show quote.where(block: true): it => ${bloc(styleDe(modele, 'citation'), 'it.body')}`,
     // Les liens en noir, comme le texte (impression) ; l'adresse reste dans le PDF.
     `#show link: set text(fill: ${NOIR})`,
     // La table des matières : un titre sur plusieurs lignes tient sur une seule
@@ -338,8 +340,8 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
         `#show heading.where(level: 1): it => block(above: ${pt(lignesDeBlanc(c.ligneTitre - 1))}, ` +
           `below: ${pt(lignesDeBlanc(c.ligneTexte - c.ligneTitre - 1))}, width: ${PLEINE_LARGEUR}, sticky: true, {` +
           `set text(font: (${chaineTypst(t1.police)},), size: ${pt(t1.corps)}, weight: ${poids(t1)}, style: ${forme(t1)}); ` +
-          `set par(justify: ${t1.alignement === 'justifie'}, first-line-indent: ${ZERO}, leading: ${pt(c.interligne)} - ${em(1)}); ` +
-          `align(${placement(t1)}, ${contenu(t1, 'it.body')})})`
+          `set par(justify: ${t1.alignement === 'justifie'}, first-line-indent: ${mm(t1.alinea)}, leading: ${pt(c.interligne)} - ${em(1)}); ` +
+          `${avecRetrait(t1, `align(${placement(t1)}, ${contenu(t1, 'it.body')})`)}})`
       : `#show heading.where(level: 1): it => {` +
           `[#metadata(none) <amend-fin>]; ` +
           (c.debut === 'belle-page' ? `pagebreak(to: "odd", weak: true); ` : `pagebreak(weak: true); `) +
@@ -347,8 +349,8 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
           `block(height: ${pt(hauteurOuverture)}, width: ${PLEINE_LARGEUR}, above: ${ZERO}, below: ${ZERO}, sticky: true, {` +
           `v(${pt(descenteTitre)}); ` +
           `set text(font: (${chaineTypst(t1.police)},), size: ${pt(t1.corps)}, weight: ${poids(t1)}, style: ${forme(t1)}); ` +
-          `set par(justify: ${t1.alignement === 'justifie'}, first-line-indent: ${ZERO}, leading: ${pt(c.interligne)} - ${em(1)}); ` +
-          `align(${placement(t1)}, ${contenu(t1, 'it.body')})})}`,
+          `set par(justify: ${t1.alignement === 'justifie'}, first-line-indent: ${mm(t1.alinea)}, leading: ${pt(c.interligne)} - ${em(1)}); ` +
+          `${avecRetrait(t1, `align(${placement(t1)}, ${contenu(t1, 'it.body')})`)}})}`,
   )
   // Le premier numéro de page (v1, `startAt`).
   // Un numéro de départ qui n'est pas un entier positif est ignoré (1).
@@ -451,8 +453,32 @@ export function completerModele(valeurs, defaut) {
     if (!Number.isFinite(valeurs?.marges?.bas)) complet.marges.bas = margeBasPourLignes(complet, valeurs.grille.lignes)
     delete complet.grille.lignes // la marge basse fait foi, plus de donnée morte
   }
+  stylesEnPoints(complet, valeurs)
   return complet
 }
+/**
+ * Les styles d'un modèle enregistré avec des lignes blanches avant et après (avant le 15/11/2026) :
+ * les points que ces lignes valaient sur la grille du modèle (Sylvain : « espacement en pt »).
+ * Modifie `complet` ; `valeurs` dit ce que le modèle enregistré portait.
+ */
+export function stylesEnPoints(complet, valeurs) {
+  for (const [nom, v] of Object.entries(valeurs?.styles ?? {})) {
+    if (!estObjet(v)) continue
+    const st = complet.styles[nom]
+    const grilleDuModele = { pas: complet.grille.interligne, corps: complet.grille.corps }
+    const corps = st.corps ?? complet.grille.corps
+    if (Number.isFinite(v.lignesAvant) && !Number.isFinite(v.espaceAvant))
+      st.espaceAvant = Math.round(blancSurGrille(grilleDuModele, v.lignesAvant, corps, 'avant') * 10) / 10
+    if (Number.isFinite(v.lignesApres) && !Number.isFinite(v.espaceApres))
+      st.espaceApres = Math.round(blancSurGrille(grilleDuModele, v.lignesApres, corps, 'apres') * 10) / 10
+  }
+  for (const st of Object.values(complet.styles ?? {})) {
+    delete st.lignesAvant
+    delete st.lignesApres
+  }
+  return complet
+}
+
 function fusionner(valeurs, defaut) {
   if (!estObjet(defaut)) return valeurs === undefined ? defaut : valeurs
   const sortie = { ...defaut }

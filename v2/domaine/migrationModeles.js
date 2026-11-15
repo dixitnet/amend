@@ -3,7 +3,7 @@
 // devient un modèle complet, avec un jeu de réglages par style. À retirer
 // quand plus aucun modèle n'est enregistré à l'ancienne façon.
 
-import { poser, margeBasPourLignes } from './miseEnPage.js'
+import { poser, margeBasPourLignes, stylesEnPoints } from './miseEnPage.js'
 
 /** « A4 simple » tel que le code le livrait jusqu'au 13/11/2026. */
 export const A4_ANCIEN = Object.freeze({
@@ -48,6 +48,11 @@ export function ancienModele(entree, instance, idCode, profondeur = 0) {
 
 /** Un modèle à l'ancienne façon, devenu un modèle complet par style. */
 export function versModeleParStyle(ancien) {
+  const modele = versModeleParStyleEnLignes(ancien)
+  // Les blancs, en points (15/11/2026).
+  return stylesEnPoints(modele, modele)
+}
+function versModeleParStyleEnLignes(ancien) {
   const g = ancien.grille
   const c = ancien.chapitre
   const police = ancien.police
@@ -61,6 +66,8 @@ export function versModeleParStyle(ancien) {
     alignement: 'gauche',
     lignesAvant: ancien.intertitres?.lignesAvant ?? 1,
     lignesApres: ancien.intertitres?.lignesApres ?? 0,
+    alinea: 0,
+    retrait: 0,
   }
   const titre = ancien.titre ?? { corps: c.corps, graisse: c.graisse }
   const sousTitre = ancien.sousTitre ?? { corps: c.corps, italique: true }
@@ -110,6 +117,8 @@ export function versModeleParStyle(ancien) {
         italique: false,
         capitales: false,
         alignement: 'centre',
+        alinea: 0,
+        retrait: 0,
       },
       titre2: { ...intertitre },
       titre3: { ...intertitre },
@@ -124,6 +133,8 @@ export function versModeleParStyle(ancien) {
         alignement: 'centre',
         lignesAvant: 0,
         lignesApres: 1,
+        alinea: 0,
+        retrait: 0,
       },
       sousTitre: {
         police,
@@ -134,6 +145,8 @@ export function versModeleParStyle(ancien) {
         alignement: 'centre',
         lignesAvant: 0,
         lignesApres: 1,
+        alinea: 0,
+        retrait: 0,
       },
       legende: {
         police,
@@ -144,6 +157,8 @@ export function versModeleParStyle(ancien) {
         alignement: 'centre',
         lignesAvant: 0,
         lignesApres: 1,
+        alinea: 0,
+        retrait: 0,
       },
     },
   }
