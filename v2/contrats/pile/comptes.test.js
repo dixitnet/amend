@@ -94,6 +94,19 @@ test('lien de partage : une personne connectée qui a l’adresse entre comme le
   await p.context().close()
 })
 
+test('volet Documents : « Ouvrir dans un nouvel onglet » est la première option du menu « … » et ouvre le document (Sylvain, 15/11/2026)', async () => {
+  const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-onglet-${Date.now().toString(36)}`)
+  const docId = await nouveauDocument(p)
+  await menuDe(p, { id: docId })
+  const premier = p.getByRole('menuitem').first()
+  assert.equal((await premier.innerText()).trim(), 'Ouvrir dans un nouvel onglet', 'première option')
+  const [onglet] = await Promise.all([p.context().waitForEvent('page'), premier.click()])
+  await onglet.waitForLoadState('domcontentloaded')
+  assert.equal(decodeURIComponent(new URL(onglet.url()).hash.slice(1)), docId, 'le même document')
+  await onglet.close()
+  await p.context().close()
+})
+
 test('suppression : le propriétaire supprime ; le document disparaît du volet', async () => {
   const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
   const docId = await nouveauDocument(p)
