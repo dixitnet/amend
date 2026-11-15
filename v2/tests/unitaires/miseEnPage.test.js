@@ -302,3 +302,28 @@ test('un modèle enregistré en lignes par page (avant le 15/11/2026) reçoit la
   assert.equal(double.marges.bas, 20)
   assert.equal(double.grille.lignes, undefined)
 })
+
+test('premier paragraphe du chapitre : sans retrait par défaut, avec retrait au choix du modèle (Sylvain, 15/11/2026)', () => {
+  assert.match(gabaritTypst(MODELE), /#let amend-sans-alinea\(corps\) = par\(first-line-indent: 0pt, corps\)/)
+  const avec = gabaritTypst({ ...MODELE, chapitre: { ...MODELE.chapitre, premierSansAlinea: false } })
+  assert.match(avec, /#let amend-sans-alinea\(corps\) = corps\n/)
+})
+
+test('police d’un style : vide, c’est celle du texte courant (sauf pour le texte lui-même) (Sylvain, 15/11/2026)', () => {
+  const polices = [{ famille: 'EB Garamond', fichiers: ['eb.ttf'] }]
+  const regles = {
+    reglables: [
+      { cle: 'styles.texte.police', type: 'police' },
+      { cle: 'styles.titre2.police', type: 'police', herite: true },
+    ],
+    polices,
+  }
+  assert.equal(appliquerReglages(MODELE, { 'styles.titre2.police': '' }, regles).ok, true)
+  const refus = appliquerReglages(MODELE, { 'styles.texte.police': '' }, regles)
+  assert.equal(refus.ok, false, 'le texte courant a toujours une police')
+  const m = appliquerReglages(MODELE, { 'styles.titre2.police': '' }, regles).modele
+  const g = gabaritTypst(m)
+  const police = MODELE.styles.texte.police
+  assert.ok(g.includes(`font: ("${police}",)`))
+  assert.doesNotMatch(g, /font: \(""/)
+})
