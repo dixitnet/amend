@@ -132,7 +132,7 @@ test('modèles d’équipe : le gestionnaire crée et règle ; les écarts sont 
   assert.equal(statut, 201)
   const refus = await appel('PUT', `${base}/${m.id}`, {
     cookie: gaelle.cookie,
-    corps: { reglages: { 'grille.lignes': 80 } },
+    corps: { reglages: { 'page.hauteur': 100, 'marges.bas': 100 } },
   })
   assert.equal(refus.statut, 400)
   assert.deepEqual(refus.json, { code: 'modele-impossible', reglage: null, raison: 'lignes' })
