@@ -210,4 +210,6 @@ create table if not exists amend.polices (
 create index if not exists polices_famille on amend.polices (famille);
 -- Un seul fichier par famille, style et graisse : deux envois simultanés du même style ne passent pas tous deux.
 create unique index if not exists polices_unique on amend.polices (famille, style, graisse);
+-- Une famille désactivée (15/11/2026) n'est plus proposée dans les modèles ; ses fichiers restent, pour les modèles qui s'en servent.
+alter table amend.polices add column if not exists actif boolean not null default true;
 `

@@ -8,7 +8,7 @@ export function partiesPolices(sql) {
     /** Les fichiers de police de l'instance, sans leurs octets. */
     async polices() {
       return (
-        await sql`select id, famille, style, graisse, fichier, taille, cree_le from amend.polices order by famille, cree_le`
+        await sql`select id, famille, style, graisse, fichier, taille, cree_le, actif from amend.polices order by famille, cree_le`
       ).map((p) => ({
         id: p.id,
         famille: p.famille,
@@ -17,6 +17,7 @@ export function partiesPolices(sql) {
         fichier: p.fichier,
         octets: p.taille,
         creeLe: p.cree_le.getTime(),
+        actif: p.actif,
       }))
     },
     /** Garde un fichier de police ; rend son identifiant. */
@@ -33,6 +34,14 @@ export function partiesPolices(sql) {
       if (!estUuid(id)) return null
       const [p] = await sql`select octets from amend.polices where id = ${id}`
       return p ? new Uint8Array(p.octets) : null
+    },
+    /** Active ou désactive une famille (tous ses fichiers) ; rend le nombre de fichiers touchés. */
+    async activerFamille(famille, actif) {
+      return (await sql`update amend.polices set actif = ${actif} where famille = ${famille} returning id`).length
+    },
+    /** Supprime tous les fichiers d'une famille ; rend leur nombre. */
+    async supprimerFamille(famille) {
+      return (await sql`delete from amend.polices where famille = ${famille} returning id`).length
     },
     /** Supprime un fichier de police ; rend vrai s'il existait. */
     async supprimerPolice(id) {
