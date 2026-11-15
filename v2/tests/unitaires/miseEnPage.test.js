@@ -297,4 +297,8 @@ test('un modèle enregistré en lignes par page (avant le 15/11/2026) reçoit la
   assert.equal(grille(c).lignes, 31)
   // Un modèle qui a déjà sa marge basse ne bouge pas.
   assert.equal(completerModele({ marges: { bas: 20 } }, MODELE).marges.bas, 20)
+  // Les deux à la fois : la marge basse fait foi, `grille.lignes` ne reste pas.
+  const double = completerModele({ marges: { bas: 20 }, grille: { corps: 10.5, interligne: 12.4, lignes: 31 } }, MODELE)
+  assert.equal(double.marges.bas, 20)
+  assert.equal(double.grille.lignes, undefined)
 })

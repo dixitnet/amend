@@ -5,7 +5,7 @@
 // la grille sont vérifiées à part (docs/v2-etape-7-plan.md, « Mesures »).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -145,11 +145,7 @@ test('table des matières : sans titre, un titre sur plusieurs lignes tient sur 
   const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
   assert.match(source, /#outline\(title: none, depth: 2\)/)
   const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
-  const dossier = mkdtempSync(join(tmpdir(), 'tdm-'))
-  writeFileSync(join(dossier, 'a.pdf'), pdf)
-  const premiere = execFileSync('pdftotext', ['-f', '1', '-l', '1', '-layout', join(dossier, 'a.pdf'), '-'], {
-    encoding: 'utf8',
-  })
+  const premiere = texteDuPdf(pdf, 1)
   assert.ok(!/Table des mati|Contents|Sommaire/i.test(premiere), 'pas de titre sur la table : ' + premiere)
   assert.match(premiere, /Les enfants de la nuit/, 'le titre sur une seule ligne dans la table : ' + premiere)
 })
@@ -168,12 +164,7 @@ test('en-têtes : le chapitre en cours tient sur une ligne, un texte libre au ch
   const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
   assert.match(source, /#"Mon livre libre"/, 'le texte libre est dans l’en-tête')
   const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
-  const dossier = mkdtempSync(join(tmpdir(), 'ent-'))
-  writeFileSync(join(dossier, 'a.pdf'), pdf)
-  const page = (n) =>
-    execFileSync('pdftotext', ['-f', String(n), '-l', String(n), '-layout', join(dossier, 'a.pdf'), '-'], {
-      encoding: 'utf8',
-    })
+  const page = (n) => texteDuPdf(pdf, n)
   // Page 2 (paire, gauche) : le texte libre. Page 3 (impaire, droite) : le chapitre, sur une ligne.
   assert.match(page(2), /Mon livre libre/, 'texte libre à gauche : ' + page(2))
   assert.match(page(3), /Les enfants de la nuit/, 'le chapitre sur une seule ligne à droite : ' + page(3))
@@ -238,6 +229,18 @@ test('un tableau, une image et une image introuvable : le PDF se compile quand m
     serveur.close()
   }
 })
+
+/** Le texte d'un PDF (poppler, `pdftotext`, requis par ces tests : voir v2/LISEZMOI.md), pages `de` à `a` si données. */
+function texteDuPdf(pdf, de, a) {
+  const dossier = mkdtempSync(join(tmpdir(), 'pdf-'))
+  try {
+    writeFileSync(join(dossier, 'a.pdf'), pdf)
+    const pages = de ? ['-f', String(de), '-l', String(a ?? de)] : []
+    return execFileSync('pdftotext', [...pages, '-layout', join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
+  } finally {
+    rmSync(dossier, { recursive: true, force: true })
+  }
+}
 
 /** Un faux serveur d'images PNG (`/large.png` 40 × 10, `/haute.png` 1 × 20) ; `fermer()` l'arrête. */
 async function serveurImages() {
@@ -315,9 +318,7 @@ test('images légendées : la légende prend le style « Légende », numéroté
         ),
       )
       const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
-      const dossier = mkdtempSync(join(tmpdir(), 'leg-'))
-      writeFileSync(join(dossier, 'a.pdf'), pdf)
-      return execFileSync('pdftotext', ['-layout', join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
+      return texteDuPdf(pdf)
     }
     const avec = await lire(true)
     assert.match(avec, /Fig\. 1\s?: Une belle photo/, 'numérotée : ' + avec)
