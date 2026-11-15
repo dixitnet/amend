@@ -131,8 +131,7 @@
     "titre": "Comments",
     "filtre": "Threads to show",
     "ouverts": "Open",
-    "resolus": "Resolved",
-    "tous": "All"
+    "resolus": "Resolved"
   },
   "suivi": {
     "aCheval": "In Correct mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph.",

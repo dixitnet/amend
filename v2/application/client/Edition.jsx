@@ -511,7 +511,6 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         options: [
           { valeur: 'open', libelle: t('commentaires.ouverts') },
           { valeur: 'resolved', libelle: t('commentaires.resolus') },
-          { valeur: 'all', libelle: t('commentaires.tous') },
         ],
         surChange: setFiltreFils,
       }}

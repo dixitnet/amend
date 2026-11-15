@@ -305,7 +305,7 @@ function itemsDuMenu(editeur, table, textesTitres) {
  * @param {boolean} [p.historique]  le panneau de l'historique est ouvert
  * @param {boolean} [p.peutRestaurer]  nommer une version et y revenir
  * @param {() => void} [p.surFermerHistorique]
- * @param {{ element: HTMLElement | null, filtre: 'open' | 'resolved' | 'all' } | null} [p.fils]
+ * @param {{ element: HTMLElement | null, filtre: 'open' | 'resolved' } | null} [p.fils]
  *   où placer la liste des fils de commentaires (onglet « Commentaires »), et son filtre
  * @param {(code: string) => void} [p.surRefus]  un geste refusé en Corriger ou en Éditer (contournements, veille)
  * @param {() => Promise<boolean>} [p.confirmerRestauration]  demandée avant de revenir à une version

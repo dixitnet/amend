@@ -131,8 +131,7 @@
     "titre": "Commentaires",
     "filtre": "Fils à afficher",
     "ouverts": "Ouverts",
-    "resolus": "Résolus",
-    "tous": "Tous"
+    "resolus": "Résolus"
   },
   "suivi": {
     "aCheval": "En mode Corriger, une suppression ne peut pas franchir la fin d’un paragraphe (elle serait mal enregistrée). Supprimez paragraphe par paragraphe.",
