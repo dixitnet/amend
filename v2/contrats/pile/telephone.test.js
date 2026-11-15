@@ -469,6 +469,7 @@ test('format S : un clic sur une carte (correction ou commentaire), hors boutons
   await e.getByRole('button', { name: 'Relecture' }).click()
   const carte = e.locator('.amend-suggestions-liste > li').first()
   await carte.waitFor()
+  await attendre(800) // le tiroir finit de glisser
   const b1 = await carte.boundingBox()
   await e.mouse.click(b1.x + 3, b1.y + b1.height - 3)
   await e.getByRole('dialog').waitFor({ state: 'detached' })
@@ -477,6 +478,7 @@ test('format S : un clic sur une carte (correction ou commentaire), hors boutons
   await e.locator('[role=tab][aria-label="Commentaires"]').click()
   const fil = e.locator('.bn-thread').first()
   await fil.waitFor()
+  await attendre(800)
   const b2 = await fil.boundingBox()
   await e.mouse.click(b2.x + 3, b2.y + 3)
   await e.getByRole('dialog').waitFor({ state: 'detached' })
