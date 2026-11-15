@@ -226,7 +226,6 @@ export function PanneauModeles({
  *   libelles: { nom: string, general: string, retour: string, enregistrer: string, annuler: string },
  *   titre: string, adresseRetour: string,
  *   nom: string,
- *   groupes: Array<{ cle: string, libelle: string }>,
  *   groupes: Array<{ cle: string, libelle: string, tableau?: { premiereColonne: string, colonnes: Array<{ cle: string, libelle: string }>,
  *     lignes: Array<{ cle: string, libelle: string, cellules: Record<string, string> }> } }>,
  *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix' | 'texte', libelle: string, valeur: any, visibleSi?: { cle: string, egal: string }, aide?: (valeurs: object) => string | null,
