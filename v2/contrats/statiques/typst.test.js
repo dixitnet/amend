@@ -154,6 +154,31 @@ test('table des matières : sans titre, un titre sur plusieurs lignes tient sur 
   assert.match(premiere, /Les enfants de la nuit/, 'le titre sur une seule ligne dans la table : ' + premiere)
 })
 
+test('en-têtes : le chapitre en cours tient sur une ligne, un texte libre au choix (Sylvain, 15/11/2026)', async () => {
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'heading', props: { level: 1 }, content: [texte('Les enfants\nde la nuit')] },
+    ...Array.from({ length: 60 }, () => ({ type: 'paragraph', content: [texte(paragraphe)] })),
+  ])
+  const m = {
+    ...modele,
+    folio: { ...modele.folio, ouverture: true },
+    enTete: { gauche: 'texte', droite: 'chapitre', texteGauche: 'Mon livre libre', texteDroite: '' },
+  }
+  const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
+  assert.match(source, /#"Mon livre libre"/, 'le texte libre est dans l’en-tête')
+  const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+  const dossier = mkdtempSync(join(tmpdir(), 'ent-'))
+  writeFileSync(join(dossier, 'a.pdf'), pdf)
+  const page = (n) =>
+    execFileSync('pdftotext', ['-f', String(n), '-l', String(n), '-layout', join(dossier, 'a.pdf'), '-'], {
+      encoding: 'utf8',
+    })
+  // Page 2 (paire, gauche) : le texte libre. Page 3 (impaire, droite) : le chapitre, sur une ligne.
+  assert.match(page(2), /Mon livre libre/, 'texte libre à gauche : ' + page(2))
+  assert.match(page(3), /Les enfants de la nuit/, 'le chapitre sur une seule ligne à droite : ' + page(3))
+})
+
 test('titre et sous-titre : centrés dans le flux, hors de la table des matières ; le PDF se compile (12/11/2026)', async () => {
   const editeur = nouvelEditeur()
   editeur.replaceBlocks(editeur.document, [
@@ -266,7 +291,7 @@ test('une image occupe toute la largeur de la page hors marges, quelle que soit 
   }
 })
 
-test('options de mise en page (12/11/2026) : titre courant, folio en haut, chapitre continu, séparateurs ; le PDF se compile', async () => {
+test('options de mise en page (12/11/2026) : en-têtes, numéro de page en haut, chapitre continu, séparateurs ; le PDF se compile', async () => {
   const editeur = nouvelEditeur()
   editeur.replaceBlocks(editeur.document, [
     { type: 'tableDesMatieres', props: { profondeur: 2 } },

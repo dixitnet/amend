@@ -213,7 +213,7 @@ test('la grille refuse une valeur non numérique avec le code modele-impossible'
       assert.throws(() => grille(avec(chemin, valeur)), { code: 'modele-impossible' }, `${chemin} = ${String(valeur)}`)
 })
 
-test('mise en page (12/11/2026) : titre courant, folio, début de chapitre, séparateur, césure, auteur', () => {
+test('mise en page (12/11/2026) : en-têtes, numéro de page, début de chapitre, séparateur, césure, auteur', () => {
   const g = gabaritTypst(
     {
       ...MODELE,
@@ -228,7 +228,11 @@ test('mise en page (12/11/2026) : titre courant, folio, début de chapitre, sép
   assert.match(g, /#set document\(title: "Le livre", author: "Paule"\)/)
   assert.match(g, /footer: none/)
   assert.match(g, /header: context \{.*place\(if calc\.odd\(p\) \{ right \} else \{ left \}, counter\(page\)/)
-  assert.match(g, /if not ouverture \{ let c = if calc\.odd\(p\) \{ \{ let hs = query/)
+  assert.match(
+    g,
+    /if not ouverture \{ let c = if calc\.odd\(p\) \{ \{ show linebreak: \[ \]; show parbreak: \[ \]; show regex/,
+  )
+  assert.match(g, /let hs = query\(heading\.where\(level: 1, outlined: true\)\.before\(here\(\)\)\)/)
   assert.match(g, /\[#"Le livre"\]/)
   assert.match(g, /hyphenate: false/)
   assert.match(g, /#let amend-separateur = align\(center, par\(.*"⁂"/)
