@@ -8,6 +8,8 @@
 //   GET    /api/admin/polices        les familles, leurs fichiers, ce qui leur manque, qui s'en sert
 //   POST   /api/admin/polices        corps : le fichier (octets) ; en-tête x-amend-fichier : son nom
 //   DELETE /api/admin/polices/:id    un fichier (refusé pour le dernier d'une famille utilisée)
+//   PATCH  /api/admin/polices/famille/:nom   corps { actif } : active ou désactive une famille (15/11/2026)
+//   DELETE /api/admin/polices/famille/:nom   toute une famille (refusé si un modèle s'en sert)
 //   GET    /api/polices/:id          le fichier
 import { lirePolice, nomFichierPolice, famillesDePolices, POLICE_MAX_OCTETS } from '../../domaine/index.js'
 import { decoder } from './adresse.js'
@@ -43,16 +45,18 @@ function lireOctets(req, max) {
  * @param {string[]} o.reservees  les familles fournies avec amend.ink
  * @param {(famille: string) => Promise<string[]>} o.modelesUtilisant  les noms des modèles dont la police résolue est cette famille (écarts et héritage)
  * @param {(res: any, statut: number, corps: any) => void} o.json
+ * @param {(req: any) => Promise<any>} o.lireJson  le corps JSON de la requête
  */
-export function creerPolices({ personneDe, administrateur, depot, reservees, modelesUtilisant, json }) {
+export function creerPolices({ personneDe, administrateur, depot, reservees, modelesUtilisant, json, lireJson }) {
   return async function traiter(req, res, url) {
-    const m = url.pathname.match(/^\/api\/(admin\/)?polices(?:\/([^/]+))?$/)
+    const m = url.pathname.match(/^\/api\/(admin\/)?polices(?:\/famille\/([^/]+)|\/([^/]+))?$/)
     if (!m) return false
     const err = (statut, code, plus = {}) => (json(res, statut, { code, ...plus }), true)
     const p = await personneDe(req)
     if (!p) return err(401, 'session-absente')
-    const id = m[2] === undefined ? undefined : decoder(m[2])
-    if (id === null) return err(400, 'requete-invalide')
+    const nomFamille = m[2] === undefined ? undefined : decoder(m[2])
+    const id = m[3] === undefined ? undefined : decoder(m[3])
+    if (id === null || nomFamille === null) return err(400, 'requete-invalide')
 
     // Le fichier, pour qui est connecté.
     if (!m[1]) {
@@ -72,7 +76,7 @@ export function creerPolices({ personneDe, administrateur, depot, reservees, mod
 
     if (!(await administrateur(p))) return err(403, 'reserve-administrateur')
     const fichiers = await depot.polices()
-    if (id === undefined) {
+    if (id === undefined && nomFamille === undefined) {
       if (req.method === 'GET') {
         const familles = []
         for (const f of famillesDePolices(fichiers)) familles.push({ ...f, modeles: await modelesUtilisant(f.famille) })
@@ -92,6 +96,24 @@ export function creerPolices({ personneDe, administrateur, depot, reservees, mod
       if (!nouveau) return err(409, 'police-en-double', { famille: lue.famille })
       console.log(`[admin] police envoyée : ${lue.famille}, ${lue.style} (${octets.length} octets)`)
       return (json(res, 201, { id: nouveau, famille: lue.famille, style: lue.style }), true)
+    }
+
+    // Une famille entière : l'activer ou la désactiver, ou la supprimer.
+    if (nomFamille !== undefined) {
+      if (!fichiers.some((f) => f.famille === nomFamille)) return err(404, 'introuvable')
+      if (req.method === 'PATCH') {
+        const corps = await lireJson(req).catch(() => null)
+        if (typeof corps?.actif !== 'boolean') return err(400, 'requete-invalide')
+        await depot.activerFamille(nomFamille, corps.actif)
+        console.log(`[admin] police ${corps.actif ? 'activée' : 'désactivée'} : ${nomFamille}`)
+        return (json(res, 200, {}), true)
+      }
+      if (req.method !== 'DELETE') return err(405, 'methode-refusee')
+      const modeles = await modelesUtilisant(nomFamille)
+      if (modeles.length) return err(409, 'police-utilisee', { famille: nomFamille, modeles })
+      await depot.supprimerFamille(nomFamille)
+      console.log(`[admin] famille de polices supprimée : ${nomFamille}`)
+      return (json(res, 200, {}), true)
     }
 
     if (req.method !== 'DELETE') return err(405, 'methode-refusee')

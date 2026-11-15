@@ -511,21 +511,62 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
     }
     surChangement()
   }
+  const activer = async (famille, actif) => {
+    try {
+      await envoyerJson('PATCH', `/api/admin/polices/famille/${encodeURIComponent(famille)}`, { actif })
+      setMessage(null)
+    } catch (e) {
+      setMessage(erreur(e))
+    }
+    surChangement()
+  }
+  const supprimerFamille = async (famille) => {
+    if (
+      !(await confirmer({
+        titre: t('admin.polices.supprimerFamille'),
+        texte: t('admin.polices.confirmerSuppressionFamille', { famille }),
+        libelle: t('admin.polices.supprimerFamille'),
+        danger: true,
+      }))
+    )
+      return
+    try {
+      await envoyerJson('DELETE', `/api/admin/polices/famille/${encodeURIComponent(famille)}`)
+      setMessage(null)
+    } catch (e) {
+      setMessage(erreur(e))
+    }
+    surChangement()
+  }
   return (
     <PanneauPolices
       libelles={{
-        fournies: t('admin.polices.fournies'),
-        envoyees: t('admin.polices.envoyees'),
-        aucune: t('admin.polices.aucune'),
+        ajouter: t('admin.polices.ajouter'),
         envoyer: t('admin.polices.envoyer'),
-        supprimer: t('admin.polices.supprimer'),
-        supprimerDe: (fichier) => t('admin.polices.supprimerDe', { fichier }),
+        instance: t('admin.polices.envoyees'),
+        fournies: t('admin.polices.fournies'),
+        aucune: t('admin.polices.aucune'),
+        colonnes: {
+          famille: t('admin.polices.colonnes.famille'),
+          styles: t('admin.polices.colonnes.styles'),
+          utilisation: t('admin.polices.colonnes.utilisation'),
+          etat: t('admin.polices.colonnes.etat'),
+        },
+        active: t('admin.polices.active'),
+        activeDe: (famille) => t('admin.polices.activeDe', { famille }),
+        supprimerFamille: t('admin.polices.supprimerFamille'),
+        supprimerFamilleDe: (famille) => t('admin.polices.supprimerFamilleDe', { famille }),
+        supprimerFichier: t('admin.polices.supprimer'),
+        supprimerFichierDe: (fichier) => t('admin.polices.supprimerDe', { fichier }),
+        inutilisee: t('admin.polices.inutilisee'),
       }}
       intro={t('admin.polices.intro')}
       aide={t('admin.polices.aide', { max: octetsEnMo(donnees.max) })}
+      aideFournies={t('admin.polices.aideFournies')}
       fournies={donnees.fournies}
       familles={donnees.familles.map((f) => ({
         famille: f.famille,
+        actif: f.actif !== false,
         usage: f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null,
         avertissement: f.manquants.length
           ? t('admin.polices.manquants', { styles: enListe(f.manquants.map(nomDuStyle)) })
@@ -544,6 +585,8 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
       enCours={enCours}
       surFichiers={envoyer}
       surSupprimer={supprimer}
+      surActiver={activer}
+      surSupprimerFamille={supprimerFamille}
     />
   )
 }
