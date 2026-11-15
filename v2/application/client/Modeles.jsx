@@ -525,6 +525,8 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
     }
     surChangement()
   }
+  const usageDe = (f) =>
+    f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null
   const activer = async (famille, actif) => {
     try {
       await envoyerJson('PATCH', `/api/admin/polices/famille/${encodeURIComponent(famille)}`, { actif })
@@ -577,15 +579,11 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
       intro={t('admin.polices.intro')}
       aide={t('admin.polices.aide', { max: octetsEnMo(donnees.max) })}
       aideFournies={t('admin.polices.aideFournies')}
-      fournies={donnees.fournies.map((f) => ({
-        famille: f.famille,
-        actif: f.actif,
-        usage: f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null,
-      }))}
+      fournies={donnees.fournies.map((f) => ({ famille: f.famille, actif: f.actif, usage: usageDe(f) }))}
       familles={donnees.familles.map((f) => ({
         famille: f.famille,
         actif: f.actif !== false,
-        usage: f.modeles.length ? t('admin.polices.usage', { n: f.modeles.length, modeles: enListe(f.modeles) }) : null,
+        usage: usageDe(f),
         avertissement: f.manquants.length
           ? t('admin.polices.manquants', { styles: enListe(f.manquants.map(nomDuStyle)) })
           : null,
