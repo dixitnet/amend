@@ -31,6 +31,7 @@ const NOMS_REGLAGES = {
   'folio.ouverture': () => t('modeles.reglage.folio.ouverture'),
   'enTete.gauche': () => t('modeles.reglage.enTete.gauche'),
   'enTete.droite': () => t('modeles.reglage.enTete.droite'),
+  'image.numerotation': () => t('modeles.reglage.image.numerotation'),
   'enTete.texteGauche': () => t('modeles.reglage.enTete.texteGauche'),
   'enTete.texteDroite': () => t('modeles.reglage.enTete.texteDroite'),
   separateur: () => t('modeles.reglage.separateur'),

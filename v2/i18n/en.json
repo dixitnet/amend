@@ -474,6 +474,9 @@
         "texteGauche": "Text of the left-page running head",
         "texteDroite": "Text of the right-page running head"
       },
+      "image": {
+        "numerotation": "Number captioned images (“Fig. 1: …”)"
+      },
       "separateur": "Scene break",
       "cesure": "Hyphenation"
     },

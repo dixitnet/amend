@@ -474,6 +474,9 @@
         "texteGauche": "Texte de l’en-tête des pages de gauche",
         "texteDroite": "Texte de l’en-tête des pages de droite"
       },
+      "image": {
+        "numerotation": "Numéroter les images légendées («\u00A0Fig. 1\u00A0: …\u00A0»)"
+      },
       "separateur": "Séparateur de scène",
       "cesure": "Césure (couper les mots en fin de ligne)"
     },
