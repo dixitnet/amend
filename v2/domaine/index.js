@@ -39,6 +39,8 @@ export { compter, PROFONDEURS_TABLE, PROFONDEUR_TABLE_PAR_DEFAUT, profondeurTabl
 export {
   gabaritTypst,
   grille,
+  lignesQuiTiennent,
+  margeBasPourLignes,
   chaineTypst,
   appliquerReglages,
   verifierModele,

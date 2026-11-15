@@ -41,24 +41,52 @@ export function chaineTypst(texte) {
 }
 
 /**
+ * Combien de lignes de la grille tiennent entre la marge de tête et la marge
+ * basse du modèle : n lignes tiennent, n + 1 non (Sylvain, 15/11/2026 : la
+ * personne règle la marge basse, le nombre de lignes s'en déduit).
+ * @param {{ page: { hauteur: number }, marges: { haut: number, bas: number }, grille: { corps: number, interligne: number } }} modele
+ * @returns {number}
+ */
+export function lignesQuiTiennent({ page, marges, grille: g }) {
+  const disponible = (page.hauteur - marges.haut - marges.bas) * PT_PAR_MM
+  return Math.floor((disponible - g.corps - (g.interligne - g.corps) / 2) / g.interligne) + 1
+}
+
+/**
+ * La marge basse (mm, arrondie à 0,1 mm vers le bas) qui laisse exactement
+ * `lignes` lignes à la page : pour reprendre un modèle écrit en lignes par page.
+ * @param {{ page: { hauteur: number }, marges: { haut: number }, grille: { corps: number, interligne: number } }} modele
+ * @param {number} lignes
+ */
+export function margeBasPourLignes({ page, marges, grille: g }, lignes) {
+  const hauteurTexte = (lignes - 1) * g.interligne + g.corps + (g.interligne - g.corps) / 2
+  return Math.floor((page.hauteur - marges.haut - hauteurTexte / PT_PAR_MM) * 10) / 10
+}
+
+/**
  * Ce que la grille impose à la page.
  * @param {object} modele  voir `gabaritTypst`
- * @returns {{ pas: number, hauteurTexte: number, margeBas: number, descenteFolio: number }}
- *   le pas (pt), la hauteur de la zone de texte (pt), la marge de pied (mm) et
- *   la descente du folio sous la zone de texte (mm). Un modèle impossible
- *   (lignes qui ne tiennent pas, folio hors de la page) lève une erreur de
- *   code `modele-impossible`.
+ * @returns {{ pas: number, lignes: number, hauteurTexte: number, margeBas: number, descenteFolio: number }}
+ *   le pas (pt), le nombre de lignes par page, la hauteur de la zone de texte
+ *   (pt), la marge de pied obtenue (mm : la marge basse demandée, plus le reste
+ *   de moins d'une ligne) et la descente du folio sous la zone de texte (mm).
+ *   Un modèle impossible (aucune ligne ne tient, folio hors de la page) lève
+ *   une erreur de code `modele-impossible`. Un modèle d'avant le 15/11/2026,
+ *   écrit en `grille.lignes`, se lit encore.
  */
 export function grille(modele) {
   const { page, marges, grille: g, folio } = modele
+  const parMarge = Number.isFinite(marges?.bas)
   // Une valeur non numérique (NaN, chaîne, absente) ferait passer du NaN dans le gabarit.
-  const mesures = [page?.hauteur, marges?.haut, folio?.bas, g?.corps, g?.interligne, g?.lignes]
+  const mesures = [page?.hauteur, marges?.haut, folio?.bas, g?.corps, g?.interligne, parMarge ? marges.bas : g?.lignes]
   if (!mesures.every(Number.isFinite)) throw impossible('valeur')
   const pas = g.interligne
-  if (!(pas >= g.corps && g.lignes >= 1)) throw impossible('interligne')
+  if (!(pas >= g.corps)) throw impossible('interligne')
+  const lignes = parMarge ? lignesQuiTiennent(modele) : g.lignes
+  if (!(lignes >= 1)) throw impossible('lignes')
   // n lignes tiennent dans la zone, n + 1 non : on laisse sous la dernière
   // ligne la moitié du blanc qui sépare deux lignes.
-  const hauteurTexte = (g.lignes - 1) * pas + g.corps + (pas - g.corps) / 2
+  const hauteurTexte = (lignes - 1) * pas + g.corps + (pas - g.corps) / 2
   const margeBas = page.hauteur - marges.haut - hauteurTexte / PT_PAR_MM
   if (margeBas <= 0) throw impossible('lignes')
   // Le folio est posé par sa ligne de base, à `folio.bas` mm du bas de la page.
@@ -66,8 +94,8 @@ export function grille(modele) {
   if (descenteFolio <= 0) throw impossible('folio')
   // Le titre de chapitre tombe sur une ligne de la page, et le texte reprend après lui.
   const c = modele.chapitre
-  if (c && !(c.ligneTitre >= 1 && c.ligneTexte > c.ligneTitre && c.ligneTexte <= g.lignes)) throw impossible('chapitre')
-  return { pas, hauteurTexte, margeBas, descenteFolio }
+  if (c && !(c.ligneTitre >= 1 && c.ligneTexte > c.ligneTitre && c.ligneTexte <= lignes)) throw impossible('chapitre')
+  return { pas, lignes, hauteurTexte, margeBas, descenteFolio }
 }
 
 const impossible = (raison) =>
@@ -406,9 +434,19 @@ export function verifierModele(modele, regles) {
 /** Un modèle enregistré, complété par les valeurs d'un modèle de référence pour
  * ce qui lui manque (un réglage ajouté depuis qu'il a été enregistré). */
 export function completerModele(valeurs, defaut) {
+  const complet = fusionner(valeurs, defaut)
+  // Un modèle enregistré en lignes par page (avant le 15/11/2026) : la marge
+  // basse qui laisse ce nombre de lignes remplace celle du modèle de référence.
+  if (Number.isFinite(valeurs?.grille?.lignes) && !Number.isFinite(valeurs?.marges?.bas)) {
+    complet.marges.bas = margeBasPourLignes(complet, valeurs.grille.lignes)
+    delete complet.grille.lignes
+  }
+  return complet
+}
+function fusionner(valeurs, defaut) {
   if (!estObjet(defaut)) return valeurs === undefined ? defaut : valeurs
   const sortie = { ...defaut }
-  for (const [k, v] of Object.entries(valeurs ?? {})) sortie[k] = estObjet(v) ? completerModele(v, defaut[k]) : v
+  for (const [k, v] of Object.entries(valeurs ?? {})) sortie[k] = estObjet(v) ? fusionner(v, defaut[k]) : v
   return sortie
 }
 
