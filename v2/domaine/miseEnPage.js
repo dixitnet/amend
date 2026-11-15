@@ -143,8 +143,10 @@ function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
  * @param {{ bas: number, position?: 'bas-centre' | 'bas-exterieur' | 'haut-exterieur' | 'aucun', depart?: number, ouverture?: boolean }} modele.folio
  *   ligne de base du folio en bas (mm depuis le bas de la page), sa place,
  *   le premier numéro, et s'il paraît sur les pages d'ouverture de chapitre
- * @param {{ gauche?: string, droite?: string }} [modele.enTete]  titre courant des
- *   pages de gauche et de droite : `rien`, `titreDocument` ou `chapitre`
+ * @param {{ gauche?: string, droite?: string, texteGauche?: string, texteDroite?: string }} [modele.enTete]
+ *   en-têtes des pages de gauche et de droite : `rien`, `titreDocument`,
+ *   `chapitre` (le chapitre en cours) ou `texte` (le texte libre `texteGauche`
+ *   ou `texteDroite`, Sylvain, 15/11/2026)
  * @param {string} [modele.separateur]  séparateur de scène (`SEPARATEURS`)
  * @param {boolean} [modele.cesure]  couper les mots en fin de ligne (oui par défaut)
  * @param {{ debut?: 'continuer' | 'page' | 'belle-page', bellePage?: boolean, ligneTitre: number, ligneTexte: number, interligne: number }} modele.chapitre
@@ -211,15 +213,19 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
   const folio = `counter(page).display()`
   const folioVisible = f.ouverture ? 'true' : 'not ouverture'
   const cote = `if calc.odd(p) { right } else { left }`
-  // Le titre courant (v1, `entete`), absent des pages d'ouverture.
-  const courant = (choix) =>
+  // L'en-tête (v1, `entete`, « titre courant » jusqu'au 15/11/2026), absent des
+  // pages d'ouverture. Le nom du chapitre en cours tient sur une ligne : ni
+  // retour de ligne ni saut de paragraphe du titre (Sylvain, 15/11/2026).
+  const courant = (choix, libre) =>
     choix === 'titreDocument' && titre
       ? `[#${chaineTypst(titre)}]`
-      : choix === 'chapitre'
-        ? `{ let hs = query(heading.where(level: 1, outlined: true).before(here())); if hs.len() > 0 { hs.last().body } }`
-        : 'none'
-  const avecTitreCourant = enTete.gauche !== 'rien' || enTete.droite !== 'rien'
-  const enHaut = f.position === 'haut-exterieur' || avecTitreCourant
+      : choix === 'texte' && libre
+        ? `[#${chaineTypst(libre)}]`
+        : choix === 'chapitre'
+          ? `{ show linebreak: [ ]; show parbreak: [ ]; show regex("[\\n\\r]+"): [ ]; let hs = query(heading.where(level: 1, outlined: true).before(here())); if hs.len() > 0 { hs.last().body } }`
+          : 'none'
+  const avecEnTete = enTete.gauche !== 'rien' || enTete.droite !== 'rien'
+  const enHaut = f.position === 'haut-exterieur' || avecEnTete
   const enBas = f.position === 'bas-centre' || f.position === 'bas-exterieur'
 
   const lignes = []
@@ -238,8 +244,8 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
         ? `header: context { let p = here().page(); ${blanche}${ouverture}` +
           `if not blanche { ` +
           (f.position === 'haut-exterieur' ? `if ${folioVisible} { place(${cote}, ${folio}) }; ` : '') +
-          (avecTitreCourant
-            ? `if not ouverture { let c = if calc.odd(p) { ${courant(enTete.droite)} } else { ${courant(enTete.gauche)} }; ` +
+          (avecEnTete
+            ? `if not ouverture { let c = if calc.odd(p) { ${courant(enTete.droite, enTete.texteDroite)} } else { ${courant(enTete.gauche, enTete.texteGauche)} }; ` +
               `if c != none { align(center, text(style: "italic", c)) } }`
             : '') +
           ` } }`
@@ -335,11 +341,19 @@ export function poser(objet, cle, valeur) {
 const refus = (code, reglage) => ({ ok: false, code, ...(reglage ? { reglage } : {}) })
 const estObjet = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 
+/** Un caractère de texte libre : ni contrôle, ni saut de ligne ou de paragraphe Unicode. */
+const sansControle = (c) => {
+  const n = c.codePointAt(0)
+  return n >= 0x20 && !(n >= 0x7f && n <= 0x9f) && n !== 0x2028 && n !== 0x2029
+}
+
 /** Une valeur est-elle permise par la description d'un réglage ? */
 function valeurPermise(r, v, polices) {
   if (r.type === 'booleen') return typeof v === 'boolean'
   if (r.type === 'police') return typeof v === 'string' && polices.some((p) => p.famille === v)
   if (r.type === 'choix') return r.options.includes(v)
+  // Un texte libre : sur une seule ligne, sans caractère de contrôle, borné.
+  if (r.type === 'texte') return typeof v === 'string' && v.length <= (r.max ?? 100) && [...v].every(sansControle)
   if (r.type !== 'nombre' && r.type !== 'entier') return false
   if (typeof v !== 'number' || !Number.isFinite(v)) return false
   if (r.type === 'entier' && !Number.isInteger(v)) return false
