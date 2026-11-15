@@ -69,7 +69,7 @@ export function PanneauMargo({ titre, messages, accueil, enCours, erreur, portee
         </Group>
       ) : null}
       {messages.length ? (
-        <Stack component="ol" aria-live="polite" aria-relevant="additions">
+        <Stack component="ol" aria-live="polite" aria-relevant="additions" {...REGLAGES.margo.fil}>
           {messages.map((m) => {
             const mienne = m.auteur === 'personne'
             return (

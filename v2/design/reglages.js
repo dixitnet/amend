@@ -119,6 +119,8 @@ export const REGLAGES = {
     portee: { variant: 'light' },
     // Le menu « … » du fil (« Nouvelle conversation »), à droite.
     menu: { justify: 'flex-end' },
+    // Le fil : sans le retrait par défaut d'une liste du navigateur, pour que les bulles tiennent toute la largeur.
+    fil: { p: 0 },
     // Le fil en bulles, comme un échange de SMS (Sylvain, 15/11/2026) : les
     // siennes à droite sur la couleur d'accent, celles de Margo à gauche sur le
     // gris des survols de Mantine ; couleurs et rayon de Mantine.
