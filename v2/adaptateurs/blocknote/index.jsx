@@ -205,6 +205,10 @@ function typesDeBloc(editeur, textes) {
 
 function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote, titres }) {
   const editeur = useBlockNoteEditor()
+  const choisis = useSelectedBlocks(editeur)
+  // Une image n'a pas de menu : ni légende, ni remplacer, renommer, télécharger, aperçu, supprimer
+  // (Sylvain, 16/11/2026 ; « légende n'est qu'un style », un paragraphe sous l'image).
+  if (choisis.length > 0 && choisis.every((b) => b.type === 'image')) return null
   const tous = getFormattingToolbarItems(typesDeBloc(editeur, titres))
   const boutons = suggerer
     ? boutonsGardesEnSuggestion(tous)
