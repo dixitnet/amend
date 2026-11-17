@@ -283,7 +283,7 @@ export function Bandeau({
         <Menu>
           <Menu.Target>
             <UnstyledButton aria-label={compte.libelle}>
-              <Avatar name={compte.nom} {...REGLAGES.couleurDePersonne(compte.couleur)} />
+              <Avatar {...REGLAGES.couleurDePersonne(compte.couleur)} />
             </UnstyledButton>
           </Menu.Target>
           <Menu.Dropdown>
