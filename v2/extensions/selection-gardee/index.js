@@ -13,7 +13,7 @@
 import { createExtension } from '@blocknote/core'
 import { Plugin } from 'prosemirror-state'
 
-export const NOM = 'amend-selection'
+const NOM = 'amend-selection'
 
 const disponible = () => typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight !== 'undefined'
 
@@ -27,7 +27,7 @@ const effacer = () => {
  * le focus ; l'efface sinon.
  * @param {import('prosemirror-view').EditorView} vue
  */
-export function montrer(vue) {
+function montrer(vue) {
   if (!disponible()) return
   const { from, to, empty } = vue.state.selection
   if (empty || vue.hasFocus()) return effacer()
