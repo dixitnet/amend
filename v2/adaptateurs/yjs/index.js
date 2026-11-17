@@ -91,7 +91,8 @@ export function ouvrirDocument({ url, api, docId, personne, suggestions = false 
           // Une personne ouverte deux fois compte une fois (même identifiant) ;
           // deux personnes de même nom comptent deux fois.
           const qui = etat?.user?.id ?? `client-${client}`
-          if (client !== aw.clientID && nom && qui !== moi && !vues.has(qui)) vues.set(qui, { cle: qui, nom })
+          if (client !== aw.clientID && nom && qui !== moi && !vues.has(qui))
+            vues.set(qui, { cle: qui, nom, couleur: etat.user.color })
         }
         rappel([...vues.values()])
       }

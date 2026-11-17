@@ -85,6 +85,24 @@ test('« Corriger » : aucun volet ne s’ouvre, un message dit le début ; sans
   await p.context().close()
 })
 
+test('la sélection reste visible quand le focus passe dans « Votre demande » (17/11/2026)', async () => {
+  const p = await ouvrir('Paule', docTest('margo-selection-gardee'))
+  await p.click('.bn-editor')
+  await p.keyboard.type('Un passage choisi pour la demande.')
+  await selectionner(p)
+  await p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' }).click()
+  await p.getByRole('tab', { name: 'Margo (IA)' }).click()
+  await p.getByLabel('Votre demande').click()
+  const gardee = () =>
+    p.evaluate(() => CSS.highlights.has('amend-selection') && CSS.highlights.get('amend-selection').size)
+  await p.waitForFunction(() => CSS.highlights.has('amend-selection'))
+  assert.equal(await gardee(), 1, 'la sélection est inscrite comme surlignage')
+  // Le focus revient dans le texte : la sélection du navigateur reprend, plus de surlignage.
+  await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
+  await p.waitForFunction(() => !CSS.highlights.has('amend-selection'))
+  await p.context().close()
+})
+
 test('« Corriger » : une réponse simulée de Margo, le bilan s’affiche dans un message (sans modèle réel)', async (t) => {
   if (REEL) return t.skip('essai réel demandé')
   const doc = docTest('margo-bilan')

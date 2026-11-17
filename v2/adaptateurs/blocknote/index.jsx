@@ -32,6 +32,7 @@ import {
   useSelectedBlocks,
   useEditorState,
   SuggestionMenuController,
+  EmojiPickerController,
   getDefaultReactSlashMenuItems,
   getPageBreakReactSlashMenuItems,
   RenderInPortalElement,
@@ -74,6 +75,7 @@ import { TYPE_NOTE, EVENEMENT_NOTE } from '../../extensions/note/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 import { extensionGardeSuggestions } from '../../extensions/garde-suggestions/index.js'
+import { extensionSelectionGardee } from '../../extensions/selection-gardee/index.js'
 
 // Le compte des suggestions en Lire : chaque minute, ou 30 s après le
 // dernier changement (Sylvain, 12/11/2026 : « plus rustique »).
@@ -234,13 +236,11 @@ function BarreDuLienEnSuggestion(props) {
 }
 
 /** Le menu « / » : celui de BlockNote, plus le saut de page (comme Docs,
- * `BlockNoteSuggestionMenu.tsx`) et la table des matières (11/11/2026), sans
- * les émoticônes (Sylvain, 12/11/2026 ; Docs les garde). */
+ * `BlockNoteSuggestionMenu.tsx`) et la table des matières (11/11/2026), avec
+ * les émojis depuis le 17/11/2026 (retirés le 12/11 ; la frappe de « : » ne
+ * les ouvre toujours pas, voir `EmojiPickerController` plus bas). */
 function itemsDuMenu(editeur, table, textesTitres) {
-  const items = [
-    ...getDefaultReactSlashMenuItems(editeur).filter((x) => x.key !== 'emoji'),
-    ...getPageBreakReactSlashMenuItems(editeur),
-  ]
+  const items = [...getDefaultReactSlashMenuItems(editeur), ...getPageBreakReactSlashMenuItems(editeur)]
   if (table)
     items.push({
       key: 'table_des_matieres',
@@ -424,6 +424,8 @@ export function EditeurCollaboratif({
       extensions: [
         extensionTypographie({ langue: langueDocument, actif: () => modeMaintenant.current === 'editer' }),
         // Contournements temporaires du mode Corriger (veille).
+        // La sélection reste visible quand le focus passe ailleurs (demande à Margo ; 17/11/2026).
+        extensionSelectionGardee(),
         extensionLimitesDuSuivi({
           actif: () => modeMaintenant.current === 'corriger',
           refuser: (code) => surRefusDuSuivi.current?.(code),
@@ -842,8 +844,9 @@ export function EditeurCollaboratif({
       editable={appui ? false : ecrit && !historique}
       formattingToolbar={false}
       // Pas d'émojis par « : » dans le texte d'un livre (« deux:points » ouvrait
-      // le sélecteur ; Sylvain, 11/11/2026, écart avec Docs) ; les réactions
-      // aux commentaires gardent le leur.
+      // le sélecteur ; Sylvain, 11/11/2026, écart avec Docs) : le sélecteur par
+      // défaut est coupé, le nôtre ne s'ouvre que par l'entrée « Émoji » du menu
+      // « / » (17/11/2026). Les réactions aux commentaires gardent le leur.
       emojiPicker={false}
       // Notre menu « / » (saut de page, table des matières) ; aucun en
       // Suggérer : pas de changement de type de bloc (contournement, veille).
@@ -859,6 +862,9 @@ export function EditeurCollaboratif({
       <FormattingToolbarController formattingToolbar={palette} />
       {mode === 'corriger' ? <LinkToolbarController linkToolbar={BarreDuLienEnSuggestion} /> : null}
       {mode !== 'corriger' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
+      {/* Le menu « / » ouvre le sélecteur d'émojis par programme (ce qui passe outre
+          `shouldOpen`) ; la frappe de « : » ne l'ouvre jamais. */}
+      {mode !== 'corriger' ? <EmojiPickerController triggerCharacter=":" shouldOpen={() => false} /> : null}
       {/* La liste des fils (exemple 06-comments-with-sidebar de BlockNote, et
           Docs) : rendue dans l'éditeur (elle en a besoin), placée dans l'onglet. */}
       {magasin && fils?.element ? (

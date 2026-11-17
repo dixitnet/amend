@@ -158,8 +158,6 @@ test('schéma du livre : le menu « / » ne propose que les blocs retenus', asyn
     'video',
     'audio',
     'file',
-    // Les émoticônes, retirées du menu (Sylvain, 12/11/2026).
-    'emoji',
   ])
     assert.ok(!titres.includes(libelle(cle)), `${cle} (${libelle(cle)}) absent : ${tout}`)
   await page.context().close()
@@ -532,5 +530,18 @@ test('poignées de bloc : visibles au format L (Sylvain, 14/11/2026)', async () 
     return Boolean(el) && getComputedStyle(el).display !== 'none'
   })
   assert.ok(affichee, 'la poignée de bloc est affichée au survol')
+  await page.context().close()
+})
+
+test('émojis : « : » n’ouvre rien dans le texte ; l’entrée « Emoji » du menu « / » ouvre le sélecteur (17/11/2026)', async () => {
+  const page = await pageEcriture('emoji-menu')
+  await page.keyboard.type('deux:points et :sourire')
+  await page.waitForTimeout(500)
+  assert.equal(await page.locator('.bn-frimousse-picker').count(), 0, '« : » n’ouvre pas le sélecteur')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('/emoji')
+  await page.locator('.bn-suggestion-menu-item').first().waitFor()
+  await page.keyboard.press('Enter')
+  await page.locator('.bn-frimousse-picker').waitFor()
   await page.context().close()
 })
