@@ -794,6 +794,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
             enModification ? { libelle: t('telephone.terminer'), surClic: () => controle.current?.terminer() } : null
           }
           presence={{ libelle: t('interface.presence'), personnes: autres }}
+          etat={{ libelle: t('document.etat', { etat: connexion }), connexion }}
           partager={
             caps.includes('inviter') ? { libelle: t('document.partager'), surClic: () => setPartage(true) } : null
           }

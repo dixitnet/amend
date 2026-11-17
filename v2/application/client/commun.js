@@ -2,6 +2,7 @@
 // tout rendu), les appels JSON, les noms traduits et le compte du bandeau.
 import { creerTraducteur, choisirLangue, libelleDuRole, libelleDuRoleEquipe, LANGUE_PSEUDO } from '../../i18n/index.js'
 import { AUTEUR_MARGO, AUTEUR_CLAUDE } from '../../domaine/index.js'
+import { couleurAuteur } from '../../design/index.js'
 import { nomsDe, appel } from './commentaires.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
@@ -42,6 +43,7 @@ export function compteDe(personne, config) {
   return {
     libelle: t('interface.compte'),
     nom: personne.nom,
+    couleur: couleurAuteur(personne.id),
     actions: [
       ...(personne.admin === true
         ? [
