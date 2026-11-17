@@ -7,7 +7,7 @@
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
 import { useEffect, useRef, useState } from 'react'
-import { ElementsDeMenu, PictoCompte } from './Coquille.jsx'
+import { ElementsDeMenu, EtatConnexion, PictoCompte } from './Coquille.jsx'
 
 /** Un tiroir à onglets, les deux de la même façon (Sylvain, 14/11/2026,
  * « harmoniser les volets gauche et droite avec une version réduite
@@ -42,9 +42,6 @@ function Volet({ volet, position, ouvert, surFermer }) {
     </Drawer>
   )
 }
-
-/** Le picto de chaque état de la connexion (tout autre état : hors ligne). */
-const ETAT_PICTO = { connecte: 'synchro', connexion: 'synchroEnCours' }
 
 /**
  * @param {{
@@ -111,9 +108,7 @@ export function PageEditionS({
           <PictoDe role="plan" />
         </ActionIcon>
         {/* L'état de la synchronisation (13/11/2026), entre le volet gauche et le titre, où était l'étoile. */}
-        <span role="status" aria-label={etat} title={etat} className="amend-synchro" data-connexion={connexion}>
-          <PictoDe role={ETAT_PICTO[connexion] ?? 'horsLigne'} />
-        </span>
+        <EtatConnexion libelle={etat} connexion={connexion} />
         <div className="amend-bandeau-titre">
           {surTitre ? (
             <UnstyledButton onClick={surTitre} aria-label={libelles.titre}>
