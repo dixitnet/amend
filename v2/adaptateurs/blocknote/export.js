@@ -277,7 +277,10 @@ async function parcourir(exportateur, blocs, racine = true) {
     else {
       // Tableaux et images : la correspondance de BlockNote, hors grille.
       try {
-        const typst = await exportateur.mapBlock(b, 0, 0, [])
+        // Une image n'a pas de légende dans l'export : « légende » n'est qu'un style, un paragraphe sous l'image
+        // (Sylvain, 16/11/2026) ; la légende que BlockNote porte sur le bloc est laissée de côté.
+        const sansLegende = b.type === 'image' ? { ...b, props: { ...b.props, caption: '' } } : b
+        const typst = await exportateur.mapBlock(sansLegende, 0, 0, [])
         // Une image introuvable (adresse morte, accès refusé) devient chez
         // BlockNote un fichier vide, que Typst refuse : le bloc est omis, et
         // le reste du livre s'exporte (audit du 10/11/2026). Le fichier vide,

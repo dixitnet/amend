@@ -314,13 +314,6 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#let amend-titre(corps) = ${bloc(styleDe(modele, 'titre'), 'corps')}`,
     `#let amend-sous-titre(corps) = ${bloc(styleDe(modele, 'sousTitre'), 'corps')}`,
     `#let amend-legende(corps) = ${bloc(styleDe(modele, 'legende'), 'corps')}`,
-    // Les images légendées (Sylvain, 15/11/2026) : la légende prend le style
-    // « Légende » du modèle, collée à son image (l'espace est celui du style),
-    // et se numérote (« Figure 1 : … ») ou non, selon le réglage du modèle.
-    `#set figure(gap: ${ZERO})`,
-    `#show figure.where(kind: image): set figure(numbering: ${modele.image?.numerotation ? '"1"' : 'none'})`,
-    `#set figure.caption(separator: [~: ])`,
-    `#show figure.caption: it => amend-legende(it)`,
     // Le premier paragraphe d'un chapitre, sans alinéa.
     // Le premier paragraphe d'un chapitre : sans retrait par défaut, au choix du modèle (Sylvain, 15/11/2026).
     c.premierSansAlinea === false

@@ -314,7 +314,7 @@ test('un tableau, une image et une image introuvable : le PDF se compile quand m
     ])
     const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
     assert.match(source, /#"a"\], \[#"b"\]/, 'le tableau est exporté')
-    assert.match(source, /caption: \[#"Une image"\]/, 'l’image valide est exportée')
+    assert.match(source, /#figure\(image\("[^"]+"\)/, 'l’image valide est exportée, sans légende')
     assert.doesNotMatch(source, /morte\.png/, 'l’image introuvable est omise')
     assert.match(source, /#"Après les images\."/, 'la suite du texte est là')
     const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
@@ -392,34 +392,25 @@ test('une image occupe toute la largeur de la page hors marges, quelle que soit 
   }
 })
 
-test('images légendées : la légende prend le style « Légende », numérotée ou non selon le modèle (Sylvain, 15/11/2026)', async () => {
+test('une image n\u2019a pas de légende dans le PDF : « légende » n\u2019est qu\u2019un style (Sylvain, 16/11/2026)', async () => {
   const { adresse, fermer } = await serveurImages()
   try {
     const editeur = nouvelEditeur()
     editeur.replaceBlocks(editeur.document, [
       { type: 'paragraph', content: [texte('Avant.')] },
       { type: 'image', props: { url: `${adresse}/large.png`, caption: 'Une belle photo' } },
-      { type: 'image', props: { url: `${adresse}/large.png`, caption: 'Une seconde photo' } },
+      { type: 'paragraph', content: [texte('Après.')] },
     ])
-    const lire = async (numerotation) => {
-      const m = { ...modele, image: { ...modele.image, numerotation } }
-      const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
-      assert.match(source, /#show figure\.caption: it => amend-legende\(it\)/, 'la légende prend le style « Légende »')
-      assert.match(
-        source,
-        new RegExp(
-          `#show figure\\.where\\(kind: image\\): set figure\\(numbering: ${numerotation ? '"1"' : 'none'}\\)`,
-        ),
-      )
-      const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
-      return texteDuPdf(pdf)
-    }
-    const avec = await lire(true)
-    assert.match(avec, /Fig\. 1\s?: Une belle photo/, 'numérotée : ' + avec)
-    assert.match(avec, /Fig\. 2\s?: Une seconde photo/)
-    const sans = await lire(false)
-    assert.match(sans, /Une belle photo/, 'la légende reste')
-    assert.doesNotMatch(sans, /Fig\. \d/, 'sans numéro : ' + sans)
+    const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+    assert.doesNotMatch(source, /caption:/, 'pas de légende de figure')
+    assert.doesNotMatch(source, /Une belle photo/, 'la légende du bloc n\u2019est pas exportée')
+    assert.doesNotMatch(
+      source,
+      /show figure\.caption|set figure\(/,
+      'plus de règle de légende de figure dans le gabarit',
+    )
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
+    assert.doesNotMatch(texteDuPdf(pdf), /Une belle photo/)
   } finally {
     fermer()
   }

@@ -19,6 +19,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -153,9 +154,11 @@ async function appeler(systeme, dossier) {
     try {
       return await appelerUneFois(systeme, dossier)
     } catch (e) {
-      if (essai >= 3 || String(e.message).startsWith('Scaleway :')) throw e
+      // Une erreur du serveur (5xx) ou une connexion coupée est retentée ; un refus (4xx) ne l'est pas.
+      const refus = String(e.message).startsWith('Scaleway :') && !/^Scaleway : 5\d\d/.test(e.message)
+      if (essai >= 3 || refus) throw e
       console.error(`Connexion coupée (${e.message}), nouvel essai ${essai + 1}/3`)
-      await new Promise((ok) => setTimeout(ok, 5000 * essai))
+      await new Promise((ok) => setTimeout(ok, 15000 * essai))
     }
   }
 }
@@ -326,7 +329,8 @@ const MODULES = [
   ['Serveur et collaboration', ['v2/application/serveur/', 'v2/application/collab/']],
   ['Client', ['v2/application/client/']],
   ['Design', ['v2/design/']],
-  ['Exploitation', ['v2/exploitation/']],
+  ['Exploitation : campagne de test', ['v2/exploitation/campagne/']],
+  ['Exploitation : développement, production et site', ['v2/exploitation/dev/', 'v2/exploitation/prod/', 'v2/exploitation/site/']],
   ['Déploiement automatique', ['deploy/auto/']],
   [
     'Garde-fous (lint, contrats statiques, configuration)',
@@ -370,7 +374,17 @@ async function auditComplet() {
     )
     console.log(`${nom} : ${fichiers.length} fichiers, ${total} signes`)
     if (ESSAI) continue
-    const r = await appeler(systeme, texte)
+    // Un avis reçu est gardé sur disque : une panne en cours de route (502 du fournisseur, 10/11 et 16/11/2026)
+    // ne fait plus tout recommencer ; la relance reprend où elle en était.
+    const cache = join(tmpdir(), `audit-complet-${commit}-${i}.json`)
+    let r
+    if (existsSync(cache)) {
+      r = JSON.parse(readFileSync(cache, 'utf8'))
+      console.log(`  (avis déjà reçu, repris de ${cache})`)
+    } else {
+      r = await appeler(systeme, texte)
+      writeFileSync(cache, JSON.stringify(r))
+    }
     envoyesTotal += total + systeme.length
     recusTotal += r.avis.length
     sections.push(`## ${nom}
