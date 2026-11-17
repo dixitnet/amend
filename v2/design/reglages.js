@@ -115,6 +115,9 @@ export const REGLAGES = {
   // (le gris `dimmed` de Mantine n'a pas le contraste demandé ; 12/11/2026).
   // Seulement à partir de `lg` : plus étroit, le titre en serait coupé.
   compteur: { size: 'sm', visibleFrom: 'lg' },
+  // Le rond d'une personne (présence, compte) prend sa couleur : celle de son
+  // curseur, une couleur de Mantine donnée par l'application (Sylvain, 17/11/2026).
+  couleurDePersonne: (couleur) => ({ color: couleur }),
   // Les polices du back-office (13/11/2026) : le nom de la famille en gras ;
   // le bouton de suppression d'un fichier, petit.
   // La page des polices (15/11/2026) : un tableau, une famille par ligne ; ses fichiers

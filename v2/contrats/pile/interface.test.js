@@ -129,3 +129,23 @@ test('lecture d’abord sur écran tactile : un appui passe en modification, « 
   await p.context().close()
   await ipad.context().close()
 })
+
+test('bandeau : l’état de la mise à jour en picto, la présence au milieu, chaque rond de sa couleur (17/11/2026)', async () => {
+  const doc = docTest('bandeau-presence')
+  const p = await ouvrir('Paule', doc)
+  await p.getByRole('status', { name: 'Synchronisé' }).waitFor()
+  const c = await ouvrir('Carla', doc)
+  const autre = p.getByRole('listitem', { name: 'Carla' })
+  await autre.waitFor()
+  // Au milieu du bandeau : le centre du rond est dans le tiers central de la fenêtre.
+  const [boite, largeur] = [await autre.boundingBox(), p.viewportSize().width]
+  const centre = boite.x + boite.width / 2
+  assert.ok(centre > largeur / 3 && centre < (2 * largeur) / 3, `présence au milieu (${centre} sur ${largeur})`)
+  // Les couleurs : celles de la palette de Mantine (variables), pas le gris par défaut.
+  const fond = (loc) => loc.evaluate((e) => e.getAttribute('style') ?? '')
+  assert.match(await fond(autre), /--avatar-bg/, 'le rond de Carla a une couleur')
+  const compte = p.getByRole('button', { name: 'Compte' }).locator('.mantine-Avatar-root')
+  assert.match(await fond(compte), /--avatar-bg/, 'le rond du compte a la couleur de la personne')
+  await p.context().close()
+  await c.context().close()
+})

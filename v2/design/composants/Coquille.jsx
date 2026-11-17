@@ -193,6 +193,20 @@ function TitreModifiable({ titre, renommer }) {
  * présence, « Partager », menu « … », compte,
  * volet droit. Le volet gauche est toujours là ; le reste est facultatif.
  */
+/** Le picto de chaque état de la connexion (tout autre état : hors ligne). */
+const ETAT_PICTO = { connecte: 'synchro', connexion: 'synchroEnCours' }
+
+/** L'état de la mise à jour du document : un picto (synchronisé, en cours, hors
+ * ligne), son libellé en infobulle ; au bandeau des formats L et M comme au
+ * téléphone (Sylvain, 17/11/2026). */
+export function EtatConnexion({ libelle, connexion }) {
+  return (
+    <span role="status" aria-label={libelle} title={libelle} className="amend-synchro" data-connexion={connexion}>
+      <PictoDe role={ETAT_PICTO[connexion] ?? 'horsLigne'} />
+    </span>
+  )
+}
+
 export function Bandeau({
   voletGauche,
   titre,
@@ -202,6 +216,7 @@ export function Bandeau({
   modes,
   terminer,
   presence,
+  etat,
   partager,
   actions,
   compte,
@@ -218,6 +233,21 @@ export function Bandeau({
       {mention ? <Badge>{mention}</Badge> : null}
       {/* Signes et mots du document, ou de la sélection (12/11/2026). */}
       {compteur ? <Text {...REGLAGES.compteur}>{compteur}</Text> : null}
+      {/* La présence des autres personnes, au milieu du bandeau, chacune de sa couleur
+          (celle de son curseur ; Sylvain, 17/11/2026). */}
+      <div className="amend-coquille-presence">
+        {presence?.personnes.length ? (
+          <Tooltip.Group>
+            <Avatar.Group aria-label={presence.libelle} role="list">
+              {presence.personnes.map((p) => (
+                <Tooltip key={p.cle} label={p.nom}>
+                  <Avatar name={p.nom} {...REGLAGES.couleurDePersonne(p.couleur)} role="listitem" aria-label={p.nom} />
+                </Tooltip>
+              ))}
+            </Avatar.Group>
+          </Tooltip.Group>
+        ) : null}
+      </div>
       {modes ? (
         <SegmentedControl
           aria-label={modes.libelle}
@@ -231,17 +261,7 @@ export function Bandeau({
           {terminer.libelle}
         </Button>
       ) : null}
-      {presence?.personnes.length ? (
-        <Tooltip.Group>
-          <Avatar.Group aria-label={presence.libelle} role="list">
-            {presence.personnes.map((p) => (
-              <Tooltip key={p.cle} label={p.nom}>
-                <Avatar name={p.nom} role="listitem" aria-label={p.nom} />
-              </Tooltip>
-            ))}
-          </Avatar.Group>
-        </Tooltip.Group>
-      ) : null}
+      {etat ? <EtatConnexion libelle={etat.libelle} connexion={etat.connexion} /> : null}
       {partager ? (
         <Button {...REGLAGES.boutonSecondaire} leftSection={<PictoDe role="partager" />} onClick={partager.surClic}>
           {partager.libelle}
@@ -263,7 +283,7 @@ export function Bandeau({
         <Menu>
           <Menu.Target>
             <UnstyledButton aria-label={compte.libelle}>
-              <Avatar />
+              <Avatar {...REGLAGES.couleurDePersonne(compte.couleur)} />
             </UnstyledButton>
           </Menu.Target>
           <Menu.Dropdown>

@@ -11,6 +11,18 @@
   height: 100%;
   padding-inline: var(--mantine-spacing-xs);
 }
+/* réglage : css.coquille.presence */
+/* La présence des autres personnes occupe la moitié libre du bandeau, centrée : au milieu,
+   à égalité avec le titre (Sylvain, 17/11/2026). Vide, elle ne prend pas de place. */
+.amend-coquille-presence {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+.amend-coquille-presence:empty {
+  display: none;
+}
 .amend-coquille-titre {
   flex: 1;
   min-width: 0;

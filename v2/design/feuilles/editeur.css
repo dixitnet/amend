@@ -166,3 +166,11 @@ nav[data-amend-bloc='tableDesMatieres'] select {
 .bn-container .bn-file-caption {
   display: none;
 }
+
+/* réglage : css.editeur.selectionGardee */
+/* Le passage sélectionné reste visible quand le focus passe dans un champ hors du texte
+   (la demande à Margo ; Sylvain, 17/11/2026). Couleur de Mantine, comme la sélection
+   active ; à confirmer à l'usage. */
+::highlight(amend-selection) {
+  background-color: var(--mantine-primary-color-light-hover);
+}
