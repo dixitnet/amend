@@ -55,7 +55,7 @@ import { withCollaboration } from '@blocknote/core/y'
 import { CommentsExtension } from '@blocknote/core/comments'
 import { dictionnaire } from './dictionnaire.js'
 import { schemaLivre } from './schema.js'
-import { boutonsGardes, boutonsGardesEnSuggestion, boutonsDuFormatS } from './palette.js'
+import { boutonsGardes, boutonsGardesEnSuggestion } from './palette.js'
 import { MagasinFils } from './commentaires.js'
 import {
   creerAfficheur,
@@ -205,7 +205,7 @@ function typesDeBloc(editeur, textes) {
   return [...leurs, ...nos]
 }
 
-function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote, titres }) {
+function Palette({ corriger, suggerer, exposant, note, surNouvelleNote, titres }) {
   const editeur = useBlockNoteEditor()
   const choisis = useSelectedBlocks(editeur)
   // Une image n'a pas de menu : ni légende, ni remplacer, renommer, télécharger, aperçu, supprimer
@@ -217,7 +217,7 @@ function Palette({ corriger, suggerer, exposant, formatS, note, surNouvelleNote,
     : boutonsGardes(tous, exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null)
   return (
     <FormattingToolbar>
-      {formatS ? boutonsDuFormatS(boutons) : boutons}
+      {boutons}
       {note && surNouvelleNote ? <BoutonNote note={note} surNouvelleNote={surNouvelleNote} /> : null}
       {corriger ? <BoutonCorriger corriger={corriger} /> : null}
     </FormattingToolbar>
@@ -344,8 +344,6 @@ function itemsDuMenu(editeur, table, textesTitres) {
  * @param {(compte: { total: { signes: number, mots: number }, selection: { signes: number, mots: number } | null }) => void} [p.surCompte]
  *   les signes (espaces compris) et les mots du texte de base, et de la
  *   sélection quand il y en a une (bandeau, 12/11/2026) ; doit être stable
- * @param {boolean} [p.formatS] format S (téléphone) : barre de mise en forme
- *   sans le choix du type de bloc (Sylvain, 12/11/2026)
  * @param {(fichier: File) => Promise<string>} [p.televerser] envoie une image et rend son
  *   adresse (\`uploadFile\` de BlockNote, comme Docs) ; absent : pas d'envoi de fichier
  */
@@ -376,7 +374,6 @@ export function EditeurCollaboratif({
   surSelection,
   textes = {},
   televerser,
-  formatS = false,
   surNote,
   surCompte,
 }) {
@@ -784,13 +781,12 @@ export function EditeurCollaboratif({
         corriger={corriger}
         suggerer={mode === 'corriger'}
         exposant={textes.exposant}
-        formatS={formatS}
         note={textes.note}
         surNouvelleNote={surNote ? nouvelleNote : null}
         titres={textes}
       />
     ),
-    [corriger, mode, textes, formatS, surNote, nouvelleNote],
+    [corriger, mode, textes, surNote, nouvelleNote],
   )
   const menu = useCallback(
     async (requete) =>

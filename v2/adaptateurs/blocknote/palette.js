@@ -37,10 +37,5 @@ export function boutonsGardesEnSuggestion(boutons) {
   return boutonsGardes(boutons).filter((bouton) => !BOUTONS_DE_FORME.includes(bouton.key))
 }
 
-// Au format S (téléphone), la barre tient en largeur sans le choix du type de
-// bloc, que le menu « / » propose (Sylvain, 12/11/2026). Une sélection propre
-// au format S suivra.
-export const BOUTONS_RETIRES_S = ['blockTypeSelect']
-
-/** Les boutons gardés au format S. */
-export const boutonsDuFormatS = (boutons) => boutons.filter((bouton) => !BOUTONS_RETIRES_S.includes(bouton.key))
+// Au format S (téléphone), la barre garde le choix du style (titre, citation, liste…),
+// comme Docs : elle défile en largeur (Sylvain, 17/11/2026 ; retiré le 12/11, rétabli).
