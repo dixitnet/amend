@@ -8,8 +8,6 @@ import {
   APRES_EXPOSANT,
   boutonsGardes,
   boutonsGardesEnSuggestion,
-  BOUTONS_RETIRES_S,
-  boutonsDuFormatS,
 } from '../../adaptateurs/blocknote/palette.js'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 
@@ -61,14 +59,11 @@ test('en mode Suggérer, ni mise en forme ni lien dans la palette ; le commentai
   assert.ok(gardee.includes('addCommentButton'), 'commenter reste possible')
 })
 
-test('format S : sans le choix du type de bloc, le reste gardé (12/11/2026)', () => {
-  const palette = cles(getFormattingToolbarItems())
-  for (const cle of BOUTONS_RETIRES_S) assert.ok(palette.includes(cle), `clé inconnue de BlockNote : ${cle}`)
-  const s = cles(boutonsDuFormatS(boutonsGardes(getFormattingToolbarItems())))
-  assert.ok(!s.includes('blockTypeSelect'))
-  for (const cle of ['boldStyleButton', 'createLinkButton', 'nestBlockButton']) assert.ok(s.includes(cle), cle)
-  // En Suggérer au téléphone : aucun bouton de forme ne revient, le commentaire reste.
-  const sugg = cles(boutonsDuFormatS(boutonsGardesEnSuggestion(getFormattingToolbarItems())))
+test('format S : la barre garde le choix du style, comme les autres formats ; en Suggérer, aucun bouton de forme (17/11/2026)', () => {
+  const gardee = cles(boutonsGardes(getFormattingToolbarItems()))
+  for (const cle of ['blockTypeSelect', 'boldStyleButton', 'createLinkButton', 'nestBlockButton'])
+    assert.ok(gardee.includes(cle), cle)
+  const sugg = cles(boutonsGardesEnSuggestion(getFormattingToolbarItems()))
   for (const cle of ['blockTypeSelect', 'boldStyleButton', 'createLinkButton']) assert.ok(!sugg.includes(cle), cle)
   assert.ok(sugg.includes('addCommentButton'))
 })
