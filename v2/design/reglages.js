@@ -174,6 +174,9 @@ export const REGLAGES = {
     racine: { gap: 0 },
     ligne: { wrap: 'nowrap', gap: 0 },
     enfants: { gap: 0, pl: 'lg' },
+    // Moins d'interligne entre les titres : le haut et le bas d'un lien à 4 px
+    // (Mantine : `xs`, 10 px), tous formats (Sylvain, 17/11/2026).
+    lien: { py: 4 },
   },
   // Le zoom du texte de l'éditeur, en pour cent (Sylvain, 11/11/2026 : « 50,
   // 100, 150 », dans le menu « … », comme le réglage de la v1) ; au format S,
