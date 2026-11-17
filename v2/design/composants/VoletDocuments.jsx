@@ -47,6 +47,7 @@ function Entree({ e, libelleActions }) {
   const menu = e.actions?.length ? <MenuEntree libelle={libelleActions(e.nom)} actions={e.actions} /> : null
   const ligne = e.enfants ? (
     <NavLink
+      {...REGLAGES.arbre.lien}
       component="button"
       label={e.nom}
       leftSection={<PictoDe role={e.picto} />}
@@ -56,10 +57,17 @@ function Entree({ e, libelleActions }) {
   ) : e.href ? (
     // Un document : sans picto, pour alléger l'arbre (Sylvain, 12/11/2026 ;
     // écart avec Docs). Dossiers et espaces gardent le leur.
-    <NavLink component="a" href={e.href} label={e.nom} description={e.detail} active={e.actif} />
+    <NavLink
+      {...REGLAGES.arbre.lien}
+      component="a"
+      href={e.href}
+      label={e.nom}
+      description={e.detail}
+      active={e.actif}
+    />
   ) : (
     // Un document de la corbeille : pas de lien, pas de picto non plus.
-    <NavLink component="div" label={e.nom} description={e.detail} />
+    <NavLink {...REGLAGES.arbre.lien} component="div" label={e.nom} description={e.detail} />
   )
   return (
     <div>
