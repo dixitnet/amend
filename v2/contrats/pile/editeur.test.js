@@ -553,7 +553,13 @@ test('menu « / » : chaque groupe n’a qu’une étiquette, aussi pendant la f
   const etiquettes = () => page.locator('.bn-suggestion-menu-label').allInnerTexts()
   const toutes = await etiquettes()
   assert.deepEqual(toutes, [...new Set(toutes)], `étiquettes uniques : ${toutes}`)
-  await page.keyboard.type('saut')
+  // Les états intermédiaires de la frappe, où les étiquettes en trop apparaissaient.
+  for (const lettre of ['s', 'a', 'u', 't']) {
+    await page.keyboard.type(lettre)
+    await page.waitForTimeout(200)
+    const e = await etiquettes()
+    assert.deepEqual(e, [...new Set(e)], `étiquettes uniques après « ${lettre} » : ${e}`)
+  }
   await page.waitForFunction(() => document.querySelectorAll('.bn-suggestion-menu-item').length === 1)
   assert.equal((await etiquettes()).length, 1, 'une seule étiquette pour un seul élément')
   await page.context().close()

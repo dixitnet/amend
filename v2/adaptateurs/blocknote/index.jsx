@@ -245,7 +245,7 @@ function itemsDuMenu(editeur, table, textesTitres) {
   // clé les étiquettes de groupe par leur nom, et un même nom deux fois (« Blocs de base »
   // en tête, puis pour le saut de page) laissait des étiquettes en trop pendant la frappe
   // (« /saut » ; Sylvain, 18/11/2026).
-  const groupe = defauts.at(-1)?.group
+  const groupe = defauts.at(-1)?.group ?? editeur.dictionary.slash_menu.page_break.group
   const items = [...defauts, ...getPageBreakReactSlashMenuItems(editeur).map((x) => ({ ...x, group: groupe }))]
   if (table)
     items.push({
