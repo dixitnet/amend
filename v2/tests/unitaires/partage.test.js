@@ -105,4 +105,5 @@ test('objet d’un courrier : extrait sans retour à la ligne, coupé par « …
   assert.equal(nomAvecAdresse('Ada', 'ada@exemple.fr'), 'Ada (ada@exemple.fr)')
   assert.equal(nomAvecAdresse('', 'ada@exemple.fr'), 'ada@exemple.fr')
   assert.equal(nomAvecAdresse('Ada', undefined), 'Ada', 'sans adresse : le nom seul, jamais « undefined »')
+  assert.equal(nomAvecAdresse('', undefined), '', 'ni nom ni adresse : vide, l’appelant met « Quelqu’un »')
 })

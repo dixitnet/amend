@@ -36,7 +36,7 @@ export function creerAcces(ctx) {
     const titre = doc.titre || t('courriel.sansTitre')
     return {
       auteur: p.nom || t('courriel.quelquun'),
-      qui: await quiInvite(p),
+      qui: (await quiInvite(p)) || t('courriel.quelquun'),
       titre,
       extrait: extraitPourObjet(titre, 60),
       role: nomDuRole(role),

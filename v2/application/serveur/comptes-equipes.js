@@ -107,7 +107,7 @@ export function creerEquipes(ctx) {
       if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
       const vars = {
         auteur: p.nom || t('courriel.quelquun'),
-        qui: await quiInvite(p),
+        qui: (await quiInvite(p)) || t('courriel.quelquun'),
         equipe: equipe.nom,
         role: nomDuRoleEquipe(nouveau),
       }
