@@ -135,7 +135,7 @@ test('bandeau : l’état de la mise à jour en picto, la présence au milieu, c
   const p = await ouvrir('Paule', doc)
   await p.getByRole('status', { name: 'Synchronisé' }).waitFor()
   const c = await ouvrir('Carla', doc)
-  const autre = p.getByRole('listitem', { name: 'Carla' })
+  const autre = p.getByRole('button', { name: 'Aller au curseur de Carla' })
   await autre.waitFor()
   // Au milieu du bandeau : le centre du rond est dans le tiers central de la fenêtre.
   const [boite, largeur] = [await autre.boundingBox(), p.viewportSize().width]
@@ -177,7 +177,7 @@ test('présence : un clic sur le rond d’une personne amène le texte à son cu
         return r.bottom > 0 && r.top < window.innerHeight
       })
   assert.equal(await aLEcran(), false, 'le curseur de Bruno est hors de l’écran')
-  await p.getByRole('listitem', { name: 'Aller au curseur de Bruno' }).click()
+  await p.getByRole('button', { name: 'Aller au curseur de Bruno' }).click()
   for (const t0 = Date.now(); Date.now() - t0 < 5000 && !(await aLEcran()); await attendre(200));
   assert.equal(await aLEcran(), true, 'le texte a défilé jusqu’au curseur de Bruno')
   await p.context().close()

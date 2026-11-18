@@ -238,7 +238,7 @@ export function Bandeau({
       <div className="amend-coquille-presence">
         {presence?.personnes.length ? (
           <Tooltip.Group>
-            <Avatar.Group aria-label={presence.libelle} role="list">
+            <Avatar.Group aria-label={presence.libelle} role="group">
               {presence.personnes.map((p) => (
                 <Tooltip key={p.cle} label={p.nom}>
                   <Avatar
@@ -246,7 +246,6 @@ export function Bandeau({
                     type="button"
                     name={p.nom}
                     {...REGLAGES.couleurDePersonne(p.couleur)}
-                    role="listitem"
                     aria-label={p.libelleAller ?? p.nom}
                     onClick={p.surClic}
                   />

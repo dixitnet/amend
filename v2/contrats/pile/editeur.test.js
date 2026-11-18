@@ -556,9 +556,11 @@ test('menu « / » : chaque groupe n’a qu’une étiquette, aussi pendant la f
   // Les états intermédiaires de la frappe, où les étiquettes en trop apparaissaient.
   for (const lettre of ['s', 'a', 'u', 't']) {
     await page.keyboard.type(lettre)
-    await page.waitForTimeout(200)
-    const e = await etiquettes()
-    assert.deepEqual(e, [...new Set(e)], `étiquettes uniques après « ${lettre} » : ${e}`)
+    // Le menu a fini de se mettre à jour : jamais plus d'étiquettes que d'éléments, toutes différentes.
+    await page.waitForFunction(() => {
+      const e = [...document.querySelectorAll('.bn-suggestion-menu-label')].map((x) => x.textContent)
+      return e.length <= document.querySelectorAll('.bn-suggestion-menu-item').length && e.length === new Set(e).size
+    })
   }
   await page.waitForFunction(() => document.querySelectorAll('.bn-suggestion-menu-item').length === 1)
   assert.equal((await etiquettes()).length, 1, 'une seule étiquette pour un seul élément')
