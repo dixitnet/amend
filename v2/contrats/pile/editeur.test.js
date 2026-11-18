@@ -545,3 +545,24 @@ test('émojis : « : » n’ouvre rien dans le texte ; l’entrée « Emoji » d
   await page.locator('.bn-frimousse-picker').waitFor()
   await page.context().close()
 })
+
+test('menu « / » : chaque groupe n’a qu’une étiquette, aussi pendant la frappe (« /saut » en montrait trois ; 18/11/2026)', async () => {
+  const page = await pageEcriture('menu-etiquettes')
+  await page.keyboard.type('/')
+  await page.locator('.bn-suggestion-menu-item').first().waitFor()
+  const etiquettes = () => page.locator('.bn-suggestion-menu-label').allInnerTexts()
+  const toutes = await etiquettes()
+  assert.deepEqual(toutes, [...new Set(toutes)], `étiquettes uniques : ${toutes}`)
+  // Les états intermédiaires de la frappe, où les étiquettes en trop apparaissaient.
+  for (const lettre of ['s', 'a', 'u', 't']) {
+    await page.keyboard.type(lettre)
+    // Le menu a fini de se mettre à jour : jamais plus d'étiquettes que d'éléments, toutes différentes.
+    await page.waitForFunction(() => {
+      const e = [...document.querySelectorAll('.bn-suggestion-menu-label')].map((x) => x.textContent)
+      return e.length <= document.querySelectorAll('.bn-suggestion-menu-item').length && e.length === new Set(e).size
+    })
+  }
+  await page.waitForFunction(() => document.querySelectorAll('.bn-suggestion-menu-item').length === 1)
+  assert.equal((await etiquettes()).length, 1, 'une seule étiquette pour un seul élément')
+  await page.context().close()
+})

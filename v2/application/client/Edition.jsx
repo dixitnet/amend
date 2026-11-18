@@ -35,7 +35,7 @@ import { serviceCommentaires, envoyerImage } from './commentaires.js'
 import { nomsAdemander } from './nomsAuteurs.js'
 import { useVolets } from './volets.js'
 import { useMargo } from './margo.js'
-import { t, nomsAvecMargo, envoyerJson, compteDe, boutonGauche } from './commun.js'
+import { t, nomsAvecMargo, envoyerJson, compteDe, boutonGauche, seDeconnecter } from './commun.js'
 import { MARGO_EN_COURS, MARGO_ARRET, morceauxDeMargo } from './textesMargo.js'
 import { useSaisie, useConfirmation } from './fenetres.jsx'
 import { useExport } from './useExport.jsx'
@@ -679,6 +679,14 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
                 },
               ]
             : []),
+          // Se déconnecter, comme le menu du compte des formats M et L (Sylvain, 18/11/2026).
+          {
+            cle: 'sortir',
+            libelle: t('documents.deconnexion'),
+            icone: 'deconnexion',
+            separe: true,
+            surClic: seDeconnecter,
+          },
         ]}
         piedMenu={piedMenu}
         surOuvrirMenu={compterAuMenu}
@@ -792,7 +800,18 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           terminer={
             enModification ? { libelle: t('telephone.terminer'), surClic: () => controle.current?.terminer() } : null
           }
-          presence={{ libelle: t('interface.presence'), personnes: autres }}
+          presence={{
+            libelle: t('interface.presence'),
+            personnes: autres.map((p) => ({
+              ...p,
+              libelleAller: t('document.allerAuCurseur', { nom: p.nom }),
+              // Le texte défile jusqu'à son curseur ; sans curseur dans le texte, un message passager.
+              surClic: () => {
+                if (!controle.current?.allerAuCurseur?.(p.nom))
+                  montrerMessage(t('document.curseurIntrouvable', { nom: p.nom }))
+              },
+            })),
+          }}
           etat={{ libelle: t('document.etat', { etat: connexion }), connexion }}
           partager={
             caps.includes('inviter') ? { libelle: t('document.partager'), surClic: () => setPartage(true) } : null

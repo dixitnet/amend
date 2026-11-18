@@ -135,7 +135,7 @@ test('bandeau : l’état de la mise à jour en picto, la présence au milieu, c
   const p = await ouvrir('Paule', doc)
   await p.getByRole('status', { name: 'Synchronisé' }).waitFor()
   const c = await ouvrir('Carla', doc)
-  const autre = p.getByRole('listitem', { name: 'Carla' })
+  const autre = p.getByRole('button', { name: 'Aller au curseur de Carla' })
   await autre.waitFor()
   // Au milieu du bandeau : le centre du rond est dans le tiers central de la fenêtre.
   const [boite, largeur] = [await autre.boundingBox(), p.viewportSize().width]
@@ -148,4 +148,38 @@ test('bandeau : l’état de la mise à jour en picto, la présence au milieu, c
   assert.match(await fond(compte), /--avatar-bg/, 'le rond du compte a la couleur de la personne')
   await p.context().close()
   await c.context().close()
+})
+
+test('présence : un clic sur le rond d’une personne amène le texte à son curseur (18/11/2026)', async () => {
+  const doc = docTest('presence-curseur')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  for (let i = 0; i < 60; i++) {
+    await p.keyboard.type(`Ligne ${i} du texte.`)
+    await p.keyboard.press('Enter')
+  }
+  const b = await ouvrir('Bruno', doc)
+  await b.getByText('Ligne 59 du texte.').waitFor()
+  await b.click('.bn-editor')
+  await b.keyboard.press('Control+End')
+  await b.keyboard.type(' Fin de Bruno.')
+  await p.getByText('Fin de Bruno.').waitFor()
+  // Paule remonte tout en haut : le curseur de Bruno n'est plus à l'écran.
+  await p.evaluate(() =>
+    document.querySelectorAll('*').forEach((e) => e.scrollHeight > e.clientHeight && (e.scrollTop = 0)),
+  )
+  const aLEcran = () =>
+    p
+      .locator('.bn-collaboration-cursor__base')
+      .first()
+      .evaluate((e) => {
+        const r = e.getBoundingClientRect()
+        return r.bottom > 0 && r.top < window.innerHeight
+      })
+  assert.equal(await aLEcran(), false, 'le curseur de Bruno est hors de l’écran')
+  await p.getByRole('button', { name: 'Aller au curseur de Bruno' }).click()
+  for (const t0 = Date.now(); Date.now() - t0 < 5000 && !(await aLEcran()); await attendre(200));
+  assert.equal(await aLEcran(), true, 'le texte a défilé jusqu’au curseur de Bruno')
+  await p.context().close()
+  await b.context().close()
 })

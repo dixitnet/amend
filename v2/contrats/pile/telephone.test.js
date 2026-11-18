@@ -13,6 +13,7 @@ import {
   attendre,
   panneau,
   defilerJusquEnBas,
+  NAVIGATEUR,
 } from './outils.mjs'
 
 let pile, nav
@@ -132,6 +133,7 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
       '150\u202F%',
       '200\u202F%',
       'Supprimer',
+      'Se déconnecter',
     ],
   )
   await p.getByRole('menuitem', { name: 'Partager' }).click()
@@ -361,51 +363,65 @@ test('format S : la pastille de nombre du volet droit n’est pas rognée par so
   for (const x of [p, c, e]) await x.context().close()
 })
 
-test('format S : « Corriger » une sélection n’ouvre aucun volet et la portée reste « sur la sélection » (Sylvain, 14/11/2026)', async () => {
-  const doc = docTest('s-corriger')
-  const p = await ouvrir('Paule', doc)
-  await p.click('.bn-editor')
-  await p.keyboard.type('Les enfant jouent dans la cour.')
-  await attendre(500)
-  await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
-  await p.locator('button', { hasText: 'Corriger' }).first().click()
-  await p.getByText('Margo corrige la sélection').waitFor()
-  assert.equal(await p.getByRole('dialog').count(), 0, 'aucun tiroir ouvert')
-  // La palette recouvre le bandeau tant que le texte est sélectionné : le
-  // tiroir s'ouvre par un clic programmatique, qui prend le focus à l'éditeur.
-  await p.getByRole('button', { name: 'Relecture' }).evaluate((b) => b.click())
-  await p.getByRole('tab', { name: 'Margo (IA)' }).click()
-  await p.getByText('Sur la sélection').waitFor()
-  assert.equal(await p.getByText('Sur tout le texte').count(), 0, 'la portée n’est pas « tout le texte »')
-  await p.context().close()
-})
+/** Ces deux essais passent par la barre mobile de BlockNote, qui n'est montée et placée que clavier
+ * virtuel ouvert (`useVirtualKeyboard`) : Chromium en émulation tactile le simule, WebKit et Firefox
+ * non (essai de réduire la fenêtre : la barre reste introuvable, CI du 18/11/2026). Contrôle réel :
+ * iPhone (veille, 13/11/2026) et campagne WebKit. */
+const SANS_BARRE_MOBILE = NAVIGATEUR !== 'chromium' && 'barre mobile liée au clavier virtuel, non simulé hors Chromium'
 
-test('format S : la pastille du volet droit s’anime pendant que Margo travaille, volet fermé (Sylvain, 14/11/2026)', async () => {
-  const doc = docTest('s-margo-occupe')
-  const p = await ouvrir('Paule', doc)
-  // Une réponse de Margo retardée : le temps de voir l'animation.
-  await p.route('**/margo', async (route) => {
-    await attendre(2500)
-    await route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"margo-indisponible"}' })
-  })
-  await p.click('.bn-editor')
-  await p.keyboard.type('Les enfant jouent dans la cour.')
-  await attendre(500)
-  await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
-  await p.locator('button', { hasText: 'Corriger' }).first().click()
-  const pastille = p.locator('.amend-bandeau-volet-droit .mantine-Indicator-indicator')
-  await pastille.waitFor()
-  assert.equal(await p.getByRole('dialog').count(), 0, 'volet fermé')
-  assert.ok(
-    await pastille.evaluate(
-      (el) => el.hasAttribute('data-processing') || getComputedStyle(el).animationName !== 'none',
-    ),
-    'la pastille est animée',
-  )
-  await pastille.waitFor({ state: 'detached', timeout: 10000 })
-  await p.getByRole('alert').filter({ hasText: 'Margo est indisponible' }).waitFor()
-  await p.context().close()
-})
+test(
+  'format S : « Corriger » une sélection n’ouvre aucun volet et la portée reste « sur la sélection » (Sylvain, 14/11/2026)',
+  { skip: SANS_BARRE_MOBILE },
+  async () => {
+    const doc = docTest('s-corriger')
+    const p = await ouvrir('Paule', doc)
+    await p.click('.bn-editor')
+    await p.keyboard.type('Les enfant jouent dans la cour.')
+    await attendre(500)
+    await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
+    await p.locator('button', { hasText: 'Corriger' }).first().click()
+    await p.getByText('Margo corrige la sélection').waitFor()
+    assert.equal(await p.getByRole('dialog').count(), 0, 'aucun tiroir ouvert')
+    // La palette recouvre le bandeau tant que le texte est sélectionné : le
+    // tiroir s'ouvre par un clic programmatique, qui prend le focus à l'éditeur.
+    await p.getByRole('button', { name: 'Relecture' }).evaluate((b) => b.click())
+    await p.getByRole('tab', { name: 'Margo (IA)' }).click()
+    await p.getByText('Sur la sélection').waitFor()
+    assert.equal(await p.getByText('Sur tout le texte').count(), 0, 'la portée n’est pas « tout le texte »')
+    await p.context().close()
+  },
+)
+
+test(
+  'format S : la pastille du volet droit s’anime pendant que Margo travaille, volet fermé (Sylvain, 14/11/2026)',
+  { skip: SANS_BARRE_MOBILE },
+  async () => {
+    const doc = docTest('s-margo-occupe')
+    const p = await ouvrir('Paule', doc)
+    // Une réponse de Margo retardée : le temps de voir l'animation.
+    await p.route('**/margo', async (route) => {
+      await attendre(2500)
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"margo-indisponible"}' })
+    })
+    await p.click('.bn-editor')
+    await p.keyboard.type('Les enfant jouent dans la cour.')
+    await attendre(500)
+    await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
+    await p.locator('button', { hasText: 'Corriger' }).first().click()
+    const pastille = p.locator('.amend-bandeau-volet-droit .mantine-Indicator-indicator')
+    await pastille.waitFor()
+    assert.equal(await p.getByRole('dialog').count(), 0, 'volet fermé')
+    assert.ok(
+      await pastille.evaluate(
+        (el) => el.hasAttribute('data-processing') || getComputedStyle(el).animationName !== 'none',
+      ),
+      'la pastille est animée',
+    )
+    await pastille.waitFor({ state: 'detached', timeout: 10000 })
+    await p.getByRole('alert').filter({ hasText: 'Margo est indisponible' }).waitFor()
+    await p.context().close()
+  },
+)
 
 test('format S : « Tout accepter » et « Tout refuser » restent sous l’en-tête du tiroir quand la liste défile (Sylvain, 15/11/2026)', async () => {
   const doc = docTest('s-suggestions-collees')
@@ -483,4 +499,13 @@ test('format S : un clic sur une carte (correction ou commentaire), hors boutons
   await e.mouse.click(b2.x + 3, b2.y + 3)
   await e.getByRole('dialog').waitFor({ state: 'detached' })
   for (const x of [p, c, e]) await x.context().close()
+})
+
+test('format S : « Se déconnecter » du menu « … » ferme la session et revient à la connexion (18/11/2026)', async () => {
+  const p = await ouvrir('Paule', docTest('s-deconnexion'))
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Se déconnecter' }).click()
+  await p.getByRole('button', { name: 'Entrer' }).waitFor()
+  assert.equal(await p.locator('.bn-editor').count(), 0, 'le document n’est plus affiché')
+  await p.context().close()
 })

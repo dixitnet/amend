@@ -147,8 +147,7 @@ test('présence : l’éditrice voit le correcteur ; le lecteur voit sans être 
   const { doc, p, c, fermer } = await relecture('presence')
   const l = await ouvrir('Lucie', doc, { role: 'lecteur' })
   // La présence, dans le bandeau : une pastille par autre personne.
-  const participants = (page) =>
-    page.locator('[role=list][aria-label="Personnes sur ce document"] [role=listitem]').count()
+  const participants = (page) => page.locator('[role=group][aria-label="Personnes sur ce document"] button').count()
   await attendre(1500)
   assert.equal(await participants(p), 1, 'l’éditrice voit le correcteur')
   assert.equal(await participants(l), 2, 'le lecteur voit l’éditrice et le correcteur')

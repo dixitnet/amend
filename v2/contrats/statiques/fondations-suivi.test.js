@@ -48,3 +48,11 @@ test('BlockNote : l’historique sur y/hub accepte le regroupement des versions 
   assert.match(t, /activityParams\?:/)
   assert.match(t, /createYHubVersionStorage/)
 })
+
+test('BlockNote : le curseur distant porte le nom de la personne dans ces classes (clic sur la présence ; 18/11/2026)', () => {
+  // `allerAuCurseur` (adaptateur) retrouve le curseur d'une personne par ces classes de rendu, sans API
+  // publique : une montée de version qui les renomme doit échouer ici, pas casser le clic en silence.
+  const rendu = readFileSync(new URL('../../node_modules/@blocknote/core/dist/y.js', import.meta.url), 'utf8')
+  for (const classe of ['bn-collaboration-cursor__base', 'bn-collaboration-cursor__label'])
+    assert.ok(rendu.includes(classe), classe)
+})
