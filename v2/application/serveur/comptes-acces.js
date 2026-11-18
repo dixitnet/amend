@@ -9,7 +9,6 @@ import {
   adresseCourriel,
   DUREE_INVITATION_MS,
   extraitPourObjet,
-  nomAvecAdresse,
 } from '../../domaine/index.js'
 
 /** @param {any} ctx  les aides et dépendances de `creerComptes` */
@@ -28,15 +27,16 @@ export function creerAcces(ctx) {
     courrierSimple,
     envoiAutorise,
     noterEnvoi,
+    quiInvite,
   } = ctx
 
   /** Les variables des textes d'un courrier de partage : qui invite (le nom seul pour l'objet,
    * « Nom (adresse) » dans le message, comme Docs), le document (son titre abrégé pour l'objet) et le rôle. */
-  const varsDuCourrier = (p, doc, role) => {
+  const varsDuCourrier = async (p, doc, role) => {
     const titre = doc.titre || t('courriel.sansTitre')
     return {
       auteur: p.nom || t('courriel.quelquun'),
-      qui: nomAvecAdresse(p.nom, p.courriel),
+      qui: await quiInvite(p),
       titre,
       extrait: extraitPourObjet(titre, 60),
       role: nomDuRole(role),
@@ -89,7 +89,7 @@ export function creerAcces(ctx) {
       if (refus || corps.role === null || corps.role === undefined)
         return err(res, refus === 'droit-insuffisant' ? 403 : 400, refus ?? 'role-invalide')
       if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
-      const vars = varsDuCourrier(p, doc, corps.role)
+      const vars = await varsDuCourrier(p, doc, corps.role)
       if (invite) {
         await comptes.donnerAcces(docId, invite.id, corps.role, p.id)
         await revoir(docId, invite.id)
@@ -142,7 +142,7 @@ export function creerAcces(ctx) {
       )
       if (!i) return err(res, 404, 'introuvable')
       if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
-      if (!(await envoyerInvitation(docId, courriel, varsDuCourrier(p, doc, i.role)))) {
+      if (!(await envoyerInvitation(docId, courriel, await varsDuCourrier(p, doc, i.role)))) {
         return err(res, 502, 'courrier-non-envoye')
       }
       // Le courrier est parti : la validité repart de maintenant.

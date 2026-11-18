@@ -12,7 +12,6 @@ import {
   adresseCourriel,
   refusMembre,
   DUREE_INVITATION_MS,
-  nomAvecAdresse,
 } from '../../domaine/index.js'
 
 /** @param {any} ctx  les aides et dépendances de `creerComptes` */
@@ -27,6 +26,7 @@ export function creerEquipes(ctx) {
     courrierSimple,
     envoiAutorise,
     noterEnvoi,
+    quiInvite,
     ok,
     err,
     statutDuRefus,
@@ -107,7 +107,7 @@ export function creerEquipes(ctx) {
       if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
       const vars = {
         auteur: p.nom || t('courriel.quelquun'),
-        qui: nomAvecAdresse(p.nom, p.courriel),
+        qui: await quiInvite(p),
         equipe: equipe.nom,
         role: nomDuRoleEquipe(nouveau),
       }
