@@ -115,27 +115,36 @@ export function creerEquipes(ctx) {
         if ((await comptes.modifierMembre(equipe.id, invite.id, nouveau, p.id)) === 'dernier-gestionnaire')
           return err(res, 409, 'dernier-gestionnaire')
         await revoirEquipe(equipe.id, p.id, invite.id)
-        await courrier.envoyer({
-          a: a.courriel,
-          sujet: t('courriel.equipe.acces.sujet', vars),
-          ...courrierSimple(
-            t('courriel.equipe.acces.titre'),
-            t('courriel.equipe.acces.intro', vars),
-            t('courriel.equipe.acces.lien'),
-            `${CONF.adresse}/#/equipes/${encodeURIComponent(equipe.id)}`,
-          ),
-        })
+        // Le membre est ajouté : un courrier qui ne part pas n'annule rien (journal).
+        await courrier
+          .envoyer({
+            a: a.courriel,
+            sujet: t('courriel.equipe.acces.sujet', vars),
+            ...courrierSimple(
+              t('courriel.equipe.acces.titre'),
+              t('courriel.equipe.acces.intro', vars),
+              t('courriel.equipe.acces.lien'),
+              `${CONF.adresse}/#/equipes/${encodeURIComponent(equipe.id)}`,
+            ),
+          })
+          .catch((e) => console.error("courrier d'équipe :", e.message))
         noterEnvoi(p.id)
         return ok(res, { invitation: false })
       }
+      // Le courrier d'abord : s'il ne part pas, aucune invitation n'est créée (audit du 18/11/2026).
+      try {
+        await envoyerLien(a.courriel, null, {
+          dureeMs: DUREE_INVITATION_MS,
+          sujet: t('courriel.equipe.invitation.sujet', vars),
+          titre: t('courriel.equipe.invitation.titre'),
+          intro: t('courriel.equipe.invitation.intro', vars),
+          libelleLien: t('courriel.equipe.invitation.lien'),
+        })
+      } catch (e) {
+        console.error("courrier d'invitation d'équipe :", e.message)
+        return err(res, 502, 'courrier-non-envoye')
+      }
       await comptes.inviterMembre(equipe.id, a.courriel, nouveau, p.id)
-      await envoyerLien(a.courriel, null, {
-        dureeMs: DUREE_INVITATION_MS,
-        sujet: t('courriel.equipe.invitation.sujet', vars),
-        titre: t('courriel.equipe.invitation.titre'),
-        intro: t('courriel.equipe.invitation.intro', vars),
-        libelleLien: t('courriel.equipe.invitation.lien'),
-      })
       noterEnvoi(p.id)
       return ok(res, { invitation: true })
     }

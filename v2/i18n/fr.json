@@ -87,7 +87,7 @@
     "dernier-proprietaire": "Un document garde toujours au moins un propriétaire.",
     "trop-de-liens": "Trop de liens demandés\u00A0: réessayez dans un quart d’heure.",
     "trop-d-invitations": "Trop d’invitations envoyées pour le moment\u00A0: réessayez dans une heure.",
-    "courrier-non-envoye": "Le courrier n’a pas pu être envoyé\u00A0: l’invitation n’a pas été créée. Réessayez dans un moment.",
+    "courrier-non-envoye": "Le courrier n’a pas pu être envoyé. Réessayez dans un moment.",
     "titre-invalide": "Ce titre n’est pas valide.",
     "origine-refusee": "Requête refusée\u00A0: elle ne vient pas d’amend.ink.",
     "collaboration-indisponible": "Le service de collaboration ne répond pas. Réessayez.",

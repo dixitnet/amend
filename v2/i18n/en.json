@@ -87,7 +87,7 @@
     "dernier-proprietaire": "A document always keeps at least one owner.",
     "trop-de-liens": "Too many links requested: try again in fifteen minutes.",
     "trop-d-invitations": "Too many invitations sent for now: try again in an hour.",
-    "courrier-non-envoye": "The email could not be sent: the invitation was not created. Try again in a moment.",
+    "courrier-non-envoye": "The email could not be sent. Try again in a moment.",
     "titre-invalide": "This title is not valid.",
     "origine-refusee": "Request refused: it does not come from amend.ink.",
     "collaboration-indisponible": "The collaboration service is not responding. Try again.",

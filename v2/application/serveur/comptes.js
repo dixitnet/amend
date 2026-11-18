@@ -127,8 +127,13 @@ export function creerComptes({
     envoisRecents.set(idPersonne, dates)
     return !plafondInvitationsAtteint(dates, maintenant)
   }
-  const noterEnvoi = (idPersonne, maintenant = Date.now()) =>
+  const noterEnvoi = (idPersonne, maintenant = Date.now()) => {
     envoisRecents.set(idPersonne, [...(envoisRecents.get(idPersonne) ?? []), maintenant])
+    // Les personnes qui n'envoient plus ne restent pas en mémoire.
+    if (envoisRecents.size > 500)
+      for (const [id, dates] of envoisRecents)
+        if (dates.every((d) => maintenant - d >= FENETRE_INVITATIONS_MS)) envoisRecents.delete(id)
+  }
   const ok = (res, corps = {}, statut = 200) => (json(res, statut, corps), true)
   const err = (res, statut, code) => (json(res, statut, { code }), true)
   /** Le statut HTTP d'un refus du domaine (les mêmes partout, audit du 09/11/2026). */

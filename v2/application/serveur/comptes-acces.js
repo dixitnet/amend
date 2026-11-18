@@ -110,14 +110,10 @@ export function creerAcces(ctx) {
         noterEnvoi(p.id)
         return ok(res, { invitation: false })
       }
-      const dejaInvitee = (await comptes.invitationsDuDocument(docId)).some((i) => i.courriel === a.courriel)
+      // Le courrier d'abord : s'il ne part pas, rien n'est créé ni modifié (comme la v1, mieux vaut
+      // pas d'invitation du tout qu'une entrée « en attente » jamais partie ; audit du 18/11/2026).
+      if (!(await envoyerInvitation(docId, a.courriel, vars))) return err(res, 502, 'courrier-non-envoye')
       await comptes.inviter(docId, a.courriel, corps.role, p.id)
-      if (!(await envoyerInvitation(docId, a.courriel, vars))) {
-        // Mieux vaut pas d'invitation du tout qu'une entrée « en attente » qui n'est jamais partie
-        // (comme la v1) ; une invitation déjà faite avant reste, son courrier précédent est parti.
-        if (!dejaInvitee) await comptes.retirerInvitation(docId, a.courriel)
-        return err(res, 502, 'courrier-non-envoye')
-      }
       noterEnvoi(p.id)
       return ok(res, { invitation: true })
     }
@@ -146,10 +142,11 @@ export function creerAcces(ctx) {
       )
       if (!i) return err(res, 404, 'introuvable')
       if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
-      await comptes.inviter(docId, courriel, i.role, p.id)
       if (!(await envoyerInvitation(docId, courriel, varsDuCourrier(p, doc, i.role)))) {
         return err(res, 502, 'courrier-non-envoye')
       }
+      // Le courrier est parti : la validité repart de maintenant.
+      await comptes.inviter(docId, courriel, i.role, p.id)
       noterEnvoi(p.id)
       return ok(res)
     }

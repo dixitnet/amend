@@ -2,7 +2,7 @@
 // police de Mantine, écrites en clair parce qu'un courrier ne peut pas lire les variables
 // d'une page (messageries) ; les styles sont en ligne pour la même raison. Un courrier garde les
 // gris et le noir de Mantine, sans la couleur de l'instance : à décider plus tard. Chaque valeur
-// renvoie à l'ADR 0008 (`courrier.gabarit`).
+// renvoie à l'ADR 0008 (une ligne `courrier.*` par style).
 // Mantine : `gray.0` (fond), blanc (carte), `gray.9` (texte et bouton), `gray.6` (notes), `gray.3`
 // (trait) ; la police est `DEFAULT_THEME.fontFamily`.
 const FOND = '#f8f9fa'
