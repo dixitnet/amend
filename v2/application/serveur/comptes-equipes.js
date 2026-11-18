@@ -12,6 +12,7 @@ import {
   adresseCourriel,
   refusMembre,
   DUREE_INVITATION_MS,
+  nomAvecAdresse,
 } from '../../domaine/index.js'
 
 /** @param {any} ctx  les aides et dépendances de `creerComptes` */
@@ -24,6 +25,8 @@ export function creerEquipes(ctx) {
     t,
     nomDuRoleEquipe,
     courrierSimple,
+    envoiAutorise,
+    noterEnvoi,
     ok,
     err,
     statutDuRefus,
@@ -101,7 +104,13 @@ export function creerEquipes(ctx) {
       const nouveau = corps.role ?? null
       const refus = refusMembre(moi.caps, actuel, nouveau, await comptes.gestionnaires(equipe.id))
       if (refus || nouveau === null) return err(res, statutDuRefus(refus), refus ?? 'role-invalide')
-      const vars = { auteur: p.nom || t('courriel.quelquun'), equipe: equipe.nom, role: nomDuRoleEquipe(nouveau) }
+      if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
+      const vars = {
+        auteur: p.nom || t('courriel.quelquun'),
+        qui: nomAvecAdresse(p.nom, p.courriel),
+        equipe: equipe.nom,
+        role: nomDuRoleEquipe(nouveau),
+      }
       if (invite) {
         if ((await comptes.modifierMembre(equipe.id, invite.id, nouveau, p.id)) === 'dernier-gestionnaire')
           return err(res, 409, 'dernier-gestionnaire')
@@ -110,20 +119,24 @@ export function creerEquipes(ctx) {
           a: a.courriel,
           sujet: t('courriel.equipe.acces.sujet', vars),
           ...courrierSimple(
+            t('courriel.equipe.acces.titre'),
             t('courriel.equipe.acces.intro', vars),
             t('courriel.equipe.acces.lien'),
             `${CONF.adresse}/#/equipes/${encodeURIComponent(equipe.id)}`,
           ),
         })
+        noterEnvoi(p.id)
         return ok(res, { invitation: false })
       }
       await comptes.inviterMembre(equipe.id, a.courriel, nouveau, p.id)
       await envoyerLien(a.courriel, null, {
         dureeMs: DUREE_INVITATION_MS,
         sujet: t('courriel.equipe.invitation.sujet', vars),
+        titre: t('courriel.equipe.invitation.titre'),
         intro: t('courriel.equipe.invitation.intro', vars),
         libelleLien: t('courriel.equipe.invitation.lien'),
       })
+      noterEnvoi(p.id)
       return ok(res, { invitation: true })
     }
     if (sous === 'membres' && cible && (methode === 'PUT' || methode === 'DELETE')) {

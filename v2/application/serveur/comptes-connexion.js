@@ -47,6 +47,7 @@ export function creerConnexion(ctx) {
         await envoyerLien(a.courriel, doc ? doc.id : null, {
           dureeMs: DUREE_LIEN_CONNEXION_MS,
           sujet: t('courriel.connexion.sujet'),
+          titre: t('courriel.connexion.titre'),
           intro: t('courriel.connexion.intro'),
           libelleLien: t('courriel.connexion.lien'),
         })

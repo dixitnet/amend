@@ -39,11 +39,13 @@ export function Partage({ docId }) {
         inviter: t('partage.inviter'),
         retirer: t('partage.retirer'),
         annuler: t('partage.annuler'),
+        renvoyer: t('partage.renvoyer'),
         lien: t('partage.lien'),
         adresseDuLien: t('partage.adresseDuLien'),
         roleDe: (nom) => t('partage.roleDe', { nom }),
         retirerDe: (nom) => t('partage.retirerDe', { nom }),
         annulerDe: (courriel) => t('partage.annulerDe', { courriel }),
+        renvoyerA: (courriel) => t('partage.renvoyerA', { courriel }),
       }}
       roles={options(donnees.rolesDonnables)}
       rolesDuLien={[
@@ -74,6 +76,10 @@ export function Partage({ docId }) {
       surRetirer={agir((cle) => envoyerJson('DELETE', `${base}/acces/${cle}`))}
       surRetirerInvitation={agir((courriel) =>
         envoyerJson('DELETE', `${base}/invitations/${encodeURIComponent(courriel)}`),
+      )}
+      surRenvoyer={agir(
+        (courriel) => envoyerJson('POST', `${base}/invitations/${encodeURIComponent(courriel)}`),
+        (r, courriel) => t('partage.invitationRenvoyee', { courriel }),
       )}
       surChangerLien={agir((role) => envoyerJson('PUT', `${base}/lien`, { role: role === 'aucun' ? null : role }))}
     />
