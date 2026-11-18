@@ -20,6 +20,8 @@
   "document": {
     "etat": "{etat, select, connecte {Synchronisé} connexion {Synchronisation…} other {Hors ligne}}",
     "zoneEdition": "Texte du document {id}",
+    "allerAuCurseur": "Aller au curseur de {nom}",
+    "curseurIntrouvable": "{nom} n’a pas de curseur dans le texte pour le moment.",
     "lectureSeule": "Lecture seule",
     "historique": "Historique",
     "mesDocuments": "Mes documents",

@@ -698,10 +698,22 @@ export function EditeurCollaboratif({
   }
   // Aller à un bloc cité par Margo : le curseur, et le bloc sous le bandeau.
   const allerAuBloc = (id) => allerAuTitre(editeur, id, { focaliser: !lectureAuDepart })
+  // Amener le texte au curseur d'une autre personne (clic sur son rond de présence ; 18/11/2026).
+  // Le curseur distant est un élément de BlockNote (`.bn-collaboration-cursor__base`) qui porte
+  // le nom de la personne : on le retrouve par ce nom, sans rien importer de plus. Vrai s'il est
+  // dans le texte (la personne y a un curseur), faux sinon.
+  const allerAuCurseur = (nom) => {
+    const curseurs = editeur.prosemirrorView?.dom.querySelectorAll('.bn-collaboration-cursor__base') ?? []
+    const curseur = [...curseurs].find(
+      (c) => c.querySelector('.bn-collaboration-cursor__label')?.textContent.trim() === String(nom).trim(),
+    )
+    curseur?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    return Boolean(curseur)
+  }
   // Signes (espaces compris) et mots du texte de base, comme le menu de Docs.
   const compter = () => compterBlocs(blocsDuTexte(editeur, contexte.fragment))
   useEffect(() => {
-    if (controle) controle.current = { terminer, exporter, allerAuBloc, compter }
+    if (controle) controle.current = { terminer, exporter, allerAuBloc, allerAuCurseur, compter }
   })
   // La sélection, en blocs, pour l'onglet Margo (« Sur la sélection »).
   useEffect(() => {

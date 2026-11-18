@@ -792,7 +792,18 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           terminer={
             enModification ? { libelle: t('telephone.terminer'), surClic: () => controle.current?.terminer() } : null
           }
-          presence={{ libelle: t('interface.presence'), personnes: autres }}
+          presence={{
+            libelle: t('interface.presence'),
+            personnes: autres.map((p) => ({
+              ...p,
+              libelleAller: t('document.allerAuCurseur', { nom: p.nom }),
+              // Le texte défile jusqu'à son curseur ; sans curseur dans le texte, un message passager.
+              surClic: () => {
+                if (!controle.current?.allerAuCurseur?.(p.nom))
+                  montrerMessage(t('document.curseurIntrouvable', { nom: p.nom }))
+              },
+            })),
+          }}
           etat={{ libelle: t('document.etat', { etat: connexion }), connexion }}
           partager={
             caps.includes('inviter') ? { libelle: t('document.partager'), surClic: () => setPartage(true) } : null

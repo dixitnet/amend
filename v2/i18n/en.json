@@ -20,6 +20,8 @@
   "document": {
     "etat": "{etat, select, connecte {Synced} connexion {Syncing…} other {Offline}}",
     "zoneEdition": "Text of document {id}",
+    "allerAuCurseur": "Go to {nom}’s cursor",
+    "curseurIntrouvable": "{nom} has no cursor in the text right now.",
     "lectureSeule": "Read only",
     "historique": "History",
     "mesDocuments": "My documents",

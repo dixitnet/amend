@@ -241,7 +241,15 @@ export function Bandeau({
             <Avatar.Group aria-label={presence.libelle} role="list">
               {presence.personnes.map((p) => (
                 <Tooltip key={p.cle} label={p.nom}>
-                  <Avatar name={p.nom} {...REGLAGES.couleurDePersonne(p.couleur)} role="listitem" aria-label={p.nom} />
+                  <Avatar
+                    component="button"
+                    type="button"
+                    name={p.nom}
+                    {...REGLAGES.couleurDePersonne(p.couleur)}
+                    role="listitem"
+                    aria-label={p.libelleAller ?? p.nom}
+                    onClick={p.surClic}
+                  />
                 </Tooltip>
               ))}
             </Avatar.Group>
