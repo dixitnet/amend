@@ -63,6 +63,7 @@ import {
   DUREE_MESURES_MS,
   FENETRE_INVITATIONS_MS,
   plafondInvitationsAtteint,
+  nomAvecAdresse,
 } from '../../domaine/index.js'
 import { creerTraducteur, libelleDuRole, libelleDuRoleEquipe } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
@@ -134,6 +135,9 @@ export function creerComptes({
       for (const [id, dates] of envoisRecents)
         if (dates.every((d) => maintenant - d >= FENETRE_INVITATIONS_MS)) envoisRecents.delete(id)
   }
+  /** « Nom (adresse) » de la personne connectée : la session ne porte que l'identifiant et le nom,
+   * l'adresse se lit dans la base (un courrier qui dit « undefined » ; 18/11/2026). */
+  const quiInvite = async (p) => nomAvecAdresse(p.nom, (await comptes.personne(p.id))?.courriel)
   const ok = (res, corps = {}, statut = 200) => (json(res, statut, corps), true)
   const err = (res, statut, code) => (json(res, statut, { code }), true)
   /** Le statut HTTP d'un refus du domaine (les mêmes partout, audit du 09/11/2026). */
@@ -208,6 +212,7 @@ export function creerComptes({
     courrierSimple,
     envoiAutorise,
     noterEnvoi,
+    quiInvite,
     ok,
     err,
     statutDuRefus,

@@ -180,7 +180,7 @@
     "invitation": {
       "sujet": "{auteur} vous invite\u00A0: «\u00A0{extrait}\u00A0»",
       "titre": "Invitation à collaborer",
-      "intro": "{qui} vous invite sur le document «\u00A0{titre}\u00A0», comme {role}. Ce lien vous y mène directement, sans mot de passe. Il vaut 7 jours.",
+      "intro": "{qui} vous invite sur le document «\u00A0{titre}\u00A0», comme {role}. Ce lien est valable 7 jours et vous y mène directement, sans mot de passe. Il ne sert qu’une fois\u00A0: ensuite, retrouvez vos documents sur amend.ink avec cette adresse de courriel.",
       "lien": "Ouvrir le document"
     },
     "acces": {
@@ -199,7 +199,7 @@
       "invitation": {
         "sujet": "{auteur} vous invite dans une équipe sur amend.ink",
         "titre": "Invitation dans une équipe",
-        "intro": "{qui} vous invite dans l’équipe «\u00A0{equipe}\u00A0», comme {role}. Le lien vaut 7 jours.",
+        "intro": "{qui} vous invite dans l’équipe «\u00A0{equipe}\u00A0», comme {role}. Ce lien est valable 7 jours et ne sert qu’une fois\u00A0: ensuite, retrouvez l’équipe sur amend.ink avec cette adresse de courriel.",
         "lien": "Rejoindre l’équipe"
       }
     }

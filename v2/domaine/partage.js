@@ -70,7 +70,7 @@ export function extraitPourObjet(texte, max) {
 
 /** « Nom (adresse) » quand la personne a un nom, sinon l'adresse : un courrier qui dit
  * qui invite, par un nom qu'on reconnaît, se fait moins écarter par un filtre (comme Docs). */
-export const nomAvecAdresse = (nom, courriel) => (nom ? `${nom} (${courriel})` : courriel)
+export const nomAvecAdresse = (nom, courriel) => (nom && courriel ? `${nom} (${courriel})` : (courriel ?? nom ?? ''))
 
 /** Le rôle d'un lien de partage : un des rôles permis, ou `null` (aucun lien). */
 export const roleDuLienValide = (role) => role === null || ROLES_DU_LIEN.includes(role)

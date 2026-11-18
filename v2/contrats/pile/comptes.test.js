@@ -63,9 +63,11 @@ test('créer un document, inviter une adresse nouvelle : elle entre d’un clic,
   await attendreEtat(c, 'connecte')
   await attendreMode(c, 'Corriger') // arrivée en correctrice
   assert.equal(new URL(c.url()).hash, `#${docId}`)
-  // Le lien ne sert qu'une fois.
+  // Le lien ne sert qu'une fois ; rouvert par une personne déjà connectée, il ne mène pas à une
+  // impasse : elle arrive sur son dernier document (18/11/2026). Sans session, voir pannes.test.js.
   await c.goto(`${pile.url}${await lienPour(adresse)}`)
-  await c.getByText('Ce lien de connexion n’est plus valable').waitFor()
+  await c.waitForSelector('.bn-editor')
+  assert.equal(new URL(c.url()).hash, `#${docId}`, 'le dernier document ouvert')
   await ctx.close()
   await p.context().close()
 })
