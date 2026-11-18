@@ -91,7 +91,15 @@ export function App({ surApparence }) {
     try {
       const r = await fetch(`/api/connexion/${encodeURIComponent(jeton)}`, { method: 'POST' })
       const corps = await lireJson(r)
-      if (!r.ok) return setEtat({ phase: 'erreur', code: corps.code || `http-${r.status}` })
+      if (!r.ok) {
+        // Un lien déjà utilisé (ou périmé) pour une personne déjà connectée : pas d'impasse, elle
+        // arrive sur son dernier document (l'accueil le choisit), 18/11/2026.
+        if (corps.code === 'lien-invalide' && (await fetch('/api/moi')).ok) {
+          location.replace('#')
+          return await charger()
+        }
+        return setEtat({ phase: 'erreur', code: corps.code || `http-${r.status}` })
+      }
       location.replace(corps.document ? `#${encodeURIComponent(corps.document)}` : '#')
       await charger()
     } catch {
