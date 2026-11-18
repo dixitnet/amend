@@ -42,6 +42,36 @@ export function refusAcces(caps, actuel, nouveau, proprietaires) {
 export const invitationValable = (creeLe, maintenant = Date.now()) =>
   Number.isFinite(creeLe) && maintenant - creeLe < DUREE_INVITATION_MS && creeLe <= maintenant
 
+/** Le plafond des courriers qu'une personne fait partir (invitations, accès donnés, renvois) :
+ * `INVITATIONS_MAX` par `FENETRE_INVITATIONS_MS`, pour éviter les abus (Sylvain, 18/11/2026 :
+ * « un plafond simple »). Un point de départ, à ajuster sur les journaux réels. */
+export const INVITATIONS_MAX = 30
+export const FENETRE_INVITATIONS_MS = 60 * 60 * 1000
+
+/** Le plafond est-il atteint ? `dates` : les envois récents de la personne (ms). */
+export function plafondInvitationsAtteint(dates, maintenant = Date.now()) {
+  return dates.filter((d) => maintenant - d < FENETRE_INVITATIONS_MS).length >= INVITATIONS_MAX
+}
+
+/** Un extrait pour l'objet d'un courrier : espaces ramenés à une seule (un retour à la
+ * ligne n'a rien à faire dans un en-tête), coupé à `max` signes (points de code) avec « … ». */
+export function extraitPourObjet(texte, max) {
+  const t = String(texte ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const signes = [...t]
+  return signes.length > max
+    ? signes
+        .slice(0, max - 1)
+        .join('')
+        .trimEnd() + '…'
+    : t
+}
+
+/** « Nom (adresse) » quand la personne a un nom, sinon l'adresse : un courrier qui dit
+ * qui invite, par un nom qu'on reconnaît, se fait moins écarter par un filtre (comme Docs). */
+export const nomAvecAdresse = (nom, courriel) => (nom ? `${nom} (${courriel})` : courriel)
+
 /** Le rôle d'un lien de partage : un des rôles permis, ou `null` (aucun lien). */
 export const roleDuLienValide = (role) => role === null || ROLES_DU_LIEN.includes(role)
 

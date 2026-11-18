@@ -13,6 +13,11 @@ export {
   roleDuLienValide,
   peutRecevoirLienDeConnexion,
   adresseCourriel,
+  INVITATIONS_MAX,
+  FENETRE_INVITATIONS_MS,
+  plafondInvitationsAtteint,
+  extraitPourObjet,
+  nomAvecAdresse,
 } from './partage.js'
 export { nomDossier, refusDeplacementDossier, sectionDuDocument, refusRetrait } from './dossiers.js'
 export {

@@ -10,6 +10,11 @@ import {
   peutRecevoirLienDeConnexion,
   adresseCourriel,
   DUREE_INVITATION_MS,
+  INVITATIONS_MAX,
+  FENETRE_INVITATIONS_MS,
+  plafondInvitationsAtteint,
+  extraitPourObjet,
+  nomAvecAdresse,
 } from '../../domaine/index.js'
 
 const c = (role) => capacites(role)
@@ -76,4 +81,27 @@ test('une adresse refuse les points mal placés', () => {
   for (const c of ['a..b@x.fr', '.a@x.fr', 'a.@x.fr', 'a@x..fr', 'a@.x.fr'])
     assert.deepEqual(adresseCourriel(c), { ok: false, code: 'courriel-invalide' }, c)
   assert.equal(adresseCourriel('a.b@x.fr').ok, true)
+})
+
+test('plafond des courriers : atteint à la limite dans l’heure, plus après (18/11/2026)', () => {
+  const maintenant = 10 * 3600_000
+  const recents = Array.from({ length: INVITATIONS_MAX }, (_, i) => maintenant - i * 1000)
+  assert.equal(plafondInvitationsAtteint(recents.slice(1), maintenant), false)
+  assert.equal(plafondInvitationsAtteint(recents, maintenant), true)
+  // Les envois de plus d'une heure ne comptent plus.
+  assert.equal(
+    plafondInvitationsAtteint(
+      recents.map((d) => d - FENETRE_INVITATIONS_MS),
+      maintenant,
+    ),
+    false,
+  )
+})
+
+test('objet d’un courrier : extrait sans retour à la ligne, coupé par « … » ; « Nom (adresse) »', () => {
+  assert.equal(extraitPourObjet('  Un  titre\n sur deux lignes ', 60), 'Un titre sur deux lignes')
+  assert.equal(extraitPourObjet('abcdefghij', 5), 'abcd…')
+  assert.equal(extraitPourObjet('😀😀😀😀😀😀', 4), '😀😀😀…')
+  assert.equal(nomAvecAdresse('Ada', 'ada@exemple.fr'), 'Ada (ada@exemple.fr)')
+  assert.equal(nomAvecAdresse('', 'ada@exemple.fr'), 'ada@exemple.fr')
 })
