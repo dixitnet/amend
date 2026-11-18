@@ -141,6 +141,97 @@ test('invitation d’une adresse connue : accès tout de suite, et un courrier q
   assert.deepEqual(liste.json.acces.map((x) => x.role).sort(), ['editeur', 'proprietaire'])
 })
 
+test('courrier d’invitation : objet avec le titre, « Nom (adresse) » dans le message, carte avec un seul bouton (18/11/2026)', async () => {
+  const paule = await personne('Paule courrier')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: { titre: 'La gare' } })
+  const a = adresse('carla')
+  await appel('POST', `/api/documents/${doc.id}/acces`, {
+    cookie: paule.cookie,
+    corps: { courriel: a, role: 'editeur' },
+  })
+  const m = courrier.envoyes.at(-1)
+  assert.match(m.sujet, /Paule courrier vous invite\u00A0: «\u00A0La gare\u00A0»/)
+  assert.match(m.texte, /Paule courrier \(.+\) vous invite sur le document/)
+  assert.match(m.html, /border-radius:6px/, 'le bouton du gabarit')
+  assert.equal((m.html.match(/<a /g) || []).length, 1, 'un seul lien')
+})
+
+test('invitation : si le courrier ne part pas, l’invitation n’est pas créée ; elle l’est sinon (18/11/2026)', async () => {
+  const paule = await personne('Paule echec')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: {} })
+  const a = adresse('perdu')
+  const envoyer = courrier.envoyer
+  courrier.envoyer = async () => {
+    throw Object.assign(new Error('Mailgun : 500'), { code: 'courrier-non-envoye' })
+  }
+  const silence = console.error
+  console.error = () => {}
+  try {
+    const r = await appel('POST', `/api/documents/${doc.id}/acces`, {
+      cookie: paule.cookie,
+      corps: { courriel: a, role: 'lecteur' },
+    })
+    assert.equal(r.statut, 502)
+    assert.equal(r.json.code, 'courrier-non-envoye')
+  } finally {
+    courrier.envoyer = envoyer
+    console.error = silence
+  }
+  assert.deepEqual(await comptes.invitationsDuDocument(doc.id), [], 'aucune entrée « en attente » orpheline')
+})
+
+test('renvoyer une invitation en attente : un nouveau courrier et un nouveau lien ; inconnue : 404 (18/11/2026)', async () => {
+  const paule = await personne('Paule renvoi')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: {} })
+  const a = adresse('relance')
+  await appel('POST', `/api/documents/${doc.id}/acces`, {
+    cookie: paule.cookie,
+    corps: { courriel: a, role: 'lecteur' },
+  })
+  const avant = courrier.envoyes.length
+  const lien1 = dernierLien(a)
+  const r = await appel('POST', `/api/documents/${doc.id}/invitations/${encodeURIComponent(a)}`, {
+    cookie: paule.cookie,
+  })
+  assert.equal(r.statut, 200)
+  assert.equal(courrier.envoyes.length, avant + 1)
+  assert.notEqual(dernierLien(a), lien1, 'un nouveau lien')
+  const s = await suivre(dernierLien(a))
+  assert.equal(s.statut, 200)
+  assert.equal(
+    (
+      await appel('POST', `/api/documents/${doc.id}/invitations/${encodeURIComponent(adresse('x'))}`, {
+        cookie: paule.cookie,
+      })
+    ).statut,
+    404,
+  )
+  const lecteur = await personne('Lecteur renvoi')
+  await comptes.donnerAcces(doc.id, lecteur.id, 'lecteur', paule.id)
+  const refus = await appel('POST', `/api/documents/${doc.id}/invitations/${encodeURIComponent(a)}`, {
+    cookie: lecteur.cookie,
+  })
+  assert.equal(refus.statut, 403, 'sans droit d’inviter, pas de renvoi')
+})
+
+test('plafond : au-delà de 30 courriers de partage dans l’heure, 429 (18/11/2026)', async () => {
+  const paule = await personne('Paule plafond')
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: paule.cookie, corps: {} })
+  for (let i = 0; i < 30; i++) {
+    const r = await appel('POST', `/api/documents/${doc.id}/acces`, {
+      cookie: paule.cookie,
+      corps: { courriel: adresse(`p${i}`), role: 'lecteur' },
+    })
+    assert.equal(r.statut, 200, `courrier ${i + 1}`)
+  }
+  const trop = await appel('POST', `/api/documents/${doc.id}/acces`, {
+    cookie: paule.cookie,
+    corps: { courriel: adresse('trop'), role: 'lecteur' },
+  })
+  assert.equal(trop.statut, 429)
+  assert.equal(trop.json.code, 'trop-d-invitations')
+})
+
 test('mes documents : créés par moi et partagés avec moi, avec mon rôle', async () => {
   const paule = await personne('Paule')
   const bruno = await personne('Bruno')

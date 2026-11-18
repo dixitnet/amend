@@ -70,6 +70,22 @@ test('créer un document, inviter une adresse nouvelle : elle entre d’un clic,
   await p.context().close()
 })
 
+test('invitation en attente : « Renvoyer » envoie un nouveau courrier avec un nouveau lien (18/11/2026)', async () => {
+  const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-renvoi-${Date.now().toString(36)}`)
+  await nouveauDocument(p)
+  await p.getByRole('button', { name: 'Partager' }).click()
+  const adresse = `relance-${randomUUID().slice(0, 8)}@exemple.fr`
+  await p.getByLabel('Adresse de courriel').fill(adresse)
+  await p.getByRole('button', { name: 'Inviter' }).click()
+  await p.getByText(`Invitation envoyée à ${adresse}.`).waitFor()
+  const premier = await lienPour(adresse)
+  await p.getByRole('button', { name: `Renvoyer l’invitation à ${adresse}` }).click()
+  await p.getByText(`Invitation renvoyée à ${adresse}.`).waitFor()
+  for (const t0 = Date.now(); Date.now() - t0 < 8000 && (await lienPour(adresse)) === premier; await attendre(200));
+  assert.notEqual(await lienPour(adresse), premier, 'un nouveau lien est parti')
+  await p.context().close()
+})
+
 test('lien de partage : une personne connectée qui a l’adresse entre comme lectrice ; lien fermé, plus rien', async () => {
   const p = await ouvrirSur(nav, pile.url, 'Paule', `t5-attente-${Date.now().toString(36)}`)
   const docId = await nouveauDocument(p)
