@@ -361,6 +361,14 @@ test('format S : la pastille de nombre du volet droit n’est pas rognée par so
   for (const x of [p, c, e]) await x.context().close()
 })
 
+/** Simule le clavier virtuel ouvert : BlockNote ne monte sa barre mobile que si la zone visible
+ * rétrécit de plus de 150 px (`useVirtualKeyboard`). Chromium en émulation tactile le fait seul ;
+ * WebKit et Firefox non, d'où cette réduction explicite (CI du 18/11/2026). */
+async function ouvrirLeClavier(page) {
+  const v = page.viewportSize()
+  await page.setViewportSize({ width: v.width, height: v.height - 320 })
+}
+
 test('format S : « Corriger » une sélection n’ouvre aucun volet et la portée reste « sur la sélection » (Sylvain, 14/11/2026)', async () => {
   const doc = docTest('s-corriger')
   const p = await ouvrir('Paule', doc)
@@ -368,6 +376,7 @@ test('format S : « Corriger » une sélection n’ouvre aucun volet et la port�
   await p.keyboard.type('Les enfant jouent dans la cour.')
   await attendre(500)
   await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
+  await ouvrirLeClavier(p)
   await p.locator('button', { hasText: 'Corriger' }).first().click()
   await p.getByText('Margo corrige la sélection').waitFor()
   assert.equal(await p.getByRole('dialog').count(), 0, 'aucun tiroir ouvert')
@@ -392,6 +401,7 @@ test('format S : la pastille du volet droit s’anime pendant que Margo travaill
   await p.keyboard.type('Les enfant jouent dans la cour.')
   await attendre(500)
   await p.click('.bn-editor .bn-inline-content', { clickCount: 3 })
+  await ouvrirLeClavier(p)
   await p.locator('button', { hasText: 'Corriger' }).first().click()
   const pastille = p.locator('.amend-bandeau-volet-droit .mantine-Indicator-indicator')
   await pastille.waitFor()
