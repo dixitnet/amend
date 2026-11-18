@@ -35,11 +35,14 @@ export const envoyerJson = appel
  * l'instance), l'aide quand l'instance en a une (pages statiques, lot du
  * 11/11/2026 ; comme le lien de documentation de Docs, `HelpMenu.tsx`) et un
  * seul « Se déconnecter » (Sylvain, 09/11/2026). */
+/** Se déconnecter : la session est fermée côté serveur, la page repart de zéro. */
+export async function seDeconnecter() {
+  await envoyerJson('POST', '/api/deconnexion').catch(() => {})
+  location.reload()
+}
+
 export function compteDe(personne, config) {
-  const sortir = async () => {
-    await envoyerJson('POST', '/api/deconnexion').catch(() => {})
-    location.reload()
-  }
+  const sortir = seDeconnecter
   return {
     libelle: t('interface.compte'),
     nom: personne.nom,

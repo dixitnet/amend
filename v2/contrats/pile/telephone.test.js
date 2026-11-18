@@ -133,6 +133,7 @@ test('format S : le plan liste les titres ; le menu « … » ; le partage en pl
       '150\u202F%',
       '200\u202F%',
       'Supprimer',
+      'Se déconnecter',
     ],
   )
   await p.getByRole('menuitem', { name: 'Partager' }).click()
@@ -498,4 +499,13 @@ test('format S : un clic sur une carte (correction ou commentaire), hors boutons
   await e.mouse.click(b2.x + 3, b2.y + 3)
   await e.getByRole('dialog').waitFor({ state: 'detached' })
   for (const x of [p, c, e]) await x.context().close()
+})
+
+test('format S : « Se déconnecter » du menu « … » ferme la session et revient à la connexion (18/11/2026)', async () => {
+  const p = await ouvrir('Paule', docTest('s-deconnexion'))
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Se déconnecter' }).click()
+  await p.getByRole('button', { name: 'Entrer' }).waitFor()
+  assert.equal(await p.locator('.bn-editor').count(), 0, 'le document n’est plus affiché')
+  await p.context().close()
 })

@@ -35,7 +35,7 @@ import { serviceCommentaires, envoyerImage } from './commentaires.js'
 import { nomsAdemander } from './nomsAuteurs.js'
 import { useVolets } from './volets.js'
 import { useMargo } from './margo.js'
-import { t, nomsAvecMargo, envoyerJson, compteDe, boutonGauche } from './commun.js'
+import { t, nomsAvecMargo, envoyerJson, compteDe, boutonGauche, seDeconnecter } from './commun.js'
 import { MARGO_EN_COURS, MARGO_ARRET, morceauxDeMargo } from './textesMargo.js'
 import { useSaisie, useConfirmation } from './fenetres.jsx'
 import { useExport } from './useExport.jsx'
@@ -679,6 +679,14 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
                 },
               ]
             : []),
+          // Se déconnecter, comme le menu du compte des formats M et L (Sylvain, 18/11/2026).
+          {
+            cle: 'sortir',
+            libelle: t('documents.deconnexion'),
+            icone: 'deconnexion',
+            separe: true,
+            surClic: seDeconnecter,
+          },
         ]}
         piedMenu={piedMenu}
         surOuvrirMenu={compterAuMenu}
