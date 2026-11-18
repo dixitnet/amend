@@ -65,6 +65,12 @@ jobs:
         run: npm run lint
       - name: Format
         run: npm run format:check
+      # Les tests des PDF (contrats/statiques/typst.test.js) lisent le texte et le format
+      # des PDF avec `pdftotext` et `pdfinfo` (LISEZMOI de v2/), absents de l'image
+      # des exécuteurs ; sans eux, six tests échouaient depuis le 15/11/2026.
+      - name: Outils de lecture des PDF (poppler-utils)
+        run: sudo apt-get install -y --no-install-recommends poppler-utils
+        working-directory: .
       - name: T0 à T4
         run: npm test
 

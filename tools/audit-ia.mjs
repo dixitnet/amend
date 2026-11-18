@@ -330,7 +330,10 @@ const MODULES = [
   ['Client', ['v2/application/client/']],
   ['Design', ['v2/design/']],
   ['Exploitation : campagne de test', ['v2/exploitation/campagne/']],
-  ['Exploitation : développement, production et site', ['v2/exploitation/dev/', 'v2/exploitation/prod/', 'v2/exploitation/site/']],
+  [
+    'Exploitation : développement, production et site',
+    ['v2/exploitation/dev/', 'v2/exploitation/prod/', 'v2/exploitation/site/'],
+  ],
   ['Déploiement automatique', ['deploy/auto/']],
   [
     'Garde-fous (lint, contrats statiques, configuration)',

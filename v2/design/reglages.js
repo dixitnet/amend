@@ -5,6 +5,7 @@
 import { DEFAULT_THEME } from '@mantine/core'
 import { REGLAGES_LIVRE } from './reglagesLivre.js'
 import { APPARENCE } from './apparence.js'
+import { COURRIER } from './reglagesCourrier.js'
 
 export const REGLAGES = {
   // Le fournisseur Mantine (MantineProvider).
@@ -79,6 +80,8 @@ export const REGLAGES = {
   // Les modèles de mise en page des livres (design/reglagesLivre.js, sans
   // Mantine : le serveur les lit aussi, audit du 11/11/2026).
   livre: REGLAGES_LIVRE,
+  // Les courriers (gabarit HTML, `courrier.js`), 18/11/2026.
+  courrier: COURRIER,
   // La coquille des formats M et L (AppShell de Mantine).
   coquille: {
     bandeau: 60,

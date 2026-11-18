@@ -61,9 +61,12 @@ import {
   DUREE_INVITATION_MS,
   DUREE_JOURNAL_MS,
   DUREE_MESURES_MS,
+  FENETRE_INVITATIONS_MS,
+  plafondInvitationsAtteint,
 } from '../../domaine/index.js'
 import { creerTraducteur, libelleDuRole, libelleDuRoleEquipe } from '../../i18n/index.js'
 import { courrierAvecLien } from '../../adaptateurs/courrier/index.js'
+import { htmlDuCourrier } from '../../design/courrier.js'
 import { decoder } from './adresse.js'
 import { creerConnexion } from './comptes-connexion.js'
 import { creerMoi } from './comptes-moi.js'
@@ -103,10 +106,34 @@ export function creerComptes({
   const t = creerTraducteur('fr') // langue des courriers : celle des documents d'ici l'étape 6b
   const nomDuRole = (role) => libelleDuRole(t, role)
   const nomDuRoleEquipe = (role) => libelleDuRoleEquipe(t, role)
-  const courrierSimple = (intro, libelleLien, lien) =>
+  /** Un courrier : texte et HTML (le gabarit est celui du design), textes déjà traduits. */
+  const courrierSimple = (titre, intro, libelleLien, lien) =>
     (({ texte, html }) => ({ texte, html }))(
-      courrierAvecLien({ intro, libelleLien, lien, copier: t('courriel.copier'), apres: t('courriel.apres') }),
+      courrierAvecLien({
+        titre,
+        intro,
+        libelleLien,
+        lien,
+        copier: t('courriel.copier'),
+        apres: t('courriel.apres'),
+        gabarit: (o) => htmlDuCourrier({ ...o, langue: 'fr', marque: t('application.nom') }),
+      }),
     )
+  /** Les courriers de partage récents de chaque personne, pour le plafond (en mémoire : un
+   * redémarrage le remet à zéro, ce qui suffit contre un abus ; Sylvain, 18/11/2026). */
+  const envoisRecents = new Map()
+  const envoiAutorise = (idPersonne, maintenant = Date.now()) => {
+    const dates = (envoisRecents.get(idPersonne) ?? []).filter((d) => maintenant - d < FENETRE_INVITATIONS_MS)
+    envoisRecents.set(idPersonne, dates)
+    return !plafondInvitationsAtteint(dates, maintenant)
+  }
+  const noterEnvoi = (idPersonne, maintenant = Date.now()) => {
+    envoisRecents.set(idPersonne, [...(envoisRecents.get(idPersonne) ?? []), maintenant])
+    // Les personnes qui n'envoient plus ne restent pas en mémoire.
+    if (envoisRecents.size > 500)
+      for (const [id, dates] of envoisRecents)
+        if (dates.every((d) => maintenant - d >= FENETRE_INVITATIONS_MS)) envoisRecents.delete(id)
+  }
   const ok = (res, corps = {}, statut = 200) => (json(res, statut, corps), true)
   const err = (res, statut, code) => (json(res, statut, { code }), true)
   /** Le statut HTTP d'un refus du domaine (les mêmes partout, audit du 09/11/2026). */
@@ -129,10 +156,10 @@ export function creerComptes({
     await Promise.all((await comptes.documentsDeLEquipe(equipe, membreQuiVoit)).map((d) => revoir(d.id, personne)))
   }
 
-  async function envoyerLien(courriel, document, { dureeMs, sujet, intro, libelleLien }) {
+  async function envoyerLien(courriel, document, { dureeMs, sujet, titre, intro, libelleLien }) {
     const jeton = await comptes.creerJeton(courriel, document, dureeMs)
     const lien = `${CONF.adresse}/api/connexion/${jeton}`
-    const m = courrierAvecLien({ intro, libelleLien, lien, copier: t('courriel.copier'), apres: t('courriel.apres') })
+    const m = courrierSimple(titre, intro, libelleLien, lien)
     await courrier.envoyer({ a: courriel, sujet, texte: m.texte, html: m.html })
   }
 
@@ -179,6 +206,8 @@ export function creerComptes({
     nomDuRole,
     nomDuRoleEquipe,
     courrierSimple,
+    envoiAutorise,
+    noterEnvoi,
     ok,
     err,
     statutDuRefus,

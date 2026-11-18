@@ -86,6 +86,8 @@
     "role-invalide": "This role does not exist.",
     "dernier-proprietaire": "A document always keeps at least one owner.",
     "trop-de-liens": "Too many links requested: try again in fifteen minutes.",
+    "trop-d-invitations": "Too many invitations sent for now: try again in an hour.",
+    "courrier-non-envoye": "The email could not be sent. Try again in a moment.",
     "titre-invalide": "This title is not valid.",
     "origine-refusee": "Request refused: it does not come from amend.ink.",
     "collaboration-indisponible": "The collaboration service is not responding. Try again.",
@@ -171,28 +173,33 @@
     "sansTitre": "Untitled document",
     "connexion": {
       "sujet": "Your amend.ink sign-in link",
+      "titre": "Your sign-in link",
       "intro": "Here is your link to sign in to amend.ink. It works once and for 15 minutes.",
       "lien": "Sign in to amend.ink"
     },
     "invitation": {
-      "sujet": "{auteur} invites you to amend.ink",
-      "intro": "{auteur} invites you to the document “{titre}” as {role}. The link is valid for 7 days.",
+      "sujet": "{auteur} invites you: “{extrait}”",
+      "titre": "Invitation to collaborate",
+      "intro": "{qui} invites you to the document “{titre}” as {role}. This link takes you straight to it, no password needed. It is valid for 7 days.",
       "lien": "Open the document"
     },
     "acces": {
-      "sujet": "{auteur} shared a document with you",
-      "intro": "{auteur} gave you access to the document “{titre}” as {role}.",
+      "sujet": "{auteur} shared “{extrait}” with you",
+      "titre": "A document was shared with you",
+      "intro": "{qui} gave you access to the document “{titre}” as {role}.",
       "lien": "Open the document"
     },
     "equipe": {
       "acces": {
         "sujet": "{auteur} added you to the team “{equipe}”",
-        "intro": "{auteur} added you to the team “{equipe}” on amend.ink, as {role}.",
+        "titre": "You were added to a team",
+        "intro": "{qui} added you to the team “{equipe}” on amend.ink, as {role}.",
         "lien": "Open the team"
       },
       "invitation": {
         "sujet": "{auteur} invites you to a team on amend.ink",
-        "intro": "{auteur} invites you to the team “{equipe}”, as {role}. The link is valid for 7 days.",
+        "titre": "Invitation to a team",
+        "intro": "{qui} invites you to the team “{equipe}”, as {role}. The link is valid for 7 days.",
         "lien": "Join the team"
       }
     }
@@ -264,7 +271,10 @@
     "invitationEnvoyee": "Invitation sent to {courriel}.",
     "accesDonne": "{courriel} now has access.",
     "retirerDe": "Remove {nom}",
-    "annulerDe": "Cancel the invitation of {courriel}"
+    "annulerDe": "Cancel the invitation of {courriel}",
+    "renvoyer": "Resend",
+    "renvoyerA": "Resend the invitation to {courriel}",
+    "invitationRenvoyee": "Invitation resent to {courriel}."
   },
   "admin": {
     "titre": "Administration",
