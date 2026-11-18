@@ -545,3 +545,16 @@ test('émojis : « : » n’ouvre rien dans le texte ; l’entrée « Emoji » d
   await page.locator('.bn-frimousse-picker').waitFor()
   await page.context().close()
 })
+
+test('menu « / » : chaque groupe n’a qu’une étiquette, aussi pendant la frappe (« /saut » en montrait trois ; 18/11/2026)', async () => {
+  const page = await pageEcriture('menu-etiquettes')
+  await page.keyboard.type('/')
+  await page.locator('.bn-suggestion-menu-item').first().waitFor()
+  const etiquettes = () => page.locator('.bn-suggestion-menu-label').allInnerTexts()
+  const toutes = await etiquettes()
+  assert.deepEqual(toutes, [...new Set(toutes)], `étiquettes uniques : ${toutes}`)
+  await page.keyboard.type('saut')
+  await page.waitForFunction(() => document.querySelectorAll('.bn-suggestion-menu-item').length === 1)
+  assert.equal((await etiquettes()).length, 1, 'une seule étiquette pour un seul élément')
+  await page.context().close()
+})

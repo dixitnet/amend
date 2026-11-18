@@ -240,18 +240,23 @@ function BarreDuLienEnSuggestion(props) {
  * les émojis depuis le 17/11/2026 (retirés le 12/11 ; la frappe de « : » ne
  * les ouvre toujours pas, voir `EmojiPickerController` plus bas). */
 function itemsDuMenu(editeur, table, textesTitres) {
-  const items = [...getDefaultReactSlashMenuItems(editeur), ...getPageBreakReactSlashMenuItems(editeur)]
+  const defauts = getDefaultReactSlashMenuItems(editeur)
+  // Nos entrées prennent le dernier groupe de BlockNote (« Autres »), à la suite : BlockNote
+  // clé les étiquettes de groupe par leur nom, et un même nom deux fois (« Blocs de base »
+  // en tête, puis pour le saut de page) laissait des étiquettes en trop pendant la frappe
+  // (« /saut » ; Sylvain, 18/11/2026).
+  const groupe = defauts.at(-1)?.group
+  const items = [...defauts, ...getPageBreakReactSlashMenuItems(editeur).map((x) => ({ ...x, group: groupe }))]
   if (table)
     items.push({
       key: 'table_des_matieres',
       title: table.titre,
       subtext: table.description,
       aliases: [],
-      group: editeur.dictionary.slash_menu.page_break.group,
+      group: groupe,
       icon: table.picto,
       onItemClick: () => insertOrUpdateBlockForSlashMenu(editeur, { type: TYPE_TABLE }),
     })
-  const groupe = items.at(-1)?.group
   // « /date » : la date du jour dans le texte, AAAA-MM-JJ (Sylvain, 12/11/2026).
   if (textesTitres?.date)
     items.push({
