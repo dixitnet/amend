@@ -21,6 +21,7 @@ export function PanneauPartage({
   surChangerRole,
   surRetirer,
   surRetirerInvitation,
+  surRenvoyer,
   surChangerLien,
 }) {
   const soumettre = (e) => {
@@ -59,6 +60,12 @@ export function PanneauPartage({
         {invitations.map((i) => (
           <Group component="li" key={i.courriel}>
             <Text>{i.texte}</Text>
+            {/* Renvoyer : seulement pour un document (une équipe n'en a pas, 18/11/2026). */}
+            {surRenvoyer ? (
+              <Button aria-label={libelles.renvoyerA(i.courriel)} onClick={() => surRenvoyer(i.courriel)}>
+                {libelles.renvoyer}
+              </Button>
+            ) : null}
             <Button aria-label={libelles.annulerDe(i.courriel)} onClick={() => surRetirerInvitation(i.courriel)}>
               {libelles.annuler}
             </Button>

@@ -1,6 +1,7 @@
 // T4 : les composants de présentation, rendus sans navigateur (React côté
 // serveur, chargé par Vite pour le JSX et les feuilles de style), en
 // français, en anglais et en pseudo-langue.
+import { htmlDuCourrier } from '../../design/courrier.js'
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'vite'
@@ -53,6 +54,8 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     marge: 26.7,
     lignes: 31,
     propriete: 'Corps',
+    qui: 'Ada (ada@exemple.fr)',
+    extrait: 'Un titre',
     signes: 12345,
     mots: 2000,
     zoom: 150,
@@ -122,6 +125,8 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       marge: 26.7,
       lignes: 31,
       propriete: 'Corps',
+      qui: 'Q',
+      extrait: 'X',
       signes: 2,
       mots: 2,
       zoom: 50,
@@ -827,4 +832,21 @@ test('back-office : une ligne peut porter un choix (modèle de Margo), étiquet�
   assert.match(html, /<option value="b" selected="">Modèle B<\/option>/)
   assert.ok(html.includes('valeur simple'))
   assert.match(html, /role="status"[^>]*>Enregistré\./)
+})
+
+test('courrier : une carte, un bouton, un seul lien ; les textes et l’adresse sont échappés', () => {
+  const html = htmlDuCourrier({
+    titre: 'Titre <b>',
+    intro: 'Un « message » & plus',
+    libelleLien: 'Ouvrir',
+    lien: 'https://amend.ink/api/connexion/x?a=1&b="2"',
+    copier: 'Copiez',
+    apres: 'Note',
+    marque: 'amend.ink',
+  })
+  assert.equal((html.match(/<a /g) || []).length, 1, 'un seul lien cliquable')
+  assert.match(html, /Titre &lt;b&gt;/)
+  assert.match(html, /message » &amp; plus/)
+  assert.match(html, /a=1&amp;b=&quot;2&quot;/)
+  assert.doesNotMatch(html, /<b>/)
 })
