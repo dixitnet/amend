@@ -1,7 +1,7 @@
 # Revue de clôture de l'étape 7, « Exports » (2026-11-19)
 
 - Relecteur : **Claude** (grille du § 6 des règles), comme pour l'étape 6. L'audit complet du 16/11/2026 (GLM-5.3, tout `v2/`, chaque constat vérifié : `docs/v2-audits/2026-11-16-2137-audit-complet.md`) sert de relecture approfondie ; ses lots A à F sont faits (19/11) ; audits partiels avant chaque fusion.
-- Statut : revue écrite ; **à arbitrer par Sylvain** (deux décisions ci-dessous), qui clôt l'étape.
+- Statut : **arbitré par Sylvain le 19/11/2026 (« 1 ok, 2 ok, 3 ok, 4 ok ») ; étape 7 close.**
 
 ## Ce que l'étape a livré
 
@@ -9,7 +9,7 @@ Export Markdown ; export PDF de livre composé par Typst dans le navigateur ; fe
 
 ## Critère de sortie
 
-« Export d'un livre de référence identique à l'attendu » : **atteint le 19/11/2026**. `contrats/statiques/livre-de-reference.test.js` exporte un livre qui emploie chaque bloc et chaque style du schéma, avec les quatre modèles livrés ; la source Typst est comparée au signe près à celle gardée dans `tests/donnees/livre-de-reference/`, et le PDF à son format et à son nombre de pages. Le PDF A5 a été relu à l'œil par Claude avant d'être pris pour attendu ; **il reste à valider par Sylvain** (planche jointe à la conversation).
+« Export d'un livre de référence identique à l'attendu » : **atteint le 19/11/2026**. `contrats/statiques/livre-de-reference.test.js` exporte un livre qui emploie chaque bloc et chaque style du schéma, avec les quatre modèles livrés ; la source Typst est comparée au signe près à celle gardée dans `tests/donnees/livre-de-reference/`, et le PDF à son format et à son nombre de pages. Le PDF A5 a été relu à l'œil par Claude avant d'être pris pour attendu ; **validé par Sylvain le 19/11/2026**.
 
 ## Grille
 
@@ -20,7 +20,7 @@ Export Markdown ; export PDF de livre composé par Typst dans le navigateur ; fe
 5. **Propreté des exports** : tout texte passe par `nfc` ; typographie française à la frappe, non refaite à l'export.
 6. **Traductions** : libellés de l'export dans les catalogues ; les modèles portent des noms, pas des textes.
 
-## Ce qui n'est pas fait, à arbitrer
+## Ce qui n'est pas fait (arbitré : renoncement n° 28)
 
 1. **Export Word** (point 12 du plan de la suite ; `xl-docx-exporter`, comme Docs). Proposition : le sortir de l'étape et l'inscrire au registre des renoncements, à reprendre sur demande d'un éditeur.
 2. **Images dans l'export Markdown** (archive `.zip`, comme Docs). Même proposition.

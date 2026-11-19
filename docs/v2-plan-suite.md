@@ -13,9 +13,9 @@ Sources : audit complet du 10/11/2026 (`docs/v2-audits/2026-11-10-0657-audit-com
 | 4. Éditeur | close (08/11) |
 | 5. Relecture | close (09/11) |
 | 6. Application | **lots faits** (6a comptes et partage, 6b interface M et L, 6c dossiers, 6d équipes, format S), **pas de revue de clôture** ; restent le catalogue anglais préparé, la pseudo-langue vérifiée sur tous les parcours, et la langue du document (renvoyée à l'étape 6 par l'étape 4, jamais reprise) |
-| 7. Exports | **revue de clôture écrite le 19/11** (`docs/v2-revues/2026-11-19-etape-7-cloture.md`) : Markdown, PDF, modèles, polices ; livre de référence en contrat ; Word et images du Markdown à arbitrer |
+| 7. Exports | **close (19/11)** (`docs/v2-revues/2026-11-19-etape-7-cloture.md`) : Markdown, PDF, modèles, polices ; livre de référence en contrat ; Word et images du Markdown : renoncement n° 28 |
 | 8. IA | **close (11/11)** : Margo (onglet, « Corriger », serveur, adaptateur IA), modèle au back-office ; `docs/v2-etape-8-plan.md` |
-| 9. Publication et back-office | **revue de clôture écrite le 19/11** (`docs/v2-revues/2026-11-19-etape-9-cloture.md`) : page publiée abandonnée (n° 27), back-office dans son périmètre (n° 20) |
+| 9. Publication et back-office | **close (19/11)** (`docs/v2-revues/2026-11-19-etape-9-cloture.md`) : page publiée abandonnée (n° 27), back-office dans son périmètre (n° 20) |
 | Bascule de la v1 | pas planifiée |
 
 En ligne : v2.amend.ink, service fermé, ouvert à des invités réels depuis le 09/11.

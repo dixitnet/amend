@@ -1,7 +1,7 @@
 # Revue de clôture de l'étape 9, « Publication et back-office » (2026-11-19)
 
 - Relecteur : **Claude** (grille du § 6 des règles). Même appui que l'étape 7 : audit complet du 16/11/2026 et ses lots, audits partiels avant chaque fusion.
-- Statut : revue écrite ; **à arbitrer par Sylvain**, qui clôt l'étape. Aucun critère de sortie n'est fixé pour cette étape (§ 8).
+- Statut : **arbitré par Sylvain le 19/11/2026 (« 1 ok, 2 ok, 3 ok, 4 ok ») ; étape 9 close.**
 
 ## Périmètre, après les décisions de Sylvain
 
