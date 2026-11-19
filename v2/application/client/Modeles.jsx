@@ -26,14 +26,24 @@ const NOMS_REGLAGES = {
   'chapitre.ligneTitre': () => t('modeles.reglage.chapitre.ligneTitre'),
   'chapitre.ligneTexte': () => t('modeles.reglage.chapitre.ligneTexte'),
   'chapitre.interligne': () => t('modeles.reglage.chapitre.interligne'),
+  'ouverture2.debut': () => t('modeles.reglage.ouverture2.debut'),
+  'ouverture2.ligneTitre': () => t('modeles.reglage.ouverture2.ligneTitre'),
+  'ouverture2.ligneTexte': () => t('modeles.reglage.ouverture2.ligneTexte'),
+  'ouverture2.interligne': () => t('modeles.reglage.ouverture2.interligne'),
   'folio.position': () => t('modeles.reglage.folio.position'),
   'folio.depart': () => t('modeles.reglage.folio.depart'),
   'folio.bas': () => t('modeles.reglage.folio.bas'),
   'folio.ouverture': () => t('modeles.reglage.folio.ouverture'),
+  'folio.ouverture2': () => t('modeles.reglage.folio.ouverture2'),
   'enTete.gauche': () => t('modeles.reglage.enTete.gauche'),
   'enTete.droite': () => t('modeles.reglage.enTete.droite'),
   'enTete.texteGauche': () => t('modeles.reglage.enTete.texteGauche'),
   'enTete.texteDroite': () => t('modeles.reglage.enTete.texteDroite'),
+  'enTete.police': () => t('modeles.reglage.enTete.police'),
+  'enTete.corps': () => t('modeles.reglage.enTete.corps'),
+  'enTete.italique': () => t('modeles.reglage.enTete.italique'),
+  'enTete.petitesCapitales': () => t('modeles.reglage.enTete.petitesCapitales'),
+  'enTete.alignement': () => t('modeles.reglage.enTete.alignement'),
   separateur: () => t('modeles.reglage.separateur'),
   cesure: () => t('modeles.reglage.cesure'),
 }
@@ -45,12 +55,16 @@ const NOMS_PROPRIETES = {
   gras: () => t('modeles.propriete.gras'),
   italique: () => t('modeles.propriete.italique'),
   capitales: () => t('modeles.propriete.capitales'),
+  petitesCapitales: () => t('modeles.propriete.petitesCapitales'),
   alignement: () => t('modeles.propriete.alignement'),
   espaceAvant: () => t('modeles.propriete.espaceAvant'),
   espaceApres: () => t('modeles.propriete.espaceApres'),
   alinea: () => t('modeles.propriete.alinea'),
   retrait: () => t('modeles.propriete.retrait'),
+  retraitSuspendu: () => t('modeles.propriete.retraitSuspendu'),
 }
+/** Une liste de noms dans la langue de l'interface (« A, B et C »). */
+const enListe = (noms) => new Intl.ListFormat(t.langue, { style: 'long', type: 'conjunction' }).format(noms)
 /** Le nom d'un réglage, par sa clé. */
 const nomDuReglage = (cle) =>
   cle.startsWith('styles.') ? NOMS_PROPRIETES[cle.split('.')[2]]?.() : NOMS_REGLAGES[cle]?.()
@@ -77,6 +91,11 @@ const NOMS_OPTIONS = {
     'haut-exterieur': () => t('modeles.options.folio.haut-exterieur'),
     aucun: () => t('modeles.options.folio.aucun'),
   },
+  alignementEnTete: {
+    centre: () => t('modeles.options.alignementEnTete.centre'),
+    exterieur: () => t('modeles.options.alignementEnTete.exterieur'),
+    interieur: () => t('modeles.options.alignementEnTete.interieur'),
+  },
   enTete: {
     rien: () => t('modeles.options.enTete.rien'),
     titreDocument: () => t('modeles.options.enTete.titreDocument'),
@@ -86,13 +105,24 @@ const NOMS_OPTIONS = {
 }
 /** Les options d'un réglage à choix, par sa clé. */
 const optionsDe = (cle) =>
-  NOMS_OPTIONS[cle.endsWith('.alignement') ? 'alignement' : cle.startsWith('enTete.') ? 'enTete' : cle.split('.')[0]] ??
-  {}
+  NOMS_OPTIONS[
+    cle === 'enTete.alignement'
+      ? 'alignementEnTete'
+      : cle.endsWith('.alignement')
+        ? 'alignement'
+        : cle.startsWith('enTete.')
+          ? 'enTete'
+          : // Le titre 2 commence comme le titre 1 : sur la page, page suivante, belle page.
+            cle === 'ouverture2.debut'
+            ? 'chapitre'
+            : cle.split('.')[0]
+  ] ?? {}
 // Les styles, un par ligne du tableau « Styles », et les propriétés, une par colonne
 // (Sylvain, 15/11/2026). Le corps du texte courant est celui de la grille.
 const LIGNES_STYLES = {
   texte: () => t('modeles.styles.texte'),
   citation: () => t('modeles.styles.citation'),
+  bibliographie: () => t('modeles.styles.bibliographie'),
   titre1: () => t('modeles.styles.titre1'),
   titre2: () => t('modeles.styles.titre2'),
   titre3: () => t('modeles.styles.titre3'),
@@ -108,9 +138,11 @@ const COLONNES = [
   'gras',
   'italique',
   'capitales',
+  'petitesCapitales',
   'alignement',
   'alinea',
   'retrait',
+  'retraitSuspendu',
   'espaceAvant',
   'espaceApres',
 ]
@@ -125,10 +157,21 @@ const tableauDesStyles = () => ({
     ),
   })),
 })
+/** Les polices fournies qui ont de vraies petites capitales : dites sous le tableau des styles, le réglage
+ * étant sans effet avec les autres (19/11/2026). */
+const aidePetitesCapitales = (regles) =>
+  t('modeles.aidePetitesCapitales', {
+    polices: enListe(regles.polices.filter((p) => p.petitesCapitales).map((p) => p.famille)),
+  })
 const groupes = () => [
   { cle: 'format', libelle: t('modeles.groupes.format') },
   { cle: 'texte', libelle: t('modeles.groupes.texte') },
-  { cle: 'styles', libelle: t('modeles.groupes.styles'), tableau: tableauDesStyles() },
+  {
+    cle: 'styles',
+    libelle: t('modeles.groupes.styles'),
+    tableau: tableauDesStyles(),
+    aide: aidePetitesCapitales(REGLES_MODELES),
+  },
   { cle: 'chapitre', libelle: t('modeles.groupes.chapitre') },
   { cle: 'pages', libelle: t('modeles.groupes.pages') },
 ]
@@ -463,8 +506,6 @@ export function ModelesInstance({ donnees, confirmer, surChangement }) {
 }
 
 /** Des octets en mégaoctets, à une décimale (le catalogue met le nombre en forme). */
-/** Une liste de noms dans la langue de l'interface (« A, B et C »). */
-const enListe = (noms) => new Intl.ListFormat(t.langue, { style: 'long', type: 'conjunction' }).format(noms)
 const octetsEnMo = (n) => Math.round((n / (1024 * 1024)) * 10) / 10
 const NOMS_STYLES = {
   romain: () => t('admin.polices.styles.romain'),

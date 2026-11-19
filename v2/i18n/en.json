@@ -64,7 +64,9 @@
     "noteDescription": "A numbered note at the bottom of the page",
     "compteurSelection": "Selection: {signes, plural, one {# character} other {# characters}}, {mots, plural, one {# word} other {# words}}",
     "legende": "Caption",
-    "legendeDescription": "The caption of an image or a table, outside the table of contents"
+    "legendeDescription": "The caption of an image or a table, outside the table of contents",
+    "bibliographie": "Bibliography",
+    "bibliographieDescription": "A bibliography reference, with a hanging indent in the PDF"
   },
   "erreurs": {
     "apparence-inconnue": "This interface model or colour does not exist.",
@@ -483,23 +485,35 @@
         "interligne": "Line spacing (pt)"
       },
       "chapitre": {
-        "debut": "Chapter start",
+        "debut": "Heading 1: start",
         "premierSansAlinea": "No indent on the first paragraph of a chapter",
-        "ligneTitre": "Chapter title line",
-        "ligneTexte": "Line where the text resumes",
-        "interligne": "Chapter title line spacing (pt)"
+        "ligneTitre": "Heading 1: title line",
+        "ligneTexte": "Heading 1: line where the text resumes",
+        "interligne": "Heading 1: title line spacing (pt)"
+      },
+      "ouverture2": {
+        "debut": "Heading 2: start",
+        "ligneTitre": "Heading 2: title line",
+        "ligneTexte": "Heading 2: line where the text resumes",
+        "interligne": "Heading 2: title line spacing (pt)"
       },
       "folio": {
         "position": "Page number position",
         "depart": "First page number",
         "bas": "Page number line from the bottom (mm)",
-        "ouverture": "Page number on chapter opening pages"
+        "ouverture": "Page number on a page opened by a heading 1",
+        "ouverture2": "Page number on a page opened by a heading 2"
       },
       "enTete": {
         "gauche": "Running head on left pages",
         "droite": "Running head on right pages",
         "texteGauche": "Text of the left-page running head",
-        "texteDroite": "Text of the right-page running head"
+        "texteDroite": "Text of the right-page running head",
+        "police": "Running head font",
+        "corps": "Running head size (pt)",
+        "italique": "Running heads in italic",
+        "petitesCapitales": "Running heads in small capitals",
+        "alignement": "Running head alignment"
       },
       "separateur": "Scene break",
       "cesure": "Hyphenation"
@@ -535,23 +549,30 @@
         "gauche": "Left",
         "justifie": "Justified",
         "centre": "Centered"
+      },
+      "alignementEnTete": {
+        "centre": "Centered",
+        "exterieur": "Outer edge",
+        "interieur": "Inner edge"
       }
     },
     "groupes": {
       "format": "Page size and margins",
       "texte": "Body text",
       "styles": "Styles",
-      "chapitre": "Chapter",
+      "chapitre": "Opening of headings 1 and 2",
       "pages": "Page number and running head",
       "general": "Name"
     },
     "reglageDeStyle": "{style}: {propriete}",
     "memePolice": "Same font as the text",
+    "aidePetitesCapitales": "Small capitals come from the font: {polices} have them. With another font, this setting has no effect.",
     "styles": {
       "colonne": "Style",
       "texte": "Body text",
       "citation": "Quote",
-      "titre1": "Heading 1 (chapter)",
+      "bibliographie": "Bibliography",
+      "titre1": "Heading 1",
       "titre2": "Heading 2",
       "titre3": "Heading 3",
       "titre4": "Heading 4",
@@ -572,11 +593,13 @@
       "gras": "Bold",
       "italique": "Italic",
       "capitales": "Capitals",
+      "petitesCapitales": "Small capitals",
       "alignement": "Alignment",
       "espaceAvant": "Space before (pt)",
       "espaceApres": "Space after (pt)",
       "alinea": "First-line indent (mm)",
-      "retrait": "Left indent (mm)"
+      "retrait": "Left indent (mm)",
+      "retraitSuspendu": "Hanging indent (mm)"
     },
     "nouveau": "New template",
     "dupliquer": "Duplicate",

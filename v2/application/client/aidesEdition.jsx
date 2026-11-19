@@ -126,6 +126,11 @@ export const TEXTES_EDITEUR = {
     description: t('document.legendeDescription'),
     picto: <PictoDe role="legende" />,
   },
+  bibliographie: {
+    titre: t('document.bibliographie'),
+    description: t('document.bibliographieDescription'),
+    picto: <PictoDe role="bibliographie" />,
+  },
 }
 
 /**
