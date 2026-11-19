@@ -60,6 +60,7 @@ import { MagasinFils } from './commentaires.js'
 import {
   creerAfficheur,
   suivreAuteurs,
+  poserAuteurs,
   listeDesSuggestions,
   compterSuggestions,
   curseurApresFrappe,
@@ -513,6 +514,10 @@ export function EditeurCollaboratif({
   // Les auteurs des suggestions, lus à côté de l'afficheur, pour le panneau.
   const [auteurs, setAuteurs] = useState(null)
   useEffect(() => (afficheur ? suivreAuteurs(contexte, setAuteurs) : undefined), [contexte, afficheur])
+  // La même table donne à l'afficheur l'auteur de chaque correction du texte (sa couleur, 19/11/2026).
+  useEffect(() => {
+    if (afficheur && auteurs) poserAuteurs(afficheur, auteurs)
+  }, [afficheur, auteurs])
 
   // La liste des suggestions : en Éditer et Corriger (l'éditeur les montre
   // alors) ; en Lire, seulement s'il y en a, d'après l'afficheur.
