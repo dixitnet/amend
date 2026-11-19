@@ -50,10 +50,12 @@ export function Administration({ surApparence, rubrique = null }) {
   // Le connecteur Claude (12/11/2026) : son état, et l'adresse juste après sa création.
   const [connecteur, setConnecteur] = useState(null)
   const [adresseConnecteur, setAdresseConnecteur] = useState(null)
+  const [erreurConnecteur, setErreurConnecteur] = useState(null)
   const chargerConnecteur = () =>
     envoyerJson('GET', '/api/admin/connecteur')
-      .then(setConnecteur)
-      .catch((e) => setMessage(messageErreur(t, e.code || 'reseau')))
+      .then((c) => (setErreurConnecteur(null), setConnecteur(c)))
+      // La rubrique dit l'erreur au lieu de rester sur « Chargement… » (audit du 16/11/2026).
+      .catch((e) => setErreurConnecteur(e.code || 'reseau'))
   useEffect(() => {
     chargerConnecteur()
   }, [])
@@ -257,7 +259,7 @@ export function Administration({ surApparence, rubrique = null }) {
         {
           titre: t('admin.connecteur.titre'),
           lignes: [],
-          vide: t('application.chargement'),
+          vide: erreurConnecteur ? messageErreur(t, erreurConnecteur) : t('application.chargement'),
           contenu: connecteur ? (
             <>
               <PanneauConnecteur

@@ -9,7 +9,7 @@ const CLE_RECHARGE = 'amend2.session.rechargee'
  * initial montre alors l'écran de connexion. Une seule fois, tant que la
  * session n'est pas revenue (drapeau effacé quand /api/moi répond 200,
  * voir `sessionRetrouvee`). Sans stockage, pas de garde-fou : pas de rechargement. */
-function rechargerSiSessionExpiree() {
+export function rechargerSiSessionExpiree() {
   try {
     if (sessionStorage.getItem(CLE_RECHARGE)) return
     sessionStorage.setItem(CLE_RECHARGE, '1')
@@ -53,6 +53,7 @@ export async function envoyerImage(docId, fichier) {
     body: blob,
   })
   const donnees = await r.json().catch(() => ({}))
+  if (r.status === 401) rechargerSiSessionExpiree()
   if (!r.ok)
     throw Object.assign(new Error(donnees.code || `http-${r.status}`), { code: donnees.code || `http-${r.status}` })
   return { url: donnees.url, largeur }
@@ -67,6 +68,7 @@ export async function envoyerPolice(fichier) {
     body: fichier,
   })
   const donnees = await r.json().catch(() => ({}))
+  if (r.status === 401) rechargerSiSessionExpiree()
   if (!r.ok) {
     const code = donnees.code || `http-${r.status}`
     throw Object.assign(new Error(code), { code, famille: donnees.famille ?? null })

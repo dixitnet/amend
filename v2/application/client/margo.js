@@ -4,6 +4,7 @@
 // garde pas ; il lui est renvoyé à chaque demande. Aucun texte ici : codes et
 // nombres, que l'interface traduit.
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { rechargerSiSessionExpiree } from './commentaires.js'
 
 const cleDuFil = (docId) => `amend2.margo.${docId}`
 /** Échanges renvoyés au serveur, au plus (les plus récents). */
@@ -46,6 +47,8 @@ async function demanderMargo(docId, corps, surEvenement, signal) {
     throw Object.assign(new Error('reseau', { cause }), { code: signal?.aborted ? 'annulee' : 'reseau' })
   }
   if (!r.ok) {
+    // Session expirée pendant la demande : la page se recharge, comme pour tout autre geste.
+    if (r.status === 401) rechargerSiSessionExpiree()
     const { code } = await r.json().catch(() => ({}))
     throw Object.assign(new Error(code || 'reseau'), { code: code || 'reseau' })
   }

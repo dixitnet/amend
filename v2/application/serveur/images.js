@@ -16,27 +16,7 @@ import {
   IMAGE_MAX_OCTETS,
 } from '../../domaine/index.js'
 import { decoder } from './adresse.js'
-
-/** Lit le corps brut, sans dépasser `max` octets (au-delà : `null`, et rien
- * de plus n'est gardé ; la connexion se ferme après la réponse). */
-function lireOctets(req, max) {
-  return new Promise((resolve, reject) => {
-    const morceaux = []
-    let taille = 0
-    req.on('data', (m) => {
-      taille += m.length
-      if (taille > max) {
-        morceaux.length = 0
-        req.removeAllListeners('data')
-        req.pause()
-        return resolve(null)
-      }
-      morceaux.push(m)
-    })
-    req.on('end', () => resolve(new Uint8Array(Buffer.concat(morceaux))))
-    req.on('error', reject)
-  })
-}
+import { lireOctets } from './octets.js'
 
 /**
  * @param {object} o

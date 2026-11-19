@@ -334,7 +334,8 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
   })
 
   async function lire({ de, a }) {
-    if (!entier(de) || !entier(a)) return parametres('lire')
+    // Le schéma annonce des numéros à partir de 1, dans l'ordre (audit du 16/11/2026).
+    if (!entier(de) || !entier(a) || de < 1 || a < de) return parametres('lire')
     const { blocs } = await lireEtat(collaboration, docId, auteur)
     const choisis = []
     let total = 0

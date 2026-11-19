@@ -13,32 +13,10 @@
 //   GET    /api/polices/:id          le fichier
 import { lirePolice, nomFichierPolice, famillesDePolices, POLICE_MAX_OCTETS } from '../../domaine/index.js'
 import { decoder } from './adresse.js'
+import { lireOctets } from './octets.js'
 
 /** Le réglage de l'instance qui garde les familles fournies que l'on a désactivées. */
 export const REGLAGE_DESACTIVEES = 'polices.desactivees'
-
-/** Lit le corps brut, sans dépasser `max` octets (au-delà : `null`). */
-function lireOctets(req, max) {
-  return new Promise((resolve, reject) => {
-    const morceaux = []
-    let taille = 0
-    req.on('data', (m) => {
-      taille += m.length
-      if (taille > max) {
-        morceaux.length = 0
-        req.removeAllListeners('data')
-        req.pause()
-        resolve(null)
-        // La réponse part, puis la connexion se ferme : le reste n'est pas lu.
-        req.socket?.setTimeout?.(1000)
-        return
-      }
-      morceaux.push(m)
-    })
-    req.on('end', () => resolve(new Uint8Array(Buffer.concat(morceaux))))
-    req.on('error', reject)
-  })
-}
 
 /**
  * @param {object} o
@@ -92,7 +70,11 @@ export function creerPolices({ personneDe, administrateur, depot, reservees, mod
       }
       if (req.method !== 'POST') return err(405, 'methode-refusee')
       const octets = await lireOctets(req, POLICE_MAX_OCTETS)
-      if (octets === null) return err(413, 'police-trop-lourde')
+      if (octets === null) {
+        // La réponse part, puis la connexion se ferme : le reste n'est pas lu.
+        req.socket?.setTimeout?.(1000)
+        return err(413, 'police-trop-lourde')
+      }
       const lue = lirePolice(octets)
       if (!lue.ok) return err(400, lue.code)
       // Une famille fournie avec amend.ink ne se complète ni ne se remplace.
