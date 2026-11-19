@@ -10,6 +10,8 @@ export const POLICE_MAX_OCTETS = 10 * 1024 * 1024
 import { INVISIBLES } from './personne.js'
 
 const NOM_MAX = 120
+/** `INVISIBLES`, pour les retirer tous d'un nom. */
+const TOUS_INVISIBLES = new RegExp(INVISIBLES.source, 'gu')
 /** Coupe à `NOM_MAX` signes, comptés en points de code : un emoji n'est jamais coupé en deux. */
 const couper = (texte) => [...texte].slice(0, NOM_MAX).join('')
 
@@ -56,7 +58,7 @@ function noms(o, t) {
     else if (plateforme === 1) for (let k = 0; k < longueur; k++) texte += String.fromCharCode(o[debut + k])
     else continue
     // Sans caractère de commande ni invisible, comme un nom de personne (audit du 16/11/2026).
-    texte = texte.normalize('NFC').replace(new RegExp(INVISIBLES.source, 'gu'), '').trim()
+    texte = texte.normalize('NFC').replace(TOUS_INVISIBLES, '').trim()
     // Le nom Windows (Unicode) l'emporte sur le nom Macintosh.
     if (texte && (plateforme !== 1 || !trouves.has(id))) trouves.set(id, texte)
   }
@@ -101,7 +103,7 @@ export const nomFichierPolice = (nom) =>
     String(nom ?? '')
       .normalize('NFC')
       .replace(/^.*[\\/]/, '')
-      .replace(new RegExp(INVISIBLES.source, 'gu'), '')
+      .replace(TOUS_INVISIBLES, '')
       .trim(),
   )
 

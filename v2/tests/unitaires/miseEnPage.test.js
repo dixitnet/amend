@@ -365,6 +365,8 @@ test('nom de fichier : pas de point en tête, noms réservés de Windows précé
   assert.equal(nomDeFichier('CON', 'pdf'), '_CON.pdf')
   assert.equal(nomDeFichier('nul', 'md'), '_nul.md')
   assert.equal(nomDeFichier('Console', 'pdf'), 'Console.pdf')
+  assert.equal(nomDeFichier('con.final', 'pdf'), '_con.final.pdf', 'réservé quelle que soit la suite')
+  assert.equal(nomDeFichier('Nom. ', 'pdf'), 'Nom.pdf', 'ni point ni espace en fin')
 })
 
 test('gabarit Typst : un modèle sans chapitre est refusé avec un code, pas un gabarit faux (audit du 16/11/2026)', () => {

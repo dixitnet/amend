@@ -26,7 +26,7 @@
       }
     ],
     "invitation": "L’accès se fait sur invitation.",
-    "pied": "amend.ink est publié par dixit.net, Nantes. Contact\u00A0:"
+    "pied": "amend.ink est publié par dixit.net, Nantes. Contact\u00A0: {contact}"
   },
   "aide": {
     "titrePage": "Aide — amend.ink",
@@ -154,7 +154,7 @@
     ],
     "question": {
       "titre": "Une question\u202F?",
-      "texte": "Écrivez à"
+      "texte": "Écrivez à {contact}."
     }
   }
 }
