@@ -39,3 +39,15 @@ Décision de Sylvain (`docs/v2-modeles-pdf-plan.md`) : un seul modèle dans le c
 - Le gabarit Typst compose chaque style séparément (`set text`, `set par`, règles `show` des citations, titres, titre, sous-titre, légende), et replaçait le texte sur la grille après chaque bloc (`blancSurGrille`) jusqu'au 15/11/2026 : depuis, l'espace avant et après un style est un nombre de points réglé dans le modèle (Sylvain, « espacement en pt »), et un espacement quelconque peut donc écarter le texte de la grille ; `blancSurGrille` ne sert plus qu'à convertir les modèles enregistrés avec des lignes blanches.
 - Les familles de polices d'un modèle sont celles de ses styles (`famillesDuModele`) ; une famille envoyée par l'instance ne peut être supprimée tant qu'un modèle, d'instance ou d'équipe, en garde une copie.
 - Conversion : les lignes `base` + `ecarts` d'avant le 13/11/2026 deviennent des modèles complets au démarrage ; `base` et `ecarts` restent en base, sans usage, jusqu'au retrait de ce code transitoire.
+
+## Complément du 19/11/2026 : parties, en-têtes, bibliographie
+
+Décisions de Sylvain (`docs/v2-modeles-140x220-plan.md`), à partir d'un livre de 140 × 220 mm :
+
+- **Les parties sont des titres 1, les chapitres des titres 2.** Le titre 2 peut ouvrir une page comme le titre 1 (`ouverture2` : début, ligne du titre, ligne où le texte reprend, interligne) ; par défaut il reste dans le texte, avec les espaces de son style. Une page ouverte par un titre 1 ou 2 n'a pas d'en-tête ; le numéro de page s'y règle par niveau (`folio.ouverture`, `folio.ouverture2`). L'en-tête « chapitre en cours » est le dernier titre d'un niveau qui ouvre une page.
+- **Le style des en-têtes est réglable** (`enTete.police`, `corps`, `italique`, `petitesCapitales`, `alignement`).
+- **Petites capitales et retrait suspendu** entrent dans les styles ; les petites capitales sont celles de la police (Typst ne les imite pas : sans effet avec une police qui n'en a pas, ce que le formulaire dit). Pas de petites capitales dans le texte.
+- **Un style de paragraphe « Bibliographie »** (bloc de l'éditeur, comme « Légende »), en retrait suspendu.
+- **Reprise** : un modèle enregistré avant ce jour garde son rendu. Ce qui lui manque se déduit de lui (`completerModele`) : titre 2 dans le texte, en-têtes en italique au corps du texte, bibliographie au corps du texte.
+- Modèle de l'instance « TàT 140 × 220 », créé une fois au démarrage (`livre.reprise`).
+- Écartés : en-tête « auteur », ornement sous le titre, numérotation automatique des chapitres, grand chiffre de partie, demi-gras, pages liminaires composées.

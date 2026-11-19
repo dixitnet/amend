@@ -226,9 +226,9 @@ export function PanneauModeles({
  *   libelles: { nom: string, general: string, retour: string, enregistrer: string, annuler: string },
  *   titre: string, adresseRetour: string,
  *   nom: string,
- *   groupes: Array<{ cle: string, libelle: string, tableau?: { premiereColonne: string, colonnes: Array<{ cle: string, libelle: string }>,
+ *   groupes: Array<{ cle: string, libelle: string, aide?: string, tableau?: { premiereColonne: string, colonnes: Array<{ cle: string, libelle: string }>,
  *     lignes: Array<{ cle: string, libelle: string, cellules: Record<string, string> }> } }>,
- *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix' | 'texte', libelle: string, valeur: any, visibleSi?: { cle: string, egal: string }, aide?: (valeurs: object) => string | null,
+ *   champs: Array<{ cle: string, type: 'nombre' | 'entier' | 'booleen' | 'police' | 'choix' | 'texte', libelle: string, valeur: any, visibleSi?: { cle: string, egal?: string, different?: string }, aide?: (valeurs: object) => string | null,
  *     groupe?: string, min?: number, max?: number, pas?: number, options?: Array<{ value: string, label: string }> }>,
  *   message?: string | null, surEnregistrer: (o: { nom: string, valeurs: Record<string, any> }) => void,
  *   surAnnuler: () => void,
@@ -256,7 +256,9 @@ export function PageReglageModele({
   }
   const champ = (c, compact = false, nomCellule = '') => {
     // Un champ qui dépend d'un choix (le texte libre d'un en-tête) n'apparaît que sur ce choix.
-    if (c.visibleSi && valeurs[c.visibleSi.cle] !== c.visibleSi.egal) return null
+    // (ou, à l'inverse, tant que ce choix n'est pas une valeur donnée : les lignes d'un titre 2 qui ouvre une page).
+    if (c.visibleSi && 'egal' in c.visibleSi && valeurs[c.visibleSi.cle] !== c.visibleSi.egal) return null
+    if (c.visibleSi && 'different' in c.visibleSi && valeurs[c.visibleSi.cle] === c.visibleSi.different) return null
     if (c.type === 'texte')
       return (
         <TextInput
@@ -401,6 +403,7 @@ export function PageReglageModele({
                 {rubrique ? (
                   <>
                     {rubrique.tableau ? tableauDes(rubrique) : null}
+                    {rubrique.aide ? <Text>{rubrique.aide}</Text> : null}
                     {champs
                       .filter(
                         (c) =>
