@@ -1,6 +1,6 @@
 # amend.ink v2 : parties, en-têtes, bibliographie et modèle « TàT 140 × 220 »
 
-Statut : **défini avec Sylvain le 19/11/2026, pas lancé** (« on ne lance rien avant d'avoir tout défini »). Source : analyse d'un livre de 140 × 220 mm composé dans InDesign (parties, chapitres, trois niveaux d'intertitres, bibliographie, table en fin de volume).
+Statut : **défini avec Sylvain le 19/11/2026, puis développé le même jour** (« 1, lances tout »). Source : analyse d'un livre de 140 × 220 mm composé dans InDesign (parties, chapitres, trois niveaux d'intertitres, bibliographie, table en fin de volume).
 
 ## Décisions
 
@@ -22,7 +22,7 @@ Statut : **défini avec Sylvain le 19/11/2026, pas lancé** (« on ne lance rien
 | Texte | EB Garamond, 11 / 14 pt, justifié, césures, alinéa 5 mm |
 | Premier paragraphe d'un chapitre | avec alinéa |
 | Numéro de page | bas centré, à 20 mm du bord ; pas sur l'ouverture d'un titre 1, oui sur celle d'un titre 2 |
-| En-têtes | petites capitales, 10,5 pt, centrés ; contenu : voir « À préciser » |
+| En-têtes | petites capitales, 10,5 pt, centrés ; le titre du document à gauche, le chapitre en cours à droite |
 | Titre 1 (partie) | belle page, ligne 14, petites capitales, 14 pt, centré |
 | Titre 2 (chapitre) | belle page, gras 11 pt, centré, titre ligne 6, texte ligne 11 |
 | Titre 3 | gras 11 pt, à gauche, 21 pt avant, 7 pt après |
@@ -40,9 +40,18 @@ La marge basse est calculée (33 lignes de 14 pt) : à vérifier dans un PDF au 
 - Un style en plus petit corps garde **l'interligne du texte** (`leading: interligne − 1em` dans chaque style du gabarit) : la bibliographie et la citation en 10 pt restent sur la grille de 14 pt.
 - Les petites capitales de Typst s'appuient sur la police. EB Garamond les a ; **à vérifier pour chaque police du catalogue** par un contrat, avec un repli décidé (majuscules, ou réglage non proposé pour les polices qui ne les ont pas).
 
-## À préciser
+## Précisé au lancement
 
-- **Contenu des en-têtes du modèle**, l'auteur étant écarté : titre du document à gauche et chapitre en cours à droite, ou titre du document des deux côtés, ou aucun.
+- **Contenu des en-têtes du modèle** (Sylvain, 19/11/2026) : le titre du document à gauche, le chapitre en cours à droite.
+
+## Constaté au développement
+
+- **La marge basse de 32 mm donne bien 33 lignes** (marge obtenue : 32,55 mm), vérifié sur un PDF.
+- **Petites capitales** : Typst n'emploie que celles de la police et ne les imite pas. Trois familles du catalogue en ont dans leurs quatre styles (EB Garamond, Spectral, Roboto) ; Source Serif 4 et Source Sans 3 n'en ont qu'en romain et en gras ; les six autres n'en ont pas. **Repli retenu par Claude, à confirmer** : pas d'imitation ni de passage en majuscules ; le réglage est sans effet avec une police qui n'en a pas, et le formulaire le dit sous le tableau des styles. Un contrat lit les fichiers des polices.
+- **Retrait suspendu** : Typst ne l'applique qu'à un paragraphe ; le texte d'un style qui en a un est donc composé comme un paragraphe.
+- **Premier paragraphe d'un chapitre** : quand le titre 2 ouvre une page, le réglage « premier paragraphe sans retrait » vaut aussi après lui.
+- **Valeurs proposées par Claude, à valider sur le PDF** : dans « TàT 140 × 220 », la ligne où le texte reprend après un titre 1 (18), l'interligne du titre 1 (18 pt), 4 pt entre deux entrées de bibliographie (elles se suivent au pas de 14 pt), citation sans retrait de première ligne ; dans les autres modèles, la bibliographie au corps du texte, avec l'alinéa du texte en retrait suspendu ; à l'écran, le bloc « Bibliographie » en retrait suspendu d'un espacement `md` de Mantine, picto « B ».
+- **Défaut ancien, hors de ce lot** : le « retrait de 1re ligne » du style Citation est sans effet dans le PDF (même cause que pour le retrait suspendu : le texte d'une citation n'est pas un paragraphe pour Typst). Le corriger changerait le rendu des modèles existants, où ce retrait vaut l'alinéa du texte : à arbitrer.
 
 ## Lots, dans l'ordre (un lot = une couche)
 
