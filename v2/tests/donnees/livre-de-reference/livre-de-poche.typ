@@ -6,7 +6,7 @@
 #set image(width: 100%)
 #set list(spacing: 12pt - 1em)
 #set enum(spacing: 12pt - 1em)
-#show quote.where(block: true): it => block(width: 100%, above: 2.5pt, below: 2.5pt, { set text(font: ("EB Garamond",), size: 9.5pt, weight: "regular", style: "normal"); set par(justify: true, leading: 12pt - 1em, first-line-indent: (amount: 4mm, all: true)); pad(left: 5mm, align(left, it.body))})
+#show quote.where(block: true): it => block(width: 100%, above: 2.5pt, below: 2.5pt, { set text(font: ("EB Garamond",), size: 9.5pt, weight: "regular", style: "normal"); set par(justify: true, leading: 12pt - 1em, first-line-indent: (amount: 4mm, all: true)); pad(left: 5mm, align(left, par(it.body)))})
 #show link: set text(fill: cmyk(0%, 0%, 0%, 100%))
 #show outline.entry: it => { show linebreak: [ ]; show regex("[\n\r]+"): [ ]; it }
 #show outline.entry.where(level: 1): set text(weight: "bold")

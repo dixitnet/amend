@@ -48,6 +48,15 @@ export const invitationValable = (creeLe, maintenant = Date.now()) =>
 export const INVITATIONS_MAX = 30
 export const FENETRE_INVITATIONS_MS = 60 * 60 * 1000
 
+/** Les comptes d'essai (recette, essais en ligne) : des adresses qui ne reçoivent jamais de courrier. */
+export const DOMAINE_ESSAI = 'essai.amend.invalid'
+/** Une adresse d'essai ? Un partage vers elle n'envoie rien : il ne compte pas dans le plafond
+ * (Sylvain, 19/11/2026 : la recette en ligne butait sur le plafond). */
+export const estAdresseDEssai = (courriel) =>
+  String(courriel ?? '')
+    .toLowerCase()
+    .endsWith(`@${DOMAINE_ESSAI}`)
+
 /** Le plafond est-il atteint ? `dates` : les envois récents de la personne (ms). */
 export function plafondInvitationsAtteint(dates, maintenant = Date.now()) {
   return dates.filter((d) => maintenant - d < FENETRE_INVITATIONS_MS).length >= INVITATIONS_MAX

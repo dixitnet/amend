@@ -264,7 +264,7 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     st.retrait ? `pad(left: ${mm(st.retrait)}, ${contenuTypst})` : contenuTypst
   // Un texte posé seul dans un bloc n'est pas un paragraphe pour Typst, et le retrait suspendu ne s'applique
   // qu'aux paragraphes : le style qui en a un fait de son texte un paragraphe.
-  const enParagraphe = (st, corps) => (st.retraitSuspendu ? `par(${corps})` : corps)
+  const enParagraphe = (st, corps) => (st.retraitSuspendu || st.alinea ? `par(${corps})` : corps)
   const bloc = (st, corps, { colle = false } = {}) =>
     `block(width: ${PLEINE_LARGEUR}, ${avantApres(st)}${colle ? ', sticky: true' : ''}, { ${regle(st)}` +
     `${avecRetrait(st, `align(${placement(st)}, ${enParagraphe(st, contenu(st, corps))})`)}})`
