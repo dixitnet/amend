@@ -8,7 +8,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const V2 = new URL('../..', import.meta.url).pathname
-const IGNORES = ['node_modules', 'dist', '.mesures', '.captures']
+const IGNORES = ['node_modules', 'dist', '.mesures', '.captures', 'dist.neuf']
 
 function fichiers(dossier) {
   return readdirSync(dossier).flatMap((nom) => {

@@ -6,7 +6,7 @@
 import { poser, margeBasPourLignes, stylesEnPoints } from './miseEnPage.js'
 
 /** « A4 simple » tel que le code le livrait jusqu'au 13/11/2026. */
-export const A4_ANCIEN = Object.freeze({
+const A4_ANCIEN = Object.freeze({
   page: { largeur: 210, hauteur: 297 },
   marges: { haut: 25, interieure: 20, exterieure: 20 },
   grille: { corps: 11, interligne: 14, lignes: 50 },

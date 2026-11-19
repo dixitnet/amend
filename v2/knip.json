@@ -9,5 +9,5 @@
   ],
   "project": ["**/*.{js,mjs,jsx}"],
   "ignoreDependencies": ["axe-core"],
-  "ignoreBinaries": ["psql"]
+  "ignoreBinaries": ["psql", "pdftotext", "pdfinfo"]
 }

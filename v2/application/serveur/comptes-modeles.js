@@ -31,7 +31,7 @@ const REGLAGE_DEFAUT = 'modeles.defaut'
 const REGLAGE_REPRISE = 'modeles.reprise'
 
 /** L'adresse d'un fichier de police de l'instance. */
-export const adressePolice = (id) => `/api/polices/${id}`
+const adressePolice = (id) => `/api/polices/${id}`
 
 /** @param {any} ctx  les aides et dépendances de `creerComptes` */
 export function creerModeles(ctx) {

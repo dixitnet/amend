@@ -109,7 +109,7 @@ const impossible = (raison) =>
 // copie complète : on le crée à partir d'un autre, puis il est indépendant.
 
 /** Les alignements d'un style. */
-export const ALIGNEMENTS = Object.freeze(['gauche', 'justifie', 'centre'])
+const ALIGNEMENTS = Object.freeze(['gauche', 'justifie', 'centre'])
 /** Les styles réglables d'un modèle, dans l'ordre du formulaire. */
 export const NOMS_STYLES = Object.freeze([
   'texte',
@@ -152,7 +152,7 @@ function styleDe(modele, nom) {
  * l'exige ; jamais moins que l'espace ordinaire entre deux paragraphes, que
  * Typst ferait gagner sinon.
  */
-export function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
+function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
   const ordinaire = pas - corps
   for (let k = Math.max(0, n); k <= n + 60; k++) {
     const v =
@@ -352,10 +352,10 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
 
 /** Le début d'un chapitre : `continuer`, `page` ou `belle-page` (l'ancien
  * booléen `bellePage` est encore lu). */
-export const debutChapitre = (c) => c?.debut ?? (c?.bellePage === false ? 'page' : 'belle-page')
+const debutChapitre = (c) => c?.debut ?? (c?.bellePage === false ? 'page' : 'belle-page')
 
 /** Les séparateurs de scène (v1, `SEPARATEURS`) et leur ligne de Typst. */
-export const SEPARATEURS = Object.freeze(['blanc', 'asterisme', 'etoiles', 'trait'])
+const SEPARATEURS = Object.freeze(['blanc', 'asterisme', 'etoiles', 'trait'])
 function separateurTypst(choix, pas) {
   const signe = { asterisme: '⁂', etoiles: '* * *', trait: '—' }[choix]
   if (!signe) return `v(${pt(pas)})`

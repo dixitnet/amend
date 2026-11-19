@@ -20,6 +20,10 @@ Docs (La Suite numérique) avait des modèles avec des accès par personne et pa
 4. **Le modèle suit le document** : choisi pour lui, sinon le défaut de son équipe, sinon le premier d'amend.ink. Un correcteur extérieur obtient celui retenu, sans la liste de l'équipe. Un document qui sort de l'équipe perd un modèle d'équipe ; un modèle supprimé rend ses documents au défaut.
 5. **Écartés** : le Typst libre dans un modèle d'équipe, le dépôt de polices par une équipe, la composition sur le serveur (la compilation reste dans le navigateur).
 
+## Polices de l'instance : qui peut les télécharger (Sylvain, 19/11/2026)
+
+Un fichier de police envoyé par un administrateur est servi à **toute personne connectée** à l'instance : le PDF se compose dans le navigateur, qui doit avoir les fichiers. Décision confirmée après l'audit du 16/11/2026 (constat « Serveur 1 ») : pas de restriction par document. L'administrateur qui envoie une police répond de sa licence pour cet usage (le renoncement n° 25 écarte toujours la livraison de Marianne dans le code).
+
 ## Ce qui ferait revenir dessus
 
 Un maquettiste réel qui a besoin d'un réglage hors de la liste (on l'ajoute alors à la liste, ou Sylvain ajoute un modèle d'amend.ink) ; une police demandée par une maison (on l'ajoute au catalogue) ; Docs qui rétablirait un mécanisme de modèle générique (`docs/v2-veille.md`).

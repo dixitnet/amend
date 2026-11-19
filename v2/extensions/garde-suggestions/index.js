@@ -21,7 +21,7 @@
 import { createExtension } from '@blocknote/core'
 import { Plugin } from 'prosemirror-state'
 
-export const CODE = 'edition-contre-suggestion'
+const CODE = 'edition-contre-suggestion'
 
 /** Les marques par lesquelles `@y/prosemirror` montre une suggestion. */
 const MARQUES = new Set(['y-attributed-insert', 'y-attributed-delete', 'y-attributed-format'])

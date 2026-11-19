@@ -118,6 +118,9 @@ export const REGLAGES = {
   // (le gris `dimmed` de Mantine n'a pas le contraste demandé ; 12/11/2026).
   // Seulement à partir de `lg` : plus étroit, le titre en serait coupé.
   compteur: { size: 'sm', visibleFrom: 'lg' },
+  // Le titre du bandeau du format S tient sur une ligne, coupé par « … » (décision
+  // `css.telephone.bandeau` ; la prop passe par ici depuis l'audit du 16/11/2026).
+  titreTelephone: { truncate: 'end' },
   // Le rond d'une personne (présence, compte) prend sa couleur : celle de son
   // curseur, une couleur de Mantine donnée par l'application (Sylvain, 17/11/2026).
   couleurDePersonne: (couleur) => ({ color: couleur }),
