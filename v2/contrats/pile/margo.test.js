@@ -4,15 +4,19 @@
 // Scaleway dans V2_SCALEWAY_CLE), un vrai « Corriger » avec DeepSeek : la
 // correction arrive en suggestion signée « Margo (IA) ».
 import { test, before, after } from 'node:test'
+import { randomBytes } from 'node:crypto'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre } from './outils.mjs'
+import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, panneau } from './outils.mjs'
 
 let pile, nav
 const ouvrir = (nom, docId, o) => ouvrirSur(nav, pile.url, nom, docId, o)
 const REEL = process.env.MARGO_ESSAI_REEL === '1'
 
+// Le jeton interne de cette pile, pour poser une suggestion comme le fait le serveur de Margo.
+const JETON = randomBytes(16).toString('hex')
 before(async () => {
+  process.env.V2_JETON_INTERNE = JETON
   preparerServices()
   construireClient()
   pile = await demarrerPile({ port: 4371, portCollab: 4471 })
@@ -204,5 +208,56 @@ test('essai réel (MARGO_ESSAI_REEL=1) : « Corriger » pose une suggestion sign
   }
   // L'auteur et le contenu de la ligne (A10 de l'audit) : Margo ajoute le « s » manquant.
   assert.match(await ligne.first().innerText(), /^Margo \(IA\) ajoute «\s?s\s?»$/)
+  await p.context().close()
+})
+
+test('tableau : une correction de Margo dans une cellule s’affiche dans la cellule et dans le volet ; « Corriger » envoie le tableau (19/11/2026)', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const { clientCollaboration } = await import('../../adaptateurs/yhub/client.js')
+  const { blocsATexteDe, suggererRemplacements } = await import('../../adaptateurs/blocknote/serveur.js')
+  const interne = clientCollaboration({ url: `${pile.collab}/collaboration`, jeton: JETON })
+  const doc = docTest('margo-tableau')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Avant le tableau.')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('/tableau')
+  await p.locator('.bn-suggestion-menu-item').first().waitFor()
+  await p.keyboard.press('Enter')
+  await p.locator('.bn-editor table').waitFor()
+  await p.keyboard.type('Les enfant')
+  // Le serveur lit le document dans y/hub : on attend que la cellule y soit.
+  let cellule = null
+  let texte = null
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && !cellule; await attendre(300)) {
+    texte = await interne.lireTexte(doc).catch(() => null)
+    cellule = texte ? blocsATexteDe(texte).find((b) => b.type === 'tableCell' && b.texte === 'Les enfant') : null
+  }
+  assert.ok(cellule, 'la cellule est une unité de texte pour Margo')
+  assert.match(cellule.id, /\/1\.1$/, 'adressée « tableau/1.1 »')
+  // La correction, posée comme le fait le serveur : en suggestion, au nom de Margo.
+  const { resultats, mise } = suggererRemplacements(texte, await interne.lireSuggestions(doc), [
+    { blocId: cellule.id, debut: 4, fin: 10, apres: 'enfants' },
+  ])
+  assert.deepEqual(resultats, ['posee'])
+  await interne.ecrireSuggestions(doc, mise)
+  // Dans le navigateur : la cellule montre la correction, le volet la liste.
+  await p.locator('.bn-editor table').getByText('enfants').waitFor({ timeout: 15000 })
+  // Le volet ne cite que ce qui change : le « s » ajouté, signé Margo.
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && !/Margo/.test(await panneau(p));) await attendre(200)
+  assert.match(await panneau(p), /Margo \(IA\) ajoute «\s?s\s?»/, 'la suggestion est dans le volet, signée Margo')
+  // « Corriger » sur une sélection dans le tableau : la demande porte le tableau.
+  let envoye = null
+  await p.route('**/margo', (route) => {
+    envoye = route.request().postDataJSON()
+    return route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"margo-indisponible"}' })
+  })
+  const idTableau = await p.locator('.bn-editor table').evaluate((e) => e.closest('[data-id]').getAttribute('data-id'))
+  await p.locator('.bn-editor table td, .bn-editor table th').nth(1).click()
+  await p.keyboard.type('jouent')
+  await p.keyboard.press('Shift+Home')
+  await boutonCorriger(p).click()
+  for (const t0 = Date.now(); Date.now() - t0 < 5000 && !envoye;) await attendre(100)
+  assert.deepEqual(envoye?.selection, { de: idTableau, a: idTableau }, 'la sélection envoyée est le tableau')
   await p.context().close()
 })
