@@ -159,10 +159,11 @@ const tableauDesStyles = () => ({
 })
 /** Les polices fournies qui ont de vraies petites capitales : dites sous le tableau des styles, le réglage
  * étant sans effet avec les autres (19/11/2026). */
-const aidePetitesCapitales = (regles) =>
-  t('modeles.aidePetitesCapitales', {
-    polices: enListe(regles.polices.filter((p) => p.petitesCapitales).map((p) => p.famille)),
-  })
+const aidePetitesCapitales = (regles) => {
+  const familles = regles.polices.filter((p) => p.petitesCapitales).map((p) => p.famille)
+  // Sans aucune police qui en ait, pas de phrase à trou (audit partiel du 19/11/2026).
+  return familles.length ? t('modeles.aidePetitesCapitales', { polices: enListe(familles) }) : null
+}
 const groupes = () => [
   { cle: 'format', libelle: t('modeles.groupes.format') },
   { cle: 'texte', libelle: t('modeles.groupes.texte') },

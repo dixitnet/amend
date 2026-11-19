@@ -180,12 +180,9 @@ const REGLABLES = [
   { cle: 'enTete.alignement', groupe: 'pages', type: 'choix', options: ALIGNEMENTS_EN_TETE },
 ]
 
-/**
- * Une entrée de bibliographie (Sylvain, 19/11/2026) : dans la police du texte, alignée à gauche, en retrait
- * suspendu, à l'espace ordinaire entre deux paragraphes. Hors du modèle « TàT 140 × 220 », valeurs proposées
- * par Claude : le corps du texte et son alinéa en retrait suspendu.
- */
-const bibliographie = (corps, espace, retraitSuspendu) => ({
+/** Un style de bloc dans la police du texte, aligné à gauche, sans graisse ni retrait : la base des styles
+ * du modèle « TàT 140 × 220 » et de la bibliographie. */
+const styleDeBloc = (corps, espace, retraitSuspendu) => ({
   police: '',
   corps,
   gras: false,
@@ -199,6 +196,12 @@ const bibliographie = (corps, espace, retraitSuspendu) => ({
   retrait: 0,
   retraitSuspendu,
 })
+/**
+ * Une entrée de bibliographie (Sylvain, 19/11/2026) : alignée à gauche, en retrait suspendu, à l'espace
+ * ordinaire entre deux paragraphes. Hors du modèle « TàT 140 × 220 », valeurs proposées par Claude : le corps
+ * du texte et son alinéa en retrait suspendu.
+ */
+const bibliographie = styleDeBloc
 
 /** Un intertitre de A4 simple : au corps du texte, en italique, une ligne avant. */
 const INTERTITRE = {
@@ -620,7 +623,7 @@ export const REGLAGES_LIVRE = {
         ouverture2: { debut: 'belle-page', ligneTitre: 6, ligneTexte: 11, interligne: 14 },
         styles: {
           texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 5 },
-          citation: { ...bibliographie(10, 7, 0), alignement: 'justifie', retrait: 5 },
+          citation: { ...styleDeBloc(10, 7, 0), alignement: 'justifie', retrait: 5 },
           bibliographie: bibliographie(10, 4, 5),
           titre1: {
             police: '',
@@ -633,20 +636,20 @@ export const REGLAGES_LIVRE = {
             alinea: 0,
             retrait: 0,
           },
-          titre2: { ...bibliographie(11, 0, 0), gras: true, alignement: 'centre' },
-          titre3: { ...bibliographie(11, 0, 0), gras: true, espaceAvant: 21, espaceApres: 7 },
-          titre4: { ...bibliographie(11, 0, 0), italique: true, espaceAvant: 14, espaceApres: 3 },
-          titre5: { ...bibliographie(11, 0, 0), italique: true, retrait: 5, espaceAvant: 14, espaceApres: 3 },
-          titre: { ...bibliographie(20, 0, 0), gras: true, alignement: 'centre', espaceAvant: 9.8, espaceApres: 15.2 },
+          titre2: { ...styleDeBloc(11, 0, 0), gras: true, alignement: 'centre' },
+          titre3: { ...styleDeBloc(11, 0, 0), gras: true, espaceAvant: 21, espaceApres: 7 },
+          titre4: { ...styleDeBloc(11, 0, 0), italique: true, espaceAvant: 14, espaceApres: 3 },
+          titre5: { ...styleDeBloc(11, 0, 0), italique: true, retrait: 5, espaceAvant: 14, espaceApres: 3 },
+          titre: { ...styleDeBloc(20, 0, 0), gras: true, alignement: 'centre', espaceAvant: 9.8, espaceApres: 15.2 },
           sousTitre: {
-            ...bibliographie(14, 0, 0),
+            ...styleDeBloc(14, 0, 0),
             italique: true,
             alignement: 'centre',
             espaceAvant: 14.6,
             espaceApres: 16.4,
           },
           legende: {
-            ...bibliographie(9, 0, 0),
+            ...styleDeBloc(9, 0, 0),
             italique: true,
             alignement: 'centre',
             espaceAvant: 4.6,

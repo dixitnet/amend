@@ -93,10 +93,12 @@ export function grille(modele) {
   const descenteFolio = margeBas - folio.bas
   if (descenteFolio <= 0) throw impossible('folio')
   // Le titre de chapitre tombe sur une ligne de la page, et le texte reprend après lui.
-  // De même pour le titre de niveau 2, qui peut ouvrir une page lui aussi (19/11/2026).
+  // De même pour le titre de niveau 2 quand il ouvre une page lui aussi (19/11/2026) ; tant qu'il reste dans le
+  // texte, ses lignes ne servent pas et le formulaire les cache : elles ne bloquent pas le modèle (audit partiel).
+  const o2 = modele.ouverture2
   for (const [o, raison] of [
     [modele.chapitre, 'chapitre'],
-    [modele.ouverture2, 'ouverture2'],
+    [o2 && o2.debut && o2.debut !== 'continuer' ? o2 : null, 'ouverture2'],
   ])
     if (o && !(o.ligneTitre >= 1 && o.ligneTexte > o.ligneTitre && o.ligneTexte <= lignes)) throw impossible(raison)
   return { pas, lignes, hauteurTexte, margeBas, descenteFolio }

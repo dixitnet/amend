@@ -482,6 +482,8 @@ test('un titre 2 dont le texte reprendrait avant son titre, ou hors de la page, 
     { ...AVEC_TITRE_2.ouverture2, ligneTexte: 40 },
   ])
     assert.throws(() => grille({ ...MODELE, ouverture2 }), { code: 'modele-impossible', raison: 'ouverture2' })
+  // Tant qu'il reste dans le texte, ses lignes (cachées par le formulaire) ne bloquent rien.
+  assert.doesNotThrow(() => grille({ ...MODELE, ouverture2: { debut: 'continuer', ligneTitre: 4, ligneTexte: 40 } }))
 })
 
 test('un modèle enregistré avant le 19/11/2026 garde son rendu : ce qui lui manque se déduit de lui', () => {
