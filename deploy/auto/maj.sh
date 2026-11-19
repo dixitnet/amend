@@ -6,8 +6,10 @@
 # tenté qu'une fois : en cas d'échec, le journal le dit
 # (journalctl -u amend-maj), et la tentative suivante attend un nouveau commit.
 set -euo pipefail
-# Tout le script est lu avant d'être exécuté (le `git pull` de deploy.sh
-# peut le modifier pendant qu'il tourne).
+# Tout le travail est dans une fonction, que bash lit en entier avant de
+# l'exécuter : le `git pull` de deploy.sh peut modifier ce fichier pendant qu'il
+# tourne sans changer ce qui s'exécute (l'appel et le `exit` final sont sur une
+# seule ligne, lue d'un bloc).
 principal() {
 APP=/opt/amend/app
 ETAT=/opt/amend/deploiement-auto.etat
@@ -29,8 +31,20 @@ CIBLE=$(git rev-parse origin/main)
 empreinte() { sha256sum "$1" 2>/dev/null | cut -c1-16 || echo absent; }
 ENV1=$(empreinte "$APP/.env")
 ENV2=$(empreinte /opt/amend/v2.env)
-# État : commit tenté, empreintes des deux fichiers d'environnement.
-read -r FAIT FAIT_ENV1 FAIT_ENV2 < "$ETAT" 2>/dev/null || { FAIT=""; FAIT_ENV1=""; FAIT_ENV2=""; }
+# État : commit tenté, empreintes des deux fichiers d'environnement, puis où en
+# est ce déploiement (« encours », « fait », « echec », « interrompu » ; absent :
+# état d'avant le 19/11/2026).
+read -r FAIT FAIT_ENV1 FAIT_ENV2 FAIT_ETAT < "$ETAT" 2>/dev/null || { FAIT=""; FAIT_ENV1=""; FAIT_ENV2=""; FAIT_ETAT=""; }
+# Un déploiement resté « encours » a été coupé (panne, mémoire, délai du service) :
+# il n'est pas retenté (comme un échec), mais il est signalé, une fois (audit du 16/11/2026).
+if [[ "$FAIT_ETAT" == "encours" ]]; then
+  echo "$FAIT $FAIT_ENV1 $FAIT_ENV2 interrompu" > "$ETAT"
+  echo "⚠ le déploiement de ${FAIT:0:7} a été interrompu avant sa fin"
+  [[ -f "$ALERTER" ]] && bash "$ALERTER" "le déploiement de ${FAIT:0:7} a été interrompu" \
+    "Le déploiement automatique du commit ${FAIT:0:7} a commencé et ne s'est pas terminé (panne, mémoire ou délai du service).
+Il n'est pas retenté : le prochain essai attend un nouveau commit sur main.
+À voir sur le VPS : journalctl -u amend-maj -n 80, et la version servie (/api/config)." || true
+fi
 [[ "$CIBLE" == "$FAIT" && "$ENV1" == "$FAIT_ENV1" && "$ENV2" == "$FAIT_ENV2" ]] && exit 0
 
 # Ne reconstruire que ce qui a changé (10/11/2026 : chaque fusion construisait
@@ -74,12 +88,12 @@ fi
 export AMEND_LIVRAISON="$LIVRAISON"
 
 echo "→ déploiement automatique de $(git log --oneline -1 "$CIBLE")${LIVRAISON:+ (clients construits par GitHub Actions)}"
-echo "$CIBLE $ENV1 $ENV2" > "$ETAT"
+echo "$CIBLE $ENV1 $ENV2 encours" > "$ETAT"
 # Le service installé doit être celui du dépôt (limites de mémoire et de
 # disque, 10/11/2026) : seul root peut le remettre à jour.
 for u in deploy/auto/amend-maj.service deploy/auto/amend-maj.timer \
   v2/exploitation/prod/amend-v2-sauvegarde.service v2/exploitation/prod/amend-v2-sauvegarde.timer \
-  v2/exploitation/prod/amend-v2.service; do
+  v2/exploitation/prod/amend-v2.service v2/exploitation/prod/amend-v2-collab.service; do
   cmp -s "$APP/$u" "/etc/systemd/system/$(basename "$u")" ||
     echo "⚠ $(basename "$u") a changé dans le dépôt : sudo bash deploy/auto/installer.sh (une fois)"
 done
@@ -102,6 +116,7 @@ Ce commit n'est pas retenté : le prochain essai attend un nouveau commit sur ma
 Dernières lignes :
 $(tail -n 15 "$sortie")" || true
     rm -f "$sortie"
+    echo "$CIBLE $ENV1 $ENV2 echec" > "$ETAT"
     exit "$rc"
   fi
   rm -f "$sortie"
@@ -126,7 +141,7 @@ if [[ $V2 -eq 1 ]]; then
 else
   echo "→ v2 : rien à reconstruire"
 fi
+echo "$CIBLE $ENV1 $ENV2 fait" > "$ETAT"
 echo "✓ en ligne : $(git log --oneline -1)"
 }
-principal "$@"
-exit
+principal "$@"; exit

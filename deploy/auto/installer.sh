@@ -2,7 +2,9 @@
 # Installation unique du déploiement automatique, en root, sur le VPS :
 #   cd /opt/amend/app && git pull --ff-only && sudo bash deploy/auto/installer.sh
 # Idempotent. Pour revenir en arrière :
-#   sudo systemctl disable --now amend-maj.timer amend-v2-sauvegarde.timer && sudo rm /etc/sudoers.d/amend-deploiement
+#   sudo systemctl disable --now amend-maj.timer amend-v2-sauvegarde.timer && sudo rm /etc/sudoers.d/amend-deploiement \\
+#     /etc/systemd/system/amend-maj.{service,timer} /etc/systemd/system/amend-v2-sauvegarde.{service,timer} && sudo systemctl daemon-reload
+# (les services amend-v2 et amend-v2-collab restent : ils servent le site.)
 set -euo pipefail
 ICI=$(cd "$(dirname "$0")" && pwd)
 [[ $EUID -eq 0 ]] || { echo "✗ à lancer avec sudo"; exit 1; }
@@ -33,12 +35,15 @@ install -m 644 "$V2PROD/amend-v2-sauvegarde.timer" /etc/systemd/system/amend-v2-
 # Le service du serveur de la v2 (dépendance à PostgreSQL, 10/11/2026) : pris en
 # compte à son prochain redémarrage, que fait chaque déploiement de la v2.
 install -m 644 "$V2PROD/amend-v2.service" /etc/systemd/system/amend-v2.service
+# De même celui de la collaboration (audit du 16/11/2026 : il n'était installé qu'à la
+# première installation de la v2, et ses changements n'étaient ni posés ni signalés).
+install -m 644 "$V2PROD/amend-v2-collab.service" /etc/systemd/system/amend-v2-collab.service
 systemctl daemon-reload
 systemctl enable --now amend-maj.timer amend-v2-sauvegarde.timer
 
 echo "→ première sauvegarde de la base de la v2, puis essai de restauration"
 systemctl start amend-v2-sauvegarde.service || { echo "✗ la sauvegarde a échoué : journalctl -u amend-v2-sauvegarde -n 30"; exit 1; }
-bash "$V2PROD/restaurer.sh" --essai | grep -v NOTICE
+bash "$V2PROD/restaurer.sh" --essai | { grep -v NOTICE || true; }
 
 echo "→ premier passage (déploie main s'il ne l'est pas encore)"
 systemctl start amend-maj.service || { echo "✗ le premier passage a échoué : journalctl -u amend-maj -n 50"; exit 1; }
