@@ -261,3 +261,87 @@ test('tableau : une correction de Margo dans une cellule s’affiche dans la cel
   assert.deepEqual(envoye?.selection, { de: idTableau, a: idTableau }, 'la sélection envoyée est le tableau')
   await p.context().close()
 })
+
+test('couleurs (19/11/2026) : une correction a la couleur de son auteur, sa couleur de personne ; Margo a le vert réservé ; une pastille par carte', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const { clientCollaboration } = await import('../../adaptateurs/yhub/client.js')
+  const { blocsATexteDe, suggererRemplacements } = await import('../../adaptateurs/blocknote/serveur.js')
+  const interne = clientCollaboration({ url: `${pile.collab}/collaboration`, jeton: JETON })
+  const doc = docTest('couleurs')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.type('Les enfant jouent.')
+  const c = await ouvrir('Carla', doc, { role: 'correcteur' })
+  await attendreTexte(c, 'Les enfant jouent.')
+  await c.click('.bn-editor .bn-inline-content')
+  await c.keyboard.press('End')
+  await c.keyboard.type(' Dehors.')
+  // La correction de Margo, posée comme le fait le serveur.
+  let bloc = null
+  let texte = null
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && !bloc; await attendre(300)) {
+    texte = await interne.lireTexte(doc).catch(() => null)
+    bloc = texte ? blocsATexteDe(texte).find((b) => b.texte.startsWith('Les enfant')) : null
+  }
+  const { mise } = suggererRemplacements(texte, await interne.lireSuggestions(doc), [
+    { blocId: bloc.id, debut: 4, fin: 10, apres: 'enfants' },
+  ])
+  await interne.ecrireSuggestions(doc, mise)
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && !/Margo[\s\S]*Carla|Carla[\s\S]*Margo/.test(await panneau(p));)
+    await attendre(200)
+  // La couleur d'une correction dans le texte (le trait sous un ajout), par son texte.
+  const couleurDuTrait = (texteAjoute) =>
+    p.evaluate((x) => {
+      const marque = [...document.querySelectorAll('.bn-editor ins .bn-suggestion-mark')].find(
+        (e) => e.textContent.trim() === x,
+      )
+      return marque ? getComputedStyle(marque).borderBottomColor : null
+    }, texteAjoute)
+  // Les auteurs arrivent de y/hub un peu après les corrections : on attend que Margo ait sa couleur,
+  // le vert du picto d'amend.ink (nuance 8 du vert de Mantine, #2f9e44).
+  const VERT = 'rgb(47, 158, 68)'
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && (await couleurDuTrait('s')) !== VERT;) await attendre(300)
+  const couleurs = { carla: await couleurDuTrait('Dehors.'), margo: await couleurDuTrait('s') }
+  assert.equal(couleurs.margo, VERT)
+  assert.ok(couleurs.carla)
+  assert.notEqual(couleurs.carla, couleurs.margo, 'Margo ne se confond pas avec une personne')
+  // Carla : sa couleur de personne, celle de son curseur et de son rond (même teinte de la palette).
+  const { couleurAuteur } = await import('../../design/auteurs.js')
+  const idCarla = await p.evaluate(
+    () =>
+      JSON.parse(
+        [...document.querySelectorAll('.bn-editor ins')].find((e) => e.textContent.includes('Dehors')).dataset.userIds,
+      )[0],
+  )
+  const rond = couleurAuteur(idCarla)
+  // La variable de Mantine prend sa valeur là où elle est lue : BlockNote a son propre thème dans le texte,
+  // le volet est dans celui de l'application (même teinte, parfois une nuance d'écart).
+  const enRgb = (couleur, ou) =>
+    p.evaluate(
+      ([v, selecteur]) => {
+        const e = document.createElement('i')
+        e.style.color = v
+        document.querySelector(selecteur).append(e)
+        const r = getComputedStyle(e).color
+        e.remove()
+        return r
+      },
+      [couleur, ou],
+    )
+  assert.equal(await enRgb(rond, '.bn-container'), couleurs.carla, 'la correction de Carla a sa couleur de personne')
+  // Le volet : une pastille par carte, à la couleur de l'auteur.
+  const pastilles = await p
+    .locator('.amend-suggestions-liste .mantine-ColorSwatch-root')
+    .evaluateAll((l) =>
+      l.map((e) => getComputedStyle(e.querySelector('.mantine-ColorSwatch-colorOverlay') ?? e).backgroundColor),
+    )
+  assert.deepEqual([...pastilles].sort(), [await enRgb(rond, '.amend-suggestions-liste'), couleurs.margo].sort())
+  if (process.env.CAPTURE) {
+    await p.screenshot({ path: `${process.env.CAPTURE}/couleurs-clair.png` })
+    await p.evaluate(() => document.documentElement.setAttribute('data-mantine-color-scheme', 'dark'))
+    await attendre(300)
+    await p.screenshot({ path: `${process.env.CAPTURE}/couleurs-sombre.png` })
+  }
+  await p.context().close()
+  await c.context().close()
+})
