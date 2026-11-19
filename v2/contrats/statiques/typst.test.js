@@ -465,3 +465,68 @@ test('notes de bas de page : le PDF se compile avec `footnote` (12/11/2026)', as
   const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
   assert.ok(Buffer.from(pdf).toString('latin1').startsWith('%PDF-'))
 })
+
+test('« TàT 140 × 220 » (Sylvain, 19/11/2026) : parties et chapitres en belle page, en-têtes, numéros de page, bibliographie', async () => {
+  const valeurs = REPRISE_MODELES.find((r) => r.id === 'tat-140x220').valeurs
+  const paras = (n) => Array.from({ length: n }, () => ({ type: 'paragraph', content: [texte(paragraphe.repeat(3))] }))
+  const editeur = nouvelEditeur()
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'heading', props: { level: 1 }, content: [texte('Première partie')] },
+    { type: 'heading', props: { level: 2 }, content: [texte('Le premier chapitre')] },
+    ...paras(14),
+    { type: 'heading', props: { level: 2 }, content: [texte('Bibliographie')] },
+    {
+      type: 'bibliographie',
+      content: [
+        texte('Ascher, François, Les nouveaux principes de l’urbanisme, La Tour-d’Aigues, Éditions de l’Aube.'),
+      ],
+    },
+    { type: 'bibliographie', content: [texte('Choay, Françoise, L’urbanisme, utopies et réalités, Paris, Seuil.')] },
+  ])
+  const { source, fichiers } = await versTypst(editeur, editeur.document, valeurs, { titre: 'Le livre', langue: 'fr' })
+  assert.match(source, /#amend-sans-alinea-2\[/)
+  assert.match(source, /#amend-bibliographie\[#"Ascher, François/)
+  const pdf = await compilerPdf(source, { fichiers, polices: polices(valeurs), wasm: wasm() })
+  const dossier = mkdtempSync(join(tmpdir(), 'tat-'))
+  try {
+    writeFileSync(join(dossier, 'a.pdf'), pdf)
+    const lire = (...options) =>
+      execFileSync('pdftotext', [...options, join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
+    const pages = lire('-layout')
+      .split('\f')
+      .map((p) =>
+        p
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean),
+      )
+    // La partie : seule sur sa belle page, sans en-tête ni numéro ; puis une page blanche.
+    assert.deepEqual(pages[0], ['Première partie'])
+    assert.deepEqual(pages[1], [])
+    // Le chapitre : en belle page, sans en-tête, avec son numéro.
+    assert.equal(pages[2][0], 'Le premier chapitre')
+    assert.equal(pages[2].at(-1), '3')
+    // Pages courantes : le titre du document à gauche, le chapitre en cours à droite.
+    assert.deepEqual([pages[3][0], pages[3].at(-1)], ['Le livre', '4'])
+    assert.deepEqual([pages[4][0], pages[4].at(-1)], ['Le premier chapitre', '5'])
+    // La bibliographie, chapitre lui aussi : en belle page ; ses entrées en retrait suspendu de 5 mm, sur la grille de 14 pt.
+    const n = pages.findIndex((p) => p[0] === 'Bibliographie')
+    assert.ok(n > 4 && n % 2 === 0, `la bibliographie ouvre une belle page (page ${n + 1})`)
+    const laPage = lire('-bbox').split('<page ')[n + 1]
+    const mots = [...laPage.matchAll(/xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>([^<]+)</g)]
+    const mot = (debut) => mots.find((m) => m[3].startsWith(debut))
+    const [ascher, choay] = [mot('Ascher'), mot('Choay')]
+    const suite = mots.find((m) => Number(m[2]) > Number(ascher[2]) + 1 && Number(m[2]) < Number(choay[2]) - 1)
+    assert.ok(
+      Math.abs(Number(suite[1]) - Number(ascher[1]) - (5 * 72) / 25.4) < 0.1,
+      'la deuxième ligne est en retrait de 5 mm',
+    )
+    assert.ok(Math.abs(Number(suite[2]) - Number(ascher[2]) - 14) < 0.1, 'les lignes d’une entrée sont au pas de 14 pt')
+    assert.ok(Math.abs(Number(choay[2]) - Number(suite[2]) - 14) < 0.1, 'les entrées se suivent au pas de 14 pt')
+    // Les petites capitales sont celles de la police : le titre de partie et les en-têtes les emploient.
+    assert.match(source, /smallcaps\(it\.body\)/)
+    assert.match(source, /smallcaps\(c\)/)
+  } finally {
+    rmSync(dossier, { recursive: true, force: true })
+  }
+})

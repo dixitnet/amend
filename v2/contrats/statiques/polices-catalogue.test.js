@@ -55,6 +55,23 @@ for (const { famille, fichiers } of REGLES_MODELES.polices)
     assert.match(readFileSync(join(dossier, 'OFL.txt'), 'utf8'), /SIL OPEN FONT LICENSE/i)
   })
 
+// Les petites capitales (19/11/2026) : Typst emploie celles de la police (fonction OpenType `smcp`) et ne les
+// imite pas. Le catalogue dit quelles familles en ont ; le formulaire des modèles le répète. Une police qui en
+// gagne ou en perd à une mise à jour fait échouer ce contrat.
+for (const { famille, fichiers, petitesCapitales } of REGLES_MODELES.polices)
+  test(`${famille} : ${petitesCapitales ? 'de vraies petites capitales dans ses quatre fichiers' : 'pas de petites capitales dans tous ses fichiers'}`, () => {
+    // Annoncée seulement si ses quatre styles en ont (Source Serif 4 et Source Sans 3 n'en ont pas en italique).
+    const toutes = fichiers.every((url) => Buffer.from(octets(url)).includes('smcp', 0, 'latin1'))
+    assert.equal(toutes, petitesCapitales === true)
+  })
+
+test('les familles qui ont des petites capitales dans leurs quatre styles : trois sur onze', () => {
+  assert.deepEqual(
+    REGLES_MODELES.polices.filter((p) => p.petitesCapitales).map((p) => p.famille),
+    ['EB Garamond', 'Spectral', 'Roboto'],
+  )
+})
+
 const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
 const wasm = () => readFileSync(createRequire(import.meta.url).resolve('@blocknote/xl-typst-compiler/wasm'))
 

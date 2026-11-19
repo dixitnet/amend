@@ -75,6 +75,25 @@ const LIVRE = [
   { type: 'heading', props: { level: 4 }, content: [t('Un intertitre')] },
   { type: 'heading', props: { level: 5 }, content: [t('Un intertitre mineur')] },
   { type: 'paragraph', content: [t('Fin # $ * _ \\ " ` < > @ [ ] — é ’ « » … œ')] },
+  // Un chapitre de titre 2 et sa bibliographie (19/11/2026) : dans le modèle « TàT 140 × 220 », le titre 1 est
+  // une partie et le titre 2 ouvre une page.
+  { type: 'heading', props: { level: 2 }, content: [t('Bibliographie')] },
+  {
+    type: 'bibliographie',
+    content: [
+      t('Ascher, François, '),
+      t('Les nouveaux principes de l’urbanisme', { italic: true }),
+      t(', La Tour-d’Aigues, Éditions de l’Aube, 2001, une référence assez longue pour passer à la ligne.'),
+    ],
+  },
+  {
+    type: 'bibliographie',
+    content: [
+      t('Choay, Françoise, '),
+      t('L’urbanisme, utopies et réalités', { italic: true }),
+      t(', Paris, Seuil, 1965.'),
+    ],
+  },
 ]
 
 const MODELES = [...MODELES_LIVRE.map((m) => [m.id, m]), ...REPRISE_MODELES.map((m) => [m.id, m.valeurs])]

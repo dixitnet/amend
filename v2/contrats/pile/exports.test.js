@@ -111,7 +111,21 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   await page.getByRole('button', { name: 'Format et marges' }).click()
   await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).fill('135')
   // Changer de rubrique garde ce qu'on a réglé.
-  await page.getByRole('button', { name: 'Chapitre', exact: true }).click()
+  await page.getByRole('button', { name: 'Ouverture des titres 1 et 2', exact: true }).click()
+  // Le titre 2 peut ouvrir une page comme le titre 1 (19/11/2026) : ses lignes ne se montrent qu'alors.
+  const ligneDuTitre2 = page.getByRole('textbox', { name: /Titre 2.: ligne du titre/ })
+  assert.equal(await ligneDuTitre2.count(), 0, 'le titre 2 reste dans le texte : pas de ligne à régler')
+  await page.getByRole('combobox', { name: /Titre 2.: début/ }).click()
+  await page.getByRole('option', { name: 'Belle page (page de droite)' }).click()
+  await ligneDuTitre2.waitFor()
+  // Le numéro de page se règle alors pour ce niveau aussi, et les en-têtes ont leur style.
+  await page.getByRole('button', { name: 'Numéro de page et en-têtes' }).click()
+  await page.getByRole('switch', { name: 'Numéro de page sur une page ouverte par un titre 2' }).waitFor()
+  await page.getByRole('switch', { name: 'En-têtes en petites capitales' }).waitFor()
+  // Sous le tableau des styles : quelles polices ont de vraies petites capitales.
+  await page.getByRole('button', { name: 'Styles', exact: true }).click()
+  await page.getByText(/EB Garamond, Spectral et Roboto en ont/).waitFor()
+  await page.getByRole('checkbox', { name: 'Bibliographie : Petites capitales' }).waitFor()
   await page.getByRole('button', { name: 'Format et marges' }).click()
   assert.equal(await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).inputValue(), '135')
   await page.getByRole('button', { name: 'Enregistrer' }).click()
@@ -127,6 +141,8 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   assert.match(contenu.toString('latin1'), /MediaBox ?\[0 0 382\.677\d* 841\.88\d*\]/)
   const vue = await api('GET', `/api/documents/${doc.id}/modeles`)
   assert.equal(vue.choisi, vue.modeles.find((m) => m.nom === 'Collection').id)
+  const regle = (await api('GET', `/api/equipes/${equipe.id}`)).modeles.find((m) => m.nom === 'Collection').complet
+  assert.equal(regle.ouverture2.debut, 'belle-page', 'le début du titre 2 est enregistré')
   assert.equal(vue.retenu, vue.choisi)
 })
 

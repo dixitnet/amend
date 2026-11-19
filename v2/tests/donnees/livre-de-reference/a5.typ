@@ -15,7 +15,9 @@
 #let amend-titre(corps) = block(width: 100%, above: 9.8pt, below: 15.2pt, { set text(font: ("EB Garamond",), size: 20pt, weight: "bold", style: "normal"); set par(justify: false, leading: 14pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(center, corps)})
 #let amend-sous-titre(corps) = block(width: 100%, above: 14.6pt, below: 16.4pt, { set text(font: ("EB Garamond",), size: 14pt, weight: "regular", style: "italic"); set par(justify: false, leading: 14pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(center, corps)})
 #let amend-legende(corps) = block(width: 100%, above: 4.6pt, below: 17.4pt, { set text(font: ("EB Garamond",), size: 9pt, weight: "regular", style: "italic"); set par(justify: false, leading: 14pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(center, corps)})
+#let amend-bibliographie(corps) = block(width: 100%, above: 3pt, below: 3pt, { set text(font: ("EB Garamond",), size: 11pt, weight: "regular", style: "normal"); set par(justify: false, leading: 14pt - 1em, first-line-indent: (amount: 0mm, all: true), hanging-indent: 5mm); align(left, par(corps))})
 #let amend-sans-alinea(corps) = par(first-line-indent: 0pt, corps)
+#let amend-sans-alinea-2(corps) = corps
 #show heading: it => block(width: 100%, above: 17pt, below: 3pt, sticky: true, { set text(font: ("EB Garamond",), size: 11pt, weight: "regular", style: "italic"); set par(justify: false, leading: 14pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(left, it.body)})
 #show heading.where(level: 4): it => block(width: 100%, above: 17pt, below: 3pt, sticky: true, { set text(font: ("EB Garamond",), size: 11pt, weight: "regular", style: "italic"); set par(justify: false, leading: 14pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(left, it.body)})
 #show heading.where(level: 3): it => block(width: 100%, above: 17pt, below: 3pt, sticky: true, { set text(font: ("EB Garamond",), size: 11pt, weight: "regular", style: "italic"); set par(justify: false, leading: 14pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(left, it.body)})
@@ -60,7 +62,7 @@
 
 #heading(level: 2)[#"Les crises de l’idéal du progrès"]
 
-#"Au XIX"#super("e")#" siècle, un texte"#footnote[#"Une note de bas de page."]#"."
+#amend-sans-alinea-2[#"Au XIX"#super("e")#" siècle, un texte"#footnote[#"Une note de bas de page."]#"."]
 
 #quote(block: true)[#"Une citation détachée, sur plus d’une ligne quand le format est étroit comme celui d’un livre de poche."]
 
@@ -93,3 +95,9 @@
 #heading(level: 5)[#"Un intertitre mineur"]
 
 #"Fin # $ * _ \\ \" ` < > @ [ ] — é ’ « » … œ"
+
+#heading(level: 2)[#"Bibliographie"]
+
+#amend-bibliographie[#"Ascher, François, "#emph("Les nouveaux principes de l’urbanisme")#", La Tour-d’Aigues, Éditions de l’Aube, 2001, une référence assez longue pour passer à la ligne."]
+
+#amend-bibliographie[#"Choay, Françoise, "#emph("L’urbanisme, utopies et réalités")#", Paris, Seuil, 1965."]
