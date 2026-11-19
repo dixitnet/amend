@@ -134,7 +134,7 @@ const groupes = () => [
 ]
 
 /** Le nom d'un modèle : celui du catalogue pour le modèle du code, le sien sinon. */
-export const nomDuModele = (m) => (m.code ? (NOMS_CODE[m.id]?.() ?? m.id) : m.nom)
+const nomDuModele = (m) => (m.code ? (NOMS_CODE[m.id]?.() ?? m.id) : m.nom)
 /** Les modèles d'amend.ink (le modèle du code et ceux de l'instance), puis ceux d'une équipe, en groupes d'un Select. */
 export const groupesDeModeles = (equipe, maison, deLEquipe = []) => [
   { group: t('export.groupeMaison'), items: maison.map((m) => ({ value: m.id, label: nomDuModele(m) })) },

@@ -50,15 +50,10 @@ export {
   appliquerReglages,
   verifierModele,
   completerModele,
-  stylesEnPoints,
-  blancSurGrille,
   famillesDuModele,
-  ALIGNEMENTS,
   NOMS_STYLES,
   valeurDuReglage,
   modeleRetenu,
-  SEPARATEURS,
-  debutChapitre,
   peutChoisirModele,
 } from './miseEnPage.js'
 export {

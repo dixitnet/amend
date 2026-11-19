@@ -179,6 +179,50 @@ t3('sans le modèle configuré (clé absente) : 503 margo-indisponible', async (
   }
 })
 
+t3(
+  'tableau : Margo lit les cellules, corrige l’une d’elles et la sélection d’un tableau porte sur ses cellules (19/11/2026)',
+  async () => {
+    const cellule = (text) => [{ type: 'text', text, styles: {} }]
+    const doc = await nouveauDocument([
+      { id: 'p1', type: 'paragraph', content: 'Avant le tableau.' },
+      {
+        id: 'tab',
+        type: 'table',
+        content: {
+          type: 'tableContent',
+          rows: [
+            { cells: [cellule('Les enfant'), cellule('jouent')] },
+            { cells: [cellule('dans'), cellule('la cour')] },
+          ],
+        },
+      },
+    ])
+    let lu = null
+    let resultat = null
+    scenario = [
+      () => ({ appels: [{ id: 'a1', nom: 'lire', entree: { de: 1, a: 5 } }] }),
+      (e) => {
+        lu = e.resultats[0].contenu
+        return {
+          appels: [
+            { id: 'a2', nom: 'proposer', entree: { corrections: [{ bloc: 2, avant: 'enfant', apres: 'enfants' }] } },
+          ],
+        }
+      },
+      (e) => ((resultat = e.resultats[0].contenu), { texte: 'Corrigé [2].' }),
+    ]
+    const r = await demander(doc, 'Paule', { demande: 'Corrige', selection: { de: 'tab', a: 'tab' } })
+    assert.equal(r.statut, 200)
+    assert.deepEqual(r.evenements[0], { type: 'debut', blocs: ['p1', 'tab/1.1', 'tab/1.2', 'tab/2.1', 'tab/2.2'] })
+    assert.match(lu, /\[2\] Les enfant\n\[3\] jouent\n\[4\] dans\n\[5\] la cour/)
+    assert.match(resultat, /^1\. posée/)
+    const principal = await interne.lireTexte(doc)
+    const suggestions = await interne.lireSuggestions(doc)
+    assert.equal(blocsATexteDe(principal)[1].texte, 'Les enfant', 'le texte principal ne change pas')
+    assert.equal(blocsATexteDe(principal, suggestions)[1].texte, 'Les enfants')
+  },
+)
+
 t3('une correction devient une suggestion signée margo ; le texte principal ne change pas', async () => {
   const doc = await nouveauDocument(LIVRE)
   let resultat = null

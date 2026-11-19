@@ -59,13 +59,16 @@ export function App({ surApparence }) {
 
   async function charger() {
     try {
-      const config = await lireJson(await fetch('/api/config'))
+      const rc = await fetch('/api/config')
+      // Sans configuration lisible, rien ne peut s'ouvrir : un message, pas un écran à moitié (audit du 16/11/2026).
+      if (!rc.ok) return setEtat({ phase: 'erreur', code: (await lireJson(rc)).code || 'reseau' })
+      const config = await lireJson(rc)
       surApparence?.(config.apparence)
       const r = await fetch('/api/moi')
       if (r.status === 401) return setEtat({ phase: 'connexion', config })
       if (!r.ok) return setEtat({ phase: 'erreur', code: (await lireJson(r)).code || `http-${r.status}` })
       const personne = await lireJson(r)
-      if (!personne.id) return setEtat({ phase: 'erreur', code: `http-${r.status}` })
+      if (!personne.id) return setEtat({ phase: 'erreur', code: 'reseau' })
       sessionRetrouvee()
       setEtat({ phase: personne.nom ? 'pret' : 'nom', config, personne })
     } catch {

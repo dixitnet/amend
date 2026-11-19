@@ -132,7 +132,10 @@ export class MagasinFils extends ThreadStore {
           if (!ancre) throw Object.assign(new Error('ancre impossible'), { code: 'ancre-invalide' })
           await service.ancrer(threadId, ancre)
         } catch (err) {
-          await this.apres(service.supprimerFil(threadId)).catch(() => {})
+          // Un fil sans ancre qui ne se supprime pas reste invisible dans le texte : au journal.
+          await this.apres(service.supprimerFil(threadId)).catch((e) =>
+            console.error('fil sans ancre non supprimé :', e?.code ?? e?.message),
+          )
           // L'application dit pourquoi (un code, jamais une phrase ici).
           service.surEchecAncre?.(err.code || 'reseau')
           throw err
@@ -151,7 +154,7 @@ export class MagasinFils extends ThreadStore {
   }
   getThread(id) {
     const f = this.fils.get(id)
-    if (!f) throw new Error('fil introuvable')
+    if (!f) throw Object.assign(new Error('fil introuvable'), { code: 'fil-introuvable' })
     return f
   }
   getThreads() {

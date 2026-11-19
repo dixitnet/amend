@@ -233,3 +233,26 @@ test('une extension n’en importe pas une autre', async () => {
   await accepte('extensions/exposant/index.js', imp('./aide.js'))
   await accepte('extensions/exposant/index.js', imp('../../domaine/index.js'))
 })
+
+test('règle 1 : ProseMirror hors des extensions, Yjs hors des fichiers nommés de l’adaptateur BlockNote (audit du 16/11/2026)', async () => {
+  const importe = (paquet) => `import * as x from '${paquet}'\nexport const y = x`
+  await refuse('application/client/x.js', importe('prosemirror-state'), /fondation importée/)
+  await refuse('application/serveur/x.js', importe('prosemirror-transform'), /fondation importée/)
+  await refuse('adaptateurs/yjs/x.js', importe('prosemirror-state'), /fondation importée/)
+  await refuse('extensions/x/index.js', importe('prosemirror-transform'), /fondation importée/)
+  await refuse('adaptateurs/blocknote/x.js', importe('prosemirror-transform'), /fondation importée/)
+  await accepte('adaptateurs/blocknote/serveur.js', importe('prosemirror-transform'))
+  // Troisième exception : Yjs pour les suggestions, le correctif temporaire et la partie serveur seulement.
+  await refuse('adaptateurs/blocknote/x.js', importe('@y/y'), /fondation importée/)
+  await refuse('adaptateurs/blocknote/index.jsx', importe('@y/prosemirror'), /fondation importée/)
+  await accepte('adaptateurs/blocknote/suggestions.js', importe('@y/y'))
+  await accepte('adaptateurs/blocknote/correctif-245.js', importe('@y/prosemirror'))
+  await accepte('adaptateurs/blocknote/serveur.js', importe('@y/y'))
+})
+
+test('texte en dur dans un attribut écrit en expression, import dynamique en gabarit (audit du 16/11/2026)', async () => {
+  await refuse('design/X.jsx', "export const X = () => <input placeholder={'Bonjour'} />", /texte en dur/)
+  await refuse('design/X.jsx', "export const X = ({ ok }) => <input aria-label={ok ? 'Oui' : ''} />", /texte en dur/)
+  await accepte('design/X.jsx', 'export const X = ({ t }) => <input aria-label={t} />')
+  await refuse('application/client/x.js', 'export const x = () => import(`prosemirror-state`)', /fondation importée/)
+})

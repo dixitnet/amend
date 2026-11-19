@@ -46,3 +46,15 @@ test('entrées de la table : titres non vides jusqu’à la profondeur, dans l�
     ['Un', 'Deux'],
   )
 })
+
+test('table des matières : un niveau 0 ou négatif n’entre pas (audit du 16/11/2026)', () => {
+  const titres = [
+    { niveau: 0, texte: 'Zéro' },
+    { niveau: -1, texte: 'Négatif' },
+    { niveau: 1, texte: 'Un' },
+  ]
+  assert.deepEqual(
+    entreesTable(titres, 3).map((t) => t.texte),
+    ['Un'],
+  )
+})

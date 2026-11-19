@@ -109,7 +109,7 @@ const impossible = (raison) =>
 // copie complète : on le crée à partir d'un autre, puis il est indépendant.
 
 /** Les alignements d'un style. */
-export const ALIGNEMENTS = Object.freeze(['gauche', 'justifie', 'centre'])
+const ALIGNEMENTS = Object.freeze(['gauche', 'justifie', 'centre'])
 /** Les styles réglables d'un modèle, dans l'ordre du formulaire. */
 export const NOMS_STYLES = Object.freeze([
   'texte',
@@ -152,7 +152,7 @@ function styleDe(modele, nom) {
  * l'exige ; jamais moins que l'espace ordinaire entre deux paragraphes, que
  * Typst ferait gagner sinon.
  */
-export function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
+function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
   const ordinaire = pas - corps
   for (let k = Math.max(0, n); k <= n + 60; k++) {
     const v =
@@ -196,6 +196,8 @@ export function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
  * @returns {string}
  */
 export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
+  // Prérequis : un modèle complet (`completerModele`), qui a toujours son chapitre (audit du 16/11/2026).
+  if (!modele?.chapitre) throw Object.assign(new Error('modèle sans chapitre'), { code: 'modele-impossible' })
   const { page, marges, grille: g } = modele
   const c = { ...modele.chapitre, debut: debutChapitre(modele.chapitre) }
   const f = { position: 'bas-centre', depart: 1, ouverture: true, ...modele.folio }
@@ -352,10 +354,10 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
 
 /** Le début d'un chapitre : `continuer`, `page` ou `belle-page` (l'ancien
  * booléen `bellePage` est encore lu). */
-export const debutChapitre = (c) => c?.debut ?? (c?.bellePage === false ? 'page' : 'belle-page')
+const debutChapitre = (c) => c?.debut ?? (c?.bellePage === false ? 'page' : 'belle-page')
 
 /** Les séparateurs de scène (v1, `SEPARATEURS`) et leur ligne de Typst. */
-export const SEPARATEURS = Object.freeze(['blanc', 'asterisme', 'etoiles', 'trait'])
+const SEPARATEURS = Object.freeze(['blanc', 'asterisme', 'etoiles', 'trait'])
 function separateurTypst(choix, pas) {
   const signe = { asterisme: '⁂', etoiles: '* * *', trait: '—' }[choix]
   if (!signe) return `v(${pt(pas)})`
@@ -370,9 +372,12 @@ function separateurTypst(choix, pas) {
 // de réglages bornés (décidée dans le design et passée ici en paramètre).
 
 const lire = (objet, cle) => cle.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), objet)
+const CLES_INTERDITES = new Set(['__proto__', 'constructor', 'prototype'])
 export function poser(objet, cle, valeur) {
   const k = cle.split('.')
   let o = objet
+  // Jamais une clé qui toucherait au prototype (audit du 16/11/2026).
+  if (k.some((p) => CLES_INTERDITES.has(p))) return
   for (const p of k.slice(0, -1)) o = o[p] = { ...(o[p] ?? {}) }
   o[k.at(-1)] = valeur
 }
@@ -476,7 +481,8 @@ export function stylesEnPoints(complet, valeurs) {
 function fusionner(valeurs, defaut) {
   if (!estObjet(defaut)) return valeurs === undefined ? defaut : valeurs
   const sortie = { ...defaut }
-  for (const [k, v] of Object.entries(valeurs ?? {})) sortie[k] = estObjet(v) ? fusionner(v, defaut[k]) : v
+  for (const [k, v] of Object.entries(valeurs ?? {}))
+    if (!CLES_INTERDITES.has(k)) sortie[k] = estObjet(v) ? fusionner(v, defaut[k]) : v
   return sortie
 }
 

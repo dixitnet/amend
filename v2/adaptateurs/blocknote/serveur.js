@@ -108,6 +108,8 @@ export function ancreCommentaire(etat, ancre, racine = 'doc') {
       if (n.type.name === 'blockContainer')
         debuts.set(n.attrs.id, { pos: p + 2, taille: n.firstChild?.content.size ?? 0 })
     })
+    // Une cellule de tableau s'adresse par son identifiant d'unité (`blocsATexte`).
+    for (const u of blocsATexte(ancien)) if (u.id.includes('/')) debuts.set(u.id, { pos: u.debut, taille: u.taille })
     const de = debuts.get(ancre.debut.blocId)
     const a = debuts.get(ancre.fin.blocId)
     if (!de || !a) return { code: 'bloc-introuvable' }
@@ -146,35 +148,54 @@ export function ancreCommentaire(etat, ancre, racine = 'doc') {
  * montré à Margo, qu'aucune correction ne peut toucher. */
 const ATOME = '\uFFFC'
 
-/** Les blocs à texte d'un nœud ProseMirror du document, dans l'ordre, avec
- * leur texte et de quoi passer d'un décalage dans ce texte à une position. */
+/** L'identifiant d'un paragraphe de cellule : celui du tableau, puis « /ligne.colonne »
+ * (et « .n » à partir du deuxième paragraphe de la cellule). Une cellule n'a pas d'identifiant
+ * de bloc chez BlockNote : c'est ainsi que Margo l'adresse (Sylvain, 19/11/2026). */
+const idDeCellule = (tableau, ligne, colonne, rang) =>
+  `${tableau}/${ligne + 1}.${colonne + 1}${rang ? `.${rang + 1}` : ''}`
+/** L'identifiant du bloc qui porte une unité de texte (le tableau, pour une cellule). */
+export const blocDeLUnite = (id) => String(id).split('/')[0]
+
+/** Une unité de texte (un bloc à texte, ou un paragraphe de cellule) : son texte et de quoi
+ * passer d'un décalage dans ce texte à une position ; `debut` : la position de son contenu. */
+function unite(id, type, niveau, noeud, debut) {
+  let texte = ''
+  const segments = []
+  noeud.forEach((enfant, decalage) => {
+    const pos = debut + decalage
+    if (enfant.isText) {
+      segments.push({ i: texte.length, pos, longueur: enfant.text.length, atome: false })
+      texte += enfant.text
+    } else {
+      segments.push({ i: texte.length, pos, longueur: 1, atome: true })
+      texte += ATOME
+    }
+  })
+  return { id, type, niveau, texte, debut, taille: noeud.content.size, segments }
+}
+
+/** Les unités de texte d'un nœud ProseMirror du document, dans l'ordre : chaque bloc à texte,
+ * et chaque paragraphe de chaque cellule d'un tableau (ligne par ligne). */
 function blocsATexte(pm) {
   const blocs = []
   pm.descendants((n, p) => {
     if (n.type.name !== 'blockContainer') return true
     const c = n.firstChild
-    if (c?.isTextblock) {
-      let texte = ''
-      const segments = []
-      c.forEach((enfant, decalage) => {
-        const pos = p + 2 + decalage
-        if (enfant.isText) {
-          segments.push({ i: texte.length, pos, longueur: enfant.text.length, atome: false })
-          texte += enfant.text
-        } else {
-          segments.push({ i: texte.length, pos, longueur: 1, atome: true })
-          texte += ATOME
-        }
-      })
-      blocs.push({
-        id: n.attrs.id,
-        type: c.type.name,
-        niveau: c.type.name === 'heading' ? (c.attrs.level ?? null) : null,
-        texte,
-        debut: p + 2,
-        segments,
-      })
-    }
+    if (c?.isTextblock)
+      blocs.push(unite(n.attrs.id, c.type.name, c.type.name === 'heading' ? (c.attrs.level ?? null) : null, c, p + 2))
+    else if (c?.type.name === 'table')
+      // Positions : le contenu du tableau commence en p + 2 ; chaque niveau (ligne, cellule,
+      // paragraphe) ajoute son décalage et 1 pour entrer dans son contenu.
+      c.forEach((ligne, dL, iL) =>
+        ligne.forEach((cellule, dC, iC) =>
+          cellule.forEach((para, dP, iP) => {
+            if (para.isTextblock)
+              blocs.push(
+                unite(idDeCellule(n.attrs.id, iL, iC, iP), 'tableCell', null, para, p + 2 + dL + 1 + dC + 1 + dP + 1),
+              )
+          }),
+        ),
+      )
     return true
   })
   return blocs

@@ -1,6 +1,7 @@
 // Les crochets des fenêtres de saisie et de confirmation.
 import { useState } from 'react'
-import { FenetreSaisie, FenetreConfirmation } from '../../design/index.js'
+import { FenetreSaisie, FenetreConfirmation, montrerMessage } from '../../design/index.js'
+import { messageErreur } from '../../i18n/index.js'
 import { t } from './commun.js'
 
 /** La fenêtre de saisie d'un nom : `{ titre, libelle, valeur?, valider }` ou null. */
@@ -16,9 +17,14 @@ export function useSaisie() {
       libelleValider={t('interface.valider')}
       libelleAnnuler={t('interface.annuler')}
       surValider={async (v) => {
-        const f = saisie.valider
-        setSaisie(null)
-        await f(v)
+        // La fenêtre ne se ferme qu'une fois la saisie acceptée : refusée, le texte reste
+        // sous les yeux (audit du 16/11/2026).
+        try {
+          await saisie.valider(v)
+          setSaisie(null)
+        } catch (e) {
+          montrerMessage(messageErreur(t, e?.code || 'reseau'), { erreur: true })
+        }
       }}
       surFermer={() => setSaisie(null)}
     />

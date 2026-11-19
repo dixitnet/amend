@@ -135,7 +135,7 @@ export function ElementsDeMenu({ elements, pied, champPicto = 'picto' }) {
 }
 
 /** L'étoile des favoris, devant le titre d'un document (Sylvain, 10/11/2026). */
-export const Etoile = ({ favori }) => (
+const Etoile = ({ favori }) => (
   <ActionIcon aria-label={favori.libelle} aria-pressed={favori.actif} onClick={favori.surBasculer}>
     <PictoDe role={favori.actif ? 'favoriActif' : 'favori'} />
   </ActionIcon>
@@ -369,7 +369,7 @@ export function PictoCompte({ role, nombre, occupe = false }) {
  * une ligne) : le texte pour l'onglet actif seulement ; les autres, leur
  * picto et leur nombre, nommés pour les lecteurs d'écran. Le rôle du picto
  * est celui de l'onglet, sauf mention. */
-export function OngletCompact({ valeur, actif, libelle, nombre, role = valeur }) {
+function OngletCompact({ valeur, actif, libelle, nombre, role = valeur }) {
   return (
     <Tabs.Tab value={valeur} aria-label={libelle} leftSection={<PictoCompte role={role} nombre={nombre} />}>
       {actif === valeur ? libelle : null}

@@ -9,7 +9,7 @@ import { join, relative } from 'node:path'
 import { REGLAGES } from '../../design/reglages.js'
 
 const V2 = new URL('../..', import.meta.url).pathname
-const IGNORES = ['node_modules', 'dist', '.mesures', '.captures']
+const IGNORES = ['node_modules', 'dist', '.mesures', '.captures', 'dist.neuf']
 
 function fichiers(dossier) {
   return readdirSync(dossier).flatMap((nom) => {

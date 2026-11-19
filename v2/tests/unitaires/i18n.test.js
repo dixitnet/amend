@@ -32,6 +32,11 @@ test('aucun texte d’attente, aucune recopie du français hors exceptions', () 
     }
 })
 
+test('chaque exception citée existe encore dans le catalogue (audit du 16/11/2026)', () => {
+  const source = cles(CATALOGUES[LANGUE_SOURCE])
+  for (const cle of exceptions.identiques) assert.ok(source.includes(cle), `exception sans clé : ${cle}`)
+})
+
 test('le nom « amend.ink » ne se traduit jamais (règle 24)', () => {
   for (const l of LANGUES) assert.equal(valeur(CATALOGUES[l], 'application.nom'), 'amend.ink', l)
 })

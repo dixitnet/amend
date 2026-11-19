@@ -55,7 +55,14 @@ export function creerDocuments(ctx) {
         console.error(`[serveur] restauration dans y/hub de ${v.id} :`, e)
         return err(res, 502, 'collaboration-indisponible')
       }
-    await comptes.mettreALaCorbeille(v.id, false)
+    try {
+      await comptes.mettreALaCorbeille(v.id, false)
+    } catch (e) {
+      // y/hub a restauré le contenu, la base non : le document reste à la corbeille, la personne
+      // peut recommencer (trace pour le journal ; audit du 16/11/2026).
+      console.error(`[serveur] restauration en base de ${v.id}, après y/hub :`, e)
+      throw e
+    }
     return ok(res)
   }
 

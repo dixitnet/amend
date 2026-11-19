@@ -80,10 +80,17 @@ const autresAdaptateurs = (soi) => ADAPTATEURS.filter((a) => a !== soi)
  * (audit du 11/11/2026). Un import dynamique permis par `imports` reste permis :
  * l'adaptateur BlockNote charge sa fondation, l'application charge un adaptateur. */
 const sansImportDynamique = (options) =>
-  motifsImports(options).map(({ regex, message }) => ({
-    selector: `ImportExpression > Literal[value=/${regex.replaceAll('/', '\\/')}/]`,
-    message: `${message} — import dynamique`,
-  }))
+  motifsImports(options).flatMap(({ regex, message }) => {
+    const motif = regex.replaceAll('/', '\\/')
+    return [
+      { selector: `ImportExpression > Literal[value=/${motif}/]`, message: `${message} — import dynamique` },
+      // Le même spécificateur écrit en gabarit sans expression (audit du 16/11/2026).
+      {
+        selector: `ImportExpression > TemplateLiteral[expressions.length=0] > TemplateElement[value.raw=/${motif}/]`,
+        message: `${message} — import dynamique`,
+      },
+    ]
+  })
 
 const TEXTE_EN_DUR = [
   {
@@ -93,6 +100,23 @@ const TEXTE_EN_DUR = [
   {
     selector:
       'JSXAttribute[name.name=/^(title|alt|placeholder|aria-label|aria-roledescription|aria-valuetext|label)$/] > Literal',
+    message: 'texte en dur dans un attribut : passer par v2/i18n/ (règle 23)',
+  },
+  // Le même attribut écrit en expression : label={'Bonjour'}, placeholder={ok ? 'Oui' : ''}
+  // (audit du 16/11/2026).
+  {
+    selector:
+      'JSXAttribute[name.name=/^(title|alt|placeholder|aria-label|aria-roledescription|aria-valuetext|label)$/] > JSXExpressionContainer > Literal[value=/\\p{L}/u]',
+    message: 'texte en dur dans un attribut : passer par v2/i18n/ (règle 23)',
+  },
+  {
+    selector:
+      'JSXAttribute[name.name=/^(title|alt|placeholder|aria-label|aria-roledescription|aria-valuetext|label)$/] > JSXExpressionContainer > ConditionalExpression > Literal[value=/\\p{L}/u]',
+    message: 'texte en dur dans un attribut : passer par v2/i18n/ (règle 23)',
+  },
+  {
+    selector:
+      'JSXAttribute[name.name=/^(title|alt|placeholder|aria-label|aria-roledescription|aria-valuetext|label)$/] > JSXExpressionContainer > TemplateLiteral[expressions.length=0]',
     message: 'texte en dur dans un attribut : passer par v2/i18n/ (règle 23)',
   },
   // Un texte écrit dans une expression, entre les balises : {'Bonjour'},
@@ -127,7 +151,7 @@ const DESIGN_HORS_DESIGN = [
  * design/reglages.js, sur décision notée dans l'ADR 0008 (règle 18). */
 const REGLAGE_NON_DECIDE = 'réglage de design non décidé : passer par design/reglages.js et l’ADR 0008 (règle 18)'
 const PROPS_DE_STYLE_MANTINE =
-  '^(p|px|py|pt|pb|pl|pr|ps|pe|m|mx|my|mt|mb|ml|mr|ms|me|w|h|miw|maw|mih|mah|c|bg|bd|bdrs|opacity|ff|fz|fw|lts|ta|lh|fs|tt|td|pos|top|left|bottom|right|inset|display|flex|size|color|variant|radius|gap|rowGap|columnGap|justify|align|wrap|shadow|withBorder|gradient|autoContrast|fullWidth|styles|classNames|vars|hiddenFrom|visibleFrom|lightHidden|darkHidden|span|offset|cols|spacing|fluid)$'
+  '^(p|px|py|pt|pb|pl|pr|ps|pe|m|mx|my|mt|mb|ml|mr|ms|me|w|h|miw|maw|mih|mah|c|bg|bd|bdrs|opacity|ff|fz|fw|lts|ta|lh|fs|tt|td|pos|top|left|bottom|right|inset|display|flex|size|color|variant|truncate|radius|gap|rowGap|columnGap|justify|align|wrap|shadow|withBorder|gradient|autoContrast|fullWidth|styles|classNames|vars|hiddenFrom|visibleFrom|lightHidden|darkHidden|span|offset|cols|spacing|fluid)$'
 const DESIGN_SANS_REGLAGE = [
   ...valeursVisuelles(REGLAGE_NON_DECIDE, VALEUR_VISUELLE_DESIGN),
   { selector: `JSXAttribute[name.name=/${PROPS_DE_STYLE_MANTINE}/]`, message: REGLAGE_NON_DECIDE },
@@ -139,11 +163,14 @@ const OPTIONS_YJS = {
   couches: ['application', 'design', 'i18n', 'extensions', ...autresAdaptateurs('yjs')],
   css: true,
 }
+// Yjs n'est permis qu'aux fichiers nommés par la troisième exception de la règle 1
+// (suggestions, correctif temporaire, partie serveur), pas à tout l'adaptateur (audit du 16/11/2026).
 const OPTIONS_BLOCKNOTE = {
-  permises: ['blocknote', 'y'],
+  permises: ['blocknote'],
   couches: ['application', 'design', 'i18n', ...autresAdaptateurs('blocknote')],
   css: true,
 }
+const OPTIONS_BLOCKNOTE_SUIVI = { ...OPTIONS_BLOCKNOTE, permises: ['blocknote', 'y'] }
 const OPTIONS_BLOCKNOTE_SERVEUR = { ...OPTIONS_BLOCKNOTE, permises: ['blocknote', 'y', 'transformation', 'lib0'] }
 const OPTIONS_YHUB = {
   permises: ['y', 'lib0'],
@@ -233,6 +260,19 @@ export default [
         ...TEXTE_EN_DUR,
         ...DESIGN_HORS_DESIGN,
         ...sansImportDynamique(OPTIONS_BLOCKNOTE),
+      ],
+    },
+  },
+  {
+    files: ['adaptateurs/blocknote/suggestions.js', 'adaptateurs/blocknote/correctif-245.js'],
+    rules: {
+      'no-restricted-imports': imports(OPTIONS_BLOCKNOTE_SUIVI),
+      'no-restricted-syntax': [
+        'error',
+        STYLE_EN_DUR,
+        ...TEXTE_EN_DUR,
+        ...DESIGN_HORS_DESIGN,
+        ...sansImportDynamique(OPTIONS_BLOCKNOTE_SUIVI),
       ],
     },
   },

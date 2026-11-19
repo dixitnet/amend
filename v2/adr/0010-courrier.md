@@ -15,6 +15,8 @@ L'étape 6a envoie des courriers : lien de connexion (ADR 0005), invitation, acc
 5. **Langue** : le français, comme les documents, jusqu'à ce que la langue de la personne soit enregistrée (étape 6b).
 6. **Exception à la règle des traductions (règle 23)** pour les textes d'exploitation : les courriels d'alerte (`exploitation/prod/alerter.sh`, `veiller.sh`, `essayer.sh`) et les messages des scripts d'exploitation sont écrits en français, en dur. Ils ne s'adressent qu'aux administrateurs de l'instance, et des scripts bash ne liraient pas les catalogues sans un outillage disproportionné (Sylvain, 11/11/2026, audit partiel de 14 h 33, A3). Les courriers destinés aux personnes (connexion, invitation, accès) restent traduits par les catalogues.
 
+7. **Les pages publiques du site** (accueil, aide) ne relèvent pas de cette exception : leurs textes sont dans `v2/i18n/site/` et les pages sont produites par `exploitation/site/construire.mjs` (Sylvain, 19/11/2026, audit du 16/11). Le français seul pour l'instant : l'anglais viendra quand l'aide, encore en brouillon, sera relue.
+
 ## Ce qui ferait revenir dessus
 
 Un coût ou une délivrabilité insuffisants mesurés sur les journaux réels.

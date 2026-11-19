@@ -78,7 +78,7 @@ test('texte brut : liens et cellules de tableau compris', () => {
   assert.equal(texteDesBlocs(lireBlocs(ecrireBlocs(blocs))), 'Appel fin\nA1\tB1')
 })
 
-test('tableau réel : le texte des cellules est gardé par texteDesBlocs, mais Margo (blocsATexteDe) ne le voit pas', () => {
+test('tableau : chaque cellule est une unité de texte pour Margo, adressée « tableau/ligne.colonne » (19/11/2026)', () => {
   const t = (text, styles = {}) => ({ type: 'text', text, styles })
   const etat = ecrireBlocs([
     { id: 'avant', type: 'paragraph', content: [t('Avant')] },
@@ -96,13 +96,65 @@ test('tableau réel : le texte des cellules est gardé par texteDesBlocs, mais M
   // Relu, chaque cellule est un objet `tableCell` dont le texte est dans `content`.
   assert.equal(blocs[1].content.rows[1].cells[0].type, 'tableCell')
   assert.equal(texteDesBlocs(blocs), 'Avant\nA1\tB1\nA2 gras\tB2\nAprès')
-  // Comportement actuel (à signaler) : le texte donné à Margo saute les tableaux, dont aucune
-  // cellule n'est donc relue ni corrigée (serveur.js, blocsATexte : seul un bloc dont le
-  // premier enfant est un bloc de texte compte).
   assert.deepEqual(blocsATexteDe(etat), [
     { id: 'avant', type: 'paragraph', niveau: null, texte: 'Avant' },
+    { id: 'tab/1.1', type: 'tableCell', niveau: null, texte: 'A1' },
+    { id: 'tab/1.2', type: 'tableCell', niveau: null, texte: 'B1' },
+    { id: 'tab/2.1', type: 'tableCell', niveau: null, texte: 'A2 gras' },
+    { id: 'tab/2.2', type: 'tableCell', niveau: null, texte: 'B2' },
     { id: 'apres', type: 'paragraph', niveau: null, texte: 'Après' },
   ])
+})
+
+test('tableau : une correction et une ancre de commentaire se posent dans la bonne cellule (19/11/2026)', async () => {
+  const { suggererRemplacements, ancreCommentaire, blocDeLUnite } =
+    await import('../../adaptateurs/blocknote/serveur.js')
+  const Y = await import('@y/y')
+  const t = (text) => ({ type: 'text', text, styles: {} })
+  const etat = ecrireBlocs([
+    { id: 'avant', type: 'paragraph', content: [t('Avant')] },
+    {
+      id: 'tab',
+      type: 'table',
+      content: {
+        type: 'tableContent',
+        rows: [{ cells: [[t('Les enfant')], [t('jouent')]] }, { cells: [[t('dans')], [t('la cour')]] }],
+      },
+    },
+  ])
+  assert.equal(blocDeLUnite('tab/2.1'), 'tab')
+  // Une correction dans la cellule 1.1 : « enfant » → « enfants ».
+  const { resultats, mise } = suggererRemplacements(etat, null, [
+    { blocId: 'tab/1.1', debut: 4, fin: 10, apres: 'enfants' },
+  ])
+  assert.deepEqual(resultats, ['posee'])
+  assert.deepEqual(
+    blocsATexteDe(etat, mise).map((b) => b.texte),
+    ['Avant', 'Les enfants', 'jouent', 'dans', 'la cour'],
+    'lu avec les suggestions : la cellule corrigée, les autres intactes',
+  )
+  assert.deepEqual(blocsATexteDe(etat).map((b) => b.texte)[1], 'Les enfant', 'le texte principal ne change pas')
+  // Une ancre dans la cellule 2.2.
+  const r = ancreCommentaire(etat, {
+    debut: { blocId: 'tab/2.2', decalage: 3 },
+    fin: { blocId: 'tab/2.2', decalage: 7 },
+    citation: 'cour',
+    fil: 'f1',
+  })
+  assert.equal(r.code, 'ok')
+  const doc = new Y.Doc()
+  Y.applyUpdate(doc, etat)
+  Y.applyUpdate(doc, r.mise)
+  assert.deepEqual(await passagesMarques(Y.encodeStateAsUpdate(doc)), [['f1', 'cour']])
+  assert.equal(
+    ancreCommentaire(etat, {
+      debut: { blocId: 'tab/9.9', decalage: 0 },
+      fin: { blocId: 'tab/9.9', decalage: 1 },
+      citation: 'x',
+      fil: 'f',
+    }).code,
+    'bloc-introuvable',
+  )
 })
 
 test('contrat : le schéma du livre a la marque « link » dont la typographie protège les adresses', async () => {

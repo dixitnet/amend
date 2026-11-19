@@ -15,7 +15,7 @@ export function Partage({ docId }) {
   useEffect(() => {
     recharger()
   }, [docId])
-  if (!donnees) return message ? <EcranMessage texte={message} /> : null
+  if (!donnees) return <EcranMessage texte={message ?? t('application.chargement')} />
   const base = `/api/documents/${encodeURIComponent(docId)}`
   const agir =
     (f, succes) =>

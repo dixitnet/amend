@@ -79,7 +79,12 @@ export function useVoletDocuments(docId, { actif = true, essayerModele = null } 
       )
       setDonnees(d)
       setEquipes(Object.fromEntries(vues.filter(Boolean).map((v) => [v.equipe.id, v])))
-      setCorbeille((await envoyerJson('GET', '/api/corbeille').catch(() => null))?.documents ?? [])
+      // Une corbeille illisible n'est pas une corbeille vide : un message le dit (audit du 16/11/2026).
+      const c = await envoyerJson('GET', '/api/corbeille').catch((e) => {
+        montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
+        return null
+      })
+      setCorbeille(c?.documents ?? [])
     } catch (e) {
       montrerMessage(messageErreur(t, e.code || 'reseau'), { erreur: true })
       setErreur(e.code || 'reseau')

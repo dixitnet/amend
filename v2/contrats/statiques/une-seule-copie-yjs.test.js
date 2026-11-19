@@ -20,7 +20,9 @@ function fichiers(dossier) {
 
 test('aucun import de Yjs 13 dans le code de la v2', () => {
   const fautifs = fichiers(V2)
-    .filter((f) => !f.includes('/contrats/statiques/'))
+    // Comme le contrat d'API publique : les contrats et le test des frontières citent exprès
+    // des imports interdits (audit du 16/11/2026).
+    .filter((f) => !f.includes('/contrats/statiques/') && !f.endsWith('/tests/unitaires/frontieres.test.js'))
     .filter((f) => INTERDITS.test(readFileSync(f, 'utf8')))
     .map((f) => relative(V2, f))
   assert.deepEqual(fautifs, [])

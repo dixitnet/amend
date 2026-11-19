@@ -6,6 +6,7 @@
 // décidés dans design/feuilles/telephone.css (ADR 0008) ; textes traduits.
 import { ActionIcon, Button, Drawer, Menu, Modal, NavLink, Tabs, Text, UnstyledButton } from '@mantine/core'
 import { PictoDe } from '../pictos.jsx'
+import { REGLAGES } from '../reglages.js'
 import { useEffect, useRef, useState } from 'react'
 import { ElementsDeMenu, EtatConnexion, PictoCompte } from './Coquille.jsx'
 
@@ -112,10 +113,10 @@ export function PageEditionS({
         <div className="amend-bandeau-titre">
           {surTitre ? (
             <UnstyledButton onClick={surTitre} aria-label={libelles.titre}>
-              <Text truncate="end">{titre}</Text>
+              <Text {...REGLAGES.titreTelephone}>{titre}</Text>
             </UnstyledButton>
           ) : (
-            <Text truncate="end">{titre}</Text>
+            <Text {...REGLAGES.titreTelephone}>{titre}</Text>
           )}
         </div>
         {enModification ? <Button onClick={surTerminer}>{libelles.terminer}</Button> : null}
