@@ -1,7 +1,8 @@
-// Extension de BlockNote (couche 3) : les blocs « Titre », « Sous-titre » et
-// « Légende » (Sylvain, 12/11/2026 ; la légende, 13/11/2026), le titre du
-// document, son sous-titre et la légende d'une image ou d'un tableau, posés dans
-// le texte. Ce ne sont pas des titres de BlockNote (`heading`) : ils restent
+// Extension de BlockNote (couche 3) : les blocs « Titre », « Sous-titre »,
+// « Légende » et « Bibliographie » (Sylvain, 12/11/2026 ; la légende,
+// 13/11/2026 ; la bibliographie, 19/11/2026), le titre du document, son
+// sous-titre, la légende d'une image ou d'un tableau et une entrée de
+// bibliographie, posés dans le texte. Ce ne sont pas des titres de BlockNote (`heading`) : ils restent
 // hors du plan et de la table des matières, et leur rendu à l'export est le
 // leur (PDF : centrés, corps du modèle ; Markdown : gras, italique). Docs n'en
 // a pas.
@@ -13,6 +14,7 @@ import { createBlockSpec } from '@blocknote/core'
 export const TYPE_TITRE = 'titre'
 export const TYPE_SOUS_TITRE = 'sousTitre'
 export const TYPE_LEGENDE = 'legende'
+export const TYPE_BIBLIOGRAPHIE = 'bibliographie'
 
 const bloc = (type) =>
   createBlockSpec(
@@ -29,3 +31,4 @@ const bloc = (type) =>
 export const blocTitre = bloc(TYPE_TITRE)
 export const blocSousTitre = bloc(TYPE_SOUS_TITRE)
 export const blocLegende = bloc(TYPE_LEGENDE)
+export const blocBibliographie = bloc(TYPE_BIBLIOGRAPHIE)

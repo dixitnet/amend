@@ -15,7 +15,7 @@ import {
 } from '@blocknote/core'
 import { blocTableDesMatieres } from '../../extensions/tableDesMatieres/index.js'
 import { styleExposant } from '../../extensions/exposant/index.js'
-import { blocTitre, blocSousTitre, blocLegende } from '../../extensions/titres/index.js'
+import { blocTitre, blocSousTitre, blocLegende, blocBibliographie } from '../../extensions/titres/index.js'
 import { elementNote } from '../../extensions/note/index.js'
 
 const { paragraph, quote, bulletListItem, numberedListItem, divider, table, image } = defaultBlockSpecs
@@ -37,6 +37,8 @@ const BLOCS_DU_LIVRE = {
   titre: blocTitre(),
   sousTitre: blocSousTitre(),
   legende: blocLegende(),
+  // Une entrée de bibliographie (19/11/2026) : un paragraphe à son style.
+  bibliographie: blocBibliographie(),
 }
 const STYLES_DU_LIVRE = { bold, italic, underline, strike, exposant: styleExposant }
 

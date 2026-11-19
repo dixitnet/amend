@@ -185,3 +185,29 @@ test('table des matières : un titre écrit sur plusieurs lignes tient sur une s
   ])
   assert.equal(titres[0].texte, 'Un titre sur deux lignes')
 })
+
+test('bibliographie (19/11/2026) : un paragraphe ordinaire en Markdown, `amend-bibliographie` en Typst ; après un titre 2, le premier paragraphe est marqué', async () => {
+  const editeur = BlockNoteEditor.create({ schema: schemaLivre })
+  editeur.replaceBlocks(editeur.document, [
+    { type: 'heading', props: { level: 2 }, content: [texte('Bibliographie')] },
+    { type: 'paragraph', content: [texte('Les ouvrages cités.')] },
+    {
+      type: 'bibliographie',
+      content: [texte('Choay, Françoise, '), texte('L’urbanisme', { italic: true }), texte('.')],
+    },
+  ])
+  const pret = blocsPourMarkdown(editeur.document).at(-1)
+  assert.equal(pret.type, 'paragraph')
+  assert.deepEqual(
+    pret.content.map((c) => [c.text, c.styles]),
+    [
+      ['Choay, Françoise, ', {}],
+      ['L’urbanisme', { italic: true }],
+      ['.', {}],
+    ],
+  )
+  const { source } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+  assert.match(source, /#amend-bibliographie\[#"Choay, Françoise, "#emph\("L’urbanisme"\)#"\."\]/)
+  // Le gabarit décide si ce premier paragraphe perd son alinéa (un titre 2 qui ouvre une page).
+  assert.match(source, /#heading\(level: 2\)\[#"Bibliographie"\]\n\n#amend-sans-alinea-2\[#"Les ouvrages cités\."\]/)
+})
