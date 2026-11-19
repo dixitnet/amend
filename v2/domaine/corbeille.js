@@ -8,7 +8,8 @@ export const DUREE_CORBEILLE_MS = 30 * 24 * 3600 * 1000
 
 /** Vrai si un document supprimé à `supprimeLe` (ms) peut encore être restauré à `maintenant`. */
 export const dansLaCorbeille = (supprimeLe, maintenant = Date.now()) =>
-  Number.isFinite(supprimeLe) && maintenant - supprimeLe < DUREE_CORBEILLE_MS
+  // Une date dans le futur (horloge, donnée abîmée) n'est pas une suppression (audit du 16/11/2026).
+  Number.isFinite(supprimeLe) && supprimeLe <= maintenant && maintenant - supprimeLe < DUREE_CORBEILLE_MS
 
 /** Les jours restants avant l'effacement définitif (au moins 0, arrondi au-dessus). */
 export const joursRestants = (supprimeLe, maintenant = Date.now()) =>

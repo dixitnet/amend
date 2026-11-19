@@ -7,7 +7,11 @@
 /** Poids maximal d'un fichier de police (Sylvain, 13/11/2026). */
 export const POLICE_MAX_OCTETS = 10 * 1024 * 1024
 /** Longueur maximale d'un nom de famille ou de fichier gardé. */
+import { INVISIBLES } from './personne.js'
+
 const NOM_MAX = 120
+/** Coupe à `NOM_MAX` signes, comptés en points de code : un emoji n'est jamais coupé en deux. */
+const couper = (texte) => [...texte].slice(0, NOM_MAX).join('')
 
 /** Les quatre styles d'une famille complète pour un livre. */
 export const STYLES_POLICE = ['romain', 'italique', 'gras', 'gras-italique']
@@ -51,7 +55,8 @@ function noms(o, t) {
       for (let k = 0; k + 1 < longueur; k += 2) texte += String.fromCharCode(u16(o, debut + k))
     else if (plateforme === 1) for (let k = 0; k < longueur; k++) texte += String.fromCharCode(o[debut + k])
     else continue
-    texte = texte.normalize('NFC').trim()
+    // Sans caractère de commande ni invisible, comme un nom de personne (audit du 16/11/2026).
+    texte = texte.normalize('NFC').replace(new RegExp(INVISIBLES.source, 'gu'), '').trim()
     // Le nom Windows (Unicode) l'emporte sur le nom Macintosh.
     if (texte && (plateforme !== 1 || !trouves.has(id))) trouves.set(id, texte)
   }
@@ -73,9 +78,9 @@ export function lirePolice(octets) {
   if (!tNoms) return { ok: false, code: 'police-illisible' }
   const n = noms(octets, tNoms)
   // La famille « typographique » (16) quand elle existe : c'est celle que Typst retient.
-  const famille = (n.get(16) ?? n.get(1) ?? '').slice(0, NOM_MAX)
+  const famille = couper(n.get(16) ?? n.get(1) ?? '')
   if (!famille) return { ok: false, code: 'police-illisible' }
-  const sousFamille = (n.get(17) ?? n.get(2) ?? '').slice(0, NOM_MAX)
+  const sousFamille = couper(n.get(17) ?? n.get(2) ?? '')
   const os2 = table(octets, 'OS/2')
   const graisse = os2 && os2.longueur >= 64 ? u16(octets, os2.debut + 4) : /bold/i.test(sousFamille) ? 700 : 400
   const selection = os2 && os2.longueur >= 64 ? u16(octets, os2.debut + 62) : 0
@@ -92,13 +97,13 @@ export function lirePolice(octets) {
 
 /** Le nom de fichier gardé pour l'affichage : sans chemin ni caractère de commande. */
 export const nomFichierPolice = (nom) =>
-  String(nom ?? '')
-    .normalize('NFC')
-    .replace(/^.*[\\/]/, '')
-    // eslint-disable-next-line no-control-regex -- on retire justement les caractères de commande
-    .replace(/[\u0000-\u001f\u007f]/g, '')
-    .trim()
-    .slice(0, NOM_MAX)
+  couper(
+    String(nom ?? '')
+      .normalize('NFC')
+      .replace(/^.*[\\/]/, '')
+      .replace(new RegExp(INVISIBLES.source, 'gu'), '')
+      .trim(),
+  )
 
 /** Les styles qui manquent à une famille pour un livre (le texte courant a
  * besoin du romain et de l'italique ; les titres, du gras). */

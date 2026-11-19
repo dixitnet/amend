@@ -93,3 +93,9 @@ test('confirmation : l’adresse en toutes lettres, sans casse', () => {
   assert.equal(confirmationSuppressionValide('alice', 'alice@exemple.fr'), false)
   assert.equal(confirmationSuppressionValide(undefined, 'alice@exemple.fr'), false)
 })
+
+test('confirmation de suppression : une adresse en NFD vaut la même en NFC (audit du 16/11/2026)', () => {
+  const nfc = 'rené@exemple.fr'.normalize('NFC')
+  assert.equal(confirmationSuppressionValide(nfc.normalize('NFD'), nfc), true)
+  assert.equal(confirmationSuppressionValide('autre@exemple.fr', nfc), false)
+})

@@ -42,5 +42,5 @@ export function profondeurTable(valeur) {
  */
 export function entreesTable(titres, profondeur) {
   const p = profondeurTable(profondeur)
-  return titres.filter((t) => t.niveau <= p && String(t.texte ?? '').trim())
+  return titres.filter((t) => t.niveau >= 1 && t.niveau <= p && String(t.texte ?? '').trim())
 }

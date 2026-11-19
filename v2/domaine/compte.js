@@ -50,4 +50,6 @@ export function planSuppressionCompte({ moi, documents, equipes }) {
 
 /** La confirmation : l'adresse du compte, saisie en toutes lettres (v1). */
 export const confirmationSuppressionValide = (saisie, courriel) =>
-  typeof saisie === 'string' && saisie.trim().toLowerCase() === String(courriel).toLowerCase()
+  // En NFC des deux côtés : une adresse collée en NFD est la même adresse (audit du 16/11/2026).
+  typeof saisie === 'string' &&
+  saisie.normalize('NFC').trim().toLowerCase() === String(courriel).normalize('NFC').toLowerCase()

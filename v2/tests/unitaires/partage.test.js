@@ -107,3 +107,9 @@ test('objet d’un courrier : extrait sans retour à la ligne, coupé par « …
   assert.equal(nomAvecAdresse('Ada', undefined), 'Ada', 'sans adresse : le nom seul, jamais « undefined »')
   assert.equal(nomAvecAdresse('', undefined), '', 'ni nom ni adresse : vide, l’appelant met « Quelqu’un »')
 })
+
+test('adresse de courriel : aucun label du domaine ne commence ni ne finit par un tiret (audit du 16/11/2026)', () => {
+  assert.equal(adresseCourriel('a@-x.fr').ok, false)
+  assert.equal(adresseCourriel('a@x-.fr').ok, false)
+  assert.equal(adresseCourriel('a@mon-domaine.fr').ok, true)
+})

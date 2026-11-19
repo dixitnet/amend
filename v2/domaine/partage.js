@@ -100,5 +100,8 @@ export function adresseCourriel(brut) {
   const [local, domaine] = c.split('@')
   if (local.startsWith('.') || local.endsWith('.') || c.includes('..') || domaine.startsWith('.'))
     return { ok: false, code: 'courriel-invalide' }
+  // Aucun label du domaine ne commence ni ne finit par un tiret (audit du 16/11/2026).
+  if (domaine.split('.').some((l) => l.startsWith('-') || l.endsWith('-')))
+    return { ok: false, code: 'courriel-invalide' }
   return { ok: true, courriel: c }
 }

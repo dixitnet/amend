@@ -53,6 +53,9 @@ export function nomDeFichier(titre, extension) {
     .replace(/\s+/g, ' ')
     .trim()
   // 120 signes au plus, comptés en points de code : un emoji n'est jamais coupé en deux.
-  const court = [...base].slice(0, 120).join('').trim()
-  return `${court || 'document'}.${extension}`
+  // Sans point en tête (fichier masqué sous Unix) ; un nom réservé de Windows (CON, NUL, COM1…)
+  // est précédé d'un tiret bas (audit du 16/11/2026).
+  const court = [...base.replace(/^[.\s]+/, '')].slice(0, 120).join('').trim()
+  const sur = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(court) ? `_${court}` : court
+  return `${sur || 'document'}.${extension}`
 }

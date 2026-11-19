@@ -358,3 +358,26 @@ test('un modèle enregistré avec des lignes blanches (avant le 15/11/2026) reç
   const deja = completerModele({ styles: { titre2: { lignesAvant: 3, espaceAvant: 5 } } }, MODELE)
   assert.equal(deja.styles.titre2.espaceAvant, 5)
 })
+
+test('nom de fichier : pas de point en tête, noms réservés de Windows précédés d’un tiret bas (audit du 16/11/2026)', () => {
+  assert.equal(nomDeFichier('.secret', 'pdf'), 'secret.pdf')
+  assert.equal(nomDeFichier('... et après', 'md'), 'et après.md')
+  assert.equal(nomDeFichier('CON', 'pdf'), '_CON.pdf')
+  assert.equal(nomDeFichier('nul', 'md'), '_nul.md')
+  assert.equal(nomDeFichier('Console', 'pdf'), 'Console.pdf')
+})
+
+test('gabarit Typst : un modèle sans chapitre est refusé avec un code, pas un gabarit faux (audit du 16/11/2026)', () => {
+  const sans = { ...MODELE }
+  delete sans.chapitre
+  assert.throws(
+    () => gabaritTypst(sans),
+    (e) => e.code === 'modele-impossible',
+  )
+})
+
+test('réglages : une clé qui toucherait au prototype est ignorée (audit du 16/11/2026)', () => {
+  const m = completerModele(JSON.parse('{"__proto__": {"pollue": true}, "constructor": {"x": 1}}'), MODELE)
+  assert.equal({}.pollue, undefined)
+  assert.equal(Object.hasOwn(m, 'constructor'), false)
+})

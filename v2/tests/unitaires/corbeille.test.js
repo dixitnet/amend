@@ -82,3 +82,9 @@ test('trierDocuments : un ordre inconnu vaut le premier de ORDRES_TRI', () => {
   assert.deepEqual(trierDocuments(docs, 'inconnu'), trierDocuments(docs, ORDRES_TRI[0]))
   assert.deepEqual(trierDocuments(docs, undefined), trierDocuments(docs, 'modifies'))
 })
+
+test('corbeille : une date de suppression dans le futur ne compte pas (audit du 16/11/2026)', () => {
+  const maintenant = 1_000_000_000
+  assert.equal(dansLaCorbeille(maintenant + 60_000, maintenant), false)
+  assert.equal(dansLaCorbeille(maintenant, maintenant), true)
+})
