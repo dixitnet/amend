@@ -2,7 +2,7 @@
 // tout rendu), les appels JSON, les noms traduits et le compte du bandeau.
 import { creerTraducteur, choisirLangue, libelleDuRole, libelleDuRoleEquipe, LANGUE_PSEUDO } from '../../i18n/index.js'
 import { AUTEUR_MARGO, AUTEUR_CLAUDE } from '../../domaine/index.js'
-import { couleurAuteur } from '../../design/index.js'
+import { couleurAuteur, COULEUR_AGENTS } from '../../design/index.js'
 import { nomsDe, appel } from './commentaires.js'
 
 // La langue : celle demandée dans l'adresse (?langue=fr|en|pseudo, pour les
@@ -16,17 +16,24 @@ document.title = t('application.nom')
 
 export const lireJson = (r) => r.json().catch(() => ({}))
 
+/** La couleur d'un auteur (curseur, présence, corrections, cartes du volet) : celle de la personne, ou la
+ * couleur réservée aux agents, Margo et Claude (Sylvain, 19/11/2026). */
+export const couleurDe = (id) => (id === AUTEUR_MARGO || id === AUTEUR_CLAUDE ? COULEUR_AGENTS : couleurAuteur(id))
+
 /** Les noms des personnes, et ceux des agents, Margo et Claude par le
- * connecteur (le serveur rend un code). */
+ * connecteur (le serveur rend un code) ; chacun avec sa couleur, que BlockNote
+ * donne à ses corrections dans le texte (`color` de ses utilisateurs). */
 export const nomsAvecMargo = (ids) =>
   nomsDe(ids).then((l) =>
-    l.map((p) =>
-      p.id === AUTEUR_MARGO
-        ? { ...p, username: t('interface.margo') }
+    l.map((p) => ({
+      ...p,
+      color: couleurDe(p.id),
+      ...(p.id === AUTEUR_MARGO
+        ? { username: t('interface.margo') }
         : p.id === AUTEUR_CLAUDE
-          ? { ...p, username: t('interface.claude') }
-          : p,
-    ),
+          ? { username: t('interface.claude') }
+          : {}),
+    })),
   )
 
 export const envoyerJson = appel

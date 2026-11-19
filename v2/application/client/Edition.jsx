@@ -35,7 +35,7 @@ import { serviceCommentaires, envoyerImage } from './commentaires.js'
 import { nomsAdemander } from './nomsAuteurs.js'
 import { useVolets } from './volets.js'
 import { useMargo } from './margo.js'
-import { t, nomsAvecMargo, envoyerJson, compteDe, boutonGauche, seDeconnecter } from './commun.js'
+import { t, nomsAvecMargo, couleurDe, envoyerJson, compteDe, boutonGauche, seDeconnecter } from './commun.js'
 import { MARGO_EN_COURS, MARGO_ARRET, morceauxDeMargo } from './textesMargo.js'
 import { useSaisie, useConfirmation } from './fenetres.jsx'
 import { useExport } from './useExport.jsx'
@@ -371,6 +371,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
         cle: `${s.debut}-${s.type}`,
         texte: ligne(s),
         auteur: noms[s.auteur] ?? t('suggestions.auteurInconnu'),
+        couleur: s.auteur ? couleurDe(s.auteur) : null,
         passage: {
           avant: s.type === 'ajout' ? '' : s.avant.trim(),
           apres: s.type === 'suppression' ? '' : s.apres.trim(),
