@@ -339,7 +339,7 @@ test('espaces en points et retraits pour tous les styles (Sylvain, 15/11/2026)',
   m.styles.titre1.retrait = 9
   const g = gabaritTypst(m)
   assert.match(g, /show heading\.where\(level: 2\): it => block\(width: 100%, above: 20pt, below: 6\.5pt, sticky: true/)
-  assert.match(g, /first-line-indent: \(amount: 3mm, all: true\)\); pad\(left: 7mm, align\(left, it\.body\)\)/)
+  assert.match(g, /first-line-indent: \(amount: 3mm, all: true\)\); pad\(left: 7mm, align\(left, par\(it\.body\)\)\)/)
   assert.match(g, /amend-legende\(corps\) = block\(.*pad\(left: 4mm, align\(center, corps\)\)/)
   assert.match(g, /first-line-indent: 2mm, leading: .*pad\(left: 9mm, align\(center, it\.body\)\)/)
 })
@@ -519,4 +519,14 @@ test('un modèle enregistré avant le 19/11/2026 garde son rendu : ce qui lui ma
   // Un modèle qui porte déjà ces réglages les garde.
   const regle = completerModele({ ...ancien, enTete: { ...ancien.enTete, corps: 8 } }, defaut)
   assert.equal(regle.enTete.corps, 8)
+})
+
+test('retrait de première ligne d’un style de bloc (citation) : son texte devient un paragraphe, sinon Typst l’ignore (Sylvain, 19/11/2026)', () => {
+  const m = structuredClone(MODELE)
+  assert.match(
+    gabaritTypst(m),
+    /#show quote\.where\(block: true\): it => .*amount: 4\.5mm, all: true\)\); pad\(left: 5mm, align\(left, par\(it\.body\)\)\)/,
+  )
+  m.styles.citation.alinea = 0
+  assert.match(gabaritTypst(m), /#show quote\.where\(block: true\): it => .*align\(left, it\.body\)\)/)
 })

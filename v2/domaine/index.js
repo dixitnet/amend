@@ -16,6 +16,8 @@ export {
   INVITATIONS_MAX,
   FENETRE_INVITATIONS_MS,
   plafondInvitationsAtteint,
+  DOMAINE_ESSAI,
+  estAdresseDEssai,
   extraitPourObjet,
   nomAvecAdresse,
 } from './partage.js'
