@@ -69,7 +69,7 @@ import { extensionHistorique } from './historique.js'
 import { titresDe, titreCourant, allerAuTitre } from './plan.js'
 import { blocsDuTexte, versMarkdown, versTypst, compilerPdf, compterBlocs } from './export.js'
 import { TYPE_TABLE } from '../../extensions/tableDesMatieres/index.js'
-import { TYPE_TITRE, TYPE_SOUS_TITRE, TYPE_LEGENDE } from '../../extensions/titres/index.js'
+import { TYPE_TITRE, TYPE_SOUS_TITRE, TYPE_LEGENDE, TYPE_BIBLIOGRAPHIE } from '../../extensions/titres/index.js'
 import { dateDuJour, typographier, nfc, compter as compterTextes } from '../../domaine/index.js'
 import { TYPE_NOTE, EVENEMENT_NOTE } from '../../extensions/note/index.js'
 import { extensionTypographie } from '../../extensions/typographie/index.js'
@@ -196,6 +196,7 @@ function typesDeBloc(editeur, textes) {
     ['titre', TYPE_TITRE],
     ['sousTitre', TYPE_SOUS_TITRE],
     ['legende', TYPE_LEGENDE],
+    ['bibliographie', TYPE_BIBLIOGRAPHIE],
   ]
     // `titre`, `sousTitre` et `legende` sont facultatifs dans les textes de l'éditeur.
     .filter(([cle]) => textes?.[cle])
@@ -287,6 +288,7 @@ function itemsDuMenu(editeur, table, textesTitres) {
     ['titre', TYPE_TITRE],
     ['sousTitre', TYPE_SOUS_TITRE],
     ['legende', TYPE_LEGENDE],
+    ['bibliographie', TYPE_BIBLIOGRAPHIE],
   ])
     if (textesTitres?.[cle])
       items.push({

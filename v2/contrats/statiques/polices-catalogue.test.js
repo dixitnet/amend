@@ -55,6 +55,38 @@ for (const { famille, fichiers } of REGLES_MODELES.polices)
     assert.match(readFileSync(join(dossier, 'OFL.txt'), 'utf8'), /SIL OPEN FONT LICENSE/i)
   })
 
+/** Les fonctions OpenType d'un fichier de police, lues dans la liste de sa table GSUB (substitutions de glyphes),
+ * non cherchées dans ses octets bruts (audit partiel du 19/11/2026). */
+function fonctionsOpenType(o) {
+  const v = new DataView(o.buffer, o.byteOffset, o.byteLength)
+  const tag = (p) => String.fromCharCode(v.getUint8(p), v.getUint8(p + 1), v.getUint8(p + 2), v.getUint8(p + 3))
+  const fonctions = new Set()
+  for (let i = 0; i < v.getUint16(4); i++) {
+    const p = 12 + 16 * i
+    if (tag(p) !== 'GSUB') continue
+    const liste = v.getUint32(p + 8) + v.getUint16(v.getUint32(p + 8) + 6)
+    for (let k = 0; k < v.getUint16(liste); k++) fonctions.add(tag(liste + 2 + 6 * k))
+  }
+  return fonctions
+}
+
+// Les petites capitales (19/11/2026) : Typst emploie celles de la police (fonction OpenType `smcp`) et ne les
+// imite pas. Le catalogue dit quelles familles en ont ; le formulaire des modèles le répète. Une police qui en
+// gagne ou en perd à une mise à jour fait échouer ce contrat.
+for (const { famille, fichiers, petitesCapitales } of REGLES_MODELES.polices)
+  test(`${famille} : ${petitesCapitales ? 'de vraies petites capitales dans ses quatre fichiers' : 'pas de petites capitales dans tous ses fichiers'}`, () => {
+    // Annoncée seulement si ses quatre styles en ont (Source Serif 4 et Source Sans 3 n'en ont pas en italique).
+    const toutes = fichiers.every((url) => fonctionsOpenType(octets(url)).has('smcp'))
+    assert.equal(toutes, petitesCapitales === true)
+  })
+
+test('les familles qui ont des petites capitales dans leurs quatre styles : trois sur onze', () => {
+  assert.deepEqual(
+    REGLES_MODELES.polices.filter((p) => p.petitesCapitales).map((p) => p.famille),
+    ['EB Garamond', 'Spectral', 'Roboto'],
+  )
+})
+
 const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
 const wasm = () => readFileSync(createRequire(import.meta.url).resolve('@blocknote/xl-typst-compiler/wasm'))
 

@@ -2,8 +2,8 @@
 // modèle de base et des écarts) en modèles complets par style.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ancienModele, versModeleParStyle, verifierModele } from '../../domaine/index.js'
-import { REGLES_MODELES } from '../../design/livre.js'
+import { ancienModele, versModeleParStyle, verifierModele, completerModele } from '../../domaine/index.js'
+import { REGLES_MODELES, MODELES_LIVRE } from '../../design/livre.js'
 
 test('un ancien modèle (base de l’A4 et écarts) devient un modèle complet par style, valide', () => {
   const ancien = ancienModele(
@@ -17,7 +17,10 @@ test('un ancien modèle (base de l’A4 et écarts) devient un modèle complet p
   assert.equal(m.styles.legende.italique, true)
   assert.ok(m.styles.titre.espaceAvant > 0, 'les blancs sont en points')
   assert.equal(m.styles.titre.lignesAvant, undefined)
-  assert.equal(verifierModele(m, REGLES_MODELES).ok, true)
+  // Tel que le serveur le lit : complété par le modèle du code pour les réglages ajoutés depuis (19/11/2026).
+  const lu = completerModele(m, MODELES_LIVRE[0])
+  assert.equal(verifierModele(lu, REGLES_MODELES).ok, true)
+  assert.equal(lu.ouverture2.debut, 'continuer', 'le titre 2 reste dans le texte')
 })
 
 test('la conversion suit les bases d’instance, ramène une base disparue ou un cycle à l’A4, et lit l’ancienne belle page', () => {

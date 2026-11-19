@@ -17,8 +17,11 @@ const POLICES_EB_GARAMOND = [
  * italique, gras et gras italique, dans `design/polices/<famille>/` avec la
  * licence de la famille. Le navigateur ne charge les fichiers d'une famille
  * que pour exporter avec un modèle qui s'en sert. */
-const famille = (nom, dossier, fichier) => ({
+const famille = (nom, dossier, fichier, petitesCapitales = false) => ({
   famille: nom,
+  // La police a-t-elle de vraies petites capitales dans ses quatre styles ? (19/11/2026 ; contrat : lues dans ses
+  // fichiers. Source Serif 4 et Source Sans 3 n'en ont pas en italique : elles ne sont pas annoncées.)
+  petitesCapitales,
   fichiers: ['Regular', 'Italic', 'Bold', 'BoldItalic'].map(
     (style) => new URL(`./polices/${dossier}/${fichier}-${style}.ttf`, import.meta.url).href,
   ),
@@ -28,10 +31,10 @@ const POLICES_AJOUTEES = [
   famille('Crimson Pro', 'crimson-pro', 'CrimsonPro'),
   famille('Libre Baskerville', 'libre-baskerville', 'LibreBaskerville'),
   famille('Lora', 'lora', 'Lora'),
-  famille('Spectral', 'spectral', 'Spectral'),
+  famille('Spectral', 'spectral', 'Spectral', true),
   famille('Inter', 'inter', 'Inter'),
   famille('Source Sans 3', 'source-sans-3', 'SourceSans3'),
-  famille('Roboto', 'roboto', 'Roboto'),
+  famille('Roboto', 'roboto', 'Roboto', true),
   // Open Sans (Sylvain, 15/11/2026), sans empattement.
   famille('Open Sans', 'open-sans', 'OpenSans'),
   // Une police à chasse fixe (Sylvain, 15/11/2026), pour les extraits de code, la dactylographie, les dialogues de scénario.
@@ -41,6 +44,10 @@ const POLICES_AJOUTEES = [
 const ALIGNEMENTS = ['gauche', 'justifie', 'centre']
 // Les en-têtes (« titre courant » jusqu'au 15/11/2026) : rien, le titre du document, le chapitre en cours ou un texte libre.
 const TITRE_COURANT = ['rien', 'titreDocument', 'chapitre', 'texte']
+// L'alignement des en-têtes (Sylvain, 19/11/2026) : au centre, du côté extérieur de la page ou du côté de la reliure.
+const ALIGNEMENTS_EN_TETE = ['centre', 'exterieur', 'interieur']
+// Un réglage du titre 2 qui ne vaut que s'il ouvre une page (Sylvain, 19/11/2026).
+const SI_TITRE_2_OUVRE = { cle: 'ouverture2.debut', different: 'continuer' }
 // Les réglages d'un style, repris de la v1 (`shared/style.js` : taille 5 à 96 pt,
 // retrait 0 à 50 mm, espaces) et comptés en lignes de la grille (Sylvain,
 // 13/11/2026 : « modifier chacun des styles : titres, texte courant, citation »).
@@ -51,11 +58,15 @@ const PROPRIETES_STYLE = {
   gras: (cle) => ({ cle, type: 'booleen' }),
   italique: (cle) => ({ cle, type: 'booleen' }),
   capitales: (cle) => ({ cle, type: 'booleen' }),
+  // Les petites capitales de la police (Sylvain, 19/11/2026), dans les styles seulement.
+  petitesCapitales: (cle) => ({ cle, type: 'booleen' }),
   alignement: (cle) => ({ cle, type: 'choix', options: ALIGNEMENTS }),
   espaceAvant: (cle) => ({ cle, type: 'nombre', unite: 'pt', min: 0, max: 200, pas: 0.5 }),
   espaceApres: (cle) => ({ cle, type: 'nombre', unite: 'pt', min: 0, max: 200, pas: 0.5 }),
   alinea: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 50, pas: 0.5 }),
   retrait: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 100, pas: 0.5 }),
+  // Le retrait de toutes les lignes sauf la première (Sylvain, 19/11/2026, pour la bibliographie).
+  retraitSuspendu: (cle) => ({ cle, type: 'nombre', unite: 'mm', min: 0, max: 50, pas: 0.5 }),
 }
 // Les réglages d'un style, tous dans la rubrique « Styles » (un tableau, un style par ligne).
 const reglagesDuStyle = (nom, props, groupe = 'styles') =>
@@ -67,9 +78,11 @@ const BLOC = [
   'gras',
   'italique',
   'capitales',
+  'petitesCapitales',
   'alignement',
   'alinea',
   'retrait',
+  'retraitSuspendu',
   'espaceAvant',
   'espaceApres',
 ]
@@ -93,6 +106,8 @@ const REGLABLES = [
   { cle: 'cesure', groupe: 'texte', type: 'booleen' },
   { cle: 'separateur', groupe: 'texte', type: 'choix', options: ['blanc', 'asterisme', 'etoiles', 'trait'] },
   ...reglagesDuStyle('citation', BLOC),
+  // La bibliographie (Sylvain, 19/11/2026) : un style de paragraphe, en retrait suspendu.
+  ...reglagesDuStyle('bibliographie', BLOC),
   // Le titre de niveau 1 : l'ouverture de chapitre et son style.
   { cle: 'chapitre.debut', groupe: 'chapitre', type: 'choix', options: ['continuer', 'page', 'belle-page'] },
   // Le premier paragraphe d'un chapitre : sans retrait comme dans les exports jusqu'ici, ou avec (Sylvain, 15/11/2026).
@@ -100,7 +115,32 @@ const REGLABLES = [
   { cle: 'chapitre.ligneTitre', groupe: 'chapitre', type: 'entier', min: 1 },
   { cle: 'chapitre.ligneTexte', groupe: 'chapitre', type: 'entier', min: 2 },
   { cle: 'chapitre.interligne', groupe: 'chapitre', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.1 },
-  ...reglagesDuStyle('titre1', ['police', 'corps', 'gras', 'italique', 'capitales', 'alignement', 'alinea', 'retrait']),
+  // Le titre de niveau 2 ouvre une page comme le titre 1, ou reste dans le texte (Sylvain, 19/11/2026 : les
+  // parties sont des titres 1, les chapitres des titres 2).
+  { cle: 'ouverture2.debut', groupe: 'chapitre', type: 'choix', options: ['continuer', 'page', 'belle-page'] },
+  { cle: 'ouverture2.ligneTitre', groupe: 'chapitre', type: 'entier', min: 1, visibleSi: SI_TITRE_2_OUVRE },
+  { cle: 'ouverture2.ligneTexte', groupe: 'chapitre', type: 'entier', min: 2, visibleSi: SI_TITRE_2_OUVRE },
+  {
+    cle: 'ouverture2.interligne',
+    groupe: 'chapitre',
+    type: 'nombre',
+    unite: 'pt',
+    min: 5,
+    max: 96,
+    pas: 0.1,
+    visibleSi: SI_TITRE_2_OUVRE,
+  },
+  ...reglagesDuStyle('titre1', [
+    'police',
+    'corps',
+    'gras',
+    'italique',
+    'capitales',
+    'petitesCapitales',
+    'alignement',
+    'alinea',
+    'retrait',
+  ]),
   ...['titre2', 'titre3', 'titre4', 'titre5', 'titre', 'sousTitre', 'legende'].flatMap((nom) =>
     reglagesDuStyle(nom, BLOC),
   ),
@@ -113,6 +153,8 @@ const REGLABLES = [
   { cle: 'folio.depart', groupe: 'pages', type: 'entier', min: 1, max: 9999 },
   mm('folio.bas', 'pages'),
   { cle: 'folio.ouverture', groupe: 'pages', type: 'booleen' },
+  // Le numéro de page se règle par niveau de titre qui ouvre une page (Sylvain, 19/11/2026).
+  { cle: 'folio.ouverture2', groupe: 'pages', type: 'booleen', visibleSi: SI_TITRE_2_OUVRE },
   { cle: 'enTete.gauche', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
   { cle: 'enTete.droite', groupe: 'pages', type: 'choix', options: TITRE_COURANT },
   // Le texte libre d'un en-tête, demandé seulement quand le choix est « texte » (Sylvain, 15/11/2026).
@@ -130,7 +172,36 @@ const REGLABLES = [
     max: 100,
     visibleSi: { cle: 'enTete.droite', egal: 'texte' },
   },
+  // Le style des en-têtes (Sylvain, 19/11/2026) : police, corps, italique, petites capitales, alignement.
+  { cle: 'enTete.police', groupe: 'pages', type: 'police', herite: true },
+  { cle: 'enTete.corps', groupe: 'pages', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
+  { cle: 'enTete.italique', groupe: 'pages', type: 'booleen' },
+  { cle: 'enTete.petitesCapitales', groupe: 'pages', type: 'booleen' },
+  { cle: 'enTete.alignement', groupe: 'pages', type: 'choix', options: ALIGNEMENTS_EN_TETE },
 ]
+
+/** Un style de bloc dans la police du texte, aligné à gauche, sans graisse ni retrait : la base des styles
+ * du modèle « TàT 140 × 220 » et de la bibliographie. */
+const styleDeBloc = (corps, espace, retraitSuspendu) => ({
+  police: '',
+  corps,
+  gras: false,
+  italique: false,
+  capitales: false,
+  petitesCapitales: false,
+  alignement: 'gauche',
+  espaceAvant: espace,
+  espaceApres: espace,
+  alinea: 0,
+  retrait: 0,
+  retraitSuspendu,
+})
+/**
+ * Une entrée de bibliographie (Sylvain, 19/11/2026) : alignée à gauche, en retrait suspendu, à l'espace
+ * ordinaire entre deux paragraphes. Hors du modèle « TàT 140 × 220 », valeurs proposées par Claude : le corps
+ * du texte et son alinéa en retrait suspendu.
+ */
+const bibliographie = styleDeBloc
 
 /** Un intertitre de A4 simple : au corps du texte, en italique, une ligne avant. */
 const INTERTITRE = {
@@ -139,12 +210,14 @@ const INTERTITRE = {
   gras: false,
   italique: true,
   capitales: false,
+  petitesCapitales: false,
   alignement: 'gauche',
   // Une ligne de la grille avant (17 pt), l'espace ordinaire après (3 pt), sur la grille 11/14 de l'A4.
   espaceAvant: 17,
   espaceApres: 3,
   alinea: 0,
   retrait: 0,
+  retraitSuspendu: 0,
 }
 
 /**
@@ -177,22 +250,35 @@ const modeleStandard = ({
     gras,
     italique,
     capitales: false,
+    petitesCapitales: false,
     alignement: 'centre',
     espaceAvant,
     espaceApres,
     alinea: 0,
     retrait: 0,
+    retraitSuspendu: 0,
   })
   return {
     page,
     marges,
     grille: { corps, interligne },
-    folio: { bas: folioBas, position: 'bas-centre', depart: 1, ouverture: true },
-    enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
+    folio: { bas: folioBas, position: 'bas-centre', depart: 1, ouverture: true, ouverture2: true },
+    enTete: {
+      gauche: 'rien',
+      droite: 'rien',
+      texteGauche: '',
+      texteDroite: '',
+      police: '',
+      corps,
+      italique: true,
+      petitesCapitales: false,
+      alignement: 'centre',
+    },
     separateur: 'blanc',
     cesure: true,
     image: { largeur: 100 },
     chapitre: { debut: 'belle-page', premierSansAlinea: true, ...chapitre },
+    ouverture2: { debut: 'continuer', ...chapitre },
     styles: {
       texte: { police: EB, gras: false, italique: false, alignement: 'justifie', alinea },
       citation: {
@@ -201,18 +287,22 @@ const modeleStandard = ({
         gras: false,
         italique: false,
         capitales: false,
+        petitesCapitales: false,
         alignement: 'justifie',
         espaceAvant: blancs.citation[0],
         espaceApres: blancs.citation[1],
         alinea,
         retrait,
+        retraitSuspendu: 0,
       },
+      bibliographie: bibliographie(corps, blancs.citation[0], alinea),
       titre1: {
         police: EB,
         corps: titre1,
         gras: true,
         italique: false,
         capitales: false,
+        petitesCapitales: false,
         alignement: 'centre',
         alinea: 0,
         retrait: 0,
@@ -236,7 +326,7 @@ const modeleStandard = ({
 // indépendante ensuite (ADR 0011, revu le 13/11/2026).
 export const REGLAGES_LIVRE = {
   // Le catalogue des polices (licences OFL), seules permises dans un modèle.
-  polices: [{ famille: 'EB Garamond', fichiers: POLICES_EB_GARAMOND }, ...POLICES_AJOUTEES],
+  polices: [{ famille: 'EB Garamond', petitesCapitales: true, fichiers: POLICES_EB_GARAMOND }, ...POLICES_AJOUTEES],
   modeles: [
     {
       // « A4 simple » (12/11/2026, valeurs proposées par Claude, à valider
@@ -247,13 +337,26 @@ export const REGLAGES_LIVRE = {
       page: { largeur: 210, hauteur: 297 },
       marges: { haut: 25, interieure: 20, exterieure: 20, bas: 25.5 },
       grille: { corps: 11, interligne: 14 },
-      folio: { bas: 15, position: 'bas-centre', depart: 1, ouverture: true },
-      enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
+      folio: { bas: 15, position: 'bas-centre', depart: 1, ouverture: true, ouverture2: true },
+      enTete: {
+        gauche: 'rien',
+        droite: 'rien',
+        texteGauche: '',
+        texteDroite: '',
+        // Le style des en-têtes jusqu'au 19/11/2026 : italique, centré, au corps et dans la police du texte.
+        police: '',
+        corps: 11,
+        italique: true,
+        petitesCapitales: false,
+        alignement: 'centre',
+      },
       separateur: 'blanc',
       cesure: true,
       // Une image occupe toute la largeur de la page hors marges, en pour cent (Sylvain, 14/11/2026).
       image: { largeur: 100 },
       chapitre: { debut: 'page', premierSansAlinea: true, ligneTitre: 3, ligneTexte: 7, interligne: 19 },
+      // Le titre 2 reste dans le texte ; s'il vient à ouvrir une page, aux lignes du titre 1.
+      ouverture2: { debut: 'continuer', ligneTitre: 3, ligneTexte: 7, interligne: 19 },
       styles: {
         texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 5 },
         citation: {
@@ -262,18 +365,22 @@ export const REGLAGES_LIVRE = {
           gras: false,
           italique: false,
           capitales: false,
+          petitesCapitales: false,
           alignement: 'justifie',
           espaceAvant: 3,
           espaceApres: 3,
           alinea: 5,
           retrait: 8,
+          retraitSuspendu: 0,
         },
+        bibliographie: bibliographie(11, 3, 5),
         titre1: {
           police: 'EB Garamond',
           corps: 16,
           gras: true,
           italique: false,
           capitales: false,
+          petitesCapitales: false,
           alignement: 'centre',
           alinea: 0,
           retrait: 0,
@@ -288,11 +395,13 @@ export const REGLAGES_LIVRE = {
           gras: true,
           italique: false,
           capitales: false,
+          petitesCapitales: false,
           alignement: 'centre',
           espaceAvant: 9.8,
           espaceApres: 15.2,
           alinea: 0,
           retrait: 0,
+          retraitSuspendu: 0,
         },
         sousTitre: {
           police: 'EB Garamond',
@@ -300,11 +409,13 @@ export const REGLAGES_LIVRE = {
           gras: false,
           italique: true,
           capitales: false,
+          petitesCapitales: false,
           alignement: 'centre',
           espaceAvant: 14.6,
           espaceApres: 16.4,
           alinea: 0,
           retrait: 0,
+          retraitSuspendu: 0,
         },
         legende: {
           police: 'EB Garamond',
@@ -312,11 +423,13 @@ export const REGLAGES_LIVRE = {
           gras: false,
           italique: true,
           capitales: false,
+          petitesCapitales: false,
           alignement: 'centre',
           espaceAvant: 4.6,
           espaceApres: 17.4,
           alinea: 0,
           retrait: 0,
+          retraitSuspendu: 0,
         },
       },
     },
@@ -333,12 +446,23 @@ export const REGLAGES_LIVRE = {
         page: { largeur: 120, hauteur: 180 },
         marges: { haut: 18, interieure: 13, exterieure: 13, bas: 26.7 },
         grille: { corps: 10.5, interligne: 12.4 },
-        folio: { bas: 18, position: 'bas-centre', depart: 1, ouverture: true },
-        enTete: { gauche: 'rien', droite: 'rien', texteGauche: '', texteDroite: '' },
+        folio: { bas: 18, position: 'bas-centre', depart: 1, ouverture: true, ouverture2: true },
+        enTete: {
+          gauche: 'rien',
+          droite: 'rien',
+          texteGauche: '',
+          texteDroite: '',
+          police: '',
+          corps: 10.5,
+          italique: true,
+          petitesCapitales: false,
+          alignement: 'centre',
+        },
         separateur: 'blanc',
         cesure: true,
         image: { largeur: 100 },
         chapitre: { debut: 'belle-page', premierSansAlinea: true, ligneTitre: 7, ligneTexte: 12, interligne: 14 },
+        ouverture2: { debut: 'continuer', ligneTitre: 7, ligneTexte: 12, interligne: 14 },
         styles: {
           texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 4.5 },
           citation: {
@@ -347,18 +471,22 @@ export const REGLAGES_LIVRE = {
             gras: false,
             italique: false,
             capitales: false,
+            petitesCapitales: false,
             alignement: 'justifie',
             espaceAvant: 1.9,
             espaceApres: 1.9,
             alinea: 4.5,
             retrait: 5,
+            retraitSuspendu: 0,
           },
+          bibliographie: bibliographie(10.5, 1.9, 4.5),
           titre1: {
             police: 'EB Garamond',
             corps: 13,
             gras: true,
             italique: false,
             capitales: false,
+            petitesCapitales: false,
             alignement: 'centre',
             alinea: 0,
             retrait: 0,
@@ -373,11 +501,13 @@ export const REGLAGES_LIVRE = {
             gras: true,
             italique: false,
             capitales: false,
+            petitesCapitales: false,
             alignement: 'centre',
             espaceAvant: 12.3,
             espaceApres: 13.8,
             alinea: 0,
             retrait: 0,
+            retraitSuspendu: 0,
           },
           sousTitre: {
             police: 'EB Garamond',
@@ -385,11 +515,13 @@ export const REGLAGES_LIVRE = {
             gras: false,
             italique: true,
             capitales: false,
+            petitesCapitales: false,
             alignement: 'centre',
             espaceAvant: 12.3,
             espaceApres: 13.8,
             alinea: 0,
             retrait: 0,
+            retraitSuspendu: 0,
           },
           legende: {
             police: 'EB Garamond',
@@ -397,11 +529,13 @@ export const REGLAGES_LIVRE = {
             gras: false,
             italique: true,
             capitales: false,
+            petitesCapitales: false,
             alignement: 'centre',
             espaceAvant: 3.1,
             espaceApres: 14.6,
             alinea: 0,
             retrait: 0,
+            retraitSuspendu: 0,
           },
         },
       },
@@ -457,6 +591,72 @@ export const REGLAGES_LIVRE = {
           legende: [3.7, 14.8],
         },
       }),
+    },
+    // « TàT 140 × 220 » (Sylvain, 19/11/2026, docs/v2-modeles-140x220-plan.md) : relevé sur un livre de
+    // 140 × 220 mm, valeurs simplifiées et validées. Les parties sont des titres 1, les chapitres des titres 2 ;
+    // 33 lignes de 11/14 pt ; en-têtes en petites capitales, le titre du document à gauche, le chapitre à droite.
+    {
+      id: 'tat-140x220',
+      nom: 'TàT 140 × 220',
+      valeurs: {
+        page: { largeur: 140, hauteur: 220 },
+        marges: { haut: 25, interieure: 21, exterieure: 18, bas: 32 },
+        grille: { corps: 11, interligne: 14 },
+        folio: { bas: 20, position: 'bas-centre', depart: 1, ouverture: false, ouverture2: true },
+        enTete: {
+          gauche: 'titreDocument',
+          droite: 'chapitre',
+          texteGauche: '',
+          texteDroite: '',
+          police: '',
+          corps: 10.5,
+          italique: false,
+          petitesCapitales: true,
+          alignement: 'centre',
+        },
+        separateur: 'blanc',
+        cesure: true,
+        image: { largeur: 100 },
+        // La partie : seule sur sa belle page, titre à la ligne 14.
+        chapitre: { debut: 'belle-page', premierSansAlinea: false, ligneTitre: 14, ligneTexte: 18, interligne: 18 },
+        // Le chapitre : en belle page, titre à la ligne 6, texte à la ligne 11.
+        ouverture2: { debut: 'belle-page', ligneTitre: 6, ligneTexte: 11, interligne: 14 },
+        styles: {
+          texte: { police: 'EB Garamond', gras: false, italique: false, alignement: 'justifie', alinea: 5 },
+          citation: { ...styleDeBloc(10, 7, 0), alignement: 'justifie', retrait: 5 },
+          bibliographie: bibliographie(10, 4, 5),
+          titre1: {
+            police: '',
+            corps: 14,
+            gras: false,
+            italique: false,
+            capitales: false,
+            petitesCapitales: true,
+            alignement: 'centre',
+            alinea: 0,
+            retrait: 0,
+          },
+          titre2: { ...styleDeBloc(11, 0, 0), gras: true, alignement: 'centre' },
+          titre3: { ...styleDeBloc(11, 0, 0), gras: true, espaceAvant: 21, espaceApres: 7 },
+          titre4: { ...styleDeBloc(11, 0, 0), italique: true, espaceAvant: 14, espaceApres: 3 },
+          titre5: { ...styleDeBloc(11, 0, 0), italique: true, retrait: 5, espaceAvant: 14, espaceApres: 3 },
+          titre: { ...styleDeBloc(20, 0, 0), gras: true, alignement: 'centre', espaceAvant: 9.8, espaceApres: 15.2 },
+          sousTitre: {
+            ...styleDeBloc(14, 0, 0),
+            italique: true,
+            alignement: 'centre',
+            espaceAvant: 14.6,
+            espaceApres: 16.4,
+          },
+          legende: {
+            ...styleDeBloc(9, 0, 0),
+            italique: true,
+            alignement: 'centre',
+            espaceAvant: 4.6,
+            espaceApres: 17.4,
+          },
+        },
+      },
     },
   ],
   // Les réglages d'un modèle (Sylvain, 13/11/2026) : tout le modèle, pour les

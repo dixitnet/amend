@@ -41,6 +41,7 @@ import {
   IconAsterisk,
   IconLetterTSmall,
   IconLetterP,
+  IconLetterB,
   IconLetterL,
   IconTextSize,
   IconCheck,
@@ -91,6 +92,8 @@ const PICTOS = {
   sousTitre: IconLetterTSmall,
   // La légende d'une image ou d'un tableau (13/11/2026).
   legende: IconLetterL,
+  // Une entrée de bibliographie (19/11/2026).
+  bibliographie: IconLetterB,
   // Le style « Paragraphe » de la palette : un P, pas le T de BlockNote, qui
   // se confondait avec ceux du titre et du sous-titre (Sylvain, 13/11/2026).
   paragraphe: IconLetterP,

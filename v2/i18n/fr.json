@@ -64,7 +64,9 @@
     "noteDescription": "Une note numérotée, en bas de la page",
     "compteurSelection": "Sélection\u00A0: {signes, plural, one {# signe} other {# signes}}, {mots, plural, one {# mot} other {# mots}}",
     "legende": "Légende",
-    "legendeDescription": "La légende d’une image ou d’un tableau, hors de la table des matières"
+    "legendeDescription": "La légende d’une image ou d’un tableau, hors de la table des matières",
+    "bibliographie": "Bibliographie",
+    "bibliographieDescription": "Une référence de bibliographie, en retrait suspendu dans le PDF"
   },
   "erreurs": {
     "apparence-inconnue": "Ce modèle d’interface ou cette couleur n’existe pas.",
@@ -483,23 +485,35 @@
         "interligne": "Interligne (pt)"
       },
       "chapitre": {
-        "debut": "Début de chapitre",
+        "debut": "Titre 1\u00A0: début",
         "premierSansAlinea": "Premier paragraphe du chapitre sans retrait",
-        "ligneTitre": "Ligne du titre de chapitre",
-        "ligneTexte": "Ligne où reprend le texte",
-        "interligne": "Interligne du titre de chapitre (pt)"
+        "ligneTitre": "Titre 1\u00A0: ligne du titre",
+        "ligneTexte": "Titre 1\u00A0: ligne où reprend le texte",
+        "interligne": "Titre 1\u00A0: interligne du titre (pt)"
+      },
+      "ouverture2": {
+        "debut": "Titre 2\u00A0: début",
+        "ligneTitre": "Titre 2\u00A0: ligne du titre",
+        "ligneTexte": "Titre 2\u00A0: ligne où reprend le texte",
+        "interligne": "Titre 2\u00A0: interligne du titre (pt)"
       },
       "folio": {
         "position": "Place du numéro de page",
         "depart": "Premier numéro de page",
         "bas": "Ligne du numéro de page en bas (mm)",
-        "ouverture": "Numéro de page sur les pages d’ouverture de chapitre"
+        "ouverture": "Numéro de page sur une page ouverte par un titre 1",
+        "ouverture2": "Numéro de page sur une page ouverte par un titre 2"
       },
       "enTete": {
         "gauche": "En-tête des pages de gauche",
         "droite": "En-tête des pages de droite",
         "texteGauche": "Texte de l’en-tête des pages de gauche",
-        "texteDroite": "Texte de l’en-tête des pages de droite"
+        "texteDroite": "Texte de l’en-tête des pages de droite",
+        "police": "Police des en-têtes",
+        "corps": "Corps des en-têtes (pt)",
+        "italique": "En-têtes en italique",
+        "petitesCapitales": "En-têtes en petites capitales",
+        "alignement": "Alignement des en-têtes"
       },
       "separateur": "Séparateur de scène",
       "cesure": "Césure (couper les mots en fin de ligne)"
@@ -535,23 +549,30 @@
         "gauche": "À gauche",
         "justifie": "Justifié",
         "centre": "Centré"
+      },
+      "alignementEnTete": {
+        "centre": "Centré",
+        "exterieur": "Côté extérieur",
+        "interieur": "Côté intérieur"
       }
     },
     "groupes": {
       "format": "Format et marges",
       "texte": "Texte courant",
       "styles": "Styles",
-      "chapitre": "Chapitre",
+      "chapitre": "Ouverture des titres 1 et 2",
       "pages": "Numéro de page et en-têtes",
       "general": "Nom"
     },
     "reglageDeStyle": "{style}\u00A0: {propriete}",
     "memePolice": "Même police que le texte",
+    "aidePetitesCapitales": "Les petites capitales sont celles de la police\u00A0: {polices} en ont. Avec une autre police, ce réglage est sans effet.",
     "styles": {
       "colonne": "Style",
       "texte": "Texte courant",
       "citation": "Citation",
-      "titre1": "Titre 1 (chapitre)",
+      "bibliographie": "Bibliographie",
+      "titre1": "Titre 1",
       "titre2": "Titre 2",
       "titre3": "Titre 3",
       "titre4": "Titre 4",
@@ -572,11 +593,13 @@
       "gras": "Gras",
       "italique": "Italique",
       "capitales": "Majuscules",
+      "petitesCapitales": "Petites capitales",
       "alignement": "Alignement",
       "espaceAvant": "Espace avant (pt)",
       "espaceApres": "Espace après (pt)",
       "alinea": "Retrait de 1re ligne (mm)",
-      "retrait": "Retrait à gauche (mm)"
+      "retrait": "Retrait à gauche (mm)",
+      "retraitSuspendu": "Retrait suspendu (mm)"
     },
     "nouveau": "Nouveau modèle",
     "dupliquer": "Dupliquer",

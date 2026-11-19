@@ -28,10 +28,10 @@ test('les réglages ouverts : sans doublon, chacun dans un groupe, un par propri
     )
 })
 
-test('les modèles du code et les modèles repris (TàT - Poche, A5, livre de poche) respectent les règles', () => {
+test('les modèles du code et les modèles repris (TàT - Poche, A5, livre de poche, TàT 140 × 220) respectent les règles', () => {
   assert.deepEqual(
     REPRISE_MODELES.map((r) => r.id),
-    ['tat-poche', 'a5', 'livre-de-poche'],
+    ['tat-poche', 'a5', 'livre-de-poche', 'tat-140x220'],
   )
   for (const modele of [a4, ...REPRISE_MODELES.map((r) => r.valeurs)]) {
     const r = verifierModele(modele, REGLES_MODELES)
@@ -54,4 +54,34 @@ test('formats de base (Sylvain, 15/11/2026) : A5 et livre de poche, au format et
   }
   // Le corps baisse avec le format.
   assert.ok(poche.grille.corps < a5.grille.corps && a5.grille.corps <= a4.grille.corps)
+})
+
+test('« TàT 140 × 220 » (Sylvain, 19/11/2026) : 33 lignes, parties en titre 1 et chapitres en titre 2, en belle page', () => {
+  const m = REPRISE_MODELES.find((r) => r.id === 'tat-140x220').valeurs
+  assert.deepEqual([m.page.largeur, m.page.hauteur], [140, 220])
+  assert.equal(grille(m).lignes, 33, 'la marge basse de 32 mm laisse 33 lignes de 14 pt')
+  assert.deepEqual([m.chapitre.debut, m.ouverture2.debut], ['belle-page', 'belle-page'])
+  assert.deepEqual([m.chapitre.ligneTitre, m.ouverture2.ligneTitre, m.ouverture2.ligneTexte], [14, 6, 11])
+  // Le numéro de page : pas sur l'ouverture d'une partie, oui sur celle d'un chapitre.
+  assert.deepEqual([m.folio.ouverture, m.folio.ouverture2, m.folio.bas], [false, true, 20])
+  // Les en-têtes : petites capitales de 10,5 pt, le titre du document à gauche, le chapitre à droite.
+  assert.deepEqual(
+    [m.enTete.gauche, m.enTete.droite, m.enTete.corps, m.enTete.petitesCapitales, m.enTete.italique],
+    ['titreDocument', 'chapitre', 10.5, true, false],
+  )
+  assert.equal(m.styles.titre1.petitesCapitales, true)
+  assert.deepEqual([m.styles.bibliographie.corps, m.styles.bibliographie.retraitSuspendu], [10, 5])
+  assert.equal(m.chapitre.premierSansAlinea, false, 'le premier paragraphe d’un chapitre garde son alinéa')
+})
+
+test('les autres modèles gardent leur rendu (19/11/2026) : titre 2 dans le texte, en-têtes en italique au corps du texte', () => {
+  for (const m of [a4, ...REPRISE_MODELES.filter((r) => r.id !== 'tat-140x220').map((r) => r.valeurs)]) {
+    assert.equal(m.ouverture2.debut, 'continuer')
+    assert.deepEqual(
+      [m.enTete.police, m.enTete.corps, m.enTete.italique, m.enTete.petitesCapitales, m.enTete.alignement],
+      ['', m.grille.corps, true, false, 'centre'],
+    )
+    for (const st of Object.values(m.styles)) assert.ok(!st.petitesCapitales && !st.capitales)
+    assert.equal(m.styles.bibliographie.corps, m.grille.corps, 'la bibliographie au corps du texte')
+  }
 })

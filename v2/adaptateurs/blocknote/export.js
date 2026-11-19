@@ -17,7 +17,7 @@ import { TypstExporter, typstDefaultSchemaMappings } from '@blocknote/xl-typst-e
 import { gabaritTypst, nfc, compter, entreesTable, profondeurTable, chaineTypst } from '../../domaine/index.js'
 import { TYPE_NOTE } from '../../extensions/note/index.js'
 import { TYPE_TABLE, texteEnLigne, titresDesBlocs } from '../../extensions/tableDesMatieres/index.js'
-import { TYPE_TITRE, TYPE_SOUS_TITRE, TYPE_LEGENDE } from '../../extensions/titres/index.js'
+import { TYPE_TITRE, TYPE_SOUS_TITRE, TYPE_LEGENDE, TYPE_BIBLIOGRAPHIE } from '../../extensions/titres/index.js'
 
 /** Les blocs du texte de base, lus dans son fragment Yjs. */
 export const blocsDuTexte = (editeur, fragment) => yfragmentToBlocks(editeur, fragment)
@@ -106,12 +106,20 @@ export function blocsPourMarkdown(blocs) {
             content: [{ type: 'text', text: e.texte, styles: {} }],
           })),
         ]
-      const style = { [TYPE_TITRE]: 'bold', [TYPE_SOUS_TITRE]: 'italic', [TYPE_LEGENDE]: 'italic' }[b.type]
-      if (style)
+      // Nos blocs deviennent des paragraphes du Markdown : en gras, en italique, ou tels quels (la bibliographie).
+      const styles = {
+        [TYPE_TITRE]: 'bold',
+        [TYPE_SOUS_TITRE]: 'italic',
+        [TYPE_LEGENDE]: 'italic',
+        [TYPE_BIBLIOGRAPHIE]: null,
+      }
+      if (Object.hasOwn(styles, b.type))
         return [
           {
             type: 'paragraph',
-            content: avecStyle(appels(marquerExposants(b.content)), style),
+            content: styles[b.type]
+              ? avecStyle(appels(marquerExposants(b.content)), styles[b.type])
+              : appels(marquerExposants(b.content)),
             children: preparer(b.children ?? []),
           },
         ]
@@ -276,9 +284,12 @@ async function parcourir(exportateur, blocs, racine = true) {
     }
     if (b.type === 'paragraph') {
       if (texte) {
-        // Pas d'alinéa au premier paragraphe d'un chapitre.
-        const ouverture = precedent?.type === 'heading' && precedent.props?.level === 1
-        sortie.push(ouverture ? `#amend-sans-alinea[${texte}]` : texte)
+        // Pas d'alinéa au premier paragraphe d'un chapitre : après un titre 1, et après un titre 2 quand le
+        // modèle lui fait ouvrir une page (le gabarit en décide, 19/11/2026).
+        const niveau = precedent?.type === 'heading' ? precedent.props?.level : null
+        sortie.push(
+          niveau === 1 ? `#amend-sans-alinea[${texte}]` : niveau === 2 ? `#amend-sans-alinea-2[${texte}]` : texte,
+        )
       }
     } else if (b.type === 'heading') sortie.push(`#heading(level: ${b.props?.level ?? 1})[${texte}]`)
     else if (b.type === 'quote') sortie.push(`#quote(block: true)[${texte}]`)
@@ -286,6 +297,7 @@ async function parcourir(exportateur, blocs, racine = true) {
     else if (b.type === TYPE_TITRE) sortie.push(`#amend-titre[${texte}]`)
     else if (b.type === TYPE_SOUS_TITRE) sortie.push(`#amend-sous-titre[${texte}]`)
     else if (b.type === TYPE_LEGENDE) sortie.push(`#amend-legende[${texte}]`)
+    else if (b.type === TYPE_BIBLIOGRAPHIE) sortie.push(`#amend-bibliographie[${texte}]`)
     else if (b.type === 'divider') sortie.push('#amend-separateur')
     else if (b.type === 'pageBreak') sortie.push('#pagebreak()')
     // La table des matières de Typst, à la place du bloc, titre dans la

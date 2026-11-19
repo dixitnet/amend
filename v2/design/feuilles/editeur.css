@@ -111,6 +111,11 @@ nav[data-amend-bloc='tableDesMatieres'] select {
   font-style: italic;
   text-align: center;
 }
+/* réglage : css.editeur.bibliographie */
+.bn-container [data-content-type='bibliographie'] {
+  padding-inline-start: var(--mantine-spacing-md);
+  text-indent: calc(-1 * var(--mantine-spacing-md));
+}
 @media (width <= 35em) {
   .bn-container [data-content-type='titre'] {
     font-size: 1.6rem;
