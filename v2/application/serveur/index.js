@@ -41,6 +41,7 @@ import {
   mesureValable,
   DUREE_MESURES_MS,
   PAS_MESURE_MS,
+  DOMAINE_ESSAI,
 } from '../../domaine/index.js'
 
 /** La configuration, lue dans l'environnement ; les tests passent la leur. */
@@ -81,8 +82,6 @@ const confDepuisEnv = () => ({
     (process.env.V2_DEV === '1' ? 'postgres://amendv2:amendv2-dev@127.0.0.1:5432/amendv2_yhub' : ''),
 })
 
-/** Les comptes d'essai de Claude (adresses qui ne reçoivent jamais de courrier). */
-const DOMAINE_ESSAI = 'essai.amend.invalid'
 const LONGUEUR_MIN_CLE_ESSAI = 32
 
 /** Comparaison à temps constant du jeton interne. */

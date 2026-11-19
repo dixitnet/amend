@@ -63,6 +63,7 @@ import {
   DUREE_MESURES_MS,
   FENETRE_INVITATIONS_MS,
   plafondInvitationsAtteint,
+  estAdresseDEssai,
   nomAvecAdresse,
 } from '../../domaine/index.js'
 import { creerTraducteur, libelleDuRole, libelleDuRoleEquipe } from '../../i18n/index.js'
@@ -123,12 +124,15 @@ export function creerComptes({
   /** Les courriers de partage récents de chaque personne, pour le plafond (en mémoire : un
    * redémarrage le remet à zéro, ce qui suffit contre un abus ; Sylvain, 18/11/2026). */
   const envoisRecents = new Map()
-  const envoiAutorise = (idPersonne, maintenant = Date.now()) => {
+  // Un partage vers une adresse d'essai n'envoie pas de courrier : ni refusé ni compté (19/11/2026).
+  const envoiAutorise = (idPersonne, courriel, maintenant = Date.now()) => {
+    if (estAdresseDEssai(courriel)) return true
     const dates = (envoisRecents.get(idPersonne) ?? []).filter((d) => maintenant - d < FENETRE_INVITATIONS_MS)
     envoisRecents.set(idPersonne, dates)
     return !plafondInvitationsAtteint(dates, maintenant)
   }
-  const noterEnvoi = (idPersonne, maintenant = Date.now()) => {
+  const noterEnvoi = (idPersonne, courriel, maintenant = Date.now()) => {
+    if (estAdresseDEssai(courriel)) return
     envoisRecents.set(idPersonne, [...(envoisRecents.get(idPersonne) ?? []), maintenant])
     // Les personnes qui n'envoient plus ne restent pas en mémoire.
     if (envoisRecents.size > 500)

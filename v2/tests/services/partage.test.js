@@ -231,6 +231,12 @@ test('plafond : au-delà de 30 courriers de partage dans l’heure, 429 (18/11/2
   })
   assert.equal(trop.statut, 429)
   assert.equal(trop.json.code, 'trop-d-invitations')
+  // Une adresse d'essai ne reçoit jamais de courrier : le partage vers elle passe, plafond atteint ou non (19/11/2026).
+  const essai = await appel('POST', `/api/documents/${doc.id}/acces`, {
+    cookie: paule.cookie,
+    corps: { courriel: 'abc123@essai.amend.invalid', role: 'lecteur' },
+  })
+  assert.equal(essai.statut, 200)
 })
 
 test('mes documents : créés par moi et partagés avec moi, avec mon rôle', async () => {

@@ -88,7 +88,7 @@ export function creerAcces(ctx) {
         refusAcces(caps, actuel, corps.role ?? null, await comptes.proprietaires(docId)) ?? refusDansEquipe(corps.role)
       if (refus || corps.role === null || corps.role === undefined)
         return err(res, refus === 'droit-insuffisant' ? 403 : 400, refus ?? 'role-invalide')
-      if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
+      if (!envoiAutorise(p.id, a.courriel)) return err(res, 429, 'trop-d-invitations')
       const vars = await varsDuCourrier(p, doc, corps.role)
       if (invite) {
         await comptes.donnerAcces(docId, invite.id, corps.role, p.id)
@@ -107,14 +107,14 @@ export function creerAcces(ctx) {
             ),
           })
           .catch((e) => console.error('courrier de partage :', e.message))
-        noterEnvoi(p.id)
+        noterEnvoi(p.id, a.courriel)
         return ok(res, { invitation: false })
       }
       // Le courrier d'abord : s'il ne part pas, rien n'est créé ni modifié (comme la v1, mieux vaut
       // pas d'invitation du tout qu'une entrée « en attente » jamais partie ; audit du 18/11/2026).
       if (!(await envoyerInvitation(docId, a.courriel, vars))) return err(res, 502, 'courrier-non-envoye')
       await comptes.inviter(docId, a.courriel, corps.role, p.id)
-      noterEnvoi(p.id)
+      noterEnvoi(p.id, a.courriel)
       return ok(res, { invitation: true })
     }
     if (sous === 'acces' && cible && (methode === 'PUT' || methode === 'DELETE')) {
@@ -141,13 +141,13 @@ export function creerAcces(ctx) {
         (x) => x.courriel === courriel && invitationValable(x.creeLe),
       )
       if (!i) return err(res, 404, 'introuvable')
-      if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
+      if (!envoiAutorise(p.id, courriel)) return err(res, 429, 'trop-d-invitations')
       if (!(await envoyerInvitation(docId, courriel, await varsDuCourrier(p, doc, i.role)))) {
         return err(res, 502, 'courrier-non-envoye')
       }
       // Le courrier est parti : la validité repart de maintenant.
       await comptes.inviter(docId, courriel, i.role, p.id)
-      noterEnvoi(p.id)
+      noterEnvoi(p.id, courriel)
       return ok(res)
     }
     if (sous === 'invitations' && cible && methode === 'DELETE') {

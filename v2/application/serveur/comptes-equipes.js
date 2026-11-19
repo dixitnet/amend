@@ -104,7 +104,7 @@ export function creerEquipes(ctx) {
       const nouveau = corps.role ?? null
       const refus = refusMembre(moi.caps, actuel, nouveau, await comptes.gestionnaires(equipe.id))
       if (refus || nouveau === null) return err(res, statutDuRefus(refus), refus ?? 'role-invalide')
-      if (!envoiAutorise(p.id)) return err(res, 429, 'trop-d-invitations')
+      if (!envoiAutorise(p.id, a.courriel)) return err(res, 429, 'trop-d-invitations')
       const vars = {
         auteur: p.nom || t('courriel.quelquun'),
         qui: (await quiInvite(p)) || t('courriel.quelquun'),
@@ -128,7 +128,7 @@ export function creerEquipes(ctx) {
             ),
           })
           .catch((e) => console.error("courrier d'équipe :", e.message))
-        noterEnvoi(p.id)
+        noterEnvoi(p.id, a.courriel)
         return ok(res, { invitation: false })
       }
       // Le courrier d'abord : s'il ne part pas, aucune invitation n'est créée (audit du 18/11/2026).
@@ -145,7 +145,7 @@ export function creerEquipes(ctx) {
         return err(res, 502, 'courrier-non-envoye')
       }
       await comptes.inviterMembre(equipe.id, a.courriel, nouveau, p.id)
-      noterEnvoi(p.id)
+      noterEnvoi(p.id, a.courriel)
       return ok(res, { invitation: true })
     }
     if (sous === 'membres' && cible && (methode === 'PUT' || methode === 'DELETE')) {
