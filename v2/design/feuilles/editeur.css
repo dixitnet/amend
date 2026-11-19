@@ -158,8 +158,11 @@ nav[data-amend-bloc='tableDesMatieres'] select {
   text-decoration: line-through 2px var(--user-color-dark);
   border-bottom: none;
 }
+/* En sombre, le fond vient de la couleur de l'auteur elle-même, à demi transparente : son clair, mêlé de
+   blanc par BlockNote, ferait un pavé pâle sous un texte clair. */
 [data-mantine-color-scheme='dark'] .bn-container .bn-editor .bn-suggestion-mark {
-  border-bottom-color: var(--user-color-light);
+  background-color: color-mix(in srgb, var(--user-color-dark) 35%, transparent);
+  border-bottom-color: var(--user-color-dark);
 }
 [data-mantine-color-scheme='dark'] .bn-container .bn-editor .bn-suggestion-mark--delete {
   text-decoration-color: var(--user-color-light);

@@ -6,12 +6,13 @@
 // rouge (Sylvain, 12/11/2026) ; cliquer la carte fait défiler le texte
 // jusqu'à la suggestion (`surMontrer`), comme un commentaire. Composants
 // Mantine ; ses textes lui arrivent traduits, les gestes remontent par les
-// fonctions de rappel (l'indice de la carte). Hors relecture, une invitation
+// fonctions de rappel (l'indice de la carte). Une ligne peut porter la
+// `couleur` de son auteur, montrée en pastille devant son nom. Hors relecture, une invitation
 // (un texte et un bouton) remplace la liste. `actionsGlobales` : « Tout
 // accepter », « Tout refuser » même sans carte. Sans `surAccepter`, la liste
 // se consulte seulement : ni Accepter, ni Refuser, ni leurs variantes « Tout »
 // (le correcteur voit tout, sans arbitrer ; Sylvain, 12/11/2026).
-import { Stack, Group, Text, Button, Paper, UnstyledButton } from '@mantine/core'
+import { Stack, Group, Text, Button, Paper, UnstyledButton, ColorSwatch } from '@mantine/core'
 import { REGLAGES } from '../reglages.js'
 
 /** Le passage : ce qui est supprimé, puis ce qui est ajouté. */
@@ -36,7 +37,7 @@ export function PanneauSuggestions({
   invitation,
   actionsGlobales = false,
 }) {
-  const { carte, liste, pile, entete, auteur, boutons, accepter, refuser } = REGLAGES.suggestions
+  const { carte, liste, pile, entete, auteur, signature, pastille, boutons, accepter, refuser } = REGLAGES.suggestions
   const arbitre = Boolean(surAccepter)
   return (
     <Stack component="section" aria-label={titre} {...liste}>
@@ -84,7 +85,12 @@ export function PanneauSuggestions({
                     au clavier, le passage dessous fait la même chose (hors de
                     la tabulation, le nom reste lu). */}
                 <UnstyledButton tabIndex={-1}>
-                  <Text {...auteur}>{l.auteur}</Text>
+                  <Group {...signature}>
+                    {/* La couleur de l'auteur, celle de ses corrections dans le texte : un repère
+                        pour l'œil, le nom restant l'information (19/11/2026). */}
+                    {l.couleur ? <ColorSwatch aria-hidden="true" {...pastille(l.couleur)} /> : null}
+                    <Text {...auteur}>{l.auteur}</Text>
+                  </Group>
                 </UnstyledButton>
                 {arbitre ? (
                   <Group {...boutons}>
