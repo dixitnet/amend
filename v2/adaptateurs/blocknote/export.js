@@ -195,7 +195,7 @@ export async function chargerFichier(url) {
 }
 
 /** Les adresses des images d'un document, sans doublon (blocs imbriqués compris). */
-export function adressesDesImages(blocs) {
+function adressesDesImages(blocs) {
   const urls = new Set()
   const voir = (liste) => {
     for (const b of liste ?? []) {

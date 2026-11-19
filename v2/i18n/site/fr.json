@@ -1,0 +1,160 @@
+{
+  "contact": "contact@dixit.net",
+  "application": "https://app.amend.ink/",
+  "commun": {
+    "acces": "Accès rapide",
+    "aide": "Aide",
+    "connexion": "Se connecter",
+    "aRelire": "[À relire]"
+  },
+  "accueil": {
+    "titrePage": "amend.ink",
+    "description": "amend.ink réunit dans une seule interface tout ce qu’il faut pour écrire, relire et exporter un texte.",
+    "titre": "Écrire à plusieurs. Avec l’IA, jamais par elle.",
+    "sections": [
+      {
+        "titre": "Relire à plusieurs",
+        "texte": "Suivi des modifications, commentaires, droits (éditeur, correcteur, lecteur) et historique des versions\u202F: le dialogue entre l’auteur et l’éditeur devient simple."
+      },
+      {
+        "titre": "L’IA à sa place",
+        "texte": "Margo propose des corrections et commente, comme le ferait un correcteur. Elle n’écrit jamais à votre place\u202F: vous acceptez ou refusez."
+      },
+      {
+        "titre": "Exporter proprement",
+        "texte": "Un PDF prêt à imprimer, mis en page selon votre modèle, ou un texte Markdown propre."
+      }
+    ],
+    "invitation": "L’accès se fait sur invitation.",
+    "pied": "amend.ink est publié par dixit.net, Nantes. Contact\u00A0:"
+  },
+  "aide": {
+    "titrePage": "Aide — amend.ink",
+    "titre": "Aide",
+    "sommaire": "Sommaire",
+    "avertissement": "Brouillon à relire par Sylvain\u202F: cette page décrit les fonctions présentes dans la v2 au 11/11/2026. Les passages marqués «\u00A0[À relire]\u00A0» sont à relire en priorité.",
+    "sections": [
+      {
+        "id": "connexion",
+        "titre": "Se connecter",
+        "blocs": [
+          {
+            "p": "amend.ink n’a pas de mot de passe. Saisissez votre adresse électronique\u202F: vous recevez un lien de connexion, valable quinze minutes et utilisable une seule fois. L’accès se fait sur invitation\u202F: seules les adresses déjà connues ou invitées reçoivent un lien."
+          }
+        ]
+      },
+      {
+        "id": "documents",
+        "titre": "Ranger ses documents",
+        "blocs": [
+          {
+            "p": "Le volet «\u00A0Documents\u00A0», à gauche, réunit vos favoris, «\u00A0Mes documents\u00A0» et leurs dossiers, vos équipes et «\u00A0Partagé avec moi\u00A0». On y crée un document ou un dossier, et le menu «\u00A0…\u00A0» de chaque entrée permet de renommer, déplacer, supprimer ou partager. Un dossier n’est qu’un rangement\u202F: on partage des documents, jamais des dossiers."
+          },
+          {
+            "p": "Une équipe est un dossier commun\u202F: chaque membre y a un rôle pour tous les documents de l’équipe, et ses gestionnaires en gèrent les membres."
+          }
+        ]
+      },
+      {
+        "id": "ecrire",
+        "titre": "Écrire",
+        "blocs": [
+          {
+            "p": "Le texte se compose de paragraphes, de titres (cinq niveaux), de citations, de listes, de tableaux, d’images et de séparateurs. Tapez «\u00A0/\u00A0» en début de ligne pour insérer un bloc, et sélectionnez du texte pour le mettre en forme. La typographie française se pose d’elle-même à la frappe et au collage\u202F: apostrophes, guillemets, espaces insécables."
+          },
+          {
+            "p": "Le volet «\u00A0Plan\u00A0» montre les titres du document et mène à chacun d’un clic."
+          }
+        ]
+      },
+      {
+        "id": "relire",
+        "titre": "Relire\u202F: suggestions et commentaires",
+        "blocs": [
+          {
+            "p": "Un éditeur choisit son mode dans le bandeau (ou dans le menu «\u00A0…\u00A0» sur tablette et téléphone)\u202F:"
+          },
+          {
+            "liste": [
+              "**Modifier**\u202F: il écrit directement dans le texte\u202F;",
+              "**Suggérer**\u202F: ses changements deviennent des suggestions\u202F;",
+              "**Relire**\u202F: il voit les suggestions et les accepte ou les refuse."
+            ]
+          },
+          {
+            "p": "Un correcteur est toujours en suggestion. Le volet «\u00A0Modifications\u00A0» liste les suggestions, avec «\u00A0Accepter\u00A0» et «\u00A0Refuser\u00A0» pour chacune, ou pour toutes."
+          },
+          {
+            "p": "Pour commenter, sélectionnez un passage et ajoutez un commentaire. On peut y répondre, réagir, le résoudre et le rouvrir."
+          },
+          {
+            "aRelire": "En mode suggestion, la typographie française ne se pose pas encore à la frappe (défaut connu de l’éditeur, en attente de correction)."
+          }
+        ]
+      },
+      {
+        "id": "partager",
+        "titre": "Partager et rôles",
+        "blocs": [
+          {
+            "p": "Le bouton «\u00A0Partager\u00A0» invite une personne par son adresse, avec un rôle\u202F:"
+          },
+          {
+            "liste": [
+              "**lecteur**\u202F: lit le texte\u202F;",
+              "**correcteur**\u202F: commente et propose des suggestions\u202F;",
+              "**éditeur**\u202F: écrit, accepte ou refuse les suggestions, invite d’autres personnes\u202F;",
+              "**propriétaire**\u202F: peut aussi supprimer le document et en confier la propriété."
+            ]
+          },
+          {
+            "p": "On peut aussi ouvrir le document par un lien, avec un rôle\u202F; il faut toujours se connecter avec son adresse pour l’utiliser."
+          }
+        ]
+      },
+      {
+        "id": "margo",
+        "titre": "Margo, l’IA",
+        "blocs": [
+          {
+            "p": "Dans l’onglet «\u00A0Margo (IA)\u00A0», demandez à Margo de relire, de corriger ou de commenter, sur la sélection ou sur tout le texte. Ses corrections arrivent en suggestions, dans «\u00A0Modifications\u00A0», à accepter ou refuser\u202F: elle n’écrit jamais directement dans le texte."
+          },
+          {
+            "aRelire": "Qui a accès à Margo, et dans quelles limites (en signes)."
+          }
+        ]
+      },
+      {
+        "id": "exporter",
+        "titre": "Exporter",
+        "blocs": [
+          {
+            "p": "«\u00A0Exporter…\u00A0», dans le menu «\u00A0…\u00A0» du document, produit un PDF mis en page selon un modèle de mise en page, ou un fichier Markdown. Les suggestions en cours ne sont pas exportées. Une équipe peut avoir ses propres modèles, réglés par ses gestionnaires."
+          }
+        ]
+      },
+      {
+        "id": "historique",
+        "titre": "Historique",
+        "blocs": [
+          {
+            "p": "«\u00A0Historique\u00A0», dans le menu «\u00A0…\u00A0», montre les versions successives du document. Un éditeur peut nommer une version et revenir à une version antérieure."
+          }
+        ]
+      },
+      {
+        "id": "telephone",
+        "titre": "Sur téléphone et tablette",
+        "blocs": [
+          {
+            "p": "Sur un écran tactile, le document s’ouvre en lecture\u202F; touchez le texte pour le modifier, puis «\u00A0Terminer\u00A0». Les volets s’ouvrent par les boutons du bandeau. Sur téléphone, l’historique n’est pas disponible."
+          }
+        ]
+      }
+    ],
+    "question": {
+      "titre": "Une question\u202F?",
+      "texte": "Écrivez à"
+    }
+  }
+}
