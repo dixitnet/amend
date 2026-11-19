@@ -40,4 +40,4 @@ Diff de reprise d'audit : beaucoup de correctifs défensifs bien testés (NFC, p
 
 ## Arbitrage de Sylvain
 
-(À compléter.)
+Fusion demandée par Sylvain le 19/11/2026.

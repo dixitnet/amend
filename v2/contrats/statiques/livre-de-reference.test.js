@@ -77,10 +77,7 @@ const LIVRE = [
   { type: 'paragraph', content: [t('Fin # $ * _ \\ " ` < > @ [ ] — é ’ « » … œ')] },
 ]
 
-const MODELES = [
-  ['a4', MODELES_LIVRE.a4 ?? Object.values(MODELES_LIVRE)[0]],
-  ...REPRISE_MODELES.map((m) => [m.id, m.valeurs]),
-]
+const MODELES = [...MODELES_LIVRE.map((m) => [m.id, m]), ...REPRISE_MODELES.map((m) => [m.id, m.valeurs])]
 const polices = (m) =>
   famillesDuModele(m)
     .flatMap((f) => REGLES_MODELES.polices.find((p) => p.famille === f).fichiers)
