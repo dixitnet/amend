@@ -27,5 +27,5 @@ Export Markdown ; export PDF de livre composé par Typst dans le navigateur ; fe
 
 ## Constats à l'œil sur le livre de référence (pour mémoire, sans correctif)
 
-- Le séparateur placé juste avant un saut de page naturel ne se voit pas dans le PDF A5 (fin de la page 4).
+- Le séparateur ne se voit pas dans le PDF A5 : **ce n'est pas un défaut** (vérifié le 19/11/2026). Le séparateur de ces modèles est « blanc », une ligne vide de la grille, et il précède ici un titre en haut de la page suivante. Les modèles peuvent choisir un astérisme, des étoiles ou un trait (réglage « séparateur »).
 - Un lien ne se distingue pas du texte dans le PDF (voulu pour un livre).
