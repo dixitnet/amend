@@ -56,3 +56,11 @@ test('BlockNote : le curseur distant porte le nom de la personne dans ces classe
   for (const classe of ['bn-collaboration-cursor__base', 'bn-collaboration-cursor__label'])
     assert.ok(rendu.includes(classe), classe)
 })
+
+test('@y/websocket : la fermeture définitive s’annonce par « closed », avec le code (adaptateur Yjs, `surFermeture`)', () => {
+  // `tests/unitaires/yjs-fermeture.test.js` émet lui-même cet événement : ce contrat vérifie que la
+  // version épinglée l'émet toujours sous ce nom et avec cette forme (audit partiel du 19/11/2026).
+  const source = readFileSync(new URL('../../node_modules/@y/websocket/src/y-websocket.js', import.meta.url), 'utf8')
+  assert.match(source, /provider\.emit\('closed', \[terminalClose, provider\]\)/)
+  assert.match(source, /'closed': \(event: \{ code: number, reason: string \}/)
+})
