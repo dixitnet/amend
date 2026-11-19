@@ -5,7 +5,9 @@ import * as encodage from 'lib0/buffer'
 
 const ORGANISATION = 'amend'
 
-const indisponible = (message) => Object.assign(new Error(message), { code: 'collaboration-indisponible' })
+/** `statut` : le statut HTTP de y/hub quand il y en a un (404 : document à la corbeille ou jamais écrit). */
+const indisponible = (message, statut) =>
+  Object.assign(new Error(message), { code: 'collaboration-indisponible', ...(statut ? { statut } : {}) })
 /** L'état encodé d'une réponse de y/hub : un `Uint8Array`, sinon la réponse est illisible.
  * (Une branche jamais écrite rend un état vide, pas une absence de `doc`.) */
 function etatDe(reponse) {
@@ -29,19 +31,27 @@ export function clientCollaboration({ url, jeton }) {
       headers: { ...entetes, ...options?.headers },
       signal: AbortSignal.timeout(5000),
     })
-    if (!r.ok) throw indisponible(`y/hub : ${r.status}`)
+    if (!r.ok) throw indisponible(`y/hub : ${r.status}`, r.status)
     try {
       return encodage.decodeAny(new Uint8Array(await r.arrayBuffer()))
     } catch {
       throw indisponible('y/hub : réponse illisible')
     }
   }
-  /** Une requête sur les deux branches ; 404 : jamais écrite, rien à faire. */
+  /** Une requête sur les deux branches ; 404 : jamais écrite, rien à faire. Les deux sont tentées
+   * même si la première échoue (comme `revoirAcces`) : un document ne reste pas à moitié supprimé
+   * ou à moitié restauré par un échec passager de la première (audit du 16/11/2026). */
   async function surLesBranches(url, methode) {
+    let echec = null
     for (const branche of ['main', 'suggestions']) {
-      const r = await fetch(url(branche), { method: methode, headers: entetes, signal: AbortSignal.timeout(5000) })
-      if (!r.ok && r.status !== 404) throw indisponible(`y/hub : ${r.status}`)
+      try {
+        const r = await fetch(url(branche), { method: methode, headers: entetes, signal: AbortSignal.timeout(5000) })
+        if (!r.ok && r.status !== 404) echec ??= indisponible(`y/hub : ${r.status}`, r.status)
+      } catch (e) {
+        echec ??= indisponible(`y/hub : ${e?.message ?? e}`)
+      }
     }
+    if (echec) throw echec
   }
   return {
     /** Les droits sur le document ont changé (pour `personne`, ou pour tous) :

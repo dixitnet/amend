@@ -146,8 +146,8 @@ export const poserExposants = (md) =>
     .replace(/\uE003(\d+)\uE003/g, '[^$1]: ')
 
 /** Le document en Markdown, en forme composée (NFC). */
-export const versMarkdown = (editeur, blocs, textes) =>
-  nfc(poserExposants(editeur.blocksToMarkdownLossy(blocsPourMarkdown(blocs, textes))))
+export const versMarkdown = (editeur, blocs) =>
+  nfc(poserExposants(editeur.blocksToMarkdownLossy(blocsPourMarkdown(blocs))))
 
 /** Le texte de chaque bloc (texte en ligne, cellules des tableaux), enfants compris. */
 export function textesDesBlocs(blocs) {
@@ -194,6 +194,19 @@ export async function chargerFichier(url) {
   }
 }
 
+/** Les adresses des images d'un document, sans doublon (blocs imbriqués compris). */
+export function adressesDesImages(blocs) {
+  const urls = new Set()
+  const voir = (liste) => {
+    for (const b of liste ?? []) {
+      if (b.type === 'image' && b.props?.url) urls.add(b.props.url)
+      voir(b.children)
+    }
+  }
+  voir(blocs)
+  return [...urls]
+}
+
 /**
  * La source Typst d'un livre : le gabarit du modèle, puis le corps.
  * @param {object} editeur  un éditeur BlockNote (pour son schéma)
@@ -204,10 +217,14 @@ export async function chargerFichier(url) {
  * @returns {Promise<{ source: string, fichiers: Map<string, Uint8Array> }>}
  */
 export async function versTypst(editeur, blocs, modele, { titre, langue, auteur } = {}) {
+  // Toutes les images partent ensemble : chargées une à une, chacune avec ses 15 s de délai,
+  // N images lentes s'additionnaient (audit du 16/11/2026).
+  const charges = new Map(adressesDesImages(blocs).map((url) => [url, chargerFichier(url)]))
   const exportateur = new TypstExporter(editeur.schema, CORRESPONDANCES, {
     fontFamily: modele.styles?.texte?.police,
     fontSize: modele.grille.corps,
-    resolveFileUrl: chargerFichier,
+    // Déjà en cours de chargement (voir plus bas) ; une adresse inconnue se charge à la demande.
+    resolveFileUrl: (url) => charges.get(url) ?? chargerFichier(url),
   })
   const corps = await parcourir(exportateur, blocs)
   return {

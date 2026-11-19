@@ -714,6 +714,10 @@ export function EditeurCollaboratif({
   const compter = () => compterBlocs(blocsDuTexte(editeur, contexte.fragment))
   useEffect(() => {
     if (controle) controle.current = { terminer, exporter, allerAuBloc, allerAuCurseur, compter }
+    // Au démontage : plus de fonctions tenant un éditeur détruit (audit du 16/11/2026).
+    return () => {
+      if (controle) controle.current = null
+    }
   })
   // La sélection, en blocs, pour l'onglet Margo (« Sur la sélection »).
   useEffect(() => {

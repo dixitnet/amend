@@ -72,6 +72,9 @@ export function ouvrirDocument({ url, api, docId, personne, suggestions = false 
       for (const x of fournisseurs) x.on('closed', f)
       return () => fournisseurs.forEach((x) => x.off('closed', f))
     },
+    /** L'état de la connexion du texte principal seulement : la branche des suggestions peut
+     * tomber sans que cet état change ; sa fermeture définitive, elle, passe par `surFermeture`
+     * (contrat précisé à l'audit du 16/11/2026). */
     surEtat(rappel) {
       const f = ({ status }) => rappel(ETATS[status] || 'deconnecte')
       fournisseur.on('status', f)

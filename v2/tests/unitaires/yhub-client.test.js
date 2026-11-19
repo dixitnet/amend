@@ -40,6 +40,17 @@ test('supprimer : un refus de y/hub, même sur la seconde branche, remonte avec 
   await assert.rejects(client.supprimerDocument('doc-c'), { code: 'collaboration-indisponible' })
 })
 
+test('supprimer : la seconde branche est tentée même si la première échoue ; le statut est porté par l’erreur (audit du 16/11/2026)', async () => {
+  recues.length = 0
+  reponses = [500, 200]
+  await assert.rejects(client.supprimerDocument('doc-e'), { code: 'collaboration-indisponible', statut: 500 })
+  assert.deepEqual(
+    recues.map((r) => /branch=(\w+)/.exec(r.url)[1]),
+    ['main', 'suggestions'],
+    'les deux branches ont été appelées',
+  )
+})
+
 test('lire le texte : un refus de y/hub remonte avec le code collaboration-indisponible', async () => {
   reponses = [403]
   await assert.rejects(client.lireTexte('doc-d'), { code: 'collaboration-indisponible' })

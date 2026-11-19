@@ -17,6 +17,9 @@
 import { createBlockSpec } from '@blocknote/core'
 import { PROFONDEURS_TABLE, PROFONDEUR_TABLE_PAR_DEFAUT, profondeurTable, entreesTable } from '../../domaine/index.js'
 
+/** Le repos avant de relire les titres après un changement du document (ms). */
+const REPOS_MS = 300
+
 export const TYPE_TABLE = 'tableDesMatieres'
 
 /** Le texte brut d'un contenu en ligne de BlockNote (texte et liens). */
@@ -97,7 +100,15 @@ export const blocTableDesMatieres = createBlockSpec(
         )
       }
       rafraichir()
-      const arreter = editeur.onChange(rafraichir)
+      // Après un court repos : le parcours de tout le document n'a pas lieu à chaque frappe
+      // (plusieurs tables, livre long ; audit du 16/11/2026).
+      let attente = null
+      const plusTard = () => {
+        clearTimeout(attente)
+        attente = setTimeout(rafraichir, REPOS_MS)
+      }
+      const cesser = editeur.onChange(plusTard)
+      const arreter = () => (clearTimeout(attente), cesser?.())
       choix.addEventListener('focus', rafraichir)
       nav.append(titre, reglage, liste)
       return {

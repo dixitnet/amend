@@ -200,11 +200,13 @@ test('table des matières : changer la profondeur met à jour le bloc, seulement
   assert.deepEqual(lecteur.mises, [])
 })
 
-test('table des matières : la liste suit les changements du document, et le bloc se détache proprement', () => {
+test('table des matières : la liste suit les changements du document après un court repos, et le bloc se détache proprement', async () => {
   const { rendu, liste, editeur, abonnes, choix, arretes } = rendreTable({ profondeur: 3 })
   assert.equal(liste.enfants.length, 3)
   editeur.document.push(titre(2, [t('Quatre')]))
   abonnes[0]()
+  assert.equal(liste.enfants.length, 3, 'pas de parcours du document à chaque frappe')
+  await new Promise((r) => setTimeout(r, 350))
   assert.equal(liste.enfants.length, 4)
   editeur.document.pop()
   choix.declencher('focus')
