@@ -291,9 +291,10 @@ export async function lireEtat(collaboration, docId, auteur = AUTEUR_MARGO) {
 /** La sélection envoyée par le navigateur (identifiants du premier et du
  * dernier bloc), en numéros ; sinon tout le texte. */
 function porteeDeLaSelection(selection, blocs) {
-  const n = (id) => blocs.find((b) => b.id === id)?.n
+  // Un tableau sélectionné : de sa première à sa dernière cellule (leurs identifiants commencent par le sien).
+  const duBloc = (id) => blocs.filter((b) => b.id === id || b.id.startsWith(`${id}/`))
   return porteeMargo(
-    { type: selection ? 'selection' : 'document', de: n(selection?.de), a: n(selection?.a) },
+    { type: selection ? 'selection' : 'document', de: duBloc(selection?.de)[0]?.n, a: duBloc(selection?.a).at(-1)?.n },
     blocs.length,
   )
 }

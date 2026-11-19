@@ -95,10 +95,12 @@ function montrerPosition(editeur, position) {
     // Une position qui n'existe plus (suggestion traitée entre-temps) : rien.
   }
 }
+/** Un bloc que Margo peut relire : un bloc à texte, ou un tableau (ses cellules ; 19/11/2026). */
+const aDuTexte = (b) => Array.isArray(b.content) || b.type === 'table'
 /** La sélection, en blocs : le premier et le dernier bloc à texte touchés
  * (`null` sans sélection étendue). Pour Margo (étape 8). */
 function selectionEnBlocs(editeur) {
-  const blocs = (editeur.getSelection()?.blocks ?? []).filter((b) => Array.isArray(b.content))
+  const blocs = (editeur.getSelection()?.blocks ?? []).filter(aDuTexte)
   return blocs.length ? { de: blocs[0].id, a: blocs[blocs.length - 1].id } : null
 }
 
@@ -112,7 +114,7 @@ function BoutonCorriger({ corriger }) {
   const editeur = useBlockNoteEditor()
   const Components = useComponentsContext()
   const choisis = useSelectedBlocks(editeur)
-  if (!editeur.isEditable || !Components || !choisis.some((b) => Array.isArray(b.content))) return null
+  if (!editeur.isEditable || !Components || !choisis.some(aDuTexte)) return null
   const surClic = () => {
     const selection = selectionEnBlocs(editeur)
     if (selection) corriger.surClic(selection)
@@ -697,7 +699,8 @@ export function EditeurCollaboratif({
     return compilerPdf(source, { fichiers, polices })
   }
   // Aller à un bloc cité par Margo : le curseur, et le bloc sous le bandeau.
-  const allerAuBloc = (id) => allerAuTitre(editeur, id, { focaliser: !lectureAuDepart })
+  // Une cellule de tableau (« bloc/ligne.colonne ») : on va à son tableau.
+  const allerAuBloc = (id) => allerAuTitre(editeur, String(id).split('/')[0], { focaliser: !lectureAuDepart })
   // Amener le texte au curseur d'une autre personne (clic sur son rond de présence ; 18/11/2026).
   // Le curseur distant est un élément de BlockNote (`.bn-collaboration-cursor__base`) qui porte
   // le nom de la personne : on le retrouve par ce nom, sans rien importer de plus. Vrai s'il est
