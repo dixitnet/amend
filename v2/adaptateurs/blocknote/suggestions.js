@@ -44,11 +44,13 @@ const attributionsDe = new WeakMap()
  */
 export function poserAuteurs(afficheur, table) {
   const etat = attributionsDe.get(afficheur)
-  if (!etat || !table) return
+  // Une table incomplète ne remplace rien (elle casserait les transactions suivantes de l'afficheur).
+  if (!etat || !table?.inserts || !table?.deletes) return
   const { attributions } = etat
   // Pour les changements à venir : l'afficheur relit cette table à chaque transaction.
   attributions.inserts = table.inserts
   attributions.deletes = table.deletes
+  // Limite acceptée : un passage signé garde son auteur (y/hub ne change pas l'auteur d'un changement).
   // Pour les passages déjà affichés et pas encore signés : leurs auteurs, puis un nouveau rendu de ces
   // seuls passages (la table revient après chaque changement : un livre de 500 corrections n'est pas
   // redessiné en entier à chaque frappe).

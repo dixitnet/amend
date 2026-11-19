@@ -165,7 +165,7 @@ nav[data-amend-bloc='tableDesMatieres'] select {
   border-bottom-color: var(--user-color-dark);
 }
 [data-mantine-color-scheme='dark'] .bn-container .bn-editor .bn-suggestion-mark--delete {
-  text-decoration-color: var(--user-color-light);
+  text-decoration-color: var(--user-color-dark);
 }
 
 /* réglage : css.editeur.legendesImages */

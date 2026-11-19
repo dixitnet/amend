@@ -302,7 +302,11 @@ test('couleurs (19/11/2026) : une correction a la couleur de son auteur, sa coul
   const VERT = 'rgb(47, 158, 68)'
   for (const t0 = Date.now(); Date.now() - t0 < 15000 && (await couleurDuTrait('s')) !== VERT;) await attendre(300)
   const couleurs = { carla: await couleurDuTrait('Dehors.'), margo: await couleurDuTrait('s') }
-  assert.equal(couleurs.margo, VERT)
+  assert.equal(
+    couleurs.margo,
+    VERT,
+    'la correction de Margo n’a pas pris le vert réservé (auteurs non reçus de y/hub ?)',
+  )
   assert.ok(couleurs.carla)
   assert.notEqual(couleurs.carla, couleurs.margo, 'Margo ne se confond pas avec une personne')
   // Carla : sa couleur de personne, celle de son curseur et de son rond (même teinte de la palette).
