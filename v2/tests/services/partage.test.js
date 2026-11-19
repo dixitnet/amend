@@ -19,13 +19,22 @@ const restaures = []
 const copies = []
 let copieEchoue = false
 const ADRESSE = 'https://essai.amend.ink'
+const CLE_ESSAI = 'e'.repeat(40)
 
 before(async () => {
   preparerServices()
   comptes = await ouvrirComptes(POSTGRES)
   commentaires = await ouvrirCommentaires(POSTGRES)
   serveur = creerServeur(
-    { secret: 's'.repeat(32), jetonInterne: 'j', collaboration: 'ws://x', statique: '/x', dev: true, adresse: ADRESSE },
+    {
+      secret: 's'.repeat(32),
+      jetonInterne: 'j',
+      collaboration: 'ws://x',
+      statique: '/x',
+      dev: true,
+      adresse: ADRESSE,
+      jetonEssai: CLE_ESSAI,
+    },
     {
       comptes,
       commentaires,
@@ -83,6 +92,11 @@ async function suivre(chemin) {
   }
 }
 /** Une personne connectée par la route de développement. */
+/** Un compte d'essai (`@essai.amend.invalid`), ouvert avec la clé d'essai. */
+async function personneDEssai(nom) {
+  const r = await appel('POST', '/api/essai/session', { corps: { nom }, entetes: { 'x-amend-essai-token': CLE_ESSAI } })
+  return { id: r.json.id, cookie: r.entetes.get('set-cookie').split(';')[0] }
+}
 async function personne(nom) {
   const r = await appel('POST', '/api/dev/session', { corps: { nom } })
   return { id: r.json.id, cookie: r.entetes.get('set-cookie').split(';')[0] }
@@ -231,12 +245,30 @@ test('plafond : au-delà de 30 courriers de partage dans l’heure, 429 (18/11/2
   })
   assert.equal(trop.statut, 429)
   assert.equal(trop.json.code, 'trop-d-invitations')
-  // Une adresse d'essai ne reçoit jamais de courrier : le partage vers elle passe, plafond atteint ou non (19/11/2026).
-  const essai = await appel('POST', `/api/documents/${doc.id}/acces`, {
+  // Une personne ordinaire reste plafonnée, même vers une adresse d'essai (audit partiel du 19/11/2026).
+  const versEssai = await appel('POST', `/api/documents/${doc.id}/acces`, {
     cookie: paule.cookie,
     corps: { courriel: 'abc123@essai.amend.invalid', role: 'lecteur' },
   })
-  assert.equal(essai.statut, 200)
+  assert.equal(versEssai.statut, 429)
+})
+
+test('plafond : les partages d’un compte d’essai vers des adresses d’essai n’en relèvent pas (recette en ligne, 19/11/2026)', async () => {
+  const essai = await personneDEssai(`Essai ${randomUUID().slice(0, 8)}`)
+  const partager = (chemin, courriel, role) =>
+    appel('POST', chemin, { cookie: essai.cookie, corps: { courriel, role } })
+  const { json: doc } = await appel('POST', '/api/documents', { cookie: essai.cookie, corps: {} })
+  const vers = (i) => `${randomUUID().slice(0, 8)}${i}@essai.amend.invalid`
+  // Plus de trente partages vers des adresses d'essai : aucun refus, et aucun n'est compté.
+  for (let i = 0; i < 35; i++)
+    assert.equal((await partager(`/api/documents/${doc.id}/acces`, vers(i), 'lecteur')).statut, 200, `partage ${i + 1}`)
+  // Une équipe de même.
+  const { json: equipe } = await appel('POST', '/api/equipes', { cookie: essai.cookie, corps: { nom: 'Recette' } })
+  assert.equal((await partager(`/api/equipes/${equipe.id}/membres`, vers('e'), 'correcteur')).statut, 200)
+  // Vers de vraies adresses, le compte d'essai a ses trente courriers entiers, puis il est plafonné comme tout le monde.
+  for (let i = 0; i < 30; i++)
+    assert.equal((await partager(`/api/documents/${doc.id}/acces`, adresse(`r${i}`), 'lecteur')).statut, 200)
+  assert.equal((await partager(`/api/documents/${doc.id}/acces`, adresse('trop'), 'lecteur')).statut, 429)
 })
 
 test('mes documents : créés par moi et partagés avec moi, avec mon rôle', async () => {

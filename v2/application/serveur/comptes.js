@@ -124,15 +124,19 @@ export function creerComptes({
   /** Les courriers de partage récents de chaque personne, pour le plafond (en mémoire : un
    * redémarrage le remet à zéro, ce qui suffit contre un abus ; Sylvain, 18/11/2026). */
   const envoisRecents = new Map()
-  // Un partage vers une adresse d'essai n'envoie pas de courrier : ni refusé ni compté (19/11/2026).
-  const envoiAutorise = (idPersonne, courriel, maintenant = Date.now()) => {
-    if (estAdresseDEssai(courriel)) return true
+  /**
+   * Un partage hors plafond : d'un compte d'essai vers une adresse d'essai (la recette en ligne, 19/11/2026).
+   * Aucun courrier ne part, et seul le porteur de la clé d'essai a un tel compte : une personne ordinaire
+   * reste plafonnée, même vers une adresse d'essai (audit partiel du 19/11/2026).
+   */
+  const horsPlafond = async (p, courriel) =>
+    estAdresseDEssai(courriel) && estAdresseDEssai((await comptes.personne(p.id))?.courriel)
+  const envoiAutorise = (idPersonne, maintenant = Date.now()) => {
     const dates = (envoisRecents.get(idPersonne) ?? []).filter((d) => maintenant - d < FENETRE_INVITATIONS_MS)
     envoisRecents.set(idPersonne, dates)
     return !plafondInvitationsAtteint(dates, maintenant)
   }
-  const noterEnvoi = (idPersonne, courriel, maintenant = Date.now()) => {
-    if (estAdresseDEssai(courriel)) return
+  const noterEnvoi = (idPersonne, maintenant = Date.now()) => {
     envoisRecents.set(idPersonne, [...(envoisRecents.get(idPersonne) ?? []), maintenant])
     // Les personnes qui n'envoient plus ne restent pas en mémoire.
     if (envoisRecents.size > 500)
@@ -216,6 +220,7 @@ export function creerComptes({
     courrierSimple,
     envoiAutorise,
     noterEnvoi,
+    horsPlafond,
     quiInvite,
     ok,
     err,
