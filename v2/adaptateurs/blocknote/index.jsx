@@ -630,21 +630,52 @@ export function EditeurCollaboratif({
   }, [magasin, surNombreFils])
 
   // Un clic sur un passage commenté choisit son fil : sans bulle, il se lit
-  // dans la colonne de droite, que l'application ouvre (13/11/2026).
+  // dans la colonne de droite, que l'application ouvre (13/11/2026) ; la liste
+  // défile alors jusqu'à sa carte, que BlockNote marque comme choisie (20/11/2026).
   const surFil = useRef(surFilChoisi)
   surFil.current = surFilChoisi
+  const listeDesFils = useRef(null)
+  listeDesFils.current = fils?.element ?? null
   useEffect(() => {
     if (!magasin) return
     const etat = editeur.getExtension(CommentsExtension)?.store
     if (!etat) return
-    let dernier = etat.state.selectedThreadId
-    const abonnement = etat.subscribe(() => {
-      const choisi = etat.state.selectedThreadId
-      if (choisi && choisi !== dernier) surFil.current?.()
-      dernier = choisi
-    })
-    return () => (typeof abonnement === 'function' ? abonnement() : abonnement?.unsubscribe?.())
-  }, [editeur, magasin])
+    let attente = null
+    // La carte du fil choisi, amenée dans la partie visible de la liste. Le volet peut s'ouvrir à
+    // l'instant : la carte est attendue un court moment, puis on renonce sans rien dire.
+    // La carte choisie s'agrandit ensuite (BlockNote y ouvre le champ de réponse) : un second passage,
+    // un instant plus tard, la garde entière à l'écran.
+    const montrerLaCarte = (essais = 20, encore = true) => {
+      clearTimeout(attente)
+      const carte = listeDesFils.current?.querySelector('.bn-thread.selected')
+      if (carte?.offsetParent) {
+        carte.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        if (encore) attente = setTimeout(() => montrerLaCarte(0, false), 400)
+        return
+      }
+      if (essais > 0) attente = setTimeout(() => montrerLaCarte(essais - 1, encore), 100)
+    }
+    const choisir = () => {
+      surFil.current?.()
+      montrerLaCarte()
+    }
+    // Le geste est le clic sur un passage commenté, que son fil soit déjà choisi ou non (le volet a pu
+    // être refermé) : BlockNote choisit le fil, puis le volet s'ouvre sur sa carte. Les autres
+    // changements de son état (le volet qui se ferme, un fil résolu) n'ouvrent rien.
+    let apresClic = null
+    const surClic = (e) => {
+      if (!e.target.closest?.('.bn-thread-mark')) return
+      clearTimeout(apresClic)
+      apresClic = setTimeout(() => etat.state.selectedThreadId && choisir(), 0)
+    }
+    const dom = editeur.domElement
+    dom?.addEventListener('click', surClic)
+    return () => {
+      clearTimeout(attente)
+      clearTimeout(apresClic)
+      dom?.removeEventListener('click', surClic)
+    }
+  }, [editeur, editeur.domElement, magasin])
 
   // Le plan : les titres du document, tenus à jour (volet « Plan » des trois
   // formats), et le titre courant au défilement. Aller à un titre y met le

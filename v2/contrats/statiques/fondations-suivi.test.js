@@ -98,6 +98,16 @@ test('BlockNote : le curseur distant porte le nom de la personne dans ces classe
     assert.ok(rendu.includes(classe), classe)
 })
 
+test('BlockNote : un passage commenté et la carte du fil choisi portent ces classes (clic sur un commentaire ; 20/11/2026)', () => {
+  // L'adaptateur reconnaît un clic sur un passage commenté (`.bn-thread-mark`) et retrouve la carte du fil
+  // choisi dans la liste (`.bn-thread.selected`) par ces classes de rendu, faute d'événement public ; notre
+  // feuille s'en sert aussi (`css.commentaires.filChoisi`). Une montée de version qui les renomme échoue ici.
+  const lire = (chemin) => readFileSync(new URL(`../../node_modules/@blocknote/${chemin}`, import.meta.url), 'utf8')
+  assert.ok(lire('core/dist/comments.js').includes('bn-thread-mark'), 'bn-thread-mark')
+  assert.ok(lire('react/dist/blocknote-react.js').includes('"bn-thread"'), 'bn-thread')
+  assert.ok(lire('react/dist/style.css').includes('.bn-threads-sidebar .bn-thread.selected'), 'bn-thread.selected')
+})
+
 test('@y/websocket : la fermeture définitive s’annonce par « closed », avec le code (adaptateur Yjs, `surFermeture`)', () => {
   // `tests/unitaires/yjs-fermeture.test.js` émet lui-même cet événement : ce contrat vérifie que la
   // version épinglée l'émet toujours sous ce nom et avec cette forme (audit partiel du 19/11/2026).
