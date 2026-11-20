@@ -129,6 +129,20 @@
   font-family: var(--mantine-font-family);
 }
 
+/* réglage : css.commentaires.filChoisi */
+/* Le fil choisi (un clic sur son passage dans le texte, ou sur sa carte) : bordé de la couleur de l'interface,
+   comme la carte active des corrections, sur le fond clair de cette couleur. BlockNote rend la liste dans son
+   propre thème de Mantine, où la couleur principale est son bleu : celle de l'interface est lue sur le
+   conteneur de la liste, qui est dans le thème de l'application, et transmise par deux variables. */
+.amend-fils {
+  --amend-fil-choisi-bord: var(--mantine-primary-color-filled);
+  --amend-fil-choisi-fond: var(--mantine-primary-color-light);
+}
+.bn-mantine .bn-threads-sidebar .bn-thread.selected {
+  border-color: var(--amend-fil-choisi-bord);
+  background-color: var(--amend-fil-choisi-fond);
+}
+
 /* réglage : css.commentaires.largeur */
 .bn-mantine .bn-threads-sidebar .bn-thread {
   min-width: 0;

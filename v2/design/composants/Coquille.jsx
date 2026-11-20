@@ -439,7 +439,7 @@ export function ListeDesFils({ filtre, cible }) {
         data={filtre.options.map((o) => ({ value: o.valeur, label: o.libelle }))}
         onChange={filtre.surChange}
       />
-      <div ref={cible} />
+      <div ref={cible} className="amend-fils" />
     </Stack>
   )
 }
