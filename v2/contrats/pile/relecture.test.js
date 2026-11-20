@@ -599,7 +599,13 @@ test('clic sur un passage commenté : le volet s’ouvre sur « Commentaires »,
     })
   const cliquer = async (i) => {
     await p.locator('.bn-thread-mark', { hasText: `numero${i}` }).click()
-    await attendre(1800)
+    // On attend l'état voulu (volet ouvert, ce fil choisi et visible) plutôt qu'un délai fixe.
+    for (const t0 = Date.now(); Date.now() - t0 < 8000; await attendre(200)) {
+      const vu = await etat()
+      if ((await voletOuvert()) && vu.choisi === `Remarque ${i}` && vu.visible) break
+    }
+    // La carte finit de s'agrandir et le défilement de se poser.
+    await attendre(600)
     return { ...(await etat()), liste: await voletOuvert() }
   }
   const boutonVolet = p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' })
@@ -617,6 +623,16 @@ test('clic sur un passage commenté : le volet s’ouvre sur « Commentaires »,
   const dernier = await cliquer(N)
   assert.deepEqual(constat(dernier), attendu(N))
   assert.notEqual(dernier.fond, dernier.ordinaire, 'la carte du fil choisi se distingue des autres')
+  // Sa couleur : le fond clair de la couleur de l'interface, lue dans le thème de l'application.
+  const fondVoulu = await p.evaluate(() => {
+    const e = document.createElement('i')
+    e.style.backgroundColor = 'var(--mantine-primary-color-light)'
+    document.querySelector('.amend-fils').append(e)
+    const c = getComputedStyle(e).backgroundColor
+    e.remove()
+    return c
+  })
+  assert.equal(dernier.fond, fondVoulu)
   // Un autre passage : la liste remonte jusqu'à son fil.
   assert.deepEqual(constat(await cliquer(1)), attendu(1))
   assert.deepEqual(constat(await cliquer(N)), attendu(N))
