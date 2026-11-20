@@ -74,8 +74,9 @@
 
 /* réglage : css.arbre.premierNiveau */
 /* Le premier niveau de l'arbre du volet « Documents » (Mes documents, les équipes, la corbeille…) en gras ;
-   un document posé à ce niveau (résultat d'une recherche) reste en graisse ordinaire. */
-.amend-arbre-documents > div > .mantine-Group-root > button.mantine-NavLink-root .mantine-NavLink-label {
+   un document posé à ce niveau (résultat d'une recherche) reste en graisse ordinaire : seuls les espaces et
+   dossiers portent l'attribut. */
+.mantine-NavLink-root[data-amend-premier-niveau] .mantine-NavLink-label {
   font-weight: var(--mantine-font-weight-bold);
 }
 

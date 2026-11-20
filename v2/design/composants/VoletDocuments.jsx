@@ -38,7 +38,7 @@ function MenuEntree({ libelle, actions }) {
 }
 
 /** Une entrée de l'arbre : un dossier (ou un espace) qui s'ouvre, ou un document. */
-function Entree({ e, libelleActions }) {
+function Entree({ e, libelleActions, premier = false }) {
   const [ouvert, setOuvert] = useState(e.ouvert ?? false)
   // Un dossier qui reçoit le document ouvert se déplie (l'application le dit).
   useEffect(() => {
@@ -52,6 +52,8 @@ function Entree({ e, libelleActions }) {
       label={e.nom}
       leftSection={<PictoDe role={e.picto} />}
       aria-expanded={ouvert}
+      // Le premier niveau de l'arbre (un espace ou un dossier) : en gras, par la feuille (20/11/2026).
+      data-amend-premier-niveau={premier || undefined}
       onClick={() => setOuvert((o) => !o)}
     />
   ) : e.href ? (
@@ -120,9 +122,9 @@ export function VoletDocuments({ recherche, nouveau, entrees, vide, libelleActio
         </Menu>
       </Group>
       {entrees.length ? (
-        <Stack className="amend-arbre-documents" {...REGLAGES.arbre.racine}>
+        <Stack {...REGLAGES.arbre.racine}>
           {entrees.map((e) => (
-            <Entree key={e.cle} e={e} libelleActions={libelleActions} />
+            <Entree key={e.cle} e={e} libelleActions={libelleActions} premier />
           ))}
         </Stack>
       ) : (
