@@ -540,3 +540,89 @@ test('suggestions : un clic sur la carte, hors boutons, mène au passage (Sylvai
   await c.context().close()
   await p.context().close()
 })
+
+test('clic sur un passage commenté : le volet s’ouvre sur « Commentaires », la liste défile jusqu’au fil, qui est en surbrillance (20/11/2026)', async () => {
+  const doc = docTest('fil-choisi')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  const N = 9
+  for (let i = 1; i <= N; i++) {
+    await p.keyboard.type(`Paragraphe numero${i} du texte.`)
+    if (i < N) await p.keyboard.press('Enter')
+  }
+  // Un commentaire sur le mot « numeroN » de chaque paragraphe.
+  for (let i = 1; i <= N; i++) {
+    await p.evaluate((mot) => {
+      const t = [...document.querySelectorAll('.bn-editor .bn-inline-content')]
+        .flatMap((e) => [...e.childNodes])
+        .find((n) => n.textContent.includes(mot))
+      const cible = t.nodeType === 3 ? t : t.firstChild
+      const d = cible.textContent.indexOf(mot)
+      const r = document.createRange()
+      r.setStart(cible, d)
+      r.setEnd(cible, d + mot.length)
+      const s = window.getSelection()
+      s.removeAllRanges()
+      s.addRange(r)
+      document.dispatchEvent(new Event('selectionchange'))
+    }, `numero${i}`)
+    await attendre(700)
+    await p.locator('.bn-formatting-toolbar button[aria-label="Ajouter un commentaire"]').click()
+    await attendre(300)
+    await p.keyboard.type(`Remarque ${i}, assez longue pour que la carte prenne de la place dans la liste des fils.`)
+    await p.keyboard.press('Control+Enter')
+    for (const t0 = Date.now(); Date.now() - t0 < 8000 && (await p.locator('.bn-thread-mark').count()) < i;)
+      await attendre(150)
+  }
+  assert.equal(await p.locator('.bn-thread-mark').count(), N)
+  const etat = () =>
+    p.evaluate(() => {
+      const liste = document.querySelector('.bn-threads-sidebar')
+      const choisi = liste?.querySelector('.bn-thread.selected')
+      const visible = (e) => {
+        if (!e) return false
+        const r = e.getBoundingClientRect()
+        // Le conteneur qui défile : le premier ancêtre dont le contenu dépasse.
+        let c = e.parentElement
+        while (c && !(c.scrollHeight > c.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(c).overflowY)))
+          c = c.parentElement
+        const b = (c ?? document.documentElement).getBoundingClientRect()
+        return r.top >= b.top - 1 && r.bottom <= b.bottom + 1
+      }
+      return {
+        liste: Boolean(liste && liste.offsetParent),
+        choisi: choisi?.innerText.match(/Remarque \d+/)?.[0] ?? null,
+        visible: visible(choisi),
+        fond: choisi ? getComputedStyle(choisi).backgroundColor : null,
+        ordinaire: liste ? getComputedStyle(liste.querySelector('.bn-thread:not(.selected)')).backgroundColor : null,
+      }
+    })
+  const cliquer = async (i) => {
+    await p.locator('.bn-thread-mark', { hasText: `numero${i}` }).click()
+    await attendre(1800)
+    return { ...(await etat()), liste: await voletOuvert() }
+  }
+  const boutonVolet = p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' })
+  // Ouvert ou fermé : ce que dit le bouton du volet (replié, son contenu reste dans la page).
+  const voletOuvert = async () => (await boutonVolet.getAttribute('aria-expanded')) === 'true'
+  const fermerLeVolet = async () => {
+    if (await voletOuvert()) await boutonVolet.click()
+    await attendre(400)
+    assert.equal(await voletOuvert(), false, 'le volet est fermé')
+  }
+  const attendu = (i) => ({ liste: true, choisi: `Remarque ${i}`, visible: true })
+  const constat = ({ liste, choisi, visible }) => ({ liste, choisi, visible })
+  // Volet fermé : le clic l'ouvre sur « Commentaires », la liste défile jusqu'au dernier fil.
+  await fermerLeVolet()
+  const dernier = await cliquer(N)
+  assert.deepEqual(constat(dernier), attendu(N))
+  assert.notEqual(dernier.fond, dernier.ordinaire, 'la carte du fil choisi se distingue des autres')
+  // Un autre passage : la liste remonte jusqu'à son fil.
+  assert.deepEqual(constat(await cliquer(1)), attendu(1))
+  assert.deepEqual(constat(await cliquer(N)), attendu(N))
+  // Volet refermé, le même passage cliqué de nouveau : il se rouvre sur le même fil.
+  await fermerLeVolet()
+  assert.deepEqual(constat(await cliquer(N)), attendu(N))
+  if (process.env.CAPTURE) await p.screenshot({ path: `${process.env.CAPTURE}/fil-choisi.png` })
+  await p.context().close()
+})

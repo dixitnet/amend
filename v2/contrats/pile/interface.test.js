@@ -196,10 +196,12 @@ test('volet « Documents » : le premier niveau (Mes documents…) en gras, les 
   const page = await ouvrir('Paule', docTest('arbre-gras'))
   const volet = await voletDocuments(page)
   const graisse = (l) => l.evaluate((e) => getComputedStyle(e).fontWeight)
-  const premier = volet.locator('.mantine-NavLink-root[data-amend-premier-niveau] .mantine-NavLink-label').first()
-  await premier.waitFor()
-  assert.equal(await premier.innerText(), 'Mes documents')
-  assert.equal(await graisse(premier), '700')
+  // Chaque entrée du premier niveau (Mes documents, et selon la personne Favoris, ses équipes…) est en gras.
+  const premiers = volet.locator('.mantine-NavLink-root[data-amend-premier-niveau] .mantine-NavLink-label')
+  await premiers.first().waitFor()
+  const noms = await premiers.allInnerTexts()
+  assert.ok(noms.includes('Mes documents'), noms.join(', '))
+  for (let k = 0; k < noms.length; k++) assert.equal(await graisse(premiers.nth(k)), '700', noms[k])
   // Un document, sous son espace déplié : graisse ordinaire.
   const document = volet.locator('a.mantine-NavLink-root .mantine-NavLink-label').first()
   await document.waitFor()
