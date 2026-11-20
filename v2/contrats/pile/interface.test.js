@@ -5,7 +5,15 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { preparerServices, construireClient, demarrerPile } from '../../exploitation/dev/pile.mjs'
-import { lancerNavigateur, docTest, ouvrir as ouvrirSur, attendreTexte, attendre, panneau } from './outils.mjs'
+import {
+  lancerNavigateur,
+  docTest,
+  ouvrir as ouvrirSur,
+  attendreTexte,
+  attendre,
+  panneau,
+  voletDocuments,
+} from './outils.mjs'
 
 let pile, nav
 const ouvrir = (nom, docId, o) => ouvrirSur(nav, pile.url, nom, docId, o)
@@ -182,4 +190,22 @@ test('présence : un clic sur le rond d’une personne amène le texte à son cu
   assert.equal(await aLEcran(), true, 'le texte a défilé jusqu’au curseur de Bruno')
   await p.context().close()
   await b.context().close()
+})
+
+test('volet « Documents » : le premier niveau (Mes documents…) en gras, les documents dessous en graisse ordinaire (20/11/2026)', async () => {
+  const page = await ouvrir('Paule', docTest('arbre-gras'))
+  const volet = await voletDocuments(page)
+  const graisse = (l) => l.evaluate((e) => getComputedStyle(e).fontWeight)
+  const premier = volet
+    .locator('.amend-arbre-documents > div > .mantine-Group-root > button .mantine-NavLink-label')
+    .first()
+  await premier.waitFor()
+  assert.equal(await premier.innerText(), 'Mes documents')
+  assert.equal(await graisse(premier), '700')
+  // Un document, sous son espace déplié : graisse ordinaire.
+  const document = volet.locator('.amend-arbre-documents a.mantine-NavLink-root .mantine-NavLink-label').first()
+  await document.waitFor()
+  assert.notEqual(await graisse(document), '700')
+  if (process.env.CAPTURE) await volet.screenshot({ path: `${process.env.CAPTURE}/arbre-gras.png` })
+  await page.context().close()
 })

@@ -120,7 +120,7 @@ export function VoletDocuments({ recherche, nouveau, entrees, vide, libelleActio
         </Menu>
       </Group>
       {entrees.length ? (
-        <Stack {...REGLAGES.arbre.racine}>
+        <Stack className="amend-arbre-documents" {...REGLAGES.arbre.racine}>
           {entrees.map((e) => (
             <Entree key={e.cle} e={e} libelleActions={libelleActions} />
           ))}

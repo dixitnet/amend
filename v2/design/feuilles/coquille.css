@@ -72,6 +72,13 @@
   font-weight: var(--mantine-font-weight-bold);
 }
 
+/* réglage : css.arbre.premierNiveau */
+/* Le premier niveau de l'arbre du volet « Documents » (Mes documents, les équipes, la corbeille…) en gras ;
+   un document posé à ce niveau (résultat d'une recherche) reste en graisse ordinaire. */
+.amend-arbre-documents > div > .mantine-Group-root > button.mantine-NavLink-root .mantine-NavLink-label {
+  font-weight: var(--mantine-font-weight-bold);
+}
+
 /* réglage : css.coquille.texte */
 .amend-coquille-defilement > .mantine-Container-root {
   padding-block: var(--mantine-spacing-md);
