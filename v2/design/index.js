@@ -10,7 +10,7 @@ export { PageAdministration } from './composants/PageAdministration.jsx'
 export { PanneauConnecteur } from './composants/PanneauConnecteur.jsx'
 export { PanneauPartage } from './composants/PanneauPartage.jsx'
 export { VoletDocuments, FenetreChoix } from './composants/VoletDocuments.jsx'
-export { couleurAuteur } from './auteurs.js'
+export { couleurAuteur, COULEUR_AGENTS } from './auteurs.js'
 export { PictoDe } from './pictos.jsx'
 export {
   Coquille,

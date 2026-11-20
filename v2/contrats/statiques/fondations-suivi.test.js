@@ -24,6 +24,47 @@ test('Yjs : l’afficheur des suggestions, sa couverture (`attributed`) et son m
   assert.equal(typeof Y.decodeContentMap, 'function', 'table des auteurs de y/hub')
 })
 
+test('Yjs : donner à l’afficheur les auteurs reçus après coup (couleur des corrections, 19/11/2026)', async () => {
+  // Ce que `poserAuteurs` (adaptateurs/blocknote/suggestions.js) emploie de Yjs : l'option `attributions` de
+  // l'afficheur, relue à chaque transaction ; ses tables `inserts` et `deletes` ; les fonctions sur les tables
+  // d'identifiants ; l'événement `change`, qui fait redessiner les passages donnés. Tout est exporté et typé
+  // par Yjs, mais poser des auteurs après coup n'est pas un usage documenté : ce contrat l'épingle (veille).
+  const { creerAfficheur, poserAuteurs } = await import('../../adaptateurs/blocknote/suggestions.js')
+  const doc = new Y.Doc()
+  const suggestions = new Y.Doc({ isSuggestionDoc: true })
+  const afficheur = creerAfficheur({ doc, suggestions: { doc: suggestions } }, true, () => {})
+  // Une proposition : du texte écrit dans le document des suggestions seulement.
+  suggestions.get('doc').insert(0, 'ajout')
+  const propose = Y.createIdSetFromIdMap(afficheur.inserts)
+  assert.ok(propose.clients.size > 0, 'la proposition est dans la table des ajouts de l’afficheur')
+  // Le premier identifiant proposé, pour y lire les auteurs.
+  let premier = null
+  propose.forEach((plage, client) => (premier ??= { client, clock: plage.clock }))
+  const auteursDe = () => afficheur.inserts.slice(premier.client, premier.clock, 1).flatMap((r) => r.attrs ?? [])
+  assert.deepEqual(auteursDe(), [], 'sans auteur tant que y/hub ne l’a pas dit')
+  // La table de y/hub arrive : l'auteur est posé, et l'afficheur annonce les passages à redessiner.
+  const table = Y.createContentMap(
+    Y.createIdMapFromIdSet(propose, [Y.createContentAttribute('insert', 'carla')]),
+    Y.createIdMap(),
+  )
+  const annonces = []
+  afficheur.on('change', (touches, origine, local) =>
+    annonces.push([touches.clients.size, origine === poserAuteurs, local]),
+  )
+  poserAuteurs(afficheur, table)
+  assert.deepEqual(
+    auteursDe().map((a) => [a.name, a.val]),
+    [['insert', 'carla']],
+  )
+  assert.deepEqual(annonces, [[1, true, false]])
+  // Une seconde fois, la même table : rien à signer, rien à redessiner.
+  poserAuteurs(afficheur, table)
+  assert.equal(annonces.length, 1)
+  // Une table incomplète est ignorée.
+  assert.doesNotThrow(() => poserAuteurs(afficheur, { inserts: table.inserts }))
+  afficheur.destroy()
+})
+
 test('@y/prosemirror : traduire une position du texte en position Yjs (auteur d’une suggestion)', () => {
   assert.equal(typeof YP.resolvedPositionToRelativePosition, 'function')
   assert.equal(typeof YP.configureYProsemirror, 'function')

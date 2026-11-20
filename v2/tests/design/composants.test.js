@@ -267,7 +267,12 @@ test('couleur d’auteur : stable, prise dans la palette de Mantine, ni grise ni
     assert.equal(c, design.couleurAuteur(id))
     assert.match(c, /^var\(--mantine-color-[a-z]+-filled\)$/)
     assert.doesNotMatch(c, /-(gray|dark)-/)
+    // Réservées (Sylvain, 19/11/2026) : le jaune aux commentaires, le vert à Margo et Claude, avec ses voisins.
+    assert.doesNotMatch(c, /-(yellow|green|lime|teal)-/)
   }
+  const teintes = new Set(Array.from({ length: 400 }, (_, i) => design.couleurAuteur(`personne-${i}`)))
+  assert.equal(teintes.size, 8, 'huit teintes pour les personnes')
+  assert.equal(design.COULEUR_AGENTS, 'var(--mantine-color-green-8)', 'le vert du picto pour Margo et Claude')
 })
 
 test('la marque (picto décoratif et nom) sur l’écran de connexion ; plus en tête des volets d’un document', () => {

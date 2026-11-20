@@ -23,12 +23,48 @@ const NOTE = 'note'
 
 /** L'afficheur des suggestions : le texte, plus les propositions attribuées. */
 export function creerAfficheur(contexte, suggerer, surReplace) {
-  const r = Y.createDiffRenderer(contexte.doc, contexte.suggestions.doc)
+  // Les auteurs des suggestions (`options.attributions` de l'afficheur de Yjs) : y/hub ne les envoie pas en
+  // direct, la table arrive à part (`suivreAuteurs`) et se pose ensuite (`poserAuteurs`).
+  const attributions = Y.createContentMap()
+  const r = Y.createDiffRenderer(contexte.doc, contexte.suggestions.doc, { attributions })
+  attributionsDe.set(r, { attributions, signes: { inserts: Y.createIdSet(), deletes: Y.createIdSet() } })
   r.suggestionMode = suggerer
   // Correctif temporaire (y-prosemirror#245) : écrire en voyant les
   // corrections. À retirer avec `correctif-245.js` quand l'amont sera corrigé.
   brancherCorrectif245(r, contexte.doc, contexte.suggestions.doc, surReplace)
   return r
+}
+
+/** Les attributions données à chaque afficheur à sa création, et les passages déjà signés. */
+const attributionsDe = new WeakMap()
+
+/**
+ * Donne à l'afficheur les auteurs des suggestions (la table de y/hub) : BlockNote colore alors chaque
+ * correction du texte à la couleur de son auteur (19/11/2026). Les passages déjà affichés sont repris.
+ */
+export function poserAuteurs(afficheur, table) {
+  const etat = attributionsDe.get(afficheur)
+  // Une table incomplète ne remplace rien (elle casserait les transactions suivantes de l'afficheur).
+  if (!etat || !table?.inserts || !table?.deletes) return
+  const { attributions } = etat
+  // Pour les changements à venir : l'afficheur relit cette table à chaque transaction.
+  attributions.inserts = table.inserts
+  attributions.deletes = table.deletes
+  // Limite acceptée : un passage signé garde son auteur (y/hub ne change pas l'auteur d'un changement).
+  // Pour les passages déjà affichés et pas encore signés : leurs auteurs, puis un nouveau rendu de ces
+  // seuls passages (la table revient après chaque changement : un livre de 500 corrections n'est pas
+  // redessiné en entier à chaque frappe).
+  const aSigner = (affiches, dejaSignes, auteurs) =>
+    Y.intersectMaps(auteurs, Y.diffIdSet(Y.createIdSetFromIdMap(affiches), dejaSignes))
+  const ajouts = aSigner(afficheur.inserts, etat.signes.inserts, table.inserts)
+  const suppressions = aSigner(afficheur.deletes, etat.signes.deletes, table.deletes)
+  const touches = Y.mergeIdSets([Y.createIdSetFromIdMap(ajouts), Y.createIdSetFromIdMap(suppressions)])
+  if (touches.clients.size === 0) return
+  Y.insertIntoIdMap(afficheur.inserts, ajouts)
+  Y.insertIntoIdMap(afficheur.deletes, suppressions)
+  Y.insertIntoIdSet(etat.signes.inserts, Y.createIdSetFromIdMap(ajouts))
+  Y.insertIntoIdSet(etat.signes.deletes, Y.createIdSetFromIdMap(suppressions))
+  afficheur.emit('change', [touches, poserAuteurs, false])
 }
 
 /**

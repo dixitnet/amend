@@ -14,6 +14,8 @@ Règle 4.3 de `docs/v2-regles-developpement.md`. Relue à chaque montée de vers
 | Docs             | https://github.com/suitenumerique/docs          | `CHANGELOG.md`, adaptateur `src/yhub-server/`                       |
 | Typst            | https://github.com/typst/typst                  | versions                                                            |
 
+À chaque montée de Yjs ou de y/hub : le contrat « donner à l'afficheur les auteurs reçus après coup » (`v2/contrats/statiques/fondations-suivi.test.js`) épingle l'usage que fait `poserAuteurs` de l'afficheur de Yjs (option `attributions`, tables `inserts` et `deletes`, événement `change`) pour colorer chaque correction à la couleur de son auteur (19/11/2026) : des membres exportés et typés, mais un usage non documenté. Si y/hub vient à envoyer les auteurs en direct, ce code se retire.
+
 À chaque montée de BlockNote : vérifier que les suggestions s'affichent toujours avec notre réglage `css.editeur.suggestions` (`v2/design/feuilles/editeur.css`). Il s'appuie sur des détails de sa feuille de style, sans contrat public : les éléments `ins` et `del`, les classes `bn-suggestion-mark` et `bn-suggestion-mark--delete`, les variables `--user-color-light` et `--user-color-dark` (12/11/2026). Docs, lui, ne vise que `ins` et `[data-type='modification']`. De même pour `css.commentaires.largeur` (`v2/design/feuilles/coquille.css`) : les classes `bn-threads-sidebar` et `bn-thread`.
 
 ## Sujets en cours en amont qui nous concernent

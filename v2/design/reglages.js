@@ -169,6 +169,9 @@ export const REGLAGES = {
     pile: { gap: 'xs' },
     entete: { justify: 'space-between', wrap: 'nowrap', gap: 'xs' },
     auteur: { size: 'sm', truncate: true },
+    // Le nom et sa pastille, à la couleur de l'auteur dans le texte (Sylvain, 19/11/2026).
+    signature: { gap: 'xs', wrap: 'nowrap' },
+    pastille: (couleur) => ({ color: couleur, size: 10, withShadow: false }),
     boutons: { gap: 'xs', wrap: 'nowrap' },
     accepter: { color: 'green', variant: 'light', size: 'xs' },
     refuser: { color: 'red', variant: 'light', size: 'xs' },
