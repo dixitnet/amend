@@ -1,7 +1,7 @@
 # Campagne de test de la v2 (docs/v2-tests/procedure-campagne.md) : des
 # scénarios à plusieurs personnes, par famille, joués dans les trois
 # navigateurs (Chromium, WebKit, Firefox) et les trois formats d'écran (L, M,
-# S), puis contre v2.amend.ink. Le dernier job compare les relevés à l'état de
+# S), puis contre app.amend.ink. Le dernier job compare les relevés à l'état de
 # référence (v2/exploitation/campagne/reference.json), écrit le rapport et
 # échoue sur une régression. Lancée à la demande seulement (Sylvain, 13/11/2026).
 name: v2-campagne
@@ -22,7 +22,7 @@ on:
         description: 'Nombre de passages de chaque scénario'
         default: '3'
       en_ligne:
-        description: 'Jouer aussi contre v2.amend.ink (Chromium, format L)'
+        description: 'Jouer aussi contre app.amend.ink (Chromium, format L)'
         type: boolean
         default: true
 
@@ -112,7 +112,7 @@ jobs:
           path: v2/releves/
           if-no-files-found: ignore
 
-  # Les mêmes scénarios contre v2.amend.ink (vrai serveur, vraies WebSocket),
+  # Les mêmes scénarios contre app.amend.ink (vrai serveur, vraies WebSocket),
   # avec des comptes d'essai (@essai.amend.invalid) ; Chromium et format L
   # seulement, une famille à la fois, pour ne pas charger le VPS (1 vCPU,
   # partagé avec la v1).
@@ -126,7 +126,7 @@ jobs:
       options: --ipc=host
     env:
       HOME: /root
-      V2_BASE: https://v2.amend.ink
+      V2_BASE: https://app.amend.ink
     strategy:
       fail-fast: false
       max-parallel: 1

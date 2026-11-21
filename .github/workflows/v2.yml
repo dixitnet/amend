@@ -2,7 +2,7 @@
 #   - rapides (T0 à T4, dont y/hub contre PostgreSQL et Redis) à chaque envoi
 #     qui touche v2/ ;
 #   - pile complète (T5) sur trois moteurs : Chromium, WebKit (Safari), Firefox ;
-#   - en ligne (T6) contre v2.amend.ink chaque nuit, à la demande, et après
+#   - en ligne (T6) contre app.amend.ink chaque nuit, à la demande, et après
 #     chaque envoi sur main, une fois le commit en ligne (WebSocket et ports compris, ce que la session de
 #     Claude ne peut pas faire). Secret du dépôt : V2_JETON_ESSAI (clé d'essai, 09/11/2026).
 name: v2
@@ -144,19 +144,19 @@ jobs:
       # 3 minutes, v1 puis v2) : sans cette attente, T6 tombe sur le
       # redémarrage de la v2 (502). On attend que la v2 serve le commit poussé,
       # puis on teste cette version-là.
-      - name: Attendre que v2.amend.ink serve ce commit
+      - name: Attendre que app.amend.ink serve ce commit
         if: github.event_name == 'push'
         run: |
           attendu="${GITHUB_SHA:0:7}"
           for i in $(seq 1 60); do
-            version=$(curl -fsS --max-time 10 https://v2.amend.ink/api/config 2>/dev/null | sed -n 's/.*"version":"\([0-9a-f]*\)".*/\1/p' || true)
-            if [ "$version" = "$attendu" ]; then echo "v2.amend.ink sert $attendu"; exit 0; fi
+            version=$(curl -fsS --max-time 10 https://app.amend.ink/api/config 2>/dev/null | sed -n 's/.*"version":"\([0-9a-f]*\)".*/\1/p' || true)
+            if [ "$version" = "$attendu" ]; then echo "app.amend.ink sert $attendu"; exit 0; fi
             echo "en ligne : ${version:-indisponible}, attendu : $attendu (essai $i/60)"
             sleep 15
           done
-          echo "::error::v2.amend.ink ne sert pas $attendu au bout de 15 minutes (journalctl -u amend-maj sur le VPS)"
+          echo "::error::app.amend.ink ne sert pas $attendu au bout de 15 minutes (journalctl -u amend-maj sur le VPS)"
           exit 1
-      - name: T6 (v2.amend.ink)
+      - name: T6 (app.amend.ink)
         run: npm run test:en-ligne
         env:
           V2_JETON_ESSAI: ${{ secrets.V2_JETON_ESSAI }}

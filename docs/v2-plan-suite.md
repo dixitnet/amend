@@ -18,7 +18,7 @@ Sources : audit complet du 10/11/2026 (`docs/v2-audits/2026-11-10-0657-audit-com
 | 9. Publication et back-office | **close (19/11)** (`docs/v2-revues/2026-11-19-etape-9-cloture.md`) : page publiée abandonnée (n° 27), back-office dans son périmètre (n° 20) |
 | Bascule de la v1 | pas planifiée |
 
-En ligne : v2.amend.ink, service fermé, ouvert à des invités réels depuis le 09/11.
+En ligne : app.amend.ink, service fermé, ouvert à des invités réels depuis le 09/11.
 
 ## 0. Déploiement (décidé le 10/11/2026, « 2 puis 1 »)
 
@@ -73,7 +73,7 @@ Export PDF, modèles de mise en page et modèles d'équipe : architecture et pla
 
 ## H. Bascule
 
-20. Conditions à fixer avec Sylvain : étapes 6 à 9 closes, sauvegarde éprouvée par une restauration, audit complet juste avant (règle du § 6), période d'essai réelle sur v2.amend.ink. Pas de migration des documents de la v1 (renoncement 1).
+20. Conditions à fixer avec Sylvain : étapes 6 à 9 closes, sauvegarde éprouvée par une restauration, audit complet juste avant (règle du § 6), période d'essai réelle sur app.amend.ink. Pas de migration des documents de la v1 (renoncement 1).
 
 ## Défauts signalés, à traiter plus tard
 

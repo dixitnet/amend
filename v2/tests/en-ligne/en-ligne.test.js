@@ -1,9 +1,9 @@
-// T6 : la v2 en ligne (v2.amend.ink), depuis le 09/11/2026 sans mot de passe
+// T6 : la v2 en ligne (app.amend.ink), depuis le 09/11/2026 sans mot de passe
 // de Caddy ni entrée de développement : service fermé (lien par courriel), et
 // comptes d'essai ouverts par la clé d'essai, seulement en @essai.amend.invalid.
 //   npm run test:en-ligne
 // Clé : V2_JETON_ESSAI (secret du dépôt dans GitHub). Dans la session de Claude,
-// le proxy ajoute lui-même la clé à toute requête vers v2.amend.ink, et ne
+// le proxy ajoute lui-même la clé à toute requête vers app.amend.ink, et ne
 // laisse passer ni WebSocket ni port autre que 80 et 443 : ces tests-là s'y
 // déclarent sautés, avec la raison.
 // Essai après chaque déploiement, depuis le VPS (11/11/2026, essayer.sh) : les
@@ -17,7 +17,7 @@ import net from 'node:net'
 import https from 'node:https'
 import dns from 'node:dns/promises'
 
-const BASE = (process.env.V2_BASE || 'https://v2.amend.ink').replace(/\/$/, '')
+const BASE = (process.env.V2_BASE || 'https://app.amend.ink').replace(/\/$/, '')
 const CLE = process.env.V2_JETON_ESSAI
 const DERRIERE_PROXY = !!(process.env.HTTPS_PROXY || process.env.https_proxy)
 /** L'en-tête de la clé d'essai : donné ici en CI ; ajouté par le proxy dans la session de Claude. */
@@ -126,7 +126,7 @@ sauf(
 // filtre pas le trafic de la machine vers sa propre adresse : y/hub, qui écoute
 // sur toutes les interfaces, y paraît ouvert. Ce contrôle n'a de sens que de
 // l'extérieur (fausse alerte du 11/11/2026) : il se joue quand la suite est
-// lancée depuis le Mac ; à la main, du Mac : `nc -vz -w 5 v2.amend.ink 4400`
+// lancée depuis le Mac ; à la main, du Mac : `nc -vz -w 5 app.amend.ink 4400`
 // (de même 4300, 5432, 6379) doit échouer.
 const DEPUIS_LE_SERVEUR = process.env.V2_DEPUIS_LE_SERVEUR === '1'
 
