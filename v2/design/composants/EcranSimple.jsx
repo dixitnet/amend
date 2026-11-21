@@ -17,6 +17,19 @@ export function EcranMessage({ titre, texte }) {
   )
 }
 
+/**
+ * Le cadre de la page de connexion (Sylvain, 21/11/2026) : son contenu au milieu de l'écran, en hauteur comme
+ * en largeur, avec une marge en haut et en bas, sur une colonne étroite. Les écrans qu'il porte (le lien par
+ * courriel ; en développement, l'entrée par un nom) y sont l'un sous l'autre.
+ */
+export function CadreConnexion({ children }) {
+  return (
+    <Container className="amend-connexion" {...REGLAGES.connexion.page}>
+      <Stack {...REGLAGES.connexion.pile}>{children}</Stack>
+    </Container>
+  )
+}
+
 export function EcranConnexion({ nomApplication, titre, explication, libelleNom, libelleBouton, surEntrer }) {
   const soumettre = (e) => {
     e.preventDefault()
@@ -27,11 +40,13 @@ export function EcranConnexion({ nomApplication, titre, explication, libelleNom,
     <Container>
       <Stack>
         {nomApplication ? (
-          <Title order={1}>
+          <Title order={1} {...REGLAGES.connexion.marque}>
             <Marque nom={nomApplication} />
           </Title>
         ) : null}
-        <Title order={nomApplication ? 2 : 1}>{titre}</Title>
+        <Title order={nomApplication ? 2 : 1} {...REGLAGES.connexion.titre}>
+          {titre}
+        </Title>
         <Text>{explication}</Text>
         <form onSubmit={soumettre}>
           <Stack>

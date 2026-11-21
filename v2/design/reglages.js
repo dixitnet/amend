@@ -162,6 +162,14 @@ export const REGLAGES = {
   // petits (Sylvain, 12/11/2026, variante vert / rouge). Cartes resserrées
   // (Sylvain, 12/11/2026 : « trop hautes ») : l'auteur et les boutons sur une
   // ligne, le passage dessous, espacements `xs`.
+  // La page de connexion (Sylvain, 21/11/2026, « 1, 2, 3, 4 ok ») : une colonne étroite, des marges en haut et
+  // en bas, des titres plus petits au format S (sous le seuil `sm`, celui du format S).
+  connexion: {
+    page: { size: 'xs', py: 'xl' },
+    pile: { gap: 'xl' },
+    marque: { fz: { base: 'h2', sm: 'h1' }, lh: { base: 'h2', sm: 'h1' } },
+    titre: { fz: { base: 'h3', sm: 'h2' }, lh: { base: 'h3', sm: 'h2' } },
+  },
   suggestions: {
     carte: { withBorder: true, p: 'xs', radius: 'md' },
     // La liste des cartes et le volet qui la porte : l'espacement `xs`, comme les autres volets.

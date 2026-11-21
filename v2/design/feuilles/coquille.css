@@ -72,6 +72,19 @@
   font-weight: var(--mantine-font-weight-bold);
 }
 
+/* réglage : css.connexion.centre */
+/* La page de connexion au milieu de l'écran, en hauteur (toute la hauteur visible, barres du navigateur
+   déduites) ; les écrans qu'elle porte n'ajoutent pas leur propre marge de côté. */
+.amend-connexion {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.amend-connexion .mantine-Container-root {
+  padding-inline: 0;
+}
+
 /* réglage : css.arbre.premierNiveau */
 /* Le premier niveau de l'arbre du volet « Documents » (Mes documents, les équipes, la corbeille…) en gras ;
    un document posé à ce niveau (résultat d'une recherche) reste en graisse ordinaire : seuls les espaces et

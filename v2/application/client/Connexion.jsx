@@ -1,6 +1,6 @@
 // L'écran de connexion (lien par courriel, nom en développement).
 import { useState } from 'react'
-import { EcranConnexion, EcranCourriel } from '../../design/index.js'
+import { CadreConnexion, EcranConnexion, EcranCourriel } from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
 import { t, envoyerJson } from './commun.js'
 
@@ -27,7 +27,7 @@ export function Connexion({ config, visee, surEntrerEnDev }) {
     />
   ) : null
   return (
-    <>
+    <CadreConnexion>
       {dev}
       <EcranCourriel
         nomApplication={config.dev ? null : t('application.nom')}
@@ -38,6 +38,6 @@ export function Connexion({ config, visee, surEntrerEnDev }) {
         message={message}
         surEnvoyer={envoyer}
       />
-    </>
+    </CadreConnexion>
   )
 }
