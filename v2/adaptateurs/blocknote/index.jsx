@@ -662,18 +662,34 @@ export function EditeurCollaboratif({
     // Le geste est le clic sur un passage commenté, que son fil soit déjà choisi ou non (le volet a pu
     // être refermé) : BlockNote choisit le fil, puis le volet s'ouvre sur sa carte. Les autres
     // changements de son état (le volet qui se ferme, un fil résolu) n'ouvrent rien.
+    // BlockNote choisit le fil d'après la sélection du texte, qui suit le clic plus ou moins vite selon le
+    // navigateur (sous WebKit, après l'événement « click » : le 21/11/2026, n'y regarder qu'à ce moment
+    // laissait le volet fermé). On retient donc l'instant du geste, et le volet s'ouvre dès que le fil est
+    // choisi, dans la seconde qui suit : tout de suite s'il l'est déjà, sinon au changement d'état.
+    const FENETRE_DU_CLIC_MS = 1000
+    let clic = 0
     let apresClic = null
-    const surClic = (e) => {
-      if (!e.target.closest?.('.bn-thread-mark')) return
-      clearTimeout(apresClic)
-      apresClic = setTimeout(() => etat.state.selectedThreadId && choisir(), 0)
+    const ouvrirSiChoisi = () => {
+      if (!clic || Date.now() - clic > FENETRE_DU_CLIC_MS || !etat.state.selectedThreadId) return
+      clic = 0
+      choisir()
     }
+    const surGeste = (e) => {
+      if (!e.target.closest?.('.bn-thread-mark')) return
+      clic = Date.now()
+      clearTimeout(apresClic)
+      apresClic = setTimeout(ouvrirSiChoisi, 0)
+    }
+    const abonnement = etat.subscribe(ouvrirSiChoisi)
     const dom = editeur.domElement
-    dom?.addEventListener('click', surClic)
+    // L'appui et le clic : selon le navigateur, la sélection suit l'un ou l'autre.
+    const GESTES = ['pointerdown', 'click']
+    for (const g of GESTES) dom?.addEventListener(g, surGeste)
     return () => {
       clearTimeout(attente)
       clearTimeout(apresClic)
-      dom?.removeEventListener('click', surClic)
+      for (const g of GESTES) dom?.removeEventListener(g, surGeste)
+      return typeof abonnement === 'function' ? abonnement() : abonnement?.unsubscribe?.()
     }
   }, [editeur, editeur.domElement, magasin])
 
