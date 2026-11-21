@@ -662,18 +662,51 @@ export function EditeurCollaboratif({
     // Le geste est le clic sur un passage commenté, que son fil soit déjà choisi ou non (le volet a pu
     // être refermé) : BlockNote choisit le fil, puis le volet s'ouvre sur sa carte. Les autres
     // changements de son état (le volet qui se ferme, un fil résolu) n'ouvrent rien.
+    // BlockNote choisit le fil d'après la sélection du texte, qui suit le clic plus ou moins vite selon le
+    // navigateur (sous WebKit, après l'événement « click » : le 21/11/2026, n'y regarder qu'à ce moment
+    // laissait le volet fermé). On retient donc l'instant du geste, et le volet s'ouvre dès que le fil est
+    // choisi, dans la seconde qui suit : au changement d'état, ou après un court délai s'il l'était déjà.
+    const FENETRE_DU_CLIC_MS = 1000
+    // Le temps laissé à la sélection pour suivre le geste, avant de conclure que le fil cliqué est
+    // celui qui était déjà choisi.
+    const MEME_FIL_MS = 250
+    let clic = 0
+    let avant = null
     let apresClic = null
-    const surClic = (e) => {
-      if (!e.target.closest?.('.bn-thread-mark')) return
+    const dansLaFenetre = () => clic && Date.now() - clic <= FENETRE_DU_CLIC_MS
+    // Le fil choisi a changé depuis le geste : c'est celui du passage cliqué.
+    const auChangement = () => {
+      const choisi = etat.state.selectedThreadId
+      if (!dansLaFenetre() || !choisi || choisi === avant) return
+      clic = 0
       clearTimeout(apresClic)
-      apresClic = setTimeout(() => etat.state.selectedThreadId && choisir(), 0)
+      choisir()
     }
+    // Il n'a pas changé : le passage cliqué est celui du fil déjà choisi (le volet a pu être refermé).
+    // Jamais avant ce délai : ouvrir plus tôt montrerait l'ancien fil quand la sélection tarde (audit partiel).
+    const sansChangement = () => {
+      if (!dansLaFenetre() || !etat.state.selectedThreadId) return
+      clic = 0
+      choisir()
+    }
+    const surGeste = (e) => {
+      if (!e.target.closest?.('.bn-thread-mark')) return
+      // L'appui puis le clic d'un même geste : l'état d'avant est celui du premier.
+      if (!dansLaFenetre()) avant = etat.state.selectedThreadId
+      clic = Date.now()
+      clearTimeout(apresClic)
+      apresClic = setTimeout(sansChangement, MEME_FIL_MS)
+    }
+    const abonnement = etat.subscribe(auChangement)
     const dom = editeur.domElement
-    dom?.addEventListener('click', surClic)
+    // L'appui et le clic : selon le navigateur, la sélection suit l'un ou l'autre.
+    const GESTES = ['pointerdown', 'click']
+    for (const g of GESTES) dom?.addEventListener(g, surGeste)
     return () => {
       clearTimeout(attente)
       clearTimeout(apresClic)
-      dom?.removeEventListener('click', surClic)
+      for (const g of GESTES) dom?.removeEventListener(g, surGeste)
+      return typeof abonnement === 'function' ? abonnement() : abonnement?.unsubscribe?.()
     }
   }, [editeur, editeur.domElement, magasin])
 

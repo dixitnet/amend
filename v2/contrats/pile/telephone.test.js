@@ -509,3 +509,43 @@ test('format S : « Se déconnecter » du menu « … » ferme la session et rev
   assert.equal(await p.locator('.bn-editor').count(), 0, 'le document n’est plus affiché')
   await p.context().close()
 })
+
+test('page de connexion : au milieu de l’écran, sans défilement de côté ; titres plus petits au format S, colonne étroite au format L (21/11/2026)', async () => {
+  const relever = async (contexte) => {
+    const ctx = await nav.newContext({ ...contexte, locale: 'fr-FR' })
+    const page = await ctx.newPage()
+    await page.goto(pile.url)
+    const titre = page.getByRole('heading', { name: 'Connexion', exact: true })
+    await titre.waitFor()
+    const r = await page.evaluate(() => {
+      const cadre = document.querySelector('.amend-connexion')
+      const b = cadre.getBoundingClientRect()
+      const pile = cadre.firstElementChild.getBoundingClientRect()
+      const marque = [...cadre.querySelectorAll('h1')].find((h) => h.textContent.includes('amend.ink'))
+      // En développement comme en ligne, la page porte la marque (sur l'entrée par un nom, ou sur le lien).
+      if (!marque) throw new Error('la marque « amend.ink » est absente de la page de connexion')
+      return {
+        defileDeCote: document.documentElement.scrollWidth > innerWidth,
+        largeur: Math.round(b.width),
+        ecran: innerWidth,
+        // Le contenu est à égale distance du haut et du bas, ou plus haut que l'écran (alors il défile).
+        dessus: Math.round(pile.top - b.top),
+        dessous: Math.round(b.bottom - pile.bottom),
+        marque: parseFloat(getComputedStyle(marque).fontSize),
+      }
+    })
+    r.titre = await titre.evaluate((e) => parseFloat(getComputedStyle(e).fontSize))
+    await ctx.close()
+    return r
+  }
+  const s = await relever(TELEPHONE)
+  const l = await relever({ viewport: { width: 1280, height: 800 } })
+  for (const r of [s, l]) {
+    assert.equal(r.defileDeCote, false)
+    assert.ok(Math.abs(r.dessus - r.dessous) <= 1, `centré en hauteur (${r.dessus} / ${r.dessous})`)
+    assert.ok(r.dessus >= 30, 'une marge en haut')
+  }
+  assert.ok(s.marque < l.marque && s.titre < l.titre, `titres plus petits au format S (${JSON.stringify([s, l])})`)
+  assert.equal(s.largeur, s.ecran, 'toute la largeur du téléphone')
+  assert.ok(l.largeur <= 600, `une colonne étroite sur grand écran (${l.largeur} px)`)
+})
