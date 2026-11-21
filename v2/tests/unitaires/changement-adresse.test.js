@@ -63,7 +63,8 @@ test('changement d’adresse : app.amend.ink sert l’application, v2.amend.ink 
     assert.match(bloc('app.amend.ink'), /handle \/collaboration\/\* \{\s+reverse_proxy localhost:4400/)
     // L'ancienne n'est plus qu'un renvoi, chemin gardé, daté.
     assert.equal(caddy.match(/^v2\.amend\.ink \{/gm).length, 1)
-    assert.match(bloc('v2.amend.ink'), /redir https:\/\/app\.amend\.ink\{uri\} permanent/)
+    // 308 : la méthode et le corps sont gardés (un connecteur Claude envoie des POST).
+    assert.match(bloc('v2.amend.ink'), /redir https:\/\/app\.amend\.ink\{uri\} 308/)
     assert.doesNotMatch(bloc('v2.amend.ink'), /reverse_proxy/)
     assert.match(caddy, /jusqu'au 31\/12\/2026/)
     // Trois lignes de v2.env, et elles seules.
@@ -148,4 +149,26 @@ test('changement d’adresse : un nom voisin n’est pas pris pour l’ancienne 
   }
   assert.equal(code, 1)
   assert.match(sortie, /--essai travaille sur des copies/)
+})
+
+test('changement d’adresse : un renvoi posé en 301 (avant le 21/11/2026) passe en 308, relancé une fois', () => {
+  const m = monter()
+  try {
+    m.lancer()
+    // L'état laissé par la première version du script.
+    const { caddy, env } = m.lire()
+    const ancien = caddy.replace('{uri} 308', '{uri} permanent')
+    const copie = monter(ancien, env)
+    try {
+      const r = copie.lancer()
+      assert.equal(r.code, 0, r.sortie)
+      assert.match(r.sortie, /3\/3 le renvoi de v2\.amend\.ink garde maintenant la méthode \(308\)/)
+      assert.equal(copie.lire().caddy, caddy)
+      assert.match(copie.lancer().sortie, /3\/3 v2\.amend\.ink renvoie déjà/)
+    } finally {
+      copie.fermer()
+    }
+  } finally {
+    m.fermer()
+  }
 })
