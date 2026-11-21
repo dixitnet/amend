@@ -45,7 +45,7 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     equipe: 'Éditions',
     numero: '2.023',
     commit: 'abc1234',
-    lien: 'https://v2.amend.ink/#x',
+    lien: 'https://app.amend.ink/#x',
     texte: 'Carla ajoute « loin »',
     corrections: 3,
     commentaires: 1,
