@@ -37,25 +37,23 @@ export function EcranConnexion({ nomApplication, titre, explication, libelleNom,
     if (String(nom || '').trim()) surEntrer(String(nom).trim())
   }
   return (
-    <Container>
-      <Stack>
-        {nomApplication ? (
-          <Title order={1} {...REGLAGES.connexion.marque}>
-            <Marque nom={nomApplication} />
-          </Title>
-        ) : null}
-        <Title order={nomApplication ? 2 : 1} {...REGLAGES.connexion.titre}>
-          {titre}
+    <Stack>
+      {nomApplication ? (
+        <Title order={1} {...REGLAGES.connexion.marque}>
+          <Marque nom={nomApplication} />
         </Title>
-        <Text>{explication}</Text>
-        <form onSubmit={soumettre}>
-          <Stack>
-            <TextInput name="nom" label={libelleNom} autoComplete="name" required autoFocus />
-            <Button type="submit">{libelleBouton}</Button>
-          </Stack>
-        </form>
-      </Stack>
-    </Container>
+      ) : null}
+      <Title order={nomApplication ? 2 : 1} {...REGLAGES.connexion.titre}>
+        {titre}
+      </Title>
+      <Text>{explication}</Text>
+      <form onSubmit={soumettre}>
+        <Stack>
+          <TextInput name="nom" label={libelleNom} autoComplete="name" required autoFocus />
+          <Button type="submit">{libelleBouton}</Button>
+        </Stack>
+      </form>
+    </Stack>
   )
 }
 

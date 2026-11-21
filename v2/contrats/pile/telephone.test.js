@@ -522,6 +522,8 @@ test('page de connexion : au milieu de l’écran, sans défilement de côté ; 
       const b = cadre.getBoundingClientRect()
       const pile = cadre.firstElementChild.getBoundingClientRect()
       const marque = [...cadre.querySelectorAll('h1')].find((h) => h.textContent.includes('amend.ink'))
+      // En développement comme en ligne, la page porte la marque (sur l'entrée par un nom, ou sur le lien).
+      if (!marque) throw new Error('la marque « amend.ink » est absente de la page de connexion')
       return {
         defileDeCote: document.documentElement.scrollWidth > innerWidth,
         largeur: Math.round(b.width),
@@ -544,6 +546,6 @@ test('page de connexion : au milieu de l’écran, sans défilement de côté ; 
     assert.ok(r.dessus >= 30, 'une marge en haut')
   }
   assert.ok(s.marque < l.marque && s.titre < l.titre, `titres plus petits au format S (${JSON.stringify([s, l])})`)
-  assert.equal(s.largeur, 390, 'toute la largeur du téléphone')
+  assert.equal(s.largeur, s.ecran, 'toute la largeur du téléphone')
   assert.ok(l.largeur <= 600, `une colonne étroite sur grand écran (${l.largeur} px)`)
 })
