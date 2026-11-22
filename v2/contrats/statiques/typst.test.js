@@ -530,3 +530,36 @@ test('« TàT 140 × 220 » (Sylvain, 19/11/2026) : parties et chapitres en bell
     rmSync(dossier, { recursive: true, force: true })
   }
 })
+
+test('jeu en bas de page (22/11/2026) : une page qui commence par un intertitre garde sa dernière ligne ; une page de texte seul n’en gagne pas', async () => {
+  // Le cas d'un export réel : l'intertitre en haut de page, plus grand que le texte, décale les lignes de
+  // quelques points ; la zone de texte, taillée au point près, refusait alors la dernière ligne de la page.
+  const a5 = structuredClone(REPRISE_MODELES.find((r) => r.id === 'a5').valeurs)
+  Object.assign(a5.styles.titre3, { corps: 14, gras: true, italique: false, espaceAvant: 12, espaceApres: 6 })
+  const { lignes } = grille(a5)
+  const ligne = (i) => ({ type: 'paragraph', content: [texte(`Ligne${i}`)] })
+  const lignesDeLaPage2 = async (debut) => {
+    const editeur = nouvelEditeur()
+    editeur.replaceBlocks(editeur.document, [
+      ligne(0),
+      { type: 'pageBreak' },
+      ...debut,
+      ...Array.from({ length: lignes + 5 }, (_, i) => ligne(i + 1)),
+    ])
+    const { source, fichiers } = await versTypst(editeur, editeur.document, a5, { titre: 'E', langue: 'fr' })
+    const pdf = await compilerPdf(source, { fichiers, polices: polices(a5), wasm: wasm() })
+    const dossier = mkdtempSync(join(tmpdir(), 'jeu-'))
+    try {
+      writeFileSync(join(dossier, 'a.pdf'), pdf)
+      const page = execFileSync('pdftotext', ['-f', '2', '-l', '2', join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
+      return (page.match(/Ligne\d+/g) ?? []).length
+    } finally {
+      rmSync(dossier, { recursive: true, force: true })
+    }
+  }
+  // Texte seul : exactement les lignes de la grille, pas une de plus.
+  assert.equal(await lignesDeLaPage2([]), lignes)
+  // Un intertitre en tête : il tient la place d'une ligne, les autres suivent jusqu'à la dernière.
+  const titre = { type: 'heading', props: { level: 3 }, content: [texte('Un intertitre')] }
+  assert.equal(await lignesDeLaPage2([titre]), lignes - 1)
+})

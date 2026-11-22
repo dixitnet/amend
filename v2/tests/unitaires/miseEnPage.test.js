@@ -41,8 +41,10 @@ test('le gabarit : page, texte sur la grille, titres comptés en lignes', () => 
   const g = gabaritTypst(MODELE, { titre: 'Un « titre »', langue: 'fr' })
   assert.match(g, /^#set document\(title: "Un « titre »"\)\n/)
   assert.match(g, /width: 120mm, height: 180mm/)
-  assert.match(g, /margin: \(top: 18mm, bottom: 26\.727mm, inside: 13mm, outside: 13mm\)/)
-  assert.match(g, /footer-descent: 8\.727mm/)
+  // La marge de pied de la grille (26,727 mm), moins le jeu d'un demi-corps (5,25 pt, soit 1,852 mm) ;
+  // la descente du numéro de page baisse d'autant : il reste à 18 mm du bas (22/11/2026).
+  assert.match(g, /margin: \(top: 18mm, bottom: 24\.875mm, inside: 13mm, outside: 13mm\)/)
+  assert.match(g, /footer-descent: 6\.875mm/)
   // Boîte de ligne de 1 em : le pas vaut exactement l'interligne.
   assert.match(g, /top-edge: 0\.8em, bottom-edge: -0\.2em, fill: cmyk\(0%, 0%, 0%, 100%\)/)
   assert.match(g, /leading: 12\.4pt - 1em, spacing: 12\.4pt - 1em, first-line-indent: \(amount: 4\.5mm, all: true\)/)
@@ -529,4 +531,29 @@ test('retrait de première ligne d’un style de bloc (citation) : son texte dev
   )
   m.styles.citation.alinea = 0
   assert.match(gabaritTypst(m), /#show quote\.where\(block: true\): it => .*align\(left, it\.body\)\)/)
+})
+
+test('jeu en bas de page (22/11/2026) : un demi-corps, jamais une ligne de plus, et le numéro de page ne bouge pas', () => {
+  const marges = (m) => {
+    const g = gabaritTypst(m)
+    const [, bas] = /bottom: ([\d.]+)mm/.exec(g)
+    const [, descente] = /footer-descent: ([\d.]+)mm/.exec(g)
+    return { bas: Number(bas), descente: Number(descente) }
+  }
+  const PT = 25.4 / 72
+  for (const m of [MODELE, { ...MODELE, grille: { corps: 9, interligne: 14 } }]) {
+    const { margeBas, descenteFolio, pas } = grille(m)
+    const { bas, descente } = marges(m)
+    const jeu = margeBas - bas
+    assert.ok(Math.abs(jeu - (m.grille.corps / 2) * PT) < 0.001, 'un demi-corps')
+    // Le texte peut descendre de ce jeu, mais la ligne suivante de la grille ne tient pas : il lui faudrait un pas entier.
+    assert.ok(jeu + ((pas - m.grille.corps) / 2) * PT < pas * PT)
+    // Le numéro de page reste à la même distance du bas de la page : la marge de pied moins la descente.
+    assert.ok(Math.abs(bas - descente - m.folio.bas) < 0.002, `numéro de page à ${bas - descente} mm du bas`)
+    assert.ok(Math.abs(margeBas - descenteFolio - m.folio.bas) < 0.002)
+  }
+  // Un numéro de page très près du texte : le jeu s'efface plutôt que de l'atteindre.
+  const serre = { ...MODELE, folio: { ...MODELE.folio, bas: grille(MODELE).margeBas - 1.2 } }
+  const { descente } = marges(serre)
+  assert.ok(descente >= 0.999, `la descente reste d'au moins 1 mm (${descente})`)
 })
