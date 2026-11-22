@@ -85,3 +85,14 @@ test('les autres modèles gardent leur rendu (19/11/2026) : titre 2 dans le text
     assert.equal(m.styles.bibliographie.corps, m.grille.corps, 'la bibliographie au corps du texte')
   }
 })
+
+test('séparateur de scène « trois points » (Sylvain, 22/11/2026) : un réglage permis, trois puces centrées dans le gabarit', () => {
+  const m = { ...a4, separateur: 'points' }
+  assert.equal(verifierModele(m, REGLES_MODELES).ok, true)
+  assert.match(gabaritTypst(m), /#let amend-separateur = align\(center, par\(.*"• • •"\)\)/)
+  assert.equal(
+    verifierModele({ ...a4, separateur: 'pointilles' }, REGLES_MODELES).ok,
+    false,
+    'un signe inconnu est refusé',
+  )
+})
