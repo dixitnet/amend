@@ -546,8 +546,9 @@ test('jeu en bas de page (22/11/2026) : un demi-corps, jamais une ligne de plus,
     const { bas, descente } = marges(m)
     const jeu = margeBas - bas
     assert.ok(Math.abs(jeu - (m.grille.corps / 2) * PT) < 0.001, 'un demi-corps')
-    // Le texte peut descendre de ce jeu, mais la ligne suivante de la grille ne tient pas : il lui faudrait un pas entier.
-    assert.ok(jeu + ((pas - m.grille.corps) / 2) * PT < pas * PT)
+    // Avec le blanc d'origine sous la dernière ligne, la zone gagne un demi-interligne en tout : moins que
+    // l'interligne entier qu'il faudrait à une ligne de plus (le contrat Typst le vérifie sur un PDF).
+    assert.ok(Math.abs(jeu + ((pas - m.grille.corps) / 2) * PT - (pas / 2) * PT) < 0.001)
     // Le numéro de page reste à la même distance du bas de la page : la marge de pied moins la descente.
     assert.ok(Math.abs(bas - descente - m.folio.bas) < 0.002, `numéro de page à ${bas - descente} mm du bas`)
     assert.ok(Math.abs(margeBas - descenteFolio - m.folio.bas) < 0.002)
@@ -556,4 +557,7 @@ test('jeu en bas de page (22/11/2026) : un demi-corps, jamais une ligne de plus,
   const serre = { ...MODELE, folio: { ...MODELE.folio, bas: grille(MODELE).margeBas - 1.2 } }
   const { descente } = marges(serre)
   assert.ok(descente >= 0.999, `la descente reste d'au moins 1 mm (${descente})`)
+  // Sans numéro de page en bas, rien ne s'oppose au jeu, même si sa place réglée est tout près du texte.
+  const sans = marges({ ...serre, folio: { ...serre.folio, position: 'aucun' } })
+  assert.ok(Math.abs(grille(serre).margeBas - sans.bas - (MODELE.grille.corps / 2) * PT) < 0.001)
 })
