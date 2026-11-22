@@ -78,6 +78,7 @@ const NOMS_OPTIONS = {
     blanc: () => t('modeles.options.separateur.blanc'),
     asterisme: () => t('modeles.options.separateur.asterisme'),
     etoiles: () => t('modeles.options.separateur.etoiles'),
+    points: () => t('modeles.options.separateur.points'),
     trait: () => t('modeles.options.separateur.trait'),
   },
   chapitre: {

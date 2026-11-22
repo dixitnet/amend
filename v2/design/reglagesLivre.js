@@ -104,7 +104,7 @@ const REGLABLES = [
   ...reglagesDuStyle('texte', ['gras', 'italique', 'alignement']),
   ...reglagesDuStyle('texte', ['alinea']),
   { cle: 'cesure', groupe: 'texte', type: 'booleen' },
-  { cle: 'separateur', groupe: 'texte', type: 'choix', options: ['blanc', 'asterisme', 'etoiles', 'trait'] },
+  { cle: 'separateur', groupe: 'texte', type: 'choix', options: ['blanc', 'asterisme', 'etoiles', 'points', 'trait'] },
   ...reglagesDuStyle('citation', BLOC),
   // La bibliographie (Sylvain, 19/11/2026) : un style de paragraphe, en retrait suspendu.
   ...reglagesDuStyle('bibliographie', BLOC),
