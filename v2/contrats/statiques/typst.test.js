@@ -440,11 +440,12 @@ test('options de mise en page (12/11/2026) : en-têtes, numéro de page en haut,
       separateur: 'trait',
     },
     { folio: { ...modele.folio, position: 'aucun' }, separateur: 'etoiles' },
+    { folio: { ...modele.folio, position: 'aucun' }, separateur: 'points' },
   ]) {
     const m = { ...modele, ...variante }
     const { source, fichiers } = await versTypst(editeur, editeur.document, m, { titre: 'Essai', langue: 'fr' })
     // Ce que chaque variante demande est bien dans la source.
-    const attendu = { asterisme: '⁂', trait: '—', etoiles: '* * *' }[variante.separateur]
+    const attendu = { asterisme: '⁂', trait: '—', etoiles: '* * *', points: '• • •' }[variante.separateur]
     assert.ok(source.includes(`"${attendu}"`), `séparateur ${variante.separateur}`)
     if (variante.folio.position === 'haut-exterieur') assert.match(source, /header: context \{.*place\(/)
     if (variante.folio.position === 'aucun') assert.match(source, /footer: none, header: none/)

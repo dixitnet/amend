@@ -526,6 +526,7 @@
         "blanc": "Blank line",
         "asterisme": "Asterism ⁂",
         "etoiles": "Three asterisks * * *",
+        "points": "Three dots • • •",
         "trait": "Dash —"
       },
       "chapitre": {

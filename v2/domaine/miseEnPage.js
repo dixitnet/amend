@@ -435,9 +435,10 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
 const debutChapitre = (c) => c?.debut ?? (c?.bellePage === false ? 'page' : 'belle-page')
 
 /** Les séparateurs de scène (v1, `SEPARATEURS`) et leur ligne de Typst. */
-const SEPARATEURS = Object.freeze(['blanc', 'asterisme', 'etoiles', 'trait'])
+const SEPARATEURS = Object.freeze(['blanc', 'asterisme', 'etoiles', 'points', 'trait'])
 function separateurTypst(choix, pas) {
-  const signe = { asterisme: '⁂', etoiles: '* * *', trait: '—' }[choix]
+  // « points » : trois puces espacées (Sylvain, 22/11/2026).
+  const signe = { asterisme: '⁂', etoiles: '* * *', points: '• • •', trait: '—' }[choix]
   if (!signe) return `v(${pt(pas)})`
   return `align(center, par(first-line-indent: ${ZERO}, justify: false, ${chaineTypst(signe)}))`
 }
