@@ -1,4 +1,5 @@
 // Les aides de l'écran d'édition : zoom mémorisé, textes des ajouts et filet de sécurité.
+import { dansLaBarreMobile } from '../../adaptateurs/blocknote/palette.js'
 import { Component, useEffect, useState } from 'react'
 import { PictoDe } from '../../design/index.js'
 import { REGLAGES } from '../../design/reglages.js'
@@ -58,14 +59,17 @@ export function useEtatAffiche(etat, enLigne) {
 /**
  * Au format S, la palette flottante est cachée pendant le défilement (attribut
  * `data-amend-defile` sur la page, que la feuille du téléphone lit) et revient
- * quand il s'arrête (13/11/2026).
+ * quand il s'arrête (13/11/2026). Le glissement de la barre elle-même ne compte pas.
  */
 export function useDefilementEnCours(actif) {
   useEffect(() => {
     if (!actif) return undefined
     const racine = document.documentElement
     let attente
-    const defile = () => {
+    const defile = (e) => {
+      // Le glissement de la barre elle-même, pour atteindre un bouton hors de l'écran, n'est pas un
+      // défilement de la page : la cacher alors la faisait clignoter et l'empêchait de glisser (22/11/2026).
+      if (dansLaBarreMobile(e?.target)) return
       racine.setAttribute('data-amend-defile', '')
       clearTimeout(attente)
       attente = setTimeout(() => racine.removeAttribute('data-amend-defile'), REGLAGES.paletteMobile.reapparitionMs)

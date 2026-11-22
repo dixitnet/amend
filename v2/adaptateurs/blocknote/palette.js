@@ -39,3 +39,10 @@ export function boutonsGardesEnSuggestion(boutons) {
 
 // Au format S (téléphone), la barre garde le choix du style (titre, citation, liste…),
 // comme Docs : elle défile en largeur (Sylvain, 17/11/2026 ; retiré le 12/11, rétabli).
+
+/**
+ * Une cible d'événement est-elle dans la barre de mise en forme du téléphone (celle de BlockNote, rendue
+ * hors de l'éditeur) ? La barre défile en largeur pour atteindre ses boutons : ce glissement n'est pas un
+ * défilement de la page (22/11/2026).
+ */
+export const dansLaBarreMobile = (cible) => Boolean(cible?.closest?.('.bn-mobile-formatting-toolbar'))

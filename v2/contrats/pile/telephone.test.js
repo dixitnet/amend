@@ -247,10 +247,25 @@ test('format S : la palette flottante est cachée pendant le défilement et réa
   await p.evaluate(() => {
     const barre = document.createElement('div')
     barre.className = 'bn-mobile-formatting-toolbar'
-    barre.textContent = 'barre'
+    // Comme celle de BlockNote : une rangée de boutons plus large que l'écran, qui glisse de côté.
+    const rangee = document.createElement('div')
+    rangee.id = 'rangee-de-la-barre'
+    rangee.style.cssText = 'overflow-x: auto; white-space: nowrap'
+    rangee.textContent = 'bouton '.repeat(200)
+    barre.append(rangee)
     document.body.append(barre)
   })
   const palette = p.locator('.bn-mobile-formatting-toolbar')
+  assert.equal(await palette.evaluate((e) => getComputedStyle(e).visibility), 'visible')
+  // Faire glisser la barre vers un bouton hors de l'écran ne la cache pas (22/11/2026 : elle clignotait).
+  const glisse = await p.evaluate(async () => {
+    const rangee = document.getElementById('rangee-de-la-barre')
+    rangee.scrollLeft = 300
+    await new Promise((r) => setTimeout(r, 200))
+    return { position: rangee.scrollLeft, cachee: document.documentElement.hasAttribute('data-amend-defile') }
+  })
+  assert.ok(glisse.position > 0, 'la barre a glissé')
+  assert.equal(glisse.cachee, false, 'le glissement de la barre ne la cache pas')
   assert.equal(await palette.evaluate((e) => getComputedStyle(e).visibility), 'visible')
   await p.evaluate(() => document.dispatchEvent(new Event('scroll')))
   assert.equal(await p.evaluate(() => document.documentElement.hasAttribute('data-amend-defile')), true)
