@@ -235,6 +235,15 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     ...modele.enTete,
   }
   const { pas, margeBas, descenteFolio } = grille(modele)
+  // Le jeu en bas de page (22/11/2026). La zone de texte de la grille est taillée pour ses n lignes, à moins
+  // de 2 pt près : un intertitre en haut de page (plus grand que le texte) ou une citation à son propre corps
+  // décalent les lignes de quelques points, et la dernière ligne de la page était refusée (une citation de
+  // trois lignes renvoyée seule à la page suivante). La zone descend donc d'un demi-corps de plus : la ligne
+  // n tient jusqu'à ce décalage, la ligne n + 1 jamais (il lui faudrait un interligne entier). Le numéro de
+  // page ne bouge pas ; le jeu s'efface s'il devait l'atteindre (un numéro en bas seulement : en haut ou
+  // absent, rien ne s'oppose à la descente du texte).
+  const folioEnBas = f.position === 'bas-centre' || f.position === 'bas-exterieur'
+  const jeu = Math.max(0, Math.min(g.corps / 2 / PT_PAR_MM, (folioEnBas ? descenteFolio : margeBas) - 1))
   const texte = styleDe(modele, 'texte')
   const t1 = styleDe(modele, 'titre1')
   const ecart = `${pt(pas)} - ${em(1)}`
@@ -341,8 +350,9 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
   if (titre || auteur) lignes.push(`#set document(${proprietes.filter(Boolean).join(', ')})`)
   lignes.push(
     `#set page(width: ${mm(page.largeur)}, height: ${mm(page.hauteur)}, ` +
-      `margin: (top: ${mm(marges.haut)}, bottom: ${mm(margeBas)}, inside: ${mm(marges.interieure)}, outside: ${mm(marges.exterieure)}), ` +
-      `footer-descent: ${mm(descenteFolio)}, ` +
+      `margin: (top: ${mm(marges.haut)}, bottom: ${mm(margeBas - jeu)}, inside: ${mm(marges.interieure)}, outside: ${mm(marges.exterieure)}), ` +
+      // Jamais négative (un modèle sans numéro en bas, dont la place réglée est tout près du texte).
+      `footer-descent: ${mm(Math.max(0, descenteFolio - jeu))}, ` +
       (enBas
         ? `footer: context { let p = here().page(); ${blanche}${ouverture}` +
           `if not blanche and ${folioVisible} { align(${f.position === 'bas-centre' ? 'center' : cote} + top, text(top-edge: "baseline", ${folio})) } }`

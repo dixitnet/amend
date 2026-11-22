@@ -51,3 +51,9 @@ Décisions de Sylvain (`docs/v2-modeles-140x220-plan.md`), à partir d'un livre 
 - **Reprise** : un modèle enregistré avant ce jour garde son rendu. Ce qui lui manque se déduit de lui (`completerModele`) : titre 2 dans le texte, en-têtes en italique au corps du texte, bibliographie au corps du texte.
 - Modèle de l'instance « TàT 140 × 220 », créé une fois au démarrage (`livre.reprise`).
 - Écartés : en-tête « auteur », ornement sous le titre, numérotation automatique des chapitres, grand chiffre de partie, demi-gras, pages liminaires composées.
+
+## Complément du 22/11/2026 : un jeu en bas de page
+
+Constat sur un export réel (modèle « A5 Etat », 30 lignes) : une citation de trois lignes partait seule à la page suivante alors que deux lignes restaient libres. La zone de texte est taillée pour les n lignes de la grille à moins de 2 pt près (la moitié du blanc entre deux lignes) ; depuis que les espaces des styles sont en points (15/11/2026), un intertitre en haut de page, plus grand que le texte, ou une citation à son propre corps décalent les lignes de quelques points, et la dernière ligne de la page est refusée. Le moteur ne coupant pas un paragraphe de trois lignes en 2 + 1, le bloc part entier.
+
+Décision de Sylvain (« 2, termine le correctif ») : la zone de texte descend d'**un demi-corps** de plus (`gabaritTypst`, marge de pied de la page moins ce jeu). La ligne n tient jusqu'à ce décalage ; la ligne n + 1 ne tient jamais (il lui faudrait un interligne entier). Le nombre de lignes déduit de la marge basse, la marge affichée au formulaire et la place du numéro de page ne changent pas ; le jeu s'efface s'il devait atteindre le numéro de page. Effet sur les documents existants : des pages qui perdaient leur dernière ligne la retrouvent, la pagination peut donc remonter un peu.
