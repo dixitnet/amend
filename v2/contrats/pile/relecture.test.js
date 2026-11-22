@@ -698,6 +698,15 @@ test('clic sur une correction dans le texte : le volet s’ouvre sur « Correcti
   assert.equal(await p.getByRole('tab', { name: /Corrections/ }).getAttribute('aria-selected'), 'true')
   // Une autre correction, en haut du texte : la liste remonte jusqu'à sa carte.
   assert.deepEqual(constat(await cliquer(0)), attendu(0))
+  // Une sélection étendue jusqu'à une correction (majuscule + clic) n'ouvre rien : le volet reste fermé.
+  await boutonVolet.click()
+  await attendre(400)
+  assert.equal(await voletOuvert(), false)
+  await p.locator('.bn-editor .bn-inline-content').first().click()
+  await attendre(300)
+  await marques.nth(3).click({ modifiers: ['Shift'] })
+  await attendre(1200)
+  assert.equal(await voletOuvert(), false, 'une sélection étendue n’ouvre pas le volet')
   if (process.env.CAPTURE) await p.screenshot({ path: `${process.env.CAPTURE}/correction-choisie.png` })
   await p.context().close()
   await c.context().close()

@@ -592,7 +592,10 @@ export function EditeurCollaboratif({
       } catch {
         return
       }
-      const indice = donnee.findIndex((s) => position >= s.debut && position <= s.fin)
+      // La correction qui contient cette position ; deux corrections qui se touchent partagent leur
+      // frontière : celle qui commence là l'emporte sur celle qui s'y termine.
+      let indice = donnee.findIndex((s) => position >= s.debut && position < s.fin)
+      if (indice < 0) indice = donnee.findIndex((s) => position === s.fin)
       if (indice >= 0) surSuggestion.current(indice)
     }
     const dom = editeur.domElement
