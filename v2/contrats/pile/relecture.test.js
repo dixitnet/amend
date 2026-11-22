@@ -642,3 +642,63 @@ test('clic sur un passage commenté : le volet s’ouvre sur « Commentaires »,
   if (process.env.CAPTURE) await p.screenshot({ path: `${process.env.CAPTURE}/fil-choisi.png` })
   await p.context().close()
 })
+
+test('clic sur une correction dans le texte : le volet s’ouvre sur « Corrections », la liste défile jusqu’à sa carte, qui est en surbrillance (22/11/2026)', async () => {
+  const N = 14
+  const { p, c } = await documentAvecSuggestions('correction-choisie', N)
+  const cartes = p.locator('.amend-suggestions-liste > li')
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await cartes.count()) < N;) await attendre(200)
+  assert.equal(await cartes.count(), N)
+  const boutonVolet = p.getByRole('button', { name: 'Corrections, commentaires et Margo (IA)' })
+  const voletOuvert = async () => (await boutonVolet.getAttribute('aria-expanded')) === 'true'
+  const etat = () =>
+    p.evaluate(() => {
+      const liste = document.querySelector('.amend-suggestions-liste')
+      const active = liste?.querySelector('[data-active]')
+      const cartes = [...(liste?.children ?? [])]
+      const visible = (e) => {
+        if (!e) return false
+        let d = e.parentElement
+        while (d && !(d.scrollHeight > d.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(d).overflowY)))
+          d = d.parentElement
+        const b = (d ?? document.documentElement).getBoundingClientRect()
+        const r = e.getBoundingClientRect()
+        return r.top >= b.top - 1 && r.bottom <= b.bottom + 1
+      }
+      return {
+        rang: active ? cartes.indexOf(active) : null,
+        visible: visible(active),
+        fond: active ? getComputedStyle(active).backgroundColor : null,
+        ordinaire: cartes.find((x) => x !== active)
+          ? getComputedStyle(cartes.find((x) => x !== active)).backgroundColor
+          : null,
+      }
+    })
+  // Les corrections de Carla sont les « x » ajoutés en fin de chaque ligne, dans l'ordre du texte.
+  const marques = p.locator('.bn-editor ins .bn-suggestion-mark')
+  const cliquer = async (i) => {
+    await marques.nth(i).click()
+    for (const t0 = Date.now(); Date.now() - t0 < 8000; await attendre(200)) {
+      const vu = await etat()
+      if ((await voletOuvert()) && vu.rang === i && vu.visible) break
+    }
+    await attendre(400)
+    return { ...(await etat()), ouvert: await voletOuvert() }
+  }
+  const attendu = (i) => ({ ouvert: true, rang: i, visible: true })
+  const constat = ({ ouvert, rang, visible }) => ({ ouvert, rang, visible })
+  // Volet fermé, onglet « Commentaires » laissé ouvert avant : le clic rouvre le volet sur « Corrections ».
+  await p.getByRole('tab', { name: /Commentaires/ }).click()
+  if (await voletOuvert()) await boutonVolet.click()
+  await attendre(400)
+  assert.equal(await voletOuvert(), false)
+  const derniere = await cliquer(N - 1)
+  assert.deepEqual(constat(derniere), attendu(N - 1))
+  assert.notEqual(derniere.fond, derniere.ordinaire, 'la carte choisie se distingue des autres')
+  assert.equal(await p.getByRole('tab', { name: /Corrections/ }).getAttribute('aria-selected'), 'true')
+  // Une autre correction, en haut du texte : la liste remonte jusqu'à sa carte.
+  assert.deepEqual(constat(await cliquer(0)), attendu(0))
+  if (process.env.CAPTURE) await p.screenshot({ path: `${process.env.CAPTURE}/correction-choisie.png` })
+  await p.context().close()
+  await c.context().close()
+})

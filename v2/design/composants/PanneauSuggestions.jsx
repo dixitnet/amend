@@ -13,6 +13,7 @@
 // se consulte seulement : ni Accepter, ni Refuser, ni leurs variantes « Tout »
 // (le correcteur voit tout, sans arbitrer ; Sylvain, 12/11/2026).
 import { Stack, Group, Text, Button, Paper, UnstyledButton, ColorSwatch } from '@mantine/core'
+import { useEffect, useRef } from 'react'
 import { REGLAGES } from '../reglages.js'
 
 /** Le passage : ce qui est supprimé, puis ce qui est ajouté. */
@@ -39,8 +40,22 @@ export function PanneauSuggestions({
 }) {
   const { carte, liste, pile, entete, auteur, signature, pastille, boutons, accepter, refuser } = REGLAGES.suggestions
   const arbitre = Boolean(surAccepter)
+  // La carte active reste à l'écran : la liste défile jusqu'à elle quand elle est choisie depuis le texte
+  // (22/11/2026). Le volet peut s'ouvrir à l'instant : la carte est attendue un court moment.
+  const racine = useRef(null)
+  useEffect(() => {
+    if (active === null || active === undefined) return undefined
+    let attente = null
+    const montrer = (essais) => {
+      const carte = racine.current?.querySelector('[data-active]')
+      if (carte?.offsetParent) return carte.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      if (essais > 0) attente = setTimeout(() => montrer(essais - 1), 100)
+    }
+    montrer(20)
+    return () => clearTimeout(attente)
+  }, [active])
   return (
-    <Stack component="section" aria-label={titre} {...liste}>
+    <Stack component="section" aria-label={titre} ref={racine} {...liste}>
       {/* Pas de titre visible (« 45 suggestions » : le nombre est sur l'onglet ;
           Sylvain, 12/11/2026) : il nomme la section pour les lecteurs d'écran,
           et se lit seulement quand la liste est vide (« Aucune correction »). */}

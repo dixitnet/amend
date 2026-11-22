@@ -313,6 +313,8 @@ function itemsDuMenu(editeur, table, textesTitres) {
  *   `nombre` : en Éditer et Corriger, la longueur de la liste ; en Lire, un compte refait
  *   à l'ouverture, puis chaque minute ou après 30 s de repos ; `montrer(s)` fait
  *   défiler le texte jusqu'à la suggestion, comme BlockNote pour un commentaire
+ * @param {(indice: number) => void} [p.surSuggestionChoisie] rappelé quand on clique dans le texte sur une
+ *   correction : son rang dans la liste donnée à `surSuggestions` (l'application ouvre le volet sur sa carte)
  * @param {() => void} [p.surFilChoisi] rappelé quand un fil est choisi (un clic sur un
  *   passage commenté) : l'application ouvre l'onglet « Commentaires », où il se lit
  * @param {() => void} [p.surCarteDeFil] rappelé quand on clique une carte de la liste des fils (hors
@@ -369,6 +371,7 @@ export function EditeurCollaboratif({
   surSuggestions,
   surNombreFils,
   surFilChoisi,
+  surSuggestionChoisie,
   surCarteDeFil,
   historique = false,
   peutRestaurer = false,
@@ -519,6 +522,8 @@ export function EditeurCollaboratif({
     if (afficheur && auteurs) poserAuteurs(afficheur, auteurs)
   }, [afficheur, auteurs])
 
+  const surSuggestion = useRef(surSuggestionChoisie)
+  surSuggestion.current = surSuggestionChoisie
   // La liste des suggestions : en Éditer et Corriger (l'éditeur les montre
   // alors) ; en Lire, seulement s'il y en a, d'après l'afficheur.
   useEffect(() => {
@@ -571,6 +576,27 @@ export function EditeurCollaboratif({
       repos = setTimeout(recompter, COMPTE_AU_REPOS)
       signaler()
     }
+    // Un clic dans le texte sur une correction (un ajout ou une suppression proposés) : sa carte dans la
+    // liste, que l'application montre, comme pour un passage commenté (22/11/2026). Un simple clic seulement :
+    // une sélection étendue sur le texte n'ouvre rien.
+    const surClic = (e) => {
+      if (!affichees || !surSuggestion.current || !e.target.closest?.('.bn-suggestion-mark, .bn-suggestion-node'))
+        return
+      const vue = editeur.prosemirrorView
+      // La sélection du navigateur, à jour dès l'appui dans tous les moteurs (celle de l'éditeur peut suivre
+      // avec retard sous WebKit).
+      if (!vue || document.getSelection()?.isCollapsed === false) return
+      let position
+      try {
+        position = vue.posAtDOM(e.target, 0)
+      } catch {
+        return
+      }
+      const indice = donnee.findIndex((s) => position >= s.debut && position <= s.fin)
+      if (indice >= 0) surSuggestion.current(indice)
+    }
+    const dom = editeur.domElement
+    dom?.addEventListener('click', surClic)
     const arreter = editeur.onChange(changement)
     // En Lire, l'éditeur ne montre pas les suggestions : leurs changements
     // arrivent par le document des suggestions.
@@ -582,13 +608,14 @@ export function EditeurCollaboratif({
     contexte.suggestions.doc.on('update', surChangement)
     return () => {
       arreter()
+      dom?.removeEventListener('click', surClic)
       clearTimeout(minuterie)
       clearTimeout(repos)
       clearInterval(intervalle)
       contexte.suggestions.doc.off('update', surChangement)
       surSuggestions(null)
     }
-  }, [editeur, contexte, afficheur, mode, surSuggestions, auteurs])
+  }, [editeur, editeur.domElement, contexte, afficheur, mode, surSuggestions, auteurs])
 
   // Le compteur du bandeau (Sylvain, 12/11/2026) : le texte de base, recompté
   // au repos (500 ms après la frappe), et la sélection, à chaque changement.
