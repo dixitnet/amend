@@ -108,6 +108,14 @@ test('BlockNote : un passage commenté et la carte du fil choisi portent ces cla
   assert.ok(lire('react/dist/style.css').includes('.bn-threads-sidebar .bn-thread.selected'), 'bn-thread.selected')
 })
 
+test('BlockNote : une correction du texte porte ces classes (clic sur une correction ; 22/11/2026)', () => {
+  // L'adaptateur reconnaît un clic sur une correction par ces classes de rendu, faute d'événement public ;
+  // notre feuille s'en sert aussi (`css.editeur.suggestions`). Une montée de version qui les renomme échoue ici.
+  const rendu = readFileSync(new URL('../../node_modules/@blocknote/core/dist/y.js', import.meta.url), 'utf8')
+  for (const classe of ['bn-suggestion-mark', 'bn-suggestion-mark--delete', 'bn-suggestion-node'])
+    assert.ok(rendu.includes(classe), classe)
+})
+
 test('@y/websocket : la fermeture définitive s’annonce par « closed », avec le code (adaptateur Yjs, `surFermeture`)', () => {
   // `tests/unitaires/yjs-fermeture.test.js` émet lui-même cet événement : ce contrat vérifie que la
   // version épinglée l'émet toujours sous ce nom et avec cette forme (audit partiel du 19/11/2026).

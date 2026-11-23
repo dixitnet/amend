@@ -403,10 +403,17 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
   const { demander: demanderMargo } = margo
   // Un clic sur un passage commenté : le fil se lit dans la colonne de droite,
   // onglet « Commentaires » (plus de bulle ; Sylvain, 12/11/2026).
-  const ouvrirCommentaires = () => {
-    setOngletRelecture('commentaires')
+  const ouvrirRelecture = (onglet) => {
+    setOngletRelecture(onglet)
     if (formatS) setVolet('droite')
     else volets.ouvrirDroite()
+  }
+  const ouvrirCommentaires = () => ouvrirRelecture('commentaires')
+  // Un clic dans le texte sur une correction : le volet s'ouvre sur « Corrections », sa carte est choisie
+  // (la liste défile jusqu'à elle), comme pour un passage commenté (Sylvain, 22/11/2026).
+  const ouvrirCorrection = (indice) => {
+    setSuggestionActive(indice)
+    ouvrirRelecture('modifications')
   }
   // Le geste de « Corriger » change à chaque rendu ; le bouton, lui, reste le
   // même (la palette de l'éditeur ne se reconstruit pas).
@@ -550,6 +557,7 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           surCarteDeFil={formatS ? () => setVolet(null) : undefined}
           surNombreFils={commentaires ? setNombreFils : undefined}
           surFilChoisi={ouvrirCommentaires}
+          surSuggestionChoisie={ouvrirCorrection}
           historique={historique && !formatS}
           peutRestaurer={caps.includes('restaurer')}
           surFermerHistorique={() => setHistorique(false)}

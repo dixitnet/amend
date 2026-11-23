@@ -111,6 +111,7 @@
 }
 .amend-suggestions-liste > [data-active] {
   border-color: var(--mantine-primary-color-filled);
+  background-color: var(--mantine-primary-color-light);
 }
 
 /* réglage : css.suggestions.actions */
