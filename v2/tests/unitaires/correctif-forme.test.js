@@ -98,12 +98,21 @@ test('le défaut de l’amont existe encore (sinon : retirer le correctif)', () 
 test('l’écoute du correctif part avec l’afficheur', () => {
   const texte = new Y.Doc()
   const cote = new Y.Doc({ isSuggestionDoc: true })
-  const ecoutes = () => texte._observers.get('beforeObserverCalls')?.size ?? 0
-  const avant = ecoutes()
+  // Les écoutes posées sur le document du texte, comptées par ses méthodes publiques.
+  let nombre = 0
+  const { on, off } = texte
+  texte.on = function (nom, f) {
+    if (nom === 'beforeObserverCalls') nombre++
+    return on.call(this, nom, f)
+  }
+  texte.off = function (nom, f) {
+    if (nom === 'beforeObserverCalls') nombre--
+    return off.call(this, nom, f)
+  }
   const brancher = preparerCorrectifForme(texte)
   const afficheur = Y.createDiffRenderer(texte, cote)
   brancher(afficheur)
-  assert.equal(ecoutes(), avant + 2)
+  assert.equal(nombre, 2)
   afficheur.destroy()
-  assert.equal(ecoutes(), avant)
+  assert.equal(nombre, 0)
 })

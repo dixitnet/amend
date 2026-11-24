@@ -505,7 +505,9 @@ test('« Tout accepter » dans un paragraphe qui porte du gras : rien ne reste, 
   await attendre(3000)
   assert.ok((await cartes.count()) > 0, await panneau(p))
   await p.getByRole('button', { name: 'Tout accepter' }).click()
-  await attendre(4000)
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await cartes.count()) > 0;) await attendre(300)
+  // Rien ne revient ensuite.
+  await attendre(1000)
   const restes = await p.evaluate(() => ({
     cartes: document.querySelectorAll('.amend-suggestions-liste > li').length,
     marques: [
