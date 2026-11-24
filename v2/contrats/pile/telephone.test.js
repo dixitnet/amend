@@ -564,3 +564,62 @@ test('page de connexion : au milieu de l’écran, sans défilement de côté ; 
   assert.equal(s.largeur, s.ecran, 'toute la largeur du téléphone')
   assert.ok(l.largeur <= 600, `une colonne étroite sur grand écran (${l.largeur} px)`)
 })
+
+test('format S : aucun champ de saisie sous 16 px, pour que Safari sur iPhone n’agrandisse pas la page (24/11/2026)', async () => {
+  // Les champs visibles où l'on tape, avec la taille de leur texte.
+  const petits = (page) =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('input, textarea, select, [contenteditable="true"]')]
+        .filter((e) => !['checkbox', 'radio', 'hidden', 'file', 'range', 'color'].includes(e.type))
+        .filter((e) => e.getClientRects().length)
+        .map((e) => ({
+          nom: e.getAttribute('aria-label') || e.labels?.[0]?.textContent || e.tagName,
+          taille: parseFloat(getComputedStyle(e).fontSize),
+        }))
+        .filter((c) => c.taille < 16),
+    )
+  const vus = []
+  const controler = async (page, ecran, minimum = 1) => {
+    const nombre = await page
+      .locator('input:visible, textarea:visible, select:visible, [contenteditable="true"]:visible')
+      .count()
+    assert.ok(nombre >= minimum, `${ecran} : au moins ${minimum} champ(s) à l’écran`)
+    assert.deepEqual(await petits(page), [], ecran)
+    vus.push(ecran)
+  }
+  // La page de connexion.
+  const contexte = await nav.newContext(TELEPHONE)
+  const connexion = await contexte.newPage()
+  await connexion.goto(pile.url)
+  await connexion.locator('input').first().waitFor()
+  await controler(connexion, 'connexion')
+  await contexte.close()
+  // Le document : texte, titre, Margo, recherche de documents, partage.
+  const p = await ouvrir('Paule', docTest('s-champs'))
+  await p.click('.bn-editor')
+  await p.keyboard.type('Un texte.')
+  await controler(p, 'texte du document')
+  await p.getByRole('button', { name: 'Terminer' }).click()
+  await p.getByRole('button', { name: 'Renommer' }).click()
+  await p.getByRole('textbox', { name: /Titre du document/ }).waitFor()
+  await controler(p, 'titre')
+  await p.keyboard.press('Escape')
+  await p.getByRole('button', { name: 'Relecture' }).click()
+  await p.getByRole('tab', { name: 'Margo (IA)' }).click()
+  await p.getByRole('textbox', { name: 'Votre demande' }).waitFor()
+  await controler(p, 'Margo')
+  await p.keyboard.press('Escape')
+  await p.getByRole('dialog').waitFor({ state: 'detached' })
+  await p.getByRole('button', { name: 'Plan et documents' }).click()
+  await p.getByRole('tab', { name: 'Documents' }).click()
+  await p.getByLabel('Rechercher un document').or(p.getByPlaceholder('Rechercher un document')).first().waitFor()
+  await controler(p, 'documents')
+  await p.keyboard.press('Escape')
+  await p.getByRole('dialog').waitFor({ state: 'detached' })
+  await p.getByRole('button', { name: 'Autres actions' }).click()
+  await p.getByRole('menuitem', { name: 'Partager' }).click()
+  await p.getByRole('textbox', { name: /Adresse de courriel/ }).waitFor()
+  await controler(p, 'partage', 2)
+  assert.equal(vus.length, 6)
+  await p.context().close()
+})
