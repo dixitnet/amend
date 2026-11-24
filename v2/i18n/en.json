@@ -142,7 +142,7 @@
   "suivi": {
     "aCheval": "In Correct mode, a deletion cannot cross the end of a paragraph (it would be recorded wrongly). Delete paragraph by paragraph.",
     "miseEnForme": "In Correct mode, formatting is not proposed (it could not be accepted).",
-    "contreSuggestion": "In Edit mode, next to a correction, only typing goes through: to delete, paste or format there, accept or reject the correction first.",
+    "contreSuggestion": "This would alter a pending correction: accept or reject it first.",
     "panne": "This document cannot be shown with its corrections. Reload the page; if it happens again, report it.",
     "panneRepli": "Showing corrections failed on this document: back to Read mode."
   },
