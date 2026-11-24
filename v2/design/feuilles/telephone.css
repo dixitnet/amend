@@ -124,8 +124,9 @@
    en-tête sortait de l'écran (Sylvain, 24/11/2026, « 2, lance »). Docs fixe
    16 px sur ses champs de recherche et de partage. */
 @media (width < 48em) {
-  /* Tous les champs de Mantine, ceux de BlockNote compris (adresse d'un lien). Le texte du document et
-     celui des commentaires sont déjà au-dessus de 16 px. */
+  /* Tous les champs de Mantine (classe statique de son API de styles). Le texte du document et celui
+     des commentaires sont déjà au-dessus de 16 px. Non mesuré : le champ d'adresse d'un lien de la barre
+     du téléphone de BlockNote, qui ne se monte que clavier ouvert. */
   .mantine-Input-input {
     font-size: var(--mantine-font-size-md);
   }

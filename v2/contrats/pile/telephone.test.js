@@ -580,7 +580,9 @@ test('format S : aucun champ de saisie sous 16 px, pour que Safari sur iPhone n�
     )
   const vus = []
   const controler = async (page, ecran, minimum = 1) => {
-    const nombre = await page.locator('input:visible, textarea:visible, [contenteditable="true"]:visible').count()
+    const nombre = await page
+      .locator('input:visible, textarea:visible, select:visible, [contenteditable="true"]:visible')
+      .count()
     assert.ok(nombre >= minimum, `${ecran} : au moins ${minimum} champ(s) à l’écran`)
     assert.deepEqual(await petits(page), [], ecran)
     vus.push(ecran)
