@@ -61,6 +61,32 @@ export function rienEnAttente(contexte) {
  */
 export const affichagePerime = (affichees, contexte) => affichees > 0 && rienEnAttente(contexte)
 
+/**
+ * Le contrôle lancé après chaque arbitrage : deux regards, à `delais` ms du dernier geste (le temps que
+ * l'éditeur se redessine, puis un second pour une machine lente) ; au premier affichage périmé, `signaler`
+ * est rappelé, une seule fois. Rend `controler` (à appeler après chaque geste) et `arreter`.
+ * @param {{ perime: () => boolean, signaler: () => void, delais?: number[] }} o
+ */
+export function creerControle({ perime, signaler, delais = [1500, 5000] }) {
+  let minuteries = []
+  let signale = false
+  const arreter = () => {
+    minuteries.forEach(clearTimeout)
+    minuteries = []
+  }
+  const regarder = () => {
+    if (signale || !perime()) return
+    signale = true
+    arreter()
+    signaler()
+  }
+  const controler = () => {
+    arreter()
+    if (!signale) minuteries = delais.map((d) => setTimeout(regarder, d))
+  }
+  return { controler, arreter }
+}
+
 /** Les attributions données à chaque afficheur à sa création, et les passages déjà signés. */
 const attributionsDe = new WeakMap()
 

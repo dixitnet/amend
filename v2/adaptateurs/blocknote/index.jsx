@@ -62,6 +62,7 @@ import {
   suivreAuteurs,
   poserAuteurs,
   affichagePerime,
+  creerControle,
   listeDesSuggestions,
   compterSuggestions,
   curseurApresFrappe,
@@ -83,8 +84,6 @@ import { extensionSelectionGardee } from '../../extensions/selection-gardee/inde
 // dernier changement (Sylvain, 12/11/2026 : « plus rustique »).
 const COMPTE_CHAQUE = 60_000
 const COMPTE_AU_REPOS = 30_000
-/** Le délai du contrôle de l'affichage après un arbitrage (ms) : le temps que l'éditeur se redessine. */
-const CONTROLE_APRES_ARBITRAGE_MS = 1500
 /** La liste des suggestions, refaite après une pause de la frappe (ms). */
 const LISTE_AU_REPOS = 300
 
@@ -555,21 +554,16 @@ export function EditeurCollaboratif({
     }
     // Après un arbitrage, un contrôle : si plus rien ne sépare le texte de ses corrections mais que
     // l'éditeur en montre encore, son affichage est périmé ; l'application le remonte (24/11/2026).
-    let controle = null
-    let signale = false
-    const controler = () => {
-      clearTimeout(controle)
-      controle = setTimeout(() => {
-        if (signale || !surPerime.current) return
-        const affichees = listeDesSuggestions(editeur, auteurs).length
-        if (!affichagePerime(affichees, contexte)) return
-        signale = true
-        console.warn(
-          `[suggestions] ${affichees} correction(s) affichée(s) alors qu'aucune n'est en attente : éditeur remonté`,
-        )
-        surPerime.current()
-      }, CONTROLE_APRES_ARBITRAGE_MS)
-    }
+    const controle = creerControle({
+      perime: () =>
+        Boolean(surPerime.current) && affichagePerime(listeDesSuggestions(editeur, auteurs).length, contexte),
+      signaler: () => {
+        // Un message technique, pour qui ouvre la console : il dit que le filet a servi (veille).
+        console.warn('[suggestions] correction affichée alors qu’aucune n’est en attente : éditeur remonté')
+        surPerime.current?.()
+      },
+    })
+    const controler = controle.controler
     const puisControler =
       (geste) =>
       (...a) => {
@@ -643,7 +637,7 @@ export function EditeurCollaboratif({
     contexte.suggestions.doc.on('update', surChangement)
     return () => {
       arreter()
-      clearTimeout(controle)
+      controle.arreter()
       dom?.removeEventListener('click', surClic)
       clearTimeout(minuterie)
       clearTimeout(repos)
