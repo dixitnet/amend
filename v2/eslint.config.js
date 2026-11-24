@@ -264,7 +264,11 @@ export default [
     },
   },
   {
-    files: ['adaptateurs/blocknote/suggestions.js', 'adaptateurs/blocknote/correctif-245.js'],
+    files: [
+      'adaptateurs/blocknote/suggestions.js',
+      'adaptateurs/blocknote/correctif-245.js',
+      'adaptateurs/blocknote/correctif-forme.js',
+    ],
     rules: {
       'no-restricted-imports': imports(OPTIONS_BLOCKNOTE_SUIVI),
       'no-restricted-syntax': [

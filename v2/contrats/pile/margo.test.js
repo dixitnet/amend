@@ -259,6 +259,17 @@ test('tableau : une correction de Margo dans une cellule s’affiche dans la cel
   await boutonCorriger(p).click()
   for (const t0 = Date.now(); Date.now() - t0 < 5000 && !envoye;) await attendre(100)
   assert.deepEqual(envoye?.selection, { de: idTableau, a: idTableau }, 'la sélection envoyée est le tableau')
+  // « Tout accepter » traite aussi la correction posée dans la cellule (24/11/2026).
+  await p.getByRole('tab', { name: /Corrections/ }).click()
+  await p.getByRole('button', { name: 'Tout accepter' }).click()
+  await attendre(5000)
+  const restesTableau = await p.evaluate(() => ({
+    cartes: document.querySelectorAll('.amend-suggestions-liste > li').length,
+    marques: [...document.querySelectorAll('.bn-editor ins, .bn-editor del')].map(
+      (e) => `${e.tagName} « ${e.textContent} »`,
+    ),
+  }))
+  assert.deepEqual(restesTableau, { cartes: 0, marques: [] })
   await p.context().close()
 })
 
@@ -348,4 +359,162 @@ test('couleurs (19/11/2026) : une correction a la couleur de son auteur, sa coul
   }
   await p.context().close()
   await c.context().close()
+})
+
+test('« Tout accepter » ne laisse aucune correction, ni dans le volet ni dans le texte (24/11/2026)', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const { clientCollaboration } = await import('../../adaptateurs/yhub/client.js')
+  const { blocsATexteDe, suggererRemplacements } = await import('../../adaptateurs/blocknote/serveur.js')
+  const interne = clientCollaboration({ url: `${pile.collab}/collaboration`, jeton: JETON })
+  const doc = docTest('tout-accepter')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  const LIGNES = [
+    'Les enfant jouent.',
+    'Il fais beau dehors.',
+    'Nous avont le temps.',
+    'Elle chantes bien.',
+    'Ils sont partit tôt.',
+  ]
+  for (let i = 0; i < LIGNES.length; i++) {
+    await p.keyboard.type(LIGNES[i])
+    if (i < LIGNES.length - 1) await p.keyboard.press('Enter')
+  }
+  // Une série de corrections de Margo (des remplacements : une suppression et un ajout chacune), posées
+  // comme le fait le serveur, puis une correction d'une correctrice.
+  const FAUTES = [
+    ['enfant', 'enfants'],
+    ['fais', 'fait'],
+    ['avont', 'avons'],
+    ['chantes', 'chante'],
+    ['partit', 'partis'],
+  ]
+  let texte = null
+  let blocs = []
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && blocs.length < LIGNES.length; await attendre(300)) {
+    texte = await interne.lireTexte(doc).catch(() => null)
+    blocs = texte ? blocsATexteDe(texte).filter((b) => LIGNES.includes(b.texte)) : []
+  }
+  assert.equal(blocs.length, LIGNES.length)
+  const demandes = blocs.map((b) => {
+    const [faute, juste] = FAUTES[LIGNES.indexOf(b.texte)]
+    const debut = b.texte.indexOf(faute)
+    return { blocId: b.id, debut, fin: debut + faute.length, apres: juste }
+  })
+  const { resultats, mise } = suggererRemplacements(texte, await interne.lireSuggestions(doc), demandes)
+  assert.deepEqual(
+    resultats,
+    demandes.map(() => 'posee'),
+  )
+  await interne.ecrireSuggestions(doc, mise)
+  const c = await ouvrir('Carla', doc, { role: 'correcteur' })
+  await attendre(2500)
+  await c.click('.bn-editor .bn-inline-content >> nth=0')
+  await c.keyboard.press('End')
+  await c.keyboard.type(' Vraiment.')
+  const cartes = p.locator('.amend-suggestions-liste > li')
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && (await cartes.count()) < FAUTES.length + 1;)
+    await attendre(300)
+  assert.equal(await cartes.count(), FAUTES.length + 1, await panneau(p))
+  // Le temps que les auteurs arrivent de y/hub et soient donnés à l'afficheur (couleurs).
+  await attendre(3000)
+  await p.getByRole('button', { name: 'Tout accepter' }).click()
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await cartes.count()) > 0;) await attendre(300)
+  await attendre(4000)
+  const restes = await p.evaluate(() => ({
+    cartes: [...document.querySelectorAll('.amend-suggestions-liste > li')].map((e) =>
+      e.innerText.replace(/\s+/g, ' '),
+    ),
+    marques: [...document.querySelectorAll('.bn-editor ins, .bn-editor del')].map(
+      (e) => `${e.tagName} « ${e.textContent} »`,
+    ),
+    texte: [...document.querySelectorAll('.bn-editor .bn-inline-content')].map((e) => e.textContent),
+  }))
+  assert.deepEqual(
+    { cartes: restes.cartes, marques: restes.marques },
+    { cartes: [], marques: [] },
+    JSON.stringify(restes),
+  )
+  // Le texte, sans l'étiquette du curseur de la correctrice.
+  assert.deepEqual(
+    restes.texte.slice(0, 5).map((x) => x.replace(/\u2060[^\u2060]*\u2060/g, '')),
+    [
+      'Les enfants jouent. Vraiment.',
+      'Il fait beau dehors.',
+      'Nous avons le temps.',
+      'Elle chante bien.',
+      'Ils sont partis tôt.',
+    ],
+  )
+  await p.context().close()
+  await c.context().close()
+})
+
+test('« Tout accepter » dans un paragraphe qui porte du gras : rien ne reste, aucune lettre ne disparaît (24/11/2026)', async (t) => {
+  // Le cas de Sylvain (« Soutenance thèse ») : des corrections restaient affichées, des lettres manquaient à
+  // l'écran, tout revenait au rechargement. Cause : le défaut de Yjs que règle `correctif-forme.js`.
+  if (REEL) return t.skip('essai réel demandé')
+  const { clientCollaboration } = await import('../../adaptateurs/yhub/client.js')
+  const { blocsATexteDe, suggererRemplacements } = await import('../../adaptateurs/blocknote/serveur.js')
+  const interne = clientCollaboration({ url: `${pile.collab}/collaboration`, jeton: JETON })
+  const AVANT = 'on dit souvent que je suis né à Bruxelles,d’un parent européen. j’ai été conçu ailleurs, loin des ONG.'
+  const APRES =
+    'On dit souvent que je suis né à Bruxelles, d’un parent européen. J’ai été conçu ailleurs, près des ONG.'
+  const REMPLACEMENTS = [
+    ['on dit', 'On dit'],
+    ['Bruxelles,d’un', 'Bruxelles, d’un'],
+    ['j’ai', 'J’ai'],
+    ['loin', 'près'],
+  ]
+  const doc = docTest('tout-accepter-gras')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  await p.keyboard.insertText(AVANT)
+  // Le début du paragraphe en gras.
+  await p.evaluate(() => {
+    const noeud = document.querySelector('.bn-editor .bn-inline-content').firstChild
+    const plage = document.createRange()
+    plage.setStart(noeud, 0)
+    plage.setEnd(noeud, 'on dit souvent que je suis né à Bruxelles,'.length)
+    getSelection().removeAllRanges()
+    getSelection().addRange(plage)
+    document.dispatchEvent(new Event('selectionchange'))
+  })
+  await attendre(500)
+  await p.keyboard.press('ControlOrMeta+b')
+  await p.locator('.bn-editor .bn-inline-content strong').waitFor()
+  let texte = null
+  let bloc = null
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && !bloc; await attendre(300)) {
+    texte = await interne.lireTexte(doc).catch(() => null)
+    bloc = texte ? blocsATexteDe(texte).find((b) => b.texte === AVANT) : null
+  }
+  assert.ok(bloc, 'le paragraphe est arrivé au serveur')
+  const demandes = REMPLACEMENTS.map(([faute, juste]) => {
+    const debut = AVANT.indexOf(faute)
+    return { blocId: bloc.id, debut, fin: debut + faute.length, apres: juste }
+  })
+  const { resultats, mise } = suggererRemplacements(texte, await interne.lireSuggestions(doc), demandes)
+  assert.deepEqual(
+    resultats,
+    demandes.map(() => 'posee'),
+  )
+  await interne.ecrireSuggestions(doc, mise)
+  const cartes = p.locator('.amend-suggestions-liste > li')
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && (await cartes.count()) === 0;) await attendre(300)
+  await attendre(3000)
+  assert.ok((await cartes.count()) > 0, await panneau(p))
+  await p.getByRole('button', { name: 'Tout accepter' }).click()
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await cartes.count()) > 0;) await attendre(300)
+  // Rien ne revient ensuite.
+  await attendre(1000)
+  const restes = await p.evaluate(() => ({
+    cartes: document.querySelectorAll('.amend-suggestions-liste > li').length,
+    marques: [
+      ...document.querySelectorAll('.bn-editor .bn-suggestion-mark, .bn-editor [data-type="modification"]'),
+    ].map((e) => e.textContent),
+    texte: document.querySelector('.bn-editor .bn-inline-content').textContent,
+  }))
+  assert.deepEqual(restes, { cartes: 0, marques: [], texte: APRES })
+  await p.context().close()
 })
