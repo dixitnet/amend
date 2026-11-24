@@ -260,7 +260,12 @@ test('tableau : une correction de Margo dans une cellule s’affiche dans la cel
   for (const t0 = Date.now(); Date.now() - t0 < 5000 && !envoye;) await attendre(100)
   assert.deepEqual(envoye?.selection, { de: idTableau, a: idTableau }, 'la sélection envoyée est le tableau')
   // « Tout accepter » traite aussi la correction posée dans la cellule (24/11/2026).
-  await p.getByRole('tab', { name: /Corrections/ }).click()
+  await p
+    .getByRole('button', { name: 'Relecture' })
+    .click()
+    .catch(() => {})
+  const corrections = p.getByRole('tab', { name: /Corrections/ })
+  if (await corrections.count()) await corrections.click()
   await p.getByRole('button', { name: 'Tout accepter' }).click()
   await attendre(5000)
   const restesTableau = await p.evaluate(() => ({
