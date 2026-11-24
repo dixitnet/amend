@@ -94,3 +94,16 @@ test('le défaut de l’amont existe encore (sinon : retirer le correctif)', () 
   m.ecrire(sur(8, 4, { bold: null }))
   assert.notEqual(m.affiche(), m.juste(), 'Yjs redessine juste sans le correctif : le retirer (correctif-forme.js)')
 })
+
+test('l’écoute du correctif part avec l’afficheur', () => {
+  const texte = new Y.Doc()
+  const cote = new Y.Doc({ isSuggestionDoc: true })
+  const ecoutes = () => texte._observers.get('beforeObserverCalls')?.size ?? 0
+  const avant = ecoutes()
+  const brancher = preparerCorrectifForme(texte)
+  const afficheur = Y.createDiffRenderer(texte, cote)
+  brancher(afficheur)
+  assert.equal(ecoutes(), avant + 2)
+  afficheur.destroy()
+  assert.equal(ecoutes(), avant)
+})

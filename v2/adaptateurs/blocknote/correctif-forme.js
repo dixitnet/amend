@@ -2,7 +2,8 @@
 // rc.30 le 24/11/2026). À débrancher quand l'amont l'aura corrigé : retirer
 // l'appel de `brancherCorrectifForme` dans `suggestions.js`, ce fichier et son
 // test (`tests/unitaires/correctif-forme.test.js`). Rien d'autre n'en dépend.
-// Réexamen : à chaque montée de `@y/y`.
+// Réexamen : à chaque montée de `@y/y`, et au plus tard le 13/12/2026 (veille,
+// docs/v2-veille.md). Ticket amont : à ouvrir (texte prêt dans la veille).
 //
 // Le défaut : quand on retire une mise en forme (gras, italique, lien…) en
 // voyant les suggestions, des marqueurs de mise en forme sont supprimés dans
@@ -14,8 +15,11 @@
 // Le correctif : dans l'annonce de l'afficheur, remplacer les identifiants des
 // marqueurs supprimés par ceux du texte de leur paragraphe, que Yjs redessine
 // alors correctement. Seule la surface publique de Yjs est utilisée
-// (`iterateStructsByIdSet`, `IdSet`, les champs `left`, `right`, `content` d'un
-// élément, l'événement `'change'` de l'afficheur).
+// (`iterateStructsByIdSet`, `IdSet`, les champs `left`, `right`, `parent`,
+// `content` d'un élément, les événements `beforeObserverCalls` du document et
+// `'change'` de l'afficheur) ; écart assumé, noté dans la veille : ces champs ne
+// sont pas documentés comme stables, et `emit` et `destroy` de l'afficheur sont
+// enveloppés. À vérifier à chaque montée.
 //
 // Limite connue : une correction en attente (ajout ou suppression suggérés)
 // prise dans le passage garde, jusqu'au rechargement, la marque de mise en
@@ -37,7 +41,7 @@ function contenuDuParagraphe(element, dans) {
  * Prépare le correctif sur le document du texte. À appeler AVANT de créer
  * l'afficheur : l'écoute doit passer avant la sienne.
  * @param {any} texte  le document du texte
- * @returns {(afficheur: any) => (() => void)}  à appeler avec l'afficheur créé ; rend de quoi débrancher
+ * @returns {(afficheur: any) => void}  à appeler avec l'afficheur créé
  */
 export function preparerCorrectifForme(texte) {
   /** Les marqueurs supprimés par la transaction en cours, et le texte à redessiner. */
@@ -69,9 +73,11 @@ export function preparerCorrectifForme(texte) {
       aRedessiner = null
       return emettre.call(this, nom, [corriges, ...reste])
     }
-    return () => {
+    // L'écoute part avec l'afficheur.
+    const detruire = afficheur.destroy
+    afficheur.destroy = function () {
       texte.off('beforeObserverCalls', avant)
-      afficheur.emit = emettre
+      return detruire.call(this)
     }
   }
 }
