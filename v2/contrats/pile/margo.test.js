@@ -259,6 +259,22 @@ test('tableau : une correction de Margo dans une cellule s’affiche dans la cel
   await boutonCorriger(p).click()
   for (const t0 = Date.now(); Date.now() - t0 < 5000 && !envoye;) await attendre(100)
   assert.deepEqual(envoye?.selection, { de: idTableau, a: idTableau }, 'la sélection envoyée est le tableau')
+  // « Tout accepter » traite aussi la correction posée dans la cellule (24/11/2026).
+  await p
+    .getByRole('button', { name: 'Relecture' })
+    .click()
+    .catch(() => {})
+  const corrections = p.getByRole('tab', { name: /Corrections/ })
+  if (await corrections.count()) await corrections.click()
+  await p.getByRole('button', { name: 'Tout accepter' }).click()
+  await attendre(5000)
+  const restesTableau = await p.evaluate(() => ({
+    cartes: document.querySelectorAll('.amend-suggestions-liste > li').length,
+    marques: [...document.querySelectorAll('.bn-editor ins, .bn-editor del')].map(
+      (e) => `${e.tagName} « ${e.textContent} »`,
+    ),
+  }))
+  assert.deepEqual(restesTableau, { cartes: 0, marques: [] })
   await p.context().close()
 })
 
@@ -346,6 +362,95 @@ test('couleurs (19/11/2026) : une correction a la couleur de son auteur, sa coul
     await attendre(300)
     await p.screenshot({ path: `${process.env.CAPTURE}/couleurs-sombre.png` })
   }
+  await p.context().close()
+  await c.context().close()
+})
+
+test('« Tout accepter » ne laisse aucune correction, ni dans le volet ni dans le texte (24/11/2026)', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const { clientCollaboration } = await import('../../adaptateurs/yhub/client.js')
+  const { blocsATexteDe, suggererRemplacements } = await import('../../adaptateurs/blocknote/serveur.js')
+  const interne = clientCollaboration({ url: `${pile.collab}/collaboration`, jeton: JETON })
+  const doc = docTest('tout-accepter')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  const LIGNES = [
+    'Les enfant jouent.',
+    'Il fais beau dehors.',
+    'Nous avont le temps.',
+    'Elle chantes bien.',
+    'Ils sont partit tôt.',
+  ]
+  for (let i = 0; i < LIGNES.length; i++) {
+    await p.keyboard.type(LIGNES[i])
+    if (i < LIGNES.length - 1) await p.keyboard.press('Enter')
+  }
+  // Une série de corrections de Margo (des remplacements : une suppression et un ajout chacune), posées
+  // comme le fait le serveur, puis une correction d'une correctrice.
+  const FAUTES = [
+    ['enfant', 'enfants'],
+    ['fais', 'fait'],
+    ['avont', 'avons'],
+    ['chantes', 'chante'],
+    ['partit', 'partis'],
+  ]
+  let texte = null
+  let blocs = []
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && blocs.length < LIGNES.length; await attendre(300)) {
+    texte = await interne.lireTexte(doc).catch(() => null)
+    blocs = texte ? blocsATexteDe(texte).filter((b) => LIGNES.includes(b.texte)) : []
+  }
+  assert.equal(blocs.length, LIGNES.length)
+  const demandes = blocs.map((b) => {
+    const [faute, juste] = FAUTES[LIGNES.indexOf(b.texte)]
+    const debut = b.texte.indexOf(faute)
+    return { blocId: b.id, debut, fin: debut + faute.length, apres: juste }
+  })
+  const { resultats, mise } = suggererRemplacements(texte, await interne.lireSuggestions(doc), demandes)
+  assert.deepEqual(
+    resultats,
+    demandes.map(() => 'posee'),
+  )
+  await interne.ecrireSuggestions(doc, mise)
+  const c = await ouvrir('Carla', doc, { role: 'correcteur' })
+  await attendre(2500)
+  await c.click('.bn-editor .bn-inline-content >> nth=0')
+  await c.keyboard.press('End')
+  await c.keyboard.type(' Vraiment.')
+  const cartes = p.locator('.amend-suggestions-liste > li')
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && (await cartes.count()) < FAUTES.length + 1;)
+    await attendre(300)
+  assert.equal(await cartes.count(), FAUTES.length + 1, await panneau(p))
+  // Le temps que les auteurs arrivent de y/hub et soient donnés à l'afficheur (couleurs).
+  await attendre(3000)
+  await p.getByRole('button', { name: 'Tout accepter' }).click()
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await cartes.count()) > 0;) await attendre(300)
+  await attendre(4000)
+  const restes = await p.evaluate(() => ({
+    cartes: [...document.querySelectorAll('.amend-suggestions-liste > li')].map((e) =>
+      e.innerText.replace(/\s+/g, ' '),
+    ),
+    marques: [...document.querySelectorAll('.bn-editor ins, .bn-editor del')].map(
+      (e) => `${e.tagName} « ${e.textContent} »`,
+    ),
+    texte: [...document.querySelectorAll('.bn-editor .bn-inline-content')].map((e) => e.textContent),
+  }))
+  assert.deepEqual(
+    { cartes: restes.cartes, marques: restes.marques },
+    { cartes: [], marques: [] },
+    JSON.stringify(restes),
+  )
+  // Le texte, sans l'étiquette du curseur de la correctrice.
+  assert.deepEqual(
+    restes.texte.slice(0, 5).map((x) => x.replace(/\u2060[^\u2060]*\u2060/g, '')),
+    [
+      'Les enfants jouent. Vraiment.',
+      'Il fait beau dehors.',
+      'Nous avons le temps.',
+      'Elle chante bien.',
+      'Ils sont partis tôt.',
+    ],
+  )
   await p.context().close()
   await c.context().close()
 })
