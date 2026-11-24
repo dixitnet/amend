@@ -35,32 +35,6 @@ export function creerAfficheur(contexte, suggerer, surReplace) {
   return r
 }
 
-/**
- * Ne reste-t-il vraiment aucune correction en attente ? Répondu d'après les deux documents Yjs eux-mêmes,
- * sans passer par l'afficheur ni par l'éditeur : une correction en attente est un texte écrit dans le
- * document des corrections seulement, et toujours là, ou un texte du document principal qui n'est
- * supprimé que dans celui des corrections. (Une correction refusée laisse dans le document des
- * corrections un texte écrit puis supprimé : ce n'est plus une attente.)
- */
-export function rienEnAttente(contexte) {
-  const [texte, corrections] = [contexte.doc, contexte.suggestions?.doc]
-  if (!texte || !corrections) return false
-  const ecrits = (d) => Y.createInsertSetFromStructStore(d.store, false)
-  const supprimes = (d) => Y.createDeleteSetFromStructStore(d.store)
-  const ajouts = Y.diffIdSet(Y.diffIdSet(ecrits(corrections), ecrits(texte)), supprimes(corrections))
-  const suppressions = Y.intersectSets(Y.diffIdSet(supprimes(corrections), supprimes(texte)), ecrits(texte))
-  return ajouts.isEmpty() && suppressions.isEmpty()
-}
-
-/**
- * L'écran montre-t-il des corrections qui n'existent plus ? (24/11/2026 : après « Tout accepter », une
- * correction restait parfois affichée, dans le texte et dans le volet, sans répondre à « Accepter » ni à
- * « Refuser », et disparaissait au rechargement. Non reproduit ; l'éditeur se réaffiche alors de lui-même.)
- * @param {number} affichees  le nombre de corrections que l'éditeur montre
- * @param {object} contexte
- */
-export const affichagePerime = (affichees, contexte) => affichees > 0 && rienEnAttente(contexte)
-
 /** Les attributions données à chaque afficheur à sa création, et les passages déjà signés. */
 const attributionsDe = new WeakMap()
 

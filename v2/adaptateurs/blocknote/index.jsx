@@ -61,7 +61,6 @@ import {
   creerAfficheur,
   suivreAuteurs,
   poserAuteurs,
-  affichagePerime,
   listeDesSuggestions,
   compterSuggestions,
   curseurApresFrappe,
@@ -83,8 +82,6 @@ import { extensionSelectionGardee } from '../../extensions/selection-gardee/inde
 // dernier changement (Sylvain, 12/11/2026 : « plus rustique »).
 const COMPTE_CHAQUE = 60_000
 const COMPTE_AU_REPOS = 30_000
-/** Le délai du contrôle de l'affichage après un arbitrage (ms) : le temps que l'éditeur se redessine. */
-const CONTROLE_APRES_ARBITRAGE_MS = 1500
 /** La liste des suggestions, refaite après une pause de la frappe (ms). */
 const LISTE_AU_REPOS = 300
 
@@ -316,8 +313,6 @@ function itemsDuMenu(editeur, table, textesTitres) {
  *   `nombre` : en Éditer et Corriger, la longueur de la liste ; en Lire, un compte refait
  *   à l'ouverture, puis chaque minute ou après 30 s de repos ; `montrer(s)` fait
  *   défiler le texte jusqu'à la suggestion, comme BlockNote pour un commentaire
- * @param {() => void} [p.surAffichagePerime] rappelé, une fois, quand l'éditeur montre encore des corrections
- *   alors qu'aucune n'est en attente dans les documents (l'application remonte alors l'éditeur)
  * @param {(indice: number) => void} [p.surSuggestionChoisie] rappelé quand on clique dans le texte sur une
  *   correction : son rang dans la liste donnée à `surSuggestions` (l'application ouvre le volet sur sa carte)
  * @param {() => void} [p.surFilChoisi] rappelé quand un fil est choisi (un clic sur un
@@ -377,7 +372,6 @@ export function EditeurCollaboratif({
   surNombreFils,
   surFilChoisi,
   surSuggestionChoisie,
-  surAffichagePerime,
   surCarteDeFil,
   historique = false,
   peutRestaurer = false,
@@ -530,8 +524,6 @@ export function EditeurCollaboratif({
 
   const surSuggestion = useRef(surSuggestionChoisie)
   surSuggestion.current = surSuggestionChoisie
-  const surPerime = useRef(surAffichagePerime)
-  surPerime.current = surAffichagePerime
   // La liste des suggestions : en Éditer et Corriger (l'éditeur les montre
   // alors) ; en Lire, seulement s'il y en a, d'après l'afficheur.
   useEffect(() => {
@@ -553,36 +545,12 @@ export function EditeurCollaboratif({
         return candidates.reduce((a, b) => (Math.abs(b.debut - s.debut) < Math.abs(a.debut - s.debut) ? b : a))
       return liste[donnee.indexOf(s)] ?? s
     }
-    // Après un arbitrage, un contrôle : si plus rien ne sépare le texte de ses corrections mais que
-    // l'éditeur en montre encore, son affichage est périmé ; l'application le remonte (24/11/2026).
-    let controle = null
-    let signale = false
-    const controler = () => {
-      clearTimeout(controle)
-      controle = setTimeout(() => {
-        if (signale || !surPerime.current) return
-        const affichees = listeDesSuggestions(editeur, auteurs).length
-        if (!affichagePerime(affichees, contexte)) return
-        signale = true
-        console.warn(
-          `[suggestions] ${affichees} correction(s) affichée(s) alors qu'aucune n'est en attente : éditeur remonté`,
-        )
-        surPerime.current()
-      }, CONTROLE_APRES_ARBITRAGE_MS)
-    }
-    const puisControler =
-      (geste) =>
-      (...a) => {
-        const r = geste(...a)
-        controler()
-        return r
-      }
     const actions = {
-      accepter: puisControler((s) => ((s = fraiche(s)), ext.applySuggestion(s.plage.debut, s.plage.fin))),
-      refuser: puisControler((s) => ((s = fraiche(s)), ext.revertSuggestion(s.plage.debut, s.plage.fin))),
+      accepter: (s) => ((s = fraiche(s)), ext.applySuggestion(s.plage.debut, s.plage.fin)),
+      refuser: (s) => ((s = fraiche(s)), ext.revertSuggestion(s.plage.debut, s.plage.fin)),
       montrer: (s) => montrerPosition(editeur, fraiche(s).debut),
-      toutAccepter: puisControler(() => ext.applyAllSuggestions()),
-      toutRefuser: puisControler(() => ext.revertAllSuggestions()),
+      toutAccepter: () => ext.applyAllSuggestions(),
+      toutRefuser: () => ext.revertAllSuggestions(),
     }
     const affichees = mode !== 'lire'
     // En Lire, le nombre est compté à part, rarement (compterSuggestions).
@@ -643,7 +611,6 @@ export function EditeurCollaboratif({
     contexte.suggestions.doc.on('update', surChangement)
     return () => {
       arreter()
-      clearTimeout(controle)
       dom?.removeEventListener('click', surClic)
       clearTimeout(minuterie)
       clearTimeout(repos)

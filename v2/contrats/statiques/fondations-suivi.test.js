@@ -123,36 +123,3 @@ test('@y/websocket : la fermeture définitive s’annonce par « closed », avec
   assert.match(source, /provider\.emit\('closed', \[terminalClose, provider\]\)/)
   assert.match(source, /'closed': \(event: \{ code: number, reason: string \}/)
 })
-
-test('Yjs : savoir, d’après les deux documents seuls, s’il reste une correction en attente (24/11/2026)', async () => {
-  // `rienEnAttente` (adaptateurs/blocknote/suggestions.js) compare ce qui est écrit et supprimé dans le
-  // document principal et dans celui des corrections, par les tables d'identifiants que Yjs exporte : c'est
-  // le filet qui remonte l'éditeur quand il montre une correction qui n'existe plus.
-  const { creerAfficheur, rienEnAttente, affichagePerime } = await import('../../adaptateurs/blocknote/suggestions.js')
-  const doc = new Y.Doc()
-  const corrections = new Y.Doc({ isSuggestionDoc: true })
-  const contexte = { doc, suggestions: { doc: corrections } }
-  const afficheur = creerAfficheur(contexte, true, () => {})
-  doc.get('doc').insert(0, 'Les enfant jouent.')
-  assert.equal(rienEnAttente(contexte), true, 'le texte seul, recopié dans les corrections')
-  // Un ajout proposé, puis accepté.
-  corrections.get('doc').insert(10, 's')
-  assert.equal(rienEnAttente(contexte), false, 'un ajout en attente')
-  assert.equal(affichagePerime(1, contexte), false, 'une correction affichée et bien en attente')
-  afficheur.acceptAllChanges()
-  assert.equal(rienEnAttente(contexte), true, 'accepté')
-  assert.equal(affichagePerime(1, contexte), true, 'l’écran en montre encore une : affichage périmé')
-  assert.equal(affichagePerime(0, contexte), false, 'rien d’affiché : rien à faire')
-  // Une suppression proposée, puis refusée ; un ajout proposé, puis refusé (il reste écrit et supprimé
-  // dans le document des corrections : ce n'est plus une attente).
-  corrections.get('doc').delete(0, 4)
-  assert.equal(rienEnAttente(contexte), false, 'une suppression en attente')
-  afficheur.rejectAllChanges()
-  assert.equal(rienEnAttente(contexte), true, 'suppression refusée')
-  corrections.get('doc').insert(0, 'Oui. ')
-  assert.equal(rienEnAttente(contexte), false)
-  afficheur.rejectAllChanges()
-  assert.equal(rienEnAttente(contexte), true, 'ajout refusé')
-  assert.equal(doc.get('doc').toString(), corrections.get('doc').toString())
-  afficheur.destroy()
-})
