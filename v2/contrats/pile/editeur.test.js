@@ -18,6 +18,7 @@ import {
   attendre,
   NAVIGATEUR,
   choisirMode,
+  panneau,
 } from './outils.mjs'
 
 const I = '\u00A0' // espace insécable
@@ -566,4 +567,96 @@ test('menu « / » : chaque groupe n’a qu’une étiquette, aussi pendant la f
   await page.waitForFunction(() => document.querySelectorAll('.bn-suggestion-menu-item').length === 1)
   assert.equal((await etiquettes()).length, 1, 'une seule étiquette pour un seul élément')
   await page.context().close()
+})
+
+/** Sélectionne un mot du texte, comme à la souris. */
+async function choisirMot(page, mot) {
+  await page.evaluate((mot) => {
+    const parcours = document.createTreeWalker(document.querySelector('.bn-editor'), NodeFilter.SHOW_TEXT)
+    for (let n = parcours.nextNode(); n; n = parcours.nextNode()) {
+      const i = n.data.indexOf(mot)
+      if (i < 0) continue
+      const plage = document.createRange()
+      plage.setStart(n, i)
+      plage.setEnd(n, i + mot.length)
+      getSelection().removeAllRanges()
+      getSelection().addRange(plage)
+      document.dispatchEvent(new Event('selectionchange'))
+      return
+    }
+  }, mot)
+  // ProseMirror lit la sélection du navigateur de façon asynchrone.
+  await attendre(500)
+}
+
+test('liens et gras en « Éditer » : créer, modifier, retirer ; rien ne reste marqué, aucune lettre ne disparaît (24/11/2026)', async () => {
+  const PHRASE = 'Voir le site officiel ici.'
+  const doc = docTest('liens')
+  const page = await ouvrir('Paule', doc)
+  await page.click('.bn-editor')
+  await page.keyboard.type(PHRASE)
+  const autre = await ouvrir('Quentin', doc)
+  await attendreTexte(autre, PHRASE)
+  const lien = (p) => p.evaluate(() => document.querySelector('.bn-inline-content a')?.getAttribute('href') ?? null)
+  const marques = (p) => p.locator('.bn-inline-content [data-type="modification"], .bn-suggestion-mark').count()
+  // La barre d'un lien s'ouvre au survol, après un délai : on y revient tant qu'elle n'est pas là.
+  const barreDuLien = async (nom) => {
+    const bouton = page.locator('.bn-toolbar').getByRole('button', { name: nom, exact: true }).first()
+    // Toujours un nouveau survol : une barre restée ouverte après un geste vise l'ancien lien.
+    for (let essai = 0; essai < 10 && (essai === 0 || !(await bouton.isVisible())); essai++) {
+      await page.mouse.move(5, 5)
+      await attendre(600)
+      await page.hover('.bn-inline-content a')
+      await attendre(800)
+    }
+    await bouton.click()
+  }
+  const propre = async (etape) => {
+    await attendreTexte(page, PHRASE)
+    await attendreTexte(autre, PHRASE)
+    assert.equal(await marques(page), 0, `${etape} : rien n’est marqué comme une correction`)
+    assert.equal(await marques(autre), 0, `${etape} : rien n’est marqué chez l’autre personne`)
+  }
+  const d = fr.link_toolbar
+  // Créer.
+  await choisirMot(page, 'site')
+  await page.keyboard.press('ControlOrMeta+k')
+  await page.locator('.mantine-Popover-dropdown input').first().waitFor()
+  await page.keyboard.type('https://exemple.fr')
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => document.querySelector('.bn-inline-content a')?.textContent === 'site')
+  await autre.waitForFunction(() => document.querySelector('.bn-inline-content a')?.textContent === 'site')
+  await propre('lien créé')
+  // Modifier l'adresse.
+  await barreDuLien(d.edit.text)
+  const adresse = page.locator('.mantine-Popover-dropdown input').first()
+  await adresse.fill('https://autre.fr')
+  await adresse.press('Enter')
+  await autre.waitForFunction(
+    () => document.querySelector('.bn-inline-content a')?.getAttribute('href') === 'https://autre.fr',
+  )
+  assert.equal(await lien(page), 'https://autre.fr')
+  await propre('lien modifié')
+  // Retirer : le lien disparaît, le mot reste entier, chez les deux.
+  await barreDuLien(d.delete.tooltip)
+  await page.waitForFunction(() => !document.querySelector('.bn-inline-content a'))
+  await autre.waitForFunction(() => !document.querySelector('.bn-inline-content a'))
+  await propre('lien retiré')
+  // Le même défaut touchait toute mise en forme retirée : le gras.
+  await choisirMot(page, 'officiel')
+  await page.keyboard.press('ControlOrMeta+b')
+  await autre.waitForFunction(() => document.querySelector('.bn-inline-content strong')?.textContent === 'officiel')
+  await page.keyboard.press('ControlOrMeta+b')
+  await autre.waitForFunction(() => !document.querySelector('.bn-inline-content strong'))
+  await propre('gras retiré')
+  // Une mise en forme retirée par l'autre personne.
+  await choisirMot(autre, 'Voir')
+  await autre.keyboard.press('ControlOrMeta+b')
+  await page.waitForFunction(() => document.querySelector('.bn-inline-content strong')?.textContent === 'Voir')
+  await autre.keyboard.press('ControlOrMeta+b')
+  await page.waitForFunction(() => !document.querySelector('.bn-inline-content strong'))
+  await propre('gras retiré par l’autre personne')
+  assert.match(await panneau(page), /Aucune correction/)
+  await page.context().close()
+  await autre.context().close()
 })

@@ -13,6 +13,7 @@
 import * as Y from '@y/y'
 import { resolvedPositionToRelativePosition, relativePositionToResolvedPosition } from '@y/prosemirror'
 import { brancherCorrectif245, resteDesCorrections } from './correctif-245.js'
+import { preparerCorrectifForme } from './correctif-forme.js'
 
 const INSERTION = 'y-attributed-insert'
 const SUPPRESSION = 'y-attributed-delete'
@@ -26,7 +27,11 @@ export function creerAfficheur(contexte, suggerer, surReplace) {
   // Les auteurs des suggestions (`options.attributions` de l'afficheur de Yjs) : y/hub ne les envoie pas en
   // direct, la table arrive à part (`suivreAuteurs`) et se pose ensuite (`poserAuteurs`).
   const attributions = Y.createContentMap()
+  // Correctif temporaire (mise en forme retirée en voyant les suggestions) : son écoute se pose avant
+  // celle de l'afficheur. À retirer avec `correctif-forme.js` quand l'amont sera corrigé.
+  const brancherCorrectifForme = preparerCorrectifForme(contexte.doc)
   const r = Y.createDiffRenderer(contexte.doc, contexte.suggestions.doc, { attributions })
+  brancherCorrectifForme(r)
   attributionsDe.set(r, { attributions, signes: { inserts: Y.createIdSet(), deletes: Y.createIdSet() } })
   r.suggestionMode = suggerer
   // Correctif temporaire (y-prosemirror#245) : écrire en voyant les
