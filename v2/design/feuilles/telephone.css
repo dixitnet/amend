@@ -116,3 +116,17 @@
 .amend-volet-onglets .amend-suggestions-actions {
   top: calc(3.75rem * var(--mantine-scale));
 }
+
+/* réglage : css.telephone.champs */
+/* Les champs de saisie au format S : le corps `md` de Mantine (16 px) au lieu
+   de `sm` (14 px). En dessous de 16 px, Safari sur iPhone agrandit toute la
+   page quand on touche un champ et ne revient pas : le tiroir débordait et son
+   en-tête sortait de l'écran (Sylvain, 24/11/2026, « 2, lance »). Docs fixe
+   16 px sur ses champs de recherche et de partage. */
+@media (width < 48em) {
+  /* Tous les champs de Mantine, ceux de BlockNote compris (adresse d'un lien). Le texte du document et
+     celui des commentaires sont déjà au-dessus de 16 px. */
+  .mantine-Input-input {
+    font-size: var(--mantine-font-size-md);
+  }
+}
