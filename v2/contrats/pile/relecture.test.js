@@ -218,18 +218,20 @@ test('Éditer au contact d’une suggestion : la frappe va dans le texte sans la
   await p.click('.bn-inline-content')
   // Le curseur à la fin de la suggestion, posé dans la page (les flèches
   // comptent la frontière d'une suggestion pour un pas).
-  await p.evaluate(() => {
-    const noeud = document.createTreeWalker(document.querySelector('.bn-editor ins'), NodeFilter.SHOW_TEXT)
-    let dernier = null
-    while (noeud.nextNode()) dernier = noeud.currentNode
-    const plage = document.createRange()
-    plage.setStart(dernier, dernier.textContent.length)
-    plage.collapse(true)
-    const selection = window.getSelection()
-    selection.removeAllRanges()
-    selection.addRange(plage)
-    document.dispatchEvent(new Event('selectionchange'))
-  })
+  const finDeLaSuggestion = () =>
+    p.evaluate(() => {
+      const noeud = document.createTreeWalker(document.querySelector('.bn-editor ins'), NodeFilter.SHOW_TEXT)
+      let dernier = null
+      while (noeud.nextNode()) dernier = noeud.currentNode
+      const plage = document.createRange()
+      plage.setStart(dernier, dernier.textContent.length)
+      plage.collapse(true)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(plage)
+      document.dispatchEvent(new Event('selectionchange'))
+    })
+  await finDeLaSuggestion()
   await attendre(500)
   // Deux lettres : le curseur suit la première, replacée dans le texte.
   await p.keyboard.type('QR')
@@ -244,18 +246,25 @@ test('Éditer au contact d’une suggestion : la frappe va dans le texte sans la
     'donc ',
     'la suggestion n’est pas prolongée',
   )
-  // Une suppression au contact de la suggestion : refusée, le message le dit.
+  // Effacer ce qu'on vient de taper, juste après la suggestion : libre (24/11/2026).
   await p.keyboard.press('Backspace')
-  await p.getByText('seule la frappe passe').waitFor()
-  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie.')
+  await p.keyboard.press('Backspace')
+  await attendreTexte(l, 'Il faisait nuit noire sur la ville endormie.')
+  // À la fin de la suggestion de Carla, un Retour arrière la rognerait : refusé, le message le dit.
+  await finDeLaSuggestion()
+  await attendre(500)
+  await p.keyboard.press('Backspace')
+  await p.getByText('toucherait une correction en attente').waitFor()
+  await attendre(800)
+  await attendrePanneau(p, /Carla ajoute «\s?donc\s?»/)
+  await attendreTexte(l, 'Il faisait nuit noire sur la ville endormie.')
   // Loin de la suggestion : la frappe va dans le texte (le lecteur la voit).
   await p.keyboard.press('End')
   await attendre(300)
   await p.keyboard.type(' Fin.')
-  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie. Fin.')
-  // L'annulation (celle de ProseMirror) est un changement direct : au contact
-  // d'une suggestion, elle est refusée aussi (Carla en pose une juste après
-  // « Fin. » ; audit du 12/11/2026) ; loin de toute suggestion, elle marche.
+  await attendreTexte(l, 'Il faisait nuit noire sur la ville endormie. Fin.')
+  // Carla pose une suggestion juste après « Fin. » ; l'éditrice annule sa dernière frappe (le « . », au
+  // contact de la suggestion) : libre depuis le 24/11/2026, la suggestion n'est pas touchée.
   await c.click('.bn-inline-content')
   await c.keyboard.press('End')
   await attendre(300)
@@ -263,9 +272,9 @@ test('Éditer au contact d’une suggestion : la frappe va dans le texte sans la
   await attendrePanneau(p, /Carla ajoute «\s?Encore\s?»/)
   await p.click('.bn-inline-content')
   await p.keyboard.press('Control+z')
+  // Ce que l'annulation retire dépend du regroupement de la frappe par ProseMirror : on ne le fige pas.
   await attendre(1500)
-  await attendreTexte(l, 'Il faisait QRnuit noire sur la ville endormie. Fin.')
-  // La suggestion de Carla est intacte, à son nom.
+  // Les suggestions de Carla sont intactes, à son nom.
   await attendrePanneau(p, /Carla ajoute «\s?donc\s?»/)
   assert.equal(await p.locator('section[aria-label] li').count(), 2, 'deux suggestions')
   assert.doesNotMatch(await panneau(p), /QR/)
@@ -711,3 +720,107 @@ test('clic sur une correction dans le texte : le volet s’ouvre sur « Correcti
   await p.context().close()
   await c.context().close()
 })
+
+test('garde-fou réduit (24/11/2026) : un commentaire supprimé ne bloque rien ; libre à côté d’une correction ; refusé si elle serait déplacée ou rognée', async () => {
+  const PHRASE = 'Il faisait nuit sur la ville endormie depuis longtemps.'
+  const { p, c, fermer } = await relecture('garde-reduit', PHRASE)
+  const ecran = () =>
+    p.evaluate(() =>
+      [...document.querySelectorAll('.bn-editor .bn-block-content')]
+        .map((b) => {
+          const copie = b.cloneNode(true)
+          copie.querySelectorAll('.ProseMirror-widget, .bn-collaboration-cursor__base').forEach((x) => x.remove())
+          return copie.textContent
+        })
+        .join(' ¶ '),
+    )
+  const curseur = async (motif, apres) => {
+    await p.evaluate(
+      ([motif, apres]) => {
+        const parcours = document.createTreeWalker(document.querySelector('.bn-editor'), NodeFilter.SHOW_TEXT)
+        for (let n = parcours.nextNode(); n; n = parcours.nextNode()) {
+          const i = n.data.indexOf(motif)
+          if (i < 0) continue
+          const plage = document.createRange()
+          plage.setStart(n, apres ? i + motif.length : i)
+          plage.collapse(true)
+          getSelection().removeAllRanges()
+          getSelection().addRange(plage)
+          document.dispatchEvent(new Event('selectionchange'))
+          return
+        }
+        throw new Error(`motif absent : ${motif}`)
+      },
+      [motif, apres],
+    )
+    await attendre(500)
+  }
+  const refus = p.getByText('toucherait une correction en attente')
+  // 1. Un commentaire posé puis supprimé : on efface dans le mot et autour, sans refus.
+  await p.getByText('endormie', { exact: false }).first().dblclick()
+  await p.locator('.bn-formatting-toolbar button[aria-label="Ajouter un commentaire"]').click()
+  await attendre(400)
+  await p.keyboard.type('Pourquoi ?')
+  await p.keyboard.press('Control+Enter')
+  await p.locator('.bn-thread-mark').first().waitFor()
+  await p.locator('.bn-thread-mark').first().click()
+  await p.locator('.bn-threads-sidebar .bn-thread').first().waitFor()
+  await p.locator('.bn-threads-sidebar .bn-thread .bn-editor').first().hover()
+  await p.locator('.bn-threads-sidebar [data-test="plusd\'actions"]').first().click()
+  await p.getByRole('menuitem', { name: 'Supprimer le commentaire' }).click()
+  await p.locator('.bn-threads-sidebar .bn-thread').first().waitFor({ state: 'detached' })
+  await attendre(1500)
+  await curseur('endorm', true)
+  await p.keyboard.press('Backspace')
+  await curseur('ville', true)
+  await p.keyboard.press('Backspace')
+  await attendreTexte(c, 'Il faisait nuit sur la vill endorie depuis longtemps.')
+  assert.equal(await refus.count(), 0, 'aucun refus près d’un commentaire supprimé')
+  // 2. Carla propose « très » devant « longtemps » ; à côté, l'éditrice écrit et efface librement.
+  await c.click('.bn-inline-content')
+  await curseurDe(c, 'longtemps')
+  await c.keyboard.type('très ')
+  await attendrePanneau(p, /Carla ajoute «\s?très\s?»/)
+  await curseur('depuis', true)
+  await p.keyboard.press('Backspace')
+  await curseur('longtemp', true)
+  await p.keyboard.press('Backspace')
+  await attendre(800)
+  assert.equal(await ecran(), 'Il faisait nuit sur la vill endorie depui très longtems.')
+  assert.equal(await refus.count(), 0, 'aucun refus dans les mots voisins d’une correction')
+  // 3. Entrée avant la correction (elle passerait dans un nouveau paragraphe) : refusée, et dite.
+  await curseur('nuit', true)
+  await p.keyboard.press('Enter')
+  await refus.waitFor()
+  assert.equal(await ecran(), 'Il faisait nuit sur la vill endorie depui très longtems.')
+  // 4. Entrée après la correction : libre.
+  await p.keyboard.press('End')
+  await attendre(300)
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('Suite.')
+  await attendre(800)
+  assert.equal(await ecran(), 'Il faisait nuit sur la vill endorie depui très longtems. ¶ Suite.')
+  await attendrePanneau(p, /Carla ajoute «\s?très\s?»/)
+  assert.equal(await p.locator('section[aria-label] li').count(), 1, 'la correction de Carla est intacte')
+  await fermer()
+})
+
+/** Pose le curseur d'une page juste devant un mot. */
+async function curseurDe(page, motif) {
+  await page.evaluate((motif) => {
+    const parcours = document.createTreeWalker(document.querySelector('.bn-editor'), NodeFilter.SHOW_TEXT)
+    for (let n = parcours.nextNode(); n; n = parcours.nextNode()) {
+      const i = n.data.indexOf(motif)
+      if (i < 0) continue
+      const plage = document.createRange()
+      plage.setStart(n, i)
+      plage.collapse(true)
+      getSelection().removeAllRanges()
+      getSelection().addRange(plage)
+      document.dispatchEvent(new Event('selectionchange'))
+      return
+    }
+    throw new Error(`motif absent : ${motif}`)
+  }, motif)
+  await attendre(500)
+}
