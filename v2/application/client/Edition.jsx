@@ -558,6 +558,8 @@ export function Edition({ config, personne, docId, droits, surDroitsChanges }) {
           surNombreFils={commentaires ? setNombreFils : undefined}
           surFilChoisi={ouvrirCommentaires}
           surSuggestionChoisie={ouvrirCorrection}
+          // L'éditeur montre des corrections qui n'existent plus : il est remonté, comme par un rechargement.
+          surAffichagePerime={() => setEssaiEditeur((n) => n + 1)}
           historique={historique && !formatS}
           peutRestaurer={caps.includes('restaurer')}
           surFermerHistorique={() => setHistorique(false)}
