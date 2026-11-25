@@ -299,6 +299,7 @@
     "apparenceEnregistree": "Apparence enregistrée, pour toute l’instance.",
     "interfaces": {
       "atelier": "Atelier (page posée sur un plan de travail)",
+      "epure": "Épure (texte plus gros, paragraphes espacés, sans cadre de page)",
       "origine": "Origine (Mantine et BlockNote tels quels)"
     },
     "couleurs": {
