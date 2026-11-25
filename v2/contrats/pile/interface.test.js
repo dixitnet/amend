@@ -274,6 +274,21 @@ test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc en
   assert.equal(epure.ombre, 'none', 'pas de cadre de page')
   assert.match(epure.trait, /rgba\(0, 0, 0, 0\)|transparent/, 'bandeau sans trait')
   assert.notEqual(epure.compteur, epure.texte, 'compteur atténué')
+  // En sombre, le texte reste lisible : clair sur le fond sombre de Mantine (défaut vu sur « Atelier » le 11/11).
+  await p.emulateMedia({ colorScheme: 'dark' })
+  await p.waitForFunction(() => document.documentElement.dataset.mantineColorScheme === 'dark')
+  const sombre = await p.evaluate(() => {
+    const clarte = (c) =>
+      c
+        .match(/\d+/g)
+        .slice(0, 3)
+        .reduce((a, n) => a + Number(n), 0) / 3
+    return {
+      texte: clarte(getComputedStyle(document.querySelector('.bn-editor')).color),
+      fond: clarte(getComputedStyle(document.body).backgroundColor),
+    }
+  })
+  assert.ok(sombre.texte > 180 && sombre.fond < 60, `texte clair sur fond sombre : ${JSON.stringify(sombre)}`)
   await p.context().close()
   // Au format S, le corps reste à 17 px.
   const s = await ouvrir('Quentin', doc, { contexte: { viewport: { width: 390, height: 844 }, hasTouch: true } })

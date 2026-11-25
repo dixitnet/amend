@@ -18,6 +18,7 @@
   line-height: 1.6;
 }
 /* Formats M et L : le corps `xl` de Mantine (20 px, celui de Ghost). Au format S, 17 px comme « Atelier ». */
+/* Les autres paliers du zoom (50, 150, 200 %) sont ceux de css.editeur.zoom, inchangés, comme pour « Atelier ». */
 @media (min-width: 48em) {
   [data-amend-interface='epure'] [data-amend-zoom='100'] .bn-default-styles {
     font-size: var(--mantine-font-size-xl);
@@ -25,6 +26,7 @@
 }
 
 /* réglage : css.epure.couleurs */
+/* Les mêmes que css.atelier.couleurs (interface-atelier.css) : à faire évoluer ensemble. */
 [data-amend-interface='epure'] .bn-editor {
   background-color: transparent;
   color: var(--mantine-color-dark-7);
