@@ -4,8 +4,10 @@
 // couleur sont dans reglages.js (`couleurs`), décisions notées dans l'ADR 0008.
 export const APPARENCE = {
   // Les modèles d'interface : « atelier » (page posée sur un plan de travail,
-  // texte en Source Serif 4) et « origine » (Mantine et BlockNote tels quels).
-  modeles: ['atelier', 'origine'],
+  // texte en Source Serif 4), « epure » (25/11/2026, d'après l'éditeur de Ghost :
+  // texte plus gros, blanc entre les blocs, titres dans la police de l'interface,
+  // sans cadre de page) et « origine » (Mantine et BlockNote tels quels).
+  modeles: ['atelier', 'epure', 'origine'],
   // Les couleurs, dans l'ordre où le back-office les propose.
   couleurs: ['vermillon', 'vert', 'encre', 'indigo', 'bleu', 'violet', 'petrole', 'sepia'],
   // Sans choix au back-office : atelier en vermillon.

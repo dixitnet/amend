@@ -299,6 +299,7 @@
     "apparenceEnregistree": "Appearance saved for the whole instance.",
     "interfaces": {
       "atelier": "Workshop (page on a desk)",
+      "epure": "Clean (larger text, spaced paragraphs, no page frame)",
       "origine": "Original (Mantine and BlockNote as is)"
     },
     "couleurs": {
