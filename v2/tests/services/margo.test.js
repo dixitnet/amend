@@ -259,6 +259,14 @@ t3(
       'blocs 1 à 1 : 16 signes (espaces compris), 2 mots\ntexte 1 : 3 signes (espaces compris), 1 mot',
     )
     assert.match(recus[4], /^paramètres invalides/)
+    // Vingt textes au plus par appel : le reste est annoncé, pas ignoré en silence.
+    scenario = [
+      () => ({ appels: [{ id: 'b1', nom: 'compter', entree: { textes: Array.from({ length: 22 }, () => 'ab') } }] }),
+      (e) => (recus.push(e.resultats[0].contenu), { texte: 'Compté.' }),
+    ]
+    await demander(doc, 'Paule', { demande: 'Encore' })
+    assert.equal(recus.at(-1).split('\n').length, 21)
+    assert.match(recus.at(-1), /seuls les 20 premiers textes sont comptés/)
     assert.match(
       recus[5],
       /^\(blocs 2 à 3 : 60 signes\)\n\[2\] Les enfant jouent dans la cour\.\n\[3\] Il faisait nuit/,

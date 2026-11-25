@@ -190,6 +190,11 @@ export function creerMargo({
         portee,
         blocs: etat.blocs,
       })
+      // La taille du passage sélectionné : dite à Margo, et comptée parmi les signes lus (il est envoyé d'emblée).
+      const signesSelection =
+        portee.type === 'selection'
+          ? compterTextes(etat.blocs.slice(portee.de - 1, portee.a).map((b) => b.texte)).signes
+          : 0
       const systeme = consigne('margo', {
         prenom: p.nom,
         titre,
@@ -199,17 +204,9 @@ export function creerMargo({
         // Les tailles, données d'emblée (25/11/2026) : Margo ne sait pas compter seule.
         blocs: etat.blocs.length,
         signes: compterTextes(etat.blocs.map((b) => b.texte)).signes,
-        signesSelection:
-          portee.type === 'selection'
-            ? compterTextes(etat.blocs.slice(portee.de - 1, portee.a).map((b) => b.texte)).signes
-            : 0,
+        signesSelection,
       })
       const bilan = { corrections: 0, commentaires: 0, refus: 0 }
-      // Les signes lus comptent aussi le passage sélectionné, envoyé d'emblée.
-      const signesSelection =
-        portee.type === 'selection'
-          ? etat.blocs.slice(portee.de - 1, portee.a).reduce((n, b) => n + signes(b.texte), 0)
-          : 0
       // Le premier message compte aussi : échanges précédents compris (A2).
       const compte = {
         etapes: 0,
@@ -408,11 +405,13 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
       const c = compterTextes(choisis.map((b) => b.texte))
       lignes.push(consigne('outils.compte', { de: choisis[0].n, a: choisis.at(-1).n, signes: c.signes, mots: c.mots }))
     }
-    if (donnes)
+    if (donnes) {
       textes.slice(0, COMPTAGE_MAX).forEach((t, i) => {
         const c = compterTextes([t])
         lignes.push(consigne('outils.compteTexte', { n: i + 1, signes: c.signes, mots: c.mots }))
       })
+      if (textes.length > COMPTAGE_MAX) lignes.push(consigne('outils.compteSuite', { max: COMPTAGE_MAX }))
+    }
     return { contenu: lignes.join('\n') }
   }
 

@@ -37,6 +37,10 @@ const DROITS = {
   commenter: { capacite: 'commenter', annotations: ECRITURE },
 }
 
+// Un outil de Margo sans droits déclarés ici serait offert sans contrôle : on s'arrête au démarrage.
+for (const nom of Object.keys(SCHEMAS))
+  if (!DROITS[nom]) throw new Error(`connecteur : l’outil « ${nom} » n’a pas de droits déclarés`)
+
 /** Les outils du connecteur : ceux de Margo, les mêmes (Sylvain, 25/11/2026), avec le document visé en
  * plus ; et la liste des documents de la personne, que Margo, dans un seul document, n'a pas à demander. */
 const OUTILS = {
