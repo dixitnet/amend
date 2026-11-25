@@ -28,6 +28,10 @@ const schema = new Schema({
     bold: {},
   },
 })
+const schemaLien = new Schema({
+  nodes: { doc: { content: 'block+' }, paragraph: { group: 'block', content: 'text*' }, text: {} },
+  marks: { 'y-attributed-insert': {}, link: { attrs: { href: {} } } },
+})
 const ins = schema.marks['y-attributed-insert'].create()
 const del = schema.marks['y-attributed-delete'].create()
 /** Un paragraphe fait de morceaux : texte simple, ou [texte, marque]. */
@@ -128,6 +132,15 @@ test('3. au contact : la frappe simple passe si elle est réparée ; un remplace
   const gras = schema.text('gras', [schema.marks.bold.create()])
   assert.equal(changeUneSuggestion(s.tr.insert(D + 16, gras), true), true, 'texte en gras collé au contact')
   assert.equal(changeUneSuggestion(s.tr.insert(D + 19, gras), true), false, 'le même, dans le mot voisin')
+  // La même marque avec d'autres attributs n'est pas « la même forme ».
+  const lien = (href) => schemaLien.marks.link.create({ href })
+  const blocLie = schemaLien.node('paragraph', null, [
+    schemaLien.text('Voir ', [lien('a')]),
+    schemaLien.text('ici', [lien('a'), schemaLien.marks['y-attributed-insert'].create()]),
+  ])
+  const e = EditorState.create({ doc: schemaLien.node('doc', null, [blocLie]) })
+  assert.equal(changeUneSuggestion(e.tr.insert(9, schemaLien.text('Q', [lien('a')])), true), false, 'même lien')
+  assert.equal(changeUneSuggestion(e.tr.insert(9, schemaLien.text('Q', [lien('b')])), true), true, 'autre lien')
 })
 
 test('mise en forme et commentaires : libres, même par-dessus une correction', () => {

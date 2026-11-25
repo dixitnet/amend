@@ -104,16 +104,13 @@ function texteSeul(tranche) {
  * le correctif ne replace que cela ; un texte collé avec sa propre mise en forme resterait pris dans
  * la correction.) */
 function memeForme(tranche, $pos) {
-  const noms = (marques) =>
-    marques
-      .map((m) => m.type.name)
-      .filter((n) => !n.startsWith('y-attributed-'))
-      .sort()
-      .join(' ')
-  const ici = noms($pos.marks())
+  const propres = (marques) => marques.filter((m) => !m.type.name.startsWith('y-attributed-'))
+  const ici = propres($pos.marks())
   let meme = true
   tranche.content.forEach((n) => {
-    if (noms(n.marks) !== ici) meme = false
+    const siennes = propres(n.marks)
+    // Mêmes marques, attributs compris (un lien ou un commentaire d'ailleurs n'est pas « la même forme »).
+    if (siennes.length !== ici.length || !siennes.every((m) => ici.some((autre) => autre.eq(m)))) meme = false
   })
   return meme
 }
@@ -204,17 +201,9 @@ export const extensionGardeSuggestions = createExtension(({ options }) => {
       new Plugin({
         props: {
           // La frappe : refusée avant d'atteindre la page.
-          handleTextInput: (vue, de, a) => {
-            if (!actif()) return false
-            const doc = vue.state.doc
-            const refusee =
-              de === a
-                ? !frappeReparee && auContactDUneCorrection(doc, de)
-                : recouvreUneCorrection(doc, de, a) ||
-                  auContactDUneCorrection(doc, de) ||
-                  auContactDUneCorrection(doc, a)
-            return refusee ? non() : false
-          },
+          // Même jugement que pour toute transaction, sur la frappe qu'elle ferait.
+          handleTextInput: (vue, de, a, texte) =>
+            actif() && changeUneSuggestion(vue.state.tr.insertText(texte, de, a), frappeReparee) ? non() : false,
         },
         // Tout le reste (commandes, collage, dépôt, coupe, annulation).
         filterTransaction: (tr) => !(actif() && changeUneSuggestion(tr, frappeReparee) && non()),
