@@ -81,13 +81,27 @@ test('refus en série : avertir au seuil, arrêter au double ; une écriture acc
 })
 
 test('consignes : en catalogue, avec paramètres ; une clé absente ne passe pas', () => {
-  const c = consigne('margo', { prenom: 'Sylvain', titre: 'Livre', portee: 'selection', de: 2, a: 4 })
+  const tailles = { blocs: 12, signes: 3456, signesSelection: 789 }
+  const c = consigne('margo', { prenom: 'Sylvain', titre: 'Livre', portee: 'selection', de: 2, a: 4, ...tailles })
   assert.match(c, /Tu t’appelles Margo/)
   assert.match(c, /Sylvain/)
   assert.match(c, /les blocs 2 à 4/)
-  assert.match(consigne('margo', { prenom: 'S', titre: 'T', portee: 'document' }), /tout le texte/)
+  // Les tailles données d'emblée, et la règle : compter avec l'outil, en signes (25/11/2026).
+  assert.match(c, /12 blocs et 3[\s\u202f\u00a0]?456 signes/)
+  assert.match(c, /sélectionnés par la personne \(789 signes\)/)
+  assert.match(c, /N’estime jamais une longueur : utilise l’outil `compter`/)
+  assert.match(c, /espaces compris/)
+  assert.match(consigne('margo', { prenom: 'S', titre: 'T', portee: 'document', ...tailles }), /tout le texte/)
   assert.match(consigne('service.refusEnSerie', { n: 5 }), /tes 5 dernières/)
-  for (const cle of ['corriger', 'outils.lire', 'outils.chercher', 'outils.proposer', 'outils.commenter'])
+  for (const cle of [
+    'corriger',
+    'outils.plan',
+    'outils.lire',
+    'outils.chercher',
+    'outils.compter',
+    'outils.proposer',
+    'outils.commenter',
+  ])
     assert.ok(consigne(cle).length > 20, cle)
   for (const code of ['vide', 'introuvable', 'ambigu', 'identique', 'bloc', 'chevauche', 'posee'])
     assert.ok(consigne(`refus.${code}`), code)

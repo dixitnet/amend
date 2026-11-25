@@ -154,7 +154,19 @@ t3(
     const liste = await (await mcp(adresse, 'tools/list', {})).json()
     assert.deepEqual(
       liste.result.tools.map((x) => x.name),
-      ['documents', 'plan', 'lire', 'chercher', 'proposer', 'commenter'],
+      ['documents', 'plan', 'lire', 'chercher', 'compter', 'proposer', 'commenter'],
+    )
+    // Les mêmes outils que Margo, le document visé en plus (Sylvain, 25/11/2026).
+    const { SCHEMAS } = await import('../../application/serveur/margo.js')
+    for (const x of liste.result.tools.filter((y) => y.name !== 'documents')) {
+      const { document, ...proprietes } = x.inputSchema.properties
+      assert.ok(document, `${x.name} : le document visé`)
+      assert.deepEqual(proprietes, SCHEMAS[x.name].properties, `${x.name} : mêmes paramètres que Margo`)
+      assert.deepEqual(x.inputSchema.required, ['document', ...(SCHEMAS[x.name].required ?? [])])
+    }
+    assert.deepEqual(
+      liste.result.tools.map((x) => x.name).filter((n) => n !== 'documents'),
+      Object.keys(SCHEMAS),
     )
     assert.equal((await (await mcp(adresse, 'inconnue', {})).json()).error.code, -32601)
 
@@ -164,6 +176,14 @@ t3(
     assert.ok(!documents.includes(ailleurs))
     assert.match((await outil(adresse, 'plan', { document: doc })).content[0].text, /\[1\] Chapitre premier/)
     assert.match((await outil(adresse, 'lire', { document: doc, de: 1, a: 2 })).content[0].text, /la vile\./)
+    // Compter : une plage de blocs, des textes donnés ; en signes, espaces compris.
+    const compte = (await outil(adresse, 'compter', { document: doc, de: 1, a: 1, textes: ['Un été.'] })).content[0]
+      .text
+    assert.match(
+      compte,
+      /^blocs 1 à 1 : \d+ signes \(espaces compris\), \d+ mots\ntexte 1 : 7 signes \(espaces compris\), 2 mots$/,
+    )
+    assert.equal((await outil(adresse, 'compter', { document: doc })).isError, true, 'ni plage ni texte')
     assert.equal((await outil(adresse, 'lire', { document: ailleurs, de: 1, a: 1 })).isError, true, 'pas à lui')
 
     // Une correction, en suggestion signée « claude » ; pas sur le document où il ne fait que lire.

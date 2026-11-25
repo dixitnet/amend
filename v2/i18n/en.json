@@ -636,6 +636,8 @@
       "chercher": "Margo is searching the text…",
       "proposer": "Margo is proposing corrections…",
       "commenter": "Margo is commenting…",
+      "plan": "Margo is looking at the outline…",
+      "compter": "Margo is counting characters…",
       "repli": "The model declined this request. Margo is resuming it with another model…"
     },
     "bilan": "{corrections, plural, =0 {No corrections} one {# correction} other {# corrections}}, {commentaires, plural, =0 {no comments} one {# comment} other {# comments}}.",

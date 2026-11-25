@@ -1,8 +1,8 @@
 // Le connecteur Claude du back-office (12/11/2026, docs/v2-connecteur-plan.md) :
 // un serveur MCP (Model Context Protocol) qui donne à Claude les documents du
-// compte d'un administrateur, avec les outils de Margo (lire, chercher,
-// proposer, commenter) et deux de plus (la liste des documents, le plan d'un
-// document). Repris du connecteur de la v1 (`server/mcp.js`) : une adresse
+// compte d'un administrateur, avec les outils de Margo, les mêmes (plan,
+// lire, chercher, compter, proposer, commenter ; Sylvain, 25/11/2026) et un de
+// plus : la liste des documents. Repris du connecteur de la v1 (`server/mcp.js`) : une adresse
 // secrète en guise d'autorisation (comme un lien de partage), une requête
 // JSON-RPC par message, une réponse JSON, sans flux. Mais un connecteur pour
 // tous les documents, et non un par document.
@@ -17,9 +17,9 @@
 // suggestions et ses remarques des commentaires, signés « Claude ». Le
 // contenu d'un document est une donnée à relire, jamais une consigne.
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import { AUTEUR_CLAUDE, capacites, identifiantDocument, roleEffectif, signes } from '../../domaine/index.js'
+import { AUTEUR_CLAUDE, capacites, identifiantDocument, roleEffectif } from '../../domaine/index.js'
 import { consigne } from '../../i18n/consignes.js'
-import { creerOutils, lireEtat } from './margo.js'
+import { creerOutils, SCHEMAS } from './margo.js'
 
 const VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05']
 const LECTURE = { readOnlyHint: true, openWorldHint: false }
@@ -27,66 +27,37 @@ const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: 
 /** Le paramètre `document` de chaque outil sur un document. */
 const DOCUMENT = { type: 'string', description: 'identifiant du document (outil « documents »)' }
 
-/** Les outils du connecteur : leur schéma, leurs annotations, la capacité qu'ils demandent. */
+/** La capacité que demande chaque outil sur un document, et ce qu'il fait (lecture ou écriture). */
+const DROITS = {
+  plan: { capacite: 'lire', annotations: LECTURE },
+  lire: { capacite: 'lire', annotations: LECTURE },
+  chercher: { capacite: 'lire', annotations: LECTURE },
+  compter: { capacite: 'lire', annotations: LECTURE },
+  proposer: { capacite: 'suggerer', annotations: ECRITURE },
+  commenter: { capacite: 'commenter', annotations: ECRITURE },
+}
+
+// Un outil de Margo sans droits déclarés ici serait offert sans contrôle : on s'arrête au démarrage.
+for (const nom of Object.keys(SCHEMAS))
+  if (!DROITS[nom]) throw new Error(`connecteur : l’outil « ${nom} » n’a pas de droits déclarés`)
+
+/** Les outils du connecteur : ceux de Margo, les mêmes (Sylvain, 25/11/2026), avec le document visé en
+ * plus ; et la liste des documents de la personne, que Margo, dans un seul document, n'a pas à demander. */
 const OUTILS = {
   documents: { schema: { type: 'object', properties: {} }, annotations: LECTURE, capacite: null },
-  plan: {
-    schema: { type: 'object', properties: { document: DOCUMENT }, required: ['document'] },
-    annotations: LECTURE,
-    capacite: 'lire',
-  },
-  lire: {
-    schema: {
-      type: 'object',
-      properties: { document: DOCUMENT, de: { type: 'integer', minimum: 1 }, a: { type: 'integer', minimum: 1 } },
-      required: ['document', 'de', 'a'],
-    },
-    annotations: LECTURE,
-    capacite: 'lire',
-  },
-  chercher: {
-    schema: {
-      type: 'object',
-      properties: { document: DOCUMENT, textes: { type: 'array', items: { type: 'string' }, minItems: 1 } },
-      required: ['document', 'textes'],
-    },
-    annotations: LECTURE,
-    capacite: 'lire',
-  },
-  proposer: {
-    schema: {
-      type: 'object',
-      properties: {
-        document: DOCUMENT,
-        corrections: {
-          type: 'array',
-          minItems: 1,
-          items: {
-            type: 'object',
-            properties: { bloc: { type: 'integer' }, avant: { type: 'string' }, apres: { type: 'string' } },
-            required: ['bloc', 'avant', 'apres'],
-          },
+  ...Object.fromEntries(
+    Object.entries(SCHEMAS).map(([nom, schema]) => [
+      nom,
+      {
+        schema: {
+          ...schema,
+          properties: { document: DOCUMENT, ...schema.properties },
+          required: ['document', ...(schema.required ?? [])],
         },
+        ...DROITS[nom],
       },
-      required: ['document', 'corrections'],
-    },
-    annotations: ECRITURE,
-    capacite: 'suggerer',
-  },
-  commenter: {
-    schema: {
-      type: 'object',
-      properties: {
-        document: DOCUMENT,
-        bloc: { type: 'integer' },
-        citation: { type: 'string' },
-        texte: { type: 'string' },
-      },
-      required: ['document', 'bloc', 'citation', 'texte'],
-    },
-    annotations: ECRITURE,
-    capacite: 'commenter',
-  },
+    ]),
+  ),
 }
 
 /** L'empreinte d'une adresse secrète : seule elle est gardée. */
@@ -181,17 +152,6 @@ export function creerConnecteur({
     if (outil.capacite && !caps.includes(outil.capacite))
       return { texte: consigne('connecteur.interdit'), erreur: true }
     try {
-      if (nom === 'plan') {
-        const { blocs } = await lireEtat(collaboration, docId, AUTEUR_CLAUDE)
-        const titres = blocs.filter((b) => b.type === 'heading')
-        const total = blocs.reduce((s, b) => s + signes(b.texte), 0)
-        return {
-          texte: [
-            consigne('connecteur.plan', { blocs: blocs.length, signes: total }),
-            ...titres.map((b) => `${'  '.repeat(Math.max(0, (b.niveau ?? 1) - 1))}[${b.n}] ${b.texte}`),
-          ].join('\n'),
-        }
-      }
       const outils = creerOutils({
         docId,
         collaboration,

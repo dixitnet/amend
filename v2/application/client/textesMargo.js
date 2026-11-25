@@ -9,6 +9,8 @@ export const MARGO_EN_COURS = {
   chercher: () => t('margo.enCours.chercher'),
   proposer: () => t('margo.enCours.proposer'),
   commenter: () => t('margo.enCours.commenter'),
+  plan: () => t('margo.enCours.plan'),
+  compter: () => t('margo.enCours.compter'),
   repli: () => t('margo.enCours.repli'),
 }
 /** Pourquoi une demande s'est arrêtée avant la fin (codes du serveur). */

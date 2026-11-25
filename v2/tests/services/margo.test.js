@@ -35,11 +35,11 @@ let scenario = []
 const requetes = []
 const iaSimulee = {
   disponible: (m) => m !== 'claude-haiku-5-5',
-  conversation({ modele, consigne }) {
+  conversation({ modele, consigne, outils }) {
     let i = 0
     return {
       async tour(entree) {
-        requetes.push({ modele, consigne, entree })
+        requetes.push({ modele, consigne, outils, entree })
         const f = scenario[i++]
         const r = f ? await f(entree, modele) : { texte: 'Fini.', appels: [] }
         return {
@@ -220,6 +220,57 @@ t3(
     const suggestions = await interne.lireSuggestions(doc)
     assert.equal(blocsATexteDe(principal)[1].texte, 'Les enfant', 'le texte principal ne change pas')
     assert.equal(blocsATexteDe(principal, suggestions)[1].texte, 'Les enfants')
+  },
+)
+
+t3(
+  'compter (25/11/2026) : les tailles dans la consigne, le plan, une plage de blocs, des textes donnés, l’en-tête d’une lecture',
+  async () => {
+    const doc = await nouveauDocument(LIVRE)
+    const recus = []
+    scenario = [
+      () => ({
+        appels: [
+          { id: 'a1', nom: 'plan', entree: {} },
+          { id: 'a2', nom: 'compter', entree: { de: 2, a: 3 } },
+          { id: 'a3', nom: 'compter', entree: { textes: ['Un été chaud.', 'e\u0301te\u0301'] } },
+          { id: 'a4', nom: 'compter', entree: { de: 1, a: 1, textes: ['abc'] } },
+          { id: 'a5', nom: 'compter', entree: {} },
+          { id: 'a6', nom: 'lire', entree: { de: 2, a: 3 } },
+        ],
+      }),
+      (e) => (recus.push(...e.resultats.map((r) => r.contenu)), { texte: 'Compté.' }),
+    ]
+    requetes.length = 0
+    const r = await demander(doc, 'Paule', { demande: 'Combien de signes ?' })
+    assert.equal(r.statut, 200)
+    // La consigne donne la taille du document : 16 + 31 + 29 signes.
+    assert.match(requetes[0].consigne, /Le document fait 3 blocs et 76 signes\./)
+    assert.deepEqual(
+      requetes[0].outils.map((o) => o.nom),
+      ['plan', 'lire', 'chercher', 'compter', 'proposer', 'commenter'],
+    )
+    assert.equal(recus[0], '3 blocs, 76 signes, 14 mots. Titres, avec leur numéro de bloc :\n[1] Chapitre premier')
+    assert.equal(recus[1], 'blocs 2 à 3 : 60 signes (espaces compris), 12 mots')
+    // Des textes donnés ; une lettre décomposée vaut un signe.
+    assert.equal(recus[2], 'texte 1 : 13 signes (espaces compris), 3 mots\ntexte 2 : 3 signes (espaces compris), 1 mot')
+    assert.equal(
+      recus[3],
+      'blocs 1 à 1 : 16 signes (espaces compris), 2 mots\ntexte 1 : 3 signes (espaces compris), 1 mot',
+    )
+    assert.match(recus[4], /^paramètres invalides/)
+    // Vingt textes au plus par appel : le reste est annoncé, pas ignoré en silence.
+    scenario = [
+      () => ({ appels: [{ id: 'b1', nom: 'compter', entree: { textes: Array.from({ length: 22 }, () => 'ab') } }] }),
+      (e) => (recus.push(e.resultats[0].contenu), { texte: 'Compté.' }),
+    ]
+    await demander(doc, 'Paule', { demande: 'Encore' })
+    assert.equal(recus.at(-1).split('\n').length, 21)
+    assert.match(recus.at(-1), /seuls les 20 premiers textes sont comptés/)
+    assert.match(
+      recus[5],
+      /^\(blocs 2 à 3 : 60 signes\)\n\[2\] Les enfant jouent dans la cour\.\n\[3\] Il faisait nuit/,
+    )
   },
 )
 
@@ -405,6 +456,30 @@ test('essai réel avec DeepSeek (MARGO_ESSAI_REEL=1) : une faute corrigée en su
     assert.ok(fin(r.evenements).corrections >= 1)
     const t2 = blocsATexteDe(await interne.lireTexte(doc), await interne.lireSuggestions(doc))[1].texte
     assert.equal(t2, 'Les enfants jouent dans la cour.')
+  } finally {
+    s.closeAllConnections?.()
+    s.close()
+  }
+})
+
+test('essai réel avec DeepSeek (MARGO_ESSAI_REEL=1) : Margo compte avec son outil et donne le nombre exact', async (t) => {
+  if (raisonSaut) return t.skip(raisonSaut)
+  if (process.env.MARGO_ESSAI_REEL !== '1') return t.skip('essai réel non demandé (MARGO_ESSAI_REEL=1)')
+  const s = await demarrer(creerIA({ cleScaleway: 'injectee-par-le-proxy' }), 'deepseek-v4.1-flash-1017')
+  try {
+    const doc = await nouveauDocument(LIVRE)
+    const r = await demander(
+      doc,
+      'Paule',
+      { demande: 'Combien de signes fait le bloc 3 ? Et les blocs 2 et 3 ensemble ?' },
+      `http://127.0.0.1:${s.address().port}`,
+    )
+    console.log(JSON.stringify(r.evenements))
+    const dit = JSON.stringify(r.evenements)
+    // « Il faisait nuit sur la ville. » : 29 signes ; avec le bloc 2 : 60.
+    assert.match(dit, /29/)
+    assert.match(dit, /60/)
+    assert.doesNotMatch(dit, /pas d[’']outil/)
   } finally {
     s.closeAllConnections?.()
     s.close()
