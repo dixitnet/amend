@@ -209,3 +209,82 @@ test('volet « Documents » : le premier niveau (Mes documents…) en gras, les 
   if (process.env.CAPTURE) await volet.screenshot({ path: `${process.env.CAPTURE}/arbre-gras.png` })
   await page.context().close()
 })
+
+test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc entre les blocs, titres dans la police de l’interface, sans cadre ; 17 px au format S', async () => {
+  const doc = docTest('epure')
+  // Le modèle choisi au back-office arrive par la configuration : la pile n'en a pas, on le pose ici.
+  const enEpure = async (page) => {
+    await page.route('**/api/config', async (route) => {
+      const reponse = await route.fetch()
+      const config = await reponse.json()
+      await route.fulfill({
+        response: reponse,
+        json: { ...config, apparence: { ...config.apparence, modele: 'epure' } },
+      })
+    })
+    await page.reload()
+    await page.waitForSelector('.bn-editor')
+    await page.waitForFunction(() => document.documentElement.dataset.amendInterface === 'epure')
+  }
+  const p = await ouvrir('Paule', doc, { contexte: { viewport: { width: 1440, height: 900 } } })
+  await p.click('.bn-editor')
+  await p.keyboard.type('# Un titre')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('Premier paragraphe.')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('Second paragraphe.')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('## Un intertitre')
+  await attendre(500)
+  // D'abord « Atelier », le modèle par défaut : la page est un cadre blanc ombré.
+  const lire = (page) =>
+    page.evaluate(() => {
+      const style = (e) => getComputedStyle(e)
+      const blocs = [...document.querySelectorAll('.bn-editor .bn-block-group > .bn-block-outer')]
+      const titre = document.querySelector("[data-content-type='heading'] .bn-inline-content")
+      const paragraphe = document.querySelector("[data-content-type='paragraph'] .bn-inline-content")
+      return {
+        corps: parseFloat(style(paragraphe).fontSize),
+        interligne: parseFloat(style(paragraphe).lineHeight) / parseFloat(style(paragraphe).fontSize),
+        policeTexte: style(paragraphe).fontFamily,
+        policeTitre: style(titre).fontFamily,
+        policeInterface: style(document.body).fontFamily,
+        graisseTitre: style(titre).fontWeight,
+        entreParagraphes: parseFloat(style(blocs[2]).marginTop),
+        avantIntertitre: parseFloat(style(blocs[3]).marginTop),
+        ombre: style(document.querySelector('[data-amend-colonne]')).boxShadow,
+        trait: style(document.querySelector('.mantine-AppShell-header')).borderBottomColor,
+        compteur: style(document.querySelector('[data-amend-compteur]')).color,
+        texte: style(document.body).color,
+      }
+    })
+  const atelier = await lire(p)
+  assert.equal(atelier.corps, 17)
+  assert.notEqual(atelier.ombre, 'none', '« Atelier » garde son cadre')
+  assert.equal(atelier.entreParagraphes, 0)
+  await enEpure(p)
+  const epure = await lire(p)
+  assert.equal(epure.corps, 20, 'corps xl de Mantine')
+  assert.ok(Math.abs(epure.interligne - 1.6) < 0.01, `interligne ${epure.interligne}`)
+  assert.match(epure.policeTexte, /Source Serif 4/)
+  assert.equal(epure.policeTitre, epure.policeInterface, 'titres dans la police de l’interface')
+  assert.equal(epure.graisseTitre, '700')
+  assert.equal(epure.entreParagraphes, 16, 'un blanc md entre deux blocs')
+  assert.equal(epure.avantIntertitre, 48, '1,5 × xl devant un titre')
+  assert.equal(epure.ombre, 'none', 'pas de cadre de page')
+  assert.match(epure.trait, /rgba\(0, 0, 0, 0\)|transparent/, 'bandeau sans trait')
+  assert.notEqual(epure.compteur, epure.texte, 'compteur atténué')
+  await p.context().close()
+  // Au format S, le corps reste à 17 px.
+  const s = await ouvrir('Quentin', doc, { contexte: { viewport: { width: 390, height: 844 }, hasTouch: true } })
+  await enEpure(s)
+  assert.equal(
+    await s.evaluate(() =>
+      parseFloat(
+        getComputedStyle(document.querySelector("[data-content-type='paragraph'] .bn-inline-content")).fontSize,
+      ),
+    ),
+    17,
+  )
+  await s.context().close()
+})

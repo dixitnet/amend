@@ -14,6 +14,7 @@ const SEPT_JOURS_MS = 7 * 24 * 3600 * 1000
 // Les noms des modèles d'interface et des couleurs (design/apparence.js).
 const NOMS_INTERFACES = {
   atelier: () => t('admin.interfaces.atelier'),
+  epure: () => t('admin.interfaces.epure'),
   origine: () => t('admin.interfaces.origine'),
 }
 const nomDuModeleInterface = (n) => NOMS_INTERFACES[n]?.() ?? n

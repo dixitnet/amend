@@ -690,7 +690,7 @@ test('back-office, rubrique Apparence : le modèle d’interface et la couleur d
   assert.equal((await choisir(simple, { modele: 'origine', couleur: 'vert' })).status, 403)
   const avant = await (await lire(admin)).json()
   assert.deepEqual(avant.apparence, { modele: 'atelier', couleur: 'vermillon' }, 'par défaut')
-  assert.deepEqual(avant.modeles, ['atelier', 'origine'])
+  assert.deepEqual(avant.modeles, ['atelier', 'epure', 'origine'])
   assert.equal(avant.couleurs[0], 'vermillon')
   assert.deepEqual(await config(), { modele: 'atelier', couleur: 'vermillon' }, 'sans session aussi')
   for (const corps of [{ modele: 'inconnu', couleur: 'vert' }, { modele: 'origine', couleur: 'toString' }, {}]) {
