@@ -40,6 +40,15 @@
 [data-amend-interface='epure'] .bn-editor .bn-block-group > .bn-block-outer + .bn-block-outer {
   margin-top: var(--mantine-spacing-md);
 }
+/* Deux éléments de liste qui se suivent restent serrés : la liste se lit comme un tout (Sylvain, 25/11/2026,
+   « resserrer les listes »). */
+[data-amend-interface='epure']
+  .bn-editor
+  .bn-block-group
+  > .bn-block-outer:has(> .bn-block > [data-content-type$='ListItem'])
+  + .bn-block-outer:has(> .bn-block > [data-content-type$='ListItem']) {
+  margin-top: 0;
+}
 
 /* réglage : css.epure.titres */
 /* Les titres dans la police de l'interface, en gras : le contraste avec le texte à empattements. Devant

@@ -235,6 +235,10 @@ test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc en
   await p.keyboard.type('Second paragraphe.')
   await p.keyboard.press('Enter')
   await p.keyboard.type('## Un intertitre')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('- Un')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('Deux')
   await attendre(500)
   // D'abord « Atelier », le modèle par défaut : la page est un cadre blanc ombré.
   const lire = (page) =>
@@ -252,6 +256,8 @@ test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc en
         graisseTitre: style(titre).fontWeight,
         entreParagraphes: parseFloat(style(blocs[2]).marginTop),
         avantIntertitre: parseFloat(style(blocs[3]).marginTop),
+        avantListe: parseFloat(style(blocs[4]).marginTop),
+        dansLaListe: parseFloat(style(blocs[5]).marginTop),
         ombre: style(document.querySelector('[data-amend-colonne]')).boxShadow,
         trait: style(document.querySelector('.mantine-AppShell-header')).borderBottomColor,
         compteur: style(document.querySelector('[data-amend-compteur]')).color,
@@ -271,6 +277,8 @@ test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc en
   assert.equal(epure.graisseTitre, '700')
   assert.equal(epure.entreParagraphes, 16, 'un blanc md entre deux blocs')
   assert.equal(epure.avantIntertitre, 48, '1,5 × xl devant un titre')
+  assert.equal(epure.avantListe, 16, 'le blanc devant une liste')
+  assert.equal(epure.dansLaListe, 0, 'les éléments d’une liste restent serrés')
   assert.equal(epure.ombre, 'none', 'pas de cadre de page')
   assert.match(epure.trait, /rgba\(0, 0, 0, 0\)|transparent/, 'bandeau sans trait')
   assert.notEqual(epure.compteur, epure.texte, 'compteur atténué')
