@@ -21,6 +21,7 @@ import {
   identifiantDocument,
   capacites,
   signes,
+  compter as compterTextes,
   texteNumerote,
   porteeMargo,
   normaliser,
@@ -41,11 +42,17 @@ const blocknote = async () => (adaptateur ??= await import('../../adaptateurs/bl
 
 /** Une lecture rend au plus ce nombre de signes (le reste au prochain appel). */
 const LECTURE_MAX_SIGNES = 40_000
+/** Textes comptés en un appel de `compter`. */
+const COMPTAGE_MAX = 20
 /** Résultats d'une recherche, par texte cherché. */
 const RECHERCHE_MAX = 20
 const HISTORIQUE_MAX = 40
 
-const SCHEMAS = {
+/** Les outils sur un document, les mêmes pour Margo et pour le connecteur Claude (Sylvain, 25/11/2026 :
+ * « les outils de Margo et du connecteur Claude doivent être identiques ») : le connecteur y ajoute
+ * seulement le document visé, et la liste des documents de la personne. */
+export const SCHEMAS = {
+  plan: { type: 'object', properties: {} },
   lire: {
     type: 'object',
     properties: { de: { type: 'integer', minimum: 1 }, a: { type: 'integer', minimum: 1 } },
@@ -55,6 +62,14 @@ const SCHEMAS = {
     type: 'object',
     properties: { textes: { type: 'array', items: { type: 'string' }, minItems: 1 } },
     required: ['textes'],
+  },
+  compter: {
+    type: 'object',
+    properties: {
+      de: { type: 'integer', minimum: 1 },
+      a: { type: 'integer', minimum: 1 },
+      textes: { type: 'array', items: { type: 'string' }, minItems: 1 },
+    },
   },
   proposer: {
     type: 'object',
@@ -181,6 +196,13 @@ export function creerMargo({
         portee: portee.type,
         de: portee.de ?? 0,
         a: portee.a ?? 0,
+        // Les tailles, données d'emblée (25/11/2026) : Margo ne sait pas compter seule.
+        blocs: etat.blocs.length,
+        signes: compterTextes(etat.blocs.map((b) => b.texte)).signes,
+        signesSelection:
+          portee.type === 'selection'
+            ? compterTextes(etat.blocs.slice(portee.de - 1, portee.a).map((b) => b.texte)).signes
+            : 0,
       })
       const bilan = { corrections: 0, commentaires: 0, refus: 0 }
       // Les signes lus comptent aussi le passage sélectionné, envoyé d'emblée.
@@ -324,7 +346,7 @@ function premierMessage({ prenom, demande, historique, portee, blocs }) {
   return parties.join('\n\n')
 }
 
-/** Les quatre outils de Margo, sur un document. Chaque exécution rend
+/** Les outils de Margo, sur un document. Chaque exécution rend
  * `{ contenu, erreur?, ecriture?, acceptee? }`. `auteur` signe les suggestions
  * et les commentaires (Margo, ou Claude par le connecteur du back-office). */
 export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, compte, auteur = AUTEUR_MARGO }) {
@@ -347,11 +369,51 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
     }
     if (!choisis.length) return { contenu: consigne('outils.aucun') }
     compte.signesLus += total
-    let contenu = texteNumerote(choisis.map(pourMargo))
     const dernier = choisis[choisis.length - 1].n
+    // En tête, la taille de ce qui est rendu : Margo ne sait pas compter seule (25/11/2026).
+    let contenu = `${consigne('outils.lu', { de: choisis[0].n, a: dernier, signes: total })}\n${texteNumerote(choisis.map(pourMargo))}`
     if (dernier < Math.min(a, blocs.length))
       contenu += `\n${consigne('outils.suite', { dernier, suivant: dernier + 1 })}`
     return { contenu }
+  }
+
+  /** Le plan : la taille du document, et ses titres avec leur numéro de bloc. */
+  async function plan() {
+    const { blocs } = await lireEtat(collaboration, docId, auteur)
+    const { signes: total, mots } = compterTextes(blocs.map((b) => b.texte))
+    return {
+      contenu: [
+        consigne('outils.planEntete', { blocs: blocs.length, signes: total, mots }),
+        ...blocs
+          .filter((b) => b.type === 'heading')
+          .map((b) => `${'  '.repeat(Math.max(0, (b.niveau ?? 1) - 1))}[${b.n}] ${b.texte}`),
+      ].join('\n'),
+    }
+  }
+
+  /** Le compte exact, en signes (espaces compris) et en mots : d'une plage de blocs, sans la lire, ou de
+   * textes donnés (une reformulation à vérifier avant de la proposer). */
+  async function compter({ de, a, textes }) {
+    const plage = de !== undefined || a !== undefined
+    const donnes = textes !== undefined
+    if (!plage && !donnes) return parametres('compter')
+    if (plage && (!entier(de) || !entier(a) || de < 1 || a < de)) return parametres('compter')
+    if (donnes && (!Array.isArray(textes) || !textes.length || !textes.every((t) => typeof t === 'string')))
+      return parametres('compter')
+    const lignes = []
+    if (plage) {
+      const { blocs } = await lireEtat(collaboration, docId, auteur)
+      const choisis = blocs.slice(de - 1, a)
+      if (!choisis.length) return { contenu: consigne('outils.aucun') }
+      const c = compterTextes(choisis.map((b) => b.texte))
+      lignes.push(consigne('outils.compte', { de: choisis[0].n, a: choisis.at(-1).n, signes: c.signes, mots: c.mots }))
+    }
+    if (donnes)
+      textes.slice(0, COMPTAGE_MAX).forEach((t, i) => {
+        const c = compterTextes([t])
+        lignes.push(consigne('outils.compteTexte', { n: i + 1, signes: c.signes, mots: c.mots }))
+      })
+    return { contenu: lignes.join('\n') }
   }
 
   async function chercher({ textes }) {
@@ -455,7 +517,7 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
     return { contenu: consigne('refus.posee'), ecriture: true, acceptee: true }
   }
 
-  const ACTIONS = { lire, chercher, proposer, commenter }
+  const ACTIONS = { plan, lire, chercher, compter, proposer, commenter }
   return {
     async executer(nom, entree) {
       const action = ACTIONS[nom]
