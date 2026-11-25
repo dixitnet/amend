@@ -1,0 +1,65 @@
+/* Feuille du modèle d'interface « Épure » : décidée par Sylvain le 25/11/2026
+   (« Ok pour tout. go. », d'après l'éditeur de Ghost, dont il trouve le design
+   particulièrement lisible ; valeurs lues dans TryGhost/Koenig, `kg-prose.css`,
+   puis ramenées à l'échelle de Mantine ; ADR 0008). Un texte plus gros, un
+   blanc entre les blocs, des titres dans la police de l'interface, aucun décor.
+   Chaque règle ne vaut que si la racine porte data-amend-interface='epure'
+   (design/Cadre.jsx), selon le modèle choisi au back-office. La police Source
+   Serif 4 est déclarée par la feuille du modèle « Atelier » (css.atelier.police). */
+
+/* réglage : css.epure.texte */
+[data-amend-interface='epure'] .bn-default-styles {
+  font-family: 'Source Serif 4', Georgia, serif;
+}
+[data-amend-interface='epure'] [data-amend-zoom='100'] .bn-default-styles {
+  font-size: 17px;
+}
+[data-amend-interface='epure'] .bn-block-outer {
+  line-height: 1.6;
+}
+/* Formats M et L : le corps `xl` de Mantine (20 px, celui de Ghost). Au format S, 17 px comme « Atelier ». */
+@media (min-width: 48em) {
+  [data-amend-interface='epure'] [data-amend-zoom='100'] .bn-default-styles {
+    font-size: var(--mantine-font-size-xl);
+  }
+}
+
+/* réglage : css.epure.couleurs */
+[data-amend-interface='epure'] .bn-editor {
+  background-color: transparent;
+  color: var(--mantine-color-dark-7);
+}
+[data-amend-interface='epure'][data-mantine-color-scheme='dark'] .bn-editor {
+  color: var(--mantine-color-dark-0);
+}
+
+/* réglage : css.epure.blocs */
+/* Un blanc entre deux blocs qui se suivent (`md` de Mantine) : chaque paragraphe se détache. */
+[data-amend-interface='epure'] .bn-editor .bn-block-group > .bn-block-outer + .bn-block-outer {
+  margin-top: var(--mantine-spacing-md);
+}
+
+/* réglage : css.epure.titres */
+/* Les titres dans la police de l'interface, en gras : le contraste avec le texte à empattements. Devant
+   un titre qui suit un autre bloc, une fois et demie `xl` de Mantine (48 px, la valeur de Ghost). */
+[data-amend-interface='epure'] .bn-container .bn-block-content[data-content-type='heading'],
+[data-amend-interface='epure'] .bn-container .bn-block-content[data-content-type='titre'] {
+  font-family: var(--mantine-font-family);
+  font-weight: var(--mantine-font-weight-bold);
+}
+[data-amend-interface='epure']
+  .bn-editor
+  .bn-block-group
+  > .bn-block-outer
+  + .bn-block-outer:has(> .bn-block > [data-content-type='heading']) {
+  margin-top: calc(1.5 * var(--mantine-spacing-xl));
+}
+
+/* réglage : css.epure.bandeau */
+/* Le bandeau sans trait dessous, le compteur de signes en retrait (couleur atténuée de Mantine). */
+[data-amend-interface='epure'] .mantine-AppShell-header {
+  border-bottom-color: transparent;
+}
+[data-amend-interface='epure'] [data-amend-compteur] {
+  color: var(--mantine-color-dimmed);
+}
