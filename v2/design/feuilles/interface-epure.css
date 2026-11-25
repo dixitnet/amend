@@ -67,10 +67,20 @@
 }
 
 /* réglage : css.epure.bandeau */
-/* Le bandeau sans trait dessous, le compteur de signes en retrait (couleur atténuée de Mantine). */
-[data-amend-interface='epure'] .mantine-AppShell-header {
-  border-bottom-color: transparent;
-}
+/* Le compteur de signes en retrait (couleur atténuée de Mantine). Le trait sous le bandeau est gardé
+   (Sylvain, 25/11/2026 : « il manque un séparateur du bandeau du haut »). */
 [data-amend-interface='epure'] [data-amend-compteur] {
   color: var(--mantine-color-dimmed);
+}
+
+/* réglage : css.epure.colonne */
+/* Formats M et L : le texte lui-même à la largeur `sm` de Mantine (720 px, 36 fois le corps : la même
+   mesure qu'« Atelier », environ 75 signes par ligne ; Ghost : 740 px). Sans ce réglage, la colonne de
+   720 px perd les marges de l'éditeur de BlockNote (54 px de chaque côté, pour ses poignées) et celles
+   du conteneur de Mantine : il restait 580 px, soit 58 signes par ligne à 20 px (Sylvain, 25/11/2026,
+   « vérifier la largeur de colonne »). */
+@media (min-width: 48em) {
+  [data-amend-interface='epure'] [data-amend-colonne] {
+    max-width: calc(var(--container-size) + 2 * 54px + 2 * var(--mantine-spacing-md));
+  }
 }

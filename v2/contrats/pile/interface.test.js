@@ -210,7 +210,7 @@ test('volet « Documents » : le premier niveau (Mes documents…) en gras, les 
   await page.context().close()
 })
 
-test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc entre les blocs, titres dans la police de l’interface, sans cadre ; 17 px au format S', async () => {
+test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc entre les blocs, titres dans la police de l’interface, sans cadre, texte large de 720 px ; 17 px au format S', async () => {
   const doc = docTest('epure')
   // Le modèle choisi au back-office arrive par la configuration : la pile n'en a pas, on le pose ici.
   const enEpure = async (page) => {
@@ -259,7 +259,8 @@ test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc en
         avantListe: parseFloat(style(blocs[4]).marginTop),
         dansLaListe: parseFloat(style(blocs[5]).marginTop),
         ombre: style(document.querySelector('[data-amend-colonne]')).boxShadow,
-        trait: style(document.querySelector('.mantine-AppShell-header')).borderBottomColor,
+        trait: style(document.querySelector('.mantine-AppShell-header')).borderBottomWidth,
+        largeurDuTexte: Math.round(paragraphe.closest('.bn-block-content').getBoundingClientRect().width),
         compteur: style(document.querySelector('[data-amend-compteur]')).color,
         texte: style(document.body).color,
       }
@@ -280,7 +281,11 @@ test('modèle d’interface « Épure » (25/11/2026) : texte à 20 px, blanc en
   assert.equal(epure.avantListe, 16, 'le blanc devant une liste')
   assert.equal(epure.dansLaListe, 0, 'les éléments d’une liste restent serrés')
   assert.equal(epure.ombre, 'none', 'pas de cadre de page')
-  assert.match(epure.trait, /rgba\(0, 0, 0, 0\)|transparent/, 'bandeau sans trait')
+  assert.equal(epure.trait, atelier.trait, 'le trait sous le bandeau est gardé')
+  assert.notEqual(epure.trait, '0px')
+  // Le texte à la largeur sm de Mantine : 36 fois le corps, comme « Atelier » (612 px à 17 px).
+  assert.equal(epure.largeurDuTexte, 720)
+  assert.equal(atelier.largeurDuTexte, 612)
   assert.notEqual(epure.compteur, epure.texte, 'compteur atténué')
   // En sombre, le texte reste lisible : clair sur le fond sombre de Mantine (défaut vu sur « Atelier » le 11/11).
   await p.emulateMedia({ colorScheme: 'dark' })
