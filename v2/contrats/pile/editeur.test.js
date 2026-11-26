@@ -660,3 +660,83 @@ test('liens et gras en « Éditer » : créer, modifier, retirer ; rien ne reste
   await page.context().close()
   await autre.context().close()
 })
+
+test('surligner (26/11/2026) : un bouton et un raccourci, citron vert, vu par les autres ; pas en « Corriger » ; la poignée ne propose plus « Couleurs »', async () => {
+  const PHRASE = 'Voir le site officiel ici.'
+  const doc = docTest('surligne')
+  const page = await ouvrir('Paule', doc)
+  await page.click('.bn-editor')
+  await page.keyboard.type(PHRASE)
+  const autre = await ouvrir('Quentin', doc)
+  await attendreTexte(autre, PHRASE)
+  const surlignes = (p) =>
+    p.evaluate(() => [...document.querySelectorAll('.bn-editor .bn-inline-content mark')].map((m) => m.textContent))
+  const bouton = page
+    .locator('.bn-formatting-toolbar')
+    .getByRole('button', { name: creerTraducteur('fr')('document.surligner'), exact: true })
+  // Le bouton : le mot est surligné, chez soi et chez l'autre.
+  await choisirMot(page, 'site')
+  await bouton.click()
+  await page.waitForFunction(() => document.querySelector('.bn-inline-content mark')?.textContent === 'site')
+  await autre.waitForFunction(() => document.querySelector('.bn-inline-content mark')?.textContent === 'site')
+  // Citron vert de Mantine (lime.2), le texte garde sa couleur.
+  const couleurs = await page.evaluate(() => {
+    const repere = document.createElement('span')
+    repere.style.backgroundColor = 'var(--mantine-color-lime-2)'
+    // La référence est lue dans l'éditeur : BlockNote y a sa propre portée de variables Mantine.
+    document.querySelector('.bn-container').append(repere)
+    const attendu = getComputedStyle(repere).backgroundColor
+    repere.remove()
+    const mark = document.querySelector('.bn-inline-content mark')
+    return {
+      fond: getComputedStyle(mark).backgroundColor,
+      attendu,
+      texte: getComputedStyle(mark).color,
+      autour: getComputedStyle(mark.parentElement).color,
+    }
+  })
+  assert.equal(couleurs.fond, couleurs.attendu)
+  assert.equal(couleurs.texte, couleurs.autour)
+  // En sombre : le fond « light » du citron vert de Mantine, pas la nuance pleine.
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.waitForFunction(() => document.documentElement.dataset.mantineColorScheme === 'dark')
+  const sombre = await page.evaluate(() => {
+    const repere = document.createElement('span')
+    repere.style.backgroundColor = 'var(--mantine-color-lime-light)'
+    document.querySelector('.bn-container').append(repere)
+    const attendu = getComputedStyle(repere).backgroundColor
+    repere.remove()
+    return { fond: getComputedStyle(document.querySelector('.bn-inline-content mark')).backgroundColor, attendu }
+  })
+  assert.equal(sombre.fond, sombre.attendu)
+  assert.notEqual(sombre.fond, couleurs.fond)
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.waitForFunction(() => document.documentElement.dataset.mantineColorScheme === 'light')
+  // Le raccourci : un second mot ; le bouton de nouveau : le premier n'est plus surligné.
+  await choisirMot(page, 'officiel')
+  await page.keyboard.press('ControlOrMeta+Shift+H')
+  await autre.waitForFunction(() => document.querySelectorAll('.bn-inline-content mark').length === 2)
+  await choisirMot(page, 'site')
+  await bouton.click()
+  await autre.waitForFunction(() => document.querySelectorAll('.bn-inline-content mark').length === 1)
+  assert.deepEqual(await surlignes(page), ['officiel'])
+  await attendreTexte(autre, PHRASE)
+  // En « Corriger » : ni bouton ni raccourci.
+  await choisirMode(page, 'Corriger')
+  await choisirMot(page, 'Voir')
+  await page.locator('.bn-formatting-toolbar').waitFor()
+  assert.equal(await bouton.count(), 0, 'pas de bouton « Surligner » en Corriger')
+  await page.keyboard.press('ControlOrMeta+Shift+H')
+  await attendre(600)
+  assert.deepEqual(await surlignes(page), ['officiel'])
+  await choisirMode(page, 'Éditer')
+  // La poignée du bloc : « Supprimer », sans « Couleurs ».
+  await page.keyboard.press('Escape')
+  await page.hover('.bn-editor .bn-block-content')
+  await page.locator('.bn-side-menu [draggable="true"]').click()
+  await page.getByRole('menuitem', { name: fr.drag_handle.delete_menuitem }).waitFor()
+  const entrees = await page.getByRole('menuitem').allInnerTexts()
+  assert.ok(!entrees.includes(fr.drag_handle.colors_menuitem), `pas de « Couleurs » : ${entrees}`)
+  await page.context().close()
+  await autre.context().close()
+})

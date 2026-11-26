@@ -16,6 +16,7 @@ import { yfragmentToBlocks } from '@blocknote/core/y'
 import { TypstExporter, typstDefaultSchemaMappings } from '@blocknote/xl-typst-exporter'
 import { gabaritTypst, nfc, compter, entreesTable, profondeurTable, chaineTypst } from '../../domaine/index.js'
 import { TYPE_NOTE } from '../../extensions/note/index.js'
+import { STYLE_SURLIGNE } from '../../extensions/surligne/index.js'
 import { TYPE_TABLE, texteEnLigne, titresDesBlocs } from '../../extensions/tableDesMatieres/index.js'
 import { TYPE_TITRE, TYPE_SOUS_TITRE, TYPE_LEGENDE, TYPE_BIBLIOGRAPHIE } from '../../extensions/titres/index.js'
 
@@ -51,15 +52,18 @@ function marquerExposants(contenu) {
       })),
     }
   if (!Array.isArray(contenu)) return contenu
+  // Le surlignage, marque de travail, ne part pas à l'export (Sylvain, 26/11/2026).
+  const sans = (styles, ...cles) =>
+    Object.fromEntries(Object.entries(styles ?? {}).filter(([cle]) => !cles.includes(cle)))
   return contenu.map((c) =>
     c.type === 'text'
       ? c.styles?.exposant
         ? {
             ...c,
             text: DEBUT_SUP + sansMarques(c.text) + FIN_SUP,
-            styles: Object.fromEntries(Object.entries(c.styles).filter(([cle]) => cle !== 'exposant')),
+            styles: sans(c.styles, 'exposant', STYLE_SURLIGNE),
           }
-        : { ...c, text: sansMarques(c.text) }
+        : { ...c, text: sansMarques(c.text), styles: sans(c.styles, STYLE_SURLIGNE) }
       : Array.isArray(c.content)
         ? { ...c, content: marquerExposants(c.content) }
         : c,
@@ -185,6 +189,8 @@ const CORRESPONDANCES = {
   styleMapping: {
     ...typstDefaultSchemaMappings.styleMapping,
     exposant: (actif) => (actif ? (e) => `super(${e})` : (e) => e),
+    // Le surlignage ne part pas dans le PDF : le texte tel quel.
+    [STYLE_SURLIGNE]: () => (e) => e,
   },
 }
 
