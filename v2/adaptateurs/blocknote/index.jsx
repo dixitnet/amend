@@ -22,6 +22,13 @@ import {
   useCreateBlockNote,
   FormattingToolbar,
   FormattingToolbarController,
+  SideMenu,
+  SideMenuController,
+  DragHandleMenu,
+  RemoveBlockItem,
+  TableRowHeaderItem,
+  TableColumnHeaderItem,
+  useDictionary,
   LinkToolbar,
   LinkToolbarController,
   OpenLinkButton,
@@ -39,7 +46,7 @@ import {
   ThreadsSidebar,
   FloatingComposerController,
 } from '@blocknote/react'
-import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core'
+import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu, formatKeyboardShortcut } from '@blocknote/core'
 import { BlockNoteView } from '@blocknote/mantine'
 import {
   VersioningSidebar,
@@ -77,6 +84,7 @@ import { extensionTypographie } from '../../extensions/typographie/index.js'
 import { extensionLimitesDuSuivi } from '../../extensions/limites-du-suivi/index.js'
 import { extensionGardeSuggestions } from '../../extensions/garde-suggestions/index.js'
 import { extensionSelectionGardee } from '../../extensions/selection-gardee/index.js'
+import { extensionSurligne, STYLE_SURLIGNE } from '../../extensions/surligne/index.js'
 
 // Le compte des suggestions en Lire : chaque minute, ou 30 s après le
 // dernier changement (Sylvain, 12/11/2026 : « plus rustique »).
@@ -152,7 +160,8 @@ function BoutonNote({ note, surNouvelleNote }) {
   )
 }
 
-function BoutonExposant({ exposant }) {
+/** Un bouton de style à nous (l'exposant, le surlignage), sur le modèle des boutons de style de BlockNote. */
+function BoutonDeStyle({ nom, textes }) {
   const editeur = useBlockNoteEditor()
   const Components = useComponentsContext()
   const etat = useEditorState({
@@ -160,24 +169,41 @@ function BoutonExposant({ exposant }) {
     selector: ({ editor }) => {
       const blocs = editor.getSelection()?.blocks || [editor.getTextCursorPosition().block]
       if (!editor.isEditable || !blocs.some((b) => b.content !== undefined)) return undefined
-      return { actif: 'exposant' in editor.getActiveStyles() }
+      return { actif: nom in editor.getActiveStyles() }
     },
   })
+  // « Ctrl » ou « ⌘ » selon la machine, dit par BlockNote comme pour ses propres boutons.
+  const ctrl = useDictionary().generic.ctrl_shortcut
   if (etat === undefined || !Components) return null
   const basculer = () => {
     editeur.focus()
-    editeur.toggleStyles({ exposant: true })
+    editeur.toggleStyles({ [nom]: true })
   }
   return (
     <Components.FormattingToolbar.Button
-      label={exposant.libelle}
-      mainTooltip={exposant.libelle}
+      label={textes.libelle}
+      mainTooltip={textes.libelle}
+      secondaryTooltip={textes.raccourci ? formatKeyboardShortcut(textes.raccourci, ctrl) : undefined}
       isSelected={etat.actif}
-      icon={exposant.picto}
+      icon={textes.picto}
       onClick={basculer}
     />
   )
 }
+
+/** Le menu de la poignée d'un bloc : celui de BlockNote sans « Couleurs » (Sylvain, 26/11/2026 ; les
+ * couleurs de bloc sont retirées du livre, renoncement n° 8). Même procédé que Docs (`DocsDragHandleMenu`). */
+function MenuDeLaPoignee() {
+  const textes = useDictionary().drag_handle
+  return (
+    <DragHandleMenu>
+      <RemoveBlockItem>{textes.delete_menuitem}</RemoveBlockItem>
+      <TableRowHeaderItem>{textes.header_row_menuitem}</TableRowHeaderItem>
+      <TableColumnHeaderItem>{textes.header_column_menuitem}</TableColumnHeaderItem>
+    </DragHandleMenu>
+  )
+}
+const Poignee = (props) => <SideMenu {...props} dragHandleMenu={MenuDeLaPoignee} />
 
 /** « Restaurer », après confirmation (l'API de BlockNote le prévoit :
  * `useRestoreVersionAction`, « custom items can request confirmation ») ;
@@ -209,7 +235,7 @@ function typesDeBloc(editeur, textes) {
   return [...leurs, ...nos]
 }
 
-function Palette({ corriger, suggerer, exposant, note, surNouvelleNote, titres }) {
+function Palette({ corriger, suggerer, exposant, surligne, note, surNouvelleNote, titres }) {
   const editeur = useBlockNoteEditor()
   const choisis = useSelectedBlocks(editeur)
   // Une image n'a pas de menu : ni légende, ni remplacer, renommer, télécharger, aperçu, supprimer
@@ -218,7 +244,10 @@ function Palette({ corriger, suggerer, exposant, note, surNouvelleNote, titres }
   const tous = getFormattingToolbarItems(typesDeBloc(editeur, titres))
   const boutons = suggerer
     ? boutonsGardesEnSuggestion(tous)
-    : boutonsGardes(tous, exposant ? <BoutonExposant key="exposantStyleButton" exposant={exposant} /> : null)
+    : boutonsGardes(tous, [
+        exposant ? <BoutonDeStyle key="exposantStyleButton" nom="exposant" textes={exposant} /> : null,
+        surligne ? <BoutonDeStyle key="surligneStyleButton" nom={STYLE_SURLIGNE} textes={surligne} /> : null,
+      ])
   return (
     <FormattingToolbar>
       {boutons}
@@ -436,6 +465,8 @@ export function EditeurCollaboratif({
         // Contournements temporaires du mode Corriger (veille).
         // La sélection reste visible quand le focus passe ailleurs (demande à Margo ; 17/11/2026).
         extensionSelectionGardee(),
+        // Le raccourci du surlignage (26/11/2026) : pas en Corriger, où la mise en forme n'est pas proposée.
+        extensionSurligne({ actif: () => modeMaintenant.current === 'editer' }),
         extensionLimitesDuSuivi({
           actif: () => modeMaintenant.current === 'corriger',
           refuser: (code) => surRefusDuSuivi.current?.(code),
@@ -906,6 +937,7 @@ export function EditeurCollaboratif({
         corriger={corriger}
         suggerer={mode === 'corriger'}
         exposant={textes.exposant}
+        surligne={textes.surligne}
         note={textes.note}
         surNouvelleNote={surNote ? nouvelleNote : null}
         titres={textes}
@@ -964,6 +996,8 @@ export function EditeurCollaboratif({
       editor={editeur}
       editable={appui ? false : ecrit && !historique}
       formattingToolbar={false}
+      // Notre menu de poignée (sans « Couleurs »), monté plus bas comme le fait Docs.
+      sideMenu={false}
       // Pas d'émojis par « : » dans le texte d'un livre (« deux:points » ouvrait
       // le sélecteur ; Sylvain, 11/11/2026, écart avec Docs) : le sélecteur par
       // défaut est coupé, le nôtre ne s'ouvre que par l'entrée « Émoji » du menu
@@ -981,6 +1015,7 @@ export function EditeurCollaboratif({
     >
       {magasin && mode !== 'lire' ? <FloatingComposerController /> : null}
       <FormattingToolbarController formattingToolbar={palette} />
+      <SideMenuController sideMenu={Poignee} />
       {mode === 'corriger' ? <LinkToolbarController linkToolbar={BarreDuLienEnSuggestion} /> : null}
       {mode !== 'corriger' ? <SuggestionMenuController triggerCharacter="/" getItems={menu} /> : null}
       {/* Le menu « / » ouvre le sélecteur d'émojis par programme (ce qui passe outre

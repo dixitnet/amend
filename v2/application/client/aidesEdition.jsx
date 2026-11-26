@@ -101,6 +101,7 @@ export function noterZoom(z) {
 /** Les libellés et pictos des ajouts de l'éditeur (exposant, table des matières, titre et sous-titre). */
 export const TEXTES_EDITEUR = {
   exposant: { libelle: t('document.exposant'), picto: <PictoDe role="exposant" /> },
+  surligne: { libelle: t('document.surligner'), raccourci: 'Mod+Shift+H', picto: <PictoDe role="surligne" /> },
   // La note de bas de page (12/11/2026) : bouton de la palette et menu « / ».
   note: {
     libelle: t('document.note'),

@@ -211,3 +211,21 @@ test('bibliographie (19/11/2026) : un paragraphe ordinaire en Markdown, `amend-b
   // Le gabarit décide si ce premier paragraphe perd son alinéa (un titre 2 qui ouvre une page).
   assert.match(source, /#heading\(level: 2\)\[#"Bibliographie"\]\n\n#amend-sans-alinea-2\[#"Les ouvrages cités\."\]/)
 })
+
+test('surlignage : une marque de travail, absente du PDF et du Markdown (26/11/2026)', async () => {
+  const editeur = BlockNoteEditor.create({ schema: schemaLivre })
+  editeur.replaceBlocks(editeur.document, [
+    {
+      type: 'paragraph',
+      content: [texte('Un passage '), texte('important', { surligne: true, bold: true }), texte(' à revoir.')],
+    },
+  ])
+  const blocs = editeur.document
+  assert.equal(blocs[0].content[1].styles.surligne, true, 'le style est dans le document')
+  const { source } = await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr' })
+  const corps = source.slice(source.indexOf('Un passage'))
+  assert.match(corps, /important/)
+  assert.doesNotMatch(corps, /highlight|surligne/)
+  // En Markdown : le gras reste, le surlignage part.
+  assert.deepEqual(blocsPourMarkdown(blocs)[0].content[1].styles, { bold: true })
+})
