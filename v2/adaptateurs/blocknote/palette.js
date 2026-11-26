@@ -10,9 +10,9 @@ export const APRES_EXPOSANT = 'strikeStyleButton'
 
 /** Les boutons de la palette que l'on garde, avec, s'ils sont donnés, nos boutons de style (l'exposant, le
  * surlignage) après le barré (à la fin si le barré manque). */
-export function boutonsGardes(boutons, ajouts = null) {
+export function boutonsGardes(boutons, ajouts = []) {
   const gardes = boutons.filter((bouton) => !BOUTONS_RETIRES.includes(bouton.key))
-  const nos = (Array.isArray(ajouts) ? ajouts : [ajouts]).filter(Boolean)
+  const nos = ajouts.filter(Boolean)
   if (!nos.length) return gardes
   const i = gardes.findIndex((b) => b.key === APRES_EXPOSANT)
   return i < 0 ? [...gardes, ...nos] : [...gardes.slice(0, i + 1), ...nos, ...gardes.slice(i + 1)]

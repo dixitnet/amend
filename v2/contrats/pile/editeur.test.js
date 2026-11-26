@@ -671,7 +671,9 @@ test('surligner (26/11/2026) : un bouton et un raccourci, citron vert, vu par le
   await attendreTexte(autre, PHRASE)
   const surlignes = (p) =>
     p.evaluate(() => [...document.querySelectorAll('.bn-editor .bn-inline-content mark')].map((m) => m.textContent))
-  const bouton = page.locator('.bn-formatting-toolbar').getByRole('button', { name: 'Surligner', exact: true })
+  const bouton = page
+    .locator('.bn-formatting-toolbar')
+    .getByRole('button', { name: creerTraducteur('fr')('document.surligner'), exact: true })
   // Le bouton : le mot est surligné, chez soi et chez l'autre.
   await choisirMot(page, 'site')
   await bouton.click()
@@ -681,7 +683,8 @@ test('surligner (26/11/2026) : un bouton et un raccourci, citron vert, vu par le
   const couleurs = await page.evaluate(() => {
     const repere = document.createElement('span')
     repere.style.backgroundColor = 'var(--mantine-color-lime-2)'
-    document.body.append(repere)
+    // La référence est lue dans l'éditeur : BlockNote y a sa propre portée de variables Mantine.
+    document.querySelector('.bn-container').append(repere)
     const attendu = getComputedStyle(repere).backgroundColor
     repere.remove()
     const mark = document.querySelector('.bn-inline-content mark')
@@ -694,6 +697,21 @@ test('surligner (26/11/2026) : un bouton et un raccourci, citron vert, vu par le
   })
   assert.equal(couleurs.fond, couleurs.attendu)
   assert.equal(couleurs.texte, couleurs.autour)
+  // En sombre : le fond « light » du citron vert de Mantine, pas la nuance pleine.
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.waitForFunction(() => document.documentElement.dataset.mantineColorScheme === 'dark')
+  const sombre = await page.evaluate(() => {
+    const repere = document.createElement('span')
+    repere.style.backgroundColor = 'var(--mantine-color-lime-light)'
+    document.querySelector('.bn-container').append(repere)
+    const attendu = getComputedStyle(repere).backgroundColor
+    repere.remove()
+    return { fond: getComputedStyle(document.querySelector('.bn-inline-content mark')).backgroundColor, attendu }
+  })
+  assert.equal(sombre.fond, sombre.attendu)
+  assert.notEqual(sombre.fond, couleurs.fond)
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.waitForFunction(() => document.documentElement.dataset.mantineColorScheme === 'light')
   // Le raccourci : un second mot ; le bouton de nouveau : le premier n'est plus surligné.
   await choisirMot(page, 'officiel')
   await page.keyboard.press('ControlOrMeta+Shift+H')
