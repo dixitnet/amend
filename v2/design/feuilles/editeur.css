@@ -182,3 +182,16 @@ nav[data-amend-bloc='tableDesMatieres'] select {
 ::highlight(amend-selection) {
   background-color: var(--mantine-primary-color-light-hover);
 }
+
+/* réglage : css.editeur.surligne */
+/* Le surlignage (Sylvain, 26/11/2026 : « citron vert ») : le citron vert de Mantine, teinte laissée libre
+   par les commentaires (jaune), Margo et Claude (vert) et les huit couleurs des auteurs. Nuance claire en
+   clair ; en sombre, le fond « light » de cette couleur chez Mantine (translucide), la nuance pleine y étant
+   criarde et trop proche du vert de Margo ; le texte garde sa couleur. */
+.bn-container mark {
+  background-color: var(--mantine-color-lime-2);
+  color: inherit;
+}
+[data-mantine-color-scheme='dark'] .bn-container mark {
+  background-color: var(--mantine-color-lime-light);
+}

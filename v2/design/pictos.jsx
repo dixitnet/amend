@@ -34,6 +34,7 @@ import {
   IconRestore,
   IconHelp,
   IconSuperscript,
+  IconHighlight,
   IconListDetails,
   IconLetterT,
   IconNote,
@@ -83,6 +84,8 @@ const PICTOS = {
   aide: IconHelp,
   // 11/11/2026 (comparaison v1 / v2, points 19, 6, zoom) : dessins proposés, à confirmer.
   exposant: IconSuperscript,
+  // 26/11/2026 : le surlignage.
+  surligne: IconHighlight,
   tableDesMatieres: IconListDetails,
   titre: IconLetterT,
   note: IconNote,

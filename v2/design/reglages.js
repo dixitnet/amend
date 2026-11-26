@@ -214,6 +214,7 @@ export const REGLAGES = {
   pictos: {
     editeur: {
       exposant: 16,
+      surligne: 16,
       tableDesMatieres: 18,
       titre: 18,
       sousTitre: 18,
