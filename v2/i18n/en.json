@@ -50,6 +50,7 @@
     "zoom": "Text size",
     "zoomPalier": "{zoom}%",
     "exposant": "Superscript",
+    "surligner": "Highlight",
     "tableDesMatieres": "Table of contents",
     "date": "Today’s date",
     "dateDescription": "Today’s date, as YYYY-MM-DD",
