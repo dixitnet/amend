@@ -10,35 +10,27 @@
 // de page, de texte et de titres. Le corps du document est écrit à part, par
 // l'adaptateur de BlockNote ; l'un et l'autre se compilent ensemble.
 
-const PT_PAR_MM = 72 / 25.4
+import {
+  PT_PAR_MM,
+  pt,
+  mm,
+  em,
+  ZERO,
+  PLEINE_LARGEUR,
+  NOIR,
+  chaineTypst,
+  couleurTypst,
+  SIGNES_DE_SEPARATEUR,
+} from './ecritureTypst.js'
+import { estEnLignes, grilleEnLignes, gabaritEnLignes } from './miseEnPageLignes.js'
+
+export { chaineTypst }
 
 /** Une ligne de Typst a une boîte de 1 em : 0,8 em au-dessus de la ligne de
  * base, 0,2 em en dessous. Le pas entre deux lignes de base vaut alors
  * exactement l'interligne, quel que soit le dessin de la police. */
 const HAUT = 0.8
 const BAS = 0.2
-
-const nombre = (x) => String(Math.round(x * 1000) / 1000)
-// Les longueurs du gabarit viennent toutes du modèle (design, règle 21) ou de
-// la mécanique de Typst (zéro, une boîte de ligne de 1 em, pleine largeur) :
-// elles s'écrivent par ces fonctions, jamais en dur (règle 17).
-const pt = (x) => `${nombre(x)}pt`
-const mm = (x) => `${nombre(x)}mm`
-const em = (x) => `${nombre(x)}em`
-const pourcent = (x) => `${nombre(x)}%`
-const ZERO = pt(0)
-const PLEINE_LARGEUR = pourcent(100)
-/** Le noir du texte : 100 % de noir, sans les trois autres encres (« Typst
- * seul » pour l'imprimeur, docs/v2-etape-7-plan.md). */
-const NOIR = `cmyk(${[0, 0, 0, 100].map(pourcent).join(', ')})`
-
-/** Une chaîne Typst entre guillemets, échappée. */
-export function chaineTypst(texte) {
-  const echappes = { '\\': '\\\\', '"': '\\"', '\n': '\\n', '\t': '\\t' }
-  return `"${String(texte ?? '')
-    .replace(/\r\n?/g, '\n')
-    .replace(/[\\"\n\t]/g, (c) => echappes[c])}"`
-}
 
 /**
  * Combien de lignes de la grille tiennent entre la marge de tête et la marge
@@ -75,6 +67,8 @@ export function margeBasPourLignes({ page, marges, grille: g }, lignes) {
  *   écrit en `grille.lignes`, se lit encore.
  */
 export function grille(modele) {
+  // Un modèle compté en lignes (27/11/2026) a sa propre grille.
+  if (estEnLignes(modele)) return grilleEnLignes(modele)
   const { page, marges, grille: g, folio } = modele
   const parMarge = Number.isFinite(marges?.bas)
   // Une valeur non numérique (NaN, chaîne, absente) ferait passer du NaN dans le gabarit.
@@ -214,14 +208,9 @@ function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
  *   langue (code ISO à deux lettres) et auteur du document
  * @returns {string}
  */
-/** La fonction de couleur de Typst (son nom est aussi celui d'une fonction CSS : gardé à part des gabarits,
- * où le lint prend toute couleur écrite pour une valeur de design ; celle-ci vient du design). */
-const COULEUR_DE_TYPST = 'rgb'
-/** L'argument de remplissage d'un surligneur de Typst, pour une couleur `#rrvvbb` ; rien pour toute autre valeur. */
-const couleurTypst = (hexa) =>
-  /^#[0-9a-f]{6}$/i.test(String(hexa ?? '')) ? `fill: ${COULEUR_DE_TYPST}("${hexa}"), ` : ''
-
 export function gabaritTypst(modele, { titre, langue, auteur, surlignage } = {}) {
+  // Un modèle compté en lignes (27/11/2026) a son propre gabarit.
+  if (estEnLignes(modele)) return gabaritEnLignes(modele, { titre, langue, auteur, surlignage })
   // Prérequis : un modèle complet (`completerModele`), qui a toujours son chapitre (audit du 16/11/2026).
   if (!modele?.chapitre) throw Object.assign(new Error('modèle sans chapitre'), { code: 'modele-impossible' })
   const { page, marges, grille: g } = modele
@@ -447,8 +436,7 @@ const debutChapitre = (c) => c?.debut ?? (c?.bellePage === false ? 'page' : 'bel
 /** Les séparateurs de scène (v1, `SEPARATEURS`) et leur ligne de Typst. */
 const SEPARATEURS = Object.freeze(['blanc', 'asterisme', 'etoiles', 'points', 'trait'])
 function separateurTypst(choix, pas) {
-  // « points » : trois puces espacées (Sylvain, 22/11/2026).
-  const signe = { asterisme: '⁂', etoiles: '* * *', points: '• • •', trait: '—' }[choix]
+  const signe = SIGNES_DE_SEPARATEUR[choix]
   if (!signe) return `v(${pt(pas)})`
   return `align(center, par(first-line-indent: ${ZERO}, justify: false, ${chaineTypst(signe)}))`
 }

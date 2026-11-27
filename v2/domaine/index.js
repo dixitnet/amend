@@ -59,6 +59,17 @@ export {
   peutChoisirModele,
 } from './miseEnPage.js'
 export {
+  REGLE_EN_LIGNES,
+  estEnLignes,
+  lignesOccupees,
+  demiLigneAjoutee,
+  blancsDuBloc,
+  grilleEnLignes,
+  gabaritEnLignes,
+  STYLES_MESURES,
+  STYLES_EN_BRIQUES,
+} from './miseEnPageLignes.js'
+export {
   AUTEUR_MARGO,
   AUTEUR_CLAUDE,
   AGENTS,

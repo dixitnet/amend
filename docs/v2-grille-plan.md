@@ -1,6 +1,6 @@
 # amend.ink v2 : modèles sur une grille stricte, comptés en lignes
 
-Statut : **règle (§ 9) et interface (§ 10) arbitrées le 27/11/2026 ; reprise des modèles enregistrés à arbitrer ; rien n'est développé.** Demandé par Sylvain le 27/11/2026 (« Soit on est sur la grille, soit on s'en libère » ; « un design visuel de la grille le plus simple possible, quitte à restreindre les possibilités » ; titres longs : « variante » ; « puis 2 »). Maquette cliquable et essais Typst faits dans la session de Claude, hors du dépôt.
+Statut : **règle (§ 9) et interface (§ 10) arbitrées le 27/11/2026 ; lot 1 (domaine) développé le même jour (§ 11) ; lots 2 à 4 non lancés.** Demandé par Sylvain le 27/11/2026 (« Soit on est sur la grille, soit on s'en libère » ; « un design visuel de la grille le plus simple possible, quitte à restreindre les possibilités » ; titres longs : « variante » ; « puis 2 »). Maquette cliquable et essais Typst faits dans la session de Claude, hors du dépôt.
 
 ## 1. Ce qui est décidé (Sylvain, 27/11/2026)
 
@@ -121,7 +121,7 @@ Sylvain, 27/11/2026 (« 1, 2, 3 ton avis, 5 ok. On réfléchit d'abord sur les i
 1. **La règle du § 2 est retenue telle quelle** : demi-ligne ajoutée avant le bloc ; variante mesurée pour les titres seulement (titre du document, sous-titre, titres 1 à 5), brique pour la citation, la bibliographie et la légende.
 2. **Le coefficient 1,15 est retenu** (hauteur d'une ligne de titre par unité de taille) : à inscrire dans `v2/design/` et l'ADR 0008 au lot 2.
 3. **Réglages retirés : l'avis de Claude est suivi.** Sont gardés : le texte libre en en-tête, le premier numéro de folio, le format libre en millimètres, le corps et l'interligne en nombres. Le reste du § 7 est retiré.
-4. **Reprise des modèles enregistrés : pas encore arbitrée** (il manque le nombre de modèles en base).
+4. **Reprise des modèles enregistrés : conversion automatique** (Sylvain, 27/11/2026, voie 1 du § 5).
 5. **Les deux décisions du 15/11/2026 sont renversées** : les blancs se comptent en lignes, et le nombre de lignes par page redevient le réglage (la marge de pied s'en déduit).
 
 **Aucun lot n'est lancé.**
@@ -144,3 +144,23 @@ Sylvain, 27/11/2026 (« 1, 2, 3 ton avis, 5 ok. On réfléchit d'abord sur les i
 - L'aperçu dessiné est une seconde mise en œuvre de la règle, à côté du gabarit Typst. Pour qu'elles ne divergent pas, les deux lisent les mêmes fonctions du domaine (`lignesOccupees`, `demiLigneAjoutee`) ; l'aperçu ne recalcule rien lui-même.
 - L'aperçu a des valeurs de design à décider (couleur du papier, teinte des blancs et de la demi-ligne ajoutée, trait de la grille) : proposées au lot de design, décidées par Sylvain.
 - À vérifier au lot de design : les polices du catalogue sont-elles déjà chargées par le navigateur pour l'affichage, ou seulement lues pour le PDF.
+
+## 11. Lot 1, développé le 27/11/2026 (Sylvain : « Lancer le lot 1 »)
+
+Domaine seulement ; rien ne change dans l'application tant qu'aucun modèle n'est écrit en lignes (lot 2).
+
+- `v2/domaine/miseEnPageLignes.js` : la règle (`lignesOccupees`, `demiLigneAjoutee`, `blancsDuBloc`), la grille d'un modèle en lignes (`grilleEnLignes`) et son gabarit Typst (`gabaritEnLignes`). Un modèle en lignes se reconnaît à `regle: 'lignes'` ; `grille` et `gabaritTypst` l'aiguillent, l'ancien gabarit est intact (sa source de référence n'a pas changé).
+- `v2/domaine/ecritureTypst.js` : les longueurs, chaînes et couleurs de Typst, séparées de `miseEnPage.js` pour servir aux deux gabarits.
+- Forme d'un modèle en lignes : `grille.lignes` et `grille.hauteurTitre` (le coefficient 1,15, porté par le modèle : c'est une valeur de design, donnée par le design au lot 2) ; par style, `blancAvant` et `blancApres` en lignes ; `chapitre.debut`, `chapitre.premierSansAlinea`, `ouverture2.debut` ; plus de `marges.bas`, de `folio.bas`, de lignes d'ouverture.
+- Tests : `tests/unitaires/miseEnPageLignes.test.js` ; contrat `contrats/statiques/grille-en-lignes.test.js`. **La mesure est faite par Typst lui-même** : le livre d'essai porte un repère en tête de chaque paragraphe, et sa dernière ligne refuse la compilation si l'un d'eux est hors grille. Aucun outil externe. Le même livre avec le modèle en points « TàT 140 × 220 » est refusé : le contrôle mord.
+
+**Trouvé par le contrat** : une ligne vide (paragraphe vide, séparateur « blanc ») que Typst coupait entre deux pages laissait un tiers de ligne en haut de la suivante. Elle est maintenant d'un seul tenant.
+
+**Choix faits dans ce lot, à valider**
+
+1. **Les notes de bas de page sont en briques**, comme la citation : chaque ligne de note occupe un pas. Rien à régler, et les notes sont sur la grille ; mais une note de deux lignes est aérée. L'autre voie (un interligne propre aux notes, hors grille) demande une valeur de design.
+2. **Une image ou un tableau** occupe un nombre entier de lignes, **dont une ligne de blanc**, répartie au-dessus et au-dessous avec le complément (entre une demi-ligne et une ligne de chaque côté).
+3. **En-têtes** : au corps du texte, centrés ; le numéro de page en haut reste à l'extérieur.
+4. **Un style en briques plus haut que le pas** (une citation de 15 pt sur un pas de 14) rend le modèle impossible, raison `interligne`.
+
+**Non couvert par ce lot** : `completerModele` et `appliquerReglages` ne connaissent pas encore la forme en lignes (lots 2 et 4) ; un tableau qui se coupe entre deux pages ; les lignes à l'intérieur d'un tableau.
