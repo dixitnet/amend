@@ -34,14 +34,51 @@ export const MARGO_HISTORIQUE_MAX_SIGNES = 20000
 /** Les signes d'un texte, espaces compris (règle 5 de CLAUDE.md : la seule unité). */
 export const signes = (texte) => [...nfc(String(texte ?? ''))].length
 
+/** Dans le texte d'un bloc, le signe qui tient la place d'un élément en ligne qui n'est pas du texte
+ * (un appel de note) : aucune correction ne peut le toucher. */
+export const ATOME = '\uFFFC'
+
+/** L'appel de la note numéro `k`, tel qu'il est montré à Margo et à Claude dans le texte. */
+export const appelDeNote = (k) => `\u27E6${k}\u27E7`
+const APPELS = /\u27E6\d+\u27E7/g
+
+/** Le texte d'un bloc sans ses appels de note : ce qui se compte. */
+export const sansAtomes = (texte) => String(texte ?? '').replaceAll(ATOME, '')
+
+/** Un passage cité par Margo ou Claude, ramené au texte du bloc : chaque appel « ⟦k⟧ » redevient le signe
+ * qui tient sa place. */
+export const sansAppels = (passage) => String(passage ?? '').replace(APPELS, ATOME)
+
+/** Un texte proposé contient-il un appel de note recopié ? (Il s'écrirait tel quel dans le livre.) */
+export const porteUnAppel = (texte) =>
+  new RegExp(APPELS.source).test(String(texte ?? '')) || String(texte ?? '').includes(ATOME)
+
+/**
+ * Le texte d'un bloc tel qu'il est montré : chaque appel de note devient son repère « ⟦k⟧ ».
+ * @param {string} texte  le texte du bloc, un signe par appel
+ * @param {Array<{ i: number, k: number }>} notes  les notes du bloc : leur place dans le texte, leur numéro
+ */
+export function avecAppels(texte, notes = []) {
+  const parPlace = new Map(notes.map((n) => [n.i, n.k]))
+  return [...String(texte ?? '')]
+    .map((c, i) => (c === ATOME && parPlace.has(i) ? appelDeNote(parPlace.get(i)) : c))
+    .join('')
+}
+
 /**
  * Le texte montré à Margo : un bloc par ligne, précédé de son numéro entre
  * crochets (`[12] …`), le même que celui qu'elle cite dans ses réponses ; un
- * titre porte son niveau (`[3] (titre 2) …`).
- * @param {Array<{ n: number, texte: string, titre?: number | null }>} blocs
+ * titre porte son niveau (`[3] (titre 2) …`). Les notes de bas de page d'un bloc
+ * viennent sous lui, une par ligne, avec leur repère (`⟦4⟧ …`, 27/11/2026).
+ * @param {Array<{ n: number, texte: string, titre?: number | null, notes?: Array<{ k: number, texte: string }> }>} blocs
  */
 export function texteNumerote(blocs) {
-  return blocs.map((b) => `[${b.n}] ${b.titre ? `(titre ${b.titre}) ` : ''}${b.texte}`).join('\n')
+  return blocs
+    .flatMap((b) => [
+      `[${b.n}] ${b.titre ? `(titre ${b.titre}) ` : ''}${b.texte}`,
+      ...(b.notes ?? []).map((note) => `    ${appelDeNote(note.k)} ${note.texte}`),
+    ])
+    .join('\n')
 }
 
 /**
