@@ -346,8 +346,9 @@ const demiLignes = (x) => Math.max(0, Math.round(x * 2) / 2)
  * - Le nombre de lignes par page est celui que la marge basse laissait.
  * - Un blanc en points devient des demi-lignes : ce qu'il ajoutait à l'espace ordinaire entre deux paragraphes.
  * - Un titre qui avait ses lignes d'ouverture garde la ligne de son titre et celle où le texte reprend.
- * - Ce que la grille stricte ne règle plus est abandonné (plan, § 7) : police, alinéa et retraits par style,
+ * - Ce que la grille stricte ne règle plus est abandonné (plan, § 7) : alinéa et retraits par style,
  *   marge basse, place du numéro de page en millimètres, police, corps et alignement des en-têtes.
+ *   La police d'un style, elle, est gardée (27/11/2026).
  * @param {object} ancien  un modèle complet en points (voir `gabaritTypst`)
  * @param {number} hauteurTitre  la hauteur d'une ligne de titre par unité de corps (design)
  */
@@ -356,7 +357,10 @@ export function versModeleEnLignes(ancien, hauteurTitre) {
   const pas = g.interligne
   const ordinaire = pas - g.corps
   const blanc = (points) => demiLignes(((Number.isFinite(points) ? points : ordinaire) - ordinaire) / pas)
+  // La police d'un style : gardée si elle n'est pas celle du texte (vide : celle du texte).
+  const policeDuTexte = ancien.styles?.texte?.police
   const allure = (st) => ({
+    police: st.police && st.police !== policeDuTexte ? st.police : '',
     corps: st.corps ?? g.corps,
     gras: Boolean(st.gras),
     italique: Boolean(st.italique),

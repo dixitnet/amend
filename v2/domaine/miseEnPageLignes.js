@@ -89,6 +89,8 @@ const impossible = (raison) =>
 /** Un style d'un modèle en lignes, complété : au corps du texte, sans allure ni blanc, tant qu'il ne dit pas autre chose. */
 function styleDe(modele, nom) {
   return {
+    // Une police vide : celle du texte courant.
+    police: '',
     corps: modele.grille.corps,
     gras: false,
     italique: false,
@@ -168,7 +170,7 @@ const TOLERANCE = 0.001
  * @param {boolean} [modele.cesure]
  * @param {Record<string, { police?: string, corps?: number, gras?: boolean, italique?: boolean, capitales?: boolean, petitesCapitales?: boolean,
  *   alignement?: 'gauche' | 'justifie' | 'centre', alinea?: number, blancAvant?: number, blancApres?: number }>} modele.styles
- *   `texte` porte la police, l'alignement et l'alinéa (mm, qui sert aussi de retrait à la citation et de retrait
+ *   `texte` porte la police du livre (un autre style peut avoir la sienne ; vide, c'est celle du texte), l'alignement et l'alinéa (mm, qui sert aussi de retrait à la citation et de retrait
  *   suspendu à la bibliographie) ; les autres, leur corps, leur allure et leurs blancs en lignes (par demi-ligne)
  * @param {{ titre?: string, langue?: string, auteur?: string, surlignage?: string }} [document]
  * @returns {string}
@@ -191,7 +193,10 @@ export function gabaritEnLignes(modele, { titre, langue, auteur, surlignage } = 
   // Les majuscules l'emportent sur les petites capitales.
   const contenu = (st, corps) =>
     st.capitales ? `upper(${corps})` : st.petitesCapitales ? `smallcaps(${corps})` : corps
-  const caractere = (st) => `size: ${pt(st.corps)}, weight: ${poids(st)}, style: ${forme(st)}`
+  // La police d'un style, quand elle n'est pas celle du texte (Sylvain, 27/11/2026 : « ajouter le choix de police »).
+  const caractere = (st) =>
+    `${st.police && st.police !== texte.police ? `font: (${chaineTypst(st.police)},), ` : ''}` +
+    `size: ${pt(st.corps)}, weight: ${poids(st)}, style: ${forme(st)}`
 
   // Un titre (règle 3) : son interligne à lui, puis la mesure.
   const titreMesure = (nom, corps, debut = 'continuer') => {
