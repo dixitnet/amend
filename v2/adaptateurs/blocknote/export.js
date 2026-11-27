@@ -52,7 +52,7 @@ function marquerExposants(contenu) {
       })),
     }
   if (!Array.isArray(contenu)) return contenu
-  // Le surlignage, marque de travail, ne part pas à l'export (Sylvain, 26/11/2026).
+  // Le surlignage ne part pas dans le Markdown (Sylvain, 26/11/2026 ; il part dans le PDF depuis le 27/11).
   const sans = (styles, ...cles) =>
     Object.fromEntries(Object.entries(styles ?? {}).filter(([cle]) => !cles.includes(cle)))
   return contenu.map((c) =>
@@ -189,8 +189,8 @@ const CORRESPONDANCES = {
   styleMapping: {
     ...typstDefaultSchemaMappings.styleMapping,
     exposant: (actif) => (actif ? (e) => `super(${e})` : (e) => e),
-    // Le surlignage ne part pas dans le PDF : le texte tel quel.
-    [STYLE_SURLIGNE]: () => (e) => e,
+    // Le surlignage part dans le PDF (Sylvain, 27/11/2026), par une fonction du gabarit.
+    [STYLE_SURLIGNE]: (actif) => (actif ? (e) => `amend-surligne(${e})` : (e) => e),
   },
 }
 
@@ -230,7 +230,7 @@ function adressesDesImages(blocs) {
  *   introuvable est omise plutôt que de faire échouer l'export
  * @returns {Promise<{ source: string, fichiers: Map<string, Uint8Array> }>}
  */
-export async function versTypst(editeur, blocs, modele, { titre, langue, auteur } = {}) {
+export async function versTypst(editeur, blocs, modele, { titre, langue, auteur, surlignage } = {}) {
   // Toutes les images partent ensemble : chargées une à une, chacune avec ses 15 s de délai,
   // N images lentes s'additionnaient (audit du 16/11/2026).
   const charges = new Map(adressesDesImages(blocs).map((url) => [url, chargerFichier(url)]))
@@ -242,7 +242,7 @@ export async function versTypst(editeur, blocs, modele, { titre, langue, auteur 
   })
   const corps = await parcourir(exportateur, blocs)
   return {
-    source: nfc(gabaritTypst(modele, { titre, langue, auteur }) + '\n' + corps.join('\n\n') + '\n'),
+    source: nfc(gabaritTypst(modele, { titre, langue, auteur, surlignage }) + '\n' + corps.join('\n\n') + '\n'),
     fichiers: exportateur.assetFiles,
   }
 }

@@ -1,7 +1,7 @@
 // Extension de BlockNote (couche 3) : le surlignage, style en ligne, comme un
 // coup de stabilo d'une seule couleur (Sylvain, 26/11/2026 : « 1 à 5 ok, citron
-// vert, pas d'export »). Une marque de travail : elle ne part ni dans le PDF ni
-// dans le Markdown (adaptateur, `export.js`). BlockNote a des couleurs de fond,
+// vert, pas d'export »). Elle part dans le PDF depuis le 27/11/2026 (« le surligneur
+// doit apparaître dans les exports PDF »), pas dans le Markdown (adaptateur, `export.js`). BlockNote a des couleurs de fond,
 // en palette complète, que Docs garde ; nous les avions retirées (renoncement
 // n° 8), et un oui ou non suffit ici : un texte collé n'apporte pas d'autres
 // couleurs, et la teinte reste un réglage de design. Rendu par l'élément

@@ -48,7 +48,15 @@ export async function exporterDocument(controle, format, { titre, langue, modele
   if (format === 'pdf') {
     const leModele = modele ?? modeleComplet({ complet: MODELES_LIVRE[0] })
     const polices = (await Promise.all(leModele.polices.map(octets))).map((b) => new Uint8Array(b))
-    contenu = await exporter('pdf', { modele: leModele, polices, titre, langue, auteur })
+    contenu = await exporter('pdf', {
+      modele: leModele,
+      polices,
+      titre,
+      langue,
+      auteur,
+      // La couleur du surlignage dans le PDF, réglage de design.
+      surlignage: REGLES_MODELES.surlignage,
+    })
   } else contenu = await exporter('markdown')
   telecharger(new Blob([contenu], { type: TYPES[format] }), nomDeFichier(titre, EXTENSIONS[format]))
 }

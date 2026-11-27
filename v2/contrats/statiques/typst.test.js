@@ -124,10 +124,20 @@ test('table des matières, saut de page et exposant : le PDF se compile (11/11/2
     { type: 'tableDesMatieres', props: { profondeur: 2 } },
     { type: 'heading', props: { level: 1 }, content: [texte('Premier chapitre')] },
     { type: 'paragraph', content: [texte('Au XIX'), texte('e', { exposant: true }), texte(' siècle.')] },
+    // Un passage surligné, en gras de surcroît (27/11/2026).
+    {
+      type: 'paragraph',
+      content: [texte('Un '), texte('passage', { surligne: true, bold: true }), texte(' à revoir.')],
+    },
     { type: 'pageBreak' },
     { type: 'heading', props: { level: 2 }, content: [texte('Une section')] },
   ])
-  const { source, fichiers } = await versTypst(editeur, editeur.document, modele, { titre: 'Essai', langue: 'fr' })
+  const { source, fichiers } = await versTypst(editeur, editeur.document, modele, {
+    titre: 'Essai',
+    langue: 'fr',
+    surlignage: '#d8f5a2',
+  })
+  assert.match(source, /amend-surligne\(/)
   const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
   const brut = Buffer.from(pdf).toString('latin1')
   assert.ok(brut.startsWith('%PDF-'))

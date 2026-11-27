@@ -38,7 +38,8 @@ const LIVRE = [
     content: [
       t('Au XIX'),
       t('e', { exposant: true }),
-      t(' siècle, un texte'),
+      t(' siècle, un '),
+      t('texte', { surligne: true }),
       { type: 'note', props: { texte: 'Une note de bas de page.' } },
       t('.'),
     ],
@@ -117,6 +118,7 @@ for (const [id, modele] of MODELES)
       titre: 'Petit conte immoral',
       langue: 'fr',
       auteur: 'Ada',
+      surlignage: REGLES_MODELES.surlignage,
     })
     const pdf = await compilerPdf(source, { fichiers, polices: polices(modele), wasm: wasm() })
     const constat = { pages: pages(pdf), largeur: modele.page.largeur, hauteur: modele.page.hauteur }

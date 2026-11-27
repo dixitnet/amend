@@ -16,6 +16,7 @@
 #let amend-sous-titre(corps) = block(width: 100%, above: 13.3pt, below: 14.2pt, { set text(font: ("EB Garamond",), size: 11pt, weight: "regular", style: "italic"); set par(justify: false, leading: 12pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(center, corps)})
 #let amend-legende(corps) = block(width: 100%, above: 3.7pt, below: 14.8pt, { set text(font: ("EB Garamond",), size: 8pt, weight: "regular", style: "italic"); set par(justify: false, leading: 12pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(center, corps)})
 #let amend-bibliographie(corps) = block(width: 100%, above: 2.5pt, below: 2.5pt, { set text(font: ("EB Garamond",), size: 9.5pt, weight: "regular", style: "normal"); set par(justify: false, leading: 12pt - 1em, first-line-indent: (amount: 0mm, all: true), hanging-indent: 4mm); align(left, par(corps))})
+#let amend-surligne(corps) = highlight(fill: rgb("#d8f5a2"), corps)
 #let amend-sans-alinea(corps) = par(first-line-indent: 0pt, corps)
 #let amend-sans-alinea-2(corps) = corps
 #show heading: it => block(width: 100%, above: 14.5pt, below: 2.5pt, sticky: true, { set text(font: ("EB Garamond",), size: 9.5pt, weight: "regular", style: "italic"); set par(justify: false, leading: 12pt - 1em, first-line-indent: (amount: 0mm, all: true)); align(left, it.body)})
@@ -62,7 +63,7 @@
 
 #heading(level: 2)[#"Les crises de l’idéal du progrès"]
 
-#amend-sans-alinea-2[#"Au XIX"#super("e")#" siècle, un texte"#footnote[#"Une note de bas de page."]#"."]
+#amend-sans-alinea-2[#"Au XIX"#super("e")#" siècle, un "#amend-surligne("texte")#footnote[#"Une note de bas de page."]#"."]
 
 #quote(block: true)[#"Une citation détachée, sur plus d’une ligne quand le format est étroit comme celui d’un livre de poche."]
 
