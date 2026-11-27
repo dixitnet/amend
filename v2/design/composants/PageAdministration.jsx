@@ -1,24 +1,10 @@
-// Composant de présentation : le back-office de l'instance, en rubriques
-// (titre, courbes éventuelles, lignes libellé / valeur, contenu libre). Mise
-// en page d'après les blocs gratuits de Mantine (ui.mantine.dev, MIT :
-// « NavbarSimple », « StatsGrid ») : un menu des rubriques à gauche (en haut au
-// téléphone), la rubrique choisie à droite ; une rubrique `chiffres` montre ses
-// lignes en cartes (Sylvain, 12/11/2026 : « une brique graphique minimaliste
-// pour le back »). Mantine seul ; réglages `admin.*` (ADR 0008) ; textes traduits.
+// Composant de présentation : le back-office de l'instance, en fiche (Sylvain, 27/11/2026 : « Reprends le reste
+// du back en fonction de ce design », maquette validée « Ok pour tout »). Une page, sans menu : les chiffres de
+// l'instance en cartes (d'après « StatsGrid », ui.mantine.dev, MIT), puis des lignes en clair sous des rubriques.
+// Chaque ligne dit son état et s'ouvre pour être réglée, une à la fois (Accordion de Mantine, comme la fiche d'un
+// modèle). Mantine seul ; réglages `admin.*` et `fiche.*` (ADR 0008) ; textes traduits.
 import { useState } from 'react'
-import {
-  Container,
-  Stack,
-  Group,
-  Title,
-  Text,
-  Table,
-  NativeSelect,
-  Grid,
-  NavLink,
-  SimpleGrid,
-  Paper,
-} from '@mantine/core'
+import { Container, Stack, Group, Title, Text, Table, NativeSelect, SimpleGrid, Paper, Accordion } from '@mantine/core'
 import { REGLAGES } from '../reglages.js'
 import { Marque } from './Picto.jsx'
 import { Courbe } from './Courbe.jsx'
@@ -70,23 +56,53 @@ function Chiffres({ lignes }) {
 }
 
 /**
- * Une ligne porte une valeur, ou un choix (le modèle de Margo, étape 8) :
- * `choix: { options: [{ valeur, libelle, desactive? }], valeur, surChange }`.
  * @param {{ nomApplication?: string, titre: string, actions?: any, message?: string | null,
- *   rubriques: Array<{ titre: string, vide?: string, chiffres?: boolean, contenu?: any,
+ *   chiffres?: Array<{ libelle: string, valeur: string }>,
+ *   rubriques: Array<{ titre: string, lignes: Array<{ cle: string, nom: string, resume: string, vide?: string, contenu?: any,
  *     courbes?: Array<{ libelle: string, legende?: string, points: Array<{ x: number, y: number }> }>,
- *     lignes: Array<{ libelle: string, valeur?: string, choix?: object }> }> }} p
- *   `vide` : le texte montré quand la rubrique n'a ni courbe, ni ligne, ni contenu ;
- *   `chiffres` : les lignes en cartes plutôt qu'en tableau (valeurs seules : une
- *   ligne à choix va dans une rubrique en tableau) ; le menu retient la rubrique
- *   choisie par son titre (la première au départ, ou si elle disparaît)
+ *     lignes?: Array<{ libelle: string, valeur?: string, choix?: object }> }> }>,
+ *   ligneInitiale?: string | null }} p
+ *   une ligne de la fiche : son nom, son résumé (ce qu'elle dit fermée), et ce qu'elle montre ouverte : des
+ *   courbes, un tableau libellé / valeur (une valeur, ou un choix `{ options: [{ valeur, libelle, desactive? }],
+ *   valeur, surChange }`), un contenu libre ; `vide` : le texte montré quand elle n'a rien de tout cela ;
+ *   `ligneInitiale` : la ligne ouverte à l'arrivée
  */
-export function PageAdministration({ nomApplication, titre, actions, message, rubriques, rubriqueInitiale = null }) {
-  const [choisie, setChoisie] = useState(rubriqueInitiale ?? rubriques[0]?.titre ?? null)
-  const r = rubriques.find((x) => x.titre === choisie) ?? rubriques[0]
-  const { menu, contenu } = REGLAGES.admin.colonnes
+export function PageAdministration({
+  nomApplication,
+  titre,
+  actions,
+  message,
+  chiffres = [],
+  rubriques,
+  ligneInitiale = null,
+}) {
+  const [ouverte, setOuverte] = useState(ligneInitiale)
+  const ligne = (l) => {
+    const tableau = l.lignes ?? []
+    return (
+      <Accordion.Item key={l.cle} value={l.cle}>
+        <Accordion.Control>
+          <Text>{l.nom}</Text>
+          <Text {...REGLAGES.fiche.resume}>{l.resume}</Text>
+        </Accordion.Control>
+        <Accordion.Panel>
+          {/* Le contenu d'une ligne fermée n'est pas monté. */}
+          {ouverte === l.cle ? (
+            <Stack>
+              {(l.courbes ?? []).map((c) => (
+                <Courbe key={c.libelle} libelle={c.libelle} legende={c.legende} points={c.points} />
+              ))}
+              {l.vide && !tableau.length && !l.courbes?.length && !l.contenu ? <Text>{l.vide}</Text> : null}
+              {l.contenu ?? null}
+              {tableau.length ? <Lignes lignes={tableau} /> : null}
+            </Stack>
+          ) : null}
+        </Accordion.Panel>
+      </Accordion.Item>
+    )
+  }
   return (
-    <Container {...REGLAGES.admin.page}>
+    <Container>
       <Stack>
         {nomApplication ? (
           <Text component="div">
@@ -98,35 +114,17 @@ export function PageAdministration({ nomApplication, titre, actions, message, ru
           {actions}
         </Group>
         {message ? <Text role="status">{message}</Text> : null}
-        <Grid>
-          <Grid.Col {...menu}>
-            <nav aria-label={titre}>
-              {rubriques.map((x) => (
-                <NavLink
-                  key={x.titre}
-                  component="button"
-                  label={x.titre}
-                  active={x.titre === r?.titre}
-                  aria-current={x.titre === r?.titre ? 'page' : undefined}
-                  onClick={() => setChoisie(x.titre)}
-                />
-              ))}
-            </nav>
-          </Grid.Col>
-          <Grid.Col {...contenu}>
-            {r ? (
-              <Stack key={r.titre} component="section" aria-label={r.titre}>
-                <Title order={2}>{r.titre}</Title>
-                {(r.courbes ?? []).map((c) => (
-                  <Courbe key={c.libelle} libelle={c.libelle} legende={c.legende} points={c.points} />
-                ))}
-                {r.vide && !r.lignes.length && !r.courbes?.length && !r.contenu ? <Text>{r.vide}</Text> : null}
-                {r.contenu ?? null}
-                {r.lignes.length ? r.chiffres ? <Chiffres lignes={r.lignes} /> : <Lignes lignes={r.lignes} /> : null}
-              </Stack>
-            ) : null}
-          </Grid.Col>
-        </Grid>
+        {chiffres.length ? <Chiffres lignes={chiffres} /> : null}
+        <Accordion value={ouverte} onChange={setOuverte} {...REGLAGES.fiche.lignes}>
+          {rubriques.map((r) => (
+            <section key={r.titre} aria-label={r.titre}>
+              <Title order={2} {...REGLAGES.fiche.rubrique}>
+                {r.titre}
+              </Title>
+              {r.lignes.map(ligne)}
+            </section>
+          ))}
+        </Accordion>
       </Stack>
     </Container>
   )

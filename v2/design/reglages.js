@@ -252,7 +252,6 @@ export const REGLAGES = {
   // libellé discret en petites capitales, valeur en gras.
   admin: {
     page: { size: 'lg' },
-    colonnes: { menu: { span: { base: 12, sm: 3 } }, contenu: { span: { base: 12, sm: 9 } } },
     chiffres: {
       grille: { cols: { base: 1, xs: 2, md: 4 } },
       carte: { withBorder: true, p: 'md', radius: 'md' },

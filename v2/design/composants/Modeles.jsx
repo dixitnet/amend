@@ -73,15 +73,15 @@ export function PanneauExport({
 }
 
 /**
- * Les modèles de mise en page (équipe ou instance) : le modèle par défaut, un
- * tableau (nom, format, police, documents, étiquette « Défaut ») avec un menu
+ * Les modèles de mise en page (équipe ou instance) : le modèle par défaut, une
+ * liste à deux niveaux (le nom et l'étiquette « Défaut », puis format, police et documents en clair) avec un menu
  * d'actions par ligne, et un seul bouton « Nouveau modèle » (13/11/2026). Le
  * nom d'un modèle mène à sa page de réglage ; « Dupliquer » ouvre la création
  * avec le modèle choisi comme départ.
  * @param {{
  *   libelles: { defaut: string, nom: string, base: string, creer: string, nouveau: string, annuler: string,
  *     regler: string, dupliquer: string, supprimer: string, actions: string, aucun: string,
- *     colonnes: { nom: string, format: string, police: string, documents: string },
+ *     puis: string,
  *     actionsDe: (nom: string) => string, copieDe: (nom: string) => string,
  *     titres?: { defaut?: string, liste?: string } },
  *   defaut: { options: Array<any>, valeur: string, surChange: (v: string) => void },
@@ -129,29 +129,19 @@ export function PanneauModeles({
       {titres.liste ? <Title order={3}>{titres.liste}</Title> : null}
       {modeles.length ? (
         <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>{libelles.colonnes.nom}</Table.Th>
-              <Table.Th>{libelles.colonnes.format}</Table.Th>
-              <Table.Th>{libelles.colonnes.police}</Table.Th>
-              <Table.Th>{libelles.colonnes.documents}</Table.Th>
-              <Table.Th>
-                <VisuallyHidden>{libelles.actions}</VisuallyHidden>
-              </Table.Th>
-            </Table.Tr>
-          </Table.Thead>
           <Table.Tbody>
             {modeles.map((m) => (
               <Table.Tr key={m.cle}>
+                {/* Deux niveaux (27/11/2026) : le nom, qui ouvre la fiche, puis le détail en clair. */}
                 <Table.Td>
                   <Group>
                     <Anchor href={m.adresse}>{m.nom}</Anchor>
                     {m.parDefaut ? <Badge>{m.parDefaut}</Badge> : null}
                   </Group>
+                  <Text {...REGLAGES.fiche.resume}>
+                    {[m.format, m.police, m.detail].filter(Boolean).join(libelles.puis)}
+                  </Text>
                 </Table.Td>
-                <Table.Td>{m.format}</Table.Td>
-                <Table.Td>{m.police}</Table.Td>
-                <Table.Td>{m.detail}</Table.Td>
                 <Table.Td>
                   <Menu>
                     <Menu.Target>
@@ -225,7 +215,7 @@ export function PanneauModeles({
  * désactiver, supprimer), et la liste de celles fournies avec amend.ink.
  * @param {{
  *   libelles: { ajouter: string, envoyer: string, instance: string, fournies: string, aucune: string,
- *     colonnes: { famille: string, styles: string, utilisation: string, etat: string },
+ *     colonnes: { famille: string, styles: string, etat: string },
  *     active: string, activeDe: (famille: string) => string,
  *     supprimerFamille: string, supprimerFamilleDe: (famille: string) => string,
  *     supprimerFichier: string, supprimerFichierDe: (fichier: string) => string,
@@ -276,7 +266,6 @@ export function PanneauPolices({
               <Table.Tr>
                 <Table.Th>{libelles.colonnes.famille}</Table.Th>
                 <Table.Th>{libelles.colonnes.styles}</Table.Th>
-                <Table.Th>{libelles.colonnes.utilisation}</Table.Th>
                 <Table.Th>{libelles.colonnes.etat}</Table.Th>
                 <Table.Th>
                   <VisuallyHidden>{libelles.supprimerFamille}</VisuallyHidden>
@@ -288,6 +277,7 @@ export function PanneauPolices({
                 <Table.Tr key={f.famille}>
                   <Table.Th scope="row">
                     <Text {...REGLAGES.polices.famille}>{f.famille}</Text>
+                    <Text {...REGLAGES.fiche.resume}>{f.usage ?? libelles.inutilisee}</Text>
                   </Table.Th>
                   <Table.Td>
                     <Stack {...REGLAGES.polices.styles}>
@@ -307,7 +297,6 @@ export function PanneauPolices({
                       {f.avertissement ? <Text role="note">{f.avertissement}</Text> : null}
                     </Stack>
                   </Table.Td>
-                  <Table.Td>{f.usage ?? libelles.inutilisee}</Table.Td>
                   <Table.Td>
                     <Switch
                       aria-label={libelles.activeDe(f.famille)}
@@ -341,7 +330,6 @@ export function PanneauPolices({
           <Table.Thead>
             <Table.Tr>
               <Table.Th>{libelles.colonnes.famille}</Table.Th>
-              <Table.Th>{libelles.colonnes.utilisation}</Table.Th>
               <Table.Th>{libelles.colonnes.etat}</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -350,8 +338,8 @@ export function PanneauPolices({
               <Table.Tr key={f.famille}>
                 <Table.Th scope="row">
                   <Text {...REGLAGES.polices.famille}>{f.famille}</Text>
+                  <Text {...REGLAGES.fiche.resume}>{f.usage ?? libelles.inutilisee}</Text>
                 </Table.Th>
-                <Table.Td>{f.usage ?? libelles.inutilisee}</Table.Td>
                 <Table.Td>
                   <Switch
                     aria-label={libelles.activeDe(f.famille)}
