@@ -1,6 +1,6 @@
 # amend.ink v2 : modèles sur une grille stricte, comptés en lignes
 
-Statut : **règle arbitrée le 27/11/2026 (§ 9), interface en discussion, rien n'est développé.** Demandé par Sylvain le 27/11/2026 (« Soit on est sur la grille, soit on s'en libère » ; « un design visuel de la grille le plus simple possible, quitte à restreindre les possibilités » ; titres longs : « variante » ; « puis 2 »). Maquette cliquable et essais Typst faits dans la session de Claude, hors du dépôt.
+Statut : **règle (§ 9) et interface (§ 10) arbitrées le 27/11/2026 ; reprise des modèles enregistrés à arbitrer ; rien n'est développé.** Demandé par Sylvain le 27/11/2026 (« Soit on est sur la grille, soit on s'en libère » ; « un design visuel de la grille le plus simple possible, quitte à restreindre les possibilités » ; titres longs : « variante » ; « puis 2 »). Maquette cliquable et essais Typst faits dans la session de Claude, hors du dépôt.
 
 ## 1. Ce qui est décidé (Sylvain, 27/11/2026)
 
@@ -124,4 +124,23 @@ Sylvain, 27/11/2026 (« 1, 2, 3 ton avis, 5 ok. On réfléchit d'abord sur les i
 4. **Reprise des modèles enregistrés : pas encore arbitrée** (il manque le nombre de modèles en base).
 5. **Les deux décisions du 15/11/2026 sont renversées** : les blancs se comptent en lignes, et le nombre de lignes par page redevient le réglage (la marge de pied s'en déduit).
 
-**Aucun lot n'est lancé** : l'interface du formulaire se discute d'abord.
+**Aucun lot n'est lancé.**
+
+## 10. L'interface (Sylvain, 27/11/2026)
+
+« On reprend tout le design, oublier l'existant. Propose le plus simple et le plus lisible », puis « 1-2 / 2 pas d'aperçu en S / 3 ok / 4 on essaie ». Maquette en composants Mantine faite dans la session de Claude, hors du dépôt. Docs n'a pas d'interface de modèle.
+
+1. **Le modèle se lit comme une fiche.** La page de réglage n'est plus un formulaire de champs ni un tableau des styles : elle affiche le modèle en clair, une ligne par réglage (« Titre 3 : 11 pt, gras · 1 ½ avant, ½ après »), sous quatre rubriques : la page (format, marges, hauteur du texte), le texte (caractère, paragraphes, séparateur de scène), les titres et les styles (dix lignes), les en-têtes et numéros de page. Dix-huit lignes en tout.
+2. **Une ligne s'ouvre pour être réglée, une seule à la fois** (accordéon de Mantine). Les dix styles ont la même fiche : taille, blanc avant, blanc après (pas de 0,5), puis gras, italique, capitales, petites capitales, centré. Sous les champs, une phrase dit ce que la grille calcule (« Sur une ligne, ce titre occupe 1 ligne de la grille ; sur deux lignes, 2 ») ; un encart annonce la demi-ligne ajoutée, seulement quand elle s'applique.
+3. **Le début des titres 1 et 2** (à la suite, nouvelle page, belle page) est dans leur fiche ; la rubrique « Chapitre » disparaît.
+4. **Hauteur du texte** : le nombre de lignes par page, avec dessous la marge de pied obtenue et les signes par ligne et par page.
+5. **Un aperçu dessiné** à côté de la fiche, en formats L et M : une page (titre, ouverture, page courante) qui suit ce qu'on règle et encadre le style ouvert ; grille et blancs affichables. **Pas d'aperçu en format S.** C'est une approximation du PDF, dessinée en HTML ; le bouton « Essayer sur un document » reste la vérité.
+6. **Les libellés** de la maquette sont validés (« Caractère », « Hauteur du texte », les phrases de résumé) : à porter en clés de traduction.
+7. **Apparence** : accordéon de Mantine en variante « séparée », à l'essai ; à inscrire dans `v2/design/` et l'ADR 0008 si elle est gardée.
+
+**Conséquences pour les lots (§ 6)**
+
+- Le lot 3 devient deux lots : la fiche (application, technique : état, résumés, règles) et sa présentation (design : composants de la fiche et de l'aperçu).
+- L'aperçu dessiné est une seconde mise en œuvre de la règle, à côté du gabarit Typst. Pour qu'elles ne divergent pas, les deux lisent les mêmes fonctions du domaine (`lignesOccupees`, `demiLigneAjoutee`) ; l'aperçu ne recalcule rien lui-même.
+- L'aperçu a des valeurs de design à décider (couleur du papier, teinte des blancs et de la demi-ligne ajoutée, trait de la grille) : proposées au lot de design, décidées par Sylvain.
+- À vérifier au lot de design : les polices du catalogue sont-elles déjà chargées par le navigateur pour l'affichage, ou seulement lues pour le PDF.
