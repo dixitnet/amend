@@ -139,7 +139,8 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   // L'aperçu compose ce titre dans sa police.
   await page.waitForFunction(() => {
     const titre = document.querySelector('.amend-apercu [data-ouvert]')
-    return titre && getComputedStyle(titre).fontFamily.startsWith('Inter')
+    // Entre guillemets ou non, selon le navigateur.
+    return titre && /^"?Inter\b/.test(getComputedStyle(titre).fontFamily)
   })
   // Dans l'aperçu, chaque paragraphe commence sur une ligne de la grille.
   const ecart = await page.evaluate(() => {
