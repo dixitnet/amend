@@ -4,7 +4,7 @@ import { EcranMessage, PageAdministration, Bouton, PanneauConnecteur } from '../
 import { messageErreur } from '../../i18n/index.js'
 import { t, envoyerJson, nomDuModele } from './commun.js'
 import { courbeDeMemoire } from './suivi.js'
-import { ModelesInstance, PolicesInstance } from './Modeles.jsx'
+import { ModelesInstance, PolicesInstance, nomDuModeleDeMiseEnPage } from './Modeles.jsx'
 import { ImagesInstance } from './ImagesAdmin.jsx'
 import { useConfirmation } from './fenetres.jsx'
 
@@ -178,133 +178,184 @@ export function Administration({ surApparence, rubrique = null }) {
             options: noms.map((n) => ({ valeur: n, libelle: nomDe(n) })),
           },
         }
+  /** Ce que dit une ligne dont les données ne sont pas là : l'erreur, ou l'attente. */
+  const attente = (code) => (code ? messageErreur(t, code) : t('application.chargement'))
   return (
     <PageAdministration
       nomApplication={t('application.nom')}
       titre={t('admin.titre')}
       actions={<Bouton libelle={t('document.mesDocuments')} surClic={() => (location.hash = '#')} />}
       message={message}
-      rubriqueInitiale={rubrique === 'modeles' ? t('admin.modelesPdf.titre') : null}
+      ligneInitiale={rubrique === 'modeles' ? 'modeles' : null}
+      chiffres={[
+        { libelle: t('admin.personnes'), valeur: nombre.format(c.personnes) },
+        { libelle: t('admin.documents'), valeur: nombre.format(c.documents) },
+        { libelle: t('admin.equipes'), valeur: nombre.format(c.equipes) },
+        { libelle: t('admin.essai'), valeur: nombre.format(c.essai) },
+      ]}
       rubriques={[
         {
-          // La synthèse : les chiffres de l'instance en cartes (Sylvain, 12/11/2026).
-          titre: t('admin.synthese'),
-          chiffres: true,
+          titre: t('admin.rubriques.instance'),
           lignes: [
             {
-              libelle: t('admin.version'),
-              valeur: v.numero
+              cle: 'apparence',
+              nom: t('admin.apparence'),
+              resume: apparence
+                ? t('admin.resume.apparence', {
+                    modele: nomDuModeleInterface(apparence.apparence.modele),
+                    couleur: nomDeLaCouleur(apparence.apparence.couleur),
+                  })
+                : messageErreur(t, erreurApparence),
+              lignes: [
+                ligneApparence('modele', t('admin.modeleInterface'), apparence?.modeles ?? [], nomDuModeleInterface),
+                ligneApparence('couleur', t('admin.couleur'), apparence?.couleurs ?? [], nomDeLaCouleur),
+              ],
+            },
+            {
+              cle: 'margo',
+              nom: t('admin.ia'),
+              resume: erreurIa ? messageErreur(t, erreurIa) : nomDuModele(ia.modele ?? ia.defaut),
+              lignes: [
+                erreurIa
+                  ? { libelle: t('admin.modeleMargo'), valeur: messageErreur(t, erreurIa) }
+                  : {
+                      libelle: t('admin.modeleMargo'),
+                      choix: {
+                        valeur: ia.modele ?? ia.defaut,
+                        surChange: choisirModele,
+                        options: ia.modeles.map((m) => ({
+                          valeur: m.id,
+                          libelle: m.disponible
+                            ? nomDuModele(m.id)
+                            : t('admin.modeleSansCle', { nom: nomDuModele(m.id) }),
+                          desactive: !m.disponible,
+                        })),
+                      },
+                    },
+              ],
+            },
+            {
+              cle: 'connecteur',
+              nom: t('admin.connecteur.titre'),
+              resume: connecteur
+                ? connecteur.actif
+                  ? t('admin.connecteur.actif', { date: date.format(connecteur.creeLe) })
+                  : t('admin.connecteur.inactif')
+                : attente(erreurConnecteur),
+              vide: attente(erreurConnecteur),
+              contenu: connecteur ? (
+                <>
+                  <PanneauConnecteur
+                    explication={t('admin.connecteur.explication')}
+                    etat={
+                      connecteur.actif
+                        ? t('admin.connecteur.actif', { date: date.format(connecteur.creeLe) })
+                        : t('admin.connecteur.inactif')
+                    }
+                    actif={connecteur.actif}
+                    adresse={adresseConnecteur}
+                    avertissement={t('admin.connecteur.avertissement')}
+                    libelles={{
+                      creer: t('admin.connecteur.creer'),
+                      renouveler: t('admin.connecteur.renouveler'),
+                      revoquer: t('admin.connecteur.revoquer'),
+                      copier: t('admin.connecteur.copier'),
+                      copie: t('admin.connecteur.copie'),
+                      adresse: t('admin.connecteur.adresse'),
+                    }}
+                    surCreer={creerConnecteur}
+                    surRevoquer={revoquerConnecteur}
+                  />
+                  {fenetreConfirmation}
+                </>
+              ) : null,
+            },
+          ],
+        },
+        {
+          titre: t('admin.rubriques.livres'),
+          lignes: [
+            {
+              cle: 'modeles',
+              nom: t('admin.modelesPdf.titre'),
+              resume: modeles
+                ? t('admin.resume.modeles', {
+                    n: modeles.modeles.length + 1,
+                    defaut: nomDuModeleDeMiseEnPage(
+                      [modeles.modeleCode, ...modeles.modeles].find(
+                        (m) => m.id === (modeles.defaut ?? modeles.modeleCode.id),
+                      ),
+                    ),
+                  })
+                : attente(erreurModeles),
+              vide: attente(erreurModeles),
+              contenu: modeles ? (
+                <>
+                  <ModelesInstance donnees={modeles} confirmer={confirmer} surChangement={chargerModeles} />
+                  {fenetreConfirmation}
+                </>
+              ) : null,
+            },
+            {
+              cle: 'polices',
+              nom: t('admin.polices.titre'),
+              resume: polices
+                ? t('admin.resume.polices', {
+                    n: polices.fournies.length + polices.familles.length,
+                    a: [...polices.fournies, ...polices.familles].filter((f) => f.actif).length,
+                    i: polices.familles.length,
+                  })
+                : attente(erreurPolices),
+              vide: attente(erreurPolices),
+              contenu: polices ? (
+                <PolicesInstance
+                  donnees={polices}
+                  confirmer={confirmer}
+                  surChangement={() => (chargerPolices(), chargerModeles())}
+                />
+              ) : null,
+            },
+            {
+              cle: 'images',
+              nom: t('admin.images.titre'),
+              resume: t('admin.resume.images'),
+              contenu: <ImagesInstance />,
+            },
+          ],
+        },
+        {
+          // Le système (Sylvain, 12/11/2026) : la version, la mémoire des processus, le journal.
+          titre: t('admin.systeme'),
+          lignes: [
+            {
+              cle: 'version',
+              nom: t('admin.version'),
+              resume: v.numero
                 ? t('admin.versionValeur', { numero: v.numero, commit: v.commit, date: date.format(v.date) })
                 : t('admin.versionInconnue'),
+              lignes: [
+                { libelle: t('admin.demarrage'), valeur: date.format(systeme.demarrage) },
+                { libelle: t('admin.node'), valeur: systeme.node },
+              ],
             },
-            { libelle: t('admin.demarrage'), valeur: date.format(systeme.demarrage) },
-            { libelle: t('admin.memoire'), valeur: mo.format(systeme.memoire / 1e6) },
-            { libelle: t('admin.node'), valeur: systeme.node },
-            { libelle: t('admin.personnes'), valeur: nombre.format(c.personnes) },
-            { libelle: t('admin.essai'), valeur: nombre.format(c.essai) },
-            { libelle: t('admin.documents'), valeur: nombre.format(c.documents) },
-            { libelle: t('admin.equipes'), valeur: nombre.format(c.equipes) },
-          ],
-        },
-        {
-          titre: t('admin.apparence'),
-          lignes: [
-            ligneApparence('modele', t('admin.modeleInterface'), apparence?.modeles ?? [], nomDuModeleInterface),
-            ligneApparence('couleur', t('admin.couleur'), apparence?.couleurs ?? [], nomDeLaCouleur),
-          ],
-        },
-        {
-          // Le système (Sylvain, 12/11/2026) : la mémoire des processus, puis le
-          // journal, réunis ; une ligne dit ce qui manque encore.
-          titre: t('admin.systeme'),
-          courbes,
-          vide: erreurSuivi ? messageErreur(t, erreurSuivi) : t('application.chargement'),
-          lignes: suivi
-            ? [
-                ...(courbes.length ? [] : [{ libelle: t('admin.suivi'), valeur: t('admin.memoireAucune') }]),
-                ...(lignesDuJournal.length
-                  ? lignesDuJournal
-                  : [{ libelle: t('admin.journal'), valeur: t('admin.journalVide') }]),
-              ]
-            : [],
-        },
-        {
-          titre: t('admin.modelesPdf.titre'),
-          lignes: [],
-          vide: erreurModeles ? messageErreur(t, erreurModeles) : t('application.chargement'),
-          contenu: modeles ? (
-            <>
-              <ModelesInstance donnees={modeles} confirmer={confirmer} surChangement={chargerModeles} />
-              {fenetreConfirmation}
-            </>
-          ) : null,
-        },
-        {
-          titre: t('admin.polices.titre'),
-          lignes: [],
-          vide: erreurPolices ? messageErreur(t, erreurPolices) : t('application.chargement'),
-          contenu: polices ? (
-            <PolicesInstance
-              donnees={polices}
-              confirmer={confirmer}
-              surChangement={() => (chargerPolices(), chargerModeles())}
-            />
-          ) : null,
-        },
-        {
-          titre: t('admin.images.titre'),
-          lignes: [],
-          vide: '',
-          contenu: <ImagesInstance />,
-        },
-        {
-          titre: t('admin.connecteur.titre'),
-          lignes: [],
-          vide: erreurConnecteur ? messageErreur(t, erreurConnecteur) : t('application.chargement'),
-          contenu: connecteur ? (
-            <>
-              <PanneauConnecteur
-                explication={t('admin.connecteur.explication')}
-                etat={
-                  connecteur.actif
-                    ? t('admin.connecteur.actif', { date: date.format(connecteur.creeLe) })
-                    : t('admin.connecteur.inactif')
-                }
-                actif={connecteur.actif}
-                adresse={adresseConnecteur}
-                avertissement={t('admin.connecteur.avertissement')}
-                libelles={{
-                  creer: t('admin.connecteur.creer'),
-                  renouveler: t('admin.connecteur.renouveler'),
-                  revoquer: t('admin.connecteur.revoquer'),
-                  copier: t('admin.connecteur.copier'),
-                  copie: t('admin.connecteur.copie'),
-                  adresse: t('admin.connecteur.adresse'),
-                }}
-                surCreer={creerConnecteur}
-                surRevoquer={revoquerConnecteur}
-              />
-              {fenetreConfirmation}
-            </>
-          ) : null,
-        },
-        {
-          titre: t('admin.ia'),
-          lignes: [
-            erreurIa
-              ? { libelle: t('admin.modeleMargo'), valeur: messageErreur(t, erreurIa) }
-              : {
-                  libelle: t('admin.modeleMargo'),
-                  choix: {
-                    valeur: ia.modele ?? ia.defaut,
-                    surChange: choisirModele,
-                    options: ia.modeles.map((m) => ({
-                      valeur: m.id,
-                      libelle: m.disponible ? nomDuModele(m.id) : t('admin.modeleSansCle', { nom: nomDuModele(m.id) }),
-                      desactive: !m.disponible,
-                    })),
-                  },
-                },
+            {
+              cle: 'memoire',
+              nom: t('admin.suivi'),
+              resume: t('admin.resume.memoire', { memoire: mo.format(systeme.memoire / 1e6) }),
+              courbes,
+              vide: suivi ? t('admin.memoireAucune') : attente(erreurSuivi),
+            },
+            {
+              cle: 'journal',
+              nom: t('admin.journal'),
+              resume: suivi
+                ? lignesDuJournal.length
+                  ? t('admin.resume.journal', { n: lignesDuJournal.length })
+                  : t('admin.journalVide')
+                : attente(erreurSuivi),
+              vide: suivi ? t('admin.journalVide') : attente(erreurSuivi),
+              lignes: lignesDuJournal,
+            },
           ],
         },
       ]}

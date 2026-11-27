@@ -288,7 +288,6 @@
     "versionValeur": "{numero} ({commit}, du {date})",
     "versionInconnue": "inconnue (hors d’un dépôt git)",
     "demarrage": "Serveur démarré le",
-    "memoire": "Mémoire du serveur",
     "node": "Node",
     "personnes": "Comptes",
     "essai": "Comptes d’essai et de développement",
@@ -356,7 +355,6 @@
       "avertissement": "Copiez-la maintenant\u00A0: elle ne sera plus affichée. Une nouvelle adresse remplace l’ancienne, qui cesse de fonctionner.",
       "confirmerRevocation": "Révoquer l’adresse du connecteur\u202F? Claude n’aura plus accès à vos documents."
     },
-    "synthese": "Synthèse",
     "polices": {
       "titre": "Polices",
       "intro": "Les polices proposées dans les modèles de mise en page, et incorporées dans les PDF exportés. Vous pouvez en ajouter, les désactiver (elles ne sont plus proposées, mais les modèles qui les ont gardées continuent de les employer) ou les supprimer (impossible tant qu’un modèle s’en sert).",
@@ -368,7 +366,6 @@
       "colonnes": {
         "famille": "Famille",
         "styles": "Fichiers",
-        "utilisation": "Utilisation",
         "etat": "Dans les modèles"
       },
       "active": "Proposée",
@@ -418,6 +415,18 @@
         "poids": "Poids"
       },
       "corbeille": "À la corbeille (documents que y/hub ne lit pas\u00A0: pas jugées)"
+    },
+    "rubriques": {
+      "instance": "L’instance",
+      "livres": "Les livres"
+    },
+    "resume": {
+      "apparence": "{modele}, {couleur}",
+      "modeles": "{n, plural, one {# modèle} other {# modèles}} · par défaut\u00A0: {defaut}",
+      "polices": "{n, plural, one {# famille} other {# familles}}, {a, plural, =0 {aucune proposée} one {# proposée} other {# proposées}} · {i, plural, =0 {aucune ajoutée par l’instance} one {# ajoutée par l’instance} other {# ajoutées par l’instance}}",
+      "images": "analyse des images orphelines, à la demande",
+      "memoire": "serveur\u00A0: {memoire}",
+      "journal": "{n, plural, one {# ligne} other {# lignes}}"
     }
   },
   "telephone": {
@@ -584,12 +593,6 @@
     "dupliquer": "Dupliquer",
     "actions": "Actions",
     "retour": "Retour aux modèles",
-    "colonnes": {
-      "nom": "Modèle",
-      "format": "Format",
-      "police": "Police du texte",
-      "documents": "Utilisation"
-    },
     "actionsDe": "Actions pour «\u00A0{nom}\u00A0»",
     "copieDe": "{nom} (copie)",
     "format": "{largeur, number} × {hauteur, number} mm",
