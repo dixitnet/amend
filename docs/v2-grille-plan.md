@@ -1,6 +1,6 @@
 # amend.ink v2 : modèles sur une grille stricte, comptés en lignes
 
-Statut : **règle (§ 9) et interface (§ 10) arbitrées le 27/11/2026 ; lot 1 (domaine) développé le même jour (§ 11) ; lots 2 à 4 non lancés.** Demandé par Sylvain le 27/11/2026 (« Soit on est sur la grille, soit on s'en libère » ; « un design visuel de la grille le plus simple possible, quitte à restreindre les possibilités » ; titres longs : « variante » ; « puis 2 »). Maquette cliquable et essais Typst faits dans la session de Claude, hors du dépôt.
+Statut : **lot 1 fusionné et en ligne le 27/11/2026 (`e8f8dde`) ; lots 2 à 4 développés le même jour (§ 12), à fusionner sur accord ; le gabarit en points reste à retirer.**
 
 ## 1. Ce qui est décidé (Sylvain, 27/11/2026)
 
@@ -164,3 +164,33 @@ Domaine seulement ; rien ne change dans l'application tant qu'aucun modèle n'es
 4. **Un style en briques plus haut que le pas** (une citation de 15 pt sur un pas de 14) rend le modèle impossible, raison `interligne`.
 
 **Non couvert par ce lot** : `completerModele` et `appliquerReglages` ne connaissent pas encore la forme en lignes (lots 2 et 4) ; un tableau qui se coupe entre deux pages ; les lignes à l'intérieur d'un tableau.
+
+## 12. Lots 2 à 4, développés le 27/11/2026 (Sylvain : « lance tous les lots »)
+
+Sylvain a validé les quatre choix du lot 1 (« 1 à 4 ok ») : notes de bas de page en briques, une ligne de blanc autour d'une image ou d'un tableau, en-têtes au corps du texte et centrés, style en briques plus haut que le pas refusé. Le lot 1 est fusionné (`e8f8dde`) et en ligne.
+
+Les trois lots suivants dépendent l'un de l'autre (un modèle en lignes ne se règle qu'avec la nouvelle fiche) : ils sont commités couche par couche et se fusionnent ensemble.
+
+**Lot 2, design.** `v2/design/reglagesLivre.js` : les cinq modèles livrés (« A4 simple », « TàT - Poche », « A5 », « Livre de poche », « TàT 140 × 220 ») sont comptés en lignes ; 106 réglages au lieu de 155, la même fiche pour les dix styles ; le coefficient 1,15 (`livre.hauteurTitre`, ADR 0008). Leurs valeurs sont la conversion au plus proche des modèles en points (un test le garantit) : même première ligne de base, même nombre de lignes par page, mêmes nombres de pages pour les cinq livres de référence. **À valider sur le PDF, modèle par modèle.**
+
+**Lot 4, reprise (domaine et serveur).** `versModeleEnLignes` (`v2/domaine/migrationModeles.js`) convertit un modèle en points : la marge de tête est décalée pour garder la première ligne de base ; le nombre de lignes est celui que la marge basse laissait ; un blanc en points devient des demi-lignes ; un titre à lignes d'ouverture garde sa ligne et celle où le texte reprend. Le serveur envoie tout modèle en lignes, et convertit une fois pour toutes les modèles enregistrés à son démarrage (`convertirEnLignes`). **Effet à la mise en ligne : tous les PDF passent au gabarit en lignes.**
+
+**Lot 3, la fiche (application, design, traductions).**
+
+- `v2/application/client/ficheModele.js` : les lignes de la fiche, leurs champs, leur résumé, ce que la grille calcule, le plan de la page d'aperçu. Il lit la règle dans le domaine.
+- `v2/design/composants/FicheModele.jsx` et `v2/design/feuilles/apercu-modele.css` : la fiche (accordéon de Mantine, une ligne ouverte à la fois) et la page d'aperçu, en formats L et M. L'ancienne page de réglage et son tableau des styles sont retirés.
+- Textes en français et en anglais (`modeles.fiche.*`, `modeles.apercu.*`).
+- Test de pile (`contrats/pile/exports.test.js`) : la fiche se lit et se règle, l'aperçu suit le style ouvert et garde ses paragraphes sur la grille, pas d'aperçu au format S, le modèle réglé s'enregistre et l'export PDF l'applique.
+
+**Écarts avec la maquette validée**
+
+1. **Format** : deux nombres (largeur, hauteur), sans liste de formats courants.
+2. **Signes par ligne et par page** : non affichés (il faudrait mesurer la police dans le navigateur).
+3. **« Essayer »** reste dans la liste des modèles, comme avant ; il n'est pas repris sur la fiche.
+4. **Allure des en-têtes** : deux pastilles (italique, petites capitales), non un choix entre les deux.
+
+**Reste à faire**
+
+- Retirer le gabarit en points, sa reprise et ses tests (`miseEnPage.js`, `migrationModeles.js`, `tests/donnees/modeles-en-points.js`), une fois vérifié en production qu'aucun modèle n'est resté en points.
+- Valider les cinq modèles sur le PDF.
+- Les points non vérifiés du § 8 (tableau coupé entre deux pages, lignes d'un tableau).
