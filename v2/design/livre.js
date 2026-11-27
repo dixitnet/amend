@@ -10,6 +10,7 @@ export const REGLES_MODELES = Object.freeze({
   reglables: REGLAGES_LIVRE.reglables,
   polices: REGLAGES_LIVRE.polices,
   largeurUtileMin: REGLAGES_LIVRE.largeurUtileMin,
+  surlignage: REGLAGES_LIVRE.surlignage,
 })
 
 /** Les modèles qui ont quitté le code, à reprendre en modèles de l'instance (`[{ id, nom, valeurs }]`). */

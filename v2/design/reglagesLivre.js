@@ -665,4 +665,6 @@ export const REGLAGES_LIVRE = {
   reglables: REGLABLES,
   // Largeur utile minimale entre les marges, en mm (v1, `UTILE_MIN`).
   largeurUtileMin: 40,
+  // Le surlignage dans le PDF (Sylvain, 27/11/2026) : le citron vert de l'écran, `lime.2` de Mantine.
+  surlignage: '#d8f5a2',
 }
