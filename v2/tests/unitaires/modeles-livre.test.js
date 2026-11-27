@@ -33,7 +33,17 @@ test('les réglages ouverts : sans doublon, chacun dans une rubrique, la même f
   const cles = REGLES_MODELES.reglables.map((r) => r.cle)
   assert.equal(new Set(cles).size, cles.length, 'pas de doublon')
   for (const r of REGLES_MODELES.reglables) assert.ok(['page', 'texte', 'styles', 'pages'].includes(r.groupe), r.cle)
-  const fiche = ['corps', 'gras', 'italique', 'capitales', 'petitesCapitales', 'alignement', 'blancAvant', 'blancApres']
+  const fiche = [
+    'police',
+    'corps',
+    'gras',
+    'italique',
+    'capitales',
+    'petitesCapitales',
+    'alignement',
+    'blancAvant',
+    'blancApres',
+  ]
   for (const style of NOMS_STYLES.filter((n) => n !== 'texte'))
     assert.deepEqual(
       cles.filter((c) => c.startsWith(`styles.${style}.`)).map((c) => c.split('.')[2]),
@@ -52,10 +62,10 @@ test('les réglages ouverts : sans doublon, chacun dans une rubrique, la même f
     'chapitre.ligneTitre',
     'enTete.police',
     'enTete.corps',
-    'styles.titre1.police',
+    'styles.titre1.alinea',
   ])
     assert.ok(!cles.includes(cle), cle)
-  assert.equal(cles.length, 106)
+  assert.equal(cles.length, 116)
 })
 
 test('les modèles du code et les modèles repris (TàT - Poche, A5, livre de poche, TàT 140 × 220) respectent les règles', () => {

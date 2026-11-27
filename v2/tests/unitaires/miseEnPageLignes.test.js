@@ -271,3 +271,24 @@ test('un modèle en points n’a plus de gabarit ni de grille : il se convertit 
       (e) => e.code === 'modele-impossible' && e.raison === 'valeur',
     )
 })
+
+test('la police d’un style : la sienne dans le gabarit, celle du texte quand elle est vide (Sylvain, 27/11/2026)', async () => {
+  const { famillesDuModele } = await import('../../domaine/index.js')
+  const sans = gabaritEnLignes(MODELE_EN_LIGNES)
+  assert.equal(sans.match(/font: \(/g).length, 1, 'une seule police : celle du texte')
+  const m = avec({
+    'styles.titre3.police': 'Inter',
+    'styles.citation.police': 'Lora',
+    'styles.titre4.police': 'EB Garamond',
+  })
+  const g = gabaritEnLignes(m)
+  assert.match(g, /level: 3\): it => amend-mesure\(14pt, 7pt, 7pt, \{ set text\(font: \("Inter",\), size: 13pt, /)
+  assert.match(
+    g,
+    /#show quote\.where\(block: true\): it => amend-brique\(0pt, 7pt, 7pt, \{ set text\(font: \("Lora",\), size: 10pt, /,
+  )
+  // La police du texte, redite pour un style, ne s'écrit pas deux fois.
+  assert.match(g, /level: 4\): it => amend-mesure\(14pt, 0pt, 0pt, \{ set text\(size: 11pt, /)
+  // Le PDF embarque les polices de tous les styles.
+  assert.deepEqual(famillesDuModele(m), ['EB Garamond', 'Inter', 'Lora'])
+})

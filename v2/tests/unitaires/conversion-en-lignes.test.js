@@ -87,3 +87,14 @@ test('valeursEnLignes : un modèle déjà en lignes est rendu tel quel ; des val
   assert.deepEqual([partiel.regle, partiel.page.largeur, partiel.styles.texte.police], ['lignes', 150, 'EB Garamond'])
   assert.equal(valeursEnLignes(undefined, 1.15).regle, 'lignes')
 })
+
+test('la police d’un style est gardée par la conversion ; celle du texte y devient « la même que le texte »', () => {
+  const avant = a4()
+  avant.styles.titre1.police = 'Inter'
+  avant.styles.citation.police = ''
+  const m = versModeleEnLignes(avant, 1.15)
+  assert.equal(m.styles.titre1.police, 'Inter')
+  assert.equal(m.styles.citation.police, '')
+  assert.equal(m.styles.titre3.police, '', 'EB Garamond, la police du texte')
+  assert.equal(verifierModele(m, REGLES_MODELES).ok, true)
+})
