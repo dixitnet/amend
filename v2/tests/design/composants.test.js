@@ -53,6 +53,12 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     mo: 12.5,
     marge: 26.7,
     lignes: 31,
+    modele: 'Épure',
+    couleur: 'indigo',
+    defaut: 'A5',
+    a: 6,
+    i: 1,
+    memoire: '182 Mo',
     corps: 11,
     interligne: 14,
     haut: 25,
@@ -115,6 +121,12 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       raison: 'r',
       modeles: 'M',
       polices: 'P',
+      modele: 'm',
+      couleur: 'c',
+      defaut: 'd',
+      a: 6,
+      i: 1,
+      memoire: '1 Mo',
       corps: 11,
       interligne: 14,
       haut: 25,
@@ -576,12 +588,7 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle), la list
         supprimer: t('modeles.supprimer'),
         actions: t('modeles.actions'),
         aucun: t('modeles.aucun'),
-        colonnes: {
-          nom: t('modeles.colonnes.nom'),
-          format: t('modeles.colonnes.format'),
-          police: t('modeles.colonnes.police'),
-          documents: t('modeles.colonnes.documents'),
-        },
+        puis: t('modeles.fiche.resume.puis'),
         actionsDe: (nom) => t('modeles.actionsDe', { nom }),
         copieDe: (nom) => t('modeles.copieDe', { nom }),
       },
@@ -602,7 +609,9 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle), la list
       surSupprimer: () => {},
     }),
   )
-  assert.ok(liste.includes(echapper(t('modeles.colonnes.police'))), 'le tableau a ses colonnes')
+  // Deux niveaux : le nom, puis le détail en clair (format, police, usage).
+  assert.ok(liste.includes('120 × 180 mm · EB Garamond · aucun document'), 'le détail d’un modèle, sur une ligne')
+  assert.doesNotMatch(liste, /<thead/, 'plus d’en-têtes de colonnes')
   assert.match(liste, /href="#\/admin\/modeles\/m1"/, 'le nom mène à la page de réglage')
   assert.ok(liste.includes('EB Garamond') && liste.includes('120 × 180 mm'))
   assert.ok(
@@ -805,9 +814,11 @@ test('supprimer son compte : ce que deviennent les documents, le refus, la confi
   )
 })
 
-test('back-office : un menu des rubriques ; une rubrique peut porter des courbes, un texte quand elle est vide, des chiffres en cartes', () => {
+test('back-office en fiche : des chiffres en cartes, des lignes en clair ; la ligne ouverte montre courbes, tableau ou texte', () => {
   const memoire = {
-    titre: 'Mémoire',
+    cle: 'memoire',
+    nom: 'Mémoire',
+    resume: 'serveur : 182 Mo',
     courbes: [
       {
         libelle: 'Mémoire du serveur sur sept jours',
@@ -819,55 +830,78 @@ test('back-office : un menu des rubriques ; une rubrique peut porter des courbes
         ],
       },
     ],
-    lignes: [],
   }
-  const journal = { titre: 'Journal', vide: 'Rien à signaler.', lignes: [] }
+  const journal = { cle: 'journal', nom: 'Journal', resume: 'Rien à signaler.', vide: 'Rien de plus.', lignes: [] }
   const doublons = {
-    titre: 'Doublons',
+    cle: 'doublons',
+    nom: 'Doublons',
+    resume: '2 lignes',
     lignes: [
       { libelle: 'même date', valeur: 'un' },
       { libelle: 'même date', valeur: 'deux' },
     ],
   }
-  const page = (rubriques) => rendre(h(design.PageAdministration, { titre: 'Administration', rubriques }))
-  // Le menu nomme toutes les rubriques ; la première est montrée.
-  const html = page([memoire, journal, doublons])
-  for (const r of ['Mémoire', 'Journal', 'Doublons']) assert.match(html, new RegExp(`<button[^>]*>[\\s\\S]*?${r}`))
-  assert.match(html, /aria-current="page"/)
+  const page = (ligneInitiale = null) =>
+    rendre(
+      h(design.PageAdministration, {
+        titre: 'Administration',
+        chiffres: [{ libelle: 'Documents', valeur: '42' }],
+        rubriques: [{ titre: 'Le système', lignes: [memoire, journal, doublons] }],
+        ligneInitiale,
+      }),
+    )
+  // Fermée, la fiche se lit : les chiffres, la rubrique, le nom et le résumé de chaque ligne ; aucun contenu.
+  const fermee = page()
+  assert.match(fermee, /Documents[\s\S]*42/)
+  assert.match(fermee, /<h2[^>]*>Le système<\/h2>/)
+  for (const [nom, resume] of [
+    ['Mémoire', 'serveur : 182 Mo'],
+    ['Journal', 'Rien à signaler.'],
+    ['Doublons', '2 lignes'],
+  ])
+    assert.match(fermee, new RegExp(`<button[^>]*>[\\s\\S]*?${nom}[\\s\\S]*?${resume}`))
+  assert.doesNotMatch(fermee, /<svg[^>]*role="img"/, 'une ligne fermée ne monte pas son contenu')
+  assert.doesNotMatch(fermee, /<nav/, 'plus de menu de rubriques')
+  // Ouverte : les courbes.
+  const html = page('memoire')
   assert.match(html, /<svg[^>]*role="img"[^>]*aria-label="Mémoire du serveur sur sept jours"/)
   assert.match(html, /viewBox="0 0 100 25"/)
-  // Le tracé : x sur la largeur, y renversé (1 en haut).
   assert.match(html, /points="0\.00,25\.00 50\.00,0\.00 100\.00,12\.50"/)
   assert.match(html, /<figcaption[^>]*>De 90 à 210 Mo<\/figcaption>/)
-  assert.match(page([journal]), /Rien à signaler\./)
-  assert.match(page([doublons]), />un<[\s\S]*>deux</, 'deux lignes de même libellé sont rendues toutes les deux')
-  // Des chiffres en cartes, sans tableau.
-  const chiffres = page([{ titre: 'Système', chiffres: true, lignes: [{ libelle: 'Documents', valeur: '42' }] }])
-  assert.match(chiffres, /Documents[\s\S]*42/)
-  assert.doesNotMatch(chiffres, /<table/)
+  // Ouverte et vide : son texte. Ouverte avec un tableau : deux lignes de même libellé sont rendues toutes les deux.
+  assert.match(page('journal'), /Rien de plus\./)
+  assert.match(page('doublons'), />un<[\s\S]*>deux</)
 })
 
-test('back-office : une ligne peut porter un choix (modèle de Margo), étiqueté, options désactivables', () => {
+test('back-office : une ligne ouverte peut porter un choix (modèle de Margo), étiqueté, options désactivables', () => {
   const html = rendre(
     h(design.PageAdministration, {
       titre: 'Administration',
       message: 'Enregistré.',
+      ligneInitiale: 'margo',
       rubriques: [
         {
-          titre: 'IA',
+          titre: 'L’instance',
           lignes: [
             {
-              libelle: 'Modèle de Margo',
-              choix: {
-                valeur: 'b',
-                surChange: rien,
-                options: [
-                  { valeur: 'a', libelle: 'Modèle A', desactive: true },
-                  { valeur: 'b', libelle: 'Modèle B' },
-                ],
-              },
+              cle: 'margo',
+              nom: 'Margo (IA)',
+              resume: 'Modèle B',
+              lignes: [
+                {
+                  libelle: 'Modèle de Margo',
+                  choix: {
+                    valeur: 'b',
+                    surChange: rien,
+                    options: [
+                      { valeur: 'a', libelle: 'Modèle A', desactive: true },
+                      { valeur: 'b', libelle: 'Modèle B' },
+                    ],
+                  },
+                },
+                { libelle: 'Autre', valeur: 'valeur simple' },
+              ],
             },
-            { libelle: 'Autre', valeur: 'valeur simple' },
           ],
         },
       ],
