@@ -1,6 +1,6 @@
 # amend.ink v2 : modèles sur une grille stricte, comptés en lignes
 
-Statut : **plan à arbitrer, rien n'est développé.** Demandé par Sylvain le 27/11/2026 (« Soit on est sur la grille, soit on s'en libère » ; « un design visuel de la grille le plus simple possible, quitte à restreindre les possibilités » ; titres longs : « variante » ; « puis 2 »). Maquette cliquable et essais Typst faits dans la session de Claude, hors du dépôt.
+Statut : **règle arbitrée le 27/11/2026 (§ 9), interface en discussion, rien n'est développé.** Demandé par Sylvain le 27/11/2026 (« Soit on est sur la grille, soit on s'en libère » ; « un design visuel de la grille le plus simple possible, quitte à restreindre les possibilités » ; titres longs : « variante » ; « puis 2 »). Maquette cliquable et essais Typst faits dans la session de Claude, hors du dépôt.
 
 ## 1. Ce qui est décidé (Sylvain, 27/11/2026)
 
@@ -114,10 +114,14 @@ La maquette descend de 155 réglages à 71. Chaque retrait est une proposition :
 - **Polices** : essais faits en EB Garamond (compilateur embarqué) et Libertinus (Typst 0.15.0). Les autres polices du catalogue ne sont pas essayées ; la règle ne dépend pas de leurs métriques, sauf le coefficient 1,15.
 - **Vrai livre** : les essais portent sur le livre de référence des tests, pas sur un document réel.
 
-## 9. À arbitrer avant le lot 1
+## 9. Arbitrages
 
-1. La règle du § 2 telle quelle ? En particulier : demi-ligne ajoutée **avant** (et non refus des combinaisons impaires) ; variante mesurée pour les **titres seulement** (titre du document, sous-titre, titres 1 à 5), brique pour citation, bibliographie et légende.
-2. Le coefficient 1,15.
-3. Les retraits du § 7 : lesquels garder.
-4. La voie de reprise des modèles enregistrés (§ 5), et combien il y en a.
-5. Renverser les deux décisions du 15/11/2026 (§ 3, point 5).
+Sylvain, 27/11/2026 (« 1, 2, 3 ton avis, 5 ok. On réfléchit d'abord sur les interfaces avant de lancer le dev ») :
+
+1. **La règle du § 2 est retenue telle quelle** : demi-ligne ajoutée avant le bloc ; variante mesurée pour les titres seulement (titre du document, sous-titre, titres 1 à 5), brique pour la citation, la bibliographie et la légende.
+2. **Le coefficient 1,15 est retenu** (hauteur d'une ligne de titre par unité de taille) : à inscrire dans `v2/design/` et l'ADR 0008 au lot 2.
+3. **Réglages retirés : l'avis de Claude est suivi.** Sont gardés : le texte libre en en-tête, le premier numéro de folio, le format libre en millimètres, le corps et l'interligne en nombres. Le reste du § 7 est retiré.
+4. **Reprise des modèles enregistrés : pas encore arbitrée** (il manque le nombre de modèles en base).
+5. **Les deux décisions du 15/11/2026 sont renversées** : les blancs se comptent en lignes, et le nombre de lignes par page redevient le réglage (la marge de pied s'en déduit).
+
+**Aucun lot n'est lancé** : l'interface du formulaire se discute d'abord.
