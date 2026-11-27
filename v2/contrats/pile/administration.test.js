@@ -67,7 +67,7 @@ test('back-office : la fiche se lit fermée, une ligne s’ouvre à la fois, #/a
   ])
     await ligne(motif).waitFor()
   // Les chiffres de l'instance, en cartes.
-  for (const chiffre of ['Comptes', 'Documents', 'Équipes'])
+  for (const chiffre of ['Comptes', 'Documents', 'Équipes', 'Comptes d’essai et de développement'])
     await page.getByText(chiffre, { exact: true }).first().waitFor()
   // Fermée, une ligne ne montre pas ses commandes ; ouverte, si. Une seule à la fois.
   assert.equal(await page.getByRole('combobox', { name: 'Couleur' }).count(), 0)
