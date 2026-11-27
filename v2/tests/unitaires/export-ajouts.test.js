@@ -212,7 +212,7 @@ test('bibliographie (19/11/2026) : un paragraphe ordinaire en Markdown, `amend-b
   assert.match(source, /#heading\(level: 2\)\[#"Bibliographie"\]\n\n#amend-sans-alinea-2\[#"Les ouvrages cités\."\]/)
 })
 
-test('surlignage : une marque de travail, absente du PDF et du Markdown (26/11/2026)', async () => {
+test('surlignage : rendu dans le PDF à la couleur du design, absent du Markdown (27/11/2026)', async () => {
   const editeur = BlockNoteEditor.create({ schema: schemaLivre })
   editeur.replaceBlocks(editeur.document, [
     {
@@ -222,10 +222,16 @@ test('surlignage : une marque de travail, absente du PDF et du Markdown (26/11/2
   ])
   const blocs = editeur.document
   assert.equal(blocs[0].content[1].styles.surligne, true, 'le style est dans le document')
-  const { source } = await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr' })
-  const corps = source.slice(source.indexOf('Un passage'))
-  assert.match(corps, /important/)
-  assert.doesNotMatch(corps, /highlight|surligne/)
+  const { source } = await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr', surlignage: '#d8f5a2' })
+  assert.match(source, /#let amend-surligne\(corps\) = highlight\(fill: rgb\("#d8f5a2"\), corps\)/)
+  const corps = source.slice(source.indexOf('#"Un passage'))
+  assert.match(corps, /amend-surligne\([^\n]*"important"/)
+  // Sans couleur donnée, ou avec une valeur qui n'en est pas une : le surligneur de Typst tel quel.
+  for (const surlignage of [undefined, 'rouge"); #evil'])
+    assert.match(
+      (await versTypst(editeur, blocs, modele, { titre: 'Essai', langue: 'fr', surlignage })).source,
+      /#let amend-surligne\(corps\) = highlight\(corps\)/,
+    )
   // En Markdown : le gras reste, le surlignage part.
   assert.deepEqual(blocsPourMarkdown(blocs)[0].content[1].styles, { bold: true })
 })

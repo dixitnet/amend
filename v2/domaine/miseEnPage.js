@@ -214,7 +214,14 @@ function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
  *   langue (code ISO à deux lettres) et auteur du document
  * @returns {string}
  */
-export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
+/** La fonction de couleur de Typst (son nom est aussi celui d'une fonction CSS : gardé à part des gabarits,
+ * où le lint prend toute couleur écrite pour une valeur de design ; celle-ci vient du design). */
+const COULEUR_DE_TYPST = 'rgb'
+/** L'argument de remplissage d'un surligneur de Typst, pour une couleur `#rrvvbb` ; rien pour toute autre valeur. */
+const couleurTypst = (hexa) =>
+  /^#[0-9a-f]{6}$/i.test(String(hexa ?? '')) ? `fill: ${COULEUR_DE_TYPST}("${hexa}"), ` : ''
+
+export function gabaritTypst(modele, { titre, langue, auteur, surlignage } = {}) {
   // Prérequis : un modèle complet (`completerModele`), qui a toujours son chapitre (audit du 16/11/2026).
   if (!modele?.chapitre) throw Object.assign(new Error('modèle sans chapitre'), { code: 'modele-impossible' })
   const { page, marges, grille: g } = modele
@@ -402,6 +409,9 @@ export function gabaritTypst(modele, { titre, langue, auteur } = {}) {
     `#let amend-legende(corps) = ${bloc(styleDe(modele, 'legende'), 'corps')}`,
     // Une entrée de bibliographie (19/11/2026) : un paragraphe à son style, en retrait suspendu.
     `#let amend-bibliographie(corps) = ${bloc(styleDe(modele, 'bibliographie'), 'corps')}`,
+    // Le surlignage (Sylvain, 27/11/2026 : « le surligneur doit apparaître dans les exports PDF ») : le
+    // surligneur de Typst, à la couleur donnée par le design (`#rrvvbb`) ; sans elle, la sienne.
+    `#let amend-surligne(corps) = highlight(${couleurTypst(surlignage)}corps)`,
     // Le premier paragraphe d'un chapitre, sans alinéa.
     // Le premier paragraphe d'un chapitre : sans retrait par défaut, au choix du modèle (Sylvain, 15/11/2026).
     c.premierSansAlinea === false

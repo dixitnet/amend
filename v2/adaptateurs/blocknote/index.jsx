@@ -824,10 +824,10 @@ export function EditeurCollaboratif({
   useEffect(() => {
     if (!ecrit) terminer()
   }, [ecrit])
-  const exporter = async (format, { modele, polices, titre, langue, auteur } = {}) => {
+  const exporter = async (format, { modele, polices, titre, langue, auteur, surlignage } = {}) => {
     const blocs = blocsDuTexte(editeur, contexte.fragment)
     if (format === 'markdown') return versMarkdown(editeur, blocs)
-    const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre, langue, auteur })
+    const { source, fichiers } = await versTypst(editeur, blocs, modele, { titre, langue, auteur, surlignage })
     return compilerPdf(source, { fichiers, polices })
   }
   // Aller à un bloc cité par Margo : le curseur, et le bloc sous le bandeau.
