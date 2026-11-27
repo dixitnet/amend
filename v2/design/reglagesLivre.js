@@ -63,7 +63,7 @@ const blanc = (cle) => ({
   multiple: 0.5,
 })
 // La fiche d'un style, la même pour les dix (Sylvain, 27/11/2026 : « traitement identique ») : son corps, son
-// allure, sa place, ses deux blancs. La police est celle du texte.
+// allure, sa place, ses deux blancs, et sa police si elle n'est pas celle du texte.
 const STYLES = [
   'titre',
   'sousTitre',
@@ -77,6 +77,8 @@ const STYLES = [
   'legende',
 ]
 const reglagesDuStyle = (nom) => [
+  // Sa police, ou celle du texte (valeur vide) : Sylvain, 27/11/2026, « ajouter le choix de police ».
+  { cle: `styles.${nom}.police`, groupe: 'styles', type: 'police', herite: true },
   { cle: `styles.${nom}.corps`, groupe: 'styles', type: 'nombre', unite: 'pt', min: 5, max: 96, pas: 0.5 },
   ...['gras', 'italique', 'capitales', 'petitesCapitales'].map((p) => ({
     cle: `styles.${nom}.${p}`,
@@ -208,6 +210,7 @@ export const REGLAGES_LIVRE = {
           alinea: 5,
         },
         titre: {
+          police: '',
           corps: 20,
           gras: true,
           italique: false,
@@ -218,6 +221,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 1,
         },
         sousTitre: {
+          police: '',
           corps: 14,
           gras: false,
           italique: true,
@@ -228,6 +232,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 1,
         },
         titre1: {
+          police: '',
           corps: 16,
           gras: true,
           italique: false,
@@ -238,6 +243,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 3,
         },
         titre2: {
+          police: '',
           corps: 11,
           gras: false,
           italique: true,
@@ -248,6 +254,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 0,
         },
         titre3: {
+          police: '',
           corps: 11,
           gras: false,
           italique: true,
@@ -258,6 +265,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 0,
         },
         titre4: {
+          police: '',
           corps: 11,
           gras: false,
           italique: true,
@@ -268,6 +276,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 0,
         },
         titre5: {
+          police: '',
           corps: 11,
           gras: false,
           italique: true,
@@ -278,6 +287,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 0,
         },
         citation: {
+          police: '',
           corps: 11,
           gras: false,
           italique: false,
@@ -288,6 +298,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 0,
         },
         bibliographie: {
+          police: '',
           corps: 11,
           gras: false,
           italique: false,
@@ -298,6 +309,7 @@ export const REGLAGES_LIVRE = {
           blancApres: 0,
         },
         legende: {
+          police: '',
           corps: 9,
           gras: false,
           italique: true,
@@ -369,6 +381,7 @@ export const REGLAGES_LIVRE = {
             alinea: 4.5,
           },
           titre: {
+            police: '',
             corps: 13,
             gras: true,
             italique: false,
@@ -379,6 +392,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 1,
           },
           sousTitre: {
+            police: '',
             corps: 13,
             gras: false,
             italique: true,
@@ -389,6 +403,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 1,
           },
           titre1: {
+            police: '',
             corps: 13,
             gras: true,
             italique: false,
@@ -399,6 +414,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 4,
           },
           titre2: {
+            police: '',
             corps: 10.5,
             gras: false,
             italique: true,
@@ -409,6 +425,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre3: {
+            police: '',
             corps: 10.5,
             gras: false,
             italique: true,
@@ -419,6 +436,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre4: {
+            police: '',
             corps: 10.5,
             gras: false,
             italique: true,
@@ -429,6 +447,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre5: {
+            police: '',
             corps: 10.5,
             gras: false,
             italique: true,
@@ -439,6 +458,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           citation: {
+            police: '',
             corps: 10.5,
             gras: false,
             italique: false,
@@ -449,6 +469,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           bibliographie: {
+            police: '',
             corps: 10.5,
             gras: false,
             italique: false,
@@ -459,6 +480,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           legende: {
+            police: '',
             corps: 9,
             gras: false,
             italique: true,
@@ -528,6 +550,7 @@ export const REGLAGES_LIVRE = {
             alinea: 5,
           },
           titre: {
+            police: '',
             corps: 20,
             gras: true,
             italique: false,
@@ -538,6 +561,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 1,
           },
           sousTitre: {
+            police: '',
             corps: 14,
             gras: false,
             italique: true,
@@ -548,6 +572,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 1,
           },
           titre1: {
+            police: '',
             corps: 16,
             gras: true,
             italique: false,
@@ -558,6 +583,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 3,
           },
           titre2: {
+            police: '',
             corps: 11,
             gras: false,
             italique: true,
@@ -568,6 +594,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre3: {
+            police: '',
             corps: 11,
             gras: false,
             italique: true,
@@ -578,6 +605,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre4: {
+            police: '',
             corps: 11,
             gras: false,
             italique: true,
@@ -588,6 +616,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre5: {
+            police: '',
             corps: 11,
             gras: false,
             italique: true,
@@ -598,6 +627,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           citation: {
+            police: '',
             corps: 11,
             gras: false,
             italique: false,
@@ -608,6 +638,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           bibliographie: {
+            police: '',
             corps: 11,
             gras: false,
             italique: false,
@@ -618,6 +649,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           legende: {
+            police: '',
             corps: 9,
             gras: false,
             italique: true,
@@ -686,6 +718,7 @@ export const REGLAGES_LIVRE = {
             alinea: 4,
           },
           titre: {
+            police: '',
             corps: 15,
             gras: true,
             italique: false,
@@ -696,6 +729,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 1,
           },
           sousTitre: {
+            police: '',
             corps: 11,
             gras: false,
             italique: true,
@@ -706,6 +740,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 1,
           },
           titre1: {
+            police: '',
             corps: 13,
             gras: true,
             italique: false,
@@ -716,6 +751,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 3,
           },
           titre2: {
+            police: '',
             corps: 9.5,
             gras: false,
             italique: true,
@@ -726,6 +762,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre3: {
+            police: '',
             corps: 9.5,
             gras: false,
             italique: true,
@@ -736,6 +773,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre4: {
+            police: '',
             corps: 9.5,
             gras: false,
             italique: true,
@@ -746,6 +784,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre5: {
+            police: '',
             corps: 9.5,
             gras: false,
             italique: true,
@@ -756,6 +795,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           citation: {
+            police: '',
             corps: 9.5,
             gras: false,
             italique: false,
@@ -766,6 +806,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           bibliographie: {
+            police: '',
             corps: 9.5,
             gras: false,
             italique: false,
@@ -776,6 +817,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           legende: {
+            police: '',
             corps: 8,
             gras: false,
             italique: true,
@@ -845,6 +887,7 @@ export const REGLAGES_LIVRE = {
             alinea: 5,
           },
           titre: {
+            police: '',
             corps: 20,
             gras: true,
             italique: false,
@@ -855,6 +898,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 1,
           },
           sousTitre: {
+            police: '',
             corps: 14,
             gras: false,
             italique: true,
@@ -865,6 +909,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 1,
           },
           titre1: {
+            police: '',
             corps: 14,
             gras: false,
             italique: false,
@@ -875,6 +920,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 3,
           },
           titre2: {
+            police: '',
             corps: 11,
             gras: true,
             italique: false,
@@ -885,6 +931,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 4,
           },
           titre3: {
+            police: '',
             corps: 11,
             gras: true,
             italique: false,
@@ -895,6 +942,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0.5,
           },
           titre4: {
+            police: '',
             corps: 11,
             gras: false,
             italique: true,
@@ -905,6 +953,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           titre5: {
+            police: '',
             corps: 11,
             gras: false,
             italique: true,
@@ -915,6 +964,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           citation: {
+            police: '',
             corps: 10,
             gras: false,
             italique: false,
@@ -925,6 +975,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0.5,
           },
           bibliographie: {
+            police: '',
             corps: 10,
             gras: false,
             italique: false,
@@ -935,6 +986,7 @@ export const REGLAGES_LIVRE = {
             blancApres: 0,
           },
           legende: {
+            police: '',
             corps: 9,
             gras: false,
             italique: true,

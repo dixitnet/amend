@@ -65,6 +65,7 @@
   hyphens: auto;
 }
 .amend-apercu-bloc {
+  font-family: var(--amend-police-bloc), Georgia, serif;
   font-size: calc(var(--amend-corps-bloc) * 1px);
   line-height: calc(var(--amend-interligne) * 1px);
   padding-left: calc(var(--amend-retrait) * 1px);
