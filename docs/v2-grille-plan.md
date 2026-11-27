@@ -1,6 +1,6 @@
 # amend.ink v2 : modèles sur une grille stricte, comptés en lignes
 
-Statut : **lot 1 fusionné et en ligne le 27/11/2026 (`e8f8dde`) ; lots 2 à 4 développés le même jour (§ 12), à fusionner sur accord ; le gabarit en points reste à retirer.**
+Statut : **lots 1 à 4 fusionnés et en ligne le 27/11/2026 (`b5dfdf7`) ; gabarit en points retiré le même jour (§ 13), à fusionner sur accord ; la conversion des modèles enregistrés est gardée.**
 
 ## 1. Ce qui est décidé (Sylvain, 27/11/2026)
 
@@ -194,3 +194,22 @@ Les trois lots suivants dépendent l'un de l'autre (un modèle en lignes ne se r
 - Retirer le gabarit en points, sa reprise et ses tests (`miseEnPage.js`, `migrationModeles.js`, `tests/donnees/modeles-en-points.js`), une fois vérifié en production qu'aucun modèle n'est resté en points.
 - Valider les cinq modèles sur le PDF.
 - Les points non vérifiés du § 8 (tableau coupé entre deux pages, lignes d'un tableau).
+
+## 13. Mise en ligne des lots 2 à 4 et retrait du gabarit en points (27/11/2026)
+
+Sylvain : « fusionne dès que c'est vert » ; puis « retire l'ancien gabarit en points une fois en ligne » et « garde la conversion ».
+
+**Mise en ligne.** Lots 2 à 4 fusionnés (`b5dfdf7`) et en ligne. Vérifié avec un compte d'essai : les huit modèles offerts à un document sur `app.amend.ink` (« A4 simple », « A4 note », « A5 », « A5 Etat », « Livre de poche », « Thèse », « TàT - Poche », « TàT 140 × 220 ») sont servis comptés en lignes, sans marge basse. Ce que le serveur a enregistré en base n'est pas vérifiable de l'extérieur.
+
+**Audits de l'IA de Scaleway**, par couche (le lot entier dépassait la taille acceptée) : domaine et application répondus dans `docs/v2-revues/` ; **la couche design n'a pas pu être auditée** (dossier trop gros avec les cinq modèles écrits en clair).
+
+**Retrait du gabarit en points.**
+
+- `v2/domaine/miseEnPage.js` : le gabarit Typst en points et sa grille sont retirés (le module passe de 628 à 285 lignes). `gabaritTypst` et `grille` ne servent plus que des modèles en lignes ; un modèle en points y est refusé (`modele-impossible`, raison `valeur`).
+- **Gardé, à la demande de Sylvain** : la conversion des points vers les lignes (`versModeleEnLignes`, `valeursEnLignes`, la conversion au démarrage du serveur) et ce qu'elle lit de l'ancienne façon (`lignesQuiTiennent`, `completerModele`, `stylesEnPoints`, « A4 simple » en points). Un modèle qui aurait échappé à la conversion au démarrage est encore servi en lignes.
+- Tests : les 25 tests qui ne décrivaient que le gabarit en points sont retirés, ainsi que celui du « jeu en bas de page » (la brique ne connaît plus ce cas). Ceux de l'export (`typst.test.js`, `export-ajouts.test.js`) passent sur les modèles en lignes. Les règles générales (régler, vérifier, compléter) sont retestées sur un modèle en lignes. Le contrôle de la grille prouve qu'il mord par un bloc de cinq points glissé dans le livre.
+
+**Reste**
+
+- Retirer la conversion, quand le journal du serveur aura confirmé que tous les modèles enregistrés sont convertis.
+- Valider les modèles sur le PDF.

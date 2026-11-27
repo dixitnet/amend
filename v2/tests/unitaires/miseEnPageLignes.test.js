@@ -216,3 +216,58 @@ test('le gabarit en lignes : débuts, numéros de page, en-têtes, séparateur',
   assert.match(gabaritEnLignes(avec({ 'folio.depart': 7 })), /#counter\(page\)\.update\(7\)\n$/)
   assert.match(gabaritEnLignes(avec({ cesure: false })), /hyphenate: false, top-edge: amend-pas/)
 })
+
+test('régler un modèle : une copie, style par style ; inconnu, hors bornes, mauvais type refusés', async () => {
+  const { appliquerReglages, verifierModele, completerModele, famillesDuModele } =
+    await import('../../domaine/index.js')
+  const { MODELES_LIVRE, REGLES_MODELES } = await import('../../design/livre.js')
+  const a4 = MODELES_LIVRE[0]
+  const avant = JSON.stringify(a4)
+  const r = appliquerReglages(
+    a4,
+    { 'page.largeur': 150, 'styles.titre2.gras': true, 'styles.titre2.blancAvant': 2.5, 'chapitre.debut': 'continuer' },
+    REGLES_MODELES,
+  )
+  assert.equal(r.ok, true)
+  assert.deepEqual(
+    [r.modele.page.largeur, r.modele.styles.titre2.gras, r.modele.styles.titre2.blancAvant, r.modele.chapitre.debut],
+    [150, true, 2.5, 'continuer'],
+  )
+  assert.equal(JSON.stringify(a4), avant, 'le modèle de départ ne bouge pas')
+  assert.equal(r.modele.styles.titre3.blancAvant, a4.styles.titre3.blancAvant, 'les autres styles non plus')
+  const refus = (reglages) => appliquerReglages(a4, reglages, REGLES_MODELES)
+  assert.deepEqual(refus({ 'nimporte.quoi': 1 }), { ok: false, code: 'reglage-inconnu', reglage: 'nimporte.quoi' })
+  assert.equal(refus({ 'page.largeur': 10 }).code, 'reglage-hors-bornes')
+  assert.equal(refus({ 'page.largeur': '150' }).code, 'reglage-hors-bornes')
+  assert.equal(refus({ cesure: 'oui' }).code, 'reglage-hors-bornes')
+  assert.equal(refus({ 'chapitre.debut': 'ailleurs' }).code, 'reglage-hors-bornes')
+  assert.equal(refus({ 'styles.texte.police': 'Inconnue' }).code, 'reglage-hors-bornes')
+  assert.equal(
+    refus({ 'enTete.texteGauche': 'a\nb' }).code,
+    'reglage-hors-bornes',
+    'un texte libre tient sur une ligne',
+  )
+  assert.equal(refus(null).code, 'reglages-invalides')
+  // Des marges qui ne laissent pas la largeur utile minimale.
+  assert.deepEqual(refus({ 'marges.interieure': 100, 'marges.exterieure': 100 }), {
+    ok: false,
+    code: 'modele-impossible',
+    raison: 'largeur',
+  })
+  // Un modèle complet se vérifie ; un modèle enregistré plus tôt est complété par le modèle de référence.
+  assert.equal(verifierModele(a4, REGLES_MODELES).ok, true)
+  const partiel = completerModele({ regle: 'lignes', page: { largeur: 150 }, styles: { titre3: { gras: true } } }, a4)
+  assert.deepEqual([partiel.page.largeur, partiel.page.hauteur, partiel.styles.titre3.gras], [150, 297, true])
+  assert.equal(partiel.styles.titre3.blancAvant, a4.styles.titre3.blancAvant)
+  assert.equal(verifierModele(partiel, REGLES_MODELES).ok, true)
+  assert.deepEqual(famillesDuModele(a4), ['EB Garamond'])
+})
+
+test('un modèle en points n’a plus de gabarit ni de grille : il se convertit d’abord', () => {
+  const enPoints = REPRISE_MODELES[0].valeurs
+  for (const f of [grille, gabaritTypst])
+    assert.throws(
+      () => f(enPoints),
+      (e) => e.code === 'modele-impossible' && e.raison === 'valeur',
+    )
+})

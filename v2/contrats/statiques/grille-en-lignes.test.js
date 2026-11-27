@@ -2,7 +2,7 @@
 // paragraphe de texte courant commence sur une ligne de la grille, après un titre, une citation, une image,
 // un tableau, une note, en haut comme en bas de page. La mesure est faite par Typst lui-même : le livre porte
 // un repère en tête de chaque paragraphe, et sa dernière ligne refuse la compilation si l'un d'eux est hors
-// grille. Le même livre avec un modèle en points est refusé : le contrôle mord.
+// grille. Le même livre avec un bloc de cinq points glissé dedans est refusé : le contrôle mord.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -12,8 +12,7 @@ import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
 import { REGLES_MODELES, SURLIGNAGE_DU_LIVRE } from '../../design/livre.js'
-import { REPRISE_EN_POINTS as REPRISE_MODELES } from '../../tests/donnees/modeles-en-points.js'
-import { famillesDuModele, gabaritTypst, grille, estEnLignes } from '../../domaine/index.js'
+import { famillesDuModele, gabaritTypst, grille } from '../../domaine/index.js'
 import { MODELE_EN_LIGNES } from '../../tests/donnees/modele-en-lignes.js'
 
 const polices = (m) =>
@@ -71,10 +70,8 @@ const controle = (m) =>
   `#context { let reperes = query(<repere>); assert(reperes.len() > 40, message: "repères absents"); ` +
   `for r in reperes { let n = (r.location().position().y - ${m.marges.haut}mm) / ${grille(m).pas}pt; ` +
   `assert(calc.abs(n - calc.round(n)) < 0.01, message: "hors grille, page " + str(r.location().page()) + ", ligne " + str(calc.round(n, digits: 2))) } }\n`
-// Le gabarit en points n'a pas `amend-entier` : il y laisse le bloc tel quel.
-const sansEntier = (m) => (estEnLignes(m) ? '' : '#let amend-entier(corps) = corps\n')
 const compiler = (m) =>
-  compilerPdf(gabaritTypst(m, { titre: 'Essai', langue: 'fr' }) + sansEntier(m) + LIVRE + controle(m), {
+  compilerPdf(gabaritTypst(m, { titre: 'Essai', langue: 'fr' }) + LIVRE + controle(m), {
     polices: polices(m),
     wasm: wasm(),
   })
@@ -85,9 +82,14 @@ test('modèle en lignes : tout paragraphe commence sur une ligne de la grille', 
   assert.ok(pages(pdf) >= 8, 'assez de pages pour des titres en haut et en bas de page')
 })
 
-test('le contrôle mord : le même livre avec un modèle en points est hors grille', async () => {
-  const enPoints = REPRISE_MODELES.find((m) => m.id === 'tat-140x220').valeurs
-  await assert.rejects(compiler(enPoints), /hors grille/)
+test('le contrôle mord : un bloc de cinq points glissé dans le livre met la suite hors grille', async () => {
+  const fausse =
+    gabaritTypst(MODELE_EN_LIGNES, { titre: 'Essai', langue: 'fr' }) +
+    LIVRE.replace('#quote(block: true)', '#block(height: 5pt)\n\n#quote(block: true)')
+  await assert.rejects(
+    compilerPdf(fausse + controle(MODELE_EN_LIGNES), { polices: polices(MODELE_EN_LIGNES), wasm: wasm() }),
+    /hors grille/,
+  )
 })
 
 test('modèle en lignes : les titres à la suite, un autre pas, des demi-lignes partout', async () => {

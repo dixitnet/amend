@@ -1,27 +1,12 @@
 // Le modèle de mise en page d'un livre (couche 4), en JavaScript pur.
 //
-// Un modèle se pense en grille (docs/v2-etape-7-plan.md) : le format de la
-// page, la marge de tête, le corps et l'interligne du texte en points et le
-// nombre de lignes par page. Tout le reste en découle : la marge de pied, la
-// place du folio, les blancs autour des titres, comptés en lignes pour que le
-// texte d'une page tombe sur les lignes de la page d'en face.
-//
-// Ce module rend le préambule Typst du livre (le « gabarit ») : les règles
-// de page, de texte et de titres. Le corps du document est écrit à part, par
-// l'adaptateur de BlockNote ; l'un et l'autre se compilent ensemble.
+// Depuis le 27/11/2026 un modèle est compté en lignes : sa grille et son gabarit Typst sont dans
+// `miseEnPageLignes.js` (docs/v2-grille-plan.md). Ce module garde ce qui vaut pour tout modèle : régler,
+// vérifier, compléter, choisir. Il garde aussi, pour la conversion des modèles enregistrés en points
+// (`migrationModeles.js`), ce qui lisait l'ancienne façon : le nombre de lignes que laissait une marge basse,
+// les points que valait une ligne blanche. Le gabarit en points, lui, a été retiré.
 
-import {
-  PT_PAR_MM,
-  pt,
-  mm,
-  em,
-  ZERO,
-  PLEINE_LARGEUR,
-  NOIR,
-  chaineTypst,
-  couleurTypst,
-  SIGNES_DE_SEPARATEUR,
-} from './ecritureTypst.js'
+import { PT_PAR_MM, chaineTypst } from './ecritureTypst.js'
 import { estEnLignes, grilleEnLignes, gabaritEnLignes } from './miseEnPageLignes.js'
 
 export { chaineTypst }
@@ -56,46 +41,13 @@ export function margeBasPourLignes({ page, marges, grille: g }, lignes) {
 }
 
 /**
- * Ce que la grille impose à la page.
- * @param {object} modele  voir `gabaritTypst`
- * @returns {{ pas: number, lignes: number, hauteurTexte: number, margeBas: number, descenteFolio: number }}
- *   le pas (pt), le nombre de lignes par page, la hauteur de la zone de texte
- *   (pt), la marge de pied obtenue (mm : la marge basse demandée, plus le reste
- *   de moins d'une ligne) et la descente du folio sous la zone de texte (mm).
- *   Un modèle impossible (aucune ligne ne tient, folio hors de la page) lève
- *   une erreur de code `modele-impossible`. Un modèle d'avant le 15/11/2026,
- *   écrit en `grille.lignes`, se lit encore.
+ * Ce que la grille impose à la page d'un modèle (voir `grilleEnLignes`). Depuis le 27/11/2026 un modèle est compté
+ * en lignes ; un modèle en points se convertit d'abord (`valeursEnLignes`) : ici, il est refusé.
+ * @param {object} modele
  */
 export function grille(modele) {
-  // Un modèle compté en lignes (27/11/2026) a sa propre grille.
-  if (estEnLignes(modele)) return grilleEnLignes(modele)
-  const { page, marges, grille: g, folio } = modele
-  const parMarge = Number.isFinite(marges?.bas)
-  // Une valeur non numérique (NaN, chaîne, absente) ferait passer du NaN dans le gabarit.
-  const mesures = [page?.hauteur, marges?.haut, folio?.bas, g?.corps, g?.interligne, parMarge ? marges.bas : g?.lignes]
-  if (!mesures.every(Number.isFinite)) throw impossible('valeur')
-  const pas = g.interligne
-  if (!(pas >= g.corps)) throw impossible('interligne')
-  const lignes = parMarge ? lignesQuiTiennent(modele) : g.lignes
-  if (!(lignes >= 1)) throw impossible('lignes')
-  // n lignes tiennent dans la zone, n + 1 non : on laisse sous la dernière
-  // ligne la moitié du blanc qui sépare deux lignes.
-  const hauteurTexte = (lignes - 1) * pas + g.corps + (pas - g.corps) / 2
-  const margeBas = page.hauteur - marges.haut - hauteurTexte / PT_PAR_MM
-  if (margeBas <= 0) throw impossible('lignes')
-  // Le folio est posé par sa ligne de base, à `folio.bas` mm du bas de la page.
-  const descenteFolio = margeBas - folio.bas
-  if (descenteFolio <= 0) throw impossible('folio')
-  // Le titre de chapitre tombe sur une ligne de la page, et le texte reprend après lui.
-  // De même pour le titre de niveau 2 quand il ouvre une page lui aussi (19/11/2026) ; tant qu'il reste dans le
-  // texte, ses lignes ne servent pas et le formulaire les cache : elles ne bloquent pas le modèle (audit partiel).
-  const o2 = modele.ouverture2
-  for (const [o, raison] of [
-    [modele.chapitre, 'chapitre'],
-    [o2 && o2.debut && o2.debut !== 'continuer' ? o2 : null, 'ouverture2'],
-  ])
-    if (o && !(o.ligneTitre >= 1 && o.ligneTexte > o.ligneTitre && o.ligneTexte <= lignes)) throw impossible(raison)
-  return { pas, lignes, hauteurTexte, margeBas, descenteFolio }
+  if (!estEnLignes(modele)) throw impossible('valeur')
+  return grilleEnLignes(modele)
 }
 
 const impossible = (raison) =>
@@ -108,8 +60,6 @@ const impossible = (raison) =>
 // adapté à la grille : les espaces se comptent en lignes. Un modèle est une
 // copie complète : on le crée à partir d'un autre, puis il est indépendant.
 
-/** Les alignements d'un style. */
-const ALIGNEMENTS = Object.freeze(['gauche', 'justifie', 'centre'])
 /** Les styles réglables d'un modèle, dans l'ordre du formulaire. */
 export const NOMS_STYLES = Object.freeze([
   'texte',
@@ -124,32 +74,6 @@ export const NOMS_STYLES = Object.freeze([
   'sousTitre',
   'legende',
 ])
-
-const STYLE_PAR_DEFAUT = {
-  gras: false,
-  italique: false,
-  capitales: false,
-  // Les petites capitales de la police (19/11/2026) : sans effet avec une police qui n'en a pas.
-  petitesCapitales: false,
-  alignement: 'gauche',
-  // L'espace avant et après un bloc, en points (Sylvain, 15/11/2026 : « espacement en pt »).
-  espaceAvant: 0,
-  espaceApres: 0,
-  alinea: 0,
-  retrait: 0,
-  // Le retrait de toutes les lignes sauf la première (une bibliographie), en mm (19/11/2026).
-  retraitSuspendu: 0,
-}
-
-/** Un style d'un modèle, complété : sa police est celle du texte et son corps
- * celui de la grille tant qu'il ne dit pas autre chose. */
-function styleDe(modele, nom) {
-  const texte = modele.styles?.texte ?? {}
-  const st = { police: texte.police, corps: modele.grille.corps, ...STYLE_PAR_DEFAUT, ...modele.styles?.[nom] }
-  // Une police vide : celle du texte courant (Sylvain, 15/11/2026, « même police que le texte »).
-  if (!st.police) st.police = texte.police
-  return st
-}
 
 /**
  * Le blanc, en pt, entre un bloc et le texte voisin pour que le texte retombe
@@ -170,275 +94,16 @@ function blancSurGrille({ pas, corps }, n, corpsDuBloc, cote) {
 }
 
 /**
- * Le préambule Typst d'un livre.
- *
- * @param {object} modele
- * @param {{ largeur: number, hauteur: number }} modele.page  format, en mm
- * @param {{ haut: number, interieure: number, exterieure: number }} modele.marges  en mm
- * @param {{ corps: number, interligne: number, lignes: number }} modele.grille
- *   corps (celui du texte courant) et interligne en pt, nombre de lignes par page
- * @param {{ bas: number, position?: 'bas-centre' | 'bas-exterieur' | 'haut-exterieur' | 'aucun', depart?: number, ouverture?: boolean, ouverture2?: boolean }} modele.folio
- *   ligne de base du folio en bas (mm depuis le bas de la page), sa place,
- *   le premier numéro, et s'il paraît sur les pages ouvertes par un titre de
- *   niveau 1 (`ouverture`) et par un titre de niveau 2 (`ouverture2`)
- * @param {{ gauche?: string, droite?: string, texteGauche?: string, texteDroite?: string, police?: string, corps?: number,
- *   italique?: boolean, petitesCapitales?: boolean, alignement?: 'centre' | 'exterieur' | 'interieur' }} [modele.enTete]
- *   en-têtes des pages de gauche et de droite : `rien`, `titreDocument`,
- *   `chapitre` (le chapitre en cours : le dernier titre d'un niveau qui ouvre
- *   une page) ou `texte` (le texte libre `texteGauche` ou `texteDroite`,
- *   Sylvain, 15/11/2026) ; puis leur style (19/11/2026) : police (vide : celle
- *   du texte), corps (pt), italique, petites capitales, alignement
- * @param {{ debut?: 'continuer' | 'page' | 'belle-page', ligneTitre: number, ligneTexte: number, interligne: number }} [modele.ouverture2]
- *   l'ouverture d'un titre de niveau 2 (19/11/2026), comme `chapitre` pour le
- *   niveau 1 ; `continuer` (par défaut) : dans le flux, avec les espaces de son style
- * @param {string} [modele.separateur]  séparateur de scène (`SEPARATEURS`)
- * @param {boolean} [modele.cesure]  couper les mots en fin de ligne (oui par défaut)
- * @param {{ debut?: 'continuer' | 'page' | 'belle-page', bellePage?: boolean, premierSansAlinea?: boolean, ligneTitre: number, ligneTexte: number, interligne: number }} modele.chapitre
- *   l'ouverture d'un chapitre (titre de niveau 1) : début (sur la page, page
- *   suivante, belle page), ligne de la grille où tombe sa première ligne,
- *   ligne où reprend le texte, interligne (pt) de ses lignes
- * @param {Record<string, { police?: string, corps?: number, gras?: boolean, italique?: boolean, capitales?: boolean, petitesCapitales?: boolean,
- *   alignement?: 'gauche' | 'justifie' | 'centre', espaceAvant?: number, espaceApres?: number, alinea?: number, retrait?: number,
- *   retraitSuspendu?: number }>} modele.styles
- *   les styles (`NOMS_STYLES`) : `texte` (le texte courant, dont le corps est
- *   celui de la grille), `citation`, `bibliographie`, `titre1` (le chapitre, ou
- *   la partie) à `titre5`, `titre`, `sousTitre`, `legende`. Les espaces avant et
- *   après sont en points ; l'alinéa, le retrait et le retrait suspendu en mm
- * @param {{ titre?: string, langue?: string, auteur?: string }} [document]  titre,
- *   langue (code ISO à deux lettres) et auteur du document
+ * Le préambule Typst d'un livre (voir `gabaritEnLignes`). Le gabarit en points a été retiré le 27/11/2026, une fois
+ * les modèles comptés en lignes en production (Sylvain : « retire l'ancien gabarit en points une fois en ligne ») ;
+ * un modèle en points se convertit d'abord (`valeursEnLignes`) : ici, il est refusé.
+ * @param {object} modele  un modèle compté en lignes
+ * @param {{ titre?: string, langue?: string, auteur?: string, surlignage?: string }} [document]
  * @returns {string}
  */
-export function gabaritTypst(modele, { titre, langue, auteur, surlignage } = {}) {
-  // Un modèle compté en lignes (27/11/2026) a son propre gabarit.
-  if (estEnLignes(modele)) return gabaritEnLignes(modele, { titre, langue, auteur, surlignage })
-  // Prérequis : un modèle complet (`completerModele`), qui a toujours son chapitre (audit du 16/11/2026).
-  if (!modele?.chapitre) throw Object.assign(new Error('modèle sans chapitre'), { code: 'modele-impossible' })
-  const { page, marges, grille: g } = modele
-  const c = { ...modele.chapitre, debut: debutChapitre(modele.chapitre) }
-  // Le titre de niveau 2 : dans le flux tant que le modèle ne dit pas autre chose.
-  const c2 = { debut: 'continuer', ...modele.ouverture2 }
-  const ouvre2 = c2.debut !== 'continuer'
-  const f = { position: 'bas-centre', depart: 1, ouverture: true, ouverture2: true, ...modele.folio }
-  // Le style des en-têtes tel qu'il était jusqu'au 19/11/2026 : italique, centré, au corps et dans la police du texte.
-  const enTete = {
-    gauche: 'rien',
-    droite: 'rien',
-    police: '',
-    corps: g.corps,
-    italique: true,
-    petitesCapitales: false,
-    alignement: 'centre',
-    ...modele.enTete,
-  }
-  const { pas, margeBas, descenteFolio } = grille(modele)
-  // Le jeu en bas de page (22/11/2026). La zone de texte de la grille est taillée pour ses n lignes, à moins
-  // de 2 pt près : un intertitre en haut de page (plus grand que le texte) ou une citation à son propre corps
-  // décalent les lignes de quelques points, et la dernière ligne de la page était refusée (une citation de
-  // trois lignes renvoyée seule à la page suivante). La zone descend donc d'un demi-corps de plus : la ligne
-  // n tient jusqu'à ce décalage, la ligne n + 1 jamais (il lui faudrait un interligne entier). Le numéro de
-  // page ne bouge pas ; le jeu s'efface s'il devait l'atteindre (un numéro en bas seulement : en haut ou
-  // absent, rien ne s'oppose à la descente du texte).
-  const folioEnBas = f.position === 'bas-centre' || f.position === 'bas-exterieur'
-  const jeu = Math.max(0, Math.min(g.corps / 2 / PT_PAR_MM, (folioEnBas ? descenteFolio : margeBas) - 1))
-  const texte = styleDe(modele, 'texte')
-  const t1 = styleDe(modele, 'titre1')
-  const ecart = `${pt(pas)} - ${em(1)}`
-  // Ligne n de la grille : sa ligne de base est à HAUT × corps + (n − 1) × pas
-  // du haut de la zone de texte.
-  const base = (n) => HAUT * g.corps + (n - 1) * pas
-  // Le blanc d'une ligne de la grille et de ses voisines, au corps du texte.
-  const lignesDeBlanc = (n) => (1 + n) * pas - (BAS + HAUT) * g.corps
-
-  // Un style : le texte réglé (police, corps, graisse, italique), l'interligne
-  // de la grille quel que soit le corps, l'alignement ; sans alinéa sauf pour
-  // les styles qui en ont un.
-  const poids = (st) => (st.gras ? '"bold"' : '"regular"')
-  const forme = (st) => (st.italique ? '"italic"' : '"normal"')
-  const placement = (st) => (st.alignement === 'centre' ? 'center' : 'left')
-  const regle = (st) =>
-    `set text(font: (${chaineTypst(st.police)},), size: ${pt(st.corps)}, weight: ${poids(st)}, style: ${forme(st)}); ` +
-    `set par(justify: ${st.alignement === 'justifie'}, leading: ${pt(pas)} - ${em(1)}, ` +
-    `first-line-indent: (amount: ${mm(st.alinea)}, all: true)` +
-    `${st.retraitSuspendu ? `, hanging-indent: ${mm(st.retraitSuspendu)}` : ''}); `
-  // Les majuscules l'emportent sur les petites capitales.
-  const contenu = (st, corps) =>
-    st.capitales ? `upper(${corps})` : st.petitesCapitales ? `smallcaps(${corps})` : corps
-  const avantApres = (st) => `above: ${pt(st.espaceAvant)}, below: ${pt(st.espaceApres)}`
-  // Le retrait de première ligne (`alinea`) est dans `regle` ; le retrait à gauche, ici, pour tout style.
-  const avecRetrait = (st, contenuTypst) =>
-    st.retrait ? `pad(left: ${mm(st.retrait)}, ${contenuTypst})` : contenuTypst
-  // Un texte posé seul dans un bloc n'est pas un paragraphe pour Typst, et le retrait suspendu ne s'applique
-  // qu'aux paragraphes : le style qui en a un fait de son texte un paragraphe.
-  const enParagraphe = (st, corps) => (st.retraitSuspendu || st.alinea ? `par(${corps})` : corps)
-  const bloc = (st, corps, { colle = false } = {}) =>
-    `block(width: ${PLEINE_LARGEUR}, ${avantApres(st)}${colle ? ', sticky: true' : ''}, { ${regle(st)}` +
-    `${avecRetrait(st, `align(${placement(st)}, ${enParagraphe(st, contenu(st, corps))})`)}})`
-
-  // Pages : page blanche laissée avant un chapitre en belle page (celle qui
-  // suit la fin d'un chapitre et précède le suivant), page d'ouverture d'un
-  // chapitre, recto (page impaire, à droite).
-  const blanche =
-    `let blanche = query(<amend-fin>).any(f => f.location().page() == p - 1) and ` +
-    `query(<amend-debut>).any(d => d.location().page() == p + 1) and ` +
-    // Une page qui commence elle-même un chapitre (la table des matières) n'est pas blanche.
-    `not query(<amend-debut>).any(d => d.location().page() == p); `
-  const ouvertePar = (n) => `query(heading.where(level: ${n}, outlined: true)).any(h => h.location().page() == p)`
-  const ouverture = `let ouverture = ${ouvertePar(1)}; ` + (ouvre2 ? `let ouverture2 = ${ouvertePar(2)}; ` : '')
-  const folio = `counter(page).display()`
-  // Le numéro de page se règle par niveau (19/11/2026) : sur la page ouverte par un titre 1, par un titre 2.
-  const sansFolio = [f.ouverture ? null : 'ouverture', ouvre2 && !f.ouverture2 ? 'ouverture2' : null].filter(Boolean)
-  const folioVisible = ['true', `not ${sansFolio[0]}`, `not (${sansFolio.join(' or ')})`][sansFolio.length]
-  // Pas d'en-tête sur une page ouverte par un titre.
-  const pageOuverte = ouvre2 ? '(ouverture or ouverture2)' : 'ouverture'
-  const cote = `if calc.odd(p) { right } else { left }`
-  // L'en-tête (v1, `entete`, « titre courant » jusqu'au 15/11/2026), absent des
-  // pages d'ouverture. Le nom du chapitre en cours tient sur une ligne : ni
-  // retour de ligne ni saut de paragraphe du titre (Sylvain, 15/11/2026).
-  // Le chapitre en cours : le dernier titre d'un niveau qui ouvre une page, le
-  // titre 2 compris quand il en ouvre une (19/11/2026).
-  const titresOuvrants = ouvre2
-    ? `selector(heading.where(level: 1, outlined: true)).or(heading.where(level: 2, outlined: true))`
-    : `heading.where(level: 1, outlined: true)`
-  const courant = (choix, libre) =>
-    choix === 'titreDocument' && titre
-      ? `[#${chaineTypst(titre)}]`
-      : choix === 'texte' && libre
-        ? `[#${chaineTypst(libre)}]`
-        : choix === 'chapitre'
-          ? `{ show linebreak: [ ]; show parbreak: [ ]; show regex("[\\n\\r]+"): [ ]; let hs = query(${titresOuvrants}.before(here())); if hs.len() > 0 { hs.last().body } }`
-          : 'none'
-  // Le style des en-têtes (19/11/2026) : police, corps, italique, petites capitales, alignement.
-  const placeEnTete = {
-    centre: 'center',
-    exterieur: cote,
-    interieur: `if calc.odd(p) { left } else { right }`,
-  }[enTete.alignement]
-  const texteEnTete =
-    `text(${enTete.police ? `font: (${chaineTypst(enTete.police)},), ` : ''}size: ${pt(enTete.corps)}, ` +
-    `style: ${forme(enTete)}, ${enTete.petitesCapitales ? 'smallcaps(c)' : 'c'})`
-  const avecEnTete = enTete.gauche !== 'rien' || enTete.droite !== 'rien'
-  const enHaut = f.position === 'haut-exterieur' || avecEnTete
-  const enBas = f.position === 'bas-centre' || f.position === 'bas-exterieur'
-
-  // Le titre qui ouvre (niveau 1, et niveau 2 quand le modèle le demande) : ses lignes ont leur interligne.
-  const lignesDuTitre = (o, st) =>
-    `set text(font: (${chaineTypst(st.police)},), size: ${pt(st.corps)}, weight: ${poids(st)}, style: ${forme(st)}); ` +
-    `set par(justify: ${st.alignement === 'justifie'}, first-line-indent: ${mm(st.alinea)}, leading: ${pt(o.interligne)} - ${em(1)}); ` +
-    `${avecRetrait(st, `align(${placement(st)}, ${contenu(st, 'it.body')})`)}`
-  const titreOuvrant = (o, st) =>
-    o.debut === 'continuer'
-      ? // Le chapitre continue sur la page : son titre garde ses blancs d'ouverture
-        // (lignes avant et après), dans le flux.
-        `block(above: ${pt(lignesDeBlanc(o.ligneTitre - 1))}, ` +
-        `below: ${pt(lignesDeBlanc(o.ligneTexte - o.ligneTitre - 1))}, width: ${PLEINE_LARGEUR}, sticky: true, {` +
-        `${lignesDuTitre(o, st)}})`
-      : // L'ouverture est un bloc de hauteur fixe : le texte reprend toujours à la
-        // même ligne, que le titre tienne sur une ligne ou deux.
-        `{[#metadata(none) <amend-fin>]; ` +
-        (o.debut === 'belle-page' ? `pagebreak(to: "odd", weak: true); ` : `pagebreak(weak: true); `) +
-        `[#metadata(none) <amend-debut>]; ` +
-        `block(height: ${pt((o.ligneTexte - 1) * pas)}, width: ${PLEINE_LARGEUR}, above: ${ZERO}, below: ${ZERO}, sticky: true, {` +
-        `v(${pt(base(o.ligneTitre) - HAUT * st.corps)}); ` +
-        `${lignesDuTitre(o, st)}})}`
-
-  const lignes = []
-  const proprietes = [titre ? `title: ${chaineTypst(titre)}` : null, auteur ? `author: ${chaineTypst(auteur)}` : null]
-  if (titre || auteur) lignes.push(`#set document(${proprietes.filter(Boolean).join(', ')})`)
-  lignes.push(
-    `#set page(width: ${mm(page.largeur)}, height: ${mm(page.hauteur)}, ` +
-      `margin: (top: ${mm(marges.haut)}, bottom: ${mm(margeBas - jeu)}, inside: ${mm(marges.interieure)}, outside: ${mm(marges.exterieure)}), ` +
-      // Jamais négative (un modèle sans numéro en bas, dont la place réglée est tout près du texte).
-      `footer-descent: ${mm(Math.max(0, descenteFolio - jeu))}, ` +
-      (enBas
-        ? `footer: context { let p = here().page(); ${blanche}${ouverture}` +
-          `if not blanche and ${folioVisible} { align(${f.position === 'bas-centre' ? 'center' : cote} + top, text(top-edge: "baseline", ${folio})) } }`
-        : 'footer: none') +
-      ', ' +
-      (enHaut
-        ? `header: context { let p = here().page(); ${blanche}${ouverture}` +
-          `if not blanche { ` +
-          (f.position === 'haut-exterieur' ? `if ${folioVisible} { place(${cote}, ${folio}) }; ` : '') +
-          (avecEnTete
-            ? `if not ${pageOuverte} { let c = if calc.odd(p) { ${courant(enTete.droite, enTete.texteDroite)} } else { ${courant(enTete.gauche, enTete.texteGauche)} }; ` +
-              `if c != none { align(${placeEnTete}, ${texteEnTete}) } }`
-            : '') +
-          ` } }`
-        : 'header: none') +
-      ')',
-    `#set text(font: (${chaineTypst(texte.police)},), size: ${pt(g.corps)}, weight: ${poids(texte)}, style: ${forme(texte)}, ` +
-      (langue ? `lang: ${chaineTypst(langue)}, ` : '') +
-      (modele.cesure === false ? 'hyphenate: false, ' : '') +
-      `top-edge: ${em(HAUT)}, bottom-edge: ${em(-BAS)}, fill: ${NOIR})`,
-    `#set par(justify: ${texte.alignement === 'justifie'}, leading: ${ecart}, spacing: ${ecart}, first-line-indent: (amount: ${mm(texte.alinea)}, all: true))`,
-    ...(texte.alignement === 'centre' ? ['#set align(center)'] : []),
-    `#set block(spacing: ${ecart})`,
-    // Une image occupe la largeur de la page hors marges, 100 % (Sylvain, 14/11/2026).
-    `#set image(width: ${modele.image?.largeur ?? 100}%)`,
-    `#set list(spacing: ${ecart})`,
-    `#set enum(spacing: ${ecart})`,
-    // La citation : son style, et son retrait à gauche.
-    `#show quote.where(block: true): it => ${bloc(styleDe(modele, 'citation'), 'it.body')}`,
-    // Les liens en noir, comme le texte (impression) ; l'adresse reste dans le PDF.
-    `#show link: set text(fill: ${NOIR})`,
-    // La table des matières : un titre sur plusieurs lignes tient sur une seule
-    // (Sylvain, 15/11/2026), et les chapitres sont à la graisse de leur titre.
-    `#show outline.entry: it => { show linebreak: [ ]; show regex("[\\n\\r]+"): [ ]; it }`,
-    `#show outline.entry.where(level: 1): set text(weight: ${poids(t1)})`,
-    // Un blanc (paragraphes vides en série) : une ligne de la grille.
-    // Une ligne vide (un paragraphe qui ne porte qu'une boîte d'un em, sans aucun caractère), non un espacement :
-    // Typst supprime un espacement en haut de page, et le saut de ligne d'une page commencée par un blanc ne
-    // comptait pas (Sylvain, 15/11/2026). Comme un paragraphe, elle tombe sur la grille en haut de page comme ailleurs.
-    `#let amend-blanc = par(first-line-indent: ${ZERO})[#box(height: ${em(1)})]`,
-    // Le séparateur de scène (le séparateur de BlockNote) : une ligne de la
-    // grille, blanche ou portant un signe centré.
-    `#let amend-separateur = ${separateurTypst(modele.separateur, pas)}`,
-    // Titre, sous-titre et légende : dans le flux, chacun son style.
-    `#let amend-titre(corps) = ${bloc(styleDe(modele, 'titre'), 'corps')}`,
-    `#let amend-sous-titre(corps) = ${bloc(styleDe(modele, 'sousTitre'), 'corps')}`,
-    `#let amend-legende(corps) = ${bloc(styleDe(modele, 'legende'), 'corps')}`,
-    // Une entrée de bibliographie (19/11/2026) : un paragraphe à son style, en retrait suspendu.
-    `#let amend-bibliographie(corps) = ${bloc(styleDe(modele, 'bibliographie'), 'corps')}`,
-    // Le surlignage (Sylvain, 27/11/2026 : « le surligneur doit apparaître dans les exports PDF ») : le
-    // surligneur de Typst, à la couleur donnée par le design (`#rrvvbb`) ; sans elle, la sienne.
-    `#let amend-surligne(corps) = highlight(${couleurTypst(surlignage)}corps)`,
-    // Le premier paragraphe d'un chapitre, sans alinéa.
-    // Le premier paragraphe d'un chapitre : sans retrait par défaut, au choix du modèle (Sylvain, 15/11/2026).
-    c.premierSansAlinea === false
-      ? `#let amend-sans-alinea(corps) = corps`
-      : `#let amend-sans-alinea(corps) = par(first-line-indent: ${ZERO}, corps)`,
-    // De même après un titre 2, quand il ouvre une page : le chapitre, c'est alors lui (19/11/2026).
-    ouvre2 && c.premierSansAlinea !== false
-      ? `#let amend-sans-alinea-2(corps) = par(first-line-indent: ${ZERO}, corps)`
-      : `#let amend-sans-alinea-2(corps) = corps`,
-    // Les intertitres : le titre de niveau 5 vaut pour tout niveau inconnu, puis
-    // chaque niveau de 4 à 2 a son style.
-    `#show heading: it => ${bloc(styleDe(modele, 'titre5'), 'it.body', { colle: true })}`,
-    ...[4, 3].map(
-      (n) =>
-        `#show heading.where(level: ${n}): it => ${bloc(styleDe(modele, `titre${n}`), 'it.body', { colle: true })}`,
-    ),
-    // Le titre 2 : un intertitre dans le flux, ou l'ouverture d'une page comme le titre 1 (19/11/2026).
-    ouvre2
-      ? `#show heading.where(level: 2): it => ${titreOuvrant(c2, styleDe(modele, 'titre2'))}`
-      : `#show heading.where(level: 2): it => ${bloc(styleDe(modele, 'titre2'), 'it.body', { colle: true })}`,
-    `#show heading.where(level: 1): it => ${titreOuvrant(c, t1)}`,
-  )
-  // Le premier numéro de page (v1, `startAt`).
-  // Un numéro de départ qui n'est pas un entier positif est ignoré (1).
-  if (Number.isInteger(f.depart) && f.depart > 1) lignes.push(`#counter(page).update(${f.depart})`)
-  return lignes.join('\n') + '\n'
-}
-
-/** Le début d'un chapitre : `continuer`, `page` ou `belle-page` (l'ancien
- * booléen `bellePage` est encore lu). */
-const debutChapitre = (c) => c?.debut ?? (c?.bellePage === false ? 'page' : 'belle-page')
-
-/** Les séparateurs de scène (v1, `SEPARATEURS`) et leur ligne de Typst. */
-const SEPARATEURS = Object.freeze(['blanc', 'asterisme', 'etoiles', 'points', 'trait'])
-function separateurTypst(choix, pas) {
-  const signe = SIGNES_DE_SEPARATEUR[choix]
-  if (!signe) return `v(${pt(pas)})`
-  return `align(center, par(first-line-indent: ${ZERO}, justify: false, ${chaineTypst(signe)}))`
+export function gabaritTypst(modele, document = {}) {
+  if (!estEnLignes(modele)) throw impossible('valeur')
+  return gabaritEnLignes(modele, document)
 }
 
 // --- Les modèles (ADR 0011, revu le 13/11/2026) ------------------------------
