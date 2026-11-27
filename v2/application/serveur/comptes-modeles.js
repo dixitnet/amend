@@ -18,9 +18,11 @@ import {
   famillesDePolices,
   ancienModele,
   versModeleParStyle,
+  valeursEnLignes,
+  estEnLignes,
 } from '../../domaine/index.js'
 import { REGLAGE_DESACTIVEES } from './polices.js'
-import { MODELES_LIVRE, REGLES_MODELES, REPRISE_MODELES } from '../../design/livre.js'
+import { MODELES_LIVRE, REGLES_MODELES, REPRISE_MODELES, HAUTEUR_TITRE_DU_LIVRE } from '../../design/livre.js'
 
 /** Le modèle du code (design), par identifiant. */
 const CODE = new Map(MODELES_LIVRE.map((m) => [m.id, m]))
@@ -58,7 +60,9 @@ export function creerModeles(ctx) {
     /** Les fichiers des familles envoyées par l'instance (le client a ceux du code). */
     const fichiersPolices = Object.fromEntries(envoyees.map((f) => [f.famille, f.fichiers]))
     /** Le modèle complet d'un modèle enregistré : ses valeurs, complétées par celles du code pour ce qui lui manque. */
-    const complet = (m) => completerModele(m.valeurs ?? {}, CODE.get(ID_CODE))
+    // Un modèle enregistré en points (avant le 27/11/2026) est d'abord converti en lignes : `convertirEnLignes` le
+    // fait une fois pour toutes au démarrage, ceci couvre ce qui y aurait échappé.
+    const complet = (m) => completerModele(valeursEnLignes(m.valeurs ?? {}, HAUTEUR_TITRE_DU_LIVRE), CODE.get(ID_CODE))
     return { instance, parId, regles, complet, polices, fichiersPolices }
   }
   const versClient = (m, complet, extra = {}) => ({ id: m.id, nom: m.nom, complet: complet(m), ...extra })
@@ -269,6 +273,34 @@ export function creerModeles(ctx) {
   }
 
   /**
+   * Les modèles enregistrés en points (avant la grille stricte, 27/11/2026) deviennent des modèles comptés en
+   * lignes, au plus proche (docs/v2-grille-plan.md, § 5 : « conversion automatique »). Sans effet quand il n'en
+   * reste aucun. Un modèle que la conversion rendrait impossible est laissé tel quel, et signalé.
+   */
+  async function convertirEnLignes() {
+    const tous = [...(await comptes.modelesInstance()), ...(await comptes.modelesDeToutesLesEquipes())]
+    // Le catalogue élargi : les polices du code et celles de l'instance (audit partiel du 27/11/2026).
+    const { regles } = await sources()
+    let convertis = 0
+    for (const m of tous) {
+      if (!m.valeurs || estEnLignes(m.valeurs)) continue
+      const valeurs = completerModele(valeursEnLignes(m.valeurs, HAUTEUR_TITRE_DU_LIVRE), CODE.get(ID_CODE))
+      const v = verifierModele(valeurs, regles)
+      if (!v.ok) {
+        console.error(
+          `[modèles] conversion en lignes de « ${m.nom} » impossible :`,
+          v.code,
+          v.reglage ?? v.raison ?? '',
+        )
+        continue
+      }
+      await comptes.modifierModele(m.id, { valeurs })
+      convertis++
+    }
+    if (convertis) console.log(`[modèles] ${convertis} modèle(s) converti(s) en modèles comptés en lignes`)
+  }
+
+  /**
    * La reprise des modèles qui quittent le code (12/11/2026) : chacun est
    * recréé une fois en modèle de l'instance, ce qui le citait est repris, et le
    * premier devient le défaut de l'instance s'il n'y en a pas. Les modèles
@@ -277,6 +309,7 @@ export function creerModeles(ctx) {
    */
   async function reprendre() {
     await convertir()
+    await convertirEnLignes()
     const faits = (await comptes.reglage(REGLAGE_REPRISE)) ?? {}
     for (const r of REPRISE_MODELES) {
       if (faits[r.id]) continue

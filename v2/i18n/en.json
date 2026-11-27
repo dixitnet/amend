@@ -479,30 +479,23 @@
       "marges": {
         "haut": "Top margin (mm)",
         "interieure": "Inside margin (mm)",
-        "exterieure": "Outside margin (mm)",
-        "bas": "Bottom margin (mm)"
+        "exterieure": "Outside margin (mm)"
       },
       "grille": {
         "corps": "Text size (pt)",
-        "interligne": "Line spacing (pt)"
+        "interligne": "Line spacing (pt)",
+        "lignes": "Lines per page"
       },
       "chapitre": {
         "debut": "Heading 1: start",
-        "premierSansAlinea": "No indent on the first paragraph of a chapter",
-        "ligneTitre": "Heading 1: title line",
-        "ligneTexte": "Heading 1: line where the text resumes",
-        "interligne": "Heading 1: title line spacing (pt)"
+        "premierSansAlinea": "No indent on the first paragraph of a chapter"
       },
       "ouverture2": {
-        "debut": "Heading 2: start",
-        "ligneTitre": "Heading 2: title line",
-        "ligneTexte": "Heading 2: line where the text resumes",
-        "interligne": "Heading 2: title line spacing (pt)"
+        "debut": "Heading 2: start"
       },
       "folio": {
         "position": "Page number position",
         "depart": "First page number",
-        "bas": "Page number line from the bottom (mm)",
         "ouverture": "Page number on a page opened by a heading 1",
         "ouverture2": "Page number on a page opened by a heading 2"
       },
@@ -511,11 +504,8 @@
         "droite": "Running head on right pages",
         "texteGauche": "Text of the left-page running head",
         "texteDroite": "Text of the right-page running head",
-        "police": "Running head font",
-        "corps": "Running head size (pt)",
         "italique": "Running heads in italic",
-        "petitesCapitales": "Running heads in small capitals",
-        "alignement": "Running head alignment"
+        "petitesCapitales": "Running heads in small capitals"
       },
       "separateur": "Scene break",
       "cesure": "Hyphenation"
@@ -552,27 +542,15 @@
         "gauche": "Left",
         "justifie": "Justified",
         "centre": "Centered"
-      },
-      "alignementEnTete": {
-        "centre": "Centered",
-        "exterieur": "Outer edge",
-        "interieur": "Inner edge"
       }
     },
     "groupes": {
-      "format": "Page size and margins",
-      "texte": "Body text",
-      "styles": "Styles",
-      "chapitre": "Opening of headings 1 and 2",
-      "pages": "Page number and running head",
-      "general": "Name"
+      "page": "Page",
+      "texte": "Text",
+      "styles": "Headings and styles",
+      "pages": "Running heads and page numbers"
     },
-    "reglageDeStyle": "{style}: {propriete}",
-    "memePolice": "Same font as the text",
-    "aidePetitesCapitales": "Small capitals come from the font: {polices} have them. With another font, this setting has no effect.",
     "styles": {
-      "colonne": "Style",
-      "texte": "Body text",
       "citation": "Quote",
       "bibliographie": "Bibliography",
       "titre1": "Heading 1",
@@ -585,7 +563,6 @@
       "legende": "Caption"
     },
     "essayer": "Try",
-    "margeBasseObtenue": "Resulting margin: {marge, number} mm, {lignes, plural, one {# line} other {# lines}} per page.",
     "defautInstance": "The instance default",
     "titreDefaut": "Default template",
     "titreListe": "Templates",
@@ -598,11 +575,9 @@
       "capitales": "Capitals",
       "petitesCapitales": "Small capitals",
       "alignement": "Alignment",
-      "espaceAvant": "Space before (pt)",
-      "espaceApres": "Space after (pt)",
       "alinea": "First-line indent (mm)",
-      "retrait": "Left indent (mm)",
-      "retraitSuspendu": "Hanging indent (mm)"
+      "blancAvant": "Space before (lines)",
+      "blancApres": "Space after (lines)"
     },
     "nouveau": "New template",
     "dupliquer": "Duplicate",
@@ -616,7 +591,75 @@
     },
     "actionsDe": "Actions for “{nom}”",
     "copieDe": "{nom} (copy)",
-    "format": "{largeur, number} × {hauteur, number} mm"
+    "format": "{largeur, number} × {hauteur, number} mm",
+    "fiche": {
+      "format": "Size",
+      "marges": "Margins",
+      "hauteur": "Text height",
+      "caractere": "Typeface",
+      "paragraphes": "Paragraphs",
+      "enTetes": "Running heads",
+      "folio": "Page numbers",
+      "allure": "Style",
+      "centre": "Centred",
+      "resume": {
+        "corps": "{corps, number} pt",
+        "blancs": "{avant} before, {apres} after",
+        "suite": ", ",
+        "puis": " · ",
+        "sansBlanc": "no space",
+        "marges": "top {haut, number}, inside {interieure, number}, outside {exterieure, number} mm",
+        "hauteur": "{lignes, plural, one {# line} other {# lines}} per page · bottom margin {pied, number} mm",
+        "lignes": "{lignes, plural, one {# line} other {# lines}} per page",
+        "caractere": "{police}, {corps} / {interligne} pt",
+        "cesure": "hyphenated",
+        "sansCesure": "not hyphenated",
+        "alinea": "{alinea, number} mm indent",
+        "sansAlinea": "no indent",
+        "citation": "“{texte}”",
+        "enTetes": "left: {gauche} · right: {droite}",
+        "depart": "starting at {depart, number}",
+        "sansOuverture": "not on opening pages"
+      },
+      "note": {
+        "pied": "The bottom margin is not set directly: it follows from the number of lines per page.",
+        "pas": "The line spacing of the text is the step of the grid: every line of the book sits on it.",
+        "alinea": "The indent is also the left indent of block quotes and the hanging indent of the bibliography.",
+        "enTetes": "The running head sits one blank line above the text. Opening pages have none.",
+        "titre": "On one line, this heading takes {une, plural, one {# line} other {# lines}} of the grid; on two lines, {deux, plural, one {# line} other {# lines}}.",
+        "brique": "Each line of this style takes one line of the grid.",
+        "ouvre": "This heading opens a page: its space before is counted from the first line of the page.",
+        "demi": "The two spaces do not add up to a whole number of lines: half a line is added before, so the text falls back on the grid."
+      }
+    },
+    "apercu": {
+      "nom": "Page preview",
+      "grille": "Grid",
+      "legende2": "A right-hand page, drawn on screen: “Try” gives the exact PDF. In colour, the spaces you set; in orange, the added half line. The style being set is outlined.",
+      "vues": {
+        "titre": "Title",
+        "ouverture": "Opening",
+        "courante": "Text page"
+      },
+      "titre": "Life of a grid",
+      "sousTitre": "An essay on the rhythm of pages",
+      "titre1": "The stave of the page",
+      "titre2": "What the heading owes the grid",
+      "titre3": "Counting rather than measuring",
+      "titre4": "Recto and verso",
+      "titre5": "Half a line",
+      "court": "A page of a book reads like a stave.",
+      "citation": "The quotation is set smaller, but its lines keep the step of the page.",
+      "image": "image",
+      "legende": "Figure 1: an image takes a whole number of lines.",
+      "bibliographie1": "Tschichold, Jan, The Form of the Book, London, Lund Humphries, 1991.",
+      "bibliographie2": "Bringhurst, Robert, The Elements of Typographic Style, Vancouver, Hartley & Marks, 1992.",
+      "pageSuivante": "next page",
+      "texteA": "A page of a book reads like a stave. Regular baselines run across it from top to bottom, and each line of text comes to rest on one. The distance between two lines, always the same, is the step of the grid.",
+      "texteB": "A heading may be larger than the text, provided it takes a whole number of lines, spaces included. The paragraph that follows then resumes exactly on the grid.",
+      "texteC": "The compositor no longer measures in points: he counts. Three blank lines before the chapter, one and a half before the heading, half a line after.",
+      "texteD": "When the recto and the verso of a leaf follow the same grid, their lines coincide, and the grey of the page becomes even."
+    }
   },
   "margo": {
     "accueil": "Ask Margo to proofread, correct or comment on the text. Its corrections arrive in the Corrections tab, to accept or reject.",

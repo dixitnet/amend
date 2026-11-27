@@ -11,6 +11,7 @@ import { creerServeur } from '../../application/serveur/index.js'
 import { ouvrirComptes } from '../../adaptateurs/postgres/comptes.js'
 import { ouvrirCommentaires } from '../../adaptateurs/postgres/index.js'
 import { creerCourrier } from '../../adaptateurs/courrier/index.js'
+import { REPRISE_EN_POINTS } from '../donnees/modeles-en-points.js'
 
 let comptes, commentaires, serveur, base
 const courrier = creerCourrier({ expediteur: 'amend.ink <x@y.fr>' })
@@ -132,7 +133,8 @@ test('modèles d’équipe : le gestionnaire crée et règle ; les écarts sont 
   assert.equal(statut, 201)
   const refus = await appel('PUT', `${base}/${m.id}`, {
     cookie: gaelle.cookie,
-    corps: { reglages: { 'page.hauteur': 100, 'marges.bas': 100 } },
+    // Soixante lignes de 14 pt ne tiennent pas dans 100 mm.
+    corps: { reglages: { 'page.hauteur': 100, 'grille.lignes': 60 } },
   })
   assert.equal(refus.statut, 400)
   assert.deepEqual(refus.json, { code: 'modele-impossible', reglage: null, raison: 'lignes' })
@@ -295,7 +297,14 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
   // L'administrateur règle tout, style par style.
   const r = await appel('PUT', `/api/admin/modeles/${i.id}`, {
     ...a,
-    corps: { reglages: { 'folio.bas': 20, 'chapitre.ligneTitre': 4, separateur: 'trait', 'styles.legende.corps': 8 } },
+    corps: {
+      reglages: {
+        'grille.lignes': 48,
+        'styles.titre1.blancAvant': 2.5,
+        separateur: 'trait',
+        'styles.legende.corps': 8,
+      },
+    },
   })
   assert.equal(r.statut, 200)
   const hors = await appel('PUT', `/api/admin/modeles/${i.id}`, {
@@ -305,7 +314,7 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
   assert.equal(hors.json.code, 'reglage-hors-bornes')
   let liste = (await appel('GET', '/api/admin/modeles', a)).json
   assert.equal(liste.modeleCode.id, 'a4')
-  assert.equal(liste.modeles.find((m) => m.id === i.id).complet.folio.bas, 20)
+  assert.equal(liste.modeles.find((m) => m.id === i.id).complet.grille.lignes, 48)
   // Une équipe part du modèle de l'instance (une copie) et règle ce qu'elle veut.
   const { json: m } = await appel('POST', `/api/equipes/${eq.id}/modeles`, {
     ...g,
@@ -313,7 +322,7 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
   })
   await appel('PUT', `/api/equipes/${eq.id}/modeles/${m.id}`, {
     ...g,
-    corps: { reglages: { 'page.largeur': 150, 'folio.bas': 22 } },
+    corps: { reglages: { 'page.largeur': 150, 'grille.lignes': 46 } },
   })
   const vueEquipe = (await appel('GET', `/api/equipes/${eq.id}`, g)).json
   assert.ok(
@@ -321,15 +330,13 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
     'les modèles de l’instance, modèles de départ possibles',
   )
   const complet = () => modelesDu(marc, doc.id).then((v) => v.modeles.find((x) => x.id === m.id).complet)
-  assert.deepEqual(await complet().then((c) => [c.page.largeur, c.folio.bas, c.separateur, c.styles.legende.corps]), [
-    150,
-    22,
-    'trait',
-    8,
-  ])
+  assert.deepEqual(
+    await complet().then((c) => [c.page.largeur, c.grille.lignes, c.separateur, c.styles.legende.corps]),
+    [150, 46, 'trait', 8],
+  )
   // Après la copie, plus de filiation : une correction du modèle de l'instance n'atteint pas la copie.
-  await appel('PUT', `/api/admin/modeles/${i.id}`, { ...a, corps: { reglages: { 'folio.bas': 25 } } })
-  assert.equal((await complet()).folio.bas, 22)
+  await appel('PUT', `/api/admin/modeles/${i.id}`, { ...a, corps: { reglages: { 'grille.lignes': 44 } } })
+  assert.equal((await complet()).grille.lignes, 46)
   // Le défaut de l'instance, puis sa suppression.
   const avant = await comptes.reglage('modeles.defaut')
   try {
@@ -345,6 +352,35 @@ test('modèles de l’instance : l’administrateur les crée et règle tout ; u
     assert.equal((await comptes.modele(m.id)).valeurs.page.largeur, 150, 'la copie de l’équipe reste entière')
   } finally {
     await comptes.definirReglage('modeles.defaut', avant, null)
+  }
+})
+
+test('un modèle enregistré en points est servi en lignes, puis converti une fois pour toutes au démarrage (27/11/2026)', async () => {
+  const { eq, gaelle } = await equipeEtDocument()
+  const enPoints = structuredClone(REPRISE_EN_POINTS.find((r) => r.id === 'tat-140x220').valeurs)
+  const id = await comptes.creerModele(eq.id, 'Ancien, en points', enPoints, null)
+  try {
+    assert.equal((await comptes.modele(id)).valeurs.regle, undefined)
+    // Avant la conversion, le serveur l'envoie déjà compté en lignes.
+    const vue = (await appel('GET', `/api/equipes/${eq.id}`, { cookie: gaelle.cookie })).json
+    const servi = vue.modeles.find((x) => x.id === id).complet
+    assert.deepEqual([servi.regle, servi.grille.lignes, servi.styles.titre3.blancAvant], ['lignes', 33, 1.5])
+    assert.equal(servi.marges.bas, undefined)
+    // Au démarrage, il est enregistré en lignes ; une seconde fois, rien ne change.
+    await serveur.reprendreModeles()
+    const converti = (await comptes.modele(id)).valeurs
+    assert.deepEqual(converti, servi)
+    await serveur.reprendreModeles()
+    assert.deepEqual((await comptes.modele(id)).valeurs, converti)
+    // Il se règle ensuite comme un autre.
+    const r = await appel('PUT', `/api/equipes/${eq.id}/modeles/${id}`, {
+      cookie: gaelle.cookie,
+      corps: { reglages: { 'styles.titre3.blancApres': 1.5 } },
+    })
+    assert.equal(r.statut, 200)
+    assert.equal((await comptes.modele(id)).valeurs.styles.titre3.blancApres, 1.5)
+  } finally {
+    await comptes.supprimerModele(id)
   }
 })
 
@@ -461,11 +497,11 @@ test('polices de l’instance : l’administrateur envoie, la famille est lue da
   })
   const regle = await appel('PUT', `/api/admin/modeles/${m.id}`, {
     ...a,
-    corps: { reglages: { 'styles.texte.police': famille, 'styles.titre1.police': famille } },
+    corps: { reglages: { 'styles.texte.police': famille } },
   })
   assert.equal(regle.statut, 200)
   const apres = (await appel('GET', '/api/admin/modeles', a)).json
-  assert.equal(apres.modeles.find((x) => x.id === m.id).complet.styles.titre1.police, famille)
+  assert.equal(apres.modeles.find((x) => x.id === m.id).complet.styles.texte.police, famille)
   assert.deepEqual(
     [...apres.fichiersPolices[famille]].sort(),
     [`/api/polices/${romain.json.id}`, `/api/polices/${italique.json.id}`].sort(),

@@ -14,7 +14,13 @@ import { createRequire } from 'node:module'
 import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
-import { MODELES_LIVRE, REPRISE_MODELES, REGLES_MODELES, SURLIGNAGE_DU_LIVRE } from '../../design/livre.js'
+import { SURLIGNAGE_DU_LIVRE } from '../../design/livre.js'
+// Le gabarit en points, gardé jusqu'au retrait de l'ancienne façon : ses modèles sont des données de test (27/11/2026).
+import {
+  MODELES_EN_POINTS as MODELES_LIVRE,
+  REPRISE_EN_POINTS as REPRISE_MODELES,
+  REGLES_EN_POINTS as REGLES_MODELES,
+} from '../../tests/donnees/modeles-en-points.js'
 import { famillesDuModele, grille } from '../../domaine/index.js'
 
 const modele = { ...REPRISE_MODELES[0].valeurs }

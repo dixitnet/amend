@@ -479,30 +479,23 @@
       "marges": {
         "haut": "Marge de tête (mm)",
         "interieure": "Marge intérieure (mm)",
-        "exterieure": "Marge extérieure (mm)",
-        "bas": "Marge basse (mm)"
+        "exterieure": "Marge extérieure (mm)"
       },
       "grille": {
         "corps": "Corps du texte (pt)",
-        "interligne": "Interligne (pt)"
+        "interligne": "Interligne (pt)",
+        "lignes": "Lignes par page"
       },
       "chapitre": {
         "debut": "Titre 1\u00A0: début",
-        "premierSansAlinea": "Premier paragraphe du chapitre sans retrait",
-        "ligneTitre": "Titre 1\u00A0: ligne du titre",
-        "ligneTexte": "Titre 1\u00A0: ligne où reprend le texte",
-        "interligne": "Titre 1\u00A0: interligne du titre (pt)"
+        "premierSansAlinea": "Premier paragraphe du chapitre sans retrait"
       },
       "ouverture2": {
-        "debut": "Titre 2\u00A0: début",
-        "ligneTitre": "Titre 2\u00A0: ligne du titre",
-        "ligneTexte": "Titre 2\u00A0: ligne où reprend le texte",
-        "interligne": "Titre 2\u00A0: interligne du titre (pt)"
+        "debut": "Titre 2\u00A0: début"
       },
       "folio": {
         "position": "Place du numéro de page",
         "depart": "Premier numéro de page",
-        "bas": "Ligne du numéro de page en bas (mm)",
         "ouverture": "Numéro de page sur une page ouverte par un titre 1",
         "ouverture2": "Numéro de page sur une page ouverte par un titre 2"
       },
@@ -511,11 +504,8 @@
         "droite": "En-tête des pages de droite",
         "texteGauche": "Texte de l’en-tête des pages de gauche",
         "texteDroite": "Texte de l’en-tête des pages de droite",
-        "police": "Police des en-têtes",
-        "corps": "Corps des en-têtes (pt)",
         "italique": "En-têtes en italique",
-        "petitesCapitales": "En-têtes en petites capitales",
-        "alignement": "Alignement des en-têtes"
+        "petitesCapitales": "En-têtes en petites capitales"
       },
       "separateur": "Séparateur de scène",
       "cesure": "Césure (couper les mots en fin de ligne)"
@@ -552,27 +542,15 @@
         "gauche": "À gauche",
         "justifie": "Justifié",
         "centre": "Centré"
-      },
-      "alignementEnTete": {
-        "centre": "Centré",
-        "exterieur": "Côté extérieur",
-        "interieur": "Côté intérieur"
       }
     },
     "groupes": {
-      "format": "Format et marges",
-      "texte": "Texte courant",
-      "styles": "Styles",
-      "chapitre": "Ouverture des titres 1 et 2",
-      "pages": "Numéro de page et en-têtes",
-      "general": "Nom"
+      "page": "La page",
+      "texte": "Le texte",
+      "styles": "Les titres et les styles",
+      "pages": "En-têtes et numéros de page"
     },
-    "reglageDeStyle": "{style}\u00A0: {propriete}",
-    "memePolice": "Même police que le texte",
-    "aidePetitesCapitales": "Les petites capitales sont celles de la police\u00A0: {polices} en ont. Avec une autre police, ce réglage est sans effet.",
     "styles": {
-      "colonne": "Style",
-      "texte": "Texte courant",
       "citation": "Citation",
       "bibliographie": "Bibliographie",
       "titre1": "Titre 1",
@@ -585,7 +563,6 @@
       "legende": "Légende"
     },
     "essayer": "Essayer",
-    "margeBasseObtenue": "Marge obtenue\u00A0: {marge, number} mm, soit {lignes, plural, one {# ligne} other {# lignes}} par page.",
     "defautInstance": "Celui de l’instance",
     "titreDefaut": "Modèle par défaut",
     "titreListe": "Modèles",
@@ -598,11 +575,9 @@
       "capitales": "Majuscules",
       "petitesCapitales": "Petites capitales",
       "alignement": "Alignement",
-      "espaceAvant": "Espace avant (pt)",
-      "espaceApres": "Espace après (pt)",
       "alinea": "Retrait de 1re ligne (mm)",
-      "retrait": "Retrait à gauche (mm)",
-      "retraitSuspendu": "Retrait suspendu (mm)"
+      "blancAvant": "Blanc avant (lignes)",
+      "blancApres": "Blanc après (lignes)"
     },
     "nouveau": "Nouveau modèle",
     "dupliquer": "Dupliquer",
@@ -616,7 +591,75 @@
     },
     "actionsDe": "Actions pour «\u00A0{nom}\u00A0»",
     "copieDe": "{nom} (copie)",
-    "format": "{largeur, number} × {hauteur, number} mm"
+    "format": "{largeur, number} × {hauteur, number} mm",
+    "fiche": {
+      "format": "Format",
+      "marges": "Marges",
+      "hauteur": "Hauteur du texte",
+      "caractere": "Caractère",
+      "paragraphes": "Paragraphes",
+      "enTetes": "En-têtes",
+      "folio": "Numéros de page",
+      "allure": "Allure",
+      "centre": "Centré",
+      "resume": {
+        "corps": "{corps, number} pt",
+        "blancs": "{avant} avant, {apres} après",
+        "suite": ", ",
+        "puis": " · ",
+        "sansBlanc": "sans blanc",
+        "marges": "tête {haut, number}, intérieure {interieure, number}, extérieure {exterieure, number} mm",
+        "hauteur": "{lignes, plural, one {# ligne} other {# lignes}} par page · pied de {pied, number} mm",
+        "lignes": "{lignes, plural, one {# ligne} other {# lignes}} par page",
+        "caractere": "{police}, {corps} / {interligne} pt",
+        "cesure": "mots coupés",
+        "sansCesure": "mots entiers",
+        "alinea": "alinéa de {alinea, number} mm",
+        "sansAlinea": "sans alinéa",
+        "citation": "«\u00A0{texte}\u00A0»",
+        "enTetes": "à gauche\u00A0: {gauche} · à droite\u00A0: {droite}",
+        "depart": "à partir de {depart, number}",
+        "sansOuverture": "pas sur les ouvertures"
+      },
+      "note": {
+        "pied": "La marge de pied ne se règle pas\u00A0: elle vient du nombre de lignes par page.",
+        "pas": "L’interligne du texte est le pas de la grille\u00A0: toutes les lignes du livre s’y posent.",
+        "alinea": "L’alinéa sert aussi de retrait à la citation et de retrait suspendu à la bibliographie.",
+        "enTetes": "L’en-tête se pose à une ligne blanche du texte. Il n’y en a pas sur une page d’ouverture.",
+        "titre": "Sur une ligne, ce titre occupe {une, plural, one {# ligne} other {# lignes}} de la grille\u202F; sur deux lignes, {deux, plural, one {# ligne} other {# lignes}}.",
+        "brique": "Chaque ligne de ce style occupe une ligne de la grille.",
+        "ouvre": "Ce titre ouvre une page\u00A0: son blanc avant se compte depuis la première ligne de la page.",
+        "demi": "Les deux blancs ne font pas un nombre entier de lignes\u00A0: une demi-ligne est ajoutée avant, pour que le texte retombe sur la grille."
+      }
+    },
+    "apercu": {
+      "nom": "Aperçu de la page",
+      "grille": "Grille",
+      "legende2": "Page de droite, dessinée à l’écran\u00A0: «\u00A0Essayer\u00A0» donne le PDF exact. En couleur, les blancs réglés\u202F; en orange, la demi-ligne ajoutée. Le style en cours de réglage est encadré.",
+      "vues": {
+        "titre": "Titre",
+        "ouverture": "Ouverture",
+        "courante": "Page courante"
+      },
+      "titre": "Vie d’une grille",
+      "sousTitre": "Essai sur le rythme des pages",
+      "titre1": "La portée de la page",
+      "titre2": "Ce que le titre doit à la grille",
+      "titre3": "Compter plutôt que mesurer",
+      "titre4": "Le recto et le verso",
+      "titre5": "Une demi-ligne",
+      "court": "Une page de livre se lit comme une portée.",
+      "citation": "La citation est composée plus petit, mais ses lignes gardent le pas de la page.",
+      "image": "image",
+      "legende": "Figure 1\u00A0: une image occupe un nombre entier de lignes.",
+      "bibliographie1": "Tschichold, Jan, Livre et typographie, Paris, Allia, 1994.",
+      "bibliographie2": "Bringhurst, Robert, The Elements of Typographic Style, Vancouver, Hartley & Marks, 1992.",
+      "pageSuivante": "page suivante",
+      "texteA": "Une page de livre se lit comme une portée. Des lignes de base régulières la traversent du haut en bas, et chaque ligne de texte vient s’y poser. L’écart entre deux lignes, toujours le même, est le pas de la grille.",
+      "texteB": "Un titre peut être plus gros que le texte, à condition d’occuper un nombre entier de lignes, blancs compris. Le paragraphe qui le suit reprend alors exactement sur la grille.",
+      "texteC": "Le compositeur ne mesure plus en points\u00A0: il compte. Trois lignes de blanc avant le chapitre, une et demie avant l’intertitre, une demie après.",
+      "texteD": "Quand le recto et le verso d’une feuille suivent la même grille, leurs lignes se superposent, et le gris de la page devient régulier."
+    }
   },
   "margo": {
     "accueil": "Demandez à Margo de relire, de corriger ou de commenter le texte. Ses corrections arrivent dans l’onglet Corrections, à accepter ou refuser.",

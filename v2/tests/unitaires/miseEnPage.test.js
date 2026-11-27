@@ -11,7 +11,8 @@ import {
   nomDeFichier,
   titreDocument,
 } from '../../domaine/index.js'
-import { REPRISE_MODELES } from '../../design/livre.js'
+// Le gabarit en points, gardé jusqu'au retrait de l'ancienne façon : ses modèles sont des données de test (27/11/2026).
+import { REPRISE_EN_POINTS as REPRISE_MODELES } from '../donnees/modeles-en-points.js'
 
 // « TàT - Poche » : un modèle complet, 120 × 180 mm, grille de 31 lignes de 12,4 pt.
 const MODELE = structuredClone(REPRISE_MODELES.find((r) => r.id === 'tat-poche').valeurs)

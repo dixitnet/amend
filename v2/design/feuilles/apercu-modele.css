@@ -1,0 +1,154 @@
+/* Feuille de l'aperçu d'un modèle de mise en page (fiche d'un modèle, Sylvain, 27/11/2026 :
+   « 1-2 », l'aperçu dessiné, en formats L et M ; docs/v2-grille-plan.md, § 10 ; ADR 0008).
+   Une page de livre dessinée à l'écran, à côté de la fiche : le papier, la grille, les blancs
+   comptés en lignes. Ses mesures (format, marges, pas, corps) viennent du modèle réglé, par des
+   variables posées sur la page ; seules les couleurs et l'ombre sont décidées ici, prises à Mantine. */
+
+/* réglage : css.apercu.colle */
+.amend-apercu-colonne {
+  position: sticky;
+  top: var(--mantine-spacing-md);
+}
+
+/* réglage : css.apercu.page */
+.amend-apercu {
+  position: relative;
+  overflow: hidden;
+  width: calc(var(--amend-largeur) * 1px);
+  height: calc(var(--amend-hauteur) * 1px);
+  background: var(--mantine-color-white);
+  color: var(--mantine-color-black);
+  box-shadow: var(--mantine-shadow-md);
+  font-family: var(--amend-police), Georgia, serif;
+  font-size: calc(var(--amend-corps) * 1px);
+  line-height: calc(var(--amend-pas) * 1px);
+}
+.amend-apercu-zone {
+  position: absolute;
+  overflow: hidden;
+  left: calc(var(--amend-gauche) * 1px);
+  top: calc(var(--amend-haut) * 1px);
+  width: calc(var(--amend-utile) * 1px);
+  height: calc(var(--amend-lignes) * var(--amend-pas) * 1px);
+}
+.amend-apercu-hors-texte {
+  position: absolute;
+  overflow: hidden;
+  white-space: nowrap;
+  left: calc(var(--amend-gauche) * 1px);
+  width: calc(var(--amend-utile) * 1px);
+  height: calc(var(--amend-pas) * 1px);
+  text-align: center;
+}
+.amend-apercu-hors-texte[data-place='haut'] {
+  top: calc((var(--amend-haut) - 2 * var(--amend-pas)) * 1px);
+}
+.amend-apercu-hors-texte[data-place='bas'] {
+  top: calc((var(--amend-haut) + (var(--amend-lignes) + 1) * var(--amend-pas)) * 1px);
+}
+.amend-apercu-hors-texte[data-cote='exterieur'] {
+  text-align: right;
+}
+
+/* réglage : css.apercu.blocs */
+.amend-apercu-zone p {
+  margin: 0;
+  text-indent: calc(var(--amend-alinea) * 1px);
+  hyphens: manual;
+}
+.amend-apercu[data-justifie] .amend-apercu-zone p,
+.amend-apercu-bloc[data-justifie] {
+  text-align: justify;
+}
+.amend-apercu[data-cesure] .amend-apercu-zone p,
+.amend-apercu-bloc[data-justifie] {
+  hyphens: auto;
+}
+.amend-apercu-bloc {
+  font-size: calc(var(--amend-corps-bloc) * 1px);
+  line-height: calc(var(--amend-interligne) * 1px);
+  padding-left: calc(var(--amend-retrait) * 1px);
+  text-indent: calc(var(--amend-suspendu) * -1px);
+}
+.amend-apercu-bloc[data-suspendu] {
+  padding-left: calc(var(--amend-suspendu) * 1px);
+}
+.amend-apercu-bloc > span {
+  position: relative;
+  top: calc(var(--amend-decalage) * 1px);
+}
+.amend-apercu-bloc[data-titre] {
+  text-wrap: balance;
+  padding-top: calc(var(--amend-complement) * 1px);
+}
+.amend-apercu-bloc[data-gras],
+.amend-apercu [data-gras] {
+  font-weight: bold;
+}
+.amend-apercu [data-italique] {
+  font-style: italic;
+}
+.amend-apercu [data-capitales] {
+  text-transform: uppercase;
+}
+.amend-apercu [data-petites-capitales] {
+  font-variant-caps: small-caps;
+}
+.amend-apercu [data-centre] {
+  text-align: center;
+}
+.amend-apercu-vide {
+  height: calc(var(--amend-n) * var(--amend-pas) * 1px);
+}
+.amend-apercu-signe {
+  text-align: center;
+}
+.amend-apercu-image {
+  height: calc(var(--amend-n) * var(--amend-pas) * 1px);
+  background: var(--mantine-color-gray-3);
+  color: var(--mantine-color-gray-7);
+  font-family: var(--mantine-font-family);
+  font-size: var(--mantine-font-size-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.amend-apercu-saut {
+  position: relative;
+  height: 0;
+  font-family: var(--mantine-font-family);
+  font-size: var(--mantine-font-size-xs);
+  line-height: var(--mantine-line-height-xs);
+  color: var(--mantine-color-gray-6);
+  text-align: right;
+}
+.amend-apercu-saut::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--mantine-color-gray-5);
+}
+
+/* réglage : css.apercu.grille */
+.amend-apercu[data-grille] .amend-apercu-zone {
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(100% - 1px),
+    var(--mantine-primary-color-light-hover) calc(100% - 1px)
+  );
+  background-size: 100% calc(var(--amend-pas) * 1px);
+  background-position-y: calc((var(--amend-base) - var(--amend-pas) + 1) * 1px);
+}
+.amend-apercu[data-grille] .amend-apercu-vide[data-sorte='blanc'] {
+  background: var(--mantine-primary-color-light);
+}
+.amend-apercu[data-grille] .amend-apercu-vide[data-sorte='ajout'] {
+  background: var(--mantine-color-orange-light);
+}
+
+/* réglage : css.apercu.encadre */
+.amend-apercu-bloc[data-ouvert] {
+  outline: 1px solid var(--mantine-primary-color-filled);
+  outline-offset: 1px;
+}
