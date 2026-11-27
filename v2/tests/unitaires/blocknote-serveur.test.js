@@ -97,12 +97,12 @@ test('tableau : chaque cellule est une unité de texte pour Margo, adressée « 
   assert.equal(blocs[1].content.rows[1].cells[0].type, 'tableCell')
   assert.equal(texteDesBlocs(blocs), 'Avant\nA1\tB1\nA2 gras\tB2\nAprès')
   assert.deepEqual(blocsATexteDe(etat), [
-    { id: 'avant', type: 'paragraph', niveau: null, texte: 'Avant' },
-    { id: 'tab/1.1', type: 'tableCell', niveau: null, texte: 'A1' },
-    { id: 'tab/1.2', type: 'tableCell', niveau: null, texte: 'B1' },
-    { id: 'tab/2.1', type: 'tableCell', niveau: null, texte: 'A2 gras' },
-    { id: 'tab/2.2', type: 'tableCell', niveau: null, texte: 'B2' },
-    { id: 'apres', type: 'paragraph', niveau: null, texte: 'Après' },
+    { id: 'avant', type: 'paragraph', niveau: null, texte: 'Avant', notes: [] },
+    { id: 'tab/1.1', type: 'tableCell', niveau: null, texte: 'A1', notes: [] },
+    { id: 'tab/1.2', type: 'tableCell', niveau: null, texte: 'B1', notes: [] },
+    { id: 'tab/2.1', type: 'tableCell', niveau: null, texte: 'A2 gras', notes: [] },
+    { id: 'tab/2.2', type: 'tableCell', niveau: null, texte: 'B2', notes: [] },
+    { id: 'apres', type: 'paragraph', niveau: null, texte: 'Après', notes: [] },
   ])
 })
 
@@ -246,4 +246,73 @@ test('ancre d’un commentaire : refusée avec un code (vide, périmée, bloc ab
   ]
   for (const [ancre, code] of cas) assert.equal(ancreCommentaire(etat, ancre).code, code, JSON.stringify(ancre))
   assert.throws(() => ancreCommentaire(new Uint8Array([1, 2, 3]), cas[1][0]), { code: 'document-illisible' })
+})
+
+test('notes de bas de page (27/11/2026) : lues avec leur place ; ajoutées, remplacées, supprimées en suggestions arbitrables', async () => {
+  const { suggererNotes } = await import('../../adaptateurs/blocknote/serveur.js')
+  const { ATOME } = await import('../../domaine/index.js')
+  const t = (text) => ({ type: 'text', text, styles: {} })
+  const note = (texte) => ({ type: 'note', props: { texte } })
+  const etat = ecrireBlocs([
+    { id: 'p1', type: 'paragraph', content: [t('Un fait'), note('Source A.'), t(' établi.')] },
+    { id: 'p2', type: 'paragraph', content: [t('Un autre fait.')] },
+  ])
+  // Lecture : l'appel tient la place d'un signe ; la note est rendue avec cette place.
+  assert.deepEqual(blocsATexteDe(etat), [
+    {
+      id: 'p1',
+      type: 'paragraph',
+      niveau: null,
+      texte: `Un fait${ATOME} établi.`,
+      notes: [{ i: 7, texte: 'Source A.' }],
+    },
+    { id: 'p2', type: 'paragraph', niveau: null, texte: 'Un autre fait.', notes: [] },
+  ])
+  // Trois gestes en un appel : remplacer la note de p1, en ajouter une à p2, et un bloc absent.
+  const { resultats, mise } = suggererNotes(etat, null, [
+    { op: 'remplacer', blocId: 'p1', decalage: 7, texte: 'Source B.' },
+    { op: 'ajouter', blocId: 'p2', decalage: 13, texte: 'Voir plus loin.' },
+    { op: 'ajouter', blocId: 'absent', decalage: 0, texte: 'x' },
+    { op: 'supprimer', blocId: 'p2', decalage: 3 },
+  ])
+  assert.deepEqual(resultats, ['posee', 'posee', 'bloc', 'structure'])
+  // Le texte principal ne change pas ; avec les suggestions, il se lit comme si elles étaient acceptées.
+  assert.deepEqual(blocsATexteDe(etat)[0].notes, [{ i: 7, texte: 'Source A.' }])
+  const lu = blocsATexteDe(etat, mise)
+  assert.deepEqual(lu[0].notes, [{ i: 7, texte: 'Source B.' }])
+  assert.equal(lu[0].texte, `Un fait${ATOME} établi.`)
+  assert.equal(lu[1].texte, `Un autre fait${ATOME}.`)
+  assert.deepEqual(lu[1].notes, [{ i: 13, texte: 'Voir plus loin.' }])
+  // Un remplacement est une suppression et un ajout (arbitrables un par un), pas une proposition d'attribut.
+  const texte = new Y.Doc()
+  const cote = new Y.Doc({ isSuggestionDoc: true })
+  Y.applyUpdate(texte, etat)
+  Y.applyUpdate(cote, etat)
+  const afficheur = Y.createDiffRenderer(texte, cote)
+  afficheur.suggestionMode = true
+  Y.applyUpdate(cote, mise, 'distant')
+  const rendu = JSON.stringify(cote.get('doc').toDeltaDeep({ renderer: afficheur }).toJSON())
+  assert.match(rendu, /"attribution":\{[^}]*"delete"/, 'l’ancienne note est une suppression suggérée')
+  assert.match(rendu, /"attribution":\{[^}]*"insert"/, 'la nouvelle est un ajout suggéré')
+  assert.doesNotMatch(rendu, /"attribution":\{[^}]*"attrs"/, 'pas de proposition d’attribut')
+  // Un appel posé juste avant un appel existant, puis juste après : les deux notes se suivent.
+  const voisines = suggererNotes(etat, null, [
+    { op: 'ajouter', blocId: 'p1', decalage: 7, texte: 'Avant.' },
+    { op: 'ajouter', blocId: 'p1', decalage: 8, texte: 'Après.' },
+  ])
+  assert.deepEqual(voisines.resultats, ['posee', 'posee'])
+  assert.deepEqual(
+    blocsATexteDe(etat, voisines.mise)[0].notes.map((n) => n.texte),
+    ['Avant.', 'Source A.', 'Après.'],
+  )
+  // Supprimer : la note disparaît de la lecture avec les suggestions.
+  const suppression = suggererNotes(etat, null, [{ op: 'supprimer', blocId: 'p1', decalage: 7 }])
+  assert.deepEqual(suppression.resultats, ['posee'])
+  assert.deepEqual(blocsATexteDe(etat, suppression.mise)[0], {
+    id: 'p1',
+    type: 'paragraph',
+    niveau: null,
+    texte: 'Un fait établi.',
+    notes: [],
+  })
 })

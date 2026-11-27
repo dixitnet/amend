@@ -9,7 +9,7 @@ Docs n'a pas de serveur MCP (un ticket ouvert chez eux, suivi à la veille). Éc
 ## Briques reprises
 
 - **De la v1** (`server/mcp.js`, `server/connecteur.js`) : le protocole MCP réduit (un POST JSON-RPC par message, réponse JSON, pas de flux ; `initialize`, `ping`, `tools/list`, `tools/call`, notifications sans réponse), l'adresse secrète en guise d'autorisation (comme un lien de partage), un 404 net aux sondes OAuth (`/.well-known/oauth-…`), un 405 au GET.
-- **De la v2** : les outils de Margo (quatre à l'origine : `lire`, `chercher`, `proposer`, `commenter` ; depuis le 25/11/2026, six, les mêmes pour Margo et pour le connecteur : `plan`, `lire`, `chercher`, `compter`, `proposer`, `commenter`, `application/serveur/margo.js`), qui lisent y/hub et n'écrivent que des suggestions et des fils de commentaires.
+- **De la v2** : les outils de Margo (quatre à l'origine : `lire`, `chercher`, `proposer`, `commenter` ; depuis le 25/11/2026 les mêmes pour Margo et pour le connecteur, huit depuis le 27/11 : `plan`, `lire`, `chercher`, `compter`, `proposer`, `ajouter_note`, `supprimer`, `commenter`, `application/serveur/margo.js`), qui lisent y/hub et n'écrivent que des suggestions et des fils de commentaires.
 
 ## Ce qui change par rapport à la v1
 
@@ -25,5 +25,6 @@ Docs n'a pas de serveur MCP (un ticket ouvert chez eux, suivi à la veille). Éc
 
 ## Limites
 
-- Pas d'ajout de paragraphes, de notes ni de suppression d'images (outils de la v1 non repris) : propositions de texte et commentaires seulement.
+- Depuis le 27/11/2026 : les notes de bas de page (lues avec leur repère « ⟦k⟧ », ajoutées par `ajouter_note`, corrigées par le paramètre « note » de `proposer`, supprimées par `supprimer`), en suggestions. Toujours pas d'ajout de paragraphes, de réponse aux commentaires ni de suppression d'images (outils de la v1 non repris).
+- À étudier plus tard : lister et retirer ses propres propositions (`modifications`, `retirer` de la v1) ; voir le journal du 27/11/2026.
 - Pas de limite de débit propre au connecteur (les écritures passent par les mêmes contrôles que Margo).

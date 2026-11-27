@@ -72,6 +72,12 @@ export {
   situerCitation,
   situerRemplacement,
   suiviDesRefus,
+  ATOME,
+  appelDeNote,
+  sansAtomes,
+  sansAppels,
+  porteUnAppel,
+  avecAppels,
 } from './margo.js'
 export {
   DUREE_CORBEILLE_MS,

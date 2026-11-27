@@ -518,3 +518,70 @@ test('« Tout accepter » dans un paragraphe qui porte du gras : rien ne reste, 
   assert.deepEqual(restes, { cartes: 0, marques: [], texte: APRES })
   await p.context().close()
 })
+
+test('notes de bas de page proposées (27/11/2026) : une carte chacune, acceptées ou refusées une à une ; une note corrigée est un remplacement', async (t) => {
+  if (REEL) return t.skip('essai réel demandé')
+  const { clientCollaboration } = await import('../../adaptateurs/yhub/client.js')
+  const { blocsATexteDe, suggererNotes } = await import('../../adaptateurs/blocknote/serveur.js')
+  const interne = clientCollaboration({ url: `${pile.collab}/collaboration`, jeton: JETON })
+  const doc = docTest('notes-proposees')
+  const p = await ouvrir('Paule', doc)
+  await p.click('.bn-editor')
+  // Une note de l'éditrice, puis deux paragraphes sans note.
+  await p.keyboard.type('Un fait établi')
+  await p.keyboard.type('/note')
+  await p.waitForSelector('.bn-suggestion-menu-item')
+  await p.keyboard.press('Enter')
+  await p.getByRole('dialog').getByRole('textbox', { name: 'Texte de la note' }).fill('Sourse A.')
+  await p.getByRole('dialog').getByRole('button', { name: 'Enregistrer' }).click()
+  await attendre(500)
+  await p.keyboard.type('.')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('Un autre fait.')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('Un troisième.')
+  let texte = null
+  let blocs = []
+  for (
+    const t0 = Date.now();
+    Date.now() - t0 < 15000 && !(blocs.length === 3 && blocs[0].notes.length);
+    await attendre(300)
+  ) {
+    texte = await interne.lireTexte(doc).catch(() => null)
+    blocs = texte ? blocsATexteDe(texte) : []
+  }
+  assert.equal(blocs[0]?.notes[0]?.texte, 'Sourse A.', 'la note est arrivée au serveur')
+  // Posées comme le font les outils de Margo et de Claude : une note corrigée, deux ajoutées.
+  const { resultats, mise } = suggererNotes(texte, await interne.lireSuggestions(doc), [
+    { op: 'remplacer', blocId: blocs[0].id, decalage: blocs[0].notes[0].i, texte: 'Source A.' },
+    { op: 'ajouter', blocId: blocs[1].id, decalage: blocs[1].texte.length - 1, texte: 'Note gardée.' },
+    { op: 'ajouter', blocId: blocs[2].id, decalage: blocs[2].texte.length - 1, texte: 'Note refusée.' },
+  ])
+  assert.deepEqual(resultats, ['posee', 'posee', 'posee'])
+  await interne.ecrireSuggestions(doc, mise)
+  const cartes = p.locator('.amend-suggestions-liste > li')
+  for (const t0 = Date.now(); Date.now() - t0 < 15000 && (await cartes.count()) < 3;) await attendre(300)
+  assert.equal(await cartes.count(), 3, await panneau(p))
+  assert.match(await panneau(p), /remplace «\s?Sourse A\.\s?» par «\s?Source A\.\s?»/)
+  assert.match(await panneau(p), /ajoute une note\s?: «\s?Note gardée\.\s?»/)
+  // Une à une : la dernière refusée, la première acceptée, la deuxième reste à arbitrer.
+  await cartes
+    .nth(2)
+    .getByRole('button', { name: /^Refuser/ })
+    .click()
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await cartes.count()) > 2;) await attendre(300)
+  await cartes
+    .first()
+    .getByRole('button', { name: /^Accepter/ })
+    .click()
+  for (const t0 = Date.now(); Date.now() - t0 < 10000 && (await cartes.count()) > 1;) await attendre(300)
+  assert.equal(await cartes.count(), 1)
+  assert.match(await panneau(p), /Note gardée/)
+  await attendre(1500)
+  // Le texte principal : la note corrigée ; ni la note refusée, ni celle qui attend.
+  assert.deepEqual(
+    blocsATexteDe(await interne.lireTexte(doc)).map((b) => b.notes.map((n) => n.texte)),
+    [['Source A.'], [], []],
+  )
+  await p.context().close()
+})

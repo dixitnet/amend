@@ -639,6 +639,8 @@
       "commenter": "Margo commente…",
       "plan": "Margo regarde le plan…",
       "compter": "Margo compte les signes…",
+      "ajouterNote": "Margo propose des notes…",
+      "supprimer": "Margo propose de supprimer des notes…",
       "repli": "Le modèle a refusé cette demande. Margo la reprend avec un autre modèle…"
     },
     "bilan": "{corrections, plural, =0 {Aucune correction} one {# correction} other {# corrections}}, {commentaires, plural, =0 {aucun commentaire} one {# commentaire} other {# commentaires}}.",

@@ -639,6 +639,8 @@
       "commenter": "Margo is commenting…",
       "plan": "Margo is looking at the outline…",
       "compter": "Margo is counting characters…",
+      "ajouterNote": "Margo is proposing footnotes…",
+      "supprimer": "Margo is proposing to remove footnotes…",
       "repli": "The model declined this request. Margo is resuming it with another model…"
     },
     "bilan": "{corrections, plural, =0 {No corrections} one {# correction} other {# corrections}}, {commentaires, plural, =0 {no comments} one {# comment} other {# comments}}.",

@@ -22,6 +22,10 @@ import {
   capacites,
   signes,
   compter as compterTextes,
+  avecAppels,
+  sansAtomes,
+  sansAppels,
+  porteUnAppel,
   texteNumerote,
   porteeMargo,
   normaliser,
@@ -69,6 +73,7 @@ export const SCHEMAS = {
       de: { type: 'integer', minimum: 1 },
       a: { type: 'integer', minimum: 1 },
       textes: { type: 'array', items: { type: 'string' }, minItems: 1 },
+      notes: { type: 'boolean' },
     },
   },
   proposer: {
@@ -79,12 +84,37 @@ export const SCHEMAS = {
         minItems: 1,
         items: {
           type: 'object',
-          properties: { bloc: { type: 'integer' }, avant: { type: 'string' }, apres: { type: 'string' } },
-          required: ['bloc', 'avant', 'apres'],
+          properties: {
+            bloc: { type: 'integer' },
+            note: { type: 'integer' },
+            avant: { type: 'string' },
+            apres: { type: 'string' },
+          },
+          required: ['avant', 'apres'],
         },
       },
     },
     required: ['corrections'],
+  },
+  ajouter_note: {
+    type: 'object',
+    properties: {
+      notes: {
+        type: 'array',
+        minItems: 1,
+        items: {
+          type: 'object',
+          properties: { bloc: { type: 'integer' }, passage: { type: 'string' }, texte: { type: 'string' } },
+          required: ['bloc', 'passage', 'texte'],
+        },
+      },
+    },
+    required: ['notes'],
+  },
+  supprimer: {
+    type: 'object',
+    properties: { notes: { type: 'array', minItems: 1, items: { type: 'integer', minimum: 1 } } },
+    required: ['notes'],
   },
   commenter: {
     type: 'object',
@@ -99,8 +129,22 @@ const OUTILS = Object.keys(SCHEMAS).map((nom) => ({
 }))
 
 /** Les blocs numérotés (1, 2, …) dans l'ordre du document. */
-const numeroter = (blocs) => blocs.map((b, i) => ({ ...b, n: i + 1 }))
-const pourMargo = (b) => ({ n: b.n, texte: b.texte, titre: b.type === 'heading' ? b.niveau : null })
+// Les notes de bas de page aussi, dans l'ordre du texte, comme à l'écran (27/11/2026).
+const numeroter = (blocs) => {
+  let k = 0
+  return blocs.map((b, i) => ({ ...b, n: i + 1, notes: (b.notes ?? []).map((note) => ({ ...note, k: ++k })) }))
+}
+/** Un bloc tel qu'il est montré : ses appels de note en repères « ⟦k⟧ », ses notes dessous. */
+const pourMargo = (b) => ({
+  n: b.n,
+  texte: avecAppels(b.texte, b.notes),
+  titre: b.type === 'heading' ? b.niveau : null,
+  notes: b.notes,
+})
+/** Ce qui se compte d'un bloc : son texte, sans le signe qui tient la place d'un appel de note. */
+const texteNu = (b) => sansAtomes(b.texte)
+/** Les signes envoyés au modèle pour un bloc : son texte et ses notes. */
+const signesMontres = (b) => signes(texteNu(b)) + (b.notes ?? []).reduce((n, note) => n + signes(note.texte), 0)
 
 /**
  * @param {object} o
@@ -192,9 +236,7 @@ export function creerMargo({
       })
       // La taille du passage sélectionné : dite à Margo, et comptée parmi les signes lus (il est envoyé d'emblée).
       const signesSelection =
-        portee.type === 'selection'
-          ? compterTextes(etat.blocs.slice(portee.de - 1, portee.a).map((b) => b.texte)).signes
-          : 0
+        portee.type === 'selection' ? compterTextes(etat.blocs.slice(portee.de - 1, portee.a).map(texteNu)).signes : 0
       const systeme = consigne('margo', {
         prenom: p.nom,
         titre,
@@ -203,7 +245,7 @@ export function creerMargo({
         a: portee.a ?? 0,
         // Les tailles, données d'emblée (25/11/2026) : Margo ne sait pas compter seule.
         blocs: etat.blocs.length,
-        signes: compterTextes(etat.blocs.map((b) => b.texte)).signes,
+        signes: compterTextes(etat.blocs.map(texteNu)).signes,
         signesSelection,
       })
       const bilan = { corrections: 0, commentaires: 0, refus: 0 }
@@ -360,15 +402,17 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
     const choisis = []
     let total = 0
     for (const b of blocs.slice(Math.max(0, de - 1), Math.max(0, a))) {
-      if (choisis.length && total + signes(b.texte) > LECTURE_MAX_SIGNES) break
+      if (choisis.length && total + signesMontres(b) > LECTURE_MAX_SIGNES) break
       choisis.push(b)
-      total += signes(b.texte)
+      total += signesMontres(b)
     }
     if (!choisis.length) return { contenu: consigne('outils.aucun') }
     compte.signesLus += total
     const dernier = choisis[choisis.length - 1].n
     // En tête, la taille de ce qui est rendu : Margo ne sait pas compter seule (25/11/2026).
-    let contenu = `${consigne('outils.lu', { de: choisis[0].n, a: dernier, signes: total })}\n${texteNumerote(choisis.map(pourMargo))}`
+    // La taille annoncée est celle du texte, sans les notes (comme le compteur du bandeau).
+    const signesDuTexte = compterTextes(choisis.map(texteNu)).signes
+    let contenu = `${consigne('outils.lu', { de: choisis[0].n, a: dernier, signes: signesDuTexte })}\n${texteNumerote(choisis.map(pourMargo))}`
     if (dernier < Math.min(a, blocs.length))
       contenu += `\n${consigne('outils.suite', { dernier, suivant: dernier + 1 })}`
     return { contenu }
@@ -377,33 +421,47 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
   /** Le plan : la taille du document, et ses titres avec leur numéro de bloc. */
   async function plan() {
     const { blocs } = await lireEtat(collaboration, docId, auteur)
-    const { signes: total, mots } = compterTextes(blocs.map((b) => b.texte))
+    const { signes: total, mots } = compterTextes(blocs.map(texteNu))
     return {
       contenu: [
         consigne('outils.planEntete', { blocs: blocs.length, signes: total, mots }),
         ...blocs
           .filter((b) => b.type === 'heading')
-          .map((b) => `${'  '.repeat(Math.max(0, (b.niveau ?? 1) - 1))}[${b.n}] ${b.texte}`),
+          .map((b) => `${'  '.repeat(Math.max(0, (b.niveau ?? 1) - 1))}[${b.n}] ${texteNu(b)}`),
       ].join('\n'),
     }
   }
 
   /** Le compte exact, en signes (espaces compris) et en mots : d'une plage de blocs, sans la lire, ou de
    * textes donnés (une reformulation à vérifier avant de la proposer). */
-  async function compter({ de, a, textes }) {
+  async function compter({ de, a, textes, notes }) {
     const plage = de !== undefined || a !== undefined
     const donnes = textes !== undefined
     if (!plage && !donnes) return parametres('compter')
     if (plage && (!entier(de) || !entier(a) || de < 1 || a < de)) return parametres('compter')
     if (donnes && (!Array.isArray(textes) || !textes.length || !textes.every((t) => typeof t === 'string')))
       return parametres('compter')
+    if (notes !== undefined && typeof notes !== 'boolean') return parametres('compter')
     const lignes = []
     if (plage) {
       const { blocs } = await lireEtat(collaboration, docId, auteur)
       const choisis = blocs.slice(de - 1, a)
       if (!choisis.length) return { contenu: consigne('outils.aucun') }
-      const c = compterTextes(choisis.map((b) => b.texte))
+      // Le texte seul, comme le compteur du bandeau ; avec `notes`, le texte des notes en plus.
+      const c = compterTextes(choisis.map(texteNu))
       lignes.push(consigne('outils.compte', { de: choisis[0].n, a: choisis.at(-1).n, signes: c.signes, mots: c.mots }))
+      if (notes) {
+        const desNotes = choisis.flatMap((b) => b.notes.map((note) => note.texte))
+        const n = compterTextes(desNotes)
+        lignes.push(
+          consigne('outils.compteNotes', {
+            notes: desNotes.length,
+            signes: n.signes,
+            mots: n.mots,
+            total: c.signes + n.signes,
+          }),
+        )
+      }
     }
     if (donnes) {
       textes.slice(0, COMPTAGE_MAX).forEach((t, i) => {
@@ -423,27 +481,85 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
     for (const t of textes.slice(0, 20)) {
       const motif = normaliser(t).toLocaleLowerCase('fr')
       const trouves = motif
-        ? blocs.filter((b) => normaliser(b.texte).toLocaleLowerCase('fr').includes(motif)).slice(0, RECHERCHE_MAX)
+        ? blocs
+            .filter((b) =>
+              // Dans le texte du bloc, ou dans celui d'une de ses notes (27/11/2026).
+              [texteNu(b), ...b.notes.map((note) => note.texte)].some((t2) =>
+                normaliser(t2).toLocaleLowerCase('fr').includes(motif),
+              ),
+            )
+            .slice(0, RECHERCHE_MAX)
         : []
-      for (const b of trouves) compte.signesLus += signes(b.texte)
+      for (const b of trouves) compte.signesLus += signesMontres(b)
       parties.push(`« ${t} » :\n${trouves.length ? texteNumerote(trouves.map(pourMargo)) : consigne('outils.aucun')}`)
     }
     return { contenu: parties.join('\n\n') }
   }
 
+  /** Les notes de bas de page du document, par numéro : leur bloc et leur place dans son texte. */
+  const notesDe = (blocs) => new Map(blocs.flatMap((b) => b.notes.map((note) => [note.k, { ...note, bloc: b }])))
+
+  /** Le compte rendu d'une écriture : une ligne par demande (« posée », ou le motif du refus), et le bilan. */
+  function rendre(motifs, poses) {
+    const lignes = motifs.map((m, i) => `${i + 1}. ${consigne(`refus.${typeof m === 'number' ? poses[m] : m}`)}`)
+    const nombre = motifs.filter((m) => typeof m === 'number' && poses[m] === 'posee').length
+    bilan.corrections += nombre
+    bilan.refus += motifs.length - nombre
+    return { contenu: lignes.join('\n'), ecriture: true, acceptee: nombre > 0 }
+  }
+
   async function proposer({ corrections }) {
     if (!Array.isArray(corrections) || !corrections.length) return parametres('proposer')
     const etat = await lireEtat(collaboration, docId, auteur)
+    const notes = notesDe(etat.blocs)
     const motifs = []
+    // Les corrections du texte, puis celles du texte d'une note : deux écritures, un seul compte rendu.
     const aPoser = []
+    const notesAPoser = []
     const plages = new Map()
+    const notesVues = new Set()
     for (const c of corrections) {
-      const bloc = entier(c?.bloc) ? etat.blocs[c.bloc - 1] : null
-      if (!bloc || typeof c.avant !== 'string' || typeof c.apres !== 'string') {
-        motifs.push(bloc ? 'vide' : 'bloc')
+      if (typeof c?.avant !== 'string' || typeof c?.apres !== 'string') {
+        motifs.push('vide')
         continue
       }
-      const r = situerRemplacement(bloc.texte, c.avant, c.apres)
+      // Un appel de note recopié dans le nouveau texte s'écrirait tel quel dans le livre.
+      if (porteUnAppel(c.apres)) {
+        motifs.push('appel')
+        continue
+      }
+      if (c.note !== undefined) {
+        // Le texte d'une note : la note entière est remplacée (27/11/2026).
+        const note = entier(c.note) ? notes.get(c.note) : null
+        if (!note) {
+          motifs.push('note')
+          continue
+        }
+        const r = situerRemplacement(note.texte, c.avant, c.apres)
+        if (!r.ok) {
+          motifs.push(r.motif)
+          continue
+        }
+        if (notesVues.has(note.k)) {
+          motifs.push('chevauche')
+          continue
+        }
+        notesVues.add(note.k)
+        motifs.push({ note: notesAPoser.length })
+        notesAPoser.push({
+          op: 'remplacer',
+          blocId: note.bloc.id,
+          decalage: note.i,
+          texte: note.texte.slice(0, r.debut) + r.apres + note.texte.slice(r.fin),
+        })
+        continue
+      }
+      const bloc = entier(c.bloc) ? etat.blocs[c.bloc - 1] : null
+      if (!bloc) {
+        motifs.push('bloc')
+        continue
+      }
+      const r = situerRemplacement(bloc.texte, sansAppels(c.avant), c.apres)
       if (!r.ok) {
         motifs.push(r.motif)
         continue
@@ -458,21 +574,104 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
       motifs.push(aPoser.length)
       aPoser.push({ blocId: bloc.id, debut: r.debut, fin: r.fin, apres: r.apres })
     }
+    const { suggererRemplacements, suggererNotes } = await blocknote()
+    // Les notes d'abord : remplacer une note laisse son appel à la même place, le texte des blocs ne bouge
+    // pas, et les corrections du texte, situées avant, restent justes dans l'état relu.
+    let notesPosees = []
+    let suggestions = etat.suggestions
+    if (notesAPoser.length) {
+      const { resultats, mise } = suggererNotes(etat.texte, suggestions, notesAPoser)
+      if (mise) await collaboration.ecrireSuggestions(docId, mise, auteur)
+      notesPosees = resultats
+      if (aPoser.length) suggestions = (await lireEtat(collaboration, docId, auteur)).suggestions
+    }
     let poses = []
     if (aPoser.length) {
-      const { suggererRemplacements } = await blocknote()
-      const { resultats, mise } = suggererRemplacements(etat.texte, etat.suggestions, aPoser)
+      const { resultats, mise } = suggererRemplacements(etat.texte, suggestions, aPoser)
       if (mise) await collaboration.ecrireSuggestions(docId, mise, auteur)
       poses = resultats
     }
-    const lignes = motifs.map((m, i) => {
-      const code = typeof m === 'number' ? poses[m] : m
-      return `${i + 1}. ${consigne(`refus.${code}`)}`
-    })
-    const nombre = motifs.filter((m) => typeof m === 'number' && poses[m] === 'posee').length
-    bilan.corrections += nombre
-    bilan.refus += corrections.length - nombre
-    return { contenu: lignes.join('\n'), ecriture: true, acceptee: nombre > 0 }
+    // Un seul tableau de résultats, dans l'ordre des demandes.
+    const tous = [...poses, ...notesPosees]
+    return rendre(
+      motifs.map((m) => (typeof m === 'object' ? poses.length + m.note : m)),
+      tous,
+    )
+  }
+
+  async function ajouter_note({ notes: demandees }) {
+    if (!Array.isArray(demandees) || !demandees.length) return parametres('ajouter_note')
+    const etat = await lireEtat(collaboration, docId, auteur)
+    const motifs = []
+    const aPoser = []
+    for (const d of demandees) {
+      const bloc = entier(d?.bloc) ? etat.blocs[d.bloc - 1] : null
+      if (!bloc) {
+        motifs.push('bloc')
+        continue
+      }
+      const texte = typeof d.texte === 'string' ? typographier(d.texte.trim().normalize('NFC')) : ''
+      if (!texte || typeof d.passage !== 'string') {
+        motifs.push('vide')
+        continue
+      }
+      if (porteUnAppel(texte)) {
+        motifs.push('appel')
+        continue
+      }
+      const ou = situerCitation(bloc.texte, sansAppels(d.passage))
+      if (!ou.ok) {
+        motifs.push(ou.motif)
+        continue
+      }
+      // Deux notes au même endroit dans le même appel : la seconde est refusée.
+      if (aPoser.some((x) => x.blocId === bloc.id && x.decalage === ou.fin)) {
+        motifs.push('chevauche')
+        continue
+      }
+      motifs.push(aPoser.length)
+      aPoser.push({ op: 'ajouter', blocId: bloc.id, decalage: ou.fin, texte })
+    }
+    let poses = []
+    if (aPoser.length) {
+      const { suggererNotes } = await blocknote()
+      const { resultats, mise } = suggererNotes(etat.texte, etat.suggestions, aPoser)
+      if (mise) await collaboration.ecrireSuggestions(docId, mise, auteur)
+      poses = resultats
+    }
+    return rendre(motifs, poses)
+  }
+
+  /** Propose de supprimer des notes de bas de page, par leur numéro. */
+  async function supprimer({ notes: numeros }) {
+    if (!Array.isArray(numeros) || !numeros.length) return parametres('supprimer')
+    const etat = await lireEtat(collaboration, docId, auteur)
+    const notes = notesDe(etat.blocs)
+    const motifs = []
+    const aPoser = []
+    const vues = new Set()
+    for (const k of numeros) {
+      const note = entier(k) ? notes.get(k) : null
+      if (!note) {
+        motifs.push('note')
+        continue
+      }
+      if (vues.has(k)) {
+        motifs.push('chevauche')
+        continue
+      }
+      vues.add(k)
+      motifs.push(aPoser.length)
+      aPoser.push({ op: 'supprimer', blocId: note.bloc.id, decalage: note.i })
+    }
+    let poses = []
+    if (aPoser.length) {
+      const { suggererNotes } = await blocknote()
+      const { resultats, mise } = suggererNotes(etat.texte, etat.suggestions, aPoser)
+      if (mise) await collaboration.ecrireSuggestions(docId, mise, auteur)
+      poses = resultats
+    }
+    return rendre(motifs, poses)
   }
 
   async function commenter({ bloc, citation, texte }) {
@@ -486,7 +685,7 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
     const { blocsATexteDe, ancreCommentaire } = await blocknote()
     const principal = blocsATexteDe(etat.texte).find((b) => b.id === vise.id)
     if (!principal) return refuser('ancre')
-    const ou = situerCitation(principal.texte, citation)
+    const ou = situerCitation(principal.texte, sansAppels(citation))
     if (!ou.ok) return refuser(ou.motif)
     const fil = await depot.creerFil(
       docId,
@@ -516,7 +715,7 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
     return { contenu: consigne('refus.posee'), ecriture: true, acceptee: true }
   }
 
-  const ACTIONS = { plan, lire, chercher, compter, proposer, commenter }
+  const ACTIONS = { plan, lire, chercher, compter, proposer, ajouter_note, supprimer, commenter }
   return {
     async executer(nom, entree) {
       const action = ACTIONS[nom]
