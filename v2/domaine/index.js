@@ -113,7 +113,7 @@ export {
   dimensionsReduites,
   garderOriginal,
 } from './images.js'
-export { ancienModele, versModeleParStyle } from './migrationModeles.js'
+export { ancienModele, versModeleParStyle, versModeleEnLignes, valeursEnLignes } from './migrationModeles.js'
 export {
   POLICE_MAX_OCTETS,
   STYLES_POLICE,

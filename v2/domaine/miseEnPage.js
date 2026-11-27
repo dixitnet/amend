@@ -478,6 +478,8 @@ function valeurPermise(r, v, polices) {
   if (r.type !== 'nombre' && r.type !== 'entier') return false
   if (typeof v !== 'number' || !Number.isFinite(v)) return false
   if (r.type === 'entier' && !Number.isInteger(v)) return false
+  // Un réglage compté par pas entiers (les blancs, par demi-ligne : `multiple: 0.5`).
+  if (r.multiple !== undefined && !Number.isInteger(Math.round((v / r.multiple) * 1e6) / 1e6)) return false
   return !(r.min !== undefined && v < r.min) && !(r.max !== undefined && v > r.max)
 }
 
@@ -521,6 +523,8 @@ export function verifierModele(modele, regles) {
  * ce qui lui manque (un réglage ajouté depuis qu'il a été enregistré). */
 export function completerModele(valeurs, defaut) {
   const complet = fusionner(valeurs, defaut)
+  // Un modèle compté en lignes (27/11/2026) n'a rien à reprendre de l'ancienne façon.
+  if (estEnLignes(complet)) return complet
   // Un modèle enregistré en lignes par page (avant le 15/11/2026) : la marge
   // basse qui laisse ce nombre de lignes remplace celle du modèle de référence.
   if (Number.isFinite(valeurs?.grille?.lignes)) {
