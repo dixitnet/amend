@@ -5,6 +5,7 @@ import {
   lignesOccupees,
   demiLigneAjoutee,
   blancsDuBloc,
+  retraitsDuStyle,
   grilleEnLignes,
   gabaritEnLignes,
   gabaritTypst,
@@ -67,6 +68,13 @@ test('les blancs d’un bloc : l’entier dehors, la demi-ligne dedans', () => {
     const r = blancsDuBloc(a, b)
     assert.ok(Number.isInteger(r.dehors + r.dedans + r.apres), `${a} et ${b} : un nombre entier de lignes`)
   }
+})
+
+test('les retraits d’un style en briques viennent de l’alinéa du texte', () => {
+  assert.deepEqual(retraitsDuStyle('citation', 5), { retrait: 5, suspendu: 0 })
+  assert.deepEqual(retraitsDuStyle('bibliographie', 5), { retrait: 0, suspendu: 5 })
+  assert.deepEqual(retraitsDuStyle('legende', 5), { retrait: 0, suspendu: 0 })
+  assert.deepEqual(retraitsDuStyle('citation', undefined), { retrait: 0, suspendu: 0 })
 })
 
 test('la grille d’un modèle en lignes : la marge de pied vient du nombre de lignes', () => {

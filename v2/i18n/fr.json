@@ -606,6 +606,7 @@
         "corps": "{corps, number} pt",
         "blancs": "{avant} avant, {apres} après",
         "suite": ", ",
+        "puis": " · ",
         "sansBlanc": "sans blanc",
         "marges": "tête {haut, number}, intérieure {interieure, number}, extérieure {exterieure, number} mm",
         "hauteur": "{lignes, plural, one {# ligne} other {# lignes}} par page · pied de {pied, number} mm",

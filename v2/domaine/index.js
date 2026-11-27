@@ -64,6 +64,7 @@ export {
   lignesOccupees,
   demiLigneAjoutee,
   blancsDuBloc,
+  retraitsDuStyle,
   grilleEnLignes,
   gabaritEnLignes,
   STYLES_MESURES,

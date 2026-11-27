@@ -279,13 +279,14 @@ export function creerModeles(ctx) {
    */
   async function convertirEnLignes() {
     const tous = [...(await comptes.modelesInstance()), ...(await comptes.modelesDeToutesLesEquipes())]
+    // Le catalogue élargi : les polices du code et celles de l'instance (audit partiel du 27/11/2026).
+    const { regles } = await sources()
     let convertis = 0
     for (const m of tous) {
       if (!m.valeurs || estEnLignes(m.valeurs)) continue
       const valeurs = completerModele(valeursEnLignes(m.valeurs, HAUTEUR_TITRE_DU_LIVRE), CODE.get(ID_CODE))
-      const v = verifierModele(valeurs, REGLES_MODELES)
-      // Une police de l'instance n'est pas dans le catalogue du code : elle ne bloque pas la conversion.
-      if (!v.ok && !(v.code === 'reglage-hors-bornes' && v.reglage === 'styles.texte.police')) {
+      const v = verifierModele(valeurs, regles)
+      if (!v.ok) {
         console.error(
           `[modèles] conversion en lignes de « ${m.nom} » impossible :`,
           v.code,

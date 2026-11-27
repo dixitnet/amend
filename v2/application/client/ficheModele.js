@@ -8,6 +8,7 @@ import {
   lignesOccupees,
   demiLigneAjoutee,
   blancsDuBloc,
+  retraitsDuStyle,
   STYLES_MESURES,
 } from '../../domaine/index.js'
 import { messageErreur } from '../../i18n/index.js'
@@ -158,7 +159,7 @@ export function lectureDeLaFiche(complet, regles, optionsDe) {
         ? t('modeles.fiche.resume.blancs', { avant: demi(avant), apres: demi(apres) })
         : t('modeles.fiche.resume.sansBlanc')
     const debut = DEBUT[nom] && v[DEBUT[nom]] !== 'continuer' ? [minuscule(option(DEBUT[nom], v[DEBUT[nom]]))] : []
-    return [...debut, caractere, blancs].join(' · ')
+    return [...debut, caractere, blancs].join(t('modeles.fiche.resume.puis'))
   }
   const resumes = {
     format: (v) => t('modeles.format', { largeur: v['page.largeur'], hauteur: v['page.hauteur'] }),
@@ -299,8 +300,7 @@ export function planDePage(modele, vue) {
       capitales: Boolean(st.capitales),
       petitesCapitales: Boolean(st.petitesCapitales) && !st.capitales,
       centre: st.alignement === 'centre',
-      retrait: nom === 'citation' ? texte.alinea : 0,
-      suspendu: nom === 'bibliographie' ? texte.alinea : 0,
+      ...retraitsDuStyle(nom, texte.alinea),
       justifie: nom === 'citation' && texte.alignement === 'justifie' && st.alignement !== 'centre',
     })
     blanc(b.apres)

@@ -73,6 +73,16 @@ export function blancsDuBloc(avant, apres, ouvre = false) {
   return { dehors, dedans: tout - dehors, apres: enDemiLignes(apres) }
 }
 
+/**
+ * Les retraits d'un style en briques, en mm : la citation prend l'alinéa du texte en retrait à gauche, la
+ * bibliographie en retrait suspendu (renoncement n° 30). Une seule règle, pour le gabarit et pour l'aperçu.
+ * @returns {{ retrait: number, suspendu: number }}
+ */
+export function retraitsDuStyle(nom, alinea) {
+  const a = Number.isFinite(alinea) && alinea > 0 ? alinea : 0
+  return { retrait: nom === 'citation' ? a : 0, suspendu: nom === 'bibliographie' ? a : 0 }
+}
+
 const impossible = (raison) =>
   Object.assign(new Error(`modèle impossible : ${raison}`), { code: 'modele-impossible', raison })
 
@@ -202,8 +212,9 @@ export function gabaritEnLignes(modele, { titre, langue, auteur, surlignage } = 
   const brique = (nom, corps) => {
     const st = styleDe(modele, nom)
     const b = blancsDuBloc(st.blancAvant, st.blancApres)
-    const suspendu = nom === 'bibliographie' && texte.alinea ? `, hanging-indent: ${mm(texte.alinea)}` : ''
-    const retrait = nom === 'citation' && texte.alinea ? mm(texte.alinea) : null
+    const r = retraitsDuStyle(nom, texte.alinea)
+    const suspendu = r.suspendu ? `, hanging-indent: ${mm(r.suspendu)}` : ''
+    const retrait = r.retrait ? mm(r.retrait) : null
     // Un texte posé seul dans un bloc n'est pas un paragraphe pour Typst : le retrait suspendu en demande un.
     const dedans = `align(${placement(st)}, ${suspendu ? `par(${contenu(st, corps)})` : contenu(st, corps)})`
     return (
