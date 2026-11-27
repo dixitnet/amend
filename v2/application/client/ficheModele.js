@@ -59,6 +59,7 @@ export function rubriquesDeLaFiche(champ) {
     nom: STYLES[nom](),
     rangs: [
       ...(DEBUT[nom] ? [segments(DEBUT[nom])] : []),
+      rang(`styles.${nom}.police`),
       rang(`styles.${nom}.corps`, `styles.${nom}.blancAvant`, `styles.${nom}.blancApres`),
       pastilles(`styles.${nom}.allure`, t('modeles.fiche.allure'), [
         ...Object.entries(ALLURES).map(([p, libelle]) => ({ cle: `styles.${nom}.${p}`, libelle: libelle() })),
@@ -147,6 +148,8 @@ export function lectureDeLaFiche(complet, regles, optionsDe) {
   const resumeDuStyle = (nom, v) => {
     const cle = (p) => v[`styles.${nom}.${p}`]
     const caractere = enSuite([
+      // Sa police, quand ce n'est pas celle du texte.
+      ...(cle('police') && cle('police') !== v['styles.texte.police'] ? [cle('police')] : []),
       t('modeles.fiche.resume.corps', { corps: cle('corps') }),
       ...Object.keys(ALLURES)
         .filter((p) => cle(p))
@@ -292,6 +295,7 @@ export function planDePage(modele, vue) {
       sorte: mesure ? 'titre' : 'brique',
       cle: nom,
       texte: contenu,
+      police: st.police || texte.police,
       corps: st.corps,
       // Un titre a son interligne (`hauteurTitre` fois son corps) ; une brique, le pas de la page.
       interligne: mesure ? g.hauteurTitre * st.corps : g.interligne,
@@ -357,6 +361,8 @@ export function planDePage(modele, vue) {
     corps: g.corps,
     lignes: g.lignes,
     police: texte.police,
+    // Toutes les polices de la page, pour les charger à l'écran.
+    polices: [...new Set([texte.police, ...blocs.map((b) => b.police).filter(Boolean)])],
     justifie: texte.alignement === 'justifie',
     cesure: modele.cesure !== false,
     enTete:

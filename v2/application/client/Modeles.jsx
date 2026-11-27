@@ -126,7 +126,9 @@ const champsDu = (complet, regles, familles = null) => {
     visibleSi: r.visibleSi,
     options:
       r.type === 'police'
-        ? polices
+        ? r.herite
+          ? [{ value: '', label: t('modeles.memePolice') }, ...polices]
+          : polices
         : r.type === 'choix'
           ? r.options.map((v) => ({ value: v, label: optionsDe(r.cle)[v]?.() ?? v }))
           : undefined,

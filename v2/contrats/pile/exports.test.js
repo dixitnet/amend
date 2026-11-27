@@ -130,6 +130,18 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   await page.getByRole('textbox', { name: 'Blanc après (lignes)' }).fill('0,5')
   await ligne(/^Titre 3\s*13 pt, italique · 1 ½ avant, ½ après/).waitFor()
   assert.equal(await page.getByText(/une demi-ligne est ajoutée avant/).count(), 0)
+  // Un style peut avoir sa police (Sylvain, 27/11/2026) : par défaut, celle du texte.
+  const police = page.getByRole('combobox', { name: 'Police' })
+  assert.equal(await police.inputValue(), 'Même police que le texte')
+  await police.click()
+  await page.getByRole('option', { name: 'Inter', exact: true }).click()
+  await ligne(/^Titre 3\s*Inter, 13 pt, italique · 1 ½ avant, ½ après/).waitFor()
+  // L'aperçu compose ce titre dans sa police.
+  await page.waitForFunction(() => {
+    const titre = document.querySelector('.amend-apercu [data-ouvert]')
+    // Entre guillemets ou non, selon le navigateur.
+    return titre && /^"?Inter\b/.test(getComputedStyle(titre).fontFamily)
+  })
   // Dans l'aperçu, chaque paragraphe commence sur une ligne de la grille.
   const ecart = await page.evaluate(() => {
     const zone = document.querySelector('.amend-apercu-zone')
@@ -189,9 +201,15 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   const regle = (await api('GET', `/api/equipes/${equipe.id}`)).modeles.find((m) => m.nom === 'Collection').complet
   assert.equal(regle.ouverture2.debut, 'belle-page', 'le début du titre 2 est enregistré')
   assert.deepEqual(
-    [regle.grille.lignes, regle.styles.titre3.corps, regle.styles.titre3.blancAvant, regle.styles.titre3.blancApres],
-    [48, 13, 1.5, 0.5],
-    'les lignes par page et les blancs du titre 3 sont enregistrés',
+    [
+      regle.grille.lignes,
+      regle.styles.titre3.police,
+      regle.styles.titre3.corps,
+      regle.styles.titre3.blancAvant,
+      regle.styles.titre3.blancApres,
+    ],
+    [48, 'Inter', 13, 1.5, 0.5],
+    'les lignes par page, la police et les blancs du titre 3 sont enregistrés',
   )
   assert.equal(vue.retenu, vue.choisi)
 })

@@ -128,6 +128,7 @@ function PageApercu({ plan, grille, ouvert, police }) {
         data-justifie={b.justifie ? '' : undefined}
         data-suspendu={b.suspendu ? '' : undefined}
         ref={poser({
+          'police-bloc': `"${b.police}"`,
           'corps-bloc': c,
           interligne,
           decalage,
@@ -244,15 +245,16 @@ export function FicheModele({
     if (visee) setVue(visee)
   }
   const plan = apercu && vue ? apercu.plan(valeurs, vue) : null
-  // La police du modèle, chargée pour l'écran : la page se redessine quand elle arrive.
-  const famille = plan?.police
+  // Les polices du modèle, chargées pour l'écran : la page se redessine quand elles arrivent.
+  const familles = (plan?.polices ?? []).join('|')
   useEffect(() => {
     let vivant = true
-    if (famille && apercu) apercu.chargerPolice(famille).then(() => vivant && setPolice((n) => n + 1))
+    if (familles && apercu)
+      Promise.all(familles.split('|').map((f) => apercu.chargerPolice(f))).then(() => vivant && setPolice((n) => n + 1))
     return () => {
       vivant = false
     }
-  }, [famille])
+  }, [familles])
   const visible = (c) =>
     !(c.visibleSi && 'egal' in c.visibleSi && valeurs[c.visibleSi.cle] !== c.visibleSi.egal) &&
     !(c.visibleSi && 'different' in c.visibleSi && valeurs[c.visibleSi.cle] === c.visibleSi.different)

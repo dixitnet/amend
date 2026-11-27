@@ -1,6 +1,6 @@
 # amend.ink v2 : modèles sur une grille stricte, comptés en lignes
 
-Statut : **lots 1 à 4 fusionnés et en ligne le 27/11/2026 (`b5dfdf7`) ; gabarit en points retiré le même jour (§ 13), à fusionner sur accord ; la conversion des modèles enregistrés est gardée.**
+Statut : **grille stricte en ligne le 27/11/2026, gabarit en points retiré (`1585c49`) ; police par style rétablie le même jour (§ 14), à fusionner sur accord ; la conversion des modèles enregistrés est gardée.**
 
 ## 1. Ce qui est décidé (Sylvain, 27/11/2026)
 
@@ -213,3 +213,18 @@ Sylvain : « fusionne dès que c'est vert » ; puis « retire l'ancien gabarit e
 
 - Retirer la conversion, quand le journal du serveur aura confirmé que tous les modèles enregistrés sont convertis.
 - Valider les modèles sur le PDF.
+
+## 14. Écarts abandonnés, police par style rétablie (27/11/2026)
+
+Sylvain : « on abandonne les 3, ajouter le choix de police pour les différents formats ».
+
+**Abandonnés** (les trois écarts avec la maquette, § 12) : la liste de formats courants, les signes par ligne et par page, le bouton « Essayer » sur la fiche.
+
+**La police d'un style.** « Formats » est compris comme les styles : chacun des dix styles (titre du document, sous-titre, titres 1 à 5, citation, bibliographie, légende) a sa police, ou garde celle du texte (« Même police que le texte », le défaut). Les en-têtes restent dans la police du texte.
+
+- Domaine : le gabarit écrit la police d'un style quand elle n'est pas celle du texte ; la conversion des points vers les lignes la garde désormais.
+- Design : dix réglages de plus (116 en tout) ; les cinq modèles livrés ont leurs styles dans la police du texte, comme avant.
+- Application : un champ « Police » en tête de la fiche de chaque style ; le résumé la dit (« Inter, 13 pt, italique · … ») ; l'aperçu compose le style dans sa police, chargée à la demande.
+- Le renoncement n° 30 est corrigé d'autant.
+
+**Conséquence de la conversion déjà faite en production.** Les modèles enregistrés ont été convertis au démarrage du serveur le 27/11/2026 avec la première version de la conversion, qui ne gardait pas la police des styles. **Un modèle qui avait une police propre à un style l'a perdue** : ses styles sont revenus à la police du texte. Les cinq modèles livrés n'étaient pas concernés (tous leurs styles sont dans la police du texte) ; les modèles réglés à la main (« A4 note », « A5 Etat », « Thèse ») ont pu l'être. Deux voies : régler de nouveau la police dans la fiche, ou relire les anciennes valeurs dans la sauvegarde de la nuit précédente (`data/v2/amendv2.dump`, table `amend.modeles`).
