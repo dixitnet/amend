@@ -8,6 +8,8 @@ import { ynodeToPmnode, pmnodeToDelta } from '@y/prosemirror'
 import { Transform } from 'prosemirror-transform'
 import * as delta from 'lib0/delta'
 import { schemaLivre } from './schema.js'
+import { ATOME } from '../../domaine/index.js'
+import { TYPE_NOTE } from '../../extensions/note/index.js'
 
 let editeur = null
 // Avec l'extension des commentaires, pour que le schéma ait leur marque
@@ -144,9 +146,8 @@ export function ancreCommentaire(etat, ancre, racine = 'doc') {
 
 // --- Margo (étape 8) -------------------------------------------------------
 
-/** Un atome en ligne (tout ce qui n'est pas du texte) : un signe dans le texte
- * montré à Margo, qu'aucune correction ne peut toucher. */
-const ATOME = '\uFFFC'
+// Un atome en ligne (tout ce qui n'est pas du texte, un appel de note) tient dans le texte d'un bloc la
+// place d'un signe (`ATOME`, domaine), qu'aucune correction ne peut toucher.
 
 /** L'identifiant d'un paragraphe de cellule : celui du tableau, puis « /ligne.colonne »
  * (et « .n » à partir du deuxième paragraphe de la cellule). Une cellule n'a pas d'identifiant
@@ -161,6 +162,7 @@ export const blocDeLUnite = (id) => String(id).split('/')[0]
 function unite(id, type, niveau, noeud, debut) {
   let texte = ''
   const segments = []
+  const notes = []
   noeud.forEach((enfant, decalage) => {
     const pos = debut + decalage
     if (enfant.isText) {
@@ -168,10 +170,12 @@ function unite(id, type, niveau, noeud, debut) {
       texte += enfant.text
     } else {
       segments.push({ i: texte.length, pos, longueur: 1, atome: true })
+      // Une note de bas de page : sa place dans le texte et son texte (27/11/2026).
+      if (enfant.type.name === TYPE_NOTE) notes.push({ i: texte.length, texte: String(enfant.attrs.texte ?? '') })
       texte += ATOME
     }
   })
-  return { id, type, niveau, texte, debut, taille: noeud.content.size, segments }
+  return { id, type, niveau, texte, debut, taille: noeud.content.size, segments, notes }
 }
 
 /** Les unités de texte d'un nœud ProseMirror du document, dans l'ordre : chaque bloc à texte,
@@ -227,10 +231,11 @@ function docDesSuggestions(etatTexte, etatSuggestions) {
   return doc
 }
 
-const publics = (blocs) => blocs.map(({ id, type, niveau, texte }) => ({ id, type, niveau, texte }))
+const publics = (blocs) => blocs.map(({ id, type, niveau, texte, notes }) => ({ id, type, niveau, texte, notes }))
 
 /**
- * Les blocs à texte, pour Margo : `[{ id, type, niveau, texte }]`. Avec l'état
+ * Les blocs à texte, pour Margo : `[{ id, type, niveau, texte, notes }]` (`notes` : les notes de bas de
+ * page du bloc, leur place dans le texte et leur texte). Avec l'état
  * des suggestions, le texte se lit comme si elles étaient acceptées (ce que
  * Margo corrige) ; sans, c'est le texte principal (où s'ancrent les commentaires).
  */
@@ -296,6 +301,70 @@ export function suggererRemplacements(etatTexte, etatSuggestions, remplacements,
       pmnodeToDelta(tr.doc, { transformer: blockNoteTransformer }),
     )
     doc.transact(() => fragment.applyDelta(diff))
+    return { resultats, mise: Y.encodeStateAsUpdate(doc, avant) }
+  } catch (cause) {
+    throw Object.assign(new Error('document illisible', { cause }), { code: 'document-illisible' })
+  } finally {
+    doc.destroy()
+  }
+}
+
+/**
+ * Écrit des notes de bas de page dans les suggestions, comme le ferait un correcteur : ajouter un appel,
+ * en supprimer un, ou remplacer le texte d'une note. Un remplacement supprime l'appel et en pose un
+ * nouveau à sa place, en deux temps : une proposition d'attribut ne s'arbitre pas seule (défaut amont,
+ * veille), alors qu'un ajout et une suppression s'acceptent ou se refusent un par un.
+ * @param {Array<{ op: 'ajouter' | 'supprimer' | 'remplacer', blocId: string, decalage: number, texte?: string }>} operations
+ *   `decalage` : dans le texte du bloc (`blocsATexteDe`), où poser l'appel, ou la place de l'appel visé
+ * @returns {{ resultats: Array<'posee' | 'bloc' | 'structure'>, mise: Uint8Array | null }}
+ */
+export function suggererNotes(etatTexte, etatSuggestions, operations, racine = 'doc') {
+  const schema = editeurSansVue().pmSchema
+  const doc = docDesSuggestions(etatTexte, etatSuggestions)
+  try {
+    const fragment = doc.get(racine)
+    const ancien = ynodeToPmnode(fragment, schema, { transformer: blockNoteTransformer })
+    const parId = new Map(blocsATexte(ancien).map((b) => [b.id, b]))
+    const resultats = []
+    const retraits = []
+    const ajouts = []
+    for (const o of operations) {
+      const bloc = parId.get(o.blocId)
+      if (!bloc) {
+        resultats.push('bloc')
+        continue
+      }
+      if (o.op === 'ajouter') {
+        const p = plage(bloc, o.decalage, o.decalage)
+        if (!p) {
+          resultats.push('structure')
+          continue
+        }
+        ajouts.push({ pos: p.de, texte: String(o.texte ?? '') })
+      } else {
+        const appel = bloc.segments.find((s) => s.atome && s.i === o.decalage)
+        if (!appel || ancien.nodeAt(appel.pos)?.type.name !== TYPE_NOTE) {
+          resultats.push('structure')
+          continue
+        }
+        retraits.push(appel.pos)
+        if (o.op === 'remplacer') ajouts.push({ pos: appel.pos, texte: String(o.texte ?? '') })
+      }
+      resultats.push('posee')
+    }
+    if (!retraits.length && !ajouts.length) return { resultats, mise: null }
+    const avant = Y.encodeStateVectorFromUpdate(
+      etatSuggestions?.length ? etatSuggestions : Y.encodeStateAsUpdate(new Y.Doc()),
+    )
+    const versDelta = (pm) => pmnodeToDelta(pm, { transformer: blockNoteTransformer })
+    // D'abord les retraits, de la fin vers le début ; puis les ajouts, aux places que les retraits laissent.
+    let sans = new Transform(ancien)
+    for (const pos of [...retraits].sort((x, y) => y - x)) sans = sans.delete(pos, pos + 1)
+    let avec = new Transform(sans.doc)
+    for (const a of [...ajouts].sort((x, y) => y.pos - x.pos))
+      avec = avec.insert(sans.mapping.map(a.pos), schema.nodes[TYPE_NOTE].create({ texte: a.texte }))
+    doc.transact(() => fragment.applyDelta(delta.diff(versDelta(ancien), versDelta(sans.doc))))
+    doc.transact(() => fragment.applyDelta(delta.diff(versDelta(sans.doc), versDelta(avec.doc))))
     return { resultats, mise: Y.encodeStateAsUpdate(doc, avant) }
   } catch (cause) {
     throw Object.assign(new Error('document illisible', { cause }), { code: 'document-illisible' })
