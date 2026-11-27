@@ -3,11 +3,13 @@
 // administrateurs), dans un même composant. Le serveur envoie chaque modèle
 // complet ; le formulaire en montre les réglages ouverts, par groupe.
 import { useEffect, useState } from 'react'
-import { PanneauModeles, PageReglageModele, PanneauPolices, EcranMessage, REGLES_MODELES } from '../../design/index.js'
+import { PanneauModeles, FicheModele, PanneauPolices, EcranMessage, REGLES_MODELES } from '../../design/index.js'
 import { messageErreur } from '../../i18n/index.js'
-import { valeurDuReglage, appliquerReglages, grille } from '../../domaine/index.js'
+import { valeurDuReglage } from '../../domaine/index.js'
 import { t, envoyerJson } from './commun.js'
 import { envoyerPolice } from './commentaires.js'
+import { rubriquesDeLaFiche, lectureDeLaFiche, planDePage, vueDeLaLigne, VUES_APERCU } from './ficheModele.js'
+import { chargerPolicePourEcran } from './policesEcran.js'
 
 /** Les noms des modèles du code, des réglages et de leurs options (catalogue
  * des textes) ; un modèle ou un réglage ajouté au design s'ajoute ici. */
@@ -18,37 +20,27 @@ const NOMS_REGLAGES = {
   'marges.haut': () => t('modeles.reglage.marges.haut'),
   'marges.interieure': () => t('modeles.reglage.marges.interieure'),
   'marges.exterieure': () => t('modeles.reglage.marges.exterieure'),
-  'marges.bas': () => t('modeles.reglage.marges.bas'),
+  'grille.lignes': () => t('modeles.reglage.grille.lignes'),
   'grille.corps': () => t('modeles.reglage.grille.corps'),
   'grille.interligne': () => t('modeles.reglage.grille.interligne'),
   'chapitre.debut': () => t('modeles.reglage.chapitre.debut'),
   'chapitre.premierSansAlinea': () => t('modeles.reglage.chapitre.premierSansAlinea'),
-  'chapitre.ligneTitre': () => t('modeles.reglage.chapitre.ligneTitre'),
-  'chapitre.ligneTexte': () => t('modeles.reglage.chapitre.ligneTexte'),
-  'chapitre.interligne': () => t('modeles.reglage.chapitre.interligne'),
   'ouverture2.debut': () => t('modeles.reglage.ouverture2.debut'),
-  'ouverture2.ligneTitre': () => t('modeles.reglage.ouverture2.ligneTitre'),
-  'ouverture2.ligneTexte': () => t('modeles.reglage.ouverture2.ligneTexte'),
-  'ouverture2.interligne': () => t('modeles.reglage.ouverture2.interligne'),
   'folio.position': () => t('modeles.reglage.folio.position'),
   'folio.depart': () => t('modeles.reglage.folio.depart'),
-  'folio.bas': () => t('modeles.reglage.folio.bas'),
   'folio.ouverture': () => t('modeles.reglage.folio.ouverture'),
   'folio.ouverture2': () => t('modeles.reglage.folio.ouverture2'),
   'enTete.gauche': () => t('modeles.reglage.enTete.gauche'),
   'enTete.droite': () => t('modeles.reglage.enTete.droite'),
   'enTete.texteGauche': () => t('modeles.reglage.enTete.texteGauche'),
   'enTete.texteDroite': () => t('modeles.reglage.enTete.texteDroite'),
-  'enTete.police': () => t('modeles.reglage.enTete.police'),
-  'enTete.corps': () => t('modeles.reglage.enTete.corps'),
   'enTete.italique': () => t('modeles.reglage.enTete.italique'),
   'enTete.petitesCapitales': () => t('modeles.reglage.enTete.petitesCapitales'),
-  'enTete.alignement': () => t('modeles.reglage.enTete.alignement'),
   separateur: () => t('modeles.reglage.separateur'),
   cesure: () => t('modeles.reglage.cesure'),
 }
-// Les réglages d'un style (`styles.<style>.<propriété>`) : le même nom pour
-// chaque style, le groupe du formulaire disant lequel.
+// Les réglages d'un style (`styles.<style>.<propriété>`) : le même nom pour chaque style, la ligne de la fiche
+// disant lequel.
 const NOMS_PROPRIETES = {
   police: () => t('modeles.propriete.police'),
   corps: () => t('modeles.propriete.corps'),
@@ -57,11 +49,9 @@ const NOMS_PROPRIETES = {
   capitales: () => t('modeles.propriete.capitales'),
   petitesCapitales: () => t('modeles.propriete.petitesCapitales'),
   alignement: () => t('modeles.propriete.alignement'),
-  espaceAvant: () => t('modeles.propriete.espaceAvant'),
-  espaceApres: () => t('modeles.propriete.espaceApres'),
+  blancAvant: () => t('modeles.propriete.blancAvant'),
+  blancApres: () => t('modeles.propriete.blancApres'),
   alinea: () => t('modeles.propriete.alinea'),
-  retrait: () => t('modeles.propriete.retrait'),
-  retraitSuspendu: () => t('modeles.propriete.retraitSuspendu'),
 }
 /** Une liste de noms dans la langue de l'interface (« A, B et C »). */
 const enListe = (noms) => new Intl.ListFormat(t.langue, { style: 'long', type: 'conjunction' }).format(noms)
@@ -92,11 +82,6 @@ const NOMS_OPTIONS = {
     'haut-exterieur': () => t('modeles.options.folio.haut-exterieur'),
     aucun: () => t('modeles.options.folio.aucun'),
   },
-  alignementEnTete: {
-    centre: () => t('modeles.options.alignementEnTete.centre'),
-    exterieur: () => t('modeles.options.alignementEnTete.exterieur'),
-    interieur: () => t('modeles.options.alignementEnTete.interieur'),
-  },
   enTete: {
     rien: () => t('modeles.options.enTete.rien'),
     titreDocument: () => t('modeles.options.enTete.titreDocument'),
@@ -107,77 +92,15 @@ const NOMS_OPTIONS = {
 /** Les options d'un réglage à choix, par sa clé. */
 const optionsDe = (cle) =>
   NOMS_OPTIONS[
-    cle === 'enTete.alignement'
-      ? 'alignementEnTete'
-      : cle.endsWith('.alignement')
-        ? 'alignement'
-        : cle.startsWith('enTete.')
-          ? 'enTete'
-          : // Le titre 2 commence comme le titre 1 : sur la page, page suivante, belle page.
-            cle === 'ouverture2.debut'
-            ? 'chapitre'
-            : cle.split('.')[0]
-  ] ?? {}
-// Les styles, un par ligne du tableau « Styles », et les propriétés, une par colonne
-// (Sylvain, 15/11/2026). Le corps du texte courant est celui de la grille.
-const LIGNES_STYLES = {
-  texte: () => t('modeles.styles.texte'),
-  citation: () => t('modeles.styles.citation'),
-  bibliographie: () => t('modeles.styles.bibliographie'),
-  titre1: () => t('modeles.styles.titre1'),
-  titre2: () => t('modeles.styles.titre2'),
-  titre3: () => t('modeles.styles.titre3'),
-  titre4: () => t('modeles.styles.titre4'),
-  titre5: () => t('modeles.styles.titre5'),
-  titre: () => t('modeles.styles.titre'),
-  sousTitre: () => t('modeles.styles.sousTitre'),
-  legende: () => t('modeles.styles.legende'),
-}
-const COLONNES = [
-  'police',
-  'corps',
-  'gras',
-  'italique',
-  'capitales',
-  'petitesCapitales',
-  'alignement',
-  'alinea',
-  'retrait',
-  'retraitSuspendu',
-  'espaceAvant',
-  'espaceApres',
-]
-const tableauDesStyles = () => ({
-  premiereColonne: t('modeles.styles.colonne'),
-  colonnes: COLONNES.map((cle) => ({ cle, libelle: NOMS_PROPRIETES[cle]() })),
-  lignes: Object.entries(LIGNES_STYLES).map(([nom, libelle]) => ({
-    cle: nom,
-    libelle: libelle(),
-    cellules: Object.fromEntries(
-      COLONNES.map((c) => [c, nom === 'texte' && c === 'corps' ? 'grille.corps' : `styles.${nom}.${c}`]),
-    ),
-  })),
-})
-/** Les polices fournies qui ont de vraies petites capitales : dites sous le tableau des styles, le réglage
- * étant sans effet avec les autres (19/11/2026). */
-const aidePetitesCapitales = (regles) => {
-  const familles = regles.polices.filter((p) => p.petitesCapitales).map((p) => p.famille)
-  // Sans aucune police qui en ait, pas de phrase à trou (audit partiel du 19/11/2026).
-  return familles.length ? t('modeles.aidePetitesCapitales', { polices: enListe(familles) }) : null
-}
-const groupes = () => [
-  { cle: 'format', libelle: t('modeles.groupes.format') },
-  { cle: 'texte', libelle: t('modeles.groupes.texte') },
-  {
-    cle: 'styles',
-    libelle: t('modeles.groupes.styles'),
-    tableau: tableauDesStyles(),
-    aide: aidePetitesCapitales(REGLES_MODELES),
-  },
-  { cle: 'chapitre', libelle: t('modeles.groupes.chapitre') },
-  { cle: 'pages', libelle: t('modeles.groupes.pages') },
-]
-
+    cle.endsWith('.alignement')
+      ? 'alignement'
+      : cle.startsWith('enTete.')
+        ? 'enTete'
+        : // Le titre 2 commence comme le titre 1 : sur la page, page suivante, belle page.
+          cle === 'ouverture2.debut'
+          ? 'chapitre'
+          : cle.split('.')[0]
+  ]
 /** Le nom d'un modèle : celui du catalogue pour le modèle du code, le sien sinon. */
 const nomDuModele = (m) => (m.code ? (NOMS_CODE[m.id]?.() ?? m.id) : m.nom)
 /** Les modèles d'amend.ink (le modèle du code et ceux de l'instance), puis ceux d'une équipe, en groupes d'un Select. */
@@ -187,18 +110,7 @@ export const groupesDeModeles = (equipe, maison, deLEquipe = []) => [
     ? [{ group: t('export.groupeEquipe', { equipe }), items: deLEquipe.map((m) => ({ value: m.id, label: m.nom })) }]
     : []),
 ]
-/**
- * Sous la marge basse, ce qu'elle donne : la marge obtenue (celle demandée plus
- * le reste de moins d'une ligne) et le nombre de lignes par page (Sylvain,
- * 15/11/2026). Rien si le modèle est impossible : le serveur le dira.
- */
-const aideMargeBasse = (complet, regles, valeurs) => {
-  const r = appliquerReglages(complet, valeurs, regles)
-  if (!r.ok) return null
-  const { lignes, margeBas } = grille(r.modele)
-  return t('modeles.margeBasseObtenue', { marge: Math.round(margeBas * 10) / 10, lignes })
-}
-/** Les champs du formulaire d'un modèle complet, pour une liste de réglages. */
+/** Les champs d'un modèle complet, pour une liste de réglages. */
 const champsDu = (complet, regles, familles = null) => {
   // Le catalogue des polices : celui que le serveur envoie (polices de
   // l'instance comprises), sinon celui du code.
@@ -206,26 +118,15 @@ const champsDu = (complet, regles, familles = null) => {
   return regles.reglables.map((r) => ({
     cle: r.cle,
     type: r.type,
-    groupe: r.groupe,
-    // Hors du tableau, un réglage d'un style (retrait de la citation) dit de quel style il est.
-    libelle:
-      r.groupe === 'styles' && r.cle.startsWith('styles.')
-        ? t('modeles.reglageDeStyle', {
-            style: LIGNES_STYLES[r.cle.split('.')[1]]?.() ?? '',
-            propriete: nomDuReglage(r.cle),
-          })
-        : (nomDuReglage(r.cle) ?? r.cle),
+    libelle: nomDuReglage(r.cle) ?? r.cle,
     valeur: valeurDuReglage(complet, r.cle),
     min: r.min,
     max: r.max,
     pas: r.pas,
     visibleSi: r.visibleSi,
-    aide: r.cle === 'marges.bas' ? (valeurs) => aideMargeBasse(complet, regles, valeurs) : undefined,
     options:
       r.type === 'police'
-        ? r.herite
-          ? [{ value: '', label: t('modeles.memePolice') }, ...polices]
-          : polices
+        ? polices
         : r.type === 'choix'
           ? r.options.map((v) => ({ value: v, label: optionsDe(r.cle)[v]?.() ?? v }))
           : undefined,
@@ -411,21 +312,41 @@ export function PageModele({ equipe, modele }) {
   if (etat.phase === 'erreur') return <EcranMessage texte={messageErreur(t, etat.code)} />
   const m = (etat.donnees.modeles ?? []).find((x) => x.id === modele)
   if (!m?.complet) return <EcranMessage texte={messageErreur(t, 'modele-introuvable')} />
+  const champs = champsDu(m.complet, REGLES_MODELES, etat.donnees.polices ?? null)
+  const lecture = lectureDeLaFiche(m.complet, REGLES_MODELES, optionsDe)
+  // L'aperçu compose avec la police du modèle : ses fichiers sont chargés à la demande.
+  const fichiers = {
+    ...Object.fromEntries(REGLES_MODELES.polices.map((p) => [p.famille, p.fichiers])),
+    ...etat.donnees.fichiersPolices,
+  }
   return (
-    <PageReglageModele
+    <FicheModele
       key={m.id}
       libelles={{
         nom: t('modeles.nom'),
-        general: t('modeles.groupes.general'),
         retour: t('modeles.retour'),
         enregistrer: t('modeles.enregistrer'),
         annuler: t('interface.annuler'),
+        apercu: t('modeles.apercu.nom'),
+        grille: t('modeles.apercu.grille'),
+        legende: t('modeles.apercu.legende2'),
       }}
       titre={t('modeles.reglerTitre', { nom: m.nom })}
       adresseRetour={retour}
       nom={m.nom}
-      groupes={groupes()}
-      champs={champsDu(m.complet, REGLES_MODELES, etat.donnees.polices ?? null)}
+      rubriques={rubriquesDeLaFiche((cle) => champs.find((c) => c.cle === cle))}
+      valeurs={Object.fromEntries(champs.map((c) => [c.cle, c.valeur]))}
+      resume={lecture.resume}
+      notes={lecture.notes}
+      apercu={{
+        vues: VUES_APERCU.map((v) => ({ value: v, label: NOMS_VUES[v]() })),
+        vueDe: vueDeLaLigne,
+        plan: (valeurs, vue) => {
+          const modele = lecture.modeleDe(valeurs)
+          return modele ? planDePage(modele, vue) : null
+        },
+        chargerPolice: (famille) => chargerPolicePourEcran(famille, fichiers[famille] ?? []),
+      }}
       message={message}
       surEnregistrer={async ({ nom, valeurs }) => {
         try {
@@ -438,6 +359,11 @@ export function PageModele({ equipe, modele }) {
       surAnnuler={() => (location.hash = retour)}
     />
   )
+}
+const NOMS_VUES = {
+  titre: () => t('modeles.apercu.vues.titre'),
+  ouverture: () => t('modeles.apercu.vues.ouverture'),
+  courante: () => t('modeles.apercu.vues.courante'),
 }
 
 /** La valeur « celui de l'instance » du défaut d'une équipe (enregistrée nulle). */
