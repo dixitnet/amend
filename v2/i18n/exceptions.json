@@ -30,6 +30,7 @@
     "modeles.apercu.image",
     "modeles.apercu.bibliographie2",
     "modeles.fiche.resume.suite",
-    "modeles.fiche.resume.puis"
+    "modeles.fiche.resume.puis",
+    "admin.resume.apparence"
   ]
 }

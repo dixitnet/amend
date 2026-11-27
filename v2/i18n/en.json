@@ -288,7 +288,6 @@
     "versionValeur": "{numero} ({commit}, of {date})",
     "versionInconnue": "unknown (outside a git repository)",
     "demarrage": "Server started on",
-    "memoire": "Server memory",
     "node": "Node",
     "personnes": "Accounts",
     "essai": "Test and development accounts",
@@ -356,7 +355,6 @@
       "avertissement": "Copy it now: it will not be shown again. A new address replaces the old one, which stops working.",
       "confirmerRevocation": "Revoke the connector address? Claude will no longer have access to your documents."
     },
-    "synthese": "Overview",
     "polices": {
       "titre": "Fonts",
       "intro": "The fonts offered in layout templates, embedded in exported PDFs. You can add some, turn them off (they are no longer offered, but templates that kept them still use them) or delete them (not possible while a template uses them).",
@@ -368,7 +366,6 @@
       "colonnes": {
         "famille": "Family",
         "styles": "Files",
-        "utilisation": "Use",
         "etat": "In templates"
       },
       "active": "Offered",
@@ -418,6 +415,18 @@
         "poids": "Size"
       },
       "corbeille": "In the trash (documents y/hub does not read: not judged)"
+    },
+    "rubriques": {
+      "instance": "Instance",
+      "livres": "Books"
+    },
+    "resume": {
+      "apparence": "{modele}, {couleur}",
+      "modeles": "{n, plural, one {# template} other {# templates}} · default: {defaut}",
+      "polices": "{n, plural, one {# family} other {# families}}, {a, plural, =0 {none offered} one {# offered} other {# offered}} · {i, plural, =0 {none added by the instance} one {# added by the instance} other {# added by the instance}}",
+      "images": "orphan image analysis, on demand",
+      "memoire": "server: {memoire}",
+      "journal": "{n, plural, one {# line} other {# lines}}"
     }
   },
   "telephone": {
@@ -584,12 +593,6 @@
     "dupliquer": "Duplicate",
     "actions": "Actions",
     "retour": "Back to templates",
-    "colonnes": {
-      "nom": "Template",
-      "format": "Size",
-      "police": "Body font",
-      "documents": "Use"
-    },
     "actionsDe": "Actions for “{nom}”",
     "copieDe": "{nom} (copy)",
     "format": "{largeur, number} × {hauteur, number} mm",

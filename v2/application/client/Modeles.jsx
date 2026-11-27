@@ -102,7 +102,8 @@ const optionsDe = (cle) =>
           : cle.split('.')[0]
   ]
 /** Le nom d'un modèle : celui du catalogue pour le modèle du code, le sien sinon. */
-const nomDuModele = (m) => (m.code ? (NOMS_CODE[m.id]?.() ?? m.id) : m.nom)
+export const nomDuModeleDeMiseEnPage = (m) => (m?.code ? (NOMS_CODE[m.id]?.() ?? m.id) : (m?.nom ?? ''))
+const nomDuModele = nomDuModeleDeMiseEnPage
 /** Les modèles d'amend.ink (le modèle du code et ceux de l'instance), puis ceux d'une équipe, en groupes d'un Select. */
 export const groupesDeModeles = (equipe, maison, deLEquipe = []) => [
   { group: t('export.groupeMaison'), items: maison.map((m) => ({ value: m.id, label: nomDuModele(m) })) },
@@ -197,12 +198,7 @@ function GestionModeles({
         supprimer: t('modeles.supprimer'),
         actions: t('modeles.actions'),
         aucun,
-        colonnes: {
-          nom: t('modeles.colonnes.nom'),
-          format: t('modeles.colonnes.format'),
-          police: t('modeles.colonnes.police'),
-          documents: t('modeles.colonnes.documents'),
-        },
+        puis: t('modeles.fiche.resume.puis'),
         actionsDe: (nom) => t('modeles.actionsDe', { nom }),
         copieDe: (nom) => t('modeles.copieDe', { nom }),
         titres: { defaut: t('modeles.titreDefaut'), liste: t('modeles.titreListe') },
@@ -534,7 +530,6 @@ export function PolicesInstance({ donnees, confirmer, surChangement }) {
         colonnes: {
           famille: t('admin.polices.colonnes.famille'),
           styles: t('admin.polices.colonnes.styles'),
-          utilisation: t('admin.polices.colonnes.utilisation'),
           etat: t('admin.polices.colonnes.etat'),
         },
         active: t('admin.polices.active'),
