@@ -624,6 +624,11 @@ export function creerOutils({ docId, collaboration, depot, prevenirFils, bilan, 
         motifs.push(ou.motif)
         continue
       }
+      // Deux notes au même endroit dans le même appel : la seconde est refusée.
+      if (aPoser.some((x) => x.blocId === bloc.id && x.decalage === ou.fin)) {
+        motifs.push('chevauche')
+        continue
+      }
       motifs.push(aPoser.length)
       aPoser.push({ op: 'ajouter', blocId: bloc.id, decalage: ou.fin, texte })
     }

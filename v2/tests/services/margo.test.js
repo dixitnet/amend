@@ -324,14 +324,22 @@ t3(
           ],
         },
       },
-      { nom: 'ajouter_note', entree: { notes: [{ bloc: 2, passage: 'Un autre fait', texte: ' Voir "plus loin". ' }] } },
+      {
+        nom: 'ajouter_note',
+        entree: {
+          notes: [
+            { bloc: 2, passage: 'Un autre fait', texte: ' Voir "plus loin". ' },
+            { bloc: 2, passage: 'Un autre fait', texte: 'Doublon.' },
+          ],
+        },
+      },
     ])
     const r = await demander(doc, 'Paule', { demande: 'Corrige les notes' })
     assert.match(
       recus[0],
       /^1\. posée\n2\. refusé : cette note n’existe pas[^\n]*\n3\. refusé : le passage touche autre chose que du texte\n4\. refusé : le texte proposé contient un repère de note/,
     )
-    assert.equal(recus[1], '1. posée')
+    assert.match(recus[1], /^1\. posée\n2\. refusé : chevauche/)
     assert.equal(fin(r.evenements).corrections, 2)
     // Le texte principal ne change pas ; avec les suggestions, la note corrigée et la nouvelle, typographiée.
     const principal = blocsATexteDe(await interne.lireTexte(doc))

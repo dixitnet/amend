@@ -46,7 +46,8 @@ const APPELS = /\u27E6\d+\u27E7/g
 export const sansAtomes = (texte) => String(texte ?? '').replaceAll(ATOME, '')
 
 /** Un passage cité par Margo ou Claude, ramené au texte du bloc : chaque appel « ⟦k⟧ » redevient le signe
- * qui tient sa place. */
+ * qui tient sa place. Le numéro recopié n'est pas vérifié : il ne sert qu'à situer le passage, et une
+ * correction qui touche un appel est refusée de toute façon. */
 export const sansAppels = (passage) => String(passage ?? '').replace(APPELS, ATOME)
 
 /** Un texte proposé contient-il un appel de note recopié ? (Il s'écrirait tel quel dans le livre.) */
@@ -59,10 +60,17 @@ export const porteUnAppel = (texte) =>
  * @param {Array<{ i: number, k: number }>} notes  les notes du bloc : leur place dans le texte, leur numéro
  */
 export function avecAppels(texte, notes = []) {
-  const parPlace = new Map(notes.map((n) => [n.i, n.k]))
-  return [...String(texte ?? '')]
-    .map((c, i) => (c === ATOME && parPlace.has(i) ? appelDeNote(parPlace.get(i)) : c))
-    .join('')
+  // Les places sont comptées comme la longueur d'une chaîne (unités UTF-16) : on avance de même, sinon un
+  // émoji placé avant un appel décalerait son repère (audit du 27/11/2026).
+  const t = String(texte ?? '')
+  let rendu = ''
+  let depuis = 0
+  for (const note of [...notes].sort((x, y) => x.i - y.i)) {
+    if (t[note.i] !== ATOME || note.i < depuis) continue
+    rendu += t.slice(depuis, note.i) + appelDeNote(note.k)
+    depuis = note.i + 1
+  }
+  return rendu + t.slice(depuis)
 }
 
 /**

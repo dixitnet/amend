@@ -138,6 +138,8 @@ test('repères de note (27/11/2026) : montrés ⟦k⟧, ramenés au signe du blo
   )
   // Un atome qui n'est pas une note reste tel quel.
   assert.equal(avecAppels(texte, [{ i: 7, k: 3 }]), `Un fait⟦3⟧ établi${ATOME}.`)
+  // Un émoji (deux unités UTF-16) avant l'appel ne décale pas le repère.
+  assert.equal(avecAppels(`Bravo 🎉${ATOME} !`, [{ i: 8, k: 2 }]), 'Bravo 🎉⟦2⟧ !')
   assert.equal(sansAppels('fait⟦3⟧ établi⟦12⟧'), `fait${ATOME} établi${ATOME}`)
   assert.equal(sansAtomes(texte), 'Un fait établi.')
   assert.equal(porteUnAppel('voir ⟦2⟧'), true)

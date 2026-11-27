@@ -295,6 +295,16 @@ test('notes de bas de page (27/11/2026) : lues avec leur place ; ajoutées, remp
   assert.match(rendu, /"attribution":\{[^}]*"delete"/, 'l’ancienne note est une suppression suggérée')
   assert.match(rendu, /"attribution":\{[^}]*"insert"/, 'la nouvelle est un ajout suggéré')
   assert.doesNotMatch(rendu, /"attribution":\{[^}]*"attrs"/, 'pas de proposition d’attribut')
+  // Un appel posé juste avant un appel existant, puis juste après : les deux notes se suivent.
+  const voisines = suggererNotes(etat, null, [
+    { op: 'ajouter', blocId: 'p1', decalage: 7, texte: 'Avant.' },
+    { op: 'ajouter', blocId: 'p1', decalage: 8, texte: 'Après.' },
+  ])
+  assert.deepEqual(voisines.resultats, ['posee', 'posee'])
+  assert.deepEqual(
+    blocsATexteDe(etat, voisines.mise)[0].notes.map((n) => n.texte),
+    ['Avant.', 'Source A.', 'Après.'],
+  )
   // Supprimer : la note disparaît de la lecture avec les suggestions.
   const suppression = suggererNotes(etat, null, [{ op: 'supprimer', blocId: 'p1', decalage: 7 }])
   assert.deepEqual(suppression.resultats, ['posee'])
