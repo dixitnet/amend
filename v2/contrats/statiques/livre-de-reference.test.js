@@ -12,7 +12,7 @@ import { createRequire } from 'node:module'
 import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
-import { MODELES_LIVRE, REPRISE_MODELES, REGLES_MODELES } from '../../design/livre.js'
+import { MODELES_LIVRE, REPRISE_MODELES, REGLES_MODELES, SURLIGNAGE_DU_LIVRE } from '../../design/livre.js'
 import { famillesDuModele } from '../../domaine/index.js'
 
 const DOSSIER = new URL('../../tests/donnees/livre-de-reference/', import.meta.url)
@@ -118,7 +118,7 @@ for (const [id, modele] of MODELES)
       titre: 'Petit conte immoral',
       langue: 'fr',
       auteur: 'Ada',
-      surlignage: REGLES_MODELES.surlignage,
+      surlignage: SURLIGNAGE_DU_LIVRE,
     })
     const pdf = await compilerPdf(source, { fichiers, polices: polices(modele), wasm: wasm() })
     const constat = { pages: pages(pdf), largeur: modele.page.largeur, hauteur: modele.page.hauteur }

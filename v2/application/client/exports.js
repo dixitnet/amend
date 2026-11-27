@@ -4,7 +4,7 @@
 // « Exporter » : le serveur envoie chaque modèle complet (modèle du code,
 // de l'instance ou d'équipe, calculé par le domaine) ; le client y joint les
 // fichiers de sa police (12/11/2026, docs/v2-modeles-pdf-plan.md).
-import { MODELES_LIVRE, REGLES_MODELES } from '../../design/index.js'
+import { MODELES_LIVRE, REGLES_MODELES, SURLIGNAGE_DU_LIVRE } from '../../design/index.js'
 import { nomDeFichier, famillesDuModele } from '../../domaine/index.js'
 
 const TYPES = { markdown: 'text/markdown;charset=utf-8', pdf: 'application/pdf' }
@@ -55,7 +55,7 @@ export async function exporterDocument(controle, format, { titre, langue, modele
       langue,
       auteur,
       // La couleur du surlignage dans le PDF, réglage de design.
-      surlignage: REGLES_MODELES.surlignage,
+      surlignage: SURLIGNAGE_DU_LIVRE,
     })
   } else contenu = await exporter('markdown')
   telecharger(new Blob([contenu], { type: TYPES[format] }), nomDeFichier(titre, EXTENSIONS[format]))

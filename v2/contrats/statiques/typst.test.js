@@ -14,7 +14,7 @@ import { createRequire } from 'node:module'
 import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
-import { MODELES_LIVRE, REPRISE_MODELES, REGLES_MODELES } from '../../design/livre.js'
+import { MODELES_LIVRE, REPRISE_MODELES, REGLES_MODELES, SURLIGNAGE_DU_LIVRE } from '../../design/livre.js'
 import { famillesDuModele, grille } from '../../domaine/index.js'
 
 const modele = { ...REPRISE_MODELES[0].valeurs }
@@ -135,7 +135,7 @@ test('table des matières, saut de page et exposant : le PDF se compile (11/11/2
   const { source, fichiers } = await versTypst(editeur, editeur.document, modele, {
     titre: 'Essai',
     langue: 'fr',
-    surlignage: '#d8f5a2',
+    surlignage: SURLIGNAGE_DU_LIVRE,
   })
   assert.match(source, /amend-surligne\(/)
   const pdf = await compilerPdf(source, { fichiers, polices: polices(), wasm: wasm() })
