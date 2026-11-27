@@ -97,11 +97,23 @@ function styleDe(modele, nom) {
  * @returns {{ pas: number, lignes: number, hauteurTexte: number, margeBas: number, descenteFolio: number }}
  *   le pas (pt), le nombre de lignes par page, la hauteur de la zone de texte (pt), la marge de pied obtenue (mm)
  *   et la descente du numéro de page sous la zone de texte (mm : un pas). Un modèle impossible lève une erreur
- *   de code `modele-impossible` (raisons : `valeur`, `interligne`, `lignes`, `folio`).
+ *   de code `modele-impossible` (raisons : `valeur`, `interligne`, `lignes`, `folio`, `enTete`).
  */
 export function grilleEnLignes(modele) {
   const { page, marges, grille: g } = modele
-  const mesures = [page?.hauteur, marges?.haut, g?.corps, g?.interligne, g?.lignes, g?.hauteurTitre]
+  // Une valeur non numérique (NaN, chaîne, absente) ferait passer du NaN dans le gabarit (audit partiel du 27/11/2026 :
+  // la largeur et les marges de côté comprises).
+  const mesures = [
+    page?.largeur,
+    page?.hauteur,
+    marges?.haut,
+    marges?.interieure,
+    marges?.exterieure,
+    g?.corps,
+    g?.interligne,
+    g?.lignes,
+    g?.hauteurTitre,
+  ]
   if (!mesures.every(Number.isFinite)) throw impossible('valeur')
   const pas = g.interligne
   // Une brique loge une ligne du texte, et une ligne de chaque style en briques.
@@ -114,6 +126,11 @@ export function grilleEnLignes(modele) {
   const position = modele.folio?.position ?? 'bas-centre'
   const enBas = position === 'bas-centre' || position === 'bas-exterieur'
   if (enBas && margeBas * PT_PAR_MM < 2 * pas) throw impossible('folio')
+  // De même en haut (audit partiel du 27/11/2026) : l'en-tête, ou le numéro de page en haut, est sur la deuxième
+  // ligne au-dessus du texte ; il lui faut deux pas de marge de tête.
+  const e = modele.enTete ?? {}
+  const enHaut = position === 'haut-exterieur' || (e.gauche ?? 'rien') !== 'rien' || (e.droite ?? 'rien') !== 'rien'
+  if (enHaut && marges.haut * PT_PAR_MM < 2 * pas) throw impossible('enTete')
   return { pas, lignes: g.lignes, hauteurTexte, margeBas, descenteFolio: pas / PT_PAR_MM }
 }
 

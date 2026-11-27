@@ -95,6 +95,9 @@ test('un modèle en lignes impossible est refusé avec sa raison', () => {
   }
   assert.equal(raison(avec({ 'grille.lignes': NaN })), 'valeur')
   assert.equal(raison(avec({ 'grille.hauteurTitre': undefined })), 'valeur')
+  // La largeur et les marges de côté aussi : elles s'écrivent dans le gabarit (audit partiel du 27/11/2026).
+  for (const cle of ['page.largeur', 'marges.interieure', 'marges.exterieure'])
+    assert.equal(raison(avec({ [cle]: 'x' })), 'valeur', cle)
   assert.equal(raison(avec({ 'grille.interligne': 10 })), 'interligne', 'un interligne sous le corps')
   assert.equal(raison(avec({ 'styles.citation.corps': 15 })), 'interligne', 'une citation plus haute que la brique')
   assert.equal(raison(avec({ 'grille.lignes': 33.5 })), 'lignes')
@@ -103,6 +106,24 @@ test('un modèle en lignes impossible est refusé avec sa raison', () => {
   // 38 lignes laissent 7,3 mm de pied : moins que les deux pas qu'il faut au numéro de page.
   assert.equal(raison(avec({ 'grille.lignes': 38 })), 'folio')
   assert.equal(raison(avec({ 'grille.lignes': 38, 'folio.position': 'aucun' })), null)
+  // Une marge de tête de 9 mm (25,5 pt) ne loge pas l'en-tête à deux pas (28 pt) du texte ; sans en-tête, si.
+  assert.equal(raison(avec({ 'marges.haut': 9, 'grille.lignes': 30 })), 'enTete')
+  assert.equal(
+    raison(
+      avec({
+        'marges.haut': 9,
+        'grille.lignes': 30,
+        'folio.position': 'haut-exterieur',
+        'enTete.gauche': 'rien',
+        'enTete.droite': 'rien',
+      }),
+    ),
+    'enTete',
+  )
+  assert.equal(
+    raison(avec({ 'marges.haut': 9, 'grille.lignes': 30, 'enTete.gauche': 'rien', 'enTete.droite': 'rien' })),
+    null,
+  )
   // Un titre plus gros que le pas n'est pas un obstacle : il est mesuré.
   assert.equal(raison(avec({ 'styles.titre1.corps': 40 })), null)
 })
