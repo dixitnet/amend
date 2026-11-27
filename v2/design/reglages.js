@@ -113,7 +113,27 @@ export const REGLAGES = {
   // lignes à l'espacement vertical `xs`.
   modeles: {
     nombre: { decimalSeparator: ',' },
-    tableau: { table: { verticalSpacing: 'xs' }, controle: { size: 'xs' }, police: { miw: 160 } },
+  },
+  // La fiche d'un modèle de mise en page (Sylvain, 27/11/2026 : « On reprend tout le design […] le plus simple et
+  // le plus lisible » ; « 4 on essaie » pour la variante de l'accordéon ; docs/v2-grille-plan.md, § 10).
+  fiche: {
+    // La fiche à gauche, l'aperçu à droite à partir de `sm` ; pas d'aperçu au format S (« 2 pas d'aperçu en S »).
+    colonnes: { fiche: { span: { base: 12, sm: 7 } }, apercu: { span: { sm: 5 }, visibleFrom: 'sm' } },
+    // Les lignes : l'accordéon de Mantine, variante « séparée », à l'essai.
+    lignes: { variant: 'separated' },
+    // Le nom d'une rubrique, au-dessus de ses lignes : la taille d'un titre de niveau 5 de Mantine, un blanc avant.
+    rubrique: { size: 'h5', mt: 'lg', mb: 'xs' },
+    // Le résumé d'une ligne, sous son nom : petit, discret.
+    resume: { size: 'sm', c: 'dimmed' },
+    // Les champs d'un rang côte à côte à partir de `xs`, l'un sous l'autre au téléphone.
+    rangee: (n) => ({ cols: { base: 1, xs: n } }),
+    pastilles: { gap: 'xs' },
+    // Ce que la grille calcule, sous les champs ; la demi-ligne ajoutée d'office, en encart orange.
+    note: { size: 'sm', c: 'dimmed' },
+    alerte: { variant: 'light', color: 'orange' },
+    // Au-dessus de l'aperçu : le choix de la vue et l'interrupteur de la grille, petits, aux deux bouts.
+    commandes: { rangee: { justify: 'space-between' }, taille: { size: 'xs' } },
+    legende: { size: 'xs', c: 'dimmed' },
   },
   // Le compteur de signes et de mots du bandeau : petit, à la couleur du texte
   // (le gris `dimmed` de Mantine n'a pas le contraste demandé ; 12/11/2026).

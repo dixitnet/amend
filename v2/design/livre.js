@@ -18,3 +18,7 @@ export const REPRISE_MODELES = REGLAGES_LIVRE.reprise
 /** La couleur du surlignage dans le PDF, la même pour tous les modèles (27/11/2026) : ce n'est pas un
  * réglage de modèle. */
 export const SURLIGNAGE_DU_LIVRE = REGLAGES_LIVRE.surlignage
+
+/** La hauteur d'une ligne de titre par unité de corps (27/11/2026) : la même pour tous les modèles, et pour ceux
+ * que le serveur convertit des points aux lignes. */
+export const HAUTEUR_TITRE_DU_LIVRE = REGLAGES_LIVRE.hauteurTitre
