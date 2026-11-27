@@ -375,7 +375,10 @@ export function versModeleEnLignes(ancien, hauteurTitre) {
     }
   }
   // Un titre à lignes d'ouverture : sa ligne de base reste sur `ligneTitre`, le texte reprend à `ligneTexte`.
+  // (Un titre si gros qu'il occupe plus de lignes qu'il n'y en a avant `ligneTitre` descend d'autant : pas de blanc négatif.)
   const ouvrant = (nom, o) => {
+    // Sans lignes d'ouverture lisibles (un modèle incomplet), le titre garde les blancs de son style.
+    if (!Number.isFinite(o?.ligneTitre) || !Number.isFinite(o?.ligneTexte)) return style(nom)
     const st = ancien.styles?.[nom] ?? {}
     const occupe = lignesOccupees(st.corps ?? g.corps, pas, hauteurTitre)
     return {
