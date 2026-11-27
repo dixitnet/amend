@@ -2,7 +2,8 @@
 // modèle de base et des écarts) en modèles complets par style.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ancienModele } from '../../domaine/index.js'
+import { ancienModele, versModeleParStyle, valeursEnLignes, verifierModele } from '../../domaine/index.js'
+import { REGLES_MODELES as REGLES_EN_LIGNES } from '../../design/livre.js'
 import { REGLES_EN_POINTS as REGLES_MODELES, MODELES_EN_POINTS as MODELES_LIVRE } from '../donnees/modeles-en-points.js'
 
 test('la conversion suit les bases d’instance, ramène une base disparue ou un cycle à l’A4, et lit l’ancienne belle page', () => {
@@ -19,4 +20,23 @@ test('la conversion suit les bases d’instance, ramène une base disparue ou un
   assert.equal(de({ base: 'i1', ecarts: {} }).chapitre.debut, 'page')
   assert.equal(de({ base: 'disparu', ecarts: {} }).page.largeur, 210, 'base disparue : l’A4')
   assert.doesNotThrow(() => de({ base: 'c1', ecarts: {} }), 'un cycle s’arrête à la profondeur permise')
+})
+
+test('un ancien modèle (base de l’A4 et écarts) devient un modèle complet par style, puis un modèle en lignes valide', () => {
+  const ancien = ancienModele(
+    { base: 'a4', ecarts: { 'page.largeur': 135, 'grille.corps': 11, 'chapitre.bellePage': true } },
+    () => null,
+    'a4',
+  )
+  const m = versModeleParStyle(ancien)
+  assert.equal(m.page.largeur, 135)
+  assert.equal(m.styles.texte.police, 'EB Garamond')
+  assert.equal(m.styles.legende.italique, true)
+  assert.ok(m.styles.titre.espaceAvant > 0, 'les blancs sont en points')
+  assert.equal(m.styles.titre.lignesAvant, undefined)
+  // Tel que le serveur le lit aujourd'hui (test rétabli après l'audit partiel du 27/11/2026) : complété à
+  // l'ancienne façon, puis converti en lignes.
+  const lu = valeursEnLignes(m, 1.15)
+  assert.equal(verifierModele(lu, REGLES_EN_LIGNES).ok, true)
+  assert.deepEqual([lu.page.largeur, lu.chapitre.debut, lu.ouverture2.debut], [135, 'belle-page', 'continuer'])
 })

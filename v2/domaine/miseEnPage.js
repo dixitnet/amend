@@ -76,6 +76,8 @@ export const NOMS_STYLES = Object.freeze([
 ])
 
 /**
+ * Ce que valait une ligne blanche dans le gabarit en points (retiré) : `stylesEnPoints` s'en sert pour lire les
+ * modèles enregistrés avant le 15/11/2026, avant leur conversion en lignes.
  * Le blanc, en pt, entre un bloc et le texte voisin pour que le texte retombe
  * sur la grille : `n` lignes blanches au moins, davantage si le corps du bloc
  * l'exige ; jamais moins que l'espace ordinaire entre deux paragraphes, que

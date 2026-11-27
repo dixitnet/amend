@@ -10,6 +10,7 @@ import {
   chaineTypst,
   nomDeFichier,
   titreDocument,
+  valeursEnLignes,
 } from '../../domaine/index.js'
 // Les modèles en points d'avant la grille stricte : des données de test, pour ce qui sert encore à leur conversion.
 import { REPRISE_EN_POINTS as REPRISE_MODELES } from '../donnees/modeles-en-points.js'
@@ -170,3 +171,54 @@ const AVEC_TITRE_2 = {
   ouverture2: { debut: 'belle-page', ligneTitre: 4, ligneTexte: 8, interligne: 14 },
   enTete: { ...MODELE.enTete, gauche: 'titreDocument', droite: 'chapitre' },
 }
+
+// --- La reprise des modèles enregistrés en points : ce que `completerModele` déduit, avant leur conversion en
+// lignes (tests rétablis après l'audit partiel du 27/11/2026 : ces règles servent toujours la conversion).
+
+test('un modèle enregistré en lignes par page (avant le 15/11/2026) reçoit la marge basse qui laisse ces lignes', () => {
+  const ancien = { page: { largeur: 120, hauteur: 180 }, grille: { corps: 10.5, interligne: 12.4, lignes: 31 } }
+  const c = completerModele(ancien, MODELE)
+  assert.equal(c.marges.bas, 26.7)
+  assert.equal(c.grille.lignes, undefined, 'plus de grille.lignes')
+  assert.equal(lignesQuiTiennent(c), 31)
+  // Un modèle qui a déjà sa marge basse ne bouge pas.
+  assert.equal(completerModele({ marges: { bas: 20 } }, MODELE).marges.bas, 20)
+  // Les deux à la fois : la marge basse fait foi, `grille.lignes` ne reste pas.
+  const double = completerModele({ marges: { bas: 20 }, grille: { corps: 10.5, interligne: 12.4, lignes: 31 } }, MODELE)
+  assert.equal(double.marges.bas, 20)
+  assert.equal(double.grille.lignes, undefined)
+})
+
+test('un modèle enregistré avant le 19/11/2026 : ce qui lui manque se déduit de lui, non du modèle de référence', () => {
+  const ancien = structuredClone(MODELE)
+  delete ancien.ouverture2
+  delete ancien.folio.ouverture2
+  delete ancien.styles.bibliographie
+  for (const cle of ['police', 'corps', 'italique', 'petitesCapitales', 'alignement']) delete ancien.enTete[cle]
+  for (const st of Object.values(ancien.styles)) {
+    delete st.petitesCapitales
+    delete st.retraitSuspendu
+  }
+  // Complété par un modèle d'une autre grille (11/14 pt).
+  const defaut = structuredClone(MODELE)
+  defaut.grille = { corps: 11, interligne: 14 }
+  defaut.enTete.corps = 11
+  defaut.ouverture2 = { debut: 'continuer', ligneTitre: 3, ligneTexte: 45, interligne: 19 }
+  defaut.styles.bibliographie = { ...defaut.styles.bibliographie, corps: 11, espaceAvant: 3, retraitSuspendu: 5 }
+  const c = completerModele(ancien, defaut)
+  assert.deepEqual(c.ouverture2, { debut: 'continuer', ligneTitre: 7, ligneTexte: 12, interligne: 14 })
+  assert.equal(c.enTete.corps, 10.5, 'les en-têtes restent au corps du texte')
+  assert.deepEqual(
+    [c.styles.bibliographie.corps, c.styles.bibliographie.espaceAvant, c.styles.bibliographie.retraitSuspendu],
+    [10.5, 1.9, 4.5],
+    'la bibliographie : corps, espace ordinaire et alinéa du texte',
+  )
+  assert.equal(c.folio.ouverture2, true)
+  assert.equal(c.styles.titre3.petitesCapitales, false)
+  // Un modèle qui porte déjà ces réglages les garde.
+  assert.equal(completerModele({ ...ancien, enTete: { ...ancien.enTete, corps: 8 } }, defaut).enTete.corps, 8)
+  // Complété ainsi, il se convertit en un modèle en lignes valide, aux lignes par page d'alors.
+  const enLignes = valeursEnLignes(c, 1.15)
+  assert.equal(enLignes.grille.lignes, lignesQuiTiennent(c))
+  assert.doesNotThrow(() => grille(enLignes))
+})

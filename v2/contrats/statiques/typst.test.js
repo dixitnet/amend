@@ -99,7 +99,9 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
   )
   // Aucun blanc de BlockNote autour des blocs (il casserait la grille).
   // (Le gabarit, lui, garde une demi-ligne dans ses propres blocs : on regarde le corps du livre.)
-  assert.doesNotMatch(source.slice(source.indexOf('#heading(')), /inset: \(top/)
+  const debutDuLivre = source.indexOf('#heading(')
+  assert.ok(debutDuLivre > 0, 'le corps du livre commence par son premier titre')
+  assert.doesNotMatch(source.slice(debutDuLivre), /inset: \(top/)
   // Le texte est échappé et en forme composée (NFC).
   assert.ok(source.includes('#"Fin # $ * _ \\\\ \\" ` < > @ [ ] — é"'))
 })
