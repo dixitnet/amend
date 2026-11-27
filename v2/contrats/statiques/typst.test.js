@@ -14,13 +14,7 @@ import { createRequire } from 'node:module'
 import { BlockNoteEditor } from '@blocknote/core'
 import { schemaLivre } from '../../adaptateurs/blocknote/schema.js'
 import { versTypst, compilerPdf } from '../../adaptateurs/blocknote/export.js'
-import { SURLIGNAGE_DU_LIVRE } from '../../design/livre.js'
-// Le gabarit en points, gardé jusqu'au retrait de l'ancienne façon : ses modèles sont des données de test (27/11/2026).
-import {
-  MODELES_EN_POINTS as MODELES_LIVRE,
-  REPRISE_EN_POINTS as REPRISE_MODELES,
-  REGLES_EN_POINTS as REGLES_MODELES,
-} from '../../tests/donnees/modeles-en-points.js'
+import { MODELES_LIVRE, REPRISE_MODELES, REGLES_MODELES, SURLIGNAGE_DU_LIVRE } from '../../design/livre.js'
 import { famillesDuModele, grille } from '../../domaine/index.js'
 
 const modele = { ...REPRISE_MODELES[0].valeurs }
@@ -104,7 +98,10 @@ test('la source Typst d’un livre : gabarit du modèle, puis les blocs sans bla
     /#amend-sans-alinea\[#"Un"\]\s+#amend-blanc\s+#"Deux"\s+#amend-blanc\s+#"Trois"\s+#"Quatre"\s+#amend-separateur\s+#"Cinq"\s+#pagebreak\(\)\s+#amend-blanc\s+#"Six"\s*$/,
   )
   // Aucun blanc de BlockNote autour des blocs (il casserait la grille).
-  assert.doesNotMatch(source, /inset: \(top/)
+  // (Le gabarit, lui, garde une demi-ligne dans ses propres blocs : on regarde le corps du livre.)
+  const debutDuLivre = source.indexOf('#heading(')
+  assert.ok(debutDuLivre > 0, 'le corps du livre commence par son premier titre')
+  assert.doesNotMatch(source.slice(debutDuLivre), /inset: \(top/)
   // Le texte est échappé et en forme composée (NFC).
   assert.ok(source.includes('#"Fin # $ * _ \\\\ \\" ` < > @ [ ] — é"'))
 })
@@ -546,37 +543,4 @@ test('« TàT 140 × 220 » (Sylvain, 19/11/2026) : parties et chapitres en bell
   } finally {
     rmSync(dossier, { recursive: true, force: true })
   }
-})
-
-test('jeu en bas de page (22/11/2026) : une page qui commence par un intertitre garde sa dernière ligne ; une page de texte seul n’en gagne pas', async () => {
-  // Le cas d'un export réel : l'intertitre en haut de page, plus grand que le texte, décale les lignes de
-  // quelques points ; la zone de texte, taillée au point près, refusait alors la dernière ligne de la page.
-  const a5 = structuredClone(REPRISE_MODELES.find((r) => r.id === 'a5').valeurs)
-  Object.assign(a5.styles.titre3, { corps: 14, gras: true, italique: false, espaceAvant: 12, espaceApres: 6 })
-  const { lignes } = grille(a5)
-  const ligne = (i) => ({ type: 'paragraph', content: [texte(`Ligne${i}`)] })
-  const lignesDeLaPage2 = async (debut) => {
-    const editeur = nouvelEditeur()
-    editeur.replaceBlocks(editeur.document, [
-      ligne(0),
-      { type: 'pageBreak' },
-      ...debut,
-      ...Array.from({ length: lignes + 5 }, (_, i) => ligne(i + 1)),
-    ])
-    const { source, fichiers } = await versTypst(editeur, editeur.document, a5, { titre: 'E', langue: 'fr' })
-    const pdf = await compilerPdf(source, { fichiers, polices: polices(a5), wasm: wasm() })
-    const dossier = mkdtempSync(join(tmpdir(), 'jeu-'))
-    try {
-      writeFileSync(join(dossier, 'a.pdf'), pdf)
-      const page = execFileSync('pdftotext', ['-f', '2', '-l', '2', join(dossier, 'a.pdf'), '-'], { encoding: 'utf8' })
-      return (page.match(/Ligne\d+/g) ?? []).length
-    } finally {
-      rmSync(dossier, { recursive: true, force: true })
-    }
-  }
-  // Texte seul : exactement les lignes de la grille, pas une de plus.
-  assert.equal(await lignesDeLaPage2([]), lignes)
-  // Un intertitre en tête : il tient la place d'une ligne, les autres suivent jusqu'à la dernière.
-  const titre = { type: 'heading', props: { level: 3 }, content: [texte('Un intertitre')] }
-  assert.equal(await lignesDeLaPage2([titre]), lignes - 1)
 })

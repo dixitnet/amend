@@ -1,7 +1,13 @@
 // La conversion d'un modèle en points vers un modèle compté en lignes (27/11/2026, docs/v2-grille-plan.md, § 5).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { versModeleEnLignes, valeursEnLignes, verifierModele, grille, estEnLignes } from '../../domaine/index.js'
+import {
+  versModeleEnLignes,
+  valeursEnLignes,
+  verifierModele,
+  lignesQuiTiennent,
+  estEnLignes,
+} from '../../domaine/index.js'
 import { REGLES_MODELES } from '../../design/livre.js'
 import { MODELES_EN_POINTS, REPRISE_EN_POINTS } from '../donnees/modeles-en-points.js'
 
@@ -13,7 +19,7 @@ test('« A4 simple » en points devient un modèle en lignes valide : mêmes lig
   const m = versModeleEnLignes(avant, 1.15)
   assert.equal(estEnLignes(m), true)
   assert.equal(verifierModele(m, REGLES_MODELES).ok, true)
-  assert.equal(m.grille.lignes, grille(avant).lignes)
+  assert.equal(m.grille.lignes, lignesQuiTiennent(avant))
   // Hier : la marge de tête plus 0,8 corps ; aujourd'hui : la marge de tête plus un pas.
   const mm = (pt) => pt / (72 / 25.4)
   assert.ok(Math.abs(m.marges.haut + mm(14) - (avant.marges.haut + mm(0.8 * 11))) < 0.06)
