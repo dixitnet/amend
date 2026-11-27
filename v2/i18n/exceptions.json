@@ -1,8 +1,6 @@
 {
   "identiques": [
     "application.nom",
-    "modeles.styles.colonne",
-    "modeles.groupes.styles",
     "admin.titre",
     "admin.version",
     "admin.node",
@@ -26,6 +24,11 @@
     "admin.images.titre",
     "admin.images.colonnes.rubrique",
     "admin.images.colonnesDocuments.document",
-    "admin.images.colonnesDocuments.nombre"
+    "admin.images.colonnesDocuments.nombre",
+    "modeles.fiche.resume.corps",
+    "modeles.fiche.resume.caractere",
+    "modeles.apercu.image",
+    "modeles.apercu.bibliographie2",
+    "modeles.fiche.resume.suite"
   ]
 }
