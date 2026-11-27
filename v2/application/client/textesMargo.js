@@ -11,6 +11,8 @@ export const MARGO_EN_COURS = {
   commenter: () => t('margo.enCours.commenter'),
   plan: () => t('margo.enCours.plan'),
   compter: () => t('margo.enCours.compter'),
+  ajouter_note: () => t('margo.enCours.ajouterNote'),
+  supprimer: () => t('margo.enCours.supprimer'),
   repli: () => t('margo.enCours.repli'),
 }
 /** Pourquoi une demande s'est arrêtée avant la fin (codes du serveur). */

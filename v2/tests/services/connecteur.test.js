@@ -154,7 +154,7 @@ t3(
     const liste = await (await mcp(adresse, 'tools/list', {})).json()
     assert.deepEqual(
       liste.result.tools.map((x) => x.name),
-      ['documents', 'plan', 'lire', 'chercher', 'compter', 'proposer', 'commenter'],
+      ['documents', 'plan', 'lire', 'chercher', 'compter', 'proposer', 'ajouter_note', 'supprimer', 'commenter'],
     )
     // Les mêmes outils que Margo, le document visé en plus (Sylvain, 25/11/2026).
     const { SCHEMAS } = await import('../../application/serveur/margo.js')

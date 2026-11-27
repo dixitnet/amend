@@ -248,7 +248,7 @@ t3(
     assert.match(requetes[0].consigne, /Le document fait 3 blocs et 76 signes\./)
     assert.deepEqual(
       requetes[0].outils.map((o) => o.nom),
-      ['plan', 'lire', 'chercher', 'compter', 'proposer', 'commenter'],
+      ['plan', 'lire', 'chercher', 'compter', 'proposer', 'ajouter_note', 'supprimer', 'commenter'],
     )
     assert.equal(recus[0], '3 blocs, 76 signes, 14 mots. Titres, avec leur numéro de bloc :\n[1] Chapitre premier')
     assert.equal(recus[1], 'blocs 2 à 3 : 60 signes (espaces compris), 12 mots')
@@ -270,6 +270,90 @@ t3(
     assert.match(
       recus[5],
       /^\(blocs 2 à 3 : 60 signes\)\n\[2\] Les enfant jouent dans la cour\.\n\[3\] Il faisait nuit/,
+    )
+  },
+)
+
+t3(
+  'notes de bas de page (27/11/2026) : lues avec leur repère, cherchées, comptées ; ajoutées, corrigées, supprimées en suggestions',
+  async () => {
+    const tx = (text) => ({ type: 'text', text, styles: {} })
+    const doc = await nouveauDocument([
+      {
+        id: 'n1',
+        type: 'paragraph',
+        content: [tx('Un fait'), { type: 'note', props: { texte: 'Sourse A.' } }, tx(' établi.')],
+      },
+      { id: 'n2', type: 'paragraph', content: [tx('Un autre fait, sans source.')] },
+    ])
+    const recus = []
+    const tour = (appels) => [
+      () => ({ appels: appels.map((a, i) => ({ id: `a${i}`, ...a })) }),
+      (e) => (recus.push(...e.resultats.map((r) => r.contenu)), { texte: 'Fait.' }),
+    ]
+    // 1. Lire, chercher, compter.
+    scenario = tour([
+      { nom: 'lire', entree: { de: 1, a: 2 } },
+      { nom: 'chercher', entree: { textes: ['sourse'] } },
+      { nom: 'compter', entree: { de: 1, a: 1 } },
+      { nom: 'compter', entree: { de: 1, a: 1, notes: true } },
+    ])
+    await demander(doc, 'Paule', { demande: 'Lis' })
+    assert.equal(
+      recus[0],
+      '(blocs 1 à 2 : 42 signes)\n[1] Un fait⟦1⟧ établi.\n    ⟦1⟧ Sourse A.\n[2] Un autre fait, sans source.',
+    )
+    assert.equal(recus[1], '« sourse » :\n[1] Un fait⟦1⟧ établi.\n    ⟦1⟧ Sourse A.')
+    // Le texte seul : 15 signes (l'appel ne compte pas) ; avec la note, 9 de plus.
+    assert.equal(recus[2], 'blocs 1 à 1 : 15 signes (espaces compris), 3 mots')
+    assert.equal(
+      recus[3],
+      'blocs 1 à 1 : 15 signes (espaces compris), 3 mots\navec 1 note : 9 signes de plus, 2 mots ; soit 24 signes en tout',
+    )
+    // 2. Corriger la note, en ajouter une, des refus.
+    recus.length = 0
+    scenario = tour([
+      {
+        nom: 'proposer',
+        entree: {
+          corrections: [
+            { note: 1, avant: 'Sourse', apres: 'Source' },
+            { note: 9, avant: 'x', apres: 'y' },
+            { bloc: 1, avant: 'fait⟦1⟧ établi', apres: 'fait avéré' },
+            { bloc: 2, avant: 'sans source', apres: 'voir ⟦1⟧' },
+          ],
+        },
+      },
+      { nom: 'ajouter_note', entree: { notes: [{ bloc: 2, passage: 'Un autre fait', texte: ' Voir "plus loin". ' }] } },
+    ])
+    const r = await demander(doc, 'Paule', { demande: 'Corrige les notes' })
+    assert.match(
+      recus[0],
+      /^1\. posée\n2\. refusé : cette note n’existe pas[^\n]*\n3\. refusé : le passage touche autre chose que du texte\n4\. refusé : le texte proposé contient un repère de note/,
+    )
+    assert.equal(recus[1], '1. posée')
+    assert.equal(fin(r.evenements).corrections, 2)
+    // Le texte principal ne change pas ; avec les suggestions, la note corrigée et la nouvelle, typographiée.
+    const principal = blocsATexteDe(await interne.lireTexte(doc))
+    assert.deepEqual(
+      principal.map((b) => b.notes.map((n) => n.texte)),
+      [['Sourse A.'], []],
+    )
+    const propose = blocsATexteDe(await interne.lireTexte(doc), await interne.lireSuggestions(doc))
+    assert.deepEqual(
+      propose.map((b) => b.notes.map((n) => n.texte)),
+      [['Source A.'], ['Voir «\u00a0plus loin\u00a0».']],
+    )
+    assert.equal(propose[1].texte, 'Un autre fait\uFFFC, sans source.')
+    // 3. Supprimer : les numéros sont ceux de la lecture à jour (la nouvelle note est la 2).
+    recus.length = 0
+    scenario = tour([{ nom: 'supprimer', entree: { notes: [2, 2, 7] } }])
+    await demander(doc, 'Paule', { demande: 'Retire la note 2' })
+    assert.match(recus[0], /^1\. posée\n2\. refusé : chevauche[^\n]*\n3\. refusé : cette note n’existe pas/)
+    const apres = blocsATexteDe(await interne.lireTexte(doc), await interne.lireSuggestions(doc))
+    assert.deepEqual(
+      apres.map((b) => b.notes.length),
+      [1, 0],
     )
   },
 )
@@ -480,6 +564,44 @@ test('essai réel avec DeepSeek (MARGO_ESSAI_REEL=1) : Margo compte avec son out
     assert.match(dit, /29/)
     assert.match(dit, /60/)
     assert.doesNotMatch(dit, /pas d[’']outil/)
+  } finally {
+    s.closeAllConnections?.()
+    s.close()
+  }
+})
+
+test('essai réel avec DeepSeek (MARGO_ESSAI_REEL=1) : Margo lit une note, la corrige et en ajoute une', async (t) => {
+  if (raisonSaut) return t.skip(raisonSaut)
+  if (process.env.MARGO_ESSAI_REEL !== '1') return t.skip('essai réel non demandé (MARGO_ESSAI_REEL=1)')
+  const s = await demarrer(creerIA({ cleScaleway: 'injectee-par-le-proxy' }), 'deepseek-v4.1-flash-1017')
+  const tx = (text) => ({ type: 'text', text, styles: {} })
+  try {
+    const doc = await nouveauDocument([
+      {
+        id: 'r1',
+        type: 'paragraph',
+        content: [tx('La loi date de 2021'), { type: 'note', props: { texte: 'Loi Climat et résiliense.' } }, tx('.')],
+      },
+      { id: 'r2', type: 'paragraph', content: [tx('Le plan biodiversité la précède.')] },
+    ])
+    const r = await demander(
+      doc,
+      'Paule',
+      {
+        demande:
+          'Corrige la faute dans la note, et ajoute au second paragraphe, après « biodiversité », une note disant : Plan de 2018.',
+      },
+      `http://127.0.0.1:${s.address().port}`,
+    )
+    console.log(JSON.stringify(r.evenements))
+    const propose = blocsATexteDe(await interne.lireTexte(doc), await interne.lireSuggestions(doc))
+    assert.deepEqual(
+      propose[0].notes.map((n) => n.texte),
+      ['Loi Climat et résilience.'],
+    )
+    assert.equal(propose[1].notes.length, 1)
+    assert.match(propose[1].notes[0].texte, /Plan de 2018/)
+    assert.match(propose[1].texte, /biodiversité\uFFFC/)
   } finally {
     s.closeAllConnections?.()
     s.close()

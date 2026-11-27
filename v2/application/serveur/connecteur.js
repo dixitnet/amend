@@ -1,8 +1,8 @@
 // Le connecteur Claude du back-office (12/11/2026, docs/v2-connecteur-plan.md) :
 // un serveur MCP (Model Context Protocol) qui donne à Claude les documents du
 // compte d'un administrateur, avec les outils de Margo, les mêmes (plan,
-// lire, chercher, compter, proposer, commenter ; Sylvain, 25/11/2026) et un de
-// plus : la liste des documents. Repris du connecteur de la v1 (`server/mcp.js`) : une adresse
+// lire, chercher, compter, proposer, ajouter_note, supprimer, commenter ;
+// Sylvain, 25 et 27/11/2026) et un de plus : la liste des documents. Repris du connecteur de la v1 (`server/mcp.js`) : une adresse
 // secrète en guise d'autorisation (comme un lien de partage), une requête
 // JSON-RPC par message, une réponse JSON, sans flux. Mais un connecteur pour
 // tous les documents, et non un par document.
@@ -34,6 +34,8 @@ const DROITS = {
   chercher: { capacite: 'lire', annotations: LECTURE },
   compter: { capacite: 'lire', annotations: LECTURE },
   proposer: { capacite: 'suggerer', annotations: ECRITURE },
+  ajouter_note: { capacite: 'suggerer', annotations: ECRITURE },
+  supprimer: { capacite: 'suggerer', annotations: ECRITURE },
   commenter: { capacite: 'commenter', annotations: ECRITURE },
 }
 

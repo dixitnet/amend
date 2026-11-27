@@ -124,3 +124,29 @@ test('signes compte en NFC : une lettre décomposée vaut un signe', () => {
   assert.equal(signes('été'), 3)
   assert.equal(signes('été'), 3)
 })
+
+test('repères de note (27/11/2026) : montrés ⟦k⟧, ramenés au signe du bloc, jamais dans un texte proposé', async () => {
+  const { ATOME, avecAppels, sansAppels, sansAtomes, porteUnAppel, texteNumerote } =
+    await import('../../domaine/index.js')
+  const texte = `Un fait${ATOME} établi${ATOME}.`
+  assert.equal(
+    avecAppels(texte, [
+      { i: 7, k: 3 },
+      { i: 15, k: 4 },
+    ]),
+    'Un fait⟦3⟧ établi⟦4⟧.',
+  )
+  // Un atome qui n'est pas une note reste tel quel.
+  assert.equal(avecAppels(texte, [{ i: 7, k: 3 }]), `Un fait⟦3⟧ établi${ATOME}.`)
+  assert.equal(sansAppels('fait⟦3⟧ établi⟦12⟧'), `fait${ATOME} établi${ATOME}`)
+  assert.equal(sansAtomes(texte), 'Un fait établi.')
+  assert.equal(porteUnAppel('voir ⟦2⟧'), true)
+  assert.equal(porteUnAppel('voir [2]'), false)
+  assert.equal(
+    texteNumerote([
+      { n: 5, texte: 'Un fait⟦3⟧.', notes: [{ k: 3, texte: 'Source.' }] },
+      { n: 6, texte: 'Suite.', titre: 2 },
+    ]),
+    '[5] Un fait⟦3⟧.\n    ⟦3⟧ Source.\n[6] (titre 2) Suite.',
+  )
+})
