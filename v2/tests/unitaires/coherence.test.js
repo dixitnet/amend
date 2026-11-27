@@ -51,9 +51,10 @@ test('chaque modèle d’amend.ink et chaque réglage ouvert aux équipes a son 
     const [debut, , propriete] = r.cle.split('.')
     const nom = debut === 'styles' ? `modeles.propriete.${propriete}` : `modeles.reglage.${r.cle}`
     assert.ok(existantes.has(nom), r.cle)
-    assert.ok(existantes.has(`modeles.groupes.${r.groupe}`), `groupe de ${r.cle} absent du formulaire`)
-    // Chaque style a sa ligne dans le tableau « Styles ».
-    if (debut === 'styles') assert.ok(existantes.has(`modeles.styles.${r.cle.split('.')[1]}`), r.cle)
+    assert.ok(existantes.has(`modeles.groupes.${r.groupe}`), `rubrique de ${r.cle} absente de la fiche`)
+    // Chaque style a sa ligne dans la fiche ; le texte courant y est sous « Caractère » et « Paragraphes ».
+    const style = r.cle.split('.')[1]
+    if (debut === 'styles' && style !== 'texte') assert.ok(existantes.has(`modeles.styles.${style}`), r.cle)
   }
 })
 

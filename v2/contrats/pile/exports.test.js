@@ -108,26 +108,71 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   // Le nom du modèle mène à sa page de réglage (13/11/2026).
   await fenetre.getByRole('link', { name: 'Collection' }).click()
   await page.getByRole('heading', { name: 'Régler « Collection »' }).waitFor()
-  await page.getByRole('button', { name: 'Format et marges' }).click()
+  // La fiche (27/11/2026) : le modèle se lit en clair, une ligne par réglage ; une ligne s'ouvre pour être réglée.
+  const ligne = (nom) => page.getByRole('button', { name: nom })
+  await ligne(/^Format\s*210 × 297 mm/).click()
   await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).fill('135')
-  // Changer de rubrique garde ce qu'on a réglé.
-  await page.getByRole('button', { name: 'Ouverture des titres 1 et 2', exact: true }).click()
-  // Le titre 2 peut ouvrir une page comme le titre 1 (19/11/2026) : ses lignes ne se montrent qu'alors.
-  const ligneDuTitre2 = page.getByRole('textbox', { name: /Titre 2.: ligne du titre/ })
-  assert.equal(await ligneDuTitre2.count(), 0, 'le titre 2 reste dans le texte : pas de ligne à régler')
-  await page.getByRole('combobox', { name: /Titre 2.: début/ }).click()
-  await page.getByRole('option', { name: 'Belle page (page de droite)' }).click()
-  await ligneDuTitre2.waitFor()
-  // Le numéro de page se règle alors pour ce niveau aussi, et les en-têtes ont leur style.
-  await page.getByRole('button', { name: 'Numéro de page et en-têtes' }).click()
+  await ligne(/^Format\s*135 × 297 mm/).waitFor()
+  // Une seule ligne ouverte à la fois : ouvrir le titre 3 referme le format, sans perdre ce qu'on a réglé.
+  await ligne(/^Titre 3\s*11 pt, italique · 1 avant, 0 après/).click()
+  assert.equal(await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).count(), 0)
+  await page.getByText('Sur une ligne, ce titre occupe 1 ligne de la grille').waitFor()
+  // L'aperçu suit ce qu'on règle : la page courante, le titre 3 encadré.
+  const apercu = page.getByRole('region', { name: 'Aperçu de la page' })
+  assert.equal(await apercu.getByRole('radio', { name: 'Page courante' }).isChecked(), true)
+  await page.locator('.amend-apercu [data-ouvert]', { hasText: 'Compter plutôt que mesurer' }).waitFor()
+  // Une taille plus grande : le titre occupe deux lignes ; un blanc d'une demi-ligne seul : une demi-ligne est ajoutée.
+  await page.getByRole('textbox', { name: 'Corps (pt)' }).fill('13')
+  await page.getByText('Sur une ligne, ce titre occupe 2 lignes de la grille').waitFor()
+  await page.getByRole('textbox', { name: 'Blanc avant (lignes)' }).fill('1,5')
+  await page.getByText(/une demi-ligne est ajoutée avant/).waitFor()
+  await page.locator('.amend-apercu-vide[data-sorte="ajout"]').first().waitFor({ state: 'attached' })
+  await page.getByRole('textbox', { name: 'Blanc après (lignes)' }).fill('0,5')
+  await ligne(/^Titre 3\s*13 pt, italique · 1 ½ avant, ½ après/).waitFor()
+  assert.equal(await page.getByText(/une demi-ligne est ajoutée avant/).count(), 0)
+  // Dans l'aperçu, chaque paragraphe commence sur une ligne de la grille.
+  const ecart = await page.evaluate(() => {
+    const zone = document.querySelector('.amend-apercu-zone')
+    const pas = parseFloat(getComputedStyle(zone).lineHeight)
+    const haut = zone.getBoundingClientRect().top
+    return Math.max(
+      ...[...zone.querySelectorAll('p')].map((p) => {
+        const n = (p.getBoundingClientRect().top - haut) / pas
+        return Math.abs(n - Math.round(n))
+      }),
+    )
+  })
+  assert.ok(ecart < 0.02, `un paragraphe de l’aperçu est hors grille (${ecart})`)
+  // Au format S, pas d'aperçu (Sylvain, 27/11/2026) : la fiche seule, sans défilement de côté.
+  const ecran = page.viewportSize()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await apercu.waitFor({ state: 'hidden' })
+  await page.getByRole('textbox', { name: 'Blanc avant (lignes)' }).waitFor()
+  assert.ok(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    'la fiche tient dans la largeur',
+  )
+  await page.setViewportSize(ecran)
+  await apercu.waitFor()
+  // Le titre 2 peut ouvrir une page comme le titre 1 : son début est dans sa fiche.
+  await ligne(/^Titre 2\s*11 pt, italique/).click()
+  await page
+    .getByRole('radiogroup', { name: /Titre 2.: début/ })
+    .getByText('Belle page (page de droite)')
+    .click()
+  await ligne(/^Titre 2\s*belle page \(page de droite\) · 11 pt/).waitFor()
+  await page.getByText(/son blanc avant se compte depuis la première ligne de la page/).waitFor()
+  // Le numéro de page se règle alors pour ce niveau aussi ; les en-têtes ont leur allure.
+  await ligne(/^Numéros de page/).click()
   await page.getByRole('switch', { name: 'Numéro de page sur une page ouverte par un titre 2' }).waitFor()
-  await page.getByRole('switch', { name: 'En-têtes en petites capitales' }).waitFor()
-  // Sous le tableau des styles : quelles polices ont de vraies petites capitales.
-  await page.getByRole('button', { name: 'Styles', exact: true }).click()
-  await page.getByText(/EB Garamond, Spectral et Roboto en ont/).waitFor()
-  await page.getByRole('checkbox', { name: 'Bibliographie : Petites capitales' }).waitFor()
-  await page.getByRole('button', { name: 'Format et marges' }).click()
-  assert.equal(await page.getByRole('textbox', { name: 'Largeur de la page (mm)' }).inputValue(), '135')
+  await ligne(/^En-têtes\s*à gauche.: rien · à droite.: rien/).click()
+  await page.getByRole('group', { name: 'Allure' }).getByText('Petites capitales').waitFor()
+  // Plus de lignes que la page n'en contient : le modèle est impossible, la fiche le dit.
+  await ligne(/^Hauteur du texte\s*50 lignes par page · pied de/).click()
+  await page.getByRole('textbox', { name: 'Lignes par page' }).fill('90')
+  await page.getByText(/Ce modèle de mise en page est impossible/).waitFor()
+  await page.getByRole('textbox', { name: 'Lignes par page' }).fill('48')
+  await ligne(/^Hauteur du texte\s*48 lignes par page · pied de/).waitFor()
   await page.getByRole('button', { name: 'Enregistrer' }).click()
   // De retour : le document, avec la liste des modèles rouverte.
   const liste = page.getByRole('dialog', { name: 'Modèles de mise en page' })
@@ -143,6 +188,11 @@ test('modèle d’équipe : le gestionnaire le règle, l’export l’applique e
   assert.equal(vue.choisi, vue.modeles.find((m) => m.nom === 'Collection').id)
   const regle = (await api('GET', `/api/equipes/${equipe.id}`)).modeles.find((m) => m.nom === 'Collection').complet
   assert.equal(regle.ouverture2.debut, 'belle-page', 'le début du titre 2 est enregistré')
+  assert.deepEqual(
+    [regle.grille.lignes, regle.styles.titre3.corps, regle.styles.titre3.blancAvant, regle.styles.titre3.blancApres],
+    [48, 13, 1.5, 0.5],
+    'les lignes par page et les blancs du titre 3 sont enregistrés',
+  )
   assert.equal(vue.retenu, vue.choisi)
 })
 

@@ -53,6 +53,18 @@ test('chaque message de chaque langue se formate (pseudo-langue comprise)', () =
     mo: 12.5,
     marge: 26.7,
     lignes: 31,
+    corps: 11,
+    interligne: 14,
+    haut: 25,
+    interieure: 21,
+    exterieure: 18,
+    pied: 32,
+    alinea: 5,
+    gauche: 'rien',
+    droite: 'chapitre',
+    depart: 1,
+    une: 1,
+    deux: 2,
     propriete: 'Corps',
     qui: 'Ada (ada@exemple.fr)',
     extrait: 'Un titre',
@@ -103,6 +115,18 @@ test('la pseudo-langue allonge d’au moins 30 % et encadre chaque texte', () =>
       raison: 'r',
       modeles: 'M',
       polices: 'P',
+      corps: 11,
+      interligne: 14,
+      haut: 25,
+      interieure: 21,
+      exterieure: 18,
+      pied: 32,
+      alinea: 5,
+      gauche: 'g',
+      droite: 'd',
+      depart: 1,
+      une: 1,
+      deux: 2,
       taille: 1,
       largeur: 1,
       hauteur: 1,
@@ -590,39 +614,54 @@ test('export et modèles : la fenêtre « Exporter » (format, modèle), la list
   assert.doesNotMatch(liste, /name="nom"/, 'le formulaire de création est fermé tant qu’on ne l’ouvre pas')
 
   const page = rendre(
-    h(design.PageReglageModele, {
+    h(design.FicheModele, {
       libelles: {
         nom: t('modeles.nom'),
-        general: t('modeles.groupes.general'),
         retour: t('modeles.retour'),
         enregistrer: t('modeles.enregistrer'),
         annuler: t('interface.annuler'),
+        apercu: t('modeles.apercu.nom'),
+        grille: t('modeles.apercu.grille'),
+        legende: t('modeles.apercu.legende2'),
       },
       titre: 'Régler « Essais »',
       adresseRetour: '#/admin/modeles',
       nom: 'Essais',
-      groupes: [{ cle: 'format', libelle: t('modeles.groupes.format') }],
-      champs: [
+      rubriques: [
         {
-          cle: 'page.largeur',
-          groupe: 'format',
-          type: 'nombre',
-          libelle: t('modeles.reglage.page.largeur'),
-          valeur: 120,
-          min: 80,
-          max: 450,
-          pas: 0.5,
+          cle: 'page',
+          titre: t('modeles.groupes.page'),
+          lignes: [
+            {
+              cle: 'format',
+              nom: t('modeles.fiche.format'),
+              rangs: [
+                [
+                  {
+                    cle: 'page.largeur',
+                    type: 'nombre',
+                    libelle: t('modeles.reglage.page.largeur'),
+                    min: 80,
+                    max: 450,
+                  },
+                ],
+              ],
+            },
+          ],
         },
       ],
+      valeurs: { 'page.largeur': 120 },
+      resume: (ligne, valeurs) => `${ligne} : ${valeurs['page.largeur']} mm`,
+      notes: () => [],
       surEnregistrer: () => {},
       surAnnuler: () => {},
     }),
   )
   assert.match(page, /href="#\/admin\/modeles"/, 'le retour à la liste')
-  assert.ok(
-    page.includes(echapper(t('modeles.groupes.general'))) && page.includes(echapper(t('modeles.groupes.format'))),
-  )
-  assert.match(page, /value="Essais"/, 'la première rubrique porte le nom du modèle')
+  assert.ok(page.includes(echapper(t('modeles.groupes.page'))) && page.includes(echapper(t('modeles.fiche.format'))))
+  assert.match(page, /value="Essais"/, 'le nom du modèle, en tête de la fiche')
+  assert.ok(page.includes('format : 120 mm'), 'le résumé de la ligne, en clair')
+  assert.doesNotMatch(page, /amend-apercu/, 'sans aperçu donné, pas de colonne d’aperçu')
 })
 
 test('onglet Margo : fil avec liens vers les blocs, bilan, portée, saisie étiquetée ; accueil quand le fil est vide', () => {

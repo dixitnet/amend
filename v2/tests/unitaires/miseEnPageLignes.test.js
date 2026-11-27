@@ -12,7 +12,7 @@ import {
   estEnLignes,
 } from '../../domaine/index.js'
 import { MODELE_EN_LIGNES } from '../donnees/modele-en-lignes.js'
-import { REPRISE_MODELES } from '../../design/livre.js'
+import { REPRISE_EN_POINTS as REPRISE_MODELES } from '../donnees/modeles-en-points.js'
 
 const avec = (changements) => {
   const m = structuredClone(MODELE_EN_LIGNES)

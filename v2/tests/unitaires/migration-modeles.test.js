@@ -3,7 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ancienModele, versModeleParStyle, verifierModele, completerModele } from '../../domaine/index.js'
-import { REGLES_MODELES, MODELES_LIVRE } from '../../design/livre.js'
+import { REGLES_EN_POINTS as REGLES_MODELES, MODELES_EN_POINTS as MODELES_LIVRE } from '../donnees/modeles-en-points.js'
 
 test('un ancien modèle (base de l’A4 et écarts) devient un modèle complet par style, valide', () => {
   const ancien = ancienModele(

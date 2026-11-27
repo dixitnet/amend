@@ -13,7 +13,10 @@ import {
   compterBlocs,
   chargerFichier,
 } from '../../adaptateurs/blocknote/export.js'
-import { MODELES_LIVRE, REPRISE_MODELES } from '../../design/livre.js'
+import {
+  MODELES_EN_POINTS as MODELES_LIVRE,
+  REPRISE_EN_POINTS as REPRISE_MODELES,
+} from '../donnees/modeles-en-points.js'
 
 const texte = (t, styles = {}) => ({ type: 'text', text: t, styles })
 const modele = { ...MODELES_LIVRE[0], ...REPRISE_MODELES[0].valeurs }
