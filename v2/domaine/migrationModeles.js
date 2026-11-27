@@ -358,6 +358,7 @@ export function versModeleEnLignes(ancien, hauteurTitre) {
   const ordinaire = pas - g.corps
   const blanc = (points) => demiLignes(((Number.isFinite(points) ? points : ordinaire) - ordinaire) / pas)
   // La police d'un style : gardée si elle n'est pas celle du texte (vide : celle du texte).
+  // Sans police de texte connue (un modèle incomplet), toute police de style est gardée.
   const policeDuTexte = ancien.styles?.texte?.police
   const allure = (st) => ({
     police: st.police && st.police !== policeDuTexte ? st.police : '',

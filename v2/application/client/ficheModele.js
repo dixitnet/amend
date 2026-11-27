@@ -149,7 +149,7 @@ export function lectureDeLaFiche(complet, regles, optionsDe) {
     const cle = (p) => v[`styles.${nom}.${p}`]
     const caractere = enSuite([
       // Sa police, quand ce n'est pas celle du texte.
-      ...(cle('police') ? [cle('police')] : []),
+      ...(cle('police') && cle('police') !== v['styles.texte.police'] ? [cle('police')] : []),
       t('modeles.fiche.resume.corps', { corps: cle('corps') }),
       ...Object.keys(ALLURES)
         .filter((p) => cle(p))
